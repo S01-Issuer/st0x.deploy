@@ -3,5 +3,6 @@
 pragma solidity ^0.8.25;
 
 library LibProdDeploy {
-    address constant BEACON_INIITAL_OWNER = address(0x01);
+    /// rainlang.eth
+    address constant BEACON_INIITAL_OWNER = address(0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b);
 }
