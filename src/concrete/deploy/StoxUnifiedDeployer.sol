@@ -10,7 +10,16 @@ import {
 import {StoxWrappedTokenVaultBeaconSetDeployer} from "src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
 import {LibProdDeploy} from "../../lib/LibProdDeploy.sol";
 
+/// @title StoxUnifiedDeployer
+/// @notice Deploys a new OffchainAssetReceiptVault and a new
+/// StoxWrappedTokenVault linked to the OffchainAssetReceiptVault atomically.
+/// The beacon sets are hardcoded to simplify and harden deployment of this
+/// contract by providing an audit trail in git of any address modifications.
 contract StoxUnifiedDeployer {
+    /// @notice Deploys a new OffchainAssetReceiptVault and a new
+    /// StoxWrappedTokenVault linked to the OffchainAssetReceiptVault.
+    /// @param config The configuration for the OffchainAssetReceiptVault. The
+    /// resulting asset address is used to deploy the StoxWrappedTokenVault.
     function newTokenAndWrapperVault(OffchainAssetReceiptVaultConfigV2 memory config) external {
         OffchainAssetReceiptVault asset = OffchainAssetReceiptVaultBeaconSetDeployer(
             LibProdDeploy.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
