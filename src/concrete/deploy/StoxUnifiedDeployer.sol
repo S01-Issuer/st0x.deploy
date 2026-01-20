@@ -24,7 +24,7 @@ contract StoxUnifiedDeployer {
         OffchainAssetReceiptVault asset = OffchainAssetReceiptVaultBeaconSetDeployer(
             LibProdDeploy.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
         ).newOffchainAssetReceiptVault(config);
-        StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeploy.WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER)
+        StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeploy.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER)
             .newStoxWrappedTokenVault(address(asset));
     }
 }
