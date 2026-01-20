@@ -11,6 +11,10 @@ import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/exten
 contract StoxWrappedTokenVault is ERC4626Upgradeable {
     event StoxWrappedTokenVaultInitialized(address indexed sender, address indexed asset);
 
+    constructor() {
+        _disableInitializers();
+    }
+
     function initialize(address asset) external initializer returns (bytes32) {
         __ERC4626_init(ERC20Upgradeable(asset));
         __ERC20_init("", "");
