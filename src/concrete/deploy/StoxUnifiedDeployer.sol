@@ -8,26 +8,14 @@ import {
     OffchainAssetReceiptVault
 } from "ethgild/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
 import {StoxWrappedTokenVaultBeaconSetDeployer} from "src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
-
-struct StoxUnifiedDeployerConfig {
-    address offchainAssetReceiptVaultBeaconSetDeployer;
-    address stoxWrappedTokenVaultBeaconSetDeployer;
-}
+import {LibProdDeploy} from "../../lib/LibProdDeploy.sol";
 
 contract StoxUnifiedDeployer {
-    OffchainAssetReceiptVaultBeaconSetDeployer public immutable I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER;
-    StoxWrappedTokenVaultBeaconSetDeployer public immutable I_STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER;
-
-    constructor(StoxUnifiedDeployerConfig memory config) {
-        I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER =
-            OffchainAssetReceiptVaultBeaconSetDeployer(config.offchainAssetReceiptVaultBeaconSetDeployer);
-        I_STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER =
-            StoxWrappedTokenVaultBeaconSetDeployer(config.stoxWrappedTokenVaultBeaconSetDeployer);
-    }
-
     function newTokenAndWrapperVault(OffchainAssetReceiptVaultConfigV2 memory config) external {
-        OffchainAssetReceiptVault asset =
-            I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER.newOffchainAssetReceiptVault(config);
-        I_STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER.newStoxWrappedTokenVault(address(asset));
+        OffchainAssetReceiptVault asset = OffchainAssetReceiptVaultBeaconSetDeployer(
+            LibProdDeploy.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+        ).newOffchainAssetReceiptVault(config);
+        StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeploy.WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER)
+            .newStoxWrappedTokenVault(address(asset));
     }
 }
