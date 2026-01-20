@@ -62,7 +62,7 @@ contract StoxWrappedTokenVaultBeaconSetDeployer {
         StoxWrappedTokenVault stoxWrappedTokenVault =
             StoxWrappedTokenVault(address(new BeaconProxy(address(I_STOX_WRAPPED_TOKEN_VAULT_BEACON), "")));
 
-        if (stoxWrappedTokenVault.initialize(asset) != ICLONEABLE_V2_SUCCESS) {
+        if (stoxWrappedTokenVault.initialize(abi.encode(asset)) != ICLONEABLE_V2_SUCCESS) {
             revert InitializeVaultFailed();
         }
 
