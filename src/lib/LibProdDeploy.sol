@@ -15,4 +15,7 @@ library LibProdDeploy {
 
     /// https://basescan.org/address/0x80A79767F2d7c24A0577f791eC2Af74a7c9A1eD1#code
     address constant STOX_WRAPPED_TOKEN_VAULT = address(0x80A79767F2d7c24A0577f791eC2Af74a7c9A1eD1);
+
+    /// https://basescan.org/address/0xeb24095408ddb6161016f3f78f698fd9f9363dae
+    address constant STOX_UNIFIED_DEPLOYER = address(0xEb24095408Ddb6161016F3F78F698Fd9f9363DAe);
 }
