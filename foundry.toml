@@ -14,4 +14,5 @@ cbor_metadata = false
 remappings = [
     "ethgild/=lib/ethgild/src/",
     "rain.factory/=lib/ethgild/lib/rain.factory/src/",
+    "openzeppelin-contracts-upgradeable/=lib/ethgild/lib/openzeppelin-contracts-upgradeable/",
 ]

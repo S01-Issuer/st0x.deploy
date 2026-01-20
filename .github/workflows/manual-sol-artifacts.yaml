@@ -28,7 +28,9 @@ on:
         required: true
         type: choice
         options:
-          - beacon-set
+          - offchain-asset-receipt-vault-beacon-set
+          - wrapped-token-vault-beacon-set
+          - unified-deployer
 
 jobs:
   deploy:
