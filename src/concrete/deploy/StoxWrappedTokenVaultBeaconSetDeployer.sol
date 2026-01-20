@@ -22,11 +22,25 @@ error InitializeVaultFailed();
 /// @dev Error raised when a zero address is provided for the vault asset.
 error ZeroVaultAsset();
 
+/// @title StoxWrappedTokenVaultBeaconSetDeployerConfig
+/// @notice Configuration for the StoxWrappedTokenVaultBeaconSetDeployer
+/// construction.
+/// @param initialOwner The initial owner of the StoxWrappedTokenVault beacon.
+/// @param initialStoxWrappedTokenVaultImplementation The initial implementation
+/// contract for the StoxWrappedTokenVault beacon.
 struct StoxWrappedTokenVaultBeaconSetDeployerConfig {
     address initialOwner;
     address initialStoxWrappedTokenVaultImplementation;
 }
 
+/// @title StoxWrappedTokenVaultBeaconSetDeployer
+/// @notice Deploys and manages a beacon set for StoxWrappedTokenVault contracts.
+/// Modelled off the OffchainAssetReceiptVaultBeaconSetDeployer contract, but
+/// creates StoxWrappedTokenVault contracts instead.
+/// In practise, using this directly alongside the
+/// OffchainAssetReceiptVaultBeaconSetDeployer is error prone and tedious as it
+/// is not atomic, so the StoxUnifiedDeployer contract should be used instead
+/// for most use cases.
 contract StoxWrappedTokenVaultBeaconSetDeployer {
     /// Emitted when a new deployment is successfully initialized.
     /// @param sender The address that initiated the deployment.
@@ -62,7 +76,7 @@ contract StoxWrappedTokenVaultBeaconSetDeployer {
         StoxWrappedTokenVault stoxWrappedTokenVault =
             StoxWrappedTokenVault(address(new BeaconProxy(address(I_STOX_WRAPPED_TOKEN_VAULT_BEACON), "")));
 
-        if (stoxWrappedTokenVault.initialize(asset) != ICLONEABLE_V2_SUCCESS) {
+        if (stoxWrappedTokenVault.initialize(abi.encode(asset)) != ICLONEABLE_V2_SUCCESS) {
             revert InitializeVaultFailed();
         }
 
