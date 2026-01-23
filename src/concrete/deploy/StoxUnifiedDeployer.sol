@@ -16,6 +16,13 @@ import {LibProdDeploy} from "../../lib/LibProdDeploy.sol";
 /// The beacon sets are hardcoded to simplify and harden deployment of this
 /// contract by providing an audit trail in git of any address modifications.
 contract StoxUnifiedDeployer {
+    /// Emitted when a new OffchainAssetReceiptVault and StoxWrappedTokenVault
+    /// are deployed.
+    /// @param sender The address that initiated the deployment.
+    /// @param asset The address of the deployed OffchainAssetReceiptVault.
+    /// @param wrapper The address of the deployed StoxWrappedTokenVault.
+    event Deployment(address sender, address asset, address wrapper);
+
     /// @notice Deploys a new OffchainAssetReceiptVault and a new
     /// StoxWrappedTokenVault linked to the OffchainAssetReceiptVault.
     /// @param config The configuration for the OffchainAssetReceiptVault. The
@@ -26,5 +33,7 @@ contract StoxUnifiedDeployer {
         ).newOffchainAssetReceiptVault(config);
         StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeploy.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER)
             .newStoxWrappedTokenVault(address(asset));
+
+        emit Deployment(msg.sender, address(asset), address(0));
     }
 }
