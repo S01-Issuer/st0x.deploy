@@ -18,4 +18,7 @@ library LibProdDeploy {
 
     /// https://basescan.org/address/0xeb24095408ddb6161016f3f78f698fd9f9363dae
     address constant STOX_UNIFIED_DEPLOYER = address(0xEb24095408Ddb6161016F3F78F698Fd9f9363DAe);
+
+    bytes32 constant PROD_STOX_UNIFIED_DEPLOYER_BASE_CODEHASH_V1 =
+        0xb5167a6cfec58378938913cf93dd0c7cf0aab1501beb653b0b6e0be6f5b8e072;
 }
