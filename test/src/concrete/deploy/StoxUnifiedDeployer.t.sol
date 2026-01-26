@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: LicenseRef-DCL-1.0
+// SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
+pragma solidity =0.8.25;
+
+import {Test} from "forge-std/Test.sol";
+import {
+    OffchainAssetReceiptVaultBeaconSetDeployer,
+    OffchainAssetReceiptVaultConfigV2,
+    OffchainAssetReceiptVault
+} from "ethgild/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
+import {StoxUnifiedDeployer} from "src/concrete/deploy/StoxUnifiedDeployer.sol";
+import {LibProdDeploy} from "src/lib/LibProdDeploy.sol";
+import {StoxWrappedTokenVault} from "src/concrete/StoxWrappedTokenVault.sol";
+import {StoxWrappedTokenVaultBeaconSetDeployer} from "src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
+
+contract StoxUnifiedDeployerTest is Test {
+    function testStoxUnifiedDeployer(address asset, address vault, OffchainAssetReceiptVaultConfigV2 memory config)
+        external
+    {
+        vm.assume(asset.code.length == 0);
+        vm.assume(vault.code.length == 0);
+        StoxUnifiedDeployer unifiedDeployer = new StoxUnifiedDeployer();
+
+        vm.etch(
+            LibProdDeploy.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER,
+            vm.getCode("OffchainAssetReceiptVaultBeaconSetDeployer")
+        );
+        vm.mockCall(
+            LibProdDeploy.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER,
+            abi.encodeWithSelector(
+                OffchainAssetReceiptVaultBeaconSetDeployer.newOffchainAssetReceiptVault.selector, config
+            ),
+            abi.encode(asset)
+        );
+
+        vm.etch(
+            LibProdDeploy.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER,
+            vm.getCode("StoxWrappedTokenVaultBeaconSetDeployer")
+        );
+        vm.mockCall(
+            LibProdDeploy.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER,
+            abi.encodeWithSelector(StoxWrappedTokenVaultBeaconSetDeployer.newStoxWrappedTokenVault.selector, asset),
+            abi.encode(address(vault))
+        );
+
+        vm.expectEmit();
+        emit StoxUnifiedDeployer.Deployment(address(this), asset, vault);
+        unifiedDeployer.newTokenAndWrapperVault(config);
+    }
+}
