@@ -21,4 +21,7 @@ library LibProdDeploy {
 
     bytes32 constant PROD_STOX_UNIFIED_DEPLOYER_BASE_CODEHASH_V1 =
         0xb5167a6cfec58378938913cf93dd0c7cf0aab1501beb653b0b6e0be6f5b8e072;
+
+    bytes32 constant PROD_UPGRADEABLE_BEACON_BASE_CODEHASH_V1 =
+        bytes32(0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630);
 }
