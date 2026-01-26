@@ -7,11 +7,18 @@ import {Test} from "forge-std/Test.sol";
 import {StoxUnifiedDeployer} from "src/concrete/deploy/StoxUnifiedDeployer.sol";
 import {LibExtrospectBytecode} from "lib/rain.extrospection/src/lib/LibExtrospectBytecode.sol";
 import {LibProdDeploy} from "src/lib/LibProdDeploy.sol";
+import {LibTestProd} from "test/lib/LibTestProd.sol";
 
 contract StoxUnifiedDeployerProdBaseTest is Test {
     function testProdStoxUnifiedDeployerBase() external {
         StoxUnifiedDeployer fresh = new StoxUnifiedDeployer();
 
         assertEq(address(fresh).codehash, LibProdDeploy.PROD_STOX_UNIFIED_DEPLOYER_BASE_CODEHASH_V1);
+
+        LibTestProd.createSelectForkBase(vm);
+
+        assertEq(
+            LibProdDeploy.STOX_UNIFIED_DEPLOYER.codehash, LibProdDeploy.PROD_STOX_UNIFIED_DEPLOYER_BASE_CODEHASH_V1
+        );
     }
 }
