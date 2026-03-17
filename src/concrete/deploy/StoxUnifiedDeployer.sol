@@ -28,6 +28,10 @@ contract StoxUnifiedDeployer {
     /// StoxWrappedTokenVault linked to the OffchainAssetReceiptVault.
     /// @param config The configuration for the OffchainAssetReceiptVault. The
     /// resulting asset address is used to deploy the StoxWrappedTokenVault.
+    // Reentrancy is not exploitable here because this contract is entirely
+    // stateless — no storage, no balances. A reentrant call would just create
+    // another independent vault pair.
+    // slither-disable-next-line reentrancy-events
     function newTokenAndWrapperVault(OffchainAssetReceiptVaultConfigV2 memory config) external {
         OffchainAssetReceiptVault asset = OffchainAssetReceiptVaultBeaconSetDeployer(
             LibProdDeploy.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER

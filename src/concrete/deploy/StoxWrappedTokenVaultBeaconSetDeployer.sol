@@ -49,7 +49,7 @@ contract StoxWrappedTokenVaultBeaconSetDeployer {
     event Deployment(address sender, address stoxWrappedTokenVault);
 
     /// The beacon for the StoxWrappedTokenVault implementation contracts.
-    IBeacon public immutable I_STOX_WRAPPED_TOKEN_VAULT_BEACON;
+    IBeacon public immutable iStoxWrappedTokenVaultBeacon;
 
     /// @param config The configuration for the deployer.
     constructor(StoxWrappedTokenVaultBeaconSetDeployerConfig memory config) {
@@ -60,7 +60,7 @@ contract StoxWrappedTokenVaultBeaconSetDeployer {
             revert ZeroBeaconOwner();
         }
 
-        I_STOX_WRAPPED_TOKEN_VAULT_BEACON =
+        iStoxWrappedTokenVaultBeacon =
             new UpgradeableBeacon(config.initialStoxWrappedTokenVaultImplementation, config.initialOwner);
     }
 
@@ -74,13 +74,13 @@ contract StoxWrappedTokenVaultBeaconSetDeployer {
         }
 
         StoxWrappedTokenVault stoxWrappedTokenVault =
-            StoxWrappedTokenVault(address(new BeaconProxy(address(I_STOX_WRAPPED_TOKEN_VAULT_BEACON), "")));
+            StoxWrappedTokenVault(address(new BeaconProxy(address(iStoxWrappedTokenVaultBeacon), "")));
+
+        emit Deployment(msg.sender, address(stoxWrappedTokenVault));
 
         if (stoxWrappedTokenVault.initialize(abi.encode(asset)) != ICLONEABLE_V2_SUCCESS) {
             revert InitializeVaultFailed();
         }
-
-        emit Deployment(msg.sender, address(stoxWrappedTokenVault));
 
         return stoxWrappedTokenVault;
     }

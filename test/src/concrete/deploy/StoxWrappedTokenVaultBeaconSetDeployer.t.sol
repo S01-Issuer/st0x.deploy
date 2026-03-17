@@ -48,7 +48,7 @@ contract StoxWrappedTokenVaultBeaconSetDeployerTest is Test {
                 initialStoxWrappedTokenVaultImplementation: address(implementation)
             })
         );
-        assertEq(deployer.I_STOX_WRAPPED_TOKEN_VAULT_BEACON().implementation(), address(implementation));
+        assertEq(deployer.iStoxWrappedTokenVaultBeacon().implementation(), address(implementation));
     }
 
     /// newStoxWrappedTokenVault reverts with ZeroVaultAsset when asset is

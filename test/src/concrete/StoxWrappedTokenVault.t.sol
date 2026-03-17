@@ -50,7 +50,7 @@ contract StoxWrappedTokenVaultTest is Test {
     function testInitializeZeroAssetDirect() external {
         StoxWrappedTokenVaultBeaconSetDeployer deployer = _deployer();
         StoxWrappedTokenVault vault = StoxWrappedTokenVault(
-            address(new BeaconProxy(address(deployer.I_STOX_WRAPPED_TOKEN_VAULT_BEACON()), ""))
+            address(new BeaconProxy(address(deployer.iStoxWrappedTokenVaultBeacon()), ""))
         );
         vm.expectRevert(abi.encodeWithSelector(ZeroAsset.selector));
         vault.initialize(abi.encode(address(0)));

@@ -1,4 +1,4 @@
 {
   "detectors_to_exclude": "solc-version,block-timestamp,unused-imports,different-pragma-directives-are-used,assembly-usage,unindexed-event-address",
-  "filter_paths": "lib/ethgild/lib,lib/rain.extrospection"
+  "filter_paths": "lib/ethgild,lib/rain.extrospection"
 }
