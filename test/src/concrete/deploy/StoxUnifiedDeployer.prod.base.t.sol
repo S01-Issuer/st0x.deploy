@@ -7,9 +7,16 @@ import {Test} from "forge-std/Test.sol";
 import {StoxUnifiedDeployer} from "../../../../src/concrete/deploy/StoxUnifiedDeployer.sol";
 import {LibProdDeploy} from "../../../../src/lib/LibProdDeploy.sol";
 import {LibTestProd} from "../../../lib/LibTestProd.sol";
+import {
+    OffchainAssetReceiptVaultBeaconSetDeployer
+} from "ethgild/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
+import {
+    StoxWrappedTokenVaultBeaconSetDeployer
+} from "../../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
 
 contract StoxProdBaseTest is Test {
     function _checkAllContracts() internal view {
+        // OffchainAssetReceiptVaultBeaconSetDeployer
         assertTrue(
             LibProdDeploy.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER.code.length > 0,
             "OffchainAssetReceiptVaultBeaconSetDeployer not deployed"
@@ -19,6 +26,7 @@ contract StoxProdBaseTest is Test {
             LibProdDeploy.PROD_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_BASE_CODEHASH_V1
         );
 
+        // StoxWrappedTokenVaultBeaconSetDeployer
         assertTrue(
             LibProdDeploy.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER.code.length > 0,
             "StoxWrappedTokenVaultBeaconSetDeployer not deployed"
@@ -28,6 +36,7 @@ contract StoxProdBaseTest is Test {
             LibProdDeploy.PROD_STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_BASE_CODEHASH_V1
         );
 
+        // StoxWrappedTokenVault proxy
         assertTrue(
             LibProdDeploy.STOX_WRAPPED_TOKEN_VAULT.code.length > 0,
             "StoxWrappedTokenVault not deployed"
@@ -37,6 +46,7 @@ contract StoxProdBaseTest is Test {
             LibProdDeploy.PROD_STOX_WRAPPED_TOKEN_VAULT_BASE_CODEHASH_V1
         );
 
+        // StoxUnifiedDeployer
         assertTrue(
             LibProdDeploy.STOX_UNIFIED_DEPLOYER.code.length > 0,
             "StoxUnifiedDeployer not deployed"
@@ -45,6 +55,22 @@ contract StoxProdBaseTest is Test {
             LibProdDeploy.STOX_UNIFIED_DEPLOYER.codehash,
             LibProdDeploy.PROD_STOX_UNIFIED_DEPLOYER_BASE_CODEHASH_V1
         );
+
+        // StoxReceipt implementation (via beacon)
+        OffchainAssetReceiptVaultBeaconSetDeployer oarvDeployer =
+            OffchainAssetReceiptVaultBeaconSetDeployer(LibProdDeploy.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
+        address receiptImpl = oarvDeployer.I_RECEIPT_BEACON().implementation();
+        assertEq(receiptImpl, LibProdDeploy.STOX_RECEIPT_IMPLEMENTATION, "StoxReceipt implementation address mismatch");
+        assertTrue(receiptImpl.code.length > 0, "StoxReceipt implementation not deployed");
+        assertEq(receiptImpl.codehash, LibProdDeploy.PROD_STOX_RECEIPT_IMPLEMENTATION_BASE_CODEHASH_V1);
+
+        // StoxReceiptVault implementation (via beacon)
+        address vaultImpl = oarvDeployer.I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON().implementation();
+        assertEq(
+            vaultImpl, LibProdDeploy.STOX_RECEIPT_VAULT_IMPLEMENTATION, "StoxReceiptVault implementation address mismatch"
+        );
+        assertTrue(vaultImpl.code.length > 0, "StoxReceiptVault implementation not deployed");
+        assertEq(vaultImpl.codehash, LibProdDeploy.PROD_STOX_RECEIPT_VAULT_IMPLEMENTATION_BASE_CODEHASH_V1);
     }
 
     /// Fresh-compiled StoxUnifiedDeployer must match the stored codehash.

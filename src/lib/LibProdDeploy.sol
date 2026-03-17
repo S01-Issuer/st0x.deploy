@@ -29,6 +29,24 @@ library LibProdDeploy {
     /// https://basescan.org/address/0x821a71a313bdDDc94192CF0b5F6f5bC31Ac75853
     address constant STOX_UNIFIED_DEPLOYER = address(0x821a71a313bdDDc94192CF0b5F6f5bC31Ac75853);
 
+    /// @dev The StoxReceipt implementation deployed inside the
+    /// OffchainAssetReceiptVault beacon set on Base. Accessible via
+    /// I_RECEIPT_BEACON.implementation().
+    address constant STOX_RECEIPT_IMPLEMENTATION = address(0xE7573879D73455Dc92cB4087Fa8177594387CbCD);
+
+    /// @dev Expected codehash of the StoxReceipt implementation on Base.
+    bytes32 constant PROD_STOX_RECEIPT_IMPLEMENTATION_BASE_CODEHASH_V1 =
+        0x14348054f718979709402d1892155361f5ea99d8e7267823fcac9c7763bcefab;
+
+    /// @dev The StoxReceiptVault implementation deployed inside the
+    /// OffchainAssetReceiptVault beacon set on Base. Accessible via
+    /// I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON.implementation().
+    address constant STOX_RECEIPT_VAULT_IMPLEMENTATION = address(0x8EFfCe5Ebb047F215dF1d8522c32c7C9DE239f39);
+
+    /// @dev Expected codehash of the StoxReceiptVault implementation on Base.
+    bytes32 constant PROD_STOX_RECEIPT_VAULT_IMPLEMENTATION_BASE_CODEHASH_V1 =
+        0x6147eafd814bc0154f4a6b8247b8c092580fa2e0356e81e4422cfebc2ee94ebb;
+
     /// @dev Expected codehash of the OffchainAssetReceiptVault beacon set
     /// deployer on Base. Includes immutable beacon addresses so is
     /// deployment-specific.
