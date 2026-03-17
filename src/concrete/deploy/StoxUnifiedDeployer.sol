@@ -7,9 +7,9 @@ import {
     OffchainAssetReceiptVaultConfigV2,
     OffchainAssetReceiptVault
 } from "ethgild/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
-import {StoxWrappedTokenVaultBeaconSetDeployer} from "src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
+import {StoxWrappedTokenVaultBeaconSetDeployer} from "./StoxWrappedTokenVaultBeaconSetDeployer.sol";
 import {LibProdDeploy} from "../../lib/LibProdDeploy.sol";
-import {StoxWrappedTokenVault} from "src/concrete/StoxWrappedTokenVault.sol";
+import {StoxWrappedTokenVault} from "../StoxWrappedTokenVault.sol";
 
 /// @title StoxUnifiedDeployer
 /// @notice Deploys a new OffchainAssetReceiptVault and a new

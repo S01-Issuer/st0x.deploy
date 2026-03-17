@@ -8,15 +8,15 @@ import {
     OffchainAssetReceiptVaultBeaconSetDeployer,
     OffchainAssetReceiptVaultBeaconSetDeployerConfig
 } from "ethgild/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
-import {LibProdDeploy} from "src/lib/LibProdDeploy.sol";
-import {StoxReceipt} from "src/concrete/StoxReceipt.sol";
-import {StoxReceiptVault} from "src/concrete/StoxReceiptVault.sol";
+import {LibProdDeploy} from "../src/lib/LibProdDeploy.sol";
+import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
+import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {
     StoxWrappedTokenVaultBeaconSetDeployer,
     StoxWrappedTokenVaultBeaconSetDeployerConfig
-} from "src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
-import {StoxWrappedTokenVault} from "src/concrete/StoxWrappedTokenVault.sol";
-import {StoxUnifiedDeployer} from "src/concrete/deploy/StoxUnifiedDeployer.sol";
+} from "../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
+import {StoxWrappedTokenVault} from "../src/concrete/StoxWrappedTokenVault.sol";
+import {StoxUnifiedDeployer} from "../src/concrete/deploy/StoxUnifiedDeployer.sol";
 
 /// @dev The deployment suite name for the offchain asset receipt vault beacon
 /// set.
@@ -29,17 +29,23 @@ bytes32 constant DEPLOYMENT_SUITE_WRAPPED_TOKEN_VAULT_BEACON_SET = keccak256("wr
 /// @dev The deployment suite name for the unified deployer.
 bytes32 constant DEPLOYMENT_SUITE_UNIFIED_DEPLOYER = keccak256("unified-deployer");
 
+/// @dev Error thrown when the DEPLOYMENT_SUITE env var does not match any
+/// known suite.
+error UnknownDeploymentSuite(bytes32 suite);
+
 contract Deploy is Script {
     /// @notice Deploys the OffchainAssetReceiptVaultBeaconSetDeployer contract.
     /// Creates both StoxReceipt and StoxReceiptVault anew for the initial
-    /// implementations. Initial owner is set to the BEACON_INIITAL_OWNER
+    /// implementations. Initial owner is set to the BEACON_INITIAL_OWNER
     /// constant in LibProdDeploy.
+    /// @param deploymentKey The private key used to broadcast the deployment
+    /// transactions.
     function deployOffchainAssetReceiptVaultBeaconSet(uint256 deploymentKey) internal {
         vm.startBroadcast(deploymentKey);
 
         new OffchainAssetReceiptVaultBeaconSetDeployer(
             OffchainAssetReceiptVaultBeaconSetDeployerConfig({
-                initialOwner: LibProdDeploy.BEACON_INIITAL_OWNER,
+                initialOwner: LibProdDeploy.BEACON_INITIAL_OWNER,
                 initialReceiptImplementation: address(new StoxReceipt()),
                 initialOffchainAssetReceiptVaultImplementation: address(new StoxReceiptVault())
             })
@@ -50,14 +56,16 @@ contract Deploy is Script {
 
     /// @notice Deploys the StoxWrappedTokenVaultBeaconSetDeployer contract.
     /// Creates a StoxWrappedTokenVault anew for the initial implementation.
-    /// Initial owner is set to the BEACON_INIITAL_OWNER constant in
+    /// Initial owner is set to the BEACON_INITIAL_OWNER constant in
     /// LibProdDeploy.
+    /// @param deploymentKey The private key used to broadcast the deployment
+    /// transactions.
     function deployWrappedTokenVaultBeaconSet(uint256 deploymentKey) internal {
         vm.startBroadcast(deploymentKey);
 
         new StoxWrappedTokenVaultBeaconSetDeployer(
             StoxWrappedTokenVaultBeaconSetDeployerConfig({
-                initialOwner: LibProdDeploy.BEACON_INIITAL_OWNER,
+                initialOwner: LibProdDeploy.BEACON_INITIAL_OWNER,
                 initialStoxWrappedTokenVaultImplementation: address(new StoxWrappedTokenVault())
             })
         );
@@ -66,6 +74,8 @@ contract Deploy is Script {
     }
 
     /// @notice Deploys the StoxUnifiedDeployer contract.
+    /// @param deploymentKey The private key used to broadcast the deployment
+    /// transactions.
     function deployUnifiedDeployer(uint256 deploymentKey) internal {
         vm.startBroadcast(deploymentKey);
 
@@ -88,7 +98,7 @@ contract Deploy is Script {
         } else if (suite == DEPLOYMENT_SUITE_UNIFIED_DEPLOYER) {
             deployUnifiedDeployer(deployerPrivateKey);
         } else {
-            revert("Unknown deployment suite");
+            revert UnknownDeploymentSuite(suite);
         }
     }
 }
