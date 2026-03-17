@@ -6,6 +6,7 @@ pragma solidity ^0.8.25;
 /// @notice Hardcoded production deployment addresses and codehashes for the
 /// Stox deployment on Base. Used by deployer contracts and verified by fork
 /// tests.
+// slither-disable-next-line too-many-digits
 library LibProdDeploy {
     /// @dev The initial owner for beacon set deployers. Resolves to
     /// rainlang.eth.
