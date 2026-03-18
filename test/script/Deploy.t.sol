@@ -5,21 +5,32 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std/Test.sol";
 import {
     Deploy,
-    DEPLOYMENT_SUITE_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET,
-    DEPLOYMENT_SUITE_WRAPPED_TOKEN_VAULT_BEACON_SET,
-    DEPLOYMENT_SUITE_UNIFIED_DEPLOYER,
+    DEPLOYMENT_SUITE_STOX_RECEIPT,
+    DEPLOYMENT_SUITE_STOX_RECEIPT_VAULT,
+    DEPLOYMENT_SUITE_STOX_WRAPPED_TOKEN_VAULT,
+    DEPLOYMENT_SUITE_STOX_WRAPPED_TOKEN_VAULT_BEACON,
+    DEPLOYMENT_SUITE_STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER,
+    DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER,
+    DEPLOYMENT_SUITE_STOX_UNIFIED_DEPLOYER,
     UnknownDeploymentSuite
 } from "../../script/Deploy.sol";
 
 contract DeployTest is Test {
     /// Deployment suite constants must match their keccak256 strings.
     function testDeploymentSuiteConstants() external pure {
+        assertEq(DEPLOYMENT_SUITE_STOX_RECEIPT, keccak256("stox-receipt"));
+        assertEq(DEPLOYMENT_SUITE_STOX_RECEIPT_VAULT, keccak256("stox-receipt-vault"));
+        assertEq(DEPLOYMENT_SUITE_STOX_WRAPPED_TOKEN_VAULT, keccak256("stox-wrapped-token-vault"));
+        assertEq(DEPLOYMENT_SUITE_STOX_WRAPPED_TOKEN_VAULT_BEACON, keccak256("stox-wrapped-token-vault-beacon"));
         assertEq(
-            DEPLOYMENT_SUITE_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET,
-            keccak256("offchain-asset-receipt-vault-beacon-set")
+            DEPLOYMENT_SUITE_STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER,
+            keccak256("stox-wrapped-token-vault-beacon-set-deployer")
         );
-        assertEq(DEPLOYMENT_SUITE_WRAPPED_TOKEN_VAULT_BEACON_SET, keccak256("wrapped-token-vault-beacon-set"));
-        assertEq(DEPLOYMENT_SUITE_UNIFIED_DEPLOYER, keccak256("unified-deployer"));
+        assertEq(
+            DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER,
+            keccak256("stox-offchain-asset-receipt-vault-beacon-set-deployer")
+        );
+        assertEq(DEPLOYMENT_SUITE_STOX_UNIFIED_DEPLOYER, keccak256("stox-unified-deployer"));
     }
 
     /// Unknown deployment suite must revert with UnknownDeploymentSuite.
