@@ -6,22 +6,14 @@ import {Test} from "forge-std/Test.sol";
 import {StoxWrappedTokenVault, ZeroAsset} from "../../../src/concrete/StoxWrappedTokenVault.sol";
 import {ICloneableV2} from "rain.factory/interface/ICloneableV2.sol";
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
-import {
-    StoxWrappedTokenVaultBeaconSetDeployer,
-    StoxWrappedTokenVaultBeaconSetDeployerConfig
-} from "../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
+import {StoxWrappedTokenVaultBeaconSetDeployer} from "../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
+import {StoxWrappedTokenVaultBeacon} from "../../../src/concrete/StoxWrappedTokenVaultBeacon.sol";
+import {LibRainDeploy} from "rain.deploy/lib/LibRainDeploy.sol";
+import {LibProdDeployV2} from "../../../src/lib/LibProdDeployV2.sol";
+import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {MockERC20} from "../../concrete/MockERC20.sol";
 
 contract StoxWrappedTokenVaultTest is Test {
-    function _deployer() internal returns (StoxWrappedTokenVaultBeaconSetDeployer) {
-        StoxWrappedTokenVault impl = new StoxWrappedTokenVault();
-        return new StoxWrappedTokenVaultBeaconSetDeployer(
-            StoxWrappedTokenVaultBeaconSetDeployerConfig({
-                initialOwner: address(this),
-                initialStoxWrappedTokenVaultImplementation: address(impl)
-            })
-        );
-    }
 
     /// Constructor disables initializers on the implementation.
     function testConstructorDisablesInitializers() external {
@@ -40,17 +32,17 @@ contract StoxWrappedTokenVaultTest is Test {
     /// initialize(bytes) with zero asset reverts via the deployer's
     /// ZeroVaultAsset check.
     function testInitializeZeroAssetViaDeployer() external {
-        StoxWrappedTokenVaultBeaconSetDeployer deployer = _deployer();
+        LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         vm.expectRevert();
-        deployer.newStoxWrappedTokenVault(address(0));
+        StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER).newStoxWrappedTokenVault(address(0));
     }
 
     /// initialize(bytes) with zero asset reverts with ZeroAsset when called
     /// directly on a proxy (bypassing the deployer).
     function testInitializeZeroAssetDirect() external {
-        StoxWrappedTokenVaultBeaconSetDeployer deployer = _deployer();
+        LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         StoxWrappedTokenVault vault = StoxWrappedTokenVault(
-            address(new BeaconProxy(address(deployer.iStoxWrappedTokenVaultBeacon()), ""))
+            address(new BeaconProxy(LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON, ""))
         );
         vm.expectRevert(abi.encodeWithSelector(ZeroAsset.selector));
         vault.initialize(abi.encode(address(0)));
@@ -58,25 +50,25 @@ contract StoxWrappedTokenVaultTest is Test {
 
     /// initialize(bytes) succeeds via beacon proxy with valid asset.
     function testInitializeSuccess() external {
-        StoxWrappedTokenVaultBeaconSetDeployer deployer = _deployer();
+        LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
-        StoxWrappedTokenVault vault = deployer.newStoxWrappedTokenVault(address(asset));
+        StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER).newStoxWrappedTokenVault(address(asset));
         assertEq(vault.asset(), address(asset));
     }
 
     /// name() prepends "Wrapped " to the underlying asset name.
     function testNameDelegation() external {
-        StoxWrappedTokenVaultBeaconSetDeployer deployer = _deployer();
+        LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
-        StoxWrappedTokenVault vault = deployer.newStoxWrappedTokenVault(address(asset));
+        StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER).newStoxWrappedTokenVault(address(asset));
         assertEq(vault.name(), "Wrapped Test Token");
     }
 
     /// symbol() prepends "w" to the underlying asset symbol.
     function testSymbolDelegation() external {
-        StoxWrappedTokenVaultBeaconSetDeployer deployer = _deployer();
+        LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
-        StoxWrappedTokenVault vault = deployer.newStoxWrappedTokenVault(address(asset));
+        StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER).newStoxWrappedTokenVault(address(asset));
         assertEq(vault.symbol(), "wTT");
     }
 }
