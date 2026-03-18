@@ -35,7 +35,7 @@ contract StoxUnifiedDeployerTest is Test {
 
         vm.etch(
             LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER,
-            vm.getCode("StoxWrappedTokenVaultBeaconSetDeployer")
+            vm.getCode("StoxWrappedTokenVaultBeaconSetDeployer.sol:StoxWrappedTokenVaultBeaconSetDeployer")
         );
         vm.mockCall(
             LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER,
@@ -90,7 +90,7 @@ contract StoxUnifiedDeployerTest is Test {
 
         vm.etch(
             LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER,
-            vm.getCode("StoxWrappedTokenVaultBeaconSetDeployer")
+            vm.getCode("StoxWrappedTokenVaultBeaconSetDeployer.sol:StoxWrappedTokenVaultBeaconSetDeployer")
         );
         vm.mockCallRevert(
             LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER,
