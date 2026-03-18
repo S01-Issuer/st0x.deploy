@@ -13,6 +13,7 @@ import {
 import {
     StoxWrappedTokenVaultBeaconSetDeployer
 } from "../../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
+import {IBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
 
 contract StoxProdBaseTest is Test {
     /// Verify all deployed contract addresses, codehashes on Base fork.
@@ -37,13 +38,22 @@ contract StoxProdBaseTest is Test {
             LibProdDeploy.PROD_STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_BASE_CODEHASH_V1
         );
 
-        // StoxWrappedTokenVault proxy
-        assertTrue(
-            LibProdDeploy.STOX_WRAPPED_TOKEN_VAULT.code.length > 0, "StoxWrappedTokenVault not deployed"
+        // StoxWrappedTokenVault implementation (via beacon)
+        // The on-chain deployer uses the old I_STOX_WRAPPED_TOKEN_VAULT_BEACON
+        // selector from before the rename to iStoxWrappedTokenVaultBeacon.
+        (bool ok, bytes memory beaconData) = LibProdDeploy.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER.staticcall(
+            abi.encodeWithSignature("I_STOX_WRAPPED_TOKEN_VAULT_BEACON()")
         );
+        assertTrue(ok, "beacon call failed");
+        address wrappedImpl = IBeacon(abi.decode(beaconData, (address))).implementation();
         assertEq(
-            LibProdDeploy.STOX_WRAPPED_TOKEN_VAULT.codehash,
-            LibProdDeploy.PROD_STOX_WRAPPED_TOKEN_VAULT_BASE_CODEHASH_V1
+            wrappedImpl,
+            LibProdDeploy.STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION,
+            "StoxWrappedTokenVault implementation address mismatch"
+        );
+        assertTrue(wrappedImpl.code.length > 0, "StoxWrappedTokenVault implementation not deployed");
+        assertEq(
+            wrappedImpl.codehash, LibProdDeploy.PROD_STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION_BASE_CODEHASH_V1
         );
 
         // StoxUnifiedDeployer
