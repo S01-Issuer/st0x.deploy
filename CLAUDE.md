@@ -57,6 +57,12 @@ Git submodules managed via Foundry. Key remappings in `foundry.toml`:
 - Optimizer: 100,000 runs
 - `bytecode_hash = "none"`, `cbor_metadata = false` — enables deterministic codehash comparison in fork tests
 
+## Versioning
+
+Production deployments are versioned (`LibProdDeployV1`, `LibProdDeployV2`, etc.). Each version has its own constants file and may have a separate deploy library. When making changes to contract source:
+- Update `CHANGELOG.md` with the change under the current version heading
+- Regenerate pointer files if creation bytecodes change (`forge script script/BuildPointers.sol`)
+
 ## Deployment
 
 `script/Deploy.sol` dispatches based on `DEPLOYMENT_SUITE` env var:
