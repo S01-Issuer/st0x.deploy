@@ -117,9 +117,7 @@ contract LibProdDeployV2Test is Test {
     /// Pointer creation code for StoxWrappedTokenVault MUST match compiler
     /// output.
     function testCreationCodeStoxWrappedTokenVault() external pure {
-        assertEq(
-            keccak256(STOX_WRAPPED_TOKEN_VAULT_CREATION_CODE), keccak256(type(StoxWrappedTokenVault).creationCode)
-        );
+        assertEq(keccak256(STOX_WRAPPED_TOKEN_VAULT_CREATION_CODE), keccak256(type(StoxWrappedTokenVault).creationCode));
     }
 
     /// Pointer creation code for StoxUnifiedDeployer MUST match compiler

@@ -15,8 +15,7 @@ import {ICLONEABLE_V2_SUCCESS} from "rain.factory/interface/ICloneableV2.sol";
 contract StoxWrappedTokenVaultV1ProdBaseTest is Test {
     function _v1Beacon() internal returns (address) {
         LibTestProd.createSelectForkBase(vm);
-        (bool ok, bytes memory data) = LibProdDeployV1
-            .STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+        (bool ok, bytes memory data) = LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
             .staticcall(abi.encodeWithSignature("I_STOX_WRAPPED_TOKEN_VAULT_BEACON()"));
         assertTrue(ok, "V1 beacon call failed");
         return abi.decode(data, (address));
@@ -28,9 +27,8 @@ contract StoxWrappedTokenVaultV1ProdBaseTest is Test {
         address beacon = _v1Beacon();
         BeaconProxy proxy = new BeaconProxy(beacon, "");
 
-        (bool initOk, bytes memory initData) = address(proxy).call(
-            abi.encodeWithSignature("initialize(bytes)", abi.encode(address(0)))
-        );
+        (bool initOk, bytes memory initData) =
+            address(proxy).call(abi.encodeWithSignature("initialize(bytes)", abi.encode(address(0))));
         assertTrue(initOk, "V1 initialize with zero address should not revert");
         assertEq(abi.decode(initData, (bytes32)), ICLONEABLE_V2_SUCCESS);
     }
@@ -42,14 +40,12 @@ contract StoxWrappedTokenVaultV1ProdBaseTest is Test {
         LibTestProd.createSelectForkBase(vm);
 
         // V1 selector works.
-        (bool oldOk,) = LibProdDeployV1
-            .STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+        (bool oldOk,) = LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
             .staticcall(abi.encodeWithSignature("I_STOX_WRAPPED_TOKEN_VAULT_BEACON()"));
         assertTrue(oldOk, "V1 old selector should work");
 
         // V2 selector does NOT work on V1 deployment.
-        (bool newOk,) = LibProdDeployV1
-            .STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+        (bool newOk,) = LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
             .staticcall(abi.encodeWithSignature("iStoxWrappedTokenVaultBeacon()"));
         assertFalse(newOk, "V2 selector should not work on V1 deployment");
     }
@@ -61,9 +57,8 @@ contract StoxWrappedTokenVaultV1ProdBaseTest is Test {
         address asset = IBeacon(beacon).implementation();
 
         vm.recordLogs();
-        (bool ok,) = LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER.call(
-            abi.encodeWithSignature("newStoxWrappedTokenVault(address)", asset)
-        );
+        (bool ok,) = LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+            .call(abi.encodeWithSignature("newStoxWrappedTokenVault(address)", asset));
         assertTrue(ok, "V1 newStoxWrappedTokenVault should succeed");
 
         Vm.Log[] memory logs = vm.getRecordedLogs();

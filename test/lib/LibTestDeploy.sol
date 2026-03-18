@@ -9,7 +9,9 @@ import {StoxReceipt} from "../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxWrappedTokenVaultBeacon} from "../../src/concrete/StoxWrappedTokenVaultBeacon.sol";
-import {StoxWrappedTokenVaultBeaconSetDeployer} from "../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
+import {
+    StoxWrappedTokenVaultBeaconSetDeployer
+} from "../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
 import {StoxUnifiedDeployer} from "../../src/concrete/deploy/StoxUnifiedDeployer.sol";
 import {
     StoxOffchainAssetReceiptVaultBeaconSetDeployer
@@ -27,7 +29,9 @@ library LibTestDeploy {
         require(vault == LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT, "StoxWrappedTokenVault address mismatch");
 
         address beacon = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeacon).creationCode);
-        require(beacon == LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON, "StoxWrappedTokenVaultBeacon address mismatch");
+        require(
+            beacon == LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON, "StoxWrappedTokenVaultBeacon address mismatch"
+        );
 
         address deployer = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeaconSetDeployer).creationCode);
         require(

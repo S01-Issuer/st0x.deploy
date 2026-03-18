@@ -18,13 +18,7 @@ contract StoxWrappedTokenVaultBeaconTest is Test {
         address beacon = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeacon).creationCode);
 
         assertEq(beacon, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON);
-        assertEq(
-            StoxWrappedTokenVaultBeacon(beacon).implementation(),
-            LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT
-        );
-        assertEq(
-            Ownable(beacon).owner(),
-            LibProdDeploy.BEACON_INITIAL_OWNER
-        );
+        assertEq(StoxWrappedTokenVaultBeacon(beacon).implementation(), LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT);
+        assertEq(Ownable(beacon).owner(), LibProdDeploy.BEACON_INITIAL_OWNER);
     }
 }

@@ -10,7 +10,9 @@ import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxWrappedTokenVaultBeacon} from "../src/concrete/StoxWrappedTokenVaultBeacon.sol";
-import {StoxWrappedTokenVaultBeaconSetDeployer} from "../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
+import {
+    StoxWrappedTokenVaultBeaconSetDeployer
+} from "../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
 import {StoxUnifiedDeployer} from "../src/concrete/deploy/StoxUnifiedDeployer.sol";
 import {
     StoxOffchainAssetReceiptVaultBeaconSetDeployer

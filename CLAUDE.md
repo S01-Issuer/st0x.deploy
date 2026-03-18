@@ -23,9 +23,12 @@ forge test
 # Run a single test
 forge test --match-test testStoxUnifiedDeployer
 
+# Format (run before committing)
+forge fmt
+
 # CI commands (via rainix)
 nix develop -c rainix-sol-test       # Full test suite
-nix develop -c rainix-sol-static     # Static analysis
+nix develop -c rainix-sol-static     # Static analysis (slither + forge fmt --check)
 nix develop -c rainix-sol-legal      # REUSE license compliance
 ```
 
