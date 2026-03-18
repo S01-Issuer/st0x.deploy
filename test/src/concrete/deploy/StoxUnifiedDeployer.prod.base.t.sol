@@ -41,9 +41,8 @@ contract StoxProdBaseTest is Test {
         // StoxWrappedTokenVault implementation (via beacon)
         // The on-chain deployer uses the old I_STOX_WRAPPED_TOKEN_VAULT_BEACON
         // selector from before the rename to iStoxWrappedTokenVaultBeacon.
-        (bool ok, bytes memory beaconData) = LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER.staticcall(
-            abi.encodeWithSignature("I_STOX_WRAPPED_TOKEN_VAULT_BEACON()")
-        );
+        (bool ok, bytes memory beaconData) = LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+            .staticcall(abi.encodeWithSignature("I_STOX_WRAPPED_TOKEN_VAULT_BEACON()"));
         assertTrue(ok, "beacon call failed");
         address wrappedImpl = IBeacon(abi.decode(beaconData, (address))).implementation();
         assertEq(
@@ -52,9 +51,7 @@ contract StoxProdBaseTest is Test {
             "StoxWrappedTokenVault implementation address mismatch"
         );
         assertTrue(wrappedImpl.code.length > 0, "StoxWrappedTokenVault implementation not deployed");
-        assertEq(
-            wrappedImpl.codehash, LibProdDeployV1.PROD_STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION_BASE_CODEHASH_V1
-        );
+        assertEq(wrappedImpl.codehash, LibProdDeployV1.PROD_STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION_BASE_CODEHASH_V1);
 
         // StoxUnifiedDeployer
         assertTrue(LibProdDeployV1.STOX_UNIFIED_DEPLOYER.code.length > 0, "StoxUnifiedDeployer not deployed");
@@ -63,10 +60,13 @@ contract StoxProdBaseTest is Test {
         );
 
         // StoxReceipt implementation (via beacon)
-        OffchainAssetReceiptVaultBeaconSetDeployer oarvDeployer =
-            OffchainAssetReceiptVaultBeaconSetDeployer(LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
+        OffchainAssetReceiptVaultBeaconSetDeployer oarvDeployer = OffchainAssetReceiptVaultBeaconSetDeployer(
+            LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+        );
         address receiptImpl = oarvDeployer.I_RECEIPT_BEACON().implementation();
-        assertEq(receiptImpl, LibProdDeployV1.STOX_RECEIPT_IMPLEMENTATION, "StoxReceipt implementation address mismatch");
+        assertEq(
+            receiptImpl, LibProdDeployV1.STOX_RECEIPT_IMPLEMENTATION, "StoxReceipt implementation address mismatch"
+        );
         assertTrue(receiptImpl.code.length > 0, "StoxReceipt implementation not deployed");
         assertEq(receiptImpl.codehash, LibProdDeployV1.PROD_STOX_RECEIPT_IMPLEMENTATION_BASE_CODEHASH_V1);
 
@@ -86,10 +86,7 @@ contract StoxProdBaseTest is Test {
     /// (StoxWrappedTokenVault, StoxWrappedTokenVaultBeaconSetDeployer) are
     /// verified in the V2 tests instead.
     function _checkUnchangedCreationBytecodes() internal view {
-        assertEq(
-            vm.getCode("StoxReceipt.sol:StoxReceipt"),
-            LibProdDeployV1.PROD_STOX_RECEIPT_CREATION_BYTECODE_V1
-        );
+        assertEq(vm.getCode("StoxReceipt.sol:StoxReceipt"), LibProdDeployV1.PROD_STOX_RECEIPT_CREATION_BYTECODE_V1);
         assertEq(
             vm.getCode("StoxReceiptVault.sol:StoxReceiptVault"),
             LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_CREATION_BYTECODE_V1

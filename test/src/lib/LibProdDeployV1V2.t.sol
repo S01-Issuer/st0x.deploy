@@ -16,8 +16,7 @@ contract LibProdDeployV1V2Test is Test {
     /// StoxReceipt V1 and V2 MUST have the same codehash.
     function testStoxReceiptCodehashV1EqualsV2() external pure {
         assertEq(
-            LibProdDeployV1.PROD_STOX_RECEIPT_IMPLEMENTATION_BASE_CODEHASH_V1,
-            LibProdDeployV2.STOX_RECEIPT_CODEHASH
+            LibProdDeployV1.PROD_STOX_RECEIPT_IMPLEMENTATION_BASE_CODEHASH_V1, LibProdDeployV2.STOX_RECEIPT_CODEHASH
         );
     }
 
@@ -42,8 +41,7 @@ contract LibProdDeployV1V2Test is Test {
     /// StoxUnifiedDeployer V1 and V2 MUST have the same codehash.
     function testStoxUnifiedDeployerCodehashV1EqualsV2() external pure {
         assertEq(
-            LibProdDeployV1.PROD_STOX_UNIFIED_DEPLOYER_BASE_CODEHASH_V1,
-            LibProdDeployV2.STOX_UNIFIED_DEPLOYER_CODEHASH
+            LibProdDeployV1.PROD_STOX_UNIFIED_DEPLOYER_BASE_CODEHASH_V1, LibProdDeployV2.STOX_UNIFIED_DEPLOYER_CODEHASH
         );
     }
 }

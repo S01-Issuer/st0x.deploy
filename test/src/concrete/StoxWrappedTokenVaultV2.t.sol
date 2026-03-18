@@ -63,9 +63,9 @@ contract StoxWrappedTokenVaultV2Test is Test {
     function testV2NewVaultSuccess() external {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
-        StoxWrappedTokenVault vault =
-            StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER)
-                .newStoxWrappedTokenVault(address(asset));
+        StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
+                LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+            ).newStoxWrappedTokenVault(address(asset));
 
         assertEq(vault.asset(), address(asset));
         assertEq(vault.name(), "Wrapped Test Token");

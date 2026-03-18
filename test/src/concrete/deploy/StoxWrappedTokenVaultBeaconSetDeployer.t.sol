@@ -15,9 +15,6 @@ import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 import {LibProdDeployV2} from "../../../../src/lib/LibProdDeployV2.sol";
 
 contract StoxWrappedTokenVaultBeaconSetDeployerTest is Test {
-
-
-
     /// newStoxWrappedTokenVault reverts with ZeroVaultAsset when asset is
     /// address(0).
     function testNewVaultZeroAsset() external {
@@ -31,9 +28,9 @@ contract StoxWrappedTokenVaultBeaconSetDeployerTest is Test {
     function testNewVaultSuccess() external {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
-        StoxWrappedTokenVault vault =
-            StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER)
-                .newStoxWrappedTokenVault(address(asset));
+        StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
+                LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+            ).newStoxWrappedTokenVault(address(asset));
         assertTrue(address(vault) != address(0));
         assertEq(vault.asset(), address(asset));
     }

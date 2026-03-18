@@ -14,11 +14,9 @@ import {LibProdDeployV2} from "../../lib/LibProdDeployV2.sol";
 /// parameterless constructor that hardcodes the config from LibProdDeploy
 /// and LibProdDeployV2. This makes the contract Zoltu-deployable.
 contract StoxOffchainAssetReceiptVaultBeaconSetDeployer is
-    OffchainAssetReceiptVaultBeaconSetDeployer(
-        OffchainAssetReceiptVaultBeaconSetDeployerConfig({
+    OffchainAssetReceiptVaultBeaconSetDeployer(OffchainAssetReceiptVaultBeaconSetDeployerConfig({
             initialOwner: LibProdDeploy.BEACON_INITIAL_OWNER,
             initialReceiptImplementation: LibProdDeployV2.STOX_RECEIPT,
             initialOffchainAssetReceiptVaultImplementation: LibProdDeployV2.STOX_RECEIPT_VAULT
-        })
-    )
+        }))
 {}

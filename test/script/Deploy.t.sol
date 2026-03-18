@@ -38,9 +38,7 @@ contract DeployTest is Test {
         Deploy deploy = new Deploy();
         vm.setEnv("DEPLOYMENT_KEY", vm.toString(uint256(1)));
         vm.setEnv("DEPLOYMENT_SUITE", "unknown-suite");
-        vm.expectRevert(
-            abi.encodeWithSelector(UnknownDeploymentSuite.selector, keccak256("unknown-suite"))
-        );
+        vm.expectRevert(abi.encodeWithSelector(UnknownDeploymentSuite.selector, keccak256("unknown-suite")));
         deploy.run();
     }
 }
