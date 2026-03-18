@@ -8,7 +8,7 @@ import {
     OffchainAssetReceiptVaultBeaconSetDeployer,
     OffchainAssetReceiptVaultBeaconSetDeployerConfig
 } from "ethgild/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
-import {LibProdDeploy} from "../src/lib/LibProdDeploy.sol";
+import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {
@@ -37,7 +37,7 @@ contract Deploy is Script {
     /// @notice Deploys the OffchainAssetReceiptVaultBeaconSetDeployer contract.
     /// Creates both StoxReceipt and StoxReceiptVault anew for the initial
     /// implementations. Initial owner is set to the BEACON_INITIAL_OWNER
-    /// constant in LibProdDeploy.
+    /// constant in LibProdDeployV1.
     /// @param deploymentKey The private key used to broadcast the deployment
     /// transactions.
     function deployOffchainAssetReceiptVaultBeaconSet(uint256 deploymentKey) internal {
@@ -45,7 +45,7 @@ contract Deploy is Script {
 
         new OffchainAssetReceiptVaultBeaconSetDeployer(
             OffchainAssetReceiptVaultBeaconSetDeployerConfig({
-                initialOwner: LibProdDeploy.BEACON_INITIAL_OWNER,
+                initialOwner: LibProdDeployV1.BEACON_INITIAL_OWNER,
                 initialReceiptImplementation: address(new StoxReceipt()),
                 initialOffchainAssetReceiptVaultImplementation: address(new StoxReceiptVault())
             })
@@ -57,7 +57,7 @@ contract Deploy is Script {
     /// @notice Deploys the StoxWrappedTokenVaultBeaconSetDeployer contract.
     /// Creates a StoxWrappedTokenVault anew for the initial implementation.
     /// Initial owner is set to the BEACON_INITIAL_OWNER constant in
-    /// LibProdDeploy.
+    /// LibProdDeployV1.
     /// @param deploymentKey The private key used to broadcast the deployment
     /// transactions.
     function deployWrappedTokenVaultBeaconSet(uint256 deploymentKey) internal {
@@ -65,7 +65,7 @@ contract Deploy is Script {
 
         new StoxWrappedTokenVaultBeaconSetDeployer(
             StoxWrappedTokenVaultBeaconSetDeployerConfig({
-                initialOwner: LibProdDeploy.BEACON_INITIAL_OWNER,
+                initialOwner: LibProdDeployV1.BEACON_INITIAL_OWNER,
                 initialStoxWrappedTokenVaultImplementation: address(new StoxWrappedTokenVault())
             })
         );

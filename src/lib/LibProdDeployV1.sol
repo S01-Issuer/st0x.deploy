@@ -2,12 +2,12 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-/// @title LibProdDeploy
-/// @notice Hardcoded production deployment addresses and codehashes for the
-/// Stox deployment on Base. Used by deployer contracts and verified by fork
-/// tests.
+/// @title LibProdDeployV1
+/// @notice V1 production deployment addresses, codehashes, and creation
+/// bytecodes for the Stox deployment on Base. These record the initial
+/// (non-Zoltu) deployment.
 // slither-disable-next-line too-many-digits
-library LibProdDeploy {
+library LibProdDeployV1 {
     /// @dev The initial owner for beacon set deployers. Resolves to
     /// rainlang.eth.
     /// https://basescan.org/address/0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b
