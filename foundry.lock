@@ -1,5 +1,8 @@
 {
   "lib/ethgild": {
     "rev": "15cbe7e270daa75d237a59aa9f46b55f37d30296"
+  },
+  "lib/rain.extrospection": {
+    "rev": "60f35a0fc7e38fe6879c638ee25b46e88bfc9892"
   }
 }
