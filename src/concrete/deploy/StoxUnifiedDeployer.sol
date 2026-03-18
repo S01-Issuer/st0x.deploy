@@ -7,9 +7,9 @@ import {
     OffchainAssetReceiptVaultConfigV2,
     OffchainAssetReceiptVault
 } from "ethgild/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
-import {StoxWrappedTokenVaultBeaconSetDeployer} from "src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
-import {LibProdDeploy} from "../../lib/LibProdDeploy.sol";
-import {StoxWrappedTokenVault} from "src/concrete/StoxWrappedTokenVault.sol";
+import {StoxWrappedTokenVaultBeaconSetDeployer} from "./StoxWrappedTokenVaultBeaconSetDeployer.sol";
+import {LibProdDeployV1} from "../../lib/LibProdDeployV1.sol";
+import {StoxWrappedTokenVault} from "../StoxWrappedTokenVault.sol";
 
 /// @title StoxUnifiedDeployer
 /// @notice Deploys a new OffchainAssetReceiptVault and a new
@@ -28,13 +28,17 @@ contract StoxUnifiedDeployer {
     /// StoxWrappedTokenVault linked to the OffchainAssetReceiptVault.
     /// @param config The configuration for the OffchainAssetReceiptVault. The
     /// resulting asset address is used to deploy the StoxWrappedTokenVault.
+    // Reentrancy is not exploitable here because this contract is entirely
+    // stateless — no storage, no balances. A reentrant call would just create
+    // another independent vault pair.
+    // slither-disable-next-line reentrancy-events
     function newTokenAndWrapperVault(OffchainAssetReceiptVaultConfigV2 memory config) external {
         OffchainAssetReceiptVault asset = OffchainAssetReceiptVaultBeaconSetDeployer(
-            LibProdDeploy.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
-        ).newOffchainAssetReceiptVault(config);
+                LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+            ).newOffchainAssetReceiptVault(config);
         StoxWrappedTokenVault wrappedTokenVault = StoxWrappedTokenVaultBeaconSetDeployer(
-            LibProdDeploy.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
-        ).newStoxWrappedTokenVault(address(asset));
+                LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+            ).newStoxWrappedTokenVault(address(asset));
 
         emit Deployment(msg.sender, address(asset), address(wrappedTokenVault));
     }

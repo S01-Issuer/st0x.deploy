@@ -4,91 +4,131 @@ pragma solidity =0.8.25;
 
 import {Script} from "forge-std/Script.sol";
 
+import {LibRainDeploy} from "rain.deploy/lib/LibRainDeploy.sol";
+import {LibProdDeployV2} from "../src/lib/LibProdDeployV2.sol";
+import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
+import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
+import {StoxWrappedTokenVault} from "../src/concrete/StoxWrappedTokenVault.sol";
+import {StoxWrappedTokenVaultBeacon} from "../src/concrete/StoxWrappedTokenVaultBeacon.sol";
 import {
-    OffchainAssetReceiptVaultBeaconSetDeployer,
-    OffchainAssetReceiptVaultBeaconSetDeployerConfig
-} from "ethgild/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
-import {LibProdDeploy} from "src/lib/LibProdDeploy.sol";
-import {StoxReceipt} from "src/concrete/StoxReceipt.sol";
-import {StoxReceiptVault} from "src/concrete/StoxReceiptVault.sol";
+    StoxWrappedTokenVaultBeaconSetDeployer
+} from "../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
+import {StoxUnifiedDeployer} from "../src/concrete/deploy/StoxUnifiedDeployer.sol";
 import {
-    StoxWrappedTokenVaultBeaconSetDeployer,
-    StoxWrappedTokenVaultBeaconSetDeployerConfig
-} from "src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
-import {StoxWrappedTokenVault} from "src/concrete/StoxWrappedTokenVault.sol";
-import {StoxUnifiedDeployer} from "src/concrete/deploy/StoxUnifiedDeployer.sol";
+    StoxOffchainAssetReceiptVaultBeaconSetDeployer
+} from "../src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol";
 
-/// @dev The deployment suite name for the offchain asset receipt vault beacon
-/// set.
-bytes32 constant DEPLOYMENT_SUITE_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET =
-    keccak256("offchain-asset-receipt-vault-beacon-set");
+/// @dev Error thrown when the DEPLOYMENT_SUITE env var does not match any
+/// known suite.
+error UnknownDeploymentSuite(bytes32 suite);
 
-/// @dev The deployment suite name for the wrapped token vault beacon set.
-bytes32 constant DEPLOYMENT_SUITE_WRAPPED_TOKEN_VAULT_BEACON_SET = keccak256("wrapped-token-vault-beacon-set");
+// One suite per contract to avoid Zoltu factory nonce issues.
 
-/// @dev The deployment suite name for the unified deployer.
-bytes32 constant DEPLOYMENT_SUITE_UNIFIED_DEPLOYER = keccak256("unified-deployer");
+bytes32 constant DEPLOYMENT_SUITE_STOX_RECEIPT = keccak256("stox-receipt");
+bytes32 constant DEPLOYMENT_SUITE_STOX_RECEIPT_VAULT = keccak256("stox-receipt-vault");
+bytes32 constant DEPLOYMENT_SUITE_STOX_WRAPPED_TOKEN_VAULT = keccak256("stox-wrapped-token-vault");
+bytes32 constant DEPLOYMENT_SUITE_STOX_WRAPPED_TOKEN_VAULT_BEACON = keccak256("stox-wrapped-token-vault-beacon");
+bytes32 constant DEPLOYMENT_SUITE_STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER =
+    keccak256("stox-wrapped-token-vault-beacon-set-deployer");
+bytes32 constant DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER =
+    keccak256("stox-offchain-asset-receipt-vault-beacon-set-deployer");
+bytes32 constant DEPLOYMENT_SUITE_STOX_UNIFIED_DEPLOYER = keccak256("stox-unified-deployer");
 
 contract Deploy is Script {
-    /// @notice Deploys the OffchainAssetReceiptVaultBeaconSetDeployer contract.
-    /// Creates both StoxReceipt and StoxReceiptVault anew for the initial
-    /// implementations. Initial owner is set to the BEACON_INIITAL_OWNER
-    /// constant in LibProdDeploy.
-    function deployOffchainAssetReceiptVaultBeaconSet(uint256 deploymentKey) internal {
-        vm.startBroadcast(deploymentKey);
+    mapping(string => mapping(address => bytes32)) internal depCodeHashes;
 
-        new OffchainAssetReceiptVaultBeaconSetDeployer(
-            OffchainAssetReceiptVaultBeaconSetDeployerConfig({
-                initialOwner: LibProdDeploy.BEACON_INIITAL_OWNER,
-                initialReceiptImplementation: address(new StoxReceipt()),
-                initialOffchainAssetReceiptVaultImplementation: address(new StoxReceiptVault())
-            })
-        );
-
-        vm.stopBroadcast();
-    }
-
-    /// @notice Deploys the StoxWrappedTokenVaultBeaconSetDeployer contract.
-    /// Creates a StoxWrappedTokenVault anew for the initial implementation.
-    /// Initial owner is set to the BEACON_INIITAL_OWNER constant in
-    /// LibProdDeploy.
-    function deployWrappedTokenVaultBeaconSet(uint256 deploymentKey) internal {
-        vm.startBroadcast(deploymentKey);
-
-        new StoxWrappedTokenVaultBeaconSetDeployer(
-            StoxWrappedTokenVaultBeaconSetDeployerConfig({
-                initialOwner: LibProdDeploy.BEACON_INIITAL_OWNER,
-                initialStoxWrappedTokenVaultImplementation: address(new StoxWrappedTokenVault())
-            })
-        );
-
-        vm.stopBroadcast();
-    }
-
-    /// @notice Deploys the StoxUnifiedDeployer contract.
-    function deployUnifiedDeployer(uint256 deploymentKey) internal {
-        vm.startBroadcast(deploymentKey);
-
-        new StoxUnifiedDeployer();
-
-        vm.stopBroadcast();
-    }
-
-    /// @notice Entry point for the deployment script. Dispatches to the
-    /// appropriate deployment function based on the DEPLOYMENT_SUITE environment
-    /// variable.
-    function run() public {
+    function deploySuite(
+        bytes memory creationCode,
+        string memory contractPath,
+        address expectedAddress,
+        bytes32 expectedCodeHash,
+        address[] memory dependencies
+    ) internal {
+        string[] memory networks = LibRainDeploy.supportedNetworks();
         uint256 deployerPrivateKey = vm.envUint("DEPLOYMENT_KEY");
-        bytes32 suite = keccak256(bytes(vm.envString("DEPLOYMENT_SUITE")));
 
-        if (suite == DEPLOYMENT_SUITE_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET) {
-            deployOffchainAssetReceiptVaultBeaconSet(deployerPrivateKey);
-        } else if (suite == DEPLOYMENT_SUITE_WRAPPED_TOKEN_VAULT_BEACON_SET) {
-            deployWrappedTokenVaultBeaconSet(deployerPrivateKey);
-        } else if (suite == DEPLOYMENT_SUITE_UNIFIED_DEPLOYER) {
-            deployUnifiedDeployer(deployerPrivateKey);
+        LibRainDeploy.deployAndBroadcast(
+            vm,
+            networks,
+            deployerPrivateKey,
+            creationCode,
+            contractPath,
+            expectedAddress,
+            expectedCodeHash,
+            dependencies,
+            depCodeHashes
+        );
+    }
+
+    function run() public {
+        bytes32 suite = keccak256(bytes(vm.envString("DEPLOYMENT_SUITE")));
+        address[] memory noDeps = new address[](0);
+
+        if (suite == DEPLOYMENT_SUITE_STOX_RECEIPT) {
+            deploySuite(
+                type(StoxReceipt).creationCode,
+                "src/concrete/StoxReceipt.sol:StoxReceipt",
+                LibProdDeployV2.STOX_RECEIPT,
+                LibProdDeployV2.STOX_RECEIPT_CODEHASH,
+                noDeps
+            );
+        } else if (suite == DEPLOYMENT_SUITE_STOX_RECEIPT_VAULT) {
+            deploySuite(
+                type(StoxReceiptVault).creationCode,
+                "src/concrete/StoxReceiptVault.sol:StoxReceiptVault",
+                LibProdDeployV2.STOX_RECEIPT_VAULT,
+                LibProdDeployV2.STOX_RECEIPT_VAULT_CODEHASH,
+                noDeps
+            );
+        } else if (suite == DEPLOYMENT_SUITE_STOX_WRAPPED_TOKEN_VAULT) {
+            deploySuite(
+                type(StoxWrappedTokenVault).creationCode,
+                "src/concrete/StoxWrappedTokenVault.sol:StoxWrappedTokenVault",
+                LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT,
+                LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_CODEHASH,
+                noDeps
+            );
+        } else if (suite == DEPLOYMENT_SUITE_STOX_WRAPPED_TOKEN_VAULT_BEACON) {
+            address[] memory deps = new address[](1);
+            deps[0] = LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT;
+            deploySuite(
+                type(StoxWrappedTokenVaultBeacon).creationCode,
+                "src/concrete/StoxWrappedTokenVaultBeacon.sol:StoxWrappedTokenVaultBeacon",
+                LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON,
+                LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH,
+                deps
+            );
+        } else if (suite == DEPLOYMENT_SUITE_STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER) {
+            address[] memory deps = new address[](1);
+            deps[0] = LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON;
+            deploySuite(
+                type(StoxWrappedTokenVaultBeaconSetDeployer).creationCode,
+                "src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol:StoxWrappedTokenVaultBeaconSetDeployer",
+                LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER,
+                LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH,
+                deps
+            );
+        } else if (suite == DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER) {
+            address[] memory deps = new address[](2);
+            deps[0] = LibProdDeployV2.STOX_RECEIPT;
+            deps[1] = LibProdDeployV2.STOX_RECEIPT_VAULT;
+            deploySuite(
+                type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode,
+                "src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer",
+                LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER,
+                LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH,
+                deps
+            );
+        } else if (suite == DEPLOYMENT_SUITE_STOX_UNIFIED_DEPLOYER) {
+            deploySuite(
+                type(StoxUnifiedDeployer).creationCode,
+                "src/concrete/deploy/StoxUnifiedDeployer.sol:StoxUnifiedDeployer",
+                LibProdDeployV2.STOX_UNIFIED_DEPLOYER,
+                LibProdDeployV2.STOX_UNIFIED_DEPLOYER_CODEHASH,
+                noDeps
+            );
         } else {
-            revert("Unknown deployment suite");
+            revert UnknownDeploymentSuite(suite);
         }
     }
 }

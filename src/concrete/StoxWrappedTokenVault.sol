@@ -2,11 +2,15 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {ERC4626Upgradeable} from
-    "openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC4626Upgradeable.sol";
+import {
+    ERC4626Upgradeable
+} from "openzeppelin-contracts-upgradeable/contracts/token/ERC20/extensions/ERC4626Upgradeable.sol";
 import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import {ICLONEABLE_V2_SUCCESS, ICloneableV2} from "rain.factory/interface/ICloneableV2.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+
+/// @dev Error raised when a zero address is provided for the vault asset.
+error ZeroAsset();
 
 /// @title StoxWrappedTokenVault
 /// @notice An ERC-4626 compliant vault that wraps an underlying token, intended
@@ -21,7 +25,7 @@ import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/exten
 /// The downside is that the wrapper token will trade at a premium or discount
 /// relative to the offchain asset that is ostensibly being tokenized, but the
 /// benefit is that the wrapper token can easily integrate with defi protocols
-/// that make minimal assuptions/affordances beyond basic ERC20 functionality.
+/// that make minimal assumptions/affordances beyond basic ERC20 functionality.
 contract StoxWrappedTokenVault is ERC4626Upgradeable, ICloneableV2 {
     /// @dev Emitted when the StoxWrappedTokenVault is initialized.
     /// @param sender The address that initiated the initialization.
@@ -41,8 +45,11 @@ contract StoxWrappedTokenVault is ERC4626Upgradeable, ICloneableV2 {
     }
 
     /// @inheritdoc ICloneableV2
+    /// @dev data is `abi.encode(address asset)` where asset is the underlying
+    /// ERC20 token (typically a StoxReceiptVault) to wrap in this ERC4626 vault.
     function initialize(bytes calldata data) external initializer returns (bytes32) {
         (address asset) = abi.decode(data, (address));
+        if (asset == address(0)) revert ZeroAsset();
         __ERC4626_init(ERC20Upgradeable(asset));
         __ERC20_init("", "");
 
