@@ -3,18 +3,10 @@
 pragma solidity =0.8.25;
 
 import {IBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
-import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
 import {StoxWrappedTokenVault} from "../StoxWrappedTokenVault.sol";
 import {ICLONEABLE_V2_SUCCESS} from "rain.factory/interface/ICloneableV2.sol";
-
-/// @dev Error raised when a zero address is provided for the
-/// StoxWrappedTokenVault implementation.
-error ZeroVaultImplementation();
-
-/// @dev Error raised when a zero address is provided for the initial beacon
-/// owner.
-error ZeroBeaconOwner();
+import {DEPLOYED_ADDRESS as BEACON_ADDRESS} from "../../generated/StoxWrappedTokenVaultBeacon.pointers.sol";
 
 /// @dev Error raised when the StoxWrappedTokenVault initialization fails.
 error InitializeVaultFailed();
@@ -22,22 +14,12 @@ error InitializeVaultFailed();
 /// @dev Error raised when a zero address is provided for the vault asset.
 error ZeroVaultAsset();
 
-/// @title StoxWrappedTokenVaultBeaconSetDeployerConfig
-/// @notice Configuration for the StoxWrappedTokenVaultBeaconSetDeployer
-/// construction.
-/// @param initialOwner The initial owner of the StoxWrappedTokenVault beacon.
-/// @param initialStoxWrappedTokenVaultImplementation The initial implementation
-/// contract for the StoxWrappedTokenVault beacon.
-struct StoxWrappedTokenVaultBeaconSetDeployerConfig {
-    address initialOwner;
-    address initialStoxWrappedTokenVaultImplementation;
-}
-
 /// @title StoxWrappedTokenVaultBeaconSetDeployer
 /// @notice Deploys and manages a beacon set for StoxWrappedTokenVault contracts.
-/// Modelled off the OffchainAssetReceiptVaultBeaconSetDeployer contract, but
-/// creates StoxWrappedTokenVault contracts instead.
-/// In practise, using this directly alongside the
+/// The beacon is deployed separately via Zoltu and referenced by its
+/// deterministic address. This makes the deployer itself Zoltu-deployable
+/// (no constructor args).
+/// In practice, using this directly alongside the
 /// OffchainAssetReceiptVaultBeaconSetDeployer is error prone and tedious as it
 /// is not atomic, so the StoxUnifiedDeployer contract should be used instead
 /// for most use cases.
@@ -48,33 +30,20 @@ contract StoxWrappedTokenVaultBeaconSetDeployer {
     /// StoxWrappedTokenVault contract.
     event Deployment(address sender, address stoxWrappedTokenVault);
 
-    /// The beacon for the StoxWrappedTokenVault implementation contracts.
-    IBeacon public immutable iStoxWrappedTokenVaultBeacon;
-
-    /// @param config The configuration for the deployer.
-    constructor(StoxWrappedTokenVaultBeaconSetDeployerConfig memory config) {
-        if (address(config.initialStoxWrappedTokenVaultImplementation) == address(0)) {
-            revert ZeroVaultImplementation();
-        }
-        if (config.initialOwner == address(0)) {
-            revert ZeroBeaconOwner();
-        }
-
-        iStoxWrappedTokenVaultBeacon =
-            new UpgradeableBeacon(config.initialStoxWrappedTokenVaultImplementation, config.initialOwner);
-    }
-
     /// Deploys and initializes a new StoxWrappedTokenVault contract.
     /// @param asset The address of the underlying asset for the vault.
     /// @return stoxWrappedTokenVault The address of the deployed
     /// StoxWrappedTokenVault contract.
+    // Reentrancy is not exploitable here because this contract holds no mutable
+    // state between calls. Each invocation creates an independent proxy.
+    // slither-disable-next-line reentrancy-events
     function newStoxWrappedTokenVault(address asset) external returns (StoxWrappedTokenVault) {
         if (asset == address(0)) {
             revert ZeroVaultAsset();
         }
 
         StoxWrappedTokenVault stoxWrappedTokenVault =
-            StoxWrappedTokenVault(address(new BeaconProxy(address(iStoxWrappedTokenVaultBeacon), "")));
+            StoxWrappedTokenVault(address(new BeaconProxy(BEACON_ADDRESS, "")));
 
         emit Deployment(msg.sender, address(stoxWrappedTokenVault));
 

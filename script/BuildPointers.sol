@@ -10,6 +10,11 @@ import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxUnifiedDeployer} from "../src/concrete/deploy/StoxUnifiedDeployer.sol";
+import {StoxWrappedTokenVaultBeacon} from "../src/concrete/StoxWrappedTokenVaultBeacon.sol";
+import {StoxWrappedTokenVaultBeaconSetDeployer} from "../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
+import {
+    StoxOffchainAssetReceiptVaultBeaconSetDeployer
+} from "../src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol";
 
 contract BuildPointers is Script {
     function addressConstantString(address addr) internal pure returns (string memory) {
@@ -48,6 +53,12 @@ contract BuildPointers is Script {
         buildContractPointers("StoxReceipt", type(StoxReceipt).creationCode);
         buildContractPointers("StoxReceiptVault", type(StoxReceiptVault).creationCode);
         buildContractPointers("StoxWrappedTokenVault", type(StoxWrappedTokenVault).creationCode);
+        // Beacon must be built before the deployer since the deployer imports
+        // the beacon's pointer file.
+        buildContractPointers("StoxWrappedTokenVaultBeacon", type(StoxWrappedTokenVaultBeacon).creationCode);
+        buildContractPointers("StoxWrappedTokenVaultBeaconSetDeployer", type(StoxWrappedTokenVaultBeaconSetDeployer).creationCode);
+        // OARV deployer depends on StoxReceipt and StoxReceiptVault pointers.
+        buildContractPointers("StoxOffchainAssetReceiptVaultBeaconSetDeployer", type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode);
         buildContractPointers("StoxUnifiedDeployer", type(StoxUnifiedDeployer).creationCode);
     }
 }

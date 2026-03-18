@@ -8,11 +8,6 @@ pragma solidity ^0.8.25;
 /// (non-Zoltu) deployment.
 // slither-disable-next-line too-many-digits
 library LibProdDeployV1 {
-    /// @dev The initial owner for beacon set deployers. Resolves to
-    /// rainlang.eth.
-    /// https://basescan.org/address/0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b
-    address constant BEACON_INITIAL_OWNER = address(0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b);
-
     /// @dev The OffchainAssetReceiptVault beacon set deployer on Base.
     /// https://basescan.org/address/0x2191981ca2477b745870cc307cbeb4cb2967ace3
     address constant OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER =

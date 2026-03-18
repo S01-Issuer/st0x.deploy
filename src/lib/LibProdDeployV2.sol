@@ -18,6 +18,18 @@ import {
     BYTECODE_HASH as STOX_UNIFIED_DEPLOYER_HASH,
     DEPLOYED_ADDRESS as STOX_UNIFIED_DEPLOYER_ADDR
 } from "../generated/StoxUnifiedDeployer.pointers.sol";
+import {
+    BYTECODE_HASH as STOX_WRAPPED_TOKEN_VAULT_BEACON_HASH,
+    DEPLOYED_ADDRESS as STOX_WRAPPED_TOKEN_VAULT_BEACON_ADDR
+} from "../generated/StoxWrappedTokenVaultBeacon.pointers.sol";
+import {
+    BYTECODE_HASH as STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_HASH,
+    DEPLOYED_ADDRESS as STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_ADDR
+} from "../generated/StoxWrappedTokenVaultBeaconSetDeployer.pointers.sol";
+import {
+    BYTECODE_HASH as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_HASH,
+    DEPLOYED_ADDRESS as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_ADDR
+} from "../generated/StoxOffchainAssetReceiptVaultBeaconSetDeployer.pointers.sol";
 
 /// @title LibProdDeployV2
 /// @notice V2 production deployment addresses and codehashes for the Stox
@@ -43,4 +55,22 @@ library LibProdDeployV2 {
     address constant STOX_UNIFIED_DEPLOYER = STOX_UNIFIED_DEPLOYER_ADDR;
     /// @dev Codehash of StoxUnifiedDeployer when deployed via Zoltu.
     bytes32 constant STOX_UNIFIED_DEPLOYER_CODEHASH = STOX_UNIFIED_DEPLOYER_HASH;
+
+    /// @dev Deterministic Zoltu address for StoxWrappedTokenVaultBeacon.
+    address constant STOX_WRAPPED_TOKEN_VAULT_BEACON = STOX_WRAPPED_TOKEN_VAULT_BEACON_ADDR;
+    /// @dev Codehash of StoxWrappedTokenVaultBeacon when deployed via Zoltu.
+    bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH = STOX_WRAPPED_TOKEN_VAULT_BEACON_HASH;
+
+    /// @dev Deterministic Zoltu address for StoxOffchainAssetReceiptVaultBeaconSetDeployer.
+    address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER =
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_ADDR;
+    /// @dev Codehash of StoxOffchainAssetReceiptVaultBeaconSetDeployer when deployed via Zoltu.
+    bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH =
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_HASH;
+
+    /// @dev Deterministic Zoltu address for StoxWrappedTokenVaultBeaconSetDeployer.
+    address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER = STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_ADDR;
+    /// @dev Codehash of StoxWrappedTokenVaultBeaconSetDeployer when deployed via Zoltu.
+    bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH =
+        STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_HASH;
 }
