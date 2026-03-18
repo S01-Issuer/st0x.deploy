@@ -11,6 +11,7 @@ import {StoxWrappedTokenVaultBeacon} from "../../../src/concrete/StoxWrappedToke
 import {LibRainDeploy} from "rain.deploy/lib/LibRainDeploy.sol";
 import {LibProdDeployV2} from "../../../src/lib/LibProdDeployV2.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
+import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {MockERC20} from "../../concrete/MockERC20.sol";
 
 contract StoxWrappedTokenVaultTest is Test {
@@ -18,7 +19,7 @@ contract StoxWrappedTokenVaultTest is Test {
     /// Constructor disables initializers on the implementation.
     function testConstructorDisablesInitializers() external {
         StoxWrappedTokenVault impl = new StoxWrappedTokenVault();
-        vm.expectRevert();
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
         impl.initialize(abi.encode(address(1)));
     }
 
