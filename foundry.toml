@@ -15,4 +15,6 @@ remappings = [
     "ethgild/=lib/ethgild/src/",
     "rain.factory/=lib/ethgild/lib/rain.factory/src/",
     "openzeppelin-contracts-upgradeable/=lib/ethgild/lib/openzeppelin-contracts-upgradeable/",
+    "rain.deploy/=lib/rain.deploy/src/",
+    "rain.sol.codegen/=lib/ethgild/lib/rain.flare/lib/rain.interpreter/lib/rain.interpreter.interface/lib/rain.sol.codegen/src/",
 ]
