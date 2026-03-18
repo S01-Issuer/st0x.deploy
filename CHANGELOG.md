@@ -3,6 +3,12 @@
 ## V2 (Zoltu deterministic deployment)
 
 Deployed via Zoltu factory — deterministic addresses across all EVM networks.
+All contracts are now parameterless and Zoltu-deployable.
+
+### New contracts
+
+- **StoxWrappedTokenVaultBeacon**: Inherits `UpgradeableBeacon` with hardcoded implementation and owner from constants. Replaces the beacon that was previously created inline in the deployer's constructor.
+- **StoxOffchainAssetReceiptVaultBeaconSetDeployer**: Inherits upstream `OffchainAssetReceiptVaultBeaconSetDeployer` with hardcoded config from constants. Replaces the upstream deployer that required constructor args.
 
 ### StoxWrappedTokenVault
 
@@ -10,20 +16,28 @@ Deployed via Zoltu factory — deterministic addresses across all EVM networks.
 
 ### StoxWrappedTokenVaultBeaconSetDeployer
 
-- Renamed immutable `I_STOX_WRAPPED_TOKEN_VAULT_BEACON` to `iStoxWrappedTokenVaultBeacon` (mixedCase convention).
+- **Breaking**: Removed constructor params (`StoxWrappedTokenVaultBeaconSetDeployerConfig` struct removed). Beacon address is now imported from `StoxWrappedTokenVaultBeacon.pointers.sol`.
+- Removed `iStoxWrappedTokenVaultBeacon` immutable (beacon is referenced by constant address).
+- Removed `ZeroVaultImplementation` and `ZeroBeaconOwner` errors (validation moved to beacon contract).
 - Moved `Deployment` event emit before `initialize` call (checks-effects-interactions).
 
 ### StoxReceipt
 
-- No changes from V1.
+- No bytecode changes from V1.
 
 ### StoxReceiptVault
 
-- No changes from V1.
+- No bytecode changes from V1.
 
 ### StoxUnifiedDeployer
 
-- No changes from V1.
+- No bytecode changes from V1.
+
+### Deployment
+
+- All contracts deploy via `LibRainDeploy.deployAndBroadcast()` with address and codehash verification.
+- `Deploy.sol` verifies each deployed address matches the expected Zoltu deterministic address.
+- Pointer files in `src/generated/` contain `BYTECODE_HASH`, `DEPLOYED_ADDRESS`, `CREATION_CODE`, and `RUNTIME_CODE` for each contract.
 
 ## V1 (initial Base deployment)
 

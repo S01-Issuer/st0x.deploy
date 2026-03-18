@@ -81,8 +81,11 @@ contract StoxProdBaseTest is Test {
         assertEq(vaultImpl.codehash, LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_IMPLEMENTATION_BASE_CODEHASH_V1);
     }
 
-    /// Verify creation bytecodes match compiled artifacts.
-    function _checkAllCreationBytecodes() internal view {
+    /// Verify V1 creation bytecodes match compiled artifacts for contracts
+    /// that are unchanged between V1 and V2. Contracts that changed
+    /// (StoxWrappedTokenVault, StoxWrappedTokenVaultBeaconSetDeployer) are
+    /// verified in the V2 tests instead.
+    function _checkUnchangedCreationBytecodes() internal view {
         assertEq(
             vm.getCode("StoxReceipt.sol:StoxReceipt"),
             LibProdDeployV1.PROD_STOX_RECEIPT_CREATION_BYTECODE_V1
@@ -92,20 +95,8 @@ contract StoxProdBaseTest is Test {
             LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_CREATION_BYTECODE_V1
         );
         assertEq(
-            vm.getCode("StoxWrappedTokenVault.sol:StoxWrappedTokenVault"),
-            LibProdDeployV1.PROD_STOX_WRAPPED_TOKEN_VAULT_CREATION_BYTECODE_V1
-        );
-        assertEq(
-            vm.getCode("StoxWrappedTokenVaultBeaconSetDeployer.sol:StoxWrappedTokenVaultBeaconSetDeployer"),
-            LibProdDeployV1.PROD_STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CREATION_BYTECODE_V1
-        );
-        assertEq(
             vm.getCode("StoxUnifiedDeployer.sol:StoxUnifiedDeployer"),
             LibProdDeployV1.PROD_STOX_UNIFIED_DEPLOYER_CREATION_BYTECODE_V1
-        );
-        assertEq(
-            vm.getCode("OffchainAssetReceiptVaultBeaconSetDeployer.sol:OffchainAssetReceiptVaultBeaconSetDeployer"),
-            LibProdDeployV1.PROD_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_BYTECODE_V1
         );
     }
 
@@ -117,7 +108,7 @@ contract StoxProdBaseTest is Test {
 
     /// Creation bytecodes must match stored constants.
     function testProdCreationBytecodes() external view {
-        _checkAllCreationBytecodes();
+        _checkUnchangedCreationBytecodes();
     }
 
     /// All contracts MUST be deployed on Base.

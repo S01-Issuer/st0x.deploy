@@ -36,18 +36,27 @@ Fork tests require `RPC_URL_BASE_FORK` env var (set in `.env`). They validate de
 **Beacon Proxy + ERC4626 Vault Pattern:**
 - `StoxReceiptVault` (extends ethgild's `OffchainAssetReceiptVault`) — receipt-based RWA vault with ERC1155 receipts
 - `StoxWrappedTokenVault` (ERC4626 + ICloneableV2) — wraps the receipt vault, capturing rebases/dividends in price rather than supply
-- `StoxWrappedTokenVaultBeaconSetDeployer` — manages an `UpgradeableBeacon` for wrapped vault proxies
-- `StoxUnifiedDeployer` — atomically deploys a receipt vault + wrapped vault pair using hardcoded beacon deployer addresses from `LibProdDeploy`
+- `StoxWrappedTokenVaultBeacon` — `UpgradeableBeacon` with hardcoded implementation and owner from constants
+- `StoxWrappedTokenVaultBeaconSetDeployer` — creates beacon proxy instances, references beacon by Zoltu address
+- `StoxOffchainAssetReceiptVaultBeaconSetDeployer` — inherits upstream deployer with hardcoded config
+- `StoxUnifiedDeployer` — atomically deploys a receipt vault + wrapped vault pair
 
 **ICloneableV2 pattern** (from rain.factory): contracts have dual `initialize` overloads — `initialize(address)` always reverts (documents signature), `initialize(bytes)` is the real initializer returning `ICLONEABLE_V2_SUCCESS`.
 
-**Production addresses** are hardcoded in `LibProdDeploy` with Basescan links. Codehash constants are verified by fork tests against live Base deployments.
+**Zoltu deterministic deployment**: All contracts have parameterless constructors enabling deployment via the Zoltu factory for identical addresses across all EVM networks. Pointer files in `src/generated/` contain deterministic addresses and bytecodes.
+
+**Production constants** are split by version:
+- `LibProdDeploy` — version-independent (beacon owner)
+- `LibProdDeployV1` — V1 Base deployment addresses, codehashes, creation bytecodes
+- `LibProdDeployV2` — V2 Zoltu addresses and codehashes from generated pointers
 
 ## Dependencies
 
 Git submodules managed via Foundry. Key remappings in `foundry.toml`:
 - `ethgild/` → receipt vault framework
 - `rain.factory/` → clonable factory pattern (ICloneableV2)
+- `rain.deploy/` → Zoltu deterministic deployment
+- `rain.sol.codegen/` → pointer file generation
 - `openzeppelin-contracts-upgradeable/` → ERC4626, ERC20, beacon proxies
 
 ## Compiler Settings
