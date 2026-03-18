@@ -11,6 +11,10 @@ evm_version = "cancun"
 bytecode_hash = "none"
 cbor_metadata = false
 
+fs_permissions = [
+  { access = "read-write", path = "src/generated" },
+]
+
 remappings = [
     "ethgild/=lib/ethgild/src/",
     "rain.factory/=lib/ethgild/lib/rain.factory/src/",
