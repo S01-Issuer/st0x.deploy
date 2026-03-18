@@ -17,6 +17,7 @@ import {
 } from "../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
 import {StoxWrappedTokenVault} from "../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxUnifiedDeployer} from "../src/concrete/deploy/StoxUnifiedDeployer.sol";
+import {LibRainDeploy} from "rain.deploy/lib/LibRainDeploy.sol";
 
 /// @dev The deployment suite name for the offchain asset receipt vault beacon
 /// set.
@@ -35,19 +36,22 @@ error UnknownDeploymentSuite(bytes32 suite);
 
 contract Deploy is Script {
     /// @notice Deploys the OffchainAssetReceiptVaultBeaconSetDeployer contract.
-    /// Creates both StoxReceipt and StoxReceiptVault anew for the initial
-    /// implementations. Initial owner is set to the BEACON_INITIAL_OWNER
-    /// constant in LibProdDeployV1.
+    /// Implementations (StoxReceipt, StoxReceiptVault) are deployed via Zoltu
+    /// for deterministic addresses. The beacon set deployer itself uses `new`
+    /// because it requires constructor args.
     /// @param deploymentKey The private key used to broadcast the deployment
     /// transactions.
     function deployOffchainAssetReceiptVaultBeaconSet(uint256 deploymentKey) internal {
         vm.startBroadcast(deploymentKey);
 
+        address receipt = LibRainDeploy.deployZoltu(type(StoxReceipt).creationCode);
+        address receiptVault = LibRainDeploy.deployZoltu(type(StoxReceiptVault).creationCode);
+
         new OffchainAssetReceiptVaultBeaconSetDeployer(
             OffchainAssetReceiptVaultBeaconSetDeployerConfig({
                 initialOwner: LibProdDeployV1.BEACON_INITIAL_OWNER,
-                initialReceiptImplementation: address(new StoxReceipt()),
-                initialOffchainAssetReceiptVaultImplementation: address(new StoxReceiptVault())
+                initialReceiptImplementation: receipt,
+                initialOffchainAssetReceiptVaultImplementation: receiptVault
             })
         );
 
@@ -55,31 +59,34 @@ contract Deploy is Script {
     }
 
     /// @notice Deploys the StoxWrappedTokenVaultBeaconSetDeployer contract.
-    /// Creates a StoxWrappedTokenVault anew for the initial implementation.
-    /// Initial owner is set to the BEACON_INITIAL_OWNER constant in
-    /// LibProdDeployV1.
+    /// The StoxWrappedTokenVault implementation is deployed via Zoltu for a
+    /// deterministic address. The beacon set deployer itself uses `new`
+    /// because it requires constructor args.
     /// @param deploymentKey The private key used to broadcast the deployment
     /// transactions.
     function deployWrappedTokenVaultBeaconSet(uint256 deploymentKey) internal {
         vm.startBroadcast(deploymentKey);
 
+        address wrappedVault = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
+
         new StoxWrappedTokenVaultBeaconSetDeployer(
             StoxWrappedTokenVaultBeaconSetDeployerConfig({
                 initialOwner: LibProdDeployV1.BEACON_INITIAL_OWNER,
-                initialStoxWrappedTokenVaultImplementation: address(new StoxWrappedTokenVault())
+                initialStoxWrappedTokenVaultImplementation: wrappedVault
             })
         );
 
         vm.stopBroadcast();
     }
 
-    /// @notice Deploys the StoxUnifiedDeployer contract.
+    /// @notice Deploys the StoxUnifiedDeployer contract via Zoltu for a
+    /// deterministic address.
     /// @param deploymentKey The private key used to broadcast the deployment
     /// transactions.
     function deployUnifiedDeployer(uint256 deploymentKey) internal {
         vm.startBroadcast(deploymentKey);
 
-        new StoxUnifiedDeployer();
+        LibRainDeploy.deployZoltu(type(StoxUnifiedDeployer).creationCode);
 
         vm.stopBroadcast();
     }
