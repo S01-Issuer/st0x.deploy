@@ -24,10 +24,7 @@ contract StoxUnifiedDeployerIntegrationTest is Test {
         OffchainAssetReceiptVaultConfigV2 memory config = OffchainAssetReceiptVaultConfigV2({
             initialAdmin: address(this),
             receiptVaultConfig: ReceiptVaultConfigV2({
-                asset: address(0),
-                name: "Test Vault",
-                symbol: "TV",
-                receipt: address(0)
+                asset: address(0), name: "Test Vault", symbol: "TV", receipt: address(0)
             })
         });
 

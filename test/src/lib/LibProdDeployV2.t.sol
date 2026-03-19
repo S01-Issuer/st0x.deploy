@@ -34,8 +34,11 @@ import {
     StoxWrappedTokenVaultBeaconSetDeployer
 } from "../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
 import {
-    StoxOffchainAssetReceiptVaultBeaconSetDeployer
+    StoxOffchainAssetReceiptVaultBeaconSetDeployer,
+    OffchainAssetReceiptVaultBeaconSetDeployer
 } from "../../../src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol";
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {IBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
 import {
     CREATION_CODE as STOX_BEACON_CREATION_CODE,
     RUNTIME_CODE as STOX_BEACON_RUNTIME_CODE,
@@ -272,13 +275,10 @@ contract LibProdDeployV2Test is Test {
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(type(StoxReceipt).creationCode);
         LibRainDeploy.deployZoltu(type(StoxReceiptVault).creationCode);
-        address deployed =
-            LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode);
+        address deployed = LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode);
         assertEq(deployed, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
         assertTrue(deployed.code.length > 0);
-        assertEq(
-            deployed.codehash, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH
-        );
+        assertEq(deployed.codehash, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH);
     }
 
     function testCreationCodeStoxOffchainAssetReceiptVaultBeaconSetDeployer() external pure {
@@ -292,15 +292,49 @@ contract LibProdDeployV2Test is Test {
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(type(StoxReceipt).creationCode);
         LibRainDeploy.deployZoltu(type(StoxReceiptVault).creationCode);
-        address deployed =
-            LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode);
+        address deployed = LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode);
         assertEq(keccak256(STOX_OARV_DEPLOYER_RUNTIME_CODE), keccak256(deployed.code));
     }
 
     function testGeneratedAddressStoxOffchainAssetReceiptVaultBeaconSetDeployer() external pure {
         assertEq(
-            STOX_OARV_DEPLOYER_GENERATED_ADDRESS,
-            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+            STOX_OARV_DEPLOYER_GENERATED_ADDRESS, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+        );
+    }
+
+    // --- OARV deployer beacon configuration ---
+
+    /// OARV deployer's receipt beacon has correct implementation and owner.
+    function testOarvDeployerReceiptBeaconConfig() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(type(StoxReceipt).creationCode);
+        LibRainDeploy.deployZoltu(type(StoxReceiptVault).creationCode);
+        address deployed = LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode);
+        OffchainAssetReceiptVaultBeaconSetDeployer deployer = OffchainAssetReceiptVaultBeaconSetDeployer(deployed);
+
+        IBeacon receiptBeacon = deployer.I_RECEIPT_BEACON();
+        assertEq(receiptBeacon.implementation(), LibProdDeployV2.STOX_RECEIPT, "receipt beacon implementation mismatch");
+        assertEq(
+            Ownable(address(receiptBeacon)).owner(),
+            LibProdDeployV2.BEACON_INITIAL_OWNER,
+            "receipt beacon owner mismatch"
+        );
+    }
+
+    /// OARV deployer's vault beacon has correct implementation and owner.
+    function testOarvDeployerVaultBeaconConfig() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(type(StoxReceipt).creationCode);
+        LibRainDeploy.deployZoltu(type(StoxReceiptVault).creationCode);
+        address deployed = LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode);
+        OffchainAssetReceiptVaultBeaconSetDeployer deployer = OffchainAssetReceiptVaultBeaconSetDeployer(deployed);
+
+        IBeacon vaultBeacon = deployer.I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON();
+        assertEq(
+            vaultBeacon.implementation(), LibProdDeployV2.STOX_RECEIPT_VAULT, "vault beacon implementation mismatch"
+        );
+        assertEq(
+            Ownable(address(vaultBeacon)).owner(), LibProdDeployV2.BEACON_INITIAL_OWNER, "vault beacon owner mismatch"
         );
     }
 }

@@ -36,7 +36,9 @@ import {
 /// deployment via the Zoltu deterministic deployer. Addresses are
 /// deterministic and identical across all EVM networks.
 library LibProdDeployV2 {
-    /// @dev The initial owner for beacon set deployers. Resolves to
+    /// @dev The initial owner for all V2 beacons, including
+    /// StoxWrappedTokenVaultBeacon and the beacons created by
+    /// StoxOffchainAssetReceiptVaultBeaconSetDeployer. Resolves to
     /// rainlang.eth.
     /// https://basescan.org/address/0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b
     address constant BEACON_INITIAL_OWNER = address(0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b);

@@ -23,7 +23,7 @@ import {MockERC20} from "../../../concrete/MockERC20.sol";
 
 contract StoxProdBaseTest is Test {
     /// Verify all deployed contract addresses, codehashes on Base fork.
-    function _checkAllOnChain() internal view {
+    function checkAllV1OnChain() internal view {
         // OffchainAssetReceiptVaultBeaconSetDeployer
         assertTrue(
             LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER.code.length > 0,
@@ -62,9 +62,7 @@ contract StoxProdBaseTest is Test {
         // Wrapped vault beacon owner must match BEACON_INITIAL_OWNER.
         address wrappedBeacon = abi.decode(beaconData, (address));
         assertEq(
-            Ownable(wrappedBeacon).owner(),
-            LibProdDeployV1.BEACON_INITIAL_OWNER,
-            "Wrapped vault beacon owner mismatch"
+            Ownable(wrappedBeacon).owner(), LibProdDeployV1.BEACON_INITIAL_OWNER, "Wrapped vault beacon owner mismatch"
         );
 
         // StoxUnifiedDeployer
@@ -113,7 +111,7 @@ contract StoxProdBaseTest is Test {
     /// that are unchanged between V1 and V2. Contracts that changed
     /// (StoxWrappedTokenVault, StoxWrappedTokenVaultBeaconSetDeployer,
     /// StoxUnifiedDeployer) are verified in the V2 tests instead.
-    function _checkUnchangedCreationBytecodes() internal view {
+    function checkUnchangedCreationBytecodes() internal view {
         assertEq(vm.getCode("StoxReceipt.sol:StoxReceipt"), LibProdDeployV1.PROD_STOX_RECEIPT_CREATION_BYTECODE_V1);
         assertEq(
             vm.getCode("StoxReceiptVault.sol:StoxReceiptVault"),
@@ -123,13 +121,12 @@ contract StoxProdBaseTest is Test {
 
     /// Creation bytecodes must match stored constants.
     function testProdCreationBytecodes() external view {
-        _checkUnchangedCreationBytecodes();
+        checkUnchangedCreationBytecodes();
     }
 
     /// All contracts MUST be deployed on Base.
     function testProdDeployBase() external {
         LibTestProd.createSelectForkBase(vm);
-        _checkAllOnChain();
+        checkAllV1OnChain();
     }
-
 }

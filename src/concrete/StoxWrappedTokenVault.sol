@@ -60,11 +60,13 @@ contract StoxWrappedTokenVault is ERC4626Upgradeable, ICloneableV2 {
     }
 
     /// Dynamically computes "Wrapped " + the underlying asset's name.
+    /// @return The wrapped token name, e.g. "Wrapped MyToken".
     function name() public view override(IERC20Metadata, ERC20Upgradeable) returns (string memory) {
         return string.concat("Wrapped ", IERC20Metadata(asset()).name());
     }
 
     /// Dynamically computes "w" + the underlying asset's symbol.
+    /// @return The wrapped token symbol, e.g. "wMTK".
     function symbol() public view override(IERC20Metadata, ERC20Upgradeable) returns (string memory) {
         return string.concat("w", IERC20Metadata(asset()).symbol());
     }

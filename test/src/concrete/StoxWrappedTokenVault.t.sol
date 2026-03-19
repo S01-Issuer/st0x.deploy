@@ -251,6 +251,48 @@ contract StoxWrappedTokenVaultTest is Test {
         assertEq(vault.maxMint(receiver), type(uint256).max);
     }
 
+    /// maxWithdraw returns the caller's full asset balance after deposit.
+    function testMaxWithdrawMatchesDeposit(uint256 amount) external {
+        amount = bound(amount, 1, type(uint128).max);
+        LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
+        MockERC20 asset = new MockERC20();
+        StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
+                LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+            ).newStoxWrappedTokenVault(address(asset));
+
+        address alice = address(0xA11CE);
+        asset.mint(alice, amount);
+
+        vm.startPrank(alice);
+        asset.approve(address(vault), amount);
+        vault.deposit(amount, alice);
+        vm.stopPrank();
+
+        assertEq(vault.maxWithdraw(alice), amount, "maxWithdraw should equal deposited amount");
+        assertEq(vault.maxWithdraw(address(0xBEEF)), 0, "maxWithdraw should be zero for non-depositor");
+    }
+
+    /// maxRedeem returns the caller's full share balance after deposit.
+    function testMaxRedeemMatchesShares(uint256 amount) external {
+        amount = bound(amount, 1, type(uint128).max);
+        LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
+        MockERC20 asset = new MockERC20();
+        StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
+                LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+            ).newStoxWrappedTokenVault(address(asset));
+
+        address alice = address(0xA11CE);
+        asset.mint(alice, amount);
+
+        vm.startPrank(alice);
+        asset.approve(address(vault), amount);
+        uint256 shares = vault.deposit(amount, alice);
+        vm.stopPrank();
+
+        assertEq(vault.maxRedeem(alice), shares, "maxRedeem should equal share balance");
+        assertEq(vault.maxRedeem(address(0xBEEF)), 0, "maxRedeem should be zero for non-depositor");
+    }
+
     /// mint() mints specific shares and transfers correct assets.
     function testMintShares(uint256 shares) external {
         shares = bound(shares, 1, type(uint128).max);
@@ -271,6 +313,31 @@ contract StoxWrappedTokenVaultTest is Test {
 
         assertEq(assetsUsed, assetsNeeded, "mint must consume exactly previewMint assets");
         assertEq(vault.balanceOf(alice), shares, "alice share balance must equal minted shares");
+    }
+
+    /// previewRedeem agrees with actual assets returned on redeem.
+    function testPreviewRedeemMatchesActual(uint256 amount) external {
+        amount = bound(amount, 1, type(uint128).max);
+        LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
+        MockERC20 asset = new MockERC20();
+        StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
+                LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+            ).newStoxWrappedTokenVault(address(asset));
+
+        address alice = address(0xA11CE);
+        asset.mint(alice, amount);
+
+        vm.startPrank(alice);
+        asset.approve(address(vault), amount);
+        uint256 shares = vault.deposit(amount, alice);
+        vm.stopPrank();
+
+        uint256 expectedAssets = vault.previewRedeem(shares);
+
+        vm.prank(alice);
+        uint256 actualAssets = vault.redeem(shares, alice, alice);
+
+        assertEq(actualAssets, expectedAssets, "previewRedeem must match actual redeem");
     }
 
     /// redeem() burns shares and returns correct assets.
@@ -296,5 +363,37 @@ contract StoxWrappedTokenVaultTest is Test {
         assertEq(assetsReturned, amount, "redeem must return all deposited assets");
         assertEq(asset.balanceOf(alice), assetBalanceBefore + amount, "alice should receive all assets back");
         assertEq(vault.balanceOf(alice), 0, "alice shares must be zero after full redeem");
+    }
+
+    /// Direct asset transfer to the vault increases share price — shares are
+    /// now worth more assets than originally deposited. This is the vault's
+    /// core mechanism for capturing rebases/dividends in price.
+    function testSharePriceIncreasesAfterDirectTransfer(uint256 deposit, uint256 bonus) external {
+        deposit = bound(deposit, 1e18, type(uint128).max);
+        // Bonus must be large enough relative to deposit to survive ERC4626
+        // rounding (virtual offset of 1 share + 1 asset).
+        bonus = bound(bonus, deposit / 100 + 1, deposit);
+        LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
+        MockERC20 asset = new MockERC20();
+        StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
+                LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+            ).newStoxWrappedTokenVault(address(asset));
+
+        address alice = address(0xA11CE);
+        asset.mint(alice, deposit);
+
+        vm.startPrank(alice);
+        asset.approve(address(vault), deposit);
+        uint256 shares = vault.deposit(deposit, alice);
+        vm.stopPrank();
+
+        uint256 preBonus = vault.convertToAssets(shares);
+
+        // Simulate rebase/dividend by transferring bonus assets directly.
+        asset.mint(address(vault), bonus);
+
+        // After bonus: totalAssets increases and shares are worth more.
+        assertEq(vault.totalAssets(), deposit + bonus, "totalAssets should include bonus");
+        assertGt(vault.convertToAssets(shares), preBonus, "post-bonus: shares should be worth more");
     }
 }

@@ -30,6 +30,14 @@ contract BuildPointers is Script {
         );
     }
 
+    /// @notice Deploys a contract via the Zoltu factory and generates its
+    /// pointer file containing `DEPLOYED_ADDRESS`, `CREATION_CODE`, and
+    /// `RUNTIME_CODE` constants.
+    /// @param name Must exactly match the contract's Solidity filename (without
+    /// `.sol`), as it determines the generated pointer file path under
+    /// `src/generated/`.
+    /// @param creationCode The creation bytecode of the contract, typically
+    /// obtained via `type(ContractName).creationCode`.
     function buildContractPointers(string memory name, bytes memory creationCode) internal {
         address deployed = LibRainDeploy.deployZoltu(creationCode);
 

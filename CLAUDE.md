@@ -82,10 +82,14 @@ Production deployments are versioned (`LibProdDeployV1`, `LibProdDeployV2`, etc.
 
 ## Deployment
 
-`script/Deploy.sol` dispatches based on `DEPLOYMENT_SUITE` env var:
-- `offchain-asset-receipt-vault-beacon-set` — deploys receipt + receipt vault beacon set
-- `wrapped-token-vault-beacon-set` — deploys wrapped vault beacon set
-- `unified-deployer` — deploys the unified deployer
+`script/Deploy.sol` dispatches based on `DEPLOYMENT_SUITE` env var. One contract per suite to avoid Zoltu factory nonce issues:
+- `stox-receipt` — deploys StoxReceipt
+- `stox-receipt-vault` — deploys StoxReceiptVault
+- `stox-wrapped-token-vault` — deploys StoxWrappedTokenVault
+- `stox-wrapped-token-vault-beacon` — deploys StoxWrappedTokenVaultBeacon (depends on StoxWrappedTokenVault)
+- `stox-wrapped-token-vault-beacon-set-deployer` — deploys StoxWrappedTokenVaultBeaconSetDeployer (depends on beacon)
+- `stox-offchain-asset-receipt-vault-beacon-set-deployer` — deploys StoxOffchainAssetReceiptVaultBeaconSetDeployer (depends on StoxReceipt, StoxReceiptVault)
+- `stox-unified-deployer` — deploys StoxUnifiedDeployer
 
 Manual deployment via GitHub Actions workflow (`manual-sol-artifacts.yaml`) supports multiple networks.
 

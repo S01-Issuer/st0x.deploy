@@ -13,7 +13,7 @@ import {ICLONEABLE_V2_SUCCESS} from "rain.factory/interface/ICloneableV2.sol";
 /// @notice Fork tests demonstrating V1 on-chain behaviour that differs from
 /// V2. Each test documents a specific behavioural change.
 contract StoxWrappedTokenVaultV1ProdBaseTest is Test {
-    function _v1Beacon() internal returns (address) {
+    function resolveV1Beacon() internal returns (address) {
         LibTestProd.createSelectForkBase(vm);
         (bool ok, bytes memory data) = LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
             .staticcall(abi.encodeWithSignature("I_STOX_WRAPPED_TOKEN_VAULT_BEACON()"));
@@ -24,7 +24,7 @@ contract StoxWrappedTokenVaultV1ProdBaseTest is Test {
     /// V1 StoxWrappedTokenVault allows initializing with address(0) as the
     /// asset without reverting. V2 reverts with ZeroAsset.
     function testProdV1ZeroAssetDoesNotRevert() external {
-        address beacon = _v1Beacon();
+        address beacon = resolveV1Beacon();
         BeaconProxy proxy = new BeaconProxy(beacon, "");
 
         (bool initOk, bytes memory initData) =
@@ -53,7 +53,7 @@ contract StoxWrappedTokenVaultV1ProdBaseTest is Test {
     /// V1 BeaconSetDeployer emits Deployment event AFTER the initialize call.
     /// V2 emits it BEFORE (checks-effects-interactions).
     function testProdV1DeploymentEventAfterInitialize() external {
-        address beacon = _v1Beacon();
+        address beacon = resolveV1Beacon();
         address asset = IBeacon(beacon).implementation();
 
         vm.recordLogs();

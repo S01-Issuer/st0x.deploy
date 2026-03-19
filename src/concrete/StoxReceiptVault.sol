@@ -8,4 +8,9 @@ import {OffchainAssetReceiptVault} from "ethgild/concrete/vault/OffchainAssetRec
 /// @notice An OffchainAssetReceiptVault specialized for StoxReceipts. Currently
 /// there are no modifications to the base contract, but this is here to prepare
 /// for any future upgrades.
+/// @dev Inherits `ethgild/concrete/vault/OffchainAssetReceiptVault.sol`.
+/// Implements ICloneableV2: `initialize(bytes)` expects
+/// `abi.encode(OffchainAssetReceiptVaultConfigV2)`. Deployed as a proxy
+/// implementation via Zoltu deterministic deployment; constructor disables
+/// initializers.
 contract StoxReceiptVault is OffchainAssetReceiptVault {}

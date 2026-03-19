@@ -37,6 +37,19 @@ bytes32 constant DEPLOYMENT_SUITE_STOX_UNIFIED_DEPLOYER = keccak256("stox-unifie
 contract Deploy is Script {
     mapping(string => mapping(address => bytes32)) internal depCodeHashes;
 
+    /// @dev Deploys a single contract via the Zoltu deterministic deployer
+    /// across all supported networks. Reads `DEPLOYMENT_KEY` from the
+    /// environment, logs diagnostic information (expected address, codehash,
+    /// dependency state), then delegates to `LibRainDeploy.deployAndBroadcast`.
+    /// @param creationCode The creation bytecode of the contract to deploy.
+    /// @param contractPath Fully qualified contract path
+    /// (e.g. "src/concrete/StoxReceipt.sol:StoxReceipt").
+    /// @param expectedAddress The deterministic address the contract must
+    /// deploy to.
+    /// @param expectedCodeHash The expected codehash of the deployed runtime
+    /// bytecode.
+    /// @param dependencies Addresses of contracts that must already be deployed
+    /// on the target network before this contract is deployed.
     function deploySuite(
         bytes memory creationCode,
         string memory contractPath,
@@ -139,12 +152,15 @@ contract Deploy is Script {
                 deps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_UNIFIED_DEPLOYER) {
+            address[] memory deps = new address[](2);
+            deps[0] = LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER;
+            deps[1] = LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER;
             deploySuite(
                 type(StoxUnifiedDeployer).creationCode,
                 "src/concrete/deploy/StoxUnifiedDeployer.sol:StoxUnifiedDeployer",
                 LibProdDeployV2.STOX_UNIFIED_DEPLOYER,
                 LibProdDeployV2.STOX_UNIFIED_DEPLOYER_CODEHASH,
-                noDeps
+                deps
             );
         } else {
             revert UnknownDeploymentSuite(suite);
