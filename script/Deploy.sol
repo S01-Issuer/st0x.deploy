@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Script} from "forge-std/Script.sol";
+import {Script, console2} from "forge-std/Script.sol";
 
 import {LibRainDeploy} from "rain.deploy/lib/LibRainDeploy.sol";
 import {LibProdDeployV2} from "../src/lib/LibProdDeployV2.sol";
@@ -46,6 +46,20 @@ contract Deploy is Script {
     ) internal {
         string[] memory networks = LibRainDeploy.supportedNetworks();
         uint256 deployerPrivateKey = vm.envUint("DEPLOYMENT_KEY");
+
+        console2.log("Suite deploying:", contractPath);
+        console2.log("Expected address:", expectedAddress);
+        console2.log("Expected codehash:");
+        console2.logBytes32(expectedCodeHash);
+        console2.log("Chain ID:", block.chainid);
+        console2.log("Block number:", block.number);
+        console2.log("Dependencies count:", dependencies.length);
+        for (uint256 i = 0; i < dependencies.length; i++) {
+            console2.log("  Dep address:", dependencies[i]);
+            console2.log("  Dep code length:", dependencies[i].code.length);
+            console2.log("  Dep codehash:");
+            console2.logBytes32(dependencies[i].codehash);
+        }
 
         LibRainDeploy.deployAndBroadcast(
             vm,
