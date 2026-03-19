@@ -17,8 +17,6 @@ risk decisions without offchain coordination.
 
 ## Why
 
-- Lending protocols (Steakhouse/Edel) need rebasing to list tStocks as
-  collateral — primary blocker
 - 1:1 parity between offchain shares and onchain tokens is a core design goal
 - Corporate actions introduce information asymmetry between offchain and onchain
   — the registry makes this observable
