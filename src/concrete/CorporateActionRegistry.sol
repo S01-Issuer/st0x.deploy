@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {IAuthorizeV1} from "ethgild/interface/IAuthorizeV1.sol";
+import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {
     EffectiveTimeMustBeFuture,
     ActionNotScheduled,
@@ -94,7 +95,7 @@ struct ExecuteStateChange {
 /// dispatches an action to a token contract, the token's authorizer checks that
 /// the registry (as `msg.sender` to the token) holds the appropriate permission.
 /// This follows the same daisy-chain authorizer pattern used throughout ethgild.
-contract CorporateActionRegistry {
+contract CorporateActionRegistry is ReentrancyGuard {
     /// Emitted when a corporate action is scheduled for future execution.
     /// @param sender The address that scheduled the action.
     /// @param token The token this action targets.
@@ -140,6 +141,7 @@ contract CorporateActionRegistry {
     /// @return number The sequential number assigned to this action.
     function schedule(address token, bytes32 actionType, bytes calldata data, uint256 effectiveTime)
         external
+        nonReentrant
         returns (uint256 number)
     {
         if (effectiveTime <= block.timestamp) {
@@ -176,7 +178,7 @@ contract CorporateActionRegistry {
     /// @param token The token this action targets.
     /// @param actionType The type of corporate action.
     /// @param number The sequential number of the action to execute.
-    function execute(address token, bytes32 actionType, uint256 number) external {
+    function execute(address token, bytes32 actionType, uint256 number) external nonReentrant {
         Action storage action = sActions[token][actionType][number];
 
         if (action.state != ActionState.SCHEDULED) {
@@ -186,14 +188,17 @@ contract CorporateActionRegistry {
             revert ActionNotYetEffective(action.effectiveTime, block.timestamp);
         }
 
-        action.state = ActionState.IN_PROGRESS;
-
-        // Dispatch to the token contract based on action type.
-        _dispatch(token, actionType, number, action.data);
-
+        // Set state to COMPLETE before the external call (checks-effects-
+        // interactions pattern). The nonReentrant guard provides additional
+        // safety, but we follow CEI regardless. IN_PROGRESS is not used as
+        // an observable state — actions transition directly from SCHEDULED
+        // to COMPLETE.
         action.state = ActionState.COMPLETE;
 
         emit CorporateActionExecuted(msg.sender, token, actionType, number);
+
+        // Dispatch to the token contract based on action type.
+        _dispatch(token, actionType, number, action.data);
     }
 
     /// Read the full action struct for a given (token, actionType, number).
@@ -252,11 +257,11 @@ contract CorporateActionRegistry {
         bytes memory data,
         uint256 effectiveTime
     ) internal {
-        // Map action types to their corresponding permissions.
-        bytes32 permission;
-        if (actionType == ACTION_TYPE_NAME_SYMBOL) {
-            permission = UPDATE_NAME_SYMBOL;
-        } else {
+        // Map action types to their corresponding permissions. The else
+        // branch always reverts, but we initialize permission explicitly
+        // to satisfy static analysis (slither uninitialized-local).
+        bytes32 permission = UPDATE_NAME_SYMBOL;
+        if (actionType != ACTION_TYPE_NAME_SYMBOL) {
             // Unknown action types revert. This is intentionally strict —
             // the registry only supports known, audited action types.
             revert ActionDoesNotExist(token, actionType, number);
