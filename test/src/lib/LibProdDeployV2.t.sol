@@ -29,6 +29,28 @@ import {
     RUNTIME_CODE as STOX_UNIFIED_DEPLOYER_RUNTIME_CODE,
     DEPLOYED_ADDRESS as STOX_UNIFIED_DEPLOYER_GENERATED_ADDRESS
 } from "../../../src/generated/StoxUnifiedDeployer.pointers.sol";
+import {StoxWrappedTokenVaultBeacon} from "../../../src/concrete/StoxWrappedTokenVaultBeacon.sol";
+import {
+    StoxWrappedTokenVaultBeaconSetDeployer
+} from "../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
+import {
+    StoxOffchainAssetReceiptVaultBeaconSetDeployer
+} from "../../../src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol";
+import {
+    CREATION_CODE as STOX_BEACON_CREATION_CODE,
+    RUNTIME_CODE as STOX_BEACON_RUNTIME_CODE,
+    DEPLOYED_ADDRESS as STOX_BEACON_GENERATED_ADDRESS
+} from "../../../src/generated/StoxWrappedTokenVaultBeacon.pointers.sol";
+import {
+    CREATION_CODE as STOX_BEACON_SET_DEPLOYER_CREATION_CODE,
+    RUNTIME_CODE as STOX_BEACON_SET_DEPLOYER_RUNTIME_CODE,
+    DEPLOYED_ADDRESS as STOX_BEACON_SET_DEPLOYER_GENERATED_ADDRESS
+} from "../../../src/generated/StoxWrappedTokenVaultBeaconSetDeployer.pointers.sol";
+import {
+    CREATION_CODE as STOX_OARV_DEPLOYER_CREATION_CODE,
+    RUNTIME_CODE as STOX_OARV_DEPLOYER_RUNTIME_CODE,
+    DEPLOYED_ADDRESS as STOX_OARV_DEPLOYER_GENERATED_ADDRESS
+} from "../../../src/generated/StoxOffchainAssetReceiptVaultBeaconSetDeployer.pointers.sol";
 
 contract LibProdDeployV2Test is Test {
     // --- Zoltu deploy address tests ---
@@ -177,5 +199,108 @@ contract LibProdDeployV2Test is Test {
     /// constant.
     function testGeneratedAddressStoxUnifiedDeployer() external pure {
         assertEq(STOX_UNIFIED_DEPLOYER_GENERATED_ADDRESS, LibProdDeployV2.STOX_UNIFIED_DEPLOYER);
+    }
+
+    // --- StoxWrappedTokenVaultBeacon ---
+
+    /// Deploying StoxWrappedTokenVaultBeacon via Zoltu MUST produce the
+    /// expected address and codehash.
+    function testDeployAddressStoxWrappedTokenVaultBeacon() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
+        address deployed = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeacon).creationCode);
+        assertEq(deployed, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON);
+        assertTrue(deployed.code.length > 0);
+        assertEq(deployed.codehash, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH);
+    }
+
+    function testCreationCodeStoxWrappedTokenVaultBeacon() external pure {
+        assertEq(keccak256(STOX_BEACON_CREATION_CODE), keccak256(type(StoxWrappedTokenVaultBeacon).creationCode));
+    }
+
+    function testRuntimeCodeStoxWrappedTokenVaultBeacon() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
+        address deployed = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeacon).creationCode);
+        assertEq(keccak256(STOX_BEACON_RUNTIME_CODE), keccak256(deployed.code));
+    }
+
+    function testGeneratedAddressStoxWrappedTokenVaultBeacon() external pure {
+        assertEq(STOX_BEACON_GENERATED_ADDRESS, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON);
+    }
+
+    // --- StoxWrappedTokenVaultBeaconSetDeployer ---
+
+    /// Deploying StoxWrappedTokenVaultBeaconSetDeployer via Zoltu MUST produce
+    /// the expected address and codehash.
+    function testDeployAddressStoxWrappedTokenVaultBeaconSetDeployer() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
+        LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeacon).creationCode);
+        address deployed = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeaconSetDeployer).creationCode);
+        assertEq(deployed, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER);
+        assertTrue(deployed.code.length > 0);
+        assertEq(deployed.codehash, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH);
+    }
+
+    function testCreationCodeStoxWrappedTokenVaultBeaconSetDeployer() external pure {
+        assertEq(
+            keccak256(STOX_BEACON_SET_DEPLOYER_CREATION_CODE),
+            keccak256(type(StoxWrappedTokenVaultBeaconSetDeployer).creationCode)
+        );
+    }
+
+    function testRuntimeCodeStoxWrappedTokenVaultBeaconSetDeployer() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
+        LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeacon).creationCode);
+        address deployed = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeaconSetDeployer).creationCode);
+        assertEq(keccak256(STOX_BEACON_SET_DEPLOYER_RUNTIME_CODE), keccak256(deployed.code));
+    }
+
+    function testGeneratedAddressStoxWrappedTokenVaultBeaconSetDeployer() external pure {
+        assertEq(
+            STOX_BEACON_SET_DEPLOYER_GENERATED_ADDRESS, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+        );
+    }
+
+    // --- StoxOffchainAssetReceiptVaultBeaconSetDeployer ---
+
+    /// Deploying StoxOffchainAssetReceiptVaultBeaconSetDeployer via Zoltu MUST
+    /// produce the expected address and codehash.
+    function testDeployAddressStoxOffchainAssetReceiptVaultBeaconSetDeployer() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(type(StoxReceipt).creationCode);
+        LibRainDeploy.deployZoltu(type(StoxReceiptVault).creationCode);
+        address deployed =
+            LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode);
+        assertEq(deployed, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
+        assertTrue(deployed.code.length > 0);
+        assertEq(
+            deployed.codehash, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH
+        );
+    }
+
+    function testCreationCodeStoxOffchainAssetReceiptVaultBeaconSetDeployer() external pure {
+        assertEq(
+            keccak256(STOX_OARV_DEPLOYER_CREATION_CODE),
+            keccak256(type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode)
+        );
+    }
+
+    function testRuntimeCodeStoxOffchainAssetReceiptVaultBeaconSetDeployer() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(type(StoxReceipt).creationCode);
+        LibRainDeploy.deployZoltu(type(StoxReceiptVault).creationCode);
+        address deployed =
+            LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode);
+        assertEq(keccak256(STOX_OARV_DEPLOYER_RUNTIME_CODE), keccak256(deployed.code));
+    }
+
+    function testGeneratedAddressStoxOffchainAssetReceiptVaultBeaconSetDeployer() external pure {
+        assertEq(
+            STOX_OARV_DEPLOYER_GENERATED_ADDRESS,
+            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+        );
     }
 }

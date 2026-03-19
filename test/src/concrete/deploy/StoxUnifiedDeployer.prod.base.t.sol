@@ -2,18 +2,24 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std/Test.sol";
 
 import {StoxUnifiedDeployer} from "../../../../src/concrete/deploy/StoxUnifiedDeployer.sol";
 import {LibProdDeployV1} from "../../../../src/lib/LibProdDeployV1.sol";
+import {LibProdDeployV2} from "../../../../src/lib/LibProdDeployV2.sol";
 import {LibTestProd} from "../../../lib/LibTestProd.sol";
+import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 import {
-    OffchainAssetReceiptVaultBeaconSetDeployer
+    OffchainAssetReceiptVaultBeaconSetDeployer,
+    OffchainAssetReceiptVaultConfigV2
 } from "ethgild/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
+import {ReceiptVaultConfigV2} from "ethgild/abstract/ReceiptVault.sol";
 import {
     StoxWrappedTokenVaultBeaconSetDeployer
 } from "../../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
 import {IBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {MockERC20} from "../../../concrete/MockERC20.sol";
 
 contract StoxProdBaseTest is Test {
     /// Verify all deployed contract addresses, codehashes on Base fork.
@@ -53,6 +59,14 @@ contract StoxProdBaseTest is Test {
         assertTrue(wrappedImpl.code.length > 0, "StoxWrappedTokenVault implementation not deployed");
         assertEq(wrappedImpl.codehash, LibProdDeployV1.PROD_STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION_BASE_CODEHASH_V1);
 
+        // Wrapped vault beacon owner must match BEACON_INITIAL_OWNER.
+        address wrappedBeacon = abi.decode(beaconData, (address));
+        assertEq(
+            Ownable(wrappedBeacon).owner(),
+            LibProdDeployV1.BEACON_INITIAL_OWNER,
+            "Wrapped vault beacon owner mismatch"
+        );
+
         // StoxUnifiedDeployer
         assertTrue(LibProdDeployV1.STOX_UNIFIED_DEPLOYER.code.length > 0, "StoxUnifiedDeployer not deployed");
         assertEq(
@@ -79,28 +93,32 @@ contract StoxProdBaseTest is Test {
         );
         assertTrue(vaultImpl.code.length > 0, "StoxReceiptVault implementation not deployed");
         assertEq(vaultImpl.codehash, LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_IMPLEMENTATION_BASE_CODEHASH_V1);
+
+        // OARV receipt beacon owner must match BEACON_INITIAL_OWNER.
+        assertEq(
+            Ownable(address(oarvDeployer.I_RECEIPT_BEACON())).owner(),
+            LibProdDeployV1.BEACON_INITIAL_OWNER,
+            "Receipt beacon owner mismatch"
+        );
+
+        // OARV vault beacon owner must match BEACON_INITIAL_OWNER.
+        assertEq(
+            Ownable(address(oarvDeployer.I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON())).owner(),
+            LibProdDeployV1.BEACON_INITIAL_OWNER,
+            "Receipt vault beacon owner mismatch"
+        );
     }
 
     /// Verify V1 creation bytecodes match compiled artifacts for contracts
     /// that are unchanged between V1 and V2. Contracts that changed
-    /// (StoxWrappedTokenVault, StoxWrappedTokenVaultBeaconSetDeployer) are
-    /// verified in the V2 tests instead.
+    /// (StoxWrappedTokenVault, StoxWrappedTokenVaultBeaconSetDeployer,
+    /// StoxUnifiedDeployer) are verified in the V2 tests instead.
     function _checkUnchangedCreationBytecodes() internal view {
         assertEq(vm.getCode("StoxReceipt.sol:StoxReceipt"), LibProdDeployV1.PROD_STOX_RECEIPT_CREATION_BYTECODE_V1);
         assertEq(
             vm.getCode("StoxReceiptVault.sol:StoxReceiptVault"),
             LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_CREATION_BYTECODE_V1
         );
-        assertEq(
-            vm.getCode("StoxUnifiedDeployer.sol:StoxUnifiedDeployer"),
-            LibProdDeployV1.PROD_STOX_UNIFIED_DEPLOYER_CREATION_BYTECODE_V1
-        );
-    }
-
-    /// Fresh-compiled StoxUnifiedDeployer must match the stored codehash.
-    function testProdStoxUnifiedDeployerFreshCodehash() external {
-        StoxUnifiedDeployer fresh = new StoxUnifiedDeployer();
-        assertEq(address(fresh).codehash, LibProdDeployV1.PROD_STOX_UNIFIED_DEPLOYER_BASE_CODEHASH_V1);
     }
 
     /// Creation bytecodes must match stored constants.
@@ -113,4 +131,5 @@ contract StoxProdBaseTest is Test {
         LibTestProd.createSelectForkBase(vm);
         _checkAllOnChain();
     }
+
 }

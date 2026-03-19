@@ -48,10 +48,11 @@ Fork tests require `RPC_URL_BASE_FORK` env var (set in `.env`). They validate de
 
 **Zoltu deterministic deployment**: All contracts have parameterless constructors enabling deployment via the Zoltu factory for identical addresses across all EVM networks. Pointer files in `src/generated/` contain deterministic addresses and bytecodes.
 
-**Production constants** are split by version:
-- `LibProdDeploy` — version-independent (beacon owner)
+**Production constants** are split by version — each version is fully self-contained:
 - `LibProdDeployV1` — V1 Base deployment addresses, codehashes, creation bytecodes
 - `LibProdDeployV2` — V2 Zoltu addresses and codehashes from generated pointers
+
+Address constants in `LibProdDeploy*` libraries serve as an audit trail of deployed contracts — do not remove them even if they appear unreferenced in source code.
 
 Source contracts should reference addresses and codehashes through the versioned `LibProdDeploy*` libraries, not import bare constants directly from `src/generated/*.pointers.sol`. The pointer files are consumed only by the deploy libraries.
 
@@ -72,6 +73,8 @@ Git submodules managed via Foundry. Key remappings in `foundry.toml`:
 - `bytecode_hash = "none"`, `cbor_metadata = false` — enables deterministic codehash comparison in fork tests
 
 ## Versioning
+
+All source contracts in `src/` must consistently target the latest deployment version. Do not reference older version constants (e.g., `LibProdDeployV1`) from source contracts — older versions exist only as an audit trail and for fork tests against prior deployments.
 
 Production deployments are versioned (`LibProdDeployV1`, `LibProdDeployV2`, etc.). Each version has its own constants file and may have a separate deploy library. When making changes to contract source:
 - Update `CHANGELOG.md` with the change under the current version heading

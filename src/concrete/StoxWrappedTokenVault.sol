@@ -32,6 +32,7 @@ contract StoxWrappedTokenVault is ERC4626Upgradeable, ICloneableV2 {
     /// @param asset The address of the underlying asset for the vault.
     event StoxWrappedTokenVaultInitialized(address indexed sender, address indexed asset);
 
+    /// @dev Locks the implementation contract against direct initialization.
     constructor() {
         _disableInitializers();
     }
@@ -58,12 +59,12 @@ contract StoxWrappedTokenVault is ERC4626Upgradeable, ICloneableV2 {
         return ICLONEABLE_V2_SUCCESS;
     }
 
-    /// @inheritdoc ERC20Upgradeable
+    /// Dynamically computes "Wrapped " + the underlying asset's name.
     function name() public view override(IERC20Metadata, ERC20Upgradeable) returns (string memory) {
         return string.concat("Wrapped ", IERC20Metadata(asset()).name());
     }
 
-    /// @inheritdoc ERC20Upgradeable
+    /// Dynamically computes "w" + the underlying asset's symbol.
     function symbol() public view override(IERC20Metadata, ERC20Upgradeable) returns (string memory) {
         return string.concat("w", IERC20Metadata(asset()).symbol());
     }

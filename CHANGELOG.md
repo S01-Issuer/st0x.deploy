@@ -16,8 +16,8 @@ All contracts have parameterless constructors enabling Zoltu deployment. Constru
 | StoxWrappedTokenVaultBeacon | `0x846a468e6fDA529D282D60df7D1EE785EB954600` | `LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON` |
 | StoxWrappedTokenVaultBeaconSetDeployer | `0xBFB3D7Baece65D1f1640986CdA313177F1160C70` | `LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER` |
 | StoxOffchainAssetReceiptVaultBeaconSetDeployer | `0x0C5154C4861908Bd5a6FD6fFCB063e9869ceFa41` | `LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER` |
-| StoxUnifiedDeployer | `0x7dc6B085b3AB43bDbD64071F98D7b35c398cFc24` | `LibProdDeployV2.STOX_UNIFIED_DEPLOYER` |
-| Beacon owner | `0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b` | `LibProdDeploy.BEACON_INITIAL_OWNER` |
+| StoxUnifiedDeployer | `0xeaE1c37b7aD1643D20da2B1b97705Fa949eAFaE7` | `LibProdDeployV2.STOX_UNIFIED_DEPLOYER` |
+| Beacon owner | `0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b` | `LibProdDeployV2.BEACON_INITIAL_OWNER` |
 
 ### New contracts
 
@@ -45,7 +45,7 @@ All contracts have parameterless constructors enabling Zoltu deployment. Constru
 
 ### StoxUnifiedDeployer
 
-- No bytecode changes from V1.
+- **Breaking**: Now references V2 deployer addresses (`LibProdDeployV2`) instead of V1. Vault pairs created through the unified deployer use V2 implementations.
 
 ### Deployment infrastructure
 
@@ -53,7 +53,7 @@ All contracts have parameterless constructors enabling Zoltu deployment. Constru
 - `Deploy.sol` has one suite per contract, deployed sequentially in dependency order.
 - Pointer files in `src/generated/` contain `BYTECODE_HASH`, `DEPLOYED_ADDRESS`, `CREATION_CODE`, and `RUNTIME_CODE` for each contract.
 - `--skip-simulation` required for multi-chain broadcast of constructor-dependent contracts.
-- Production constants split across `LibProdDeploy` (version-independent), `LibProdDeployV1` (Base V1 deployment), and `LibProdDeployV2` (Zoltu deterministic).
+- Production constants split across `LibProdDeployV1` (Base V1 deployment) and `LibProdDeployV2` (Zoltu deterministic). Each version is fully self-contained.
 
 ## V1 (initial Base deployment)
 
@@ -69,7 +69,7 @@ Deployed via `new` in Forge broadcast scripts. Non-deterministic addresses. Base
 | StoxUnifiedDeployer | `0x821a71a313bdDDc94192CF0b5F6f5bC31Ac75853` | `LibProdDeployV1.STOX_UNIFIED_DEPLOYER` |
 | StoxReceipt (implementation) | `0xE7573879D73455Dc92cB4087Fa8177594387CbCD` | `LibProdDeployV1.STOX_RECEIPT_IMPLEMENTATION` |
 | StoxReceiptVault (implementation) | `0x8EFfCe5Ebb047F215dF1d8522c32c7C9DE239f39` | `LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION` |
-| Beacon owner | `0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b` | `LibProdDeploy.BEACON_INITIAL_OWNER` |
+| Beacon owner | `0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b` | `LibProdDeployV1.BEACON_INITIAL_OWNER` |
 
 ### Known issues
 

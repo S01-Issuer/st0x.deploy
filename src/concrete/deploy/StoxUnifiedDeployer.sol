@@ -8,7 +8,7 @@ import {
     OffchainAssetReceiptVault
 } from "ethgild/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
 import {StoxWrappedTokenVaultBeaconSetDeployer} from "./StoxWrappedTokenVaultBeaconSetDeployer.sol";
-import {LibProdDeployV1} from "../../lib/LibProdDeployV1.sol";
+import {LibProdDeployV2} from "../../lib/LibProdDeployV2.sol";
 import {StoxWrappedTokenVault} from "../StoxWrappedTokenVault.sol";
 
 /// @title StoxUnifiedDeployer
@@ -26,18 +26,18 @@ contract StoxUnifiedDeployer {
 
     /// @notice Deploys a new OffchainAssetReceiptVault and a new
     /// StoxWrappedTokenVault linked to the OffchainAssetReceiptVault.
+    /// @dev Reentrancy is not exploitable here because this contract is entirely
+    /// stateless — no storage, no balances. A reentrant call would just create
+    /// another independent vault pair.
     /// @param config The configuration for the OffchainAssetReceiptVault. The
     /// resulting asset address is used to deploy the StoxWrappedTokenVault.
-    // Reentrancy is not exploitable here because this contract is entirely
-    // stateless — no storage, no balances. A reentrant call would just create
-    // another independent vault pair.
     // slither-disable-next-line reentrancy-events
     function newTokenAndWrapperVault(OffchainAssetReceiptVaultConfigV2 memory config) external {
         OffchainAssetReceiptVault asset = OffchainAssetReceiptVaultBeaconSetDeployer(
-                LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+                LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
             ).newOffchainAssetReceiptVault(config);
         StoxWrappedTokenVault wrappedTokenVault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+                LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
             ).newStoxWrappedTokenVault(address(asset));
 
         emit Deployment(msg.sender, address(asset), address(wrappedTokenVault));

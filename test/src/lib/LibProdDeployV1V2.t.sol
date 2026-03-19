@@ -38,10 +38,12 @@ contract LibProdDeployV1V2Test is Test {
         );
     }
 
-    /// StoxUnifiedDeployer V1 and V2 MUST have the same codehash.
-    function testStoxUnifiedDeployerCodehashV1EqualsV2() external pure {
-        assertEq(
-            LibProdDeployV1.PROD_STOX_UNIFIED_DEPLOYER_BASE_CODEHASH_V1, LibProdDeployV2.STOX_UNIFIED_DEPLOYER_CODEHASH
+    /// StoxUnifiedDeployer V2 differs from V1 because V2 references V2
+    /// deployer addresses instead of V1. Verify codehashes are NOT equal.
+    function testStoxUnifiedDeployerCodehashV1DiffersV2() external pure {
+        assertTrue(
+            LibProdDeployV1.PROD_STOX_UNIFIED_DEPLOYER_BASE_CODEHASH_V1
+                != LibProdDeployV2.STOX_UNIFIED_DEPLOYER_CODEHASH
         );
     }
 }

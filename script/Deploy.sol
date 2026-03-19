@@ -74,6 +74,11 @@ contract Deploy is Script {
         );
     }
 
+    /// @notice Entry point for the deployment script.
+    /// @dev Requires env vars:
+    /// - `DEPLOYMENT_KEY`: private key for the deployer account.
+    /// - `DEPLOYMENT_SUITE`: which contract to deploy (e.g. "stox-receipt",
+    ///   "stox-wrapped-token-vault-beacon", etc.). One contract per run.
     function run() public {
         bytes32 suite = keccak256(bytes(vm.envString("DEPLOYMENT_SUITE")));
         address[] memory noDeps = new address[](0);

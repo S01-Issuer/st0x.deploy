@@ -14,7 +14,7 @@ error InitializeVaultFailed();
 error ZeroVaultAsset();
 
 /// @title StoxWrappedTokenVaultBeaconSetDeployer
-/// @notice Deploys and manages a beacon set for StoxWrappedTokenVault contracts.
+/// @notice Deploys new StoxWrappedTokenVault beacon proxy instances.
 /// The beacon is deployed separately via Zoltu and referenced by its
 /// deterministic address. This makes the deployer itself Zoltu-deployable
 /// (no constructor args).
@@ -30,11 +30,11 @@ contract StoxWrappedTokenVaultBeaconSetDeployer {
     event Deployment(address sender, address stoxWrappedTokenVault);
 
     /// Deploys and initializes a new StoxWrappedTokenVault contract.
+    /// @dev Reentrancy is not exploitable here because this contract holds no
+    /// mutable state between calls. Each invocation creates an independent proxy.
     /// @param asset The address of the underlying asset for the vault.
     /// @return stoxWrappedTokenVault The address of the deployed
     /// StoxWrappedTokenVault contract.
-    // Reentrancy is not exploitable here because this contract holds no mutable
-    // state between calls. Each invocation creates an independent proxy.
     // slither-disable-next-line reentrancy-events
     function newStoxWrappedTokenVault(address asset) external returns (StoxWrappedTokenVault) {
         if (asset == address(0)) {
