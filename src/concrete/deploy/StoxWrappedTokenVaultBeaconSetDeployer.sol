@@ -2,11 +2,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {IBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
 import {StoxWrappedTokenVault} from "../StoxWrappedTokenVault.sol";
 import {ICLONEABLE_V2_SUCCESS} from "rain.factory/interface/ICloneableV2.sol";
-import {DEPLOYED_ADDRESS as BEACON_ADDRESS} from "../../generated/StoxWrappedTokenVaultBeacon.pointers.sol";
+import {LibProdDeployV2} from "../../lib/LibProdDeployV2.sol";
 
 /// @dev Error raised when the StoxWrappedTokenVault initialization fails.
 error InitializeVaultFailed();
@@ -43,7 +42,7 @@ contract StoxWrappedTokenVaultBeaconSetDeployer {
         }
 
         StoxWrappedTokenVault stoxWrappedTokenVault =
-            StoxWrappedTokenVault(address(new BeaconProxy(BEACON_ADDRESS, "")));
+            StoxWrappedTokenVault(address(new BeaconProxy(LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON, "")));
 
         emit Deployment(msg.sender, address(stoxWrappedTokenVault));
 

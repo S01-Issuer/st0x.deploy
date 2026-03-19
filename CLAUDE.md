@@ -53,6 +53,8 @@ Fork tests require `RPC_URL_BASE_FORK` env var (set in `.env`). They validate de
 - `LibProdDeployV1` — V1 Base deployment addresses, codehashes, creation bytecodes
 - `LibProdDeployV2` — V2 Zoltu addresses and codehashes from generated pointers
 
+Source contracts should reference addresses and codehashes through the versioned `LibProdDeploy*` libraries, not import bare constants directly from `src/generated/*.pointers.sol`. The pointer files are consumed only by the deploy libraries.
+
 ## Dependencies
 
 Git submodules managed via Foundry. Key remappings in `foundry.toml`:

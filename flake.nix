@@ -12,7 +12,12 @@
         pkgs = rainix.pkgs.${system};
       in {
         packages = rainix.packages.${system};
-        devShells = rainix.devShells.${system};
+        devShells = rainix.devShells.${system} // {
+          default = pkgs.mkShell {
+            inputsFrom = [ rainix.devShells.${system}.default ];
+            packages = [ pkgs.gh ];
+          };
+        };
       }
     );
 
