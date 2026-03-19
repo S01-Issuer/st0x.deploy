@@ -12,8 +12,6 @@ and execution of corporate actions against StoxReceiptVault tokens. The registry
 exposes onchain readable state so downstream protocols can query and react to
 upcoming and in-progress corporate actions.
 
-Full spec: `~/.openclaw/workspace/corporate-action-registry-spec.md`
-
 ---
 
 ## Milestone 1: Registry + Name/Symbol Changes
