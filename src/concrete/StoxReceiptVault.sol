@@ -100,10 +100,10 @@ contract StoxReceiptVault is OffchainAssetReceiptVault, IStoxReceiptVaultV2 {
         s.nameOverride = newName;
         s.symbolOverride = newSymbol;
 
+        emit NameSymbolUpdated(msg.sender, newName, newSymbol);
+
         // Authorization check AFTER state change, matching the ethgild pattern.
         IAuthorizeV1 auth = this.authorizer();
         auth.authorize(msg.sender, UPDATE_NAME_SYMBOL, abi.encode(newName, newSymbol));
-
-        emit NameSymbolUpdated(msg.sender, newName, newSymbol);
     }
 }
