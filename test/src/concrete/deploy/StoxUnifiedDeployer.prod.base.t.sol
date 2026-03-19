@@ -110,13 +110,10 @@ contract StoxProdBaseTest is Test {
     /// Verify V1 creation bytecodes match compiled artifacts for contracts
     /// that are unchanged between V1 and V2. Contracts that changed
     /// (StoxWrappedTokenVault, StoxWrappedTokenVaultBeaconSetDeployer,
-    /// StoxUnifiedDeployer) are verified in the V2 tests instead.
+    /// StoxUnifiedDeployer, StoxReceiptVault) are verified in the V2 tests
+    /// instead.
     function checkUnchangedCreationBytecodes() internal view {
         assertEq(vm.getCode("StoxReceipt.sol:StoxReceipt"), LibProdDeployV1.PROD_STOX_RECEIPT_CREATION_BYTECODE_V1);
-        assertEq(
-            vm.getCode("StoxReceiptVault.sol:StoxReceiptVault"),
-            LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_CREATION_BYTECODE_V1
-        );
     }
 
     /// Creation bytecodes must match stored constants.
