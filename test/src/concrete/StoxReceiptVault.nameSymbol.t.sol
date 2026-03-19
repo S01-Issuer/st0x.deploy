@@ -27,8 +27,8 @@ import {Receipt as ReceiptContract} from "ethgild/concrete/receipt/Receipt.sol";
 import {Unauthorized} from "ethgild/interface/IAuthorizeV1.sol";
 
 /// @title StoxReceiptVault name/symbol tests
-/// @notice Tests for the StoxReceiptVault name/symbol override and CAID
-/// functionality in isolation — independent of the CorporateActionRegistry.
+/// @notice Tests for the StoxReceiptVault name/symbol override functionality
+/// in isolation — independent of the CorporateActionRegistry.
 contract StoxReceiptVaultNameSymbolTest is Test {
     StoxReceiptVault internal vault;
     StoxAuthorizer internal authorizer;
@@ -107,10 +107,8 @@ contract StoxReceiptVaultNameSymbolTest is Test {
         authorizer.grantRole(UPDATE_NAME_SYMBOL, caller);
         vm.stopPrank();
 
-        bytes32 expectedCAID = keccak256(abi.encodePacked(caller, ACTION_TYPE_NAME_SYMBOL, uint256(1)));
-
-        vm.expectEmit(true, true, false, true);
-        emit StoxReceiptVault.NameSymbolUpdated(caller, "New COIN", "NCOIN", expectedCAID);
+        vm.expectEmit(true, false, false, true);
+        emit StoxReceiptVault.NameSymbolUpdated(caller, "New COIN", "NCOIN");
 
         vm.prank(caller);
         vault.updateNameSymbol(ACTION_TYPE_NAME_SYMBOL, 1, "New COIN", "NCOIN");
@@ -198,69 +196,6 @@ contract StoxReceiptVaultNameSymbolTest is Test {
     }
 
     // =========================================================================
-    // CAID
-    // =========================================================================
-
-    /// CAID is zero before any corporate action.
-    function testCAIDZeroInitially() external view {
-        assertEq(vault.currentCAID(), bytes32(0));
-    }
-
-    /// CAID is correctly derived from msg.sender + actionType + number.
-    function testCAIDDerivation() external {
-        address caller = makeAddr("caller");
-        vm.startPrank(admin);
-        authorizer.grantRole(UPDATE_NAME_SYMBOL, caller);
-        vm.stopPrank();
-
-        vm.prank(caller);
-        vault.updateNameSymbol(ACTION_TYPE_NAME_SYMBOL, 42, "X", "X");
-
-        bytes32 expected = keccak256(abi.encodePacked(caller, ACTION_TYPE_NAME_SYMBOL, uint256(42)));
-        assertEq(vault.currentCAID(), expected);
-    }
-
-    /// Different callers produce different CAIDs for the same actionType/number.
-    function testCAIDDifferentCallers() external {
-        address caller1 = makeAddr("caller1");
-        address caller2 = makeAddr("caller2");
-        vm.startPrank(admin);
-        authorizer.grantRole(UPDATE_NAME_SYMBOL, caller1);
-        authorizer.grantRole(UPDATE_NAME_SYMBOL, caller2);
-        vm.stopPrank();
-
-        vm.prank(caller1);
-        vault.updateNameSymbol(ACTION_TYPE_NAME_SYMBOL, 1, "A", "A");
-        bytes32 caid1 = vault.currentCAID();
-
-        vm.prank(caller2);
-        vault.updateNameSymbol(ACTION_TYPE_NAME_SYMBOL, 1, "B", "B");
-        bytes32 caid2 = vault.currentCAID();
-
-        assertTrue(caid1 != caid2);
-    }
-
-    /// CAID updates on each call — not cumulative, just latest.
-    function testCAIDUpdatesOnEachCall() external {
-        address caller = makeAddr("caller");
-        vm.startPrank(admin);
-        authorizer.grantRole(UPDATE_NAME_SYMBOL, caller);
-        vm.stopPrank();
-
-        vm.startPrank(caller);
-        vault.updateNameSymbol(ACTION_TYPE_NAME_SYMBOL, 1, "A", "A");
-        bytes32 caid1 = vault.currentCAID();
-
-        vault.updateNameSymbol(ACTION_TYPE_NAME_SYMBOL, 2, "B", "B");
-        bytes32 caid2 = vault.currentCAID();
-        vm.stopPrank();
-
-        assertTrue(caid1 != caid2);
-        bytes32 expected2 = keccak256(abi.encodePacked(caller, ACTION_TYPE_NAME_SYMBOL, uint256(2)));
-        assertEq(caid2, expected2);
-    }
-
-    // =========================================================================
     // Fuzz
     // =========================================================================
 
@@ -284,8 +219,5 @@ contract StoxReceiptVaultNameSymbolTest is Test {
 
         assertEq(vault.name(), newName);
         assertEq(vault.symbol(), newSymbol);
-
-        bytes32 expectedCAID = keccak256(abi.encodePacked(caller, actionType, number));
-        assertEq(vault.currentCAID(), expectedCAID);
     }
 }

@@ -86,12 +86,9 @@ struct ExecuteStateChange {
 /// can pause new borrows when a stock split is SCHEDULED, or an oracle consumer
 /// can verify that its price feed accounts for the latest corporate action.
 ///
-/// Corporate Action IDs (CAIDs) are namespaced per token and per action type.
-/// This means action number 1 for NAME_SYMBOL on token A is entirely separate
-/// from action number 1 for SPLIT on token A, or NAME_SYMBOL number 1 on token
-/// B. If the registry is ever replaced (by updating the authorizer to grant a
-/// new registry the relevant roles), old IDs from the previous registry cannot
-/// collide because the token hashes `msg.sender` into the CAID.
+/// Action IDs are namespaced per token and per action type. This means action
+/// number 1 for NAME_SYMBOL on token A is entirely separate from action number
+/// 1 for SPLIT on token A, or NAME_SYMBOL number 1 on token B.
 ///
 /// The registry itself does NOT hold privileged roles. Instead, when it
 /// dispatches an action to a token contract, the token's authorizer checks that
@@ -299,8 +296,8 @@ interface IAuthorizerReader {
 interface IStoxReceiptVaultV2 {
     /// @notice Update the vault's name and symbol. Called by the registry
     /// during corporate action execution.
-    /// @param actionType The corporate action type (for CAID computation).
-    /// @param number The action number (for CAID computation).
+    /// @param actionType The corporate action type.
+    /// @param number The action number.
     /// @param newName The new token name.
     /// @param newSymbol The new token symbol.
     function updateNameSymbol(bytes32 actionType, uint256 number, string memory newName, string memory newSymbol)

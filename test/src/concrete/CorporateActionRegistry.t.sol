@@ -135,27 +135,6 @@ contract CorporateActionRegistryTest is Test {
         assertTrue(state == ActionState.COMPLETE);
     }
 
-    /// CAID is set correctly after execution.
-    function testCAIDAfterExecution() external {
-        uint256 effectiveTime = block.timestamp + 1 days;
-        bytes memory data = abi.encode("NewCOIN", "NCOIN");
-
-        vm.startPrank(admin);
-        authorizer.grantRole(UPDATE_NAME_SYMBOL, admin);
-        registry.schedule(address(vault), ACTION_TYPE_NAME_SYMBOL, data, effectiveTime);
-        vm.stopPrank();
-
-        // CAID should be zero before execution.
-        assertEq(vault.currentCAID(), bytes32(0));
-
-        vm.warp(effectiveTime + 1);
-        registry.execute(address(vault), ACTION_TYPE_NAME_SYMBOL, 1);
-
-        // CAID should be keccak256(registry, actionType, number).
-        bytes32 expectedCAID = keccak256(abi.encodePacked(address(registry), ACTION_TYPE_NAME_SYMBOL, uint256(1)));
-        assertEq(vault.currentCAID(), expectedCAID);
-    }
-
     /// Scheduling with effective time in the past reverts.
     function testScheduleRevertsPastEffectiveTime() external {
         bytes memory data = abi.encode("NewCOIN", "NCOIN");
