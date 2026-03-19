@@ -42,18 +42,20 @@ jobs:
 
       - name: deploy ${{ inputs.suite }}
         run: |
-          set -euxo pipefail
-          forge selectors up --all
-          echo 'deploy pubkey:'
-          cast wallet address "${DEPLOYMENT_KEY}"
-          forge script script/Deploy.sol:Deploy \
-            -vvvvv \
-            --slow \
-            --skip-simulation \
-            ${DEPLOY_BROADCAST:+--broadcast} \
-            --rpc-url "${ETH_RPC_URL}" \
-            ${DEPLOY_VERIFY:+--verify} \
-            ${ETHERSCAN_API_KEY:+--etherscan-api-key "${ETHERSCAN_API_KEY}"}
+          nix develop -c bash -c '
+            set -euxo pipefail
+            forge selectors up --all
+            echo "deploy pubkey:"
+            cast wallet address "${DEPLOYMENT_KEY}"
+            forge script script/Deploy.sol:Deploy \
+              -vvvvv \
+              --slow \
+              --skip-simulation \
+              ${DEPLOY_BROADCAST:+--broadcast} \
+              --rpc-url "${ETH_RPC_URL}" \
+              ${DEPLOY_VERIFY:+--verify} \
+              ${ETHERSCAN_API_KEY:+--etherscan-api-key "${ETHERSCAN_API_KEY}"}
+          '
         env:
           DEPLOYMENT_SUITE: ${{ inputs.suite }}
           DEPLOY_BROADCAST: '1'
