@@ -86,6 +86,10 @@ Production deployments are versioned (`LibProdDeployV1`, `LibProdDeployV2`, etc.
 
 Manual deployment via GitHub Actions workflow (`manual-sol-artifacts.yaml`) supports multiple networks.
 
+## Naming Conventions
+
+- **No meaningless `_`-prefixed helpers.** All function names must be descriptive and convey what the function does. This applies to all files including tests.
+
 ## License
 
 LicenseRef-DCL-1.0 (DecentraLicense). REUSE-compliant — run `rainix-sol-legal` to validate.
