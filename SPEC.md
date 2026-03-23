@@ -23,6 +23,8 @@ risk decisions without offchain coordination.
 - Without onchain signalling, protocols operating across a corporate action
   window are exposed to adverse selection
 - Corporate-action-aware transfers and mints/burns prevent stale-state execution
+- **Oracle sync risk** — ERC-4626 wrapped tokens create timing windows where vault asset ratio and Oracle pricing can be misaligned during corporate actions, potentially causing incorrect liquidations in lending protocols
+- **Third-party Oracle integration** — lending protocols (Euler, Morpho) need to pause pricing during corporate action windows to prevent adverse selection
 
 Note: the wrapper contract (`StoxWrappedTokenVault` in st0x.deploy) is not part
 of this architecture. It wraps the underlying receipt vault token for DeFi
@@ -137,6 +139,66 @@ model.
 
 ---
 
+## Oracle Integration & Sync Risk Management
+
+### The Oracle Sync Problem
+
+st0x wrapped tokens are ERC-4626 vaults holding rebasing base tokens. During corporate actions that cause rebases (splits, reverse splits), there's an unavoidable timing window where:
+
+1. **Base tokens rebase** (e.g., 3:1 split triples token supply)
+2. **Vault ratio changes** (`convertToAssets()` now returns 3x more base tokens per share)  
+3. **Oracle feeds haven't updated** (still reporting pre-split stock price)
+4. **Result**: Wrapped token appears 3x overvalued to lending protocols
+
+This timing gap can trigger incorrect liquidations or allow borrowing against artificially inflated collateral.
+
+### Oracle Pause Mechanism
+
+The registry provides an interface for Oracle providers to detect sync risk periods around rebase-causing corporate actions.
+
+**Rebase-causing action types:** `SPLIT`, `REVERSE_SPLIT`  
+**Non-rebase action types:** `NAME_SYMBOL`, `DIVIDEND`
+
+Oracles should pause pricing during windows around rebase actions:
+- **Before execution**: Oracle pricing may be stale, about to rebase
+- **During execution**: Action is `IN_PROGRESS`, rebase happening  
+- **After execution**: Action `COMPLETE` but Oracle feeds may not reflect new pricing
+
+### Proposed Registry Oracle Interface
+
+**Note**: This interface is proposed based on current analysis. Final design should be validated during implementation with actual Oracle provider requirements.
+
+```solidity
+// Proposed interface - subject to revision
+function hasRebaseSyncRisk(
+    address token, 
+    uint256 timeBefore, 
+    uint256 timeAfter
+) external view returns (bool)
+```
+
+**Proposed behavior:**
+- Returns `true` if current time is within sync risk window of any rebase-causing corporate action
+- Queries recent actions for rebase-causing action types only (`SPLIT`, `REVERSE_SPLIT`)
+- Configurable time windows before/after `effectiveTime`
+
+**Alternative approaches to consider during implementation:**
+- Return structured data about pending actions instead of boolean
+- Separate functions per action type
+- Integration with specific Oracle provider patterns (Euler's existing interfaces)
+
+### Compatibility with Existing Oracles
+
+This approach maps to existing tokenized equity Oracle solutions but requires validation with actual Oracle providers during implementation:
+
+- **Ondo Finance**: Uses Chainlink feeds with scheduled pause windows
+- **xStocks**: Euler's `ChainlinkInfrequentXStocksOracle` reads schedules and pauses around updates  
+- **st0x**: Registry would provide similar pause signaling for ERC-4626 vault architecture
+
+The exact interface should be finalized in consultation with Oracle providers (Euler, Chainlink, etc.) to ensure optimal integration patterns.
+
+---
+
 ## Name/Symbol Updates
 
 ### Changes to StoxReceiptVault
@@ -201,11 +263,20 @@ Rasterization happens before transfer math.
 Post-rasterization, 1 = 1 for new mints. Newly minted token after a 3:1 split
 represents 1 post-split share. Same as offchain. This is the whole point.
 
-### Price Synchronisation
+### Price Synchronisation & Oracle Integration
 
-Oracle price updates must include the current Corporate Action ID. Consumers
-verify oracle CAID matches onchain CAID. This ensures prices transition
-atomically with supply changes.
+Oracle price updates must coordinate with corporate action execution to prevent sync risk windows where vault ratios and pricing feeds are misaligned.
+
+**For rebase-causing actions** (`SPLIT`, `REVERSE_SPLIT`):
+- Oracles should query `registry.hasRebaseSyncRisk()` before providing prices
+- During sync risk windows, Oracles should pause/revert to prevent lending protocol issues
+- Window duration configurable per Oracle (typically 15-30 minutes before/after `effectiveTime`)
+
+**For non-rebase actions** (`NAME_SYMBOL`, `DIVIDEND`):
+- No Oracle coordination needed — these don't affect price/supply relationships
+- Normal Oracle operation continues
+
+This ensures lending protocols using st0x wrapped tokens as collateral can operate safely without manual intervention during corporate actions.
 
 ### ERC-1155 Receipt Rebasing (StoxReceipt)
 
