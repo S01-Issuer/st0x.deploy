@@ -9,6 +9,7 @@ import {
     ACTION_TYPE_NAME_SYMBOL,
     UPDATE_NAME_SYMBOL,
     UPDATE_NAME_SYMBOL_ADMIN,
+    EXECUTION_WINDOW,
     ActionState,
     Action
 } from "../../../src/concrete/CorporateActionRegistry.sol";
@@ -32,7 +33,8 @@ import {
     EffectiveTimeMustBeFuture,
     ActionNotScheduled,
     ActionNotYetEffective,
-    ActionDoesNotExist
+    ActionDoesNotExist,
+    ActionExecutionExpired
 } from "../../../src/error/ErrCorporateActionRegistry.sol";
 
 contract CorporateActionRegistryTest is Test {
@@ -223,5 +225,50 @@ contract CorporateActionRegistryTest is Test {
         vm.prank(rando);
         vm.expectRevert();
         vault.updateNameSymbol(ACTION_TYPE_NAME_SYMBOL, 1, "Hacked", "HACK");
+    }
+
+    /// Executing after the execution window expires reverts.
+    function testExecuteRevertsAfterExecutionWindow() external {
+        uint256 effectiveTime = block.timestamp + 1 days;
+        bytes memory data = abi.encode("NewCOIN", "NCOIN");
+
+        vm.startPrank(admin);
+        authorizer.grantRole(UPDATE_NAME_SYMBOL, admin);
+        registry.schedule(address(vault), ACTION_TYPE_NAME_SYMBOL, data, effectiveTime);
+        vm.stopPrank();
+
+        // Warp past the execution window.
+        uint256 expiredTime = effectiveTime + EXECUTION_WINDOW + 1;
+        vm.warp(expiredTime);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(ActionExecutionExpired.selector, effectiveTime + EXECUTION_WINDOW, expiredTime)
+        );
+        registry.execute(address(vault), ACTION_TYPE_NAME_SYMBOL, 1);
+    }
+
+    /// Executing at the last possible moment (exactly at deadline) succeeds.
+    function testExecuteAtExecutionDeadline() external {
+        uint256 effectiveTime = block.timestamp + 1 days;
+        bytes memory data = abi.encode("NewCOIN", "NCOIN");
+
+        vm.startPrank(admin);
+        authorizer.grantRole(UPDATE_NAME_SYMBOL, admin);
+        registry.schedule(address(vault), ACTION_TYPE_NAME_SYMBOL, data, effectiveTime);
+        vm.stopPrank();
+
+        // Warp to exactly the execution deadline.
+        vm.warp(effectiveTime + EXECUTION_WINDOW);
+
+        // Should succeed.
+        registry.execute(address(vault), ACTION_TYPE_NAME_SYMBOL, 1);
+
+        // Verify vault state.
+        assertEq(vault.name(), "NewCOIN");
+        assertEq(vault.symbol(), "NCOIN");
+
+        // Verify action is COMPLETE.
+        ActionState state = registry.getActionState(address(vault), ACTION_TYPE_NAME_SYMBOL, 1);
+        assertTrue(state == ActionState.COMPLETE);
     }
 }

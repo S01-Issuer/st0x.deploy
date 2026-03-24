@@ -20,14 +20,15 @@ upcoming and in-progress corporate actions.
 - [x] `src/concrete/CorporateActionRegistry.sol`
   - Token-agnostic, standalone contract
   - `schedule(token, actionType, data, effectiveTime)` — schedule future action
-  - `execute(token, actionType, number)` — execute after effective time
+  - `execute(token, actionType, number)` — execute after effective time, within execution window
   - Action lifecycle: SCHEDULED → IN_PROGRESS → COMPLETE
   - Namespaced per-token, per-action-type sequential IDs (counters)
+  - Global execution window (4 hours) — actions expire if not executed within window
   - Read interface: `getAction()`, `getCounter()`, `getActionState()`
   - Events: `CorporateActionScheduled`, `CorporateActionExecuted`
   - Authorisation via token's authoriser (registry must hold the relevant role)
 - [x] Error types in `src/error/ErrCorporateActionRegistry.sol`
-- [x] Tests: registry lifecycle (schedule, time travel, execute, reverts)
+- [x] Tests: registry lifecycle (schedule, time travel, execute, reverts, expiry)
 
 ### PR 2: StoxAuthorizer (extends OffchainAssetReceiptVaultAuthorizerV1)
 - [x] `src/concrete/authorize/StoxAuthorizer.sol`

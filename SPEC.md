@@ -69,6 +69,8 @@ OffchainAssetReceiptVaultAuthorizerV1 (RBAC authoriser)
   COMPLETE
 - **Effective timestamps** — actions scheduled in advance. Pending before
   effective time, executable after
+- **Execution window** — global deadline after effective time. Actions must be
+  executed within this window or they expire
 - **Append-only** — once recorded, can't be changed
 
 ### Why Onchain Readable State Matters
@@ -123,6 +125,36 @@ in; standard `transfer()` continues to work for naive integrations.
 
 Same pattern for mint and burn — callers specify expected CAID to prevent
 stale-state execution at the onchain/offchain boundary.
+
+### Execution Window
+
+To provide timing certainty for market participants and downstream protocols, all corporate actions must be executed within a fixed window after their effective time:
+
+```solidity
+contract CorporateActionRegistry {
+    /// @dev Maximum time after effectiveTime that an action can be executed
+    uint256 public constant EXECUTION_WINDOW = 4 hours;
+    
+    function execute(address token, bytes32 actionType, uint256 number) external {
+        // ... existing checks ...
+        if (block.timestamp > action.effectiveTime + EXECUTION_WINDOW) {
+            revert ActionExecutionExpired(action.effectiveTime + EXECUTION_WINDOW, block.timestamp);
+        }
+        // ... continue with execution
+    }
+}
+```
+
+**Benefits:**
+- **Predictable timing** — market participants know actions execute within 4 hours of effective time
+- **Protocol planning** — lending protocols can time pause windows around known deadlines  
+- **Operational discipline** — prevents actions from sitting unexecuted for days/weeks
+- **Gas efficiency** — single global parameter, no per-action storage needed
+
+**Window Duration:**
+- 4 hours chosen as reasonable balance between execution flexibility and timing certainty
+- Adjustable via governance if operational needs change
+- Sufficient for keeper bots and manual backup execution
 
 ### Authoriser Integration
 
@@ -342,3 +374,5 @@ execution paths.
    from who has roles in authoriser?
 7. **Mempool protection** — standard transfers execute under new state, CA-aware
    transfers revert on mismatch. Is this the right default behaviour split?
+8. **Oracle pause windows** — should these align with execution windows, or be
+   configurable independently per Oracle provider?

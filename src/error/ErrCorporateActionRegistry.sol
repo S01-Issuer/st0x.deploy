@@ -23,3 +23,8 @@ error ActionNotYetEffective(uint256 effectiveTime, uint256 currentTime);
 /// @param actionType The action type.
 /// @param number The action number.
 error ActionDoesNotExist(address token, bytes32 actionType, uint256 number);
+
+/// Thrown when attempting to execute an action after its execution deadline.
+/// @param executionDeadline The deadline after which the action cannot be executed.
+/// @param currentTime The current block timestamp.
+error ActionExecutionExpired(uint256 executionDeadline, uint256 currentTime);

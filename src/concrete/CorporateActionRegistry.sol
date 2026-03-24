@@ -8,7 +8,8 @@ import {
     EffectiveTimeMustBeFuture,
     ActionNotScheduled,
     ActionNotYetEffective,
-    ActionDoesNotExist
+    ActionDoesNotExist,
+    ActionExecutionExpired
 } from "../error/ErrCorporateActionRegistry.sol";
 
 /// @dev Well known action type for name/symbol updates.
@@ -20,6 +21,10 @@ bytes32 constant UPDATE_NAME_SYMBOL = keccak256("UPDATE_NAME_SYMBOL");
 
 /// @dev Admin role for UPDATE_NAME_SYMBOL permission.
 bytes32 constant UPDATE_NAME_SYMBOL_ADMIN = keccak256("UPDATE_NAME_SYMBOL_ADMIN");
+
+/// @dev Maximum time after effectiveTime that an action can be executed.
+/// Provides timing certainty for market participants and downstream protocols.
+uint256 constant EXECUTION_WINDOW = 4 hours;
 
 /// Represents the lifecycle of a corporate action.
 /// SCHEDULED: Action has been registered and is pending execution.
@@ -90,6 +95,10 @@ struct ExecuteStateChange {
 /// Action IDs are namespaced per token and per action type. This means action
 /// number 1 for NAME_SYMBOL on token A is entirely separate from action number
 /// 1 for SPLIT on token A, or NAME_SYMBOL number 1 on token B.
+///
+/// Actions must be executed within EXECUTION_WINDOW (4 hours) after their
+/// effective time, providing timing certainty for market participants and
+/// preventing actions from remaining unexecuted indefinitely.
 ///
 /// The registry itself does NOT hold privileged roles. Instead, when it
 /// dispatches an action to a token contract, the token's authorizer checks that
@@ -168,6 +177,9 @@ contract CorporateActionRegistry is ReentrancyGuard {
     }
 
     /// Execute a previously scheduled action once its effective time has passed.
+    /// Actions must be executed within EXECUTION_WINDOW after their effective
+    /// time, or they expire and cannot be executed.
+    /// 
     /// Anyone can call execute — the permission check happened at schedule time,
     /// and the registry itself is trusted by the token's authorizer to dispatch.
     ///
@@ -186,6 +198,9 @@ contract CorporateActionRegistry is ReentrancyGuard {
         }
         if (block.timestamp < action.effectiveTime) {
             revert ActionNotYetEffective(action.effectiveTime, block.timestamp);
+        }
+        if (block.timestamp > action.effectiveTime + EXECUTION_WINDOW) {
+            revert ActionExecutionExpired(action.effectiveTime + EXECUTION_WINDOW, block.timestamp);
         }
 
         // Set state to COMPLETE before the external call (checks-effects-
