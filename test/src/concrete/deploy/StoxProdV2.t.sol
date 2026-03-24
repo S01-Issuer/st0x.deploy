@@ -56,6 +56,24 @@ contract StoxProdV2Test is Test {
         assertTrue(LibProdDeployV2.STOX_UNIFIED_DEPLOYER.code.length > 0, "V2 StoxUnifiedDeployer not deployed");
         assertEq(LibProdDeployV2.STOX_UNIFIED_DEPLOYER.codehash, LibProdDeployV2.STOX_UNIFIED_DEPLOYER_CODEHASH);
 
+        assertTrue(
+            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1.code.length > 0,
+            "V2 StoxOffchainAssetReceiptVaultAuthorizerV1 not deployed"
+        );
+        assertEq(
+            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1.codehash,
+            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH
+        );
+
+        assertTrue(
+            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1.code.length > 0,
+            "V2 StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1 not deployed"
+        );
+        assertEq(
+            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1.codehash,
+            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH
+        );
+
         // Wrapped token vault beacon: verify implementation and owner.
         assertEq(
             IBeacon(LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON).implementation(),

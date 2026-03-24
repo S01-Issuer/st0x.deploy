@@ -54,6 +54,22 @@ import {
     RUNTIME_CODE as STOX_OARV_DEPLOYER_RUNTIME_CODE,
     DEPLOYED_ADDRESS as STOX_OARV_DEPLOYER_GENERATED_ADDRESS
 } from "../../../src/generated/StoxOffchainAssetReceiptVaultBeaconSetDeployer.pointers.sol";
+import {
+    StoxOffchainAssetReceiptVaultAuthorizerV1
+} from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
+import {
+    StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
+} from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
+import {
+    CREATION_CODE as STOX_AUTHORIZER_V1_CREATION_CODE,
+    RUNTIME_CODE as STOX_AUTHORIZER_V1_RUNTIME_CODE,
+    DEPLOYED_ADDRESS as STOX_AUTHORIZER_V1_GENERATED_ADDRESS
+} from "../../../src/generated/StoxOffchainAssetReceiptVaultAuthorizerV1.pointers.sol";
+import {
+    CREATION_CODE as STOX_PAYMENT_MINT_AUTHORIZER_V1_CREATION_CODE,
+    RUNTIME_CODE as STOX_PAYMENT_MINT_AUTHORIZER_V1_RUNTIME_CODE,
+    DEPLOYED_ADDRESS as STOX_PAYMENT_MINT_AUTHORIZER_V1_GENERATED_ADDRESS
+} from "../../../src/generated/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.pointers.sol";
 
 contract LibProdDeployV2Test is Test {
     // --- Zoltu deploy address tests ---
@@ -335,6 +351,101 @@ contract LibProdDeployV2Test is Test {
         );
         assertEq(
             Ownable(address(vaultBeacon)).owner(), LibProdDeployV2.BEACON_INITIAL_OWNER, "vault beacon owner mismatch"
+        );
+    }
+
+    // --- StoxOffchainAssetReceiptVaultAuthorizerV1 ---
+
+    /// Deploying StoxOffchainAssetReceiptVaultAuthorizerV1 via Zoltu MUST
+    /// produce the expected address and codehash.
+    function testDeployAddressStoxOffchainAssetReceiptVaultAuthorizerV1() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        address deployed = LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode);
+        assertEq(deployed, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1);
+        assertTrue(deployed.code.length > 0);
+        assertEq(deployed.codehash, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH);
+    }
+
+    /// Fresh-compiled StoxOffchainAssetReceiptVaultAuthorizerV1 codehash MUST
+    /// match the pointer constant.
+    function testCodehashStoxOffchainAssetReceiptVaultAuthorizerV1() external {
+        StoxOffchainAssetReceiptVaultAuthorizerV1 c = new StoxOffchainAssetReceiptVaultAuthorizerV1();
+        assertEq(address(c).codehash, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH);
+    }
+
+    /// Pointer creation code for StoxOffchainAssetReceiptVaultAuthorizerV1
+    /// MUST match compiler output.
+    function testCreationCodeStoxOffchainAssetReceiptVaultAuthorizerV1() external pure {
+        assertEq(
+            keccak256(STOX_AUTHORIZER_V1_CREATION_CODE),
+            keccak256(type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode)
+        );
+    }
+
+    /// Pointer runtime code for StoxOffchainAssetReceiptVaultAuthorizerV1
+    /// MUST match deployed bytecode.
+    function testRuntimeCodeStoxOffchainAssetReceiptVaultAuthorizerV1() external {
+        StoxOffchainAssetReceiptVaultAuthorizerV1 c = new StoxOffchainAssetReceiptVaultAuthorizerV1();
+        assertEq(keccak256(STOX_AUTHORIZER_V1_RUNTIME_CODE), keccak256(address(c).code));
+    }
+
+    /// Generated pointer address for StoxOffchainAssetReceiptVaultAuthorizerV1
+    /// MUST match library constant.
+    function testGeneratedAddressStoxOffchainAssetReceiptVaultAuthorizerV1() external pure {
+        assertEq(STOX_AUTHORIZER_V1_GENERATED_ADDRESS, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1);
+    }
+
+    // --- StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1 ---
+
+    /// Deploying StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1 via
+    /// Zoltu MUST produce the expected address and codehash.
+    function testDeployAddressStoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        address deployed =
+            LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode);
+        assertEq(deployed, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1);
+        assertTrue(deployed.code.length > 0);
+        assertEq(
+            deployed.codehash, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH
+        );
+    }
+
+    /// Fresh-compiled StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
+    /// codehash MUST match the pointer constant.
+    function testCodehashStoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1() external {
+        StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1 c =
+            new StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1();
+        assertEq(
+            address(c).codehash, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH
+        );
+    }
+
+    /// Pointer creation code for
+    /// StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1 MUST match
+    /// compiler output.
+    function testCreationCodeStoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1() external pure {
+        assertEq(
+            keccak256(STOX_PAYMENT_MINT_AUTHORIZER_V1_CREATION_CODE),
+            keccak256(type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode)
+        );
+    }
+
+    /// Pointer runtime code for
+    /// StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1 MUST match
+    /// deployed bytecode.
+    function testRuntimeCodeStoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1() external {
+        StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1 c =
+            new StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1();
+        assertEq(keccak256(STOX_PAYMENT_MINT_AUTHORIZER_V1_RUNTIME_CODE), keccak256(address(c).code));
+    }
+
+    /// Generated pointer address for
+    /// StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1 MUST match library
+    /// constant.
+    function testGeneratedAddressStoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1() external pure {
+        assertEq(
+            STOX_PAYMENT_MINT_AUTHORIZER_V1_GENERATED_ADDRESS,
+            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1
         );
     }
 }
