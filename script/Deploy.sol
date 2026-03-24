@@ -17,6 +17,12 @@ import {StoxUnifiedDeployer} from "../src/concrete/deploy/StoxUnifiedDeployer.so
 import {
     StoxOffchainAssetReceiptVaultBeaconSetDeployer
 } from "../src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol";
+import {
+    StoxOffchainAssetReceiptVaultAuthorizerV1
+} from "../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
+import {
+    StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
+} from "../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 
 /// @dev Error thrown when the DEPLOYMENT_SUITE env var does not match any
 /// known suite.
@@ -33,6 +39,10 @@ bytes32 constant DEPLOYMENT_SUITE_STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER =
 bytes32 constant DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER =
     keccak256("stox-offchain-asset-receipt-vault-beacon-set-deployer");
 bytes32 constant DEPLOYMENT_SUITE_STOX_UNIFIED_DEPLOYER = keccak256("stox-unified-deployer");
+bytes32 constant DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1 =
+    keccak256("stox-offchain-asset-receipt-vault-authorizer-v1");
+bytes32 constant DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1 =
+    keccak256("stox-offchain-asset-receipt-vault-payment-mint-authorizer-v1");
 
 contract Deploy is Script {
     mapping(string => mapping(address => bytes32)) internal depCodeHashes;
@@ -161,6 +171,22 @@ contract Deploy is Script {
                 LibProdDeployV2.STOX_UNIFIED_DEPLOYER,
                 LibProdDeployV2.STOX_UNIFIED_DEPLOYER_CODEHASH,
                 deps
+            );
+        } else if (suite == DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1) {
+            deploySuite(
+                type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode,
+                "src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol:StoxOffchainAssetReceiptVaultAuthorizerV1",
+                LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1,
+                LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH,
+                noDeps
+            );
+        } else if (suite == DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1) {
+            deploySuite(
+                type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode,
+                "src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol:StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1",
+                LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1,
+                LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH,
+                noDeps
             );
         } else {
             revert UnknownDeploymentSuite(suite);

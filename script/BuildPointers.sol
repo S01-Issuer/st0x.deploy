@@ -17,6 +17,12 @@ import {
 import {
     StoxOffchainAssetReceiptVaultBeaconSetDeployer
 } from "../src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol";
+import {
+    StoxOffchainAssetReceiptVaultAuthorizerV1
+} from "../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
+import {
+    StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
+} from "../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 
 contract BuildPointers is Script {
     function addressConstantString(address addr) internal pure returns (string memory) {
@@ -75,5 +81,13 @@ contract BuildPointers is Script {
             type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode
         );
         buildContractPointers("StoxUnifiedDeployer", type(StoxUnifiedDeployer).creationCode);
+        // Authorizers have no dependencies on other Stox contracts.
+        buildContractPointers(
+            "StoxOffchainAssetReceiptVaultAuthorizerV1", type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode
+        );
+        buildContractPointers(
+            "StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1",
+            type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode
+        );
     }
 }

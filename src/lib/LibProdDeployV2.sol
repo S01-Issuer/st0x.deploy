@@ -30,6 +30,14 @@ import {
     BYTECODE_HASH as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_HASH,
     DEPLOYED_ADDRESS as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_ADDR
 } from "../generated/StoxOffchainAssetReceiptVaultBeaconSetDeployer.pointers.sol";
+import {
+    BYTECODE_HASH as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_HASH,
+    DEPLOYED_ADDRESS as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_ADDR
+} from "../generated/StoxOffchainAssetReceiptVaultAuthorizerV1.pointers.sol";
+import {
+    BYTECODE_HASH as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_HASH,
+    DEPLOYED_ADDRESS as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_ADDR
+} from "../generated/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.pointers.sol";
 
 /// @title LibProdDeployV2
 /// @notice V2 production deployment addresses and codehashes for the Stox
@@ -80,4 +88,18 @@ library LibProdDeployV2 {
     /// @dev Codehash of StoxWrappedTokenVaultBeaconSetDeployer when deployed via Zoltu.
     bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH =
         STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_HASH;
+
+    /// @dev Deterministic Zoltu address for StoxOffchainAssetReceiptVaultAuthorizerV1.
+    address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1 =
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_ADDR;
+    /// @dev Codehash of StoxOffchainAssetReceiptVaultAuthorizerV1 when deployed via Zoltu.
+    bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH =
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_HASH;
+
+    /// @dev Deterministic Zoltu address for StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.
+    address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1 =
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_ADDR;
+    /// @dev Codehash of StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1 when deployed via Zoltu.
+    bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH =
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_HASH;
 }
