@@ -20,11 +20,13 @@ contract LibProdDeployV1V2Test is Test {
         );
     }
 
-    /// StoxReceiptVault V1 and V2 MUST have the same codehash.
-    function testStoxReceiptVaultCodehashV1EqualsV2() external pure {
-        assertEq(
-            LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_IMPLEMENTATION_BASE_CODEHASH_V1,
-            LibProdDeployV2.STOX_RECEIPT_VAULT_CODEHASH
+    /// StoxReceiptVault V2 differs from V1 because V2 adds name/symbol
+    /// override support via corporate action registry. This is an intentional
+    /// bytecode change — verify the codehashes are NOT equal.
+    function testStoxReceiptVaultCodehashV1DiffersV2() external pure {
+        assertTrue(
+            LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_IMPLEMENTATION_BASE_CODEHASH_V1
+                != LibProdDeployV2.STOX_RECEIPT_VAULT_CODEHASH
         );
     }
 
