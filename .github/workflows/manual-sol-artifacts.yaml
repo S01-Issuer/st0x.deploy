@@ -18,7 +18,9 @@ on:
           - stox-offchain-asset-receipt-vault-beacon-set-deployer
           # 4. Unified deployer (no on-chain dependencies)
           - stox-unified-deployer
-
+          # 5. Authorizers (no on-chain dependencies)
+          - stox-offchain-asset-receipt-vault-authorizer-v1
+          - stox-offchain-asset-receipt-vault-payment-mint-authorizer-v1
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -27,7 +29,6 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
-
       - uses: nixbuild/nix-quick-install-action@v30
         with:
           nix_conf: |
@@ -39,7 +40,6 @@ jobs:
           primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
           restore-prefixes-first-match: nix-${{ runner.os }}-
           gc-max-store-size-linux: 1G
-
       - name: deploy ${{ inputs.suite }}
         run: nix develop -c rainix-sol-artifacts
         env:
