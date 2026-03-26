@@ -47,7 +47,7 @@ function expireAction(uint256 actionId) internal;
 ### Execution Windows
 - `EXECUTION_WINDOW = 4 hours` after `effectiveTime`
 - Actions must execute within window or become EXPIRED
-- Consistent with Euler xStocks oracle patterns
+- Provides timing certainty for external contracts
 
 ## Initial Scope
 
@@ -66,7 +66,7 @@ function expireAction(uint256 actionId) internal;
 External contracts query the vault directly:
 
 ```solidity
-// Oracle interface - matches Euler's IBackedAutoFeeToken pattern
+// Oracle interface - standard pattern for external contract queries
 function corporateActionsLength() external view returns (uint256);
 function corporateActions(uint256 index) external view 
     returns (bytes32 actionType, uint256 effectiveTime, ActionState state);

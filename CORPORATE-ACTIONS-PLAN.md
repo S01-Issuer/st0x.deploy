@@ -72,7 +72,7 @@
 - [ ] Oracle compatibility verification:
   - External contracts can query upcoming rebases
   - Historical rebase data accessible
-  - Compatible with Euler xStocks oracle pattern
+  - Compatible with standard oracle query patterns
 - [ ] Edge case handling:
   - Multiple actions scheduled for same time
   - Fractional share handling in splits
@@ -109,7 +109,7 @@
 2. **State transitions are enforced** - no invalid state changes possible
 3. **Authorization works** - only approved roles can schedule actions
 4. **Execution windows enforced** - actions expire if not executed in time
-5. **Compatible with oracle patterns** - matches Euler xStocks interface expectations
+5. **Compatible with oracle patterns** - matches standard interface expectations for external contracts
 6. **No vault functionality regressions** - existing operations continue to work
 
 ## Risks & Mitigations
