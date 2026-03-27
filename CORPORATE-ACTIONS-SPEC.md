@@ -86,7 +86,22 @@ External contracts need to be able to:
 
 ## Implementation Notes
 
-1. **Multiplier precision** - Split ratios must mirror offchain precision exactly to maintain 1:1 correspondence. Traditional stock splits use simple ratios (2:1, 3:1, 1:10, etc.) that should translate cleanly to fixed-point arithmetic without rounding errors.
+1. **Multiplier precision** - Split ratios must mirror offchain precision exactly to maintain 1:1 correspondence. 
+
+   **Traditional stock split mechanics:**
+   - Common ratios: 2:1, 3:1, 3:2, 5:4, 1:10 (reverse) - always simple fractions
+   - Calculation: `original_shares × (numerator/denominator) = entitled_shares`
+   - Example: 101 shares × (3/2) = 151.5 shares
+   
+   **Fractional share handling:**
+   - Issue whole shares: `floor(entitled_shares)` = 151 shares  
+   - Cash in lieu: `(entitled_shares - whole_shares) × market_price` for 0.5 shares
+   - Cost basis allocated proportionally for tax compliance
+   
+   **Custodian requirements:**
+   - Exact mathematical precision required (no discretionary rounding)
+   - Cash in lieu payments calculated at market price on effective date
+   - Must match onchain fractional calculations exactly for regulatory compliance
 
 2. **Batch operations** - Multiple related actions in single transaction can be handled via multicall pattern. VATS may already implement this functionality.
 
