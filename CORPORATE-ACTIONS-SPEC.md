@@ -63,18 +63,12 @@ function expireAction(uint256 actionId) internal;
 
 ## Oracle Compatibility
 
-External contracts query the vault directly:
+External contracts need to be able to:
 
-```solidity
-// Oracle interface - standard pattern for external contract queries
-function corporateActionsLength() external view returns (uint256);
-function corporateActions(uint256 index) external view 
-    returns (bytes32 actionType, uint256 effectiveTime, ActionState state);
-
-// Specific queries for rebases
-function getUpcomingRebases() external view returns (CorporateAction[] memory);
-function getRebaseHistory() external view returns (CorporateAction[] memory);
-```
+- Query corporate actions stored directly on the vault
+- Identify upcoming actions that may affect token behavior (e.g., rebases)  
+- Access historical corporate action data for analysis
+- Determine action timing and execution status
 
 ## Authorization
 
