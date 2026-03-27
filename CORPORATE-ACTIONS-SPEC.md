@@ -84,9 +84,13 @@ External contracts need to be able to:
 4. **Composable** - external systems filter for actions they care about
 5. **Consistent address** - vault address unchanged for external contracts
 
-## Open Questions
+## Implementation Notes
 
-1. **Multiplier precision** - what precision for split ratios?
-2. **Batch operations** - single transaction for multiple related actions?
-3. **Historical queries** - indexing strategy for large action histories?
-4. **Cross-chain** - how do corporate actions propagate across chains where vault is deployed?
+1. **Multiplier precision** - Split ratios must mirror offchain precision exactly to maintain 1:1 correspondence. Traditional stock splits use simple ratios (2:1, 3:1, 1:10, etc.) that should translate cleanly to fixed-point arithmetic without rounding errors.
+
+2. **Batch operations** - Multiple related actions in single transaction can be handled via multicall pattern. VATS may already implement this functionality.
+
+## Future Considerations
+
+3. **Historical queries** - Indexing strategy for large corporate action histories
+4. **Cross-chain synchronization** - How corporate actions propagate across chains where vault is deployed
