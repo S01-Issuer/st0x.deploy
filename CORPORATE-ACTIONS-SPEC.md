@@ -90,7 +90,6 @@ External contracts need to be able to:
 
 2. **Batch operations** - Multiple related actions in single transaction can be handled via multicall pattern. VATS may already implement this functionality.
 
-## Future Considerations
+3. **Historical queries** - Events emitted for offchain indexing. Onchain indexing optimization deferred for now.
 
-3. **Historical queries** - Indexing strategy for large corporate action histories
-4. **Cross-chain synchronization** - How corporate actions propagate across chains where vault is deployed
+4. **Cross-chain synchronization** - Single chain focus initially. Cross-chain propagation addressed in future upgrade.
