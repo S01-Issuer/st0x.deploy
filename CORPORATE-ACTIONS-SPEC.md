@@ -103,7 +103,7 @@ External contracts need to be able to:
    - Cash in lieu payments calculated at market price on effective date
    - Must match onchain fractional calculations exactly for regulatory compliance
 
-2. **Batch operations** - Multiple related actions in single transaction can be handled via multicall pattern. VATS may already implement this functionality.
+2. **Batch operations** - Multiple related actions in single transaction handled via existing `multicall` function. VATS already implements `MulticallUpgradeable` - no additional implementation needed.
 
 3. **Historical queries** - Events emitted for offchain indexing. Onchain indexing optimization deferred for now.
 
