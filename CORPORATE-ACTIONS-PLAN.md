@@ -1,167 +1,135 @@
 # Corporate Actions Implementation Plan
 
+## Overview
+
+This plan implements corporate actions via diamond facet with sophisticated lazy migration for rebase-causing events while handling the complete spectrum of corporate action types.
+
 ## Architecture Summary
 
 ### Core System
-- **Diamond facet** adds corporate action functionality to existing vault
-- **Version-based lazy migration** - accounts migrate to current version only when interacting
-- **Sequential multiplier application** preserves computational precision for custodian compliance
-- **OpenZeppelin v5 `_update` hook** handles migration as pre-step for all balance operations
-- **Manager-directed receipts** - ERC1155 receipts updated via existing manager relationship from vault
+- **Diamond facet**: Adds functionality without size limits or address changes
+- **Version-based lazy migration**: Gas-efficient handling of rebase-causing corporate actions
+- **Sequential precision**: Computational correctness for regulatory compliance
+- **Manager-directed receipts**: ERC1155 coordination via existing vault privileges
 
-### Key Design Decisions
-- **Don't scale user input** - constant gas costs regardless of corporate action history
-- **Lazy evaluation** - one-time migration cost per corporate action period, then efficient operations
-- **Precision preservation** - sequential vs cumulative multipliers for computational correctness
-- **User intent protection** - multipliers applied to stored balances, never user input amounts
+### Design Principles
+- **Constant user costs**: Gas costs independent of corporate action history
+- **Lazy evaluation**: Migration only on account interaction
+- **Precision preservation**: Sequential multipliers for custodian compliance
+- **User intent protection**: Input amounts never scaled by historical multipliers
 
-### Integration Strategy
-- **Vault integration** - corporate actions stored on token for single source of truth
-- **Oracle compatibility** - external contracts can query vault directly for corporate action data
-
-## Implementation Order
+## Implementation Roadmap
 
 ### PR 1: Diamond Facet Infrastructure
-**Goal:** Set up the diamond facet and storage infrastructure
+**Goal**: Establish diamond facet and core storage architecture
 
-**Deliverables:**
-- [ ] `src/lib/LibCorporateAction.sol` - storage library with diamond storage pattern
-  - Corporate action struct definitions  
-  - Version counter and multiplier mapping storage
-  - Account version tracking storage
-  - State transition validation functions (`startExecution`, `completeAction`, `expireAction`)
-- [ ] `src/facet/CorporateActionFacet.sol` - basic facet contract 
-  - Function selectors for corporate action operations
-  - Basic view functions (length, getters, version queries)
-  - Stub implementations for scheduling/execution
-- [ ] Update diamond configuration to include new facet
-- [ ] Tests: storage access, state transitions, version tracking, facet registration
+**Key Components**:
+- Corporate action storage with diamond storage pattern
+- Version counter and multiplier mapping infrastructure  
+- Account version tracking for lazy migration
+- State transition validation framework
+- Basic facet contract with function selectors
 
-**Key validations:**
-- State transitions only allow valid changes (SCHEDULED→IN_PROGRESS→COMPLETE)
-- Version counter increments correctly
-- Account version tracking works properly
-- Diamond storage pattern works correctly
-- Facet functions are properly routed
+**Critical Validations**:
+- Diamond storage pattern integration works correctly
+- State transitions enforce valid progressions only
+- Version tracking mechanisms function properly
+- Facet function routing operates as expected
 
-### PR 2: Action Scheduling with Stub Dispatch
-**Goal:** Add corporate action scheduling with placeholder execution
+### PR 2: Corporate Action Scheduling
+**Goal**: Implement corporate action lifecycle with execution windows
 
-**Deliverables:**
-- [ ] `CorporateActionFacet.scheduleSplit(uint256 numerator, uint256 denominator, uint256 effectiveTime)` 
-- [ ] `CorporateActionFacet.scheduleReverseSplit(uint256 numerator, uint256 denominator, uint256 effectiveTime)`
-- [ ] `CorporateActionFacet.execute(uint256 actionId)` - stub that just changes state to COMPLETE
-- [ ] Execution window enforcement (4 hours after effectiveTime)
-- [ ] Authorization via existing Authorizer pattern
-- [ ] Query functions for external contracts:
-  - `corporateActionsLength()`
-  - `corporateActions(uint256 index)`
-  - `getUpcomingActions()`
-  - `getCompletedActions()`
-- [ ] Events: `CorporateActionScheduled`, `CorporateActionExecuted`, `CorporateActionExpired`
+**Key Components**:
+- Scheduling functions for different corporate action types
+- Execution window enforcement (4-hour deadline)
+- State management (SCHEDULED → IN_PROGRESS → COMPLETE/EXPIRED)
+- Authorization integration with existing RBAC system
+- Event emission for offchain indexing
 
-**Key validations:**
-- Can schedule split/reverse split with future effective times
-- Authorization checks work correctly
-- Execution window enforced (can't execute too early or too late)
-- External query functions return correct data
+**Critical Validations**:
+- Corporate actions can be scheduled with appropriate authorization
+- Execution windows properly enforced with automatic expiration
+- State transitions work correctly through complete lifecycle
+- Events provide sufficient data for external indexing
+- Authorization checks prevent unauthorized scheduling
 
-### PR 3: Lazy Migration System  
-**Goal:** Implement lazy migration system using OpenZeppelin v5's `_update` hook
+### PR 3: Lazy Migration System
+**Goal**: Implement version-based lazy migration for rebase-causing actions
 
-**Deliverables:**
-- [ ] Override `_update` hook with pre-step migration logic
-- [ ] `_migrateAccount()` function that:
-  - Checks if account version < global version
-  - Applies sequential multipliers using Rain float math  
-  - Sets account balance to computed effective balance
-  - Advances account version to global version
-- [ ] `LibCorporateAction.calculateMultiplier()` - converts action to multiplier
-- [ ] `CorporateActionFacet.execute()` - real implementation that:
-  - Increments global version counter  
-  - Sets multiplier for new version based on corporate action
-  - Updates corporate action state to COMPLETE
-- [ ] Tests: migration triggering, sequential precision, gas cost validation
+**Key Components**:
+- OpenZeppelin v5 `_update` hook integration
+- Account migration logic triggered by balance operations
+- Sequential multiplier application using Rain float math
+- Version advancement for both sender and recipient
+- Rebase vs non-rebase corporate action handling
 
-**Key validations:**
-- Both sender and recipient migrated before balance changes
-- Sequential multiplier application preserves precision behavior
-- One-time migration cost per corporate action period  
-- Subsequent operations have normal ERC20 gas costs
-- User input amounts always preserved (no scaling contamination)
-- Corporate action marked COMPLETE after successful version creation
+**Critical Validations**:
+- Migration triggers correctly for both parties in transfers
+- Sequential multiplier application maintains precision
+- One-time migration cost per corporate action period
+- User input amounts preserved without scaling
+- Non-rebase actions avoid unnecessary migration costs
+- Rain float math integration provides exact calculations
 
-### PR 4: Receipt Integration & System Validation
-**Goal:** Integrate receipt contract with corporate actions and complete system validation
+### PR 4: Receipt Integration & System Completion
+**Goal**: Coordinate ERC1155 receipts and complete system validation
 
-**Deliverables:**
-- [ ] Receipt contract corporate action integration:
-  - Manager functions for corporate action adjustments (leveraging existing manager relationship)
-  - Proportional receipt balance adjustments via vault-directed calls
-  - Receipt contract responds to vault's corporate action execution
-- [ ] Manager-directed coordination:
-  - Corporate action execution in vault triggers manager calls to receipt contract
-  - Consistent precision using same multipliers and Rain float math
-  - Unified query interface (vault as single source of truth)
-- [ ] Oracle compatibility verification:
-  - External contracts can query upcoming corporate actions from either contract
-  - Historical corporate action data accessible
-  - Compatible with standard oracle query patterns
-- [ ] Edge case handling:
-  - Multiple actions scheduled for same time
-  - Fractional share precision in sequential multiplier application  
-  - Complex migration scenarios (dormant accounts, frequent traders)
-  - Receipt and vault balance consistency
-- [ ] Complete system integration tests
-- [ ] Gas optimization and performance benchmarking
-- [ ] Documentation and examples for external integrators
+**Key Components**:
+- Manager-directed receipt balance adjustments
+- Coordinated execution affecting both vault and receipt balances
+- Oracle compatibility for external contract queries
+- Comprehensive edge case handling
+- Performance optimization and gas cost validation
 
-**Key validations:**
+**Critical Validations**:
 - Receipt and vault balances remain proportional after corporate actions
-- Manager-directed updates work correctly via existing relationship
-- Receipt contract responds properly to vault's corporate action execution
-- Oracles can detect upcoming version updates by querying vault (single source)
-- Corporate action history preserved for external analysis
-- User operations maintain constant gas costs for both token types
-- No regressions in vault or receipt functionality
-- External contract integration works as expected
+- Manager-directed updates work correctly via existing privileges  
+- External contracts can query corporate action data effectively
+- Edge cases handled properly (multiple simultaneous actions, complex migration scenarios)
+- System maintains predictable gas costs across all operations
+- No regressions in existing vault or receipt functionality
 
 ## Testing Strategy
 
-### Unit Tests
-- `LibCorporateAction`: state transitions, multiplier calculations
-- `CorporateActionFacet`: authorization, scheduling, execution
-- Storage: diamond storage access, data integrity
+### Unit Testing
+- Individual component validation for storage, state transitions, and migration logic
+- Authorization and permission enforcement verification
+- Precision validation for sequential multiplier application
 
-### Integration Tests  
-- End-to-end: schedule split → execute → verify balances
-- Oracle simulation: external contract querying rebase schedules
-- Multi-action scenarios: several corporate actions in sequence
+### Integration Testing  
+- End-to-end corporate action lifecycle from scheduling through execution
+- Migration system interaction with normal vault operations
+- Receipt coordination via manager relationship
 
-### Fork Tests
-- Deploy facet to existing vault on testnet
-- Verify oracle compatibility with real data
-- Performance testing with large action histories
+### Performance Testing
+- Gas cost validation for migration operations
+- Scalability testing with varying corporate action histories
+- Comparison of rebase vs non-rebase action costs
+
+### Regulatory Compliance Testing
+- Precision validation against traditional stock split calculations
+- Fractional share handling verification
+- Custodian reconciliation simulation
 
 ## Success Criteria
 
-1. **External contracts can query vault directly** for upcoming/completed rebases
-2. **State transitions are enforced** - no invalid state changes possible
-3. **Authorization works** - only approved roles can schedule actions
-4. **Execution windows enforced** - actions expire if not executed in time
-5. **Compatible with oracle patterns** - matches standard interface expectations for external contracts
-6. **No vault functionality regressions** - existing operations continue to work
+### Functional Requirements
+- Corporate actions execute correctly with appropriate balance effects
+- Lazy migration provides constant gas costs regardless of history
+- Sequential precision matches traditional finance calculations
+- Receipt integration maintains proportional accounting
 
-## Risks & Mitigations
+### Performance Requirements  
+- Migration cost amortized across corporate action periods
+- Normal operations maintain ERC20-level efficiency after migration
+- System scales with active users, not total token holders
 
-**Risk:** Diamond storage conflicts with existing vault storage
-**Mitigation:** Use dedicated storage slots, extensive testing
+### Integration Requirements
+- External contracts can query corporate action data effectively
+- Oracle compatibility enables downstream protocol integration
+- Authorization system properly controls corporate action operations
 
-**Risk:** Gas costs too high for complex corporate actions  
-**Mitigation:** Optimize state updates, consider batch operations
-
-**Risk:** Oracle integration issues
-**Mitigation:** Test against real oracle implementations early
-
-**Risk:** Timezone/timing issues with effective times
-**Mitigation:** Use block.timestamp consistently, document timezone handling
+### Compliance Requirements
+- Precision matches custodian calculations exactly
+- Regulatory requirements for fractional share handling met
+- Audit trail preserved for all corporate action events
