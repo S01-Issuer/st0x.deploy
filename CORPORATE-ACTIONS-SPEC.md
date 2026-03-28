@@ -2,175 +2,131 @@
 
 ## Overview
 
-Corporate actions (stock splits, reverse splits, etc.) are implemented as a diamond facet on the existing OffchainAssetReceiptVault. This provides a single source of truth for external contracts like oracles while avoiding contract size limits.
+Corporate actions are implemented as a diamond facet on the existing OffchainAssetReceiptVault. This approach provides a single source of truth for external contracts while avoiding contract size limits and maintaining the vault's existing address.
 
 ## Architecture
 
-### Diamond Facet Pattern
-- `CorporateActionFacet` - new facet with scheduling and execution functions
-- `LibCorporateAction` - shared storage and state transition logic  
-- Vault retains same address - external contracts query it directly
+The corporate action system uses a diamond facet pattern with shared storage and state management:
 
-### Core Entities
-
-**Corporate Action:**
-```solidity
-struct CorporateAction {
-    bytes32 actionType;      // STOCK_SPLIT_2_1, REVERSE_SPLIT_1_10, etc.
-    bytes data;              // Action-specific parameters
-    uint256 effectiveTime;   // When this action takes effect
-    uint256 scheduledAt;     // When this action was scheduled
-    ActionState state;       // Current lifecycle state
-}
-
-enum ActionState {
-    SCHEDULED,    // Action scheduled, pending execution
-    IN_PROGRESS,  // Currently executing (transient)
-    COMPLETE,     // Execution finished
-    EXPIRED       // Not executed within window
-}
-```
-
-### State Transitions
-Enforced in `LibCorporateAction`:
-```solidity
-// Only valid transitions
-SCHEDULED → IN_PROGRESS → COMPLETE
-SCHEDULED → EXPIRED (if execution window passed)
-
-// State change functions with validation
-function startExecution(uint256 actionId) internal;
-function completeAction(uint256 actionId) internal; 
-function expireAction(uint256 actionId) internal;
-```
-
-### Execution Windows
-- `EXECUTION_WINDOW = 4 hours` after `effectiveTime`
-- Actions must execute within window or become EXPIRED
-- Provides timing certainty for external contracts
-
-## Version-Based Multiplier System
-
-Corporate actions use a lazy evaluation system with versioned multipliers:
-
-### Global State
-- **Version counter**: Increments with each corporate action execution
-- **Version multipliers**: `mapping(version → multiplier)` for each corporate action
-- **Current global version**: Latest version after all executed corporate actions
-
-### Account State  
-- **Account version**: `mapping(account → version)` tracking each account's current version
-- **Base balance**: Account's balance as of their current version
-
-### Lazy Migration System
-- **Read operations**: Apply all multipliers from account's version to global version sequentially
-  - Example: `balance × multiplier_v4 × multiplier_v5 × multiplier_v6`
-- **Write operations**: Migration-then-write sequence:
-  1. **Migrate sender** (if version < global): apply pending multipliers, set current balance, advance version
-  2. **Migrate recipient** (if version < global): apply pending multipliers, set current balance, advance version  
-  3. **Apply balance changes** to migrated current balances
-- **Gas economics**: One-time migration cost per corporate action period, then efficient operations
-- **User input protection**: Multipliers applied to stored balances, never to user input amounts
-
-### Precision Requirements
-- **Rain float math**: Sequential multiplier application uses Rain's float library
-- **Custodian matching**: Maintains exact correspondence with traditional stock split calculations
-- **Clean ratios**: Supports precise fractional calculations (2:1, 3:2, 1:10) without degradation
-
-## Initial Scope
-
-**Focus on rebasing actions:**
-- `STOCK_SPLIT_N_M` - split N shares into M shares (N < M)
-- `REVERSE_SPLIT_N_M` - combine N shares into M shares (N > M) 
-- Results in new version with corresponding multiplier
-
-**Not in scope yet:**
-- Name/symbol changes
-- Dividend distributions
-- Other non-rebasing actions
-
-## Oracle Compatibility
-
-External contracts need to be able to:
-
-- Query corporate actions stored directly on the vault
-- Identify upcoming actions that may affect token behavior (e.g., rebases)  
-- Access historical corporate action data for analysis
-- Determine action timing and execution status
-
-## Authorization
-
-- Corporate action scheduling requires appropriate roles via existing Authorizer
-- Same RBAC pattern as other vault operations
-- Role-based permissions for different action types
+- **CorporateActionFacet**: New facet providing scheduling and execution functions
+- **LibCorporateAction**: Shared storage library with state transition validation
+- **Single address**: Vault retains same address for external contract compatibility
 
 ## Design Principles
 
-1. **Don't scale user input** - User operations have constant gas cost regardless of corporate action history
-2. **Sequential precision** - Apply multipliers one-after-another to preserve computational precision, not mathematical optimization
-3. **Lazy migration** - Accounts migrate to current version only when interacting, not proactively
-4. **User intent preservation** - "1 share" always means 1 share at current value, precision errors stay internal
+1. **Don't scale user input**: User operations maintain constant gas costs regardless of corporate action history
+2. **Sequential precision**: Apply multipliers sequentially to preserve computational behavior for custodian compliance
+3. **Lazy migration**: Accounts migrate to current version only when interacting
+4. **User intent preservation**: "1 share" always means 1 share at current value
 
-## Key Benefits
+## Corporate Action Types
 
-1. **Single source of truth** - oracles query vault directly
-2. **No size limits** - diamond facet pattern  
-3. **Enforced state transitions** - LibCorporateAction validates changes
-4. **Predictable gas costs** - One-time migration cost per corporate action period
-5. **Precision correctness** - Sequential multipliers preserve computational behavior
-6. **Consistent address** - vault address unchanged for external contracts
+### Rebase-Causing Actions
+- **Stock splits**: Multiply token balances (e.g., 2:1 split doubles balances)
+- **Reverse splits**: Divide token balances (e.g., 1:10 split reduces balances by 10x)
+- **Stock dividends**: May cause balance multiplication depending on implementation
 
-## Implementation Notes
+### Non-Rebase Actions
+- **Name/symbol changes**: Update metadata without affecting balances
+- **Cash dividends**: Separate distributions without balance modifications
+- **Administrative actions**: Various corporate events without multiplier effects
 
-1. **Version precision** - Sequential multiplier application must mirror offchain stock split mechanics exactly to maintain 1:1 correspondence.
+## Technical Approach
 
-   **Traditional stock split mechanics:**
-   - Common ratios: 2:1, 3:1, 3:2, 5:4, 1:10 (reverse) - always simple fractions
-   - Calculation: `original_shares × (numerator/denominator) = entitled_shares`  
-   - Example: 101 shares × (3/2) = 151.5 shares
-   
-   **Fractional share handling:**
-   - Issue whole shares: `floor(entitled_shares)` = 151 shares
-   - Cash in lieu: `(entitled_shares - whole_shares) × market_price` for 0.5 shares
-   - Cost basis allocated proportionally for tax compliance
-   
-   **Version system requirements:**
-   - Sequential multiplier application uses Rain float math for exact fractional calculations
-   - Version-based balance computation reflects precise entitlements without approximation
-   - Must match custodian's traditional split calculations exactly for regulatory compliance
+### Version-Based Lazy Migration System
 
-2. **Batch operations** - Multiple related actions in single transaction handled via existing `multicall` function. VATS already implements `MulticallUpgradeable` - no additional implementation needed.
+The system tracks corporate action effects through a version-based approach that minimizes gas costs:
 
-3. **Historical queries** - Events emitted for offchain indexing. Onchain indexing optimization deferred for now.
+#### Global State Management
+- **Version counter**: Increments only when rebase-causing corporate actions execute
+- **Version multipliers**: Sequential multipliers stored per version for precision correctness
+- **Current global version**: Latest version reflecting all executed corporate actions
 
-4. **Cross-chain synchronization** - Single chain focus initially. Cross-chain propagation addressed in future upgrade.
+#### Account-Level Tracking  
+- **Account versions**: Track current version per account for lazy evaluation
+- **Base balances**: Account balances as of their current version
 
-## Receipt Handling Strategy
+#### Migration Mechanics
+- **Read operations**: Apply pending multipliers sequentially from account version to global version
+- **Write operations**: Migration-then-write sequence ensures both sender and recipient are current before balance changes
+- **Gas economics**: One-time migration cost per corporate action period, then normal ERC20 efficiency
+- **Precision protection**: Multipliers applied to stored balances, never to user input amounts
 
-Corporate actions affect both vault shares (ERC20) and receipts (ERC1155). Leveraging the existing manager relationship:
+### State Management
 
-### Proposed Solution: Manager-Directed Updates
-- **Existing relationship**: Vault already has manager privileges over receipt contract (used in withdrawals)
-- **Corporate action dispatch**: Vault calls receipt contract to apply same corporate action effects
-- **Proportional adjustments**: Receipt balances adjusted by same multiplier as vault shares via manager functions
-- **Single source control**: Vault's corporate action system drives both ERC20 and ERC1155 updates
+Corporate actions progress through enforced state transitions:
+- **SCHEDULED**: Action planned for future execution
+- **IN_PROGRESS**: Currently executing (transient state)
+- **COMPLETE**: Successfully executed
+- **EXPIRED**: Not executed within required window
 
-### Implementation Approach
-- **Manager functions**: Receipt contract exposes manager-only functions for corporate action adjustments
-- **Vault coordination**: When vault executes corporate action, it calls receipt contract via manager privilege
-- **Consistent precision**: Both systems use same multipliers and Rain float math for identical results
-- **Unified query**: External contracts query vault for corporate action status (single source of truth)
+### Execution Windows
 
-### Benefits
-- **Leverages existing architecture**: Uses established manager relationship, no parallel version system needed
-- **Consistent accounting**: Receipt and vault balances remain proportional after corporate actions
-- **Regulatory compliance**: Receipt holders experience same corporate action effects as share holders
-- **Simplified implementation**: Single version system in vault drives both contracts
-- **Gas efficiency**: No duplicate version tracking, vault manages all corporate action state
+Actions must execute within a fixed window after their effective time:
+- **Window duration**: 4 hours after effective time
+- **Purpose**: Provides timing certainty for external contracts and prevents indefinite delays
+- **Enforcement**: Actions automatically expire if not executed within window
 
-## Implementation Strategy
+### Precision Requirements
+
+The system maintains exact correspondence with traditional finance calculations:
+
+#### Traditional Stock Split Mechanics
+- **Ratios**: Always simple fractions (2:1, 3:2, 1:10) for clean mathematical operations
+- **Calculation**: `original_shares × (split_ratio) = entitled_shares`
+- **Fractional shares**: Handled via cash-in-lieu payments at market price
+- **Cost basis**: Proportionally allocated for tax compliance
+
+#### System Implementation
+- **Sequential application**: Multipliers applied one-after-another to preserve computational precision
+- **Rain float math**: Exact fractional calculations for regulatory compliance
+- **Custodian matching**: Results must match traditional systems precisely
+
+## Receipt Integration
+
+The vault's manager relationship with receipt contracts enables coordinated corporate action handling:
+
+### Manager-Directed Approach
+- **Existing privileges**: Vault already manages receipt operations (used in withdrawals)
+- **Coordinated execution**: Corporate actions trigger proportional adjustments in both vault and receipt balances
+- **Single control point**: Vault's corporate action system drives both ERC20 and ERC1155 updates
+
+### Implementation Benefits
+- **Leverages existing architecture**: Uses established manager relationship
+- **Consistent accounting**: Receipt and vault balances remain proportional
+- **Simplified design**: Single version system drives both contracts
+- **Regulatory compliance**: Receipt holders experience identical corporate action effects
+
+## Oracle Compatibility
+
+External contracts require specific capabilities for corporate action integration:
+
+- **Query stored actions**: Access corporate action data directly from vault
+- **Identify upcoming events**: Determine actions that may affect token behavior
+- **Access historical data**: Retrieve past corporate actions for analysis
+- **Check timing status**: Determine action scheduling and execution state
+
+## Implementation Considerations
 
 ### OpenZeppelin v5 Integration
-- Single `_update` hook handles all balance changes (transfers, mints, burns)
-- Migration logic implemented as pre-step before balance changes
-- Both sender and recipient migrated to current version before operations
+The system leverages OpenZeppelin v5's unified update hook:
+- **Single hook**: `_update` handles all balance changes (transfers, mints, burns)
+- **Migration pre-step**: Lazy migration occurs before any balance modifications
+- **Bilateral migration**: Both sender and recipient updated to current version
+
+### Batch Operations
+Multiple corporate actions can be executed in single transactions using the vault's existing multicall functionality.
+
+### Data Management
+- **Event emission**: All corporate actions emit events for offchain indexing
+- **Storage optimization**: Version-based approach minimizes storage requirements
+- **Query efficiency**: External contracts query single vault address
+
+### Cross-Chain Considerations
+Initial implementation focuses on single-chain deployment. Cross-chain propagation of corporate actions will be addressed in future upgrades.
+
+### Authorization
+Corporate action operations integrate with the vault's existing authorization system:
+- **Role-based permissions**: Different action types may require different authorization levels
+- **Execution permissions**: Separate from scheduling permissions for operational flexibility
+- **Governance integration**: Administrative actions follow established governance patterns
