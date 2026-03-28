@@ -65,8 +65,12 @@ Corporate actions use a lazy evaluation system with versioned multipliers:
 ### Lazy Evaluation
 - **Read operations**: Apply all multipliers from account's version to global version sequentially
   - Example: `balance × multiplier_v4 × multiplier_v5 × multiplier_v6`
-- **Write operations**: Update account to current global version with computed balance
-- **Version updates**: Account version advances to global version after balance computation
+- **Write operations**: Read-then-write sequence:
+  1. **First do a read** (apply all pending multipliers to get effective balance)
+  2. **Set internal balance** to the result of the read
+  3. **Apply the increment/decrement** due to the write operation
+  4. **Update account version** to current global version
+- **Result**: Account's base balance reflects all corporate actions after any write
 
 ### Precision Requirements
 - **Rain float math**: Sequential multiplier application uses Rain's float library

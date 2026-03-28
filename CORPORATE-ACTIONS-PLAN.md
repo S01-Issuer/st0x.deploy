@@ -60,6 +60,7 @@
 - Split 2:1 creates correct multiplier (2.0) for new version
 - Reverse split 1:10 creates correct multiplier (0.1) for new version  
 - Balance reads apply sequential multipliers from account version to global version
+- Write operations follow read-then-set-then-write sequence correctly
 - Corporate action marked COMPLETE after successful version creation
 
 ### PR 4: Lazy Evaluation Integration
@@ -82,6 +83,8 @@
 - Oracles can detect upcoming version updates by querying vault
 - Corporate action history preserved for external analysis
 - Version-based balance computation works correctly with transfers
+- Write operations properly sequence: read-then-set-then-write
+- Account versions advance correctly after write operations
 - No regressions in vault functionality
 
 ## Testing Strategy
