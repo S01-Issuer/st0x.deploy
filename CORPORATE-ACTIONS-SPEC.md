@@ -38,18 +38,19 @@ The corporate action system uses a diamond facet pattern with shared storage and
 The system tracks corporate action effects through a version-based approach that minimizes gas costs:
 
 #### Global State Management
-- **Version counter**: Increments only when rebase-causing corporate actions execute
-- **Version multipliers**: Sequential multipliers stored per version for precision correctness
-- **Current global version**: Latest version reflecting all executed corporate actions
+- **Corporate action tracking**: System maintains record of all corporate actions regardless of type
+- **Rebase version management**: Separate versioning system for actions that require balance migration
+- **Sequential multipliers**: Multipliers stored for rebase-causing actions to enable lazy migration
+- **Version coordination**: Migration system tracks which accounts are current with rebase effects
 
 #### Account-Level Tracking  
-- **Account versions**: Track current version per account for lazy evaluation
-- **Base balances**: Account balances as of their current version
+- **Account rebase versions**: Track current rebase version per account for lazy evaluation
+- **Base balances**: Account balances as of their current rebase version
 
 #### Migration Mechanics
-- **Read operations**: Apply pending multipliers sequentially from account version to global version
-- **Write operations**: Migration-then-write sequence ensures both sender and recipient are current before balance changes
-- **Gas economics**: One-time migration cost per corporate action period, then normal ERC20 efficiency
+- **Read operations**: Apply pending multipliers sequentially from account rebase version to current rebase version
+- **Write operations**: Migration-then-write sequence ensures both sender and recipient are current with rebase effects before balance changes
+- **Gas economics**: One-time migration cost per rebase period, then normal ERC20 efficiency until next rebase
 - **Precision protection**: Multipliers applied to stored balances, never to user input amounts
 
 ### State Management
