@@ -2,137 +2,156 @@
 
 ## Overview
 
-This plan implements corporate actions via diamond facet with sophisticated lazy migration for rebase-causing events while handling the complete spectrum of corporate action types.
+This plan implements a comprehensive corporate actions system comprising five distinct components: diamond facet architecture, flexible framework with timing enforcement, supply-changing actions, sequential rebase implementation, and downstream integration.
 
-## Architecture Summary
+## System Architecture
 
-### Core System
-- **Diamond facet**: Adds functionality without size limits or address changes
-- **Version-based lazy migration**: Gas-efficient handling of rebase-causing corporate actions
-- **Sequential precision**: Computational correctness for regulatory compliance
-- **Manager-directed receipts**: ERC1155 coordination via existing vault privileges
+### Component Integration
+- **Diamond facet foundation**: Extensible architecture for corporate action functionality
+- **Framework layer**: General scheduling, timing, and state management for all action types  
+- **Supply-change implementation**: Specific handling of balance-affecting corporate actions
+- **Technical rebase system**: Lazy migration and precision preservation for regulatory compliance
+- **Consumer integration**: Reliable interface for external contracts and oracles
 
-### Design Principles
-- **Constant user costs**: Gas costs independent of corporate action history
-- **Lazy evaluation**: Migration only on account interaction
-- **Precision preservation**: Sequential multipliers for custodian compliance
-- **User intent protection**: Input amounts never scaled by historical multipliers
+### Design Approach
+- **Extensible framework**: Built to support future corporate action types beyond initial scope
+- **Operational reliability**: Timing enforcement and execution windows for downstream certainty
+- **Regulatory compliance**: Exact precision matching traditional finance for supply-changing actions
+- **Gas optimization**: Lazy evaluation minimizes costs for users
 
 ## Implementation Roadmap
 
-### PR 1: Diamond Facet Infrastructure
-**Goal**: Establish diamond facet and core storage architecture
+### PR 1: Diamond Facet Foundation
+**Goal**: Establish diamond facet architecture and core infrastructure
 
-**Key Components**:
-- Corporate action storage with diamond storage pattern
-- Tracking infrastructure for all corporate action types
-- Rebase version management for migration system
-- Multiplier mapping for rebase-causing actions
-- Account rebase version tracking for lazy migration  
+**System Components Addressed**:
+- Diamond facet pattern introduction
+- Basic corporate action storage framework
+- Foundation for extensible architecture
+
+**Key Deliverables**:
+- Diamond storage pattern integration with existing vault
+- Core corporate action data structures and storage
+- Basic facet contract with function selector routing  
 - State transition validation framework
-- Basic facet contract with function selectors
+- Foundation storage for timing and authorization systems
 
 **Critical Validations**:
-- Diamond storage pattern integration works correctly
-- State transitions enforce valid progressions only  
-- Corporate action tracking handles all action types
-- Rebase version tracking mechanisms function properly for migration system
-- Facet function routing operates as expected
+- Diamond pattern integrates correctly with existing vault architecture
+- Storage patterns support extensible corporate action types
+- Facet routing works properly for corporate action functions
+- Foundation supports both framework and rebase-specific requirements
 
-### PR 2: Corporate Action Scheduling
-**Goal**: Implement corporate action lifecycle with execution windows
+### PR 2: Framework with Timing Enforcement  
+**Goal**: Implement flexible corporate action framework with operational timing
 
-**Key Components**:
-- Scheduling functions for different corporate action types
-- Execution window enforcement (4-hour deadline)
-- State management (SCHEDULED → IN_PROGRESS → COMPLETE/EXPIRED)
+**System Components Addressed**:
+- Corporate actions framework (scheduling and execution)
+- Timing enforcement and execution windows
+- General state management for all corporate action types
+
+**Key Deliverables**:
+- Corporate action scheduling system for all action types
+- Execution window enforcement (4-hour deadline after effective time)
+- State management with enforced transitions (SCHEDULED → IN_PROGRESS → COMPLETE/EXPIRED)
 - Authorization integration with existing RBAC system
-- Event emission for offchain indexing
+- Event emission for comprehensive audit trails
+- Query interfaces for external contracts
 
 **Critical Validations**:
-- Corporate actions can be scheduled with appropriate authorization
-- Execution windows properly enforced with automatic expiration
-- State transitions work correctly through complete lifecycle
-- Events provide sufficient data for external indexing
-- Authorization checks prevent unauthorized scheduling
+- All corporate action types can be scheduled with appropriate metadata
+- Execution windows enforced consistently with automatic expiration
+- State transitions prevent invalid progressions
+- Authorization properly controls scheduling and execution
+- Events provide sufficient data for downstream consumers
+- External contracts can reliably query corporate action data and timing
 
-### PR 3: Lazy Migration System
-**Goal**: Implement version-based lazy migration for rebase-causing actions
+### PR 3: Supply-Changing Actions & Rebase Implementation
+**Goal**: Implement stock splits/reverse splits with sequential rebase system
 
-**Key Components**:
-- OpenZeppelin v5 `_update` hook integration
-- Account migration logic triggered by balance operations
-- Sequential multiplier application using Rain float math
-- Version advancement for both sender and recipient
-- Rebase vs non-rebase corporate action handling
+**System Components Addressed**:
+- Supply-changing actions implementation (specific corporate action types)
+- Sequential rebase technical implementation
+- Precision preservation and regulatory compliance
+
+**Key Deliverables**:
+- Stock split and reverse split corporate action types
+- Version-based lazy migration system using OpenZeppelin v5 `_update` hook
+- Sequential multiplier application with Rain float math integration
+- Account migration logic for both sender and recipient during transfers
+- Balance rasterization to storage during write operations
+- Precision preservation for custodian compliance
 
 **Critical Validations**:
-- Migration triggers correctly for both parties in transfers  
-- Sequential multiplier application maintains precision
-- One-time migration cost per rebase period (not all corporate actions)
-- User input amounts preserved without scaling
-- Non-rebase actions avoid unnecessary migration costs
-- Rain float math integration provides exact calculations
+- Stock splits and reverse splits execute with correct balance effects
+- Migration triggers appropriately for both parties in transfers
+- Sequential multiplier application maintains exact precision
+- One-time migration cost per rebase period with normal ERC20 efficiency afterward
+- User input amounts preserved without historical scaling
+- Rain float math produces results matching traditional finance calculations
+- Non-rebase actions avoid unnecessary migration overhead
 
 ### PR 4: Receipt Integration & System Completion
-**Goal**: Coordinate ERC1155 receipts and complete system validation
+**Goal**: Complete system with ERC1155 receipt coordination and validation
 
-**Key Components**:
-- Manager-directed receipt balance adjustments
-- Coordinated execution affecting both vault and receipt balances
-- Oracle compatibility for external contract queries
-- Comprehensive edge case handling
-- Performance optimization and gas cost validation
+**System Components Addressed**:
+- Receipt system integration via manager relationship
+- Downstream consumer integration completion
+- System-wide validation and optimization
+
+**Key Deliverables**:
+- Manager-directed receipt balance adjustments coordinated with corporate actions
+- Receipt system responds correctly to vault corporate action execution
+- Complete external contract integration for reliable queries
+- Comprehensive edge case handling (multiple simultaneous actions, complex migration scenarios)
+- Performance optimization and gas cost validation across all system components
+- Complete documentation for external integrators
 
 **Critical Validations**:
-- Receipt and vault balances remain proportional after corporate actions
-- Manager-directed updates work correctly via existing privileges  
-- External contracts can query corporate action data effectively
-- Edge cases handled properly (multiple simultaneous actions, complex migration scenarios)
-- System maintains predictable gas costs across all operations
-- No regressions in existing vault or receipt functionality
+- Receipt and vault balances remain proportional after all corporate action types
+- Manager relationship works correctly for coordinated updates
+- External contracts can depend on timing enforcement for operational decisions
+- Edge cases handled properly across framework and rebase systems
+- Gas costs remain predictable across complete system
+- No regressions in existing vault, receipt, or authorization functionality
+- System provides reliable interface for downstream consumers
 
 ## Testing Strategy
 
-### Unit Testing
-- Individual component validation for storage, state transitions, and migration logic
-- Authorization and permission enforcement verification
-- Precision validation for sequential multiplier application
+### Component-Level Testing
+- **Diamond facet**: Integration with existing vault, storage patterns, function routing
+- **Framework**: Scheduling, timing enforcement, state transitions, authorization
+- **Supply actions**: Stock splits, reverse splits, precision calculations
+- **Rebase system**: Migration triggers, sequential multipliers, gas optimization
+- **Integration**: Receipt coordination, external contract compatibility
 
-### Integration Testing  
-- End-to-end corporate action lifecycle from scheduling through execution
-- Migration system interaction with normal vault operations
-- Receipt coordination via manager relationship
+### System-Level Testing  
+- **Complete corporate action lifecycle**: Schedule through execution across all components
+- **Mixed action scenarios**: Rebase and non-rebase actions in sequence
+- **Performance validation**: Gas costs across different corporate action histories
+- **Regulatory compliance**: Precision matching with traditional finance calculations
 
-### Performance Testing
-- Gas cost validation for migration operations
-- Scalability testing with varying corporate action histories
-- Comparison of rebase vs non-rebase action costs
-
-### Regulatory Compliance Testing
-- Precision validation against traditional stock split calculations
-- Fractional share handling verification
-- Custodian reconciliation simulation
+### External Integration Testing
+- **Oracle simulation**: External contracts querying corporate action data
+- **Timing reliability**: Downstream systems depending on execution windows
+- **Authorization integration**: Role-based access across all system components
 
 ## Success Criteria
 
-### Functional Requirements
-- Corporate actions execute correctly with appropriate balance effects
-- Lazy migration provides constant gas costs regardless of history
-- Sequential precision matches traditional finance calculations
-- Receipt integration maintains proportional accounting
+### Framework Success
+- **Extensible architecture**: System supports addition of new corporate action types
+- **Timing reliability**: Execution windows provide operational certainty for external contracts
+- **Authorization integration**: Role-based permissions work across all corporate action types
+- **Audit compliance**: Complete event trail for all corporate action activities
 
-### Performance Requirements  
-- Migration cost amortized across corporate action periods
-- Normal operations maintain ERC20-level efficiency after migration
-- System scales with active users, not total token holders
+### Supply-Change Success  
+- **Regulatory compliance**: Exact precision matching traditional finance calculations
+- **Gas optimization**: Constant user costs independent of corporate action history
+- **User experience**: Input amounts represent current value without historical scaling
+- **Custodian reconciliation**: Results match traditional systems exactly
 
-### Integration Requirements
-- External contracts can query corporate action data effectively
-- Oracle compatibility enables downstream protocol integration
-- Authorization system properly controls corporate action operations
-
-### Compliance Requirements
-- Precision matches custodian calculations exactly
-- Regulatory requirements for fractional share handling met
-- Audit trail preserved for all corporate action events
+### Integration Success
+- **Single source of truth**: External contracts query vault directly for all corporate action data
+- **Receipt consistency**: ERC1155 and ERC20 balances remain proportional
+- **Performance**: System scales with active users, not total corporate action history
+- **Reliability**: Downstream consumers can depend on timing and data accuracy
