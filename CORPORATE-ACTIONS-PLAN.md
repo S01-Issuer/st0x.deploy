@@ -16,7 +16,6 @@
 
 ### Integration Strategy
 - **Vault integration** - corporate actions stored on token for single source of truth
-- **Orderbook integration** - vault share model with balance ratio detection for automatic adjustment
 - **Oracle compatibility** - external contracts can query vault directly for corporate action data
 
 ## Implementation Order
@@ -91,15 +90,10 @@
 - User input amounts always preserved (no scaling contamination)
 - Corporate action marked COMPLETE after successful version creation
 
-### PR 4: Orderbook Integration & System Validation
-**Goal:** Integrate orderbook with corporate actions and validate complete system
+### PR 4: System Integration & Validation
+**Goal:** Complete integration testing and validation of corporate action system
 
 **Deliverables:**
-- [ ] Orderbook vault share model implementation:
-  - Track shares instead of absolute token amounts
-  - Compare `actualBalance/expectedBalance` to detect corporate actions  
-  - Apply discovered ratio to deposits/withdrawals for consistent accounting
-- [ ] Corporate action transfer functions for orderbook integration
 - [ ] Oracle compatibility verification:
   - External contracts can query upcoming corporate actions
   - Historical corporate action data accessible
@@ -107,19 +101,18 @@
 - [ ] Edge case handling:
   - Multiple actions scheduled for same time
   - Fractional share precision in sequential multiplier application  
-  - Orderbook deposits/withdrawals during and after corporate actions
+  - Complex migration scenarios (dormant accounts, frequent traders)
 - [ ] Complete system integration tests
 - [ ] Gas optimization and performance benchmarking
 - [ ] Documentation and examples for external integrators
 
 **Key validations:**
 - Oracles can detect upcoming version updates by querying vault
-- Orderbook maintains consistent accounting through corporate actions
-- Vault share model correctly handles deposits/withdrawals with ratio detection
 - Corporate action history preserved for external analysis
 - Migration system works correctly with all vault operations
 - User operations maintain constant gas costs regardless of corporate action history
-- No regressions in vault or orderbook functionality
+- No regressions in vault functionality
+- External contract integration works as expected
 
 ## Testing Strategy
 

@@ -151,8 +151,3 @@ External contracts need to be able to:
 - Single `_update` hook handles all balance changes (transfers, mints, burns)
 - Migration logic implemented as pre-step before balance changes
 - Both sender and recipient migrated to current version before operations
-
-### Orderbook Integration  
-- **Vault share model**: Track shares instead of absolute token amounts
-- **Balance ratio detection**: Compare `actualBalance/expectedBalance` to detect corporate actions
-- **Automatic adjustment**: Apply discovered ratio to deposits/withdrawals for consistent accounting
