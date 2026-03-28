@@ -44,47 +44,45 @@
 - Execution window enforced (can't execute too early or too late)
 - External query functions return correct data
 
-### PR 3: Multiplier Dispatch
-**Goal:** Connect corporate action execution to actual multiplier changes
+### PR 3: Rasterization Dispatch
+**Goal:** Connect corporate action execution to balance rasterization system
 
 **Deliverables:**
-- [ ] `LibCorporateAction.calculateMultiplier(bytes32 actionType, bytes data)` - converts action to multiplier
-  - `STOCK_SPLIT_2_1` → multiplier = 2.0
-  - `REVERSE_SPLIT_10_1` → multiplier = 0.1
+- [ ] `LibCorporateAction.calculateRasterizationMultiplier()` - converts action to rasterization multiplier using Rain float math
 - [ ] `CorporateActionFacet.execute()` - real implementation that:
-  - Calculates new multiplier from action data
-  - Calls vault's rebasing functions
-  - Updates corporate action state to COMPLETE
-- [ ] Integration with existing vault rebasing logic
-- [ ] Tests: end-to-end split execution, multiplier calculations
+  - Triggers rasterization for actively affected accounts
+  - Sets pending multipliers for read-time application
+  - Updates corporate action state to COMPLETE  
+- [ ] Integration with vault's balance rasterization logic
+- [ ] Tests: end-to-end split execution, rasterization precision
 
 **Key validations:**
-- Split 2:1 doubles token balances, halves price
-- Reverse split 10:1 reduces balances by 10x, increases price 10x
-- Total supply in underlying terms unchanged
-- Corporate action marked COMPLETE after successful execution
+- Split 2:1 rasterizes affected balances correctly
+- Reverse split 1:10 maintains fractional precision
+- Non-rasterized accounts apply multipliers during reads
+- Corporate action marked COMPLETE after successful rasterization
 
-### PR 4: Vault Rebasing Integration
-**Goal:** Ensure vault properly handles multiplier changes from corporate actions
+### PR 4: Rasterization Integration
+**Goal:** Ensure vault properly handles rasterization triggers from corporate actions
 
 **Deliverables:**
-- [ ] Integration testing with existing rebasing mechanism
+- [ ] Integration testing with rasterization system and transfer logic
 - [ ] Oracle compatibility verification:
-  - External contracts can query upcoming rebases
-  - Historical rebase data accessible
+  - External contracts can query upcoming corporate actions
+  - Historical corporate action data accessible  
   - Compatible with standard oracle query patterns
 - [ ] Edge case handling:
   - Multiple actions scheduled for same time
-  - Fractional share handling in splits
-  - Balance rounding behavior
-- [ ] Gas optimization for batch operations
+  - Fractional share precision in rasterization
+  - Transfer-triggered rasterization behavior
+- [ ] Gas optimization for rasterization operations
 - [ ] Documentation and examples for external integrators
 
 **Key validations:**
-- Oracles can detect upcoming rebases by querying vault
-- Rebase history preserved for external analysis  
-- Integration works with existing vault functionality
-- No regressions in vault operations
+- Oracles can detect upcoming rasterization events by querying vault
+- Corporate action history preserved for external analysis
+- Rasterization triggers work correctly with transfer operations
+- No regressions in vault functionality
 
 ## Testing Strategy
 

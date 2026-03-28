@@ -49,12 +49,31 @@ function expireAction(uint256 actionId) internal;
 - Actions must execute within window or become EXPIRED
 - Provides timing certainty for external contracts
 
+## Rasterization Strategy
+
+Corporate actions that affect token balances use a rasterization approach to maintain precision and avoid compounding multiplier errors:
+
+### Balance Rasterization
+- **Rasterized balances**: Real, concrete token amounts stored after corporate action execution
+- **Pending multipliers**: Applied to rasterized balances during reads for accounts not yet rasterized
+- **Avoids stacking**: Prevents `balance × multiplier1 × multiplier2 × multiplier3` precision degradation
+
+### Rasterization Triggers
+- **Corporate action execution**: Accounts actively affected get immediate rasterization
+- **Token transfers**: Both sender and recipient rasterized with any pending multipliers before transfer
+- **Read operations**: Non-rasterized accounts have pending multipliers applied during balance queries
+
+### Precision Requirements
+- **Rain float math**: All multiplier calculations use Rain's float library for exact fractional precision
+- **Custodian matching**: Maintains exact correspondence with traditional stock split calculations
+- **No approximations**: Supports clean ratios (2:1, 3:2, 1:10) without rounding errors
+
 ## Initial Scope
 
 **Focus on rebasing actions:**
 - `STOCK_SPLIT_N_M` - split N shares into M shares (N < M)
 - `REVERSE_SPLIT_N_M` - combine N shares into M shares (N > M) 
-- Results in multiplier changes on the vault
+- Results in balance rasterization with new multipliers
 
 **Not in scope yet:**
 - Name/symbol changes
@@ -86,22 +105,22 @@ External contracts need to be able to:
 
 ## Implementation Notes
 
-1. **Multiplier precision** - Split ratios must mirror offchain precision exactly to maintain 1:1 correspondence. 
+1. **Rasterization precision** - Balance rasterization must mirror offchain stock split mechanics exactly to maintain 1:1 correspondence.
 
    **Traditional stock split mechanics:**
    - Common ratios: 2:1, 3:1, 3:2, 5:4, 1:10 (reverse) - always simple fractions
-   - Calculation: `original_shares × (numerator/denominator) = entitled_shares`
+   - Calculation: `original_shares × (numerator/denominator) = entitled_shares`  
    - Example: 101 shares × (3/2) = 151.5 shares
    
    **Fractional share handling:**
-   - Issue whole shares: `floor(entitled_shares)` = 151 shares  
+   - Issue whole shares: `floor(entitled_shares)` = 151 shares
    - Cash in lieu: `(entitled_shares - whole_shares) × market_price` for 0.5 shares
    - Cost basis allocated proportionally for tax compliance
    
-   **Custodian requirements:**
-   - Exact mathematical precision required (no discretionary rounding)
-   - Cash in lieu payments calculated at market price on effective date
-   - Must match onchain fractional calculations exactly for regulatory compliance
+   **Rasterization requirements:**
+   - Balance rasterization uses Rain float math for exact fractional calculations
+   - Rasterized balances reflect precise entitlements without approximation
+   - Must match custodian's traditional split calculations exactly for regulatory compliance
 
 2. **Batch operations** - Multiple related actions in single transaction handled via existing `multicall` function. VATS already implements `MulticallUpgradeable` - no additional implementation needed.
 
