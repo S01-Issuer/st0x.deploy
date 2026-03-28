@@ -145,6 +145,28 @@ External contracts need to be able to:
 
 4. **Cross-chain synchronization** - Single chain focus initially. Cross-chain propagation addressed in future upgrade.
 
+## Receipt Handling Strategy
+
+Corporate actions affect both vault shares (ERC20) and receipts (ERC1155). The receipt system requires a coordinated approach:
+
+### Proposed Solution: Parallel Version System
+- **Receipt versions**: Mirror the vault's version system in the receipt contract
+- **Synchronized updates**: When vault executes corporate action, receipt contract also advances version
+- **Receipt migration**: Similar lazy migration for receipt holders using `_update` hook
+- **Proportional adjustments**: Receipt balances adjusted by same multiplier as vault shares
+
+### Implementation Approach
+- **Shared version counter**: Both vault and receipt contracts reference same corporate action versions
+- **Cross-contract coordination**: Corporate action execution triggers updates in both contracts
+- **Consistent precision**: Both systems use same Rain float math for identical results
+- **Unified query interface**: External contracts can query either vault or receipt for corporate action status
+
+### Benefits
+- **Consistent accounting**: Receipt and vault balances remain proportional after corporate actions
+- **Regulatory compliance**: Receipt holders experience same corporate action effects as share holders
+- **Unified system**: Single corporate action affects both token types predictably
+- **Gas efficiency**: Lazy migration applies to receipts same as vault shares
+
 ## Implementation Strategy
 
 ### OpenZeppelin v5 Integration

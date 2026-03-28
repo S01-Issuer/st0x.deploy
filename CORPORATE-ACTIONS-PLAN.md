@@ -7,6 +7,7 @@
 - **Version-based lazy migration** - accounts migrate to current version only when interacting
 - **Sequential multiplier application** preserves computational precision for custodian compliance
 - **OpenZeppelin v5 `_update` hook** handles migration as pre-step for all balance operations
+- **Parallel receipt system** - ERC1155 receipts mirror vault's version system for consistent accounting
 
 ### Key Design Decisions
 - **Don't scale user input** - constant gas costs regardless of corporate action history
@@ -90,28 +91,40 @@
 - User input amounts always preserved (no scaling contamination)
 - Corporate action marked COMPLETE after successful version creation
 
-### PR 4: System Integration & Validation
-**Goal:** Complete integration testing and validation of corporate action system
+### PR 4: Receipt Integration & System Validation
+**Goal:** Integrate receipt contract with corporate actions and complete system validation
 
 **Deliverables:**
+- [ ] Receipt contract corporate action integration:
+  - Parallel version system in receipt contract
+  - Synchronized version updates with vault contract
+  - Lazy migration for receipt holders using `_update` hook
+  - Proportional receipt balance adjustments
+- [ ] Cross-contract coordination:
+  - Corporate action execution triggers updates in both vault and receipt
+  - Shared version counter and consistent precision
+  - Unified query interface for external contracts
 - [ ] Oracle compatibility verification:
-  - External contracts can query upcoming corporate actions
+  - External contracts can query upcoming corporate actions from either contract
   - Historical corporate action data accessible
   - Compatible with standard oracle query patterns
 - [ ] Edge case handling:
   - Multiple actions scheduled for same time
   - Fractional share precision in sequential multiplier application  
   - Complex migration scenarios (dormant accounts, frequent traders)
+  - Receipt and vault balance consistency
 - [ ] Complete system integration tests
 - [ ] Gas optimization and performance benchmarking
 - [ ] Documentation and examples for external integrators
 
 **Key validations:**
-- Oracles can detect upcoming version updates by querying vault
+- Receipt and vault balances remain proportional after corporate actions
+- Both contracts maintain consistent version state
+- Migration system works correctly for both vault and receipt operations
+- Oracles can detect upcoming version updates by querying either contract
 - Corporate action history preserved for external analysis
-- Migration system works correctly with all vault operations
-- User operations maintain constant gas costs regardless of corporate action history
-- No regressions in vault functionality
+- User operations maintain constant gas costs for both token types
+- No regressions in vault or receipt functionality
 - External contract integration works as expected
 
 ## Testing Strategy
