@@ -62,15 +62,15 @@ Corporate actions use a lazy evaluation system with versioned multipliers:
 - **Account version**: `mapping(account → version)` tracking each account's current version
 - **Base balance**: Account's balance as of their current version
 
-### Lazy Evaluation
+### Lazy Migration System
 - **Read operations**: Apply all multipliers from account's version to global version sequentially
   - Example: `balance × multiplier_v4 × multiplier_v5 × multiplier_v6`
-- **Write operations**: Read-then-write sequence:
-  1. **First do a read** (apply all pending multipliers to get effective balance)
-  2. **Set internal balance** to the result of the read
-  3. **Apply the increment/decrement** due to the write operation
-  4. **Update account version** to current global version
-- **Result**: Account's base balance reflects all corporate actions after any write
+- **Write operations**: Migration-then-write sequence:
+  1. **Migrate sender** (if version < global): apply pending multipliers, set current balance, advance version
+  2. **Migrate recipient** (if version < global): apply pending multipliers, set current balance, advance version  
+  3. **Apply balance changes** to migrated current balances
+- **Gas economics**: One-time migration cost per corporate action period, then efficient operations
+- **User input protection**: Multipliers applied to stored balances, never to user input amounts
 
 ### Precision Requirements
 - **Rain float math**: Sequential multiplier application uses Rain's float library
@@ -104,13 +104,21 @@ External contracts need to be able to:
 - Same RBAC pattern as other vault operations
 - Role-based permissions for different action types
 
+## Design Principles
+
+1. **Don't scale user input** - User operations have constant gas cost regardless of corporate action history
+2. **Sequential precision** - Apply multipliers one-after-another to preserve computational precision, not mathematical optimization
+3. **Lazy migration** - Accounts migrate to current version only when interacting, not proactively
+4. **User intent preservation** - "1 share" always means 1 share at current value, precision errors stay internal
+
 ## Key Benefits
 
 1. **Single source of truth** - oracles query vault directly
-2. **No size limits** - diamond facet pattern
+2. **No size limits** - diamond facet pattern  
 3. **Enforced state transitions** - LibCorporateAction validates changes
-4. **Composable** - external systems filter for actions they care about
-5. **Consistent address** - vault address unchanged for external contracts
+4. **Predictable gas costs** - One-time migration cost per corporate action period
+5. **Precision correctness** - Sequential multipliers preserve computational behavior
+6. **Consistent address** - vault address unchanged for external contracts
 
 ## Implementation Notes
 
@@ -136,3 +144,15 @@ External contracts need to be able to:
 3. **Historical queries** - Events emitted for offchain indexing. Onchain indexing optimization deferred for now.
 
 4. **Cross-chain synchronization** - Single chain focus initially. Cross-chain propagation addressed in future upgrade.
+
+## Implementation Strategy
+
+### OpenZeppelin v5 Integration
+- Single `_update` hook handles all balance changes (transfers, mints, burns)
+- Migration logic implemented as pre-step before balance changes
+- Both sender and recipient migrated to current version before operations
+
+### Orderbook Integration  
+- **Vault share model**: Track shares instead of absolute token amounts
+- **Balance ratio detection**: Compare `actualBalance/expectedBalance` to detect corporate actions
+- **Automatic adjustment**: Apply discovered ratio to deposits/withdrawals for consistent accounting

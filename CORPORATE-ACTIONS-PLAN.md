@@ -1,5 +1,24 @@
 # Corporate Actions Implementation Plan
 
+## Architecture Summary
+
+### Core System
+- **Diamond facet** adds corporate action functionality to existing vault
+- **Version-based lazy migration** - accounts migrate to current version only when interacting
+- **Sequential multiplier application** preserves computational precision for custodian compliance
+- **OpenZeppelin v5 `_update` hook** handles migration as pre-step for all balance operations
+
+### Key Design Decisions
+- **Don't scale user input** - constant gas costs regardless of corporate action history
+- **Lazy evaluation** - one-time migration cost per corporate action period, then efficient operations
+- **Precision preservation** - sequential vs cumulative multipliers for computational correctness
+- **User intent protection** - multipliers applied to stored balances, never user input amounts
+
+### Integration Strategy
+- **Vault integration** - corporate actions stored on token for single source of truth
+- **Orderbook integration** - vault share model with balance ratio detection for automatic adjustment
+- **Oracle compatibility** - external contracts can query vault directly for corporate action data
+
 ## Implementation Order
 
 ### PR 1: Diamond Facet Infrastructure
@@ -7,18 +26,21 @@
 
 **Deliverables:**
 - [ ] `src/lib/LibCorporateAction.sol` - storage library with diamond storage pattern
-  - Corporate action struct definitions
-  - Storage accessor functions
+  - Corporate action struct definitions  
+  - Version counter and multiplier mapping storage
+  - Account version tracking storage
   - State transition validation functions (`startExecution`, `completeAction`, `expireAction`)
 - [ ] `src/facet/CorporateActionFacet.sol` - basic facet contract 
   - Function selectors for corporate action operations
-  - Basic view functions (length, getters)
+  - Basic view functions (length, getters, version queries)
   - Stub implementations for scheduling/execution
 - [ ] Update diamond configuration to include new facet
-- [ ] Tests: storage access, state transitions, facet registration
+- [ ] Tests: storage access, state transitions, version tracking, facet registration
 
 **Key validations:**
 - State transitions only allow valid changes (SCHEDULED→IN_PROGRESS→COMPLETE)
+- Version counter increments correctly
+- Account version tracking works properly
 - Diamond storage pattern works correctly
 - Facet functions are properly routed
 
@@ -44,48 +66,60 @@
 - Execution window enforced (can't execute too early or too late)
 - External query functions return correct data
 
-### PR 3: Version-Based Multiplier Dispatch
-**Goal:** Connect corporate action execution to version-based multiplier system
+### PR 3: Lazy Migration System  
+**Goal:** Implement lazy migration system using OpenZeppelin v5's `_update` hook
 
 **Deliverables:**
-- [ ] `LibCorporateAction.calculateMultiplier()` - converts action to multiplier using Rain float math
+- [ ] Override `_update` hook with pre-step migration logic
+- [ ] `_migrateAccount()` function that:
+  - Checks if account version < global version
+  - Applies sequential multipliers using Rain float math  
+  - Sets account balance to computed effective balance
+  - Advances account version to global version
+- [ ] `LibCorporateAction.calculateMultiplier()` - converts action to multiplier
 - [ ] `CorporateActionFacet.execute()` - real implementation that:
-  - Increments global version counter
+  - Increments global version counter  
   - Sets multiplier for new version based on corporate action
   - Updates corporate action state to COMPLETE
-- [ ] Integration with vault's lazy evaluation balance logic
-- [ ] Tests: end-to-end split execution, multiplier precision, version advancement
+- [ ] Tests: migration triggering, sequential precision, gas cost validation
 
 **Key validations:**
-- Split 2:1 creates correct multiplier (2.0) for new version
-- Reverse split 1:10 creates correct multiplier (0.1) for new version  
-- Balance reads apply sequential multipliers from account version to global version
-- Write operations follow read-then-set-then-write sequence correctly
+- Both sender and recipient migrated before balance changes
+- Sequential multiplier application preserves precision behavior
+- One-time migration cost per corporate action period  
+- Subsequent operations have normal ERC20 gas costs
+- User input amounts always preserved (no scaling contamination)
 - Corporate action marked COMPLETE after successful version creation
 
-### PR 4: Lazy Evaluation Integration
-**Goal:** Ensure vault properly handles version-based lazy evaluation from corporate actions
+### PR 4: Orderbook Integration & System Validation
+**Goal:** Integrate orderbook with corporate actions and validate complete system
 
 **Deliverables:**
-- [ ] Integration testing with lazy evaluation system and transfer logic
+- [ ] Orderbook vault share model implementation:
+  - Track shares instead of absolute token amounts
+  - Compare `actualBalance/expectedBalance` to detect corporate actions  
+  - Apply discovered ratio to deposits/withdrawals for consistent accounting
+- [ ] Corporate action transfer functions for orderbook integration
 - [ ] Oracle compatibility verification:
   - External contracts can query upcoming corporate actions
   - Historical corporate action data accessible
   - Compatible with standard oracle query patterns
 - [ ] Edge case handling:
   - Multiple actions scheduled for same time
-  - Fractional share precision in sequential multiplier application
-  - Transfer-triggered version updates and balance computation
-- [ ] Gas optimization for lazy evaluation operations
+  - Fractional share precision in sequential multiplier application  
+  - Orderbook deposits/withdrawals during and after corporate actions
+- [ ] Complete system integration tests
+- [ ] Gas optimization and performance benchmarking
 - [ ] Documentation and examples for external integrators
 
 **Key validations:**
 - Oracles can detect upcoming version updates by querying vault
+- Orderbook maintains consistent accounting through corporate actions
+- Vault share model correctly handles deposits/withdrawals with ratio detection
 - Corporate action history preserved for external analysis
-- Version-based balance computation works correctly with transfers
-- Write operations properly sequence: read-then-set-then-write
-- Account versions advance correctly after write operations
-- No regressions in vault functionality
+- Migration system works correctly with all vault operations
+- User operations maintain constant gas costs regardless of corporate action history
+- No regressions in vault or orderbook functionality
 
 ## Testing Strategy
 
