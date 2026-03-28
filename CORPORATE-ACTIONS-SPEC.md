@@ -49,31 +49,36 @@ function expireAction(uint256 actionId) internal;
 - Actions must execute within window or become EXPIRED
 - Provides timing certainty for external contracts
 
-## Rasterization Strategy
+## Version-Based Multiplier System
 
-Corporate actions that affect token balances use a rasterization approach to maintain precision and avoid compounding multiplier errors:
+Corporate actions use a lazy evaluation system with versioned multipliers:
 
-### Balance Rasterization
-- **Rasterized balances**: Real, concrete token amounts stored after corporate action execution
-- **Pending multipliers**: Applied to rasterized balances during reads for accounts not yet rasterized
-- **Avoids stacking**: Prevents `balance × multiplier1 × multiplier2 × multiplier3` precision degradation
+### Global State
+- **Version counter**: Increments with each corporate action execution
+- **Version multipliers**: `mapping(version → multiplier)` for each corporate action
+- **Current global version**: Latest version after all executed corporate actions
 
-### Rasterization Triggers
-- **Corporate action execution**: Accounts actively affected get immediate rasterization
-- **Token transfers**: Both sender and recipient rasterized with any pending multipliers before transfer
-- **Read operations**: Non-rasterized accounts have pending multipliers applied during balance queries
+### Account State  
+- **Account version**: `mapping(account → version)` tracking each account's current version
+- **Base balance**: Account's balance as of their current version
+
+### Lazy Evaluation
+- **Read operations**: Apply all multipliers from account's version to global version sequentially
+  - Example: `balance × multiplier_v4 × multiplier_v5 × multiplier_v6`
+- **Write operations**: Update account to current global version with computed balance
+- **Version updates**: Account version advances to global version after balance computation
 
 ### Precision Requirements
-- **Rain float math**: All multiplier calculations use Rain's float library for exact fractional precision
+- **Rain float math**: Sequential multiplier application uses Rain's float library
 - **Custodian matching**: Maintains exact correspondence with traditional stock split calculations
-- **No approximations**: Supports clean ratios (2:1, 3:2, 1:10) without rounding errors
+- **Clean ratios**: Supports precise fractional calculations (2:1, 3:2, 1:10) without degradation
 
 ## Initial Scope
 
 **Focus on rebasing actions:**
 - `STOCK_SPLIT_N_M` - split N shares into M shares (N < M)
 - `REVERSE_SPLIT_N_M` - combine N shares into M shares (N > M) 
-- Results in balance rasterization with new multipliers
+- Results in new version with corresponding multiplier
 
 **Not in scope yet:**
 - Name/symbol changes
@@ -105,7 +110,7 @@ External contracts need to be able to:
 
 ## Implementation Notes
 
-1. **Rasterization precision** - Balance rasterization must mirror offchain stock split mechanics exactly to maintain 1:1 correspondence.
+1. **Version precision** - Sequential multiplier application must mirror offchain stock split mechanics exactly to maintain 1:1 correspondence.
 
    **Traditional stock split mechanics:**
    - Common ratios: 2:1, 3:1, 3:2, 5:4, 1:10 (reverse) - always simple fractions
@@ -117,9 +122,9 @@ External contracts need to be able to:
    - Cash in lieu: `(entitled_shares - whole_shares) × market_price` for 0.5 shares
    - Cost basis allocated proportionally for tax compliance
    
-   **Rasterization requirements:**
-   - Balance rasterization uses Rain float math for exact fractional calculations
-   - Rasterized balances reflect precise entitlements without approximation
+   **Version system requirements:**
+   - Sequential multiplier application uses Rain float math for exact fractional calculations
+   - Version-based balance computation reflects precise entitlements without approximation
    - Must match custodian's traditional split calculations exactly for regulatory compliance
 
 2. **Batch operations** - Multiple related actions in single transaction handled via existing `multicall` function. VATS already implements `MulticallUpgradeable` - no additional implementation needed.

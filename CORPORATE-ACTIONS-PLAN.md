@@ -44,44 +44,44 @@
 - Execution window enforced (can't execute too early or too late)
 - External query functions return correct data
 
-### PR 3: Rasterization Dispatch
-**Goal:** Connect corporate action execution to balance rasterization system
+### PR 3: Version-Based Multiplier Dispatch
+**Goal:** Connect corporate action execution to version-based multiplier system
 
 **Deliverables:**
-- [ ] `LibCorporateAction.calculateRasterizationMultiplier()` - converts action to rasterization multiplier using Rain float math
+- [ ] `LibCorporateAction.calculateMultiplier()` - converts action to multiplier using Rain float math
 - [ ] `CorporateActionFacet.execute()` - real implementation that:
-  - Triggers rasterization for actively affected accounts
-  - Sets pending multipliers for read-time application
-  - Updates corporate action state to COMPLETE  
-- [ ] Integration with vault's balance rasterization logic
-- [ ] Tests: end-to-end split execution, rasterization precision
+  - Increments global version counter
+  - Sets multiplier for new version based on corporate action
+  - Updates corporate action state to COMPLETE
+- [ ] Integration with vault's lazy evaluation balance logic
+- [ ] Tests: end-to-end split execution, multiplier precision, version advancement
 
 **Key validations:**
-- Split 2:1 rasterizes affected balances correctly
-- Reverse split 1:10 maintains fractional precision
-- Non-rasterized accounts apply multipliers during reads
-- Corporate action marked COMPLETE after successful rasterization
+- Split 2:1 creates correct multiplier (2.0) for new version
+- Reverse split 1:10 creates correct multiplier (0.1) for new version  
+- Balance reads apply sequential multipliers from account version to global version
+- Corporate action marked COMPLETE after successful version creation
 
-### PR 4: Rasterization Integration
-**Goal:** Ensure vault properly handles rasterization triggers from corporate actions
+### PR 4: Lazy Evaluation Integration
+**Goal:** Ensure vault properly handles version-based lazy evaluation from corporate actions
 
 **Deliverables:**
-- [ ] Integration testing with rasterization system and transfer logic
+- [ ] Integration testing with lazy evaluation system and transfer logic
 - [ ] Oracle compatibility verification:
   - External contracts can query upcoming corporate actions
-  - Historical corporate action data accessible  
+  - Historical corporate action data accessible
   - Compatible with standard oracle query patterns
 - [ ] Edge case handling:
   - Multiple actions scheduled for same time
-  - Fractional share precision in rasterization
-  - Transfer-triggered rasterization behavior
-- [ ] Gas optimization for rasterization operations
+  - Fractional share precision in sequential multiplier application
+  - Transfer-triggered version updates and balance computation
+- [ ] Gas optimization for lazy evaluation operations
 - [ ] Documentation and examples for external integrators
 
 **Key validations:**
-- Oracles can detect upcoming rasterization events by querying vault
+- Oracles can detect upcoming version updates by querying vault
 - Corporate action history preserved for external analysis
-- Rasterization triggers work correctly with transfer operations
+- Version-based balance computation works correctly with transfers
 - No regressions in vault functionality
 
 ## Testing Strategy
