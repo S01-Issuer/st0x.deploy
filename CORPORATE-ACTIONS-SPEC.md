@@ -147,25 +147,26 @@ External contracts need to be able to:
 
 ## Receipt Handling Strategy
 
-Corporate actions affect both vault shares (ERC20) and receipts (ERC1155). The receipt system requires a coordinated approach:
+Corporate actions affect both vault shares (ERC20) and receipts (ERC1155). Leveraging the existing manager relationship:
 
-### Proposed Solution: Parallel Version System
-- **Receipt versions**: Mirror the vault's version system in the receipt contract
-- **Synchronized updates**: When vault executes corporate action, receipt contract also advances version
-- **Receipt migration**: Similar lazy migration for receipt holders using `_update` hook
-- **Proportional adjustments**: Receipt balances adjusted by same multiplier as vault shares
+### Proposed Solution: Manager-Directed Updates
+- **Existing relationship**: Vault already has manager privileges over receipt contract (used in withdrawals)
+- **Corporate action dispatch**: Vault calls receipt contract to apply same corporate action effects
+- **Proportional adjustments**: Receipt balances adjusted by same multiplier as vault shares via manager functions
+- **Single source control**: Vault's corporate action system drives both ERC20 and ERC1155 updates
 
 ### Implementation Approach
-- **Shared version counter**: Both vault and receipt contracts reference same corporate action versions
-- **Cross-contract coordination**: Corporate action execution triggers updates in both contracts
-- **Consistent precision**: Both systems use same Rain float math for identical results
-- **Unified query interface**: External contracts can query either vault or receipt for corporate action status
+- **Manager functions**: Receipt contract exposes manager-only functions for corporate action adjustments
+- **Vault coordination**: When vault executes corporate action, it calls receipt contract via manager privilege
+- **Consistent precision**: Both systems use same multipliers and Rain float math for identical results
+- **Unified query**: External contracts query vault for corporate action status (single source of truth)
 
 ### Benefits
+- **Leverages existing architecture**: Uses established manager relationship, no parallel version system needed
 - **Consistent accounting**: Receipt and vault balances remain proportional after corporate actions
 - **Regulatory compliance**: Receipt holders experience same corporate action effects as share holders
-- **Unified system**: Single corporate action affects both token types predictably
-- **Gas efficiency**: Lazy migration applies to receipts same as vault shares
+- **Simplified implementation**: Single version system in vault drives both contracts
+- **Gas efficiency**: No duplicate version tracking, vault manages all corporate action state
 
 ## Implementation Strategy
 

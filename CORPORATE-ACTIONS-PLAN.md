@@ -7,7 +7,7 @@
 - **Version-based lazy migration** - accounts migrate to current version only when interacting
 - **Sequential multiplier application** preserves computational precision for custodian compliance
 - **OpenZeppelin v5 `_update` hook** handles migration as pre-step for all balance operations
-- **Parallel receipt system** - ERC1155 receipts mirror vault's version system for consistent accounting
+- **Manager-directed receipts** - ERC1155 receipts updated via existing manager relationship from vault
 
 ### Key Design Decisions
 - **Don't scale user input** - constant gas costs regardless of corporate action history
@@ -96,14 +96,13 @@
 
 **Deliverables:**
 - [ ] Receipt contract corporate action integration:
-  - Parallel version system in receipt contract
-  - Synchronized version updates with vault contract
-  - Lazy migration for receipt holders using `_update` hook
-  - Proportional receipt balance adjustments
-- [ ] Cross-contract coordination:
-  - Corporate action execution triggers updates in both vault and receipt
-  - Shared version counter and consistent precision
-  - Unified query interface for external contracts
+  - Manager functions for corporate action adjustments (leveraging existing manager relationship)
+  - Proportional receipt balance adjustments via vault-directed calls
+  - Receipt contract responds to vault's corporate action execution
+- [ ] Manager-directed coordination:
+  - Corporate action execution in vault triggers manager calls to receipt contract
+  - Consistent precision using same multipliers and Rain float math
+  - Unified query interface (vault as single source of truth)
 - [ ] Oracle compatibility verification:
   - External contracts can query upcoming corporate actions from either contract
   - Historical corporate action data accessible
@@ -119,9 +118,9 @@
 
 **Key validations:**
 - Receipt and vault balances remain proportional after corporate actions
-- Both contracts maintain consistent version state
-- Migration system works correctly for both vault and receipt operations
-- Oracles can detect upcoming version updates by querying either contract
+- Manager-directed updates work correctly via existing relationship
+- Receipt contract responds properly to vault's corporate action execution
+- Oracles can detect upcoming version updates by querying vault (single source)
 - Corporate action history preserved for external analysis
 - User operations maintain constant gas costs for both token types
 - No regressions in vault or receipt functionality
