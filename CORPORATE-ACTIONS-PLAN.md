@@ -25,15 +25,18 @@ This plan implements corporate actions via diamond facet with sophisticated lazy
 
 **Key Components**:
 - Corporate action storage with diamond storage pattern
-- Version counter and multiplier mapping infrastructure  
-- Account version tracking for lazy migration
+- Tracking infrastructure for all corporate action types
+- Rebase version management for migration system
+- Multiplier mapping for rebase-causing actions
+- Account rebase version tracking for lazy migration  
 - State transition validation framework
 - Basic facet contract with function selectors
 
 **Critical Validations**:
 - Diamond storage pattern integration works correctly
-- State transitions enforce valid progressions only
-- Version tracking mechanisms function properly
+- State transitions enforce valid progressions only  
+- Corporate action tracking handles all action types
+- Rebase version tracking mechanisms function properly for migration system
 - Facet function routing operates as expected
 
 ### PR 2: Corporate Action Scheduling
@@ -64,9 +67,9 @@ This plan implements corporate actions via diamond facet with sophisticated lazy
 - Rebase vs non-rebase corporate action handling
 
 **Critical Validations**:
-- Migration triggers correctly for both parties in transfers
+- Migration triggers correctly for both parties in transfers  
 - Sequential multiplier application maintains precision
-- One-time migration cost per corporate action period
+- One-time migration cost per rebase period (not all corporate actions)
 - User input amounts preserved without scaling
 - Non-rebase actions avoid unnecessary migration costs
 - Rain float math integration provides exact calculations
