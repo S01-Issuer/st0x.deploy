@@ -39,10 +39,25 @@ This specification defines a comprehensive corporate actions system implemented 
 
 **Purpose**: First corporate action types that modify token balances
 
-**Initial Scope**:
-- **Stock splits**: Multiply token balances (e.g., 2:1 split doubles balances)
-- **Reverse splits**: Divide token balances (e.g., 1:10 split reduces by 90%)
-- **Stock dividends**: Balance modifications for dividend reinvestment
+**Problem**: Supply-changing corporate actions present unique implementation challenges:
+- **Balance modifications across all holders**: Unlike metadata changes, these actions affect every token holder's balance simultaneously
+- **Precision requirements**: Stock splits using ratios like 3:2 or 5:4 must handle fractional results exactly
+- **Coordination complexity**: Both vault shares and receipts must be adjusted proportionally
+- **User experience**: Balance changes must appear atomic and consistent across all interfaces
+- **Integration impact**: External contracts depending on token balances need predictable behavior
+
+**Solution**: Implement specific corporate action types with well-defined balance effects:
+
+**Initial Implementation Scope**:
+- **Stock splits**: Multiply all token balances by split ratio (e.g., 2:1 split doubles all balances)
+- **Reverse splits**: Divide all token balances by split ratio (e.g., 1:10 split reduces all balances by 90%)
+- **Stock dividends**: Increase balances based on dividend reinvestment ratios
+
+**Implementation Characteristics**:
+- **Precise ratios**: Support clean fractional ratios (2:1, 3:2, 5:4, 1:10) for exact calculations
+- **Atomic execution**: All balance effects occur within single transaction context
+- **Coordinated updates**: Vault and receipt balances maintain proportional relationships
+- **Extensible design**: Framework supports additional supply-changing action types in future
 
 ### 4. Sequential Rebase Technical Implementation
 
