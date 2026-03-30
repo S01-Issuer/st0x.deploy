@@ -82,6 +82,14 @@ Even though mathematically equivalent, the computational results differ. Sequent
 
 **Purpose**: Reliable interface for external contracts and oracles
 
+**Problem**: External contracts (oracles, lending protocols, automated strategies) need to make informed decisions about corporate actions but lack a reliable way to:
+- Detect upcoming corporate actions that will affect token behavior
+- Plan operational responses around predictable timing windows  
+- Access historical corporate action data for analysis and risk assessment
+- Query from a single authoritative source without tracking multiple contracts
+
+**Solution**: Comprehensive query interface providing:
+
 **Query Capabilities**:
 - **Corporate action data**: Direct vault queries for all scheduled and completed actions
 - **Timing information**: Reliable execution windows and deadlines
