@@ -2,7 +2,7 @@
 
 ## Overview
 
-This plan implements a comprehensive corporate actions system comprising five distinct components: diamond facet architecture, flexible framework with timing enforcement, supply-changing actions, sequential rebase implementation, and downstream integration.
+This plan implements a comprehensive corporate actions system comprising five distinct components: diamond facet architecture, flexible framework with timing enforcement, supply-changing actions, sequential rebase implementation, and downstream consumer interface.
 
 ## System Architecture
 
@@ -10,148 +10,102 @@ This plan implements a comprehensive corporate actions system comprising five di
 - **Diamond facet foundation**: Extensible architecture for corporate action functionality
 - **Framework layer**: General scheduling, timing, and state management for all action types  
 - **Supply-change implementation**: Specific handling of balance-affecting corporate actions
-- **Technical rebase system**: Lazy migration and precision preservation for regulatory compliance
-- **Consumer integration**: Reliable interface for external contracts and oracles
+- **Technical rebase system**: Lazy migration and precision preservation
+- **Consumer interface**: Reliable interface for external contracts and oracles
 
 ### Design Approach
 - **Extensible framework**: Built to support future corporate action types beyond initial scope
 - **Operational reliability**: Timing enforcement and execution windows for downstream certainty
-- **Regulatory compliance**: Exact precision matching traditional finance for supply-changing actions
-- **Gas optimization**: Lazy evaluation minimizes costs for users
 
 ## Implementation Roadmap
 
-### PR 1: Diamond Facet Foundation
-**Goal**: Establish diamond facet architecture and core infrastructure
-
-**System Components Addressed**:
-- Diamond facet pattern introduction
-- Basic corporate action storage framework
-- Foundation for extensible architecture
+### PR 1: Minimal Diamond Facet Setup
+**Goal**: Establish basic diamond facet architecture and prove integration works
 
 **Key Deliverables**:
-- Diamond storage pattern integration with existing vault
-- Core corporate action data structures and storage
-- Basic facet contract with function selector routing  
-- State transition validation framework
-- Foundation storage for timing and authorization systems
+- Diamond facet integration with existing vault
+- Basic facet contract with minimal functionality
+- LibCorporateAction storage library with diamond storage pattern
+- Stub implementation to demonstrate facet works
 
-**Critical Validations**:
-- Diamond pattern integrates correctly with existing vault architecture
-- Storage patterns support extensible corporate action types
-- Facet routing works properly for corporate action functions
-- Foundation supports both framework and rebase-specific requirements
+**Unit Testing Requirements**:
+- Diamond storage pattern integration
+- Facet function routing
+- Basic storage operations
+- Fuzz testing for storage patterns
 
-### PR 2: Framework with Timing Enforcement  
-**Goal**: Implement flexible corporate action framework with operational timing
-
-**System Components Addressed**:
-- Corporate actions framework (scheduling and execution)
-- Timing enforcement and execution windows
-- General state management for all corporate action types
+### PR 2: Corporate Actions Framework Library
+**Goal**: Implement core corporate action library with scheduling, timing, and state management
 
 **Key Deliverables**:
-- Corporate action scheduling system for all action types
-- Execution window enforcement (4-hour deadline after effective time)
-- State management with enforced transitions (SCHEDULED → IN_PROGRESS → COMPLETE/EXPIRED)
-- Authorization integration with existing RBAC system
-- Event emission for comprehensive audit trails
+- Complete LibCorporateAction with scheduling and state management
+- Corporate action data structures and storage
+- Execution window enforcement (4-hour deadline)
+- State transition validation (SCHEDULED → IN_PROGRESS → COMPLETE/EXPIRED)
+- Authorization integration framework
+- Event emission for audit trails
+- Library designed for pure testing without external dependencies
+
+**Unit Testing Requirements**:
+- State transition validation (fuzzed)
+- Execution window timing enforcement
+- Authorization permission checks
+- Event emission correctness
+- Storage consistency
+- Fuzz testing for all library functions
+
+### PR 3: Stock Split Implementation with Stub Outcomes
+**Goal**: Implement stock splits as first corporate action type with stubbed execution
+
+**Key Deliverables**:
+- Stock split corporate action type implementation
 - Query interfaces for external contracts
+- Execution interfaces for corporate actions
+- Stubbed outcome implementation (no actual rebasing yet)
+- Complete corporate action lifecycle from schedule to execution
+- Corporate action facet with full interface
 
-**Critical Validations**:
-- All corporate action types can be scheduled with appropriate metadata
-- Execution windows enforced consistently with automatic expiration
-- State transitions prevent invalid progressions
-- Authorization properly controls scheduling and execution
-- Events provide sufficient data for downstream consumers
-- External contracts can reliably query corporate action data and timing
+**Unit Testing Requirements**:
+- Stock split scheduling and validation
+- Query interface functionality
+- Execution interface correctness
+- State transitions for real corporate action type
+- Authorization integration
+- Event emission for stock splits
+- Fuzz testing for corporate action parameters
 
-### PR 3: Supply-Changing Actions & Rebase Implementation
-**Goal**: Implement stock splits/reverse splits with sequential rebase system
-
-**System Components Addressed**:
-- Supply-changing actions implementation (specific corporate action types)
-- Sequential rebase technical implementation
-- Precision preservation and regulatory compliance
+### PR 4: Sequential Rebase Implementation with Receipts
+**Goal**: Implement actual rebasing logic with lazy migration and receipt coordination
 
 **Key Deliverables**:
-- Stock split and reverse split corporate action types
+- Replace stub execution with real balance effects
 - Version-based lazy migration system using OpenZeppelin v5 `_update` hook
-- Sequential multiplier application with Rain float math integration
-- Account migration logic for both sender and recipient during transfers
-- Balance rasterization to storage during write operations
-- Precision preservation for custodian compliance
+- Sequential multiplier application with Rain float math
+- Account migration for sender and recipient during transfers
+- Balance rasterization during write operations
+- Receipt coordination via manager relationship
+- Shared library for common rebase logic between vault and receipts
 
-**Critical Validations**:
-- Stock splits and reverse splits execute with correct balance effects
-- Migration triggers appropriately for both parties in transfers
-- Sequential multiplier application maintains exact precision
-- One-time migration cost per rebase period with normal ERC20 efficiency afterward
-- User input amounts preserved without historical scaling
-- Rain float math produces results matching traditional finance calculations
-- Non-rebase actions avoid unnecessary migration overhead
+**Unit Testing Requirements**:
+- Migration trigger validation
+- Sequential multiplier application correctness
+- Balance rasterization accuracy
+- Receipt coordination functionality
+- Shared library operations
+- Account version tracking
+- Fuzz testing for multiplier calculations and migration scenarios
 
-### PR 4: Receipt Integration & System Completion
-**Goal**: Complete system with ERC1155 receipt coordination and validation
+## System Integration
 
-**System Components Addressed**:
-- Receipt system integration via manager relationship
-- Downstream consumer integration completion
-- System-wide validation and optimization
+### Integration Testing
+After all PRs complete:
+- End-to-end corporate action lifecycle testing
+- Mixed rebase and non-rebase action scenarios
+- External contract integration simulation
+- Receipt and vault balance consistency validation
 
-**Key Deliverables**:
-- Manager-directed receipt balance adjustments coordinated with corporate actions
-- Receipt system responds correctly to vault corporate action execution
-- Complete external contract integration for reliable queries
-- Comprehensive edge case handling (multiple simultaneous actions, complex migration scenarios)
-- Performance optimization and gas cost validation across all system components
-- Complete documentation for external integrators
-
-**Critical Validations**:
-- Receipt and vault balances remain proportional after all corporate action types
-- Manager relationship works correctly for coordinated updates
-- External contracts can depend on timing enforcement for operational decisions
-- Edge cases handled properly across framework and rebase systems
-- Gas costs remain predictable across complete system
-- No regressions in existing vault, receipt, or authorization functionality
-- System provides reliable interface for downstream consumers
-
-## Testing Strategy
-
-### Component-Level Testing
-- **Diamond facet**: Integration with existing vault, storage patterns, function routing
-- **Framework**: Scheduling, timing enforcement, state transitions, authorization
-- **Supply actions**: Stock splits, reverse splits, precision calculations
-- **Rebase system**: Migration triggers, sequential multipliers, gas optimization
-- **Integration**: Receipt coordination, external contract compatibility
-
-### System-Level Testing  
-- **Complete corporate action lifecycle**: Schedule through execution across all components
-- **Mixed action scenarios**: Rebase and non-rebase actions in sequence
-- **Performance validation**: Gas costs across different corporate action histories
-- **Regulatory compliance**: Precision matching with traditional finance calculations
-
-### External Integration Testing
-- **Oracle simulation**: External contracts querying corporate action data
-- **Timing reliability**: Downstream systems depending on execution windows
-- **Authorization integration**: Role-based access across all system components
-
-## Success Criteria
-
-### Framework Success
-- **Extensible architecture**: System supports addition of new corporate action types
-- **Timing reliability**: Execution windows provide operational certainty for external contracts
-- **Authorization integration**: Role-based permissions work across all corporate action types
-- **Audit compliance**: Complete event trail for all corporate action activities
-
-### Supply-Change Success  
-- **Regulatory compliance**: Exact precision matching traditional finance calculations
-- **Gas optimization**: Constant user costs independent of corporate action history
-- **User experience**: Input amounts represent current value without historical scaling
-- **Custodian reconciliation**: Results match traditional systems exactly
-
-### Integration Success
-- **Single source of truth**: External contracts query vault directly for all corporate action data
-- **Receipt consistency**: ERC1155 and ERC20 balances remain proportional
-- **Performance**: System scales with active users, not total corporate action history
-- **Reliability**: Downstream consumers can depend on timing and data accuracy
+### Fork Testing
+Once contracts deployed:
+- Real network deployment validation
+- Integration with existing vault infrastructure
+- Performance validation under realistic conditions

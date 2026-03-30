@@ -20,17 +20,19 @@ This specification defines a comprehensive corporate actions system implemented 
 
 **Purpose**: Flexible scheduling and execution system with timing enforcement
 
-**Core Capabilities**:
+**Problem**: Need standardized system for scheduling, tracking, and executing various corporate action types with reliable timing for downstream consumers.
+
+**Solution**: Comprehensive framework providing:
 - **Scheduling system**: Future-dated corporate action planning with metadata storage
 - **State management**: Enforced transitions (SCHEDULED → IN_PROGRESS → COMPLETE/EXPIRED)
 - **Execution windows**: 4-hour deadline enforcement for operational certainty
 - **Authorization integration**: Role-based permissions via existing RBAC system
 - **Event emission**: Comprehensive audit trail for offchain indexing
+- **Single source of truth**: All corporate action data queryable from vault address
 
-**Framework Benefits**:
+**Benefits**:
 - Extensible architecture for future corporate action types
 - Predictable timing for downstream consumers
-- Single source of truth for all corporate action data
 - Operational discipline through execution deadlines
 
 ### 3. Supply-Changing Actions Implementation
@@ -42,33 +44,32 @@ This specification defines a comprehensive corporate actions system implemented 
 - **Reverse splits**: Divide token balances (e.g., 1:10 split reduces by 90%)
 - **Stock dividends**: Balance modifications for dividend reinvestment
 
-**Design Requirements**:
-- **Regulatory compliance**: Exact precision matching traditional finance calculations
-- **Fractional handling**: Proper cash-in-lieu calculations for fractional shares
-- **Custodian coordination**: Results identical to traditional systems for reconciliation
-
 ### 4. Sequential Rebase Technical Implementation
 
-**Purpose**: Technical mechanism for implementing supply changes efficiently
+**Purpose**: Handle the complex problem of applying balance changes to thousands of token holders without unbounded gas costs while maintaining precision
 
-**Core Technology**:
-- **Version-based lazy migration**: Accounts migrate to current rebase state only when interacting
-- **Sequential multiplier application**: Preserve computational precision for compliance
-- **Storage rasterization**: Balance effects materialized during transfers via OpenZeppelin v5 `_update` hook
-- **Rain float math integration**: Exact fractional calculations without precision loss
+**Problem**: When corporate actions require balance changes across all token holders, traditional approaches fail:
+- **Eager updates**: Updating all accounts during corporate action execution requires unbounded gas
+- **Simple multipliers**: Cumulative multipliers introduce precision errors over time 
+- **Direct scaling**: Applying multipliers to user inputs contaminates user intent
 
-**Gas Economics**:
-- **One-time migration cost**: Users pay rebase migration once per rebase period
-- **Constant costs**: Gas independent of corporate action history
-- **Efficient operations**: Normal ERC20 performance after migration
-- **Non-rebase actions**: Zero migration overhead for non-balance-affecting actions
+**Solution**: Version-based lazy migration system that solves these constraints:
 
-**Precision Requirements**:
-- **Sequential vs cumulative**: Apply multipliers one-after-another to match traditional calculations
-- **User intent preservation**: Input amounts never scaled by historical effects  
-- **Computational correctness**: Preserve intended precision behavior including rounding
+**Version System**: Each account tracks a version number representing their current state relative to executed corporate actions. When corporate actions execute, a global version increments and stores the associated multiplier, but individual accounts remain at their current version until they interact.
 
-### 5. Downstream Consumer Integration
+**Lazy Migration**: When accounts interact (transfers, mints, burns), both sender and recipient are "migrated" to the current global version by applying any pending multipliers to their stored balances, then advancing their version number. This ensures both parties operate on current effective balances before any balance changes.
+
+**Sequential Precision**: Multipliers are applied one-after-another in the same order they were executed, preserving the exact computational sequence. This avoids precision differences between sequential application (`balance × 2.0 × 1.5 × 0.1`) and cumulative application (`balance × 0.3`) that arise from floating-point arithmetic.
+
+**User Intent Preservation**: The migration happens to stored balances during write operations, never to user input amounts. When a user transfers "1 share," they get exactly 1 share at current value regardless of corporate action history.
+
+**Implementation Details**:
+- OpenZeppelin v5 `_update` hook provides single integration point for all balance changes
+- Rain float math library ensures exact fractional calculations
+- Both sender and recipient migrated before balance modifications
+- One-time migration cost per corporate action period, then normal ERC20 efficiency
+
+### 5. Downstream Consumer Interface
 
 **Purpose**: Reliable interface for external contracts and oracles
 
@@ -78,7 +79,7 @@ This specification defines a comprehensive corporate actions system implemented 
 - **Balance effect prediction**: Identify upcoming supply-changing events
 - **Historical analysis**: Access to complete corporate action audit trail
 
-**Integration Benefits**:
+**Benefits**:
 - **Oracle compatibility**: Standard interface for downstream protocol integration
 - **Timing reliability**: External contracts can depend on execution window enforcement
 - **Single address**: No need to track multiple contracts or registries
@@ -94,7 +95,7 @@ This specification defines a comprehensive corporate actions system implemented 
 
 ### Rebase-Specific Principles (Supply-Changing Actions)
 1. **Constant user costs**: Gas costs independent of corporate action history
-2. **Sequential precision**: Preserve computational behavior for regulatory compliance
+2. **Sequential precision**: Preserve computational behavior including rounding characteristics
 3. **Lazy evaluation**: Migration occurs only when accounts interact
 4. **User intent preservation**: Input amounts represent current value, not historical units
 
@@ -102,37 +103,33 @@ This specification defines a comprehensive corporate actions system implemented 
 
 **Manager-Directed Coordination**: Leverages existing vault-receipt manager relationship
 
-**Approach**:
-- Corporate action execution triggers proportional ERC1155 receipt adjustments
-- Same multipliers applied to both vault shares and receipts for consistency
-- Single system drives both ERC20 and ERC1155 updates via manager privileges
-- Unified query interface through vault for all corporate action effects
+**Problem**: Corporate actions must affect both ERC20 vault shares and ERC1155 receipts consistently to maintain proportional accounting.
+
+**Solution**: When vault executes corporate actions, it uses existing manager privileges to trigger proportional adjustments in receipt balances. Same multipliers applied to both systems ensure consistency.
 
 **Benefits**:
 - Consistent accounting between vault shares and receipts
 - Leverages established architecture without parallel systems
-- Regulatory compliance for all token holders regardless of token type
+- Single control point drives both ERC20 and ERC1155 updates
 
-## Technical Considerations
+## OpenZeppelin v5 Integration
 
-### OpenZeppelin v5 Integration
-- Single `_update` hook handles all balance modifications
-- Migration logic implemented as pre-step before balance changes
-- Both sender and recipient migrated to current state during transfers
+The lazy migration system integrates with OpenZeppelin v5's unified balance update architecture:
 
-### Precision and Compliance
-- Traditional stock split ratios: simple fractions (2:1, 3:2, 1:10) for clean calculations
-- Fractional share handling: floor entitlements with cash-in-lieu for remainder
-- Cost basis allocation: proportional division for tax compliance
-- Rain float math: sequential application maintains exact correspondence
+**Single Hook Integration**: The `_update` hook handles all balance changes (transfers, mints, burns), providing a single point to implement migration logic as a pre-step before any balance modifications.
 
-### Storage and Performance
-- Diamond storage pattern for shared state management
-- Event emission for comprehensive offchain indexing
-- Batch operations via existing multicall functionality
-- Optimized gas costs through lazy evaluation design
+**Migration Pre-Step**: Before balance changes occur, both sender and recipient accounts are migrated to current version if needed, ensuring all operations work with current effective balances.
 
-### Authorization and Security
-- Role-based permissions for different corporate action types
-- Execution permissions separate from scheduling for operational flexibility
-- Integration with existing governance patterns for administrative actions
+## Precision and Computational Correctness
+
+**Sequential vs Cumulative Multipliers**: Corporate actions must be applied in the same computational sequence to preserve precision characteristics. Sequential application may accumulate small rounding errors that cumulative application would avoid, but this preserves the intended computational behavior.
+
+**Rain Float Math Integration**: All multiplier calculations use Rain's float library to handle fractional calculations precisely, supporting clean ratios (2:1, 3:2, 1:10) without degradation.
+
+## Storage and Performance
+
+**Diamond Storage Pattern**: Shared state management across facets with collision-resistant storage slots.
+
+**Event Emission**: All corporate actions emit comprehensive events for offchain indexing and external system integration.
+
+**Batch Operations**: Multiple corporate actions can be executed in single transactions using existing multicall functionality.
