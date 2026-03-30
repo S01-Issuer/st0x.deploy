@@ -59,7 +59,13 @@ This specification defines a comprehensive corporate actions system implemented 
 
 **Lazy Migration**: When accounts interact (transfers, mints, burns), both sender and recipient are "migrated" to the current global version by applying any pending multipliers to their stored balances, then advancing their version number. This ensures both parties operate on current effective balances before any balance changes.
 
-**Sequential Precision**: Multipliers are applied one-after-another in the same order they were executed, preserving the exact computational sequence. This avoids precision differences between sequential application (`balance × 2.0 × 1.5 × 0.1`) and cumulative application (`balance × 0.3`) that arise from floating-point arithmetic.
+**Sequential Precision**: Multipliers are applied one-after-another in the same order they were executed, preserving the exact computational sequence. This avoids precision differences between sequential and cumulative application that arise from floating-point arithmetic.
+
+Consider David's example: a series of corporate actions with multipliers 1/3, then 3x, then 1/3, then 3x:
+- **Sequential application**: `100 × (1/3) × 3 × (1/3) × 3 = 99.999999...` (due to accumulated rounding errors)
+- **Cumulative application**: `100 × 1 = 100.000000` (exact, since mathematically 1/3 × 3 × 1/3 × 3 = 1)
+
+Even though mathematically equivalent, the computational results differ. Sequential application preserves the intended computational behavior including its precision characteristics, while cumulative optimization would "fix" precision errors and produce different results.
 
 **User Intent Preservation**: The migration happens to stored balances during write operations, never to user input amounts. When a user transfers "1 share," they get exactly 1 share at current value regardless of corporate action history.
 
