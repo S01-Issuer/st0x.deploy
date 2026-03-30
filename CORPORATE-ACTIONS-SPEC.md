@@ -62,7 +62,7 @@ This specification defines a comprehensive corporate actions system implemented 
 
 **Sequential Precision**: Multipliers are applied one-after-another in the same order they were executed, preserving the exact computational sequence. This avoids precision differences between sequential and cumulative application that arise from floating-point arithmetic.
 
-Consider David's example: a series of corporate actions with multipliers 1/3, then 3x, then 1/3, then 3x:
+Consider a series of corporate actions with multipliers 1/3, then 3x, then 1/3, then 3x:
 - **Sequential application**: `100 × (1/3) × 3 × (1/3) × 3 = 99.999999...` (due to accumulated rounding errors)
 - **Cumulative application**: `100 × 1 = 100.000000` (exact, since mathematically 1/3 × 3 × 1/3 × 3 = 1)
 
