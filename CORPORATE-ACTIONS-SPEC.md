@@ -52,12 +52,13 @@ This specification defines a comprehensive corporate actions system implemented 
 - **Eager updates**: Updating all accounts during corporate action execution requires unbounded gas
 - **Simple multipliers**: Cumulative multipliers introduce precision errors over time 
 - **Direct scaling**: Applying multipliers to user inputs contaminates user intent
+- **Virtual multipliers**: Keeping multipliers as pending calculations makes balance transfers impossible - when someone wants to transfer "1" current share, how do you calculate what portion of their underlying base balance to actually transfer?
 
 **Solution**: Version-based lazy migration system that solves these constraints:
 
 **Version System**: Each account tracks a version number representing their current state relative to executed corporate actions. When corporate actions execute, a global version increments and stores the associated multiplier, but individual accounts remain at their current version until they interact.
 
-**Lazy Migration**: When accounts interact (transfers, mints, burns), both sender and recipient are "migrated" to the current global version by applying any pending multipliers to their stored balances, then advancing their version number. This ensures both parties operate on current effective balances before any balance changes.
+**Lazy Migration**: When accounts interact (transfers, mints, burns), both sender and recipient are "migrated" to the current global version by applying any pending multipliers to their stored balances, then advancing their version number. This rasterization is operationally necessary - you cannot perform meaningful balance arithmetic while multipliers remain "virtual" because transfers need to work with concrete current balances, not base balances with pending effects.
 
 **Sequential Precision**: Multipliers are applied one-after-another in the same order they were executed, preserving the exact computational sequence. This avoids precision differences between sequential and cumulative application that arise from floating-point arithmetic.
 
@@ -68,6 +69,8 @@ Consider David's example: a series of corporate actions with multipliers 1/3, th
 Even though mathematically equivalent, the computational results differ. Sequential application preserves the intended computational behavior including its precision characteristics, while cumulative optimization would "fix" precision errors and produce different results.
 
 **User Intent Preservation**: The migration happens to stored balances during write operations, never to user input amounts. When a user transfers "1 share," they get exactly 1 share at current value regardless of corporate action history.
+
+**Operational Example**: Consider a user with 100 base shares and pending multipliers (2x, 1.5x, 0.1x) giving them 30 current effective shares. To transfer "1" current share, the system must first rasterize: apply the multipliers to get 30 stored shares, then transfer 1 of those current shares. Without rasterization, calculating what portion of the 100 base shares represents "1" current share would require complex division operations on every transfer.
 
 **Implementation Details**:
 - OpenZeppelin v5 `_update` hook provides single integration point for all balance changes
