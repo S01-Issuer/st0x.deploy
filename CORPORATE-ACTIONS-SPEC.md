@@ -53,11 +53,25 @@ This specification defines a comprehensive corporate actions system implemented 
 - **Reverse splits**: Divide all token balances by split ratio (e.g., 1:10 split reduces all balances by 90%)
 - **Stock dividends**: Increase balances based on dividend reinvestment ratios
 
-**Implementation Characteristics**:
-- **Precise ratios**: Support clean fractional ratios (2:1, 3:2, 5:4, 1:10) for exact calculations
-- **Atomic execution**: All balance effects occur within single transaction context
-- **Coordinated updates**: Vault and receipt balances maintain proportional relationships
-- **Extensible design**: Framework supports additional supply-changing action types in future
+**Action Structure and Storage**:
+
+Each supply-changing action is stored with:
+- **Action type identifier**: Specific identifier (e.g., "STOCK_SPLIT_2_1", "REVERSE_SPLIT_1_10")
+- **Split parameters**: Numerator and denominator defining the split ratio (e.g., 2:1 split = numerator 2, denominator 1)
+- **Execution state**: Current state in lifecycle (SCHEDULED → IN_PROGRESS → COMPLETE)
+- **Timing data**: Effective time and execution window for operational certainty
+- **Multiplier derivation**: Split ratio converted to decimal multiplier for rebase system (2:1 split → 2.0 multiplier, 1:10 reverse split → 0.1 multiplier)
+
+**Connection to Rebase System**:
+When supply-changing actions execute, they generate multipliers that feed directly into the sequential rebase system:
+- **Stock split 2:1**: Creates multiplier 2.0 for the lazy migration system
+- **Reverse split 1:10**: Creates multiplier 0.1 for the lazy migration system
+- **Stock dividend 5%**: Creates multiplier 1.05 for the lazy migration system
+
+**Parameter Validation**:
+- **Ratio constraints**: Only clean fractional ratios supported (no complex decimals like 2.73:1)
+- **Range limits**: Split ratios within reasonable operational bounds (e.g., max 10:1 split, max 1:100 reverse split)
+- **Precision preservation**: Parameters chosen to avoid floating-point precision issues in Rain float math
 
 ### 4. Sequential Rebase Technical Implementation
 
