@@ -2,169 +2,72 @@
 
 ## Overview
 
-This specification defines a comprehensive corporate actions system implemented as a diamond facet, comprising multiple distinct components: a flexible framework for all corporate action types, specific implementation of supply-changing actions, and technical mechanisms for reliable downstream integration.
+This specification defines a comprehensive corporate actions system implemented as a diamond facet, addressing the fundamental challenge of applying balance changes to thousands of token holders while maintaining precision, predictable gas costs, and operational reliability for downstream consumers.
 
-## System Components
+## Critical Implementation Requirements
 
-### 1. Diamond Facet Architecture
+### Diamond Facet Integration
 
-**Purpose**: Introduce diamond facet pattern to vault for extensible functionality
+The diamond facet approach is essential because corporate actions require complex functionality that would exceed contract size limits if implemented directly in the vault. The critical requirement is maintaining the existing vault address for external contract compatibility while enabling extensible functionality. The shared storage pattern via LibCorporateAction must use collision-resistant storage slots and provide atomic state transitions that cannot be corrupted by partial execution.
 
-**Key Features**:
-- Maintains existing vault address for external contract compatibility
-- Bypasses contract size limits for complex functionality
-- Enables modular addition of corporate action types over time
-- Provides shared storage and state management via LibCorporateAction
+The facet integration must preserve all existing vault functionality without regression. Authorization patterns must remain consistent with the existing RBAC system, and the storage layout must be designed for future extensibility without requiring storage migrations.
 
-### 2. Corporate Actions Framework
+### Execution Timing and Operational Certainty
 
-**Purpose**: Flexible scheduling and execution system with timing enforcement
+The 4-hour execution window is not arbitrary but addresses a critical operational requirement: downstream consumers need predictable timing to make automated decisions. Without enforced deadlines, corporate actions could remain unexecuted indefinitely, creating uncertainty for oracles, lending protocols, and automated strategies that depend on reliable timing.
 
-**Problem**: Need standardized system for scheduling, tracking, and executing various corporate action types with reliable timing for downstream consumers.
+The execution window must be enforced at the contract level, not just operationally. Actions that are not executed within the window must automatically expire and become unexecutable. This provides hard guarantees to external systems about when corporate action effects will occur, enabling them to schedule pause windows, recalibrate pricing models, or adjust risk parameters with confidence.
 
-**Solution**: Comprehensive framework providing:
-- **Scheduling system**: Future-dated corporate action planning with metadata storage
-- **State management**: Enforced transitions (SCHEDULED → IN_PROGRESS → COMPLETE/EXPIRED)
-- **Execution windows**: 4-hour deadline enforcement for operational certainty
-- **Authorization integration**: Role-based permissions via existing RBAC system
-- **Event emission**: Comprehensive audit trail for offchain indexing
-- **Single source of truth**: All corporate action data queryable from vault address
+The timing enforcement must handle edge cases correctly: actions scheduled with effective times in the past, concurrent execution attempts, and system clock dependencies. The state transition from SCHEDULED to EXPIRED must be irreversible to prevent confusion about action status.
 
-**Benefits**:
-- Extensible architecture for future corporate action types
-- Predictable timing for downstream consumers
-- Operational discipline through execution deadlines
+### Version-Based Lazy Migration System
 
-### 3. Supply-Changing Actions Implementation
+The lazy migration system solves three interconnected problems that simpler approaches cannot handle: unbounded gas costs, precision preservation, and operational necessity for balance transfers.
 
-**Purpose**: First corporate action types that modify token balances
+The version tracking system must maintain perfect consistency between account states and global state. Each account's version number represents exactly which corporate actions have been applied to their balance. When accounts interact, the migration process must apply all missed corporate actions in exact sequential order, updating the account to the current global version atomically.
 
-**Problem**: Supply-changing corporate actions present unique implementation challenges:
-- **Balance modifications across all holders**: Unlike metadata changes, these actions affect every token holder's balance simultaneously
-- **Precision requirements**: Stock splits using ratios like 3:2 or 5:4 must handle fractional results exactly
-- **Coordination complexity**: Both vault shares and receipts must be adjusted proportionally
-- **User experience**: Balance changes must appear atomic and consistent across all interfaces
-- **Integration impact**: External contracts depending on token balances need predictable behavior
+The critical implementation detail is that migration must happen for both sender and recipient before any balance transfer occurs. This ensures both parties operate on current effective balances, preventing scenarios where one party is at version 5 and another at version 8 attempting to transfer between incompatible balance states.
 
-**Solution**: Implement specific corporate action types that generate multipliers for the sequential rebase system.
+The sequential multiplier application preserves computational precision characteristics that would be lost with cumulative multiplication. Consider multipliers 1/3, 3, 1/3, 3 applied sequentially versus the cumulative equivalent of 1.0. Sequential application yields 99.999999 due to accumulated rounding, while cumulative yields exactly 100.0. The system must preserve the sequential result for computational consistency - all accounts migrated later must get identical results to accounts that transferred after each corporate action.
 
-The initial implementation focuses on stock splits and reverse splits as the fundamental supply-changing actions. A stock split like 2:1 doubles all token balances, while a reverse split like 1:10 reduces all balances to one-tenth their previous value. These actions are defined by clean fractional ratios that translate directly into decimal multipliers for the rebase system.
+The operational necessity emerges from the impossibility of meaningful balance arithmetic with virtual multipliers. When a user wants to transfer "1" current share from an account with 100 base shares and pending multipliers yielding 30 effective shares, the system cannot perform this operation without first materializing the effective balance. Division approaches (transferring 3.33 base shares) introduce additional precision errors and computational complexity on every transfer.
 
-Each corporate action is stored with a type identifier, split parameters as numerator and denominator pairs, execution state tracking, and timing data for the execution window framework. The critical connection to component 4 occurs during execution: when a 2:1 stock split executes, it generates a 2.0 multiplier that enters the sequential rebase system's lazy migration process. Similarly, a 1:10 reverse split generates a 0.1 multiplier, and a 5% stock dividend would generate a 1.05 multiplier.
+### Storage Architecture for Query Reliability
 
-The system constrains split ratios to clean fractions that avoid floating-point precision issues when processed through Rain's float math library. Complex decimals like 2.73:1 are not supported because they would introduce precision errors that accumulate through sequential application. Split ratios are bounded within reasonable operational limits to prevent extreme multipliers that could cause system instability or user confusion.
+The storage design must support both efficient internal operations and reliable external queries. Corporate actions must be stored with sequential identifiers that enable external contracts to iterate through all actions deterministically. The storage pattern must handle concurrent reads during execution without returning inconsistent states.
 
-### 4. Sequential Rebase Technical Implementation
+Each corporate action must store sufficient metadata for external contracts to understand timing, effects, and status without requiring additional lookups. Action type identifiers must be standardized and comprehensive enough for external systems to make informed decisions about their operational impact.
 
-**Purpose**: Handle the complex problem of applying balance changes to thousands of token holders without unbounded gas costs while maintaining precision
+The event emission strategy is critical for offchain indexing and external system integration. Events must provide complete information about corporate action lifecycle changes, enabling external systems to maintain their own cached views of corporate action state without constant onchain queries.
 
-**Problem**: When corporate actions require balance changes across all token holders, traditional approaches fail:
-- **Eager updates**: Updating all accounts during corporate action execution requires unbounded gas
-- **Simple multipliers**: Cumulative multipliers introduce precision errors over time 
-- **Direct scaling**: Applying multipliers to user inputs contaminates user intent
-- **Virtual multipliers**: Keeping multipliers as pending calculations makes balance transfers impossible - when someone wants to transfer "1" current share, how do you calculate what portion of their underlying base balance to actually transfer?
+### Authorization and Security Model
 
-**Solution**: Version-based lazy migration system that solves these constraints:
+The authorization system must prevent several attack vectors while maintaining operational efficiency. Different corporate action types may require different authorization levels - routine stock splits might be executable by operators, while extraordinary actions require governance approval.
 
-**Version System**: Each account tracks a version number representing their current state relative to executed corporate actions. When corporate actions execute, a global version increments and stores the associated multiplier, but individual accounts remain at their current version until they interact.
+The execution permission model must be separate from scheduling permissions to enable operational flexibility. Hot wallets may need to execute scheduled actions without having the authority to schedule new actions. The permission structure must prevent unauthorized modification of scheduled actions while allowing legitimate operational execution.
 
-**Lazy Migration**: When accounts interact (transfers, mints, burns), both sender and recipient are "migrated" to the current global version by applying any pending multipliers to their stored balances, then advancing their version number. This rasterization is operationally necessary - you cannot perform meaningful balance arithmetic while multipliers remain "virtual" because transfers need to work with concrete current balances, not base balances with pending effects.
+The timing enforcement provides additional security by creating predictable windows for action execution, preventing actions from being executed at unexpected times that could manipulate market conditions or user expectations.
 
-**Sequential Precision**: Multipliers are applied one-after-another in the same order they were executed, preserving the exact computational sequence. This avoids precision differences between sequential and cumulative application that arise from floating-point arithmetic.
+### Precision Requirements and Computational Correctness
 
-Consider a series of corporate actions with multipliers 1/3, then 3x, then 1/3, then 3x:
-- **Sequential application**: `100 × (1/3) × 3 × (1/3) × 3 = 99.999999...` (due to accumulated rounding errors)
-- **Cumulative application**: `100 × 1 = 100.000000` (exact, since mathematically 1/3 × 3 × 1/3 × 3 = 1)
+The precision requirements stem from the need for deterministic, reproducible calculations across different execution contexts. The Rain float math integration must handle fractional split ratios exactly, supporting ratios like 3:2 and 5:4 without accumulating errors that would diverge from intended outcomes over multiple corporate actions.
 
-Even though mathematically equivalent, the computational results differ. Sequential application preserves the intended computational behavior including its precision characteristics, while cumulative optimization would "fix" precision errors and produce different results.
+Split ratio validation must prevent problematic inputs that could cause precision issues or system instability. Complex decimal ratios like 2.73:1 are prohibited not for simplicity but because they introduce precision errors that accumulate unpredictably through sequential application.
 
-**User Intent Preservation**: The migration happens to stored balances during write operations, never to user input amounts. When a user transfers "1 share," they get exactly 1 share at current value regardless of corporate action history.
+The system must handle edge cases in precision correctly: zero balances after migration, very small balances that approach the precision limits of the float library, and maximum balance limits that could cause overflow during multiplication.
 
-**Operational Example**: Consider a user with 100 base shares and pending multipliers (2x, 1.5x, 0.1x) giving them 30 current effective shares. To transfer "1" current share, the system must first rasterize: apply the multipliers to get 30 stored shares, then transfer 1 of those current shares. Without rasterization, calculating what portion of the 100 base shares represents "1" current share would require complex division operations on every transfer.
+### Receipt System Coordination
 
-**Implementation Details**:
-- OpenZeppelin v5 `_update` hook provides single integration point for all balance changes
-- Rain float math library ensures exact fractional calculations
-- Both sender and recipient migrated before balance modifications
-- One-time migration cost per corporate action period, then normal ERC20 efficiency
+The vault-receipt coordination leverages the existing manager relationship to maintain consistency without introducing parallel version systems. When corporate actions execute in the vault, they must trigger proportional updates in the receipt system using the same multipliers and precision calculations.
 
-### 5. Downstream Consumer Interface
+The critical requirement is atomic coordination - if a corporate action succeeds in the vault but fails in the receipt update, the entire transaction must revert to prevent inconsistent states between ERC20 and ERC1155 representations of the same underlying positions.
 
-**Purpose**: Reliable interface for external contracts and oracles
+The manager relationship prevents the need for complex cross-contract communication patterns while ensuring that receipt holders experience identical corporate action effects to direct vault share holders. This maintains the equivalence between holding vault shares directly and holding receipts as proof of vault positions.
 
-**Problem**: External contracts (oracles, lending protocols, automated strategies) need to make informed decisions about corporate actions but lack a reliable way to:
-- Detect upcoming corporate actions that will affect token behavior
-- Plan operational responses around predictable timing windows  
-- Access historical corporate action data for analysis and risk assessment
-- Query from a single authoritative source without tracking multiple contracts
+### External Contract Integration
 
-**Solution**: Direct vault queries through standardized interface functions accessible to any external contract.
+External contracts must be able to depend on the query interface for operational decisions. This means query functions must return consistent, complete information even during corporate action execution. Race conditions where external contracts see partial or inconsistent corporate action states must be prevented through careful ordering of state updates and event emissions.
 
-**Implementation Approach**:
-- **Public view functions**: Corporate action data exposed through standard Solidity view functions on the vault contract
-- **Indexed storage**: Corporate actions stored with sequential IDs enabling efficient iteration and lookup
-- **Structured data**: Each corporate action includes type, execution state, timing information, and action-specific data
-- **Event emission**: Comprehensive events enable offchain indexing for more complex queries
-- **Single contract access**: All queries directed to vault address, no need to track multiple contracts or registries
+The query interface must be designed for gas efficiency when called by other contracts during transaction execution. External contracts may need to check corporate action status during their own operations, so query functions must be optimized for onchain execution, not just offchain analysis.
 
-**Query Interface Design**:
-- **Action enumeration**: External contracts can iterate through all corporate actions using sequential IDs
-- **State filtering**: Query functions allow filtering by execution state (scheduled, complete, expired)  
-- **Timing queries**: Functions to identify actions within specific time windows or approaching deadlines
-- **Type-specific data**: Action data decoded based on corporate action type for specific use cases
-- **Historical access**: Complete audit trail available for analysis and reconciliation
-
-**Benefits**:
-- **Oracle compatibility**: Standard interface for downstream protocol integration
-- **Timing reliability**: External contracts can depend on execution window enforcement
-- **Single address**: No need to track multiple contracts or registries
-- **Comprehensive data**: Full context for risk management and automated responses
-
-## Design Principles
-
-### Framework-Level Principles (All Corporate Actions)
-1. **Extensible architecture**: System supports addition of new corporate action types
-2. **Enforced timing**: Execution windows provide operational certainty
-3. **Single source of truth**: Vault address provides all corporate action information
-4. **State consistency**: Enforced transitions prevent invalid states
-
-### Rebase-Specific Principles (Supply-Changing Actions)
-1. **Constant user costs**: Gas costs independent of corporate action history
-2. **Sequential precision**: Preserve computational behavior including rounding characteristics
-3. **Lazy evaluation**: Migration occurs only when accounts interact
-4. **User intent preservation**: Input amounts represent current value, not historical units
-
-## Receipt System Integration
-
-**Manager-Directed Coordination**: Leverages existing vault-receipt manager relationship
-
-**Problem**: Corporate actions must affect both ERC20 vault shares and ERC1155 receipts consistently to maintain proportional accounting.
-
-**Solution**: When vault executes corporate actions, it uses existing manager privileges to trigger proportional adjustments in receipt balances. Same multipliers applied to both systems ensure consistency.
-
-**Benefits**:
-- Consistent accounting between vault shares and receipts
-- Leverages established architecture without parallel systems
-- Single control point drives both ERC20 and ERC1155 updates
-
-## OpenZeppelin v5 Integration
-
-The lazy migration system integrates with OpenZeppelin v5's unified balance update architecture:
-
-**Single Hook Integration**: The `_update` hook handles all balance changes (transfers, mints, burns), providing a single point to implement migration logic as a pre-step before any balance modifications.
-
-**Migration Pre-Step**: Before balance changes occur, both sender and recipient accounts are migrated to current version if needed, ensuring all operations work with current effective balances.
-
-## Precision and Computational Correctness
-
-**Sequential vs Cumulative Multipliers**: Corporate actions must be applied in the same computational sequence to preserve precision characteristics. Sequential application may accumulate small rounding errors that cumulative application would avoid, but this preserves the intended computational behavior.
-
-**Rain Float Math Integration**: All multiplier calculations use Rain's float library to handle fractional calculations precisely, supporting clean ratios (2:1, 3:2, 1:10) without degradation.
-
-## Storage and Performance
-
-**Diamond Storage Pattern**: Shared state management across facets with collision-resistant storage slots.
-
-**Event Emission**: All corporate actions emit comprehensive events for offchain indexing and external system integration.
-
-**Batch Operations**: Multiple corporate actions can be executed in single transactions using existing multicall functionality.
+The single address requirement is critical for integration reliability. External contracts should not need to track multiple registry addresses or understand complex routing logic to access corporate action information. All necessary data must be accessible through the vault address they already depend on for balance information.
