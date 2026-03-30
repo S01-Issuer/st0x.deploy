@@ -103,13 +103,21 @@ Even though mathematically equivalent, the computational results differ. Sequent
 - Access historical corporate action data for analysis and risk assessment
 - Query from a single authoritative source without tracking multiple contracts
 
-**Solution**: Comprehensive query interface providing:
+**Solution**: Direct vault queries through standardized interface functions accessible to any external contract.
 
-**Query Capabilities**:
-- **Corporate action data**: Direct vault queries for all scheduled and completed actions
-- **Timing information**: Reliable execution windows and deadlines
-- **Balance effect prediction**: Identify upcoming supply-changing events
-- **Historical analysis**: Access to complete corporate action audit trail
+**Implementation Approach**:
+- **Public view functions**: Corporate action data exposed through standard Solidity view functions on the vault contract
+- **Indexed storage**: Corporate actions stored with sequential IDs enabling efficient iteration and lookup
+- **Structured data**: Each corporate action includes type, execution state, timing information, and action-specific data
+- **Event emission**: Comprehensive events enable offchain indexing for more complex queries
+- **Single contract access**: All queries directed to vault address, no need to track multiple contracts or registries
+
+**Query Interface Design**:
+- **Action enumeration**: External contracts can iterate through all corporate actions using sequential IDs
+- **State filtering**: Query functions allow filtering by execution state (scheduled, complete, expired)  
+- **Timing queries**: Functions to identify actions within specific time windows or approaching deadlines
+- **Type-specific data**: Action data decoded based on corporate action type for specific use cases
+- **Historical access**: Complete audit trail available for analysis and reconciliation
 
 **Benefits**:
 - **Oracle compatibility**: Standard interface for downstream protocol integration
