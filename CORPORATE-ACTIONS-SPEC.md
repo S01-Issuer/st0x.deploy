@@ -46,32 +46,13 @@ This specification defines a comprehensive corporate actions system implemented 
 - **User experience**: Balance changes must appear atomic and consistent across all interfaces
 - **Integration impact**: External contracts depending on token balances need predictable behavior
 
-**Solution**: Implement specific corporate action types with well-defined balance effects:
+**Solution**: Implement specific corporate action types that generate multipliers for the sequential rebase system.
 
-**Initial Implementation Scope**:
-- **Stock splits**: Multiply all token balances by split ratio (e.g., 2:1 split doubles all balances)
-- **Reverse splits**: Divide all token balances by split ratio (e.g., 1:10 split reduces all balances by 90%)
-- **Stock dividends**: Increase balances based on dividend reinvestment ratios
+The initial implementation focuses on stock splits and reverse splits as the fundamental supply-changing actions. A stock split like 2:1 doubles all token balances, while a reverse split like 1:10 reduces all balances to one-tenth their previous value. These actions are defined by clean fractional ratios that translate directly into decimal multipliers for the rebase system.
 
-**Action Structure and Storage**:
+Each corporate action is stored with a type identifier, split parameters as numerator and denominator pairs, execution state tracking, and timing data for the execution window framework. The critical connection to component 4 occurs during execution: when a 2:1 stock split executes, it generates a 2.0 multiplier that enters the sequential rebase system's lazy migration process. Similarly, a 1:10 reverse split generates a 0.1 multiplier, and a 5% stock dividend would generate a 1.05 multiplier.
 
-Each supply-changing action is stored with:
-- **Action type identifier**: Specific identifier (e.g., "STOCK_SPLIT_2_1", "REVERSE_SPLIT_1_10")
-- **Split parameters**: Numerator and denominator defining the split ratio (e.g., 2:1 split = numerator 2, denominator 1)
-- **Execution state**: Current state in lifecycle (SCHEDULED → IN_PROGRESS → COMPLETE)
-- **Timing data**: Effective time and execution window for operational certainty
-- **Multiplier derivation**: Split ratio converted to decimal multiplier for rebase system (2:1 split → 2.0 multiplier, 1:10 reverse split → 0.1 multiplier)
-
-**Connection to Rebase System**:
-When supply-changing actions execute, they generate multipliers that feed directly into the sequential rebase system:
-- **Stock split 2:1**: Creates multiplier 2.0 for the lazy migration system
-- **Reverse split 1:10**: Creates multiplier 0.1 for the lazy migration system
-- **Stock dividend 5%**: Creates multiplier 1.05 for the lazy migration system
-
-**Parameter Validation**:
-- **Ratio constraints**: Only clean fractional ratios supported (no complex decimals like 2.73:1)
-- **Range limits**: Split ratios within reasonable operational bounds (e.g., max 10:1 split, max 1:100 reverse split)
-- **Precision preservation**: Parameters chosen to avoid floating-point precision issues in Rain float math
+The system constrains split ratios to clean fractions that avoid floating-point precision issues when processed through Rain's float math library. Complex decimals like 2.73:1 are not supported because they would introduce precision errors that accumulate through sequential application. Split ratios are bounded within reasonable operational limits to prevent extreme multipliers that could cause system instability or user confusion.
 
 ### 4. Sequential Rebase Technical Implementation
 
