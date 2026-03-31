@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
+import {Float} from "rain.math.float/lib/LibDecimalFloat.sol";
+
 /// @dev String ID for the corporate action storage location.
 string constant CORPORATE_ACTION_STORAGE_ID = "rain.storage.corporate-action.1";
 
@@ -83,6 +85,11 @@ library LibCorporateAction {
         uint256 nextActionId;
         /// Action records indexed by sequential ID starting from 1.
         mapping(uint256 => CorporateAction) actions;
+        /// Multiplier history indexed by CAID (1-based). When a corporate
+        /// action that affects balances executes, its multiplier is recorded
+        /// here. The migration system applies these sequentially to accounts
+        /// that need catching up.
+        mapping(uint256 => Float) multipliers;
     }
 
     /// @dev Accessor for corporate action storage at the ERC-7201 slot.
@@ -147,13 +154,35 @@ library LibCorporateAction {
     }
 
     /// @notice Transition an IN_PROGRESS action to COMPLETE. Called after the
-    /// action's effects have been applied. Also increments the global CAID.
+    /// action's effects have been applied. Increments the global CAID.
     /// @param actionId The action to complete.
     function completeExecution(uint256 actionId) internal {
         CorporateActionStorage storage s = getStorage();
         CorporateAction storage action = s.actions[actionId];
         action.status = STATUS_COMPLETE;
         s.globalCAID++;
+    }
+
+    /// @notice Transition an IN_PROGRESS action to COMPLETE and record a
+    /// multiplier. Used by corporate actions that affect balances (splits,
+    /// reverse splits). The multiplier is stored at the new CAID so the
+    /// migration system can apply it sequentially.
+    /// @param actionId The action to complete.
+    /// @param multiplier The balance multiplier to record.
+    function completeExecutionWithMultiplier(uint256 actionId, Float multiplier) internal {
+        CorporateActionStorage storage s = getStorage();
+        CorporateAction storage action = s.actions[actionId];
+        action.status = STATUS_COMPLETE;
+        s.globalCAID++;
+        s.multipliers[s.globalCAID] = multiplier;
+    }
+
+    /// @notice Read the multiplier recorded at a given CAID.
+    /// @param caid The corporate action ID to query.
+    /// @return multiplier The multiplier (zero float if no multiplier was
+    /// recorded at this CAID).
+    function getMultiplier(uint256 caid) internal view returns (Float multiplier) {
+        return getStorage().multipliers[caid];
     }
 
     /// @notice Explicitly expire a scheduled action whose window has passed.

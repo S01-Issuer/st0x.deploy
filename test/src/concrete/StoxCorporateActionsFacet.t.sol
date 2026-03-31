@@ -6,9 +6,12 @@ import {Test} from "forge-std/Test.sol";
 import {
     StoxCorporateActionsFacet,
     CORPORATE_ACTION_SCHEDULE,
-    CORPORATE_ACTION_EXECUTE
+    CORPORATE_ACTION_EXECUTE,
+    UnknownActionType
 } from "../../../src/concrete/StoxCorporateActionsFacet.sol";
-import {STATUS_SCHEDULED, STATUS_COMPLETE, STATUS_EXPIRED} from "../../../src/lib/LibCorporateAction.sol";
+import {ACTION_TYPE_STOCK_SPLIT} from "../../../src/lib/LibStockSplit.sol";
+import {STATUS_COMPLETE} from "../../../src/lib/LibCorporateAction.sol";
+import {LibDecimalFloat, Float} from "rain.math.float/lib/LibDecimalFloat.sol";
 
 contract StoxCorporateActionsFacetTest is Test {
     /// The facet MUST be deployable.
@@ -17,8 +20,8 @@ contract StoxCorporateActionsFacetTest is Test {
         assertTrue(address(f) != address(0));
     }
 
-    /// Reading globalCAID through a direct call returns 0 on fresh storage.
-    function testGlobalVersionStartsAtZero() external {
+    /// Global CAID starts at 0.
+    function testGlobalCAIDStartsAtZero() external {
         StoxCorporateActionsFacet f = new StoxCorporateActionsFacet();
         assertEq(f.globalCAID(), 0);
     }
