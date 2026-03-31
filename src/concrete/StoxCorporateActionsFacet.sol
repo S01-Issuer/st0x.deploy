@@ -56,18 +56,21 @@ contract StoxCorporateActionsFacet {
     /// @param actionId The expired action.
     event CorporateActionExpired(address indexed sender, uint256 indexed actionId);
 
-    /// @notice Schedule a stock split. Requires CORPORATE_ACTION_SCHEDULE
+    /// @notice Schedule a new corporate action. Requires CORPORATE_ACTION_SCHEDULE
     /// permission. The effective time must be in the future.
-    /// @param effectiveTime When the split takes effect.
-    /// @param multiplier The balance multiplier as a Rain float (e.g. 2 for a
-    /// 2-for-1 split, 0.5 for a 1-for-2 reverse split).
+    /// @param actionType The type identifier for this action.
+    /// @param effectiveTime When the action should take effect.
+    /// @param parameters ABI-encoded parameters for the action type. For stock
+    /// splits this is abi.encode(Float) where Float is the balance multiplier.
     /// @return actionId The sequential ID assigned to this action.
     //slither-disable-next-line reentrancy-events
-    function scheduleStockSplit(uint64 effectiveTime, Float multiplier) external returns (uint256 actionId) {
+    function scheduleCorporateAction(bytes32 actionType, uint64 effectiveTime, bytes calldata parameters)
+        external
+        returns (uint256 actionId)
+    {
         _authorize(msg.sender, CORPORATE_ACTION_SCHEDULE);
-        bytes memory parameters = abi.encode(multiplier);
-        actionId = LibCorporateAction.schedule(ACTION_TYPE_STOCK_SPLIT, effectiveTime, parameters);
-        emit CorporateActionScheduled(msg.sender, actionId, ACTION_TYPE_STOCK_SPLIT, effectiveTime);
+        actionId = LibCorporateAction.schedule(actionType, effectiveTime, parameters);
+        emit CorporateActionScheduled(msg.sender, actionId, actionType, effectiveTime);
     }
 
     /// @notice Execute a scheduled corporate action. Requires
