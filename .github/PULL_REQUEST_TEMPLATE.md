@@ -1,3 +1,5 @@
+<!-- SPDX-License-Identifier: LicenseRef-DCL-1.0 -->
+<!-- SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd -->
 <!-- Thanks for your Pull Request, please read the contributing guidelines before submitting. -->
 
 ## Motivation
