@@ -53,6 +53,10 @@ error ActionExpired(uint256 actionId, uint256 deadline, uint256 currentTime);
 /// @param actionId The invalid action ID.
 error ActionDoesNotExist(uint256 actionId);
 
+/// Thrown when querying a rebase ID that does not exist.
+/// @param rebaseId The invalid rebase ID.
+error RebaseDoesNotExist(uint256 rebaseId);
+
 /// @dev A corporate action record. Stored sequentially in the action history.
 /// @param actionType Application-defined type identifier (e.g. stock split).
 /// @param status The current lifecycle status.
@@ -85,10 +89,13 @@ library LibCorporateAction {
         uint256 nextActionId;
         /// Action records indexed by sequential ID starting from 1.
         mapping(uint256 => CorporateAction) actions;
-        /// Multiplier history indexed by CAID (1-based). When a corporate
-        /// action that affects balances executes, its multiplier is recorded
-        /// here. The migration system applies these sequentially to accounts
-        /// that need catching up.
+        /// Counter for balance-affecting corporate actions (rebases). Only
+        /// incremented when an action records a multiplier. Accounts track
+        /// their rebase version against this to determine migration needs.
+        uint256 rebaseCount;
+        /// Multiplier history indexed by rebase ID (1-based). Each entry
+        /// is a Rain float multiplier that the migration system applies
+        /// sequentially to accounts that need catching up.
         mapping(uint256 => Float) multipliers;
     }
 
@@ -154,7 +161,7 @@ library LibCorporateAction {
     }
 
     /// @notice Transition an IN_PROGRESS action to COMPLETE. Called after the
-    /// action's effects have been applied. Increments the global CAID.
+    /// action's effects have been applied. Also increments the global CAID.
     /// @param actionId The action to complete.
     function completeExecution(uint256 actionId) internal {
         CorporateActionStorage storage s = getStorage();
@@ -164,25 +171,31 @@ library LibCorporateAction {
     }
 
     /// @notice Transition an IN_PROGRESS action to COMPLETE and record a
-    /// multiplier. Used by corporate actions that affect balances (splits,
-    /// reverse splits). The multiplier is stored at the new CAID so the
-    /// migration system can apply it sequentially.
+    /// balance multiplier. Increments both the global CAID and the rebase
+    /// counter. The multiplier is stored at the new rebase ID so the
+    /// migration system can apply multipliers sequentially without needing
+    /// to skip over non-rebase actions.
     /// @param actionId The action to complete.
-    /// @param multiplier The balance multiplier to record.
+    /// @param multiplier The balance multiplier to record as a Rain float.
     function completeExecutionWithMultiplier(uint256 actionId, Float multiplier) internal {
         CorporateActionStorage storage s = getStorage();
         CorporateAction storage action = s.actions[actionId];
         action.status = STATUS_COMPLETE;
         s.globalCAID++;
-        s.multipliers[s.globalCAID] = multiplier;
+        s.rebaseCount++;
+        s.multipliers[s.rebaseCount] = multiplier;
     }
 
-    /// @notice Read the multiplier recorded at a given CAID.
-    /// @param caid The corporate action ID to query.
-    /// @return multiplier The multiplier (zero float if no multiplier was
-    /// recorded at this CAID).
-    function getMultiplier(uint256 caid) internal view returns (Float multiplier) {
-        return getStorage().multipliers[caid];
+    /// @notice Read the multiplier recorded at a given rebase ID. Reverts if
+    /// the rebase ID does not exist.
+    /// @param rebaseId The rebase ID to query (1-based).
+    /// @return multiplier The Rain float multiplier.
+    function getMultiplier(uint256 rebaseId) internal view returns (Float multiplier) {
+        CorporateActionStorage storage s = getStorage();
+        if (rebaseId == 0 || rebaseId > s.rebaseCount) {
+            revert RebaseDoesNotExist(rebaseId);
+        }
+        return s.multipliers[rebaseId];
     }
 
     /// @notice Explicitly expire a scheduled action whose window has passed.

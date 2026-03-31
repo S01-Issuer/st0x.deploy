@@ -10,12 +10,14 @@ import {
     STATUS_COMPLETE,
     STATUS_EXPIRED
 } from "../lib/LibCorporateAction.sol";
-import {LibStockSplit, ACTION_TYPE_STOCK_SPLIT} from "../lib/LibStockSplit.sol";
+import {ACTION_TYPE_STOCK_SPLIT} from "../lib/LibStockSplit.sol";
 import {Float} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {IAuthorizeV1} from "ethgild/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVault} from "ethgild/concrete/vault/OffchainAssetReceiptVault.sol";
 
-/// @dev Permission for scheduling corporate actions.
+/// @dev Permission for scheduling corporate actions. Separate from execution
+/// so that scheduling can be restricted to governance while execution can be
+/// delegated to operator hot wallets.
 bytes32 constant CORPORATE_ACTION_SCHEDULE = keccak256("CORPORATE_ACTION_SCHEDULE");
 
 /// @dev Permission for executing scheduled corporate actions.
@@ -54,24 +56,16 @@ contract StoxCorporateActionsFacet {
     /// @param actionId The expired action.
     event CorporateActionExpired(address indexed sender, uint256 indexed actionId);
 
-    /// @notice Schedule a stock split. The ratio must be exactly representable
-    /// as a Rain float — lossy ratios are rejected. Requires
-    /// CORPORATE_ACTION_SCHEDULE permission.
+    /// @notice Schedule a stock split. Requires CORPORATE_ACTION_SCHEDULE
+    /// permission. The effective time must be in the future.
     /// @param effectiveTime When the split takes effect.
-    /// @param numerator Split ratio numerator (e.g. 3 for a 3-for-2 split).
-    /// @param denominator Split ratio denominator (e.g. 2 for a 3-for-2 split).
+    /// @param multiplier The balance multiplier as a Rain float (e.g. 2 for a
+    /// 2-for-1 split, 0.5 for a 1-for-2 reverse split).
     /// @return actionId The sequential ID assigned to this action.
-    //slither-disable-next-line reentrancy-events,unused-return
-    function scheduleStockSplit(uint64 effectiveTime, uint256 numerator, uint256 denominator)
-        external
-        returns (uint256 actionId)
-    {
+    //slither-disable-next-line reentrancy-events
+    function scheduleStockSplit(uint64 effectiveTime, Float multiplier) external returns (uint256 actionId) {
         _authorize(msg.sender, CORPORATE_ACTION_SCHEDULE);
-
-        // Validate ratio and encode as Rain float. Reverts if the ratio
-        // cannot be represented losslessly.
-        (bytes memory parameters,) = LibStockSplit.encodeSplitParameters(numerator, denominator);
-
+        bytes memory parameters = abi.encode(multiplier);
         actionId = LibCorporateAction.schedule(ACTION_TYPE_STOCK_SPLIT, effectiveTime, parameters);
         emit CorporateActionScheduled(msg.sender, actionId, ACTION_TYPE_STOCK_SPLIT, effectiveTime);
     }
@@ -79,11 +73,6 @@ contract StoxCorporateActionsFacet {
     /// @notice Execute a scheduled corporate action. Requires
     /// CORPORATE_ACTION_EXECUTE permission. The action must be within its
     /// execution window (effective time to effective time + 4 hours).
-    ///
-    /// For stock splits, records the multiplier in the global multiplier
-    /// history so the migration system can apply it to accounts. Balance
-    /// effects are not yet implemented — the multiplier is stored but not
-    /// applied to any balances.
     /// @param actionId The action to execute.
     //slither-disable-next-line reentrancy-events
     function executeCorporateAction(uint256 actionId) external {
@@ -93,7 +82,7 @@ contract StoxCorporateActionsFacet {
         bytes32 actionType = action.actionType;
 
         if (actionType == ACTION_TYPE_STOCK_SPLIT) {
-            Float multiplier = LibStockSplit.decodeMultiplier(action.parameters);
+            Float multiplier = abi.decode(action.parameters, (Float));
             LibCorporateAction.completeExecutionWithMultiplier(actionId, multiplier);
         } else {
             revert UnknownActionType(actionType);
@@ -104,7 +93,8 @@ contract StoxCorporateActionsFacet {
     }
 
     /// @notice Expire a scheduled action whose execution window has passed.
-    /// Anyone can call this — no permission required.
+    /// Anyone can call this — no permission required. It is a public good to
+    /// clean up state so external systems see accurate status.
     /// @param actionId The action to expire.
     function expireCorporateAction(uint256 actionId) external {
         LibCorporateAction.expire(actionId);
@@ -112,8 +102,19 @@ contract StoxCorporateActionsFacet {
     }
 
     /// @notice Returns the current global corporate action ID (CAID).
+    /// Incremented each time any corporate action executes. External contracts
+    /// can use this to detect whether new corporate actions have occurred since
+    /// they last checked.
     function globalCAID() external view returns (uint256) {
         return LibCorporateAction.getStorage().globalCAID;
+    }
+
+    /// @notice Returns the current rebase count. Only incremented when a
+    /// balance-affecting corporate action (e.g. stock split) executes and
+    /// records a multiplier. Accounts track their version against this to
+    /// determine whether migration is needed.
+    function rebaseCount() external view returns (uint256) {
+        return LibCorporateAction.getStorage().rebaseCount;
     }
 
     /// @notice Returns the total number of corporate actions that have been
@@ -138,17 +139,22 @@ contract StoxCorporateActionsFacet {
         return (action.actionType, action.status, action.effectiveTime, action.executedTime, action.parameters);
     }
 
-    /// @notice Returns the multiplier recorded at a given CAID. Returns a zero
-    /// float if no multiplier was recorded (e.g. for non-balance-affecting
-    /// action types).
-    /// @param caid The CAID to query.
+    /// @notice Returns the multiplier recorded at a given rebase ID. Reverts
+    /// if the rebase ID does not exist.
+    /// @param rebaseId The rebase ID to query (1-based).
     /// @return multiplier The Rain float multiplier.
-    function getMultiplier(uint256 caid) external view returns (Float multiplier) {
-        return LibCorporateAction.getMultiplier(caid);
+    function getMultiplier(uint256 rebaseId) external view returns (Float multiplier) {
+        return LibCorporateAction.getMultiplier(rebaseId);
     }
 
-    /// @dev Authorize via the vault's authorizer.
+    /// @dev Authorize via the vault's authorizer. Since this facet is
+    /// delegatecalled by the vault, we can access the vault's storage to
+    /// find the authorizer. We read it from the OffchainAssetReceiptVault
+    /// storage layout.
     function _authorize(address user, bytes32 permission) internal {
+        // The vault exposes authorizer() as a public view function. Since we
+        // are running in the vault's context via delegatecall, we can call it
+        // on ourselves.
         IAuthorizeV1 auth = OffchainAssetReceiptVault(payable(address(this))).authorizer();
         auth.authorize(user, permission, "");
     }

@@ -17,8 +17,10 @@ import {
     ActionNotScheduled,
     ActionNotEffective,
     ActionExpired,
-    ActionDoesNotExist
+    ActionDoesNotExist,
+    RebaseDoesNotExist
 } from "../../../src/lib/LibCorporateAction.sol";
+import {LibDecimalFloat, Float} from "rain.math.float/lib/LibDecimalFloat.sol";
 
 /// @dev Thin harness that exposes LibCorporateAction internal functions for
 /// testing. The library operates on its own ERC-7201 storage, so the harness
@@ -37,6 +39,10 @@ contract LibCorporateActionHarness {
         LibCorporateAction.completeExecution(actionId);
     }
 
+    function completeExecutionWithMultiplier(uint256 actionId, Float multiplier) external {
+        LibCorporateAction.completeExecutionWithMultiplier(actionId, multiplier);
+    }
+
     function expire(uint256 actionId) external {
         LibCorporateAction.expire(actionId);
     }
@@ -46,8 +52,16 @@ contract LibCorporateActionHarness {
         return (action.actionType, action.status, action.effectiveTime, action.executedTime, action.parameters);
     }
 
+    function getMultiplier(uint256 rebaseId) external view returns (Float) {
+        return LibCorporateAction.getMultiplier(rebaseId);
+    }
+
     function globalCAID() external view returns (uint256) {
         return LibCorporateAction.getStorage().globalCAID;
+    }
+
+    function rebaseCount() external view returns (uint256) {
+        return LibCorporateAction.getStorage().rebaseCount;
     }
 
     function nextActionId() external view returns (uint256) {
@@ -398,6 +412,113 @@ contract LibCorporateActionQueryTest is Test {
         } else {
             // queryId == 1 should succeed.
             harness.getAction(queryId);
+        }
+    }
+}
+
+contract LibCorporateActionRebaseTest is Test {
+    LibCorporateActionHarness harness;
+    bytes32 constant ACTION_TYPE = keccak256("STOCK_SPLIT");
+
+    function setUp() external {
+        harness = new LibCorporateActionHarness();
+    }
+
+    /// Rebase count starts at 0.
+    function testRebaseCountStartsAtZero() external view {
+        assertEq(harness.rebaseCount(), 0);
+    }
+
+    /// completeExecutionWithMultiplier increments both CAID and rebase count.
+    function testRebaseCountIncrements() external {
+        uint64 future = uint64(block.timestamp + 1 days);
+        uint256 id = harness.schedule(ACTION_TYPE, future, "");
+        vm.warp(future);
+
+        harness.beginExecution(id);
+        Float multiplier = LibDecimalFloat.packLossless(2, 0);
+        harness.completeExecutionWithMultiplier(id, multiplier);
+
+        assertEq(harness.globalCAID(), 1);
+        assertEq(harness.rebaseCount(), 1);
+    }
+
+    /// completeExecution (without multiplier) increments CAID but NOT rebase
+    /// count. This is how non-balance-affecting actions work.
+    function testNonRebaseActionDoesNotIncrementRebaseCount() external {
+        uint64 future = uint64(block.timestamp + 1 days);
+        uint256 id = harness.schedule(ACTION_TYPE, future, "");
+        vm.warp(future);
+
+        harness.beginExecution(id);
+        harness.completeExecution(id);
+
+        assertEq(harness.globalCAID(), 1);
+        assertEq(harness.rebaseCount(), 0);
+    }
+
+    /// Multiplier is stored and retrievable by rebase ID.
+    function testGetMultiplier() external {
+        uint64 future = uint64(block.timestamp + 1 days);
+        uint256 id = harness.schedule(ACTION_TYPE, future, "");
+        vm.warp(future);
+
+        harness.beginExecution(id);
+        Float multiplier = LibDecimalFloat.packLossless(3, 0);
+        harness.completeExecutionWithMultiplier(id, multiplier);
+
+        Float stored = harness.getMultiplier(1);
+        assertTrue(LibDecimalFloat.eq(stored, multiplier));
+    }
+
+    /// Querying rebase ID 0 reverts.
+    function testGetMultiplierZeroReverts() external {
+        vm.expectRevert(abi.encodeWithSelector(RebaseDoesNotExist.selector, 0));
+        harness.getMultiplier(0);
+    }
+
+    /// Querying a non-existent rebase ID reverts.
+    function testGetMultiplierNonExistentReverts() external {
+        vm.expectRevert(abi.encodeWithSelector(RebaseDoesNotExist.selector, 1));
+        harness.getMultiplier(1);
+    }
+
+    /// Multiple rebases produce sequential rebase IDs with correct multipliers.
+    function testMultipleRebases() external {
+        uint64 future = uint64(block.timestamp + 1 days);
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        Float halfX = LibDecimalFloat.packLossless(5, -1);
+
+        uint256 id1 = harness.schedule(ACTION_TYPE, future, "");
+        uint256 id2 = harness.schedule(ACTION_TYPE, future, "");
+
+        vm.warp(future);
+
+        harness.beginExecution(id1);
+        harness.completeExecutionWithMultiplier(id1, twoX);
+
+        harness.beginExecution(id2);
+        harness.completeExecutionWithMultiplier(id2, halfX);
+
+        assertEq(harness.rebaseCount(), 2);
+        assertTrue(LibDecimalFloat.eq(harness.getMultiplier(1), twoX));
+        assertTrue(LibDecimalFloat.eq(harness.getMultiplier(2), halfX));
+    }
+
+    /// Fuzz: rebase IDs beyond rebaseCount revert.
+    function testFuzzGetMultiplierBoundsCheck(uint256 queryId) external {
+        // Create one rebase.
+        uint64 future = uint64(block.timestamp + 1 days);
+        uint256 id = harness.schedule(ACTION_TYPE, future, "");
+        vm.warp(future);
+        harness.beginExecution(id);
+        harness.completeExecutionWithMultiplier(id, LibDecimalFloat.packLossless(2, 0));
+
+        if (queryId == 0 || queryId > 1) {
+            vm.expectRevert(abi.encodeWithSelector(RebaseDoesNotExist.selector, queryId));
+            harness.getMultiplier(queryId);
+        } else {
+            harness.getMultiplier(queryId);
         }
     }
 }

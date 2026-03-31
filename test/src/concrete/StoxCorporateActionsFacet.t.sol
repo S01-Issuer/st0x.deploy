@@ -32,6 +32,12 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(f.corporateActionCount(), 0);
     }
 
+    /// Rebase count starts at 0.
+    function testRebaseCountStartsAtZero() external {
+        StoxCorporateActionsFacet f = new StoxCorporateActionsFacet();
+        assertEq(f.rebaseCount(), 0);
+    }
+
     /// The scheduling and execution permissions MUST be distinct.
     function testScheduleAndExecutePermissionsAreDistinct() external pure {
         assertTrue(CORPORATE_ACTION_SCHEDULE != CORPORATE_ACTION_EXECUTE);
