@@ -39,11 +39,6 @@ contract StoxCorporateActionsFacet {
         address indexed sender, uint256 indexed actionId, bytes32 indexed actionType, uint64 effectiveTime
     );
 
-    /// Emitted when a corporate action begins execution.
-    /// @param sender The address that triggered execution.
-    /// @param actionId The action being executed.
-    event CorporateActionExecutionStarted(address indexed sender, uint256 indexed actionId);
-
     /// Emitted when a corporate action completes execution.
     /// @param sender The address that completed execution.
     /// @param actionId The completed action.
@@ -84,7 +79,6 @@ contract StoxCorporateActionsFacet {
         _authorize(msg.sender, CORPORATE_ACTION_EXECUTE);
         //slither-disable-next-line unused-return
         LibCorporateAction.beginExecution(actionId);
-        emit CorporateActionExecutionStarted(msg.sender, actionId);
 
         // Future PRs will add action-type-specific logic here between
         // beginExecution and completeExecution.
