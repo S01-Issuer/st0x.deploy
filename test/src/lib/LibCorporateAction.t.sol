@@ -35,14 +35,10 @@ contract LibCorporateActionTest is Test {
         }
     }
 
-    /// Global version starts at zero. Corporate actions have not happened yet
-    /// so any account at version 0 is current.
-    function testInitialGlobalVersionIsZero() external pure {
-        // Fresh storage is zero-initialized by the EVM, so getStorage()
-        // on a clean slot MUST return 0 for globalVersion. We can't call
-        // getStorage() from a test contract without sharing the same storage
-        // layout, so we verify the slot constant is nonzero (valid) and trust
-        // EVM zero-initialization.
+    /// Global CAID starts at zero — no corporate actions have occurred.
+    /// Fresh storage is zero-initialized by the EVM, so we verify the slot
+    /// constant is nonzero (valid) and trust EVM zero-initialization.
+    function testInitialGlobalCAIDIsZero() external pure {
         assertTrue(CORPORATE_ACTION_STORAGE_LOCATION != bytes32(0));
     }
 

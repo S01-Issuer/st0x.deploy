@@ -21,35 +21,34 @@ contract FacetDelegatecallHarness {
         facet = new StoxCorporateActionsFacet();
     }
 
-    /// Delegatecall into the facet's corporateActionGlobalVersion().
-    function corporateActionGlobalVersion() external returns (uint256) {
+    /// Delegatecall into the facet's globalCAID().
+    function globalCAID() external returns (uint256) {
         (bool success, bytes memory data) =
-            address(facet).delegatecall(abi.encodeCall(StoxCorporateActionsFacet.corporateActionGlobalVersion, ()));
+            address(facet).delegatecall(abi.encodeCall(StoxCorporateActionsFacet.globalCAID, ()));
         require(success, "delegatecall failed");
         return abi.decode(data, (uint256));
     }
 }
 
 contract StoxCorporateActionsFacetTest is Test {
-    /// The facet MUST be deployable. If the constructor reverts, nothing else
-    /// works.
+    /// The facet MUST be deployable.
     function testFacetDeploys() external {
         StoxCorporateActionsFacet f = new StoxCorporateActionsFacet();
         assertTrue(address(f) != address(0));
     }
 
-    /// Reading globalVersion through a direct call returns 0 on fresh storage.
-    function testGlobalVersionStartsAtZero() external {
+    /// Global CAID starts at 0 — no corporate actions have occurred.
+    function testGlobalCAIDStartsAtZero() external {
         StoxCorporateActionsFacet f = new StoxCorporateActionsFacet();
-        assertEq(f.corporateActionGlobalVersion(), 0);
+        assertEq(f.globalCAID(), 0);
     }
 
-    /// Reading globalVersion through delegatecall (the actual diamond pattern)
+    /// Reading global CAID through delegatecall (the actual diamond pattern)
     /// returns 0 on fresh storage. This proves the facet correctly reads from
     /// the caller's storage space, not its own.
-    function testGlobalVersionViaDelegatecall() external {
+    function testGlobalCAIDViaDelegatecall() external {
         FacetDelegatecallHarness harness = new FacetDelegatecallHarness();
-        assertEq(harness.corporateActionGlobalVersion(), 0);
+        assertEq(harness.globalCAID(), 0);
     }
 
     /// The scheduling and execution permissions MUST be distinct. If they
@@ -66,8 +65,6 @@ contract StoxCorporateActionsFacetTest is Test {
     }
 
     /// Permissions MUST be deterministic keccak256 hashes of their names.
-    /// This ensures they are reproducible across deployments and match what
-    /// the authorizer contract expects.
     function testPermissionValues() external pure {
         assertEq(CORPORATE_ACTION_SCHEDULE, keccak256("CORPORATE_ACTION_SCHEDULE"));
         assertEq(CORPORATE_ACTION_EXECUTE, keccak256("CORPORATE_ACTION_EXECUTE"));

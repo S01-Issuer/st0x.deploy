@@ -15,12 +15,13 @@ bytes32 constant CORPORATE_ACTION_STORAGE_LOCATION = 0xcce8b403dc927e3ec0218603a
 /// This is the foundational storage layer that all corporate action
 /// functionality builds on.
 library LibCorporateAction {
-    /// The global version counter. Incremented each time a corporate action
-    /// that affects balances is executed. Accounts compare their own version
-    /// against this to determine whether migration is needed.
     /// @custom:storage-location erc7201:rain.storage.corporate-action.1
     struct CorporateActionStorage {
-        uint256 globalVersion;
+        /// The global corporate action ID. Incremented each time any corporate
+        /// action is executed, regardless of type. Serves as the canonical
+        /// sequence number that all accounts and external systems reference to
+        /// determine how many corporate actions have occurred.
+        uint256 globalCAID;
     }
 
     /// @dev Accessor for corporate action storage at the ERC-7201 slot.
