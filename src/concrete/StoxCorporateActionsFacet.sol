@@ -15,6 +15,51 @@ import {OffchainAssetReceiptVault} from "ethgild/concrete/vault/OffchainAssetRec
 /// Authorization is checked against the vault's existing authorizer contract
 /// using SCHEDULE_CORPORATE_ACTION and CANCEL_CORPORATE_ACTION permissions.
 contract StoxCorporateActionsFacet is ICorporateActionsV1 {
+    /// Emitted when a corporate action is scheduled into the linked list.
+    /// @param sender The address that scheduled the action.
+    /// @param nodeId The linked list node ID.
+    /// @param actionType The bitmap action type.
+    /// @param effectiveTime When the action takes effect.
+    event CorporateActionScheduled(
+        address indexed sender, uint256 indexed nodeId, uint256 indexed actionType, uint64 effectiveTime
+    );
+
+    /// Emitted when a scheduled action completes automatically.
+    /// @param nodeId The node that completed.
+    /// @param monotonicId The monotonic ID assigned on completion.
+    event CorporateActionCompleted(uint256 indexed nodeId, uint256 indexed monotonicId);
+
+    /// Emitted when a scheduled action is cancelled and removed from the list.
+    /// @param sender The address that cancelled the action.
+    /// @param nodeId The cancelled node ID.
+    event CorporateActionCancelled(address indexed sender, uint256 indexed nodeId);
+
+    /// @notice Schedule a new corporate action. Requires SCHEDULE_CORPORATE_ACTION
+    /// permission. The effective time must be in the future.
+    /// @param actionType Bitmap of action types.
+    /// @param effectiveTime When the action takes effect.
+    /// @param parameters ABI-encoded parameters for the action type.
+    /// @return nodeId The linked list node ID assigned.
+    //slither-disable-next-line reentrancy-events
+    function scheduleCorporateAction(uint256 actionType, uint64 effectiveTime, bytes calldata parameters)
+        external
+        returns (uint256 nodeId)
+    {
+        _authorize(msg.sender, SCHEDULE_CORPORATE_ACTION);
+        nodeId = LibCorporateAction.schedule(actionType, effectiveTime, parameters);
+        emit CorporateActionScheduled(msg.sender, nodeId, actionType, effectiveTime);
+    }
+
+    /// @notice Cancel a scheduled corporate action. Requires
+    /// CANCEL_CORPORATE_ACTION permission.
+    /// @param nodeId The node to cancel.
+    //slither-disable-next-line reentrancy-events
+    function cancelCorporateAction(uint256 nodeId) external {
+        _authorize(msg.sender, CANCEL_CORPORATE_ACTION);
+        LibCorporateAction.cancel(nodeId);
+        emit CorporateActionCancelled(msg.sender, nodeId);
+    }
+
     /// @inheritdoc ICorporateActionsV1
     function globalCAID() external view returns (uint256) {
         return LibCorporateAction.getStorage().globalCAID;
