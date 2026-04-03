@@ -68,9 +68,7 @@ contract LibRebaseTest is Test {
     /// Sequential precision test: 1/3 × 3 × 1/3 × 3 applied to 100.
     /// Must yield 99 (not 100) due to accumulated rounding.
     function testSequentialPrecision() external {
-        Float oneThird = LibDecimalFloat.div(
-            LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(3, 0)
-        );
+        Float oneThird = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(3, 0));
         Float threeX = LibDecimalFloat.packLossless(3, 0);
         harness.setMultiplier(1, oneThird);
         harness.setMultiplier(2, threeX);
