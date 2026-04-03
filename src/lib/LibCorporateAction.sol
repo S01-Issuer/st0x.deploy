@@ -280,11 +280,7 @@ library LibCorporateAction {
     /// @notice Get a completed action by its monotonic ID.
     /// @param monotonicId The monotonic ID to look up.
     /// @return node The node storage reference.
-    function getActionByMonotonicId(uint256 monotonicId)
-        internal
-        view
-        returns (CorporateActionNode storage node)
-    {
+    function getActionByMonotonicId(uint256 monotonicId) internal view returns (CorporateActionNode storage node) {
         CorporateActionStorage storage s = getStorage();
         if (monotonicId == 0 || monotonicId > s.globalCAID) {
             revert MonotonicIdDoesNotExist(monotonicId);

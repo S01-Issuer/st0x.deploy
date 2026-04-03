@@ -53,10 +53,7 @@ contract DelegatecallHarness {
 contract LibCorporateActionHarness {
     using LibDecimalFloat for Float;
 
-    function schedule(uint256 actionType, uint64 effectiveTime, bytes calldata parameters)
-        external
-        returns (uint256)
-    {
+    function schedule(uint256 actionType, uint64 effectiveTime, bytes calldata parameters) external returns (uint256) {
         return LibCorporateAction.schedule(actionType, effectiveTime, parameters);
     }
 
