@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
 import {IAuthorizeV1} from "ethgild/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVault} from "ethgild/concrete/vault/OffchainAssetReceiptVault.sol";
@@ -12,12 +11,13 @@ import {OffchainAssetReceiptVault} from "ethgild/concrete/vault/OffchainAssetRec
 /// the vault's storage space via ERC-7201 namespaced storage, so it can be
 /// delegatecalled from the vault's fallback without storage collisions.
 ///
-/// Authorization is checked against the vault's existing authorizer contract
-/// using SCHEDULE_CORPORATE_ACTION and CANCEL_CORPORATE_ACTION permissions.
-contract StoxCorporateActionsFacet is ICorporateActionsV1 {
-    /// @inheritdoc ICorporateActionsV1
-    function globalCAID() external view returns (uint256) {
-        return LibCorporateAction.getStorage().globalCAID;
+/// PR1 establishes the facet architecture and authorization wiring.
+/// Subsequent PRs add the linked list, scheduling, and query functions.
+contract StoxCorporateActionsFacet {
+    /// @notice Returns the internal node ID counter. This is a simple proof
+    /// that the facet can read/write diamond storage via delegatecall.
+    function nextNodeId() external view returns (uint256) {
+        return LibCorporateAction.getStorage().nextNodeId;
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is
