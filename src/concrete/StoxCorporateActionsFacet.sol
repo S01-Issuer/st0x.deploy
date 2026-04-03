@@ -14,10 +14,10 @@ import {OffchainAssetReceiptVault} from "ethgild/concrete/vault/OffchainAssetRec
 /// PR1 establishes the facet architecture and authorization wiring.
 /// Subsequent PRs add the linked list, scheduling, and query functions.
 contract StoxCorporateActionsFacet {
-    /// @notice Returns the internal node ID counter. This is a simple proof
-    /// that the facet can read/write diamond storage via delegatecall.
-    function nextNodeId() external view returns (uint256) {
-        return LibCorporateAction.getStorage().nextNodeId;
+    /// @notice Reads the placeholder storage slot. Proves that the facet can
+    /// read diamond storage via delegatecall.
+    function placeholder() external view returns (uint256) {
+        return LibCorporateAction.getStorage()._placeholder;
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is

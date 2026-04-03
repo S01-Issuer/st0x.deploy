@@ -46,15 +46,14 @@ contract StoxCorporateActionsFacetTest is Test {
         facetViaHarness = StoxCorporateActionsFacet(address(harness));
     }
 
-    /// nextNodeId() returns 0 on a fresh deployment (no nodes created).
-    function testNextNodeIdInitiallyZero() external view {
-        assertEq(facetViaHarness.nextNodeId(), 0);
+    /// Placeholder returns 0 on a fresh deployment.
+    function testPlaceholderInitiallyZero() external view {
+        assertEq(facetViaHarness.placeholder(), 0);
     }
 
-    /// Facet routing: calling nextNodeId() via delegatecall harness works.
+    /// Facet routing via delegatecall works.
     function testFacetRoutingViaDelegatecall() external view {
-        uint256 id = facetViaHarness.nextNodeId();
-        assertEq(id, 0);
+        assertEq(facetViaHarness.placeholder(), 0);
     }
 
     /// Storage isolation: two harnesses sharing the same facet impl have
@@ -63,16 +62,14 @@ contract StoxCorporateActionsFacetTest is Test {
         DelegatecallHarness harness2 = new DelegatecallHarness(address(facetImpl));
         StoxCorporateActionsFacet facet2 = StoxCorporateActionsFacet(address(harness2));
 
-        assertEq(facetViaHarness.nextNodeId(), 0);
-        assertEq(facet2.nextNodeId(), 0);
+        assertEq(facetViaHarness.placeholder(), 0);
+        assertEq(facet2.placeholder(), 0);
 
-        // Write directly to harness1's storage at the nextNodeId slot
-        // (first field in the struct at the ERC-7201 location).
+        // Write directly to harness1's storage at the ERC-7201 slot.
         vm.store(address(harness), CORPORATE_ACTION_STORAGE_LOCATION, bytes32(uint256(42)));
 
-        // harness1 reflects the write, harness2 is unaffected.
-        assertEq(facetViaHarness.nextNodeId(), 42);
-        assertEq(facet2.nextNodeId(), 0);
+        assertEq(facetViaHarness.placeholder(), 42);
+        assertEq(facet2.placeholder(), 0);
     }
 
     /// ERC-7201 storage slot matches the documented formula.
