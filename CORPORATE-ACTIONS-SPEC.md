@@ -84,11 +84,11 @@ External consumers also need to query subsets of actions efficiently. An oracle 
 
 ### Solution
 
-**Bitmap action types.** Each action type is represented as a single bit in a uint256 bitmap rather than a hash or sequential integer. The first type is `1 << 0`, the second is `1 << 1`, the third is `1 << 2`, and so on. This caps the maximum number of distinct action types at 256, which is more than sufficient.
+**Bitmap action types.** Internally, each action type is represented as a single bit in a uint256 bitmap. The first type is `1 << 0`, the second is `1 << 1`, the third is `1 << 2`, and so on. This caps the maximum number of distinct action types at 256, which is more than sufficient.
 
-The bitmap representation enables efficient filtering during list traversal. A caller constructs a mask by OR-ing together the types they care about, then each node can be checked with a single bitwise AND: `actionType & mask != 0`. No if/else chains, no mapping lookups during iteration.
+Externally, action types are identified by human-readable constants — hashes of their names (e.g. `keccak256("StockSplit")`). A mapping converts these identifiers to their bitmap representation. Callers schedule and query actions using the readable constants; the contract translates to bitmap internally. This keeps the external interface intelligible while enabling efficient filtering on the inside.
 
-A helper function converts human-readable type identifiers into their bitmap values, so external consumers don't need to know the bit positions.
+The bitmap representation enables efficient filtering during list traversal. A caller constructs a mask by OR-ing together the bitmap values for the types they care about, then each node can be checked with a single bitwise AND: `actionType & mask != 0`. No if/else chains, no per-node mapping lookups during iteration.
 
 **Stock splits** are the first concrete action type. A stock split's parameters encode a Rain float multiplier — the ratio by which all balances will be adjusted. The multiplier is validated at scheduling time: it must be expressible as a Rain float without precision loss.
 
