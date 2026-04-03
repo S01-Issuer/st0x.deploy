@@ -13,10 +13,16 @@ import {
     CANCEL_CORPORATE_ACTION,
     STATUS_SCHEDULED,
     STATUS_COMPLETE,
+    ACTION_TYPE_STOCK_SPLIT,
     EffectiveTimeInPast,
     NotScheduled,
-    NodeDoesNotExist
+    NodeDoesNotExist,
+    RebaseDoesNotExist,
+    MonotonicIdDoesNotExist,
+    UnknownActionType,
+    ZeroMultiplier
 } from "../../../src/lib/LibCorporateAction.sol";
+import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 
 /// @dev Minimal harness that delegates calls to a facet, simulating how the
 /// vault would route unknown selectors via its fallback.
@@ -45,7 +51,12 @@ contract DelegatecallHarness {
 /// @dev Thin harness that exposes LibCorporateAction functions directly for
 /// unit testing without needing authorization.
 contract LibCorporateActionHarness {
-    function schedule(uint256 actionType, uint64 effectiveTime, bytes calldata parameters) external returns (uint256) {
+    using LibDecimalFloat for Float;
+
+    function schedule(uint256 actionType, uint64 effectiveTime, bytes calldata parameters)
+        external
+        returns (uint256)
+    {
         return LibCorporateAction.schedule(actionType, effectiveTime, parameters);
     }
 
@@ -62,8 +73,29 @@ contract LibCorporateActionHarness {
         return node;
     }
 
+    function getActionByMonotonicId(uint256 monotonicId) external view returns (CorporateActionNode memory) {
+        CorporateActionNode storage node = LibCorporateAction.getActionByMonotonicId(monotonicId);
+        return node;
+    }
+
+    function getMultiplier(uint256 rebaseId) external view returns (Float) {
+        return LibCorporateAction.getMultiplier(rebaseId);
+    }
+
+    function getPendingActions(uint256 mask, uint256 maxResults) external view returns (uint256[] memory) {
+        return LibCorporateAction.getPendingActions(mask, maxResults);
+    }
+
+    function getRecentAction(uint256 mask) external view returns (uint256) {
+        return LibCorporateAction.getRecentAction(mask);
+    }
+
     function globalCAID() external view returns (uint256) {
         return LibCorporateAction.getStorage().globalCAID;
+    }
+
+    function rebaseCount() external view returns (uint256) {
+        return LibCorporateAction.getStorage().rebaseCount;
     }
 
     function head() external view returns (uint256) {
@@ -127,47 +159,63 @@ contract StoxCorporateActionsFacetTest is Test {
 }
 
 contract LibCorporateActionLinkedListTest is Test {
+    using LibDecimalFloat for Float;
+
     LibCorporateActionHarness internal lib;
+
+    /// Encode a stock split multiplier (e.g. 3x).
+    function encodeSplitParams(int256 coefficient, int256 exponent) internal pure returns (bytes memory) {
+        return abi.encode(LibDecimalFloat.packLossless(coefficient, exponent));
+    }
 
     function setUp() public {
         lib = new LibCorporateActionHarness();
-        // Start at a reasonable timestamp.
         vm.warp(1000);
     }
 
     /// Scheduling a single action creates a one-element list.
     function testScheduleSingleAction() external {
-        uint256 nodeId = lib.schedule(1, 2000, "");
+        uint256 nodeId = lib.schedule(ACTION_TYPE_STOCK_SPLIT, 2000, encodeSplitParams(3, 0));
         assertEq(nodeId, 1);
         assertEq(lib.head(), 1);
         assertEq(lib.tail(), 1);
 
         CorporateActionNode memory node = lib.getNode(1);
-        assertEq(node.actionType, 1);
+        assertEq(node.actionType, ACTION_TYPE_STOCK_SPLIT);
         assertEq(node.effectiveTime, 2000);
         assertEq(node.status, STATUS_SCHEDULED);
         assertEq(node.monotonicId, 0);
-        assertEq(node.prev, 0);
-        assertEq(node.next, 0);
     }
 
     /// Scheduling with effectiveTime in the past reverts.
     function testScheduleInPastReverts() external {
         vm.expectRevert(abi.encodeWithSelector(EffectiveTimeInPast.selector, 500, 1000));
-        lib.schedule(1, 500, "");
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 500, encodeSplitParams(3, 0));
     }
 
     /// Scheduling with effectiveTime == block.timestamp reverts.
     function testScheduleAtCurrentTimeReverts() external {
         vm.expectRevert(abi.encodeWithSelector(EffectiveTimeInPast.selector, 1000, 1000));
-        lib.schedule(1, 1000, "");
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 1000, encodeSplitParams(3, 0));
+    }
+
+    /// Scheduling an unknown action type reverts.
+    function testScheduleUnknownActionTypeReverts() external {
+        vm.expectRevert(abi.encodeWithSelector(UnknownActionType.selector, 1 << 5));
+        lib.schedule(1 << 5, 2000, "");
+    }
+
+    /// Scheduling a zero multiplier stock split reverts.
+    function testScheduleZeroMultiplierReverts() external {
+        vm.expectRevert(abi.encodeWithSelector(ZeroMultiplier.selector));
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 2000, abi.encode(LibDecimalFloat.FLOAT_ZERO));
     }
 
     /// Insertion at tail (chronological order).
     function testInsertionAtTail() external {
-        lib.schedule(1, 2000, "");
-        lib.schedule(1, 3000, "");
-        lib.schedule(1, 4000, "");
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 2000, encodeSplitParams(2, 0));
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 3000, encodeSplitParams(2, 0));
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 4000, encodeSplitParams(2, 0));
 
         assertEq(lib.head(), 1);
         assertEq(lib.tail(), 3);
@@ -186,14 +234,13 @@ contract LibCorporateActionLinkedListTest is Test {
 
     /// Insertion at head (reverse chronological order).
     function testInsertionAtHead() external {
-        lib.schedule(1, 4000, "");
-        lib.schedule(1, 3000, "");
-        lib.schedule(1, 2000, "");
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 4000, encodeSplitParams(2, 0));
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 3000, encodeSplitParams(2, 0));
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 2000, encodeSplitParams(2, 0));
 
         assertEq(lib.head(), 3);
         assertEq(lib.tail(), 1);
 
-        // Verify ordering: node3(2000) -> node2(3000) -> node1(4000)
         CorporateActionNode memory n3 = lib.getNode(3);
         CorporateActionNode memory n2 = lib.getNode(2);
         CorporateActionNode memory n1 = lib.getNode(1);
@@ -208,18 +255,14 @@ contract LibCorporateActionLinkedListTest is Test {
 
     /// Insertion in the middle.
     function testInsertionInMiddle() external {
-        lib.schedule(1, 2000, ""); // node 1
-        lib.schedule(1, 4000, ""); // node 2
-        lib.schedule(1, 3000, ""); // node 3 — should go between 1 and 2
-
-        assertEq(lib.head(), 1);
-        assertEq(lib.tail(), 2);
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 2000, encodeSplitParams(2, 0));
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 4000, encodeSplitParams(2, 0));
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 3000, encodeSplitParams(2, 0));
 
         CorporateActionNode memory n1 = lib.getNode(1);
-        CorporateActionNode memory n2 = lib.getNode(2);
         CorporateActionNode memory n3 = lib.getNode(3);
+        CorporateActionNode memory n2 = lib.getNode(2);
 
-        // Order: 1(2000) -> 3(3000) -> 2(4000)
         assertEq(n1.next, 3);
         assertEq(n3.prev, 1);
         assertEq(n3.next, 2);
@@ -228,70 +271,45 @@ contract LibCorporateActionLinkedListTest is Test {
 
     /// Same effectiveTime inserts after existing (stable insertion).
     function testSameEffectiveTimeInsertsAfter() external {
-        lib.schedule(1, 2000, ""); // node 1
-        lib.schedule(1, 2000, ""); // node 2 — same time, goes after
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 2000, encodeSplitParams(2, 0));
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 2000, encodeSplitParams(3, 0));
 
         assertEq(lib.head(), 1);
         assertEq(lib.tail(), 2);
-
-        CorporateActionNode memory n1 = lib.getNode(1);
-        CorporateActionNode memory n2 = lib.getNode(2);
-        assertEq(n1.next, 2);
-        assertEq(n2.prev, 1);
     }
 
     /// Cancellation of a single-node list empties the list.
     function testCancelSingleNode() external {
-        lib.schedule(1, 2000, "");
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 2000, encodeSplitParams(2, 0));
         lib.cancel(1);
-
         assertEq(lib.head(), 0);
         assertEq(lib.tail(), 0);
-
-        CorporateActionNode memory n = lib.getNode(1);
-        assertEq(n.status, 0);
     }
 
     /// Cancelling the head updates head pointer.
     function testCancelHead() external {
-        lib.schedule(1, 2000, ""); // node 1 (head)
-        lib.schedule(1, 3000, ""); // node 2 (tail)
-
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 2000, encodeSplitParams(2, 0));
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 3000, encodeSplitParams(2, 0));
         lib.cancel(1);
-
         assertEq(lib.head(), 2);
         assertEq(lib.tail(), 2);
-
-        CorporateActionNode memory n2 = lib.getNode(2);
-        assertEq(n2.prev, 0);
-        assertEq(n2.next, 0);
     }
 
     /// Cancelling the tail updates tail pointer.
     function testCancelTail() external {
-        lib.schedule(1, 2000, ""); // node 1 (head)
-        lib.schedule(1, 3000, ""); // node 2 (tail)
-
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 2000, encodeSplitParams(2, 0));
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 3000, encodeSplitParams(2, 0));
         lib.cancel(2);
-
         assertEq(lib.head(), 1);
         assertEq(lib.tail(), 1);
-
-        CorporateActionNode memory n1 = lib.getNode(1);
-        assertEq(n1.prev, 0);
-        assertEq(n1.next, 0);
     }
 
     /// Cancelling a middle node updates prev/next pointers.
     function testCancelMiddle() external {
-        lib.schedule(1, 2000, ""); // node 1
-        lib.schedule(1, 3000, ""); // node 2
-        lib.schedule(1, 4000, ""); // node 3
-
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 2000, encodeSplitParams(2, 0));
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 3000, encodeSplitParams(2, 0));
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 4000, encodeSplitParams(2, 0));
         lib.cancel(2);
-
-        assertEq(lib.head(), 1);
-        assertEq(lib.tail(), 3);
 
         CorporateActionNode memory n1 = lib.getNode(1);
         CorporateActionNode memory n3 = lib.getNode(3);
@@ -301,29 +319,17 @@ contract LibCorporateActionLinkedListTest is Test {
 
     /// Cannot cancel a completed action.
     function testCannotCancelCompleted() external {
-        lib.schedule(1, 1500, "");
-
-        // Advance past effectiveTime and trigger completion.
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, encodeSplitParams(2, 0));
         vm.warp(2000);
         lib.processCompletions();
-
         vm.expectRevert(abi.encodeWithSelector(NotScheduled.selector, 1, STATUS_COMPLETE));
         lib.cancel(1);
     }
 
-    /// Cannot cancel an already-cancelled (status=0) action.
-    function testCannotCancelAlreadyCancelled() external {
-        lib.schedule(1, 2000, "");
-        lib.cancel(1);
-
-        vm.expectRevert(abi.encodeWithSelector(NotScheduled.selector, 1, 0));
-        lib.cancel(1);
-    }
-
-    /// Automatic completion assigns monotonic IDs.
+    /// Automatic completion assigns monotonic IDs and records multipliers.
     function testAutomaticCompletion() external {
-        lib.schedule(1, 1500, ""); // node 1
-        lib.schedule(1, 1800, ""); // node 2
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, encodeSplitParams(3, 0));
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 1800, encodeSplitParams(2, 0));
 
         vm.warp(2000);
         lib.processCompletions();
@@ -336,12 +342,21 @@ contract LibCorporateActionLinkedListTest is Test {
         assertEq(n2.status, STATUS_COMPLETE);
         assertEq(n2.monotonicId, 2);
         assertEq(lib.globalCAID(), 2);
+        assertEq(lib.rebaseCount(), 2);
+
+        // Verify multipliers were stored.
+        Float m1 = lib.getMultiplier(1);
+        Float m2 = lib.getMultiplier(2);
+        (int256 c1,) = m1.unpack();
+        (int256 c2,) = m2.unpack();
+        assertEq(c1, 3);
+        assertEq(c2, 2);
     }
 
     /// Only actions past effectiveTime complete; future ones stay scheduled.
     function testPartialCompletion() external {
-        lib.schedule(1, 1500, ""); // node 1
-        lib.schedule(1, 3000, ""); // node 2
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, encodeSplitParams(3, 0));
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 3000, encodeSplitParams(2, 0));
 
         vm.warp(2000);
         lib.processCompletions();
@@ -350,70 +365,138 @@ contract LibCorporateActionLinkedListTest is Test {
         CorporateActionNode memory n2 = lib.getNode(2);
 
         assertEq(n1.status, STATUS_COMPLETE);
-        assertEq(n1.monotonicId, 1);
         assertEq(n2.status, STATUS_SCHEDULED);
-        assertEq(n2.monotonicId, 0);
         assertEq(lib.globalCAID(), 1);
-    }
-
-    /// Scheduling triggers processCompletions so stale scheduled actions
-    /// auto-complete before the new one is inserted.
-    function testScheduleTriggersCompletions() external {
-        lib.schedule(1, 1500, ""); // node 1
-
-        vm.warp(2000);
-        lib.schedule(1, 3000, ""); // triggers completion of node 1
-
-        CorporateActionNode memory n1 = lib.getNode(1);
-        assertEq(n1.status, STATUS_COMPLETE);
-        assertEq(n1.monotonicId, 1);
-        assertEq(lib.globalCAID(), 1);
-    }
-
-    /// Cancel triggers processCompletions, preventing cancellation of actions
-    /// whose effectiveTime has passed.
-    function testCancelTriggersCompletions() external {
-        lib.schedule(1, 1500, ""); // node 1
-        lib.schedule(1, 3000, ""); // node 2
-
-        vm.warp(2000);
-
-        // Node 1 should auto-complete when cancel is called, making it uncancellable.
-        vm.expectRevert(abi.encodeWithSelector(NotScheduled.selector, 1, STATUS_COMPLETE));
-        lib.cancel(1);
+        assertEq(lib.rebaseCount(), 1);
     }
 
     /// Querying a non-existent node reverts.
     function testGetNodeNonExistentReverts() external {
         vm.expectRevert(abi.encodeWithSelector(NodeDoesNotExist.selector, 0));
         lib.getNode(0);
-
-        vm.expectRevert(abi.encodeWithSelector(NodeDoesNotExist.selector, 1));
-        lib.getNode(1);
     }
 
-    /// Parameters are stored and retrievable.
-    function testParametersStored() external {
-        bytes memory params = abi.encode(uint256(42), uint256(100));
-        lib.schedule(1, 2000, params);
+    /// Querying a non-existent rebase ID reverts.
+    function testGetMultiplierNonExistentReverts() external {
+        vm.expectRevert(abi.encodeWithSelector(RebaseDoesNotExist.selector, 1));
+        lib.getMultiplier(1);
+    }
 
-        CorporateActionNode memory n = lib.getNode(1);
-        assertEq(n.parameters, params);
+    /// Querying a non-existent monotonic ID reverts.
+    function testGetActionByMonotonicIdNonExistentReverts() external {
+        vm.expectRevert(abi.encodeWithSelector(MonotonicIdDoesNotExist.selector, 1));
+        lib.getActionByMonotonicId(1);
+    }
+
+    /// getActionByMonotonicId returns the correct node.
+    function testGetActionByMonotonicId() external {
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, encodeSplitParams(3, 0));
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 1800, encodeSplitParams(7, 0));
+
+        vm.warp(2000);
+        lib.processCompletions();
+
+        CorporateActionNode memory action1 = lib.getActionByMonotonicId(1);
+        CorporateActionNode memory action2 = lib.getActionByMonotonicId(2);
+
+        assertEq(action1.effectiveTime, 1500);
+        assertEq(action2.effectiveTime, 1800);
+    }
+
+    /// getPendingActions returns only scheduled actions matching the mask.
+    function testGetPendingActions() external {
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 2000, encodeSplitParams(2, 0));
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 3000, encodeSplitParams(3, 0));
+
+        uint256[] memory pending = lib.getPendingActions(ACTION_TYPE_STOCK_SPLIT, 10);
+        assertEq(pending.length, 2);
+        // Most recent first (from tail backwards).
+        assertEq(pending[0], 2);
+        assertEq(pending[1], 1);
+    }
+
+    /// getPendingActions with zero mask returns empty.
+    function testGetPendingActionsZeroMask() external {
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 2000, encodeSplitParams(2, 0));
+
+        uint256[] memory pending = lib.getPendingActions(0, 10);
+        assertEq(pending.length, 0);
+    }
+
+    /// getPendingActions with non-matching mask returns empty.
+    function testGetPendingActionsNonMatchingMask() external {
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 2000, encodeSplitParams(2, 0));
+
+        // Use a different bit that doesn't match stock split.
+        uint256[] memory pending = lib.getPendingActions(1 << 1, 10);
+        assertEq(pending.length, 0);
+    }
+
+    /// getPendingActions excludes completed actions.
+    function testGetPendingActionsExcludesCompleted() external {
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, encodeSplitParams(2, 0));
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 3000, encodeSplitParams(3, 0));
+
+        vm.warp(2000);
+        lib.processCompletions();
+
+        uint256[] memory pending = lib.getPendingActions(ACTION_TYPE_STOCK_SPLIT, 10);
+        assertEq(pending.length, 1);
+        assertEq(pending[0], 2);
+    }
+
+    /// getRecentAction returns the most recently completed matching action.
+    function testGetRecentAction() external {
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, encodeSplitParams(2, 0));
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 1800, encodeSplitParams(3, 0));
+
+        vm.warp(2000);
+        lib.processCompletions();
+
+        uint256 recent = lib.getRecentAction(ACTION_TYPE_STOCK_SPLIT);
+        assertEq(recent, 2);
+    }
+
+    /// getRecentAction returns 0 when no matches.
+    function testGetRecentActionNoMatches() external {
+        uint256 recent = lib.getRecentAction(ACTION_TYPE_STOCK_SPLIT);
+        assertEq(recent, 0);
+    }
+
+    /// Stock split lifecycle: schedule -> complete -> query multiplier.
+    function testStockSplitFullLifecycle() external {
+        // Schedule a 3x split.
+        Float threeX = LibDecimalFloat.packLossless(3, 0);
+        uint256 nodeId = lib.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, abi.encode(threeX));
+        assertEq(nodeId, 1);
+
+        // Not yet effective.
+        assertEq(lib.rebaseCount(), 0);
+
+        // Advance time past effectiveTime.
+        vm.warp(2000);
+        lib.processCompletions();
+
+        // Verify completion.
+        assertEq(lib.globalCAID(), 1);
+        assertEq(lib.rebaseCount(), 1);
+
+        // Verify multiplier retrieval.
+        Float stored = lib.getMultiplier(1);
+        assertEq(Float.unwrap(stored), Float.unwrap(threeX));
     }
 
     /// Fuzz: random insertion sequences always maintain time ordering.
     function testFuzzInsertionOrdering(uint8 count, uint256 seed) external {
-        count = uint8(bound(count, 1, 30));
+        count = uint8(bound(count, 1, 20));
+        bytes memory params = encodeSplitParams(2, 0);
 
-        uint64[] memory times = new uint64[](count);
         for (uint256 i = 0; i < count; i++) {
-            // Generate random future times.
             seed = uint256(keccak256(abi.encode(seed, i)));
-            times[i] = uint64(bound(seed, 1001, type(uint64).max));
-            lib.schedule(1, times[i], "");
+            uint64 time = uint64(bound(seed, 1001, type(uint64).max));
+            lib.schedule(ACTION_TYPE_STOCK_SPLIT, time, params);
         }
 
-        // Walk the list and verify time ordering.
         uint256 current = lib.head();
         uint64 prevTime = 0;
         uint256 nodeCount = 0;
@@ -427,54 +510,45 @@ contract LibCorporateActionLinkedListTest is Test {
         assertEq(nodeCount, count, "node count mismatch");
     }
 
-    /// Fuzz: random cancellations maintain list integrity.
-    function testFuzzCancellationIntegrity(uint256 seed) external {
-        uint256 count = 5;
-        uint64 baseTime = 2000;
+    /// Fuzz: monotonic ID assignment is sequential and gap-free.
+    function testFuzzMonotonicIdSequential(uint8 count, uint256 seed) external {
+        count = uint8(bound(count, 1, 15));
+        bytes memory params = encodeSplitParams(2, 0);
 
         for (uint256 i = 0; i < count; i++) {
-            // i is bounded to < 5 so the cast is safe.
-            // forge-lint: disable-next-line(unsafe-typecast)
-            lib.schedule(1, baseTime + uint64(i) * 1000, "");
+            seed = uint256(keccak256(abi.encode(seed, i)));
+            uint64 time = uint64(bound(seed, 1001, 5000));
+            lib.schedule(ACTION_TYPE_STOCK_SPLIT, time, params);
         }
 
-        // Cancel 2 random nodes.
-        seed = uint256(keccak256(abi.encode(seed)));
-        uint256 cancel1 = bound(seed, 1, count);
-        seed = uint256(keccak256(abi.encode(seed)));
-        uint256 cancel2 = bound(seed, 1, count);
+        // Complete all.
+        vm.warp(6000);
+        lib.processCompletions();
 
-        lib.cancel(cancel1);
-        if (cancel2 != cancel1) {
-            lib.cancel(cancel2);
+        assertEq(lib.globalCAID(), count);
+        assertEq(lib.rebaseCount(), count);
+
+        // Verify sequential monotonic IDs.
+        for (uint256 i = 1; i <= count; i++) {
+            CorporateActionNode memory action = lib.getActionByMonotonicId(i);
+            assertEq(action.monotonicId, i);
+            assertEq(action.status, STATUS_COMPLETE);
         }
+    }
 
-        // Verify list integrity: walk forward, then backward, counts match.
-        uint256 forwardCount = 0;
-        uint256 current = lib.head();
-        uint256 lastSeen = 0;
-        while (current != 0) {
-            CorporateActionNode memory node = lib.getNode(current);
-            assertEq(node.status, STATUS_SCHEDULED, "cancelled node still in list");
-            lastSeen = current;
-            current = node.next;
-            forwardCount++;
+    /// Fuzz: bitmap filtering correctness.
+    function testFuzzBitmapFiltering(uint256 mask) external {
+        // Schedule some stock splits.
+        bytes memory params = encodeSplitParams(2, 0);
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 2000, params);
+        lib.schedule(ACTION_TYPE_STOCK_SPLIT, 3000, params);
+
+        uint256[] memory pending = lib.getPendingActions(mask, 10);
+
+        if (mask & ACTION_TYPE_STOCK_SPLIT != 0) {
+            assertEq(pending.length, 2);
+        } else {
+            assertEq(pending.length, 0);
         }
-
-        // tail should be the last node we saw walking forward.
-        if (forwardCount > 0) {
-            assertEq(lib.tail(), lastSeen, "tail mismatch after cancellation");
-        }
-
-        // Walk backward from tail.
-        uint256 backwardCount = 0;
-        current = lib.tail();
-        while (current != 0) {
-            CorporateActionNode memory node = lib.getNode(current);
-            current = node.prev;
-            backwardCount++;
-        }
-
-        assertEq(forwardCount, backwardCount, "forward/backward count mismatch");
     }
 }

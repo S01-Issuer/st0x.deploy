@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
+import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
+
 /// @dev ERC-7201 namespaced storage location for corporate actions.
 /// keccak256(abi.encode(uint256(keccak256("rain.storage.corporate-action.1")) - 1)) & ~bytes32(uint256(0xff))
 bytes32 constant CORPORATE_ACTION_STORAGE_LOCATION = 0xcce8b403dc927e3ec0218603a262b6c4fcc2985ab628bee1e65a6e26753c8300;
@@ -18,6 +20,9 @@ uint8 constant STATUS_SCHEDULED = 1;
 /// @dev Action has completed — effective time passed and monotonic ID assigned.
 uint8 constant STATUS_COMPLETE = 2;
 
+/// @dev Bitmap constant for stock split action type.
+uint256 constant ACTION_TYPE_STOCK_SPLIT = 1 << 0;
+
 /// Thrown when scheduling an action with effectiveTime <= block.timestamp.
 /// @param effectiveTime The effective time that was not in the future.
 /// @param currentTime The current block timestamp.
@@ -31,6 +36,21 @@ error NotScheduled(uint256 nodeId, uint8 status);
 /// Thrown when querying a node ID that does not exist.
 /// @param nodeId The invalid node ID.
 error NodeDoesNotExist(uint256 nodeId);
+
+/// Thrown when querying a rebase ID that does not exist.
+/// @param rebaseId The invalid rebase ID.
+error RebaseDoesNotExist(uint256 rebaseId);
+
+/// Thrown when querying a monotonic action ID that does not exist.
+/// @param monotonicId The invalid monotonic ID.
+error MonotonicIdDoesNotExist(uint256 monotonicId);
+
+/// Thrown when scheduling an unknown action type bitmap.
+/// @param actionType The unrecognised bitmap.
+error UnknownActionType(uint256 actionType);
+
+/// Thrown when a stock split multiplier is zero.
+error ZeroMultiplier();
 
 /// @dev A node in the doubly linked list of corporate actions.
 struct CorporateActionNode {
@@ -58,6 +78,8 @@ struct CorporateActionNode {
 /// Actions auto-complete when their effectiveTime passes and any interaction
 /// triggers a check. Completed actions receive monotonic IDs.
 library LibCorporateAction {
+    using LibDecimalFloat for Float;
+
     /// @custom:storage-location erc7201:rain.storage.corporate-action.1
     struct CorporateActionStorage {
         /// The global corporate action ID (CAID). Incremented each time a
@@ -71,6 +93,18 @@ library LibCorporateAction {
         uint256 tail;
         /// Node storage by ID.
         mapping(uint256 => CorporateActionNode) nodes;
+        /// Counter for balance-affecting corporate actions (rebases). Only
+        /// incremented when a stock split (or similar) completes. Accounts
+        /// track their version against this.
+        uint256 rebaseCount;
+        /// Multiplier history indexed by rebase ID (1-based). Each entry is
+        /// a Rain float multiplier applied sequentially during migration.
+        mapping(uint256 => Float) multipliers;
+        /// Mapping from monotonic ID to the rebase ID it produced (0 if the
+        /// action was not balance-affecting).
+        mapping(uint256 => uint256) monotonicToRebaseId;
+        /// Mapping from monotonic ID to node ID for lookups by completed action.
+        mapping(uint256 => uint256) monotonicToNodeId;
     }
 
     /// @dev Accessor for corporate action storage at the ERC-7201 slot.
@@ -82,8 +116,8 @@ library LibCorporateAction {
     }
 
     /// @notice Process any scheduled actions whose effectiveTime has passed,
-    /// transitioning them to COMPLETE and assigning monotonic IDs.
-    /// Walks from the head forward since completed actions cluster at the front.
+    /// transitioning them to COMPLETE and assigning monotonic IDs. For stock
+    /// splits, records the multiplier and increments rebaseCount.
     function processCompletions() internal {
         CorporateActionStorage storage s = getStorage();
         uint256 current = s.head;
@@ -101,13 +135,23 @@ library LibCorporateAction {
             s.globalCAID++;
             node.monotonicId = s.globalCAID;
             node.status = STATUS_COMPLETE;
+            s.monotonicToNodeId[s.globalCAID] = current;
+
+            // Balance-affecting actions record multipliers.
+            if (node.actionType & ACTION_TYPE_STOCK_SPLIT != 0) {
+                Float multiplier = abi.decode(node.parameters, (Float));
+                s.rebaseCount++;
+                s.multipliers[s.rebaseCount] = multiplier;
+                s.monotonicToRebaseId[s.globalCAID] = s.rebaseCount;
+            }
+
             current = node.next;
         }
     }
 
-    /// @notice Schedule a new corporate action. Inserts a node into the doubly
-    /// linked list maintaining time ordering. Processes any pending completions
-    /// first.
+    /// @notice Schedule a new corporate action. Validates the action type and
+    /// parameters, then inserts a node into the doubly linked list maintaining
+    /// time ordering. Processes any pending completions first.
     /// @param actionType Bitmap of action types.
     /// @param effectiveTime When the action takes effect. Must be > block.timestamp.
     /// @param parameters ABI-encoded parameters for the action type.
@@ -118,6 +162,17 @@ library LibCorporateAction {
     {
         if (effectiveTime <= block.timestamp) {
             revert EffectiveTimeInPast(effectiveTime, block.timestamp);
+        }
+
+        // Validate action type and parameters.
+        if (actionType == ACTION_TYPE_STOCK_SPLIT) {
+            Float multiplier = abi.decode(parameters, (Float));
+            (int256 coefficient,) = multiplier.unpack();
+            if (coefficient == 0) {
+                revert ZeroMultiplier();
+            }
+        } else {
+            revert UnknownActionType(actionType);
         }
 
         processCompletions();
@@ -206,9 +261,6 @@ library LibCorporateAction {
             s.tail = prevId;
         }
 
-        // Clear the node to free storage. Keep actionType and effectiveTime
-        // so the CorporateActionCancelled event can reference them if needed
-        // by off-chain indexers, but zero out the list pointers and status.
         node.prev = 0;
         node.next = 0;
         node.status = 0;
@@ -223,5 +275,90 @@ library LibCorporateAction {
             revert NodeDoesNotExist(nodeId);
         }
         node = s.nodes[nodeId];
+    }
+
+    /// @notice Get a completed action by its monotonic ID.
+    /// @param monotonicId The monotonic ID to look up.
+    /// @return node The node storage reference.
+    function getActionByMonotonicId(uint256 monotonicId)
+        internal
+        view
+        returns (CorporateActionNode storage node)
+    {
+        CorporateActionStorage storage s = getStorage();
+        if (monotonicId == 0 || monotonicId > s.globalCAID) {
+            revert MonotonicIdDoesNotExist(monotonicId);
+        }
+        uint256 nodeId = s.monotonicToNodeId[monotonicId];
+        node = s.nodes[nodeId];
+    }
+
+    /// @notice Get the multiplier at a given rebase ID.
+    /// @param rebaseId The rebase ID (1-based).
+    /// @return multiplier The Rain float multiplier.
+    function getMultiplier(uint256 rebaseId) internal view returns (Float multiplier) {
+        CorporateActionStorage storage s = getStorage();
+        if (rebaseId == 0 || rebaseId > s.rebaseCount) {
+            revert RebaseDoesNotExist(rebaseId);
+        }
+        return s.multipliers[rebaseId];
+    }
+
+    /// @notice Get pending (scheduled) actions matching a bitmap mask, walking
+    /// backward from the tail. Pending actions cluster at the tail of the list.
+    /// @param mask Bitmap mask — returns actions where `actionType & mask != 0`.
+    /// @param maxResults Maximum number of results to return.
+    /// @return nodeIds Array of matching node IDs (most recent first).
+    function getPendingActions(uint256 mask, uint256 maxResults) internal view returns (uint256[] memory nodeIds) {
+        CorporateActionStorage storage s = getStorage();
+        // First pass: count matches.
+        uint256 count = 0;
+        uint256 current = s.tail;
+        while (current != 0 && count < maxResults) {
+            CorporateActionNode storage node = s.nodes[current];
+            if (node.status != STATUS_SCHEDULED) {
+                // Once we hit a non-scheduled node walking backwards from tail,
+                // all remaining nodes are also non-scheduled (completed).
+                break;
+            }
+            if (node.actionType & mask != 0) {
+                count++;
+            }
+            current = node.prev;
+        }
+
+        // Second pass: collect IDs.
+        nodeIds = new uint256[](count);
+        uint256 idx = 0;
+        current = s.tail;
+        while (current != 0 && idx < count) {
+            CorporateActionNode storage node = s.nodes[current];
+            if (node.status != STATUS_SCHEDULED) {
+                break;
+            }
+            if (node.actionType & mask != 0) {
+                nodeIds[idx] = current;
+                idx++;
+            }
+            current = node.prev;
+        }
+    }
+
+    /// @notice Get the most recent completed action matching a bitmap mask.
+    /// Walks backward from tail past any pending actions, then finds the first
+    /// completed match.
+    /// @param mask Bitmap mask — matches where `actionType & mask != 0`.
+    /// @return nodeId The matching node ID, or 0 if none found.
+    function getRecentAction(uint256 mask) internal view returns (uint256 nodeId) {
+        CorporateActionStorage storage s = getStorage();
+        uint256 current = s.tail;
+        while (current != 0) {
+            CorporateActionNode storage node = s.nodes[current];
+            if (node.status == STATUS_COMPLETE && node.actionType & mask != 0) {
+                return current;
+            }
+            current = node.prev;
+        }
+        return 0;
     }
 }

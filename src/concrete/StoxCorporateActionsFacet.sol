@@ -3,7 +3,13 @@
 pragma solidity =0.8.25;
 
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
-import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
+import {
+    LibCorporateAction,
+    CorporateActionNode,
+    SCHEDULE_CORPORATE_ACTION,
+    CANCEL_CORPORATE_ACTION
+} from "../lib/LibCorporateAction.sol";
+import {Float} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {IAuthorizeV1} from "ethgild/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVault} from "ethgild/concrete/vault/OffchainAssetReceiptVault.sol";
 
@@ -63,6 +69,36 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     /// @inheritdoc ICorporateActionsV1
     function globalCAID() external view returns (uint256) {
         return LibCorporateAction.getStorage().globalCAID;
+    }
+
+    /// @inheritdoc ICorporateActionsV1
+    function rebaseCount() external view returns (uint256) {
+        return LibCorporateAction.getStorage().rebaseCount;
+    }
+
+    /// @inheritdoc ICorporateActionsV1
+    function getMultiplier(uint256 rebaseId) external view returns (Float multiplier) {
+        return LibCorporateAction.getMultiplier(rebaseId);
+    }
+
+    /// @inheritdoc ICorporateActionsV1
+    function getAction(uint256 monotonicId)
+        external
+        view
+        returns (uint256 actionType, uint64 effectiveTime, bytes memory parameters)
+    {
+        CorporateActionNode storage node = LibCorporateAction.getActionByMonotonicId(monotonicId);
+        return (node.actionType, node.effectiveTime, node.parameters);
+    }
+
+    /// @inheritdoc ICorporateActionsV1
+    function getPendingActions(uint256 mask, uint256 maxResults) external view returns (uint256[] memory nodeIds) {
+        return LibCorporateAction.getPendingActions(mask, maxResults);
+    }
+
+    /// @inheritdoc ICorporateActionsV1
+    function getRecentAction(uint256 mask) external view returns (uint256 nodeId) {
+        return LibCorporateAction.getRecentAction(mask);
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is
