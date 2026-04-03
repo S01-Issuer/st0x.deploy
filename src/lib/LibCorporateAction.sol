@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
+import {LibERC20Storage} from "./LibERC20Storage.sol";
 
 /// @dev ERC-7201 namespaced storage location for corporate actions.
 /// keccak256(abi.encode(uint256(keccak256("rain.storage.corporate-action.1")) - 1)) & ~bytes32(uint256(0xff))
@@ -105,6 +106,10 @@ library LibCorporateAction {
         mapping(uint256 => uint256) monotonicToRebaseId;
         /// Mapping from monotonic ID to node ID for lookups by completed action.
         mapping(uint256 => uint256) monotonicToNodeId;
+        /// Per-account rebase version. Tracks which rebase multipliers have
+        /// been applied to an account's stored balance. Migration applies
+        /// multipliers from (accountRebaseId + 1) through rebaseCount.
+        mapping(address => uint256) accountRebaseId;
     }
 
     /// @dev Accessor for corporate action storage at the ERC-7201 slot.
@@ -137,12 +142,21 @@ library LibCorporateAction {
             node.status = STATUS_COMPLETE;
             s.monotonicToNodeId[s.globalCAID] = current;
 
-            // Balance-affecting actions record multipliers.
+            // Balance-affecting actions record multipliers and eagerly
+            // update totalSupply so it is immediately correct.
             if (node.actionType & ACTION_TYPE_STOCK_SPLIT != 0) {
                 Float multiplier = abi.decode(node.parameters, (Float));
                 s.rebaseCount++;
                 s.multipliers[s.rebaseCount] = multiplier;
                 s.monotonicToRebaseId[s.globalCAID] = s.rebaseCount;
+
+                // Eagerly rebase totalSupply via direct storage write.
+                uint256 currentSupply = LibERC20Storage.getTotalSupply();
+                // forge-lint: disable-next-line(unsafe-typecast)
+                (uint256 newSupply,) = LibDecimalFloat.toFixedDecimalLossy(
+                    LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(currentSupply), 0), multiplier), 0
+                );
+                LibERC20Storage.setTotalSupply(newSupply);
             }
 
             current = node.next;
