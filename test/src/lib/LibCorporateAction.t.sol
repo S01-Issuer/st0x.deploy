@@ -164,6 +164,58 @@ contract LibCorporateActionLinkedListTest is Test {
         lib.schedule(1, 2000, params);
         assertEq(lib.getNode(1).parameters, params);
     }
+
+    /// Fuzz: random cancellations maintain list integrity — forward and
+    /// backward walk counts always match and pointers are consistent.
+    function testFuzzCancellationIntegrity(uint256 seed) external {
+        uint256 count = 5;
+        uint64 baseTime = 2000;
+        for (uint256 i = 0; i < count; i++) {
+            // i is bounded to < 5 so the cast is safe.
+            // forge-lint: disable-next-line(unsafe-typecast)
+            lib.schedule(1, baseTime + uint64(i) * 1000, "");
+        }
+
+        // Cancel 2 random nodes.
+        seed = uint256(keccak256(abi.encode(seed)));
+        uint256 cancel1 = bound(seed, 1, count);
+        seed = uint256(keccak256(abi.encode(seed)));
+        uint256 cancel2 = bound(seed, 1, count);
+
+        lib.cancel(cancel1);
+        if (cancel2 != cancel1) {
+            lib.cancel(cancel2);
+        }
+
+        // Walk forward, count nodes, verify ordering.
+        uint256 forwardCount = 0;
+        uint256 current = lib.head();
+        uint64 prevTime = 0;
+        uint256 lastSeen = 0;
+        while (current != 0) {
+            CorporateActionNode memory node = lib.getNode(current);
+            assertTrue(node.effectiveTime >= prevTime, "ordering violated after cancel");
+            prevTime = node.effectiveTime;
+            lastSeen = current;
+            current = node.next;
+            forwardCount++;
+        }
+
+        // Tail should be the last node we saw walking forward.
+        if (forwardCount > 0) {
+            assertEq(lib.tail(), lastSeen, "tail mismatch after cancellation");
+        }
+
+        // Walk backward from tail, count must match.
+        uint256 backwardCount = 0;
+        current = lib.tail();
+        while (current != 0) {
+            CorporateActionNode memory node = lib.getNode(current);
+            current = node.prev;
+            backwardCount++;
+        }
+        assertEq(forwardCount, backwardCount, "forward/backward count mismatch");
+    }
 }
 
 contract LibCorporateActionZeroTypeTest is Test {
