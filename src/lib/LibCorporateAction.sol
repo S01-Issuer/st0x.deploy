@@ -18,8 +18,12 @@ error EffectiveTimeInPast(uint64 effectiveTime, uint256 currentTime);
 /// Thrown when trying to cancel an action whose effectiveTime has passed.
 error ActionAlreadyComplete(uint256 actionId);
 
-/// Thrown when referencing a node that does not exist.
+/// Thrown when referencing an action that does not exist.
 error ActionDoesNotExist(uint256 actionId);
+
+/// Thrown when scheduling an action with an unrecognised type bitmap.
+/// @param actionType The unrecognised type.
+error UnknownActionType(uint256 actionType);
 
 /// @dev A corporate action node in the doubly linked list ordered by
 /// effectiveTime. There is no stored status — an action is "complete" when
@@ -57,6 +61,9 @@ library LibCorporateAction {
         /// Per-account migration cursor — the internal node ID of the last
         /// node this account was migrated through.
         mapping(address => uint256) accountMigrationCursor;
+        /// Bitmap of all registered action types. schedule() reverts if the
+        /// provided actionType has any bits set outside this mask.
+        uint256 knownActionTypes;
     }
 
     /// @dev Accessor for corporate action storage at the ERC-7201 slot.
@@ -67,17 +74,28 @@ library LibCorporateAction {
         }
     }
 
+    /// @notice Register action type bits so they can be scheduled.
+    /// @param actionTypeBits Bitmap of types to add.
+    function registerActionTypes(uint256 actionTypeBits) internal {
+        getStorage().knownActionTypes |= actionTypeBits;
+    }
+
     /// @notice Insert a node into the list maintaining time ordering.
-    /// effectiveTime must be strictly in the future.
+    /// effectiveTime must be strictly in the future. actionType must only
+    /// contain bits that have been registered.
     function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters)
         internal
         returns (uint256 actionId)
     {
+        CorporateActionStorage storage s = getStorage();
+
+        if (actionType == 0 || actionType & s.knownActionTypes != actionType) {
+            revert UnknownActionType(actionType);
+        }
+
         if (effectiveTime <= block.timestamp) {
             revert EffectiveTimeInPast(effectiveTime, block.timestamp);
         }
-
-        CorporateActionStorage storage s = getStorage();
         s.nextActionId++;
         actionId = s.nextActionId;
 

@@ -8,12 +8,17 @@ import {
     CorporateActionNode,
     EffectiveTimeInPast,
     ActionAlreadyComplete,
-    ActionDoesNotExist
+    ActionDoesNotExist,
+    UnknownActionType
 } from "src/lib/LibCorporateAction.sol";
 
 contract LibCorporateActionHarness {
     function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters) external returns (uint256) {
         return LibCorporateAction.schedule(actionType, effectiveTime, parameters);
+    }
+
+    function registerActionTypes(uint256 bits) external {
+        LibCorporateAction.registerActionTypes(bits);
     }
 
     function cancel(uint256 actionId) external {
@@ -42,6 +47,7 @@ contract LibCorporateActionLinkedListTest is Test {
 
     function setUp() public {
         lib = new LibCorporateActionHarness();
+        lib.registerActionTypes(1);
         vm.warp(1000);
     }
 
@@ -162,5 +168,37 @@ contract LibCorporateActionLinkedListTest is Test {
         bytes memory params = abi.encode(uint256(42));
         lib.schedule(1, 2000, params);
         assertEq(lib.getNode(1).parameters, params);
+    }
+}
+
+contract LibCorporateActionTypeValidationTest is Test {
+    LibCorporateActionHarness internal lib;
+
+    function setUp() public {
+        lib = new LibCorporateActionHarness();
+        vm.warp(1000);
+    }
+
+    function testScheduleUnknownTypeReverts() external {
+        vm.expectRevert(abi.encodeWithSelector(UnknownActionType.selector, uint256(1)));
+        lib.schedule(1, 2000, "");
+    }
+
+    function testScheduleZeroTypeReverts() external {
+        lib.registerActionTypes(1);
+        vm.expectRevert(abi.encodeWithSelector(UnknownActionType.selector, uint256(0)));
+        lib.schedule(0, 2000, "");
+    }
+
+    function testScheduleAfterRegisterSucceeds() external {
+        lib.registerActionTypes(1);
+        uint256 id = lib.schedule(1, 2000, "");
+        assertEq(id, 1);
+    }
+
+    function testSchedulePartialUnknownReverts() external {
+        lib.registerActionTypes(1); // only bit 0
+        vm.expectRevert(abi.encodeWithSelector(UnknownActionType.selector, uint256(3)));
+        lib.schedule(3, 2000, ""); // bits 0 and 1 — bit 1 not registered
     }
 }
