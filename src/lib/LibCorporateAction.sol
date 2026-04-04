@@ -12,6 +12,11 @@ bytes32 constant SCHEDULE_CORPORATE_ACTION = keccak256("SCHEDULE_CORPORATE_ACTIO
 /// @dev Permission hash for cancelling a corporate action via the authorizer.
 bytes32 constant CANCEL_CORPORATE_ACTION = keccak256("CANCEL_CORPORATE_ACTION");
 
+/// @dev Bitmap of all known action types. schedule() reverts if any bits
+/// outside this mask are set. Subsequent PRs narrow this to only the
+/// implemented types.
+uint256 constant KNOWN_ACTION_TYPES = type(uint256).max;
+
 /// Thrown when scheduling an action with an effective time in the past.
 error EffectiveTimeInPast(uint64 effectiveTime, uint256 currentTime);
 
@@ -63,9 +68,6 @@ library LibCorporateAction {
         /// Per-account migration cursor — the internal node ID of the last
         /// node this account was migrated through.
         mapping(address => uint256) accountMigrationCursor;
-        /// Bitmap of all registered action types. schedule() reverts if the
-        /// provided actionType has any bits set outside this mask.
-        uint256 knownActionTypes;
     }
 
     /// @dev Accessor for corporate action storage at the ERC-7201 slot.
@@ -76,12 +78,6 @@ library LibCorporateAction {
         }
     }
 
-    /// @notice Register action type bits so they can be scheduled.
-    /// @param actionTypeBits Bitmap of types to add.
-    function registerActionTypes(uint256 actionTypeBits) internal {
-        getStorage().knownActionTypes |= actionTypeBits;
-    }
-
     /// @notice Insert a node into the list maintaining time ordering.
     /// effectiveTime must be strictly in the future. actionType must only
     /// contain bits that have been registered.
@@ -89,15 +85,15 @@ library LibCorporateAction {
         internal
         returns (uint256 actionId)
     {
-        CorporateActionStorage storage s = getStorage();
-
-        if (actionType == 0 || actionType & s.knownActionTypes != actionType) {
+        if (actionType == 0 || actionType & KNOWN_ACTION_TYPES != actionType) {
             revert UnknownActionType(actionType);
         }
 
         if (effectiveTime <= block.timestamp) {
             revert EffectiveTimeInPast(effectiveTime, block.timestamp);
         }
+
+        CorporateActionStorage storage s = getStorage();
         s.nextActionId++;
         actionId = s.nextActionId;
 
