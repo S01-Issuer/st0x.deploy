@@ -14,7 +14,7 @@ interface ICorporateActionsV1 {
     /// @param actionType Bitmap identifying the action type.
     /// @param effectiveTime When the action takes effect. Must be in the future.
     /// @param parameters ABI-encoded parameters specific to the action type.
-    /// @return actionId The Stable identifier for this action.
+    /// @return actionId Stable identifier for this action.
     function scheduleCorporateAction(uint256 actionType, uint64 effectiveTime, bytes calldata parameters)
         external
         returns (uint256 actionId);
