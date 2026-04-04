@@ -11,12 +11,12 @@ import {OffchainAssetReceiptVault} from "ethgild/concrete/vault/OffchainAssetRec
 /// @notice Diamond facet implementing the corporate action linked list.
 contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     event CorporateActionScheduled(
-        address indexed sender, uint256 indexed nodeId, uint256 actionType, uint64 effectiveTime
+        address indexed sender, uint256 indexed actionId, uint256 actionType, uint64 effectiveTime
     );
-    event CorporateActionCancelled(address indexed sender, uint256 indexed nodeId);
+    event CorporateActionCancelled(address indexed sender, uint256 indexed actionId);
 
     /// @inheritdoc ICorporateActionsV1
-    function globalCAID() external view override returns (uint256) {
+    function completedActionCount() external view override returns (uint256) {
         return LibCorporateAction.countCompleted();
     }
 
@@ -24,18 +24,18 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     function scheduleCorporateAction(uint256 actionType, uint64 effectiveTime, bytes calldata parameters)
         external
         override
-        returns (uint256 nodeId)
+        returns (uint256 actionId)
     {
         _authorize(msg.sender, SCHEDULE_CORPORATE_ACTION);
-        nodeId = LibCorporateAction.schedule(actionType, effectiveTime, parameters);
-        emit CorporateActionScheduled(msg.sender, nodeId, actionType, effectiveTime);
+        actionId = LibCorporateAction.schedule(actionType, effectiveTime, parameters);
+        emit CorporateActionScheduled(msg.sender, actionId, actionType, effectiveTime);
     }
 
     /// @inheritdoc ICorporateActionsV1
-    function cancelCorporateAction(uint256 nodeId) external override {
+    function cancelCorporateAction(uint256 actionId) external override {
         _authorize(msg.sender, CANCEL_CORPORATE_ACTION);
-        LibCorporateAction.cancel(nodeId);
-        emit CorporateActionCancelled(msg.sender, nodeId);
+        LibCorporateAction.cancel(actionId);
+        emit CorporateActionCancelled(msg.sender, actionId);
     }
 
     function _authorize(address user, bytes32 permission) internal {

@@ -5,10 +5,7 @@ pragma solidity =0.8.25;
 /// @title ICorporateActionsV1
 /// @notice Versioned interface for corporate actions on a vault. External
 /// consumers — oracles, lending protocols, wrapper contracts — import this
-/// interface rather than the concrete facet so they can depend on a stable API
-/// while the implementation evolves behind it.
-///
-/// Functions are added as the implementation grows across PRs.
+/// interface rather than the concrete facet.
 interface ICorporateActionsV1 {
     /// @notice Schedule a new corporate action.
     /// @param actionType Bitmap identifying the action type.

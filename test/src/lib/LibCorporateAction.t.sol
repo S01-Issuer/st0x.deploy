@@ -8,7 +8,7 @@ import {
     CorporateActionNode,
     EffectiveTimeInPast,
     ActionAlreadyComplete,
-    NodeDoesNotExist
+    ActionDoesNotExist
 } from "src/lib/LibCorporateAction.sol";
 
 contract LibCorporateActionHarness {
@@ -16,8 +16,8 @@ contract LibCorporateActionHarness {
         return LibCorporateAction.schedule(actionType, effectiveTime, parameters);
     }
 
-    function cancel(uint256 nodeId) external {
-        LibCorporateAction.cancel(nodeId);
+    function cancel(uint256 actionId) external {
+        LibCorporateAction.cancel(actionId);
     }
 
     function countCompleted() external view returns (uint256) {
@@ -32,8 +32,8 @@ contract LibCorporateActionHarness {
         return LibCorporateAction.tail();
     }
 
-    function getNode(uint256 nodeId) external view returns (CorporateActionNode memory) {
-        return LibCorporateAction.getStorage().nodes[nodeId];
+    function getNode(uint256 actionId) external view returns (CorporateActionNode memory) {
+        return LibCorporateAction.getStorage().nodes[actionId];
     }
 }
 
@@ -121,7 +121,7 @@ contract LibCorporateActionLinkedListTest is Test {
     }
 
     function testCancelNonexistentReverts() external {
-        vm.expectRevert(abi.encodeWithSelector(NodeDoesNotExist.selector, 99));
+        vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, 99));
         lib.cancel(99);
     }
 

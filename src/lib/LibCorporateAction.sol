@@ -16,10 +16,10 @@ bytes32 constant CANCEL_CORPORATE_ACTION = keccak256("CANCEL_CORPORATE_ACTION");
 error EffectiveTimeInPast(uint64 effectiveTime, uint256 currentTime);
 
 /// Thrown when trying to cancel an action whose effectiveTime has passed.
-error ActionAlreadyComplete(uint256 nodeId);
+error ActionAlreadyComplete(uint256 actionId);
 
 /// Thrown when referencing a node that does not exist.
-error NodeDoesNotExist(uint256 nodeId);
+error ActionDoesNotExist(uint256 actionId);
 
 /// @dev A corporate action node in the doubly linked list ordered by
 /// effectiveTime. There is no stored status — an action is "complete" when
@@ -46,7 +46,7 @@ library LibCorporateAction {
     /// @custom:storage-location erc7201:rain.storage.corporate-action.1
     struct CorporateActionStorage {
         /// Counter for internal node IDs (linked list keys). Starts at 1.
-        uint256 nextNodeId;
+        uint256 nextActionId;
         /// Head of the list (earliest effectiveTime).
         uint256 head;
         /// Tail of the list (latest effectiveTime).
@@ -70,57 +70,57 @@ library LibCorporateAction {
     /// effectiveTime must be strictly in the future.
     function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters)
         internal
-        returns (uint256 nodeId)
+        returns (uint256 actionId)
     {
         if (effectiveTime <= block.timestamp) {
             revert EffectiveTimeInPast(effectiveTime, block.timestamp);
         }
 
         CorporateActionStorage storage s = getStorage();
-        s.nextNodeId++;
-        nodeId = s.nextNodeId;
+        s.nextActionId++;
+        actionId = s.nextActionId;
 
-        CorporateActionNode storage node = s.nodes[nodeId];
+        CorporateActionNode storage node = s.nodes[actionId];
         node.actionType = actionType;
         node.effectiveTime = effectiveTime;
         node.parameters = parameters;
 
         if (s.tail == 0) {
-            s.head = nodeId;
-            s.tail = nodeId;
+            s.head = actionId;
+            s.tail = actionId;
         } else {
             // Walk backwards from tail to find correct position.
             uint256 current = s.tail;
             while (current != 0) {
                 if (s.nodes[current].effectiveTime <= effectiveTime) {
                     uint256 afterCurrent = s.nodes[current].next;
-                    s.nodes[current].next = nodeId;
+                    s.nodes[current].next = actionId;
                     node.prev = current;
                     node.next = afterCurrent;
                     if (afterCurrent != 0) {
-                        s.nodes[afterCurrent].prev = nodeId;
+                        s.nodes[afterCurrent].prev = actionId;
                     } else {
-                        s.tail = nodeId;
+                        s.tail = actionId;
                     }
-                    return nodeId;
+                    return actionId;
                 }
                 current = s.nodes[current].prev;
             }
             // Goes before the current head.
             node.next = s.head;
-            s.nodes[s.head].prev = nodeId;
-            s.head = nodeId;
+            s.nodes[s.head].prev = actionId;
+            s.head = actionId;
         }
     }
 
     /// @notice Remove a scheduled node from the list. Reverts if the action
     /// is already complete or does not exist.
-    function cancel(uint256 nodeId) internal {
+    function cancel(uint256 actionId) internal {
         CorporateActionStorage storage s = getStorage();
-        CorporateActionNode storage node = s.nodes[nodeId];
+        CorporateActionNode storage node = s.nodes[actionId];
 
-        if (node.effectiveTime == 0) revert NodeDoesNotExist(nodeId);
-        if (node.effectiveTime <= block.timestamp) revert ActionAlreadyComplete(nodeId);
+        if (node.effectiveTime == 0) revert ActionDoesNotExist(actionId);
+        if (node.effectiveTime <= block.timestamp) revert ActionAlreadyComplete(actionId);
 
         uint256 prevId = node.prev;
         uint256 nextId = node.next;
@@ -137,7 +137,7 @@ library LibCorporateAction {
             s.tail = prevId;
         }
 
-        delete s.nodes[nodeId];
+        delete s.nodes[actionId];
     }
 
     /// @notice Count completed actions by walking from head.

@@ -45,14 +45,14 @@ contract StoxCorporateActionsFacetTest is Test {
         vm.warp(1000);
     }
 
-    /// globalCAID returns 0 when no actions exist.
-    function testGlobalCAIDInitiallyZero() external view {
-        assertEq(facetViaHarness.globalCAID(), 0);
+    /// completedActionCount returns 0 when no actions exist.
+    function testCompletedActionCountInitiallyZero() external view {
+        assertEq(facetViaHarness.completedActionCount(), 0);
     }
 
     /// Facet routing via delegatecall works.
     function testFacetRoutingViaDelegatecall() external view {
-        assertEq(facetViaHarness.globalCAID(), 0);
+        assertEq(facetViaHarness.completedActionCount(), 0);
     }
 
     /// ERC-7201 storage slot matches the documented formula.
