@@ -38,6 +38,9 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         emit CorporateActionCancelled(msg.sender, actionId);
     }
 
+    /// @dev Authorize via the vault's authorizer. Since this facet is
+    /// delegatecalled by the vault, `address(this)` is the vault and we can
+    /// access its storage to find the authorizer.
     function _authorize(address user, bytes32 permission) internal {
         IAuthorizeV1 auth = OffchainAssetReceiptVault(payable(address(this))).authorizer();
         auth.authorize(user, permission, "");
