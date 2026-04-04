@@ -41,7 +41,8 @@ struct CorporateActionNode {
 
 /// @title LibCorporateAction
 /// @notice Doubly linked list of corporate actions ordered by effectiveTime.
-/// No stored status, no stored counters. Completeness is block.timestamp.
+/// There is no stored status or counters — an action is complete when its
+/// effectiveTime is less than or equal to the current block timestamp.
 library LibCorporateAction {
     /// @custom:storage-location erc7201:rain.storage.corporate-action.1
     struct CorporateActionStorage {
