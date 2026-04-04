@@ -44,7 +44,9 @@ struct CorporateActionNode {
 }
 
 /// @title LibCorporateAction
-/// @notice Doubly linked list of corporate actions ordered by effectiveTime.
+/// @notice Library for corporate action diamond storage. Uses ERC-7201
+/// namespaced storage to avoid collisions with existing vault storage slots.
+/// Manages a doubly linked list of corporate actions ordered by effectiveTime.
 /// There is no stored status or counters — an action is complete when its
 /// effectiveTime is less than or equal to the current block timestamp.
 library LibCorporateAction {
