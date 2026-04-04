@@ -78,6 +78,13 @@ library LibCorporateAction {
         }
     }
 
+    /// @notice Revert if actionType contains any bits not in KNOWN_ACTION_TYPES.
+    function validateActionType(uint256 actionType) internal pure {
+        if (actionType == 0 || actionType & KNOWN_ACTION_TYPES != actionType) {
+            revert UnknownActionType(actionType);
+        }
+    }
+
     /// @notice Insert a node into the list maintaining time ordering.
     /// effectiveTime must be strictly in the future. actionType must only
     /// contain bits that have been registered.
@@ -85,9 +92,7 @@ library LibCorporateAction {
         internal
         returns (uint256 actionId)
     {
-        if (actionType == 0 || actionType & KNOWN_ACTION_TYPES != actionType) {
-            revert UnknownActionType(actionType);
-        }
+        validateActionType(actionType);
 
         if (effectiveTime <= block.timestamp) {
             revert EffectiveTimeInPast(effectiveTime, block.timestamp);
