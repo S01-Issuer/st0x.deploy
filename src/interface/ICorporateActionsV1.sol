@@ -23,6 +23,8 @@ interface ICorporateActionsV1 {
     /// @param actionId The action to cancel.
     function cancelCorporateAction(uint256 actionId) external;
 
-    /// @notice Count of all completed corporate actions (globalCAID).
-    function globalCAID() external view returns (uint256);
+    /// @notice Count of all completed corporate actions. An action is complete
+    /// when its effectiveTime has passed. The Nth completed action has
+    /// completedActionId = N.
+    function completedActionCount() external view returns (uint256);
 }
