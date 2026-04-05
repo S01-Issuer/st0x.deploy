@@ -48,6 +48,10 @@ contract LibCorporateActionHarness {
     function walkPending(uint256 mask, uint256 maxResults) external view returns (uint256[] memory) {
         return LibCorporateAction.walkPending(mask, maxResults);
     }
+
+    function resolveActionType(bytes32 typeHash, bytes memory parameters) external pure returns (uint256) {
+        return LibCorporateAction.resolveActionType(typeHash, parameters);
+    }
 }
 
 contract LibCorporateActionLinkedListTest is Test {
@@ -230,18 +234,24 @@ contract LibCorporateActionLinkedListTest is Test {
     }
 }
 
-contract LibCorporateActionZeroTypeTest is Test {
+contract LibCorporateActionResolveTest is Test {
     LibCorporateActionHarness internal lib;
 
     function setUp() public {
         lib = new LibCorporateActionHarness();
-        vm.warp(1000);
     }
 
-    /// Scheduling with action type 0 always reverts.
-    function testScheduleZeroTypeReverts() external {
-        vm.expectRevert(abi.encodeWithSelector(UnknownActionType.selector, uint256(0)));
-        lib.schedule(0, 2000, "");
+    /// Unknown type hash reverts.
+    function testResolveUnknownTypeReverts() external {
+        bytes32 unknown = keccak256("Nonexistent");
+        vm.expectRevert(abi.encodeWithSelector(UnknownActionType.selector, unknown));
+        lib.resolveActionType(unknown, "");
+    }
+
+    /// Fuzz: any type hash reverts (no concrete types registered in this PR).
+    function testFuzzResolveAlwaysReverts(bytes32 typeHash) external {
+        vm.expectRevert(abi.encodeWithSelector(UnknownActionType.selector, typeHash));
+        lib.resolveActionType(typeHash, "");
     }
 }
 

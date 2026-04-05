@@ -12,11 +12,6 @@ bytes32 constant SCHEDULE_CORPORATE_ACTION = keccak256("SCHEDULE_CORPORATE_ACTIO
 /// @dev Permission hash for cancelling a corporate action via the authorizer.
 bytes32 constant CANCEL_CORPORATE_ACTION = keccak256("CANCEL_CORPORATE_ACTION");
 
-/// @dev Bitmap of all known action types. schedule() reverts if any bits
-/// outside this mask are set. Subsequent PRs narrow this to only the
-/// implemented types.
-uint256 constant KNOWN_ACTION_TYPES = type(uint256).max;
-
 /// Thrown when scheduling an action with an effective time in the past.
 error EffectiveTimeInPast(uint64 effectiveTime, uint256 currentTime);
 
@@ -26,9 +21,9 @@ error ActionAlreadyComplete(uint256 actionId);
 /// Thrown when referencing an action that does not exist.
 error ActionDoesNotExist(uint256 actionId);
 
-/// Thrown when scheduling an action with an unrecognised type bitmap.
-/// @param actionType The unrecognised type.
-error UnknownActionType(uint256 actionType);
+/// Thrown when the external type hash has no known bitmap mapping.
+/// @param typeHash The unrecognised external identifier.
+error UnknownActionType(bytes32 typeHash);
 
 /// @dev A corporate action node in the doubly linked list ordered by
 /// effectiveTime. There is no stored status — an action is "complete" when
@@ -78,22 +73,28 @@ library LibCorporateAction {
         }
     }
 
-    /// @notice Revert if actionType contains any bits not in KNOWN_ACTION_TYPES.
-    function validateActionType(uint256 actionType) internal pure {
-        if (actionType == 0 || actionType & KNOWN_ACTION_TYPES != actionType) {
-            revert UnknownActionType(actionType);
-        }
+    /// @notice Map an external type identifier to its internal bitmap and
+    /// validate parameters. Reverts if the type hash is not recognised.
+    /// Subsequent PRs add concrete type mappings.
+    /// @param typeHash External identifier, e.g. keccak256("StockSplit").
+    /// @param parameters ABI-encoded parameters for the action type.
+    /// @return actionType The internal bitmap for this type.
+    function resolveActionType(bytes32 typeHash, bytes memory parameters)
+        internal
+        pure
+        returns (uint256 actionType)
+    {
+        // Concrete types are added by subsequent PRs.
+        (actionType, parameters);
+        revert UnknownActionType(typeHash);
     }
 
     /// @notice Insert a node into the list maintaining time ordering.
-    /// effectiveTime must be strictly in the future. actionType must only
-    /// contain bits that have been registered.
+    /// effectiveTime must be strictly in the future.
     function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters)
         internal
         returns (uint256 actionId)
     {
-        validateActionType(actionType);
-
         if (effectiveTime <= block.timestamp) {
             revert EffectiveTimeInPast(effectiveTime, block.timestamp);
         }

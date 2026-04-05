@@ -21,12 +21,13 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     }
 
     /// @inheritdoc ICorporateActionsV1
-    function scheduleCorporateAction(uint256 actionType, uint64 effectiveTime, bytes calldata parameters)
+    function scheduleCorporateAction(bytes32 typeHash, uint64 effectiveTime, bytes calldata parameters)
         external
         override
         returns (uint256 actionId)
     {
         _authorize(msg.sender, SCHEDULE_CORPORATE_ACTION);
+        uint256 actionType = LibCorporateAction.resolveActionType(typeHash, parameters);
         actionId = LibCorporateAction.schedule(actionType, effectiveTime, parameters);
         emit CorporateActionScheduled(msg.sender, actionId, actionType, effectiveTime);
     }

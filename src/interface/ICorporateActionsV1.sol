@@ -8,11 +8,12 @@ pragma solidity =0.8.25;
 /// interface rather than the concrete facet.
 interface ICorporateActionsV1 {
     /// @notice Schedule a new corporate action.
-    /// @param actionType Bitmap identifying the action type.
+    /// @param typeHash External identifier for the action type, e.g.
+    /// keccak256("StockSplit").
     /// @param effectiveTime When the action takes effect. Must be in the future.
     /// @param parameters ABI-encoded parameters specific to the action type.
     /// @return actionId Stable identifier for this action.
-    function scheduleCorporateAction(uint256 actionType, uint64 effectiveTime, bytes calldata parameters)
+    function scheduleCorporateAction(bytes32 typeHash, uint64 effectiveTime, bytes calldata parameters)
         external
         returns (uint256 actionId);
 
