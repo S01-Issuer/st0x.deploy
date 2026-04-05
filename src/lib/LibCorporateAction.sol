@@ -180,4 +180,75 @@ library LibCorporateAction {
     function tail() internal view returns (uint256) {
         return getStorage().tail;
     }
+
+    /// @notice Walk completed actions from a cursor, filtering by action type
+    /// bitmap. Returns matching action IDs.
+    /// @param startActionId Action ID to start from (exclusive). Use 0 to
+    /// start from the head.
+    /// @param mask Bitmap mask to filter action types. Use type(uint256).max
+    /// to match all types.
+    /// @param maxResults Maximum results to return.
+    /// @return actionIds The matching completed action IDs.
+    function walkCompleted(uint256 startActionId, uint256 mask, uint256 maxResults)
+        internal
+        view
+        returns (uint256[] memory actionIds)
+    {
+        CorporateActionStorage storage s = getStorage();
+        uint256 current = startActionId == 0 ? s.head : s.nodes[startActionId].next;
+
+        // First pass: count matches.
+        uint256 count = 0;
+        uint256 temp = current;
+        while (temp != 0 && count < maxResults) {
+            CorporateActionNode storage node = s.nodes[temp];
+            if (node.effectiveTime > block.timestamp) break;
+            if (node.actionType & mask != 0) count++;
+            temp = node.next;
+        }
+
+        // Second pass: collect.
+        actionIds = new uint256[](count);
+        uint256 idx = 0;
+        while (current != 0 && idx < count) {
+            CorporateActionNode storage node = s.nodes[current];
+            if (node.effectiveTime > block.timestamp) break;
+            if (node.actionType & mask != 0) {
+                actionIds[idx++] = current;
+            }
+            current = node.next;
+        }
+    }
+
+    /// @notice Walk pending (future) actions from the tail backwards,
+    /// filtering by action type bitmap.
+    /// @param mask Bitmap mask to filter action types.
+    /// @param maxResults Maximum results to return.
+    /// @return actionIds Matching pending action IDs (most recent first).
+    function walkPending(uint256 mask, uint256 maxResults) internal view returns (uint256[] memory actionIds) {
+        CorporateActionStorage storage s = getStorage();
+
+        // First pass: count.
+        uint256 count = 0;
+        uint256 current = s.tail;
+        while (current != 0 && count < maxResults) {
+            CorporateActionNode storage node = s.nodes[current];
+            if (node.effectiveTime <= block.timestamp) break;
+            if (node.actionType & mask != 0) count++;
+            current = node.prev;
+        }
+
+        // Second pass: collect.
+        actionIds = new uint256[](count);
+        uint256 idx = 0;
+        current = s.tail;
+        while (current != 0 && idx < count) {
+            CorporateActionNode storage node = s.nodes[current];
+            if (node.effectiveTime <= block.timestamp) break;
+            if (node.actionType & mask != 0) {
+                actionIds[idx++] = current;
+            }
+            current = node.prev;
+        }
+    }
 }

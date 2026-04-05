@@ -36,6 +36,18 @@ contract LibCorporateActionHarness {
     function getNode(uint256 actionId) external view returns (CorporateActionNode memory) {
         return LibCorporateAction.getStorage().nodes[actionId];
     }
+
+    function walkCompleted(uint256 startActionId, uint256 mask, uint256 maxResults)
+        external
+        view
+        returns (uint256[] memory)
+    {
+        return LibCorporateAction.walkCompleted(startActionId, mask, maxResults);
+    }
+
+    function walkPending(uint256 mask, uint256 maxResults) external view returns (uint256[] memory) {
+        return LibCorporateAction.walkPending(mask, maxResults);
+    }
 }
 
 contract LibCorporateActionLinkedListTest is Test {
@@ -230,5 +242,99 @@ contract LibCorporateActionZeroTypeTest is Test {
     function testScheduleZeroTypeReverts() external {
         vm.expectRevert(abi.encodeWithSelector(UnknownActionType.selector, uint256(0)));
         lib.schedule(0, 2000, "");
+    }
+}
+
+contract LibCorporateActionTraversalTest is Test {
+    LibCorporateActionHarness internal lib;
+
+    function setUp() public {
+        lib = new LibCorporateActionHarness();
+        vm.warp(1000);
+    }
+
+    /// walkCompleted returns completed actions matching the mask.
+    function testWalkCompletedBasic() external {
+        lib.schedule(1, 1500, "");
+        lib.schedule(1, 2500, "");
+        lib.schedule(1, 3500, "");
+
+        vm.warp(3000);
+
+        uint256[] memory ids = lib.walkCompleted(0, 1, 10);
+        assertEq(ids.length, 2);
+        assertEq(ids[0], 1);
+        assertEq(ids[1], 2);
+    }
+
+    /// walkCompleted from a cursor skips earlier actions.
+    function testWalkCompletedFromCursor() external {
+        lib.schedule(1, 1500, "");
+        lib.schedule(1, 2500, "");
+        lib.schedule(1, 3500, "");
+
+        vm.warp(4000);
+
+        uint256[] memory ids = lib.walkCompleted(1, 1, 10);
+        assertEq(ids.length, 2);
+        assertEq(ids[0], 2);
+        assertEq(ids[1], 3);
+    }
+
+    /// walkCompleted with non-matching mask returns empty.
+    function testWalkCompletedNoMatch() external {
+        lib.schedule(1, 1500, "");
+        vm.warp(2000);
+
+        uint256 otherType = 1 << 1;
+        uint256[] memory ids = lib.walkCompleted(0, otherType, 10);
+        assertEq(ids.length, 0);
+    }
+
+    /// walkCompleted respects maxResults.
+    function testWalkCompletedMaxResults() external {
+        lib.schedule(1, 1500, "");
+        lib.schedule(1, 2500, "");
+        lib.schedule(1, 3500, "");
+
+        vm.warp(4000);
+
+        uint256[] memory ids = lib.walkCompleted(0, 1, 2);
+        assertEq(ids.length, 2);
+    }
+
+    /// walkPending returns future actions.
+    function testWalkPendingBasic() external {
+        lib.schedule(1, 1500, "");
+        lib.schedule(1, 2500, "");
+        lib.schedule(1, 3500, "");
+
+        vm.warp(2000);
+
+        uint256[] memory ids = lib.walkPending(1, 10);
+        assertEq(ids.length, 2);
+        assertEq(ids[0], 3);
+        assertEq(ids[1], 2);
+    }
+
+    /// walkPending returns empty when all actions are completed.
+    function testWalkPendingAllCompleted() external {
+        lib.schedule(1, 1500, "");
+        vm.warp(2000);
+
+        uint256[] memory ids = lib.walkPending(1, 10);
+        assertEq(ids.length, 0);
+    }
+
+    /// countCompleted increments as time passes actions.
+    function testCompletedActionCountOverTime() external {
+        lib.schedule(1, 1500, "");
+        lib.schedule(1, 2500, "");
+
+        assertEq(lib.countCompleted(), 0);
+        vm.warp(2000);
+        assertEq(lib.countCompleted(), 1);
+        vm.warp(3000);
+        assertEq(lib.countCompleted(), 2);
     }
 }
