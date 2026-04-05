@@ -5,17 +5,15 @@ pragma solidity =0.8.25;
 /// @title ICorporateActionsV1
 /// @notice Versioned interface for corporate actions on a vault. External
 /// consumers — oracles, lending protocols, wrapper contracts — import this
-/// interface rather than the concrete facet so they can depend on a stable API
-/// while the implementation evolves behind it.
-///
-/// Functions are added as the implementation grows across PRs.
+/// interface rather than the concrete facet.
 interface ICorporateActionsV1 {
     /// @notice Schedule a new corporate action.
-    /// @param actionType Bitmap identifying the action type.
+    /// @param typeHash External identifier for the action type, e.g.
+    /// keccak256("StockSplit").
     /// @param effectiveTime When the action takes effect. Must be in the future.
     /// @param parameters ABI-encoded parameters specific to the action type.
     /// @return actionId Stable identifier for this action.
-    function scheduleCorporateAction(uint256 actionType, uint64 effectiveTime, bytes calldata parameters)
+    function scheduleCorporateAction(bytes32 typeHash, uint64 effectiveTime, bytes calldata parameters)
         external
         returns (uint256 actionId);
 

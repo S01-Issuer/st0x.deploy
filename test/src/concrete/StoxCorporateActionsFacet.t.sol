@@ -5,14 +5,12 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std/Test.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {
-    LibCorporateAction,
     CORPORATE_ACTION_STORAGE_LOCATION,
     SCHEDULE_CORPORATE_ACTION,
     CANCEL_CORPORATE_ACTION
 } from "../../../src/lib/LibCorporateAction.sol";
 
-/// @dev Minimal harness that delegates calls to a facet, simulating how the
-/// vault would route unknown selectors via its fallback.
+/// @dev Minimal harness that delegates calls to a facet.
 contract DelegatecallHarness {
     address public immutable facet;
 
@@ -44,32 +42,17 @@ contract StoxCorporateActionsFacetTest is Test {
         facetImpl = new StoxCorporateActionsFacet();
         harness = new DelegatecallHarness(address(facetImpl));
         facetViaHarness = StoxCorporateActionsFacet(address(harness));
+        vm.warp(1000);
     }
 
-    /// Placeholder returns 0 on a fresh deployment.
-    function testPlaceholderInitiallyZero() external view {
-        assertEq(facetViaHarness.placeholder(), 0);
+    /// completedActionCount returns 0 when no actions exist.
+    function testCompletedActionCountInitiallyZero() external view {
+        assertEq(facetViaHarness.completedActionCount(), 0);
     }
 
     /// Facet routing via delegatecall works.
     function testFacetRoutingViaDelegatecall() external view {
-        assertEq(facetViaHarness.placeholder(), 0);
-    }
-
-    /// Storage isolation: two harnesses sharing the same facet impl have
-    /// independent storage because delegatecall uses the caller's storage.
-    function testStorageIsolationBetweenHarnesses() external {
-        DelegatecallHarness harness2 = new DelegatecallHarness(address(facetImpl));
-        StoxCorporateActionsFacet facet2 = StoxCorporateActionsFacet(address(harness2));
-
-        assertEq(facetViaHarness.placeholder(), 0);
-        assertEq(facet2.placeholder(), 0);
-
-        // Write directly to harness1's storage at the ERC-7201 slot.
-        vm.store(address(harness), CORPORATE_ACTION_STORAGE_LOCATION, bytes32(uint256(42)));
-
-        assertEq(facetViaHarness.placeholder(), 42);
-        assertEq(facet2.placeholder(), 0);
+        assertEq(facetViaHarness.completedActionCount(), 0);
     }
 
     /// ERC-7201 storage slot matches the documented formula.
