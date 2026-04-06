@@ -34,8 +34,8 @@ contract StockSplitHarness {
         return LibCorporateAction.countCompleted();
     }
 
-    function getNode(uint256 actionId) external view returns (CorporateActionNode memory) {
-        return LibCorporateAction.getStorage().nodes[actionId];
+    function getNode(uint256 actionRef) external view returns (CorporateActionNode memory) {
+        return LibCorporateAction.getStorage().nodes[actionRef];
     }
 }
 
