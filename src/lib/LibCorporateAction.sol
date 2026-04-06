@@ -31,6 +31,8 @@ error UnknownActionType(bytes32 typeHash);
 /// among completed nodes is its monotonic ID. This is stable because new
 /// actions cannot be inserted in the past.
 struct CorporateActionNode {
+    /// Own position in the nodes array (immutable after creation).
+    uint256 index;
     /// Bitmap action type. Each type is a single bit (1 << n).
     uint256 actionType;
     /// When this action takes effect.
@@ -110,6 +112,7 @@ library LibCorporateAction {
         actionIndex = s.nodes.length - 1;
 
         CorporateActionNode storage node = s.nodes[actionIndex];
+        node.index = actionIndex;
         node.actionType = actionType;
         node.effectiveTime = effectiveTime;
         node.parameters = parameters;
@@ -175,36 +178,75 @@ library LibCorporateAction {
         node.effectiveTime = 0;
     }
 
-    /// @notice Walk forward from a cursor, returning the next completed node
-    /// whose actionType matches the given mask.
-    /// @param cursor 1-based index to start from (exclusive). Use 0 to start
-    /// from the head.
+    /// @notice Walk forward from `self`, returning the next completed node
+    /// whose actionType matches the given mask. Starts from `self.next`.
+    /// @param self The node to start walking from (exclusive).
     /// @param mask Bitmap mask to filter action types. Use type(uint256).max
     /// to match all types.
-    /// @return next The 1-based index of the next matching completed node,
-    /// or 0 if none.
-    function nextCompletedOfType(uint256 cursor, uint256 mask) internal view returns (uint256) {
+    /// @return The next matching completed node, or the sentinel (index == 0)
+    /// if none found.
+    function nextCompletedOfType(CorporateActionNode storage self, uint256 mask)
+        internal
+        view
+        returns (CorporateActionNode storage)
+    {
         CorporateActionStorage storage s = getStorage();
-        uint256 current = cursor == 0 ? s.head : s.nodes[cursor].next;
+        uint256 current = self.next;
 
         while (current != 0) {
             CorporateActionNode storage node = s.nodes[current];
             if (node.effectiveTime > block.timestamp) break;
-            if (node.actionType & mask != 0) return current;
+            if (node.actionType & mask != 0) return node;
             current = node.next;
         }
 
-        return 0;
+        return s.nodes[0];
     }
 
-    /// @notice Count completed actions by iterating with nextCompletedOfType.
+    /// @notice Return the first completed node matching the given mask,
+    /// starting from the head of the list.
+    /// @param mask Bitmap mask to filter action types. Use type(uint256).max
+    /// to match all types.
+    /// @return The first matching completed node, or the sentinel (index == 0)
+    /// if none found.
+    function firstCompletedOfType(uint256 mask) internal view returns (CorporateActionNode storage) {
+        CorporateActionStorage storage s = getStorage();
+        if (s.head == 0) return s.nodes[0];
+        CorporateActionNode storage node = s.nodes[s.head];
+        if (node.effectiveTime > block.timestamp) return s.nodes[0];
+        if (node.actionType & mask != 0) return node;
+        // Head doesn't match mask but is completed, check next.
+        return nextCompletedOfType(node, mask);
+    }
+
+    /// @notice Count completed actions by iterating with firstCompletedOfType
+    /// and nextCompletedOfType.
     function countCompleted() internal view returns (uint256 count) {
-        uint256 cursor = 0;
-        while (true) {
-            cursor = nextCompletedOfType(cursor, type(uint256).max);
-            if (cursor == 0) break;
+        CorporateActionStorage storage s = getStorage();
+        if (s.head == 0) return 0;
+        CorporateActionNode storage node = firstCompletedOfType(type(uint256).max);
+        while (node.index != 0) {
             count++;
+            node = nextCompletedOfType(node, type(uint256).max);
         }
+    }
+
+    /// @notice Return the head node of the list.
+    /// @dev Requires that at least one node has been scheduled (sentinel exists).
+    /// @return The head node, or the sentinel (index == 0) if the list is empty.
+    function headNode() internal view returns (CorporateActionNode storage) {
+        CorporateActionStorage storage s = getStorage();
+        if (s.head == 0) return s.nodes[0];
+        return s.nodes[s.head];
+    }
+
+    /// @notice Return the tail node of the list.
+    /// @dev Requires that at least one node has been scheduled (sentinel exists).
+    /// @return The tail node, or the sentinel (index == 0) if the list is empty.
+    function tailNode() internal view returns (CorporateActionNode storage) {
+        CorporateActionStorage storage s = getStorage();
+        if (s.tail == 0) return s.nodes[0];
+        return s.nodes[s.tail];
     }
 
     function head() internal view returns (uint256) {

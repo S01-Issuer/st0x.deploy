@@ -95,8 +95,13 @@ contract LibHarness {
         return LibCorporateAction.countCompleted();
     }
 
+    function firstCompletedOfType(uint256 mask) external view returns (uint256) {
+        return LibCorporateAction.firstCompletedOfType(mask).index;
+    }
+
     function nextCompletedOfType(uint256 cursor, uint256 mask) external view returns (uint256) {
-        return LibCorporateAction.nextCompletedOfType(cursor, mask);
+        LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
+        return LibCorporateAction.nextCompletedOfType(s.nodes[cursor], mask).index;
     }
 
     function getNode(uint256 actionIndex) external view returns (CorporateActionNode memory) {
@@ -357,13 +362,16 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(libHarness.countCompleted(), 2);
     }
 
-    /// nextCompletedOfType returns 0 on empty list.
-    function testNextCompletedOfTypeEmpty() external view {
-        assertEq(libHarness.nextCompletedOfType(0, type(uint256).max), 0);
+    /// firstCompletedOfType returns 0 on empty list.
+    function testFirstCompletedOfTypeEmpty() external {
+        // Schedule and cancel to ensure sentinel exists, leaving list empty.
+        uint256 id = libHarness.schedule(1, 1500, "");
+        libHarness.cancel(id);
+        assertEq(libHarness.firstCompletedOfType(type(uint256).max), 0);
     }
 
-    /// nextCompletedOfType walks forward and filters by mask.
-    function testNextCompletedOfTypeFilters() external {
+    /// firstCompletedOfType and nextCompletedOfType walk forward and filter by mask.
+    function testCompletedOfTypeFilters() external {
         libHarness.schedule(1, 1500, ""); // type 1
         libHarness.schedule(2, 2000, ""); // type 2
         libHarness.schedule(1, 2500, ""); // type 1
@@ -371,7 +379,7 @@ contract StoxCorporateActionsFacetTest is Test {
         vm.warp(3000);
 
         // First completed of type 1.
-        uint256 first = libHarness.nextCompletedOfType(0, 1);
+        uint256 first = libHarness.firstCompletedOfType(1);
         assertEq(first, 1);
 
         // Next completed of type 1 after cursor=1.
@@ -382,7 +390,7 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(libHarness.nextCompletedOfType(second, 1), 0);
 
         // Type 2.
-        assertEq(libHarness.nextCompletedOfType(0, 2), 2);
+        assertEq(libHarness.firstCompletedOfType(2), 2);
     }
 
     /// Fuzz: insertion ordering is always time-sorted.
