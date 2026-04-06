@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {CorporateActionNode} from "./LibCorporateActionNode.sol";
+import {CorporateActionNode, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
 
 /// @dev ERC-7201 namespaced storage location for corporate actions.
 /// keccak256(abi.encode(uint256(keccak256("rain.storage.corporate-action.1")) - 1)) & ~bytes32(uint256(0xff))
@@ -163,11 +163,11 @@ library LibCorporateAction {
     /// @notice Count completed actions by walking from the head.
     function countCompleted() internal view returns (uint256 count) {
         CorporateActionStorage storage s = getStorage();
-        uint256 current = s.head;
-        while (current != 0) {
-            if (s.nodes[current].effectiveTime > block.timestamp) break;
+        if (s.nodes.length == 0) return 0;
+        CorporateActionNode storage node = LibCorporateActionNode.nextCompletedOfType(s.nodes[0], type(uint256).max);
+        while (node.index != 0) {
             count++;
-            current = s.nodes[current].next;
+            node = LibCorporateActionNode.nextCompletedOfType(node, type(uint256).max);
         }
     }
 
