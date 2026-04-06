@@ -191,7 +191,7 @@ library LibCorporateAction {
         returns (CorporateActionNode storage)
     {
         CorporateActionStorage storage s = getStorage();
-        uint256 current = self.next;
+        uint256 current = self.index == 0 ? getStorage().head : self.next;
 
         while (current != 0) {
             CorporateActionNode storage node = s.nodes[current];
@@ -203,28 +203,12 @@ library LibCorporateAction {
         return s.nodes[0];
     }
 
-    /// @notice Return the first completed node matching the given mask,
-    /// starting from the head of the list.
-    /// @param mask Bitmap mask to filter action types. Use type(uint256).max
-    /// to match all types.
-    /// @return The first matching completed node, or the sentinel (index == 0)
-    /// if none found.
-    function firstCompletedOfType(uint256 mask) internal view returns (CorporateActionNode storage) {
-        CorporateActionStorage storage s = getStorage();
-        if (s.head == 0) return s.nodes[0];
-        CorporateActionNode storage node = s.nodes[s.head];
-        if (node.effectiveTime > block.timestamp) return s.nodes[0];
-        if (node.actionType & mask != 0) return node;
-        // Head doesn't match mask but is completed, check next.
-        return nextCompletedOfType(node, mask);
-    }
-
-    /// @notice Count completed actions by iterating with firstCompletedOfType
-    /// and nextCompletedOfType.
+    /// @notice Count completed actions by walking from the sentinel via
+    /// nextCompletedOfType.
     function countCompleted() internal view returns (uint256 count) {
         CorporateActionStorage storage s = getStorage();
         if (s.head == 0) return 0;
-        CorporateActionNode storage node = firstCompletedOfType(type(uint256).max);
+        CorporateActionNode storage node = nextCompletedOfType(s.nodes[0], type(uint256).max);
         while (node.index != 0) {
             count++;
             node = nextCompletedOfType(node, type(uint256).max);
