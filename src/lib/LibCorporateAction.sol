@@ -4,6 +4,8 @@ pragma solidity =0.8.25;
 
 import {CorporateActionNode, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
 
+using LibCorporateActionNode for CorporateActionNode;
+
 /// @dev ERC-7201 namespaced storage location for corporate actions.
 /// keccak256(abi.encode(uint256(keccak256("rain.storage.corporate-action.1")) - 1)) & ~bytes32(uint256(0xff))
 bytes32 constant CORPORATE_ACTION_STORAGE_LOCATION = 0xcce8b403dc927e3ec0218603a262b6c4fcc2985ab628bee1e65a6e26753c8300;
@@ -164,10 +166,10 @@ library LibCorporateAction {
     function countCompleted() internal view returns (uint256 count) {
         CorporateActionStorage storage s = getStorage();
         if (s.nodes.length == 0) return 0;
-        CorporateActionNode storage node = LibCorporateActionNode.nextCompletedOfType(s.nodes[0], type(uint256).max);
+        CorporateActionNode storage node = s.nodes[0].nextCompletedOfType(type(uint256).max);
         while (node.index != 0) {
             count++;
-            node = LibCorporateActionNode.nextCompletedOfType(node, type(uint256).max);
+            node = node.nextCompletedOfType(type(uint256).max);
         }
     }
 
