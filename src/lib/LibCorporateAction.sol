@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
+import {LibStockSplit} from "./LibStockSplit.sol";
 
 /// @dev ERC-7201 namespaced storage location for corporate actions.
 /// keccak256(abi.encode(uint256(keccak256("rain.storage.corporate-action.1")) - 1)) & ~bytes32(uint256(0xff))
@@ -13,6 +14,12 @@ bytes32 constant SCHEDULE_CORPORATE_ACTION = keccak256("SCHEDULE_CORPORATE_ACTIO
 
 /// @dev Permission hash for cancelling a corporate action via the authorizer.
 bytes32 constant CANCEL_CORPORATE_ACTION = keccak256("CANCEL_CORPORATE_ACTION");
+
+/// @dev External identifier for stock splits.
+bytes32 constant STOCK_SPLIT_TYPE_HASH = keccak256("StockSplit");
+
+/// @dev Bitmap action type for stock splits (forward and reverse).
+uint256 constant ACTION_TYPE_STOCK_SPLIT = 1 << 0;
 
 /// Thrown when scheduling an action with an effective time in the past.
 error EffectiveTimeInPast(uint64 effectiveTime, uint256 currentTime);
@@ -72,13 +79,18 @@ library LibCorporateAction {
 
     /// @notice Map an external type identifier to its internal bitmap and
     /// validate parameters. Reverts if the type hash is not recognised.
-    /// Subsequent PRs add concrete type mappings.
     /// @param typeHash External identifier, e.g. keccak256("StockSplit").
     /// @param parameters ABI-encoded parameters for the action type.
     /// @return actionType The internal bitmap for this type.
-    function resolveActionType(bytes32 typeHash, bytes memory parameters) internal pure returns (uint256 actionType) {
-        // Concrete types are added by subsequent PRs.
-        (actionType, parameters);
+    function resolveActionType(bytes32 typeHash, bytes memory parameters)
+        internal
+        pure
+        returns (uint256 actionType)
+    {
+        if (typeHash == STOCK_SPLIT_TYPE_HASH) {
+            LibStockSplit.validateParameters(parameters);
+            return ACTION_TYPE_STOCK_SPLIT;
+        }
         revert UnknownActionType(typeHash);
     }
 
