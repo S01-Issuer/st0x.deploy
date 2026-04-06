@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
+import {CorporateActionNode} from "./LibCorporateActionNode.sol";
+
 /// @dev ERC-7201 namespaced storage location for corporate actions.
 /// keccak256(abi.encode(uint256(keccak256("rain.storage.corporate-action.1")) - 1)) & ~bytes32(uint256(0xff))
 bytes32 constant CORPORATE_ACTION_STORAGE_LOCATION = 0xcce8b403dc927e3ec0218603a262b6c4fcc2985ab628bee1e65a6e26753c8300;
@@ -24,26 +26,6 @@ error ActionDoesNotExist(uint256 actionIndex);
 /// Thrown when the external type hash has no known bitmap mapping.
 /// @param typeHash The unrecognised external identifier.
 error UnknownActionType(bytes32 typeHash);
-
-/// @dev A corporate action node in the doubly linked list ordered by
-/// effectiveTime. There is no stored status — an action is "complete" when
-/// effectiveTime <= block.timestamp. Its positional index from the head
-/// among completed nodes is its monotonic ID. This is stable because new
-/// actions cannot be inserted in the past.
-struct CorporateActionNode {
-    /// Own position in the nodes array (immutable after creation).
-    uint256 index;
-    /// Bitmap action type. Each type is a single bit (1 << n).
-    uint256 actionType;
-    /// When this action takes effect.
-    uint64 effectiveTime;
-    /// Previous node in time-ordered list (1-based index, 0 = none).
-    uint256 prev;
-    /// Next node in time-ordered list (1-based index, 0 = none).
-    uint256 next;
-    /// ABI-encoded parameters specific to the action type.
-    bytes parameters;
-}
 
 /// @title LibCorporateAction
 /// @notice Library for corporate action diamond storage. Uses ERC-7201
@@ -178,40 +160,14 @@ library LibCorporateAction {
         node.effectiveTime = 0;
     }
 
-    /// @notice Walk forward from `self`, returning the next completed node
-    /// whose actionType matches the given mask. Starts from `self.next`.
-    /// @param self The node to start walking from (exclusive).
-    /// @param mask Bitmap mask to filter action types. Use type(uint256).max
-    /// to match all types.
-    /// @return The next matching completed node, or the sentinel (index == 0)
-    /// if none found.
-    function nextCompletedOfType(CorporateActionNode storage self, uint256 mask)
-        internal
-        view
-        returns (CorporateActionNode storage)
-    {
-        CorporateActionStorage storage s = getStorage();
-        uint256 current = self.index == 0 ? getStorage().head : self.next;
-
-        while (current != 0) {
-            CorporateActionNode storage node = s.nodes[current];
-            if (node.effectiveTime > block.timestamp) break;
-            if (node.actionType & mask != 0) return node;
-            current = node.next;
-        }
-
-        return s.nodes[0];
-    }
-
-    /// @notice Count completed actions by walking from the sentinel via
-    /// nextCompletedOfType.
+    /// @notice Count completed actions by walking from the head.
     function countCompleted() internal view returns (uint256 count) {
         CorporateActionStorage storage s = getStorage();
-        if (s.head == 0) return 0;
-        CorporateActionNode storage node = nextCompletedOfType(s.nodes[0], type(uint256).max);
-        while (node.index != 0) {
+        uint256 current = s.head;
+        while (current != 0) {
+            if (s.nodes[current].effectiveTime > block.timestamp) break;
             count++;
-            node = nextCompletedOfType(node, type(uint256).max);
+            current = s.nodes[current].next;
         }
     }
 

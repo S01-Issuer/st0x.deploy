@@ -6,7 +6,6 @@ import {Test} from "forge-std/Test.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {
     LibCorporateAction,
-    CorporateActionNode,
     CORPORATE_ACTION_STORAGE_LOCATION,
     SCHEDULE_CORPORATE_ACTION,
     CANCEL_CORPORATE_ACTION,
@@ -16,6 +15,7 @@ import {
     ActionDoesNotExist
 } from "../../../src/lib/LibCorporateAction.sol";
 import {IAuthorizeV1, Unauthorized} from "ethgild/interface/IAuthorizeV1.sol";
+import {CorporateActionNode, LibCorporateActionNode} from "../../../src/lib/LibCorporateActionNode.sol";
 
 /// @dev Mock authorizer used by the facet tests. Records the most recent
 /// `authorize` call so tests can assert the per-action context that the facet
@@ -97,7 +97,7 @@ contract LibHarness {
 
     function nextCompletedOfType(uint256 cursor, uint256 mask) external view returns (uint256) {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        return LibCorporateAction.nextCompletedOfType(s.nodes[cursor], mask).index;
+        return LibCorporateActionNode.nextCompletedOfType(s.nodes[cursor], mask).index;
     }
 
     function getNode(uint256 actionIndex) external view returns (CorporateActionNode memory) {
@@ -209,11 +209,14 @@ contract StoxCorporateActionsFacetTest is Test {
         );
 
         vm.prank(ALICE);
-        // ignore return value — cancel may revert on PR2+ for non-existent index
-        // forge-lint: disable-next-line(unchecked-call)
-        address(facetViaHarness).call(
+        // The outer call may revert on PR2+ where cancel actually checks the
+        // index. We deliberately discard the success flag because what matters
+        // for this test is that the authorizer was called (asserted by
+        // vm.expectCall above), not whether the cancel itself succeeded.
+        (bool success,) = address(facetViaHarness).call(
             abi.encodeWithSelector(StoxCorporateActionsFacet.cancelCorporateAction.selector, actionIndex)
         );
+        success; // silence unused-var warning
     }
 
     /// `scheduleCorporateAction` propagates the authorizer's revert when the
