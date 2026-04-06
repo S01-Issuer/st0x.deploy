@@ -26,8 +26,9 @@ contract StockSplitHarness {
         return LibCorporateAction.resolveActionType(typeHash, parameters);
     }
 
-    function firstCompletedOfType(uint256 mask) external view returns (uint256) {
-        return LibCorporateAction.firstCompletedOfType(mask).index;
+    function nextCompletedOfType(uint256 cursor, uint256 mask) external view returns (uint256) {
+        LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
+        return LibCorporateAction.nextCompletedOfType(s.nodes[cursor], mask).index;
     }
 
     function countCompleted() external view returns (uint256) {
@@ -127,7 +128,7 @@ contract LibStockSplitLifecycleTest is Test {
         vm.warp(2000);
         assertEq(h.countCompleted(), 1);
 
-        uint256 completed = h.firstCompletedOfType(ACTION_TYPE_STOCK_SPLIT);
+        uint256 completed = h.nextCompletedOfType(0, ACTION_TYPE_STOCK_SPLIT);
         assertEq(completed, 1);
 
         CorporateActionNode memory node = h.getNode(1);
