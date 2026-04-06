@@ -67,6 +67,13 @@ library LibCorporateAction {
         /// Per-account migration cursor — the 1-based index of the last
         /// node this account was migrated through.
         mapping(address => uint256) accountMigrationCursor;
+        /// Aggregate supply with multipliers applied eagerly to the sum.
+        uint256 totalUnmigrated;
+        /// Sum of exact rasterized balances for migrated accounts.
+        uint256 totalMigrated;
+        /// 1-based index of the last completed node that totalSupply has been
+        /// folded through.
+        uint256 totalSupplyCursor;
     }
 
     /// @dev Accessor for corporate action storage at the ERC-7201 slot.
