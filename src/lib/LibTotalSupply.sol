@@ -79,8 +79,6 @@ library LibTotalSupply {
         if (s.totalSupplyBootstrapped) {
             running = s.unmigrated[0];
         } else {
-            // Not yet bootstrapped. If no completed splits exist, fall back
-            // to OZ. Otherwise, use OZ as the bootstrap value virtually.
             uint256 firstIndex = LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT, true);
             if (firstIndex == 0) {
                 return LibERC20Storage.getTotalSupply();
@@ -107,12 +105,6 @@ library LibTotalSupply {
 
     /// @notice Bootstrap totalSupply tracking and update the latest split
     /// cursor. Must be called in `_update` before any account migrations.
-    ///
-    /// On first completed split: reads OZ's `_totalSupply` into
-    /// `unmigrated[0]` and sets the bootstrap flag.
-    ///
-    /// On every call: advances `totalSupplyLatestSplit` to the latest
-    /// completed split, which determines where mint/burn amounts are tracked.
     function fold() internal {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
 
@@ -139,7 +131,6 @@ library LibTotalSupply {
     }
 
     /// @notice Update tracking when an account is migrated.
-    /// Moves the account's balance from the old cursor pot to the new one.
     /// @param fromCursor The account's cursor before migration.
     /// @param storedBalance The account's stored balance before migration.
     /// @param toCursor The account's cursor after migration.
