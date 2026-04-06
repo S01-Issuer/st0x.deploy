@@ -16,9 +16,9 @@ import {OffchainAssetReceiptVault} from "ethgild/concrete/vault/OffchainAssetRec
 /// Subsequent PRs add the linked list, scheduling, and query functions.
 contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     event CorporateActionScheduled(
-        address indexed sender, uint256 indexed actionId, uint256 actionType, uint64 effectiveTime
+        address indexed sender, uint256 indexed actionRef, uint256 actionType, uint64 effectiveTime
     );
-    event CorporateActionCancelled(address indexed sender, uint256 indexed actionId);
+    event CorporateActionCancelled(address indexed sender, uint256 indexed actionRef);
 
     /// @inheritdoc ICorporateActionsV1
     function completedActionCount() external pure override returns (uint256) {
@@ -29,19 +29,19 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     function scheduleCorporateAction(bytes32 typeHash, uint64 effectiveTime, bytes calldata parameters)
         external
         override
-        returns (uint256 actionId)
+        returns (uint256 actionRef)
     {
         _authorize(msg.sender, SCHEDULE_CORPORATE_ACTION);
         uint256 actionType = LibCorporateAction.resolveActionType(typeHash, parameters);
-        actionId = LibCorporateAction.schedule(actionType, effectiveTime, parameters);
-        emit CorporateActionScheduled(msg.sender, actionId, actionType, effectiveTime);
+        actionRef = LibCorporateAction.schedule(actionType, effectiveTime, parameters);
+        emit CorporateActionScheduled(msg.sender, actionRef, actionType, effectiveTime);
     }
 
     /// @inheritdoc ICorporateActionsV1
-    function cancelCorporateAction(uint256 actionId) external override {
+    function cancelCorporateAction(uint256 actionRef) external override {
         _authorize(msg.sender, CANCEL_CORPORATE_ACTION);
-        LibCorporateAction.cancel(actionId);
-        emit CorporateActionCancelled(msg.sender, actionId);
+        LibCorporateAction.cancel(actionRef);
+        emit CorporateActionCancelled(msg.sender, actionRef);
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is

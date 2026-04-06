@@ -54,8 +54,8 @@ library LibCorporateAction {
     }
 
     /// @notice Skeleton schedule function. Real implementation comes in PR2.
-    /// @return actionId Always returns 0 in this placeholder.
-    function schedule(uint256, uint64, bytes memory) internal pure returns (uint256 actionId) {
+    /// @return actionRef Always returns 0 in this placeholder.
+    function schedule(uint256, uint64, bytes memory) internal pure returns (uint256 actionRef) {
         return 0;
     }
 

@@ -15,14 +15,14 @@ interface ICorporateActionsV1 {
     /// keccak256("StockSplit"). Resolved to an internal bitmap by the lib.
     /// @param effectiveTime When the action takes effect. Must be in the future.
     /// @param parameters ABI-encoded parameters specific to the action type.
-    /// @return actionId Stable identifier for this action.
+    /// @return actionRef Handle for the scheduled action.
     function scheduleCorporateAction(bytes32 typeHash, uint64 effectiveTime, bytes calldata parameters)
         external
-        returns (uint256 actionId);
+        returns (uint256 actionRef);
 
     /// @notice Cancel a scheduled action whose effectiveTime hasn't passed.
-    /// @param actionId The action to cancel.
-    function cancelCorporateAction(uint256 actionId) external;
+    /// @param actionRef The scheduled action handle to cancel.
+    function cancelCorporateAction(uint256 actionRef) external;
 
     /// @notice Count of all completed corporate actions. An action is complete
     /// when its effectiveTime has passed. The Nth completed action has
