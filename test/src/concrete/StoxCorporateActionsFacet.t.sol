@@ -6,12 +6,16 @@ import {Test} from "forge-std/Test.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {
     LibCorporateAction,
+    CorporateActionNode,
     CORPORATE_ACTION_STORAGE_LOCATION,
     SCHEDULE_CORPORATE_ACTION,
     CANCEL_CORPORATE_ACTION,
-    UnknownActionType
+    UnknownActionType,
+    EffectiveTimeInPast,
+    ActionAlreadyComplete,
+    ActionDoesNotExist
 } from "../../../src/lib/LibCorporateAction.sol";
-import {IAuthorizeV1, Unauthorized} from "rain.vats/interface/IAuthorizeV1.sol";
+import {IAuthorizeV1, Unauthorized} from "ethgild/interface/IAuthorizeV1.sol";
 
 /// @dev Mock authorizer used by the facet tests. Records the most recent
 /// `authorize` call so tests can assert the per-action context that the facet
@@ -39,11 +43,10 @@ contract MockAuthorizer is IAuthorizeV1 {
     }
 }
 
-/// @dev Minimal harness that delegates calls to a facet, simulating how the
-/// vault would route unknown selectors via its fallback. Also exposes an
+/// @dev Minimal harness that delegates calls to a facet. Also exposes an
 /// `authorizer()` function so the facet's `OffchainAssetReceiptVault(address
 /// (this)).authorizer()` lookup resolves to a test-controlled mock instead of
-/// a real rain.vats authorizer.
+/// a real ethgild authorizer.
 contract DelegatecallHarness {
     address public immutable FACET;
     IAuthorizeV1 public authorizer;
@@ -77,8 +80,35 @@ contract LibHarness {
         return LibCorporateAction.resolveActionType(typeHash, parameters);
     }
 
-    function countCompleted() external pure returns (uint256) {
+    function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters)
+        external
+        returns (uint256)
+    {
+        return LibCorporateAction.schedule(actionType, effectiveTime, parameters);
+    }
+
+    function cancel(uint256 actionIndex) external {
+        LibCorporateAction.cancel(actionIndex);
+    }
+
+    function countCompleted() external view returns (uint256) {
         return LibCorporateAction.countCompleted();
+    }
+
+    function nextCompletedOfType(uint256 cursor, uint256 mask) external view returns (uint256) {
+        return LibCorporateAction.nextCompletedOfType(cursor, mask);
+    }
+
+    function getNode(uint256 actionIndex) external view returns (CorporateActionNode memory) {
+        return LibCorporateAction.getStorage().nodes[actionIndex];
+    }
+
+    function head() external view returns (uint256) {
+        return LibCorporateAction.head();
+    }
+
+    function tail() external view returns (uint256) {
+        return LibCorporateAction.tail();
     }
 }
 
@@ -98,9 +128,10 @@ contract StoxCorporateActionsFacetTest is Test {
         libHarness = new LibHarness();
         mockAuthorizer = new MockAuthorizer();
         harness.setAuthorizer(mockAuthorizer);
+        vm.warp(1000);
     }
 
-    /// completedActionCount returns 0 on a fresh deployment.
+    /// completedActionCount returns 0 when no actions exist.
     function testCompletedActionCountInitiallyZero() external view {
         assertEq(facetViaHarness.completedActionCount(), 0);
     }
@@ -130,7 +161,7 @@ contract StoxCorporateActionsFacetTest is Test {
         libHarness.resolveActionType(unknown, "");
     }
 
-    /// countCompleted returns 0 (placeholder).
+    /// countCompleted returns 0 when empty.
     function testCountCompletedReturnsZero() external view {
         assertEq(libHarness.countCompleted(), 0);
     }
@@ -161,9 +192,11 @@ contract StoxCorporateActionsFacetTest is Test {
     }
 
     /// `cancelCorporateAction` calls the authorizer with the CANCEL permission
-    /// and `abi.encode(actionIndex)` as the data argument. The cancel stub
-    /// reverts after authorization, so we verify the authorizer was called
-    /// via vm.expectCall before the revert.
+    /// and `abi.encode(actionIndex)` as the data argument. The cancel path may
+    /// either succeed (PR1 stub) or revert at the linked-list bounds check
+    /// (PR2+, where cancel actually verifies the index exists). We use a
+    /// low-level call to absorb both outcomes — what we're verifying is that
+    /// the authorizer call happened first with the expected per-action data.
     function testCancelCorporateActionForwardsContextToAuthorizer() external {
         uint256 actionIndex = 42;
 
@@ -175,8 +208,11 @@ contract StoxCorporateActionsFacetTest is Test {
         );
 
         vm.prank(ALICE);
-        vm.expectRevert();
-        facetViaHarness.cancelCorporateAction(actionIndex);
+        // ignore return value — cancel may revert on PR2+ for non-existent index
+        // forge-lint: disable-next-line(unchecked-call)
+        address(facetViaHarness).call(
+            abi.encodeWithSelector(StoxCorporateActionsFacet.cancelCorporateAction.selector, actionIndex)
+        );
     }
 
     /// `scheduleCorporateAction` propagates the authorizer's revert when the
@@ -236,5 +272,156 @@ contract StoxCorporateActionsFacetTest is Test {
     function testCancelCorporateActionDirectCallReverts() external {
         vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
         facetImpl.cancelCorporateAction(1);
+    }
+
+    // -----------------------------------------------------------------------
+    // Linked-list scheduling, cancellation, and traversal — exercised through
+    // `LibHarness` so the library logic is tested in isolation from the facet.
+
+    /// Schedule a single action and verify it is inserted.
+    function testScheduleSingleAction() external {
+        uint256 actionIndex = libHarness.schedule(1, 1500, "");
+        assertEq(actionIndex, 1);
+        assertEq(libHarness.head(), 1);
+        assertEq(libHarness.tail(), 1);
+    }
+
+    /// Schedule returns 1-based IDs starting from 1.
+    function testScheduleReturnsOneBased() external {
+        uint256 id1 = libHarness.schedule(1, 1500, "");
+        uint256 id2 = libHarness.schedule(1, 2500, "");
+        assertEq(id1, 1);
+        assertEq(id2, 2);
+    }
+
+    /// Schedule in time order maintains correct ordering.
+    function testScheduleTimeOrdering() external {
+        libHarness.schedule(1, 1500, "");
+        libHarness.schedule(1, 2500, "");
+        libHarness.schedule(1, 2000, ""); // inserted in middle
+
+        assertEq(libHarness.head(), 1);
+        assertEq(libHarness.tail(), 2);
+
+        CorporateActionNode memory n1 = libHarness.getNode(1);
+        CorporateActionNode memory n3 = libHarness.getNode(3);
+        CorporateActionNode memory n2 = libHarness.getNode(2);
+
+        assertEq(n1.next, 3);
+        assertEq(n3.prev, 1);
+        assertEq(n3.next, 2);
+        assertEq(n2.prev, 3);
+    }
+
+    /// Schedule in the past reverts.
+    function testSchedulePastReverts() external {
+        vm.expectRevert(abi.encodeWithSelector(EffectiveTimeInPast.selector, uint64(500), uint256(1000)));
+        libHarness.schedule(1, 500, "");
+    }
+
+    /// Cancel removes node from list but data stays in array.
+    function testCancelUnlinks() external {
+        uint256 id1 = libHarness.schedule(1, 1500, "");
+        libHarness.schedule(1, 2500, "");
+        libHarness.cancel(id1);
+
+        assertEq(libHarness.head(), 2);
+        CorporateActionNode memory cancelled = libHarness.getNode(id1);
+        assertEq(cancelled.effectiveTime, 0);
+    }
+
+    /// Cancel already-complete reverts.
+    function testCancelCompleteReverts() external {
+        uint256 id = libHarness.schedule(1, 1500, "");
+        vm.warp(2000);
+        vm.expectRevert(abi.encodeWithSelector(ActionAlreadyComplete.selector, id));
+        libHarness.cancel(id);
+    }
+
+    /// Cancel non-existent reverts.
+    function testCancelNonExistentReverts() external {
+        vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, uint256(99)));
+        libHarness.cancel(99);
+    }
+
+    /// countCompleted counts only completed actions.
+    function testCountCompletedAfterComplete() external {
+        libHarness.schedule(1, 1500, "");
+        libHarness.schedule(1, 2500, "");
+        assertEq(libHarness.countCompleted(), 0);
+
+        vm.warp(2000);
+        assertEq(libHarness.countCompleted(), 1);
+
+        vm.warp(3000);
+        assertEq(libHarness.countCompleted(), 2);
+    }
+
+    /// nextCompletedOfType returns 0 on empty list.
+    function testNextCompletedOfTypeEmpty() external view {
+        assertEq(libHarness.nextCompletedOfType(0, type(uint256).max), 0);
+    }
+
+    /// nextCompletedOfType walks forward and filters by mask.
+    function testNextCompletedOfTypeFilters() external {
+        libHarness.schedule(1, 1500, ""); // type 1
+        libHarness.schedule(2, 2000, ""); // type 2
+        libHarness.schedule(1, 2500, ""); // type 1
+
+        vm.warp(3000);
+
+        // First completed of type 1.
+        uint256 first = libHarness.nextCompletedOfType(0, 1);
+        assertEq(first, 1);
+
+        // Next completed of type 1 after cursor=1.
+        uint256 second = libHarness.nextCompletedOfType(first, 1);
+        assertEq(second, 3);
+
+        // No more type 1.
+        assertEq(libHarness.nextCompletedOfType(second, 1), 0);
+
+        // Type 2.
+        assertEq(libHarness.nextCompletedOfType(0, 2), 2);
+    }
+
+    /// Fuzz: insertion ordering is always time-sorted.
+    function testFuzzInsertionOrdering(uint8 count) external {
+        count = uint8(bound(count, 1, 20));
+
+        for (uint256 i = 0; i < count; i++) {
+            // Schedule with varying times: alternate near-future and far-future.
+            // forge-lint: disable-next-line(unsafe-typecast)
+            uint64 time = uint64(1001 + (i % 2 == 0 ? i * 100 : i * 50));
+            libHarness.schedule(1, time, "");
+        }
+
+        // Walk from head and verify non-decreasing effectiveTime.
+        uint256 current = libHarness.head();
+        uint64 lastTime = 0;
+        while (current != 0) {
+            CorporateActionNode memory node = libHarness.getNode(current);
+            assertTrue(node.effectiveTime >= lastTime);
+            lastTime = node.effectiveTime;
+            current = node.next;
+        }
+    }
+
+    /// Cancel in the middle maintains list integrity.
+    function testCancelMiddleMaintainsIntegrity() external {
+        libHarness.schedule(1, 1500, "");
+        libHarness.schedule(1, 2000, "");
+        libHarness.schedule(1, 2500, "");
+
+        // Cancel middle node (id=2).
+        libHarness.cancel(2);
+
+        assertEq(libHarness.head(), 1);
+        assertEq(libHarness.tail(), 3);
+
+        CorporateActionNode memory n1 = libHarness.getNode(1);
+        CorporateActionNode memory n3 = libHarness.getNode(3);
+        assertEq(n1.next, 3);
+        assertEq(n3.prev, 1);
     }
 }

@@ -12,21 +12,59 @@ bytes32 constant SCHEDULE_CORPORATE_ACTION = keccak256("SCHEDULE_CORPORATE_ACTIO
 /// @dev Permission hash for cancelling a corporate action via the authorizer.
 bytes32 constant CANCEL_CORPORATE_ACTION = keccak256("CANCEL_CORPORATE_ACTION");
 
+/// Thrown when scheduling an action with an effective time in the past.
+error EffectiveTimeInPast(uint64 effectiveTime, uint256 currentTime);
+
+/// Thrown when trying to cancel an action whose effectiveTime has passed.
+error ActionAlreadyComplete(uint256 actionIndex);
+
+/// Thrown when referencing an action that does not exist.
+error ActionDoesNotExist(uint256 actionIndex);
+
 /// Thrown when the external type hash has no known bitmap mapping.
 /// @param typeHash The unrecognised external identifier.
 error UnknownActionType(bytes32 typeHash);
 
+/// @dev A corporate action node in the doubly linked list ordered by
+/// effectiveTime. There is no stored status — an action is "complete" when
+/// effectiveTime <= block.timestamp. Its positional index from the head
+/// among completed nodes is its monotonic ID. This is stable because new
+/// actions cannot be inserted in the past.
+struct CorporateActionNode {
+    /// Bitmap action type. Each type is a single bit (1 << n).
+    uint256 actionType;
+    /// When this action takes effect.
+    uint64 effectiveTime;
+    /// Previous node in time-ordered list (1-based index, 0 = none).
+    uint256 prev;
+    /// Next node in time-ordered list (1-based index, 0 = none).
+    uint256 next;
+    /// ABI-encoded parameters specific to the action type.
+    bytes parameters;
+}
+
 /// @title LibCorporateAction
 /// @notice Library for corporate action diamond storage. Uses ERC-7201
 /// namespaced storage to avoid collisions with existing vault storage slots.
-/// PR1 establishes the storage slot, accessor, and skeleton functions.
-/// The struct grows as subsequent PRs add the linked list and rebase logic.
+/// Manages a doubly linked list of corporate actions ordered by effectiveTime.
+/// There is no stored status or counters — an action is complete when its
+/// effectiveTime is less than or equal to the current block timestamp.
+///
+/// Nodes are stored in a dynamic array. Index 0 is a sentinel (never used for
+/// real data). Real nodes start at index 1. Head/tail/prev/next are 1-based
+/// indices where 0 means "none".
 library LibCorporateAction {
     /// @custom:storage-location erc7201:rain.storage.corporate-action.1
-    /// PR2 replaces the placeholder with linked list fields. The placeholder
-    /// cannot be written in PR1 because all storage-touching functions revert.
     struct CorporateActionStorage {
-        uint256 _placeholder;
+        /// Head of the list (1-based index, earliest effectiveTime). 0 = empty.
+        uint256 head;
+        /// Tail of the list (1-based index, latest effectiveTime). 0 = empty.
+        uint256 tail;
+        /// Node storage. Index 0 is a sentinel. Real nodes start at index 1.
+        CorporateActionNode[] nodes;
+        /// Per-account migration cursor — the 1-based index of the last
+        /// node this account was migrated through.
+        mapping(address => uint256) accountMigrationCursor;
     }
 
     /// @dev Accessor for corporate action storage at the ERC-7201 slot.
@@ -49,21 +87,131 @@ library LibCorporateAction {
         revert UnknownActionType(typeHash);
     }
 
-    /// @notice Skeleton schedule function. Reverts until PR2 implements the
-    /// linked list.
-    function schedule(uint256, uint64, bytes memory) internal pure returns (uint256) {
-        revert();
+    /// @notice Insert a node into the list maintaining time ordering.
+    /// effectiveTime must be strictly in the future.
+    /// @return actionIndex The 1-based array index of the new node.
+    function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters)
+        internal
+        returns (uint256 actionIndex)
+    {
+        if (effectiveTime <= block.timestamp) {
+            revert EffectiveTimeInPast(effectiveTime, block.timestamp);
+        }
+
+        CorporateActionStorage storage s = getStorage();
+
+        // Push sentinel at index 0 on first use.
+        if (s.nodes.length == 0) {
+            s.nodes.push();
+        }
+
+        // Push new node — its index is the actionIndex.
+        s.nodes.push();
+        actionIndex = s.nodes.length - 1;
+
+        CorporateActionNode storage node = s.nodes[actionIndex];
+        node.actionType = actionType;
+        node.effectiveTime = effectiveTime;
+        node.parameters = parameters;
+
+        if (s.tail == 0) {
+            s.head = actionIndex;
+            s.tail = actionIndex;
+        } else {
+            // Walk backwards from tail to find correct position.
+            uint256 current = s.tail;
+            while (current != 0) {
+                if (s.nodes[current].effectiveTime <= effectiveTime) {
+                    uint256 afterCurrent = s.nodes[current].next;
+                    s.nodes[current].next = actionIndex;
+                    node.prev = current;
+                    node.next = afterCurrent;
+                    if (afterCurrent != 0) {
+                        s.nodes[afterCurrent].prev = actionIndex;
+                    } else {
+                        s.tail = actionIndex;
+                    }
+                    return actionIndex;
+                }
+                current = s.nodes[current].prev;
+            }
+            // Goes before the current head.
+            node.next = s.head;
+            s.nodes[s.head].prev = actionIndex;
+            s.head = actionIndex;
+        }
     }
 
-    /// @notice Skeleton cancel function. Reverts until PR2 implements the
-    /// linked list.
-    function cancel(uint256) internal pure {
-        revert();
+    /// @notice Unlink a scheduled node from the list. Reverts if the action
+    /// is already complete or does not exist. The node data remains in the
+    /// array but is no longer reachable via the linked list.
+    function cancel(uint256 actionIndex) internal {
+        CorporateActionStorage storage s = getStorage();
+        if (actionIndex == 0 || actionIndex >= s.nodes.length) revert ActionDoesNotExist(actionIndex);
+
+        CorporateActionNode storage node = s.nodes[actionIndex];
+
+        if (node.effectiveTime == 0) revert ActionDoesNotExist(actionIndex);
+        if (node.effectiveTime <= block.timestamp) revert ActionAlreadyComplete(actionIndex);
+
+        uint256 prevId = node.prev;
+        uint256 nextId = node.next;
+
+        if (prevId != 0) {
+            s.nodes[prevId].next = nextId;
+        } else {
+            s.head = nextId;
+        }
+
+        if (nextId != 0) {
+            s.nodes[nextId].prev = prevId;
+        } else {
+            s.tail = prevId;
+        }
+
+        // Unlink only — do NOT delete node data from storage.
+        node.prev = 0;
+        node.next = 0;
+        node.effectiveTime = 0;
     }
 
-    /// @notice Count completed actions. Returns 0 in this placeholder — the
-    /// real implementation walks the linked list in PR2.
-    function countCompleted() internal pure returns (uint256) {
+    /// @notice Walk forward from a cursor, returning the next completed node
+    /// whose actionType matches the given mask.
+    /// @param cursor 1-based index to start from (exclusive). Use 0 to start
+    /// from the head.
+    /// @param mask Bitmap mask to filter action types. Use type(uint256).max
+    /// to match all types.
+    /// @return next The 1-based index of the next matching completed node,
+    /// or 0 if none.
+    function nextCompletedOfType(uint256 cursor, uint256 mask) internal view returns (uint256) {
+        CorporateActionStorage storage s = getStorage();
+        uint256 current = cursor == 0 ? s.head : s.nodes[cursor].next;
+
+        while (current != 0) {
+            CorporateActionNode storage node = s.nodes[current];
+            if (node.effectiveTime > block.timestamp) break;
+            if (node.actionType & mask != 0) return current;
+            current = node.next;
+        }
+
         return 0;
+    }
+
+    /// @notice Count completed actions by iterating with nextCompletedOfType.
+    function countCompleted() internal view returns (uint256 count) {
+        uint256 cursor = 0;
+        while (true) {
+            cursor = nextCompletedOfType(cursor, type(uint256).max);
+            if (cursor == 0) break;
+            count++;
+        }
+    }
+
+    function head() internal view returns (uint256) {
+        return getStorage().head;
+    }
+
+    function tail() internal view returns (uint256) {
+        return getStorage().tail;
     }
 }

@@ -8,9 +8,7 @@ import {IAuthorizeV1} from "rain.vats/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetReceiptVault.sol";
 
 /// @title StoxCorporateActionsFacet
-/// @notice Diamond facet for corporate actions on the vault. This facet shares
-/// the vault's storage space via ERC-7201 namespaced storage, so it can be
-/// delegatecalled from the vault's fallback without storage collisions.
+/// @notice Diamond facet implementing the corporate action linked list.
 /// @dev MUST be delegatecalled by an `OffchainAssetReceiptVault`-derived
 /// contract. Every external entry point carries the `onlyDelegatecalled`
 /// modifier, which reads the immutable `_SELF` (set to `address(this)` at
@@ -21,9 +19,10 @@ import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetR
 /// to resolve on a standalone deployment — the guard fires even for pure
 /// view getters that would not otherwise reach the authorizer lookup.
 ///
-/// PR1 establishes the facet architecture and authorization wiring.
-/// Subsequent PRs add the linked list, scheduling, and query functions,
-/// each of which must also carry `onlyDelegatecalled`.
+/// Storage lives at the ERC-7201 namespace `rain.storage.corporate-action.1`
+/// (see `LibCorporateAction`). Subsequent PRs add additional external entry
+/// points (linked-list traversal, etc.), each of which must also carry
+/// `onlyDelegatecalled`.
 contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     /// @notice Thrown when a function is called directly on the standalone
     /// facet deployment rather than via delegatecall from the vault.
