@@ -12,11 +12,15 @@ bytes32 constant SCHEDULE_CORPORATE_ACTION = keccak256("SCHEDULE_CORPORATE_ACTIO
 /// @dev Permission hash for cancelling a corporate action via the authorizer.
 bytes32 constant CANCEL_CORPORATE_ACTION = keccak256("CANCEL_CORPORATE_ACTION");
 
+/// Thrown when the external type hash has no known bitmap mapping.
+/// @param typeHash The unrecognised external identifier.
+error UnknownActionType(bytes32 typeHash);
+
 /// @title LibCorporateAction
 /// @notice Library for corporate action diamond storage. Uses ERC-7201
 /// namespaced storage to avoid collisions with existing vault storage slots.
-/// PR1 establishes the storage slot and accessor. The struct grows as
-/// subsequent PRs add the linked list and rebase logic.
+/// PR1 establishes the storage slot, accessor, and skeleton functions.
+/// The struct grows as subsequent PRs add the linked list and rebase logic.
 library LibCorporateAction {
     /// @custom:storage-location erc7201:rain.storage.corporate-action.1
     struct CorporateActionStorage {
@@ -31,5 +35,36 @@ library LibCorporateAction {
         assembly ("memory-safe") {
             s.slot := position
         }
+    }
+
+    /// @notice Map an external type identifier to its internal bitmap and
+    /// validate parameters. Reverts if the type hash is not recognised.
+    /// Subsequent PRs add concrete type mappings.
+    /// @param typeHash External identifier, e.g. keccak256("StockSplit").
+    /// @param parameters ABI-encoded parameters for the action type.
+    /// @return actionType The internal bitmap for this type.
+    function resolveActionType(bytes32 typeHash, bytes memory parameters)
+        internal
+        pure
+        returns (uint256 actionType)
+    {
+        // Concrete types are added by subsequent PRs.
+        (actionType, parameters);
+        revert UnknownActionType(typeHash);
+    }
+
+    /// @notice Skeleton schedule function. Real implementation comes in PR2.
+    /// @return actionId Always returns 0 in this placeholder.
+    function schedule(uint256, uint64, bytes memory) internal pure returns (uint256 actionId) {
+        return 0;
+    }
+
+    /// @notice Skeleton cancel function. Real implementation comes in PR2.
+    function cancel(uint256) internal pure {}
+
+    /// @notice Count completed actions. Returns 0 in this placeholder — the
+    /// real implementation walks the linked list in PR2.
+    function countCompleted() internal pure returns (uint256) {
+        return 0;
     }
 }

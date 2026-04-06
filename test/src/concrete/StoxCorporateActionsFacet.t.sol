@@ -8,7 +8,8 @@ import {
     LibCorporateAction,
     CORPORATE_ACTION_STORAGE_LOCATION,
     SCHEDULE_CORPORATE_ACTION,
-    CANCEL_CORPORATE_ACTION
+    CANCEL_CORPORATE_ACTION,
+    UnknownActionType
 } from "../../../src/lib/LibCorporateAction.sol";
 
 /// @dev Minimal harness that delegates calls to a facet, simulating how the
@@ -35,41 +36,38 @@ contract DelegatecallHarness {
     receive() external payable {}
 }
 
+/// @dev Harness to test library functions directly.
+contract LibHarness {
+    function resolveActionType(bytes32 typeHash, bytes memory parameters) external pure returns (uint256) {
+        return LibCorporateAction.resolveActionType(typeHash, parameters);
+    }
+
+    function countCompleted() external pure returns (uint256) {
+        return LibCorporateAction.countCompleted();
+    }
+}
+
 contract StoxCorporateActionsFacetTest is Test {
     StoxCorporateActionsFacet internal facetImpl;
     DelegatecallHarness internal harness;
     StoxCorporateActionsFacet internal facetViaHarness;
+    LibHarness internal libHarness;
 
     function setUp() public {
         facetImpl = new StoxCorporateActionsFacet();
         harness = new DelegatecallHarness(address(facetImpl));
         facetViaHarness = StoxCorporateActionsFacet(address(harness));
+        libHarness = new LibHarness();
     }
 
-    /// Placeholder returns 0 on a fresh deployment.
-    function testPlaceholderInitiallyZero() external view {
-        assertEq(facetViaHarness.placeholder(), 0);
+    /// completedActionCount returns 0 on a fresh deployment.
+    function testCompletedActionCountInitiallyZero() external view {
+        assertEq(facetViaHarness.completedActionCount(), 0);
     }
 
     /// Facet routing via delegatecall works.
     function testFacetRoutingViaDelegatecall() external view {
-        assertEq(facetViaHarness.placeholder(), 0);
-    }
-
-    /// Storage isolation: two harnesses sharing the same facet impl have
-    /// independent storage because delegatecall uses the caller's storage.
-    function testStorageIsolationBetweenHarnesses() external {
-        DelegatecallHarness harness2 = new DelegatecallHarness(address(facetImpl));
-        StoxCorporateActionsFacet facet2 = StoxCorporateActionsFacet(address(harness2));
-
-        assertEq(facetViaHarness.placeholder(), 0);
-        assertEq(facet2.placeholder(), 0);
-
-        // Write directly to harness1's storage at the ERC-7201 slot.
-        vm.store(address(harness), CORPORATE_ACTION_STORAGE_LOCATION, bytes32(uint256(42)));
-
-        assertEq(facetViaHarness.placeholder(), 42);
-        assertEq(facet2.placeholder(), 0);
+        assertEq(facetViaHarness.completedActionCount(), 0);
     }
 
     /// ERC-7201 storage slot matches the documented formula.
@@ -83,5 +81,17 @@ contract StoxCorporateActionsFacetTest is Test {
     function testAuthPermissionConstants() external pure {
         assertEq(SCHEDULE_CORPORATE_ACTION, keccak256("SCHEDULE_CORPORATE_ACTION"));
         assertEq(CANCEL_CORPORATE_ACTION, keccak256("CANCEL_CORPORATE_ACTION"));
+    }
+
+    /// resolveActionType reverts with UnknownActionType for any hash.
+    function testResolveActionTypeRevertsUnknown() external {
+        bytes32 unknown = keccak256("SomethingRandom");
+        vm.expectRevert(abi.encodeWithSelector(UnknownActionType.selector, unknown));
+        libHarness.resolveActionType(unknown, "");
+    }
+
+    /// countCompleted returns 0 (placeholder).
+    function testCountCompletedReturnsZero() external view {
+        assertEq(libHarness.countCompleted(), 0);
     }
 }

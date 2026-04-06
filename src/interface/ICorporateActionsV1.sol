@@ -11,11 +11,12 @@ pragma solidity =0.8.25;
 /// Functions are added as the implementation grows across PRs.
 interface ICorporateActionsV1 {
     /// @notice Schedule a new corporate action.
-    /// @param actionType Bitmap identifying the action type.
+    /// @param typeHash External identifier for the action type, e.g.
+    /// keccak256("StockSplit"). Resolved to an internal bitmap by the lib.
     /// @param effectiveTime When the action takes effect. Must be in the future.
     /// @param parameters ABI-encoded parameters specific to the action type.
     /// @return actionId Stable identifier for this action.
-    function scheduleCorporateAction(uint256 actionType, uint64 effectiveTime, bytes calldata parameters)
+    function scheduleCorporateAction(bytes32 typeHash, uint64 effectiveTime, bytes calldata parameters)
         external
         returns (uint256 actionId);
 

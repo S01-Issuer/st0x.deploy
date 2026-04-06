@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
+import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
 import {IAuthorizeV1} from "ethgild/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVault} from "ethgild/concrete/vault/OffchainAssetReceiptVault.sol";
@@ -13,11 +14,34 @@ import {OffchainAssetReceiptVault} from "ethgild/concrete/vault/OffchainAssetRec
 ///
 /// PR1 establishes the facet architecture and authorization wiring.
 /// Subsequent PRs add the linked list, scheduling, and query functions.
-contract StoxCorporateActionsFacet {
-    /// @notice Reads the placeholder storage slot. Proves that the facet can
-    /// read diamond storage via delegatecall.
-    function placeholder() external view returns (uint256) {
-        return LibCorporateAction.getStorage()._placeholder;
+contract StoxCorporateActionsFacet is ICorporateActionsV1 {
+    event CorporateActionScheduled(
+        address indexed sender, uint256 indexed actionId, uint256 actionType, uint64 effectiveTime
+    );
+    event CorporateActionCancelled(address indexed sender, uint256 indexed actionId);
+
+    /// @inheritdoc ICorporateActionsV1
+    function completedActionCount() external pure override returns (uint256) {
+        return LibCorporateAction.countCompleted();
+    }
+
+    /// @inheritdoc ICorporateActionsV1
+    function scheduleCorporateAction(bytes32 typeHash, uint64 effectiveTime, bytes calldata parameters)
+        external
+        override
+        returns (uint256 actionId)
+    {
+        _authorize(msg.sender, SCHEDULE_CORPORATE_ACTION);
+        uint256 actionType = LibCorporateAction.resolveActionType(typeHash, parameters);
+        actionId = LibCorporateAction.schedule(actionType, effectiveTime, parameters);
+        emit CorporateActionScheduled(msg.sender, actionId, actionType, effectiveTime);
+    }
+
+    /// @inheritdoc ICorporateActionsV1
+    function cancelCorporateAction(uint256 actionId) external override {
+        _authorize(msg.sender, CANCEL_CORPORATE_ACTION);
+        LibCorporateAction.cancel(actionId);
+        emit CorporateActionCancelled(msg.sender, actionId);
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is
