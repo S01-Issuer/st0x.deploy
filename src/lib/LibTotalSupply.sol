@@ -3,14 +3,14 @@
 pragma solidity =0.8.25;
 
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
-import {LibCorporateAction, CorporateActionNode, ACTION_TYPE_STOCK_SPLIT} from "./LibCorporateAction.sol";
+import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT} from "./LibCorporateAction.sol";
+import {LibCorporateActionNode} from "./LibCorporateActionNode.sol";
 import {LibStockSplit} from "./LibStockSplit.sol";
 import {LibERC20Storage} from "./LibERC20Storage.sol";
 
-using LibCorporateAction for uint256;
-
 /// @title LibTotalSupply
-/// @notice Tracks totalSupply accurately through lazy account migration.
+/// @notice Tracks totalSupply accurately through lazy account migration using
+/// per-cursor pots.
 ///
 /// ## Problem
 ///
@@ -18,140 +18,155 @@ using LibCorporateAction for uint256;
 /// account's individually-rasterized balance. But lazily migrated accounts
 /// haven't been rasterized yet, so we can't compute that sum directly.
 ///
-/// ## Solution: unmigrated/migrated offset
+/// Applying the multiplier to the aggregate sum overestimates because
+/// `trunc(sum * m) >= sum(trunc(ai * m))`. A single unmigrated/migrated
+/// pair cannot improve precision through migration: subtracting and adding
+/// the same value leaves the sum unchanged.
 ///
-/// Two values partition totalSupply:
+/// ## Solution: per-cursor pots
 ///
-/// - `totalUnmigrated` — the aggregate supply with multipliers applied eagerly
-///   to the sum. This is an overestimate because `trunc(sum * m)` >=
-///   `sum(trunc(ai * m))` — per-account truncation rounds each term down
-///   independently. The worst-case overestimate is bounded by the number of
-///   unmigrated accounts (one wei of rounding per account per split).
+/// Instead of one aggregate unmigrated number, we maintain a separate
+/// unmigrated sum for each cursor position (migration epoch). Each pot tracks
+/// the sum of stored balances for accounts at that cursor level.
 ///
-/// - `totalMigrated` — the sum of exact rasterized balances for accounts that
-///   have already been migrated. Each migration replaces an estimated
-///   contribution in `totalUnmigrated` with an exact one in `totalMigrated`.
+///   `unmigrated[k]` = sum of stored balances for accounts whose migration
+///   cursor is `k`.
 ///
-/// `totalSupply() = totalUnmigrated + totalMigrated`
+/// totalSupply is computed by walking completed splits and accumulating:
 ///
-/// ## Folding on new splits
+///   running = unmigrated[0]
+///   for each completed split at position p with multiplier m:
+///     running = trunc(running * m) + unmigrated[p]
+///   totalSupply = running
 ///
-/// When a new split (multiplier `m`) completes, ALL accounts are unmigrated
-/// relative to that split — including those previously migrated. So we fold:
+/// ## Migration
 ///
-///   `totalUnmigrated = (totalUnmigrated + totalMigrated) * m`
-///   `totalMigrated = 0`
+/// When an account migrates from cursor k to cursor k':
+///   unmigrated[k] -= storedBalance
+///   unmigrated[k'] += migratedBalance
+///
+/// This genuinely improves precision: subtracting a raw balance from a
+/// pre-multiplier pot and adding the individually-rasterized balance to a
+/// post-multiplier pot replaces an aggregate estimate with an exact value.
 ///
 /// ## Convergence
 ///
-/// As accounts migrate, the overestimate shrinks monotonically. When all
-/// accounts have migrated through all completed splits, `totalUnmigrated = 0`
-/// and `totalMigrated` equals the exact sum of all balances.
+/// When all accounts have migrated through all completed splits,
+/// `unmigrated[0..latest-1]` are all zero and `unmigrated[latest]` equals the
+/// exact sum of all rasterized balances. The overestimate fully resolves.
+///
+/// ## No folding required
+///
+/// Unlike the two-bucket approach, pots do not need to be folded when a new
+/// split completes. The view function automatically picks up new multipliers.
+/// `fold()` only bootstraps `unmigrated[0]` from OZ on first use and tracks
+/// the latest completed split for mint/burn assignment.
 library LibTotalSupply {
     /// @notice Compute the effective totalSupply without state changes.
-    /// Virtually applies any pending multipliers by folding.
+    /// Walks all completed splits, accumulating per-pot contributions with
+    /// sequential rasterization between each multiplier.
     /// @return supply The effective total supply.
     function effectiveTotalSupply() internal view returns (uint256 supply) {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        uint256 unmigrated = s.totalUnmigrated;
-        uint256 migrated = s.totalMigrated;
-        uint256 cursor = s.totalSupplyCursor;
 
-        // Check if there are pending completed splits after the cursor.
-        uint256 nextSplit = cursor.nextCompletedOfType(ACTION_TYPE_STOCK_SPLIT);
-
-        // No pending completed splits — use stored values or OZ fallback.
-        if (nextSplit == 0) {
-            if (cursor == 0) return LibERC20Storage.getTotalSupply();
-            return unmigrated + migrated;
+        // No splits ever scheduled — use OZ fallback.
+        if (s.nodes.length == 0) {
+            return LibERC20Storage.getTotalSupply();
         }
 
-        // Bootstrap from OZ's totalSupply if no fold has happened yet.
-        if (cursor == 0 && unmigrated == 0 && migrated == 0) {
-            unmigrated = LibERC20Storage.getTotalSupply();
+        // Start with the bootstrap pot.
+        uint256 running;
+        if (s.totalSupplyBootstrapped) {
+            running = s.unmigrated[0];
+        } else {
+            // Not yet bootstrapped. If no completed splits exist, fall back
+            // to OZ. Otherwise, use OZ as the bootstrap value virtually.
+            uint256 firstIndex = LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT, true);
+            if (firstIndex == 0) {
+                return LibERC20Storage.getTotalSupply();
+            }
+            running = LibERC20Storage.getTotalSupply();
         }
 
-        // Virtually fold pending multipliers. Rasterize to uint256 after
-        // each multiplier to match what storage writes would produce.
-        uint256 total = unmigrated + migrated;
-        uint256 current = nextSplit;
+        // Walk completed splits, applying each multiplier and picking up pots.
+        uint256 nodeIndex = LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT, true);
 
-        while (current != 0) {
-            CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[current];
-            Float multiplier = LibStockSplit.decodeParameters(node.parameters);
+        while (nodeIndex != 0) {
+            Float multiplier = LibStockSplit.decodeParameters(s.nodes[nodeIndex].parameters);
             // forge-lint: disable-next-line(unsafe-typecast)
-            (total,) = LibDecimalFloat.toFixedDecimalLossy(
-                LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(total), 0), multiplier), 0
+            (running,) = LibDecimalFloat.toFixedDecimalLossy(
+                LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(running), 0), multiplier), 0
             );
+            running += s.unmigrated[nodeIndex];
 
-            current = current.nextCompletedOfType(ACTION_TYPE_STOCK_SPLIT);
+            nodeIndex = LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT, true);
         }
 
-        return total;
+        return running;
     }
 
-    /// @notice Eagerly fold totalSupply for newly completed splits. Must be
-    /// called in `_update` before any account migrations.
+    /// @notice Bootstrap totalSupply tracking and update the latest split
+    /// cursor. Must be called in `_update` before any account migrations.
+    ///
+    /// On first completed split: reads OZ's `_totalSupply` into
+    /// `unmigrated[0]` and sets the bootstrap flag.
+    ///
+    /// On every call: advances `totalSupplyLatestSplit` to the latest
+    /// completed split, which determines where mint/burn amounts are tracked.
     function fold() internal {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        uint256 cursor = s.totalSupplyCursor;
 
-        uint256 nextSplit = cursor.nextCompletedOfType(ACTION_TYPE_STOCK_SPLIT);
-        if (nextSplit == 0) return;
+        // No splits ever scheduled — nothing to do.
+        if (s.nodes.length == 0) return;
 
-        // Bootstrap: first fold reads OZ's totalSupply as the starting value.
-        uint256 total;
-        if (cursor == 0 && s.totalUnmigrated == 0 && s.totalMigrated == 0) {
-            total = LibERC20Storage.getTotalSupply();
-        } else {
-            total = s.totalUnmigrated + s.totalMigrated;
+        // Bootstrap from OZ's totalSupply on first completed split.
+        if (!s.totalSupplyBootstrapped) {
+            uint256 firstIndex = LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT, true);
+            if (firstIndex == 0) return;
+
+            s.unmigrated[0] = LibERC20Storage.getTotalSupply();
+            s.totalSupplyBootstrapped = true;
         }
 
-        // Rasterize to uint256 after each multiplier to match what storage
-        // writes would produce between each split.
-        uint256 current = nextSplit;
-        uint256 lastSplit = cursor;
+        // Walk from the last known split to find newly completed ones.
+        uint256 nodeIndex =
+            LibCorporateActionNode.nextOfType(s.totalSupplyLatestSplit, ACTION_TYPE_STOCK_SPLIT, true);
 
-        while (current != 0) {
-            CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[current];
-            Float multiplier = LibStockSplit.decodeParameters(node.parameters);
-            // forge-lint: disable-next-line(unsafe-typecast)
-            (total,) = LibDecimalFloat.toFixedDecimalLossy(
-                LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(total), 0), multiplier), 0
-            );
-            lastSplit = current;
-
-            current = current.nextCompletedOfType(ACTION_TYPE_STOCK_SPLIT);
+        while (nodeIndex != 0) {
+            s.totalSupplyLatestSplit = nodeIndex;
+            nodeIndex = LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT, true);
         }
-
-        s.totalUnmigrated = total;
-        s.totalMigrated = 0;
-        s.totalSupplyCursor = lastSplit;
     }
 
     /// @notice Update tracking when an account is migrated.
-    /// @param effectiveBalance The account's rasterized balance.
-    function onAccountMigrated(uint256 effectiveBalance) internal {
+    /// Moves the account's balance from the old cursor pot to the new one.
+    /// @param fromCursor The account's cursor before migration.
+    /// @param storedBalance The account's stored balance before migration.
+    /// @param toCursor The account's cursor after migration.
+    /// @param newBalance The account's rasterized balance after migration.
+    function onAccountMigrated(uint256 fromCursor, uint256 storedBalance, uint256 toCursor, uint256 newBalance)
+        internal
+    {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        s.totalUnmigrated -= effectiveBalance;
-        s.totalMigrated += effectiveBalance;
+        s.unmigrated[fromCursor] -= storedBalance;
+        s.unmigrated[toCursor] += newBalance;
     }
 
-    /// @notice Update tracking for a mint (totalMigrated increases).
+    /// @notice Update tracking for a mint (adds to the latest cursor pot).
     /// @param amount The minted amount.
     function onMint(uint256 amount) internal {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        if (s.totalSupplyCursor != 0) {
-            s.totalMigrated += amount;
+        if (s.totalSupplyBootstrapped) {
+            s.unmigrated[s.totalSupplyLatestSplit] += amount;
         }
     }
 
-    /// @notice Update tracking for a burn (totalMigrated decreases).
+    /// @notice Update tracking for a burn (subtracts from the latest cursor pot).
     /// @param amount The burned amount.
     function onBurn(uint256 amount) internal {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        if (s.totalSupplyCursor != 0) {
-            s.totalMigrated -= amount;
+        if (s.totalSupplyBootstrapped) {
+            s.unmigrated[s.totalSupplyLatestSplit] -= amount;
         }
     }
 }

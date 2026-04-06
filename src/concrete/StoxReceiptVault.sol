@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetReceiptVault.sol";
 import {LibCorporateAction} from "../lib/LibCorporateAction.sol";
 import {LibRebase} from "../lib/LibRebase.sol";
+import {LibTotalSupply} from "../lib/LibTotalSupply.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
 
 /// @title StoxReceiptVault
@@ -16,6 +17,9 @@ import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
 /// current rebase version on first interaction (transfer, mint, burn).
 /// Balance writes go directly to OZ's ERC20 storage via assembly — no
 /// mint/burn, no Transfer events, no totalSupply side effects.
+///
+/// totalSupply uses per-cursor pots so that account migrations genuinely
+/// improve precision. See LibTotalSupply for the full explanation.
 ///
 /// @dev "Migration" here covers two distinct operations that usually happen
 /// together but MUST be treated separately:
@@ -30,9 +34,6 @@ import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
 /// multipliers. See `LibRebase.migratedBalance` and the
 /// `audit/2026-04-07-01/` post-mortem for the full reproduction of the bug
 /// this prevents.
-///
-/// NOTE: totalSupply is not yet rebase-aware. It is handled by
-/// LibTotalSupply using per-cursor pots (added separately).
 contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// @notice Emitted when an account's stored balance is rasterized to the
     /// post-rebase basis and / or its migration cursor advances through
@@ -71,10 +72,24 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         return balance;
     }
 
-    /// @dev Migrates both sender and recipient before applying the transfer.
+    /// @dev Returns the effective total supply including pending multipliers.
+    function totalSupply() public view virtual override returns (uint256) {
+        return LibTotalSupply.effectiveTotalSupply();
+    }
+
+    /// @dev Bootstraps totalSupply tracking, migrates both sender and
+    /// recipient, tracks mint/burn deltas, then calls super.
     function _update(address from, address to, uint256 amount) internal virtual override {
+        LibTotalSupply.fold();
         _migrateAccount(from);
         _migrateAccount(to);
+
+        if (from == address(0)) {
+            LibTotalSupply.onMint(amount);
+        } else if (to == address(0)) {
+            LibTotalSupply.onBurn(amount);
+        }
+
         super._update(from, to, amount);
     }
 
@@ -107,5 +122,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
             LibERC20Storage.setBalance(account, newBalance);
             emit AccountMigrated(account, currentCursor, newCursor, storedBalance, newBalance);
         }
+
+        LibTotalSupply.onAccountMigrated(currentCursor, storedBalance, newCursor, newBalance);
     }
 }
