@@ -6,11 +6,11 @@ import {Test} from "forge-std/Test.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {
     LibCorporateAction,
-    CorporateActionNode,
     ACTION_TYPE_STOCK_SPLIT,
     STOCK_SPLIT_TYPE_HASH,
     UnknownActionType
 } from "src/lib/LibCorporateAction.sol";
+import {CorporateActionNode, LibCorporateActionNode} from "src/lib/LibCorporateActionNode.sol";
 import {LibStockSplit, InvalidSplitMultiplier} from "src/lib/LibStockSplit.sol";
 
 contract StockSplitHarness {
@@ -28,7 +28,7 @@ contract StockSplitHarness {
 
     function nextCompletedOfType(uint256 cursor, uint256 mask) external view returns (uint256) {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        return LibCorporateAction.nextCompletedOfType(s.nodes[cursor], mask).index;
+        return LibCorporateActionNode.nextCompletedOfType(s.nodes[cursor], mask).index;
     }
 
     function countCompleted() external view returns (uint256) {
