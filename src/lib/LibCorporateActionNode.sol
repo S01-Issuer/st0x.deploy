@@ -25,75 +25,83 @@ struct CorporateActionNode {
     bytes parameters;
 }
 
+/// @dev Filter for traversal based on completion status.
+/// - ALL: return any matching node regardless of completion.
+/// - COMPLETED: return only nodes with effectiveTime <= block.timestamp.
+///   Since the list is time-ordered and completed nodes are contiguous at
+///   the front, forward walks stop early at the first pending node.
+/// - PENDING: return only nodes with effectiveTime > block.timestamp.
+///   Forward walks skip completed nodes at the front.
+enum CompletionFilter {
+    ALL,
+    COMPLETED,
+    PENDING
+}
+
 /// @title LibCorporateActionNode
 /// @notice Index-based traversal logic for the corporate action linked list.
 /// Functions accept and return node indices rather than storage references,
 /// so callers always know the position of the node they are working with.
-///
-/// Three traversal functions serve different use cases:
-///
-/// - `nextCompletedOfType` — forward walk, completed nodes only. Used
-///   internally by the rebase and totalSupply systems which only care about
-///   actions that have already taken effect.
-///
-/// - `nextOfType` / `prevOfType` — forward/backward walk, all nodes
-///   regardless of completion status. Used by external consumers that need
-///   to scan for actions within a time window (e.g. oracle pause checks).
 library LibCorporateActionNode {
-    /// @notice Walk forward through completed nodes only.
-    ///
-    /// The list is ordered by effectiveTime (earliest first). Completed nodes
-    /// are contiguous at the front, so the walk stops as soon as a pending
-    /// node is reached.
+    /// @notice Walk forward from `fromIndex`, returning the index of the next
+    /// node matching the type mask and completion filter.
     ///
     /// @param fromIndex Start after this node (exclusive). Pass 0 to start
-    /// from the head.
-    /// @param mask Bitmap mask to filter action types.
-    /// @return The index of the next matching completed node, or 0 if none.
-    function nextCompletedOfType(uint256 fromIndex, uint256 mask) internal view returns (uint256) {
+    /// from the head of the list.
+    /// @param mask Bitmap mask to filter action types. Use type(uint256).max
+    /// to match all types.
+    /// @param filter Completion filter: ALL, COMPLETED, or PENDING.
+    /// @return The index of the next matching node, or 0 if none found.
+    function nextOfType(uint256 fromIndex, uint256 mask, CompletionFilter filter) internal view returns (uint256) {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
         uint256 current = fromIndex == 0 ? s.head : s.nodes[fromIndex].next;
 
         while (current != 0) {
             CorporateActionNode storage node = s.nodes[current];
-            if (node.effectiveTime > block.timestamp) break;
-            if (node.actionType & mask != 0) return current;
+            bool isCompleted = node.effectiveTime <= block.timestamp;
+
+            if (filter == CompletionFilter.COMPLETED && !isCompleted) break;
+
+            if (
+                (filter == CompletionFilter.ALL || (filter == CompletionFilter.COMPLETED && isCompleted)
+                    || (filter == CompletionFilter.PENDING && !isCompleted))
+                    && (node.actionType & mask != 0)
+            ) {
+                return current;
+            }
+
             current = node.next;
         }
 
         return 0;
     }
 
-    /// @notice Walk forward through all nodes matching a type mask.
-    /// @param fromIndex Start after this node (exclusive). Pass 0 to start
-    /// from the head.
-    /// @param mask Bitmap mask to filter action types.
-    /// @return The index of the next matching node, or 0 if none.
-    function nextOfType(uint256 fromIndex, uint256 mask) internal view returns (uint256) {
-        LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        uint256 current = fromIndex == 0 ? s.head : s.nodes[fromIndex].next;
-
-        while (current != 0) {
-            CorporateActionNode storage node = s.nodes[current];
-            if (node.actionType & mask != 0) return current;
-            current = node.next;
-        }
-
-        return 0;
-    }
-
-    /// @notice Walk backward through all nodes matching a type mask.
+    /// @notice Walk backward from `fromIndex`, returning the index of the
+    /// previous node matching the type mask and completion filter.
+    ///
     /// @param fromIndex Start before this node (exclusive). Pass 0 to start
-    /// from the tail.
+    /// from the tail of the list.
     /// @param mask Bitmap mask to filter action types.
-    /// @return The index of the previous matching node, or 0 if none.
-    function prevOfType(uint256 fromIndex, uint256 mask) internal view returns (uint256) {
+    /// @param filter Completion filter: ALL, COMPLETED, or PENDING.
+    /// @return The index of the previous matching node, or 0 if none found.
+    function prevOfType(uint256 fromIndex, uint256 mask, CompletionFilter filter) internal view returns (uint256) {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
         uint256 current = fromIndex == 0 ? s.tail : s.nodes[fromIndex].prev;
 
         while (current != 0) {
             CorporateActionNode storage node = s.nodes[current];
-            if (node.actionType & mask != 0) return current;
+            bool isCompleted = node.effectiveTime <= block.timestamp;
+
+            if (filter == CompletionFilter.PENDING && isCompleted) break;
+
+            if (
+                (filter == CompletionFilter.ALL || (filter == CompletionFilter.COMPLETED && isCompleted)
+                    || (filter == CompletionFilter.PENDING && !isCompleted))
+                    && (node.actionType & mask != 0)
+            ) {
+                return current;
+            }
+
             current = node.prev;
         }
 
