@@ -162,10 +162,10 @@ library LibCorporateAction {
     /// @notice Count completed actions by walking from the head.
     function countCompleted() internal view returns (uint256 count) {
         if (getStorage().nodes.length == 0) return 0;
-        uint256 current = LibCorporateActionNode.nextOfType(0, type(uint256).max, true);
+        uint256 current = LibCorporateActionNode.nextCompletedOfType(0, type(uint256).max);
         while (current != 0) {
             count++;
-            current = LibCorporateActionNode.nextOfType(current, type(uint256).max, true);
+            current = LibCorporateActionNode.nextCompletedOfType(current, type(uint256).max);
         }
     }
 
