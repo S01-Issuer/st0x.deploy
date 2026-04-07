@@ -63,9 +63,9 @@ library LibCorporateActionNode {
             if (filter == CompletionFilter.COMPLETED && !isCompleted) break;
 
             if (
-                (filter == CompletionFilter.ALL || (filter == CompletionFilter.COMPLETED && isCompleted)
-                    || (filter == CompletionFilter.PENDING && !isCompleted))
-                    && (node.actionType & mask != 0)
+                (filter == CompletionFilter.ALL
+                        || (filter == CompletionFilter.COMPLETED && isCompleted)
+                        || (filter == CompletionFilter.PENDING && !isCompleted)) && (node.actionType & mask != 0)
             ) {
                 return current;
             }
@@ -95,9 +95,9 @@ library LibCorporateActionNode {
             if (filter == CompletionFilter.PENDING && isCompleted) break;
 
             if (
-                (filter == CompletionFilter.ALL || (filter == CompletionFilter.COMPLETED && isCompleted)
-                    || (filter == CompletionFilter.PENDING && !isCompleted))
-                    && (node.actionType & mask != 0)
+                (filter == CompletionFilter.ALL
+                        || (filter == CompletionFilter.COMPLETED && isCompleted)
+                        || (filter == CompletionFilter.PENDING && !isCompleted)) && (node.actionType & mask != 0)
             ) {
                 return current;
             }
