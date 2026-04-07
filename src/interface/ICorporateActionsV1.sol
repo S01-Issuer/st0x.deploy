@@ -203,23 +203,50 @@ interface ICorporateActionsV1 {
     /// when its effectiveTime has passed.
     function completedActionCount() external view returns (uint256);
 
-    /// @notice Walk the linked list to find the next action matching a type
-    /// mask and completion filter.
-    ///
-    /// Oracles and external integrations use this to detect upcoming or
-    /// recently completed actions — for example, pausing a price feed when
-    /// a stock split is imminent or recently completed.
-    ///
-    /// @param fromIndex Start after this node index (exclusive). Pass 0 to
-    /// start from the head of the list.
+    /// @notice Find the latest (most recent) action matching a type mask.
+    /// Entry point for walking the list backward from the tail.
     /// @param mask Bitmap mask to filter action types. Use type(uint256).max
     /// to match all types.
-    /// @param completed If true, return only completed actions. If false,
-    /// return only pending (future) actions.
-    /// @return nodeIndex The index of the next matching node, or 0 if none.
+    /// @return cursor Opaque handle for continued traversal via `prevOfType`.
+    /// 0 if no matching action exists.
+    /// @return actionType The action's bitmap type (0 if none).
     /// @return effectiveTime The action's effective timestamp (0 if none).
-    function nextOfType(uint256 fromIndex, uint256 mask, bool completed)
+    function latestActionOfType(uint256 mask)
         external
         view
-        returns (uint256 nodeIndex, uint64 effectiveTime);
+        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime);
+
+    /// @notice Find the earliest action matching a type mask.
+    /// Entry point for walking the list forward from the head.
+    /// @param mask Bitmap mask to filter action types.
+    /// @return cursor Opaque handle for continued traversal via `nextOfType`.
+    /// 0 if no matching action exists.
+    /// @return actionType The action's bitmap type (0 if none).
+    /// @return effectiveTime The action's effective timestamp (0 if none).
+    function earliestActionOfType(uint256 mask)
+        external
+        view
+        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime);
+
+    /// @notice Walk forward from a cursor to the next matching action.
+    /// @param cursor The cursor returned by a previous traversal call.
+    /// @param mask Bitmap mask to filter action types.
+    /// @return nextCursor Opaque handle for the next match, or 0 if none.
+    /// @return actionType The action's bitmap type (0 if none).
+    /// @return effectiveTime The action's effective timestamp (0 if none).
+    function nextOfType(uint256 cursor, uint256 mask)
+        external
+        view
+        returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime);
+
+    /// @notice Walk backward from a cursor to the previous matching action.
+    /// @param cursor The cursor returned by a previous traversal call.
+    /// @param mask Bitmap mask to filter action types.
+    /// @return prevCursor Opaque handle for the previous match, or 0 if none.
+    /// @return actionType The action's bitmap type (0 if none).
+    /// @return effectiveTime The action's effective timestamp (0 if none).
+    function prevOfType(uint256 cursor, uint256 mask)
+        external
+        view
+        returns (uint256 prevCursor, uint256 actionType, uint64 effectiveTime);
 }

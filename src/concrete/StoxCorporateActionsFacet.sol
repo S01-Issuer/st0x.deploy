@@ -86,16 +86,62 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     }
 
     /// @inheritdoc ICorporateActionsV1
-    function nextOfType(uint256 fromIndex, uint256 mask, bool completed)
+    function latestActionOfType(uint256 mask)
         external
         view
         override
-        returns (uint256 nodeIndex, uint64 effectiveTime)
+        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
     {
-        nodeIndex = LibCorporateActionNode.nextOfType(fromIndex, mask, completed);
-        if (nodeIndex != 0) {
-            LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-            effectiveTime = s.nodes[nodeIndex].effectiveTime;
+        cursor = LibCorporateActionNode.prevOfType(0, mask);
+        if (cursor != 0) {
+            CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[cursor];
+            actionType = node.actionType;
+            effectiveTime = node.effectiveTime;
+        }
+    }
+
+    /// @inheritdoc ICorporateActionsV1
+    function earliestActionOfType(uint256 mask)
+        external
+        view
+        override
+        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
+    {
+        cursor = LibCorporateActionNode.nextOfType(0, mask);
+        if (cursor != 0) {
+            CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[cursor];
+            actionType = node.actionType;
+            effectiveTime = node.effectiveTime;
+        }
+    }
+
+    /// @inheritdoc ICorporateActionsV1
+    function nextOfType(uint256 cursor, uint256 mask)
+        external
+        view
+        override
+        returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime)
+    {
+        nextCursor = LibCorporateActionNode.nextOfType(cursor, mask);
+        if (nextCursor != 0) {
+            CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[nextCursor];
+            actionType = node.actionType;
+            effectiveTime = node.effectiveTime;
+        }
+    }
+
+    /// @inheritdoc ICorporateActionsV1
+    function prevOfType(uint256 cursor, uint256 mask)
+        external
+        view
+        override
+        returns (uint256 prevCursor, uint256 actionType, uint64 effectiveTime)
+    {
+        prevCursor = LibCorporateActionNode.prevOfType(cursor, mask);
+        if (prevCursor != 0) {
+            CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[prevCursor];
+            actionType = node.actionType;
+            effectiveTime = node.effectiveTime;
         }
     }
 
