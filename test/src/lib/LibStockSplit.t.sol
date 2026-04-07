@@ -26,8 +26,8 @@ contract StockSplitHarness {
         return LibCorporateAction.resolveActionType(typeHash, parameters);
     }
 
-    function nextOfType(uint256 cursor, uint256 mask, bool completed) external view returns (uint256) {
-        return LibCorporateActionNode.nextOfType(cursor, mask, completed);
+    function nextCompletedOfType(uint256 cursor, uint256 mask) external view returns (uint256) {
+        return LibCorporateActionNode.nextCompletedOfType(cursor, mask);
     }
 
     function countCompleted() external view returns (uint256) {
@@ -127,7 +127,7 @@ contract LibStockSplitLifecycleTest is Test {
         vm.warp(2000);
         assertEq(h.countCompleted(), 1);
 
-        uint256 completed = h.nextOfType(0, ACTION_TYPE_STOCK_SPLIT, true);
+        uint256 completed = h.nextCompletedOfType(0, ACTION_TYPE_STOCK_SPLIT);
         assertEq(completed, 1);
 
         CorporateActionNode memory node = h.getNode(1);
