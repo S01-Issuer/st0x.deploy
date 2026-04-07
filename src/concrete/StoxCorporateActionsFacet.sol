@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
-import {CorporateActionNode, LibCorporateActionNode} from "../lib/LibCorporateActionNode.sol";
+import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "../lib/LibCorporateActionNode.sol";
 import {IAuthorizeV1} from "rain.vats/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetReceiptVault.sol";
 
@@ -92,7 +92,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         override
         returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
     {
-        cursor = LibCorporateActionNode.prevOfType(0, mask);
+        cursor = LibCorporateActionNode.prevOfType(0, mask, CompletionFilter.ALL);
         if (cursor != 0) {
             CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[cursor];
             actionType = node.actionType;
@@ -107,7 +107,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         override
         returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
     {
-        cursor = LibCorporateActionNode.nextOfType(0, mask);
+        cursor = LibCorporateActionNode.nextOfType(0, mask, CompletionFilter.ALL);
         if (cursor != 0) {
             CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[cursor];
             actionType = node.actionType;
@@ -122,7 +122,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         override
         returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime)
     {
-        nextCursor = LibCorporateActionNode.nextOfType(cursor, mask);
+        nextCursor = LibCorporateActionNode.nextOfType(cursor, mask, CompletionFilter.ALL);
         if (nextCursor != 0) {
             CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[nextCursor];
             actionType = node.actionType;
@@ -137,7 +137,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         override
         returns (uint256 prevCursor, uint256 actionType, uint64 effectiveTime)
     {
-        prevCursor = LibCorporateActionNode.prevOfType(cursor, mask);
+        prevCursor = LibCorporateActionNode.prevOfType(cursor, mask, CompletionFilter.ALL);
         if (prevCursor != 0) {
             CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[prevCursor];
             actionType = node.actionType;
