@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
+import {CorporateActionNode, LibCorporateActionNode} from "../lib/LibCorporateActionNode.sol";
 import {IAuthorizeV1} from "rain.vats/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetReceiptVault.sol";
 
@@ -82,6 +83,20 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         _authorize(msg.sender, CANCEL_CORPORATE_ACTION, abi.encode(actionIndex));
         LibCorporateAction.cancel(actionIndex);
         emit CorporateActionCancelled(msg.sender, actionIndex);
+    }
+
+    /// @inheritdoc ICorporateActionsV1
+    function nextOfType(uint256 fromIndex, uint256 mask, bool completed)
+        external
+        view
+        override
+        returns (uint256 nodeIndex, uint64 effectiveTime)
+    {
+        nodeIndex = LibCorporateActionNode.nextOfType(fromIndex, mask, completed);
+        if (nodeIndex != 0) {
+            LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
+            effectiveTime = s.nodes[nodeIndex].effectiveTime;
+        }
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is

@@ -203,4 +203,24 @@ interface ICorporateActionsV1 {
     /// when its effectiveTime has passed. The Nth completed action has
     /// completedActionId = N.
     function completedActionCount() external view returns (uint256);
+
+    /// @notice Walk the linked list to find the next action matching a type
+    /// mask and completion filter.
+    ///
+    /// Oracles and external integrations use this to detect upcoming or
+    /// recently completed actions — for example, pausing a price feed when
+    /// a stock split is imminent or recently completed.
+    ///
+    /// @param fromIndex Start after this node index (exclusive). Pass 0 to
+    /// start from the head of the list.
+    /// @param mask Bitmap mask to filter action types. Use type(uint256).max
+    /// to match all types.
+    /// @param completed If true, return only completed actions. If false,
+    /// return only pending (future) actions.
+    /// @return nodeIndex The index of the next matching node, or 0 if none.
+    /// @return effectiveTime The action's effective timestamp (0 if none).
+    function nextOfType(uint256 fromIndex, uint256 mask, bool completed)
+        external
+        view
+        returns (uint256 nodeIndex, uint64 effectiveTime);
 }
