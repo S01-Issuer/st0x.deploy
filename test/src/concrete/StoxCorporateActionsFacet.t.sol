@@ -15,7 +15,7 @@ import {
     ActionDoesNotExist
 } from "../../../src/lib/LibCorporateAction.sol";
 import {IAuthorizeV1, Unauthorized} from "ethgild/interface/IAuthorizeV1.sol";
-import {CorporateActionNode, LibCorporateActionNode} from "../../../src/lib/LibCorporateActionNode.sol";
+import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "../../../src/lib/LibCorporateActionNode.sol";
 
 /// @dev Mock authorizer used by the facet tests. Records the most recent
 /// `authorize` call so tests can assert the per-action context that the facet
@@ -95,16 +95,12 @@ contract LibHarness {
         return LibCorporateAction.countCompleted();
     }
 
-    function nextCompletedOfType(uint256 cursor, uint256 mask) external view returns (uint256) {
-        return LibCorporateActionNode.nextCompletedOfType(cursor, mask);
+    function nextOfType(uint256 cursor, uint256 mask, CompletionFilter filter) external view returns (uint256) {
+        return LibCorporateActionNode.nextOfType(cursor, mask, filter);
     }
 
-    function nextOfType(uint256 cursor, uint256 mask) external view returns (uint256) {
-        return LibCorporateActionNode.nextOfType(cursor, mask);
-    }
-
-    function prevOfType(uint256 cursor, uint256 mask) external view returns (uint256) {
-        return LibCorporateActionNode.prevOfType(cursor, mask);
+    function prevOfType(uint256 cursor, uint256 mask, CompletionFilter filter) external view returns (uint256) {
+        return LibCorporateActionNode.prevOfType(cursor, mask, filter);
     }
 
     function getNode(uint256 actionIndex) external view returns (CorporateActionNode memory) {
@@ -368,47 +364,57 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(libHarness.countCompleted(), 2);
     }
 
-    /// nextCompletedOfType from sentinel returns 0 on empty list.
-    function testNextCompletedOfTypeSentinelEmpty() external {
+    /// COMPLETED filter from sentinel returns 0 on empty list.
+    function testNextOfTypeCompletedEmpty() external {
         uint256 id = libHarness.schedule(1, 1500, "");
         libHarness.cancel(id);
-        assertEq(libHarness.nextCompletedOfType(0, type(uint256).max), 0);
+        assertEq(libHarness.nextOfType(0, type(uint256).max, CompletionFilter.COMPLETED), 0);
     }
 
-    /// nextCompletedOfType walks forward through completed nodes only.
-    function testNextCompletedOfTypeFilters() external {
+    /// COMPLETED filter walks forward through completed nodes only.
+    function testNextOfTypeCompletedFilters() external {
         libHarness.schedule(1, 1500, ""); // type 1
         libHarness.schedule(2, 2000, ""); // type 2
         libHarness.schedule(1, 2500, ""); // type 1
 
         vm.warp(3000);
 
-        uint256 first = libHarness.nextCompletedOfType(0, 1);
+        uint256 first = libHarness.nextOfType(0, 1, CompletionFilter.COMPLETED);
         assertEq(first, 1);
 
-        uint256 second = libHarness.nextCompletedOfType(first, 1);
+        uint256 second = libHarness.nextOfType(first, 1, CompletionFilter.COMPLETED);
         assertEq(second, 3);
 
-        assertEq(libHarness.nextCompletedOfType(second, 1), 0);
-        assertEq(libHarness.nextCompletedOfType(0, 2), 2);
+        assertEq(libHarness.nextOfType(second, 1, CompletionFilter.COMPLETED), 0);
+        assertEq(libHarness.nextOfType(0, 2, CompletionFilter.COMPLETED), 2);
     }
 
-    /// nextOfType walks all nodes (completed and pending).
+    /// ALL filter walks both completed and pending nodes.
     function testNextOfTypeAll() external {
         libHarness.schedule(1, 1500, ""); // will complete
         libHarness.schedule(1, 2500, ""); // will be pending
 
         vm.warp(2000);
 
-        // Walks both completed and pending.
-        uint256 first = libHarness.nextOfType(0, 1);
+        uint256 first = libHarness.nextOfType(0, 1, CompletionFilter.ALL);
         assertEq(first, 1);
-        uint256 second = libHarness.nextOfType(first, 1);
+        uint256 second = libHarness.nextOfType(first, 1, CompletionFilter.ALL);
         assertEq(second, 2);
-        assertEq(libHarness.nextOfType(second, 1), 0);
+        assertEq(libHarness.nextOfType(second, 1, CompletionFilter.ALL), 0);
     }
 
-    /// prevOfType walks backward from tail.
+    /// PENDING filter skips completed nodes.
+    function testNextOfTypePending() external {
+        libHarness.schedule(1, 1500, ""); // will complete
+        libHarness.schedule(1, 2500, ""); // will be pending
+
+        vm.warp(2000);
+
+        assertEq(libHarness.nextOfType(0, 1, CompletionFilter.PENDING), 2);
+        assertEq(libHarness.nextOfType(2, 1, CompletionFilter.PENDING), 0);
+    }
+
+    /// prevOfType walks backward from tail with ALL filter.
     function testPrevOfType() external {
         libHarness.schedule(1, 1500, ""); // type 1
         libHarness.schedule(2, 2000, ""); // type 2
@@ -416,15 +422,13 @@ contract StoxCorporateActionsFacetTest is Test {
 
         vm.warp(3000);
 
-        // Walk backward through type 1 from tail.
-        uint256 last = libHarness.prevOfType(0, 1);
+        uint256 last = libHarness.prevOfType(0, 1, CompletionFilter.ALL);
         assertEq(last, 3);
-        uint256 prev = libHarness.prevOfType(last, 1);
+        uint256 prev = libHarness.prevOfType(last, 1, CompletionFilter.ALL);
         assertEq(prev, 1);
-        assertEq(libHarness.prevOfType(prev, 1), 0);
+        assertEq(libHarness.prevOfType(prev, 1, CompletionFilter.ALL), 0);
 
-        // Type 2 from tail.
-        assertEq(libHarness.prevOfType(0, 2), 2);
+        assertEq(libHarness.prevOfType(0, 2, CompletionFilter.ALL), 2);
     }
 
     /// Fuzz: insertion ordering is always time-sorted.
