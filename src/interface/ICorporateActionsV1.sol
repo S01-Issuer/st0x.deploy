@@ -200,8 +200,7 @@ interface ICorporateActionsV1 {
     function cancelCorporateAction(uint256 actionIndex) external;
 
     /// @notice Count of all completed corporate actions. An action is complete
-    /// when its effectiveTime has passed. The Nth completed action has
-    /// completedActionId = N.
+    /// when its effectiveTime has passed.
     function completedActionCount() external view returns (uint256);
 
     /// @notice Walk the linked list to find the next action matching a type
