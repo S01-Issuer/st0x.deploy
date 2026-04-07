@@ -10,7 +10,7 @@ import {
     STOCK_SPLIT_TYPE_HASH,
     UnknownActionType
 } from "src/lib/LibCorporateAction.sol";
-import {CorporateActionNode, LibCorporateActionNode} from "src/lib/LibCorporateActionNode.sol";
+import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "src/lib/LibCorporateActionNode.sol";
 import {LibStockSplit, InvalidSplitMultiplier} from "src/lib/LibStockSplit.sol";
 
 contract StockSplitHarness {
@@ -26,8 +26,8 @@ contract StockSplitHarness {
         return LibCorporateAction.resolveActionType(typeHash, parameters);
     }
 
-    function nextCompletedOfType(uint256 cursor, uint256 mask) external view returns (uint256) {
-        return LibCorporateActionNode.nextCompletedOfType(cursor, mask);
+    function nextOfType(uint256 cursor, uint256 mask, CompletionFilter filter) external view returns (uint256) {
+        return LibCorporateActionNode.nextOfType(cursor, mask, filter);
     }
 
     function countCompleted() external view returns (uint256) {
@@ -127,7 +127,7 @@ contract LibStockSplitLifecycleTest is Test {
         vm.warp(2000);
         assertEq(h.countCompleted(), 1);
 
-        uint256 completed = h.nextCompletedOfType(0, ACTION_TYPE_STOCK_SPLIT);
+        uint256 completed = h.nextOfType(0, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
         assertEq(completed, 1);
 
         CorporateActionNode memory node = h.getNode(1);
