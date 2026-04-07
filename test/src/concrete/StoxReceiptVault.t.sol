@@ -9,6 +9,7 @@ import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/
 import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT} from "../../../src/lib/LibCorporateAction.sol";
 import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
+import {LibTotalSupply} from "../../../src/lib/LibTotalSupply.sol";
 
 /// @dev Test-only subclass of StoxReceiptVault that bypasses
 /// `OffchainAssetReceiptVault._update`'s authorizer / freeze checks. This lets
@@ -23,8 +24,18 @@ import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
 /// so the bypass is faithful for the purpose of these tests.
 contract TestStoxReceiptVault is StoxReceiptVault {
     function _update(address from, address to, uint256 amount) internal override {
+        // Mirror the production StoxReceiptVault._update flow exactly, only
+        // bypassing the OffchainAssetReceiptVault authorizer/freeze layer.
+        LibTotalSupply.fold();
         _migrateAccount(from);
         _migrateAccount(to);
+
+        if (from == address(0)) {
+            LibTotalSupply.onMint(amount);
+        } else if (to == address(0)) {
+            LibTotalSupply.onBurn(amount);
+        }
+
         ERC20Upgradeable._update(from, to, amount);
     }
 
@@ -209,5 +220,53 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         emit StoxReceiptVault.AccountMigrated(BOB, 0, 1, 100, 200);
         // Touch Bob to trigger migration.
         vault.publicUpdate(BOB, BOB, 0);
+    }
+
+    /// totalSupply equals the sum of all per-account balanceOf values after a
+    /// completed split, even when some accounts are still unmigrated. This is
+    /// the integration-level invariant that A28-1 says must hold and that the
+    /// pre-fix code violated for fresh-recipient pathways.
+    function testTotalSupplyMatchesSumOfBalanceOfAfterMixedActivity() external {
+        // Pre-existing holders.
+        vault.publicUpdate(address(0), BOB, 100);
+        vault.publicUpdate(address(0), CAROL, 200);
+
+        // Split.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        // Mint to a fresh account after the split.
+        vault.publicUpdate(address(0), ALICE, 100);
+
+        // Transfer from Bob to a brand new account (DAVE).
+        address dave = address(0xDAFE);
+        // Bob currently has effective balance 200; transfer 50 to Dave.
+        vault.publicUpdate(BOB, dave, 50);
+
+        // Burn 30 from Carol.
+        vault.publicUpdate(CAROL, address(0), 30);
+
+        // Now: sum(balanceOf) == totalSupply.
+        uint256 sumBalances =
+            vault.balanceOf(BOB) + vault.balanceOf(CAROL) + vault.balanceOf(ALICE) + vault.balanceOf(dave);
+        assertEq(sumBalances, vault.totalSupply(), "totalSupply must equal sum of balanceOf");
+    }
+
+    /// REGRESSION FOR A28-1: after the bug was fixed, the totalSupply
+    /// computation matches the per-account sum specifically for the mint-after-
+    /// split scenario (which the pre-fix code under-reported relative to
+    /// per-account balanceOf).
+    function testTotalSupplyConsistentWithBalanceOfAfterMintFreshPostSplit() external {
+        vault.publicUpdate(address(0), BOB, 1000);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        vault.publicUpdate(address(0), ALICE, 100);
+
+        assertEq(vault.balanceOf(ALICE), 100);
+        // Bob has 1000 stored at cursor 0; after rebase his effective balance is 2000.
+        assertEq(vault.balanceOf(BOB), 2000);
+        // Total supply: Bob's 2000 + Alice's 100 = 2100.
+        assertEq(vault.totalSupply(), 2100);
     }
 }

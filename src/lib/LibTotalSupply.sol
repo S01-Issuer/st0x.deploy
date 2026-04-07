@@ -79,7 +79,8 @@ library LibTotalSupply {
         if (s.totalSupplyBootstrapped) {
             running = s.unmigrated[0];
         } else {
-            uint256 firstIndex = LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+            uint256 firstIndex =
+                LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
             if (firstIndex == 0) {
                 return LibERC20Storage.getTotalSupply();
             }
@@ -91,13 +92,17 @@ library LibTotalSupply {
 
         while (nodeIndex != 0) {
             Float multiplier = LibStockSplit.decodeParameters(s.nodes[nodeIndex].parameters);
-            // forge-lint: disable-next-line(unsafe-typecast)
+            // The `int256(running)` cast is safe because realistic ERC20
+            // totalSupply values are well below 2^255.
             (running,) = LibDecimalFloat.toFixedDecimalLossy(
-                LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(running), 0), multiplier), 0
+                // forge-lint: disable-next-line(unsafe-typecast)
+                LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(running), 0), multiplier),
+                0
             );
             running += s.unmigrated[nodeIndex];
 
-            nodeIndex = LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+            nodeIndex =
+                LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
         }
 
         return running;
@@ -113,7 +118,8 @@ library LibTotalSupply {
 
         // Bootstrap from OZ's totalSupply on first completed split.
         if (!s.totalSupplyBootstrapped) {
-            uint256 firstIndex = LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+            uint256 firstIndex =
+                LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
             if (firstIndex == 0) return;
 
             s.unmigrated[0] = LibERC20Storage.getTotalSupply();
@@ -121,12 +127,14 @@ library LibTotalSupply {
         }
 
         // Walk from the last known split to find newly completed ones.
-        uint256 nodeIndex =
-            LibCorporateActionNode.nextOfType(s.totalSupplyLatestSplit, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+        uint256 nodeIndex = LibCorporateActionNode.nextOfType(
+            s.totalSupplyLatestSplit, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED
+        );
 
         while (nodeIndex != 0) {
             s.totalSupplyLatestSplit = nodeIndex;
-            nodeIndex = LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+            nodeIndex =
+                LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
         }
     }
 
