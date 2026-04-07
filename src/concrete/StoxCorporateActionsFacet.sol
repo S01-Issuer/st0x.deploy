@@ -11,13 +11,27 @@ import {OffchainAssetReceiptVault} from "ethgild/concrete/vault/OffchainAssetRec
 /// @notice Diamond facet for corporate actions on the vault. This facet shares
 /// the vault's storage space via ERC-7201 namespaced storage, so it can be
 /// delegatecalled from the vault's fallback without storage collisions.
+/// @dev MUST be delegatecalled by an `OffchainAssetReceiptVault`-derived
+/// contract. The facet's `_authorize` reads the vault's authorizer state via
+/// `address(this).authorizer()`, so direct calls to a standalone deployment of
+/// this facet revert because the facet itself does not implement
+/// `authorizer()`.
 ///
 /// PR1 establishes the facet architecture and authorization wiring.
 /// Subsequent PRs add the linked list, scheduling, and query functions.
 contract StoxCorporateActionsFacet is ICorporateActionsV1 {
+    /// @notice Emitted when a corporate action is successfully scheduled.
+    /// @param sender The msg.sender that called `scheduleCorporateAction`.
+    /// @param actionIndex The 1-based index assigned to the new action.
+    /// @param actionType The bitmap action type (e.g. `ACTION_TYPE_STOCK_SPLIT`).
+    /// @param effectiveTime The timestamp at which the action becomes effective.
     event CorporateActionScheduled(
         address indexed sender, uint256 indexed actionIndex, uint256 actionType, uint64 effectiveTime
     );
+    /// @notice Emitted when a previously scheduled action is cancelled before
+    /// its `effectiveTime`.
+    /// @param sender The msg.sender that called `cancelCorporateAction`.
+    /// @param actionIndex The action index that was cancelled.
     event CorporateActionCancelled(address indexed sender, uint256 indexed actionIndex);
 
     /// @inheritdoc ICorporateActionsV1

@@ -44,6 +44,19 @@ Fork tests require `RPC_URL_BASE_FORK` env var (set in `.env`). They validate de
 - `StoxOffchainAssetReceiptVaultBeaconSetDeployer` — inherits upstream deployer with hardcoded config
 - `StoxUnifiedDeployer` — atomically deploys a receipt vault + wrapped vault pair
 
+**Diamond facet for corporate actions** (introduced by the corporate-actions PR stack):
+- `StoxCorporateActionsFacet` (`src/concrete/StoxCorporateActionsFacet.sol`) — diamond facet implementing `ICorporateActionsV1`. Schedules and applies corporate actions (stock splits today; further action types planned). Action state is held in a doubly linked list of `CorporateActionNode`s ordered by `effectiveTime`, traversed in chronological order, with a bitmap tagging each node's action type. **The facet is delegatecalled by the vault — direct calls to the facet revert.**
+- `ICorporateActionsV1` (`src/interface/ICorporateActionsV1.sol`) — external interface used by oracles and other onchain consumers.
+
+**Corporate-action storage libraries** (`src/lib/`):
+- `LibCorporateAction`, `LibCorporateActionNode` — linked list and lifecycle for scheduled actions. Storage lives at the ERC-7201 namespace `rain.storage.corporate-action.1`.
+- `LibStockSplit` — stock split parameter validation and encode/decode.
+- `LibERC20Storage` — direct storage helpers used by the lazy-rebase migration to read/write OZ ERC20 balances without going through `_update`. **Tightly coupled to OZ v5 `ERC20Upgradeable` storage layout — see the SAFETY block in that file.**
+- `LibRebase` — lazy rebase application: rewrites holder balances to the post-rebase basis on first touch, rather than applying a global multiplier. **Cursor advancement is load-bearing for fresh recipients — see audit history under `audit/2026-04-07-01/` for the inflation bug fix and the regression tests.**
+- `LibTotalSupply` — rebase-aware `totalSupply` accounting that tracks per-cursor pots so the reported supply remains correct mid-migration.
+
+Storage isolation follows the diamond storage pattern: each library uses a fixed namespaced storage slot. New state must live in a library storage struct, not on the facet itself.
+
 **ICloneableV2 pattern** (from rain.factory): contracts have dual `initialize` overloads — `initialize(address)` always reverts (documents signature), `initialize(bytes)` is the real initializer returning `ICLONEABLE_V2_SUCCESS`.
 
 **Zoltu deterministic deployment**: All contracts have parameterless constructors enabling deployment via the Zoltu factory for identical addresses across all EVM networks. Pointer files in `src/generated/` contain deterministic addresses and bytecodes.
@@ -79,6 +92,7 @@ All source contracts in `src/` must consistently target the latest deployment ve
 Production deployments are versioned (`LibProdDeployV1`, `LibProdDeployV2`, etc.). Each version has its own constants file and may have a separate deploy library. When making changes to contract source:
 - Update `CHANGELOG.md` with the change under the current version heading
 - Regenerate pointer files if creation bytecodes change (`forge script script/BuildPointers.sol`)
+- Bump to a new version heading (`V3`, `V4`, ...) only when a deployed contract's address or codehash changes. Additive changes that produce no new contracts and do not alter any deployed bytecode should be appended under the existing version heading. New `LibProdDeploy*` libraries are introduced together with new version headings.
 
 ## Deployment
 
@@ -95,7 +109,8 @@ Manual deployment via GitHub Actions workflow (`manual-sol-artifacts.yaml`) supp
 
 ## Naming Conventions
 
-- **No meaningless `_`-prefixed helpers.** All function names must be descriptive and convey what the function does. This applies to all files including tests.
+- **Test helpers must have descriptive names.** Do not use `_foo` / `_bar` / `_helper` as placeholder names for test helper functions — name them after what they do (`mintAndApprove`, `expectRevertOnZeroAddress`, etc.). This applies to test files only.
+- **Production code may use the leading-underscore convention** (`_internalName`) to mark `internal` / `private` visibility, matching the Solidity / OpenZeppelin convention. Inherited overrides such as `_msgSender`, `_update`, `_beforeTokenTransfer` must keep their inherited names.
 
 ## License
 
