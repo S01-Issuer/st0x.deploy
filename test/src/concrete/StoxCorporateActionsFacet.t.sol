@@ -95,9 +95,8 @@ contract LibHarness {
         return LibCorporateAction.countCompleted();
     }
 
-    function nextCompletedOfType(uint256 cursor, uint256 mask) external view returns (uint256) {
-        LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        return LibCorporateActionNode.nextCompletedOfType(s.nodes[cursor], mask).index;
+    function nextOfType(uint256 cursor, uint256 mask, bool completed) external view returns (uint256) {
+        return LibCorporateActionNode.nextOfType(cursor, mask, completed);
     }
 
     function getNode(uint256 actionIndex) external view returns (CorporateActionNode memory) {
@@ -361,16 +360,16 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(libHarness.countCompleted(), 2);
     }
 
-    /// nextCompletedOfType from sentinel returns 0 on empty list.
-    function testNextCompletedOfTypeSentinelEmpty() external {
+    /// nextOfType from sentinel returns 0 on empty list.
+    function testNextOfTypeSentinelEmpty() external {
         // Schedule and cancel to ensure sentinel exists, leaving list empty.
         uint256 id = libHarness.schedule(1, 1500, "");
         libHarness.cancel(id);
-        assertEq(libHarness.nextCompletedOfType(0, type(uint256).max), 0);
+        assertEq(libHarness.nextOfType(0, type(uint256).max, true), 0);
     }
 
-    /// nextCompletedOfType from sentinel and subsequent cursors walk forward and filter by mask.
-    function testCompletedOfTypeFilters() external {
+    /// nextOfType walks forward and filters by mask and completion status.
+    function testNextOfTypeFilters() external {
         libHarness.schedule(1, 1500, ""); // type 1
         libHarness.schedule(2, 2000, ""); // type 2
         libHarness.schedule(1, 2500, ""); // type 1
@@ -378,18 +377,34 @@ contract StoxCorporateActionsFacetTest is Test {
         vm.warp(3000);
 
         // First completed of type 1 (from sentinel).
-        uint256 first = libHarness.nextCompletedOfType(0, 1);
+        uint256 first = libHarness.nextOfType(0, 1, true);
         assertEq(first, 1);
 
         // Next completed of type 1 after cursor=1.
-        uint256 second = libHarness.nextCompletedOfType(first, 1);
+        uint256 second = libHarness.nextOfType(first, 1, true);
         assertEq(second, 3);
 
         // No more type 1.
-        assertEq(libHarness.nextCompletedOfType(second, 1), 0);
+        assertEq(libHarness.nextOfType(second, 1, true), 0);
 
         // Type 2 (from sentinel).
-        assertEq(libHarness.nextCompletedOfType(0, 2), 2);
+        assertEq(libHarness.nextOfType(0, 2, true), 2);
+    }
+
+    /// nextOfType with completed=false returns pending actions.
+    function testNextOfTypePending() external {
+        libHarness.schedule(1, 1500, ""); // will complete
+        libHarness.schedule(1, 2500, ""); // will be pending
+
+        vm.warp(2000);
+
+        // Completed: only the first one.
+        assertEq(libHarness.nextOfType(0, 1, true), 1);
+        assertEq(libHarness.nextOfType(1, 1, true), 0);
+
+        // Pending: only the second one.
+        assertEq(libHarness.nextOfType(0, 1, false), 2);
+        assertEq(libHarness.nextOfType(2, 1, false), 0);
     }
 
     /// Fuzz: insertion ordering is always time-sorted.

@@ -4,8 +4,6 @@ pragma solidity =0.8.25;
 
 import {CorporateActionNode, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
 
-using LibCorporateActionNode for CorporateActionNode;
-
 /// @dev ERC-7201 namespaced storage location for corporate actions.
 /// keccak256(abi.encode(uint256(keccak256("rain.storage.corporate-action.1")) - 1)) & ~bytes32(uint256(0xff))
 bytes32 constant CORPORATE_ACTION_STORAGE_LOCATION = 0xcce8b403dc927e3ec0218603a262b6c4fcc2985ab628bee1e65a6e26753c8300;
@@ -91,12 +89,11 @@ library LibCorporateAction {
             s.nodes.push();
         }
 
-        // Push new node — its index is the actionIndex.
+        // Push new node — its array position is the actionIndex.
         s.nodes.push();
         actionIndex = s.nodes.length - 1;
 
         CorporateActionNode storage node = s.nodes[actionIndex];
-        node.index = actionIndex;
         node.actionType = actionType;
         node.effectiveTime = effectiveTime;
         node.parameters = parameters;
@@ -164,12 +161,11 @@ library LibCorporateAction {
 
     /// @notice Count completed actions by walking from the head.
     function countCompleted() internal view returns (uint256 count) {
-        CorporateActionStorage storage s = getStorage();
-        if (s.nodes.length == 0) return 0;
-        CorporateActionNode storage node = s.nodes[0].nextCompletedOfType(type(uint256).max);
-        while (node.index != 0) {
+        if (getStorage().nodes.length == 0) return 0;
+        uint256 current = LibCorporateActionNode.nextOfType(0, type(uint256).max, true);
+        while (current != 0) {
             count++;
-            node = node.nextCompletedOfType(type(uint256).max);
+            current = LibCorporateActionNode.nextOfType(current, type(uint256).max, true);
         }
     }
 
