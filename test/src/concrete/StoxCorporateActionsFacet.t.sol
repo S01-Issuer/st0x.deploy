@@ -15,7 +15,11 @@ import {
     ActionDoesNotExist
 } from "../../../src/lib/LibCorporateAction.sol";
 import {IAuthorizeV1, Unauthorized} from "ethgild/interface/IAuthorizeV1.sol";
-import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "../../../src/lib/LibCorporateActionNode.sol";
+import {
+    CorporateActionNode,
+    CompletionFilter,
+    LibCorporateActionNode
+} from "../../../src/lib/LibCorporateActionNode.sol";
 
 /// @dev Mock authorizer used by the facet tests. Records the most recent
 /// `authorize` call so tests can assert the per-action context that the facet
@@ -80,10 +84,7 @@ contract LibHarness {
         return LibCorporateAction.resolveActionType(typeHash, parameters);
     }
 
-    function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters)
-        external
-        returns (uint256)
-    {
+    function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters) external returns (uint256) {
         return LibCorporateAction.schedule(actionType, effectiveTime, parameters);
     }
 

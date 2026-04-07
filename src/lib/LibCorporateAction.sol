@@ -187,10 +187,14 @@ library LibCorporateAction {
         return s.nodes[s.tail];
     }
 
+    /// @notice Return the 1-based index of the head node, or 0 if the list is empty.
+    /// @return The head index. 0 means "no head" (empty list).
     function head() internal view returns (uint256) {
         return getStorage().head;
     }
 
+    /// @notice Return the 1-based index of the tail node, or 0 if the list is empty.
+    /// @return The tail index. 0 means "no tail" (empty list).
     function tail() internal view returns (uint256) {
         return getStorage().tail;
     }
