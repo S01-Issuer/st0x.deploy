@@ -11,7 +11,7 @@ import {
     UnknownActionType
 } from "src/lib/LibCorporateAction.sol";
 import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "src/lib/LibCorporateActionNode.sol";
-import {LibStockSplit, InvalidSplitMultiplier} from "src/lib/LibStockSplit.sol";
+import {LibStockSplit, InvalidSplitMultiplier, MultiplierTooSmall, MultiplierTooLarge} from "src/lib/LibStockSplit.sol";
 
 contract StockSplitHarness {
     function resolveAndSchedule(bytes32 typeHash, uint64 effectiveTime, bytes memory parameters)
@@ -58,11 +58,55 @@ contract LibStockSplitValidationTest is Test {
         v.validate(abi.encode(twoX));
     }
 
-    /// Zero multiplier reverts.
+    /// Zero multiplier reverts — covers the `coefficient == 0` branch.
     function testZeroMultiplierReverts() external {
         Float zero = LibDecimalFloat.packLossless(0, 0);
         vm.expectRevert(InvalidSplitMultiplier.selector);
         v.validate(abi.encode(zero));
+    }
+
+    /// Audit P2-1: negative coefficient reverts — covers the `coefficient < 0`
+    /// branch of the `<= 0` check that `testZeroMultiplierReverts` does not hit.
+    function testNegativeCoefficientMultiplierReverts() external {
+        Float negative = LibDecimalFloat.packLossless(-2, 0);
+        vm.expectRevert(InvalidSplitMultiplier.selector);
+        v.validate(abi.encode(negative));
+    }
+
+    /// Audit P2-1: negative coefficient with non-zero exponent also reverts.
+    function testNegativeCoefficientWithExponentReverts() external {
+        Float negative = LibDecimalFloat.packLossless(-1, 18);
+        vm.expectRevert(InvalidSplitMultiplier.selector);
+        v.validate(abi.encode(negative));
+    }
+
+    /// Audit P1-1 / P2-2: near-zero multiplier (`1e-30`) must revert.
+    /// Floor check: `trunc(1e18 * 1e-30) == 0` → `MultiplierTooSmall`.
+    function testNearZeroMultiplierReverts() external {
+        Float tooSmall = LibDecimalFloat.packLossless(1, -30);
+        vm.expectRevert(abi.encodeWithSelector(MultiplierTooSmall.selector, tooSmall));
+        v.validate(abi.encode(tooSmall));
+    }
+
+    /// Audit P1-1 / P2-2: the exact floor boundary, `1e-18`, must pass.
+    /// `trunc(1e18 * 1e-18) == 1`.
+    function testFloorBoundaryMultiplierPasses() external view {
+        Float boundary = LibDecimalFloat.packLossless(1, -18);
+        v.validate(abi.encode(boundary));
+    }
+
+    /// Audit P1-1 / P2-2: near-saturation multiplier (`1e30`) must revert.
+    /// Ceiling check: `trunc(1e18 * 1e30) == 1e48 > 1e36` → `MultiplierTooLarge`.
+    function testNearSaturationMultiplierReverts() external {
+        Float tooLarge = LibDecimalFloat.packLossless(1, 30);
+        vm.expectRevert(abi.encodeWithSelector(MultiplierTooLarge.selector, tooLarge));
+        v.validate(abi.encode(tooLarge));
+    }
+
+    /// Audit P1-1 / P2-2: a large-but-realistic 1000x split must pass.
+    function testLargeButRealisticSplitPasses() external view {
+        Float thousandX = LibDecimalFloat.packLossless(1000, 0);
+        v.validate(abi.encode(thousandX));
     }
 
     /// Fractional multiplier (1/3 reverse split) is valid.
@@ -71,10 +115,10 @@ contract LibStockSplitValidationTest is Test {
         v.validate(abi.encode(oneThird));
     }
 
-    /// Encode/decode roundtrip preserves the multiplier.
+    /// Decode-after-abi.encode roundtrip preserves the multiplier.
     function testEncodeDecodeRoundtrip() external pure {
         Float threeX = LibDecimalFloat.packLossless(3, 0);
-        bytes memory encoded = LibStockSplit.encodeParameters(threeX);
+        bytes memory encoded = abi.encode(threeX);
         Float decoded = LibStockSplit.decodeParameters(encoded);
         assertEq(Float.unwrap(decoded), Float.unwrap(threeX));
     }

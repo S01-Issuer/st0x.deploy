@@ -9,6 +9,8 @@ import {
     CORPORATE_ACTION_STORAGE_LOCATION,
     SCHEDULE_CORPORATE_ACTION,
     CANCEL_CORPORATE_ACTION,
+    STOCK_SPLIT_TYPE_HASH,
+    ACTION_TYPE_STOCK_SPLIT,
     UnknownActionType,
     EffectiveTimeInPast,
     ActionAlreadyComplete,
@@ -20,6 +22,7 @@ import {
     CompletionFilter,
     LibCorporateActionNode
 } from "../../../src/lib/LibCorporateActionNode.sol";
+import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 
 /// @dev Mock authorizer used by the facet tests. Records the most recent
 /// `authorize` call so tests can assert the per-action context that the facet
@@ -633,6 +636,7 @@ contract StoxCorporateActionsFacetTest is Test {
         );
     }
 
+
     /// headNode and tailNode revert on a completely fresh list where no
     /// action has ever been scheduled (nodes array has length 0).
     function testHeadNodeRevertsOnFreshList() external {
@@ -1001,5 +1005,38 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(n2.actionType, 2, "harness2 has type 2");
         assertEq(n1.parameters, hex"AA");
         assertEq(n2.parameters, hex"BB");
+    }
+
+    /// Audit P2-4: `scheduleCorporateAction` emits `CorporateActionScheduled`
+    /// with the right indexed sender, indexed actionIndex, action type, and
+    /// effective time. Asserts the public event API consumed by offchain
+    /// indexers.
+    function testScheduleCorporateActionEmitsEvent() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory parameters = abi.encode(twoX);
+        uint64 effectiveTime = 1500;
+
+        vm.expectEmit(true, true, false, true, address(facetViaHarness));
+        emit StoxCorporateActionsFacet.CorporateActionScheduled(ALICE, 1, ACTION_TYPE_STOCK_SPLIT, effectiveTime);
+
+        vm.prank(ALICE);
+        uint256 actionIndex = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, effectiveTime, parameters);
+        assertEq(actionIndex, 1);
+    }
+
+    /// Audit P2-4: `cancelCorporateAction` emits `CorporateActionCancelled`
+    /// with the right indexed sender and indexed actionIndex.
+    function testCancelCorporateActionEmitsEvent() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory parameters = abi.encode(twoX);
+
+        vm.prank(ALICE);
+        uint256 actionIndex = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, parameters);
+
+        vm.expectEmit(true, true, false, false, address(facetViaHarness));
+        emit StoxCorporateActionsFacet.CorporateActionCancelled(ALICE, actionIndex);
+
+        vm.prank(ALICE);
+        facetViaHarness.cancelCorporateAction(actionIndex);
     }
 }

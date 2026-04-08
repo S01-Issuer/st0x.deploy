@@ -82,11 +82,7 @@ library LibCorporateAction {
     /// @param typeHash External identifier, e.g. keccak256("StockSplit").
     /// @param parameters ABI-encoded parameters for the action type.
     /// @return actionType The internal bitmap for this type.
-    function resolveActionType(bytes32 typeHash, bytes memory parameters)
-        internal
-        pure
-        returns (uint256 actionType)
-    {
+    function resolveActionType(bytes32 typeHash, bytes memory parameters) internal pure returns (uint256 actionType) {
         if (typeHash == STOCK_SPLIT_TYPE_HASH) {
             LibStockSplit.validateParameters(parameters);
             return ACTION_TYPE_STOCK_SPLIT;
