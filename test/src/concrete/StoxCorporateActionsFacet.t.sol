@@ -217,9 +217,8 @@ contract StoxCorporateActionsFacetTest is Test {
         // index. We deliberately discard the success flag because what matters
         // for this test is that the authorizer was called (asserted by
         // vm.expectCall above), not whether the cancel itself succeeded.
-        (bool success,) = address(facetViaHarness).call(
-            abi.encodeWithSelector(StoxCorporateActionsFacet.cancelCorporateAction.selector, actionIndex)
-        );
+        (bool success,) = address(facetViaHarness)
+            .call(abi.encodeWithSelector(StoxCorporateActionsFacet.cancelCorporateAction.selector, actionIndex));
         success; // silence unused-var warning
     }
 
@@ -319,6 +318,71 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(n3.prev, 1);
         assertEq(n3.next, 2);
         assertEq(n2.prev, 3);
+    }
+
+    /// Multiple actions scheduled at the same effectiveTime are inserted in
+    /// stable order: each new node lands AFTER existing nodes with equal
+    /// effectiveTime. This regression-protects the `<=` comparison in
+    /// LibCorporateAction.schedule's tail walk — flipping it to `<` would
+    /// silently reorder same-time actions and break time-stable iteration.
+    /// Audit finding A21-P2-1.
+    function testScheduleTiedEffectiveTimeStableOrdering() external {
+        uint256 first = libHarness.schedule(1, 1500, hex"01");
+        uint256 second = libHarness.schedule(1, 1500, hex"02");
+        uint256 third = libHarness.schedule(1, 1500, hex"03");
+
+        assertEq(first, 1);
+        assertEq(second, 2);
+        assertEq(third, 3);
+        assertEq(libHarness.head(), 1, "head is the first-inserted node");
+        assertEq(libHarness.tail(), 3, "tail is the last-inserted node");
+
+        CorporateActionNode memory n1 = libHarness.getNode(first);
+        CorporateActionNode memory n2 = libHarness.getNode(second);
+        CorporateActionNode memory n3 = libHarness.getNode(third);
+
+        assertEq(n1.prev, 0, "head has no prev");
+        assertEq(n1.next, second, "1 -> 2");
+        assertEq(n2.prev, first, "2 <- 1");
+        assertEq(n2.next, third, "2 -> 3");
+        assertEq(n3.prev, second, "3 <- 2");
+        assertEq(n3.next, 0, "tail has no next");
+
+        // Walk forward from head and verify the parameters land in insertion
+        // order — defends against any walk-direction regression.
+        uint256 cursor = libHarness.head();
+        bytes memory walked = "";
+        while (cursor != 0) {
+            CorporateActionNode memory node = libHarness.getNode(cursor);
+            walked = bytes.concat(walked, node.parameters);
+            cursor = node.next;
+        }
+        assertEq(walked, hex"010203", "forward walk yields insertion order");
+    }
+
+    /// A new same-time action inserted into the middle of the existing list
+    /// also lands at the back of the equal-time run, not in front of it.
+    function testScheduleTiedEffectiveTimeInMiddleStableOrdering() external {
+        libHarness.schedule(1, 1000 + 1, hex"01"); // earlier
+        libHarness.schedule(1, 1000 + 100, hex"AA"); // later
+        // Insert two actions with the same time as the existing earlier one;
+        // they must land between the earlier-time node and the later-time node,
+        // in insertion order.
+        uint256 mid1 = libHarness.schedule(1, 1000 + 1, hex"02");
+        uint256 mid2 = libHarness.schedule(1, 1000 + 1, hex"03");
+
+        // Walk forward, collect parameters.
+        uint256 cursor = libHarness.head();
+        bytes memory walked = "";
+        while (cursor != 0) {
+            walked = bytes.concat(walked, libHarness.getNode(cursor).parameters);
+            cursor = libHarness.getNode(cursor).next;
+        }
+        // Expected order: 0x01 (first earlier), 0x02 (mid1), 0x03 (mid2), 0xAA (later).
+        assertEq(walked, hex"010203AA", "tied-time inserts land at back of equal-time run");
+        assertEq(libHarness.tail(), 2, "tail unchanged: later-time node still last");
+        assertEq(mid1, 3);
+        assertEq(mid2, 4);
     }
 
     /// Schedule in the past reverts.
