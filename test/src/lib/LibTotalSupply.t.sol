@@ -263,4 +263,77 @@ contract LibTotalSupplyTest is Test {
         assertEq(h.unmigrated(2), 1200);
         assertEq(h.effectiveTotalSupply(), 1200);
     }
+
+    /// Reference implementation: compute effective total supply the same way
+    /// LibTotalSupply.effectiveTotalSupply does, but in pure Solidity inside
+    /// the test, so the production accumulator can be cross-checked.
+    function _referenceEffectiveTotalSupply(uint256[] memory pots, int256[] memory multipliers)
+        internal
+        pure
+        returns (uint256)
+    {
+        // pots.length == multipliers.length + 1
+        // pot[0] is the bootstrap pot, walked before any multiplier.
+        // pot[i] (i>=1) is the pot at split i; added AFTER multiplier i-1 is applied.
+        uint256 running = pots[0];
+        for (uint256 i = 0; i < multipliers.length; i++) {
+            (running,) = LibDecimalFloat.toFixedDecimalLossy(
+                LibDecimalFloat.mul(
+                    // forge-lint: disable-next-line(unsafe-typecast)
+                    LibDecimalFloat.packLossless(int256(running), 0),
+                    LibDecimalFloat.packLossless(multipliers[i], 0)
+                ),
+                0
+            );
+            running += pots[i + 1];
+        }
+        return running;
+    }
+
+    /// Audit finding A28-P2-3: fuzz `effectiveTotalSupply` against an
+    /// in-test reference implementation. Drives a configurable number of
+    /// completed splits + per-pot balances and asserts the production
+    /// accumulator matches a re-implementation that walks the pots in
+    /// pure Solidity.
+    function testFuzzEffectiveTotalSupplyMatchesReference(
+        uint64 bootstrapPot,
+        uint64[3] memory laterPots,
+        uint8 mulSeed
+    ) external {
+        // Bound multipliers to sensible positive integers (1..5) so fuzz
+        // doesn't drive the float lib into overflow / saturation territory.
+        int256 m1 = int256(uint256(uint8(mulSeed % 5) + 1));
+        int256 m2 = int256(uint256(uint8((mulSeed >> 3) % 5) + 1));
+        int256 m3 = int256(uint256(uint8((mulSeed >> 5) % 5) + 1));
+
+        // Schedule three splits and warp past all of them.
+        h.setOzTotalSupply(uint256(bootstrapPot));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(m1));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(m2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT, 3500, _splitParams(m3));
+        vm.warp(4000);
+        h.fold();
+
+        // After fold, unmigrated[0] == bootstrapPot. Add later pots via the
+        // onAccountMigrated helper with from=0, storedBalance=0 so no
+        // underflow risk on pot[0]. Each call adds `laterPots[i-1]` to the
+        // pot at cursor `i`.
+        h.onAccountMigrated(0, 0, 1, uint256(laterPots[0]));
+        h.onAccountMigrated(0, 0, 2, uint256(laterPots[1]));
+        h.onAccountMigrated(0, 0, 3, uint256(laterPots[2]));
+
+        // Build the reference inputs.
+        uint256[] memory pots = new uint256[](4);
+        pots[0] = uint256(bootstrapPot);
+        pots[1] = uint256(laterPots[0]);
+        pots[2] = uint256(laterPots[1]);
+        pots[3] = uint256(laterPots[2]);
+        int256[] memory multipliers = new int256[](3);
+        multipliers[0] = m1;
+        multipliers[1] = m2;
+        multipliers[2] = m3;
+
+        uint256 expected = _referenceEffectiveTotalSupply(pots, multipliers);
+        assertEq(h.effectiveTotalSupply(), expected, "production accumulator must match the reference");
+    }
 }
