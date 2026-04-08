@@ -45,11 +45,11 @@ contract MockAuthorizer is IAuthorizeV1 {
 /// (this)).authorizer()` lookup resolves to a test-controlled mock instead of
 /// a real ethgild authorizer.
 contract DelegatecallHarness {
-    address public immutable facet;
+    address public immutable FACET;
     IAuthorizeV1 public authorizer;
 
     constructor(address facet_) {
-        facet = facet_;
+        FACET = facet_;
     }
 
     function setAuthorizer(IAuthorizeV1 authorizer_) external {
@@ -57,7 +57,7 @@ contract DelegatecallHarness {
     }
 
     fallback() external payable {
-        address target = facet;
+        address target = FACET;
         assembly {
             calldatacopy(0, 0, calldatasize())
             let success := delegatecall(gas(), target, 0, calldatasize(), 0, 0)
