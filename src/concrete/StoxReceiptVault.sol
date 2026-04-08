@@ -72,7 +72,13 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         return balance;
     }
 
-    /// @dev Returns the effective total supply including pending multipliers.
+    /// @notice Returns the effective total supply after applying every
+    /// completed corporate action's multiplier on top of the per-cursor pot
+    /// model tracked by `LibTotalSupply`. See `LibTotalSupply` for the full
+    /// explanation of the per-pot walking recurrence.
+    /// @return The effective total supply, consistent with the sum of
+    /// `balanceOf` over all holders (the invariant upheld by per-account
+    /// migration plus per-cursor pots).
     function totalSupply() public view virtual override returns (uint256) {
         return LibTotalSupply.effectiveTotalSupply();
     }

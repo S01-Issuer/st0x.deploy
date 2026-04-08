@@ -2,11 +2,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, stdError} from "forge-std/Test.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {LibTotalSupply} from "src/lib/LibTotalSupply.sol";
 import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT} from "src/lib/LibCorporateAction.sol";
-import {LibERC20Storage} from "src/lib/LibERC20Storage.sol";
+import {LibERC20Storage, ERC20_STORAGE_LOCATION} from "src/lib/LibERC20Storage.sol";
 
 contract LibTotalSupplyHarness {
     function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters) external returns (uint256) {
@@ -35,8 +35,15 @@ contract LibTotalSupplyHarness {
         LibTotalSupply.onBurn(amount);
     }
 
+    /// @dev Test-only helper: write directly to OZ's `_totalSupply` slot to
+    /// seed the harness with a starting totalSupply. `LibERC20Storage` no
+    /// longer exposes a setter (production code must not write this slot —
+    /// `LibTotalSupply` per-cursor pots own the effective supply), so we do
+    /// the slot write inline here.
     function setOzTotalSupply(uint256 supply) external {
-        LibERC20Storage.setTotalSupply(supply);
+        assembly ("memory-safe") {
+            sstore(add(ERC20_STORAGE_LOCATION, 2), supply)
+        }
     }
 
     function unmigrated(uint256 cursor) external view returns (uint256) {
@@ -335,5 +342,36 @@ contract LibTotalSupplyTest is Test {
 
         uint256 expected = _referenceEffectiveTotalSupply(pots, multipliers);
         assertEq(h.effectiveTotalSupply(), expected, "production accumulator must match the reference");
+    }
+
+    /// Audit P2-3: `onBurn` MUST revert via Solidity 0.8 underflow panic when
+    /// the burn amount exceeds the current pot at `totalSupplyLatestSplit`.
+    /// Under normal vault operation this state is unreachable (every burn is
+    /// preceded by `_migrateAccount(burner)`, which moves the burner's balance
+    /// into the latest pot first), but the invariant is load-bearing and
+    /// would silently break if a future refactor wrapped the subtraction in
+    /// an `unchecked` block.
+    function testOnBurnUnderflowReverts() external {
+        h.setOzTotalSupply(1000);
+        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vm.warp(2000);
+        h.fold();
+        // `unmigrated[1]` is still 0 — nothing has migrated or been minted
+        // post-fold. Attempting to burn from an empty pot underflows.
+        vm.expectRevert(stdError.arithmeticError);
+        h.onBurn(1);
+    }
+
+    /// Audit P2-3: the exact-boundary burn succeeds; burning one wei more
+    /// underflows.
+    function testOnBurnAtBoundarySucceedsOneBeyondReverts() external {
+        h.setOzTotalSupply(1000);
+        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vm.warp(2000);
+        h.fold();
+        h.onMint(100); // unmigrated[1] = 100
+        h.onBurn(100); // exact boundary — OK
+        vm.expectRevert(stdError.arithmeticError);
+        h.onBurn(1);
     }
 }
