@@ -122,6 +122,16 @@ import {CompletionFilter} from "../lib/LibCorporateActionNode.sol";
 /// receipt contract return rebased values. They are consistent with each
 /// other — a batch read returns the same values as calling `balanceOf` per
 /// element.
+///
+/// @dev **Action type bitmap.** The `actionType` field returned by the four
+/// traversal getters is a single-bit mask identifying the action's type.
+/// The canonical mapping lives in `src/lib/LibCorporateAction.sol` and is
+/// reproduced here for convenience:
+/// - `1 << 0` — stock split (forward or reverse; multiplier is a Rain Float).
+///
+/// Further action types will be added as additional bit positions. Consumers
+/// should mask against the specific bit(s) they care about, not compare
+/// equality — so that pending additions remain forward-compatible.
 interface ICorporateActionsV1 {
     /// @notice Emitted when a corporate action is successfully scheduled.
     /// @param sender The msg.sender that called `scheduleCorporateAction`.
