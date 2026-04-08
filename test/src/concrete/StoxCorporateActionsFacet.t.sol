@@ -11,14 +11,49 @@ import {
     CANCEL_CORPORATE_ACTION,
     UnknownActionType
 } from "../../../src/lib/LibCorporateAction.sol";
+import {IAuthorizeV1, Unauthorized} from "ethgild/interface/IAuthorizeV1.sol";
+
+/// @dev Mock authorizer used by the facet tests. Records the most recent
+/// `authorize` call so tests can assert the per-action context that the facet
+/// passes through. When `denyMode` is true, every `authorize` call reverts
+/// with `Unauthorized`, exercising the auth-denial code path.
+contract MockAuthorizer is IAuthorizeV1 {
+    bool public denyMode;
+    address public lastUser;
+    bytes32 public lastPermission;
+    bytes public lastData;
+    uint256 public callCount;
+
+    function setDenyMode(bool deny) external {
+        denyMode = deny;
+    }
+
+    function authorize(address user, bytes32 permission, bytes memory data) external override {
+        callCount++;
+        lastUser = user;
+        lastPermission = permission;
+        lastData = data;
+        if (denyMode) {
+            revert Unauthorized(user, permission, data);
+        }
+    }
+}
 
 /// @dev Minimal harness that delegates calls to a facet, simulating how the
-/// vault would route unknown selectors via its fallback.
+/// vault would route unknown selectors via its fallback. Also exposes an
+/// `authorizer()` function so the facet's `OffchainAssetReceiptVault(address
+/// (this)).authorizer()` lookup resolves to a test-controlled mock instead of
+/// a real ethgild authorizer.
 contract DelegatecallHarness {
     address public immutable facet;
+    IAuthorizeV1 public authorizer;
 
     constructor(address facet_) {
         facet = facet_;
+    }
+
+    function setAuthorizer(IAuthorizeV1 authorizer_) external {
+        authorizer = authorizer_;
     }
 
     fallback() external payable {
@@ -52,12 +87,17 @@ contract StoxCorporateActionsFacetTest is Test {
     DelegatecallHarness internal harness;
     StoxCorporateActionsFacet internal facetViaHarness;
     LibHarness internal libHarness;
+    MockAuthorizer internal mockAuthorizer;
+
+    address internal constant ALICE = address(0xA11CE);
 
     function setUp() public {
         facetImpl = new StoxCorporateActionsFacet();
         harness = new DelegatecallHarness(address(facetImpl));
         facetViaHarness = StoxCorporateActionsFacet(address(harness));
         libHarness = new LibHarness();
+        mockAuthorizer = new MockAuthorizer();
+        harness.setAuthorizer(mockAuthorizer);
     }
 
     /// completedActionCount returns 0 on a fresh deployment.
@@ -93,5 +133,83 @@ contract StoxCorporateActionsFacetTest is Test {
     /// countCompleted returns 0 (placeholder).
     function testCountCompletedReturnsZero() external view {
         assertEq(libHarness.countCompleted(), 0);
+    }
+
+    /// `scheduleCorporateAction` calls the authorizer with the SCHEDULE
+    /// permission and `abi.encode(typeHash, effectiveTime, parameters)` as
+    /// the data argument. On PR1 the call reverts at the `resolveActionType`
+    /// stub, so we use `vm.expectCall` (which survives the revert) to assert
+    /// the authorizer call was made with the right arguments.
+    function testScheduleCorporateActionForwardsContextToAuthorizer() external {
+        bytes32 typeHash = keccak256("DefinitelyUnknownActionType");
+        uint64 effectiveTime = 1500;
+        bytes memory parameters = hex"deadbeef";
+
+        vm.expectCall(
+            address(mockAuthorizer),
+            abi.encodeWithSelector(
+                IAuthorizeV1.authorize.selector,
+                ALICE,
+                SCHEDULE_CORPORATE_ACTION,
+                abi.encode(typeHash, effectiveTime, parameters)
+            )
+        );
+
+        vm.prank(ALICE);
+        vm.expectRevert(abi.encodeWithSelector(UnknownActionType.selector, typeHash));
+        facetViaHarness.scheduleCorporateAction(typeHash, effectiveTime, parameters);
+    }
+
+    /// `cancelCorporateAction` calls the authorizer with the CANCEL permission
+    /// and `abi.encode(actionIndex)` as the data argument. On PR1 the cancel
+    /// path is a no-op stub, so the outer call succeeds and we can also
+    /// observe the mock's recorded state.
+    function testCancelCorporateActionForwardsContextToAuthorizer() external {
+        uint256 actionIndex = 42;
+
+        vm.expectCall(
+            address(mockAuthorizer),
+            abi.encodeWithSelector(
+                IAuthorizeV1.authorize.selector, ALICE, CANCEL_CORPORATE_ACTION, abi.encode(actionIndex)
+            )
+        );
+
+        vm.prank(ALICE);
+        facetViaHarness.cancelCorporateAction(actionIndex);
+
+        assertEq(mockAuthorizer.callCount(), 1);
+        assertEq(mockAuthorizer.lastUser(), ALICE);
+        assertEq(mockAuthorizer.lastPermission(), CANCEL_CORPORATE_ACTION);
+        assertEq(mockAuthorizer.lastData(), abi.encode(actionIndex));
+    }
+
+    /// `scheduleCorporateAction` propagates the authorizer's revert when the
+    /// authorizer denies the action.
+    function testScheduleCorporateActionRevertsWhenAuthorizerDenies() external {
+        mockAuthorizer.setDenyMode(true);
+        bytes32 typeHash = keccak256("DefinitelyUnknownActionType");
+        uint64 effectiveTime = 1500;
+        bytes memory parameters = hex"deadbeef";
+
+        vm.prank(ALICE);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Unauthorized.selector, ALICE, SCHEDULE_CORPORATE_ACTION, abi.encode(typeHash, effectiveTime, parameters)
+            )
+        );
+        facetViaHarness.scheduleCorporateAction(typeHash, effectiveTime, parameters);
+    }
+
+    /// `cancelCorporateAction` propagates the authorizer's revert when the
+    /// authorizer denies the action.
+    function testCancelCorporateActionRevertsWhenAuthorizerDenies() external {
+        mockAuthorizer.setDenyMode(true);
+        uint256 actionIndex = 7;
+
+        vm.prank(ALICE);
+        vm.expectRevert(
+            abi.encodeWithSelector(Unauthorized.selector, ALICE, CANCEL_CORPORATE_ACTION, abi.encode(actionIndex))
+        );
+        facetViaHarness.cancelCorporateAction(actionIndex);
     }
 }

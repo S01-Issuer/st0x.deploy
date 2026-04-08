@@ -45,7 +45,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         override
         returns (uint256 actionIndex)
     {
-        _authorize(msg.sender, SCHEDULE_CORPORATE_ACTION);
+        _authorize(msg.sender, SCHEDULE_CORPORATE_ACTION, abi.encode(typeHash, effectiveTime, parameters));
         uint256 actionType = LibCorporateAction.resolveActionType(typeHash, parameters);
         actionIndex = LibCorporateAction.schedule(actionType, effectiveTime, parameters);
         emit CorporateActionScheduled(msg.sender, actionIndex, actionType, effectiveTime);
@@ -53,16 +53,23 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
 
     /// @inheritdoc ICorporateActionsV1
     function cancelCorporateAction(uint256 actionIndex) external override {
-        _authorize(msg.sender, CANCEL_CORPORATE_ACTION);
+        _authorize(msg.sender, CANCEL_CORPORATE_ACTION, abi.encode(actionIndex));
         LibCorporateAction.cancel(actionIndex);
         emit CorporateActionCancelled(msg.sender, actionIndex);
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is
     /// delegatecalled by the vault, `address(this)` is the vault and we can
-    /// access its storage to find the authorizer.
-    function _authorize(address user, bytes32 permission) internal {
+    /// access its storage to find the authorizer. The `data` argument is
+    /// forwarded so authorizers can apply per-action policy (e.g. rate-limiting
+    /// by multiplier magnitude or action type) — see audit finding A01-1.
+    /// @param user The address requesting the action (typically `msg.sender`).
+    /// @param permission The bytes32 permission constant identifying the action.
+    /// @param data ABI-encoded action context. For schedule:
+    /// `abi.encode(bytes32 typeHash, uint64 effectiveTime, bytes parameters)`.
+    /// For cancel: `abi.encode(uint256 actionIndex)`.
+    function _authorize(address user, bytes32 permission, bytes memory data) internal {
         IAuthorizeV1 auth = OffchainAssetReceiptVault(payable(address(this))).authorizer();
-        auth.authorize(user, permission, "");
+        auth.authorize(user, permission, data);
     }
 }
