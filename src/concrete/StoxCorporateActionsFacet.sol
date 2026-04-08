@@ -86,13 +86,13 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     }
 
     /// @inheritdoc ICorporateActionsV1
-    function latestActionOfType(uint256 mask)
+    function latestActionOfType(uint256 mask, CompletionFilter filter)
         external
         view
         override
         returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
     {
-        cursor = LibCorporateActionNode.prevOfType(0, mask, CompletionFilter.ALL);
+        cursor = LibCorporateActionNode.prevOfType(0, mask, filter);
         if (cursor != 0) {
             CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[cursor];
             actionType = node.actionType;
@@ -101,13 +101,13 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     }
 
     /// @inheritdoc ICorporateActionsV1
-    function earliestActionOfType(uint256 mask)
+    function earliestActionOfType(uint256 mask, CompletionFilter filter)
         external
         view
         override
         returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
     {
-        cursor = LibCorporateActionNode.nextOfType(0, mask, CompletionFilter.ALL);
+        cursor = LibCorporateActionNode.nextOfType(0, mask, filter);
         if (cursor != 0) {
             CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[cursor];
             actionType = node.actionType;
@@ -116,13 +116,13 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     }
 
     /// @inheritdoc ICorporateActionsV1
-    function nextOfType(uint256 cursor, uint256 mask)
+    function nextOfType(uint256 cursor, uint256 mask, CompletionFilter filter)
         external
         view
         override
         returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime)
     {
-        nextCursor = LibCorporateActionNode.nextOfType(cursor, mask, CompletionFilter.ALL);
+        nextCursor = LibCorporateActionNode.nextOfType(cursor, mask, filter);
         if (nextCursor != 0) {
             CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[nextCursor];
             actionType = node.actionType;
@@ -131,13 +131,13 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     }
 
     /// @inheritdoc ICorporateActionsV1
-    function prevOfType(uint256 cursor, uint256 mask)
+    function prevOfType(uint256 cursor, uint256 mask, CompletionFilter filter)
         external
         view
         override
         returns (uint256 prevCursor, uint256 actionType, uint64 effectiveTime)
     {
-        prevCursor = LibCorporateActionNode.prevOfType(cursor, mask, CompletionFilter.ALL);
+        prevCursor = LibCorporateActionNode.prevOfType(cursor, mask, filter);
         if (prevCursor != 0) {
             CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[prevCursor];
             actionType = node.actionType;
