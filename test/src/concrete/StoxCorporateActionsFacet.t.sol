@@ -212,4 +212,33 @@ contract StoxCorporateActionsFacetTest is Test {
         );
         facetViaHarness.cancelCorporateAction(actionIndex);
     }
+
+    // -----------------------------------------------------------------------
+    // onlyDelegatecalled guard — every external entry point must revert with
+    // `FacetMustBeDelegatecalled` when invoked directly on the standalone
+    // facet deployment (i.e. not via the vault's delegatecall). See
+    // `audit/2026-04-09-01/guidelines-advisor.md` Item 3.
+
+    /// Direct call to `completedActionCount` on the standalone facet reverts
+    /// with `FacetMustBeDelegatecalled`, even though the function is a pure
+    /// view and never reaches the authorizer lookup.
+    function testCompletedActionCountDirectCallReverts() external {
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facetImpl.completedActionCount();
+    }
+
+    /// Direct call to `scheduleCorporateAction` on the standalone facet
+    /// reverts with `FacetMustBeDelegatecalled` — the guard fires before the
+    /// authorizer lookup, so the order of checks matches the modifier.
+    function testScheduleCorporateActionDirectCallReverts() external {
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facetImpl.scheduleCorporateAction(keccak256("StockSplit"), uint64(block.timestamp + 1), hex"");
+    }
+
+    /// Direct call to `cancelCorporateAction` on the standalone facet reverts
+    /// with `FacetMustBeDelegatecalled`.
+    function testCancelCorporateActionDirectCallReverts() external {
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facetImpl.cancelCorporateAction(1);
+    }
 }

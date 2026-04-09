@@ -12,14 +12,23 @@ import {OffchainAssetReceiptVault} from "ethgild/concrete/vault/OffchainAssetRec
 /// the vault's storage space via ERC-7201 namespaced storage, so it can be
 /// delegatecalled from the vault's fallback without storage collisions.
 /// @dev MUST be delegatecalled by an `OffchainAssetReceiptVault`-derived
-/// contract. The facet's `_authorize` reads the vault's authorizer state via
-/// `address(this).authorizer()`, so direct calls to a standalone deployment of
-/// this facet revert because the facet itself does not implement
-/// `authorizer()`.
+/// contract. Every external entry point carries the `onlyDelegatecalled`
+/// modifier, which reads the immutable `_SELF` (set to `address(this)` at
+/// construction time) and reverts with `FacetMustBeDelegatecalled` if the
+/// call is not running under delegatecall. This makes the "cannot run
+/// standalone" property explicit rather than relying on the incidental
+/// fact that `OffchainAssetReceiptVault(address(this)).authorizer()` fails
+/// to resolve on a standalone deployment — the guard fires even for pure
+/// view getters that would not otherwise reach the authorizer lookup.
 ///
 /// PR1 establishes the facet architecture and authorization wiring.
-/// Subsequent PRs add the linked list, scheduling, and query functions.
+/// Subsequent PRs add the linked list, scheduling, and query functions,
+/// each of which must also carry `onlyDelegatecalled`.
 contract StoxCorporateActionsFacet is ICorporateActionsV1 {
+    /// @notice Thrown when a function is called directly on the standalone
+    /// facet deployment rather than via delegatecall from the vault.
+    error FacetMustBeDelegatecalled();
+
     /// @notice Emitted when a corporate action is successfully scheduled.
     /// @param sender The msg.sender that called `scheduleCorporateAction`.
     /// @param actionIndex The 1-based index assigned to the new action.
@@ -34,8 +43,31 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     /// @param actionIndex The action index that was cancelled.
     event CorporateActionCancelled(address indexed sender, uint256 indexed actionIndex);
 
+    /// @dev The address of this facet contract at deployment time, captured
+    /// in the constructor and baked into bytecode as an immutable. Under a
+    /// legitimate delegatecall from the vault, `address(this)` resolves to
+    /// the vault's address and differs from `_SELF`; a direct call to the
+    /// standalone facet has `address(this) == _SELF` and is rejected by
+    /// `onlyDelegatecalled`. Constructor remains parameterless for Zoltu
+    /// deterministic deployment.
+    address private immutable _SELF;
+
+    constructor() {
+        _SELF = address(this);
+    }
+
+    /// @dev Rejects direct calls to the standalone facet deployment. Every
+    /// external entry point — including view getters — must carry this
+    /// modifier so the facet has no callable surface outside of a vault's
+    /// delegatecall context. Mirrors the pattern used by
+    /// `OpenZeppelin UUPSUpgradeable.onlyProxy`.
+    modifier onlyDelegatecalled() {
+        if (address(this) == _SELF) revert FacetMustBeDelegatecalled();
+        _;
+    }
+
     /// @inheritdoc ICorporateActionsV1
-    function completedActionCount() external pure override returns (uint256) {
+    function completedActionCount() external view override onlyDelegatecalled returns (uint256) {
         return LibCorporateAction.countCompleted();
     }
 
@@ -43,6 +75,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     function scheduleCorporateAction(bytes32 typeHash, uint64 effectiveTime, bytes calldata parameters)
         external
         override
+        onlyDelegatecalled
         returns (uint256 actionIndex)
     {
         _authorize(msg.sender, SCHEDULE_CORPORATE_ACTION, abi.encode(typeHash, effectiveTime, parameters));
@@ -52,7 +85,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     }
 
     /// @inheritdoc ICorporateActionsV1
-    function cancelCorporateAction(uint256 actionIndex) external override {
+    function cancelCorporateAction(uint256 actionIndex) external override onlyDelegatecalled {
         _authorize(msg.sender, CANCEL_CORPORATE_ACTION, abi.encode(actionIndex));
         LibCorporateAction.cancel(actionIndex);
         emit CorporateActionCancelled(msg.sender, actionIndex);
