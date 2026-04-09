@@ -1,66 +1,219 @@
 # Corporate Actions Implementation Plan
 
-Four PRs, each building on the last. Every PR must have comprehensive unit tests with fuzz testing on all numeric and state-transition logic.
+As-built roadmap for the corporate actions system. The stack originally
+planned four PRs; the delivered work is six PRs plus one outstanding PR for
+receipt coordination. Each PR has comprehensive unit tests with fuzz coverage
+on numeric and state-transition logic.
 
-## PR 1: Diamond Facet Shell and Interface
+> **Historical note.** This document was previously a pre-implementation plan
+> with a stored SCHEDULED/COMPLETE status enum, a "global version counter" for
+> rebases, and completion-time-assigned monotonic IDs. The as-built system
+> replaced all three with simpler primitives: completion is derived from
+> `effectiveTime <= block.timestamp` (no stored status), rebase tracking is a
+> per-account cursor into the list (no global counter), and action handles are
+> 1-based array indices assigned at schedule time (stable from the moment of
+> creation). The original wording is preserved in git history.
 
-Establish that the diamond facet architecture works with the existing vault, and define the versioned interface that all consumers will use.
+## PR 1 — Diamond Facet Shell and Interface (`feat/corporate-actions-pr1-diamond-facet`, PR #18)
 
-**Scope**: `ICorporateActionsV1` interface defining the public API for corporate actions (using `actionId` for stable action references and `completedActionCount()` for the count of completed actions). A facet contract with `LibCorporateAction` providing ERC-7201 namespaced storage. Authorization wiring with distinct permissions for scheduling and cancellation. The deliverable is a vault that successfully delegates calls to the facet and reads/writes diamond storage.
+Diamond facet architecture wiring: the vault delegatecalls the facet;
+the facet writes to ERC-7201 namespaced storage at
+`rain.storage.corporate-action.1`. Versioned interface
+`ICorporateActionsV1` exposes the public API; external consumers depend on
+the interface, not the concrete facet.
 
-**Testing**: Verify facet routing works — calls to corporate action selectors hit the facet via delegatecall. Verify storage isolation — two harnesses sharing the same facet impl have independent storage. Verify the ERC-7201 storage slot matches the documented formula. Test authorization permission constants.
+**Scope delivered.** `StoxCorporateActionsFacet`, `ICorporateActionsV1`,
+`LibCorporateAction` storage skeleton, authorizer wiring via
+`OffchainAssetReceiptVault.authorizer()` with distinct
+`SCHEDULE_CORPORATE_ACTION` / `CANCEL_CORPORATE_ACTION` permission hashes.
+Per-action context (`typeHash`, `effectiveTime`, `parameters`) is forwarded
+to the authorizer so per-action policies are expressible.
 
-## PR 2: Doubly Linked List and Action Lifecycle
+**Testing.** Facet routing via delegatecall, storage isolation between
+harnesses sharing the same facet implementation, ERC-7201 slot pin, auth
+permission constants, per-action authorizer context forwarding.
 
-Implement the core data structure: a doubly linked list ordered by `effectiveTime`, with automatic completion and cancellation support. No specific action types yet — the list operates on generic action nodes with a type bitmap, effective time, and parameters blob.
+## PR 2 — Doubly Linked List and Action Lifecycle (`feat/corporate-actions-pr2-linked-list`, PR #22)
 
-**Scope**: `LibCorporateAction` grows to include the doubly linked list with insertion logic that maintains time ordering. Each node has previous/next pointers, effective time, action type (bitmap), and ABI-encoded parameters. There is no stored status — an action is complete when its `effectiveTime <= block.timestamp`. There are no stored counters — `completedActionCount()` walks from the head counting completed nodes. Monotonic completed action IDs are positional indices from the head — they are stable because new actions cannot be inserted in the past. Insertion in the past reverts. Cancellation removes a node from the list (only if its effective time has not passed). Action type validation via `validateActionType()` against a `KNOWN_ACTION_TYPES` bitmap constant (set to `type(uint256).max` in this PR, narrowed in PR 3). The facet exposes scheduling and cancellation entry points. Events are emitted on scheduling and cancellation.
+Doubly linked list of corporate action nodes ordered by `effectiveTime`.
+Nodes are stored in a dynamic array with index 0 as a sentinel; real nodes
+start at index 1. Each node carries `actionType` (bitmap), `effectiveTime`,
+`prev`, `next`, and ABI-encoded `parameters`.
 
-**Key invariants**:
-- The list is always ordered by effective time
-- No node can be inserted with an effective time in the past or present
-- Completed actions (effective time in the past) cannot be cancelled
-- Cancellation removes the node entirely (updates previous/next pointers)
-- Completed action IDs are positional from the head, gap-free, and stable
+**Scope delivered.** `LibCorporateAction.schedule`, `cancel`,
+`countCompleted`, `headNode`, `tailNode`, `head`, `tail`; struct and traversal
+primitives split into `LibCorporateActionNode` (`CorporateActionNode`,
+`CompletionFilter` enum, `nextOfType` / `prevOfType`). Node insertion walks
+backward from the tail and splices in maintaining time order, with stable
+ordering for ties in `effectiveTime` (new entries placed after existing
+equal-time nodes). Cancellation unlinks a node and marks it cancelled via
+`effectiveTime = 0`; `actionType` and `parameters` remain (see `cancel`
+NatSpec for the orphan-node invariant and double-cancel guard). Schedule and
+cancel events are emitted on the facet.
 
-**Testing**: Fuzz insertion ordering — generate random sequences of effective times and verify the list maintains time order after every insertion. Test insertion at head, tail, and middle of the list. Test that inserting an action with effective time in the past reverts. Fuzz cancellation — cancel random nodes and verify list integrity (forward/backward walk counts match, previous/next pointers are consistent). Test that completed actions cannot be cancelled. Test `completedActionCount()` returns correct count as time advances. Test zero action type reverts. Test event emission on schedule and cancel.
+**Key invariants.**
+- The list is always ordered by `effectiveTime` (stable for ties).
+- Inserting a node with `effectiveTime <= block.timestamp` reverts.
+- Nodes with `effectiveTime <= block.timestamp` cannot be cancelled.
+- Cancellation fully unlinks a node; the stored `effectiveTime = 0` sentinel
+  is the double-cancel detection guard and must not be removed.
+- Action handles (`actionIndex`) are 1-based array indices, assigned at
+  schedule time and stable until the contract is redeployed.
 
-The library should be structured so its core logic can be tested in isolation without deploying the full vault — internal functions tested through a thin harness contract.
+**Testing.** Fuzzed insertion ordering, head/middle/tail inserts, past-time
+insertion reverts, fuzzed cancellation with list-integrity checks, completed
+vs scheduled cancellation, `countCompleted` across time advancement, tied
+`effectiveTime` stable-ordering regression tests, event emission.
 
-## PR 3: Action Types, Filtering, and List Reads
+## PR 3 — Action Types, Filtering, and List Reads (`feat/corporate-actions-pr3-action-types`, PR #23)
 
-Implement bitmap action types with stock splits as the first concrete type, and the read/traversal logic for walking the linked list. Narrow `KNOWN_ACTION_TYPES` to only implemented types.
+Bitmap action types with stock splits as the first concrete type, and the
+read/traversal primitives that consume the type mask.
 
-**Scope**: Bitmap constant for stock split action type (`1 << 0`). Narrow `KNOWN_ACTION_TYPES` from `type(uint256).max` to only the implemented types. External-facing type identifiers (hash of action type name, e.g. `keccak256("StockSplit")`) mapped to bitmap values. Stock split parameter validation — the multiplier must be a valid Rain float. Traversal functions: walk completed actions from a cursor with bitmap mask filtering, walk pending actions from the tail backwards. The facet exposes query functions for traversal.
+**Scope delivered.** `ACTION_TYPE_STOCK_SPLIT = 1 << 0`,
+`STOCK_SPLIT_TYPE_HASH = keccak256("StockSplit")`,
+`LibCorporateAction.resolveActionType` mapping external type hashes to
+internal bitmaps and validating parameters. `LibStockSplit.validateParameters`
+enforces multiplier bounds: the coefficient must be strictly positive,
+`trunc(1e18 * multiplier) >= 1` (rejects near-zero multipliers that wipe
+balances), and `trunc(1e18 * multiplier) <= 1e36` (rejects near-saturation
+multipliers that risk overflow). Traversal uses the `CompletionFilter` enum:
+`ALL`, `COMPLETED`, `PENDING`, plumbed through `nextOfType` and `prevOfType`
+with optimized early-breaks for monotonic walks.
 
-**Key design points**:
-- Traversal starts from the tail for pending actions (they are at the end) and from the head/cursor for completed actions
-- Bitmap filtering: `actionType & mask != 0` skips non-matching nodes in a single operation
-- Stock split parameters are `abi.encode(Float)` — the Rain float multiplier
-- External consumers use hash identifiers; the contract converts to bitmap internally
+**Key design points.**
+- Bitmap filtering (`actionType & mask != 0`) skips non-matching nodes in a
+  single bitwise op.
+- Stock split parameters are `abi.encode(Float)` — the Rain Float multiplier.
+- External consumers use human-readable type hashes; the contract converts
+  to bitmap internally.
+- `CompletionFilter` disambiguates "as of now" (COMPLETED) from "everything
+  in the schedule" (ALL) vs "scheduled but not yet effective" (PENDING).
 
-**Testing**: Test bitmap filtering — create actions of multiple types, traverse with various masks, verify only matching types are returned. Test stock split lifecycle: schedule, advance time, verify completion count increments and multiplier is retrievable. Test traversal from cursor — walk partial ranges of completed actions. Test pending action query returns only future actions. Fuzz the bitmap filtering with random masks.
+**Testing.** Bitmap filtering with random masks, stock split scheduling and
+time-advancement lifecycle, cursor-based partial traversal, pending-action
+queries, stock split multiplier bounds (min, max, zero, negative).
 
-## PR 4: Rebase and Migration
+## PR 4 — Lazy Rebase and Direct Storage Writes (`feat/corporate-actions-pr4-rebase`, PR #21)
 
-The final PR implements balance effects: lazy migration via the `_update` hook using direct storage writes, `balanceOf` override for correct read-time balances, and eager `totalSupply` adjustment.
+Balance effects: lazy migration via the `_update` hook, direct writes to OZ
+ERC20 storage, and a `balanceOf` override that returns effective balances
+without state changes.
 
-**Scope**: `LibERC20Storage` for direct assembly reads/writes to OZ v5's ERC-7201 namespaced ERC20 storage (`_balances` mapping and `_totalSupply`). `LibRebase` walks the corporate action list from the account's migration cursor, applying sequential Rain float multipliers for each completed balance-affecting action. `StoxReceiptVault` overrides `balanceOf()` to return the effective balance (view, no state change) and `_update()` to migrate both sender and recipient before the operation. Migration writes the rasterized balance directly to storage — no mint/burn, no Transfer events, no reentrancy. `totalSupply` is eagerly updated when a balance-affecting action completes. Per-account migration cursor tracks the last action node applied.
+**Scope delivered.** `LibERC20Storage` for direct assembly reads/writes to
+OZ v5's ERC-7201 namespaced ERC20 storage (`_balances` mapping and
+`_totalSupply`). `LibRebase.migratedBalance` walks completed stock split
+nodes from the account's cursor, applying each multiplier sequentially with
+rasterization between steps. `StoxReceiptVault` overrides `balanceOf()`
+(view-only effective balance), `_update()` (migrates sender and recipient
+before the operation), and introduces `accountMigrationCursor[account]` as
+the per-account migration pointer.
 
-**Key design points**:
-- Migration walks the linked list from the account's cursor, applying multipliers for completed balance-affecting nodes
-- Direct storage writes avoid semantic confusion (minting ≠ redenomination) and eliminate reentrancy, spurious events, and totalSupply side effects
-- `totalSupply` is a slight overestimate after migration due to per-account rounding — bounded by (number of holders × rebases) wei, negligible with 18-decimal tokens
-- `balanceOf()` is a view function that applies multipliers without state changes
-- Both sender and recipient are migrated before any transfer executes
-- "1 share = 1 share" — new mints after a split are in current-terms
+**Key design points.**
+- Migration walks the linked list from the account's cursor, applying
+  multipliers for each completed stock split node.
+- Direct storage writes avoid the semantic confusion of mint/burn (a stock
+  split is redenomination, not value creation), and eliminate spurious
+  Transfer events, totalSupply interference, and reentrancy concerns.
+- `balanceOf()` is a view function that applies multipliers without state
+  changes; the actual rasterization happens lazily on the next `_update`
+  touch.
+- Both sender and recipient are migrated before any transfer executes.
+- Zero-balance accounts still advance their cursor through completed splits
+  even though no multiplier math runs. This is load-bearing: a subsequent
+  mint or transfer-in would otherwise land at a stale cursor and re-apply
+  completed multipliers to a balance that was already written at the
+  post-rebase basis. See `audit/2026-04-07-01/pass1/LibRebase.md::A26-1`.
+- "1 share = 1 share" — new mints after a split are in current terms.
 
-**Testing**: Fuzz the core migration logic — generate random sequences of multipliers and random account interaction patterns, verify all accounts converge to the same effective balance regardless of when they transact. Test the 1/3 × 3 × 1/3 × 3 = 99 (not 100) case explicitly as a regression test. Fuzz transfers between accounts at different migration states. Test edge cases: zero balances through migration, near-overflow balances. Test `balanceOf()` returns correct effective balance for unmigrated accounts. Test `totalSupply` is immediately correct after a split. Test new mints after a split are in current-terms. Verify direct storage writes produce values consistent with OZ's standard ERC20 path.
+**Testing.** Fuzzed migration convergence (active vs dormant accounts reach
+identical balances), the `100 × (1/3) × 3 × (1/3) × 3 → 99` regression case
+with rasterization between steps, zero-balance cursor advancement regression
+test, `LibERC20Storage` runtime invariant test against OZ's ERC20Upgradeable,
+fuzzed transfers between accounts at different migration states.
 
-## Receipt Coordination
+## PR 5 — Rebase-Aware totalSupply (`feat/corporate-actions-pr5-total-supply`, PR #24)
 
-Receipt coordination (matching ERC-1155 receipt balances to ERC-20 vault share rebases) may land as part of PR 4 or as a separate PR 5, depending on complexity.
+Per-cursor pots for accurate totalSupply tracking under lazy migration.
+
+**Scope delivered.** `LibTotalSupply` with `effectiveTotalSupply` (view),
+`fold` (bookkeeping update in `_update`), `onAccountMigrated`, `onMint`,
+`onBurn`. `CorporateActionStorage` grows: `unmigrated` mapping (per-cursor
+balance pots), `totalSupplyLatestSplit` (cursor into the list tracking the
+latest stock split `fold` has seen), `totalSupplyBootstrapped` flag.
+`StoxReceiptVault.totalSupply()` returns `effectiveTotalSupply`.
+
+**Per-cursor pot mechanics.** Applying a multiplier to an aggregate sum
+overestimates relative to the sum of individually-rasterized balances
+(`trunc(sum * m) >= sum(trunc(a_i * m))`). Collapsing a migrate into a single
+aggregate subtract/add doesn't improve precision. Splitting the aggregate
+into separate per-cursor pots does: an account migrating from cursor k to
+cursor k' has its stored balance subtracted from `unmigrated[k]` (pre-
+multiplier) and its individually-rasterized balance added to `unmigrated[k']`
+(post-multiplier), replacing an aggregate estimate with an exact value.
+
+`effectiveTotalSupply` walks completed splits from the bootstrap pot forward,
+applying each multiplier and adding each cursor's pot. When all accounts
+have migrated through all completed splits, `unmigrated[0..latest-1]` are
+zero and `unmigrated[latest]` equals the exact sum of all rasterized
+balances — the overestimate fully resolves.
+
+**Key invariants.**
+- After `_migrateAccount(account)` in `_update` (which runs after `fold()`),
+  `accountMigrationCursor[account] == totalSupplyLatestSplit`. This is
+  load-bearing for `onBurn` — the sender's migrated balance must already
+  live in `unmigrated[totalSupplyLatestSplit]` when `onBurn` subtracts from
+  it, otherwise the pot underflows.
+- `sum_over_holders(balanceOf) <= totalSupply()`, with the gap bounded by
+  (number of migrated accounts × number of completed splits) wei.
+
+**Testing.** Reference-implementation fuzz comparing `effectiveTotalSupply`
+against a naive sum-of-balances oracle, `onBurn` underflow regression tests,
+fold / migrate interleaving.
+
+## PR 6 — External Traversal Interface (`feat/corporate-actions-pr6-external-interface`, PR #25)
+
+Node-based traversal API for oracle integration.
+
+**Scope delivered.** `ICorporateActionsV1.latestActionOfType`,
+`earliestActionOfType`, `nextOfType`, `prevOfType` — each taking a
+`(uint256 mask, CompletionFilter filter)` pair and returning a cursor plus
+the node's `actionType` and `effectiveTime`. Cursors are opaque handles for
+continued traversal. The `CompletionFilter` enum lets oracles read as-of-now
+(`COMPLETED`) history cleanly, or walk the full schedule (`ALL`), or query
+only future actions (`PENDING`).
+
+**Testing.** Comprehensive coverage of all four getters across all filter
+modes, cursor continuation, empty-list behavior, mask filtering.
+
+## PR 7 — Receipt Coordination (outstanding)
+
+Receipt tokens (ERC-1155) represent the same underlying positions as vault
+shares (ERC-20). A rebase on the share side without a matching adjustment
+on the receipt side creates an arbitrage opportunity: a holder with both a
+receipt and a share could, after a 2x split lands on shares only, redeem the
+unchanged receipt for the pre-split unit of underlying while the share is
+now worth double.
+
+**Not in the current stack.** Until this PR lands, stock splits MUST NOT be
+scheduled on a live deployment. This is the single material gap between the
+as-built system and the spec.
+
+The vault already has a manager relationship with the receipt contract
+(`receipt().managerMint()` / `managerBurn()`), so the plumbing is in place.
+PR #7 will extend the per-account cursor model to receipt holders, apply
+matching multipliers via the manager interface, and extend the invariant
+harness (landed in PR #6) to cover receipt/share proportionality.
+
+Detailed design — per-receipt-holder cursor semantics, ERC-1155 batch vs
+single semantics, the eager-vs-lazy rebase choice for receipts — will be
+drafted as a sub-plan before implementation.
 
 ## Integration Testing
 
-After all PRs merge, a final integration test suite covers end-to-end scenarios: schedule a split, advance time past effective time, transfer between migrated and unmigrated accounts, mint new shares, burn shares, verify receipt consistency, query history from an external contract mock, traverse the list with various masks. Fork testing against deployed infrastructure follows once contracts are on a testnet.
+Once PR #7 lands, a final integration test suite covers end-to-end scenarios:
+schedule a split, advance time past `effectiveTime`, transfer between
+migrated and unmigrated accounts, mint new shares, burn shares, verify
+receipt / share proportionality, query history via the traversal interface,
+walk the list with various masks. Fork testing against deployed
+infrastructure follows once contracts land on a testnet.
