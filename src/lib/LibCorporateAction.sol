@@ -39,6 +39,17 @@ error UnknownActionType(bytes32 typeHash);
 /// indices where 0 means "none".
 library LibCorporateAction {
     /// @custom:storage-location erc7201:rain.storage.corporate-action.1
+    /// @dev **DO NOT REORDER — APPEND ONLY.** This struct lives at a fixed
+    /// ERC-7201 namespaced slot inside an upgradeable beacon-proxy vault.
+    /// Field offsets within the struct are positional: reordering any field,
+    /// inserting in the middle, or changing a field type silently remaps
+    /// live state on upgrade (the old `head` slot becomes the new `tail`
+    /// slot, etc.). Consequences are catastrophic and undetectable from
+    /// bytecode comparison. New state may only be added at the **end** of
+    /// the struct, and the storage-layout pin test in
+    /// `test/src/concrete/StoxCorporateActionsFacet.t.sol`
+    /// (`testStorageLayoutPin`) must be updated in the same PR to cover
+    /// the new field's offset. See audit/2026-04-09-01 Item 10.
     struct CorporateActionStorage {
         /// Head of the list (1-based index, earliest effectiveTime). 0 = empty.
         uint256 head;
@@ -98,37 +109,87 @@ library LibCorporateAction {
         node.effectiveTime = effectiveTime;
         node.parameters = parameters;
 
+        _insertOrdered(s, actionIndex, effectiveTime);
+    }
+
+    /// @dev Splice a populated node at `newIndex` into the time-ordered
+    /// linked list, walking backward from the tail to find the correct
+    /// position. Equal-time nodes are inserted **after** existing nodes of
+    /// the same effective time (stable ordering — see the tied-effectiveTime
+    /// regression tests). The node's `actionType`, `effectiveTime`, and
+    /// `parameters` must already be written; this helper only updates the
+    /// list pointers (`prev`, `next`, `head`, `tail`).
+    ///
+    /// Extracted from `schedule` per audit/2026-04-09-01 Item 12 so the
+    /// insertion walk is isolated from sentinel allocation and node
+    /// population. This helper assumes the storage struct has been
+    /// initialised (sentinel already pushed) and the node at `newIndex` is
+    /// fully populated.
+    ///
+    /// @param s Storage pointer (caller already loaded).
+    /// @param newIndex The 1-based array index of the node being inserted.
+    /// @param effectiveTime The node's effective time (cached from storage
+    /// so the loop doesn't re-read it on every step).
+    function _insertOrdered(CorporateActionStorage storage s, uint256 newIndex, uint64 effectiveTime) private {
+        CorporateActionNode storage node = s.nodes[newIndex];
+
         if (s.tail == 0) {
-            s.head = actionIndex;
-            s.tail = actionIndex;
-        } else {
-            // Walk backwards from tail to find correct position.
-            uint256 current = s.tail;
-            while (current != 0) {
-                if (s.nodes[current].effectiveTime <= effectiveTime) {
-                    uint256 afterCurrent = s.nodes[current].next;
-                    s.nodes[current].next = actionIndex;
-                    node.prev = current;
-                    node.next = afterCurrent;
-                    if (afterCurrent != 0) {
-                        s.nodes[afterCurrent].prev = actionIndex;
-                    } else {
-                        s.tail = actionIndex;
-                    }
-                    return actionIndex;
-                }
-                current = s.nodes[current].prev;
-            }
-            // Goes before the current head.
-            node.next = s.head;
-            s.nodes[s.head].prev = actionIndex;
-            s.head = actionIndex;
+            s.head = newIndex;
+            s.tail = newIndex;
+            return;
         }
+
+        // Walk backwards from tail to find correct position.
+        uint256 current = s.tail;
+        while (current != 0) {
+            if (s.nodes[current].effectiveTime <= effectiveTime) {
+                uint256 afterCurrent = s.nodes[current].next;
+                s.nodes[current].next = newIndex;
+                node.prev = current;
+                node.next = afterCurrent;
+                if (afterCurrent != 0) {
+                    s.nodes[afterCurrent].prev = newIndex;
+                } else {
+                    s.tail = newIndex;
+                }
+                return;
+            }
+            current = s.nodes[current].prev;
+        }
+        // Goes before the current head.
+        node.next = s.head;
+        s.nodes[s.head].prev = newIndex;
+        s.head = newIndex;
     }
 
     /// @notice Unlink a scheduled node from the list. Reverts if the action
-    /// is already complete or does not exist. The node data remains in the
-    /// array but is no longer reachable via the linked list.
+    /// is already complete or does not exist.
+    ///
+    /// @dev **Orphaned node data.** This function unlinks the node from the
+    /// doubly linked list and zeroes `prev`, `next`, and `effectiveTime`, but
+    /// deliberately leaves `actionType` and `parameters` untouched. The node
+    /// is no longer reachable via head/tail traversal and every correct
+    /// consumer (balanceOf, totalSupply, the `*OfType` getters, `fold`)
+    /// walks the list rather than indexing `s.nodes[i]` directly, so ghost
+    /// data is invisible. Any future consumer that needs to look up a node
+    /// by its array index MUST check `node.effectiveTime != 0` before
+    /// trusting any field on the node; an `effectiveTime == 0` node is
+    /// either never-used (array slot was never populated) or cancelled
+    /// (unlinked here).
+    ///
+    /// @dev **Load-bearing: `node.effectiveTime = 0` is the double-cancel
+    /// guard.** A second call to `cancel(actionIndex)` on an already-
+    /// cancelled node must be caught by the `node.effectiveTime == 0` check
+    /// at the top of this function. Without the zero-assignment here, a
+    /// double-cancel would: (1) pass the effectiveTime-in-past check
+    /// because the original future time is still set; (2) read
+    /// `prevId = node.prev = 0` and `nextId = node.next = 0` (both zeroed
+    /// by the first cancel); (3) blow away `s.head` and `s.tail` by
+    /// writing `nextId = 0` into both. Catastrophic, silent state
+    /// corruption. A double-cancel-reverts regression test
+    /// (`testCancelAlreadyCancelledReverts`) locks this in — do not remove
+    /// the test or the zero assignment together. See audit/2026-04-09-01
+    /// Item 14.
     function cancel(uint256 actionIndex) internal {
         CorporateActionStorage storage s = getStorage();
         if (actionIndex == 0 || actionIndex >= s.nodes.length) revert ActionDoesNotExist(actionIndex);
@@ -153,7 +214,9 @@ library LibCorporateAction {
             s.tail = prevId;
         }
 
-        // Unlink only — do NOT delete node data from storage.
+        // Unlink only — do NOT delete actionType/parameters from storage.
+        // The `effectiveTime = 0` assignment below is the double-cancel
+        // guard — see the @dev block above before touching it.
         node.prev = 0;
         node.next = 0;
         node.effectiveTime = 0;
