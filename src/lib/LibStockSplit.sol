@@ -52,7 +52,8 @@ library LibStockSplit {
         if (coefficient <= 0) revert InvalidSplitMultiplier();
 
         // Apply `multiplier` to 1e18 and truncate to uint256. Used for both
-        // the floor and the ceiling check.
+        // the floor and the ceiling check. The `int256(1e18)` cast is safe
+        // because `1e18` is a compile-time constant far below `2^255`.
         // forge-lint: disable-next-line(unsafe-typecast)
         (uint256 applied,) = LibDecimalFloat.toFixedDecimalLossy(
             LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(1e18), 0), multiplier), 0
