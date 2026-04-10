@@ -621,9 +621,7 @@ contract StoxCorporateActionsFacetTest is Test {
         // `accountMigrationCursor[account]` access, so a match proves the
         // mapping base is at offset 3).
         assertEq(
-            uint256(vm.load(harnessAddr, entrySlot)),
-            0xC0FFEE,
-            "accountMigrationCursor mapping must be at offset 3"
+            uint256(vm.load(harnessAddr, entrySlot)), 0xC0FFEE, "accountMigrationCursor mapping must be at offset 3"
         );
     }
 }
