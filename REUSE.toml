@@ -10,6 +10,7 @@ path = [
     "CLAUDE.md",
     "README.md",
     "audit/**/",
+    "docs/**/",
     "flake.lock",
     "flake.nix",
     "foundry.toml",
