@@ -2,10 +2,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
+import {Float} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT} from "./LibCorporateAction.sol";
 import {CompletionFilter, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
 import {LibStockSplit} from "./LibStockSplit.sol";
+import {LibRebaseMath} from "./LibRebaseMath.sol";
 
 /// @title LibRebase
 /// @notice Walks the corporate action linked list to apply stock split
@@ -101,13 +102,11 @@ library LibRebase {
             Float multiplier = LibStockSplit.decodeParameters(s.nodes[nodeIndex].parameters);
             // Rasterize after each multiplier to match what storage writes
             // would produce. This ensures dormant and active accounts
-            // converge to identical balances. The `int256(balance)` cast is
-            // safe because realistic ERC20 balances are well below 2^255.
-            (balance,) = LibDecimalFloat.toFixedDecimalLossy(
-                // forge-lint: disable-next-line(unsafe-typecast)
-                LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(balance), 0), multiplier),
-                0
-            );
+            // converge to identical balances. `LibRebaseMath.applyMultiplier`
+            // is the shared primitive used by every rebase path in the
+            // codebase (share side, totalSupply, receipt side) — see
+            // `LibRebaseMath.sol` for the safety argument on the int256 cast.
+            balance = LibRebaseMath.applyMultiplier(balance, multiplier);
             modified = true;
 
             nodeIndex =

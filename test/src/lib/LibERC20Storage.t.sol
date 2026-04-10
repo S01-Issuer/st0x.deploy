@@ -115,4 +115,44 @@ contract LibERC20StorageTest is Test {
         assertEq(token.libBalanceOf(ALICE), 700);
         assertEq(token.libTotalSupply(), 700);
     }
+
+    /// Fuzz: randomized account address and balance — Lib read matches OZ read
+    /// after mint.
+    function testFuzzRandomAccountBalance(address account, uint128 amount) external {
+        vm.assume(account != address(0));
+        token.mint(account, uint256(amount));
+        assertEq(token.libBalanceOf(account), token.balanceOf(account), "Lib must match OZ after mint");
+        assertEq(token.libBalanceOf(account), uint256(amount));
+    }
+
+    /// Fuzz: randomized setBalance followed by OZ read.
+    function testFuzzRandomSetBalance(address account, uint128 mintAmount, uint256 newBalance) external {
+        vm.assume(account != address(0));
+        token.mint(account, uint256(mintAmount));
+        token.libSetBalance(account, newBalance);
+        assertEq(token.balanceOf(account), newBalance, "OZ must reflect Lib write");
+        assertEq(token.libBalanceOf(account), newBalance, "Lib read must match Lib write");
+    }
+
+    /// Fuzz: two randomized accounts — writing to one never affects the other.
+    function testFuzzTwoAccountSlotIsolation(address a, address b, uint128 amountA, uint128 amountB, uint256 writeA)
+        external
+    {
+        vm.assume(a != address(0) && b != address(0) && a != b);
+        token.mint(a, uint256(amountA));
+        token.mint(b, uint256(amountB));
+        token.libSetBalance(a, writeA);
+        assertEq(token.balanceOf(a), writeA, "account a updated");
+        assertEq(token.balanceOf(b), uint256(amountB), "account b untouched");
+        assertEq(token.libBalanceOf(b), uint256(amountB), "Lib read of b untouched");
+    }
+
+    /// Fuzz: totalSupply reflects multiple mints across randomized accounts.
+    function testFuzzTotalSupplyMultipleAccounts(address a, address b, uint64 amountA, uint64 amountB) external {
+        vm.assume(a != address(0) && b != address(0));
+        token.mint(a, uint256(amountA));
+        token.mint(b, uint256(amountB));
+        assertEq(token.libTotalSupply(), token.totalSupply(), "Lib totalSupply must match OZ");
+        assertEq(token.libTotalSupply(), uint256(amountA) + uint256(amountB));
+    }
 }

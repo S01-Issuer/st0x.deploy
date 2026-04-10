@@ -166,4 +166,71 @@ contract LibRebaseTest is Test {
         (uint256 result,) = h.migratedBalance(uint256(balance), 0);
         assertEq(result, uint256(balance) * (2 ** splitCount));
     }
+
+    /// Fuzz: randomized fractional multiplier (num/denom). Verifies that a
+    /// single fractional split produces the same result as the reference
+    /// computation: `trunc(balance * num / denom)` using Rain Float arithmetic.
+    /// This catches regressions where the Float representation of a fraction
+    /// diverges from the expected integer-truncation behavior.
+    function testFuzzFractionalMultiplier(uint64 balance, uint8 numSeed, uint8 denomSeed) external {
+        vm.assume(balance > 0 && balance < 1e15);
+        // Bound numerator to [1, 20] and denominator to [1, 20] to stay within
+        // the multiplier validation bounds while covering a wide range of
+        // fractional values.
+        int256 num = int256(uint256(bound(numSeed, 1, 20)));
+        int256 denom = int256(uint256(bound(denomSeed, 1, 20)));
+
+        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _fractionalParams(num, denom));
+        vm.warp(2000);
+
+        (uint256 result,) = h.migratedBalance(uint256(balance), 0);
+
+        // Reference: apply the same Float multiplication manually.
+        Float multiplier =
+            LibDecimalFloat.div(LibDecimalFloat.packLossless(num, 0), LibDecimalFloat.packLossless(denom, 0));
+        // forge-lint: disable-next-line(unsafe-typecast)
+        (uint256 expected,) = LibDecimalFloat.toFixedDecimalLossy(
+            LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(uint256(balance)), 0), multiplier), 0
+        );
+
+        assertEq(result, expected, "fractional multiplier must match reference Float computation");
+    }
+
+    /// Fuzz: two sequential fractional multipliers. Verifies the "no cumulative
+    /// product" invariant — the sequential result (rasterize after each step)
+    /// must match applying each multiplier independently with truncation between
+    /// steps. This would FAIL if the implementation collapsed multipliers into a
+    /// single product.
+    function testFuzzSequentialFractionalNoCumulativeProduct(uint64 balance, uint8 n1, uint8 d1, uint8 n2, uint8 d2)
+        external
+    {
+        vm.assume(balance > 100 && balance < 1e12);
+        int256 num1 = int256(uint256(bound(n1, 1, 10)));
+        int256 denom1 = int256(uint256(bound(d1, 1, 10)));
+        int256 num2 = int256(uint256(bound(n2, 1, 10)));
+        int256 denom2 = int256(uint256(bound(d2, 1, 10)));
+
+        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _fractionalParams(num1, denom1));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT, 2500, _fractionalParams(num2, denom2));
+        vm.warp(3000);
+
+        (uint256 result,) = h.migratedBalance(uint256(balance), 0);
+
+        // Reference: apply each multiplier sequentially with truncation between.
+        Float m1 = LibDecimalFloat.div(LibDecimalFloat.packLossless(num1, 0), LibDecimalFloat.packLossless(denom1, 0));
+        Float m2 = LibDecimalFloat.div(LibDecimalFloat.packLossless(num2, 0), LibDecimalFloat.packLossless(denom2, 0));
+
+        // Step 1: apply m1, truncate.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        (uint256 afterFirst,) = LibDecimalFloat.toFixedDecimalLossy(
+            LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(uint256(balance)), 0), m1), 0
+        );
+        // Step 2: apply m2, truncate.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        (uint256 expected,) = LibDecimalFloat.toFixedDecimalLossy(
+            LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(afterFirst), 0), m2), 0
+        );
+
+        assertEq(result, expected, "sequential rasterization must match step-by-step reference");
+    }
 }
