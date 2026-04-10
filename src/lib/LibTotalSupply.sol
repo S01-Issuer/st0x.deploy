@@ -2,11 +2,12 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
+import {Float} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT} from "./LibCorporateAction.sol";
 import {CompletionFilter, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
 import {LibStockSplit} from "./LibStockSplit.sol";
 import {LibERC20Storage} from "./LibERC20Storage.sol";
+import {LibRebaseMath} from "./LibRebaseMath.sol";
 
 /// @title LibTotalSupply
 /// @notice Tracks totalSupply accurately through lazy account migration using
@@ -92,13 +93,10 @@ library LibTotalSupply {
 
         while (nodeIndex != 0) {
             Float multiplier = LibStockSplit.decodeParameters(s.nodes[nodeIndex].parameters);
-            // The `int256(running)` cast is safe because realistic ERC20
-            // totalSupply values are well below 2^255.
-            (running,) = LibDecimalFloat.toFixedDecimalLossy(
-                // forge-lint: disable-next-line(unsafe-typecast)
-                LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(running), 0), multiplier),
-                0
-            );
+            // Rasterize via the shared rebase primitive so every step of
+            // the totalSupply walk uses the same rounding characteristics
+            // as per-account migration. See `LibRebaseMath.applyMultiplier`.
+            running = LibRebaseMath.applyMultiplier(running, multiplier);
             running += s.unmigrated[nodeIndex];
 
             nodeIndex =
