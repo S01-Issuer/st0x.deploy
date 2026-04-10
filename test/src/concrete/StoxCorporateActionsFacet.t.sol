@@ -1118,4 +1118,89 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(actionType, 0);
         assertEq(effectiveTime, 0);
     }
+
+    // -----------------------------------------------------------------------
+    // getActionParameters (new in PR #7) — returns the raw parameters blob
+    // for a scheduled or completed action, used by cross-contract consumers
+    // (e.g. the receipt contract's rebase walk).
+
+    /// getActionParameters returns exactly the bytes written at schedule time.
+    function testGetActionParametersRoundTrip() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory params = abi.encode(twoX);
+
+        vm.prank(ALICE);
+        uint256 actionIndex = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, params);
+
+        bytes memory read = facetViaHarness.getActionParameters(actionIndex);
+        assertEq(read, params, "getActionParameters must round-trip exactly");
+    }
+
+    /// getActionParameters(0) reverts with ActionDoesNotExist.
+    function testGetActionParametersZeroReverts() external {
+        vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, uint256(0)));
+        facetViaHarness.getActionParameters(0);
+    }
+
+    /// getActionParameters beyond the array length reverts with
+    /// ActionDoesNotExist.
+    function testGetActionParametersOutOfBoundsReverts() external {
+        vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, uint256(999)));
+        facetViaHarness.getActionParameters(999);
+    }
+
+    /// getActionParameters on a cancelled node still returns the original
+    /// parameters bytes. Cancelled nodes intentionally retain their
+    /// actionType and parameters (only prev/next/effectiveTime are zeroed)
+    /// — consumers must filter via effectiveTime == 0 from the traversal
+    /// getters before reaching this function. See the cancel @dev block
+    /// in LibCorporateAction for the orphan-node invariant.
+    function testGetActionParametersCancelledNodeRetainsData() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory params = abi.encode(twoX);
+
+        vm.prank(ALICE);
+        uint256 actionIndex = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, params);
+
+        vm.prank(ALICE);
+        facetViaHarness.cancelCorporateAction(actionIndex);
+
+        // The parameters are still there (unreachable via traversal, but
+        // this test pins the invariant that direct-index access still
+        // returns the original bytes — a debugging / audit affordance).
+        bytes memory read = facetViaHarness.getActionParameters(actionIndex);
+        assertEq(read, params, "cancelled node parameters are retained");
+    }
+
+    /// Direct call to getActionParameters on the standalone facet reverts
+    /// with FacetMustBeDelegatecalled, like every other entry point.
+    function testGetActionParametersDirectCallReverts() external {
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facetImpl.getActionParameters(1);
+    }
+
+    // -----------------------------------------------------------------------
+    // onlyDelegatecalled guard was missing on the four traversal getters
+    // (they were added in PR #25 after the modifier landed on PR #18). PR #7
+    // fills that gap. These tests lock the modifier in on each getter.
+
+    function testLatestActionOfTypeDirectCallReverts() external {
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facetImpl.latestActionOfType(type(uint256).max, CompletionFilter.ALL);
+    }
+
+    function testEarliestActionOfTypeDirectCallReverts() external {
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facetImpl.earliestActionOfType(type(uint256).max, CompletionFilter.ALL);
+    }
+
+    function testNextOfTypeDirectCallReverts() external {
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facetImpl.nextOfType(0, type(uint256).max, CompletionFilter.ALL);
+    }
+
+    function testPrevOfTypeDirectCallReverts() external {
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facetImpl.prevOfType(0, type(uint256).max, CompletionFilter.ALL);
+    }
 }

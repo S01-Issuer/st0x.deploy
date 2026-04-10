@@ -3,7 +3,8 @@
 pragma solidity =0.8.25;
 
 import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetReceiptVault.sol";
-import {LibCorporateAction} from "../lib/LibCorporateAction.sol";
+import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT} from "../lib/LibCorporateAction.sol";
+import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "../lib/LibCorporateActionNode.sol";
 import {LibRebase} from "../lib/LibRebase.sol";
 import {LibTotalSupply} from "../lib/LibTotalSupply.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
@@ -56,6 +57,28 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         address indexed account, uint256 fromCursor, uint256 toCursor, uint256 oldBalance, uint256 newBalance
     );
 
+    /// @notice Emitted when `_update` detects that one or more stock splits
+    /// have passed their `effectiveTime` since the last `fold()`. Fires once
+    /// per newly-effective split, **before** any account migration runs in
+    /// the same transaction. This means every `AccountMigrated` event in the
+    /// same transaction is guaranteed to follow the `CorporateActionEffective`
+    /// event(s) for the split(s) that triggered it.
+    ///
+    /// Indexers can use this as a signal to update any balance-based logic
+    /// or cached balances to post-rebase values. The `wasEffectiveAt`
+    /// timestamp is (almost always) in the past — it records when the split
+    /// was *scheduled* to take effect, not when the first transaction
+    /// observed it. The difference is however many blocks elapsed between
+    /// `effectiveTime` and this first touch.
+    ///
+    /// See `audit/2026-04-09-01/token-integration-analyzer.md` recommendation
+    /// §10.8 and `docs/INTEGRATION.md` §Events for detailed integrator guidance.
+    ///
+    /// @param actionIndex The 1-based node index of the corporate action.
+    /// @param actionType The bitmap action type (e.g. `ACTION_TYPE_STOCK_SPLIT`).
+    /// @param wasEffectiveAt The `effectiveTime` recorded at schedule time.
+    event CorporateActionEffective(uint256 indexed actionIndex, uint256 actionType, uint64 wasEffectiveAt);
+
     /// @notice Returns `account`'s ERC20 balance including any pending rebase
     /// multipliers from completed corporate actions. Does NOT mutate state —
     /// if the account's stored balance is stale relative to the latest
@@ -83,10 +106,22 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         return LibTotalSupply.effectiveTotalSupply();
     }
 
-    /// @dev Bootstraps totalSupply tracking, migrates both sender and
-    /// recipient, tracks mint/burn deltas, then calls super.
+    /// @dev Bootstraps totalSupply tracking, emits CorporateActionEffective
+    /// for any newly-past splits, migrates both sender and recipient, tracks
+    /// mint/burn deltas, then calls super.
     function _update(address from, address to, uint256 amount) internal virtual override {
+        LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
+        uint256 prevLatest = s.totalSupplyLatestSplit;
         LibTotalSupply.fold();
+        uint256 newLatest = s.totalSupplyLatestSplit;
+
+        // Emit one event per newly-effective split. This fires BEFORE any
+        // account migration so indexers see the split signal before any
+        // per-account balance changes in the same transaction.
+        if (newLatest != prevLatest) {
+            _emitNewlyEffectiveSplits(prevLatest, newLatest);
+        }
+
         _migrateAccount(from);
         _migrateAccount(to);
 
@@ -130,5 +165,24 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         }
 
         LibTotalSupply.onAccountMigrated(currentCursor, storedBalance, newCursor, newBalance);
+    }
+
+    /// @dev Walk from `prevLatest` to `newLatest` along the stock-split
+    /// linked list and emit `CorporateActionEffective` for each node.
+    /// Called from `_update` between `fold()` and `_migrateAccount()` so
+    /// the event fires before any per-account balance changes.
+    function _emitNewlyEffectiveSplits(uint256 prevLatest, uint256 newLatest) internal {
+        uint256 nodeIndex =
+            LibCorporateActionNode.nextOfType(prevLatest, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+
+        LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
+
+        while (nodeIndex != 0) {
+            CorporateActionNode storage node = s.nodes[nodeIndex];
+            emit CorporateActionEffective(nodeIndex, node.actionType, node.effectiveTime);
+            if (nodeIndex == newLatest) break;
+            nodeIndex =
+                LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+        }
     }
 }
