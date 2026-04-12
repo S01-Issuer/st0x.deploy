@@ -151,4 +151,26 @@ contract LibProdTokensBaseTest is Test {
             "wtBMNR"
         );
     }
+
+    function testIbhgTokenSetOnBase() external {
+        LibTestProd.createSelectForkBase(vm);
+        checkTokenSet(
+            LibProdTokensBase.IBHG_RECEIPT,
+            LibProdTokensBase.IBHG_RECEIPT_VAULT,
+            LibProdTokensBase.IBHG_WRAPPED_TOKEN_VAULT,
+            "tIBHG",
+            "wtIBHG"
+        );
+    }
+
+    function testSgovTokenSetOnBase() external {
+        LibTestProd.createSelectForkBase(vm);
+        checkTokenSet(
+            LibProdTokensBase.SGOV_RECEIPT,
+            LibProdTokensBase.SGOV_RECEIPT_VAULT,
+            LibProdTokensBase.SGOV_WRAPPED_TOKEN_VAULT,
+            "tSGOV",
+            "wtSGOV"
+        );
+    }
 }

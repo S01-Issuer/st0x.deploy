@@ -184,4 +184,36 @@ library LibProdTokensBase {
     /// @dev Wrapped token vault (ERC-4626, "wtBMNR") — the StoxWrappedTokenVault instance.
     /// https://basescan.org/address/0x2512EC661f0bA089c275EA105E31bAD6FcFcf319
     address constant BMNR_WRAPPED_TOKEN_VAULT = address(0x2512EC661f0bA089c275EA105E31bAD6FcFcf319);
+
+    // =========================================================================
+    // tIBHG / wtIBHG — iShares iBonds 2027 Term High Yield and Income ETF ST0x
+    // =========================================================================
+
+    /// @dev Receipt (ERC-1155) for tIBHG.
+    /// https://basescan.org/address/0xE603De6450555cEf32be7e666eEd70fddDa13e1e
+    address constant IBHG_RECEIPT = address(0xE603De6450555cEf32be7e666eEd70fddDa13e1e);
+
+    /// @dev Receipt vault (ERC-20, "tIBHG") — the OffchainAssetReceiptVault instance.
+    /// https://basescan.org/address/0x3c0F093aa1eD511910279b2C8d56eF5c96f1a6cF
+    address constant IBHG_RECEIPT_VAULT = address(0x3c0F093aa1eD511910279b2C8d56eF5c96f1a6cF);
+
+    /// @dev Wrapped token vault (ERC-4626, "wtIBHG") — the StoxWrappedTokenVault instance.
+    /// https://basescan.org/address/0xf73894603e92d6f91b1f156e98cca38fd1f78dbf
+    address constant IBHG_WRAPPED_TOKEN_VAULT = address(0xF73894603e92D6f91B1f156e98Cca38Fd1F78dBf);
+
+    // =========================================================================
+    // tSGOV / wtSGOV — iShares 0-3 Month Treasury Bond ETF ST0x
+    // =========================================================================
+
+    /// @dev Receipt (ERC-1155) for tSGOV.
+    /// https://basescan.org/address/0x5c28F1Dd98dC2D61F289545c3be85cafdb4cB111
+    address constant SGOV_RECEIPT = address(0x5c28F1Dd98dC2D61F289545c3be85cafdb4cB111);
+
+    /// @dev Receipt vault (ERC-20, "tSGOV") — the OffchainAssetReceiptVault instance.
+    /// https://basescan.org/address/0xc941C1506B7555Ba8C506Fb6c9b9CC259902d612
+    address constant SGOV_RECEIPT_VAULT = address(0xc941C1506B7555Ba8C506Fb6c9b9CC259902d612);
+
+    /// @dev Wrapped token vault (ERC-4626, "wtSGOV") — the StoxWrappedTokenVault instance.
+    /// https://basescan.org/address/0x78c31580c97101694c70022c83d570150c11e935
+    address constant SGOV_WRAPPED_TOKEN_VAULT = address(0x78c31580c97101694C70022c83D570150c11e935);
 }
