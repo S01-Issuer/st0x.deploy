@@ -24,4 +24,20 @@ library LibProdTokensBase {
     /// @dev Wrapped token vault (ERC-4626, "wtMSTR") — the StoxWrappedTokenVault instance.
     /// https://basescan.org/address/0xFF05E1bD696900dc6A52CA35Ca61Bb1024eDa8e2
     address constant MSTR_WRAPPED_TOKEN_VAULT = address(0xFF05E1bD696900dc6A52CA35Ca61Bb1024eDa8e2);
+
+    // =========================================================================
+    // tTSLA / wtTSLA — Tesla Inc ST0x
+    // =========================================================================
+
+    /// @dev Receipt (ERC-1155) for tTSLA.
+    /// https://basescan.org/address/0x660923230fAA859622711a5fC80f532dd588b125
+    address constant TSLA_RECEIPT = address(0x660923230fAA859622711a5fC80f532dd588b125);
+
+    /// @dev Receipt vault (ERC-20, "tTSLA") — the OffchainAssetReceiptVault instance.
+    /// https://basescan.org/address/0x4E169cD2Ab4f82640a8c65C68feD55863866fDB0
+    address constant TSLA_RECEIPT_VAULT = address(0x4E169cD2Ab4f82640a8c65C68feD55863866fDB0);
+
+    /// @dev Wrapped token vault (ERC-4626, "wtTSLA") — the StoxWrappedTokenVault instance.
+    /// https://basescan.org/address/0x219A8d384a10BF19b9f24cB5cC53F79Dd0e5A03D
+    address constant TSLA_WRAPPED_TOKEN_VAULT = address(0x219A8d384a10BF19b9f24cB5cC53F79Dd0e5A03D);
 }
