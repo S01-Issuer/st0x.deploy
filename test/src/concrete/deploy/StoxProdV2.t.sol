@@ -98,9 +98,7 @@ contract StoxProdV2Test is Test {
         );
 
         IBeacon receiptBeacon = oarvDeployer.I_RECEIPT_BEACON();
-        assertEq(
-            receiptBeacon.implementation(), expectedReceiptBeaconImpl, "V2 receipt beacon implementation mismatch"
-        );
+        assertEq(receiptBeacon.implementation(), expectedReceiptBeaconImpl, "V2 receipt beacon implementation mismatch");
         assertEq(
             Ownable(address(receiptBeacon)).owner(), expectedReceiptBeaconOwner, "V2 receipt beacon owner mismatch"
         );
