@@ -29,20 +29,6 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     /// facet deployment rather than via delegatecall from the vault.
     error FacetMustBeDelegatecalled();
 
-    /// @notice Emitted when a corporate action is successfully scheduled.
-    /// @param sender The msg.sender that called `scheduleCorporateAction`.
-    /// @param actionIndex The 1-based index assigned to the new action.
-    /// @param actionType The bitmap action type (e.g. `ACTION_TYPE_STOCK_SPLIT`).
-    /// @param effectiveTime The timestamp at which the action becomes effective.
-    event CorporateActionScheduled(
-        address indexed sender, uint256 indexed actionIndex, uint256 actionType, uint64 effectiveTime
-    );
-    /// @notice Emitted when a previously scheduled action is cancelled before
-    /// its `effectiveTime`.
-    /// @param sender The msg.sender that called `cancelCorporateAction`.
-    /// @param actionIndex The action index that was cancelled.
-    event CorporateActionCancelled(address indexed sender, uint256 indexed actionIndex);
-
     /// @dev The address of this facet contract at deployment time, captured
     /// in the constructor and baked into bytecode as an immutable. Under a
     /// legitimate delegatecall from the vault, `address(this)` resolves to

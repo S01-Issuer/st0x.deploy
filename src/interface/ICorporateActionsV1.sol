@@ -10,6 +10,53 @@ pragma solidity =0.8.25;
 ///
 /// Functions are added as the implementation grows across PRs.
 interface ICorporateActionsV1 {
+    /// @notice Emitted when a corporate action is successfully scheduled.
+    /// @param sender The msg.sender that called `scheduleCorporateAction`.
+    /// @param actionIndex The 1-based index assigned to the new action.
+    /// @param actionType The bitmap action type (e.g. `ACTION_TYPE_STOCK_SPLIT`).
+    /// @param effectiveTime The timestamp at which the action becomes effective.
+    event CorporateActionScheduled(
+        address indexed sender, uint256 indexed actionIndex, uint256 actionType, uint64 effectiveTime
+    );
+
+    /// @notice Emitted when a previously scheduled action is cancelled before
+    /// its `effectiveTime`.
+    /// @param sender The msg.sender that called `cancelCorporateAction`.
+    /// @param actionIndex The action index that was cancelled.
+    event CorporateActionCancelled(address indexed sender, uint256 indexed actionIndex);
+
+    /// @notice Emitted the first time any transaction touches the vault after
+    /// a corporate action's `effectiveTime` has passed. Fires before any
+    /// per-account migration in the same transaction.
+    /// @param actionIndex The 1-based index of the action that became effective.
+    /// @param actionType The bitmap action type.
+    /// @param wasEffectiveAt The scheduled effective time (almost always in the
+    /// past relative to the emitting block).
+    event CorporateActionEffective(uint256 indexed actionIndex, uint256 actionType, uint64 wasEffectiveAt);
+
+    /// @notice Emitted when an account's stored ERC-20 balance is rasterized
+    /// to the post-rebase value on first touch after a stock split.
+    /// @param account The account whose balance was migrated.
+    /// @param fromCursor The account's migration cursor before this migration.
+    /// @param toCursor The account's migration cursor after this migration.
+    /// @param oldBalance The stored balance before rasterization.
+    /// @param newBalance The stored balance after rasterization.
+    event AccountMigrated(
+        address indexed account, uint256 fromCursor, uint256 toCursor, uint256 oldBalance, uint256 newBalance
+    );
+
+    /// @notice Emitted when an account's ERC-1155 receipt balance is
+    /// rasterized to the post-rebase value on first touch after a stock split.
+    /// @param account The account whose receipt balance was migrated.
+    /// @param id The ERC-1155 token ID.
+    /// @param fromCursor The account's migration cursor before this migration.
+    /// @param toCursor The account's migration cursor after this migration.
+    /// @param oldBalance The stored balance before rasterization.
+    /// @param newBalance The stored balance after rasterization.
+    event ReceiptAccountMigrated(
+        address indexed account, uint256 indexed id, uint256 fromCursor, uint256 toCursor, uint256 oldBalance, uint256 newBalance
+    );
+
     /// @notice Schedule a new corporate action.
     /// @param typeHash External identifier for the action type, e.g.
     /// keccak256("StockSplit"). Resolved to an internal bitmap by the lib.
