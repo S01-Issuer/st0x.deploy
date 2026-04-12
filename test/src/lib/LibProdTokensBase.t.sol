@@ -9,6 +9,7 @@ import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/exten
 import {IERC4626} from "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {IBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {IReceiptVaultV3} from "ethgild/interface/IReceiptVaultV3.sol";
 import {
     OffchainAssetReceiptVaultBeaconSetDeployer
 } from "ethgild/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
@@ -46,9 +47,7 @@ contract LibProdTokensBaseTest is Test {
         );
 
         // Receipt contract exists and is referenced by the vault.
-        address receipt = address(
-            OffchainAssetReceiptVaultBeaconSetDeployer(LibProdTokensBase.MSTR_RECEIPT_VAULT).receipt()
-        );
+        address receipt = address(IReceiptVaultV3(payable(LibProdTokensBase.MSTR_RECEIPT_VAULT)).receipt());
         assertEq(receipt, LibProdTokensBase.MSTR_RECEIPT, "tMSTR receipt address mismatch");
         assertTrue(LibProdTokensBase.MSTR_RECEIPT.code.length > 0, "tMSTR receipt not deployed");
 
