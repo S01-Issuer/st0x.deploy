@@ -52,4 +52,103 @@ contract LibProdTokensBaseTest is Test {
             "wtTSLA"
         );
     }
+
+    function testCoinTokenSetOnBase() external {
+        LibTestProd.createSelectForkBase(vm);
+        checkTokenSet(
+            LibProdTokensBase.COIN_RECEIPT,
+            LibProdTokensBase.COIN_RECEIPT_VAULT,
+            LibProdTokensBase.COIN_WRAPPED_TOKEN_VAULT,
+            "tCOIN",
+            "wtCOIN"
+        );
+    }
+
+    function testSpymTokenSetOnBase() external {
+        LibTestProd.createSelectForkBase(vm);
+        checkTokenSet(
+            LibProdTokensBase.SPYM_RECEIPT,
+            LibProdTokensBase.SPYM_RECEIPT_VAULT,
+            LibProdTokensBase.SPYM_WRAPPED_TOKEN_VAULT,
+            "tSPYM",
+            "wtSPYM"
+        );
+    }
+
+    function testSivrTokenSetOnBase() external {
+        LibTestProd.createSelectForkBase(vm);
+        checkTokenSet(
+            LibProdTokensBase.SIVR_RECEIPT,
+            LibProdTokensBase.SIVR_RECEIPT_VAULT,
+            LibProdTokensBase.SIVR_WRAPPED_TOKEN_VAULT,
+            "tSIVR",
+            "wtSIVR"
+        );
+    }
+
+    function testCrclTokenSetOnBase() external {
+        LibTestProd.createSelectForkBase(vm);
+        checkTokenSet(
+            LibProdTokensBase.CRCL_RECEIPT,
+            LibProdTokensBase.CRCL_RECEIPT_VAULT,
+            LibProdTokensBase.CRCL_WRAPPED_TOKEN_VAULT,
+            "tCRCL",
+            "wtCRCL"
+        );
+    }
+
+    function testNvdaTokenSetOnBase() external {
+        LibTestProd.createSelectForkBase(vm);
+        checkTokenSet(
+            LibProdTokensBase.NVDA_RECEIPT,
+            LibProdTokensBase.NVDA_RECEIPT_VAULT,
+            LibProdTokensBase.NVDA_WRAPPED_TOKEN_VAULT,
+            "tNVDA",
+            "wtNVDA"
+        );
+    }
+
+    function testIauTokenSetOnBase() external {
+        LibTestProd.createSelectForkBase(vm);
+        checkTokenSet(
+            LibProdTokensBase.IAU_RECEIPT,
+            LibProdTokensBase.IAU_RECEIPT_VAULT,
+            LibProdTokensBase.IAU_WRAPPED_TOKEN_VAULT,
+            "tIAU",
+            "wtIAU"
+        );
+    }
+
+    function testPpltTokenSetOnBase() external {
+        LibTestProd.createSelectForkBase(vm);
+        checkTokenSet(
+            LibProdTokensBase.PPLT_RECEIPT,
+            LibProdTokensBase.PPLT_RECEIPT_VAULT,
+            LibProdTokensBase.PPLT_WRAPPED_TOKEN_VAULT,
+            "tPPLT",
+            "wtPPLT"
+        );
+    }
+
+    function testAmznTokenSetOnBase() external {
+        LibTestProd.createSelectForkBase(vm);
+        checkTokenSet(
+            LibProdTokensBase.AMZN_RECEIPT,
+            LibProdTokensBase.AMZN_RECEIPT_VAULT,
+            LibProdTokensBase.AMZN_WRAPPED_TOKEN_VAULT,
+            "tAMZN",
+            "wtAMZN"
+        );
+    }
+
+    function testBmnrTokenSetOnBase() external {
+        LibTestProd.createSelectForkBase(vm);
+        checkTokenSet(
+            LibProdTokensBase.BMNR_RECEIPT,
+            LibProdTokensBase.BMNR_RECEIPT_VAULT,
+            LibProdTokensBase.BMNR_WRAPPED_TOKEN_VAULT,
+            "tBMNR",
+            "wtBMNR"
+        );
+    }
 }
