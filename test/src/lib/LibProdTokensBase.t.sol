@@ -4,16 +4,28 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std/Test.sol";
 import {LibProdTokensBase} from "../../../src/lib/LibProdTokensBase.sol";
+import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibTestProd} from "../../lib/LibTestProd.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC4626} from "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {IReceiptVaultV3} from "ethgild/interface/IReceiptVaultV3.sol";
+import {
+    OffchainAssetReceiptVaultBeaconSetDeployer
+} from "ethgild/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
 
 /// @title LibProdTokensBaseTest
 /// @notice Fork tests verifying production token instances on Base.
 contract LibProdTokensBaseTest is Test {
-    /// Verify a token set (receipt, receipt vault, wrapped vault) is deployed
-    /// and wired correctly on the current fork.
+    /// @dev EIP-1967 beacon slot.
+    bytes32 constant BEACON_SLOT = 0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50;
+
+    /// Read the EIP-1967 beacon address from a proxy contract.
+    function beaconOf(address proxy) internal view returns (address) {
+        return address(uint160(uint256(vm.load(proxy, BEACON_SLOT))));
+    }
+
+    /// Verify a token set (receipt, receipt vault, wrapped vault) is deployed,
+    /// wired correctly, and behind the expected beacons on the current fork.
     function checkTokenSet(
         address receipt,
         address receiptVault,
@@ -29,6 +41,24 @@ contract LibProdTokensBaseTest is Test {
         assertEq(IERC20Metadata(wrappedTokenVault).symbol(), expectedWrappedVaultSymbol);
         assertEq(IERC4626(wrappedTokenVault).asset(), receiptVault, "wrapped vault asset mismatch");
         assertEq(address(IReceiptVaultV3(payable(receiptVault)).receipt()), receipt, "receipt address mismatch");
+
+        // All prod tokens on Base are behind the V1 OARV deployer's beacons.
+        OffchainAssetReceiptVaultBeaconSetDeployer oarvDeployer = OffchainAssetReceiptVaultBeaconSetDeployer(
+            LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+        );
+        assertEq(beaconOf(receipt), address(oarvDeployer.I_RECEIPT_BEACON()), "receipt beacon mismatch");
+        assertEq(
+            beaconOf(receiptVault),
+            address(oarvDeployer.I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON()),
+            "receipt vault beacon mismatch"
+        );
+        // The wrapped vault beacon is not exposed by any deployer getter.
+        // Assert all wrapped proxies share the same beacon as wtMSTR.
+        assertEq(
+            beaconOf(wrappedTokenVault),
+            beaconOf(LibProdTokensBase.MSTR_WRAPPED_TOKEN_VAULT),
+            "wrapped vault beacon mismatch"
+        );
     }
 
     function testMstrTokenSetOnBase() external {
