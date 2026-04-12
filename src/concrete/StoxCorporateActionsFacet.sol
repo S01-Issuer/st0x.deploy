@@ -50,6 +50,8 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     /// standalone facet has `address(this) == _SELF` and is rejected by
     /// `onlyDelegatecalled`. Constructor remains parameterless for Zoltu
     /// deterministic deployment.
+    /// _SELF follows the OZ UUPSUpgradeable pattern for delegatecall guards.
+    // slither-disable-next-line naming-convention
     address private immutable _SELF;
 
     constructor() {
@@ -72,6 +74,9 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     }
 
     /// @inheritdoc ICorporateActionsV1
+    // The authorizer is a trusted contract set by the vault owner. Facet is
+    // stateless — no storage is read-modify-written around the authorizer call.
+    // slither-disable-next-line reentrancy-events
     function scheduleCorporateAction(bytes32 typeHash, uint64 effectiveTime, bytes calldata parameters)
         external
         override
@@ -85,6 +90,9 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     }
 
     /// @inheritdoc ICorporateActionsV1
+    // The authorizer is a trusted contract set by the vault owner. Facet is
+    // stateless — no storage is read-modify-written around the authorizer call.
+    // slither-disable-next-line reentrancy-events
     function cancelCorporateAction(uint256 actionIndex) external override onlyDelegatecalled {
         _authorize(msg.sender, CANCEL_CORPORATE_ACTION, abi.encode(actionIndex));
         LibCorporateAction.cancel(actionIndex);
