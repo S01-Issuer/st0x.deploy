@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std/Test.sol";
 import {LibProdTokensBase} from "../../../src/lib/LibProdTokensBase.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
+import {LibTestProd} from "../../lib/LibTestProd.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC4626} from "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {IBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
@@ -17,18 +18,10 @@ import {
 /// @title LibProdTokensBaseTest
 /// @notice Fork tests verifying production token instances on Base.
 contract LibProdTokensBaseTest is Test {
-    /// @dev Block at which these tokens are known to exist. Must be pinned
-    /// so the test is reproducible even if on-chain state changes later.
-    uint256 constant PROD_TOKENS_BLOCK_NUMBER_BASE = 44601000;
-
-    function createFork() internal {
-        vm.createSelectFork(vm.envString("RPC_URL_BASE_FORK"), PROD_TOKENS_BLOCK_NUMBER_BASE);
-    }
-
     /// tMSTR receipt vault is a beacon proxy behind the V1 deployer's vault
     /// beacon, owned by rainlang.eth.
     function testMstrReceiptVaultOnBase() external {
-        createFork();
+        LibTestProd.createSelectForkBase(vm);
 
         // Receipt vault exists and has expected identity.
         assertTrue(LibProdTokensBase.MSTR_RECEIPT_VAULT.code.length > 0, "tMSTR receipt vault not deployed");
@@ -64,7 +57,7 @@ contract LibProdTokensBaseTest is Test {
     /// wtMSTR wrapped vault wraps the tMSTR receipt vault and is a beacon
     /// proxy behind the V1 deployer's wrapped vault beacon.
     function testMstrWrappedTokenVaultOnBase() external {
-        createFork();
+        LibTestProd.createSelectForkBase(vm);
 
         // Wrapped vault exists and has expected identity.
         assertTrue(LibProdTokensBase.MSTR_WRAPPED_TOKEN_VAULT.code.length > 0, "wtMSTR wrapped vault not deployed");
