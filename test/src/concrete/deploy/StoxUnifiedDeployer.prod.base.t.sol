@@ -10,10 +10,10 @@ import {LibProdDeployV2} from "../../../../src/lib/LibProdDeployV2.sol";
 import {LibTestProd} from "../../../lib/LibTestProd.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 import {
-    OffchainAssetReceiptVaultBeaconSetDeployer,
-    OffchainAssetReceiptVaultConfigV2
-} from "ethgild/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
-import {ReceiptVaultConfigV2} from "ethgild/abstract/ReceiptVault.sol";
+    IOffchainAssetReceiptVaultBeaconSetDeployerV1
+} from "rain.vats/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
+import {OffchainAssetReceiptVaultConfigV2} from "rain.vats/concrete/vault/OffchainAssetReceiptVault.sol";
+import {ReceiptVaultConfigV2} from "rain.vats/abstract/ReceiptVault.sol";
 import {
     StoxWrappedTokenVaultBeaconSetDeployer
 } from "../../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
@@ -72,10 +72,10 @@ contract StoxProdBaseTest is Test {
         );
 
         // StoxReceipt implementation (via beacon)
-        OffchainAssetReceiptVaultBeaconSetDeployer oarvDeployer = OffchainAssetReceiptVaultBeaconSetDeployer(
+        IOffchainAssetReceiptVaultBeaconSetDeployerV1 oarvDeployer = IOffchainAssetReceiptVaultBeaconSetDeployerV1(
             LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
         );
-        address receiptImpl = oarvDeployer.iReceiptBeacon().implementation();
+        address receiptImpl = oarvDeployer.I_RECEIPT_BEACON().implementation();
         assertEq(
             receiptImpl, LibProdDeployV1.STOX_RECEIPT_IMPLEMENTATION, "StoxReceipt implementation address mismatch"
         );
@@ -83,7 +83,7 @@ contract StoxProdBaseTest is Test {
         assertEq(receiptImpl.codehash, LibProdDeployV1.PROD_STOX_RECEIPT_IMPLEMENTATION_BASE_CODEHASH_V1);
 
         // StoxReceiptVault implementation (via beacon)
-        address vaultImpl = oarvDeployer.iOffchainAssetReceiptVaultBeacon().implementation();
+        address vaultImpl = oarvDeployer.I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON().implementation();
         assertEq(
             vaultImpl,
             LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION,
@@ -94,14 +94,14 @@ contract StoxProdBaseTest is Test {
 
         // OARV receipt beacon owner must match BEACON_INITIAL_OWNER.
         assertEq(
-            Ownable(address(oarvDeployer.iReceiptBeacon())).owner(),
+            Ownable(address(oarvDeployer.I_RECEIPT_BEACON())).owner(),
             LibProdDeployV1.BEACON_INITIAL_OWNER,
             "Receipt beacon owner mismatch"
         );
 
         // OARV vault beacon owner must match BEACON_INITIAL_OWNER.
         assertEq(
-            Ownable(address(oarvDeployer.iOffchainAssetReceiptVaultBeacon())).owner(),
+            Ownable(address(oarvDeployer.I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON())).owner(),
             LibProdDeployV1.BEACON_INITIAL_OWNER,
             "Receipt vault beacon owner mismatch"
         );

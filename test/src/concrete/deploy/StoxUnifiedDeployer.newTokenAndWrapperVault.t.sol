@@ -5,8 +5,8 @@ pragma solidity =0.8.25;
 import {Test, Vm} from "forge-std/Test.sol";
 import {
     OffchainAssetReceiptVaultConfigV2
-} from "ethgild/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
-import {ReceiptVaultConfigV2} from "ethgild/abstract/ReceiptVault.sol";
+} from "rain.vats/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
+import {ReceiptVaultConfigV2} from "rain.vats/abstract/ReceiptVault.sol";
 import {StoxUnifiedDeployer} from "../../../../src/concrete/deploy/StoxUnifiedDeployer.sol";
 import {StoxWrappedTokenVault} from "../../../../src/concrete/StoxWrappedTokenVault.sol";
 import {LibProdDeployV2} from "../../../../src/lib/LibProdDeployV2.sol";

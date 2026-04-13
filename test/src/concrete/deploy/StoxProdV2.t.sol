@@ -9,8 +9,8 @@ import {LibRainDeploy} from "rain.deploy/lib/LibRainDeploy.sol";
 import {IBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {
-    OffchainAssetReceiptVaultBeaconSetDeployer
-} from "ethgild/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
+    IOffchainAssetReceiptVaultBeaconSetDeployerV2
+} from "rain.vats/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV2.sol";
 
 /// @title StoxProdV2Test
 /// @notice Fork tests verifying all V2 Zoltu deployments exist on all
@@ -93,7 +93,7 @@ contract StoxProdV2Test is Test {
         );
 
         // OARV deployer: verify internal beacon implementations and owners.
-        OffchainAssetReceiptVaultBeaconSetDeployer oarvDeployer = OffchainAssetReceiptVaultBeaconSetDeployer(
+        IOffchainAssetReceiptVaultBeaconSetDeployerV2 oarvDeployer = IOffchainAssetReceiptVaultBeaconSetDeployerV2(
             LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
         );
 

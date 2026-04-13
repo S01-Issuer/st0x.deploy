@@ -4,8 +4,8 @@ pragma solidity =0.8.25;
 
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
-import {IAuthorizeV1} from "ethgild/interface/IAuthorizeV1.sol";
-import {OffchainAssetReceiptVault} from "ethgild/concrete/vault/OffchainAssetReceiptVault.sol";
+import {IAuthorizeV1} from "rain.vats/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetReceiptVault.sol";
 
 /// @title StoxCorporateActionsFacet
 /// @notice Diamond facet for corporate actions on the vault. This facet shares

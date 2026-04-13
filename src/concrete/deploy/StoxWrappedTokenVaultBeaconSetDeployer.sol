@@ -3,9 +3,11 @@
 pragma solidity =0.8.25;
 
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
+import {IERC165} from "openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
 import {StoxWrappedTokenVault} from "../StoxWrappedTokenVault.sol";
 import {ICLONEABLE_V2_SUCCESS} from "rain.factory/interface/ICloneableV2.sol";
 import {LibProdDeployV2} from "../../lib/LibProdDeployV2.sol";
+import {IStoxWrappedTokenVaultBeaconSetDeployerV1} from "../../interface/IStoxWrappedTokenVaultBeaconSetDeployerV1.sol";
 
 /// @dev Error raised when the StoxWrappedTokenVault initialization fails.
 error InitializeVaultFailed();
@@ -22,7 +24,13 @@ error ZeroVaultAsset();
 /// OffchainAssetReceiptVaultBeaconSetDeployer is error prone and tedious as it
 /// is not atomic, so the StoxUnifiedDeployer contract should be used instead
 /// for most use cases.
-contract StoxWrappedTokenVaultBeaconSetDeployer {
+contract StoxWrappedTokenVaultBeaconSetDeployer is IERC165 {
+    /// @inheritdoc IERC165
+    function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
+        return interfaceId == type(IStoxWrappedTokenVaultBeaconSetDeployerV1).interfaceId
+            || interfaceId == type(IERC165).interfaceId;
+    }
+
     /// Emitted when a new deployment is successfully initialized.
     /// @param sender The address that initiated the deployment.
     /// @param stoxWrappedTokenVault The address of the deployed

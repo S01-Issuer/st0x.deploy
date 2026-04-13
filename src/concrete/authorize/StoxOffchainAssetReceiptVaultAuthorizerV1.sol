@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {
     OffchainAssetReceiptVaultAuthorizerV1,
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "ethgild/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain.vats/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {ICLONEABLE_V2_SUCCESS} from "rain.factory/interface/ICloneableV2.sol";
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../lib/LibCorporateAction.sol";
 

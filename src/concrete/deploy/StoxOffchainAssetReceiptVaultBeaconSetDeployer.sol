@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {
     OffchainAssetReceiptVaultBeaconSetDeployer,
     OffchainAssetReceiptVaultBeaconSetDeployerConfig
-} from "ethgild/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
+} from "rain.vats/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
 import {LibProdDeployV2} from "../../lib/LibProdDeployV2.sol";
 
 /// @title StoxOffchainAssetReceiptVaultBeaconSetDeployer

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Receipt} from "ethgild/concrete/receipt/Receipt.sol";
+import {Receipt} from "rain.vats/concrete/receipt/Receipt.sol";
 
 /// @title StoxReceipt
 /// @notice A Receipt specialized for Stox. Currently there are no modifications

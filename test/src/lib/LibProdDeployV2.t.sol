@@ -34,9 +34,11 @@ import {
     StoxWrappedTokenVaultBeaconSetDeployer
 } from "../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
 import {
-    StoxOffchainAssetReceiptVaultBeaconSetDeployer,
-    OffchainAssetReceiptVaultBeaconSetDeployer
+    StoxOffchainAssetReceiptVaultBeaconSetDeployer
 } from "../../../src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol";
+import {
+    IOffchainAssetReceiptVaultBeaconSetDeployerV2
+} from "rain.vats/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV2.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
 import {
@@ -326,7 +328,7 @@ contract LibProdDeployV2Test is Test {
         LibRainDeploy.deployZoltu(type(StoxReceipt).creationCode);
         LibRainDeploy.deployZoltu(type(StoxReceiptVault).creationCode);
         address deployed = LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode);
-        OffchainAssetReceiptVaultBeaconSetDeployer deployer = OffchainAssetReceiptVaultBeaconSetDeployer(deployed);
+        IOffchainAssetReceiptVaultBeaconSetDeployerV2 deployer = IOffchainAssetReceiptVaultBeaconSetDeployerV2(deployed);
 
         IBeacon receiptBeacon = deployer.iReceiptBeacon();
         assertEq(receiptBeacon.implementation(), LibProdDeployV2.STOX_RECEIPT, "receipt beacon implementation mismatch");
@@ -343,7 +345,7 @@ contract LibProdDeployV2Test is Test {
         LibRainDeploy.deployZoltu(type(StoxReceipt).creationCode);
         LibRainDeploy.deployZoltu(type(StoxReceiptVault).creationCode);
         address deployed = LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode);
-        OffchainAssetReceiptVaultBeaconSetDeployer deployer = OffchainAssetReceiptVaultBeaconSetDeployer(deployed);
+        IOffchainAssetReceiptVaultBeaconSetDeployerV2 deployer = IOffchainAssetReceiptVaultBeaconSetDeployerV2(deployed);
 
         IBeacon vaultBeacon = deployer.iOffchainAssetReceiptVaultBeacon();
         assertEq(

@@ -3,14 +3,14 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std/Test.sol";
+import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../src/lib/LibCorporateAction.sol";
 import {
-    SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION
-} from "../../../src/lib/LibCorporateAction.sol";
-import {OffchainAssetReceiptVaultAuthorizerV1Config} from "ethgild/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+    OffchainAssetReceiptVaultAuthorizerV1Config
+} from "rain.vats/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
-import {Unauthorized} from "ethgild/interface/IAuthorizeV1.sol";
+import {Unauthorized} from "rain.vats/interface/IAuthorizeV1.sol";
 import {CloneFactory} from "rain.factory/concrete/CloneFactory.sol";
 
 /// @title StoxCorporateActionsFacetAuthorizerIntegrationTest
@@ -26,10 +26,7 @@ contract StoxCorporateActionsFacetAuthorizerIntegrationTest is Test {
         StoxOffchainAssetReceiptVaultAuthorizerV1 impl = new StoxOffchainAssetReceiptVaultAuthorizerV1();
         CloneFactory factory = new CloneFactory();
         return StoxOffchainAssetReceiptVaultAuthorizerV1(
-            factory.clone(
-                address(impl),
-                abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: ADMIN}))
-            )
+            factory.clone(address(impl), abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: ADMIN})))
         );
     }
 
@@ -47,9 +44,7 @@ contract StoxCorporateActionsFacetAuthorizerIntegrationTest is Test {
     function testScheduleRoleUnauthorized() external {
         StoxOffchainAssetReceiptVaultAuthorizerV1 authorizer = newAuthorizer();
 
-        vm.expectRevert(
-            abi.encodeWithSelector(Unauthorized.selector, NOBODY, SCHEDULE_CORPORATE_ACTION, "")
-        );
+        vm.expectRevert(abi.encodeWithSelector(Unauthorized.selector, NOBODY, SCHEDULE_CORPORATE_ACTION, ""));
         authorizer.authorize(NOBODY, SCHEDULE_CORPORATE_ACTION, "");
     }
 
@@ -67,9 +62,7 @@ contract StoxCorporateActionsFacetAuthorizerIntegrationTest is Test {
     function testCancelRoleUnauthorized() external {
         StoxOffchainAssetReceiptVaultAuthorizerV1 authorizer = newAuthorizer();
 
-        vm.expectRevert(
-            abi.encodeWithSelector(Unauthorized.selector, NOBODY, CANCEL_CORPORATE_ACTION, "")
-        );
+        vm.expectRevert(abi.encodeWithSelector(Unauthorized.selector, NOBODY, CANCEL_CORPORATE_ACTION, ""));
         authorizer.authorize(NOBODY, CANCEL_CORPORATE_ACTION, "");
     }
 
@@ -82,9 +75,7 @@ contract StoxCorporateActionsFacetAuthorizerIntegrationTest is Test {
         authorizer.revokeRole(SCHEDULE_CORPORATE_ACTION, SCHEDULER);
         vm.stopPrank();
 
-        vm.expectRevert(
-            abi.encodeWithSelector(Unauthorized.selector, SCHEDULER, SCHEDULE_CORPORATE_ACTION, "")
-        );
+        vm.expectRevert(abi.encodeWithSelector(Unauthorized.selector, SCHEDULER, SCHEDULE_CORPORATE_ACTION, ""));
         authorizer.authorize(SCHEDULER, SCHEDULE_CORPORATE_ACTION, "");
     }
 }

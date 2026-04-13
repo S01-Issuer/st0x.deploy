@@ -7,7 +7,7 @@ import {
     OffchainAssetReceiptVaultBeaconSetDeployer,
     OffchainAssetReceiptVaultConfigV2,
     OffchainAssetReceiptVault
-} from "ethgild/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
+} from "rain.vats/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
 import {StoxUnifiedDeployer} from "../../../../src/concrete/deploy/StoxUnifiedDeployer.sol";
 import {LibProdDeployV2} from "../../../../src/lib/LibProdDeployV2.sol";
 import {StoxWrappedTokenVault} from "../../../../src/concrete/StoxWrappedTokenVault.sol";
@@ -15,7 +15,7 @@ import {
     StoxWrappedTokenVaultBeaconSetDeployer
 } from "../../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
-import {ReceiptVaultConfigV2} from "ethgild/abstract/ReceiptVault.sol";
+import {ReceiptVaultConfigV2} from "rain.vats/abstract/ReceiptVault.sol";
 import {MockERC20} from "../../../concrete/MockERC20.sol";
 
 contract StoxUnifiedDeployerTest is Test {

@@ -8,10 +8,10 @@ import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibTestProd} from "../../lib/LibTestProd.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC4626} from "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
-import {IReceiptVaultV3} from "ethgild/interface/IReceiptVaultV3.sol";
+import {IReceiptVaultV3} from "rain.vats/interface/IReceiptVaultV3.sol";
 import {
-    OffchainAssetReceiptVaultBeaconSetDeployer
-} from "ethgild/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
+    IOffchainAssetReceiptVaultBeaconSetDeployerV1
+} from "rain.vats/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
 
 /// @title LibProdTokensBaseTest
 /// @notice Fork tests verifying production token instances on Base.
@@ -43,13 +43,13 @@ contract LibProdTokensBaseTest is Test {
         assertEq(address(IReceiptVaultV3(payable(receiptVault)).receipt()), receipt, "receipt address mismatch");
 
         // All prod tokens on Base are behind the V1 OARV deployer's beacons.
-        OffchainAssetReceiptVaultBeaconSetDeployer oarvDeployer = OffchainAssetReceiptVaultBeaconSetDeployer(
+        IOffchainAssetReceiptVaultBeaconSetDeployerV1 oarvDeployer = IOffchainAssetReceiptVaultBeaconSetDeployerV1(
             LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
         );
-        assertEq(beaconOf(receipt), address(oarvDeployer.iReceiptBeacon()), "receipt beacon mismatch");
+        assertEq(beaconOf(receipt), address(oarvDeployer.I_RECEIPT_BEACON()), "receipt beacon mismatch");
         assertEq(
             beaconOf(receiptVault),
-            address(oarvDeployer.iOffchainAssetReceiptVaultBeacon()),
+            address(oarvDeployer.I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON()),
             "receipt vault beacon mismatch"
         );
         // The wrapped vault beacon is not exposed by any deployer getter.

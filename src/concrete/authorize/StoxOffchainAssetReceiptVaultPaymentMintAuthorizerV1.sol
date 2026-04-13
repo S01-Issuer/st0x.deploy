@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {
     OffchainAssetReceiptVaultPaymentMintAuthorizerV1
-} from "ethgild/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
+} from "rain.vats/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 
 /// @title StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 /// @notice An OffchainAssetReceiptVaultPaymentMintAuthorizerV1 specialized for

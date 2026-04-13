@@ -11,7 +11,7 @@ import {
     CANCEL_CORPORATE_ACTION,
     UnknownActionType
 } from "../../../src/lib/LibCorporateAction.sol";
-import {IAuthorizeV1, Unauthorized} from "ethgild/interface/IAuthorizeV1.sol";
+import {IAuthorizeV1, Unauthorized} from "rain.vats/interface/IAuthorizeV1.sol";
 
 /// @dev Mock authorizer used by the facet tests. Records the most recent
 /// `authorize` call so tests can assert the per-action context that the facet
