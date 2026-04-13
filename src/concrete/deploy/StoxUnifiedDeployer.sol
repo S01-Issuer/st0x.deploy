@@ -18,7 +18,7 @@ import {IStoxUnifiedDeployerV1} from "../../interface/IStoxUnifiedDeployerV1.sol
 /// StoxWrappedTokenVault linked to the OffchainAssetReceiptVault atomically.
 /// The beacon sets are hardcoded to simplify and harden deployment of this
 /// contract by providing an audit trail in git of any address modifications.
-contract StoxUnifiedDeployer is IERC165 {
+contract StoxUnifiedDeployer is IERC165, IStoxUnifiedDeployerV1 {
     /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
         return interfaceId == type(IStoxUnifiedDeployerV1).interfaceId || interfaceId == type(IERC165).interfaceId;

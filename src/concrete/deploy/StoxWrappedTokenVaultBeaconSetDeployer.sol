@@ -24,7 +24,7 @@ error ZeroVaultAsset();
 /// OffchainAssetReceiptVaultBeaconSetDeployer is error prone and tedious as it
 /// is not atomic, so the StoxUnifiedDeployer contract should be used instead
 /// for most use cases.
-contract StoxWrappedTokenVaultBeaconSetDeployer is IERC165 {
+contract StoxWrappedTokenVaultBeaconSetDeployer is IERC165, IStoxWrappedTokenVaultBeaconSetDeployerV1 {
     /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
         return interfaceId == type(IStoxWrappedTokenVaultBeaconSetDeployerV1).interfaceId
