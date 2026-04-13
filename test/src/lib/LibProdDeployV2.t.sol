@@ -328,7 +328,7 @@ contract LibProdDeployV2Test is Test {
         address deployed = LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode);
         OffchainAssetReceiptVaultBeaconSetDeployer deployer = OffchainAssetReceiptVaultBeaconSetDeployer(deployed);
 
-        IBeacon receiptBeacon = deployer.I_RECEIPT_BEACON();
+        IBeacon receiptBeacon = deployer.iReceiptBeacon();
         assertEq(receiptBeacon.implementation(), LibProdDeployV2.STOX_RECEIPT, "receipt beacon implementation mismatch");
         assertEq(
             Ownable(address(receiptBeacon)).owner(),
@@ -345,7 +345,7 @@ contract LibProdDeployV2Test is Test {
         address deployed = LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode);
         OffchainAssetReceiptVaultBeaconSetDeployer deployer = OffchainAssetReceiptVaultBeaconSetDeployer(deployed);
 
-        IBeacon vaultBeacon = deployer.I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON();
+        IBeacon vaultBeacon = deployer.iOffchainAssetReceiptVaultBeacon();
         assertEq(
             vaultBeacon.implementation(), LibProdDeployV2.STOX_RECEIPT_VAULT, "vault beacon implementation mismatch"
         );

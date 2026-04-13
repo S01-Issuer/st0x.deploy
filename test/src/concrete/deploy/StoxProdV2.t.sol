@@ -97,13 +97,13 @@ contract StoxProdV2Test is Test {
             LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
         );
 
-        IBeacon receiptBeacon = oarvDeployer.I_RECEIPT_BEACON();
+        IBeacon receiptBeacon = oarvDeployer.iReceiptBeacon();
         assertEq(receiptBeacon.implementation(), expectedReceiptBeaconImpl, "V2 receipt beacon implementation mismatch");
         assertEq(
             Ownable(address(receiptBeacon)).owner(), expectedReceiptBeaconOwner, "V2 receipt beacon owner mismatch"
         );
 
-        IBeacon vaultBeacon = oarvDeployer.I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON();
+        IBeacon vaultBeacon = oarvDeployer.iOffchainAssetReceiptVaultBeacon();
         assertEq(vaultBeacon.implementation(), expectedVaultBeaconImpl, "V2 vault beacon implementation mismatch");
         assertEq(Ownable(address(vaultBeacon)).owner(), expectedVaultBeaconOwner, "V2 vault beacon owner mismatch");
     }

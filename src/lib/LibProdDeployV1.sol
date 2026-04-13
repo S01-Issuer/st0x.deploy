@@ -39,7 +39,7 @@ library LibProdDeployV1 {
 
     /// @dev The StoxReceipt implementation deployed inside the
     /// OffchainAssetReceiptVault beacon set on Base. Accessible via
-    /// I_RECEIPT_BEACON.implementation().
+    /// iReceiptBeacon.implementation().
     /// https://basescan.org/address/0xE7573879D73455Dc92cB4087Fa8177594387CbCD
     address constant STOX_RECEIPT_IMPLEMENTATION = address(0xE7573879D73455Dc92cB4087Fa8177594387CbCD);
 
@@ -56,7 +56,7 @@ library LibProdDeployV1 {
 
     /// @dev The StoxReceiptVault implementation deployed inside the
     /// OffchainAssetReceiptVault beacon set on Base. Accessible via
-    /// I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON.implementation().
+    /// iOffchainAssetReceiptVaultBeacon.implementation().
     /// https://basescan.org/address/0x8EFfCe5Ebb047F215dF1d8522c32c7C9DE239f39
     address constant STOX_RECEIPT_VAULT_IMPLEMENTATION = address(0x8EFfCe5Ebb047F215dF1d8522c32c7C9DE239f39);
 

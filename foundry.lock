@@ -1,8 +1,11 @@
 {
-  "lib/ethgild": {
-    "rev": "15cbe7e270daa75d237a59aa9f46b55f37d30296"
+  "lib/rain.deploy": {
+    "rev": "43a6ed3a98f0141e1963b4b9136e8c80e2889bd1"
   },
   "lib/rain.extrospection": {
     "rev": "60f35a0fc7e38fe6879c638ee25b46e88bfc9892"
+  },
+  "lib/rain.vats": {
+    "rev": "e871aadcf0e2e51e37e4cae8d19e5a5e37d5c7e8"
   }
 }

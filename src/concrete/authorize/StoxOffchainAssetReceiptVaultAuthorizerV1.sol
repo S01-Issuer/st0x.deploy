@@ -25,13 +25,13 @@ bytes32 constant CANCEL_CORPORATE_ACTION_ADMIN = keccak256("CANCEL_CORPORATE_ACT
 contract StoxOffchainAssetReceiptVaultAuthorizerV1 is OffchainAssetReceiptVaultAuthorizerV1 {
     /// @inheritdoc OffchainAssetReceiptVaultAuthorizerV1
     function initialize(bytes memory data) public override initializer returns (bytes32) {
-        bytes32 result = _initialize(data);
+        OffchainAssetReceiptVaultAuthorizerV1Config memory config =
+            abi.decode(data, (OffchainAssetReceiptVaultAuthorizerV1Config));
+
+        bytes32 result = _initialize(config);
         if (result != ICLONEABLE_V2_SUCCESS) {
             return result;
         }
-
-        OffchainAssetReceiptVaultAuthorizerV1Config memory config =
-            abi.decode(data, (OffchainAssetReceiptVaultAuthorizerV1Config));
 
         _setRoleAdmin(SCHEDULE_CORPORATE_ACTION, SCHEDULE_CORPORATE_ACTION_ADMIN);
         _setRoleAdmin(SCHEDULE_CORPORATE_ACTION_ADMIN, SCHEDULE_CORPORATE_ACTION_ADMIN);

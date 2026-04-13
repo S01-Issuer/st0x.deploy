@@ -46,10 +46,10 @@ contract LibProdTokensBaseTest is Test {
         OffchainAssetReceiptVaultBeaconSetDeployer oarvDeployer = OffchainAssetReceiptVaultBeaconSetDeployer(
             LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
         );
-        assertEq(beaconOf(receipt), address(oarvDeployer.I_RECEIPT_BEACON()), "receipt beacon mismatch");
+        assertEq(beaconOf(receipt), address(oarvDeployer.iReceiptBeacon()), "receipt beacon mismatch");
         assertEq(
             beaconOf(receiptVault),
-            address(oarvDeployer.I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON()),
+            address(oarvDeployer.iOffchainAssetReceiptVaultBeacon()),
             "receipt vault beacon mismatch"
         );
         // The wrapped vault beacon is not exposed by any deployer getter.

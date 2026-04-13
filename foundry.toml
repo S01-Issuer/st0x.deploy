@@ -11,16 +11,14 @@ evm_version = "cancun"
 bytecode_hash = "none"
 cbor_metadata = false
 
-fs_permissions = [
-  { access = "read-write", path = "src/generated" },
-]
+fs_permissions = [{ access = "read-write", path = "src/generated" }]
 
 remappings = [
-    "ethgild/=lib/ethgild/src/",
-    "rain.factory/=lib/ethgild/lib/rain.factory/src/",
-    "openzeppelin-contracts-upgradeable/=lib/ethgild/lib/openzeppelin-contracts-upgradeable/",
-    "rain.deploy/=lib/rain.deploy/src/",
-    "rain.sol.codegen/=lib/ethgild/lib/rain.flare/lib/rain.interpreter/lib/rain.interpreter.interface/lib/rain.sol.codegen/src/",
+  "ethgild/=lib/rain.vats/src/",
+  "rain.factory/=lib/rain.vats/lib/rain.factory/src/",
+  "openzeppelin-contracts-upgradeable/=lib/rain.vats/lib/openzeppelin-contracts-upgradeable/",
+  "rain.deploy/=lib/rain.deploy/src/",
+  "rain.sol.codegen/=lib/rain.vats/lib/rain.flare/lib/rain.interpreter/lib/rain.interpreter.interface/lib/rain.sol.codegen/src/",
 ]
 
 [rpc_endpoints]
