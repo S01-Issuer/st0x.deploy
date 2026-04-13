@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std/Test.sol";
 import {LibRainDeploy} from "rain.deploy/lib/LibRainDeploy.sol";
-import {LibProdDeployV2} from "../../../src/lib/LibProdDeployV2.sol";
+import {LibProdDeployV3} from "../../../src/lib/LibProdDeployV3.sol";
 import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../../src/concrete/StoxWrappedTokenVault.sol";
@@ -73,7 +73,7 @@ import {
     DEPLOYED_ADDRESS as STOX_PAYMENT_MINT_AUTHORIZER_V1_GENERATED_ADDRESS
 } from "../../../src/generated/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.pointers.sol";
 
-contract LibProdDeployV2Test is Test {
+contract LibProdDeployV3Test is Test {
     // --- Zoltu deploy address tests ---
 
     /// Deploying StoxReceipt via Zoltu MUST produce the expected address and
@@ -81,9 +81,9 @@ contract LibProdDeployV2Test is Test {
     function testDeployAddressStoxReceipt() external {
         LibRainDeploy.etchZoltuFactory(vm);
         address deployed = LibRainDeploy.deployZoltu(type(StoxReceipt).creationCode);
-        assertEq(deployed, LibProdDeployV2.STOX_RECEIPT);
+        assertEq(deployed, LibProdDeployV3.STOX_RECEIPT);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV2.STOX_RECEIPT_CODEHASH);
+        assertEq(deployed.codehash, LibProdDeployV3.STOX_RECEIPT_CODEHASH);
     }
 
     /// Deploying StoxReceiptVault via Zoltu MUST produce the expected address
@@ -91,9 +91,9 @@ contract LibProdDeployV2Test is Test {
     function testDeployAddressStoxReceiptVault() external {
         LibRainDeploy.etchZoltuFactory(vm);
         address deployed = LibRainDeploy.deployZoltu(type(StoxReceiptVault).creationCode);
-        assertEq(deployed, LibProdDeployV2.STOX_RECEIPT_VAULT);
+        assertEq(deployed, LibProdDeployV3.STOX_RECEIPT_VAULT);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV2.STOX_RECEIPT_VAULT_CODEHASH);
+        assertEq(deployed.codehash, LibProdDeployV3.STOX_RECEIPT_VAULT_CODEHASH);
     }
 
     /// Deploying StoxWrappedTokenVault via Zoltu MUST produce the expected
@@ -101,9 +101,9 @@ contract LibProdDeployV2Test is Test {
     function testDeployAddressStoxWrappedTokenVault() external {
         LibRainDeploy.etchZoltuFactory(vm);
         address deployed = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
-        assertEq(deployed, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT);
+        assertEq(deployed, LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_CODEHASH);
+        assertEq(deployed.codehash, LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_CODEHASH);
     }
 
     /// Deploying StoxUnifiedDeployer via Zoltu MUST produce the expected
@@ -111,9 +111,9 @@ contract LibProdDeployV2Test is Test {
     function testDeployAddressStoxUnifiedDeployer() external {
         LibRainDeploy.etchZoltuFactory(vm);
         address deployed = LibRainDeploy.deployZoltu(type(StoxUnifiedDeployer).creationCode);
-        assertEq(deployed, LibProdDeployV2.STOX_UNIFIED_DEPLOYER);
+        assertEq(deployed, LibProdDeployV3.STOX_UNIFIED_DEPLOYER);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV2.STOX_UNIFIED_DEPLOYER_CODEHASH);
+        assertEq(deployed.codehash, LibProdDeployV3.STOX_UNIFIED_DEPLOYER_CODEHASH);
     }
 
     // --- Fresh codehash tests ---
@@ -121,28 +121,28 @@ contract LibProdDeployV2Test is Test {
     /// Fresh-compiled StoxReceipt codehash MUST match the pointer constant.
     function testCodehashStoxReceipt() external {
         StoxReceipt c = new StoxReceipt();
-        assertEq(address(c).codehash, LibProdDeployV2.STOX_RECEIPT_CODEHASH);
+        assertEq(address(c).codehash, LibProdDeployV3.STOX_RECEIPT_CODEHASH);
     }
 
     /// Fresh-compiled StoxReceiptVault codehash MUST match the pointer
     /// constant.
     function testCodehashStoxReceiptVault() external {
         StoxReceiptVault c = new StoxReceiptVault();
-        assertEq(address(c).codehash, LibProdDeployV2.STOX_RECEIPT_VAULT_CODEHASH);
+        assertEq(address(c).codehash, LibProdDeployV3.STOX_RECEIPT_VAULT_CODEHASH);
     }
 
     /// Fresh-compiled StoxWrappedTokenVault codehash MUST match the pointer
     /// constant.
     function testCodehashStoxWrappedTokenVault() external {
         StoxWrappedTokenVault c = new StoxWrappedTokenVault();
-        assertEq(address(c).codehash, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_CODEHASH);
+        assertEq(address(c).codehash, LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_CODEHASH);
     }
 
     /// Fresh-compiled StoxUnifiedDeployer codehash MUST match the pointer
     /// constant.
     function testCodehashStoxUnifiedDeployer() external {
         StoxUnifiedDeployer c = new StoxUnifiedDeployer();
-        assertEq(address(c).codehash, LibProdDeployV2.STOX_UNIFIED_DEPLOYER_CODEHASH);
+        assertEq(address(c).codehash, LibProdDeployV3.STOX_UNIFIED_DEPLOYER_CODEHASH);
     }
 
     // --- Creation code tests ---
@@ -201,25 +201,25 @@ contract LibProdDeployV2Test is Test {
 
     /// Generated pointer address for StoxReceipt MUST match library constant.
     function testGeneratedAddressStoxReceipt() external pure {
-        assertEq(STOX_RECEIPT_GENERATED_ADDRESS, LibProdDeployV2.STOX_RECEIPT);
+        assertEq(STOX_RECEIPT_GENERATED_ADDRESS, LibProdDeployV3.STOX_RECEIPT);
     }
 
     /// Generated pointer address for StoxReceiptVault MUST match library
     /// constant.
     function testGeneratedAddressStoxReceiptVault() external pure {
-        assertEq(STOX_RECEIPT_VAULT_GENERATED_ADDRESS, LibProdDeployV2.STOX_RECEIPT_VAULT);
+        assertEq(STOX_RECEIPT_VAULT_GENERATED_ADDRESS, LibProdDeployV3.STOX_RECEIPT_VAULT);
     }
 
     /// Generated pointer address for StoxWrappedTokenVault MUST match library
     /// constant.
     function testGeneratedAddressStoxWrappedTokenVault() external pure {
-        assertEq(STOX_WRAPPED_TOKEN_VAULT_GENERATED_ADDRESS, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT);
+        assertEq(STOX_WRAPPED_TOKEN_VAULT_GENERATED_ADDRESS, LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT);
     }
 
     /// Generated pointer address for StoxUnifiedDeployer MUST match library
     /// constant.
     function testGeneratedAddressStoxUnifiedDeployer() external pure {
-        assertEq(STOX_UNIFIED_DEPLOYER_GENERATED_ADDRESS, LibProdDeployV2.STOX_UNIFIED_DEPLOYER);
+        assertEq(STOX_UNIFIED_DEPLOYER_GENERATED_ADDRESS, LibProdDeployV3.STOX_UNIFIED_DEPLOYER);
     }
 
     // --- StoxWrappedTokenVaultBeacon ---
@@ -230,9 +230,9 @@ contract LibProdDeployV2Test is Test {
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
         address deployed = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeacon).creationCode);
-        assertEq(deployed, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON);
+        assertEq(deployed, LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH);
+        assertEq(deployed.codehash, LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH);
     }
 
     function testCreationCodeStoxWrappedTokenVaultBeacon() external pure {
@@ -247,7 +247,7 @@ contract LibProdDeployV2Test is Test {
     }
 
     function testGeneratedAddressStoxWrappedTokenVaultBeacon() external pure {
-        assertEq(STOX_BEACON_GENERATED_ADDRESS, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON);
+        assertEq(STOX_BEACON_GENERATED_ADDRESS, LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON);
     }
 
     // --- StoxWrappedTokenVaultBeaconSetDeployer ---
@@ -259,9 +259,9 @@ contract LibProdDeployV2Test is Test {
         LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
         LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeacon).creationCode);
         address deployed = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeaconSetDeployer).creationCode);
-        assertEq(deployed, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER);
+        assertEq(deployed, LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH);
+        assertEq(deployed.codehash, LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH);
     }
 
     function testCreationCodeStoxWrappedTokenVaultBeaconSetDeployer() external pure {
@@ -281,7 +281,7 @@ contract LibProdDeployV2Test is Test {
 
     function testGeneratedAddressStoxWrappedTokenVaultBeaconSetDeployer() external pure {
         assertEq(
-            STOX_BEACON_SET_DEPLOYER_GENERATED_ADDRESS, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+            STOX_BEACON_SET_DEPLOYER_GENERATED_ADDRESS, LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
         );
     }
 
@@ -294,9 +294,9 @@ contract LibProdDeployV2Test is Test {
         LibRainDeploy.deployZoltu(type(StoxReceipt).creationCode);
         LibRainDeploy.deployZoltu(type(StoxReceiptVault).creationCode);
         address deployed = LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode);
-        assertEq(deployed, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
+        assertEq(deployed, LibProdDeployV3.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH);
+        assertEq(deployed.codehash, LibProdDeployV3.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH);
     }
 
     function testCreationCodeStoxOffchainAssetReceiptVaultBeaconSetDeployer() external pure {
@@ -316,7 +316,7 @@ contract LibProdDeployV2Test is Test {
 
     function testGeneratedAddressStoxOffchainAssetReceiptVaultBeaconSetDeployer() external pure {
         assertEq(
-            STOX_OARV_DEPLOYER_GENERATED_ADDRESS, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+            STOX_OARV_DEPLOYER_GENERATED_ADDRESS, LibProdDeployV3.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
         );
     }
 
@@ -331,10 +331,10 @@ contract LibProdDeployV2Test is Test {
         IOffchainAssetReceiptVaultBeaconSetDeployerV2 deployer = IOffchainAssetReceiptVaultBeaconSetDeployerV2(deployed);
 
         IBeacon receiptBeacon = deployer.iReceiptBeacon();
-        assertEq(receiptBeacon.implementation(), LibProdDeployV2.STOX_RECEIPT, "receipt beacon implementation mismatch");
+        assertEq(receiptBeacon.implementation(), LibProdDeployV3.STOX_RECEIPT, "receipt beacon implementation mismatch");
         assertEq(
             Ownable(address(receiptBeacon)).owner(),
-            LibProdDeployV2.BEACON_INITIAL_OWNER,
+            LibProdDeployV3.BEACON_INITIAL_OWNER,
             "receipt beacon owner mismatch"
         );
     }
@@ -349,10 +349,10 @@ contract LibProdDeployV2Test is Test {
 
         IBeacon vaultBeacon = deployer.iOffchainAssetReceiptVaultBeacon();
         assertEq(
-            vaultBeacon.implementation(), LibProdDeployV2.STOX_RECEIPT_VAULT, "vault beacon implementation mismatch"
+            vaultBeacon.implementation(), LibProdDeployV3.STOX_RECEIPT_VAULT, "vault beacon implementation mismatch"
         );
         assertEq(
-            Ownable(address(vaultBeacon)).owner(), LibProdDeployV2.BEACON_INITIAL_OWNER, "vault beacon owner mismatch"
+            Ownable(address(vaultBeacon)).owner(), LibProdDeployV3.BEACON_INITIAL_OWNER, "vault beacon owner mismatch"
         );
     }
 
@@ -363,16 +363,16 @@ contract LibProdDeployV2Test is Test {
     function testDeployAddressStoxOffchainAssetReceiptVaultAuthorizerV1() external {
         LibRainDeploy.etchZoltuFactory(vm);
         address deployed = LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode);
-        assertEq(deployed, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1);
+        assertEq(deployed, LibProdDeployV3.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH);
+        assertEq(deployed.codehash, LibProdDeployV3.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH);
     }
 
     /// Fresh-compiled StoxOffchainAssetReceiptVaultAuthorizerV1 codehash MUST
     /// match the pointer constant.
     function testCodehashStoxOffchainAssetReceiptVaultAuthorizerV1() external {
         StoxOffchainAssetReceiptVaultAuthorizerV1 c = new StoxOffchainAssetReceiptVaultAuthorizerV1();
-        assertEq(address(c).codehash, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH);
+        assertEq(address(c).codehash, LibProdDeployV3.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH);
     }
 
     /// Pointer creation code for StoxOffchainAssetReceiptVaultAuthorizerV1
@@ -394,7 +394,7 @@ contract LibProdDeployV2Test is Test {
     /// Generated pointer address for StoxOffchainAssetReceiptVaultAuthorizerV1
     /// MUST match library constant.
     function testGeneratedAddressStoxOffchainAssetReceiptVaultAuthorizerV1() external pure {
-        assertEq(STOX_AUTHORIZER_V1_GENERATED_ADDRESS, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1);
+        assertEq(STOX_AUTHORIZER_V1_GENERATED_ADDRESS, LibProdDeployV3.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1);
     }
 
     // --- StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1 ---
@@ -405,10 +405,10 @@ contract LibProdDeployV2Test is Test {
         LibRainDeploy.etchZoltuFactory(vm);
         address deployed =
             LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode);
-        assertEq(deployed, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1);
+        assertEq(deployed, LibProdDeployV3.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1);
         assertTrue(deployed.code.length > 0);
         assertEq(
-            deployed.codehash, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH
+            deployed.codehash, LibProdDeployV3.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH
         );
     }
 
@@ -418,7 +418,7 @@ contract LibProdDeployV2Test is Test {
         StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1 c =
             new StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1();
         assertEq(
-            address(c).codehash, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH
+            address(c).codehash, LibProdDeployV3.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH
         );
     }
 
@@ -447,7 +447,7 @@ contract LibProdDeployV2Test is Test {
     function testGeneratedAddressStoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1() external pure {
         assertEq(
             STOX_PAYMENT_MINT_AUTHORIZER_V1_GENERATED_ADDRESS,
-            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1
+            LibProdDeployV3.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1
         );
     }
 }

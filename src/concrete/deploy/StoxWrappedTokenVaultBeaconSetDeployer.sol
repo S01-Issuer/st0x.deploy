@@ -6,7 +6,7 @@ import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconP
 import {IERC165} from "openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
 import {StoxWrappedTokenVault} from "../StoxWrappedTokenVault.sol";
 import {ICLONEABLE_V2_SUCCESS} from "rain.factory/interface/ICloneableV2.sol";
-import {LibProdDeployV2} from "../../lib/LibProdDeployV2.sol";
+import {LibProdDeployV3} from "../../lib/LibProdDeployV3.sol";
 import {IStoxWrappedTokenVaultBeaconSetDeployerV1} from "../../interface/IStoxWrappedTokenVaultBeaconSetDeployerV1.sol";
 
 /// @dev Error raised when the StoxWrappedTokenVault initialization fails.
@@ -50,7 +50,7 @@ contract StoxWrappedTokenVaultBeaconSetDeployer is IERC165, IStoxWrappedTokenVau
         }
 
         StoxWrappedTokenVault stoxWrappedTokenVault =
-            StoxWrappedTokenVault(address(new BeaconProxy(LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON, "")));
+            StoxWrappedTokenVault(address(new BeaconProxy(LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON, "")));
 
         emit Deployment(msg.sender, address(stoxWrappedTokenVault));
 

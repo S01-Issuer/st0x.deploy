@@ -6,16 +6,16 @@ import {
     OffchainAssetReceiptVaultBeaconSetDeployer,
     OffchainAssetReceiptVaultBeaconSetDeployerConfig
 } from "rain.vats/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
-import {LibProdDeployV2} from "../../lib/LibProdDeployV2.sol";
+import {LibProdDeployV3} from "../../lib/LibProdDeployV3.sol";
 
 /// @title StoxOffchainAssetReceiptVaultBeaconSetDeployer
 /// @notice Inherits OffchainAssetReceiptVaultBeaconSetDeployer with a
-/// parameterless constructor that hardcodes the config from LibProdDeployV2.
+/// parameterless constructor that hardcodes the config from LibProdDeployV3.
 /// This makes the contract Zoltu-deployable.
 contract StoxOffchainAssetReceiptVaultBeaconSetDeployer is
     OffchainAssetReceiptVaultBeaconSetDeployer(OffchainAssetReceiptVaultBeaconSetDeployerConfig({
-            initialOwner: LibProdDeployV2.BEACON_INITIAL_OWNER,
-            initialReceiptImplementation: LibProdDeployV2.STOX_RECEIPT,
-            initialOffchainAssetReceiptVaultImplementation: LibProdDeployV2.STOX_RECEIPT_VAULT
+            initialOwner: LibProdDeployV3.BEACON_INITIAL_OWNER,
+            initialReceiptImplementation: LibProdDeployV3.STOX_RECEIPT,
+            initialOffchainAssetReceiptVaultImplementation: LibProdDeployV3.STOX_RECEIPT_VAULT
         }))
 {}

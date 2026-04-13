@@ -8,7 +8,7 @@ import {
     StoxWrappedTokenVaultBeaconSetDeployer,
     ZeroVaultAsset
 } from "../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
-import {LibProdDeployV2} from "../../../src/lib/LibProdDeployV2.sol";
+import {LibProdDeployV3} from "../../../src/lib/LibProdDeployV3.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {MockERC20} from "../../concrete/MockERC20.sol";
 
@@ -20,7 +20,7 @@ contract StoxWrappedTokenVaultV2Test is Test {
     function testV2ZeroAssetReverts() external {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         vm.expectRevert(abi.encodeWithSelector(ZeroVaultAsset.selector));
-        StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER)
+        StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER)
             .newStoxWrappedTokenVault(address(0));
     }
 
@@ -31,7 +31,7 @@ contract StoxWrappedTokenVaultV2Test is Test {
         MockERC20 asset = new MockERC20();
 
         vm.recordLogs();
-        StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER)
+        StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER)
             .newStoxWrappedTokenVault(address(asset));
 
         Vm.Log[] memory logs = vm.getRecordedLogs();
@@ -64,7 +64,7 @@ contract StoxWrappedTokenVaultV2Test is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+                LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
             ).newStoxWrappedTokenVault(address(asset));
 
         assertEq(vault.asset(), address(asset));

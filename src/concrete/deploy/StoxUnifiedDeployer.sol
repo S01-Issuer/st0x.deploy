@@ -9,7 +9,7 @@ import {
 } from "rain.vats/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
 import {IERC165} from "openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
 import {StoxWrappedTokenVaultBeaconSetDeployer} from "./StoxWrappedTokenVaultBeaconSetDeployer.sol";
-import {LibProdDeployV2} from "../../lib/LibProdDeployV2.sol";
+import {LibProdDeployV3} from "../../lib/LibProdDeployV3.sol";
 import {StoxWrappedTokenVault} from "../StoxWrappedTokenVault.sol";
 import {IStoxUnifiedDeployerV1} from "../../interface/IStoxUnifiedDeployerV1.sol";
 
@@ -41,10 +41,10 @@ contract StoxUnifiedDeployer is IERC165, IStoxUnifiedDeployerV1 {
     // slither-disable-next-line reentrancy-events
     function newTokenAndWrapperVault(OffchainAssetReceiptVaultConfigV2 memory config) external {
         OffchainAssetReceiptVault asset = OffchainAssetReceiptVaultBeaconSetDeployer(
-                LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+                LibProdDeployV3.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
             ).newOffchainAssetReceiptVault(config);
         StoxWrappedTokenVault wrappedTokenVault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+                LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
             ).newStoxWrappedTokenVault(address(asset));
 
         emit Deployment(msg.sender, address(asset), address(wrappedTokenVault));
