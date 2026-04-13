@@ -14,7 +14,7 @@ cbor_metadata = false
 fs_permissions = [{ access = "read-write", path = "src/generated" }]
 
 remappings = [
-  "ethgild/=lib/rain.vats/src/",
+  "rain.vats/=lib/rain.vats/src/",
   "rain.factory/=lib/rain.vats/lib/rain.factory/src/",
   "openzeppelin-contracts-upgradeable/=lib/rain.vats/lib/openzeppelin-contracts-upgradeable/",
   "rain.deploy/=lib/rain.deploy/src/",
