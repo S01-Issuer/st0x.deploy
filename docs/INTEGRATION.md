@@ -8,19 +8,6 @@ capabilities baked into the RWA compliance model.
 If you're developing on the vault itself, see `CLAUDE.md` for build instructions
 and `CORPORATE-ACTIONS-SPEC.md` for the as-built specification.
 
-## Stock Split Magnitude
-
-Stock splits are expected to be in the range **1/100× to 100×** per action. The
-system enforces bounds of `trunc(1e18 * multiplier) ∈ [1,
-1e36]` — a much wider
-ceiling designed for safety rather than operational use. In practice, the
-multi-sig scheduler will stay within the real-world range (2× to 10× for forward
-splits, 1/2× to 1/10× for reverse splits).
-
-There is no limit on the number of splits that can accumulate; each one
-compounds on the previous. Multiple pending splits at different future effective
-times are possible.
-
 ## Admin Capabilities
 
 The st0x vault implements an RWA (Real World Asset) compliance model. External

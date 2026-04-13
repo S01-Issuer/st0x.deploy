@@ -110,6 +110,18 @@ interface ICorporateActionsV1 {
     );
 
     /// @notice Schedule a new corporate action.
+    ///
+    /// For stock splits, the multiplier in `parameters` is expected to be in the
+    /// range 1/100x to 100x per action in practice. The system enforces bounds
+    /// of trunc(1e18 * multiplier) in [1, 1e36] — a much wider ceiling designed
+    /// for safety rather than operational use. In practice, the multi-sig
+    /// scheduler will stay within the real-world range (2x to 10x for forward
+    /// splits, 1/2x to 1/10x for reverse splits).
+    ///
+    /// There is no limit on the number of splits that can accumulate; each one
+    /// compounds on the previous. Multiple pending splits at different future
+    /// effective times are possible.
+    ///
     /// @param typeHash External identifier for the action type, e.g.
     /// keccak256("StockSplit"). Resolved to an internal bitmap by the lib.
     /// @param effectiveTime When the action takes effect. Must be in the future.
