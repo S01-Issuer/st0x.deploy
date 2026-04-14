@@ -3,3 +3,4 @@ out
 
 .env
 .fixes
+.claude/scheduled_tasks.lock
