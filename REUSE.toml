@@ -2,21 +2,22 @@ version = 1
 
 [[annotations]]
 path = [
-    ".gas-snapshot",
-    ".github/workflows/**/",
-    ".gitignore",
-    ".gitmodules",
-    "CHANGELOG.md",
-    "CLAUDE.md",
-    "README.md",
-    "audit/**/",
-    "docs/**/",
-    "flake.lock",
-    "flake.nix",
-    "foundry.toml",
-    "REUSE.toml",
-    "foundry.lock",
-    "slither.config.json",
+  ".gas-snapshot",
+  ".github/workflows/**/",
+  ".gitignore",
+  ".gitmodules",
+  "CHANGELOG.md",
+  "CLAUDE.md",
+  "README.md",
+  "audit/**/",
+  "docs/**/",
+  "flake.lock",
+  "flake.nix",
+  "foundry.toml",
+  "REUSE.toml",
+  "foundry.lock",
+  "slither.config.json",
+  ".claude/**/",
 ]
 SPDX-FileCopyrightText = "Copyright (c) 2020 Rain Open Source Software Ltd"
 SPDX-License-Identifier = "LicenseRef-DCL-1.0"
