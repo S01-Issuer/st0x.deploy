@@ -1,6 +1,9 @@
 # st0x.deploy
 
-Deployment and extension contracts for [Ethgild](https://github.com/rainlanguage/ethgild) that are domain-specific for st0x. Implements RWA tokenization with receipt vaults wrapped in ERC4626-compatible vaults for DeFi integration.
+Deployment and extension contracts for
+[rain.vats](https://github.com/rainlanguage/rain.vats) that are domain-specific
+for st0x. Implements RWA tokenization with receipt vaults wrapped in
+ERC4626-compatible vaults for DeFi integration.
 
 ## Prerequisites
 
@@ -19,8 +22,9 @@ Fork tests require `RPC_URL_BASE_FORK` in `.env`.
 ## Architecture
 
 - `src/concrete/` — StoxReceipt, StoxReceiptVault, StoxWrappedTokenVault
-- `src/concrete/deploy/` — Deployer contracts (unified deployer, beacon set deployer)
+- `src/concrete/deploy/` — Deployer contracts (unified deployer, beacon set
+  deployer)
 - `src/lib/` — Production deployment addresses and codehashes
 - `script/` — Forge deployment scripts
 - `test/` — Foundry tests (unit + Base fork)
-- `lib/` — Git submodule dependencies (ethgild, rain.extrospection)
+- `lib/` — Git submodule dependencies (rain.vats, rain.extrospection)
