@@ -23,9 +23,9 @@ error UnknownActionType(bytes32 typeHash);
 /// The struct grows as subsequent PRs add the linked list and rebase logic.
 library LibCorporateAction {
     /// @custom:storage-location erc7201:rain.storage.corporate-action.1
+    /// PR2 replaces the placeholder with linked list fields. The placeholder
+    /// cannot be written in PR1 because all storage-touching functions revert.
     struct CorporateActionStorage {
-        /// Placeholder to prove storage read/write works via delegatecall.
-        /// Replaced by real fields in PR2.
         uint256 _placeholder;
     }
 
@@ -49,14 +49,17 @@ library LibCorporateAction {
         revert UnknownActionType(typeHash);
     }
 
-    /// @notice Skeleton schedule function. Real implementation comes in PR2.
-    /// @return actionIndex Always returns 0 in this placeholder.
-    function schedule(uint256, uint64, bytes memory) internal pure returns (uint256 actionIndex) {
-        return 0;
+    /// @notice Skeleton schedule function. Reverts until PR2 implements the
+    /// linked list.
+    function schedule(uint256, uint64, bytes memory) internal pure returns (uint256) {
+        revert();
     }
 
-    /// @notice Skeleton cancel function. Real implementation comes in PR2.
-    function cancel(uint256) internal pure {}
+    /// @notice Skeleton cancel function. Reverts until PR2 implements the
+    /// linked list.
+    function cancel(uint256) internal pure {
+        revert();
+    }
 
     /// @notice Count completed actions. Returns 0 in this placeholder — the
     /// real implementation walks the linked list in PR2.

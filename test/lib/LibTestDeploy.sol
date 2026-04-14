@@ -20,7 +20,7 @@ import {
 /// @title LibTestDeploy
 /// @notice Deploys the full Stox contract suite via Zoltu in a test
 /// environment. Etches the Zoltu factory and deploys each contract,
-/// asserting deterministic addresses and codehashes match LibProdDeployV3.
+/// asserting deterministic addresses match LibProdDeployV3.
 library LibTestDeploy {
     function deployWrappedTokenVaultBeaconSet(Vm vm) internal {
         LibRainDeploy.etchZoltuFactory(vm);

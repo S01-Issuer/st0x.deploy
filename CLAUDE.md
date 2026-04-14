@@ -61,8 +61,8 @@ deployed contract codehashes against Base mainnet at a pinned block.
 stack):
 
 - `StoxCorporateActionsFacet` (`src/concrete/StoxCorporateActionsFacet.sol`) —
-  diamond facet implementing `ICorporateActionsV1`. Schedules and applies
-  corporate actions (stock splits today; further action types planned). Action
+  diamond facet implementing `ICorporateActionsV1`. Will schedule and apply
+  corporate actions (stock splits first; further action types planned). Action
   state is held in a doubly linked list of `CorporateActionNode`s ordered by
   `effectiveTime`, traversed in chronological order, with a bitmap tagging each
   node's action type. **The facet is delegatecalled by the vault — direct calls

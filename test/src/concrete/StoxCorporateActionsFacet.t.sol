@@ -161,9 +161,9 @@ contract StoxCorporateActionsFacetTest is Test {
     }
 
     /// `cancelCorporateAction` calls the authorizer with the CANCEL permission
-    /// and `abi.encode(actionIndex)` as the data argument. On PR1 the cancel
-    /// path is a no-op stub, so the outer call succeeds and we can also
-    /// observe the mock's recorded state.
+    /// and `abi.encode(actionIndex)` as the data argument. The cancel stub
+    /// reverts after authorization, so we verify the authorizer was called
+    /// via vm.expectCall before the revert.
     function testCancelCorporateActionForwardsContextToAuthorizer() external {
         uint256 actionIndex = 42;
 
@@ -175,12 +175,8 @@ contract StoxCorporateActionsFacetTest is Test {
         );
 
         vm.prank(ALICE);
+        vm.expectRevert();
         facetViaHarness.cancelCorporateAction(actionIndex);
-
-        assertEq(mockAuthorizer.callCount(), 1);
-        assertEq(mockAuthorizer.lastUser(), ALICE);
-        assertEq(mockAuthorizer.lastPermission(), CANCEL_CORPORATE_ACTION);
-        assertEq(mockAuthorizer.lastData(), abi.encode(actionIndex));
     }
 
     /// `scheduleCorporateAction` propagates the authorizer's revert when the
