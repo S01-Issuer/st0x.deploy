@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std/Test.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
+import {ICorporateActionsV1} from "../../../src/interface/ICorporateActionsV1.sol";
 import {
     LibCorporateAction,
     CORPORATE_ACTION_STORAGE_LOCATION,
@@ -1017,7 +1018,7 @@ contract StoxCorporateActionsFacetTest is Test {
         uint64 effectiveTime = 1500;
 
         vm.expectEmit(true, true, false, true, address(facetViaHarness));
-        emit StoxCorporateActionsFacet.CorporateActionScheduled(ALICE, 1, ACTION_TYPE_STOCK_SPLIT, effectiveTime);
+        emit ICorporateActionsV1.CorporateActionScheduled(ALICE, 1, ACTION_TYPE_STOCK_SPLIT, effectiveTime);
 
         vm.prank(ALICE);
         uint256 actionIndex = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, effectiveTime, parameters);
@@ -1034,7 +1035,7 @@ contract StoxCorporateActionsFacetTest is Test {
         uint256 actionIndex = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, parameters);
 
         vm.expectEmit(true, true, false, false, address(facetViaHarness));
-        emit StoxCorporateActionsFacet.CorporateActionCancelled(ALICE, actionIndex);
+        emit ICorporateActionsV1.CorporateActionCancelled(ALICE, actionIndex);
 
         vm.prank(ALICE);
         facetViaHarness.cancelCorporateAction(actionIndex);
