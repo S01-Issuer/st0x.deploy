@@ -79,7 +79,7 @@ contract DelegatecallHarness {
 }
 
 /// @dev Harness to test library functions directly.
-contract LibHarness {
+contract CorporateActionHarness {
     function resolveActionType(bytes32 typeHash, bytes memory parameters) external pure returns (uint256) {
         return LibCorporateAction.resolveActionType(typeHash, parameters);
     }
@@ -115,13 +115,21 @@ contract LibHarness {
     function tail() external view returns (uint256) {
         return LibCorporateAction.tail();
     }
+
+    function headNode() external view returns (CorporateActionNode memory) {
+        return LibCorporateAction.headNode();
+    }
+
+    function tailNode() external view returns (CorporateActionNode memory) {
+        return LibCorporateAction.tailNode();
+    }
 }
 
 contract StoxCorporateActionsFacetTest is Test {
     StoxCorporateActionsFacet internal facetImpl;
     DelegatecallHarness internal harness;
     StoxCorporateActionsFacet internal facetViaHarness;
-    LibHarness internal libHarness;
+    CorporateActionHarness internal libHarness;
     MockAuthorizer internal mockAuthorizer;
 
     address internal constant ALICE = address(0xA11CE);
@@ -130,7 +138,7 @@ contract StoxCorporateActionsFacetTest is Test {
         facetImpl = new StoxCorporateActionsFacet();
         harness = new DelegatecallHarness(address(facetImpl));
         facetViaHarness = StoxCorporateActionsFacet(address(harness));
-        libHarness = new LibHarness();
+        libHarness = new CorporateActionHarness();
         mockAuthorizer = new MockAuthorizer();
         harness.setAuthorizer(mockAuthorizer);
         vm.warp(1000);
@@ -283,7 +291,7 @@ contract StoxCorporateActionsFacetTest is Test {
 
     // -----------------------------------------------------------------------
     // Linked-list scheduling, cancellation, and traversal — exercised through
-    // `LibHarness` so the library logic is tested in isolation from the facet.
+    // `CorporateActionHarness` so the library logic is tested in isolation from the facet.
 
     /// Schedule a single action and verify it is inserted.
     function testScheduleSingleAction() external {
@@ -623,5 +631,17 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(
             uint256(vm.load(harnessAddr, entrySlot)), 0xC0FFEE, "accountMigrationCursor mapping must be at offset 3"
         );
+    }
+
+    /// headNode and tailNode revert on a completely fresh list where no
+    /// action has ever been scheduled (nodes array has length 0).
+    function testHeadNodeRevertsOnFreshList() external {
+        vm.expectRevert();
+        libHarness.headNode();
+    }
+
+    function testTailNodeRevertsOnFreshList() external {
+        vm.expectRevert();
+        libHarness.tailNode();
     }
 }
