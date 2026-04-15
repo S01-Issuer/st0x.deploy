@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std/StdCheats.sol";
 
-uint256 constant PROD_TEST_BLOCK_NUMBER_BASE = 43482822;
+uint256 constant PROD_TEST_BLOCK_NUMBER_BASE = 44600000;
 
 library LibTestProd {
     function createSelectForkBase(Vm vm) internal {

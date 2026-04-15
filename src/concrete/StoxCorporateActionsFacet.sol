@@ -4,8 +4,8 @@ pragma solidity =0.8.25;
 
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
-import {IAuthorizeV1} from "ethgild/interface/IAuthorizeV1.sol";
-import {OffchainAssetReceiptVault} from "ethgild/concrete/vault/OffchainAssetReceiptVault.sol";
+import {IAuthorizeV1} from "rain.vats/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetReceiptVault.sol";
 
 /// @title StoxCorporateActionsFacet
 /// @notice Diamond facet implementing the corporate action linked list.
@@ -28,20 +28,6 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     /// facet deployment rather than via delegatecall from the vault.
     error FacetMustBeDelegatecalled();
 
-    /// @notice Emitted when a corporate action is successfully scheduled.
-    /// @param sender The msg.sender that called `scheduleCorporateAction`.
-    /// @param actionIndex The 1-based index assigned to the new action.
-    /// @param actionType The bitmap action type (e.g. `ACTION_TYPE_STOCK_SPLIT`).
-    /// @param effectiveTime The timestamp at which the action becomes effective.
-    event CorporateActionScheduled(
-        address indexed sender, uint256 indexed actionIndex, uint256 actionType, uint64 effectiveTime
-    );
-    /// @notice Emitted when a previously scheduled action is cancelled before
-    /// its `effectiveTime`.
-    /// @param sender The msg.sender that called `cancelCorporateAction`.
-    /// @param actionIndex The action index that was cancelled.
-    event CorporateActionCancelled(address indexed sender, uint256 indexed actionIndex);
-
     /// @dev The address of this facet contract at deployment time, captured
     /// in the constructor and baked into bytecode as an immutable. Under a
     /// legitimate delegatecall from the vault, `address(this)` resolves to
@@ -49,6 +35,8 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     /// standalone facet has `address(this) == _SELF` and is rejected by
     /// `onlyDelegatecalled`. Constructor remains parameterless for Zoltu
     /// deterministic deployment.
+    /// _SELF follows the OZ UUPSUpgradeable pattern for delegatecall guards.
+    // slither-disable-next-line naming-convention
     address private immutable _SELF;
 
     constructor() {
@@ -71,6 +59,9 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     }
 
     /// @inheritdoc ICorporateActionsV1
+    // The authorizer is a trusted contract set by the vault owner. Facet is
+    // stateless — no storage is read-modify-written around the authorizer call.
+    // slither-disable-next-line reentrancy-events
     function scheduleCorporateAction(bytes32 typeHash, uint64 effectiveTime, bytes calldata parameters)
         external
         override
@@ -84,6 +75,9 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     }
 
     /// @inheritdoc ICorporateActionsV1
+    // The authorizer is a trusted contract set by the vault owner. Facet is
+    // stateless — no storage is read-modify-written around the authorizer call.
+    // slither-disable-next-line reentrancy-events
     function cancelCorporateAction(uint256 actionIndex) external override onlyDelegatecalled {
         _authorize(msg.sender, CANCEL_CORPORATE_ACTION, abi.encode(actionIndex));
         LibCorporateAction.cancel(actionIndex);

@@ -2,104 +2,51 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {
-    BYTECODE_HASH as STOX_RECEIPT_HASH,
-    DEPLOYED_ADDRESS as STOX_RECEIPT_ADDR
-} from "../generated/StoxReceipt.pointers.sol";
-import {
-    BYTECODE_HASH as STOX_RECEIPT_VAULT_HASH,
-    DEPLOYED_ADDRESS as STOX_RECEIPT_VAULT_ADDR
-} from "../generated/StoxReceiptVault.pointers.sol";
-import {
-    BYTECODE_HASH as STOX_WRAPPED_TOKEN_VAULT_HASH,
-    DEPLOYED_ADDRESS as STOX_WRAPPED_TOKEN_VAULT_ADDR
-} from "../generated/StoxWrappedTokenVault.pointers.sol";
-import {
-    BYTECODE_HASH as STOX_UNIFIED_DEPLOYER_HASH,
-    DEPLOYED_ADDRESS as STOX_UNIFIED_DEPLOYER_ADDR
-} from "../generated/StoxUnifiedDeployer.pointers.sol";
-import {
-    BYTECODE_HASH as STOX_WRAPPED_TOKEN_VAULT_BEACON_HASH,
-    DEPLOYED_ADDRESS as STOX_WRAPPED_TOKEN_VAULT_BEACON_ADDR
-} from "../generated/StoxWrappedTokenVaultBeacon.pointers.sol";
-import {
-    BYTECODE_HASH as STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_HASH,
-    DEPLOYED_ADDRESS as STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_ADDR
-} from "../generated/StoxWrappedTokenVaultBeaconSetDeployer.pointers.sol";
-import {
-    BYTECODE_HASH as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_HASH,
-    DEPLOYED_ADDRESS as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_ADDR
-} from "../generated/StoxOffchainAssetReceiptVaultBeaconSetDeployer.pointers.sol";
-import {
-    BYTECODE_HASH as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_HASH,
-    DEPLOYED_ADDRESS as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_ADDR
-} from "../generated/StoxOffchainAssetReceiptVaultAuthorizerV1.pointers.sol";
-import {
-    BYTECODE_HASH as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_HASH,
-    DEPLOYED_ADDRESS as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_ADDR
-} from "../generated/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.pointers.sol";
-
 /// @title LibProdDeployV2
-/// @notice V2 production deployment addresses and codehashes for the Stox
-/// deployment via the Zoltu deterministic deployer. Addresses are
-/// deterministic and identical across all EVM networks.
+/// @notice V2 production deployment addresses and codehashes, hardcoded to
+/// match what is actually deployed on-chain via the Zoltu deterministic
+/// deployer. These values are an audit trail — do not update them.
+/// For current (undeployed) code, see LibProdDeployV3.
 library LibProdDeployV2 {
-    /// @dev The initial owner for all V2 beacons, including
-    /// StoxWrappedTokenVaultBeacon and the beacons created by
-    /// StoxOffchainAssetReceiptVaultBeaconSetDeployer. Resolves to
-    /// rainlang.eth.
-    /// https://basescan.org/address/0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b
+    /// @dev The initial owner for all V2 beacons. Resolves to rainlang.eth.
     address constant BEACON_INITIAL_OWNER = address(0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b);
 
-    /// @dev Deterministic Zoltu address for StoxReceipt.
-    address constant STOX_RECEIPT = STOX_RECEIPT_ADDR;
-    /// @dev Codehash of StoxReceipt when deployed via Zoltu.
-    bytes32 constant STOX_RECEIPT_CODEHASH = STOX_RECEIPT_HASH;
+    address constant STOX_RECEIPT = address(0xbAB0E6b7B5dDA86FB8ba81c00aEA0Ceb8b73686b);
+    bytes32 constant STOX_RECEIPT_CODEHASH =
+        bytes32(0x14348054f718979709402d1892155361f5ea99d8e7267823fcac9c7763bcefab);
 
-    /// @dev Deterministic Zoltu address for StoxReceiptVault.
-    address constant STOX_RECEIPT_VAULT = STOX_RECEIPT_VAULT_ADDR;
-    /// @dev Codehash of StoxReceiptVault when deployed via Zoltu.
-    bytes32 constant STOX_RECEIPT_VAULT_CODEHASH = STOX_RECEIPT_VAULT_HASH;
+    address constant STOX_RECEIPT_VAULT = address(0xc95dB340A7a100881626475d41BFf70857Aa920D);
+    bytes32 constant STOX_RECEIPT_VAULT_CODEHASH =
+        bytes32(0x6147eafd814bc0154f4a6b8247b8c092580fa2e0356e81e4422cfebc2ee94ebb);
 
-    /// @dev Deterministic Zoltu address for StoxWrappedTokenVault.
-    address constant STOX_WRAPPED_TOKEN_VAULT = STOX_WRAPPED_TOKEN_VAULT_ADDR;
-    /// @dev Codehash of StoxWrappedTokenVault when deployed via Zoltu.
-    bytes32 constant STOX_WRAPPED_TOKEN_VAULT_CODEHASH = STOX_WRAPPED_TOKEN_VAULT_HASH;
+    address constant STOX_WRAPPED_TOKEN_VAULT = address(0xb438a1eA1550fd199d67D67a69B71F4324bB8660);
+    bytes32 constant STOX_WRAPPED_TOKEN_VAULT_CODEHASH =
+        bytes32(0xe27ea554b311e0be917e5562ac279eb6e035dd86427b1a2427b66d5e8da5f031);
 
-    /// @dev Deterministic Zoltu address for StoxUnifiedDeployer.
-    address constant STOX_UNIFIED_DEPLOYER = STOX_UNIFIED_DEPLOYER_ADDR;
-    /// @dev Codehash of StoxUnifiedDeployer when deployed via Zoltu.
-    bytes32 constant STOX_UNIFIED_DEPLOYER_CODEHASH = STOX_UNIFIED_DEPLOYER_HASH;
+    address constant STOX_UNIFIED_DEPLOYER = address(0xeaE1c37b7aD1643D20da2B1b97705Fa949eAFaE7);
+    bytes32 constant STOX_UNIFIED_DEPLOYER_CODEHASH =
+        bytes32(0xf66db64c4830ba82f948d38aa8eeed0fb013b2c78e7bad9dac6f051ea24d3056);
 
-    /// @dev Deterministic Zoltu address for StoxWrappedTokenVaultBeacon.
-    address constant STOX_WRAPPED_TOKEN_VAULT_BEACON = STOX_WRAPPED_TOKEN_VAULT_BEACON_ADDR;
-    /// @dev Codehash of StoxWrappedTokenVaultBeacon when deployed via Zoltu.
-    bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH = STOX_WRAPPED_TOKEN_VAULT_BEACON_HASH;
+    address constant STOX_WRAPPED_TOKEN_VAULT_BEACON = address(0x846a468e6fDA529D282D60df7D1EE785EB954600);
+    bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH =
+        bytes32(0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630);
 
-    /// @dev Deterministic Zoltu address for StoxOffchainAssetReceiptVaultBeaconSetDeployer.
     address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER =
-        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_ADDR;
-    /// @dev Codehash of StoxOffchainAssetReceiptVaultBeaconSetDeployer when deployed via Zoltu.
+        address(0x0C5154C4861908Bd5a6FD6fFCB063e9869ceFa41);
     bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH =
-        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_HASH;
+        bytes32(0x4cab65f32a2ff27c29808ddd2f0ef935ee679028b92afbbcaf491d6ff3c73ea7);
 
-    /// @dev Deterministic Zoltu address for StoxWrappedTokenVaultBeaconSetDeployer.
-    address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER = STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_ADDR;
-    /// @dev Codehash of StoxWrappedTokenVaultBeaconSetDeployer when deployed via Zoltu.
+    address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER = address(0xBFB3D7Baece65D1f1640986CdA313177F1160C70);
     bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH =
-        STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_HASH;
+        bytes32(0x74242aadf35ad5abe3c4ce31caa8532f606988fcbff8bcecf9fab91c4966045a);
 
-    /// @dev Deterministic Zoltu address for StoxOffchainAssetReceiptVaultAuthorizerV1.
     address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1 =
-        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_ADDR;
-    /// @dev Codehash of StoxOffchainAssetReceiptVaultAuthorizerV1 when deployed via Zoltu.
+        address(0x667d2Ab75908c7d7983008aDbF558332F381a5f5);
     bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH =
-        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_HASH;
+        bytes32(0xc35b1e63fac46e869fa736e9793e5378f774b1568f9ca56c0f358b17fc12ecd0);
 
-    /// @dev Deterministic Zoltu address for StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.
     address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1 =
-        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_ADDR;
-    /// @dev Codehash of StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1 when deployed via Zoltu.
+        address(0x72b2a394E129ede556b4024aCe939a964bA0a876);
     bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH =
-        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_HASH;
+        bytes32(0xd71cc144cb671b6eeece0598e613ddc712c059e6448857bdeaec58f188cbbba8);
 }
