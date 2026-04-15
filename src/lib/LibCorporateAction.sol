@@ -67,6 +67,20 @@ library LibCorporateAction {
         /// Per-account migration cursor — the 1-based index of the last
         /// node this account was migrated through.
         mapping(address => uint256) accountMigrationCursor;
+        /// Per-cursor unmigrated supply. Maps cursor position (node index) to
+        /// the sum of stored balances for accounts at that cursor level.
+        /// Index 0 is the bootstrap pot (pre-any-split balances).
+        /// When an account migrates from cursor k to cursor k', storedBalance
+        /// is subtracted from unmigrated[k] and the migrated balance is added
+        /// to unmigrated[k'].
+        mapping(uint256 => uint256) unmigrated;
+        /// 1-based index of the latest completed split node seen by fold().
+        /// Mint/burn amounts are added to unmigrated[totalSupplyLatestSplit].
+        /// 0 = no completed splits seen yet.
+        uint256 totalSupplyLatestSplit;
+        /// Whether totalSupply tracking has been bootstrapped from OZ's
+        /// _totalSupply. Set once when the first completed split is detected.
+        bool totalSupplyBootstrapped;
     }
 
     /// @dev Accessor for corporate action storage at the ERC-7201 slot.
