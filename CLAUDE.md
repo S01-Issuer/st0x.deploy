@@ -76,17 +76,42 @@ stack):
   scheduled actions. Storage lives at the ERC-7201 namespace
   `rain.storage.corporate-action.1`.
 - `LibStockSplit` — stock split parameter validation and encode/decode.
+- `LibRebaseMath` — shared `applyMultiplier(balance, Float)` primitive used by
+  every rebase path (share side, totalSupply, receipt side). Single source of
+  truth for the rasterize-one-multiplier-step operation.
 - `LibERC20Storage` — direct storage helpers used by the lazy-rebase migration
   to read/write OZ ERC20 balances without going through `_update`. **Tightly
   coupled to OZ v5 `ERC20Upgradeable` storage layout — see the SAFETY block in
-  that file.**
-- `LibRebase` — lazy rebase application: rewrites holder balances to the
-  post-rebase basis on first touch, rather than applying a global multiplier.
-  **Cursor advancement is load-bearing for fresh recipients — see audit history
-  under `audit/2026-04-07-01/` for the inflation bug fix and the regression
-  tests.**
+  that file and §Dependencies "Breaking dependency bumps".**
+- `LibERC1155Storage` — direct storage helpers for OZ ERC-1155
+  `_balances[id][account]`, used by receipt-side rebase migration. **Tightly
+  coupled to OZ v5 `ERC1155Upgradeable` storage layout — same pin convention as
+  `LibERC20Storage`.**
+- `LibRebase` — lazy share-side rebase application: rewrites holder balances to
+  the post-rebase basis on first touch, rather than applying a global
+  multiplier. **Cursor advancement is load-bearing for fresh recipients — see
+  audit history under `audit/2026-04-07-01/` for the inflation bug fix and the
+  regression tests.**
+- `LibReceiptRebase` — receipt-side analogue of `LibRebase`. Walks the vault's
+  stock split list through cross-contract `ICorporateActionsV1` view calls and
+  rewrites ERC-1155 `_balances` via `LibERC1155Storage`. Preserves the same
+  zero-balance cursor advancement guard.
+- `LibCorporateActionReceipt` — per-`(holder, id)` receipt-side cursor storage
+  at the ERC-7201 namespace `rain.storage.corporate-action-receipt.1`. Lives on
+  the receipt contract, not the vault.
 - `LibTotalSupply` — rebase-aware `totalSupply` accounting that tracks
   per-cursor pots so the reported supply remains correct mid-migration.
+
+**Receipt-side rebase coordination.** `StoxReceipt` overrides `_update` and
+`balanceOf(account, id)` to rasterize receipt balances in lockstep with the
+share-side rebase. Without this, a stock split on the share side would create
+an arbitrage opportunity against the un-rebased receipts. The receipt reads
+stock split multipliers from the vault via `ICorporateActionsV1.nextOfType` +
+`getActionParameters`. Both sides use `LibRebaseMath.applyMultiplier` so
+rasterization is bitwise-identical. See
+`audit/2026-04-09-01/guidelines-advisor.md` Item 2 and
+`CORPORATE-ACTIONS-SPEC.md` §"Receipt Coordination" for the threat model and
+as-built design.
 
 Storage isolation follows the diamond storage pattern: each library uses a fixed
 namespaced storage slot. New state must live in a library storage struct, not on
@@ -132,12 +157,19 @@ Git submodules managed via Foundry. Key remappings in `foundry.toml`:
 
 Two submodule bumps are **breaking** for the corporate-actions stack and cannot be treated as routine dependency updates. See `audit/2026-04-09-01/guidelines-advisor.md` Item 16.
 
-**`openzeppelin-contracts-upgradeable` v5 (load-bearing: `ERC20Upgradeable` ERC-7201 layout).**
+**`openzeppelin-contracts-upgradeable` v5 — `ERC20Upgradeable` ERC-7201 layout.**
 `src/lib/LibERC20Storage.sol` hard-codes the ERC-7201 storage slot for OZ's `_balances` mapping and `_totalSupply` field at `ERC20_STORAGE_LOCATION = 0x52c6…ce00`, with offsets 0 / 2 within the namespaced struct. If OZ renames the namespace string (`"openzeppelin.storage.ERC20"`) or reshuffles the struct layout — e.g. in a hypothetical v6 — `getBalance` / `setBalance` / `getTotalSupply` silently read and write the wrong slots. Symptoms would be catastrophic and invisible to bytecode comparison. On bump:
 1. Re-derive `ERC20_STORAGE_LOCATION` from the new namespace string and update the constant.
 2. Re-run `test/src/lib/LibERC20Storage.t.sol::testSlotConstantMatchesDerivation` — it pins the formula.
 3. Re-run `LibERC20StorageTest` in full: the runtime invariant tests (`testGetBalanceMatchesOzBalanceOf`, `testFuzzRoundTrip`, etc.) drive an actual `ERC20Upgradeable` subclass and cross-check every library accessor against the OZ read path. Any layout drift fails here.
 4. Verify the struct still has `_balances` at offset 0 and `_totalSupply` at offset 2. If either moved, the assembly reads in `LibERC20Storage` must be re-pinned.
+
+**`openzeppelin-contracts-upgradeable` v5 — `ERC1155Upgradeable` ERC-7201 layout.**
+`src/lib/LibERC1155Storage.sol` (PR #7) hard-codes the ERC-7201 storage slot for OZ's ERC-1155 `_balances[id][account]` mapping at `ERC1155_STORAGE_LOCATION = 0x88be…4500`. The nested-mapping slot derivation is `keccak256(abi.encode(account, keccak256(abi.encode(id, ERC1155_STORAGE_LOCATION))))` — two hashes, with `_balances` as the base at offset 0 of the namespaced struct. Same failure mode as the ERC-20 pin: a layout reorder or namespace rename silently remaps every receipt balance the rebase migration writes. On bump:
+1. Re-derive `ERC1155_STORAGE_LOCATION` from the new namespace string and update the constant.
+2. Re-run `test/src/lib/LibERC1155Storage.t.sol::testErc1155SlotConstantMatchesDerivation` — it pins the formula.
+3. Re-run `LibERC1155StorageTest` in full: the runtime invariant tests (`testGetBalanceMatchesOzBalanceOf`, `testFuzzRoundTripSingleId`, `testPerIdAndPerAccountSlotIsolation`, etc.) drive an actual `ERC1155Upgradeable` subclass and cross-check every library accessor against the OZ read path.
+4. Verify the struct still has `_balances` at offset 0. If it moved, the two-hash derivation in `LibERC1155Storage` must be re-pinned.
 
 **`rain.math.float` (load-bearing: precision / rounding characteristics).**
 `src/lib/LibStockSplit.sol` enforces multiplier bounds (`trunc(1e18 * multiplier) ∈ [1, 1e36]`) against Rain Float's current precision and rounding behaviour. `LibRebase.migratedBalance` and `LibTotalSupply.effectiveTotalSupply` rely on Float's `toFixedDecimalLossy` truncating toward zero with the exact precision characteristics that produce the pinned regression outputs. If a bump changes rounding mode (e.g. half-even vs truncate), precision of `div`, or representation of finite decimals, stored stock split parameters that were valid at schedule time could produce different rasterized balances on subsequent reads — a silent semantic change. On bump:
