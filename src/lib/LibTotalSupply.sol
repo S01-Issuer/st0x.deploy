@@ -58,8 +58,8 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 ///
 /// ## No folding required
 ///
-/// Unlike the two-bucket approach, pots do not need to be folded when a new
-/// split completes. The view function automatically picks up new multipliers.
+/// Pots do not need to be folded when a new split completes. The view
+/// function automatically picks up new multipliers during its walk.
 /// `fold()` only bootstraps `unmigrated[0]` from OZ on first use and tracks
 /// the latest completed split for mint/burn assignment.
 library LibTotalSupply {

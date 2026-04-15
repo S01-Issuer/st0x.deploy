@@ -18,12 +18,12 @@ import {
     ActionDoesNotExist
 } from "../../../src/lib/LibCorporateAction.sol";
 import {IAuthorizeV1, Unauthorized} from "rain.vats/interface/IAuthorizeV1.sol";
+import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {
     CorporateActionNode,
     CompletionFilter,
     LibCorporateActionNode
 } from "../../../src/lib/LibCorporateActionNode.sol";
-import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 
 /// @dev Mock authorizer used by the facet tests. Records the most recent
 /// `authorize` call so tests can assert the per-action context that the facet
@@ -1039,5 +1039,83 @@ contract StoxCorporateActionsFacetTest is Test {
 
         vm.prank(ALICE);
         facetViaHarness.cancelCorporateAction(actionIndex);
+    }
+
+    /// Helper: schedule a stock split via the facet (using the delegatecall
+    /// harness so the action lands in the harness's storage namespace).
+    function _scheduleSplitViaFacet(int256 multiplier, uint64 effectiveTime) internal {
+        bytes memory parameters = abi.encode(LibDecimalFloat.packLossless(multiplier, 0));
+        vm.prank(ALICE);
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, effectiveTime, parameters);
+    }
+
+    /// Audit findings A01-P5-1 / A01-P2-3: the facet's external traversal
+    /// getters now take an explicit `CompletionFilter` and plumb it through
+    /// to the lib. Verify each filter value returns the expected cursor for
+    /// a list with one completed and one pending action of the same type.
+    /// Schedules through the facet so the actions live in the same storage
+    /// namespace the facet's getters read from.
+    function testFacetTraversalGettersFilterParameter() external {
+        _scheduleSplitViaFacet(2, 1500); // index 1, will be completed
+        _scheduleSplitViaFacet(3, 2500); // index 2, will be pending
+
+        vm.warp(2000); // index 1 complete, index 2 still pending
+
+        uint256 cursor;
+        uint256 actionType;
+        uint64 effectiveTime;
+
+        // earliestActionOfType: walk forward from head with each filter.
+        (cursor, actionType, effectiveTime) = facetViaHarness.earliestActionOfType(1, CompletionFilter.ALL);
+        assertEq(cursor, 1, "ALL: earliest is the first node");
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 1500);
+
+        (cursor,,) = facetViaHarness.earliestActionOfType(1, CompletionFilter.COMPLETED);
+        assertEq(cursor, 1, "COMPLETED: earliest completed is index 1");
+
+        (cursor,,) = facetViaHarness.earliestActionOfType(1, CompletionFilter.PENDING);
+        assertEq(cursor, 2, "PENDING: earliest pending is index 2");
+
+        // latestActionOfType: walk backward from tail with each filter.
+        (cursor,, effectiveTime) = facetViaHarness.latestActionOfType(1, CompletionFilter.ALL);
+        assertEq(cursor, 2, "ALL: latest is the tail");
+        assertEq(effectiveTime, 2500);
+
+        (cursor,, effectiveTime) = facetViaHarness.latestActionOfType(1, CompletionFilter.COMPLETED);
+        assertEq(cursor, 1, "COMPLETED: latest completed is index 1");
+        assertEq(effectiveTime, 1500);
+
+        (cursor,,) = facetViaHarness.latestActionOfType(1, CompletionFilter.PENDING);
+        assertEq(cursor, 2, "PENDING: latest pending is index 2");
+
+        // nextOfType: walk forward from a non-zero cursor with each filter.
+        (cursor,,) = facetViaHarness.nextOfType(1, 1, CompletionFilter.ALL);
+        assertEq(cursor, 2, "ALL: next after 1 is 2");
+
+        (cursor,,) = facetViaHarness.nextOfType(1, 1, CompletionFilter.COMPLETED);
+        assertEq(cursor, 0, "COMPLETED: nothing completed after 1");
+
+        (cursor,,) = facetViaHarness.nextOfType(1, 1, CompletionFilter.PENDING);
+        assertEq(cursor, 2, "PENDING: next pending after 1 is 2");
+
+        // prevOfType: walk backward from a non-zero cursor with each filter.
+        (cursor,,) = facetViaHarness.prevOfType(2, 1, CompletionFilter.ALL);
+        assertEq(cursor, 1, "ALL: prev before 2 is 1");
+
+        (cursor,,) = facetViaHarness.prevOfType(2, 1, CompletionFilter.COMPLETED);
+        assertEq(cursor, 1, "COMPLETED: prev completed before 2 is 1");
+
+        (cursor,,) = facetViaHarness.prevOfType(2, 1, CompletionFilter.PENDING);
+        assertEq(cursor, 0, "PENDING: nothing pending before 2");
+    }
+
+    /// When no matching action exists, the facet wrappers return (0, 0, 0).
+    function testFacetTraversalGettersEmpty() external view {
+        (uint256 cursor, uint256 actionType, uint64 effectiveTime) =
+            facetViaHarness.latestActionOfType(1, CompletionFilter.COMPLETED);
+        assertEq(cursor, 0);
+        assertEq(actionType, 0);
+        assertEq(effectiveTime, 0);
     }
 }

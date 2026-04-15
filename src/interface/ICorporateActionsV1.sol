@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
+import {CompletionFilter} from "../lib/LibCorporateActionNode.sol";
+
 /// @title ICorporateActionsV1
 /// @notice Versioned interface for corporate actions on a vault. External
 /// consumers — oracles, lending protocols, wrapper contracts — import this
@@ -120,6 +122,16 @@ pragma solidity =0.8.25;
 /// receipt contract return rebased values. They are consistent with each
 /// other — a batch read returns the same values as calling `balanceOf` per
 /// element.
+///
+/// @dev **Action type bitmap.** The `actionType` field returned by the four
+/// traversal getters is a single-bit mask identifying the action's type.
+/// The canonical mapping lives in `src/lib/LibCorporateAction.sol` and is
+/// reproduced here for convenience:
+/// - `1 << 0` — stock split (forward or reverse; multiplier is a Rain Float).
+///
+/// Further action types will be added as additional bit positions. Consumers
+/// should mask against the specific bit(s) they care about, not compare
+/// equality — so that pending additions remain forward-compatible.
 interface ICorporateActionsV1 {
     /// @notice Emitted when a corporate action is successfully scheduled.
     /// @param sender The msg.sender that called `scheduleCorporateAction`.
@@ -200,7 +212,65 @@ interface ICorporateActionsV1 {
     function cancelCorporateAction(uint256 actionIndex) external;
 
     /// @notice Count of all completed corporate actions. An action is complete
-    /// when its effectiveTime has passed. The Nth completed action has
-    /// completedActionId = N.
+    /// when its effectiveTime has passed.
     function completedActionCount() external view returns (uint256);
+
+    /// @notice Find the latest (most recent) action matching a type mask and
+    /// completion filter. Entry point for walking the list backward from the
+    /// tail.
+    /// @param mask Bitmap mask to filter action types. Use type(uint256).max
+    /// to match all types.
+    /// @param filter Completion filter:
+    /// - `ALL` returns the most recent action regardless of effectiveTime
+    ///   (includes scheduled-but-pending actions);
+    /// - `COMPLETED` returns the most recent action whose effectiveTime has
+    ///   passed (the typical choice for oracles reading historical state);
+    /// - `PENDING` returns the most recent scheduled action whose effectiveTime
+    ///   has not yet passed.
+    /// @return cursor Opaque handle for continued traversal via `prevOfType`.
+    /// 0 if no matching action exists.
+    /// @return actionType The action's bitmap type (0 if none).
+    /// @return effectiveTime The action's effective timestamp (0 if none).
+    function latestActionOfType(uint256 mask, CompletionFilter filter)
+        external
+        view
+        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime);
+
+    /// @notice Find the earliest action matching a type mask and completion
+    /// filter. Entry point for walking the list forward from the head.
+    /// @param mask Bitmap mask to filter action types.
+    /// @param filter Completion filter — see `latestActionOfType` for the
+    /// semantics of `ALL` / `COMPLETED` / `PENDING`.
+    /// @return cursor Opaque handle for continued traversal via `nextOfType`.
+    /// 0 if no matching action exists.
+    /// @return actionType The action's bitmap type (0 if none).
+    /// @return effectiveTime The action's effective timestamp (0 if none).
+    function earliestActionOfType(uint256 mask, CompletionFilter filter)
+        external
+        view
+        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime);
+
+    /// @notice Walk forward from a cursor to the next matching action.
+    /// @param cursor The cursor returned by a previous traversal call.
+    /// @param mask Bitmap mask to filter action types.
+    /// @param filter Completion filter — see `latestActionOfType`.
+    /// @return nextCursor Opaque handle for the next match, or 0 if none.
+    /// @return actionType The action's bitmap type (0 if none).
+    /// @return effectiveTime The action's effective timestamp (0 if none).
+    function nextOfType(uint256 cursor, uint256 mask, CompletionFilter filter)
+        external
+        view
+        returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime);
+
+    /// @notice Walk backward from a cursor to the previous matching action.
+    /// @param cursor The cursor returned by a previous traversal call.
+    /// @param mask Bitmap mask to filter action types.
+    /// @param filter Completion filter — see `latestActionOfType`.
+    /// @return prevCursor Opaque handle for the previous match, or 0 if none.
+    /// @return actionType The action's bitmap type (0 if none).
+    /// @return effectiveTime The action's effective timestamp (0 if none).
+    function prevOfType(uint256 cursor, uint256 mask, CompletionFilter filter)
+        external
+        view
+        returns (uint256 prevCursor, uint256 actionType, uint64 effectiveTime);
 }
