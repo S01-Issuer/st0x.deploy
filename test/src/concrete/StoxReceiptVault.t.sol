@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std/Test.sol";
 import {LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
@@ -26,7 +26,15 @@ contract TestStoxReceiptVault is StoxReceiptVault {
     function _update(address from, address to, uint256 amount) internal override {
         // Mirror the production StoxReceiptVault._update flow exactly, only
         // bypassing the OffchainAssetReceiptVault authorizer/freeze layer.
+        LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
+        uint256 prevLatest = s.totalSupplyLatestSplit;
         LibTotalSupply.fold();
+        uint256 newLatest = s.totalSupplyLatestSplit;
+
+        if (newLatest != prevLatest) {
+            _emitNewlyEffectiveSplits(prevLatest, newLatest);
+        }
+
         _migrateAccount(from);
         _migrateAccount(to);
 
@@ -272,6 +280,66 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.balanceOf(BOB), 2000);
         // Total supply: Bob's 2000 + Alice's 100 = 2100.
         assertEq(vault.totalSupply(), 2100);
+    }
+
+    // -----------------------------------------------------------------------
+    // CorporateActionEffective event — token-integration-analyzer §10.8.
+
+    /// The event fires before any AccountMigrated event when the first
+    /// transaction touches the vault after a split becomes effective.
+    function testCorporateActionEffectiveEventFires() external {
+        vault.publicUpdate(address(0), BOB, 1000);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        // The next _update call should emit CorporateActionEffective(1, STOCK_SPLIT, 1500)
+        // before any AccountMigrated event, because fold() detects the
+        // newly-past-effectiveTime split and the vault emits before migration.
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit StoxReceiptVault.CorporateActionEffective(1, ACTION_TYPE_STOCK_SPLIT, 1500);
+
+        vault.publicUpdate(BOB, BOB, 0);
+    }
+
+    /// The event fires once per newly-effective split, not on every
+    /// subsequent transaction. A second touch should NOT re-emit.
+    function testCorporateActionEffectiveDoesNotReEmit() external {
+        vault.publicUpdate(address(0), BOB, 1000);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        // First touch: fires.
+        vault.publicUpdate(BOB, BOB, 0);
+
+        // Second touch: fold() doesn't advance totalSupplyLatestSplit
+        // (already past the split), so no event.
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        // No CorporateActionEffective event should appear. Filter by the
+        // event signature.
+        bytes32 sig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            assertTrue(logs[i].topics[0] != sig, "CorporateActionEffective must not re-emit");
+        }
+    }
+
+    /// Two splits become effective before anyone touches the vault.
+    /// Both are detected in a single fold() call and both events fire.
+    function testCorporateActionEffectiveMultipleSplits() external {
+        vault.publicUpdate(address(0), BOB, 1000);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(3));
+        vm.warp(3000);
+
+        // Both splits land in one fold() call; both events fire.
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit StoxReceiptVault.CorporateActionEffective(1, ACTION_TYPE_STOCK_SPLIT, 1500);
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit StoxReceiptVault.CorporateActionEffective(2, ACTION_TYPE_STOCK_SPLIT, 2500);
+
+        vault.publicUpdate(BOB, BOB, 0);
     }
 
     // -----------------------------------------------------------------------

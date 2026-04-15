@@ -3,7 +3,12 @@
 pragma solidity =0.8.25;
 
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
-import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
+import {
+    LibCorporateAction,
+    SCHEDULE_CORPORATE_ACTION,
+    CANCEL_CORPORATE_ACTION,
+    ActionDoesNotExist
+} from "../lib/LibCorporateAction.sol";
 import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "../lib/LibCorporateActionNode.sol";
 import {IAuthorizeV1} from "rain.vats/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetReceiptVault.sol";
@@ -90,6 +95,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         external
         view
         override
+        onlyDelegatecalled
         returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
     {
         cursor = LibCorporateActionNode.prevOfType(0, mask, filter);
@@ -105,6 +111,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         external
         view
         override
+        onlyDelegatecalled
         returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
     {
         cursor = LibCorporateActionNode.nextOfType(0, mask, filter);
@@ -120,6 +127,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         external
         view
         override
+        onlyDelegatecalled
         returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime)
     {
         nextCursor = LibCorporateActionNode.nextOfType(cursor, mask, filter);
@@ -135,6 +143,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         external
         view
         override
+        onlyDelegatecalled
         returns (uint256 prevCursor, uint256 actionType, uint64 effectiveTime)
     {
         prevCursor = LibCorporateActionNode.prevOfType(cursor, mask, filter);
@@ -143,6 +152,19 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
             actionType = node.actionType;
             effectiveTime = node.effectiveTime;
         }
+    }
+
+    /// @inheritdoc ICorporateActionsV1
+    function getActionParameters(uint256 cursor)
+        external
+        view
+        override
+        onlyDelegatecalled
+        returns (bytes memory parameters)
+    {
+        LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
+        if (cursor == 0 || cursor >= s.nodes.length) revert ActionDoesNotExist(cursor);
+        parameters = s.nodes[cursor].parameters;
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is
