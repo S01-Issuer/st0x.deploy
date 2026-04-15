@@ -8,6 +8,7 @@ import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "../
 import {LibRebase} from "../lib/LibRebase.sol";
 import {LibTotalSupply} from "../lib/LibTotalSupply.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
+import {LibProdDeployV3} from "../lib/LibProdDeployV3.sol";
 
 /// @title StoxReceiptVault
 /// @notice An OffchainAssetReceiptVault that supports corporate actions such
@@ -165,6 +166,29 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         }
 
         LibTotalSupply.onAccountMigrated(currentCursor, storedBalance, newCursor, newBalance);
+    }
+
+    /// @notice Routes calls with non-matching selectors to the corporate actions
+    /// facet via delegatecall. The facet address is hardcoded to its
+    /// deterministic Zoltu deploy address from `LibProdDeployV3`.
+    ///
+    /// @dev Baking the facet address into the vault implementation bytecode
+    /// means upgrading the facet requires upgrading the vault implementation
+    /// too. This matches the existing pattern where deployers hardcode beacon
+    /// addresses (Option 1 from S01-Issuer/st0x.deploy#70).
+    ///
+    /// Plain ETH transfers with empty calldata hit `receive()`, not this
+    /// function, so refunds continue to work without going through delegatecall.
+    fallback() external payable virtual override {
+        address facet = LibProdDeployV3.STOX_CORPORATE_ACTIONS_FACET;
+        assembly ("memory-safe") {
+            calldatacopy(0, 0, calldatasize())
+            let success := delegatecall(gas(), facet, 0, calldatasize(), 0, 0)
+            returndatacopy(0, 0, returndatasize())
+            switch success
+            case 0 { revert(0, returndatasize()) }
+            default { return(0, returndatasize()) }
+        }
     }
 
     /// @dev Walk from `prevLatest` to `newLatest` along the stock-split

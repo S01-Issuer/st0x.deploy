@@ -1,5 +1,27 @@
 # Changelog
 
+## V3 (corporate actions)
+
+V3 introduces the corporate-actions diamond facet and wires it into the receipt
+vault via a hardcoded `fallback()` delegatecall. Adds ERC-165 to deployers,
+deployer interface inheritance, corporate action role admins on the authorizer,
+and updates the upstream `rain.vats` dependency.
+
+### New contracts
+
+- **StoxCorporateActionsFacet**: Diamond facet implementing
+  `ICorporateActionsV1`. Delegatecalled by `StoxReceiptVault` — direct calls
+  revert with `FacetMustBeDelegatecalled`. Deployed at the deterministic Zoltu
+  address recorded in `LibProdDeployV3.STOX_CORPORATE_ACTIONS_FACET`.
+
+### StoxReceiptVault
+
+- **Breaking** (bytecode): Overrides `fallback()` to route calls with
+  non-matching selectors into `StoxCorporateActionsFacet` via delegatecall,
+  using the deterministic address from `LibProdDeployV3`. `receive()` is not
+  overridden — plain ETH transfers still bypass the facet. Changes the
+  implementation codehash vs V2.
+
 ## V2 (Zoltu deterministic deployment)
 
 Deployed via Zoltu factory — deterministic addresses identical across all EVM
