@@ -14,7 +14,7 @@ import {
     CORPORATE_ACTION_RECEIPT_STORAGE_LOCATION
 } from "../../../src/lib/LibCorporateActionReceipt.sol";
 import {LibERC1155Storage} from "../../../src/lib/LibERC1155Storage.sol";
-import {IReceiptManagerV2} from "ethgild/interface/IReceiptManagerV2.sol";
+import {IReceiptManagerV2} from "rain.vats/interface/IReceiptManagerV2.sol";
 
 contract StoxReceiptTest is Test {
     /// Constructor disables initializers on the implementation.
