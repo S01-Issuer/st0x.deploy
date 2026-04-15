@@ -6,6 +6,7 @@ import {Script, console2} from "forge-std/Script.sol";
 
 import {LibRainDeploy} from "rain.deploy/lib/LibRainDeploy.sol";
 import {LibProdDeployV2} from "../src/lib/LibProdDeployV2.sol";
+import {LibProdDeployV3} from "../src/lib/LibProdDeployV3.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../src/concrete/StoxWrappedTokenVault.sol";
@@ -23,6 +24,7 @@ import {
 import {
     StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 } from "../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
+import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
 
 /// @dev Error thrown when the DEPLOYMENT_SUITE env var does not match any
 /// known suite.
@@ -43,6 +45,7 @@ bytes32 constant DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V
     keccak256("stox-offchain-asset-receipt-vault-authorizer-v1");
 bytes32 constant DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1 =
     keccak256("stox-offchain-asset-receipt-vault-payment-mint-authorizer-v1");
+bytes32 constant DEPLOYMENT_SUITE_STOX_CORPORATE_ACTIONS_FACET = keccak256("stox-corporate-actions-facet");
 
 contract Deploy is Script {
     mapping(string => mapping(address => bytes32)) internal depCodeHashes;
@@ -186,6 +189,14 @@ contract Deploy is Script {
                 "src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol:StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1",
                 LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1,
                 LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH,
+                noDeps
+            );
+        } else if (suite == DEPLOYMENT_SUITE_STOX_CORPORATE_ACTIONS_FACET) {
+            deploySuite(
+                type(StoxCorporateActionsFacet).creationCode,
+                "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
+                LibProdDeployV3.STOX_CORPORATE_ACTIONS_FACET,
+                LibProdDeployV3.STOX_CORPORATE_ACTIONS_FACET_CODEHASH,
                 noDeps
             );
         } else {

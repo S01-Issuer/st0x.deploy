@@ -8,6 +8,7 @@ import {LibFs} from "rain.sol.codegen/lib/LibFs.sol";
 import {LibRainDeploy} from "rain.deploy/lib/LibRainDeploy.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
+import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
 import {StoxWrappedTokenVault} from "../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxUnifiedDeployer} from "../src/concrete/deploy/StoxUnifiedDeployer.sol";
 import {StoxWrappedTokenVaultBeacon} from "../src/concrete/StoxWrappedTokenVaultBeacon.sol";
@@ -66,6 +67,11 @@ contract BuildPointers is Script {
     function run() external {
         LibRainDeploy.etchZoltuFactory(vm);
 
+        // Corporate actions facet must be built BEFORE StoxReceiptVault because
+        // the vault's `fallback()` override hardcodes the facet's deterministic
+        // Zoltu address via `LibProdDeployV3`, which means the vault's creation
+        // code depends on the facet's deploy address being fixed.
+        buildContractPointers("StoxCorporateActionsFacet", type(StoxCorporateActionsFacet).creationCode);
         buildContractPointers("StoxReceipt", type(StoxReceipt).creationCode);
         buildContractPointers("StoxReceiptVault", type(StoxReceiptVault).creationCode);
         buildContractPointers("StoxWrappedTokenVault", type(StoxWrappedTokenVault).creationCode);
