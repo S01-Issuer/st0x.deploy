@@ -50,7 +50,7 @@ contract MockAuthorizer is IAuthorizeV1 {
 /// @dev Minimal harness that delegates calls to a facet. Also exposes an
 /// `authorizer()` function so the facet's `OffchainAssetReceiptVault(address
 /// (this)).authorizer()` lookup resolves to a test-controlled mock instead of
-/// a real ethgild authorizer.
+/// a real rain.vats authorizer.
 contract DelegatecallHarness {
     address public immutable FACET;
     IAuthorizeV1 public authorizer;
