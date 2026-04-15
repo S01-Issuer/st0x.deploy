@@ -908,4 +908,98 @@ contract StoxCorporateActionsFacetTest is Test {
         }
         assertEq(cursor, 0, "backward walk exhausted");
     }
+
+    /// Cross-field isolation: writing head must not corrupt tail and vice
+    /// versa. If the struct fields were swapped, one write would clobber
+    /// the other.
+    function testCrossFieldIsolationHeadTail() external {
+        // Schedule two nodes so head != tail.
+        corporateActionHarness.schedule(1, 1500, "");
+        corporateActionHarness.schedule(1, 2000, "");
+
+        assertEq(corporateActionHarness.head(), 1);
+        assertEq(corporateActionHarness.tail(), 2);
+
+        // Cancel head — head changes to 2, tail stays 2.
+        corporateActionHarness.cancel(1);
+        assertEq(corporateActionHarness.head(), 2, "head updated");
+        assertEq(corporateActionHarness.tail(), 2, "tail unchanged after head cancel");
+
+        // Schedule a new node — tail changes, head stays.
+        corporateActionHarness.schedule(1, 3000, "");
+        assertEq(corporateActionHarness.head(), 2, "head unchanged after new schedule");
+        assertEq(corporateActionHarness.tail(), 3, "tail updated to new node");
+    }
+
+    /// Node struct field layout pin: verifies that the first four fixed-size
+    /// fields of CorporateActionNode land at the expected offsets within the
+    /// dynamic array element. A reorder of the node struct would silently
+    /// remap actionType/effectiveTime/prev/next.
+    ///
+    /// Dynamic array elements live at keccak256(arrayBaseSlot) + index * elementSize.
+    /// We derive the element size empirically from node 0 vs node 1 positions
+    /// rather than hardcoding it, so this test survives if Solidity's struct
+    /// packing changes.
+    function testNodeStructFieldLayoutPin() external {
+        // Schedule two nodes with distinct values so we can verify fields.
+        // actionType=7, effectiveTime=1500, parameters=0xCAFE
+        corporateActionHarness.schedule(7, 1500, hex"CAFE");
+        // actionType=3, effectiveTime=2000 — gives node 1 a non-zero next.
+        corporateActionHarness.schedule(3, 2000, hex"BEEF");
+
+        address harnessAddr = address(corporateActionHarness);
+        bytes32 base = CORPORATE_ACTION_STORAGE_LOCATION;
+
+        // The nodes array base slot is at offset 2 from the namespace.
+        bytes32 arrayBaseSlot = bytes32(uint256(base) + 2);
+        // Dynamic array elements start at keccak256(arrayBaseSlot).
+        uint256 elementsStart = uint256(keccak256(abi.encode(arrayBaseSlot)));
+
+        // Derive element size: node 0 actionType should be 0 (sentinel),
+        // scan forward to find node 1's actionType (== 7).
+        uint256 elementSize = 0;
+        for (uint256 offset = 1; offset < 20; offset++) {
+            if (uint256(vm.load(harnessAddr, bytes32(elementsStart + offset))) == 7) {
+                elementSize = offset;
+                break;
+            }
+        }
+        assertTrue(elementSize > 0, "could not derive element size");
+
+        uint256 node1Base = elementsStart + elementSize;
+
+        // Offset 0: actionType
+        assertEq(uint256(vm.load(harnessAddr, bytes32(node1Base))), 7, "node1 actionType at offset 0");
+
+        // Offset 1: effectiveTime (uint64, lowest bits)
+        uint256 slot1 = uint256(vm.load(harnessAddr, bytes32(node1Base + 1)));
+        assertEq(uint64(slot1), 1500, "node1 effectiveTime at offset 1");
+
+        // Offset 2: prev (node 1 is head, so prev = 0)
+        assertEq(uint256(vm.load(harnessAddr, bytes32(node1Base + 2))), 0, "node1 prev at offset 2");
+
+        // Offset 3: next (node 1 -> node 2)
+        assertEq(uint256(vm.load(harnessAddr, bytes32(node1Base + 3))), 2, "node1 next at offset 3");
+    }
+
+    /// Two separate harnesses sharing the same facet implementation have
+    /// independent storage — proves ERC-7201 isolation is per-contract.
+    function testStorageIsolationBetweenHarnesses() external {
+        CorporateActionHarness harness2 = new CorporateActionHarness();
+
+        corporateActionHarness.schedule(1, 1500, hex"AA");
+        harness2.schedule(2, 2000, hex"BB");
+
+        // Each harness has its own list.
+        assertEq(corporateActionHarness.head(), 1);
+        assertEq(harness2.head(), 1);
+
+        CorporateActionNode memory n1 = corporateActionHarness.getNode(1);
+        CorporateActionNode memory n2 = harness2.getNode(1);
+
+        assertEq(n1.actionType, 1, "harness1 has type 1");
+        assertEq(n2.actionType, 2, "harness2 has type 2");
+        assertEq(n1.parameters, hex"AA");
+        assertEq(n2.parameters, hex"BB");
+    }
 }
