@@ -800,4 +800,112 @@ contract StoxCorporateActionsFacetTest is Test {
             current = node.prev;
         }
     }
+
+    /// prevOfType COMPLETED filter walks backward through completed nodes.
+    function testPrevOfTypeCompleted() external {
+        corporateActionHarness.schedule(1, 1500, "");
+        corporateActionHarness.schedule(1, 2000, "");
+        corporateActionHarness.schedule(1, 3000, ""); // stays pending
+
+        vm.warp(2500);
+
+        uint256 last = corporateActionHarness.prevOfType(0, type(uint256).max, CompletionFilter.COMPLETED);
+        assertEq(last, 2, "latest completed is node 2");
+        uint256 prev = corporateActionHarness.prevOfType(last, type(uint256).max, CompletionFilter.COMPLETED);
+        assertEq(prev, 1, "previous completed is node 1");
+        assertEq(corporateActionHarness.prevOfType(prev, type(uint256).max, CompletionFilter.COMPLETED), 0);
+    }
+
+    /// prevOfType PENDING filter walks backward through pending nodes only.
+    function testPrevOfTypePending() external {
+        corporateActionHarness.schedule(1, 1500, ""); // will complete
+        corporateActionHarness.schedule(1, 2500, ""); // pending
+        corporateActionHarness.schedule(1, 3000, ""); // pending
+
+        vm.warp(2000);
+
+        uint256 last = corporateActionHarness.prevOfType(0, type(uint256).max, CompletionFilter.PENDING);
+        assertEq(last, 3, "latest pending is node 3");
+        uint256 prev = corporateActionHarness.prevOfType(last, type(uint256).max, CompletionFilter.PENDING);
+        assertEq(prev, 2, "previous pending is node 2");
+        assertEq(
+            corporateActionHarness.prevOfType(prev, type(uint256).max, CompletionFilter.PENDING), 0, "no more pending"
+        );
+    }
+
+    /// countCompleted does not count cancelled nodes.
+    function testCountCompletedIgnoresCancelled() external {
+        corporateActionHarness.schedule(1, 1500, "");
+        corporateActionHarness.schedule(1, 2000, "");
+        corporateActionHarness.schedule(1, 2500, "");
+
+        corporateActionHarness.cancel(2);
+
+        vm.warp(3000);
+
+        assertEq(corporateActionHarness.countCompleted(), 2, "cancelled node excluded from count");
+    }
+
+    /// headNode and tailNode return correct data after scheduling.
+    function testHeadNodeAndTailNodeReturnCorrectData() external {
+        corporateActionHarness.schedule(1, 1500, hex"AA");
+        corporateActionHarness.schedule(2, 2500, hex"BB");
+
+        CorporateActionNode memory h = corporateActionHarness.headNode();
+        assertEq(h.actionType, 1);
+        assertEq(h.effectiveTime, 1500);
+        assertEq(h.parameters, hex"AA");
+
+        CorporateActionNode memory t = corporateActionHarness.tailNode();
+        assertEq(t.actionType, 2);
+        assertEq(t.effectiveTime, 2500);
+        assertEq(t.parameters, hex"BB");
+    }
+
+    /// Cancel at index == nodes.length reverts.
+    function testCancelAtNodesLengthReverts() external {
+        corporateActionHarness.schedule(1, 1500, ""); // nodes.length becomes 2 (sentinel + node)
+        vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, uint256(2)));
+        corporateActionHarness.cancel(2);
+    }
+
+    /// prevOfType with type mask filters correctly.
+    function testPrevOfTypeWithMask() external {
+        corporateActionHarness.schedule(1, 1500, ""); // type 1
+        corporateActionHarness.schedule(2, 2000, ""); // type 2
+        corporateActionHarness.schedule(1, 2500, ""); // type 1
+
+        vm.warp(3000);
+
+        assertEq(corporateActionHarness.prevOfType(0, 2, CompletionFilter.ALL), 2, "last type-2 is node 2");
+        assertEq(corporateActionHarness.prevOfType(2, 2, CompletionFilter.ALL), 0, "no earlier type-2");
+    }
+
+    /// Forward and backward walks visit the same nodes in reverse order.
+    function testForwardBackwardConsistency() external {
+        corporateActionHarness.schedule(1, 1500, "");
+        corporateActionHarness.schedule(2, 2000, "");
+        corporateActionHarness.schedule(1, 2500, "");
+        corporateActionHarness.schedule(3, 3000, "");
+
+        vm.warp(4000);
+
+        // Walk forward, collect indices.
+        uint256[] memory forward = new uint256[](4);
+        uint256 cursor = corporateActionHarness.nextOfType(0, type(uint256).max, CompletionFilter.ALL);
+        uint256 i = 0;
+        while (cursor != 0) {
+            forward[i++] = cursor;
+            cursor = corporateActionHarness.nextOfType(cursor, type(uint256).max, CompletionFilter.ALL);
+        }
+        assertEq(i, 4);
+
+        // Walk backward, verify reverse order.
+        cursor = corporateActionHarness.prevOfType(0, type(uint256).max, CompletionFilter.ALL);
+        for (uint256 j = 0; j < 4; j++) {
+            assertEq(cursor, forward[3 - j], "backward walk matches forward in reverse");
+            cursor = corporateActionHarness.prevOfType(cursor, type(uint256).max, CompletionFilter.ALL);
+        }
+        assertEq(cursor, 0, "backward walk exhausted");
+    }
 }
