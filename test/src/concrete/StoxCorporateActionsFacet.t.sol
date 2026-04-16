@@ -13,6 +13,7 @@ import {
     STOCK_SPLIT_TYPE_HASH,
     ACTION_TYPE_STOCK_SPLIT,
     UnknownActionType,
+    NoActionsScheduled,
     EffectiveTimeInPast,
     ActionAlreadyComplete,
     ActionDoesNotExist
@@ -641,12 +642,12 @@ contract StoxCorporateActionsFacetTest is Test {
     /// headNode and tailNode revert on a completely fresh list where no
     /// action has ever been scheduled (nodes array has length 0).
     function testHeadNodeRevertsOnFreshList() external {
-        vm.expectRevert();
+        vm.expectRevert(NoActionsScheduled.selector);
         corporateActionHarness.headNode();
     }
 
     function testTailNodeRevertsOnFreshList() external {
-        vm.expectRevert();
+        vm.expectRevert(NoActionsScheduled.selector);
         corporateActionHarness.tailNode();
     }
 
