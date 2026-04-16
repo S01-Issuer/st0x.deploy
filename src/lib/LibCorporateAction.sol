@@ -27,6 +27,9 @@ error ActionDoesNotExist(uint256 actionIndex);
 /// @param typeHash The unrecognised external identifier.
 error UnknownActionType(bytes32 typeHash);
 
+/// Thrown when accessing head/tail on a list with no scheduled actions.
+error NoActionsScheduled();
+
 /// @title LibCorporateAction
 /// @notice Library for corporate action diamond storage. Uses ERC-7201
 /// namespaced storage to avoid collisions with existing vault storage slots.
@@ -237,6 +240,7 @@ library LibCorporateAction {
     /// @return The head node, or the sentinel (index == 0) if the list is empty.
     function headNode() internal view returns (CorporateActionNode storage) {
         CorporateActionStorage storage s = getStorage();
+        if (s.nodes.length == 0) revert NoActionsScheduled();
         if (s.head == 0) return s.nodes[0];
         return s.nodes[s.head];
     }
@@ -246,6 +250,7 @@ library LibCorporateAction {
     /// @return The tail node, or the sentinel (index == 0) if the list is empty.
     function tailNode() internal view returns (CorporateActionNode storage) {
         CorporateActionStorage storage s = getStorage();
+        if (s.nodes.length == 0) revert NoActionsScheduled();
         if (s.tail == 0) return s.nodes[0];
         return s.nodes[s.tail];
     }
