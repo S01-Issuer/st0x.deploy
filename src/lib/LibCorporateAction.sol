@@ -54,13 +54,13 @@ library LibCorporateAction {
     /// (`testStorageLayoutPin`) must be updated in the same PR to cover
     /// the new field's offset. See audit/2026-04-09-01 Item 10.
     struct CorporateActionStorage {
-        /// Head of the list (1-based index, earliest effectiveTime). 0 = empty.
+        /// @param head Head of the list (1-based index, earliest effectiveTime). 0 = empty.
         uint256 head;
-        /// Tail of the list (1-based index, latest effectiveTime). 0 = empty.
+        /// @param tail Tail of the list (1-based index, latest effectiveTime). 0 = empty.
         uint256 tail;
-        /// Node storage. Index 0 is a sentinel. Real nodes start at index 1.
+        /// @param nodes Node storage. Index 0 is a sentinel. Real nodes start at index 1.
         CorporateActionNode[] nodes;
-        /// Per-account migration cursor — the 1-based index of the last
+        /// @param accountMigrationCursor Per-account migration cursor — the 1-based index of the last
         /// node this account was migrated through.
         mapping(address => uint256) accountMigrationCursor;
     }
