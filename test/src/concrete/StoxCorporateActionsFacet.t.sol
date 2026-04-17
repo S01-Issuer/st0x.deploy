@@ -1042,6 +1042,62 @@ contract StoxCorporateActionsFacetTest is Test {
         facetViaHarness.cancelCorporateAction(actionIndex);
     }
 
+    /// Authorizer receives the correct context for a real stock split schedule.
+    function testScheduleStockSplitForwardsCorrectContext() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory parameters = abi.encode(twoX);
+        uint64 effectiveTime = 1500;
+
+        vm.expectCall(
+            address(mockAuthorizer),
+            abi.encodeWithSelector(
+                IAuthorizeV1.authorize.selector,
+                ALICE,
+                SCHEDULE_CORPORATE_ACTION,
+                abi.encode(STOCK_SPLIT_TYPE_HASH, effectiveTime, parameters)
+            )
+        );
+
+        vm.prank(ALICE);
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, effectiveTime, parameters);
+
+        assertEq(mockAuthorizer.lastUser(), ALICE);
+        assertEq(mockAuthorizer.lastPermission(), SCHEDULE_CORPORATE_ACTION);
+    }
+
+    /// Authorizer denial with valid stock split params still reverts.
+    function testScheduleStockSplitAuthorizerDenied() external {
+        mockAuthorizer.setDenyMode(true);
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory parameters = abi.encode(twoX);
+
+        vm.prank(ALICE);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Unauthorized.selector,
+                ALICE,
+                SCHEDULE_CORPORATE_ACTION,
+                abi.encode(STOCK_SPLIT_TYPE_HASH, uint64(1500), parameters)
+            )
+        );
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, parameters);
+    }
+
+    /// Fuzz: schedule random valid stock splits, actionIndex is sequential.
+    function testFuzzScheduleStockSplitsSequentialIndex(uint8 count) external {
+        count = uint8(bound(count, 1, 15));
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory parameters = abi.encode(twoX);
+
+        for (uint256 i = 0; i < count; i++) {
+            vm.prank(ALICE);
+            // forge-lint: disable-next-line(unsafe-typecast)
+            uint256 id =
+                facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, uint64(1001 + i * 100), parameters);
+            assertEq(id, i + 1, "actionIndex must be sequential");
+        }
+    }
+
     /// Schedule returns the correct actionIndex.
     function testScheduleViaFacetReturnsActionIndex() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
