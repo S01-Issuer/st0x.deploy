@@ -162,7 +162,7 @@ contract LibStockSplitValidationTest is Test {
     /// Constants have expected values.
     function testConstantValues() external pure {
         assertEq(ACTION_TYPE_STOCK_SPLIT, 1);
-        assertEq(STOCK_SPLIT_TYPE_HASH, keccak256("StockSplit"));
+        assertEq(STOCK_SPLIT_TYPE_HASH, keccak256("st0x.corporate-actions.stock-split"));
     }
 
     /// ACTION_TYPE_STOCK_SPLIT has exactly one bit set.

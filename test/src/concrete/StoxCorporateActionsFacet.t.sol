@@ -285,7 +285,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// authorizer lookup, so the order of checks matches the modifier.
     function testScheduleCorporateActionDirectCallReverts() external {
         vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
-        facetImpl.scheduleCorporateAction(keccak256("StockSplit"), uint64(block.timestamp + 1), hex"");
+        facetImpl.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, uint64(block.timestamp + 1), hex"");
     }
 
     /// Direct call to `cancelCorporateAction` on the standalone facet reverts

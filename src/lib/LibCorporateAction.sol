@@ -16,7 +16,7 @@ bytes32 constant SCHEDULE_CORPORATE_ACTION = keccak256("SCHEDULE_CORPORATE_ACTIO
 bytes32 constant CANCEL_CORPORATE_ACTION = keccak256("CANCEL_CORPORATE_ACTION");
 
 /// @dev External identifier for stock splits.
-bytes32 constant STOCK_SPLIT_TYPE_HASH = keccak256("StockSplit");
+bytes32 constant STOCK_SPLIT_TYPE_HASH = keccak256("st0x.corporate-actions.stock-split");
 
 /// @dev Bitmap action type for stock splits (forward and reverse).
 uint256 constant ACTION_TYPE_STOCK_SPLIT = 1 << 0;
@@ -82,7 +82,7 @@ library LibCorporateAction {
 
     /// @notice Map an external type identifier to its internal bitmap and
     /// validate parameters. Reverts if the type hash is not recognised.
-    /// @param typeHash External identifier, e.g. keccak256("StockSplit").
+    /// @param typeHash External identifier, e.g. keccak256("st0x.corporate-actions.stock-split").
     /// @param parameters ABI-encoded parameters for the action type.
     /// @return actionType The internal bitmap for this type.
     function resolveActionType(bytes32 typeHash, bytes memory parameters) internal pure returns (uint256 actionType) {
