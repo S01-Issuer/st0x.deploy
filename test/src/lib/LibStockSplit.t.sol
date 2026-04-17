@@ -9,9 +9,18 @@ import {
     ACTION_TYPE_STOCK_SPLIT,
     STOCK_SPLIT_TYPE_HASH,
     UnknownActionType
-} from "src/lib/LibCorporateAction.sol";
-import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "src/lib/LibCorporateActionNode.sol";
-import {LibStockSplit, InvalidSplitMultiplier, MultiplierTooSmall, MultiplierTooLarge} from "src/lib/LibStockSplit.sol";
+} from "../../../src/lib/LibCorporateAction.sol";
+import {
+    CorporateActionNode,
+    CompletionFilter,
+    LibCorporateActionNode
+} from "../../../src/lib/LibCorporateActionNode.sol";
+import {
+    LibStockSplit,
+    InvalidSplitMultiplier,
+    MultiplierTooSmall,
+    MultiplierTooLarge
+} from "../../../src/lib/LibStockSplit.sol";
 
 contract StockSplitHarness {
     function resolveAndSchedule(bytes32 typeHash, uint64 effectiveTime, bytes memory parameters)
@@ -190,7 +199,7 @@ contract LibStockSplitValidationTest is Test {
         exp = int16(bound(exp, -100, -21));
         // forge-lint: disable-next-line(unsafe-typecast)
         Float multiplier = LibDecimalFloat.packLossless(int256(uint256(coeff)), int256(exp));
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(MultiplierTooSmall.selector, multiplier));
         v.validate(abi.encode(multiplier));
     }
 }
@@ -275,7 +284,15 @@ contract LibStockSplitLifecycleTest is Test {
         assertEq(p1, id3);
         assertEq(h.nextOfType(p1, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.PENDING), 0);
 
-        // ALL returns all three.
+        // ALL walks all three in time order.
+        uint256 a1 = h.nextOfType(0, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.ALL);
+        assertEq(a1, id1);
+        uint256 a2 = h.nextOfType(a1, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.ALL);
+        assertEq(a2, id2);
+        uint256 a3 = h.nextOfType(a2, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.ALL);
+        assertEq(a3, id3);
+        assertEq(h.nextOfType(a3, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.ALL), 0);
+
         assertEq(h.countCompleted(), 2);
     }
 

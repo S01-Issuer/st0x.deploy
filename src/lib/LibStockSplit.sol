@@ -45,6 +45,13 @@ library LibStockSplit {
     /// well above the floor. An authorized scheduler that wants to apply a
     /// multiplier outside these bounds is almost certainly misconfigured.
     ///
+    /// @dev Pathologically large multipliers (e.g. `packLossless(1, 100)`) may
+    /// saturate or revert inside `LibDecimalFloat.mul` / `toFixedDecimalLossy`
+    /// before reaching the `applied > 1e36` branch. In that case the
+    /// user-visible error is the float library's revert, not
+    /// `MultiplierTooLarge`. This is acceptable — the scheduler is authorized
+    /// and such inputs indicate misconfiguration either way.
+    ///
     /// @param parameters ABI-encoded Float.
     function validateParameters(bytes memory parameters) internal pure {
         Float multiplier = abi.decode(parameters, (Float));
@@ -63,6 +70,11 @@ library LibStockSplit {
     }
 
     /// @notice Decode a stock split multiplier from parameters bytes.
+    /// @dev Performs no bounds checking. Callers must only invoke on
+    /// parameters that have been validated via `validateParameters` (which
+    /// `resolveActionType` guarantees at schedule time). Decoding orphaned or
+    /// pre-validation parameters is unsafe if called outside schedule-time
+    /// code paths.
     /// @param parameters ABI-encoded Float.
     /// @return multiplier The Rain float multiplier.
     function decodeParameters(bytes memory parameters) internal pure returns (Float) {
