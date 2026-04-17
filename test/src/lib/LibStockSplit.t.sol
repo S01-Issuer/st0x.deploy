@@ -122,6 +122,49 @@ contract LibStockSplitValidationTest is Test {
         Float decoded = LibStockSplit.decodeParameters(encoded);
         assertEq(Float.unwrap(decoded), Float.unwrap(threeX));
     }
+
+    /// Exact ceiling boundary: 1e18 multiplier gives trunc(1e18 * 1e18) = 1e36.
+    function testExactCeilingBoundaryPasses() external view {
+        Float ceiling = LibDecimalFloat.packLossless(1, 18);
+        v.validate(abi.encode(ceiling));
+    }
+
+    /// Just above ceiling: 1e18 + epsilon must revert.
+    function testAboveCeilingReverts() external {
+        // 1.000001e18 → trunc(1e18 * 1.000001e18) > 1e36
+        Float aboveCeiling = LibDecimalFloat.packLossless(1000001, 12);
+        vm.expectRevert(abi.encodeWithSelector(MultiplierTooLarge.selector, aboveCeiling));
+        v.validate(abi.encode(aboveCeiling));
+    }
+
+    /// Just below floor: 9e-19 must revert (trunc(1e18 * 9e-19) = 0).
+    function testBelowFloorReverts() external {
+        Float belowFloor = LibDecimalFloat.packLossless(9, -19);
+        vm.expectRevert(abi.encodeWithSelector(MultiplierTooSmall.selector, belowFloor));
+        v.validate(abi.encode(belowFloor));
+    }
+
+    /// Fuzz: any positive multiplier within bounds passes validation.
+    function testFuzzValidMultiplier(uint64 coeff, int8 exp) external view {
+        vm.assume(coeff > 0);
+        exp = int8(bound(exp, -17, 17));
+        // forge-lint: disable-next-line(unsafe-typecast)
+        Float multiplier = LibDecimalFloat.packLossless(int256(uint256(coeff)), int256(exp));
+        // Compute applied value to check bounds.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        (uint256 applied,) = LibDecimalFloat.toFixedDecimalLossy(
+            LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(1e18), 0), multiplier), 0
+        );
+        vm.assume(applied >= 1 && applied <= 1e36);
+        v.validate(abi.encode(multiplier));
+    }
+
+    /// Constants have expected values.
+    function testConstantValues() external pure {
+        assertEq(ACTION_TYPE_STOCK_SPLIT, 1);
+        assertEq(STOCK_SPLIT_TYPE_HASH, keccak256("StockSplit"));
+    }
+
 }
 
 contract LibStockSplitResolveTest is Test {
@@ -177,5 +220,34 @@ contract LibStockSplitLifecycleTest is Test {
         CorporateActionNode memory node = h.getNode(1);
         Float stored = LibStockSplit.decodeParameters(node.parameters);
         assertEq(Float.unwrap(stored), Float.unwrap(threeX));
+    }
+
+    /// Multiple stock splits: schedule 3, complete 2, verify filtering.
+    function testMultipleStockSplitsFiltered() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        Float threeX = LibDecimalFloat.packLossless(3, 0);
+        Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+
+        uint256 id1 = h.resolveAndSchedule(STOCK_SPLIT_TYPE_HASH, 1500, abi.encode(twoX));
+        uint256 id2 = h.resolveAndSchedule(STOCK_SPLIT_TYPE_HASH, 2000, abi.encode(threeX));
+        uint256 id3 = h.resolveAndSchedule(STOCK_SPLIT_TYPE_HASH, 3000, abi.encode(halfX));
+
+        // Complete first two.
+        vm.warp(2500);
+
+        // COMPLETED filter returns id1 then id2.
+        uint256 c1 = h.nextOfType(0, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+        assertEq(c1, id1);
+        uint256 c2 = h.nextOfType(c1, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+        assertEq(c2, id2);
+        assertEq(h.nextOfType(c2, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED), 0);
+
+        // PENDING filter returns only id3.
+        uint256 p1 = h.nextOfType(0, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.PENDING);
+        assertEq(p1, id3);
+        assertEq(h.nextOfType(p1, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.PENDING), 0);
+
+        // ALL returns all three.
+        assertEq(h.countCompleted(), 2);
     }
 }
