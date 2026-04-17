@@ -164,6 +164,35 @@ contract LibStockSplitValidationTest is Test {
         assertEq(ACTION_TYPE_STOCK_SPLIT, 1);
         assertEq(STOCK_SPLIT_TYPE_HASH, keccak256("StockSplit"));
     }
+
+    /// ACTION_TYPE_STOCK_SPLIT has exactly one bit set.
+    function testActionTypeSingleBit() external pure {
+        assertEq(ACTION_TYPE_STOCK_SPLIT & (ACTION_TYPE_STOCK_SPLIT - 1), 0);
+        assertTrue(ACTION_TYPE_STOCK_SPLIT != 0);
+    }
+
+    /// Fuzz: encode/decode roundtrip preserves arbitrary valid multipliers.
+    function testFuzzDecodeRoundtrip(uint64 coeff, int8 exp) external pure {
+        vm.assume(coeff > 0);
+        exp = int8(bound(exp, -17, 17));
+        // forge-lint: disable-next-line(unsafe-typecast)
+        Float multiplier = LibDecimalFloat.packLossless(int256(uint256(coeff)), int256(exp));
+        bytes memory encoded = abi.encode(multiplier);
+        Float decoded = LibStockSplit.decodeParameters(encoded);
+        assertEq(Float.unwrap(decoded), Float.unwrap(multiplier));
+    }
+
+    /// Fuzz: multipliers below floor always revert.
+    function testFuzzBelowFloorReverts(uint8 coeff, int16 exp) external {
+        vm.assume(coeff > 0);
+        // Bound exponent low enough that even coeff=255 produces below-floor.
+        // 255e-21 * 1e18 = 255e-3 = 0.255 → trunc = 0.
+        exp = int16(bound(exp, -100, -21));
+        // forge-lint: disable-next-line(unsafe-typecast)
+        Float multiplier = LibDecimalFloat.packLossless(int256(uint256(coeff)), int256(exp));
+        vm.expectRevert();
+        v.validate(abi.encode(multiplier));
+    }
 }
 
 contract LibStockSplitResolveTest is Test {
@@ -248,5 +277,35 @@ contract LibStockSplitLifecycleTest is Test {
 
         // ALL returns all three.
         assertEq(h.countCompleted(), 2);
+    }
+
+    /// Stored node has correct actionType bitmap and decodable parameters
+    /// after scheduling through resolveAndSchedule.
+    function testStoredNodeDataAfterSchedule() external {
+        Float fiveX = LibDecimalFloat.packLossless(5, 0);
+        uint256 id = h.resolveAndSchedule(STOCK_SPLIT_TYPE_HASH, 1500, abi.encode(fiveX));
+
+        CorporateActionNode memory node = h.getNode(id);
+        assertEq(node.actionType, ACTION_TYPE_STOCK_SPLIT, "bitmap is stock split");
+        assertEq(node.effectiveTime, 1500, "effectiveTime stored");
+
+        Float stored = LibStockSplit.decodeParameters(node.parameters);
+        assertEq(Float.unwrap(stored), Float.unwrap(fiveX), "multiplier round-trips");
+    }
+
+    /// Two stock splits with different multipliers store independently.
+    function testTwoSplitsDifferentMultipliersStoreIndependently() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        Float oneThird = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(3, 0));
+
+        uint256 id1 = h.resolveAndSchedule(STOCK_SPLIT_TYPE_HASH, 1500, abi.encode(twoX));
+        uint256 id2 = h.resolveAndSchedule(STOCK_SPLIT_TYPE_HASH, 2000, abi.encode(oneThird));
+
+        Float stored1 = LibStockSplit.decodeParameters(h.getNode(id1).parameters);
+        Float stored2 = LibStockSplit.decodeParameters(h.getNode(id2).parameters);
+
+        assertEq(Float.unwrap(stored1), Float.unwrap(twoX));
+        assertEq(Float.unwrap(stored2), Float.unwrap(oneThird));
+        assertTrue(Float.unwrap(stored1) != Float.unwrap(stored2), "different multipliers stored");
     }
 }
