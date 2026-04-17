@@ -92,7 +92,7 @@ contract DelegatecallHarness {
 contract CorporateActionHarness {
     uint8 public constant decimals = 18;
 
-    function resolveActionType(bytes32 typeHash, bytes memory parameters) external returns (uint256) {
+    function resolveActionType(bytes32 typeHash, bytes calldata parameters) external returns (uint256) {
         return LibCorporateAction.resolveActionType(typeHash, parameters);
     }
 

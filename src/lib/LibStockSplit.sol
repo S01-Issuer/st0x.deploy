@@ -32,7 +32,7 @@ library LibStockSplit {
     /// well above the floor.
     ///
     /// @param parameters ABI-encoded Float.
-    function validateParameters(bytes memory parameters) internal {
+    function validateParameters(bytes calldata parameters) internal {
         Float multiplier = abi.decode(parameters, (Float));
 
         // Reject zero and negative multipliers.

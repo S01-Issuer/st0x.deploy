@@ -34,7 +34,7 @@ abstract contract DecimalsMock {
 contract StockSplitHarness is DecimalsMock {
     constructor(uint8 decimals_) DecimalsMock(decimals_) {}
 
-    function resolveAndSchedule(bytes32 typeHash, uint64 effectiveTime, bytes memory parameters)
+    function resolveAndSchedule(bytes32 typeHash, uint64 effectiveTime, bytes calldata parameters)
         external
         returns (uint256)
     {
@@ -42,7 +42,7 @@ contract StockSplitHarness is DecimalsMock {
         return LibCorporateAction.schedule(actionType, effectiveTime, parameters);
     }
 
-    function resolveActionType(bytes32 typeHash, bytes memory parameters) external returns (uint256) {
+    function resolveActionType(bytes32 typeHash, bytes calldata parameters) external returns (uint256) {
         return LibCorporateAction.resolveActionType(typeHash, parameters);
     }
 
@@ -62,7 +62,7 @@ contract StockSplitHarness is DecimalsMock {
 contract ValidationHarness is DecimalsMock {
     constructor(uint8 decimals_) DecimalsMock(decimals_) {}
 
-    function validate(bytes memory parameters) external {
+    function validate(bytes calldata parameters) external {
         LibStockSplit.validateParameters(parameters);
     }
 }
