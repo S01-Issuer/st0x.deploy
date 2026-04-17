@@ -1,8 +1,17 @@
 // SPDX-License-Identifier: LicenseRef-DCL-1.0
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
-pragma solidity =0.8.25;
+pragma solidity ^0.8.25;
 
 import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
+import {LibStockSplit} from "./LibStockSplit.sol";
+import {Float} from "rain.math.float/lib/LibDecimalFloat.sol";
+import {
+    EffectiveTimeInPast,
+    ActionAlreadyComplete,
+    ActionDoesNotExist,
+    UnknownActionType,
+    NoActionsScheduled
+} from "../error/ErrCorporateAction.sol";
 
 /// @dev ERC-7201 namespaced storage location for corporate actions.
 /// keccak256(abi.encode(uint256(keccak256("rain.storage.corporate-action.1")) - 1)) & ~bytes32(uint256(0xff))
@@ -14,21 +23,11 @@ bytes32 constant SCHEDULE_CORPORATE_ACTION = keccak256("SCHEDULE_CORPORATE_ACTIO
 /// @dev Permission hash for cancelling a corporate action via the authorizer.
 bytes32 constant CANCEL_CORPORATE_ACTION = keccak256("CANCEL_CORPORATE_ACTION");
 
-/// Thrown when scheduling an action with an effective time in the past.
-error EffectiveTimeInPast(uint64 effectiveTime, uint256 currentTime);
+/// @dev External identifier for stock splits.
+bytes32 constant STOCK_SPLIT_TYPE_HASH = keccak256("st0x.corporate-actions.stock-split");
 
-/// Thrown when trying to cancel an action whose effectiveTime has passed.
-error ActionAlreadyComplete(uint256 actionIndex);
-
-/// Thrown when referencing an action that does not exist.
-error ActionDoesNotExist(uint256 actionIndex);
-
-/// Thrown when the external type hash has no known bitmap mapping.
-/// @param typeHash The unrecognised external identifier.
-error UnknownActionType(bytes32 typeHash);
-
-/// Thrown when accessing head/tail on a list with no scheduled actions.
-error NoActionsScheduled();
+/// @dev Bitmap action type for stock splits (forward and reverse).
+uint256 constant ACTION_TYPE_STOCK_SPLIT = 1 << 0;
 
 /// @title LibCorporateAction
 /// @notice Library for corporate action diamond storage. Uses ERC-7201
@@ -75,13 +74,14 @@ library LibCorporateAction {
 
     /// @notice Map an external type identifier to its internal bitmap and
     /// validate parameters. Reverts if the type hash is not recognised.
-    /// Subsequent PRs add concrete type mappings.
-    /// @param typeHash External identifier, e.g. keccak256("StockSplit").
+    /// @param typeHash External identifier, e.g. keccak256("st0x.corporate-actions.stock-split").
     /// @param parameters ABI-encoded parameters for the action type.
     /// @return actionType The internal bitmap for this type.
-    function resolveActionType(bytes32 typeHash, bytes memory parameters) internal pure returns (uint256 actionType) {
-        // Concrete types are added by subsequent PRs.
-        (actionType, parameters);
+    function resolveActionType(bytes32 typeHash, bytes calldata parameters) internal returns (uint256 actionType) {
+        if (typeHash == STOCK_SPLIT_TYPE_HASH) {
+            LibStockSplit.validateMultiplier(abi.decode(parameters, (Float)));
+            return ACTION_TYPE_STOCK_SPLIT;
+        }
         revert UnknownActionType(typeHash);
     }
 
@@ -253,17 +253,5 @@ library LibCorporateAction {
         if (s.nodes.length == 0) revert NoActionsScheduled();
         if (s.tail == 0) return s.nodes[0];
         return s.nodes[s.tail];
-    }
-
-    /// @notice Return the 1-based index of the head node, or 0 if the list is empty.
-    /// @return The head index. 0 means "no head" (empty list).
-    function head() internal view returns (uint256) {
-        return getStorage().head;
-    }
-
-    /// @notice Return the 1-based index of the tail node, or 0 if the list is empty.
-    /// @return The tail index. 0 means "no tail" (empty list).
-    function tail() internal view returns (uint256) {
-        return getStorage().tail;
     }
 }

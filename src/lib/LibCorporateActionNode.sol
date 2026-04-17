@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-DCL-1.0
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
-pragma solidity =0.8.25;
+pragma solidity ^0.8.25;
 
 import {LibCorporateAction} from "./LibCorporateAction.sol";
 
@@ -25,13 +25,21 @@ struct CorporateActionNode {
     bytes parameters;
 }
 
-/// @dev Filter for traversal based on completion status.
-/// - ALL: return any matching node regardless of completion.
-/// - COMPLETED: return only nodes with effectiveTime <= block.timestamp.
-///   Since the list is time-ordered and completed nodes are contiguous at
-///   the front, forward walks stop early at the first pending node.
-/// - PENDING: return only nodes with effectiveTime > block.timestamp.
-///   Forward walks skip completed nodes at the front.
+/// @dev Filter for traversal based on completion status. The list is
+/// time-ordered ascending: completed nodes (effectiveTime <= now) are
+/// contiguous at the front (head side), pending nodes contiguous at the
+/// back (tail side).
+///
+/// - ALL: return any matching node regardless of completion. No early break.
+/// - COMPLETED: return only nodes with `effectiveTime <= block.timestamp`.
+///   Forward walks stop early at the first pending node (optimization). A
+///   backward walk returns the first completed match it finds while walking
+///   back from the tail through the pending section; no early break is
+///   beneficial on the backward direction.
+/// - PENDING: return only nodes with `effectiveTime > block.timestamp`.
+///   A forward walk skips completed nodes at the front before returning the
+///   first pending match (no early break). A backward walk stops early at
+///   the first completed node it encounters (optimization).
 enum CompletionFilter {
     ALL,
     COMPLETED,

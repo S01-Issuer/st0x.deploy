@@ -187,7 +187,8 @@ interface ICorporateActionsV1 {
     /// effective times are possible.
     ///
     /// @param typeHash External identifier for the action type, e.g.
-    /// keccak256("StockSplit"). Resolved to an internal bitmap by the lib.
+    /// keccak256("st0x.corporate-actions.stock-split"). Resolved to an internal
+    /// bitmap by the lib.
     /// @param effectiveTime When the action takes effect. Must be in the future.
     /// @param parameters ABI-encoded parameters specific to the action type.
     /// @return actionIndex Handle for the scheduled action.

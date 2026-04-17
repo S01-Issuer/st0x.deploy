@@ -4,23 +4,32 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std/Test.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
+import {ICorporateActionsV1} from "../../../src/interface/ICorporateActionsV1.sol";
 import {
     LibCorporateAction,
     CORPORATE_ACTION_STORAGE_LOCATION,
     SCHEDULE_CORPORATE_ACTION,
     CANCEL_CORPORATE_ACTION,
+    STOCK_SPLIT_TYPE_HASH,
+    ACTION_TYPE_STOCK_SPLIT
+} from "../../../src/lib/LibCorporateAction.sol";
+import {
     UnknownActionType,
     NoActionsScheduled,
     EffectiveTimeInPast,
     ActionAlreadyComplete,
     ActionDoesNotExist
-} from "../../../src/lib/LibCorporateAction.sol";
+} from "../../../src/error/ErrCorporateAction.sol";
 import {IAuthorizeV1, Unauthorized} from "rain.vats/interface/IAuthorizeV1.sol";
 import {
     CorporateActionNode,
     CompletionFilter,
     LibCorporateActionNode
 } from "../../../src/lib/LibCorporateActionNode.sol";
+import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
+import {InvalidSplitMultiplier} from "../../../src/error/ErrStockSplit.sol";
+import {LibTestTofu} from "../../lib/LibTestTofu.sol";
+import {LibTestCorporateAction} from "../../lib/LibTestCorporateAction.sol";
 
 /// @dev Mock authorizer used by the facet tests. Records the most recent
 /// `authorize` call so tests can assert the per-action context that the facet
@@ -55,6 +64,7 @@ contract MockAuthorizer is IAuthorizeV1 {
 contract DelegatecallHarness {
     address public immutable FACET;
     IAuthorizeV1 public authorizer;
+    uint8 public constant decimals = 18;
 
     constructor(address facet_) {
         FACET = facet_;
@@ -81,7 +91,9 @@ contract DelegatecallHarness {
 
 /// @dev Harness to test library functions directly.
 contract CorporateActionHarness {
-    function resolveActionType(bytes32 typeHash, bytes memory parameters) external pure returns (uint256) {
+    uint8 public constant decimals = 18;
+
+    function resolveActionType(bytes32 typeHash, bytes calldata parameters) external returns (uint256) {
         return LibCorporateAction.resolveActionType(typeHash, parameters);
     }
 
@@ -110,11 +122,11 @@ contract CorporateActionHarness {
     }
 
     function head() external view returns (uint256) {
-        return LibCorporateAction.head();
+        return LibTestCorporateAction.head();
     }
 
     function tail() external view returns (uint256) {
-        return LibCorporateAction.tail();
+        return LibTestCorporateAction.tail();
     }
 
     function headNode() external view returns (CorporateActionNode memory) {
@@ -136,6 +148,7 @@ contract StoxCorporateActionsFacetTest is Test {
     address internal constant ALICE = address(0xA11CE);
 
     function setUp() public {
+        LibTestTofu.deployTofu(vm);
         facetImpl = new StoxCorporateActionsFacet();
         harness = new DelegatecallHarness(address(facetImpl));
         facetViaHarness = StoxCorporateActionsFacet(address(harness));
@@ -280,7 +293,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// authorizer lookup, so the order of checks matches the modifier.
     function testScheduleCorporateActionDirectCallReverts() external {
         vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
-        facetImpl.scheduleCorporateAction(keccak256("StockSplit"), uint64(block.timestamp + 1), hex"");
+        facetImpl.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, uint64(block.timestamp + 1), hex"");
     }
 
     /// Direct call to `cancelCorporateAction` on the standalone facet reverts
@@ -1002,5 +1015,195 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(n2.actionType, 2, "harness2 has type 2");
         assertEq(n1.parameters, hex"AA");
         assertEq(n2.parameters, hex"BB");
+    }
+
+    /// Audit P2-4: `scheduleCorporateAction` emits `CorporateActionScheduled`
+    /// with the right indexed sender, indexed actionIndex, action type, and
+    /// effective time. Asserts the public event API consumed by offchain
+    /// indexers.
+    function testScheduleCorporateActionEmitsEvent() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory parameters = abi.encode(twoX);
+        uint64 effectiveTime = 1500;
+
+        vm.expectEmit(true, true, false, true, address(facetViaHarness));
+        emit ICorporateActionsV1.CorporateActionScheduled(ALICE, 1, ACTION_TYPE_STOCK_SPLIT, effectiveTime);
+
+        vm.prank(ALICE);
+        uint256 actionIndex = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, effectiveTime, parameters);
+        assertEq(actionIndex, 1);
+    }
+
+    /// Audit P2-4: `cancelCorporateAction` emits `CorporateActionCancelled`
+    /// with the right indexed sender and indexed actionIndex.
+    function testCancelCorporateActionEmitsEvent() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory parameters = abi.encode(twoX);
+
+        vm.prank(ALICE);
+        uint256 actionIndex = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, parameters);
+
+        vm.expectEmit(true, true, false, false, address(facetViaHarness));
+        emit ICorporateActionsV1.CorporateActionCancelled(ALICE, actionIndex);
+
+        vm.prank(ALICE);
+        facetViaHarness.cancelCorporateAction(actionIndex);
+    }
+
+    /// Authorizer receives the correct context for a real stock split schedule.
+    function testScheduleStockSplitForwardsCorrectContext() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory parameters = abi.encode(twoX);
+        uint64 effectiveTime = 1500;
+
+        vm.expectCall(
+            address(mockAuthorizer),
+            abi.encodeWithSelector(
+                IAuthorizeV1.authorize.selector,
+                ALICE,
+                SCHEDULE_CORPORATE_ACTION,
+                abi.encode(STOCK_SPLIT_TYPE_HASH, effectiveTime, parameters)
+            )
+        );
+
+        vm.prank(ALICE);
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, effectiveTime, parameters);
+
+        assertEq(mockAuthorizer.lastUser(), ALICE);
+        assertEq(mockAuthorizer.lastPermission(), SCHEDULE_CORPORATE_ACTION);
+    }
+
+    /// Authorizer denial with valid stock split params still reverts.
+    function testScheduleStockSplitAuthorizerDenied() external {
+        mockAuthorizer.setDenyMode(true);
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory parameters = abi.encode(twoX);
+
+        vm.prank(ALICE);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Unauthorized.selector,
+                ALICE,
+                SCHEDULE_CORPORATE_ACTION,
+                abi.encode(STOCK_SPLIT_TYPE_HASH, uint64(1500), parameters)
+            )
+        );
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, parameters);
+    }
+
+    /// Fuzz: schedule random valid stock splits, actionIndex is sequential.
+    function testFuzzScheduleStockSplitsSequentialIndex(uint8 count) external {
+        count = uint8(bound(count, 1, 15));
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory parameters = abi.encode(twoX);
+
+        for (uint256 i = 0; i < count; i++) {
+            vm.prank(ALICE);
+            // forge-lint: disable-next-line(unsafe-typecast)
+            uint256 id =
+                facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, uint64(1001 + i * 100), parameters);
+            assertEq(id, i + 1, "actionIndex must be sequential");
+        }
+    }
+
+    /// Schedule returns the correct actionIndex.
+    function testScheduleViaFacetReturnsActionIndex() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory parameters = abi.encode(twoX);
+
+        vm.prank(ALICE);
+        uint256 id1 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, parameters);
+
+        vm.prank(ALICE);
+        uint256 id2 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 2000, parameters);
+
+        assertEq(id1, 1);
+        assertEq(id2, 2);
+    }
+
+    /// completedActionCount reflects completed stock splits via the facet.
+    function testCompletedActionCountViaFacet() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory parameters = abi.encode(twoX);
+
+        vm.prank(ALICE);
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, parameters);
+
+        assertEq(facetViaHarness.completedActionCount(), 0);
+
+        vm.warp(2000);
+        assertEq(facetViaHarness.completedActionCount(), 1);
+    }
+
+    /// Schedule with invalid multiplier reverts through the facet.
+    function testScheduleInvalidMultiplierRevertsViaFacet() external {
+        Float zero = LibDecimalFloat.packLossless(0, 0);
+        bytes memory parameters = abi.encode(zero);
+
+        vm.prank(ALICE);
+        vm.expectRevert(InvalidSplitMultiplier.selector);
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, parameters);
+    }
+
+    /// Schedule with past effectiveTime reverts through the facet.
+    function testSchedulePastTimeRevertsViaFacet() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory parameters = abi.encode(twoX);
+
+        vm.prank(ALICE);
+        vm.expectRevert(abi.encodeWithSelector(EffectiveTimeInPast.selector, uint64(500), block.timestamp));
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 500, parameters);
+    }
+
+    /// Cancel a completed action reverts through the facet.
+    function testCancelCompletedRevertsViaFacet() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory parameters = abi.encode(twoX);
+
+        vm.prank(ALICE);
+        uint256 id = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, parameters);
+
+        vm.warp(2000);
+
+        vm.prank(ALICE);
+        vm.expectRevert(abi.encodeWithSelector(ActionAlreadyComplete.selector, id));
+        facetViaHarness.cancelCorporateAction(id);
+    }
+
+    /// Cancel non-existent action reverts through the facet.
+    function testCancelNonExistentRevertsViaFacet() external {
+        vm.prank(ALICE);
+        vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, uint256(99)));
+        facetViaHarness.cancelCorporateAction(99);
+    }
+
+    /// Full lifecycle through the facet: schedule, verify pending, complete,
+    /// verify completed, cancel a second pending action.
+    function testFullLifecycleViaFacet() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        Float threeX = LibDecimalFloat.packLossless(3, 0);
+
+        vm.prank(ALICE);
+        uint256 id1 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, abi.encode(twoX));
+
+        vm.prank(ALICE);
+        uint256 id2 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 3000, abi.encode(threeX));
+
+        assertEq(facetViaHarness.completedActionCount(), 0);
+
+        vm.warp(2000);
+        assertEq(facetViaHarness.completedActionCount(), 1);
+
+        vm.prank(ALICE);
+        facetViaHarness.cancelCorporateAction(id2);
+
+        assertEq(facetViaHarness.completedActionCount(), 1);
+
+        vm.warp(4000);
+        // Still 1 — cancelled action doesn't complete.
+        assertEq(facetViaHarness.completedActionCount(), 1);
+
+        assertEq(id1, 1);
+        assertEq(id2, 2);
     }
 }

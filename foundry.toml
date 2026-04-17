@@ -19,6 +19,8 @@ remappings = [
   "openzeppelin-contracts-upgradeable/=lib/rain.vats/lib/openzeppelin-contracts-upgradeable/",
   "rain.deploy/=lib/rain.deploy/src/",
   "rain.sol.codegen/=lib/rain.vats/lib/rain.flare/lib/rain.interpreter/lib/rain.interpreter.interface/lib/rain.sol.codegen/src/",
+  "rain.math.float/=lib/rain.vats/lib/rain.flare/lib/rain.interpreter/lib/rain.interpreter.interface/lib/rain.math.float/src/",
+  "rain.tofu.erc20-decimals/=lib/rain.tofu.erc20-decimals/src/",
 ]
 
 [rpc_endpoints]
