@@ -18,54 +18,8 @@ import {
 import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 import {InvalidSplitMultiplier, MultiplierTooSmall, MultiplierTooLarge} from "../../../src/error/ErrStockSplit.sol";
 import {LibTestTofu} from "../../lib/LibTestTofu.sol";
-
-abstract contract DecimalsMock {
-    uint8 internal immutable _DECIMALS;
-
-    constructor(uint8 decimals_) {
-        _DECIMALS = decimals_;
-    }
-
-    function decimals() external view returns (uint8) {
-        return _DECIMALS;
-    }
-}
-
-contract StockSplitHarness is DecimalsMock {
-    constructor(uint8 decimals_) DecimalsMock(decimals_) {}
-
-    function resolveAndSchedule(bytes32 typeHash, uint64 effectiveTime, bytes calldata parameters)
-        external
-        returns (uint256)
-    {
-        uint256 actionType = LibCorporateAction.resolveActionType(typeHash, parameters);
-        return LibCorporateAction.schedule(actionType, effectiveTime, parameters);
-    }
-
-    function resolveActionType(bytes32 typeHash, bytes calldata parameters) external returns (uint256) {
-        return LibCorporateAction.resolveActionType(typeHash, parameters);
-    }
-
-    function nextOfType(uint256 cursor, uint256 mask, CompletionFilter filter) external view returns (uint256) {
-        return LibCorporateActionNode.nextOfType(cursor, mask, filter);
-    }
-
-    function countCompleted() external view returns (uint256) {
-        return LibCorporateAction.countCompleted();
-    }
-
-    function getNode(uint256 actionIndex) external view returns (CorporateActionNode memory) {
-        return LibCorporateAction.getStorage().nodes[actionIndex];
-    }
-}
-
-contract ValidationHarness is DecimalsMock {
-    constructor(uint8 decimals_) DecimalsMock(decimals_) {}
-
-    function validate(bytes calldata parameters) external {
-        LibStockSplit.validateParameters(parameters);
-    }
-}
+import {StockSplitHarness} from "../../concrete/StockSplitHarness.sol";
+import {StockSplitValidationHarness as ValidationHarness} from "../../concrete/StockSplitValidationHarness.sol";
 
 contract LibStockSplitValidationTest is Test {
     ValidationHarness internal v;
@@ -78,14 +32,14 @@ contract LibStockSplitValidationTest is Test {
     /// Valid multiplier passes validation.
     function testValidMultiplier() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        v.validate(abi.encode(twoX));
+        v.validate(twoX);
     }
 
     /// Zero multiplier reverts — covers the `coefficient == 0` branch.
     function testZeroMultiplierReverts() external {
         Float zero = LibDecimalFloat.packLossless(0, 0);
         vm.expectRevert(InvalidSplitMultiplier.selector);
-        v.validate(abi.encode(zero));
+        v.validate(zero);
     }
 
     /// Audit P2-1: negative coefficient reverts — covers the `coefficient < 0`
@@ -93,14 +47,14 @@ contract LibStockSplitValidationTest is Test {
     function testNegativeCoefficientMultiplierReverts() external {
         Float negative = LibDecimalFloat.packLossless(-2, 0);
         vm.expectRevert(InvalidSplitMultiplier.selector);
-        v.validate(abi.encode(negative));
+        v.validate(negative);
     }
 
     /// Audit P2-1: negative coefficient with non-zero exponent also reverts.
     function testNegativeCoefficientWithExponentReverts() external {
         Float negative = LibDecimalFloat.packLossless(-1, 18);
         vm.expectRevert(InvalidSplitMultiplier.selector);
-        v.validate(abi.encode(negative));
+        v.validate(negative);
     }
 
     /// Audit P1-1 / P2-2: near-zero multiplier (`1e-30`) must revert.
@@ -108,14 +62,14 @@ contract LibStockSplitValidationTest is Test {
     function testNearZeroMultiplierReverts() external {
         Float tooSmall = LibDecimalFloat.packLossless(1, -30);
         vm.expectRevert(abi.encodeWithSelector(MultiplierTooSmall.selector, tooSmall));
-        v.validate(abi.encode(tooSmall));
+        v.validate(tooSmall);
     }
 
     /// Audit P1-1 / P2-2: the exact floor boundary, `1e-18`, must pass.
     /// `trunc(1e18 * 1e-18) == 1`.
     function testFloorBoundaryMultiplierPasses() external {
         Float boundary = LibDecimalFloat.packLossless(1, -18);
-        v.validate(abi.encode(boundary));
+        v.validate(boundary);
     }
 
     /// Audit P1-1 / P2-2: near-saturation multiplier (`1e30`) must revert.
@@ -123,33 +77,33 @@ contract LibStockSplitValidationTest is Test {
     function testNearSaturationMultiplierReverts() external {
         Float tooLarge = LibDecimalFloat.packLossless(1, 30);
         vm.expectRevert(abi.encodeWithSelector(MultiplierTooLarge.selector, tooLarge));
-        v.validate(abi.encode(tooLarge));
+        v.validate(tooLarge);
     }
 
     /// Audit P1-1 / P2-2: a large-but-realistic 1000x split must pass.
     function testLargeButRealisticSplitPasses() external {
         Float thousandX = LibDecimalFloat.packLossless(1000, 0);
-        v.validate(abi.encode(thousandX));
+        v.validate(thousandX);
     }
 
     /// Fractional multiplier (1/3 reverse split) is valid.
     function testFractionalMultiplierValid() external {
         Float oneThird = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(3, 0));
-        v.validate(abi.encode(oneThird));
+        v.validate(oneThird);
     }
 
     /// Decode-after-abi.encode roundtrip preserves the multiplier.
     function testEncodeDecodeRoundtrip() external pure {
         Float threeX = LibDecimalFloat.packLossless(3, 0);
         bytes memory encoded = abi.encode(threeX);
-        Float decoded = LibStockSplit.decodeParameters(encoded);
+        Float decoded = abi.decode(encoded, (Float));
         assertEq(Float.unwrap(decoded), Float.unwrap(threeX));
     }
 
     /// Exact ceiling boundary: 1e18 multiplier gives trunc(1e18 * 1e18) = 1e36.
     function testExactCeilingBoundaryPasses() external {
         Float ceiling = LibDecimalFloat.packLossless(1, 18);
-        v.validate(abi.encode(ceiling));
+        v.validate(ceiling);
     }
 
     /// Just above ceiling: 1e18 + epsilon must revert.
@@ -157,14 +111,14 @@ contract LibStockSplitValidationTest is Test {
         // 1.000001e18 → trunc(1e18 * 1.000001e18) > 1e36
         Float aboveCeiling = LibDecimalFloat.packLossless(1000001, 12);
         vm.expectRevert(abi.encodeWithSelector(MultiplierTooLarge.selector, aboveCeiling));
-        v.validate(abi.encode(aboveCeiling));
+        v.validate(aboveCeiling);
     }
 
     /// Just below floor: 9e-19 must revert (trunc(1e18 * 9e-19) = 0).
     function testBelowFloorReverts() external {
         Float belowFloor = LibDecimalFloat.packLossless(9, -19);
         vm.expectRevert(abi.encodeWithSelector(MultiplierTooSmall.selector, belowFloor));
-        v.validate(abi.encode(belowFloor));
+        v.validate(belowFloor);
     }
 
     /// Fuzz: any positive multiplier within bounds passes validation.
@@ -179,7 +133,7 @@ contract LibStockSplitValidationTest is Test {
             LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(1e18), 0), multiplier), 0
         );
         vm.assume(applied >= 1 && applied <= 1e36);
-        v.validate(abi.encode(multiplier));
+        v.validate(multiplier);
     }
 
     /// Constants have expected values.
@@ -201,7 +155,7 @@ contract LibStockSplitValidationTest is Test {
         // forge-lint: disable-next-line(unsafe-typecast)
         Float multiplier = LibDecimalFloat.packLossless(int256(uint256(coeff)), int256(exp));
         bytes memory encoded = abi.encode(multiplier);
-        Float decoded = LibStockSplit.decodeParameters(encoded);
+        Float decoded = abi.decode(encoded, (Float));
         assertEq(Float.unwrap(decoded), Float.unwrap(multiplier));
     }
 
@@ -214,7 +168,7 @@ contract LibStockSplitValidationTest is Test {
         // forge-lint: disable-next-line(unsafe-typecast)
         Float multiplier = LibDecimalFloat.packLossless(int256(uint256(coeff)), int256(exp));
         vm.expectRevert(abi.encodeWithSelector(MultiplierTooSmall.selector, multiplier));
-        v.validate(abi.encode(multiplier));
+        v.validate(multiplier);
     }
 }
 
@@ -231,27 +185,27 @@ contract LibStockSplitValidation6DecimalsTest is Test {
     /// Floor for 6 decimals: 1e-6 passes.
     function testFloorBoundaryPasses() external {
         Float boundary = LibDecimalFloat.packLossless(1, -6);
-        v.validate(abi.encode(boundary));
+        v.validate(boundary);
     }
 
     /// Below floor for 6 decimals: 1e-7 reverts.
     function testBelowFloorReverts() external {
         Float tooSmall = LibDecimalFloat.packLossless(1, -7);
         vm.expectRevert(abi.encodeWithSelector(MultiplierTooSmall.selector, tooSmall));
-        v.validate(abi.encode(tooSmall));
+        v.validate(tooSmall);
     }
 
     /// Ceiling for 6 decimals: 1e6 passes.
     function testCeilingBoundaryPasses() external {
         Float ceiling = LibDecimalFloat.packLossless(1, 6);
-        v.validate(abi.encode(ceiling));
+        v.validate(ceiling);
     }
 
     /// Above ceiling for 6 decimals: 1e7 reverts.
     function testAboveCeilingReverts() external {
         Float tooLarge = LibDecimalFloat.packLossless(1, 7);
         vm.expectRevert(abi.encodeWithSelector(MultiplierTooLarge.selector, tooLarge));
-        v.validate(abi.encode(tooLarge));
+        v.validate(tooLarge);
     }
 
     /// A multiplier that would pass for 18-decimals (1e-18) must revert for
@@ -259,13 +213,13 @@ contract LibStockSplitValidation6DecimalsTest is Test {
     function testEighteenDecimalFloorRejectedForSixDecimals() external {
         Float eighteenFloor = LibDecimalFloat.packLossless(1, -18);
         vm.expectRevert(abi.encodeWithSelector(MultiplierTooSmall.selector, eighteenFloor));
-        v.validate(abi.encode(eighteenFloor));
+        v.validate(eighteenFloor);
     }
 
     /// A realistic 2x split still passes for 6-decimal tokens.
     function testRealisticSplitPasses() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        v.validate(abi.encode(twoX));
+        v.validate(twoX);
     }
 }
 
@@ -286,12 +240,12 @@ contract LibStockSplitValidationFuzzDecimalsTest is Test {
 
         // Floor boundary passes.
         Float floor = LibDecimalFloat.packLossless(1, -decimalsSigned);
-        v.validate(abi.encode(floor));
+        v.validate(floor);
 
         // Just below floor reverts.
         Float belowFloor = LibDecimalFloat.packLossless(1, -(decimalsSigned + 1));
         vm.expectRevert(abi.encodeWithSelector(MultiplierTooSmall.selector, belowFloor));
-        v.validate(abi.encode(belowFloor));
+        v.validate(belowFloor);
     }
 
     /// For any decimals in a realistic range, the ceiling boundary
@@ -305,12 +259,12 @@ contract LibStockSplitValidationFuzzDecimalsTest is Test {
 
         // Ceiling boundary passes.
         Float ceiling = LibDecimalFloat.packLossless(1, decimalsSigned);
-        v.validate(abi.encode(ceiling));
+        v.validate(ceiling);
 
         // Just above ceiling reverts.
         Float aboveCeiling = LibDecimalFloat.packLossless(1, decimalsSigned + 1);
         vm.expectRevert(abi.encodeWithSelector(MultiplierTooLarge.selector, aboveCeiling));
-        v.validate(abi.encode(aboveCeiling));
+        v.validate(aboveCeiling);
     }
 
     /// A realistic multiplier (2x) passes for any realistic decimals value.
@@ -319,7 +273,7 @@ contract LibStockSplitValidationFuzzDecimalsTest is Test {
         ValidationHarness v = new ValidationHarness(decimals);
 
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        v.validate(abi.encode(twoX));
+        v.validate(twoX);
     }
 }
 
@@ -376,7 +330,7 @@ contract LibStockSplitLifecycleTest is Test {
         assertEq(completed, 1);
 
         CorporateActionNode memory node = h.getNode(1);
-        Float stored = LibStockSplit.decodeParameters(node.parameters);
+        Float stored = abi.decode(node.parameters, (Float));
         assertEq(Float.unwrap(stored), Float.unwrap(threeX));
     }
 
@@ -427,7 +381,7 @@ contract LibStockSplitLifecycleTest is Test {
         assertEq(node.actionType, ACTION_TYPE_STOCK_SPLIT, "bitmap is stock split");
         assertEq(node.effectiveTime, 1500, "effectiveTime stored");
 
-        Float stored = LibStockSplit.decodeParameters(node.parameters);
+        Float stored = abi.decode(node.parameters, (Float));
         assertEq(Float.unwrap(stored), Float.unwrap(fiveX), "multiplier round-trips");
     }
 
@@ -439,8 +393,8 @@ contract LibStockSplitLifecycleTest is Test {
         uint256 id1 = h.resolveAndSchedule(STOCK_SPLIT_TYPE_HASH, 1500, abi.encode(twoX));
         uint256 id2 = h.resolveAndSchedule(STOCK_SPLIT_TYPE_HASH, 2000, abi.encode(oneThird));
 
-        Float stored1 = LibStockSplit.decodeParameters(h.getNode(id1).parameters);
-        Float stored2 = LibStockSplit.decodeParameters(h.getNode(id2).parameters);
+        Float stored1 = abi.decode(h.getNode(id1).parameters, (Float));
+        Float stored2 = abi.decode(h.getNode(id2).parameters, (Float));
 
         assertEq(Float.unwrap(stored1), Float.unwrap(twoX));
         assertEq(Float.unwrap(stored2), Float.unwrap(oneThird));

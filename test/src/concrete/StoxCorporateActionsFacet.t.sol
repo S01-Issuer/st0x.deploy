@@ -29,6 +29,7 @@ import {
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {InvalidSplitMultiplier} from "../../../src/error/ErrStockSplit.sol";
 import {LibTestTofu} from "../../lib/LibTestTofu.sol";
+import {LibTestCorporateAction} from "../../lib/LibTestCorporateAction.sol";
 
 /// @dev Mock authorizer used by the facet tests. Records the most recent
 /// `authorize` call so tests can assert the per-action context that the facet
@@ -121,11 +122,11 @@ contract CorporateActionHarness {
     }
 
     function head() external view returns (uint256) {
-        return LibCorporateAction.head();
+        return LibTestCorporateAction.head();
     }
 
     function tail() external view returns (uint256) {
-        return LibCorporateAction.tail();
+        return LibTestCorporateAction.tail();
     }
 
     function headNode() external view returns (CorporateActionNode memory) {

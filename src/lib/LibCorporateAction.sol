@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
 import {LibStockSplit} from "./LibStockSplit.sol";
+import {Float} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {
     EffectiveTimeInPast,
     ActionAlreadyComplete,
@@ -78,7 +79,7 @@ library LibCorporateAction {
     /// @return actionType The internal bitmap for this type.
     function resolveActionType(bytes32 typeHash, bytes calldata parameters) internal returns (uint256 actionType) {
         if (typeHash == STOCK_SPLIT_TYPE_HASH) {
-            LibStockSplit.validateParameters(parameters);
+            LibStockSplit.validateMultiplier(abi.decode(parameters, (Float)));
             return ACTION_TYPE_STOCK_SPLIT;
         }
         revert UnknownActionType(typeHash);
@@ -252,17 +253,5 @@ library LibCorporateAction {
         if (s.nodes.length == 0) revert NoActionsScheduled();
         if (s.tail == 0) return s.nodes[0];
         return s.nodes[s.tail];
-    }
-
-    /// @notice Return the 1-based index of the head node, or 0 if the list is empty.
-    /// @return The head index. 0 means "no head" (empty list).
-    function head() internal view returns (uint256) {
-        return getStorage().head;
-    }
-
-    /// @notice Return the 1-based index of the tail node, or 0 if the list is empty.
-    /// @return The tail index. 0 means "no tail" (empty list).
-    function tail() internal view returns (uint256) {
-        return getStorage().tail;
     }
 }
