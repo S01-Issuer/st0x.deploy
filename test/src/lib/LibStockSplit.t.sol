@@ -218,6 +218,111 @@ contract LibStockSplitValidationTest is Test {
     }
 }
 
+/// @dev Validation tests with a 6-decimal harness (USDC-like) to verify
+/// the bounds scale with the vault's decimals.
+contract LibStockSplitValidation6DecimalsTest is Test {
+    ValidationHarness internal v;
+
+    function setUp() public {
+        LibTestTofu.deployTofu(vm);
+        v = new ValidationHarness(6);
+    }
+
+    /// Floor for 6 decimals: 1e-6 passes.
+    function testFloorBoundaryPasses() external {
+        Float boundary = LibDecimalFloat.packLossless(1, -6);
+        v.validate(abi.encode(boundary));
+    }
+
+    /// Below floor for 6 decimals: 1e-7 reverts.
+    function testBelowFloorReverts() external {
+        Float tooSmall = LibDecimalFloat.packLossless(1, -7);
+        vm.expectRevert(abi.encodeWithSelector(MultiplierTooSmall.selector, tooSmall));
+        v.validate(abi.encode(tooSmall));
+    }
+
+    /// Ceiling for 6 decimals: 1e6 passes.
+    function testCeilingBoundaryPasses() external {
+        Float ceiling = LibDecimalFloat.packLossless(1, 6);
+        v.validate(abi.encode(ceiling));
+    }
+
+    /// Above ceiling for 6 decimals: 1e7 reverts.
+    function testAboveCeilingReverts() external {
+        Float tooLarge = LibDecimalFloat.packLossless(1, 7);
+        vm.expectRevert(abi.encodeWithSelector(MultiplierTooLarge.selector, tooLarge));
+        v.validate(abi.encode(tooLarge));
+    }
+
+    /// A multiplier that would pass for 18-decimals (1e-18) must revert for
+    /// a 6-decimal vault because it's below the per-token floor.
+    function testEighteenDecimalFloorRejectedForSixDecimals() external {
+        Float eighteenFloor = LibDecimalFloat.packLossless(1, -18);
+        vm.expectRevert(abi.encodeWithSelector(MultiplierTooSmall.selector, eighteenFloor));
+        v.validate(abi.encode(eighteenFloor));
+    }
+
+    /// A realistic 2x split still passes for 6-decimal tokens.
+    function testRealisticSplitPasses() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        v.validate(abi.encode(twoX));
+    }
+}
+
+/// @dev Fuzz tests that parameterize over the vault's decimals.
+contract LibStockSplitValidationFuzzDecimalsTest is Test {
+    function setUp() public {
+        LibTestTofu.deployTofu(vm);
+    }
+
+    /// For any decimals in a realistic range, the floor boundary
+    /// (10^-decimals) passes and just below it (10^-(decimals+1)) reverts.
+    function testFuzzFloorBoundary(uint8 decimals) external {
+        decimals = uint8(bound(decimals, 1, 36));
+        ValidationHarness v = new ValidationHarness(decimals);
+
+        // forge-lint: disable-next-line(unsafe-typecast)
+        int256 decimalsSigned = int256(uint256(decimals));
+
+        // Floor boundary passes.
+        Float floor = LibDecimalFloat.packLossless(1, -decimalsSigned);
+        v.validate(abi.encode(floor));
+
+        // Just below floor reverts.
+        Float belowFloor = LibDecimalFloat.packLossless(1, -(decimalsSigned + 1));
+        vm.expectRevert(abi.encodeWithSelector(MultiplierTooSmall.selector, belowFloor));
+        v.validate(abi.encode(belowFloor));
+    }
+
+    /// For any decimals in a realistic range, the ceiling boundary
+    /// (10^decimals) passes and just above it (10^(decimals+1)) reverts.
+    function testFuzzCeilingBoundary(uint8 decimals) external {
+        decimals = uint8(bound(decimals, 1, 36));
+        ValidationHarness v = new ValidationHarness(decimals);
+
+        // forge-lint: disable-next-line(unsafe-typecast)
+        int256 decimalsSigned = int256(uint256(decimals));
+
+        // Ceiling boundary passes.
+        Float ceiling = LibDecimalFloat.packLossless(1, decimalsSigned);
+        v.validate(abi.encode(ceiling));
+
+        // Just above ceiling reverts.
+        Float aboveCeiling = LibDecimalFloat.packLossless(1, decimalsSigned + 1);
+        vm.expectRevert(abi.encodeWithSelector(MultiplierTooLarge.selector, aboveCeiling));
+        v.validate(abi.encode(aboveCeiling));
+    }
+
+    /// A realistic multiplier (2x) passes for any realistic decimals value.
+    function testFuzzRealisticMultiplierPasses(uint8 decimals) external {
+        decimals = uint8(bound(decimals, 1, 36));
+        ValidationHarness v = new ValidationHarness(decimals);
+
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        v.validate(abi.encode(twoX));
+    }
+}
+
 contract LibStockSplitResolveTest is Test {
     StockSplitHarness internal h;
 
