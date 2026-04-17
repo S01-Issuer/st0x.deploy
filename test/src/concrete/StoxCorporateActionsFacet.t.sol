@@ -11,13 +11,15 @@ import {
     SCHEDULE_CORPORATE_ACTION,
     CANCEL_CORPORATE_ACTION,
     STOCK_SPLIT_TYPE_HASH,
-    ACTION_TYPE_STOCK_SPLIT,
+    ACTION_TYPE_STOCK_SPLIT
+} from "../../../src/lib/LibCorporateAction.sol";
+import {
     UnknownActionType,
     NoActionsScheduled,
     EffectiveTimeInPast,
     ActionAlreadyComplete,
     ActionDoesNotExist
-} from "../../../src/lib/LibCorporateAction.sol";
+} from "../../../src/error/ErrCorporateAction.sol";
 import {IAuthorizeV1, Unauthorized} from "rain.vats/interface/IAuthorizeV1.sol";
 import {
     CorporateActionNode,
@@ -25,7 +27,7 @@ import {
     LibCorporateActionNode
 } from "../../../src/lib/LibCorporateActionNode.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
-import {InvalidSplitMultiplier} from "../../../src/lib/LibStockSplit.sol";
+import {InvalidSplitMultiplier} from "../../../src/error/ErrStockSplit.sol";
 
 /// @dev Mock authorizer used by the facet tests. Records the most recent
 /// `authorize` call so tests can assert the per-action context that the facet

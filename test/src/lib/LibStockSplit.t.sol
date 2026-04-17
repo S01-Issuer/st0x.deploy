@@ -7,20 +7,16 @@ import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {
     LibCorporateAction,
     ACTION_TYPE_STOCK_SPLIT,
-    STOCK_SPLIT_TYPE_HASH,
-    UnknownActionType
+    STOCK_SPLIT_TYPE_HASH
 } from "../../../src/lib/LibCorporateAction.sol";
+import {UnknownActionType} from "../../../src/error/ErrCorporateAction.sol";
 import {
     CorporateActionNode,
     CompletionFilter,
     LibCorporateActionNode
 } from "../../../src/lib/LibCorporateActionNode.sol";
-import {
-    LibStockSplit,
-    InvalidSplitMultiplier,
-    MultiplierTooSmall,
-    MultiplierTooLarge
-} from "../../../src/lib/LibStockSplit.sol";
+import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
+import {InvalidSplitMultiplier, MultiplierTooSmall, MultiplierTooLarge} from "../../../src/error/ErrStockSplit.sol";
 
 contract StockSplitHarness {
     function resolveAndSchedule(bytes32 typeHash, uint64 effectiveTime, bytes memory parameters)

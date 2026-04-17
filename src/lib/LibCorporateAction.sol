@@ -4,6 +4,13 @@ pragma solidity =0.8.25;
 
 import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
 import {LibStockSplit} from "./LibStockSplit.sol";
+import {
+    EffectiveTimeInPast,
+    ActionAlreadyComplete,
+    ActionDoesNotExist,
+    UnknownActionType,
+    NoActionsScheduled
+} from "../error/ErrCorporateAction.sol";
 
 /// @dev ERC-7201 namespaced storage location for corporate actions.
 /// keccak256(abi.encode(uint256(keccak256("rain.storage.corporate-action.1")) - 1)) & ~bytes32(uint256(0xff))
@@ -20,22 +27,6 @@ bytes32 constant STOCK_SPLIT_TYPE_HASH = keccak256("st0x.corporate-actions.stock
 
 /// @dev Bitmap action type for stock splits (forward and reverse).
 uint256 constant ACTION_TYPE_STOCK_SPLIT = 1 << 0;
-
-/// Thrown when scheduling an action with an effective time in the past.
-error EffectiveTimeInPast(uint64 effectiveTime, uint256 currentTime);
-
-/// Thrown when trying to cancel an action whose effectiveTime has passed.
-error ActionAlreadyComplete(uint256 actionIndex);
-
-/// Thrown when referencing an action that does not exist.
-error ActionDoesNotExist(uint256 actionIndex);
-
-/// Thrown when the external type hash has no known bitmap mapping.
-/// @param typeHash The unrecognised external identifier.
-error UnknownActionType(bytes32 typeHash);
-
-/// Thrown when accessing head/tail on a list with no scheduled actions.
-error NoActionsScheduled();
 
 /// @title LibCorporateAction
 /// @notice Library for corporate action diamond storage. Uses ERC-7201
