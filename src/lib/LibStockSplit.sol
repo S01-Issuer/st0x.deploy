@@ -55,13 +55,19 @@ library LibStockSplit {
     /// @param parameters ABI-encoded Float.
     function validateParameters(bytes memory parameters) internal pure {
         Float multiplier = abi.decode(parameters, (Float));
+        // Only the coefficient is needed for the sign check; the exponent is
+        // irrelevant because a negative/zero coefficient is rejected regardless.
+        //slither-disable-next-line unused-return
         (int256 coefficient,) = LibDecimalFloat.unpack(multiplier);
         if (coefficient <= 0) revert InvalidSplitMultiplier();
 
         // Apply `multiplier` to 1e18 and truncate to uint256. Used for both
         // the floor and the ceiling check. The `int256(1e18)` cast is safe
         // because `1e18` is a compile-time constant far below `2^255`.
+        // The second return value is the loss flag; we only need the truncated
+        // value for bounds comparison.
         // forge-lint: disable-next-line(unsafe-typecast)
+        //slither-disable-next-line unused-return
         (uint256 applied,) = LibDecimalFloat.toFixedDecimalLossy(
             LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(1e18), 0), multiplier), 0
         );
