@@ -164,7 +164,6 @@ contract LibStockSplitValidationTest is Test {
         assertEq(ACTION_TYPE_STOCK_SPLIT, 1);
         assertEq(STOCK_SPLIT_TYPE_HASH, keccak256("StockSplit"));
     }
-
 }
 
 contract LibStockSplitResolveTest is Test {

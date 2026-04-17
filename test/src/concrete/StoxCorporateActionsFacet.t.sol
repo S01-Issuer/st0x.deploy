@@ -25,6 +25,7 @@ import {
     LibCorporateActionNode
 } from "../../../src/lib/LibCorporateActionNode.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
+import {InvalidSplitMultiplier} from "../../../src/lib/LibStockSplit.sol";
 
 /// @dev Mock authorizer used by the facet tests. Records the most recent
 /// `authorize` call so tests can assert the per-action context that the facet
@@ -638,7 +639,6 @@ contract StoxCorporateActionsFacetTest is Test {
         );
     }
 
-
     /// headNode and tailNode revert on a completely fresh list where no
     /// action has ever been scheduled (nodes array has length 0).
     function testHeadNodeRevertsOnFreshList() external {
@@ -1040,5 +1040,106 @@ contract StoxCorporateActionsFacetTest is Test {
 
         vm.prank(ALICE);
         facetViaHarness.cancelCorporateAction(actionIndex);
+    }
+
+    /// Schedule returns the correct actionIndex.
+    function testScheduleViaFacetReturnsActionIndex() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory parameters = abi.encode(twoX);
+
+        vm.prank(ALICE);
+        uint256 id1 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, parameters);
+
+        vm.prank(ALICE);
+        uint256 id2 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 2000, parameters);
+
+        assertEq(id1, 1);
+        assertEq(id2, 2);
+    }
+
+    /// completedActionCount reflects completed stock splits via the facet.
+    function testCompletedActionCountViaFacet() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory parameters = abi.encode(twoX);
+
+        vm.prank(ALICE);
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, parameters);
+
+        assertEq(facetViaHarness.completedActionCount(), 0);
+
+        vm.warp(2000);
+        assertEq(facetViaHarness.completedActionCount(), 1);
+    }
+
+    /// Schedule with invalid multiplier reverts through the facet.
+    function testScheduleInvalidMultiplierRevertsViaFacet() external {
+        Float zero = LibDecimalFloat.packLossless(0, 0);
+        bytes memory parameters = abi.encode(zero);
+
+        vm.prank(ALICE);
+        vm.expectRevert(InvalidSplitMultiplier.selector);
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, parameters);
+    }
+
+    /// Schedule with past effectiveTime reverts through the facet.
+    function testSchedulePastTimeRevertsViaFacet() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory parameters = abi.encode(twoX);
+
+        vm.prank(ALICE);
+        vm.expectRevert(abi.encodeWithSelector(EffectiveTimeInPast.selector, uint64(500), block.timestamp));
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 500, parameters);
+    }
+
+    /// Cancel a completed action reverts through the facet.
+    function testCancelCompletedRevertsViaFacet() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory parameters = abi.encode(twoX);
+
+        vm.prank(ALICE);
+        uint256 id = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, parameters);
+
+        vm.warp(2000);
+
+        vm.prank(ALICE);
+        vm.expectRevert(abi.encodeWithSelector(ActionAlreadyComplete.selector, id));
+        facetViaHarness.cancelCorporateAction(id);
+    }
+
+    /// Cancel non-existent action reverts through the facet.
+    function testCancelNonExistentRevertsViaFacet() external {
+        vm.prank(ALICE);
+        vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, uint256(99)));
+        facetViaHarness.cancelCorporateAction(99);
+    }
+
+    /// Full lifecycle through the facet: schedule, verify pending, complete,
+    /// verify completed, cancel a second pending action.
+    function testFullLifecycleViaFacet() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        Float threeX = LibDecimalFloat.packLossless(3, 0);
+
+        vm.prank(ALICE);
+        uint256 id1 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, abi.encode(twoX));
+
+        vm.prank(ALICE);
+        uint256 id2 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 3000, abi.encode(threeX));
+
+        assertEq(facetViaHarness.completedActionCount(), 0);
+
+        vm.warp(2000);
+        assertEq(facetViaHarness.completedActionCount(), 1);
+
+        vm.prank(ALICE);
+        facetViaHarness.cancelCorporateAction(id2);
+
+        assertEq(facetViaHarness.completedActionCount(), 1);
+
+        vm.warp(4000);
+        // Still 1 — cancelled action doesn't complete.
+        assertEq(facetViaHarness.completedActionCount(), 1);
+
+        assertEq(id1, 1);
+        assertEq(id2, 2);
     }
 }
