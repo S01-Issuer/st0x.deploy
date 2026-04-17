@@ -28,6 +28,7 @@ import {
 } from "../../../src/lib/LibCorporateActionNode.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {InvalidSplitMultiplier} from "../../../src/error/ErrStockSplit.sol";
+import {LibTestTofu} from "../../lib/LibTestTofu.sol";
 
 /// @dev Mock authorizer used by the facet tests. Records the most recent
 /// `authorize` call so tests can assert the per-action context that the facet
@@ -62,6 +63,7 @@ contract MockAuthorizer is IAuthorizeV1 {
 contract DelegatecallHarness {
     address public immutable FACET;
     IAuthorizeV1 public authorizer;
+    uint8 public constant decimals = 18;
 
     constructor(address facet_) {
         FACET = facet_;
@@ -88,7 +90,9 @@ contract DelegatecallHarness {
 
 /// @dev Harness to test library functions directly.
 contract CorporateActionHarness {
-    function resolveActionType(bytes32 typeHash, bytes memory parameters) external pure returns (uint256) {
+    uint8 public constant decimals = 18;
+
+    function resolveActionType(bytes32 typeHash, bytes memory parameters) external returns (uint256) {
         return LibCorporateAction.resolveActionType(typeHash, parameters);
     }
 
@@ -143,6 +147,7 @@ contract StoxCorporateActionsFacetTest is Test {
     address internal constant ALICE = address(0xA11CE);
 
     function setUp() public {
+        LibTestTofu.deployTofu(vm);
         facetImpl = new StoxCorporateActionsFacet();
         harness = new DelegatecallHarness(address(facetImpl));
         facetViaHarness = StoxCorporateActionsFacet(address(harness));

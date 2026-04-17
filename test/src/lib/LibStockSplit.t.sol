@@ -17,8 +17,23 @@ import {
 } from "../../../src/lib/LibCorporateActionNode.sol";
 import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 import {InvalidSplitMultiplier, MultiplierTooSmall, MultiplierTooLarge} from "../../../src/error/ErrStockSplit.sol";
+import {LibTestTofu} from "../../lib/LibTestTofu.sol";
 
-contract StockSplitHarness {
+abstract contract DecimalsMock {
+    uint8 internal immutable _DECIMALS;
+
+    constructor(uint8 decimals_) {
+        _DECIMALS = decimals_;
+    }
+
+    function decimals() external view returns (uint8) {
+        return _DECIMALS;
+    }
+}
+
+contract StockSplitHarness is DecimalsMock {
+    constructor(uint8 decimals_) DecimalsMock(decimals_) {}
+
     function resolveAndSchedule(bytes32 typeHash, uint64 effectiveTime, bytes memory parameters)
         external
         returns (uint256)
@@ -27,7 +42,7 @@ contract StockSplitHarness {
         return LibCorporateAction.schedule(actionType, effectiveTime, parameters);
     }
 
-    function resolveActionType(bytes32 typeHash, bytes memory parameters) external pure returns (uint256) {
+    function resolveActionType(bytes32 typeHash, bytes memory parameters) external returns (uint256) {
         return LibCorporateAction.resolveActionType(typeHash, parameters);
     }
 
@@ -44,8 +59,10 @@ contract StockSplitHarness {
     }
 }
 
-contract ValidationHarness {
-    function validate(bytes memory parameters) external pure {
+contract ValidationHarness is DecimalsMock {
+    constructor(uint8 decimals_) DecimalsMock(decimals_) {}
+
+    function validate(bytes memory parameters) external {
         LibStockSplit.validateParameters(parameters);
     }
 }
@@ -54,11 +71,12 @@ contract LibStockSplitValidationTest is Test {
     ValidationHarness internal v;
 
     function setUp() public {
-        v = new ValidationHarness();
+        LibTestTofu.deployTofu(vm);
+        v = new ValidationHarness(18);
     }
 
     /// Valid multiplier passes validation.
-    function testValidMultiplier() external view {
+    function testValidMultiplier() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
         v.validate(abi.encode(twoX));
     }
@@ -95,7 +113,7 @@ contract LibStockSplitValidationTest is Test {
 
     /// Audit P1-1 / P2-2: the exact floor boundary, `1e-18`, must pass.
     /// `trunc(1e18 * 1e-18) == 1`.
-    function testFloorBoundaryMultiplierPasses() external view {
+    function testFloorBoundaryMultiplierPasses() external {
         Float boundary = LibDecimalFloat.packLossless(1, -18);
         v.validate(abi.encode(boundary));
     }
@@ -109,13 +127,13 @@ contract LibStockSplitValidationTest is Test {
     }
 
     /// Audit P1-1 / P2-2: a large-but-realistic 1000x split must pass.
-    function testLargeButRealisticSplitPasses() external view {
+    function testLargeButRealisticSplitPasses() external {
         Float thousandX = LibDecimalFloat.packLossless(1000, 0);
         v.validate(abi.encode(thousandX));
     }
 
     /// Fractional multiplier (1/3 reverse split) is valid.
-    function testFractionalMultiplierValid() external view {
+    function testFractionalMultiplierValid() external {
         Float oneThird = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(3, 0));
         v.validate(abi.encode(oneThird));
     }
@@ -129,7 +147,7 @@ contract LibStockSplitValidationTest is Test {
     }
 
     /// Exact ceiling boundary: 1e18 multiplier gives trunc(1e18 * 1e18) = 1e36.
-    function testExactCeilingBoundaryPasses() external view {
+    function testExactCeilingBoundaryPasses() external {
         Float ceiling = LibDecimalFloat.packLossless(1, 18);
         v.validate(abi.encode(ceiling));
     }
@@ -150,7 +168,7 @@ contract LibStockSplitValidationTest is Test {
     }
 
     /// Fuzz: any positive multiplier within bounds passes validation.
-    function testFuzzValidMultiplier(uint64 coeff, int8 exp) external view {
+    function testFuzzValidMultiplier(uint64 coeff, int8 exp) external {
         vm.assume(coeff > 0);
         exp = int8(bound(exp, -17, 17));
         // forge-lint: disable-next-line(unsafe-typecast)
@@ -204,11 +222,12 @@ contract LibStockSplitResolveTest is Test {
     StockSplitHarness internal h;
 
     function setUp() public {
-        h = new StockSplitHarness();
+        LibTestTofu.deployTofu(vm);
+        h = new StockSplitHarness(18);
     }
 
     /// STOCK_SPLIT_TYPE_HASH resolves to ACTION_TYPE_STOCK_SPLIT.
-    function testResolveStockSplit() external view {
+    function testResolveStockSplit() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
         uint256 bitmap = h.resolveActionType(STOCK_SPLIT_TYPE_HASH, abi.encode(twoX));
         assertEq(bitmap, ACTION_TYPE_STOCK_SPLIT);
@@ -233,7 +252,8 @@ contract LibStockSplitLifecycleTest is Test {
     StockSplitHarness internal h;
 
     function setUp() public {
-        h = new StockSplitHarness();
+        LibTestTofu.deployTofu(vm);
+        h = new StockSplitHarness(18);
         vm.warp(1000);
     }
 

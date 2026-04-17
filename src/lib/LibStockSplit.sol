@@ -3,58 +3,58 @@
 pragma solidity =0.8.25;
 
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
+import {LibTOFUTokenDecimals} from "rain.tofu.erc20-decimals/lib/LibTOFUTokenDecimals.sol";
 import {InvalidSplitMultiplier, MultiplierTooSmall, MultiplierTooLarge} from "../error/ErrStockSplit.sol";
 
 /// @title LibStockSplit
 /// @notice Validation and encoding for stock split parameters.
 library LibStockSplit {
     /// @notice Validate that encoded parameters contain a usable stock split
-    /// multiplier.
+    /// multiplier. Reads the vault's decimals via the TOFU singleton to scale
+    /// the bounds per-token. Under delegatecall from the vault, `address(this)`
+    /// resolves to the vault.
     ///
     /// Rules:
-    /// 1. The unpacked `coefficient` must be strictly positive — rejects
-    ///    zero and negative coefficients (`InvalidSplitMultiplier`).
-    /// 2. `trunc(1e18 * multiplier)` must be at least `1` — rejects
-    ///    near-zero multipliers that would truncate every realistic balance
-    ///    to zero on the first rebase pass (`MultiplierTooSmall`).
-    /// 3. `trunc(1e18 * multiplier)` must be at most `1e36` — rejects
-    ///    near-saturation multipliers that would risk overflow when applied
-    ///    sequentially to realistic supplies (`MultiplierTooLarge`).
+    /// 1. Multiplier must be strictly positive — rejects zero and negative
+    ///    values (`InvalidSplitMultiplier`).
+    /// 2. Multiplier must be at least the value of 1 smallest-unit in Float
+    ///    terms (`fromFixedDecimal(1, decimals)` = `10^(-decimals)`) — rejects
+    ///    multipliers that would truncate a 1-wei balance to zero on the
+    ///    first rebase pass (`MultiplierTooSmall`).
+    /// 3. Multiplier must be at most the value of 1 whole token represented
+    ///    as a raw smallest-unit count (`fromFixedDecimal(10^decimals, 0)`) —
+    ///    rejects near-saturation multipliers that risk overflow on
+    ///    sequential application (`MultiplierTooLarge`).
     ///
     /// The bounds are deliberately conservative. The largest historical real
     /// stock split was roughly 1000x (= 1e3), well inside the ceiling, and
     /// the smallest realistic reverse split would be around 1/1000 (= 1e-3),
-    /// well above the floor. An authorized scheduler that wants to apply a
-    /// multiplier outside these bounds is almost certainly misconfigured.
-    ///
-    /// @dev Pathologically large multipliers (e.g. `packLossless(1, 100)`) may
-    /// saturate or revert inside `LibDecimalFloat.mul` / `toFixedDecimalLossy`
-    /// before reaching the `applied > 1e36` branch. In that case the
-    /// user-visible error is the float library's revert, not
-    /// `MultiplierTooLarge`. This is acceptable — the scheduler is authorized
-    /// and such inputs indicate misconfiguration either way.
+    /// well above the floor.
     ///
     /// @param parameters ABI-encoded Float.
-    function validateParameters(bytes memory parameters) internal pure {
+    function validateParameters(bytes memory parameters) internal {
         Float multiplier = abi.decode(parameters, (Float));
-        // Only the coefficient is needed for the sign check; the exponent is
-        // irrelevant because a negative/zero coefficient is rejected regardless.
-        //slither-disable-next-line unused-return
-        (int256 coefficient,) = LibDecimalFloat.unpack(multiplier);
-        if (coefficient <= 0) revert InvalidSplitMultiplier();
 
-        // Apply `multiplier` to 1e18 and truncate to uint256. Used for both
-        // the floor and the ceiling check. The `int256(1e18)` cast is safe
-        // because `1e18` is a compile-time constant far below `2^255`.
-        // The second return value is the loss flag; we only need the truncated
-        // value for bounds comparison.
-        // forge-lint: disable-next-line(unsafe-typecast)
-        //slither-disable-next-line unused-return
-        (uint256 applied,) = LibDecimalFloat.toFixedDecimalLossy(
-            LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(1e18), 0), multiplier), 0
-        );
-        if (applied == 0) revert MultiplierTooSmall(multiplier);
-        if (applied > 1e36) revert MultiplierTooLarge(multiplier);
+        // Reject zero and negative multipliers.
+        if (LibDecimalFloat.lte(multiplier, LibDecimalFloat.FLOAT_ZERO)) {
+            revert InvalidSplitMultiplier();
+        }
+
+        // TOFU the vault's decimals — snapshot on first call, verify
+        // consistency on subsequent calls. `address(this)` is the vault
+        // under delegatecall.
+        uint8 decimals = LibTOFUTokenDecimals.safeDecimalsForToken(address(this));
+
+        // Floor: one smallest-unit balance in Float terms. Below this, a
+        // 1-wei balance truncates to zero on rebase.
+        Float floor = LibDecimalFloat.fromFixedDecimalLosslessPacked(1, decimals);
+        if (LibDecimalFloat.lt(multiplier, floor)) revert MultiplierTooSmall(multiplier);
+
+        // Ceiling: a 1-whole-token balance's raw smallest-unit count in
+        // Float terms (i.e. 10^decimals). Above this risks overflow when
+        // applied sequentially.
+        Float ceiling = LibDecimalFloat.fromFixedDecimalLosslessPacked(10 ** decimals, 0);
+        if (LibDecimalFloat.gt(multiplier, ceiling)) revert MultiplierTooLarge(multiplier);
     }
 
     /// @notice Decode a stock split multiplier from parameters bytes.
