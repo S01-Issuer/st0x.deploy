@@ -5,7 +5,6 @@ pragma solidity =0.8.25;
 import {Float} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT} from "./LibCorporateAction.sol";
 import {CompletionFilter, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
-import {LibStockSplit} from "./LibStockSplit.sol";
 import {LibRebaseMath} from "./LibRebaseMath.sol";
 
 /// @title LibRebase
@@ -99,7 +98,7 @@ library LibRebase {
 
         while (nodeIndex != 0) {
             newCursor = nodeIndex;
-            Float multiplier = LibStockSplit.decodeParameters(s.nodes[nodeIndex].parameters);
+            Float multiplier = abi.decode(s.nodes[nodeIndex].parameters, (Float));
             // Rasterize after each multiplier to match what storage writes
             // would produce. This ensures dormant and active accounts
             // converge to identical balances. `LibRebaseMath.applyMultiplier`
