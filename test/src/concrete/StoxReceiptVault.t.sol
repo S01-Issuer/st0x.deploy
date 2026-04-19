@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std/Test.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
@@ -295,5 +295,62 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         // And the post-migration view equals the stored (idempotence).
         assertEq(vault.balanceOf(ALICE), vault.rawStoredBalance(ALICE));
         assertEq(vault.balanceOf(BOB), vault.rawStoredBalance(BOB));
+    }
+
+    /// Fuzzed idempotency: after an initial migration through an arbitrary
+    /// split chain, repeated touches with no new splits must not change
+    /// cursor, stored balance, or view balance, and must not re-emit
+    /// `AccountMigrated`. Guards the `newCursor == currentCursor` early
+    /// return in `_migrateAccount`.
+    function testFuzzMigrationIdempotentAcrossRepeatedTouches(
+        uint32 initialBalance,
+        uint8 numSplits,
+        uint8 seed,
+        uint8 touchCount
+    ) external {
+        initialBalance = uint32(bound(initialBalance, 1, type(uint32).max));
+        numSplits = uint8(bound(numSplits, 0, 8));
+        touchCount = uint8(bound(touchCount, 1, 10));
+
+        vault.publicUpdate(address(0), BOB, uint256(initialBalance));
+
+        for (uint256 i = 0; i < numSplits; i++) {
+            bool forward = ((i ^ seed) & 1) == 0;
+            bytes memory params = forward
+                ? abi.encode(LibDecimalFloat.packLossless(2, 0))
+                : abi.encode(
+                    LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0))
+                );
+            // forge-lint: disable-next-line(unsafe-typecast)
+            vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, uint64(1001 + i * 100), params);
+        }
+
+        if (numSplits > 0) {
+            // forge-lint: disable-next-line(unsafe-typecast)
+            vm.warp(uint64(1001 + uint256(numSplits) * 100 + 1));
+        }
+
+        // First touch triggers the migration.
+        vault.publicUpdate(BOB, BOB, 0);
+
+        uint256 cursorAfterFirst = vault.migrationCursor(BOB);
+        uint256 storedAfterFirst = vault.rawStoredBalance(BOB);
+        uint256 viewAfterFirst = vault.balanceOf(BOB);
+
+        // Repeated touches must be idempotent AND must not re-emit.
+        bytes32 migratedSig = StoxReceiptVault.AccountMigrated.selector;
+        for (uint256 i = 0; i < touchCount; i++) {
+            vm.recordLogs();
+            vault.publicUpdate(BOB, BOB, 0);
+            Vm.Log[] memory logs = vm.getRecordedLogs();
+            for (uint256 j = 0; j < logs.length; j++) {
+                if (logs[j].topics.length > 0 && logs[j].topics[0] == migratedSig) {
+                    fail();
+                }
+            }
+            assertEq(vault.migrationCursor(BOB), cursorAfterFirst, "cursor unchanged across idempotent touches");
+            assertEq(vault.rawStoredBalance(BOB), storedAfterFirst, "stored unchanged across idempotent touches");
+            assertEq(vault.balanceOf(BOB), viewAfterFirst, "view unchanged across idempotent touches");
+        }
     }
 }
