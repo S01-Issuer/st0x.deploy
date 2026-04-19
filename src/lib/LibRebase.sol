@@ -93,7 +93,6 @@ library LibRebase {
         }
 
         uint256 balance = storedBalance;
-        bool modified = false;
 
         while (nodeIndex != 0) {
             newCursor = nodeIndex;
@@ -105,14 +104,9 @@ library LibRebase {
             // codebase (share side, totalSupply, receipt side) — see
             // `LibRebaseMath.sol` for the safety argument on the int256 cast.
             balance = LibRebaseMath.applyMultiplier(balance, multiplier);
-            modified = true;
 
             nodeIndex =
                 LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
-        }
-
-        if (!modified) {
-            return (storedBalance, cursor);
         }
 
         return (balance, newCursor);
