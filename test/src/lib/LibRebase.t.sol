@@ -225,10 +225,12 @@ contract LibRebaseTest is Test {
         (uint256 afterFirst,) = LibDecimalFloat.toFixedDecimalLossy(
             LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(uint256(balance)), 0), m1), 0
         );
-        // Step 2: apply m2, truncate.
-        // forge-lint: disable-next-line(unsafe-typecast)
+        // Step 2: apply m2, truncate. afterFirst is fuzzer-bounded to
+        // stay well within Float coefficient limits.
         (uint256 expected,) = LibDecimalFloat.toFixedDecimalLossy(
-            LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(afterFirst), 0), m2), 0
+            // forge-lint: disable-next-line(unsafe-typecast)
+            LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(afterFirst), 0), m2),
+            0
         );
 
         assertEq(result, expected, "sequential rasterization must match step-by-step reference");

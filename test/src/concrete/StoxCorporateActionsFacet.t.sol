@@ -786,6 +786,8 @@ contract StoxCorporateActionsFacetTest is Test {
         uint256 n = bound(seed, 2, 10);
 
         for (uint256 i = 0; i < n; i++) {
+            // i is bounded to < 10, so 1001 + i * 100 fits easily in uint64.
+            // forge-lint: disable-next-line(unsafe-typecast)
             corporateActionHarness.schedule(1, uint64(1001 + i * 100), "");
         }
 
@@ -987,6 +989,9 @@ contract StoxCorporateActionsFacetTest is Test {
 
         // Offset 1: effectiveTime (uint64, lowest bits)
         uint256 slot1 = uint256(vm.load(harnessAddr, bytes32(node1Base + 1)));
+        // Extracting the uint64-packed field from the slot — truncation is
+        // intentional and exactly what we want.
+        // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(uint64(slot1), 1500, "node1 effectiveTime at offset 1");
 
         // Offset 2: prev (node 1 is head, so prev = 0)
@@ -1099,9 +1104,10 @@ contract StoxCorporateActionsFacetTest is Test {
 
         for (uint256 i = 0; i < count; i++) {
             vm.prank(ALICE);
+            // count is bounded to ≤ 15 so 1001 + i * 100 fits easily in uint64.
             // forge-lint: disable-next-line(unsafe-typecast)
-            uint256 id =
-                facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, uint64(1001 + i * 100), parameters);
+            uint64 effectiveTime = uint64(1001 + i * 100);
+            uint256 id = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, effectiveTime, parameters);
             assertEq(id, i + 1, "actionIndex must be sequential");
         }
     }
