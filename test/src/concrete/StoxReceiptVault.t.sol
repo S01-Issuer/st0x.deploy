@@ -13,7 +13,7 @@ import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
 /// @dev Test-only subclass of StoxReceiptVault that bypasses
 /// `OffchainAssetReceiptVault._update`'s authorizer / freeze checks. This lets
 /// us exercise `StoxReceiptVault`'s migration logic in isolation without
-/// standing up the full ethgild auth/freeze infrastructure (admin grants,
+/// standing up the full rain.vats auth/freeze infrastructure (admin grants,
 /// authorizer wiring, certify state, etc).
 ///
 /// The test class re-overrides `_update` to call `_migrateAccount` for both
@@ -62,7 +62,7 @@ contract StoxReceiptVaultTest is Test {
     }
 }
 
-/// Integration tests for the corporate-actions hooks added in PR4.
+/// Integration tests for the corporate-actions rebase hooks.
 ///
 /// These tests are the regression guards for the CRITICAL inflation bug
 /// where mint or transfer to a fresh recipient after a completed split

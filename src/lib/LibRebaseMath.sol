@@ -10,7 +10,7 @@ import {BalanceExceedsInt256Max} from "../error/ErrRebase.sol";
 /// `uint256` balance with rasterize-toward-zero truncation. The result is the
 /// canonical "apply one rebase step" operation reused by every consumer of
 /// the corporate-actions rebase system (share-side migration, per-cursor
-/// totalSupply pots, and — from PR #7 onward — receipt-side migration).
+/// totalSupply pots, and receipt-side migration).
 ///
 /// Having a single helper guarantees that every rebase path uses identical
 /// rounding characteristics: any future drift in Rain Float's precision

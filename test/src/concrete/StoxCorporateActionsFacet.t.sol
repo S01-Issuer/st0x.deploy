@@ -195,9 +195,9 @@ contract StoxCorporateActionsFacetTest is Test {
 
     /// `scheduleCorporateAction` calls the authorizer with the SCHEDULE
     /// permission and `abi.encode(typeHash, effectiveTime, parameters)` as
-    /// the data argument. On PR1 the call reverts at the `resolveActionType`
-    /// stub, so we use `vm.expectCall` (which survives the revert) to assert
-    /// the authorizer call was made with the right arguments.
+    /// the data argument. We use an unknown type hash so `resolveActionType`
+    /// reverts after the authorize call, then verify the authorize call
+    /// happened via `vm.expectCall` (which survives the downstream revert).
     function testScheduleCorporateActionForwardsContextToAuthorizer() external {
         bytes32 typeHash = keccak256("DefinitelyUnknownActionType");
         uint64 effectiveTime = 1500;
@@ -219,11 +219,10 @@ contract StoxCorporateActionsFacetTest is Test {
     }
 
     /// `cancelCorporateAction` calls the authorizer with the CANCEL permission
-    /// and `abi.encode(actionIndex)` as the data argument. The cancel path may
-    /// either succeed (PR1 stub) or revert at the linked-list bounds check
-    /// (PR2+, where cancel actually verifies the index exists). We use a
-    /// low-level call to absorb both outcomes — what we're verifying is that
-    /// the authorizer call happened first with the expected per-action data.
+    /// and `abi.encode(actionIndex)` as the data argument. `cancel` reverts
+    /// with `ActionDoesNotExist` for index 42 since nothing is scheduled, so
+    /// we use a low-level call and discard the success flag — the test is
+    /// asserting the authorize call happened first via `vm.expectCall`.
     function testCancelCorporateActionForwardsContextToAuthorizer() external {
         uint256 actionIndex = 42;
 
@@ -235,10 +234,7 @@ contract StoxCorporateActionsFacetTest is Test {
         );
 
         vm.prank(ALICE);
-        // The outer call may revert on PR2+ where cancel actually checks the
-        // index. We deliberately discard the success flag because what matters
-        // for this test is that the authorizer was called (asserted by
-        // vm.expectCall above), not whether the cancel itself succeeded.
+        // Cancel reverts on unknown index; we care that authorize was called.
         (bool success,) = address(facetViaHarness)
             .call(abi.encodeWithSelector(StoxCorporateActionsFacet.cancelCorporateAction.selector, actionIndex));
         success; // silence unused-var warning

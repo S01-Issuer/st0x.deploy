@@ -85,7 +85,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// rasterizes the account's stored balance to the post-rebase basis and
     /// advances the cursor; for zero-balance accounts the balance rewrite is
     /// a no-op but the cursor advancement is still load-bearing — see
-    /// `LibRebase.migratedBalance` and the 2026-04-07-01 audit post-mortem for
+    /// `LibRebase.migratedBalance` and its zero-balance regression tests for
     /// the bug this prevents.
     ///
     /// `internal` (rather than `private`) so test harnesses derived from this
