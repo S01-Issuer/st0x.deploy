@@ -3,6 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
+import {BalanceExceedsInt256Max} from "../error/ErrRebase.sol";
 
 /// @title LibRebaseMath
 /// @notice Shared primitive for applying a single Rain Float multiplier to a
@@ -21,16 +22,18 @@ library LibRebaseMath {
     /// `trunc(balance × multiplier)` — integer truncation toward zero, same
     /// as a direct `uint256` cast on a positive fixed-point value.
     ///
-    /// The `int256(balance)` cast is safe because realistic ERC-20 / ERC-1155
-    /// balances are well below `2^255`; `LibStockSplit.validateParameters`
-    /// bounds the multiplier so the product cannot overflow the float
-    /// library's internal mantissa for realistic inputs.
+    /// Reverts with `BalanceExceedsInt256Max` if `balance > type(int256).max`
+    /// — such a balance would wrap to a negative `int256` and produce a
+    /// silently incorrect Float coefficient.
     ///
     /// @param balance The stored balance in wei.
     /// @param multiplier The Rain Float multiplier to apply.
     /// @return The rasterized balance after a single multiplier step.
     function applyMultiplier(uint256 balance, Float multiplier) internal pure returns (uint256) {
+        // forge-lint: disable-next-line(unsafe-typecast)
+        if (balance > uint256(type(int256).max)) revert BalanceExceedsInt256Max(balance);
         (uint256 result,) = LibDecimalFloat.toFixedDecimalLossy(
+            // Guarded above: balance fits in int256.
             // forge-lint: disable-next-line(unsafe-typecast)
             LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(balance), 0), multiplier),
             0
