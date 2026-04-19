@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std/Test.sol";
-import {LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
+import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
@@ -209,5 +209,91 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         emit StoxReceiptVault.AccountMigrated(BOB, 0, 1, 100, 200);
         // Touch Bob to trigger migration.
         vault.publicUpdate(BOB, BOB, 0);
+    }
+
+    /// Fuzzed convergence invariant: for any initial balance and any sequence
+    /// of stock splits, the view `balanceOf` (pre-migration) must equal the
+    /// rasterized stored balance after `_update`-driven migration. This
+    /// guards the core property that external reads and post-rasterization
+    /// stored state agree — if they diverge, transfers could use different
+    /// balances than what the view reports.
+    function testFuzzConvergenceViewMatchesStoredAfterMigration(uint64 initialBalance, uint8 numSplits, uint8 seed)
+        external
+    {
+        initialBalance = uint64(bound(initialBalance, 1, type(uint32).max));
+        numSplits = uint8(bound(numSplits, 0, 8));
+
+        vault.publicUpdate(address(0), BOB, uint256(initialBalance));
+
+        // Schedule alternating forward and reverse splits.
+        for (uint256 i = 0; i < numSplits; i++) {
+            // Alternate 2x and 1/2x based on i bit 0; use seed to vary starting
+            // direction across fuzz runs.
+            bool forward = ((i ^ seed) & 1) == 0;
+            bytes memory params = forward
+                ? abi.encode(LibDecimalFloat.packLossless(2, 0))
+                : abi.encode(
+                    LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0))
+                );
+            // forge-lint: disable-next-line(unsafe-typecast)
+            vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, uint64(1001 + i * 100), params);
+        }
+
+        if (numSplits > 0) {
+            // forge-lint: disable-next-line(unsafe-typecast)
+            vm.warp(uint64(1001 + uint256(numSplits) * 100 + 1));
+        }
+
+        // Snapshot view balance BEFORE migration.
+        uint256 viewBefore = vault.balanceOf(BOB);
+
+        // Force migration via a self-touch.
+        vault.publicUpdate(BOB, BOB, 0);
+
+        // View AFTER migration must still match (idempotence).
+        uint256 viewAfter = vault.balanceOf(BOB);
+        uint256 stored = vault.rawStoredBalance(BOB);
+
+        assertEq(viewBefore, viewAfter, "view balance must not change across migration");
+        assertEq(viewAfter, stored, "view and stored balance must converge");
+    }
+
+    /// Fuzzed convergence across two accounts migrated at different points:
+    /// Alice migrates after split 1, Bob migrates after splits 1 and 2. Their
+    /// balances computed from different migration paths must still match
+    /// their view values and their stored values after full migration.
+    function testFuzzTwoAccountDifferentMigrationPathsConverge(uint32 aliceInit, uint32 bobInit) external {
+        aliceInit = uint32(bound(aliceInit, 1, type(uint32).max));
+        bobInit = uint32(bound(bobInit, 1, type(uint32).max));
+
+        vault.publicUpdate(address(0), ALICE, uint256(aliceInit));
+        vault.publicUpdate(address(0), BOB, uint256(bobInit));
+
+        // Split 1: 2x at t=1500.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vm.warp(1600);
+
+        // Alice touches after split 1 (migrates partially).
+        vault.publicUpdate(ALICE, ALICE, 0);
+
+        // Split 2: 1/2x at t=2000.
+        Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 2000, abi.encode(halfX));
+        vm.warp(2100);
+
+        // Both view balances before final migration.
+        uint256 aliceView = vault.balanceOf(ALICE);
+        uint256 bobView = vault.balanceOf(BOB);
+
+        // Both touched — full migration.
+        vault.publicUpdate(ALICE, ALICE, 0);
+        vault.publicUpdate(BOB, BOB, 0);
+
+        // Convergence: view matches stored for both accounts.
+        assertEq(aliceView, vault.rawStoredBalance(ALICE), "alice view matches stored");
+        assertEq(bobView, vault.rawStoredBalance(BOB), "bob view matches stored");
+        // And the post-migration view equals the stored (idempotence).
+        assertEq(vault.balanceOf(ALICE), vault.rawStoredBalance(ALICE));
+        assertEq(vault.balanceOf(BOB), vault.rawStoredBalance(BOB));
     }
 }
