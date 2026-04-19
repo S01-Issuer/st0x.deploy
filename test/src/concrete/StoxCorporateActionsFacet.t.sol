@@ -277,8 +277,7 @@ contract StoxCorporateActionsFacetTest is Test {
     // -----------------------------------------------------------------------
     // onlyDelegatecalled guard — every external entry point must revert with
     // `FacetMustBeDelegatecalled` when invoked directly on the standalone
-    // facet deployment (i.e. not via the vault's delegatecall). See
-    // `audit/2026-04-09-01/guidelines-advisor.md` Item 3.
+    // facet deployment (i.e. not via the vault's delegatecall).
 
     /// Direct call to `completedActionCount` on the standalone facet reverts
     /// with `FacetMustBeDelegatecalled`, even though the function is a pure
@@ -563,8 +562,8 @@ contract StoxCorporateActionsFacetTest is Test {
     /// `node.effectiveTime = 0` sentinel guard in `LibCorporateAction.cancel`.
     /// Without that zero assignment — or without this check catching it —
     /// a second cancel would read `prev = next = 0` (zeroed by the first
-    /// cancel) and blow away `s.head` and `s.tail` during unlink. See
-    /// audit/2026-04-09-01 Item 14 and the @dev block on `cancel`.
+    /// cancel) and blow away `s.head` and `s.tail` during unlink. See the
+    /// @dev block on `LibCorporateAction.cancel`.
     function testCancelAlreadyCancelledReverts() external {
         uint256 id = corporateActionHarness.schedule(1, 1500, "");
         corporateActionHarness.schedule(1, 2000, "");
@@ -595,8 +594,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// `vm.load` to assert that each sentinel lands at its expected offset.
     /// Any reorder or insertion in the middle of the struct breaks this
     /// test. Must be extended in every PR that appends a new field. See
-    /// audit/2026-04-09-01 Item 10 and the DO NOT REORDER comment on
-    /// `CorporateActionStorage`.
+    /// the DO NOT REORDER comment on `CorporateActionStorage`.
     ///
     /// Mappings (`accountMigrationCursor`) are tested by verifying the
     /// mapping's base slot (`sload(slot+offset)` returns 0) and by reading

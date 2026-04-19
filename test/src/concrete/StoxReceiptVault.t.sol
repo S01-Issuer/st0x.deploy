@@ -64,9 +64,9 @@ contract StoxReceiptVaultTest is Test {
 
 /// Integration tests for the corporate-actions hooks added in PR4.
 ///
-/// These tests are the regression guards for `audit/2026-04-07-01/pass1/
-/// StoxReceiptVault.md::A03-1` — the CRITICAL inflation bug where mint or
-/// transfer to a fresh recipient after a completed split would over-multiply
+/// These tests are the regression guards for the CRITICAL inflation bug
+/// where mint or transfer to a fresh recipient after a completed split
+/// would over-multiply
 /// the recipient's balance, minting tokens out of thin air.
 contract StoxReceiptVaultMigrationIntegrationTest is Test {
     TestStoxReceiptVault internal vault;

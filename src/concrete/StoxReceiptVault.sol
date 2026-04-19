@@ -27,9 +27,10 @@ import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
 /// For zero-balance accounts, (1) is a no-op but (2) is still load-bearing:
 /// otherwise a subsequent mint or transfer-in would land at a stale cursor
 /// and the next `balanceOf` read would erroneously re-apply completed
-/// multipliers. See `LibRebase.migratedBalance` and the
-/// `audit/2026-04-07-01/` post-mortem for the full reproduction of the bug
-/// this prevents.
+/// multipliers to a balance that was already written at the post-rebase
+/// basis, silently inflating the recipient's balance. See
+/// `LibRebase.migratedBalance` for the zero-balance fast path and its
+/// regression tests.
 ///
 /// NOTE: totalSupply is not yet rebase-aware. It is handled by
 /// LibTotalSupply using per-cursor pots (added separately).

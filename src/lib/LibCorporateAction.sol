@@ -51,7 +51,7 @@ library LibCorporateAction {
     /// the struct, and the storage-layout pin test in
     /// `test/src/concrete/StoxCorporateActionsFacet.t.sol`
     /// (`testStorageLayoutPin`) must be updated in the same PR to cover
-    /// the new field's offset. See audit/2026-04-09-01 Item 10.
+    /// the new field's offset.
     struct CorporateActionStorage {
         /// @param head Head of the list (1-based index, earliest effectiveTime). 0 = empty.
         uint256 head;
@@ -123,9 +123,9 @@ library LibCorporateAction {
     /// `parameters` must already be written; this helper only updates the
     /// list pointers (`prev`, `next`, `head`, `tail`).
     ///
-    /// Extracted from `schedule` per audit/2026-04-09-01 Item 12 so the
-    /// insertion walk is isolated from sentinel allocation and node
-    /// population. This helper assumes the storage struct has been
+    /// Extracted from `schedule` so the insertion walk is isolated from
+    /// sentinel allocation and node population. This helper assumes the
+    /// storage struct has been
     /// initialised (sentinel already pushed) and the node at `newIndex` is
     /// fully populated.
     ///
@@ -191,8 +191,7 @@ library LibCorporateAction {
     /// writing `nextId = 0` into both. Catastrophic, silent state
     /// corruption. A double-cancel-reverts regression test
     /// (`testCancelAlreadyCancelledReverts`) locks this in — do not remove
-    /// the test or the zero assignment together. See audit/2026-04-09-01
-    /// Item 14.
+    /// the test or the zero assignment together.
     function cancel(uint256 actionIndex) internal {
         CorporateActionStorage storage s = getStorage();
         if (actionIndex == 0 || actionIndex >= s.nodes.length) revert ActionDoesNotExist(actionIndex);

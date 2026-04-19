@@ -42,7 +42,6 @@ contract LibRebaseTest is Test {
     /// split. Otherwise a subsequent mint or transfer-in to this account would
     /// land at a stale cursor and the next read of `balanceOf` would re-apply
     /// the split multipliers, silently inflating the recipient's balance.
-    /// See audit/2026-04-07-01/pass1/StoxReceiptVault.md::A03-1.
     function testZeroBalanceAdvancesCursor() external {
         h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
         vm.warp(2000);

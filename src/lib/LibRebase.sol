@@ -51,8 +51,6 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 /// (`test/src/lib/LibRebase.t.sol`) locks this exact input → 96
 /// relationship in place. Any change to Rain Float's precision
 /// characteristics will surface there first.
-///
-/// See `audit/2026-04-09-01` Item 7.
 library LibRebase {
     /// @notice Calculate the migrated balance by walking completed stock split
     /// nodes from a cursor, applying each multiplier sequentially.
@@ -64,8 +62,9 @@ library LibRebase {
     /// and the next read of `balanceOf` would re-apply every completed
     /// multiplier to a balance that was already written at the post-rebase
     /// basis — over-multiplying and silently inflating the recipient's balance.
-    /// See `audit/2026-04-07-01/pass1/StoxReceiptVault.md::A03-1` and
-    /// `pass1/LibRebase.md::A26-1` for the full reproduction.
+    /// Regression tests: `testZeroBalanceAdvancesCursor*` in
+    /// `test/src/lib/LibRebase.t.sol`, and the fresh-recipient regression
+    /// tests in `test/src/concrete/StoxReceiptVault.t.sol`.
     ///
     /// @param storedBalance The account's raw stored balance.
     /// @param cursor The index of the last node this account was migrated
