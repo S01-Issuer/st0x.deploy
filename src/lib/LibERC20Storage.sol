@@ -2,9 +2,12 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-/// @dev The ERC-7201 storage location for OpenZeppelin's ERC20Upgradeable.
-/// keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.ERC20")) - 1)) & ~bytes32(uint256(0xff))
-bytes32 constant ERC20_STORAGE_LOCATION = 0x52c63247e1f47db19d5ce0460030c497f067ca4cebf71ba98eeadabe20bace00;
+/// @dev The ERC-7201 namespaced storage root for OpenZeppelin's
+/// `ERC20Upgradeable`, computed in-source from the spec formula rather than
+/// hardcoded as a hex literal. The compiler evaluates this at deploy time,
+/// so there is no runtime cost versus a hardcoded hex.
+bytes32 constant ERC20_STORAGE_LOCATION =
+    keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.ERC20")) - 1)) & ~bytes32(uint256(0xff));
 
 /// @title LibERC20Storage
 /// @notice Direct storage access to OpenZeppelin ERC20Upgradeable internals.
@@ -23,9 +26,12 @@ library LibERC20Storage {
     /// @param account The account to read.
     /// @return result The raw stored balance (pre-rebase).
     function getBalance(address account) internal view returns (uint256 result) {
+        // Inline assembly only accepts literal number constants; bind the
+        // derived constant to a local first.
+        bytes32 slot = ERC20_STORAGE_LOCATION;
         assembly ("memory-safe") {
             mstore(0x00, account)
-            mstore(0x20, ERC20_STORAGE_LOCATION)
+            mstore(0x20, slot)
             result := sload(keccak256(0x00, 0x40))
         }
     }
@@ -34,9 +40,10 @@ library LibERC20Storage {
     /// @param account The account to write.
     /// @param newBalance The new balance to set.
     function setBalance(address account, uint256 newBalance) internal {
+        bytes32 slot = ERC20_STORAGE_LOCATION;
         assembly ("memory-safe") {
             mstore(0x00, account)
-            mstore(0x20, ERC20_STORAGE_LOCATION)
+            mstore(0x20, slot)
             sstore(keccak256(0x00, 0x40), newBalance)
         }
     }
@@ -44,8 +51,9 @@ library LibERC20Storage {
     /// @notice Read totalSupply directly from storage.
     /// @return supply The raw stored totalSupply.
     function getTotalSupply() internal view returns (uint256 supply) {
+        bytes32 slot = ERC20_STORAGE_LOCATION;
         assembly ("memory-safe") {
-            supply := sload(add(ERC20_STORAGE_LOCATION, 2))
+            supply := sload(add(slot, 2))
         }
     }
 }

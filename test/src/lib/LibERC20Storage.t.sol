@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std/Test.sol";
 import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import {LibERC20Storage, ERC20_STORAGE_LOCATION} from "src/lib/LibERC20Storage.sol";
+import {LibERC20Storage} from "src/lib/LibERC20Storage.sol";
 
 /// @dev A minimal `ERC20Upgradeable` subclass that exposes `_mint` / `_burn`
 /// and the `LibERC20Storage` helpers as external methods. The library uses
@@ -52,13 +52,6 @@ contract LibERC20StorageTest is Test {
 
     function setUp() public {
         token = new TestERC20();
-    }
-
-    /// The hardcoded ERC-7201 slot constant matches the documented derivation.
-    function testSlotConstantMatchesDerivation() external pure {
-        bytes32 expected =
-            keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.ERC20")) - 1)) & ~bytes32(uint256(0xff));
-        assertEq(ERC20_STORAGE_LOCATION, expected, "ERC20_STORAGE_LOCATION drift from spec formula");
     }
 
     /// LibERC20Storage.getBalance reads the same value as ERC20Upgradeable.balanceOf.
