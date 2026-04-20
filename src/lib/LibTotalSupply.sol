@@ -92,54 +92,58 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 /// - So `unmigrated[0] == Σ_{cursor==0} underlyingBalance(acc)`. I(0) holds.
 /// - For `k > 0`, no account has cursor `k` and `unmigrated[k] == 0`. I(k) holds.
 ///
-/// **Inductive step.** Assume `I(k)` holds for all `k` pre-transition. Show
-/// each mutation in the ordered `_update` sequence preserves it. The
-/// sequence is `fold → _migrateAccount(from) → _migrateAccount(to) →
-/// (onMint | onBurn) → super._update`.
+/// **Inductive step.** Assume `I(k)` holds for all `k` on entry to an
+/// `_update` call. Show it holds again on exit. The sequence is
+/// `fold → _migrateAccount(from) → _migrateAccount(to) → super._update →
+/// (onMint | onBurn if from/to == 0)`. The invariant can be temporarily
+/// violated in between these steps — we only claim it holds at entry
+/// and exit.
 ///
 /// 1. `fold()` post-bootstrap mutates only `totalSupplyLatestSplit`; no pot
-///    write. I(k) unchanged.
+///    write and no balance write. I(k) unchanged.
 ///
 /// 2. `_migrateAccount(account)` advancing the cursor from `c` to `c'`
 ///    with stored balance `b` rasterizing to `b'`:
 ///    - Writes `cursor(account) = c'` and `underlyingBalance(account) = b'`.
 ///    - Calls `onAccountMigrated`, which does `unmigrated[c] -= b;
 ///      unmigrated[c'] += b'`.
-///    - I(c) after: pre-transition `unmigrated[c]` included `b` (account was
-///      at cursor `c` with balance `b` by IH membership). Account now leaves
+///    - I(c) after: pre-step `unmigrated[c]` included `b` (account was at
+///      cursor `c` with balance `b` by IH membership). Account now leaves
 ///      `c`, so `Σ_{cursor==c}` drops by `b`. Pot drops by `b`. ✓
 ///    - I(c') after: account arrives at `c'` with balance `b'`, so
 ///      `Σ_{cursor==c'}` rises by `b'`. Pot rises by `b'`. ✓
 ///    - Underflow safety: `unmigrated[c] >= b` by IH membership. ✓
 ///
-/// 3. `onMint(amount)` for a mint (`from == 0`, `to != 0`):
-///    - Pre-call, `to` has just been migrated and has `cursor(to) ==
-///      totalSupplyLatestSplit`. OZ has not yet added `amount` to
-///      `_balances[to]`.
-///    - `onMint` adds `amount` to `unmigrated[totalSupplyLatestSplit]`.
-///    - `super._update` then sets `_balances[to] += amount`, so
-///      `Σ_{cursor==latestSplit}` rises by `amount`. Pot rose by `amount`. ✓
+/// 3. `super._update(from, to, amount)`:
+///    - Mint case (`from == 0`): `_balances[to] += amount;
+///      _totalSupply += amount`. `Σ_{cursor==latestSplit}` rises by
+///      `amount` (since `to` is at `latestSplit` post-migrate). Pot is
+///      NOT written yet, so the invariant is temporarily violated.
+///    - Burn case (`to == 0`): reverts if `_balances[from] < amount`
+///      (`ERC20InsufficientBalance`). On success,
+///      `_balances[from] -= amount; _totalSupply -= amount`.
+///      `Σ_{cursor==latestSplit}` drops by `amount`. Pot NOT written
+///      yet — invariant temporarily violated.
+///    - Transfer case: `_balances[from] -= amount; _balances[to] += amount`.
+///      Both accounts at `latestSplit`, so `Σ_{cursor==latestSplit}`
+///      unchanged. I(k) unchanged. Done for transfer.
 ///
-/// 4. `onBurn(amount)` for a burn (`from != 0`, `to == 0`):
-///    - Pre-call, `from` has just been migrated and has `cursor(from) ==
-///      totalSupplyLatestSplit`.
-///    - `onBurn` subtracts `amount` from `unmigrated[totalSupplyLatestSplit]`.
-///    - `super._update` then sets `_balances[from] -= amount`, so
-///      `Σ_{cursor==latestSplit}` drops by `amount`. Pot dropped by
-///      `amount`. ✓
-///    - Underflow safety: OZ's `_update` reverts the burn with
-///      `ERC20InsufficientBalance` if `_balances[from] < amount`. Since
-///      `_balances[from]` is a summand of `unmigrated[totalSupplyLatestSplit]`
-///      by IH, and OZ's guard enforces `_balances[from] >= amount`, we have
-///      `unmigrated[totalSupplyLatestSplit] >= amount`. ✓
+/// 4. `onMint(amount)` (mint case only): adds `amount` to
+///    `unmigrated[totalSupplyLatestSplit]`. Restores the invariant that
+///    step 3 temporarily violated — pot now matches the new balance sum. ✓
 ///
-/// 5. Plain transfer (`from != 0`, `to != 0`) in `super._update`:
-///    - Both accounts were migrated to `totalSupplyLatestSplit` pre-call.
-///    - `_balances[from] -= amount; _balances[to] += amount`. Net change
-///      to `Σ_{cursor==latestSplit}` is zero. No pot write needed. ✓
+/// 5. `onBurn(amount)` (burn case only): subtracts `amount` from
+///    `unmigrated[totalSupplyLatestSplit]`. Restores the invariant. ✓
+///    Underflow safety: OZ's check in step 3 already enforced
+///    `_balances[from] >= amount`. By IH at `_update` entry,
+///    `unmigrated[latestSplit] >= _balances[from] >= amount`, so the
+///    subtraction cannot underflow. This is why `onBurn` runs AFTER
+///    `super._update` — if it ran before, a lone-holder over-burn would
+///    underflow the pot with a raw panic instead of surfacing OZ's
+///    `ERC20InsufficientBalance` error.
 ///
-/// Every transition preserves I(k); the invariant holds at every
-/// `_update` boundary post-bootstrap by induction. Q.E.D.
+/// Every `_update` call returns with the invariant intact; by induction
+/// the invariant holds at every `_update` boundary. Q.E.D.
 library LibTotalSupply {
     /// @notice Compute the effective totalSupply without state changes.
     /// Walks all completed splits, accumulating per-pot contributions with
@@ -263,7 +267,7 @@ library LibTotalSupply {
         if (s.totalSupplyBootstrapped) {
             // Checked subtraction: safe by the pot invariant composed with
             // OZ's own `ERC20InsufficientBalance` guard on the burning
-            // account's balance. See library NatSpec, proof step 4.
+            // account's balance. See library NatSpec, proof step 5.
             s.unmigrated[s.totalSupplyLatestSplit] -= amount;
         }
     }

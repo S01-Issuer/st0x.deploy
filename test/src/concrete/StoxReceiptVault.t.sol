@@ -68,6 +68,10 @@ contract TestStoxReceiptVault is StoxReceiptVault {
     function totalSupplyLatestSplit() external view returns (uint256) {
         return LibCorporateAction.getStorage().totalSupplyLatestSplit;
     }
+
+    function unmigrated(uint256 cursor) external view returns (uint256) {
+        return LibCorporateAction.getStorage().unmigrated[cursor];
+    }
 }
 
 contract StoxReceiptVaultTest is Test {
@@ -627,6 +631,149 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, ALICE, 100, 101));
         vault.publicUpdate(ALICE, address(0), 101);
+    }
+
+    /// @dev Asserts `LibTotalSupply`'s pot invariant I(k) directly at a
+    /// given cursor: the pot value equals the sum of stored balances for
+    /// every account at that cursor, and no other accounts are at that
+    /// cursor.
+    function _assertPotInvariant(uint256 cursor, address[] memory accountsAtCursor) internal view {
+        uint256 sum;
+        for (uint256 i = 0; i < accountsAtCursor.length; i++) {
+            assertEq(
+                vault.migrationCursor(accountsAtCursor[i]), cursor, "I(k): account must be at the expected cursor"
+            );
+            sum += vault.rawStoredBalance(accountsAtCursor[i]);
+        }
+        assertEq(vault.unmigrated(cursor), sum, "I(k): pot must equal sum of stored balances at cursor");
+    }
+
+    /// @dev Build a one-element address array inline.
+    function _single(address a) internal pure returns (address[] memory arr) {
+        arr = new address[](1);
+        arr[0] = a;
+    }
+
+    /// @dev Build a two-element address array inline.
+    function _pair(address a, address b) internal pure returns (address[] memory arr) {
+        arr = new address[](2);
+        arr[0] = a;
+        arr[1] = b;
+    }
+
+    /// @dev Build a three-element address array inline.
+    function _triple(address a, address b, address c) internal pure returns (address[] memory arr) {
+        arr = new address[](3);
+        arr[0] = a;
+        arr[1] = b;
+        arr[2] = c;
+    }
+
+    /// Direct assertion of the LibTotalSupply pot invariant I(k) across a
+    /// mixed activity sequence: two pre-split mints, a split, a post-split
+    /// mint, a transfer, a burn. After each `_update` (post-bootstrap) the
+    /// invariant must hold for every cursor that has touched accounts.
+    function testPotInvariantDirectAfterMixedActivity() external {
+        address[] memory empty = new address[](0);
+
+        // Pre-split mints. Alice and Bob at cursor 0. Bootstrap hasn't
+        // fired yet, so the pot invariant does not apply here.
+        vault.publicUpdate(address(0), ALICE, 50);
+        vault.publicUpdate(address(0), BOB, 100);
+
+        // Schedule and complete a 2x split.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        // Alice touches: fold bootstraps `unmigrated[0] = 150`, then Alice
+        // migrates 50 → 100, shifting 50 out of pot 0 and 100 into pot 1.
+        vault.publicUpdate(ALICE, ALICE, 0);
+        _assertPotInvariant(0, _single(BOB));
+        _assertPotInvariant(1, _single(ALICE));
+
+        // Mint Carol 40 post-split. Fresh recipient cursor advances 0 → 1
+        // with zero balance (no pot delta from migrate). Then super._update
+        // adds 40 to _balances[CAROL], then onMint adds 40 to pot 1.
+        vault.publicUpdate(address(0), CAROL, 40);
+        _assertPotInvariant(0, _single(BOB));
+        _assertPotInvariant(1, _pair(ALICE, CAROL));
+
+        // Alice transfers 30 to Bob. Both migrate first: Alice already at
+        // cursor 1 (no-op), Bob 0 → 1 with stored 100 → migrated 200. Pot
+        // transitions: pot 0 -= 100 (Bob leaves), pot 1 += 200 (Bob arrives).
+        // Then transfer moves 30 between their balances, both at cursor 1
+        // — Σ at cursor 1 unchanged, no pot write.
+        vault.publicUpdate(ALICE, BOB, 30);
+        _assertPotInvariant(0, empty);
+        _assertPotInvariant(1, _triple(ALICE, BOB, CAROL));
+
+        // Burn 25 from Bob. super._update first: _balances[BOB] -= 25,
+        // _totalSupply -= 25. Then onBurn subtracts 25 from pot 1.
+        vault.publicUpdate(BOB, address(0), 25);
+        _assertPotInvariant(0, empty);
+        _assertPotInvariant(1, _triple(ALICE, BOB, CAROL));
+    }
+
+    /// Fuzzed direct assertion of I(k): drive a fixed sequence of
+    /// parameter-randomised operations across Alice, Bob, Carol and
+    /// two stock splits, asserting the pot invariant for every
+    /// touched cursor after each state transition.
+    function testFuzzPotInvariantAcrossRandomActivity(
+        uint8 m1Raw,
+        uint8 m2Raw,
+        uint64 aliceMintRaw,
+        uint64 bobMintRaw,
+        uint64 carolMintRaw,
+        uint64 transferRaw,
+        uint64 burnRaw
+    ) external {
+        int256 m1 = int256(uint256(m1Raw % 4) + 1);
+        int256 m2 = int256(uint256(m2Raw % 4) + 1);
+        uint256 aliceMint = uint256(aliceMintRaw % 1e18) + 1;
+        uint256 bobMint = uint256(bobMintRaw % 1e18) + 1;
+        uint256 carolMint = uint256(carolMintRaw % 1e18);
+
+        address[] memory empty = new address[](0);
+
+        // Pre-split mints (bootstrap has not fired; invariant doesn't apply).
+        vault.publicUpdate(address(0), ALICE, aliceMint);
+        vault.publicUpdate(address(0), BOB, bobMint);
+
+        // Split 1 lands; Alice migrates.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(m1));
+        vm.warp(2000);
+        vault.publicUpdate(ALICE, ALICE, 0);
+        _assertPotInvariant(0, _single(BOB));
+        _assertPotInvariant(1, _single(ALICE));
+
+        // Mint Carol post-split-1.
+        vault.publicUpdate(address(0), CAROL, carolMint);
+        _assertPotInvariant(0, _single(BOB));
+        _assertPotInvariant(1, _pair(ALICE, CAROL));
+
+        // Split 2 lands; Alice migrates again.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(m2));
+        vm.warp(3000);
+        vault.publicUpdate(ALICE, ALICE, 0);
+        _assertPotInvariant(0, _single(BOB));
+        _assertPotInvariant(1, _single(CAROL));
+        _assertPotInvariant(2, _single(ALICE));
+
+        // Alice → Bob transfer. Both migrate: Alice at 2 (no-op), Bob 0 → 2.
+        uint256 aliceView = vault.balanceOf(ALICE);
+        uint256 transferAmt = aliceView == 0 ? 0 : uint256(transferRaw) % (aliceView + 1);
+        vault.publicUpdate(ALICE, BOB, transferAmt);
+        _assertPotInvariant(0, empty);
+        _assertPotInvariant(1, _single(CAROL));
+        _assertPotInvariant(2, _pair(ALICE, BOB));
+
+        // Burn from Bob.
+        uint256 bobView = vault.balanceOf(BOB);
+        uint256 burnAmt = bobView == 0 ? 0 : uint256(burnRaw) % (bobView + 1);
+        vault.publicUpdate(BOB, address(0), burnAmt);
+        _assertPotInvariant(0, empty);
+        _assertPotInvariant(1, _single(CAROL));
+        _assertPotInvariant(2, _pair(ALICE, BOB));
     }
 
     /// Fuzzed convergence invariant: for any initial balance and any sequence
