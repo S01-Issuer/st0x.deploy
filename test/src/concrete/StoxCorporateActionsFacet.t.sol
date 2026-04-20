@@ -136,6 +136,25 @@ contract CorporateActionHarness {
     function tailNode() external view returns (CorporateActionNode memory) {
         return LibCorporateAction.tailNode();
     }
+
+    /// Library-path readers — all go through `LibCorporateAction.getStorage()`,
+    /// so `testStorageLayoutPin` can prove a value written at a specific slot
+    /// is actually the slot the library reads from.
+    function accountMigrationCursor(address account) external view returns (uint256) {
+        return LibCorporateAction.getStorage().accountMigrationCursor[account];
+    }
+
+    function unmigrated(uint256 cursor) external view returns (uint256) {
+        return LibCorporateAction.getStorage().unmigrated[cursor];
+    }
+
+    function totalSupplyLatestSplit() external view returns (uint256) {
+        return LibCorporateAction.getStorage().totalSupplyLatestSplit;
+    }
+
+    function totalSupplyBootstrapped() external view returns (bool) {
+        return LibCorporateAction.getStorage().totalSupplyBootstrapped;
+    }
 }
 
 contract StoxCorporateActionsFacetTest is Test {
@@ -624,21 +643,38 @@ contract StoxCorporateActionsFacetTest is Test {
         bytes32 nodesLenSlot = vm.load(harnessAddr, bytes32(uint256(base) + 2));
         assertEq(uint256(nodesLenSlot), 2, "nodes length must be at offset 2");
 
-        // Offset 3 — accountMigrationCursor (mapping). Poke a key via
-        // vm.store at the derived slot and assert the struct field is at
-        // the expected base offset. Key is an arbitrary test address.
-        address testAccount = address(0xBEEF);
-        bytes32 mappingBase = bytes32(uint256(base) + 3);
-        bytes32 entrySlot = keccak256(abi.encode(testAccount, mappingBase));
-        vm.store(harnessAddr, entrySlot, bytes32(uint256(0xC0FFEE)));
+        // For the struct fields below: poke via `vm.store` at the expected
+        // offset, then read via a library-path getter on the harness. The
+        // getter traverses `LibCorporateAction.getStorage().field`, so a
+        // match proves the library actually reads from the offset we pinned.
+        // If the struct is reordered, the getter reads from a different
+        // slot than the poke and the assertion fails.
 
-        // Verify via direct read at the same slot (we don't have a library
-        // getter exposed here, but the derivation matches the one in every
-        // `accountMigrationCursor[account]` access, so a match proves the
-        // mapping base is at offset 3).
+        // Offset 3 — accountMigrationCursor (mapping).
+        address testAccount = address(0xBEEF);
+        bytes32 cursorEntrySlot = keccak256(abi.encode(testAccount, bytes32(uint256(base) + 3)));
+        vm.store(harnessAddr, cursorEntrySlot, bytes32(uint256(0xC0FFEE)));
         assertEq(
-            uint256(vm.load(harnessAddr, entrySlot)), 0xC0FFEE, "accountMigrationCursor mapping must be at offset 3"
+            corporateActionHarness.accountMigrationCursor(testAccount),
+            0xC0FFEE,
+            "accountMigrationCursor mapping must be at offset 3"
         );
+
+        // Offset 4 — unmigrated (mapping).
+        uint256 testCursor = 7;
+        bytes32 unmigratedEntrySlot = keccak256(abi.encode(testCursor, bytes32(uint256(base) + 4)));
+        vm.store(harnessAddr, unmigratedEntrySlot, bytes32(uint256(0xDEADBEEF)));
+        assertEq(corporateActionHarness.unmigrated(testCursor), 0xDEADBEEF, "unmigrated mapping must be at offset 4");
+
+        // Offset 5 — totalSupplyLatestSplit (uint256).
+        vm.store(harnessAddr, bytes32(uint256(base) + 5), bytes32(uint256(42)));
+        assertEq(
+            corporateActionHarness.totalSupplyLatestSplit(), 42, "totalSupplyLatestSplit must be at offset 5"
+        );
+
+        // Offset 6 — totalSupplyBootstrapped (bool).
+        vm.store(harnessAddr, bytes32(uint256(base) + 6), bytes32(uint256(1)));
+        assertTrue(corporateActionHarness.totalSupplyBootstrapped(), "totalSupplyBootstrapped must be at offset 6");
     }
 
     /// headNode and tailNode revert on a completely fresh list where no
