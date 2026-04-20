@@ -1029,7 +1029,8 @@ contract StoxCorporateActionsFacetTest is Test {
         emit ICorporateActionsV1.CorporateActionScheduled(ALICE, 1, ACTION_TYPE_STOCK_SPLIT_V1, effectiveTime);
 
         vm.prank(ALICE);
-        uint256 actionIndex = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, effectiveTime, parameters);
+        uint256 actionIndex =
+            facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, effectiveTime, parameters);
         assertEq(actionIndex, 1);
     }
 
