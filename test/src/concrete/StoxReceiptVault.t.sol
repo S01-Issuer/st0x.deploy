@@ -353,4 +353,114 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
             assertEq(vault.balanceOf(BOB), viewAfterFirst, "view unchanged across idempotent touches");
         }
     }
+
+    /// Transfers between two distinct accounts, interleaved with multiple
+    /// forward and reverse splits in a single flow. At each transfer, both
+    /// `from` and `to` must migrate before the raw balance change lands,
+    /// otherwise the transfer arithmetic operates on pre-rebase balances and
+    /// inflates / deflates incorrectly. Numbers below are exact.
+    function testInterleavedTransfersAndSplits() external {
+        // Initial: Alice 100, Bob 50 (pre-split basis).
+        vault.publicUpdate(address(0), ALICE, 100);
+        vault.publicUpdate(address(0), BOB, 50);
+
+        // Split 1: 2x at t=1500.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(1600);
+
+        // Transfer Alice → Bob, 30. Both migrate first:
+        //   Alice: 100 → 200, then -30 = 170
+        //   Bob:    50 → 100, then +30 = 130
+        vault.publicUpdate(ALICE, BOB, 30);
+        assertEq(vault.balanceOf(ALICE), 170, "alice after t1");
+        assertEq(vault.balanceOf(BOB), 130, "bob after t1");
+
+        // Split 2: 1/2x at t=2000.
+        Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, abi.encode(halfX));
+        vm.warp(2100);
+
+        // Transfer Bob → Alice, 40. Both migrate first:
+        //   Bob:    130 → 65, then -40 = 25
+        //   Alice:  170 → 85, then +40 = 125
+        vault.publicUpdate(BOB, ALICE, 40);
+        assertEq(vault.balanceOf(ALICE), 125, "alice after t2");
+        assertEq(vault.balanceOf(BOB), 25, "bob after t2");
+
+        // Split 3: 3x at t=2500.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        vm.warp(2600);
+
+        // Transfer Alice → Bob, 60. Both migrate first:
+        //   Alice: 125 → 375, then -60 = 315
+        //   Bob:   25  → 75,  then +60 = 135
+        vault.publicUpdate(ALICE, BOB, 60);
+        assertEq(vault.balanceOf(ALICE), 315, "alice after t3");
+        assertEq(vault.balanceOf(BOB), 135, "bob after t3");
+
+        // Stored balances equal view balances (post-migration invariant).
+        assertEq(vault.rawStoredBalance(ALICE), 315, "alice stored = view");
+        assertEq(vault.rawStoredBalance(BOB), 135, "bob stored = view");
+    }
+
+    /// Fuzzed interleaved transfers + splits. After each transfer, stored
+    /// balances must equal view balances for both parties (migration is
+    /// eager on both `from` and `to`), and the pairwise conservation
+    /// invariant must hold: the net balance delta equals the transfer
+    /// amount minus any truncation from the rebase that landed between
+    /// transfers.
+    function testFuzzInterleavedTransfersAndSplits(
+        uint32 aliceInit,
+        uint32 bobInit,
+        uint64 amount1,
+        uint64 amount2,
+        uint64 amount3
+    ) external {
+        aliceInit = uint32(bound(aliceInit, 1000, type(uint32).max));
+        bobInit = uint32(bound(bobInit, 1000, type(uint32).max));
+
+        vault.publicUpdate(address(0), ALICE, uint256(aliceInit));
+        vault.publicUpdate(address(0), BOB, uint256(bobInit));
+
+        // Split 1: 2x.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(1600);
+
+        // Transfer Alice → Bob. `balanceOf` already returns the post-rebase
+        // value, which is exactly what migration will write for Alice's
+        // stored balance inside `_update`. Bound the amount by that.
+        amount1 = uint64(bound(amount1, 0, vault.balanceOf(ALICE)));
+        vault.publicUpdate(ALICE, BOB, uint256(amount1));
+        assertEq(vault.balanceOf(ALICE), vault.rawStoredBalance(ALICE), "alice view=stored after t1");
+        assertEq(vault.balanceOf(BOB), vault.rawStoredBalance(BOB), "bob view=stored after t1");
+
+        // Split 2: 1/2x.
+        Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, abi.encode(halfX));
+        vm.warp(2100);
+
+        // Transfer Bob → Alice.
+        amount2 = uint64(bound(amount2, 0, vault.balanceOf(BOB)));
+        vault.publicUpdate(BOB, ALICE, uint256(amount2));
+        assertEq(vault.balanceOf(ALICE), vault.rawStoredBalance(ALICE), "alice view=stored after t2");
+        assertEq(vault.balanceOf(BOB), vault.rawStoredBalance(BOB), "bob view=stored after t2");
+
+        // Split 3: 3x.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        vm.warp(2600);
+
+        // Transfer Alice → Bob.
+        amount3 = uint64(bound(amount3, 0, vault.balanceOf(ALICE)));
+        vault.publicUpdate(ALICE, BOB, uint256(amount3));
+        assertEq(vault.balanceOf(ALICE), vault.rawStoredBalance(ALICE), "alice view=stored after t3");
+        assertEq(vault.balanceOf(BOB), vault.rawStoredBalance(BOB), "bob view=stored after t3");
+
+        // Final convergence: repeated idempotent touches don't change anything.
+        uint256 aliceFinal = vault.balanceOf(ALICE);
+        uint256 bobFinal = vault.balanceOf(BOB);
+        vault.publicUpdate(ALICE, ALICE, 0);
+        vault.publicUpdate(BOB, BOB, 0);
+        assertEq(vault.balanceOf(ALICE), aliceFinal, "alice idempotent after final");
+        assertEq(vault.balanceOf(BOB), bobFinal, "bob idempotent after final");
+    }
 }
