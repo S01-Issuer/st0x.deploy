@@ -153,21 +153,18 @@ library LibTotalSupply {
             return LibERC20Storage.underlyingTotalSupply();
         }
 
-        // Start with the bootstrap pot.
+        // Find the first completed split. Used both to decide whether to
+        // fall back to OZ (no completed splits → supply is whatever OZ
+        // says) and as the starting node for the walk below.
+        uint256 nodeIndex = LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
+
         uint256 running;
         if (s.totalSupplyBootstrapped) {
             running = s.unmigrated[0];
         } else {
-            uint256 firstIndex =
-                LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
-            if (firstIndex == 0) {
-                return LibERC20Storage.underlyingTotalSupply();
-            }
+            if (nodeIndex == 0) return LibERC20Storage.underlyingTotalSupply();
             running = LibERC20Storage.underlyingTotalSupply();
         }
-
-        // Walk completed splits, applying each multiplier and picking up pots.
-        uint256 nodeIndex = LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
 
         while (nodeIndex != 0) {
             Float multiplier = LibStockSplit.decodeParametersV1(s.nodes[nodeIndex].parameters);
