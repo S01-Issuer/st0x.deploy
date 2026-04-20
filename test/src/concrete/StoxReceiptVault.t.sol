@@ -232,6 +232,30 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vault.publicUpdate(BOB, BOB, 0);
     }
 
+    /// Boundary on `effectiveTime`: a split whose effective time equals the
+    /// current block timestamp must be treated as completed (via the `<=`
+    /// comparison in `LibCorporateActionNode.nextOfType`). One second before
+    /// its effective time it must NOT be completed. Pins the exact threshold
+    /// so a future refactor flipping `<=` to `<` trips this test.
+    function testEffectiveTimeBoundaryExactlyAtCompletesSplit() external {
+        vault.publicUpdate(address(0), ALICE, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+
+        // One second before: NOT completed. Migration is a no-op, balance
+        // unchanged, cursor stays at 0.
+        vm.warp(1499);
+        vault.publicUpdate(ALICE, ALICE, 0);
+        assertEq(vault.migrationCursor(ALICE), 0, "cursor must not advance before effective time");
+        assertEq(vault.balanceOf(ALICE), 100, "balance must not rebase before effective time");
+
+        // Exactly at effective time: IS completed. Migration fires, cursor
+        // advances, balance rebases.
+        vm.warp(1500);
+        vault.publicUpdate(ALICE, ALICE, 0);
+        assertEq(vault.migrationCursor(ALICE), 1, "cursor must advance at exact effective time");
+        assertEq(vault.balanceOf(ALICE), 200, "balance must rebase at exact effective time");
+    }
+
     /// Pre-bootstrap regime: until the first `_update` after a completed
     /// split, `fold()` must not bootstrap, `onMint`/`onBurn` must be no-ops,
     /// and `totalSupply()` must return OZ's raw `_totalSupply`. A pending
