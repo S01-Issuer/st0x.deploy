@@ -879,6 +879,34 @@ contract StoxCorporateActionsFacetTest is Test {
         );
     }
 
+    /// Boundary test for the `<=` completion check shared by `nextOfType`
+    /// and `prevOfType`. A node whose `effectiveTime` equals the current
+    /// block timestamp counts as completed from both directions. Flipping
+    /// the comparison to `<` would break both walks — this test (alongside
+    /// the vault-side `testEffectiveTimeBoundaryExactlyAtCompletesSplit`)
+    /// gates the prev-walk direction.
+    function testPrevOfTypeEffectiveTimeBoundary() external {
+        corporateActionHarness.schedule(1, 1500, "");
+        corporateActionHarness.schedule(1, 2000, "");
+
+        // One second before node 2's effective time: only node 1 is completed.
+        vm.warp(1999);
+        assertEq(
+            corporateActionHarness.prevOfType(0, type(uint256).max, CompletionFilter.COMPLETED),
+            1,
+            "pre-boundary: only node 1 is completed"
+        );
+
+        // Exactly at node 2's effective time: both nodes are completed,
+        // latest is node 2.
+        vm.warp(2000);
+        assertEq(
+            corporateActionHarness.prevOfType(0, type(uint256).max, CompletionFilter.COMPLETED),
+            2,
+            "boundary: node 2 counts as completed at exact effectiveTime"
+        );
+    }
+
     /// countCompleted does not count cancelled nodes.
     function testCountCompletedIgnoresCancelled() external {
         corporateActionHarness.schedule(1, 1500, "");
