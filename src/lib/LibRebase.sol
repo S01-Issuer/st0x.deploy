@@ -78,32 +78,30 @@ library LibRebase {
 
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
 
+        uint256 balance = storedBalance;
         uint256 nodeIndex =
             LibCorporateActionNode.nextOfType(cursor, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
 
-        // Fast path: zero balance still advances the cursor through completed
-        // splits without doing any multiplier math.
-        if (storedBalance == 0) {
-            while (nodeIndex != 0) {
-                newCursor = nodeIndex;
-                nodeIndex =
-                    LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
-            }
-            return (0, newCursor);
-        }
-
-        uint256 balance = storedBalance;
-
         while (nodeIndex != 0) {
             newCursor = nodeIndex;
-            Float multiplier = abi.decode(s.nodes[nodeIndex].parameters, (Float));
-            // Rasterize after each multiplier to match what storage writes
-            // would produce. This ensures dormant and active accounts
-            // converge to identical balances. `LibRebaseMath.applyMultiplier`
-            // is the shared primitive used by every rebase path in the
-            // codebase (share side, totalSupply, receipt side) — see
-            // `LibRebaseMath.sol` for the safety argument on the int256 cast.
-            balance = LibRebaseMath.applyMultiplier(balance, multiplier);
+            // Skip the multiplier read and float math whenever the balance
+            // is already zero. This covers both dormant zero-balance accounts
+            // (never held / fully burned) and mid-iteration truncation to
+            // zero (e.g. `balance=1, multiplier=0.5` → 0 after one step),
+            // because every subsequent `trunc(0 × multiplier) = 0`. The
+            // cursor still advances on every pass — that's load-bearing for
+            // fresh recipients; see the function NatSpec.
+            if (balance != 0) {
+                Float multiplier = abi.decode(s.nodes[nodeIndex].parameters, (Float));
+                // Rasterize after each multiplier to match what storage
+                // writes would produce. This ensures dormant and active
+                // accounts converge to identical balances.
+                // `LibRebaseMath.applyMultiplier` is the shared primitive
+                // used by every rebase path in the codebase (share side,
+                // totalSupply, receipt side) — see `LibRebaseMath.sol` for
+                // the safety argument on the int256 cast.
+                balance = LibRebaseMath.applyMultiplier(balance, multiplier);
+            }
 
             nodeIndex =
                 LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);

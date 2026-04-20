@@ -29,8 +29,7 @@ import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
 /// and the next `balanceOf` read would erroneously re-apply completed
 /// multipliers to a balance that was already written at the post-rebase
 /// basis, silently inflating the recipient's balance. See
-/// `LibRebase.migratedBalance` for the zero-balance fast path and its
-/// regression tests.
+/// `LibRebase.migratedBalance` and its zero-balance regression tests.
 ///
 /// NOTE: totalSupply is not yet rebase-aware. It is handled by
 /// LibTotalSupply using per-cursor pots (added separately).
