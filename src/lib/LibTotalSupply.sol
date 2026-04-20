@@ -190,6 +190,26 @@ library LibTotalSupply {
         if (s.nodes.length == 0) return;
 
         // Bootstrap from OZ's totalSupply on first completed split.
+        //
+        // Safety: `underlyingTotalSupply()` returns OZ's `_totalSupply`, and
+        // the pot invariant requires it to equal `Σ _balances` at the moment
+        // of this read. That equality is maintained by OZ's `_update` but
+        // broken by `_migrateAccount`, which writes balances directly via
+        // `LibERC20Storage.setUnderlyingBalance` without touching
+        // `_totalSupply`.
+        //
+        // Bootstrap fires exactly once, at the top of the first `_update`
+        // where a completed stock split exists. In every prior `_update`,
+        // `_migrateAccount` called `LibRebase.migratedBalance` which walks
+        // only completed splits — so in a world with no completed splits,
+        // it early-returned without writing any balance. Therefore at the
+        // moment bootstrap runs here, no `setUnderlyingBalance` has ever
+        // fired, and OZ's invariant still holds.
+        //
+        // If this ordering changes (e.g. `fold()` moved after
+        // `_migrateAccount`, or a new caller of `setUnderlyingBalance`
+        // added), this bootstrap is no longer safe and must be
+        // re-derived.
         if (!s.totalSupplyBootstrapped) {
             uint256 firstIndex =
                 LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
