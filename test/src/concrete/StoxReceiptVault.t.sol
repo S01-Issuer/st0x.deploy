@@ -232,6 +232,42 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vault.publicUpdate(BOB, BOB, 0);
     }
 
+    /// `AccountMigrated` must NOT fire when a zero-balance account's cursor
+    /// advances — the NatSpec states "Only fires when the stored balance
+    /// actually changes; pure cursor-only advancements (zero-balance
+    /// accounts) do not emit."
+    ///
+    /// NOTE: This behaviour is under review. See issue #81 ("Discuss: emit
+    /// AccountMigrated on cursor-only advancement (balance unchanged)") —
+    /// the project may switch to always-emit to restore the "events on
+    /// every state change" convention. If that decision is made, this
+    /// test's intent inverts: update the assertion to expect the event,
+    /// and update the NatSpec on `StoxReceiptVault.AccountMigrated` to
+    /// match. This test is NOT the source of truth — issue #81 is.
+    function testAccountMigratedNotEmittedForZeroBalanceCursorAdvance() external {
+        // Pre-existing holder so bootstrap has something to read.
+        vault.publicUpdate(address(0), BOB, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        // Touch Alice (zero balance, fresh recipient). Her cursor advances
+        // from 0 to 1, but stored balance stays 0 → no `AccountMigrated`
+        // event for her.
+        vm.recordLogs();
+        vault.publicUpdate(address(0), ALICE, 0);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 sig = StoxReceiptVault.AccountMigrated.selector;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
+                fail();
+            }
+        }
+
+        // Confirm the cursor actually advanced — the event suppression
+        // claim is meaningful only when the cursor DID move.
+        assertEq(vault.migrationCursor(ALICE), 1, "alice cursor must have advanced");
+    }
+
     /// Transfer attempt after a reverse split truncates the sender's
     /// balance to zero. Migration runs first, writing the post-truncation
     /// value to storage. OZ's `_update` then sees `_balances[from] == 0`
