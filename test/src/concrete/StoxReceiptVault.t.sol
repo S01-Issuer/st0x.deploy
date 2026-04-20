@@ -232,6 +232,42 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vault.publicUpdate(BOB, BOB, 0);
     }
 
+    /// Pre-bootstrap regime: until the first `_update` after a completed
+    /// split, `fold()` must not bootstrap, `onMint`/`onBurn` must be no-ops,
+    /// and `totalSupply()` must return OZ's raw `_totalSupply`. A pending
+    /// split that has not yet reached its effective time must not trigger
+    /// any of these.
+    function testPreBootstrapIsNoOpUntilCompletedSplit() external {
+        // Mint pre-any-split. No pot update expected — pots haven't been
+        // bootstrapped, onMint is a no-op.
+        vault.publicUpdate(address(0), BOB, 200);
+        assertEq(vault.totalSupplyLatestSplit(), 0, "no split tracked pre-schedule");
+        assertEq(vault.totalSupply(), 200, "totalSupply matches OZ pre-any-split");
+        assertEq(vault.unmigrated(0), 0, "pot 0 untouched pre-bootstrap");
+
+        // Burn pre-any-split. Also a no-op on pots.
+        vault.publicUpdate(BOB, address(0), 50);
+        assertEq(vault.totalSupply(), 150, "totalSupply reflects burn via OZ");
+        assertEq(vault.unmigrated(0), 0, "pot 0 still untouched");
+
+        // Schedule a split but do NOT warp past its effective time. Pending,
+        // not completed. `fold()` must still see no completed split and
+        // early-return before bootstrap.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 5000, _splitParams(2));
+        assertEq(vault.totalSupplyLatestSplit(), 0, "pending split does not advance latest");
+
+        // Mint again with the pending split scheduled. Still pre-bootstrap
+        // because no split has completed.
+        vault.publicUpdate(address(0), BOB, 100);
+        assertEq(vault.totalSupplyLatestSplit(), 0, "still no completed split tracked");
+        assertEq(vault.totalSupply(), 250, "totalSupply tracks OZ while pending");
+        assertEq(vault.unmigrated(0), 0, "pot 0 still untouched");
+
+        // balanceOf also returns OZ stored balance directly (no rebase
+        // walks pending splits).
+        assertEq(vault.balanceOf(BOB), 250, "balanceOf ignores pending splits");
+    }
+
     /// totalSupply equals the sum of all per-account balanceOf values after a
     /// completed split, even when some accounts are still unmigrated. This is
     /// the integration-level invariant that A28-1 says must hold and that the
