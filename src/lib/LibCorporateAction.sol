@@ -4,7 +4,6 @@ pragma solidity ^0.8.25;
 
 import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
 import {LibStockSplit} from "./LibStockSplit.sol";
-import {Float} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {
     EffectiveTimeInPast,
     ActionAlreadyComplete,
@@ -23,11 +22,11 @@ bytes32 constant SCHEDULE_CORPORATE_ACTION = keccak256("SCHEDULE_CORPORATE_ACTIO
 /// @dev Permission hash for cancelling a corporate action via the authorizer.
 bytes32 constant CANCEL_CORPORATE_ACTION = keccak256("CANCEL_CORPORATE_ACTION");
 
-/// @dev External identifier for stock splits.
-bytes32 constant STOCK_SPLIT_TYPE_HASH = keccak256("st0x.corporate-actions.stock-split");
+/// @dev External identifier for V1 stock splits.
+bytes32 constant STOCK_SPLIT_V1_TYPE_HASH = keccak256("st0x.corporate-actions.stock-split.1");
 
-/// @dev Bitmap action type for stock splits (forward and reverse).
-uint256 constant ACTION_TYPE_STOCK_SPLIT = 1 << 0;
+/// @dev Bitmap action type for V1 stock splits (forward and reverse).
+uint256 constant ACTION_TYPE_STOCK_SPLIT_V1 = 1 << 0;
 
 /// @title LibCorporateAction
 /// @notice Library for corporate action diamond storage. Uses ERC-7201
@@ -51,7 +50,7 @@ library LibCorporateAction {
     /// the struct, and the storage-layout pin test in
     /// `test/src/concrete/StoxCorporateActionsFacet.t.sol`
     /// (`testStorageLayoutPin`) must be updated in the same PR to cover
-    /// the new field's offset. See audit/2026-04-09-01 Item 10.
+    /// the new field's offset.
     struct CorporateActionStorage {
         /// @param head Head of the list (1-based index, earliest effectiveTime). 0 = empty.
         uint256 head;
@@ -74,13 +73,13 @@ library LibCorporateAction {
 
     /// @notice Map an external type identifier to its internal bitmap and
     /// validate parameters. Reverts if the type hash is not recognised.
-    /// @param typeHash External identifier, e.g. keccak256("st0x.corporate-actions.stock-split").
+    /// @param typeHash External identifier, e.g. keccak256("st0x.corporate-actions.stock-split.1").
     /// @param parameters ABI-encoded parameters for the action type.
     /// @return actionType The internal bitmap for this type.
     function resolveActionType(bytes32 typeHash, bytes calldata parameters) internal returns (uint256 actionType) {
-        if (typeHash == STOCK_SPLIT_TYPE_HASH) {
-            LibStockSplit.validateMultiplier(abi.decode(parameters, (Float)));
-            return ACTION_TYPE_STOCK_SPLIT;
+        if (typeHash == STOCK_SPLIT_V1_TYPE_HASH) {
+            LibStockSplit.validateMultiplierV1(LibStockSplit.decodeParametersV1(parameters));
+            return ACTION_TYPE_STOCK_SPLIT_V1;
         }
         revert UnknownActionType(typeHash);
     }
@@ -123,9 +122,9 @@ library LibCorporateAction {
     /// `parameters` must already be written; this helper only updates the
     /// list pointers (`prev`, `next`, `head`, `tail`).
     ///
-    /// Extracted from `schedule` per audit/2026-04-09-01 Item 12 so the
-    /// insertion walk is isolated from sentinel allocation and node
-    /// population. This helper assumes the storage struct has been
+    /// Extracted from `schedule` so the insertion walk is isolated from
+    /// sentinel allocation and node population. This helper assumes the
+    /// storage struct has been
     /// initialised (sentinel already pushed) and the node at `newIndex` is
     /// fully populated.
     ///
@@ -191,8 +190,7 @@ library LibCorporateAction {
     /// writing `nextId = 0` into both. Catastrophic, silent state
     /// corruption. A double-cancel-reverts regression test
     /// (`testCancelAlreadyCancelledReverts`) locks this in — do not remove
-    /// the test or the zero assignment together. See audit/2026-04-09-01
-    /// Item 14.
+    /// the test or the zero assignment together.
     function cancel(uint256 actionIndex) internal {
         CorporateActionStorage storage s = getStorage();
         if (actionIndex == 0 || actionIndex >= s.nodes.length) revert ActionDoesNotExist(actionIndex);

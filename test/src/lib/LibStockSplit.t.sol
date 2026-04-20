@@ -6,8 +6,8 @@ import {Test} from "forge-std/Test.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {
     LibCorporateAction,
-    ACTION_TYPE_STOCK_SPLIT,
-    STOCK_SPLIT_TYPE_HASH
+    ACTION_TYPE_STOCK_SPLIT_V1,
+    STOCK_SPLIT_V1_TYPE_HASH
 } from "../../../src/lib/LibCorporateAction.sol";
 import {UnknownActionType} from "../../../src/error/ErrCorporateAction.sol";
 import {
@@ -138,14 +138,14 @@ contract LibStockSplitValidationTest is Test {
 
     /// Constants have expected values.
     function testConstantValues() external pure {
-        assertEq(ACTION_TYPE_STOCK_SPLIT, 1);
-        assertEq(STOCK_SPLIT_TYPE_HASH, keccak256("st0x.corporate-actions.stock-split"));
+        assertEq(ACTION_TYPE_STOCK_SPLIT_V1, 1);
+        assertEq(STOCK_SPLIT_V1_TYPE_HASH, keccak256("st0x.corporate-actions.stock-split.1"));
     }
 
-    /// ACTION_TYPE_STOCK_SPLIT has exactly one bit set.
+    /// ACTION_TYPE_STOCK_SPLIT_V1 has exactly one bit set.
     function testActionTypeSingleBit() external pure {
-        assertEq(ACTION_TYPE_STOCK_SPLIT & (ACTION_TYPE_STOCK_SPLIT - 1), 0);
-        assertTrue(ACTION_TYPE_STOCK_SPLIT != 0);
+        assertEq(ACTION_TYPE_STOCK_SPLIT_V1 & (ACTION_TYPE_STOCK_SPLIT_V1 - 1), 0);
+        assertTrue(ACTION_TYPE_STOCK_SPLIT_V1 != 0);
     }
 
     /// Fuzz: encode/decode roundtrip preserves arbitrary valid multipliers.
@@ -285,18 +285,18 @@ contract LibStockSplitResolveTest is Test {
         h = new StockSplitHarness(18);
     }
 
-    /// STOCK_SPLIT_TYPE_HASH resolves to ACTION_TYPE_STOCK_SPLIT.
+    /// STOCK_SPLIT_V1_TYPE_HASH resolves to ACTION_TYPE_STOCK_SPLIT_V1.
     function testResolveStockSplit() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        uint256 bitmap = h.resolveActionType(STOCK_SPLIT_TYPE_HASH, abi.encode(twoX));
-        assertEq(bitmap, ACTION_TYPE_STOCK_SPLIT);
+        uint256 bitmap = h.resolveActionType(STOCK_SPLIT_V1_TYPE_HASH, abi.encode(twoX));
+        assertEq(bitmap, ACTION_TYPE_STOCK_SPLIT_V1);
     }
 
     /// Resolve with invalid parameters reverts during validation.
     function testResolveStockSplitZeroMultiplierReverts() external {
         Float zero = LibDecimalFloat.packLossless(0, 0);
         vm.expectRevert(InvalidSplitMultiplier.selector);
-        h.resolveActionType(STOCK_SPLIT_TYPE_HASH, abi.encode(zero));
+        h.resolveActionType(STOCK_SPLIT_V1_TYPE_HASH, abi.encode(zero));
     }
 
     /// Unknown type hash reverts.
@@ -319,14 +319,14 @@ contract LibStockSplitLifecycleTest is Test {
     /// Stock split full lifecycle: resolve, schedule, complete, walk, read multiplier.
     function testStockSplitLifecycle() external {
         Float threeX = LibDecimalFloat.packLossless(3, 0);
-        uint256 id = h.resolveAndSchedule(STOCK_SPLIT_TYPE_HASH, 1500, abi.encode(threeX));
+        uint256 id = h.resolveAndSchedule(STOCK_SPLIT_V1_TYPE_HASH, 1500, abi.encode(threeX));
         assertEq(id, 1);
         assertEq(h.countCompleted(), 0);
 
         vm.warp(2000);
         assertEq(h.countCompleted(), 1);
 
-        uint256 completed = h.nextOfType(0, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+        uint256 completed = h.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(completed, 1);
 
         CorporateActionNode memory node = h.getNode(1);
@@ -340,33 +340,33 @@ contract LibStockSplitLifecycleTest is Test {
         Float threeX = LibDecimalFloat.packLossless(3, 0);
         Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
 
-        uint256 id1 = h.resolveAndSchedule(STOCK_SPLIT_TYPE_HASH, 1500, abi.encode(twoX));
-        uint256 id2 = h.resolveAndSchedule(STOCK_SPLIT_TYPE_HASH, 2000, abi.encode(threeX));
-        uint256 id3 = h.resolveAndSchedule(STOCK_SPLIT_TYPE_HASH, 3000, abi.encode(halfX));
+        uint256 id1 = h.resolveAndSchedule(STOCK_SPLIT_V1_TYPE_HASH, 1500, abi.encode(twoX));
+        uint256 id2 = h.resolveAndSchedule(STOCK_SPLIT_V1_TYPE_HASH, 2000, abi.encode(threeX));
+        uint256 id3 = h.resolveAndSchedule(STOCK_SPLIT_V1_TYPE_HASH, 3000, abi.encode(halfX));
 
         // Complete first two.
         vm.warp(2500);
 
         // COMPLETED filter returns id1 then id2.
-        uint256 c1 = h.nextOfType(0, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+        uint256 c1 = h.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(c1, id1);
-        uint256 c2 = h.nextOfType(c1, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+        uint256 c2 = h.nextOfType(c1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(c2, id2);
-        assertEq(h.nextOfType(c2, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED), 0);
+        assertEq(h.nextOfType(c2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED), 0);
 
         // PENDING filter returns only id3.
-        uint256 p1 = h.nextOfType(0, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.PENDING);
+        uint256 p1 = h.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(p1, id3);
-        assertEq(h.nextOfType(p1, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.PENDING), 0);
+        assertEq(h.nextOfType(p1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING), 0);
 
         // ALL walks all three in time order.
-        uint256 a1 = h.nextOfType(0, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.ALL);
+        uint256 a1 = h.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(a1, id1);
-        uint256 a2 = h.nextOfType(a1, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.ALL);
+        uint256 a2 = h.nextOfType(a1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(a2, id2);
-        uint256 a3 = h.nextOfType(a2, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.ALL);
+        uint256 a3 = h.nextOfType(a2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(a3, id3);
-        assertEq(h.nextOfType(a3, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.ALL), 0);
+        assertEq(h.nextOfType(a3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL), 0);
 
         assertEq(h.countCompleted(), 2);
     }
@@ -375,10 +375,10 @@ contract LibStockSplitLifecycleTest is Test {
     /// after scheduling through resolveAndSchedule.
     function testStoredNodeDataAfterSchedule() external {
         Float fiveX = LibDecimalFloat.packLossless(5, 0);
-        uint256 id = h.resolveAndSchedule(STOCK_SPLIT_TYPE_HASH, 1500, abi.encode(fiveX));
+        uint256 id = h.resolveAndSchedule(STOCK_SPLIT_V1_TYPE_HASH, 1500, abi.encode(fiveX));
 
         CorporateActionNode memory node = h.getNode(id);
-        assertEq(node.actionType, ACTION_TYPE_STOCK_SPLIT, "bitmap is stock split");
+        assertEq(node.actionType, ACTION_TYPE_STOCK_SPLIT_V1, "bitmap is stock split");
         assertEq(node.effectiveTime, 1500, "effectiveTime stored");
 
         Float stored = abi.decode(node.parameters, (Float));
@@ -390,8 +390,8 @@ contract LibStockSplitLifecycleTest is Test {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
         Float oneThird = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(3, 0));
 
-        uint256 id1 = h.resolveAndSchedule(STOCK_SPLIT_TYPE_HASH, 1500, abi.encode(twoX));
-        uint256 id2 = h.resolveAndSchedule(STOCK_SPLIT_TYPE_HASH, 2000, abi.encode(oneThird));
+        uint256 id1 = h.resolveAndSchedule(STOCK_SPLIT_V1_TYPE_HASH, 1500, abi.encode(twoX));
+        uint256 id2 = h.resolveAndSchedule(STOCK_SPLIT_V1_TYPE_HASH, 2000, abi.encode(oneThird));
 
         Float stored1 = abi.decode(h.getNode(id1).parameters, (Float));
         Float stored2 = abi.decode(h.getNode(id2).parameters, (Float));
