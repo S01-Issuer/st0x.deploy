@@ -7,7 +7,7 @@ import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT} from "../../../src/lib/LibCorporateAction.sol";
+import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/lib/LibCorporateAction.sol";
 import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
 
 /// @dev Test-only subclass of StoxReceiptVault that bypasses
@@ -93,7 +93,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vault.publicUpdate(address(0), BOB, 1000);
 
         // Schedule and complete a 2x stock split.
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         // Mint 100 to Alice — a brand new account.
@@ -111,7 +111,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vault.publicUpdate(address(0), BOB, 50);
 
         // Schedule and complete a 2x stock split.
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         // After the split, Bob's balance should be 100.
@@ -135,7 +135,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// Pre-existing holder's balance correctly reflects a completed split.
     function testBalanceOfRebaseOnExistingHolder() external {
         vault.publicUpdate(address(0), BOB, 50);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         assertEq(vault.balanceOf(BOB), 100);
     }
@@ -145,7 +145,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// latest completed split.
     function testFreshAccountCursorAdvancesAfterMigration() external {
         vault.publicUpdate(address(0), BOB, 1000);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         // Touch Alice via a 0-amount mint. (The publicUpdate path via mint=0
@@ -159,8 +159,8 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// Two consecutive splits, then mint to a fresh account: still no inflation.
     function testMintFreshAccountAfterTwoCompletedSplits() external {
         vault.publicUpdate(address(0), BOB, 100);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(3));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
         vm.warp(3000);
 
         vault.publicUpdate(address(0), ALICE, 100);
@@ -172,8 +172,8 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// migration produces the correct rebased balance.
     function testDormantHolderMigratesCorrectly() external {
         vault.publicUpdate(address(0), BOB, 100);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(3));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
         vm.warp(3000);
 
         // Force a migration via a touch.
@@ -187,7 +187,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// Burn from a holder works correctly after a split.
     function testBurnAfterSplit() external {
         vault.publicUpdate(address(0), BOB, 100);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         // Bob's effective balance is 200 after the split.
@@ -202,7 +202,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// account is migrated through a completed split.
     function testAccountMigratedEventEmitted() external {
         vault.publicUpdate(address(0), BOB, 100);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         vm.expectEmit(true, false, false, true, address(vault));
@@ -236,7 +236,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
                     LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0))
                 );
             // forge-lint: disable-next-line(unsafe-typecast)
-            vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, uint64(1001 + i * 100), params);
+            vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(1001 + i * 100), params);
         }
 
         if (numSplits > 0) {
@@ -270,7 +270,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vault.publicUpdate(address(0), BOB, uint256(bobInit));
 
         // Split 1: 2x at t=1500.
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(1600);
 
         // Alice touches after split 1 (migrates partially).
@@ -278,7 +278,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
         // Split 2: 1/2x at t=2000.
         Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 2000, abi.encode(halfX));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, abi.encode(halfX));
         vm.warp(2100);
 
         // Both view balances before final migration.
@@ -322,7 +322,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
                     LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0))
                 );
             // forge-lint: disable-next-line(unsafe-typecast)
-            vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, uint64(1001 + i * 100), params);
+            vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(1001 + i * 100), params);
         }
 
         if (numSplits > 0) {

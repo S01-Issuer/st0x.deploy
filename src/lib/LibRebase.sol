@@ -3,14 +3,15 @@
 pragma solidity ^0.8.25;
 
 import {Float} from "rain.math.float/lib/LibDecimalFloat.sol";
-import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT} from "./LibCorporateAction.sol";
+import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "./LibCorporateAction.sol";
 import {CompletionFilter, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
 import {LibRebaseMath} from "./LibRebaseMath.sol";
+import {LibStockSplit} from "./LibStockSplit.sol";
 
 /// @title LibRebase
 /// @notice Walks the corporate action linked list to apply stock split
 /// multipliers sequentially. Multipliers are read directly from completed
-/// nodes filtered by ACTION_TYPE_STOCK_SPLIT.
+/// nodes filtered by ACTION_TYPE_STOCK_SPLIT_V1.
 ///
 /// ## Sequential precision
 ///
@@ -55,13 +56,13 @@ library LibRebase {
     /// @notice Calculate the migrated balance by walking completed stock split
     /// nodes from a cursor, applying each multiplier sequentially.
     ///
-    /// Cursor advancement is performed even when `storedBalance == 0`. This is
-    /// load-bearing for fresh recipients of mints and transfers: if the cursor
-    /// did not advance for a zero-balance account, a subsequent stored-balance
-    /// write (via `super._update` in the vault) would land at a stale cursor
-    /// and the next read of `balanceOf` would re-apply every completed
-    /// multiplier to a balance that was already written at the post-rebase
-    /// basis — over-multiplying and silently inflating the recipient's balance.
+    /// Cursor advancement is performed even when `storedBalance == 0`. Without
+    /// it, a fresh recipient of a mint or transfer-in would have its cursor
+    /// stuck at zero: a subsequent stored-balance write (via `super._update`
+    /// in the vault) would land at a stale cursor and the next read of
+    /// `balanceOf` would re-apply every completed multiplier to a balance
+    /// already written at the post-rebase basis — over-multiplying and
+    /// silently inflating the recipient's balance.
     /// Regression tests: `testZeroBalanceAdvancesCursor*` in
     /// `test/src/lib/LibRebase.t.sol`, and the fresh-recipient regression
     /// tests in `test/src/concrete/StoxReceiptVault.t.sol`.
@@ -80,7 +81,7 @@ library LibRebase {
 
         uint256 balance = storedBalance;
         uint256 nodeIndex =
-            LibCorporateActionNode.nextOfType(cursor, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+            LibCorporateActionNode.nextOfType(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
 
         while (nodeIndex != 0) {
             newCursor = nodeIndex;
@@ -89,10 +90,11 @@ library LibRebase {
             // (never held / fully burned) and mid-iteration truncation to
             // zero (e.g. `balance=1, multiplier=0.5` → 0 after one step),
             // because every subsequent `trunc(0 × multiplier) = 0`. The
-            // cursor still advances on every pass — that's load-bearing for
-            // fresh recipients; see the function NatSpec.
+            // cursor still advances on every pass — skipping the advancement
+            // would inflate fresh recipients' balances on their next write;
+            // see the function NatSpec for the mechanism.
             if (balance != 0) {
-                Float multiplier = abi.decode(s.nodes[nodeIndex].parameters, (Float));
+                Float multiplier = LibStockSplit.decodeParametersV1(s.nodes[nodeIndex].parameters);
                 // Rasterize after each multiplier to match what storage
                 // writes would produce. This ensures dormant and active
                 // accounts converge to identical balances.
@@ -104,7 +106,7 @@ library LibRebase {
             }
 
             nodeIndex =
-                LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+                LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         }
 
         return (balance, newCursor);

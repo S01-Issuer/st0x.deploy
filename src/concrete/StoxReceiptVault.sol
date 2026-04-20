@@ -24,12 +24,12 @@ import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
 /// 2. **Cursor advancement** — updating `accountMigrationCursor[account]` to
 ///    the index of the latest completed split this account has now seen.
 ///
-/// For zero-balance accounts, (1) is a no-op but (2) is still load-bearing:
-/// otherwise a subsequent mint or transfer-in would land at a stale cursor
-/// and the next `balanceOf` read would erroneously re-apply completed
-/// multipliers to a balance that was already written at the post-rebase
-/// basis, silently inflating the recipient's balance. See
-/// `LibRebase.migratedBalance` and its zero-balance regression tests.
+/// For zero-balance accounts, (1) is a no-op but (2) still matters: without
+/// it a subsequent mint or transfer-in would land at a stale cursor and the
+/// next `balanceOf` read would erroneously re-apply completed multipliers to
+/// a balance that was already written at the post-rebase basis, silently
+/// inflating the recipient's balance. See `LibRebase.migratedBalance` and
+/// its zero-balance regression tests.
 ///
 /// NOTE: totalSupply is not yet rebase-aware. It is handled by
 /// LibTotalSupply using per-cursor pots (added separately).
@@ -83,7 +83,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// past the account's current `accountMigrationCursor`). This both
     /// rasterizes the account's stored balance to the post-rebase basis and
     /// advances the cursor; for zero-balance accounts the balance rewrite is
-    /// a no-op but the cursor advancement is still load-bearing — see
+    /// a no-op but the cursor advancement still matters — see
     /// `LibRebase.migratedBalance` and its zero-balance regression tests for
     /// the bug this prevents.
     ///

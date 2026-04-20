@@ -10,8 +10,8 @@ import {
     CORPORATE_ACTION_STORAGE_LOCATION,
     SCHEDULE_CORPORATE_ACTION,
     CANCEL_CORPORATE_ACTION,
-    STOCK_SPLIT_TYPE_HASH,
-    ACTION_TYPE_STOCK_SPLIT
+    STOCK_SPLIT_V1_TYPE_HASH,
+    ACTION_TYPE_STOCK_SPLIT_V1
 } from "../../../src/lib/LibCorporateAction.sol";
 import {
     UnknownActionType,
@@ -288,7 +288,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// authorizer lookup, so the order of checks matches the modifier.
     function testScheduleCorporateActionDirectCallReverts() external {
         vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
-        facetImpl.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, uint64(block.timestamp + 1), hex"");
+        facetImpl.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, uint64(block.timestamp + 1), hex"");
     }
 
     /// Direct call to `cancelCorporateAction` on the standalone facet reverts
@@ -1026,10 +1026,10 @@ contract StoxCorporateActionsFacetTest is Test {
         uint64 effectiveTime = 1500;
 
         vm.expectEmit(true, true, false, true, address(facetViaHarness));
-        emit ICorporateActionsV1.CorporateActionScheduled(ALICE, 1, ACTION_TYPE_STOCK_SPLIT, effectiveTime);
+        emit ICorporateActionsV1.CorporateActionScheduled(ALICE, 1, ACTION_TYPE_STOCK_SPLIT_V1, effectiveTime);
 
         vm.prank(ALICE);
-        uint256 actionIndex = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, effectiveTime, parameters);
+        uint256 actionIndex = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, effectiveTime, parameters);
         assertEq(actionIndex, 1);
     }
 
@@ -1040,7 +1040,7 @@ contract StoxCorporateActionsFacetTest is Test {
         bytes memory parameters = abi.encode(twoX);
 
         vm.prank(ALICE);
-        uint256 actionIndex = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, parameters);
+        uint256 actionIndex = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
 
         vm.expectEmit(true, true, false, false, address(facetViaHarness));
         emit ICorporateActionsV1.CorporateActionCancelled(ALICE, actionIndex);
@@ -1061,12 +1061,12 @@ contract StoxCorporateActionsFacetTest is Test {
                 IAuthorizeV1.authorize.selector,
                 ALICE,
                 SCHEDULE_CORPORATE_ACTION,
-                abi.encode(STOCK_SPLIT_TYPE_HASH, effectiveTime, parameters)
+                abi.encode(STOCK_SPLIT_V1_TYPE_HASH, effectiveTime, parameters)
             )
         );
 
         vm.prank(ALICE);
-        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, effectiveTime, parameters);
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, effectiveTime, parameters);
 
         assertEq(mockAuthorizer.lastUser(), ALICE);
         assertEq(mockAuthorizer.lastPermission(), SCHEDULE_CORPORATE_ACTION);
@@ -1084,10 +1084,10 @@ contract StoxCorporateActionsFacetTest is Test {
                 Unauthorized.selector,
                 ALICE,
                 SCHEDULE_CORPORATE_ACTION,
-                abi.encode(STOCK_SPLIT_TYPE_HASH, uint64(1500), parameters)
+                abi.encode(STOCK_SPLIT_V1_TYPE_HASH, uint64(1500), parameters)
             )
         );
-        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, parameters);
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
     }
 
     /// Fuzz: schedule random valid stock splits, actionIndex is sequential.
@@ -1101,7 +1101,7 @@ contract StoxCorporateActionsFacetTest is Test {
             // count is bounded to ≤ 15 so 1001 + i * 100 fits easily in uint64.
             // forge-lint: disable-next-line(unsafe-typecast)
             uint64 effectiveTime = uint64(1001 + i * 100);
-            uint256 id = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, effectiveTime, parameters);
+            uint256 id = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, effectiveTime, parameters);
             assertEq(id, i + 1, "actionIndex must be sequential");
         }
     }
@@ -1112,10 +1112,10 @@ contract StoxCorporateActionsFacetTest is Test {
         bytes memory parameters = abi.encode(twoX);
 
         vm.prank(ALICE);
-        uint256 id1 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, parameters);
+        uint256 id1 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
 
         vm.prank(ALICE);
-        uint256 id2 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 2000, parameters);
+        uint256 id2 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 2000, parameters);
 
         assertEq(id1, 1);
         assertEq(id2, 2);
@@ -1127,7 +1127,7 @@ contract StoxCorporateActionsFacetTest is Test {
         bytes memory parameters = abi.encode(twoX);
 
         vm.prank(ALICE);
-        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, parameters);
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
 
         assertEq(facetViaHarness.completedActionCount(), 0);
 
@@ -1142,7 +1142,7 @@ contract StoxCorporateActionsFacetTest is Test {
 
         vm.prank(ALICE);
         vm.expectRevert(InvalidSplitMultiplier.selector);
-        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, parameters);
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
     }
 
     /// Schedule with past effectiveTime reverts through the facet.
@@ -1152,7 +1152,7 @@ contract StoxCorporateActionsFacetTest is Test {
 
         vm.prank(ALICE);
         vm.expectRevert(abi.encodeWithSelector(EffectiveTimeInPast.selector, uint64(500), block.timestamp));
-        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 500, parameters);
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 500, parameters);
     }
 
     /// Cancel a completed action reverts through the facet.
@@ -1161,7 +1161,7 @@ contract StoxCorporateActionsFacetTest is Test {
         bytes memory parameters = abi.encode(twoX);
 
         vm.prank(ALICE);
-        uint256 id = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, parameters);
+        uint256 id = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
 
         vm.warp(2000);
 
@@ -1184,10 +1184,10 @@ contract StoxCorporateActionsFacetTest is Test {
         Float threeX = LibDecimalFloat.packLossless(3, 0);
 
         vm.prank(ALICE);
-        uint256 id1 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 1500, abi.encode(twoX));
+        uint256 id1 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, abi.encode(twoX));
 
         vm.prank(ALICE);
-        uint256 id2 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_TYPE_HASH, 3000, abi.encode(threeX));
+        uint256 id2 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 3000, abi.encode(threeX));
 
         assertEq(facetViaHarness.completedActionCount(), 0);
 

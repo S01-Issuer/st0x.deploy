@@ -98,7 +98,7 @@ pragma solidity =0.8.25;
 /// ```solidity
 /// // Get the most recent completed stock split.
 /// (uint256 cursor, uint256 actionType, uint64 effectiveTime)
-///     = vault.latestActionOfType(ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+///     = vault.latestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
 ///
 /// // Walk backward through all completed splits.
 /// while (cursor != 0) {
@@ -106,12 +106,12 @@ pragma solidity =0.8.25;
 ///     Float multiplier = abi.decode(params, (Float));
 ///     // ... process the split ...
 ///     (cursor, actionType, effectiveTime)
-///         = vault.prevOfType(cursor, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+///         = vault.prevOfType(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
 /// }
 ///
 /// // Check for pending (future) splits.
 /// (cursor, actionType, effectiveTime)
-///     = vault.latestActionOfType(ACTION_TYPE_STOCK_SPLIT, CompletionFilter.PENDING);
+///     = vault.latestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
 /// ```
 ///
 /// ERC-1155 RECEIPT BATCH READS:
@@ -124,7 +124,7 @@ interface ICorporateActionsV1 {
     /// @notice Emitted when a corporate action is successfully scheduled.
     /// @param sender The msg.sender that called `scheduleCorporateAction`.
     /// @param actionIndex The 1-based index assigned to the new action.
-    /// @param actionType The bitmap action type (e.g. `ACTION_TYPE_STOCK_SPLIT`).
+    /// @param actionType The bitmap action type (e.g. `ACTION_TYPE_STOCK_SPLIT_V1`).
     /// @param effectiveTime The timestamp at which the action becomes effective.
     event CorporateActionScheduled(
         address indexed sender, uint256 indexed actionIndex, uint256 actionType, uint64 effectiveTime
@@ -187,7 +187,7 @@ interface ICorporateActionsV1 {
     /// effective times are possible.
     ///
     /// @param typeHash External identifier for the action type, e.g.
-    /// keccak256("st0x.corporate-actions.stock-split"). Resolved to an internal
+    /// keccak256("st0x.corporate-actions.stock-split.1"). Resolved to an internal
     /// bitmap by the lib.
     /// @param effectiveTime When the action takes effect. Must be in the future.
     /// @param parameters ABI-encoded parameters specific to the action type.
