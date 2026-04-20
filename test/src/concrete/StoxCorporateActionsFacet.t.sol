@@ -446,6 +446,25 @@ contract StoxCorporateActionsFacetTest is Test {
         corporateActionHarness.cancel(id);
     }
 
+    /// Boundary: cancel is rejected at exactly `block.timestamp ==
+    /// effectiveTime` because the `<=` check treats the action as
+    /// already complete. One second before, cancel succeeds.
+    function testCancelBoundaryAtExactEffectiveTimeReverts() external {
+        uint256 id1 = corporateActionHarness.schedule(1, 1500, "");
+        uint256 id2 = corporateActionHarness.schedule(1, 2000, "");
+
+        // Warp to exactly id1's effective time. id1 is now "complete"
+        // (the same threshold `nextOfType` uses); cancel must revert.
+        vm.warp(1500);
+        vm.expectRevert(abi.encodeWithSelector(ActionAlreadyComplete.selector, id1));
+        corporateActionHarness.cancel(id1);
+
+        // id2 is one tick away from being complete — still pending, cancel
+        // succeeds. Warp to 1999 (strictly less than 2000).
+        vm.warp(1999);
+        corporateActionHarness.cancel(id2);
+    }
+
     /// Cancel non-existent reverts.
     function testCancelNonExistentReverts() external {
         vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, uint256(99)));
