@@ -67,6 +67,11 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     function balanceOf(address account) public view virtual override returns (uint256) {
         uint256 stored = LibERC20Storage.getBalance(account);
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
+        // The second return value is the new cursor — intentionally discarded
+        // here because `balanceOf` is a pure read that must not mutate state;
+        // the cursor advancement happens on the next `_update` touch via
+        // `_migrateAccount`.
+        // slither-disable-next-line unused-return
         (uint256 balance,) = LibRebase.migratedBalance(stored, s.accountMigrationCursor[account]);
         return balance;
     }

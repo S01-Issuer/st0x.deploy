@@ -32,6 +32,11 @@ library LibRebaseMath {
     function applyMultiplier(uint256 balance, Float multiplier) internal pure returns (uint256) {
         // forge-lint: disable-next-line(unsafe-typecast)
         if (balance > uint256(type(int256).max)) revert BalanceExceedsInt256Max(balance);
+        // The second return from `toFixedDecimalLossy` is the lossless flag,
+        // intentionally discarded — the whole point of this helper is to
+        // rasterize the Float to a uint256 via truncation toward zero, so
+        // "lossy" is the desired behaviour.
+        // slither-disable-next-line unused-return
         (uint256 result,) = LibDecimalFloat.toFixedDecimalLossy(
             // Guarded above: balance fits in int256.
             // forge-lint: disable-next-line(unsafe-typecast)
