@@ -232,6 +232,43 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vault.publicUpdate(BOB, BOB, 0);
     }
 
+    /// Transfer attempt after a reverse split truncates the sender's
+    /// balance to zero. Migration runs first, writing the post-truncation
+    /// value to storage. OZ's `_update` then sees `_balances[from] == 0`
+    /// and reverts with `ERC20InsufficientBalance` for any non-zero
+    /// transfer amount.
+    function testTransferRevertsWhenMigrationTruncatesBalanceToZero() external {
+        // Alice has stored 1 pre-split. A 1/2x split truncates her to 0.
+        vault.publicUpdate(address(0), ALICE, 1);
+        Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, abi.encode(halfX));
+        vm.warp(2000);
+
+        // View already reflects the truncation.
+        assertEq(vault.balanceOf(ALICE), 0, "balanceOf reflects truncation pre-migration");
+
+        // Any non-zero transfer reverts with OZ's insufficient-balance error —
+        // migration writes stored = 0 before the transfer arithmetic runs.
+        vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, ALICE, 0, 1));
+        vault.publicUpdate(ALICE, BOB, 1);
+    }
+
+    /// Partial truncation: balance is reduced but non-zero, transfer succeeds
+    /// up to the migrated amount.
+    function testTransferSucceedsUpToMigratedBalanceAfterPartialTruncation() external {
+        // Alice has stored 3 pre-split. 1/2x truncates 3 → 1.
+        vault.publicUpdate(address(0), ALICE, 3);
+        Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, abi.encode(halfX));
+        vm.warp(2000);
+        assertEq(vault.balanceOf(ALICE), 1, "alice migrated balance = trunc(3 * 0.5) = 1");
+
+        // Transfer exactly the migrated amount.
+        vault.publicUpdate(ALICE, BOB, 1);
+        assertEq(vault.balanceOf(ALICE), 0, "alice drained");
+        assertEq(vault.balanceOf(BOB), 1, "bob received the full 1 unit");
+    }
+
     /// Boundary on `effectiveTime`: a split whose effective time equals the
     /// current block timestamp must be treated as completed (via the `<=`
     /// comparison in `LibCorporateActionNode.nextOfType`). One second before
