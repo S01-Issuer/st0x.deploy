@@ -22,10 +22,12 @@ bytes32 constant ERC20_STORAGE_LOCATION =
 ///   slot+2: uint256 _totalSupply
 /// If OZ changes this layout, this library MUST be updated.
 library LibERC20Storage {
-    /// @notice Read an account's raw stored balance directly from storage.
+    /// @notice Read the account's raw underlying balance at OZ's ERC-7201
+    /// `_balances` slot. This is whatever value OZ's `_update` has last
+    /// written — no semantic overlay is applied here.
     /// @param account The account to read.
-    /// @return result The raw stored balance (pre-rebase).
-    function getBalance(address account) internal view returns (uint256 result) {
+    /// @return result The raw value of `_balances[account]`.
+    function underlyingBalance(address account) internal view returns (uint256 result) {
         // Inline assembly only accepts literal number constants; bind the
         // derived constant to a local first.
         bytes32 slot = ERC20_STORAGE_LOCATION;
@@ -36,10 +38,12 @@ library LibERC20Storage {
         }
     }
 
-    /// @notice Write an account's balance directly to storage.
+    /// @notice Write the account's raw underlying balance at OZ's ERC-7201
+    /// `_balances` slot. Bypasses OZ's `_update` entirely — no `Transfer`
+    /// event, no `_totalSupply` adjustment.
     /// @param account The account to write.
-    /// @param newBalance The new balance to set.
-    function setBalance(address account, uint256 newBalance) internal {
+    /// @param newBalance The new value to write to `_balances[account]`.
+    function setUnderlyingBalance(address account, uint256 newBalance) internal {
         bytes32 slot = ERC20_STORAGE_LOCATION;
         assembly ("memory-safe") {
             mstore(0x00, account)
@@ -48,9 +52,12 @@ library LibERC20Storage {
         }
     }
 
-    /// @notice Read totalSupply directly from storage.
-    /// @return supply The raw stored totalSupply.
-    function getTotalSupply() internal view returns (uint256 supply) {
+    /// @notice Read the raw underlying `_totalSupply` at OZ's ERC-7201 slot.
+    /// This is whatever value OZ's `_update` has last written; no semantic
+    /// overlay is applied here. Consumers that need a rebase-aware or
+    /// otherwise-derived supply figure must compute it themselves.
+    /// @return supply The raw value of OZ's `_totalSupply`.
+    function underlyingTotalSupply() internal view returns (uint256 supply) {
         bytes32 slot = ERC20_STORAGE_LOCATION;
         assembly ("memory-safe") {
             supply := sload(add(slot, 2))

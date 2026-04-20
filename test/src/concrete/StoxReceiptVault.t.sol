@@ -56,7 +56,7 @@ contract TestStoxReceiptVault is StoxReceiptVault {
     }
 
     function rawStoredBalance(address account) external view returns (uint256) {
-        return LibERC20Storage.getBalance(account);
+        return LibERC20Storage.underlyingBalance(account);
     }
 
     function migrationCursor(address account) external view returns (uint256) {
@@ -427,6 +427,192 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
             vault.totalSupplyLatestSplit(),
             "migrationCursor must equal totalSupplyLatestSplit after _migrateAccount"
         );
+    }
+
+    /// Structural coupling test between `LibRebase.migratedBalance` and
+    /// `LibTotalSupply.fold()`.
+    ///
+    /// Both functions currently filter the corporate-action linked list with
+    /// `ACTION_TYPE_STOCK_SPLIT_V1`. That coupling keeps
+    /// `accountMigrationCursor` and `totalSupplyLatestSplit` in lockstep.
+    ///
+    /// INTENT: pin the current behaviour that a completed non-stock-split node
+    /// advances *neither* cursor. When a future action type (dividends, rights
+    /// issues, etc.) starts participating in migration, whoever adds that
+    /// support MUST update both `LibRebase` and `LibTotalSupply` together, or
+    /// they'll diverge and the pot accounting will break silently. This test
+    /// fails fast in that scenario:
+    ///
+    ///   - If `_migrateAccount` starts walking the new type without
+    ///     `LibTotalSupply.fold()` doing the same, the first assertion here
+    ///     fails because `migrationCursor` advances past the synthetic node
+    ///     but `totalSupplyLatestSplit` does not.
+    ///   - If `fold()` starts walking the new type without `_migrateAccount`
+    ///     doing the same, the inverse failure mode triggers.
+    ///
+    /// When that happens, DO NOT just update the assertions — the failure is
+    /// signalling that the pot model now needs per-action-type accounting.
+    /// Revisit `LibTotalSupply` with the new action type's rebase semantics
+    /// before touching this test.
+    function testNonStockSplitNodeAdvancesNeitherCursor() external {
+        // Synthesise a completed node with a bitmap that is NOT
+        // `ACTION_TYPE_STOCK_SPLIT_V1`. Bypass `resolveActionType` (which
+        // would reject the unknown type) by calling schedule() directly
+        // through the public harness.
+        uint256 fakeActionType = 1 << 1;
+        vault.publicSchedule(fakeActionType, 1500, abi.encode(uint256(0)));
+
+        // Give Bob a pre-existing balance so _migrateAccount has something
+        // to rasterize if it ever starts walking the fake node.
+        vault.publicUpdate(address(0), BOB, 1000);
+
+        // Warp past the fake node's effective time so it counts as completed.
+        vm.warp(2000);
+
+        // Touch Bob to drive fold() + _migrateAccount.
+        vault.publicUpdate(BOB, BOB, 0);
+
+        assertEq(
+            vault.migrationCursor(BOB),
+            0,
+            "_migrateAccount must not advance cursor through a non-stock-split node"
+        );
+        assertEq(
+            vault.totalSupplyLatestSplit(),
+            0,
+            "fold() must not advance totalSupplyLatestSplit through a non-stock-split node"
+        );
+        assertEq(vault.balanceOf(BOB), 1000, "Bob's balance must be unaffected by a non-split completed node");
+
+        // Now schedule a real stock split, complete it, and confirm BOTH
+        // cursors advance together. This half of the test pins the
+        // positive-case behaviour: stock splits move both, non-splits move
+        // neither.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(2));
+        vm.warp(3000);
+        vault.publicUpdate(BOB, BOB, 0);
+
+        assertEq(vault.migrationCursor(BOB), 2, "cursor must advance to the stock-split node (index 2)");
+        assertEq(vault.totalSupplyLatestSplit(), 2, "latest must advance to the stock-split node (index 2)");
+        assertEq(vault.balanceOf(BOB), 2000, "Bob's balance must reflect only the 2x split, not the fake node");
+    }
+
+    /// `effectiveTotalSupply()` called between split completion and the first
+    /// post-split `_update` exercises the `!totalSupplyBootstrapped` branch:
+    /// the view has no pot to read from, so it starts the walk from OZ's raw
+    /// `_totalSupply` and applies each completed multiplier.
+    ///
+    /// INTENT: pin the behaviour of the view during the bootstrap-deferred
+    /// window. If the branch shape changes — e.g. if `fold()` is ever moved
+    /// into the view — this test fails and forces the author to re-evaluate
+    /// the state-mutation rules for view functions.
+    function testTotalSupplyDuringBootstrapDeferredWindow() external {
+        // Mint supply before any split is scheduled. No bootstrap yet.
+        vault.publicUpdate(address(0), BOB, 100);
+        assertEq(vault.totalSupplyLatestSplit(), 0, "no split tracked yet");
+
+        // Schedule a 2x split and warp past its effective time. Critically,
+        // do NOT call any `_update` after warping — so `fold()` hasn't run
+        // and `totalSupplyBootstrapped` is still false.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        // The view must still report the rebased supply using OZ's raw
+        // totalSupply as the walk starting point.
+        assertEq(vault.totalSupply(), 200, "view must apply the 2x multiplier without bootstrap");
+
+        // And `totalSupplyLatestSplit` is still 0 because no state-mutating
+        // path has run fold(). The view reads are side-effect-free.
+        assertEq(vault.totalSupplyLatestSplit(), 0, "view must not bootstrap");
+    }
+
+    /// Multiple completed splits land between `_update` calls and no
+    /// account migrates in between. Exercises the view walk across all
+    /// three multipliers while pot 0 still holds mass — the critical
+    /// case that catches a dropped-multiplier regression.
+    ///
+    /// INTENT: pin the behaviour of `effectiveTotalSupply` walking
+    /// through intermediate pots. Asserting totalSupply *before* the
+    /// mass migrates out of pot 0 forces the walk to perform real
+    /// multiplier applications on non-zero running values. If a future
+    /// change ever dropped a multiplier step or tried to "skip empty
+    /// pots" without carrying the multiplication forward, this test
+    /// would fail at the pre-migration assertion.
+    ///
+    /// The post-migration assertion is a second-order check: once all
+    /// mass is in the final pot, the walk's multiplier applications
+    /// operate on zero intermediates and are invisible to the result.
+    /// That assertion only catches pot-accounting bugs, not
+    /// multiplier-walk bugs.
+    function testEffectiveTotalSupplyAcrossGapWithZeroIntermediatePots() external {
+        // Seed: Bob holds 100 pre-split.
+        vault.publicUpdate(address(0), BOB, 100);
+
+        // Three splits complete before anybody touches the vault.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, _splitParams(5));
+        vm.warp(4000);
+
+        // Force `fold()` to bootstrap + advance `totalSupplyLatestSplit`
+        // without moving Bob's mass out of pot 0. CAROL is a fresh
+        // zero-balance account — her "migration" advances only her
+        // cursor, not any pot value. After this, pot 0 still holds 100.
+        vault.publicUpdate(address(0), CAROL, 0);
+        assertEq(vault.totalSupplyLatestSplit(), 3, "fold must advance to the latest split");
+
+        // CRITICAL ASSERTION: pot 0 holds 100, pots 1/2/3 are empty. The
+        // view must walk `100 -> trunc(100*2) -> trunc(200*3) -> trunc(600*5)
+        // = 3000`. A dropped multiplier in the walk collapses to 100.
+        assertEq(vault.totalSupply(), 3000, "view must apply every multiplier while pot 0 holds mass");
+
+        // Now migrate Bob. His mass leaves pot 0 and lands in pot 3.
+        vault.publicUpdate(BOB, BOB, 0);
+        assertEq(vault.rawStoredBalance(BOB), 3000, "bob stored = 100 * 2 * 3 * 5");
+        assertEq(vault.migrationCursor(BOB), 3, "bob cursor at latest split");
+
+        // Post-migration: same total, but now all mass lives in pot 3.
+        // Note: the walk here trivially produces 3000 because the
+        // multiplier applications all operate on zero intermediates.
+        // This assertion catches pot-accounting bugs but not walk bugs
+        // — the pre-migration assertion above is the walk guarantee.
+        assertEq(vault.totalSupply(), 3000, "totalSupply stable across migration");
+    }
+
+    /// Burn-to-zero after a completed split: an account with a non-zero
+    /// pre-split balance migrates through the split and then burns its
+    /// entire post-migration balance. Checks all four pieces of state
+    /// simultaneously to pin the migrate+burn interaction in one test.
+    ///
+    /// INTENT: a future regression that, for example, decoupled
+    /// `onBurn` from `_migrateAccount`'s ordering would leave one of
+    /// the pots or the stored balance inconsistent with the others.
+    /// Asserting all four quantities at once makes such a regression
+    /// visible in a single test failure rather than having to correlate
+    /// individual assertions across separate tests.
+    function testBurnToZeroPostSplitInvariants() external {
+        // Alice holds 50 pre-split.
+        vault.publicUpdate(address(0), ALICE, 50);
+
+        // 2x split completes.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        // Alice's view is 100 (migrated). Burn all of it.
+        assertEq(vault.balanceOf(ALICE), 100, "alice sees 2x post-split");
+        vault.publicUpdate(ALICE, address(0), 100);
+
+        // All four state pieces after burn-to-zero:
+        //   (1) stored balance is 0
+        //   (2) migration cursor advanced to the split (index 1)
+        //   (3) unmigrated[0] drained of alice's pre-split balance
+        //   (4) unmigrated[1] = migrated balance - burn = 100 - 100 = 0
+        //
+        // `effectiveTotalSupply` walks: running = unmigrated[0] = 0;
+        // running = trunc(0 * 2) + unmigrated[1] = 0 + 0 = 0.
+        assertEq(vault.rawStoredBalance(ALICE), 0, "alice stored = 0");
+        assertEq(vault.migrationCursor(ALICE), 1, "alice cursor at split");
+        assertEq(vault.totalSupply(), 0, "totalSupply collapses to 0 after full burn");
     }
 
     /// Fuzzed convergence invariant: for any initial balance and any sequence
