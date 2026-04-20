@@ -89,19 +89,24 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     }
 
     /// @dev Bootstraps totalSupply tracking, migrates both sender and
-    /// recipient, tracks mint/burn deltas, then calls super.
+    /// recipient, calls super, then tracks mint/burn deltas in the pot.
+    /// `onMint` / `onBurn` run AFTER `super._update` so OZ's own validation
+    /// (e.g. `ERC20InsufficientBalance` on an over-burn) fires first. If
+    /// these ran before super, a lone-holder over-burn at `latestSplit`
+    /// would underflow the pot with a raw arithmetic panic rather than
+    /// surfacing OZ's intended error.
     function _update(address from, address to, uint256 amount) internal virtual override {
         LibTotalSupply.fold();
         _migrateAccount(from);
         _migrateAccount(to);
+
+        super._update(from, to, amount);
 
         if (from == address(0)) {
             LibTotalSupply.onMint(amount);
         } else if (to == address(0)) {
             LibTotalSupply.onBurn(amount);
         }
-
-        super._update(from, to, amount);
     }
 
     /// @dev Migrate a single account through every completed split that has

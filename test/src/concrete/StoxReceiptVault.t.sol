@@ -7,6 +7,8 @@ import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
+import {IERC20Errors} from
+    "openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
 import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/lib/LibCorporateAction.sol";
 import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
 import {LibTotalSupply} from "../../../src/lib/LibTotalSupply.sol";
@@ -30,13 +32,13 @@ contract TestStoxReceiptVault is StoxReceiptVault {
         _migrateAccount(from);
         _migrateAccount(to);
 
+        ERC20Upgradeable._update(from, to, amount);
+
         if (from == address(0)) {
             LibTotalSupply.onMint(amount);
         } else if (to == address(0)) {
             LibTotalSupply.onBurn(amount);
         }
-
-        ERC20Upgradeable._update(from, to, amount);
     }
 
     /// Expose ERC20 _update so tests can drive mints/burns/transfers without
@@ -613,6 +615,18 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.rawStoredBalance(ALICE), 0, "alice stored = 0");
         assertEq(vault.migrationCursor(ALICE), 1, "alice cursor at split");
         assertEq(vault.totalSupply(), 0, "totalSupply collapses to 0 after full burn");
+    }
+
+    /// Over-burn by a lone holder at `totalSupplyLatestSplit` must surface
+    /// OZ's `ERC20InsufficientBalance` error, not a raw arithmetic panic
+    /// from the pot subtraction.
+    function testOverBurnSurfacesOzInsufficientBalanceNotPanic() external {
+        vault.publicUpdate(address(0), ALICE, 50);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, ALICE, 100, 101));
+        vault.publicUpdate(ALICE, address(0), 101);
     }
 
     /// Fuzzed convergence invariant: for any initial balance and any sequence
