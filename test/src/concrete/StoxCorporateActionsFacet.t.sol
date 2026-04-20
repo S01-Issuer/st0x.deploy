@@ -643,24 +643,28 @@ contract StoxCorporateActionsFacetTest is Test {
         // we poke that one via vm.store at the derived slot for the key
         // and then read it back through the library-path reader — proving
         // the field is at slot+3 (offset 3 from the namespace base).
-        corporateActionHarness.schedule(1, 1500, ""); // populates head=1, tail=1, nodes[0..1]
+        // Schedule TWO actions so head (1) and tail (2) have distinct values.
+        // If this only scheduled one, head and tail would both be 1 and a
+        // swap between their offsets wouldn't be detectable.
+        corporateActionHarness.schedule(1, 1500, "");
+        corporateActionHarness.schedule(1, 2000, "");
 
         address harnessAddr = address(corporateActionHarness);
         bytes32 base = CORPORATE_ACTION_STORAGE_LOCATION;
 
-        // Offset 0 — head.
+        // Offset 0 — head. First scheduled (earliest effectiveTime).
         bytes32 headSlot = vm.load(harnessAddr, base);
         assertEq(uint256(headSlot), 1, "head must be at offset 0");
 
-        // Offset 1 — tail.
+        // Offset 1 — tail. Second scheduled.
         bytes32 tailSlot = vm.load(harnessAddr, bytes32(uint256(base) + 1));
-        assertEq(uint256(tailSlot), 1, "tail must be at offset 1");
+        assertEq(uint256(tailSlot), 2, "tail must be at offset 1");
 
         // Offset 2 — nodes[] length. Dynamic array layout stores length at
-        // the base slot; elements live at `keccak256(slot)`. After one
-        // schedule call the array contains the sentinel + the new node.
+        // the base slot; elements live at `keccak256(slot)`. After two
+        // schedule calls the array contains the sentinel + two nodes.
         bytes32 nodesLenSlot = vm.load(harnessAddr, bytes32(uint256(base) + 2));
-        assertEq(uint256(nodesLenSlot), 2, "nodes length must be at offset 2");
+        assertEq(uint256(nodesLenSlot), 3, "nodes length must be at offset 2");
 
         // For the struct fields below: poke via `vm.store` at the expected
         // offset, then read via a library-path getter on the harness. The
