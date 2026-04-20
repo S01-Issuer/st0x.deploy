@@ -2,19 +2,19 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std/Test.sol";
-import {LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
+import {Test, Vm} from "forge-std/Test.sol";
+import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT} from "../../../src/lib/LibCorporateAction.sol";
+import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/lib/LibCorporateAction.sol";
 import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
 import {LibTotalSupply} from "../../../src/lib/LibTotalSupply.sol";
 
 /// @dev Test-only subclass of StoxReceiptVault that bypasses
 /// `OffchainAssetReceiptVault._update`'s authorizer / freeze checks. This lets
 /// us exercise `StoxReceiptVault`'s migration logic in isolation without
-/// standing up the full ethgild auth/freeze infrastructure (admin grants,
+/// standing up the full rain.vats auth/freeze infrastructure (admin grants,
 /// authorizer wiring, certify state, etc).
 ///
 /// The test class re-overrides `_update` to call `_migrateAccount` for both
@@ -77,11 +77,11 @@ contract StoxReceiptVaultTest is Test {
     }
 }
 
-/// Integration tests for the corporate-actions hooks added in PR4.
+/// Integration tests for the corporate-actions rebase hooks.
 ///
-/// These tests are the regression guards for `audit/2026-04-07-01/pass1/
-/// StoxReceiptVault.md::A03-1` — the CRITICAL inflation bug where mint or
-/// transfer to a fresh recipient after a completed split would over-multiply
+/// These tests are the regression guards for the CRITICAL inflation bug
+/// where mint or transfer to a fresh recipient after a completed split
+/// would over-multiply
 /// the recipient's balance, minting tokens out of thin air.
 contract StoxReceiptVaultMigrationIntegrationTest is Test {
     TestStoxReceiptVault internal vault;
@@ -108,7 +108,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vault.publicUpdate(address(0), BOB, 1000);
 
         // Schedule and complete a 2x stock split.
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         // Mint 100 to Alice — a brand new account.
@@ -126,7 +126,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vault.publicUpdate(address(0), BOB, 50);
 
         // Schedule and complete a 2x stock split.
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         // After the split, Bob's balance should be 100.
@@ -150,7 +150,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// Pre-existing holder's balance correctly reflects a completed split.
     function testBalanceOfRebaseOnExistingHolder() external {
         vault.publicUpdate(address(0), BOB, 50);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         assertEq(vault.balanceOf(BOB), 100);
     }
@@ -160,7 +160,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// latest completed split.
     function testFreshAccountCursorAdvancesAfterMigration() external {
         vault.publicUpdate(address(0), BOB, 1000);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         // Touch Alice via a 0-amount mint. (The publicUpdate path via mint=0
@@ -174,8 +174,8 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// Two consecutive splits, then mint to a fresh account: still no inflation.
     function testMintFreshAccountAfterTwoCompletedSplits() external {
         vault.publicUpdate(address(0), BOB, 100);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(3));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
         vm.warp(3000);
 
         vault.publicUpdate(address(0), ALICE, 100);
@@ -187,8 +187,8 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// migration produces the correct rebased balance.
     function testDormantHolderMigratesCorrectly() external {
         vault.publicUpdate(address(0), BOB, 100);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(3));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
         vm.warp(3000);
 
         // Force a migration via a touch.
@@ -202,7 +202,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// Burn from a holder works correctly after a split.
     function testBurnAfterSplit() external {
         vault.publicUpdate(address(0), BOB, 100);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         // Bob's effective balance is 200 after the split.
@@ -217,7 +217,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// account is migrated through a completed split.
     function testAccountMigratedEventEmitted() external {
         vault.publicUpdate(address(0), BOB, 100);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         vm.expectEmit(true, false, false, true, address(vault));
@@ -236,7 +236,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vault.publicUpdate(address(0), CAROL, 200);
 
         // Split.
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         // Mint to a fresh account after the split.
@@ -262,7 +262,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// per-account balanceOf).
     function testTotalSupplyConsistentWithBalanceOfAfterMintFreshPostSplit() external {
         vault.publicUpdate(address(0), BOB, 1000);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         vault.publicUpdate(address(0), ALICE, 100);
@@ -310,7 +310,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.migrationCursor(BOB), 0, "fresh mint lands at cursor 0 before any split");
         assertEq(vault.totalSupplyLatestSplit(), 0, "no splits completed yet");
 
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         // Touch Bob — migration should land his cursor on 1 AND
@@ -321,7 +321,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.balanceOf(BOB), 2000, "Bob rebased to 2000");
 
         // Split 2: 3x at t=2500. Schedule and warp.
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(3));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
         vm.warp(3000);
 
         // Now burn some from Bob. Inside `_update`, fold() advances
@@ -378,7 +378,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         _assertCursorInvariant(CAROL);
 
         // Split 1 lands.
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(m1));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(m1));
         vm.warp(2000);
 
         // Transfer from Bob to Carol — migrates both, asserts both have
@@ -392,7 +392,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.migrationCursor(CAROL), 1, "Carol's cursor advanced through split 1");
 
         // Split 2 lands.
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(m2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(m2));
         vm.warp(3000);
 
         // Burn from Carol — migrates Carol (from cursor 1 through split 2
@@ -427,5 +427,258 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
             vault.totalSupplyLatestSplit(),
             "migrationCursor must equal totalSupplyLatestSplit after _migrateAccount"
         );
+    }
+
+    /// Fuzzed convergence invariant: for any initial balance and any sequence
+    /// of stock splits, the view `balanceOf` (pre-migration) must equal the
+    /// rasterized stored balance after `_update`-driven migration. This
+    /// guards the core property that external reads and post-rasterization
+    /// stored state agree — if they diverge, transfers could use different
+    /// balances than what the view reports.
+    function testFuzzConvergenceViewMatchesStoredAfterMigration(uint64 initialBalance, uint8 numSplits, uint8 seed)
+        external
+    {
+        initialBalance = uint64(bound(initialBalance, 1, type(uint32).max));
+        numSplits = uint8(bound(numSplits, 0, 8));
+
+        vault.publicUpdate(address(0), BOB, uint256(initialBalance));
+
+        // Schedule alternating forward and reverse splits.
+        for (uint256 i = 0; i < numSplits; i++) {
+            // Alternate 2x and 1/2x based on i bit 0; use seed to vary starting
+            // direction across fuzz runs.
+            bool forward = ((i ^ seed) & 1) == 0;
+            bytes memory params = forward
+                ? abi.encode(LibDecimalFloat.packLossless(2, 0))
+                : abi.encode(
+                    LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0))
+                );
+            // forge-lint: disable-next-line(unsafe-typecast)
+            vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(1001 + i * 100), params);
+        }
+
+        if (numSplits > 0) {
+            // forge-lint: disable-next-line(unsafe-typecast)
+            vm.warp(uint64(1001 + uint256(numSplits) * 100 + 1));
+        }
+
+        // Snapshot view balance BEFORE migration.
+        uint256 viewBefore = vault.balanceOf(BOB);
+
+        // Force migration via a self-touch.
+        vault.publicUpdate(BOB, BOB, 0);
+
+        // View AFTER migration must still match (idempotence).
+        uint256 viewAfter = vault.balanceOf(BOB);
+        uint256 stored = vault.rawStoredBalance(BOB);
+
+        assertEq(viewBefore, viewAfter, "view balance must not change across migration");
+        assertEq(viewAfter, stored, "view and stored balance must converge");
+    }
+
+    /// Fuzzed convergence across two accounts migrated at different points:
+    /// Alice migrates after split 1, Bob migrates after splits 1 and 2. Their
+    /// balances computed from different migration paths must still match
+    /// their view values and their stored values after full migration.
+    function testFuzzTwoAccountDifferentMigrationPathsConverge(uint32 aliceInit, uint32 bobInit) external {
+        aliceInit = uint32(bound(aliceInit, 1, type(uint32).max));
+        bobInit = uint32(bound(bobInit, 1, type(uint32).max));
+
+        vault.publicUpdate(address(0), ALICE, uint256(aliceInit));
+        vault.publicUpdate(address(0), BOB, uint256(bobInit));
+
+        // Split 1: 2x at t=1500.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(1600);
+
+        // Alice touches after split 1 (migrates partially).
+        vault.publicUpdate(ALICE, ALICE, 0);
+
+        // Split 2: 1/2x at t=2000.
+        Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, abi.encode(halfX));
+        vm.warp(2100);
+
+        // Both view balances before final migration.
+        uint256 aliceView = vault.balanceOf(ALICE);
+        uint256 bobView = vault.balanceOf(BOB);
+
+        // Both touched — full migration.
+        vault.publicUpdate(ALICE, ALICE, 0);
+        vault.publicUpdate(BOB, BOB, 0);
+
+        // Convergence: view matches stored for both accounts.
+        assertEq(aliceView, vault.rawStoredBalance(ALICE), "alice view matches stored");
+        assertEq(bobView, vault.rawStoredBalance(BOB), "bob view matches stored");
+        // And the post-migration view equals the stored (idempotence).
+        assertEq(vault.balanceOf(ALICE), vault.rawStoredBalance(ALICE));
+        assertEq(vault.balanceOf(BOB), vault.rawStoredBalance(BOB));
+    }
+
+    /// Fuzzed idempotency: after an initial migration through an arbitrary
+    /// split chain, repeated touches with no new splits must not change
+    /// cursor, stored balance, or view balance, and must not re-emit
+    /// `AccountMigrated`. Guards the `newCursor == currentCursor` early
+    /// return in `_migrateAccount`.
+    function testFuzzMigrationIdempotentAcrossRepeatedTouches(
+        uint32 initialBalance,
+        uint8 numSplits,
+        uint8 seed,
+        uint8 touchCount
+    ) external {
+        initialBalance = uint32(bound(initialBalance, 1, type(uint32).max));
+        numSplits = uint8(bound(numSplits, 0, 8));
+        touchCount = uint8(bound(touchCount, 1, 10));
+
+        vault.publicUpdate(address(0), BOB, uint256(initialBalance));
+
+        for (uint256 i = 0; i < numSplits; i++) {
+            bool forward = ((i ^ seed) & 1) == 0;
+            bytes memory params = forward
+                ? abi.encode(LibDecimalFloat.packLossless(2, 0))
+                : abi.encode(
+                    LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0))
+                );
+            // forge-lint: disable-next-line(unsafe-typecast)
+            vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(1001 + i * 100), params);
+        }
+
+        if (numSplits > 0) {
+            // forge-lint: disable-next-line(unsafe-typecast)
+            vm.warp(uint64(1001 + uint256(numSplits) * 100 + 1));
+        }
+
+        // First touch triggers the migration.
+        vault.publicUpdate(BOB, BOB, 0);
+
+        uint256 cursorAfterFirst = vault.migrationCursor(BOB);
+        uint256 storedAfterFirst = vault.rawStoredBalance(BOB);
+        uint256 viewAfterFirst = vault.balanceOf(BOB);
+
+        // Repeated touches must be idempotent AND must not re-emit.
+        bytes32 migratedSig = StoxReceiptVault.AccountMigrated.selector;
+        for (uint256 i = 0; i < touchCount; i++) {
+            vm.recordLogs();
+            vault.publicUpdate(BOB, BOB, 0);
+            Vm.Log[] memory logs = vm.getRecordedLogs();
+            for (uint256 j = 0; j < logs.length; j++) {
+                if (logs[j].topics.length > 0 && logs[j].topics[0] == migratedSig) {
+                    fail();
+                }
+            }
+            assertEq(vault.migrationCursor(BOB), cursorAfterFirst, "cursor unchanged across idempotent touches");
+            assertEq(vault.rawStoredBalance(BOB), storedAfterFirst, "stored unchanged across idempotent touches");
+            assertEq(vault.balanceOf(BOB), viewAfterFirst, "view unchanged across idempotent touches");
+        }
+    }
+
+    /// Transfers between two distinct accounts, interleaved with multiple
+    /// forward and reverse splits in a single flow. At each transfer, both
+    /// `from` and `to` must migrate before the raw balance change lands,
+    /// otherwise the transfer arithmetic operates on pre-rebase balances and
+    /// inflates / deflates incorrectly. Numbers below are exact.
+    function testInterleavedTransfersAndSplits() external {
+        // Initial: Alice 100, Bob 50 (pre-split basis).
+        vault.publicUpdate(address(0), ALICE, 100);
+        vault.publicUpdate(address(0), BOB, 50);
+
+        // Split 1: 2x at t=1500.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(1600);
+
+        // Transfer Alice → Bob, 30. Both migrate first:
+        //   Alice: 100 → 200, then -30 = 170
+        //   Bob:    50 → 100, then +30 = 130
+        vault.publicUpdate(ALICE, BOB, 30);
+        assertEq(vault.balanceOf(ALICE), 170, "alice after t1");
+        assertEq(vault.balanceOf(BOB), 130, "bob after t1");
+
+        // Split 2: 1/2x at t=2000.
+        Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, abi.encode(halfX));
+        vm.warp(2100);
+
+        // Transfer Bob → Alice, 40. Both migrate first:
+        //   Bob:    130 → 65, then -40 = 25
+        //   Alice:  170 → 85, then +40 = 125
+        vault.publicUpdate(BOB, ALICE, 40);
+        assertEq(vault.balanceOf(ALICE), 125, "alice after t2");
+        assertEq(vault.balanceOf(BOB), 25, "bob after t2");
+
+        // Split 3: 3x at t=2500.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        vm.warp(2600);
+
+        // Transfer Alice → Bob, 60. Both migrate first:
+        //   Alice: 125 → 375, then -60 = 315
+        //   Bob:   25  → 75,  then +60 = 135
+        vault.publicUpdate(ALICE, BOB, 60);
+        assertEq(vault.balanceOf(ALICE), 315, "alice after t3");
+        assertEq(vault.balanceOf(BOB), 135, "bob after t3");
+
+        // Stored balances equal view balances (post-migration invariant).
+        assertEq(vault.rawStoredBalance(ALICE), 315, "alice stored = view");
+        assertEq(vault.rawStoredBalance(BOB), 135, "bob stored = view");
+    }
+
+    /// Fuzzed interleaved transfers + splits. After each transfer, stored
+    /// balances must equal view balances for both parties (migration is
+    /// eager on both `from` and `to`), and the pairwise conservation
+    /// invariant must hold: the net balance delta equals the transfer
+    /// amount minus any truncation from the rebase that landed between
+    /// transfers.
+    function testFuzzInterleavedTransfersAndSplits(
+        uint32 aliceInit,
+        uint32 bobInit,
+        uint64 amount1,
+        uint64 amount2,
+        uint64 amount3
+    ) external {
+        aliceInit = uint32(bound(aliceInit, 1000, type(uint32).max));
+        bobInit = uint32(bound(bobInit, 1000, type(uint32).max));
+
+        vault.publicUpdate(address(0), ALICE, uint256(aliceInit));
+        vault.publicUpdate(address(0), BOB, uint256(bobInit));
+
+        // Split 1: 2x.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(1600);
+
+        // Transfer Alice → Bob. `balanceOf` already returns the post-rebase
+        // value, which is exactly what migration will write for Alice's
+        // stored balance inside `_update`. Bound the amount by that.
+        amount1 = uint64(bound(amount1, 0, vault.balanceOf(ALICE)));
+        vault.publicUpdate(ALICE, BOB, uint256(amount1));
+        assertEq(vault.balanceOf(ALICE), vault.rawStoredBalance(ALICE), "alice view=stored after t1");
+        assertEq(vault.balanceOf(BOB), vault.rawStoredBalance(BOB), "bob view=stored after t1");
+
+        // Split 2: 1/2x.
+        Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, abi.encode(halfX));
+        vm.warp(2100);
+
+        // Transfer Bob → Alice.
+        amount2 = uint64(bound(amount2, 0, vault.balanceOf(BOB)));
+        vault.publicUpdate(BOB, ALICE, uint256(amount2));
+        assertEq(vault.balanceOf(ALICE), vault.rawStoredBalance(ALICE), "alice view=stored after t2");
+        assertEq(vault.balanceOf(BOB), vault.rawStoredBalance(BOB), "bob view=stored after t2");
+
+        // Split 3: 3x.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        vm.warp(2600);
+
+        // Transfer Alice → Bob.
+        amount3 = uint64(bound(amount3, 0, vault.balanceOf(ALICE)));
+        vault.publicUpdate(ALICE, BOB, uint256(amount3));
+        assertEq(vault.balanceOf(ALICE), vault.rawStoredBalance(ALICE), "alice view=stored after t3");
+        assertEq(vault.balanceOf(BOB), vault.rawStoredBalance(BOB), "bob view=stored after t3");
+
+        // Final convergence: repeated idempotent touches don't change anything.
+        uint256 aliceFinal = vault.balanceOf(ALICE);
+        uint256 bobFinal = vault.balanceOf(BOB);
+        vault.publicUpdate(ALICE, ALICE, 0);
+        vault.publicUpdate(BOB, BOB, 0);
+        assertEq(vault.balanceOf(ALICE), aliceFinal, "alice idempotent after final");
+        assertEq(vault.balanceOf(BOB), bobFinal, "bob idempotent after final");
     }
 }

@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Float} from "rain.math.float/lib/LibDecimalFloat.sol";
-import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT} from "./LibCorporateAction.sol";
+import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "./LibCorporateAction.sol";
 import {CompletionFilter, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
 import {LibStockSplit} from "./LibStockSplit.sol";
 import {LibERC20Storage} from "./LibERC20Storage.sol";
@@ -81,7 +81,7 @@ library LibTotalSupply {
             running = s.unmigrated[0];
         } else {
             uint256 firstIndex =
-                LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+                LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
             if (firstIndex == 0) {
                 return LibERC20Storage.getTotalSupply();
             }
@@ -89,10 +89,10 @@ library LibTotalSupply {
         }
 
         // Walk completed splits, applying each multiplier and picking up pots.
-        uint256 nodeIndex = LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+        uint256 nodeIndex = LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
 
         while (nodeIndex != 0) {
-            Float multiplier = LibStockSplit.decodeParameters(s.nodes[nodeIndex].parameters);
+            Float multiplier = LibStockSplit.decodeParametersV1(s.nodes[nodeIndex].parameters);
             // Rasterize via the shared rebase primitive so every step of
             // the totalSupply walk uses the same rounding characteristics
             // as per-account migration. See `LibRebaseMath.applyMultiplier`.
@@ -100,7 +100,7 @@ library LibTotalSupply {
             running += s.unmigrated[nodeIndex];
 
             nodeIndex =
-                LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+                LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         }
 
         return running;
@@ -117,7 +117,7 @@ library LibTotalSupply {
         // Bootstrap from OZ's totalSupply on first completed split.
         if (!s.totalSupplyBootstrapped) {
             uint256 firstIndex =
-                LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+                LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
             if (firstIndex == 0) return;
 
             s.unmigrated[0] = LibERC20Storage.getTotalSupply();
@@ -126,13 +126,13 @@ library LibTotalSupply {
 
         // Walk from the last known split to find newly completed ones.
         uint256 nodeIndex = LibCorporateActionNode.nextOfType(
-            s.totalSupplyLatestSplit, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED
+            s.totalSupplyLatestSplit, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED
         );
 
         while (nodeIndex != 0) {
             s.totalSupplyLatestSplit = nodeIndex;
             nodeIndex =
-                LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+                LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         }
     }
 

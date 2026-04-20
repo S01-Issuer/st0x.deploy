@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std/Test.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {LibRebase} from "src/lib/LibRebase.sol";
-import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT} from "src/lib/LibCorporateAction.sol";
+import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "src/lib/LibCorporateAction.sol";
 
 contract LibRebaseHarness {
     function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters) external returns (uint256) {
@@ -42,9 +42,8 @@ contract LibRebaseTest is Test {
     /// split. Otherwise a subsequent mint or transfer-in to this account would
     /// land at a stale cursor and the next read of `balanceOf` would re-apply
     /// the split multipliers, silently inflating the recipient's balance.
-    /// See audit/2026-04-07-01/pass1/StoxReceiptVault.md::A03-1.
     function testZeroBalanceAdvancesCursor() external {
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         (uint256 balance, uint256 cursor) = h.migratedBalance(0, 0);
         assertEq(balance, 0);
@@ -53,8 +52,8 @@ contract LibRebaseTest is Test {
 
     /// Zero balance, multiple completed splits — cursor advances to the latest.
     function testZeroBalanceAdvancesCursorAcrossMultipleCompletedSplits() external {
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(3));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
         vm.warp(3000);
         (uint256 balance, uint256 cursor) = h.migratedBalance(0, 0);
         assertEq(balance, 0);
@@ -64,7 +63,7 @@ contract LibRebaseTest is Test {
     /// Zero balance with only pending (not yet effective) splits — cursor stays
     /// where it was, because we only walk completed nodes.
     function testZeroBalancePendingSplitDoesNotAdvanceCursor() external {
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 5000, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 5000, _splitParams(2));
         (uint256 balance, uint256 cursor) = h.migratedBalance(0, 0);
         assertEq(balance, 0);
         assertEq(cursor, 0);
@@ -79,7 +78,7 @@ contract LibRebaseTest is Test {
 
     /// No completed splits returns stored balance unchanged.
     function testNoCompletedSplits() external {
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 5000, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 5000, _splitParams(2));
         (uint256 balance, uint256 cursor) = h.migratedBalance(100, 0);
         assertEq(balance, 100);
         assertEq(cursor, 0);
@@ -87,7 +86,7 @@ contract LibRebaseTest is Test {
 
     /// Simple 2x split doubles the balance.
     function testSimpleTwoXSplit() external {
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         (uint256 balance, uint256 cursor) = h.migratedBalance(100, 0);
         assertEq(balance, 200);
@@ -96,7 +95,7 @@ contract LibRebaseTest is Test {
 
     /// Simple 1/3 reverse split.
     function testOneThirdReverseSplit() external {
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _fractionalParams(1, 3));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _fractionalParams(1, 3));
         vm.warp(2000);
         (uint256 balance, uint256 cursor) = h.migratedBalance(100, 0);
         assertEq(balance, 33);
@@ -105,10 +104,10 @@ contract LibRebaseTest is Test {
 
     /// Sequential precision test: 1/3 x 3 x 1/3 x 3 applied to 100.
     function testSequentialPrecision() external {
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _fractionalParams(1, 3));
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(3));
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 3500, _fractionalParams(1, 3));
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 4500, _splitParams(3));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _fractionalParams(1, 3));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, _fractionalParams(1, 3));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 4500, _splitParams(3));
 
         vm.warp(5000);
         (uint256 balance,) = h.migratedBalance(100, 0);
@@ -117,8 +116,8 @@ contract LibRebaseTest is Test {
 
     /// Multiple splits applied in sequence.
     function testMultipleSplitsSequential() external {
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(3));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
         vm.warp(3000);
         (uint256 balance,) = h.migratedBalance(50, 0);
         assertEq(balance, 300);
@@ -126,8 +125,8 @@ contract LibRebaseTest is Test {
 
     /// Partial migration: cursor skips already-applied splits.
     function testPartialMigration() external {
-        uint256 id1 = h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(3));
+        uint256 id1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
         vm.warp(3000);
         (uint256 balance, uint256 cursor) = h.migratedBalance(100, id1);
         assertEq(balance, 300);
@@ -136,7 +135,7 @@ contract LibRebaseTest is Test {
 
     /// Cursor already at latest completed node returns balance unchanged.
     function testAlreadyMigrated() external {
-        uint256 id = h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        uint256 id = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         (uint256 balance, uint256 cursor) = h.migratedBalance(100, id);
         assertEq(balance, 100);
@@ -146,7 +145,7 @@ contract LibRebaseTest is Test {
     /// Fuzz: 2x split always doubles.
     function testFuzzTwoXSplit(uint128 balance) external {
         vm.assume(balance > 0);
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         (uint256 result,) = h.migratedBalance(uint256(balance), 0);
         assertEq(result, uint256(balance) * 2);
@@ -159,7 +158,7 @@ contract LibRebaseTest is Test {
 
         for (uint256 i = 0; i < splitCount; i++) {
             // forge-lint: disable-next-line(unsafe-typecast)
-            h.schedule(ACTION_TYPE_STOCK_SPLIT, uint64(1500 + i * 1000), _splitParams(2));
+            h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(1500 + i * 1000), _splitParams(2));
         }
 
         vm.warp(1500 + uint256(splitCount) * 1000);
@@ -180,7 +179,7 @@ contract LibRebaseTest is Test {
         int256 num = int256(uint256(bound(numSeed, 1, 20)));
         int256 denom = int256(uint256(bound(denomSeed, 1, 20)));
 
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _fractionalParams(num, denom));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _fractionalParams(num, denom));
         vm.warp(2000);
 
         (uint256 result,) = h.migratedBalance(uint256(balance), 0);
@@ -210,8 +209,8 @@ contract LibRebaseTest is Test {
         int256 num2 = int256(uint256(bound(n2, 1, 10)));
         int256 denom2 = int256(uint256(bound(d2, 1, 10)));
 
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _fractionalParams(num1, denom1));
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 2500, _fractionalParams(num2, denom2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _fractionalParams(num1, denom1));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _fractionalParams(num2, denom2));
         vm.warp(3000);
 
         (uint256 result,) = h.migratedBalance(uint256(balance), 0);
@@ -225,10 +224,12 @@ contract LibRebaseTest is Test {
         (uint256 afterFirst,) = LibDecimalFloat.toFixedDecimalLossy(
             LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(uint256(balance)), 0), m1), 0
         );
-        // Step 2: apply m2, truncate.
-        // forge-lint: disable-next-line(unsafe-typecast)
+        // Step 2: apply m2, truncate. afterFirst is fuzzer-bounded to
+        // stay well within Float coefficient limits.
         (uint256 expected,) = LibDecimalFloat.toFixedDecimalLossy(
-            LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(afterFirst), 0), m2), 0
+            // forge-lint: disable-next-line(unsafe-typecast)
+            LibDecimalFloat.mul(LibDecimalFloat.packLossless(int256(afterFirst), 0), m2),
+            0
         );
 
         assertEq(result, expected, "sequential rasterization must match step-by-step reference");

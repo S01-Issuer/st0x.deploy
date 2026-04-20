@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-DCL-1.0
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
-pragma solidity =0.8.25;
+pragma solidity ^0.8.25;
 
 import {LibCorporateAction} from "./LibCorporateAction.sol";
 
@@ -13,15 +13,15 @@ import {LibCorporateAction} from "./LibCorporateAction.sol";
 /// Real nodes start at index 1. The node does not store its own index —
 /// callers track indices externally.
 struct CorporateActionNode {
-    /// Bitmap action type. Each type is a single bit (1 << n).
+    /// @param actionType Bitmap action type. Each type is a single bit (1 << n).
     uint256 actionType;
-    /// When this action takes effect.
+    /// @param effectiveTime When this action takes effect.
     uint64 effectiveTime;
-    /// Previous node in time-ordered list (1-based index, 0 = none).
+    /// @param prev Previous node in time-ordered list (1-based index, 0 = none).
     uint256 prev;
-    /// Next node in time-ordered list (1-based index, 0 = none).
+    /// @param next Next node in time-ordered list (1-based index, 0 = none).
     uint256 next;
-    /// ABI-encoded parameters specific to the action type.
+    /// @param parameters ABI-encoded parameters specific to the action type.
     bytes parameters;
 }
 

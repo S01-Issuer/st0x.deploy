@@ -28,12 +28,12 @@ import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
 /// 2. **Cursor advancement** — updating `accountMigrationCursor[account]` to
 ///    the index of the latest completed split this account has now seen.
 ///
-/// For zero-balance accounts, (1) is a no-op but (2) is still load-bearing:
-/// otherwise a subsequent mint or transfer-in would land at a stale cursor
-/// and the next `balanceOf` read would erroneously re-apply completed
-/// multipliers. See `LibRebase.migratedBalance` and the
-/// `audit/2026-04-07-01/` post-mortem for the full reproduction of the bug
-/// this prevents.
+/// For zero-balance accounts, (1) is a no-op but (2) still matters: without
+/// it a subsequent mint or transfer-in would land at a stale cursor and the
+/// next `balanceOf` read would erroneously re-apply completed multipliers to
+/// a balance that was already written at the post-rebase basis, silently
+/// inflating the recipient's balance. See `LibRebase.migratedBalance` and
+/// its zero-balance regression tests.
 contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// @notice Emitted when an account's stored balance is rasterized to the
     /// post-rebase basis and / or its migration cursor advances through
@@ -68,6 +68,11 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     function balanceOf(address account) public view virtual override returns (uint256) {
         uint256 stored = LibERC20Storage.getBalance(account);
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
+        // The second return value is the new cursor — intentionally discarded
+        // here because `balanceOf` is a pure read that must not mutate state;
+        // the cursor advancement happens on the next `_update` touch via
+        // `_migrateAccount`.
+        // slither-disable-next-line unused-return
         (uint256 balance,) = LibRebase.migratedBalance(stored, s.accountMigrationCursor[account]);
         return balance;
     }
@@ -104,8 +109,8 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// past the account's current `accountMigrationCursor`). This both
     /// rasterizes the account's stored balance to the post-rebase basis and
     /// advances the cursor; for zero-balance accounts the balance rewrite is
-    /// a no-op but the cursor advancement is still load-bearing — see
-    /// `LibRebase.migratedBalance` and the 2026-04-07-01 audit post-mortem for
+    /// a no-op but the cursor advancement still matters — see
+    /// `LibRebase.migratedBalance` and its zero-balance regression tests for
     /// the bug this prevents.
     ///
     /// `internal` (rather than `private`) so test harnesses derived from this
