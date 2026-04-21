@@ -691,9 +691,7 @@ contract StoxCorporateActionsFacetTest is Test {
 
         // Offset 5 — totalSupplyLatestSplit (uint256).
         vm.store(harnessAddr, bytes32(uint256(base) + 5), bytes32(uint256(42)));
-        assertEq(
-            corporateActionHarness.totalSupplyLatestSplit(), 42, "totalSupplyLatestSplit must be at offset 5"
-        );
+        assertEq(corporateActionHarness.totalSupplyLatestSplit(), 42, "totalSupplyLatestSplit must be at offset 5");
 
         // Offset 6 — totalSupplyBootstrapped (bool).
         vm.store(harnessAddr, bytes32(uint256(base) + 6), bytes32(uint256(1)));

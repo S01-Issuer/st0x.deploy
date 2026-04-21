@@ -7,8 +7,9 @@ import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import {IERC20Errors} from
-    "openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
+import {
+    IERC20Errors
+} from "openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
 import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/lib/LibCorporateAction.sol";
 import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
 import {LibTotalSupply} from "../../../src/lib/LibTotalSupply.sol";
@@ -643,9 +644,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vault.publicUpdate(BOB, BOB, 0);
 
         assertEq(
-            vault.migrationCursor(BOB),
-            0,
-            "_migrateAccount must not advance cursor through a non-stock-split node"
+            vault.migrationCursor(BOB), 0, "_migrateAccount must not advance cursor through a non-stock-split node"
         );
         assertEq(
             vault.totalSupplyLatestSplit(),
@@ -804,9 +803,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     function _assertPotInvariant(uint256 cursor, address[] memory accountsAtCursor) internal view {
         uint256 sum;
         for (uint256 i = 0; i < accountsAtCursor.length; i++) {
-            assertEq(
-                vault.migrationCursor(accountsAtCursor[i]), cursor, "I(k): account must be at the expected cursor"
-            );
+            assertEq(vault.migrationCursor(accountsAtCursor[i]), cursor, "I(k): account must be at the expected cursor");
             sum += vault.rawStoredBalance(accountsAtCursor[i]);
         }
         assertEq(vault.unmigrated(cursor), sum, "I(k): pot must equal sum of stored balances at cursor");
