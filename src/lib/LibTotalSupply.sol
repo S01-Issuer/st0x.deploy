@@ -224,15 +224,19 @@ library LibTotalSupply {
         }
 
         // Walk from the last known split to find newly completed ones.
+        // Track the latest seen in a local and write once at the end — each
+        // loop-body SSTORE would otherwise be stomped by the next iteration.
         uint256 nodeIndex = LibCorporateActionNode.nextOfType(
             s.totalSupplyLatestSplit, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED
         );
 
+        uint256 latest;
         while (nodeIndex != 0) {
-            s.totalSupplyLatestSplit = nodeIndex;
+            latest = nodeIndex;
             nodeIndex =
                 LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         }
+        if (latest != 0) s.totalSupplyLatestSplit = latest;
     }
 
     /// @notice Update tracking when an account is migrated.
@@ -252,6 +256,13 @@ library LibTotalSupply {
     }
 
     /// @notice Update tracking for a mint (adds to the latest cursor pot).
+    /// @dev Pre-bootstrap this is a no-op: OZ's `_totalSupply` is still
+    /// incremented by `super._update` before this runs, and
+    /// `effectiveTotalSupply` falls back to `underlyingTotalSupply()` until
+    /// bootstrap fires. The first `fold()` where a completed split exists
+    /// snapshots `underlyingTotalSupply()` into `unmigrated[0]`, capturing
+    /// every pre-bootstrap mint/burn in a single read. Writing to a pot
+    /// before that snapshot would double-count once bootstrap fires.
     /// @param amount The minted amount.
     function onMint(uint256 amount) internal {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
@@ -261,6 +272,10 @@ library LibTotalSupply {
     }
 
     /// @notice Update tracking for a burn (subtracts from the latest cursor pot).
+    /// @dev Pre-bootstrap this is a no-op for the same reason as `onMint`:
+    /// OZ's `_totalSupply` decrement from `super._update` is what the
+    /// pre-bootstrap `effectiveTotalSupply` reads, and bootstrap captures
+    /// the net post-decrement value when it fires.
     /// @param amount The burned amount.
     function onBurn(uint256 amount) internal {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
