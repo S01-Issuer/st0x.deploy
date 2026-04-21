@@ -395,6 +395,37 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(sumBalances, vault.totalSupply(), "totalSupply must equal sum of balanceOf");
     }
 
+    /// Fractional / reverse splits cannot maintain `totalSupply == sum(balanceOf)`
+    /// exactly while multiple accounts share a pre-split pot: the walk applies
+    /// the multiplier to the aggregate pot, but per-account `balanceOf` applies
+    /// it to each account individually, so `trunc(Σ aᵢ * m) ≥ Σ trunc(aᵢ * m)`.
+    /// The difference is the per-account truncation dust. The gap closes once
+    /// every account has migrated through the split and `unmigrated[0]` is 0.
+    function testTotalSupplyFractionalDustConvergesAfterMigration() external {
+        Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+
+        vault.publicUpdate(address(0), BOB, 1);
+        vault.publicUpdate(address(0), CAROL, 1);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, abi.encode(halfX));
+        vm.warp(2000);
+
+        // Aggregate pot: trunc((1 + 1) * 0.5) == 1. Per-account: trunc(1 * 0.5)
+        // + trunc(1 * 0.5) == 0. totalSupply is the upper bound here.
+        assertEq(vault.totalSupply(), 1, "aggregate pot keeps rounding dust pre-migration");
+        assertEq(vault.balanceOf(BOB) + vault.balanceOf(CAROL), 0, "per-account truncates individually");
+
+        // Migrate both accounts out of the shared pot.
+        vault.publicUpdate(BOB, BOB, 0);
+        vault.publicUpdate(CAROL, CAROL, 0);
+
+        assertEq(
+            vault.totalSupply(),
+            vault.balanceOf(BOB) + vault.balanceOf(CAROL),
+            "totalSupply converges to sum(balanceOf) post-migration"
+        );
+        assertEq(vault.totalSupply(), 0, "dust resolves to 0 once both migrate");
+    }
+
     /// REGRESSION FOR A28-1: after the bug was fixed, the totalSupply
     /// computation matches the per-account sum specifically for the mint-after-
     /// split scenario (which the pre-fix code under-reported relative to

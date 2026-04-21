@@ -81,9 +81,12 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// completed corporate action's multiplier on top of the per-cursor pot
     /// model tracked by `LibTotalSupply`. See `LibTotalSupply` for the full
     /// explanation of the per-pot walking recurrence.
-    /// @return The effective total supply, consistent with the sum of
-    /// `balanceOf` over all holders (the invariant upheld by per-account
-    /// migration plus per-cursor pots).
+    /// @return An upper bound on `sum(balanceOf)` that converges to exact
+    /// equality once every holder sharing a pre-split cursor has migrated
+    /// through the split. The walk applies each multiplier to the aggregate
+    /// pot, so for fractional multipliers `trunc(Σ aᵢ * m) ≥ Σ trunc(aᵢ * m)`
+    /// — the gap is the per-account truncation dust, and it disappears as
+    /// accounts migrate.
     function totalSupply() public view virtual override returns (uint256) {
         return LibTotalSupply.effectiveTotalSupply();
     }
