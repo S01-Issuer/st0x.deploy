@@ -189,19 +189,24 @@ interface ICorporateActionsV1 {
     /// @param typeHash External identifier for the action type, e.g.
     /// keccak256("st0x.corporate-actions.stock-split.1"). Resolved to an internal
     /// bitmap by the lib.
-    /// @param effectiveTime When the action takes effect. Must be in the future.
+    /// @param effectiveTime When the action takes effect. Must be strictly in
+    /// the future: `effectiveTime > block.timestamp`. Scheduling at the exact
+    /// current timestamp reverts with `EffectiveTimeInPast`.
     /// @param parameters ABI-encoded parameters specific to the action type.
     /// @return actionIndex Handle for the scheduled action.
     function scheduleCorporateAction(bytes32 typeHash, uint64 effectiveTime, bytes calldata parameters)
         external
         returns (uint256 actionIndex);
 
-    /// @notice Cancel a scheduled action whose effectiveTime hasn't passed.
+    /// @notice Cancel a scheduled action. Only valid while the action is
+    /// strictly pending: `block.timestamp < effectiveTime`. At or after the
+    /// exact `effectiveTime`, cancel reverts with `ActionAlreadyComplete`.
     /// @param actionIndex The scheduled action handle to cancel.
     function cancelCorporateAction(uint256 actionIndex) external;
 
     /// @notice Count of all completed corporate actions. An action is complete
-    /// when its effectiveTime has passed. The Nth completed action has
+    /// when `block.timestamp >= effectiveTime` — i.e. at or after the exact
+    /// effective-time block, inclusive. The Nth completed action has
     /// completedActionId = N.
     function completedActionCount() external view returns (uint256);
 }

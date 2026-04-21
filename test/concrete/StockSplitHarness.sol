@@ -10,7 +10,7 @@ import {DecimalsMock} from "./DecimalsMock.sol";
 /// @notice Test harness exposing `LibCorporateAction` and
 /// `LibCorporateActionNode` internals as external functions. Implements
 /// `decimals()` so the TOFU singleton has something to read when
-/// `validateParameters` is called on the harness's own context.
+/// `validateMultiplierV1` is called on the harness's own context.
 contract StockSplitHarness is DecimalsMock {
     constructor(uint8 decimals_) DecimalsMock(decimals_) {}
 

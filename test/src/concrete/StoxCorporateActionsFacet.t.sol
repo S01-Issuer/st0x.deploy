@@ -136,6 +136,25 @@ contract CorporateActionHarness {
     function tailNode() external view returns (CorporateActionNode memory) {
         return LibCorporateAction.tailNode();
     }
+
+    /// Library-path readers — all go through `LibCorporateAction.getStorage()`,
+    /// so `testStorageLayoutPin` can prove a value written at a specific slot
+    /// is actually the slot the library reads from.
+    function accountMigrationCursor(address account) external view returns (uint256) {
+        return LibCorporateAction.getStorage().accountMigrationCursor[account];
+    }
+
+    function unmigrated(uint256 cursor) external view returns (uint256) {
+        return LibCorporateAction.getStorage().unmigrated[cursor];
+    }
+
+    function totalSupplyLatestSplit() external view returns (uint256) {
+        return LibCorporateAction.getStorage().totalSupplyLatestSplit;
+    }
+
+    function totalSupplyBootstrapped() external view returns (bool) {
+        return LibCorporateAction.getStorage().totalSupplyBootstrapped;
+    }
 }
 
 contract StoxCorporateActionsFacetTest is Test {
@@ -427,6 +446,25 @@ contract StoxCorporateActionsFacetTest is Test {
         corporateActionHarness.cancel(id);
     }
 
+    /// Boundary: cancel is rejected at exactly `block.timestamp ==
+    /// effectiveTime` because the `<=` check treats the action as
+    /// already complete. One second before, cancel succeeds.
+    function testCancelBoundaryAtExactEffectiveTimeReverts() external {
+        uint256 id1 = corporateActionHarness.schedule(1, 1500, "");
+        uint256 id2 = corporateActionHarness.schedule(1, 2000, "");
+
+        // Warp to exactly id1's effective time. id1 is now "complete"
+        // (the same threshold `nextOfType` uses); cancel must revert.
+        vm.warp(1500);
+        vm.expectRevert(abi.encodeWithSelector(ActionAlreadyComplete.selector, id1));
+        corporateActionHarness.cancel(id1);
+
+        // id2 is one tick away from being complete — still pending, cancel
+        // succeeds. Warp to 1999 (strictly less than 2000).
+        vm.warp(1999);
+        corporateActionHarness.cancel(id2);
+    }
+
     /// Cancel non-existent reverts.
     function testCancelNonExistentReverts() external {
         vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, uint256(99)));
@@ -605,40 +643,59 @@ contract StoxCorporateActionsFacetTest is Test {
         // we poke that one via vm.store at the derived slot for the key
         // and then read it back through the library-path reader — proving
         // the field is at slot+3 (offset 3 from the namespace base).
-        corporateActionHarness.schedule(1, 1500, ""); // populates head=1, tail=1, nodes[0..1]
+        // Schedule TWO actions so head (1) and tail (2) have distinct values.
+        // If this only scheduled one, head and tail would both be 1 and a
+        // swap between their offsets wouldn't be detectable.
+        corporateActionHarness.schedule(1, 1500, "");
+        corporateActionHarness.schedule(1, 2000, "");
 
         address harnessAddr = address(corporateActionHarness);
         bytes32 base = CORPORATE_ACTION_STORAGE_LOCATION;
 
-        // Offset 0 — head.
+        // Offset 0 — head. First scheduled (earliest effectiveTime).
         bytes32 headSlot = vm.load(harnessAddr, base);
         assertEq(uint256(headSlot), 1, "head must be at offset 0");
 
-        // Offset 1 — tail.
+        // Offset 1 — tail. Second scheduled.
         bytes32 tailSlot = vm.load(harnessAddr, bytes32(uint256(base) + 1));
-        assertEq(uint256(tailSlot), 1, "tail must be at offset 1");
+        assertEq(uint256(tailSlot), 2, "tail must be at offset 1");
 
         // Offset 2 — nodes[] length. Dynamic array layout stores length at
-        // the base slot; elements live at `keccak256(slot)`. After one
-        // schedule call the array contains the sentinel + the new node.
+        // the base slot; elements live at `keccak256(slot)`. After two
+        // schedule calls the array contains the sentinel + two nodes.
         bytes32 nodesLenSlot = vm.load(harnessAddr, bytes32(uint256(base) + 2));
-        assertEq(uint256(nodesLenSlot), 2, "nodes length must be at offset 2");
+        assertEq(uint256(nodesLenSlot), 3, "nodes length must be at offset 2");
 
-        // Offset 3 — accountMigrationCursor (mapping). Poke a key via
-        // vm.store at the derived slot and assert the struct field is at
-        // the expected base offset. Key is an arbitrary test address.
+        // For the struct fields below: poke via `vm.store` at the expected
+        // offset, then read via a library-path getter on the harness. The
+        // getter traverses `LibCorporateAction.getStorage().field`, so a
+        // match proves the library actually reads from the offset we pinned.
+        // If the struct is reordered, the getter reads from a different
+        // slot than the poke and the assertion fails.
+
+        // Offset 3 — accountMigrationCursor (mapping).
         address testAccount = address(0xBEEF);
-        bytes32 mappingBase = bytes32(uint256(base) + 3);
-        bytes32 entrySlot = keccak256(abi.encode(testAccount, mappingBase));
-        vm.store(harnessAddr, entrySlot, bytes32(uint256(0xC0FFEE)));
-
-        // Verify via direct read at the same slot (we don't have a library
-        // getter exposed here, but the derivation matches the one in every
-        // `accountMigrationCursor[account]` access, so a match proves the
-        // mapping base is at offset 3).
+        bytes32 cursorEntrySlot = keccak256(abi.encode(testAccount, bytes32(uint256(base) + 3)));
+        vm.store(harnessAddr, cursorEntrySlot, bytes32(uint256(0xC0FFEE)));
         assertEq(
-            uint256(vm.load(harnessAddr, entrySlot)), 0xC0FFEE, "accountMigrationCursor mapping must be at offset 3"
+            corporateActionHarness.accountMigrationCursor(testAccount),
+            0xC0FFEE,
+            "accountMigrationCursor mapping must be at offset 3"
         );
+
+        // Offset 4 — unmigrated (mapping).
+        uint256 testCursor = 7;
+        bytes32 unmigratedEntrySlot = keccak256(abi.encode(testCursor, bytes32(uint256(base) + 4)));
+        vm.store(harnessAddr, unmigratedEntrySlot, bytes32(uint256(0xDEADBEEF)));
+        assertEq(corporateActionHarness.unmigrated(testCursor), 0xDEADBEEF, "unmigrated mapping must be at offset 4");
+
+        // Offset 5 — totalSupplyLatestSplit (uint256).
+        vm.store(harnessAddr, bytes32(uint256(base) + 5), bytes32(uint256(42)));
+        assertEq(corporateActionHarness.totalSupplyLatestSplit(), 42, "totalSupplyLatestSplit must be at offset 5");
+
+        // Offset 6 — totalSupplyBootstrapped (bool).
+        vm.store(harnessAddr, bytes32(uint256(base) + 6), bytes32(uint256(1)));
+        assertTrue(corporateActionHarness.totalSupplyBootstrapped(), "totalSupplyBootstrapped must be at offset 6");
     }
 
     /// headNode and tailNode revert on a completely fresh list where no
@@ -840,6 +897,34 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(prev, 2, "previous pending is node 2");
         assertEq(
             corporateActionHarness.prevOfType(prev, type(uint256).max, CompletionFilter.PENDING), 0, "no more pending"
+        );
+    }
+
+    /// Boundary test for the `<=` completion check shared by `nextOfType`
+    /// and `prevOfType`. A node whose `effectiveTime` equals the current
+    /// block timestamp counts as completed from both directions. Flipping
+    /// the comparison to `<` would break both walks — this test (alongside
+    /// the vault-side `testEffectiveTimeBoundaryExactlyAtCompletesSplit`)
+    /// gates the prev-walk direction.
+    function testPrevOfTypeEffectiveTimeBoundary() external {
+        corporateActionHarness.schedule(1, 1500, "");
+        corporateActionHarness.schedule(1, 2000, "");
+
+        // One second before node 2's effective time: only node 1 is completed.
+        vm.warp(1999);
+        assertEq(
+            corporateActionHarness.prevOfType(0, type(uint256).max, CompletionFilter.COMPLETED),
+            1,
+            "pre-boundary: only node 1 is completed"
+        );
+
+        // Exactly at node 2's effective time: both nodes are completed,
+        // latest is node 2.
+        vm.warp(2000);
+        assertEq(
+            corporateActionHarness.prevOfType(0, type(uint256).max, CompletionFilter.COMPLETED),
+            2,
+            "boundary: node 2 counts as completed at exact effectiveTime"
         );
     }
 
