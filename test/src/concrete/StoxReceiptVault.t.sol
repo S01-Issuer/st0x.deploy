@@ -331,6 +331,41 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.balanceOf(ALICE), 200, "balance must rebase at exact effective time");
     }
 
+    /// Fuzzed no-split accounting: for any sequence of mints and burns
+    /// applied before the first split completes (the default state of any
+    /// token the moment it is deployed), `totalSupply()` equals the plain
+    /// `Σmints − Σburns` sum. The corporate-actions override must be a
+    /// straight passthrough of OZ's `_totalSupply` in this regime and
+    /// introduce zero drift.
+    function testFuzzNoSplitSupplyEqualsNetMinted(uint64[8] memory mints, uint8[8] memory burnsRaw) external {
+        address[3] memory actors = [ALICE, BOB, CAROL];
+        uint256 netMinted;
+
+        for (uint256 i = 0; i < 8; i++) {
+            address to = actors[i % 3];
+            uint256 mintAmount = uint256(mints[i]) % 1e18;
+            if (mintAmount > 0) {
+                vault.publicUpdate(address(0), to, mintAmount);
+                netMinted += mintAmount;
+            }
+
+            address from = actors[(i + 1) % 3];
+            uint256 available = vault.balanceOf(from);
+            if (available > 0 && burnsRaw[i] > 0) {
+                uint256 burnAmount = (uint256(burnsRaw[i]) * available) / 255;
+                if (burnAmount > 0) {
+                    vault.publicUpdate(from, address(0), burnAmount);
+                    netMinted -= burnAmount;
+                }
+            }
+
+            assertEq(vault.totalSupply(), netMinted, "totalSupply drifted from net mint/burn sum without splits");
+            assertEq(
+                vault.totalSupplyLatestSplit(), 0, "bootstrap must not have fired: no split has completed"
+            );
+        }
+    }
+
     /// Pre-bootstrap regime: until the first `_update` after a completed
     /// split, `fold()` must not bootstrap, `onMint`/`onBurn` must be no-ops,
     /// and `totalSupply()` must return OZ's raw `_totalSupply`. A pending

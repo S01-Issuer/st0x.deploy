@@ -373,6 +373,20 @@ contract StoxCorporateActionsInvariantTest is Test {
         assertLe(sum, total, "invariant 5: sum(balanceOf) must not exceed totalSupply");
     }
 
+    /// Invariant 7: with no completed split, `totalSupply()` is exactly
+    /// `Σmints − Σburns`. This is the default state of every token until
+    /// the first stock split reaches its effective time — the corporate-
+    /// actions override must be a straight passthrough of OZ's
+    /// `_totalSupply` in this regime and add no drift. Once a split
+    /// completes, the relation no longer holds and the invariant is
+    /// vacuously satisfied.
+    function invariantNoSplitSupplyEqualsNetMinted() external view {
+        if (vault.totalSupplyLatestSplit() != 0) return;
+
+        uint256 netMinted = handler.totalMinted() - handler.totalBurned();
+        assertEq(vault.totalSupply(), netMinted, "invariant 7: totalSupply == Sum(mints) - Sum(burns) with no split");
+    }
+
     /// Invariant 6: `totalSupplyLatestSplit` is either 0 (no split has ever
     /// folded) or points at a node whose effective time is in the past. It
     /// must also not exceed the nodes array bounds.
