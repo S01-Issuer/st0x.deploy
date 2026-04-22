@@ -7,6 +7,8 @@ import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {
     LibCorporateAction,
     ACTION_TYPE_STOCK_SPLIT_V1,
+    ACTION_TYPE_STABLES_DIVIDEND_V1,
+    VALID_ACTION_TYPES_MASK,
     STOCK_SPLIT_V1_TYPE_HASH
 } from "../../../src/lib/LibCorporateAction.sol";
 import {UnknownActionType} from "../../../src/error/ErrCorporateAction.sol";
@@ -173,14 +175,42 @@ contract LibStockSplitValidationTest is Test {
 
     /// Constants have expected values.
     function testConstantValues() external pure {
-        assertEq(ACTION_TYPE_STOCK_SPLIT_V1, 1);
+        assertEq(ACTION_TYPE_STOCK_SPLIT_V1, 1 << 0);
+        assertEq(ACTION_TYPE_STABLES_DIVIDEND_V1, 1 << 1);
         assertEq(STOCK_SPLIT_V1_TYPE_HASH, keccak256("st0x.corporate-actions.stock-split.1"));
     }
 
-    /// ACTION_TYPE_STOCK_SPLIT_V1 has exactly one bit set.
+    /// Each action type constant has exactly one bit set.
     function testActionTypeSingleBit() external pure {
         assertEq(ACTION_TYPE_STOCK_SPLIT_V1 & (ACTION_TYPE_STOCK_SPLIT_V1 - 1), 0);
         assertTrue(ACTION_TYPE_STOCK_SPLIT_V1 != 0);
+
+        assertEq(ACTION_TYPE_STABLES_DIVIDEND_V1 & (ACTION_TYPE_STABLES_DIVIDEND_V1 - 1), 0);
+        assertTrue(ACTION_TYPE_STABLES_DIVIDEND_V1 != 0);
+    }
+
+    /// Action type bitmap constants are pairwise disjoint. If any two types
+    /// share a bit, mask filters cannot distinguish them and `actionType` on
+    /// a node becomes ambiguous.
+    function testActionTypesDisjoint() external pure {
+        assertEq(
+            ACTION_TYPE_STOCK_SPLIT_V1 & ACTION_TYPE_STABLES_DIVIDEND_V1,
+            0,
+            "stock split and dividend must not share any bit"
+        );
+    }
+
+    /// `VALID_ACTION_TYPES_MASK` is exactly the bitwise union of every
+    /// defined type constant. If a future type is added without updating
+    /// this mask, traversal getters will reject queries for it as
+    /// `InvalidMask`. Pins the expected union so the additions stay
+    /// in-sync.
+    function testValidActionTypesMaskMatchesUnion() external pure {
+        assertEq(
+            VALID_ACTION_TYPES_MASK,
+            ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1,
+            "VALID_ACTION_TYPES_MASK must be union of all defined types"
+        );
     }
 
     /// Fuzz: `encodeParametersV1` + `decodeParametersV1` roundtrip preserves
