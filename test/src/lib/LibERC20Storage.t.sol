@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std/Test.sol";
 import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import {LibERC20Storage, ERC20_STORAGE_LOCATION} from "src/lib/LibERC20Storage.sol";
+import {LibERC20Storage} from "src/lib/LibERC20Storage.sol";
 
 /// @dev A minimal `ERC20Upgradeable` subclass that exposes `_mint` / `_burn`
 /// and the `LibERC20Storage` helpers as external methods. The library uses
@@ -25,15 +25,15 @@ contract TestERC20 is ERC20Upgradeable {
     }
 
     function libBalanceOf(address account) external view returns (uint256) {
-        return LibERC20Storage.getBalance(account);
+        return LibERC20Storage.underlyingBalance(account);
     }
 
     function libTotalSupply() external view returns (uint256) {
-        return LibERC20Storage.getTotalSupply();
+        return LibERC20Storage.underlyingTotalSupply();
     }
 
     function libSetBalance(address account, uint256 newBalance) external {
-        LibERC20Storage.setBalance(account, newBalance);
+        LibERC20Storage.setUnderlyingBalance(account, newBalance);
     }
 }
 
@@ -54,14 +54,7 @@ contract LibERC20StorageTest is Test {
         token = new TestERC20();
     }
 
-    /// The hardcoded ERC-7201 slot constant matches the documented derivation.
-    function testSlotConstantMatchesDerivation() external pure {
-        bytes32 expected =
-            keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.ERC20")) - 1)) & ~bytes32(uint256(0xff));
-        assertEq(ERC20_STORAGE_LOCATION, expected, "ERC20_STORAGE_LOCATION drift from spec formula");
-    }
-
-    /// LibERC20Storage.getBalance reads the same value as ERC20Upgradeable.balanceOf.
+    /// LibERC20Storage.underlyingBalance reads the same value as ERC20Upgradeable.balanceOf.
     function testGetBalanceMatchesOzBalanceOf() external {
         token.mint(ALICE, 1234);
         assertEq(token.libBalanceOf(ALICE), token.balanceOf(ALICE));
@@ -69,7 +62,7 @@ contract LibERC20StorageTest is Test {
         assertEq(token.balanceOf(BOB), 0);
     }
 
-    /// LibERC20Storage.getTotalSupply reads the same value as ERC20Upgradeable.totalSupply.
+    /// LibERC20Storage.underlyingTotalSupply reads the same value as ERC20Upgradeable.totalSupply.
     function testGetTotalSupplyMatchesOzTotalSupply() external {
         token.mint(ALICE, 1000);
         token.mint(BOB, 500);
@@ -77,7 +70,7 @@ contract LibERC20StorageTest is Test {
         assertEq(token.libTotalSupply(), 1500);
     }
 
-    /// LibERC20Storage.setBalance writes a value that ERC20Upgradeable.balanceOf observes.
+    /// LibERC20Storage.setUnderlyingBalance writes a value that ERC20Upgradeable.balanceOf observes.
     function testSetBalanceVisibleToOzBalanceOf() external {
         token.mint(ALICE, 100);
         token.libSetBalance(ALICE, 999);

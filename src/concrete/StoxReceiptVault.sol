@@ -23,17 +23,17 @@ import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
 ///
 /// @dev "Migration" here covers two distinct operations that usually happen
 /// together but MUST be treated separately:
-/// 1. **Balance rasterization** — rewriting `LibERC20Storage.getBalance(account)`
+/// 1. **Balance rasterization** — rewriting `LibERC20Storage.underlyingBalance(account)`
 ///    from its pre-rebase value to the post-rebase value.
 /// 2. **Cursor advancement** — updating `accountMigrationCursor[account]` to
 ///    the index of the latest completed split this account has now seen.
 ///
-/// For zero-balance accounts, (1) is a no-op but (2) is still load-bearing:
-/// otherwise a subsequent mint or transfer-in would land at a stale cursor
-/// and the next `balanceOf` read would erroneously re-apply completed
-/// multipliers. See `LibRebase.migratedBalance` and the
-/// `audit/2026-04-07-01/` post-mortem for the full reproduction of the bug
-/// this prevents.
+/// For zero-balance accounts, (1) is a no-op but (2) still matters: without
+/// it a subsequent mint or transfer-in would land at a stale cursor and the
+/// next `balanceOf` read would erroneously re-apply completed multipliers to
+/// a balance that was already written at the post-rebase basis, silently
+/// inflating the recipient's balance. See `LibRebase.migratedBalance` and
+/// its zero-balance regression tests.
 contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// @notice Emitted when an account's stored balance is rasterized to the
     /// post-rebase basis and / or its migration cursor advances through
@@ -47,7 +47,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// completed corporate action this account had already seen.
     /// @param toCursor The account's migration cursor after this migration.
     /// @param oldBalance The account's **stored** balance before rasterization
-    /// — i.e. the value returned by `LibERC20Storage.getBalance(account)` at
+    /// — i.e. the value returned by `LibERC20Storage.underlyingBalance(account)` at
     /// the moment the migration starts, NOT the post-rebase effective balance.
     /// @param newBalance The account's **stored** balance after rasterization.
     /// For a single forward 2x split applied to a pre-rebase stored balance of
@@ -66,8 +66,13 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// @return The effective balance after applying all completed stock splits
     /// on top of the account's last-migrated cursor.
     function balanceOf(address account) public view virtual override returns (uint256) {
-        uint256 stored = LibERC20Storage.getBalance(account);
+        uint256 stored = LibERC20Storage.underlyingBalance(account);
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
+        // The second return value is the new cursor — intentionally discarded
+        // here because `balanceOf` is a pure read that must not mutate state;
+        // the cursor advancement happens on the next `_update` touch via
+        // `_migrateAccount`.
+        // slither-disable-next-line unused-return
         (uint256 balance,) = LibRebase.migratedBalance(stored, s.accountMigrationCursor[account]);
         return balance;
     }
@@ -76,27 +81,35 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// completed corporate action's multiplier on top of the per-cursor pot
     /// model tracked by `LibTotalSupply`. See `LibTotalSupply` for the full
     /// explanation of the per-pot walking recurrence.
-    /// @return The effective total supply, consistent with the sum of
-    /// `balanceOf` over all holders (the invariant upheld by per-account
-    /// migration plus per-cursor pots).
+    /// @return An upper bound on `sum(balanceOf)` that converges to exact
+    /// equality once every holder sharing a pre-split cursor has migrated
+    /// through the split. The walk applies each multiplier to the aggregate
+    /// pot, so for fractional multipliers `trunc(Σ aᵢ * m) ≥ Σ trunc(aᵢ * m)`
+    /// — the gap is the per-account truncation dust, and it disappears as
+    /// accounts migrate.
     function totalSupply() public view virtual override returns (uint256) {
         return LibTotalSupply.effectiveTotalSupply();
     }
 
     /// @dev Bootstraps totalSupply tracking, migrates both sender and
-    /// recipient, tracks mint/burn deltas, then calls super.
+    /// recipient, calls super, then tracks mint/burn deltas in the pot.
+    /// `onMint` / `onBurn` run AFTER `super._update` so OZ's own validation
+    /// (e.g. `ERC20InsufficientBalance` on an over-burn) fires first. If
+    /// these ran before super, a lone-holder over-burn at `latestSplit`
+    /// would underflow the pot with a raw arithmetic panic rather than
+    /// surfacing OZ's intended error.
     function _update(address from, address to, uint256 amount) internal virtual override {
         LibTotalSupply.fold();
         _migrateAccount(from);
         _migrateAccount(to);
+
+        super._update(from, to, amount);
 
         if (from == address(0)) {
             LibTotalSupply.onMint(amount);
         } else if (to == address(0)) {
             LibTotalSupply.onBurn(amount);
         }
-
-        super._update(from, to, amount);
     }
 
     /// @dev Migrate a single account through every completed split that has
@@ -104,8 +117,8 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// past the account's current `accountMigrationCursor`). This both
     /// rasterizes the account's stored balance to the post-rebase basis and
     /// advances the cursor; for zero-balance accounts the balance rewrite is
-    /// a no-op but the cursor advancement is still load-bearing — see
-    /// `LibRebase.migratedBalance` and the 2026-04-07-01 audit post-mortem for
+    /// a no-op but the cursor advancement still matters — see
+    /// `LibRebase.migratedBalance` and its zero-balance regression tests for
     /// the bug this prevents.
     ///
     /// `internal` (rather than `private`) so test harnesses derived from this
@@ -116,7 +129,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
 
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
         uint256 currentCursor = s.accountMigrationCursor[account];
-        uint256 storedBalance = LibERC20Storage.getBalance(account);
+        uint256 storedBalance = LibERC20Storage.underlyingBalance(account);
 
         (uint256 newBalance, uint256 newCursor) = LibRebase.migratedBalance(storedBalance, currentCursor);
 
@@ -125,7 +138,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         s.accountMigrationCursor[account] = newCursor;
 
         if (newBalance != storedBalance) {
-            LibERC20Storage.setBalance(account, newBalance);
+            LibERC20Storage.setUnderlyingBalance(account, newBalance);
             emit AccountMigrated(account, currentCursor, newCursor, storedBalance, newBalance);
         }
 

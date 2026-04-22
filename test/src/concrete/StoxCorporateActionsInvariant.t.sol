@@ -6,7 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT} from "../../../src/lib/LibCorporateAction.sol";
+import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/lib/LibCorporateAction.sol";
 import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
 import {LibTotalSupply} from "../../../src/lib/LibTotalSupply.sol";
 import {CorporateActionNode, CompletionFilter} from "../../../src/lib/LibCorporateActionNode.sol";
@@ -72,7 +72,7 @@ contract InvariantVault is StoxReceiptVault {
     }
 
     function rawStoredBalance(address account) external view returns (uint256) {
-        return LibERC20Storage.getBalance(account);
+        return LibERC20Storage.underlyingBalance(account);
     }
 }
 
@@ -148,7 +148,7 @@ contract StoxCorporateActionsHandler is Test {
         // time in [1, 256] seconds in the future.
         uint64 effectiveTime = uint64(block.timestamp + 1 + (uint256(timeDelta) % 256));
         bytes memory parameters = _multiplier(multiplierSeed);
-        VAULT.publicSchedule(ACTION_TYPE_STOCK_SPLIT, effectiveTime, parameters);
+        VAULT.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, effectiveTime, parameters);
     }
 
     /// @dev Cancel a scheduled action. Bounded to the current nodes array
@@ -386,7 +386,7 @@ contract StoxCorporateActionsInvariantTest is Test {
             "invariant 6: totalSupplyLatestSplit must point at a past-effectiveTime node"
         );
         assertTrue(
-            node.actionType & ACTION_TYPE_STOCK_SPLIT != 0,
+            node.actionType & ACTION_TYPE_STOCK_SPLIT_V1 != 0,
             "invariant 6: totalSupplyLatestSplit must point at a stock split node"
         );
     }

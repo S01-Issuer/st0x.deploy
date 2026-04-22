@@ -100,7 +100,7 @@ import {CompletionFilter} from "../lib/LibCorporateActionNode.sol";
 /// ```solidity
 /// // Get the most recent completed stock split.
 /// (uint256 cursor, uint256 actionType, uint64 effectiveTime)
-///     = vault.latestActionOfType(ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+///     = vault.latestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
 ///
 /// // Walk backward through all completed splits.
 /// while (cursor != 0) {
@@ -108,12 +108,12 @@ import {CompletionFilter} from "../lib/LibCorporateActionNode.sol";
 ///     Float multiplier = abi.decode(params, (Float));
 ///     // ... process the split ...
 ///     (cursor, actionType, effectiveTime)
-///         = vault.prevOfType(cursor, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+///         = vault.prevOfType(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
 /// }
 ///
 /// // Check for pending (future) splits.
 /// (cursor, actionType, effectiveTime)
-///     = vault.latestActionOfType(ACTION_TYPE_STOCK_SPLIT, CompletionFilter.PENDING);
+///     = vault.latestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
 /// ```
 ///
 /// ERC-1155 RECEIPT BATCH READS:
@@ -136,7 +136,7 @@ interface ICorporateActionsV1 {
     /// @notice Emitted when a corporate action is successfully scheduled.
     /// @param sender The msg.sender that called `scheduleCorporateAction`.
     /// @param actionIndex The 1-based index assigned to the new action.
-    /// @param actionType The bitmap action type (e.g. `ACTION_TYPE_STOCK_SPLIT`).
+    /// @param actionType The bitmap action type (e.g. `ACTION_TYPE_STOCK_SPLIT_V1`).
     /// @param effectiveTime The timestamp at which the action becomes effective.
     event CorporateActionScheduled(
         address indexed sender, uint256 indexed actionIndex, uint256 actionType, uint64 effectiveTime
@@ -199,20 +199,27 @@ interface ICorporateActionsV1 {
     /// effective times are possible.
     ///
     /// @param typeHash External identifier for the action type, e.g.
-    /// keccak256("StockSplit"). Resolved to an internal bitmap by the lib.
-    /// @param effectiveTime When the action takes effect. Must be in the future.
+    /// keccak256("st0x.corporate-actions.stock-split.1"). Resolved to an internal
+    /// bitmap by the lib.
+    /// @param effectiveTime When the action takes effect. Must be strictly in
+    /// the future: `effectiveTime > block.timestamp`. Scheduling at the exact
+    /// current timestamp reverts with `EffectiveTimeInPast`.
     /// @param parameters ABI-encoded parameters specific to the action type.
     /// @return actionIndex Handle for the scheduled action.
     function scheduleCorporateAction(bytes32 typeHash, uint64 effectiveTime, bytes calldata parameters)
         external
         returns (uint256 actionIndex);
 
-    /// @notice Cancel a scheduled action whose effectiveTime hasn't passed.
+    /// @notice Cancel a scheduled action. Only valid while the action is
+    /// strictly pending: `block.timestamp < effectiveTime`. At or after the
+    /// exact `effectiveTime`, cancel reverts with `ActionAlreadyComplete`.
     /// @param actionIndex The scheduled action handle to cancel.
     function cancelCorporateAction(uint256 actionIndex) external;
 
     /// @notice Count of all completed corporate actions. An action is complete
-    /// when its effectiveTime has passed.
+    /// when `block.timestamp >= effectiveTime` — i.e. at or after the exact
+    /// effective-time block, inclusive. The Nth completed action has
+    /// completedActionId = N.
     function completedActionCount() external view returns (uint256);
 
     /// @notice Find the latest (most recent) action matching a type mask and

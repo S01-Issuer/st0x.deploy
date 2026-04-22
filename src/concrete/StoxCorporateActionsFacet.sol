@@ -21,9 +21,8 @@ import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetR
 /// view getters that would not otherwise reach the authorizer lookup.
 ///
 /// Storage lives at the ERC-7201 namespace `rain.storage.corporate-action.1`
-/// (see `LibCorporateAction`). Subsequent PRs add additional external entry
-/// points (linked-list traversal, etc.), each of which must also carry
-/// `onlyDelegatecalled`.
+/// (see `LibCorporateAction`). Any future external entry points added here
+/// (e.g. list traversal) must also carry `onlyDelegatecalled`.
 contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     /// @notice Thrown when a function is called directly on the standalone
     /// facet deployment rather than via delegatecall from the vault.
