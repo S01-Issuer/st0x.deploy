@@ -15,6 +15,10 @@ contract TraversalHarness {
         return LibCorporateAction.schedule(actionType, effectiveTime, parameters);
     }
 
+    function cancel(uint256 actionIndex) external {
+        LibCorporateAction.cancel(actionIndex);
+    }
+
     function latest(uint256 mask, CompletionFilter filter)
         external
         view
@@ -156,6 +160,64 @@ contract LibCorporateActionNodeTest is Test {
         assertEq(cursor, id2, "tail becomes latest completed");
         (cursor,,) = h.earliest(1, CompletionFilter.PENDING);
         assertEq(cursor, 0, "no pending actions remain");
+    }
+
+    /// After a middle node is cancelled, traversal re-links the list so
+    /// `nextActionOfType` skips the cancelled cursor and `prevActionOfType`
+    /// from the tail no longer touches it. Pins the linked-list integrity
+    /// under cancellation through the traversal API surface.
+    function testCancelMiddleNodeRelinksTraversal() external {
+        uint256 id1 = h.schedule(1, 1500, hex"");
+        uint256 id2 = h.schedule(1, 2500, hex"");
+        uint256 id3 = h.schedule(1, 3500, hex"");
+
+        h.cancel(id2);
+
+        // nextActionOfType from id1 now skips past id2 to id3.
+        (uint256 cursor,,) = h.nextOf(id1, 1, CompletionFilter.ALL);
+        assertEq(cursor, id3, "next(id1) must skip cancelled id2");
+
+        // prevActionOfType from id3 now skips id2 back to id1.
+        (cursor,,) = h.prevOf(id3, 1, CompletionFilter.ALL);
+        assertEq(cursor, id1, "prev(id3) must skip cancelled id2");
+
+        // earliest + latest remain unchanged — id2 was never at either end.
+        (cursor,,) = h.earliest(1, CompletionFilter.ALL);
+        assertEq(cursor, id1, "earliest is still id1");
+        (cursor,,) = h.latest(1, CompletionFilter.ALL);
+        assertEq(cursor, id3, "latest is still id3");
+    }
+
+    /// Cancelling the head advances `earliestActionOfType` to the next node.
+    /// Verifies the head pointer updates and traversal from the new head
+    /// works.
+    function testCancelHeadAdvancesEarliest() external {
+        uint256 id1 = h.schedule(1, 1500, hex"");
+        uint256 id2 = h.schedule(1, 2500, hex"");
+
+        h.cancel(id1);
+
+        (uint256 cursor,,) = h.earliest(1, CompletionFilter.ALL);
+        assertEq(cursor, id2, "earliest advances to id2 after id1 cancelled");
+
+        // Walking prev from the new earliest returns 0 (head has no prev).
+        (cursor,,) = h.prevOf(id2, 1, CompletionFilter.ALL);
+        assertEq(cursor, 0, "prev of new head is 0");
+    }
+
+    /// Cancelling the tail moves `latestActionOfType` back to the prior node.
+    /// Verifies the tail pointer updates.
+    function testCancelTailRetreatsLatest() external {
+        uint256 id1 = h.schedule(1, 1500, hex"");
+        uint256 id2 = h.schedule(1, 2500, hex"");
+
+        h.cancel(id2);
+
+        (uint256 cursor,,) = h.latest(1, CompletionFilter.ALL);
+        assertEq(cursor, id1, "latest retreats to id1 after id2 cancelled");
+
+        (cursor,,) = h.nextOf(id1, 1, CompletionFilter.ALL);
+        assertEq(cursor, 0, "next of new tail is 0");
     }
 
     /// `nextActionOfType(from, ...)` / `prevActionOfType(from, ...)` walk from
