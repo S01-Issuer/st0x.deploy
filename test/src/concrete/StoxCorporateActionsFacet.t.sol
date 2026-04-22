@@ -27,7 +27,7 @@ import {
     CompletionFilter,
     LibCorporateActionNode
 } from "../../../src/lib/LibCorporateActionNode.sol";
-import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
+import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 import {InvalidSplitMultiplier} from "../../../src/error/ErrStockSplit.sol";
 import {LibTestTofu} from "../../lib/LibTestTofu.sol";
 import {LibTestCorporateAction} from "../../lib/LibTestCorporateAction.sol";
@@ -1134,7 +1134,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// indexers.
     function testScheduleCorporateActionEmitsEvent() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = abi.encode(twoX);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
         uint64 effectiveTime = 1500;
 
         vm.expectEmit(true, true, false, true, address(facetViaHarness));
@@ -1150,7 +1150,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// with the right indexed sender and indexed actionIndex.
     function testCancelCorporateActionEmitsEvent() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = abi.encode(twoX);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
 
         vm.prank(ALICE);
         uint256 actionIndex = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
@@ -1165,7 +1165,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// Helper: schedule a stock split via the facet (using the delegatecall
     /// harness so the action lands in the harness's storage namespace).
     function _scheduleSplitViaFacet(int256 multiplier, uint64 effectiveTime) internal {
-        bytes memory parameters = abi.encode(LibDecimalFloat.packLossless(multiplier, 0));
+        bytes memory parameters = LibStockSplit.encodeParametersV1(LibDecimalFloat.packLossless(multiplier, 0));
         vm.prank(ALICE);
         facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, effectiveTime, parameters);
     }
@@ -1243,7 +1243,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// Authorizer receives the correct context for a real stock split schedule.
     function testScheduleStockSplitForwardsCorrectContext() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = abi.encode(twoX);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
         uint64 effectiveTime = 1500;
 
         vm.expectCall(
@@ -1267,7 +1267,7 @@ contract StoxCorporateActionsFacetTest is Test {
     function testScheduleStockSplitAuthorizerDenied() external {
         mockAuthorizer.setDenyMode(true);
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = abi.encode(twoX);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
 
         vm.prank(ALICE);
         vm.expectRevert(
@@ -1285,7 +1285,7 @@ contract StoxCorporateActionsFacetTest is Test {
     function testFuzzScheduleStockSplitsSequentialIndex(uint8 count) external {
         count = uint8(bound(count, 1, 15));
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = abi.encode(twoX);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
 
         for (uint256 i = 0; i < count; i++) {
             vm.prank(ALICE);
@@ -1300,7 +1300,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// Schedule returns the correct actionIndex.
     function testScheduleViaFacetReturnsActionIndex() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = abi.encode(twoX);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
 
         vm.prank(ALICE);
         uint256 id1 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
@@ -1315,7 +1315,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// completedActionCount reflects completed stock splits via the facet.
     function testCompletedActionCountViaFacet() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = abi.encode(twoX);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
 
         vm.prank(ALICE);
         facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
@@ -1329,7 +1329,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// Schedule with invalid multiplier reverts through the facet.
     function testScheduleInvalidMultiplierRevertsViaFacet() external {
         Float zero = LibDecimalFloat.packLossless(0, 0);
-        bytes memory parameters = abi.encode(zero);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(zero);
 
         vm.prank(ALICE);
         vm.expectRevert(InvalidSplitMultiplier.selector);
@@ -1339,7 +1339,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// Schedule with past effectiveTime reverts through the facet.
     function testSchedulePastTimeRevertsViaFacet() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = abi.encode(twoX);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
 
         vm.prank(ALICE);
         vm.expectRevert(abi.encodeWithSelector(EffectiveTimeInPast.selector, uint64(500), block.timestamp));
@@ -1349,7 +1349,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// Cancel a completed action reverts through the facet.
     function testCancelCompletedRevertsViaFacet() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = abi.encode(twoX);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
 
         vm.prank(ALICE);
         uint256 id = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
@@ -1375,10 +1375,10 @@ contract StoxCorporateActionsFacetTest is Test {
         Float threeX = LibDecimalFloat.packLossless(3, 0);
 
         vm.prank(ALICE);
-        uint256 id1 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, abi.encode(twoX));
+        uint256 id1 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, LibStockSplit.encodeParametersV1(twoX));
 
         vm.prank(ALICE);
-        uint256 id2 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 3000, abi.encode(threeX));
+        uint256 id2 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 3000, LibStockSplit.encodeParametersV1(threeX));
 
         assertEq(facetViaHarness.completedActionCount(), 0);
 

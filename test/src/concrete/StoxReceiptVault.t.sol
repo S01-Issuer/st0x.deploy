@@ -12,6 +12,7 @@ import {
 } from "openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
 import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/lib/LibCorporateAction.sol";
 import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
+import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 import {LibTotalSupply} from "../../../src/lib/LibTotalSupply.sol";
 
 /// @dev Test-only subclass of StoxReceiptVault that bypasses
@@ -103,7 +104,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     }
 
     function _splitParams(int256 multiplier) internal pure returns (bytes memory) {
-        return abi.encode(LibDecimalFloat.packLossless(multiplier, 0));
+        return LibStockSplit.encodeParametersV1(LibDecimalFloat.packLossless(multiplier, 0));
     }
 
     /// REGRESSION FOR A03-1 (mint pathway).
@@ -278,7 +279,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         // Alice has stored 1 pre-split. A 1/2x split truncates her to 0.
         vault.publicUpdate(address(0), ALICE, 1);
         Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, abi.encode(halfX));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, LibStockSplit.encodeParametersV1(halfX));
         vm.warp(2000);
 
         // View already reflects the truncation.
@@ -296,7 +297,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         // Alice has stored 3 pre-split. 1/2x truncates 3 → 1.
         vault.publicUpdate(address(0), ALICE, 3);
         Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, abi.encode(halfX));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, LibStockSplit.encodeParametersV1(halfX));
         vm.warp(2000);
         assertEq(vault.balanceOf(ALICE), 1, "alice migrated balance = trunc(3 * 0.5) = 1");
 
@@ -407,7 +408,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
         vault.publicUpdate(address(0), BOB, 1);
         vault.publicUpdate(address(0), CAROL, 1);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, abi.encode(halfX));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, LibStockSplit.encodeParametersV1(halfX));
         vm.warp(2000);
 
         // Aggregate pot: trunc((1 + 1) * 0.5) == 1. Per-account: trunc(1 * 0.5)
@@ -956,11 +957,10 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
             // Alternate 2x and 1/2x based on i bit 0; use seed to vary starting
             // direction across fuzz runs.
             bool forward = ((i ^ seed) & 1) == 0;
-            bytes memory params = forward
-                ? abi.encode(LibDecimalFloat.packLossless(2, 0))
-                : abi.encode(
-                    LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0))
-                );
+            Float multiplier = forward
+                ? LibDecimalFloat.packLossless(2, 0)
+                : LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+            bytes memory params = LibStockSplit.encodeParametersV1(multiplier);
             // forge-lint: disable-next-line(unsafe-typecast)
             vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(1001 + i * 100), params);
         }
@@ -1004,7 +1004,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
         // Split 2: 1/2x at t=2000.
         Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, abi.encode(halfX));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, LibStockSplit.encodeParametersV1(halfX));
         vm.warp(2100);
 
         // Both view balances before final migration.
@@ -1042,11 +1042,10 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
         for (uint256 i = 0; i < numSplits; i++) {
             bool forward = ((i ^ seed) & 1) == 0;
-            bytes memory params = forward
-                ? abi.encode(LibDecimalFloat.packLossless(2, 0))
-                : abi.encode(
-                    LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0))
-                );
+            Float multiplier = forward
+                ? LibDecimalFloat.packLossless(2, 0)
+                : LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+            bytes memory params = LibStockSplit.encodeParametersV1(multiplier);
             // forge-lint: disable-next-line(unsafe-typecast)
             vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(1001 + i * 100), params);
         }
@@ -1103,7 +1102,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
         // Split 2: 1/2x at t=2000.
         Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, abi.encode(halfX));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, LibStockSplit.encodeParametersV1(halfX));
         vm.warp(2100);
 
         // Transfer Bob → Alice, 40. Both migrate first:
@@ -1162,7 +1161,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
         // Split 2: 1/2x.
         Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, abi.encode(halfX));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, LibStockSplit.encodeParametersV1(halfX));
         vm.warp(2100);
 
         // Transfer Bob → Alice.

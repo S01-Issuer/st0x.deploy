@@ -11,6 +11,7 @@ import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
 import {LibTotalSupply} from "../../../src/lib/LibTotalSupply.sol";
 import {CorporateActionNode, CompletionFilter} from "../../../src/lib/LibCorporateActionNode.sol";
 import {LibTestCorporateAction} from "../../lib/LibTestCorporateAction.sol";
+import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 
 /// @dev Auth-bypassed vault subclass used by the invariant harness. Mirrors
 /// the production `StoxReceiptVault._update` flow exactly, only skipping the
@@ -129,17 +130,17 @@ contract StoxCorporateActionsHandler is Test {
     /// packLossless(n,0))`.
     function _multiplier(uint256 seed) internal pure returns (bytes memory) {
         uint256 bucket = seed % 6;
-        if (bucket == 0) return abi.encode(_asFloat(2, 0));
-        if (bucket == 1) return abi.encode(_asFloat(3, 0));
-        if (bucket == 2) return abi.encode(_asFloat(1, 0)); // 1x — a no-op split (valid)
+        if (bucket == 0) return LibStockSplit.encodeParametersV1(_asFloat(2, 0));
+        if (bucket == 1) return LibStockSplit.encodeParametersV1(_asFloat(3, 0));
+        if (bucket == 2) return LibStockSplit.encodeParametersV1(_asFloat(1, 0)); // 1x — a no-op split (valid)
         if (bucket == 3) {
-            return abi.encode(LibDecimalFloat.div(_asFloat(1, 0), _asFloat(2, 0)));
+            return LibStockSplit.encodeParametersV1(LibDecimalFloat.div(_asFloat(1, 0), _asFloat(2, 0)));
         }
         if (bucket == 4) {
-            return abi.encode(LibDecimalFloat.div(_asFloat(1, 0), _asFloat(3, 0)));
+            return LibStockSplit.encodeParametersV1(LibDecimalFloat.div(_asFloat(1, 0), _asFloat(3, 0)));
         }
         // bucket 5: another 2x (slight weighting toward common cases)
-        return abi.encode(_asFloat(2, 0));
+        return LibStockSplit.encodeParametersV1(_asFloat(2, 0));
     }
 
     /// @dev Schedule a stock split at a bounded future time. Time is drawn
