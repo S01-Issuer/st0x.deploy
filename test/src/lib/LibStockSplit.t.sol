@@ -104,6 +104,37 @@ contract LibStockSplitValidationTest is Test {
         assertEq(Float.unwrap(decoded), Float.unwrap(threeX));
     }
 
+    /// Wire-format pin: the V1 codec is currently equivalent to raw
+    /// `abi.encode(Float)` / `abi.decode(bytes, (Float))`. Off-chain schedulers
+    /// that predate this helper hand-encode their payloads this way, and
+    /// on-chain `decodeParametersV1` must accept those payloads unchanged. If
+    /// the V1 schema ever grows additional fields, this test has to be
+    /// updated together with the codec — the test failing is the signal that
+    /// every off-chain scheduler needs to migrate before deployment.
+    function testFuzzEncodeParametersV1MatchesRawAbiEncode(uint64 coeff, int8 exp) external pure {
+        vm.assume(coeff > 0);
+        exp = int8(bound(exp, -17, 17));
+        // forge-lint: disable-next-line(unsafe-typecast)
+        Float multiplier = LibDecimalFloat.packLossless(int256(uint256(coeff)), int256(exp));
+        bytes memory libEncoded = LibStockSplit.encodeParametersV1(multiplier);
+        bytes memory rawEncoded = abi.encode(multiplier);
+        assertEq(libEncoded, rawEncoded, "encodeParametersV1 must match raw abi.encode for V1 schema");
+    }
+
+    /// Symmetric wire-format pin for the decode side: a payload produced by
+    /// raw `abi.encode(Float)` must decode through `decodeParametersV1` to the
+    /// original multiplier. Ensures off-chain-produced bytes round-trip
+    /// through the on-chain reader.
+    function testFuzzDecodeParametersV1AcceptsRawAbiEncode(uint64 coeff, int8 exp) external pure {
+        vm.assume(coeff > 0);
+        exp = int8(bound(exp, -17, 17));
+        // forge-lint: disable-next-line(unsafe-typecast)
+        Float multiplier = LibDecimalFloat.packLossless(int256(uint256(coeff)), int256(exp));
+        bytes memory rawEncoded = abi.encode(multiplier);
+        Float decoded = LibStockSplit.decodeParametersV1(rawEncoded);
+        assertEq(Float.unwrap(decoded), Float.unwrap(multiplier));
+    }
+
     /// Exact ceiling boundary: 1e18 multiplier gives trunc(1e18 * 1e18) = 1e36.
     function testExactCeilingBoundaryPasses() external {
         Float ceiling = LibDecimalFloat.packLossless(1, 18);
