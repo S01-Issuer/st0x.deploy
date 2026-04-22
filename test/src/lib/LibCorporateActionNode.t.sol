@@ -3,8 +3,9 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std/Test.sol";
-import {LibCorporateAction} from "src/lib/LibCorporateAction.sol";
+import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1, VALID_ACTION_TYPES_MASK} from "src/lib/LibCorporateAction.sol";
 import {CompletionFilter, LibCorporateActionNode} from "src/lib/LibCorporateActionNode.sol";
+import {InvalidMask} from "src/error/ErrCorporateAction.sol";
 
 /// @dev Thin harness: exposes the four tuple-returning traversal getters via
 /// external calls so the library functions can be exercised directly (not
@@ -110,26 +111,100 @@ contract LibCorporateActionNodeTest is Test {
         assertEq(cursor, 0);
     }
 
-    /// Mask filtering: nodes of action type `2` must not surface when the
-    /// caller queries with mask `1`, and vice versa. Exercises the bitmap
-    /// check in the underlying `next/prevOfType` walk.
-    function testMaskFiltersOutNonMatchingType() external {
+    /// Mask = 0 can never match any node (every node's `actionType` has at
+    /// least one bit set, so `actionType & 0 == 0` for every node). The
+    /// traversal primitives revert with `InvalidMask` so a caller bug
+    /// surfaces rather than being silently conflated with an empty-list
+    /// "no match" result.
+    function testMaskZeroReverts() external {
         h.schedule(1, 1500, hex"");
-        uint256 id2 = h.schedule(2, 2500, hex"");
 
-        // Query with mask=2 skips the mask=1 node.
-        (uint256 cursor,,) = h.earliest(2, CompletionFilter.ALL);
-        assertEq(cursor, id2);
+        vm.expectRevert(InvalidMask.selector);
+        h.latest(0, CompletionFilter.ALL);
 
-        (cursor,,) = h.latest(2, CompletionFilter.ALL);
-        assertEq(cursor, id2);
+        vm.expectRevert(InvalidMask.selector);
+        h.earliest(0, CompletionFilter.ALL);
 
-        // Combined mask (1 | 2) picks whichever direction is walked.
-        (cursor,,) = h.earliest(3, CompletionFilter.ALL);
-        assertEq(cursor, 1, "earliest of ALL types is the head");
+        vm.expectRevert(InvalidMask.selector);
+        h.nextOf(0, 0, CompletionFilter.ALL);
 
-        (cursor,,) = h.latest(3, CompletionFilter.ALL);
-        assertEq(cursor, id2, "latest of ALL types is the tail");
+        vm.expectRevert(InvalidMask.selector);
+        h.prevOf(0, 0, CompletionFilter.ALL);
+    }
+
+    /// Masks with only undefined bits reference no known action type.
+    /// `mask & VALID_ACTION_TYPES_MASK == 0` for these, so the traversal
+    /// reverts. Mixed masks (valid + undefined bits) pass — the valid bit
+    /// matches, and undefined bits contribute nothing because no node's
+    /// `actionType` has them set. The permissive handling of mixed masks
+    /// is intentional: a caller written against a future version that
+    /// adds new types still works against the current deployment.
+    function testMaskWithOnlyUndefinedBitsReverts() external {
+        h.schedule(1, 1500, hex"");
+
+        // Bit 2 alone — no action type uses bit 2 today.
+        vm.expectRevert(InvalidMask.selector);
+        h.latest(1 << 2, CompletionFilter.ALL);
+
+        // Bits 2 and 3 — both undefined.
+        vm.expectRevert(InvalidMask.selector);
+        h.latest((1 << 2) | (1 << 3), CompletionFilter.ALL);
+    }
+
+    /// Fuzz: any mask with no valid bits (i.e. `mask & VALID_ACTION_TYPES_MASK
+    /// == 0`) reverts with `InvalidMask`, regardless of list state. Generated
+    /// masks are forced into the invalid-only space by ANDing with the
+    /// complement of the valid mask; the result is either 0 (mask=0) or a
+    /// purely-undefined bitfield, both of which must revert.
+    function testFuzzMaskWithNoValidBitsAlwaysReverts(uint256 rawMask) external {
+        h.schedule(1, 1500, hex"");
+
+        uint256 mask = rawMask & ~VALID_ACTION_TYPES_MASK;
+
+        vm.expectRevert(InvalidMask.selector);
+        h.latest(mask, CompletionFilter.ALL);
+
+        vm.expectRevert(InvalidMask.selector);
+        h.earliest(mask, CompletionFilter.ALL);
+
+        vm.expectRevert(InvalidMask.selector);
+        h.nextOf(0, mask, CompletionFilter.ALL);
+
+        vm.expectRevert(InvalidMask.selector);
+        h.prevOf(0, mask, CompletionFilter.ALL);
+    }
+
+    /// Fuzz: any mask containing at least one valid bit passes the guard.
+    /// Force the `VALID_ACTION_TYPES_MASK` bits to be set, add arbitrary
+    /// undefined bits on top, and assert all four getters succeed (i.e.
+    /// do not revert on the guard). The returned cursor may still be zero
+    /// if filters don't match — but reaching that return means the mask
+    /// check passed.
+    function testFuzzMaskWithAtLeastOneValidBitPasses(uint256 extraBits) external {
+        h.schedule(1, 1500, hex"");
+
+        uint256 mask = VALID_ACTION_TYPES_MASK | extraBits;
+
+        // None of these should revert on the InvalidMask guard.
+        h.latest(mask, CompletionFilter.ALL);
+        h.earliest(mask, CompletionFilter.ALL);
+        h.nextOf(0, mask, CompletionFilter.ALL);
+        h.prevOf(0, mask, CompletionFilter.ALL);
+    }
+
+    /// Mixed masks that include at least one valid bit pass and match on
+    /// the valid portion. The undefined bits contribute nothing since no
+    /// node has them set.
+    function testMaskWithMixedBitsPasses() external {
+        uint256 id = h.schedule(1, 1500, hex"");
+
+        // Bit 0 (valid, stock split) + bit 2 (undefined).
+        (uint256 cursor,,) = h.latest((1 << 0) | (1 << 2), CompletionFilter.ALL);
+        assertEq(cursor, id, "valid bit in mask matches node with that bit set");
+
+        // type(uint256).max has every bit including bit 0.
+        (cursor,,) = h.latest(type(uint256).max, CompletionFilter.ALL);
+        assertEq(cursor, id, "max-value mask still matches via its valid bits");
     }
 
     /// Pending/completed filter moves the result as time passes. Schedule two

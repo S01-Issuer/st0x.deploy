@@ -9,7 +9,7 @@ import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/tok
 import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/lib/LibCorporateAction.sol";
 import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
 import {LibTotalSupply} from "../../../src/lib/LibTotalSupply.sol";
-import {CorporateActionNode, CompletionFilter} from "../../../src/lib/LibCorporateActionNode.sol";
+import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "../../../src/lib/LibCorporateActionNode.sol";
 import {LibTestCorporateAction} from "../../lib/LibTestCorporateAction.sol";
 import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 
@@ -75,6 +75,16 @@ contract InvariantVault is StoxReceiptVault {
 
     function rawStoredBalance(address account) external view returns (uint256) {
         return LibERC20Storage.underlyingBalance(account);
+    }
+
+    /// @dev Whether any stock split in the list has reached its effective
+    /// time. `effectiveTotalSupply` applies multipliers once this is true
+    /// even if `fold()` has not yet been called to update
+    /// `totalSupplyLatestSplit`, so invariants that depend on the
+    /// no-multiplier regime must gate on this rather than
+    /// `totalSupplyLatestSplit == 0`.
+    function hasCompletedSplit() external view returns (bool) {
+        return LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED) != 0;
     }
 }
 
@@ -373,15 +383,18 @@ contract StoxCorporateActionsInvariantTest is Test {
         assertLe(sum, total, "invariant 5: sum(balanceOf) must not exceed totalSupply");
     }
 
-    /// Invariant 7: with no completed split, `totalSupply()` is exactly
-    /// `Σmints − Σburns`. This is the default state of every token until
-    /// the first stock split reaches its effective time — the corporate-
-    /// actions override must be a straight passthrough of OZ's
-    /// `_totalSupply` in this regime and add no drift. Once a split
-    /// completes, the relation no longer holds and the invariant is
-    /// vacuously satisfied.
+    /// Invariant 7: with no stock split past its effective time,
+    /// `totalSupply()` is exactly `Σmints − Σburns`. This is the default
+    /// state of every token until the first stock split reaches its
+    /// effective time — the corporate-actions override must be a
+    /// straight passthrough of OZ's `_totalSupply` in this regime and
+    /// add no drift. Gates on `hasCompletedSplit()` rather than
+    /// `totalSupplyLatestSplit == 0`: `effectiveTotalSupply` applies
+    /// multipliers as soon as a split's effective time has passed, even
+    /// if no subsequent `_update` has triggered `fold()` to advance the
+    /// latest-split tracker.
     function invariantNoSplitSupplyEqualsNetMinted() external view {
-        if (vault.totalSupplyLatestSplit() != 0) return;
+        if (vault.hasCompletedSplit()) return;
 
         uint256 netMinted = handler.totalMinted() - handler.totalBurned();
         assertEq(vault.totalSupply(), netMinted, "invariant 7: totalSupply == Sum(mints) - Sum(burns) with no split");

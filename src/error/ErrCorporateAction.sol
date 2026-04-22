@@ -17,3 +17,10 @@ error UnknownActionType(bytes32 typeHash);
 
 /// Thrown when accessing head/tail on a list with no scheduled actions.
 error NoActionsScheduled();
+
+/// Thrown when a traversal getter is called with `mask == 0`. Every node's
+/// `actionType` has at least one bit set by construction (types are single
+/// bits `1 << n`), so a zero mask can never match any node. Reverting
+/// distinguishes a caller input bug from a legitimate "no match found"
+/// result for a valid mask.
+error InvalidMask();

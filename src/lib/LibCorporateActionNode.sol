@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {LibCorporateAction} from "./LibCorporateAction.sol";
+import {LibCorporateAction, VALID_ACTION_TYPES_MASK} from "./LibCorporateAction.sol";
+import {InvalidMask} from "../error/ErrCorporateAction.sol";
 
 /// @dev A corporate action node in the doubly linked list ordered by
 /// effectiveTime. There is no stored status — an action is "complete" when
@@ -61,6 +62,7 @@ library LibCorporateActionNode {
     /// @param filter Completion filter: ALL, COMPLETED, or PENDING.
     /// @return The index of the next matching node, or 0 if none found.
     function nextOfType(uint256 fromIndex, uint256 mask, CompletionFilter filter) internal view returns (uint256) {
+        if (mask & VALID_ACTION_TYPES_MASK == 0) revert InvalidMask();
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
         uint256 current = fromIndex == 0 ? s.head : s.nodes[fromIndex].next;
 
@@ -93,6 +95,7 @@ library LibCorporateActionNode {
     /// @param filter Completion filter: ALL, COMPLETED, or PENDING.
     /// @return The index of the previous matching node, or 0 if none found.
     function prevOfType(uint256 fromIndex, uint256 mask, CompletionFilter filter) internal view returns (uint256) {
+        if (mask & VALID_ACTION_TYPES_MASK == 0) revert InvalidMask();
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
         uint256 current = fromIndex == 0 ? s.tail : s.nodes[fromIndex].prev;
 

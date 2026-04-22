@@ -28,6 +28,13 @@ bytes32 constant STOCK_SPLIT_V1_TYPE_HASH = keccak256("st0x.corporate-actions.st
 /// @dev Bitmap action type for V1 stock splits (forward and reverse).
 uint256 constant ACTION_TYPE_STOCK_SPLIT_V1 = 1 << 0;
 
+/// @dev Bitmap action type for V1 stablecoin dividends.
+uint256 constant ACTION_TYPE_STABLES_DIVIDEND_V1 = 1 << 1;
+
+/// @dev Union of all defined action types. Extend when a new
+/// `ACTION_TYPE_*` constant is added.
+uint256 constant VALID_ACTION_TYPES_MASK = ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1;
+
 /// @title LibCorporateAction
 /// @notice Library for corporate action diamond storage. Uses ERC-7201
 /// namespaced storage to avoid collisions with existing vault storage slots.
