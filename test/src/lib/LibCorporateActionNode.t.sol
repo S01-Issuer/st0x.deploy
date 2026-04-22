@@ -3,7 +3,12 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std/Test.sol";
-import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1, VALID_ACTION_TYPES_MASK} from "src/lib/LibCorporateAction.sol";
+import {
+    LibCorporateAction,
+    ACTION_TYPE_STOCK_SPLIT_V1,
+    ACTION_TYPE_STABLES_DIVIDEND_V1,
+    VALID_ACTION_TYPES_MASK
+} from "src/lib/LibCorporateAction.sol";
 import {CompletionFilter, LibCorporateActionNode} from "src/lib/LibCorporateActionNode.sol";
 import {InvalidMask} from "src/error/ErrCorporateAction.sol";
 
@@ -205,6 +210,38 @@ contract LibCorporateActionNodeTest is Test {
         // type(uint256).max has every bit including bit 0.
         (cursor,,) = h.latest(type(uint256).max, CompletionFilter.ALL);
         assertEq(cursor, id, "max-value mask still matches via its valid bits");
+    }
+
+    /// With two defined action types (stock split and stables dividend),
+    /// masks select between them: mask = stock split only matches the
+    /// stock-split node, mask = dividend only matches the dividend node,
+    /// and the union mask matches both.
+    function testMaskSelectsBetweenDefinedTypes() external {
+        uint256 splitId = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 divId = h.schedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 2500, hex"");
+
+        // mask = stock split only.
+        (uint256 cursor, uint256 actionType,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        assertEq(cursor, splitId);
+        assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
+
+        (cursor, actionType,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        assertEq(cursor, splitId, "latest with split-only mask skips dividend tail");
+
+        // mask = dividend only.
+        (cursor, actionType,) = h.earliest(ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.ALL);
+        assertEq(cursor, divId, "earliest with dividend-only mask skips split head");
+        assertEq(actionType, ACTION_TYPE_STABLES_DIVIDEND_V1);
+
+        (cursor,,) = h.latest(ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.ALL);
+        assertEq(cursor, divId);
+
+        // mask = union finds both; order determined by walk direction.
+        uint256 both = ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1;
+        (cursor,,) = h.earliest(both, CompletionFilter.ALL);
+        assertEq(cursor, splitId, "walking forward from head, split comes first");
+        (cursor,,) = h.latest(both, CompletionFilter.ALL);
+        assertEq(cursor, divId, "walking backward from tail, dividend comes first");
     }
 
     /// Pending/completed filter moves the result as time passes. Schedule two
