@@ -329,7 +329,8 @@ contract StoxCorporateActionsInvariantTest is Test {
     /// last observed cursor. (In practice the handler catches violations
     /// first.)
     function invariant_cursorMonotonicity() external view {
-        for (uint256 i = 0; i < 5; i++) {
+        uint256 actorCount = handler.actorCount();
+        for (uint256 i = 0; i < actorCount; i++) {
             address a = handler.actor(i);
             assertGe(
                 vault.migrationCursor(a),
@@ -362,7 +363,8 @@ contract StoxCorporateActionsInvariantTest is Test {
     /// bound regardless.
     function invariant_sumBalancesLeqTotalSupply() external view {
         uint256 sum = 0;
-        for (uint256 i = 0; i < 5; i++) {
+        uint256 actorCount = handler.actorCount();
+        for (uint256 i = 0; i < actorCount; i++) {
             sum += vault.balanceOf(handler.actor(i));
         }
         uint256 total = vault.totalSupply();
