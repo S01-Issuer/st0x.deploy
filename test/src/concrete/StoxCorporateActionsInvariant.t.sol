@@ -252,9 +252,8 @@ contract StoxCorporateActionsHandler is Test {
 /// @notice Stateful invariant suite for the corporate-actions system. A
 /// `StoxCorporateActionsHandler` drives the vault through random sequences of
 /// schedule / cancel / warp / mint / burn / transfer / touch operations. After
-/// every handler call, the invariant sweep asserts that the six load-bearing
-/// system properties still hold. See `audit/2026-04-09-01/guidelines-advisor.md`
-/// Item 8 for the derivation of each invariant.
+/// every handler call, the invariant sweep asserts that the six system
+/// properties defined below still hold.
 contract StoxCorporateActionsInvariantTest is Test {
     InvariantVault internal vault;
     StoxCorporateActionsHandler internal handler;
