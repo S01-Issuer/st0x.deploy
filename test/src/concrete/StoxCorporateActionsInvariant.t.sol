@@ -305,7 +305,7 @@ contract StoxCorporateActionsInvariantTest is Test {
     /// pointers and from tail backward along `prev` pointers visits the same
     /// set of reachable nodes. Same count both ways; no cycles in either
     /// direction (enforced by bounding the walk to nodesLength iterations).
-    function invariant_listIntegrity() external view {
+    function invariantListIntegrity() external view {
         uint256 len = vault.nodesLength();
         uint256 head = vault.listHead();
         uint256 tail = vault.listTail();
@@ -354,7 +354,7 @@ contract StoxCorporateActionsInvariantTest is Test {
     /// Invariant 2: time ordering. Adjacent reachable nodes have
     /// non-decreasing `effectiveTime`. Ties are permitted (stable insertion
     /// places later-scheduled equal-time nodes after earlier ones).
-    function invariant_timeOrdering() external view {
+    function invariantTimeOrdering() external view {
         uint256 head = vault.listHead();
         if (head == 0) return;
 
@@ -378,7 +378,7 @@ contract StoxCorporateActionsInvariantTest is Test {
     /// allocation indices so numeric comparison is wrong — assert that the
     /// current cursor is either the same as the last observed one or
     /// reachable forward from it along `next` pointers.
-    function invariant_cursorMonotonicity() external view {
+    function invariantCursorMonotonicity() external view {
         uint256 actorCount = handler.actorCount();
         for (uint256 i = 0; i < actorCount; i++) {
             address a = handler.actor(i);
@@ -412,7 +412,7 @@ contract StoxCorporateActionsInvariantTest is Test {
     /// truncation drift. The harness's bounded actor set and bounded
     /// multipliers keep the gap small; this assertion pins the one-sided
     /// bound regardless.
-    function invariant_sumBalancesLeqTotalSupply() external view {
+    function invariantSumBalancesLeqTotalSupply() external view {
         uint256 sum = 0;
         uint256 actorCount = handler.actorCount();
         for (uint256 i = 0; i < actorCount; i++) {
@@ -442,7 +442,7 @@ contract StoxCorporateActionsInvariantTest is Test {
     /// Invariant 6: `totalSupplyLatestSplit` is either 0 (no split has ever
     /// folded) or points at a node whose effective time is in the past. It
     /// must also not exceed the nodes array bounds.
-    function invariant_totalSupplyLatestSplitValid() external view {
+    function invariantTotalSupplyLatestSplitValid() external view {
         uint256 latest = vault.totalSupplyLatestSplit();
         if (latest == 0) return;
 
