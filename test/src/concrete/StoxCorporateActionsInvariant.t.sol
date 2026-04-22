@@ -10,6 +10,7 @@ import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/lib/L
 import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
 import {LibTotalSupply} from "../../../src/lib/LibTotalSupply.sol";
 import {CorporateActionNode, CompletionFilter} from "../../../src/lib/LibCorporateActionNode.sol";
+import {LibTestCorporateAction} from "../../lib/LibTestCorporateAction.sol";
 
 /// @dev Auth-bypassed vault subclass used by the invariant harness. Mirrors
 /// the production `StoxReceiptVault._update` flow exactly, only skipping the
@@ -56,11 +57,11 @@ contract InvariantVault is StoxReceiptVault {
     }
 
     function listHead() external view returns (uint256) {
-        return LibCorporateAction.head();
+        return LibTestCorporateAction.head();
     }
 
     function listTail() external view returns (uint256) {
-        return LibCorporateAction.tail();
+        return LibTestCorporateAction.tail();
     }
 
     function getNode(uint256 index) external view returns (CorporateActionNode memory) {

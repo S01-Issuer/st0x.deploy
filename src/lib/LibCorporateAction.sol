@@ -266,14 +266,4 @@ library LibCorporateAction {
         if (s.tail == 0) return s.nodes[0];
         return s.nodes[s.tail];
     }
-
-    /// @notice Index of the list's head node, or 0 if the list is empty.
-    function head() internal view returns (uint256) {
-        return getStorage().head;
-    }
-
-    /// @notice Index of the list's tail node, or 0 if the list is empty.
-    function tail() internal view returns (uint256) {
-        return getStorage().tail;
-    }
 }
