@@ -318,6 +318,32 @@ contract StoxCorporateActionsFacetTest is Test {
         facetImpl.cancelCorporateAction(1);
     }
 
+    /// Direct call to `latestActionOfType` on the standalone facet reverts.
+    /// View getters over the traversal interface must carry the same guard
+    /// so the facet has no callable surface outside delegatecall context.
+    function testLatestActionOfTypeDirectCallReverts() external {
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facetImpl.latestActionOfType(type(uint256).max, CompletionFilter.ALL);
+    }
+
+    /// Direct call to `earliestActionOfType` on the standalone facet reverts.
+    function testEarliestActionOfTypeDirectCallReverts() external {
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facetImpl.earliestActionOfType(type(uint256).max, CompletionFilter.ALL);
+    }
+
+    /// Direct call to `nextOfType` on the standalone facet reverts.
+    function testNextOfTypeDirectCallReverts() external {
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facetImpl.nextOfType(0, type(uint256).max, CompletionFilter.ALL);
+    }
+
+    /// Direct call to `prevOfType` on the standalone facet reverts.
+    function testPrevOfTypeDirectCallReverts() external {
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facetImpl.prevOfType(0, type(uint256).max, CompletionFilter.ALL);
+    }
+
     // -----------------------------------------------------------------------
     // Linked-list scheduling, cancellation, and traversal — exercised through
     // `CorporateActionHarness` so the library logic is tested in isolation from the facet.

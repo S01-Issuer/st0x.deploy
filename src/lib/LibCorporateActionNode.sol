@@ -115,4 +115,55 @@ library LibCorporateActionNode {
 
         return 0;
     }
+
+    /// @dev Resolve a cursor to `(actionType, effectiveTime)`. Returns
+    /// `(0, 0)` when `cursor == 0` without touching storage, so callers can
+    /// thread "none found" results through without a branch of their own.
+    function _resolve(uint256 cursor) private view returns (uint256 actionType, uint64 effectiveTime) {
+        if (cursor != 0) {
+            CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[cursor];
+            actionType = node.actionType;
+            effectiveTime = node.effectiveTime;
+        }
+    }
+
+    /// @notice Latest action matching `mask` and `filter`, resolved with metadata.
+    function latestActionOfType(uint256 mask, CompletionFilter filter)
+        internal
+        view
+        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
+    {
+        cursor = prevOfType(0, mask, filter);
+        (actionType, effectiveTime) = _resolve(cursor);
+    }
+
+    /// @notice Earliest action matching `mask` and `filter`, resolved with metadata.
+    function earliestActionOfType(uint256 mask, CompletionFilter filter)
+        internal
+        view
+        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
+    {
+        cursor = nextOfType(0, mask, filter);
+        (actionType, effectiveTime) = _resolve(cursor);
+    }
+
+    /// @notice Next matching action after `fromCursor`, resolved with metadata.
+    function nextActionOfType(uint256 fromCursor, uint256 mask, CompletionFilter filter)
+        internal
+        view
+        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
+    {
+        cursor = nextOfType(fromCursor, mask, filter);
+        (actionType, effectiveTime) = _resolve(cursor);
+    }
+
+    /// @notice Previous matching action before `fromCursor`, resolved with metadata.
+    function prevActionOfType(uint256 fromCursor, uint256 mask, CompletionFilter filter)
+        internal
+        view
+        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
+    {
+        cursor = prevOfType(fromCursor, mask, filter);
+        (actionType, effectiveTime) = _resolve(cursor);
+    }
 }
