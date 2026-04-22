@@ -7,6 +7,7 @@ import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {LibTotalSupply} from "src/lib/LibTotalSupply.sol";
 import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "src/lib/LibCorporateAction.sol";
 import {LibERC20Storage, ERC20_STORAGE_LOCATION} from "src/lib/LibERC20Storage.sol";
+import {LibStockSplit} from "src/lib/LibStockSplit.sol";
 
 contract LibTotalSupplyHarness {
     function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters) external returns (uint256) {
@@ -74,12 +75,12 @@ contract LibTotalSupplyTest is Test {
     }
 
     function _splitParams(int256 multiplier) internal pure returns (bytes memory) {
-        return abi.encode(LibDecimalFloat.packLossless(multiplier, 0));
+        return LibStockSplit.encodeParametersV1(LibDecimalFloat.packLossless(multiplier, 0));
     }
 
     function _fractionalParams(int256 num, int256 denom) internal pure returns (bytes memory) {
         Float result = LibDecimalFloat.div(LibDecimalFloat.packLossless(num, 0), LibDecimalFloat.packLossless(denom, 0));
-        return abi.encode(result);
+        return LibStockSplit.encodeParametersV1(result);
     }
 
     /// Before any splits, returns OZ's totalSupply.

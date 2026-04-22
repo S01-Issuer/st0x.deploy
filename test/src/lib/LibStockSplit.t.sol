@@ -7,6 +7,8 @@ import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {
     LibCorporateAction,
     ACTION_TYPE_STOCK_SPLIT_V1,
+    ACTION_TYPE_STABLES_DIVIDEND_V1,
+    VALID_ACTION_TYPES_MASK,
     STOCK_SPLIT_V1_TYPE_HASH
 } from "../../../src/lib/LibCorporateAction.sol";
 import {UnknownActionType} from "../../../src/error/ErrCorporateAction.sol";
@@ -92,12 +94,47 @@ contract LibStockSplitValidationTest is Test {
         v.validate(oneThird);
     }
 
-    /// Decode-after-abi.encode roundtrip preserves the multiplier.
+    /// `encodeParametersV1` + `decodeParametersV1` roundtrip preserves the
+    /// multiplier. Exercises the canonical V1 codec rather than raw
+    /// `abi.encode`/`abi.decode` so callers downstream of these helpers
+    /// (schedulers building payloads, readers decoding them) are covered
+    /// by this test.
     function testEncodeDecodeRoundtrip() external pure {
         Float threeX = LibDecimalFloat.packLossless(3, 0);
-        bytes memory encoded = abi.encode(threeX);
-        Float decoded = abi.decode(encoded, (Float));
+        bytes memory encoded = LibStockSplit.encodeParametersV1(threeX);
+        Float decoded = LibStockSplit.decodeParametersV1(encoded);
         assertEq(Float.unwrap(decoded), Float.unwrap(threeX));
+    }
+
+    /// Wire-format pin: the V1 codec is currently equivalent to raw
+    /// `abi.encode(Float)` / `abi.decode(bytes, (Float))`. Off-chain schedulers
+    /// that predate this helper hand-encode their payloads this way, and
+    /// on-chain `decodeParametersV1` must accept those payloads unchanged. If
+    /// the V1 schema ever grows additional fields, this test has to be
+    /// updated together with the codec — the test failing is the signal that
+    /// every off-chain scheduler needs to migrate before deployment.
+    function testFuzzEncodeParametersV1MatchesRawAbiEncode(uint64 coeff, int8 exp) external pure {
+        vm.assume(coeff > 0);
+        exp = int8(bound(exp, -17, 17));
+        // forge-lint: disable-next-line(unsafe-typecast)
+        Float multiplier = LibDecimalFloat.packLossless(int256(uint256(coeff)), int256(exp));
+        bytes memory libEncoded = LibStockSplit.encodeParametersV1(multiplier);
+        bytes memory rawEncoded = abi.encode(multiplier);
+        assertEq(libEncoded, rawEncoded, "encodeParametersV1 must match raw abi.encode for V1 schema");
+    }
+
+    /// Symmetric wire-format pin for the decode side: a payload produced by
+    /// raw `abi.encode(Float)` must decode through `decodeParametersV1` to the
+    /// original multiplier. Ensures off-chain-produced bytes round-trip
+    /// through the on-chain reader.
+    function testFuzzDecodeParametersV1AcceptsRawAbiEncode(uint64 coeff, int8 exp) external pure {
+        vm.assume(coeff > 0);
+        exp = int8(bound(exp, -17, 17));
+        // forge-lint: disable-next-line(unsafe-typecast)
+        Float multiplier = LibDecimalFloat.packLossless(int256(uint256(coeff)), int256(exp));
+        bytes memory rawEncoded = abi.encode(multiplier);
+        Float decoded = LibStockSplit.decodeParametersV1(rawEncoded);
+        assertEq(Float.unwrap(decoded), Float.unwrap(multiplier));
     }
 
     /// Exact ceiling boundary: 1e18 multiplier gives trunc(1e18 * 1e18) = 1e36.
@@ -138,24 +175,53 @@ contract LibStockSplitValidationTest is Test {
 
     /// Constants have expected values.
     function testConstantValues() external pure {
-        assertEq(ACTION_TYPE_STOCK_SPLIT_V1, 1);
+        assertEq(ACTION_TYPE_STOCK_SPLIT_V1, 1 << 0);
+        assertEq(ACTION_TYPE_STABLES_DIVIDEND_V1, 1 << 1);
         assertEq(STOCK_SPLIT_V1_TYPE_HASH, keccak256("st0x.corporate-actions.stock-split.1"));
     }
 
-    /// ACTION_TYPE_STOCK_SPLIT_V1 has exactly one bit set.
+    /// Each action type constant has exactly one bit set.
     function testActionTypeSingleBit() external pure {
         assertEq(ACTION_TYPE_STOCK_SPLIT_V1 & (ACTION_TYPE_STOCK_SPLIT_V1 - 1), 0);
         assertTrue(ACTION_TYPE_STOCK_SPLIT_V1 != 0);
+
+        assertEq(ACTION_TYPE_STABLES_DIVIDEND_V1 & (ACTION_TYPE_STABLES_DIVIDEND_V1 - 1), 0);
+        assertTrue(ACTION_TYPE_STABLES_DIVIDEND_V1 != 0);
     }
 
-    /// Fuzz: encode/decode roundtrip preserves arbitrary valid multipliers.
+    /// Action type bitmap constants are pairwise disjoint. If any two types
+    /// share a bit, mask filters cannot distinguish them and `actionType` on
+    /// a node becomes ambiguous.
+    function testActionTypesDisjoint() external pure {
+        assertEq(
+            ACTION_TYPE_STOCK_SPLIT_V1 & ACTION_TYPE_STABLES_DIVIDEND_V1,
+            0,
+            "stock split and dividend must not share any bit"
+        );
+    }
+
+    /// `VALID_ACTION_TYPES_MASK` is exactly the bitwise union of every
+    /// defined type constant. If a future type is added without updating
+    /// this mask, traversal getters will reject queries for it as
+    /// `InvalidMask`. Pins the expected union so the additions stay
+    /// in-sync.
+    function testValidActionTypesMaskMatchesUnion() external pure {
+        assertEq(
+            VALID_ACTION_TYPES_MASK,
+            ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1,
+            "VALID_ACTION_TYPES_MASK must be union of all defined types"
+        );
+    }
+
+    /// Fuzz: `encodeParametersV1` + `decodeParametersV1` roundtrip preserves
+    /// arbitrary valid multipliers.
     function testFuzzDecodeRoundtrip(uint64 coeff, int8 exp) external pure {
         vm.assume(coeff > 0);
         exp = int8(bound(exp, -17, 17));
         // forge-lint: disable-next-line(unsafe-typecast)
         Float multiplier = LibDecimalFloat.packLossless(int256(uint256(coeff)), int256(exp));
-        bytes memory encoded = abi.encode(multiplier);
-        Float decoded = abi.decode(encoded, (Float));
+        bytes memory encoded = LibStockSplit.encodeParametersV1(multiplier);
+        Float decoded = LibStockSplit.decodeParametersV1(encoded);
         assertEq(Float.unwrap(decoded), Float.unwrap(multiplier));
     }
 
@@ -288,7 +354,7 @@ contract LibStockSplitResolveTest is Test {
     /// STOCK_SPLIT_V1_TYPE_HASH resolves to ACTION_TYPE_STOCK_SPLIT_V1.
     function testResolveStockSplit() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        uint256 bitmap = h.resolveActionType(STOCK_SPLIT_V1_TYPE_HASH, abi.encode(twoX));
+        uint256 bitmap = h.resolveActionType(STOCK_SPLIT_V1_TYPE_HASH, LibStockSplit.encodeParametersV1(twoX));
         assertEq(bitmap, ACTION_TYPE_STOCK_SPLIT_V1);
     }
 
@@ -296,7 +362,7 @@ contract LibStockSplitResolveTest is Test {
     function testResolveStockSplitZeroMultiplierReverts() external {
         Float zero = LibDecimalFloat.packLossless(0, 0);
         vm.expectRevert(InvalidSplitMultiplier.selector);
-        h.resolveActionType(STOCK_SPLIT_V1_TYPE_HASH, abi.encode(zero));
+        h.resolveActionType(STOCK_SPLIT_V1_TYPE_HASH, LibStockSplit.encodeParametersV1(zero));
     }
 
     /// Unknown type hash reverts.
@@ -319,7 +385,7 @@ contract LibStockSplitLifecycleTest is Test {
     /// Stock split full lifecycle: resolve, schedule, complete, walk, read multiplier.
     function testStockSplitLifecycle() external {
         Float threeX = LibDecimalFloat.packLossless(3, 0);
-        uint256 id = h.resolveAndSchedule(STOCK_SPLIT_V1_TYPE_HASH, 1500, abi.encode(threeX));
+        uint256 id = h.resolveAndSchedule(STOCK_SPLIT_V1_TYPE_HASH, 1500, LibStockSplit.encodeParametersV1(threeX));
         assertEq(id, 1);
         assertEq(h.countCompleted(), 0);
 
@@ -340,9 +406,9 @@ contract LibStockSplitLifecycleTest is Test {
         Float threeX = LibDecimalFloat.packLossless(3, 0);
         Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
 
-        uint256 id1 = h.resolveAndSchedule(STOCK_SPLIT_V1_TYPE_HASH, 1500, abi.encode(twoX));
-        uint256 id2 = h.resolveAndSchedule(STOCK_SPLIT_V1_TYPE_HASH, 2000, abi.encode(threeX));
-        uint256 id3 = h.resolveAndSchedule(STOCK_SPLIT_V1_TYPE_HASH, 3000, abi.encode(halfX));
+        uint256 id1 = h.resolveAndSchedule(STOCK_SPLIT_V1_TYPE_HASH, 1500, LibStockSplit.encodeParametersV1(twoX));
+        uint256 id2 = h.resolveAndSchedule(STOCK_SPLIT_V1_TYPE_HASH, 2000, LibStockSplit.encodeParametersV1(threeX));
+        uint256 id3 = h.resolveAndSchedule(STOCK_SPLIT_V1_TYPE_HASH, 3000, LibStockSplit.encodeParametersV1(halfX));
 
         // Complete first two.
         vm.warp(2500);
@@ -390,7 +456,7 @@ contract LibStockSplitLifecycleTest is Test {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
         Float oneThird = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(3, 0));
 
-        uint256 id1 = h.resolveAndSchedule(STOCK_SPLIT_V1_TYPE_HASH, 1500, abi.encode(twoX));
+        uint256 id1 = h.resolveAndSchedule(STOCK_SPLIT_V1_TYPE_HASH, 1500, LibStockSplit.encodeParametersV1(twoX));
         uint256 id2 = h.resolveAndSchedule(STOCK_SPLIT_V1_TYPE_HASH, 2000, abi.encode(oneThird));
 
         Float stored1 = abi.decode(h.getNode(id1).parameters, (Float));

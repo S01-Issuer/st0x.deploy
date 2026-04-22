@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
+import {CompletionFilter, LibCorporateActionNode} from "../lib/LibCorporateActionNode.sol";
 import {IAuthorizeV1} from "rain.vats/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetReceiptVault.sol";
 
@@ -81,6 +82,62 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         _authorize(msg.sender, CANCEL_CORPORATE_ACTION, abi.encode(actionIndex));
         LibCorporateAction.cancel(actionIndex);
         emit CorporateActionCancelled(msg.sender, actionIndex);
+    }
+
+    /// @inheritdoc ICorporateActionsV1
+    function latestActionOfType(uint256 mask, CompletionFilter filter)
+        external
+        view
+        override
+        onlyDelegatecalled
+        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
+    {
+        // False positive: tuple pass-through — `return lib.tupleFn(...)` re-emits every
+        // component as this function's own return, nothing is discarded.
+        // slither-disable-next-line unused-return
+        return LibCorporateActionNode.latestActionOfType(mask, filter);
+    }
+
+    /// @inheritdoc ICorporateActionsV1
+    function earliestActionOfType(uint256 mask, CompletionFilter filter)
+        external
+        view
+        override
+        onlyDelegatecalled
+        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
+    {
+        // False positive: tuple pass-through — `return lib.tupleFn(...)` re-emits every
+        // component as this function's own return, nothing is discarded.
+        // slither-disable-next-line unused-return
+        return LibCorporateActionNode.earliestActionOfType(mask, filter);
+    }
+
+    /// @inheritdoc ICorporateActionsV1
+    function nextOfType(uint256 cursor, uint256 mask, CompletionFilter filter)
+        external
+        view
+        override
+        onlyDelegatecalled
+        returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime)
+    {
+        // False positive: tuple pass-through — `return lib.tupleFn(...)` re-emits every
+        // component as this function's own return, nothing is discarded.
+        // slither-disable-next-line unused-return
+        return LibCorporateActionNode.nextActionOfType(cursor, mask, filter);
+    }
+
+    /// @inheritdoc ICorporateActionsV1
+    function prevOfType(uint256 cursor, uint256 mask, CompletionFilter filter)
+        external
+        view
+        override
+        onlyDelegatecalled
+        returns (uint256 prevCursor, uint256 actionType, uint64 effectiveTime)
+    {
+        // False positive: tuple pass-through — `return lib.tupleFn(...)` re-emits every
+        // component as this function's own return, nothing is discarded.
+        // slither-disable-next-line unused-return
+        return LibCorporateActionNode.prevActionOfType(cursor, mask, filter);
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is

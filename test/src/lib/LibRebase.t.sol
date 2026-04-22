@@ -6,6 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {LibRebase} from "src/lib/LibRebase.sol";
 import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "src/lib/LibCorporateAction.sol";
+import {LibStockSplit} from "src/lib/LibStockSplit.sol";
 
 contract LibRebaseHarness {
     function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters) external returns (uint256) {
@@ -30,12 +31,12 @@ contract LibRebaseTest is Test {
     }
 
     function _splitParams(int256 multiplier) internal pure returns (bytes memory) {
-        return abi.encode(LibDecimalFloat.packLossless(multiplier, 0));
+        return LibStockSplit.encodeParametersV1(LibDecimalFloat.packLossless(multiplier, 0));
     }
 
     function _fractionalParams(int256 num, int256 denom) internal pure returns (bytes memory) {
         Float result = LibDecimalFloat.div(LibDecimalFloat.packLossless(num, 0), LibDecimalFloat.packLossless(denom, 0));
-        return abi.encode(result);
+        return LibStockSplit.encodeParametersV1(result);
     }
 
     /// Zero balance stays zero, but the cursor advances to the latest completed

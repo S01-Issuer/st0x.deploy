@@ -21,12 +21,13 @@ import {
     ActionDoesNotExist
 } from "../../../src/error/ErrCorporateAction.sol";
 import {IAuthorizeV1, Unauthorized} from "rain.vats/interface/IAuthorizeV1.sol";
+import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {
     CorporateActionNode,
     CompletionFilter,
     LibCorporateActionNode
 } from "../../../src/lib/LibCorporateActionNode.sol";
-import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
+import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 import {InvalidSplitMultiplier} from "../../../src/error/ErrStockSplit.sol";
 import {LibTestTofu} from "../../lib/LibTestTofu.sol";
 import {LibTestCorporateAction} from "../../lib/LibTestCorporateAction.sol";
@@ -315,6 +316,32 @@ contract StoxCorporateActionsFacetTest is Test {
     function testCancelCorporateActionDirectCallReverts() external {
         vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
         facetImpl.cancelCorporateAction(1);
+    }
+
+    /// Direct call to `latestActionOfType` on the standalone facet reverts.
+    /// View getters over the traversal interface must carry the same guard
+    /// so the facet has no callable surface outside delegatecall context.
+    function testLatestActionOfTypeDirectCallReverts() external {
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facetImpl.latestActionOfType(type(uint256).max, CompletionFilter.ALL);
+    }
+
+    /// Direct call to `earliestActionOfType` on the standalone facet reverts.
+    function testEarliestActionOfTypeDirectCallReverts() external {
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facetImpl.earliestActionOfType(type(uint256).max, CompletionFilter.ALL);
+    }
+
+    /// Direct call to `nextOfType` on the standalone facet reverts.
+    function testNextOfTypeDirectCallReverts() external {
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facetImpl.nextOfType(0, type(uint256).max, CompletionFilter.ALL);
+    }
+
+    /// Direct call to `prevOfType` on the standalone facet reverts.
+    function testPrevOfTypeDirectCallReverts() external {
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facetImpl.prevOfType(0, type(uint256).max, CompletionFilter.ALL);
     }
 
     // -----------------------------------------------------------------------
@@ -1107,7 +1134,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// indexers.
     function testScheduleCorporateActionEmitsEvent() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = abi.encode(twoX);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
         uint64 effectiveTime = 1500;
 
         vm.expectEmit(true, true, false, true, address(facetViaHarness));
@@ -1123,7 +1150,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// with the right indexed sender and indexed actionIndex.
     function testCancelCorporateActionEmitsEvent() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = abi.encode(twoX);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
 
         vm.prank(ALICE);
         uint256 actionIndex = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
@@ -1135,10 +1162,88 @@ contract StoxCorporateActionsFacetTest is Test {
         facetViaHarness.cancelCorporateAction(actionIndex);
     }
 
+    /// Helper: schedule a stock split via the facet (using the delegatecall
+    /// harness so the action lands in the harness's storage namespace).
+    function _scheduleSplitViaFacet(int256 multiplier, uint64 effectiveTime) internal {
+        bytes memory parameters = LibStockSplit.encodeParametersV1(LibDecimalFloat.packLossless(multiplier, 0));
+        vm.prank(ALICE);
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, effectiveTime, parameters);
+    }
+
+    /// Audit findings A01-P5-1 / A01-P2-3: the facet's external traversal
+    /// getters now take an explicit `CompletionFilter` and plumb it through
+    /// to the lib. Verify each filter value returns the expected cursor for
+    /// a list with one completed and one pending action of the same type.
+    /// Schedules through the facet so the actions live in the same storage
+    /// namespace the facet's getters read from.
+    function testFacetTraversalGettersFilterParameter() external {
+        _scheduleSplitViaFacet(2, 1500); // index 1, will be completed
+        _scheduleSplitViaFacet(3, 2500); // index 2, will be pending
+
+        vm.warp(2000); // index 1 complete, index 2 still pending
+
+        uint256 cursor;
+        uint256 actionType;
+        uint64 effectiveTime;
+
+        // earliestActionOfType: walk forward from head with each filter.
+        (cursor, actionType, effectiveTime) = facetViaHarness.earliestActionOfType(1, CompletionFilter.ALL);
+        assertEq(cursor, 1, "ALL: earliest is the first node");
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 1500);
+
+        (cursor,,) = facetViaHarness.earliestActionOfType(1, CompletionFilter.COMPLETED);
+        assertEq(cursor, 1, "COMPLETED: earliest completed is index 1");
+
+        (cursor,,) = facetViaHarness.earliestActionOfType(1, CompletionFilter.PENDING);
+        assertEq(cursor, 2, "PENDING: earliest pending is index 2");
+
+        // latestActionOfType: walk backward from tail with each filter.
+        (cursor,, effectiveTime) = facetViaHarness.latestActionOfType(1, CompletionFilter.ALL);
+        assertEq(cursor, 2, "ALL: latest is the tail");
+        assertEq(effectiveTime, 2500);
+
+        (cursor,, effectiveTime) = facetViaHarness.latestActionOfType(1, CompletionFilter.COMPLETED);
+        assertEq(cursor, 1, "COMPLETED: latest completed is index 1");
+        assertEq(effectiveTime, 1500);
+
+        (cursor,,) = facetViaHarness.latestActionOfType(1, CompletionFilter.PENDING);
+        assertEq(cursor, 2, "PENDING: latest pending is index 2");
+
+        // nextOfType: walk forward from a non-zero cursor with each filter.
+        (cursor,,) = facetViaHarness.nextOfType(1, 1, CompletionFilter.ALL);
+        assertEq(cursor, 2, "ALL: next after 1 is 2");
+
+        (cursor,,) = facetViaHarness.nextOfType(1, 1, CompletionFilter.COMPLETED);
+        assertEq(cursor, 0, "COMPLETED: nothing completed after 1");
+
+        (cursor,,) = facetViaHarness.nextOfType(1, 1, CompletionFilter.PENDING);
+        assertEq(cursor, 2, "PENDING: next pending after 1 is 2");
+
+        // prevOfType: walk backward from a non-zero cursor with each filter.
+        (cursor,,) = facetViaHarness.prevOfType(2, 1, CompletionFilter.ALL);
+        assertEq(cursor, 1, "ALL: prev before 2 is 1");
+
+        (cursor,,) = facetViaHarness.prevOfType(2, 1, CompletionFilter.COMPLETED);
+        assertEq(cursor, 1, "COMPLETED: prev completed before 2 is 1");
+
+        (cursor,,) = facetViaHarness.prevOfType(2, 1, CompletionFilter.PENDING);
+        assertEq(cursor, 0, "PENDING: nothing pending before 2");
+    }
+
+    /// When no matching action exists, the facet wrappers return (0, 0, 0).
+    function testFacetTraversalGettersEmpty() external view {
+        (uint256 cursor, uint256 actionType, uint64 effectiveTime) =
+            facetViaHarness.latestActionOfType(1, CompletionFilter.COMPLETED);
+        assertEq(cursor, 0);
+        assertEq(actionType, 0);
+        assertEq(effectiveTime, 0);
+    }
+
     /// Authorizer receives the correct context for a real stock split schedule.
     function testScheduleStockSplitForwardsCorrectContext() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = abi.encode(twoX);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
         uint64 effectiveTime = 1500;
 
         vm.expectCall(
@@ -1162,7 +1267,7 @@ contract StoxCorporateActionsFacetTest is Test {
     function testScheduleStockSplitAuthorizerDenied() external {
         mockAuthorizer.setDenyMode(true);
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = abi.encode(twoX);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
 
         vm.prank(ALICE);
         vm.expectRevert(
@@ -1180,7 +1285,7 @@ contract StoxCorporateActionsFacetTest is Test {
     function testFuzzScheduleStockSplitsSequentialIndex(uint8 count) external {
         count = uint8(bound(count, 1, 15));
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = abi.encode(twoX);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
 
         for (uint256 i = 0; i < count; i++) {
             vm.prank(ALICE);
@@ -1195,7 +1300,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// Schedule returns the correct actionIndex.
     function testScheduleViaFacetReturnsActionIndex() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = abi.encode(twoX);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
 
         vm.prank(ALICE);
         uint256 id1 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
@@ -1210,7 +1315,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// completedActionCount reflects completed stock splits via the facet.
     function testCompletedActionCountViaFacet() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = abi.encode(twoX);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
 
         vm.prank(ALICE);
         facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
@@ -1224,7 +1329,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// Schedule with invalid multiplier reverts through the facet.
     function testScheduleInvalidMultiplierRevertsViaFacet() external {
         Float zero = LibDecimalFloat.packLossless(0, 0);
-        bytes memory parameters = abi.encode(zero);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(zero);
 
         vm.prank(ALICE);
         vm.expectRevert(InvalidSplitMultiplier.selector);
@@ -1234,7 +1339,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// Schedule with past effectiveTime reverts through the facet.
     function testSchedulePastTimeRevertsViaFacet() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = abi.encode(twoX);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
 
         vm.prank(ALICE);
         vm.expectRevert(abi.encodeWithSelector(EffectiveTimeInPast.selector, uint64(500), block.timestamp));
@@ -1244,7 +1349,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// Cancel a completed action reverts through the facet.
     function testCancelCompletedRevertsViaFacet() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = abi.encode(twoX);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
 
         vm.prank(ALICE);
         uint256 id = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
@@ -1270,10 +1375,14 @@ contract StoxCorporateActionsFacetTest is Test {
         Float threeX = LibDecimalFloat.packLossless(3, 0);
 
         vm.prank(ALICE);
-        uint256 id1 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, abi.encode(twoX));
+        uint256 id1 = facetViaHarness.scheduleCorporateAction(
+            STOCK_SPLIT_V1_TYPE_HASH, 1500, LibStockSplit.encodeParametersV1(twoX)
+        );
 
         vm.prank(ALICE);
-        uint256 id2 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 3000, abi.encode(threeX));
+        uint256 id2 = facetViaHarness.scheduleCorporateAction(
+            STOCK_SPLIT_V1_TYPE_HASH, 3000, LibStockSplit.encodeParametersV1(threeX)
+        );
 
         assertEq(facetViaHarness.completedActionCount(), 0);
 

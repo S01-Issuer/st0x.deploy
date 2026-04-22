@@ -12,6 +12,7 @@ import {
 } from "openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
 import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/lib/LibCorporateAction.sol";
 import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
+import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 import {LibTotalSupply} from "../../../src/lib/LibTotalSupply.sol";
 
 /// @dev Test-only subclass of StoxReceiptVault that bypasses
@@ -103,7 +104,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     }
 
     function _splitParams(int256 multiplier) internal pure returns (bytes memory) {
-        return abi.encode(LibDecimalFloat.packLossless(multiplier, 0));
+        return LibStockSplit.encodeParametersV1(LibDecimalFloat.packLossless(multiplier, 0));
     }
 
     /// REGRESSION FOR A03-1 (mint pathway).
@@ -278,7 +279,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         // Alice has stored 1 pre-split. A 1/2x split truncates her to 0.
         vault.publicUpdate(address(0), ALICE, 1);
         Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, abi.encode(halfX));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, LibStockSplit.encodeParametersV1(halfX));
         vm.warp(2000);
 
         // View already reflects the truncation.
@@ -296,7 +297,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         // Alice has stored 3 pre-split. 1/2x truncates 3 → 1.
         vault.publicUpdate(address(0), ALICE, 3);
         Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, abi.encode(halfX));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, LibStockSplit.encodeParametersV1(halfX));
         vm.warp(2000);
         assertEq(vault.balanceOf(ALICE), 1, "alice migrated balance = trunc(3 * 0.5) = 1");
 
@@ -328,6 +329,39 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vault.publicUpdate(ALICE, ALICE, 0);
         assertEq(vault.migrationCursor(ALICE), 1, "cursor must advance at exact effective time");
         assertEq(vault.balanceOf(ALICE), 200, "balance must rebase at exact effective time");
+    }
+
+    /// Fuzzed no-split accounting: for any sequence of mints and burns
+    /// applied before the first split completes (the default state of any
+    /// token the moment it is deployed), `totalSupply()` equals the plain
+    /// `Σmints − Σburns` sum. The corporate-actions override must be a
+    /// straight passthrough of OZ's `_totalSupply` in this regime and
+    /// introduce zero drift.
+    function testFuzzNoSplitSupplyEqualsNetMinted(uint64[8] memory mints, uint8[8] memory burnsRaw) external {
+        address[3] memory actors = [ALICE, BOB, CAROL];
+        uint256 netMinted;
+
+        for (uint256 i = 0; i < 8; i++) {
+            address to = actors[i % 3];
+            uint256 mintAmount = uint256(mints[i]) % 1e18;
+            if (mintAmount > 0) {
+                vault.publicUpdate(address(0), to, mintAmount);
+                netMinted += mintAmount;
+            }
+
+            address from = actors[(i + 1) % 3];
+            uint256 available = vault.balanceOf(from);
+            if (available > 0 && burnsRaw[i] > 0) {
+                uint256 burnAmount = (uint256(burnsRaw[i]) * available) / 255;
+                if (burnAmount > 0) {
+                    vault.publicUpdate(from, address(0), burnAmount);
+                    netMinted -= burnAmount;
+                }
+            }
+
+            assertEq(vault.totalSupply(), netMinted, "totalSupply drifted from net mint/burn sum without splits");
+            assertEq(vault.totalSupplyLatestSplit(), 0, "bootstrap must not have fired: no split has completed");
+        }
     }
 
     /// Pre-bootstrap regime: until the first `_update` after a completed
@@ -407,7 +441,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
         vault.publicUpdate(address(0), BOB, 1);
         vault.publicUpdate(address(0), CAROL, 1);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, abi.encode(halfX));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, LibStockSplit.encodeParametersV1(halfX));
         vm.warp(2000);
 
         // Aggregate pot: trunc((1 + 1) * 0.5) == 1. Per-account: trunc(1 * 0.5)
@@ -956,11 +990,10 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
             // Alternate 2x and 1/2x based on i bit 0; use seed to vary starting
             // direction across fuzz runs.
             bool forward = ((i ^ seed) & 1) == 0;
-            bytes memory params = forward
-                ? abi.encode(LibDecimalFloat.packLossless(2, 0))
-                : abi.encode(
-                    LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0))
-                );
+            Float multiplier = forward
+                ? LibDecimalFloat.packLossless(2, 0)
+                : LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+            bytes memory params = LibStockSplit.encodeParametersV1(multiplier);
             // forge-lint: disable-next-line(unsafe-typecast)
             vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(1001 + i * 100), params);
         }
@@ -984,6 +1017,52 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(viewAfter, stored, "view and stored balance must converge");
     }
 
+    /// After every holder has migrated through every completed split, the
+    /// aggregate pot overestimate from fractional-multiplier truncation
+    /// fully resolves: `totalSupply() == sum(balanceOf over all holders)`
+    /// exactly. Before full migration the equality holds as an upper bound
+    /// (tested elsewhere); this test pins the exact-equality convergence.
+    function testFuzzMultiAccountConvergenceAfterFullMigration(
+        uint32 aliceInit,
+        uint32 bobInit,
+        uint32 carolInit,
+        uint8 numSplits,
+        uint8 seed
+    ) external {
+        aliceInit = uint32(bound(aliceInit, 1, type(uint32).max / 256));
+        bobInit = uint32(bound(bobInit, 1, type(uint32).max / 256));
+        carolInit = uint32(bound(carolInit, 0, type(uint32).max / 256));
+        numSplits = uint8(bound(numSplits, 0, 6));
+
+        vault.publicUpdate(address(0), ALICE, uint256(aliceInit));
+        vault.publicUpdate(address(0), BOB, uint256(bobInit));
+        if (carolInit > 0) vault.publicUpdate(address(0), CAROL, uint256(carolInit));
+
+        for (uint256 i = 0; i < numSplits; i++) {
+            bool forward = ((i ^ seed) & 1) == 0;
+            Float multiplier = forward
+                ? LibDecimalFloat.packLossless(2, 0)
+                : LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+            // forge-lint: disable-next-line(unsafe-typecast)
+            vault.publicSchedule(
+                ACTION_TYPE_STOCK_SPLIT_V1, uint64(1001 + i * 100), LibStockSplit.encodeParametersV1(multiplier)
+            );
+        }
+
+        if (numSplits > 0) {
+            // forge-lint: disable-next-line(unsafe-typecast)
+            vm.warp(uint64(1001 + uint256(numSplits) * 100 + 1));
+        }
+
+        // Migrate every holder through every completed split via self-touches.
+        vault.publicUpdate(ALICE, ALICE, 0);
+        vault.publicUpdate(BOB, BOB, 0);
+        if (carolInit > 0) vault.publicUpdate(CAROL, CAROL, 0);
+
+        uint256 sum = vault.balanceOf(ALICE) + vault.balanceOf(BOB) + vault.balanceOf(CAROL);
+        assertEq(vault.totalSupply(), sum, "post-full-migration: totalSupply must equal sum(balanceOf) exactly");
+    }
+
     /// Fuzzed convergence across two accounts migrated at different points:
     /// Alice migrates after split 1, Bob migrates after splits 1 and 2. Their
     /// balances computed from different migration paths must still match
@@ -1004,7 +1083,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
         // Split 2: 1/2x at t=2000.
         Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, abi.encode(halfX));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, LibStockSplit.encodeParametersV1(halfX));
         vm.warp(2100);
 
         // Both view balances before final migration.
@@ -1042,11 +1121,10 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
         for (uint256 i = 0; i < numSplits; i++) {
             bool forward = ((i ^ seed) & 1) == 0;
-            bytes memory params = forward
-                ? abi.encode(LibDecimalFloat.packLossless(2, 0))
-                : abi.encode(
-                    LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0))
-                );
+            Float multiplier = forward
+                ? LibDecimalFloat.packLossless(2, 0)
+                : LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+            bytes memory params = LibStockSplit.encodeParametersV1(multiplier);
             // forge-lint: disable-next-line(unsafe-typecast)
             vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(1001 + i * 100), params);
         }
@@ -1103,7 +1181,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
         // Split 2: 1/2x at t=2000.
         Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, abi.encode(halfX));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, LibStockSplit.encodeParametersV1(halfX));
         vm.warp(2100);
 
         // Transfer Bob → Alice, 40. Both migrate first:
@@ -1162,7 +1240,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
         // Split 2: 1/2x.
         Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, abi.encode(halfX));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, LibStockSplit.encodeParametersV1(halfX));
         vm.warp(2100);
 
         // Transfer Bob → Alice.
