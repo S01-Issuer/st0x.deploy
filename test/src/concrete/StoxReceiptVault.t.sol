@@ -1019,6 +1019,54 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(viewAfter, stored, "view and stored balance must converge");
     }
 
+    /// After every holder has migrated through every completed split, the
+    /// aggregate pot overestimate from fractional-multiplier truncation
+    /// fully resolves: `totalSupply() == sum(balanceOf over all holders)`
+    /// exactly. Before full migration the equality holds as an upper bound
+    /// (tested elsewhere); this test pins the exact-equality convergence.
+    function testFuzzMultiAccountConvergenceAfterFullMigration(
+        uint32 aliceInit,
+        uint32 bobInit,
+        uint32 carolInit,
+        uint8 numSplits,
+        uint8 seed
+    ) external {
+        aliceInit = uint32(bound(aliceInit, 1, type(uint32).max / 256));
+        bobInit = uint32(bound(bobInit, 1, type(uint32).max / 256));
+        carolInit = uint32(bound(carolInit, 0, type(uint32).max / 256));
+        numSplits = uint8(bound(numSplits, 0, 6));
+
+        vault.publicUpdate(address(0), ALICE, uint256(aliceInit));
+        vault.publicUpdate(address(0), BOB, uint256(bobInit));
+        if (carolInit > 0) vault.publicUpdate(address(0), CAROL, uint256(carolInit));
+
+        for (uint256 i = 0; i < numSplits; i++) {
+            bool forward = ((i ^ seed) & 1) == 0;
+            Float multiplier = forward
+                ? LibDecimalFloat.packLossless(2, 0)
+                : LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+            // forge-lint: disable-next-line(unsafe-typecast)
+            vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(1001 + i * 100), LibStockSplit.encodeParametersV1(multiplier));
+        }
+
+        if (numSplits > 0) {
+            // forge-lint: disable-next-line(unsafe-typecast)
+            vm.warp(uint64(1001 + uint256(numSplits) * 100 + 1));
+        }
+
+        // Migrate every holder through every completed split via self-touches.
+        vault.publicUpdate(ALICE, ALICE, 0);
+        vault.publicUpdate(BOB, BOB, 0);
+        if (carolInit > 0) vault.publicUpdate(CAROL, CAROL, 0);
+
+        uint256 sum = vault.balanceOf(ALICE) + vault.balanceOf(BOB) + vault.balanceOf(CAROL);
+        assertEq(
+            vault.totalSupply(),
+            sum,
+            "post-full-migration: totalSupply must equal sum(balanceOf) exactly"
+        );
+    }
+
     /// Fuzzed convergence across two accounts migrated at different points:
     /// Alice migrates after split 1, Bob migrates after splits 1 and 2. Their
     /// balances computed from different migration paths must still match
