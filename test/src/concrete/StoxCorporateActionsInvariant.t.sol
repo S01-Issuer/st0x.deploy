@@ -25,13 +25,13 @@ contract InvariantVault is StoxReceiptVault {
         _migrateAccount(from);
         _migrateAccount(to);
 
+        ERC20Upgradeable._update(from, to, amount);
+
         if (from == address(0)) {
             LibTotalSupply.onMint(amount);
         } else if (to == address(0)) {
             LibTotalSupply.onBurn(amount);
         }
-
-        ERC20Upgradeable._update(from, to, amount);
     }
 
     function publicUpdate(address from, address to, uint256 amount) external {
@@ -244,11 +244,36 @@ contract StoxCorporateActionsHandler is Test {
     }
 
     /// @dev Record the actor's cursor to check monotonicity (invariant 3).
+    /// Cursor IDs are allocation indices, not chronological positions — a
+    /// later-scheduled action with an earlier effectiveTime is inserted
+    /// before older actions in the list, so a valid migration can move a
+    /// cursor to a numerically lower id. Monotonicity is therefore defined
+    /// in LIST order (forward along `next` pointers), not numeric order.
     function _recordCursor(address a) internal {
         uint256 current = VAULT.migrationCursor(a);
         uint256 last = lastSeenCursor[a];
-        assertGe(current, last, "invariant 3: per-actor cursor must be monotonic non-decreasing");
+        assertTrue(
+            cursorReachableForward(last, current),
+            "invariant 3: per-actor cursor must advance forward in list order"
+        );
         lastSeenCursor[a] = current;
+    }
+
+    /// @dev True iff `current` is `last` itself or reachable by walking
+    /// `next` pointers starting from `last`. Walk is bounded by
+    /// `nodesLength` so a cycle (violation of invariant 1) does not hang.
+    /// External so framework-level invariants can call it too.
+    function cursorReachableForward(uint256 last, uint256 current) public view returns (bool) {
+        if (last == current) return true;
+        if (last == 0) return true;
+
+        uint256 len = VAULT.nodesLength();
+        uint256 cursor = last;
+        for (uint256 i = 0; i < len && cursor != 0; i++) {
+            cursor = VAULT.getNode(cursor).next;
+            if (cursor == current) return true;
+        }
+        return false;
     }
 
     function actorCount() external pure returns (uint256) {
@@ -290,25 +315,38 @@ contract StoxCorporateActionsInvariantTest is Test {
         }
         assertTrue(head != 0 && tail != 0, "invariant 1: head and tail must be set together");
 
-        // Forward walk from head.
+        // Forward walk from head: pin each `prev` link points back to the
+        // previously visited node, node indices are in-bounds, and the walk
+        // terminates exactly at `tail`.
         uint256 forwardCount = 0;
         uint256 current = head;
+        uint256 previous = 0;
         while (current != 0 && forwardCount <= len) {
-            forwardCount++;
+            assertLt(current, len, "invariant 1: forward node index must be in bounds");
             CorporateActionNode memory node = vault.getNode(current);
+            assertEq(node.prev, previous, "invariant 1: forward prev link must point back to previous");
+            forwardCount++;
+            previous = current;
             current = node.next;
         }
         assertTrue(forwardCount <= len, "invariant 1: forward walk must terminate (no cycles)");
+        assertEq(previous, tail, "invariant 1: forward walk must end at tail");
 
-        // Backward walk from tail.
+        // Backward walk from tail: pin each `next` link points forward to the
+        // previously visited node and the walk terminates exactly at `head`.
         uint256 backwardCount = 0;
         current = tail;
+        uint256 next = 0;
         while (current != 0 && backwardCount <= len) {
-            backwardCount++;
+            assertLt(current, len, "invariant 1: backward node index must be in bounds");
             CorporateActionNode memory node = vault.getNode(current);
+            assertEq(node.next, next, "invariant 1: backward next link must point forward to next");
+            backwardCount++;
+            next = current;
             current = node.prev;
         }
         assertTrue(backwardCount <= len, "invariant 1: backward walk must terminate (no cycles)");
+        assertEq(next, head, "invariant 1: backward walk must end at head");
 
         assertEq(forwardCount, backwardCount, "invariant 1: forward and backward walks must visit same count");
     }
@@ -336,18 +374,19 @@ contract StoxCorporateActionsInvariantTest is Test {
 
     /// Invariant 3: per-actor cursor monotonicity is enforced inline in the
     /// handler via `_recordCursor`. This function exists so the invariant
-    /// suite has an assertion at the framework level too — a quick sanity
-    /// read that every actor's current cursor is at least as large as the
-    /// last observed cursor. (In practice the handler catches violations
-    /// first.)
+    /// suite has an assertion at the framework level too. Cursor IDs are
+    /// allocation indices so numeric comparison is wrong — assert that the
+    /// current cursor is either the same as the last observed one or
+    /// reachable forward from it along `next` pointers.
     function invariant_cursorMonotonicity() external view {
         uint256 actorCount = handler.actorCount();
         for (uint256 i = 0; i < actorCount; i++) {
             address a = handler.actor(i);
-            assertGe(
-                vault.migrationCursor(a),
-                handler.lastSeenCursor(a),
-                "invariant 3: per-actor cursor must be monotonic non-decreasing"
+            uint256 current = vault.migrationCursor(a);
+            uint256 last = handler.lastSeenCursor(a);
+            assertTrue(
+                handler.cursorReachableForward(last, current),
+                "invariant 3: per-actor cursor must advance forward in list order"
             );
         }
     }

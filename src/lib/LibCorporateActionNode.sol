@@ -122,7 +122,7 @@ library LibCorporateActionNode {
     /// @dev Resolve a cursor to `(actionType, effectiveTime)`. Returns
     /// `(0, 0)` when `cursor == 0` without touching storage, so callers can
     /// thread "none found" results through without a branch of their own.
-    function _resolve(uint256 cursor) private view returns (uint256 actionType, uint64 effectiveTime) {
+    function resolve(uint256 cursor) private view returns (uint256 actionType, uint64 effectiveTime) {
         if (cursor != 0) {
             CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[cursor];
             actionType = node.actionType;
@@ -137,7 +137,7 @@ library LibCorporateActionNode {
         returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
     {
         cursor = prevOfType(0, mask, filter);
-        (actionType, effectiveTime) = _resolve(cursor);
+        (actionType, effectiveTime) = resolve(cursor);
     }
 
     /// @notice Earliest action matching `mask` and `filter`, resolved with metadata.
@@ -147,7 +147,7 @@ library LibCorporateActionNode {
         returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
     {
         cursor = nextOfType(0, mask, filter);
-        (actionType, effectiveTime) = _resolve(cursor);
+        (actionType, effectiveTime) = resolve(cursor);
     }
 
     /// @notice Next matching action after `fromCursor`, resolved with metadata.
@@ -157,7 +157,7 @@ library LibCorporateActionNode {
         returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
     {
         cursor = nextOfType(fromCursor, mask, filter);
-        (actionType, effectiveTime) = _resolve(cursor);
+        (actionType, effectiveTime) = resolve(cursor);
     }
 
     /// @notice Previous matching action before `fromCursor`, resolved with metadata.
@@ -167,6 +167,6 @@ library LibCorporateActionNode {
         returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
     {
         cursor = prevOfType(fromCursor, mask, filter);
-        (actionType, effectiveTime) = _resolve(cursor);
+        (actionType, effectiveTime) = resolve(cursor);
     }
 }
