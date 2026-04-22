@@ -360,9 +360,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
             }
 
             assertEq(vault.totalSupply(), netMinted, "totalSupply drifted from net mint/burn sum without splits");
-            assertEq(
-                vault.totalSupplyLatestSplit(), 0, "bootstrap must not have fired: no split has completed"
-            );
+            assertEq(vault.totalSupplyLatestSplit(), 0, "bootstrap must not have fired: no split has completed");
         }
     }
 
@@ -1046,7 +1044,9 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
                 ? LibDecimalFloat.packLossless(2, 0)
                 : LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
             // forge-lint: disable-next-line(unsafe-typecast)
-            vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(1001 + i * 100), LibStockSplit.encodeParametersV1(multiplier));
+            vault.publicSchedule(
+                ACTION_TYPE_STOCK_SPLIT_V1, uint64(1001 + i * 100), LibStockSplit.encodeParametersV1(multiplier)
+            );
         }
 
         if (numSplits > 0) {
@@ -1060,11 +1060,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         if (carolInit > 0) vault.publicUpdate(CAROL, CAROL, 0);
 
         uint256 sum = vault.balanceOf(ALICE) + vault.balanceOf(BOB) + vault.balanceOf(CAROL);
-        assertEq(
-            vault.totalSupply(),
-            sum,
-            "post-full-migration: totalSupply must equal sum(balanceOf) exactly"
-        );
+        assertEq(vault.totalSupply(), sum, "post-full-migration: totalSupply must equal sum(balanceOf) exactly");
     }
 
     /// Fuzzed convergence across two accounts migrated at different points:

@@ -1375,10 +1375,14 @@ contract StoxCorporateActionsFacetTest is Test {
         Float threeX = LibDecimalFloat.packLossless(3, 0);
 
         vm.prank(ALICE);
-        uint256 id1 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, LibStockSplit.encodeParametersV1(twoX));
+        uint256 id1 = facetViaHarness.scheduleCorporateAction(
+            STOCK_SPLIT_V1_TYPE_HASH, 1500, LibStockSplit.encodeParametersV1(twoX)
+        );
 
         vm.prank(ALICE);
-        uint256 id2 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 3000, LibStockSplit.encodeParametersV1(threeX));
+        uint256 id2 = facetViaHarness.scheduleCorporateAction(
+            STOCK_SPLIT_V1_TYPE_HASH, 3000, LibStockSplit.encodeParametersV1(threeX)
+        );
 
         assertEq(facetViaHarness.completedActionCount(), 0);
 

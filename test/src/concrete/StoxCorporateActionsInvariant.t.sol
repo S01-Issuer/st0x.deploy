@@ -9,7 +9,11 @@ import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/tok
 import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/lib/LibCorporateAction.sol";
 import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
 import {LibTotalSupply} from "../../../src/lib/LibTotalSupply.sol";
-import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "../../../src/lib/LibCorporateActionNode.sol";
+import {
+    CorporateActionNode,
+    CompletionFilter,
+    LibCorporateActionNode
+} from "../../../src/lib/LibCorporateActionNode.sol";
 import {LibTestCorporateAction} from "../../lib/LibTestCorporateAction.sol";
 import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 
@@ -253,8 +257,7 @@ contract StoxCorporateActionsHandler is Test {
         uint256 current = VAULT.migrationCursor(a);
         uint256 last = lastSeenCursor[a];
         assertTrue(
-            cursorReachableForward(last, current),
-            "invariant 3: per-actor cursor must advance forward in list order"
+            cursorReachableForward(last, current), "invariant 3: per-actor cursor must advance forward in list order"
         );
         lastSeenCursor[a] = current;
     }
