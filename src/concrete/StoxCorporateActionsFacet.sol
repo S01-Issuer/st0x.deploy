@@ -92,6 +92,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         onlyDelegatecalled
         returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
     {
+        // slither-disable-next-line unused-return (false positive: tuple pass-through)
         return LibCorporateActionNode.latestActionOfType(mask, filter);
     }
 
@@ -103,6 +104,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         onlyDelegatecalled
         returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
     {
+        // slither-disable-next-line unused-return (false positive: tuple pass-through)
         return LibCorporateActionNode.earliestActionOfType(mask, filter);
     }
 
@@ -114,6 +116,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         onlyDelegatecalled
         returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime)
     {
+        // slither-disable-next-line unused-return (false positive: tuple pass-through)
         return LibCorporateActionNode.nextActionOfType(cursor, mask, filter);
     }
 
@@ -125,6 +128,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         onlyDelegatecalled
         returns (uint256 prevCursor, uint256 actionType, uint64 effectiveTime)
     {
+        // slither-disable-next-line unused-return (false positive: tuple pass-through)
         return LibCorporateActionNode.prevActionOfType(cursor, mask, filter);
     }
 
