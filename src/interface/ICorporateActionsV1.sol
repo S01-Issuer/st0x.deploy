@@ -299,7 +299,7 @@ interface ICorporateActionsV1 {
     /// @dev Intended for cross-contract consumers that need to apply the
     /// action (e.g. the receipt contract reading a stock split multiplier
     /// during its own rebase walk). For stock splits, the returned bytes
-    /// decode to a single `Float` via `LibStockSplit.decodeParameters`.
+    /// decode to a single `Float` via `LibStockSplit.decodeParametersV1`.
     /// Consumers should mask the cursor's `actionType` (via `nextOfType` /
     /// `prevOfType`) before calling this to ensure they know which decoder
     /// to apply.
