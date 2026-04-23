@@ -600,6 +600,41 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         }
     }
 
+    /// Emit across separated `_update` calls: split A completes, first
+    /// `_update` emits split A. Later, split B is scheduled and reaches
+    /// effective time. Next `_update` emits split B alone — not A (which
+    /// has already been consumed by an earlier `fold()`). Pins the
+    /// `prevLatest → newLatest` delta semantics.
+    function testCorporateActionEffectiveEmitsOnlyNewlyEffectiveAcrossUpdates() external {
+        vault.publicUpdate(address(0), BOB, 1);
+
+        // Split A at 1500.
+        uint256 splitA = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+        vault.publicUpdate(BOB, BOB, 0); // consumes split A, emits A.
+
+        // Split B at 3500.
+        uint256 splitB = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, _splitParams(2));
+        vm.warp(4000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0); // should emit split B only.
+
+        bytes32 sig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 count = 0;
+        uint256 emittedIndex;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
+                emittedIndex = uint256(logs[i].topics[1]);
+                count++;
+            }
+        }
+        assertEq(count, 1, "second update must emit exactly one event");
+        assertEq(emittedIndex, splitB, "emitted index must be splitB");
+        assertTrue(splitA != splitB, "splits must have distinct indices");
+    }
+
     /// Non-stock-split nodes (e.g. the reserved `ACTION_TYPE_STABLES_DIVIDEND_V1`)
     /// interleaved with stock splits must be skipped by the emit walk —
     /// `CorporateActionEffective` is explicitly scoped to stock splits, and
