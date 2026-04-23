@@ -19,7 +19,8 @@ import {
     NoActionsScheduled,
     EffectiveTimeInPast,
     ActionAlreadyComplete,
-    ActionDoesNotExist
+    ActionDoesNotExist,
+    InvalidMask
 } from "../../../src/error/ErrCorporateAction.sol";
 import {IAuthorizeV1, Unauthorized} from "rain.vats/interface/IAuthorizeV1.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
@@ -1260,6 +1261,31 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(cursor, 0, "PENDING: nothing pending before 2");
         assertEq(actionType, 0, "miss must zero actionType");
         assertEq(effectiveTime, 0, "miss must zero effectiveTime");
+    }
+
+    /// All four facet traversal wrappers propagate `InvalidMask` through the
+    /// delegatecall when the mask shares no bits with `VALID_ACTION_TYPES_MASK`.
+    /// Library-level tests pin this for `nextOfType` / `prevOfType` directly;
+    /// this additionally asserts the facet layer does not swallow or rewrite
+    /// the revert, and that `latestActionOfType` / `earliestActionOfType`
+    /// (which call `prevOfType(0, ...)` and `nextOfType(0, ...)` internally)
+    /// surface it the same way.
+    function testFacetTraversalGettersRevertOnInvalidMask() external {
+        _scheduleSplitViaFacet(2, 1500);
+
+        uint256 invalidMask = 1 << 7;
+
+        vm.expectRevert(InvalidMask.selector);
+        facetViaHarness.latestActionOfType(invalidMask, CompletionFilter.ALL);
+
+        vm.expectRevert(InvalidMask.selector);
+        facetViaHarness.earliestActionOfType(invalidMask, CompletionFilter.ALL);
+
+        vm.expectRevert(InvalidMask.selector);
+        facetViaHarness.nextOfType(0, invalidMask, CompletionFilter.ALL);
+
+        vm.expectRevert(InvalidMask.selector);
+        facetViaHarness.prevOfType(0, invalidMask, CompletionFilter.ALL);
     }
 
     /// When no matching action exists, the facet wrappers return (0, 0, 0).
