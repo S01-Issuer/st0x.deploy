@@ -252,6 +252,43 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vault.publicUpdate(BOB, BOB, 0);
     }
 
+    /// `AccountMigrated` must fire exactly once per `_update`, aggregating
+    /// the full multi-split migration into a single event with the aggregate
+    /// `fromCursor → toCursor` and `oldBalance → newBalance`. Pins that the
+    /// emit is not per-split and that the post-rasterization fields reflect
+    /// the end state after all completed splits are applied, not an
+    /// intermediate state.
+    function testAccountMigratedEventAggregatesAcrossMultipleSplits() external {
+        vault.publicUpdate(address(0), BOB, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        vm.warp(3000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 sig = StoxReceiptVault.AccountMigrated.selector;
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 count = 0;
+        uint256 fromCursor;
+        uint256 toCursor;
+        uint256 oldBalance;
+        uint256 newBalance;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
+                count++;
+                assertEq(address(uint160(uint256(logs[i].topics[1]))), BOB, "indexed account is BOB");
+                (fromCursor, toCursor, oldBalance, newBalance) =
+                    abi.decode(logs[i].data, (uint256, uint256, uint256, uint256));
+            }
+        }
+        assertEq(count, 1, "exactly one AccountMigrated event per multi-split migration");
+        assertEq(fromCursor, 0, "fromCursor is pre-migration cursor");
+        assertEq(toCursor, 2, "toCursor is latest completed split index");
+        assertEq(oldBalance, 100, "oldBalance is pre-rasterization stored value");
+        assertEq(newBalance, 600, "newBalance is fully rasterized (100 * 2 * 3)");
+    }
+
     /// `AccountMigrated` must NOT fire when a zero-balance account's cursor
     /// advances — the NatSpec states "Only fires when the stored balance
     /// actually changes; pure cursor-only advancements (zero-balance
