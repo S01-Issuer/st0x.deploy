@@ -849,6 +849,21 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(corporateActionHarness.nextOfType(id2, type(uint256).max, CompletionFilter.ALL), 0);
     }
 
+    /// prevOfType from a cancelled node returns 0 (prev pointer was zeroed).
+    /// Companion to `testNextOfTypeFromCancelledNode` — pins that `cancel`
+    /// zeroes both the `next` and `prev` pointers, not just one. A cancel
+    /// that forgot to zero `prev` would silently leak a backward-walkable
+    /// path into the list that users with a stale cursor could traverse.
+    function testPrevOfTypeFromCancelledNode() external {
+        corporateActionHarness.schedule(1, 1500, "");
+        uint256 id2 = corporateActionHarness.schedule(1, 2000, "");
+        corporateActionHarness.schedule(1, 2500, "");
+
+        corporateActionHarness.cancel(id2);
+
+        assertEq(corporateActionHarness.prevOfType(id2, type(uint256).max, CompletionFilter.ALL), 0);
+    }
+
     /// Fuzz: schedule with random effective times, list stays sorted.
     function testFuzzScheduleRandomTimes(uint64[10] calldata times) external {
         uint256 count = 0;
