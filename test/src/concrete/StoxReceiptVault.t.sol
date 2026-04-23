@@ -707,6 +707,28 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertTrue(seen[0] != dividend && seen[1] != dividend, "dividend index must not be emitted");
     }
 
+    /// A `_update` that runs while a split is scheduled-but-pending (its
+    /// `effectiveTime` is still in the future) must NOT emit
+    /// `CorporateActionEffective`. `fold()` only advances past completed
+    /// splits, so `prevLatest == newLatest` and the emit branch is skipped.
+    function testCorporateActionEffectivePendingSplitDoesNotEmit() external {
+        vault.publicUpdate(address(0), BOB, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 5000, _splitParams(2));
+        // block.timestamp still 1000, split at 5000 is pending.
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 sig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        for (uint256 i = 0; i < logs.length; i++) {
+            assertTrue(
+                logs[i].topics.length == 0 || logs[i].topics[0] != sig,
+                "pending split must not emit CorporateActionEffective"
+            );
+        }
+    }
+
     /// A split cancelled before its `effectiveTime` is unlinked from the
     /// list (`next`/`prev` zeroed) and never reaches `fold()`'s completed
     /// walk, so it must NOT produce a `CorporateActionEffective` event on
