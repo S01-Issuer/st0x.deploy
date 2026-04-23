@@ -1042,18 +1042,17 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// Revisit `LibTotalSupply` with the new action type's rebase semantics
     /// before touching this test.
     function testNonStockSplitNodeAdvancesNeitherCursor() external {
-        // Synthesise a completed node with a bitmap that is NOT
-        // `ACTION_TYPE_STOCK_SPLIT_V1`. Bypass `resolveActionType` (which
-        // would reject the unknown type) by calling schedule() directly
-        // through the public harness.
-        uint256 fakeActionType = 1 << 1;
-        vault.publicSchedule(fakeActionType, 1500, abi.encode(uint256(0)));
+        // Schedule a completed dividend node. `publicSchedule` bypasses
+        // `resolveActionType`, so the dividend's parameters blob doesn't
+        // need to match any validator — we only care that the node lives
+        // in the list with a non-stock-split bitmap.
+        vault.publicSchedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 1500, abi.encode(uint256(0)));
 
         // Give Bob a pre-existing balance so _migrateAccount has something
-        // to rasterize if it ever starts walking the fake node.
+        // to rasterize if it ever starts walking the dividend node.
         vault.publicUpdate(address(0), BOB, 1000);
 
-        // Warp past the fake node's effective time so it counts as completed.
+        // Warp past the dividend's effective time so it counts as completed.
         vm.warp(2000);
 
         // Touch Bob to drive fold() + _migrateAccount.
@@ -1079,7 +1078,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
         assertEq(vault.migrationCursor(BOB), 2, "cursor must advance to the stock-split node (index 2)");
         assertEq(vault.totalSupplyLatestSplit(), 2, "latest must advance to the stock-split node (index 2)");
-        assertEq(vault.balanceOf(BOB), 2000, "Bob's balance must reflect only the 2x split, not the fake node");
+        assertEq(vault.balanceOf(BOB), 2000, "Bob's balance must reflect only the 2x split, not the dividend");
     }
 
     /// `effectiveTotalSupply()` called between split completion and the first
