@@ -553,6 +553,49 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vault.publicUpdate(BOB, BOB, 0);
     }
 
+    /// Many splits become effective before any `_update` touches the vault.
+    /// A single `_update` must emit one `CorporateActionEffective` per split
+    /// walked by `fold()`. Uses `vm.recordLogs()` to assert the exact set
+    /// and order of emitted indices, rather than `vm.expectEmit` which
+    /// would pass on any prefix.
+    function testCorporateActionEffectiveEmitsOnceForEachOfManySplits() external {
+        vault.publicUpdate(address(0), BOB, 1);
+
+        // Schedule 5 splits, each at a later effectiveTime.
+        uint64[5] memory times = [uint64(1500), 2500, 3500, 4500, 5500];
+        for (uint256 i = 0; i < 5; i++) {
+            vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, times[i], _splitParams(2));
+        }
+        vm.warp(6000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 sig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        uint256 emitIndex = 0;
+        uint256[5] memory seenActionIndex;
+        uint64[5] memory seenEffectiveTime;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
+                assertLt(emitIndex, 5, "must not emit more than one per scheduled split");
+                seenActionIndex[emitIndex] = uint256(logs[i].topics[1]);
+                (, uint64 wasEffectiveAt) = abi.decode(logs[i].data, (uint256, uint64));
+                seenEffectiveTime[emitIndex] = wasEffectiveAt;
+                emitIndex++;
+            }
+        }
+        assertEq(emitIndex, 5, "must emit one event per split");
+
+        // Indices emit in list order (time-ascending), which matches schedule
+        // order since effectiveTimes were chosen monotonically.
+        for (uint256 i = 0; i < 5; i++) {
+            assertEq(seenActionIndex[i], i + 1, "actionIndex must ascend in list order");
+            assertEq(seenEffectiveTime[i], times[i], "wasEffectiveAt must match the scheduled effectiveTime");
+        }
+    }
+
     /// A split cancelled before its `effectiveTime` is unlinked from the
     /// list (`next`/`prev` zeroed) and never reaches `fold()`'s completed
     /// walk, so it must NOT produce a `CorporateActionEffective` event on
