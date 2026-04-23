@@ -291,4 +291,29 @@ interface ICorporateActionsV1 {
         external
         view
         returns (uint256 prevCursor, uint256 actionType, uint64 effectiveTime);
+
+    /// @notice Read the ABI-encoded parameters blob for a scheduled or
+    /// completed corporate action, given a cursor returned from one of the
+    /// traversal getters.
+    ///
+    /// @dev Intended for cross-contract consumers that need to apply the
+    /// action (e.g. the receipt contract reading a stock split multiplier
+    /// during its own rebase walk). For stock splits, the returned bytes
+    /// decode to a single `Float` via `LibStockSplit.decodeParametersV1`.
+    /// Consumers should mask the cursor's `actionType` (via `nextOfType` /
+    /// `prevOfType`) before calling this to ensure they know which decoder
+    /// to apply.
+    ///
+    /// Reverts if `cursor` is 0 or points outside the current nodes array.
+    /// A cursor that points at a cancelled node returns whatever bytes
+    /// were written at schedule time — cancelled nodes intentionally
+    /// retain their `actionType` and `parameters` fields so correct
+    /// consumers (who must filter cancelled nodes out via their
+    /// `effectiveTime == 0` sentinel before dereferencing) can still
+    /// inspect them for debugging. See `LibCorporateAction.cancel` for
+    /// the orphan-node invariant.
+    ///
+    /// @param cursor The cursor returned by `nextOfType` / `prevOfType`.
+    /// @return parameters The raw ABI-encoded parameters for the action.
+    function getActionParameters(uint256 cursor) external view returns (bytes memory parameters);
 }

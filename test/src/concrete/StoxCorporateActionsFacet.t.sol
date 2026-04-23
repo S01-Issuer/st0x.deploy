@@ -11,14 +11,16 @@ import {
     SCHEDULE_CORPORATE_ACTION,
     CANCEL_CORPORATE_ACTION,
     STOCK_SPLIT_V1_TYPE_HASH,
-    ACTION_TYPE_STOCK_SPLIT_V1
+    ACTION_TYPE_STOCK_SPLIT_V1,
+    ACTION_TYPE_STABLES_DIVIDEND_V1
 } from "../../../src/lib/LibCorporateAction.sol";
 import {
     UnknownActionType,
     NoActionsScheduled,
     EffectiveTimeInPast,
     ActionAlreadyComplete,
-    ActionDoesNotExist
+    ActionDoesNotExist,
+    InvalidMask
 } from "../../../src/error/ErrCorporateAction.sol";
 import {IAuthorizeV1, Unauthorized} from "rain.vats/interface/IAuthorizeV1.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
@@ -73,6 +75,16 @@ contract DelegatecallHarness {
 
     function setAuthorizer(IAuthorizeV1 authorizer_) external {
         authorizer = authorizer_;
+    }
+
+    /// @dev Schedule directly via the library, bypassing auth and
+    /// `resolveActionType` validation. Runs in this harness's storage so that
+    /// a subsequent delegatecalled `getActionParameters` (which also runs in
+    /// this harness's storage) observes the write. Exists purely to support
+    /// fuzzing arbitrary `bytes` payloads that the normal facet path would
+    /// reject.
+    function scheduleRaw(uint256 actionType, uint64 effectiveTime, bytes memory parameters) external returns (uint256) {
+        return LibCorporateAction.schedule(actionType, effectiveTime, parameters);
     }
 
     fallback() external payable {
@@ -837,6 +849,21 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(corporateActionHarness.nextOfType(id2, type(uint256).max, CompletionFilter.ALL), 0);
     }
 
+    /// prevOfType from a cancelled node returns 0 (prev pointer was zeroed).
+    /// Companion to `testNextOfTypeFromCancelledNode` — pins that `cancel`
+    /// zeroes both the `next` and `prev` pointers, not just one. A cancel
+    /// that forgot to zero `prev` would silently leak a backward-walkable
+    /// path into the list that users with a stale cursor could traverse.
+    function testPrevOfTypeFromCancelledNode() external {
+        corporateActionHarness.schedule(1, 1500, "");
+        uint256 id2 = corporateActionHarness.schedule(1, 2000, "");
+        corporateActionHarness.schedule(1, 2500, "");
+
+        corporateActionHarness.cancel(id2);
+
+        assertEq(corporateActionHarness.prevOfType(id2, type(uint256).max, CompletionFilter.ALL), 0);
+    }
+
     /// Fuzz: schedule with random effective times, list stays sorted.
     function testFuzzScheduleRandomTimes(uint64[10] calldata times) external {
         uint256 count = 0;
@@ -1192,43 +1219,88 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(actionType, 1);
         assertEq(effectiveTime, 1500);
 
-        (cursor,,) = facetViaHarness.earliestActionOfType(1, CompletionFilter.COMPLETED);
+        (cursor, actionType, effectiveTime) = facetViaHarness.earliestActionOfType(1, CompletionFilter.COMPLETED);
         assertEq(cursor, 1, "COMPLETED: earliest completed is index 1");
-
-        (cursor,,) = facetViaHarness.earliestActionOfType(1, CompletionFilter.PENDING);
-        assertEq(cursor, 2, "PENDING: earliest pending is index 2");
-
-        // latestActionOfType: walk backward from tail with each filter.
-        (cursor,, effectiveTime) = facetViaHarness.latestActionOfType(1, CompletionFilter.ALL);
-        assertEq(cursor, 2, "ALL: latest is the tail");
-        assertEq(effectiveTime, 2500);
-
-        (cursor,, effectiveTime) = facetViaHarness.latestActionOfType(1, CompletionFilter.COMPLETED);
-        assertEq(cursor, 1, "COMPLETED: latest completed is index 1");
+        assertEq(actionType, 1);
         assertEq(effectiveTime, 1500);
 
-        (cursor,,) = facetViaHarness.latestActionOfType(1, CompletionFilter.PENDING);
+        (cursor, actionType, effectiveTime) = facetViaHarness.earliestActionOfType(1, CompletionFilter.PENDING);
+        assertEq(cursor, 2, "PENDING: earliest pending is index 2");
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 2500);
+
+        // latestActionOfType: walk backward from tail with each filter.
+        (cursor, actionType, effectiveTime) = facetViaHarness.latestActionOfType(1, CompletionFilter.ALL);
+        assertEq(cursor, 2, "ALL: latest is the tail");
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 2500);
+
+        (cursor, actionType, effectiveTime) = facetViaHarness.latestActionOfType(1, CompletionFilter.COMPLETED);
+        assertEq(cursor, 1, "COMPLETED: latest completed is index 1");
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 1500);
+
+        (cursor, actionType, effectiveTime) = facetViaHarness.latestActionOfType(1, CompletionFilter.PENDING);
         assertEq(cursor, 2, "PENDING: latest pending is index 2");
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 2500);
 
         // nextOfType: walk forward from a non-zero cursor with each filter.
-        (cursor,,) = facetViaHarness.nextOfType(1, 1, CompletionFilter.ALL);
+        (cursor, actionType, effectiveTime) = facetViaHarness.nextOfType(1, 1, CompletionFilter.ALL);
         assertEq(cursor, 2, "ALL: next after 1 is 2");
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 2500);
 
-        (cursor,,) = facetViaHarness.nextOfType(1, 1, CompletionFilter.COMPLETED);
+        (cursor, actionType, effectiveTime) = facetViaHarness.nextOfType(1, 1, CompletionFilter.COMPLETED);
         assertEq(cursor, 0, "COMPLETED: nothing completed after 1");
+        assertEq(actionType, 0, "miss must zero actionType");
+        assertEq(effectiveTime, 0, "miss must zero effectiveTime");
 
-        (cursor,,) = facetViaHarness.nextOfType(1, 1, CompletionFilter.PENDING);
+        (cursor, actionType, effectiveTime) = facetViaHarness.nextOfType(1, 1, CompletionFilter.PENDING);
         assertEq(cursor, 2, "PENDING: next pending after 1 is 2");
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 2500);
 
         // prevOfType: walk backward from a non-zero cursor with each filter.
-        (cursor,,) = facetViaHarness.prevOfType(2, 1, CompletionFilter.ALL);
+        (cursor, actionType, effectiveTime) = facetViaHarness.prevOfType(2, 1, CompletionFilter.ALL);
         assertEq(cursor, 1, "ALL: prev before 2 is 1");
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 1500);
 
-        (cursor,,) = facetViaHarness.prevOfType(2, 1, CompletionFilter.COMPLETED);
+        (cursor, actionType, effectiveTime) = facetViaHarness.prevOfType(2, 1, CompletionFilter.COMPLETED);
         assertEq(cursor, 1, "COMPLETED: prev completed before 2 is 1");
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 1500);
 
-        (cursor,,) = facetViaHarness.prevOfType(2, 1, CompletionFilter.PENDING);
+        (cursor, actionType, effectiveTime) = facetViaHarness.prevOfType(2, 1, CompletionFilter.PENDING);
         assertEq(cursor, 0, "PENDING: nothing pending before 2");
+        assertEq(actionType, 0, "miss must zero actionType");
+        assertEq(effectiveTime, 0, "miss must zero effectiveTime");
+    }
+
+    /// All four facet traversal wrappers propagate `InvalidMask` through the
+    /// delegatecall when the mask shares no bits with `VALID_ACTION_TYPES_MASK`.
+    /// Library-level tests pin this for `nextOfType` / `prevOfType` directly;
+    /// this additionally asserts the facet layer does not swallow or rewrite
+    /// the revert, and that `latestActionOfType` / `earliestActionOfType`
+    /// (which call `prevOfType(0, ...)` and `nextOfType(0, ...)` internally)
+    /// surface it the same way.
+    function testFacetTraversalGettersRevertOnInvalidMask() external {
+        _scheduleSplitViaFacet(2, 1500);
+
+        uint256 invalidMask = 1 << 7;
+
+        vm.expectRevert(InvalidMask.selector);
+        facetViaHarness.latestActionOfType(invalidMask, CompletionFilter.ALL);
+
+        vm.expectRevert(InvalidMask.selector);
+        facetViaHarness.earliestActionOfType(invalidMask, CompletionFilter.ALL);
+
+        vm.expectRevert(InvalidMask.selector);
+        facetViaHarness.nextOfType(0, invalidMask, CompletionFilter.ALL);
+
+        vm.expectRevert(InvalidMask.selector);
+        facetViaHarness.prevOfType(0, invalidMask, CompletionFilter.ALL);
     }
 
     /// When no matching action exists, the facet wrappers return (0, 0, 0).
@@ -1238,6 +1310,79 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(cursor, 0);
         assertEq(actionType, 0);
         assertEq(effectiveTime, 0);
+    }
+
+    // -----------------------------------------------------------------------
+    // getActionParameters (new in PR #7) — returns the raw parameters blob
+    // for a scheduled or completed action, used by cross-contract consumers
+    // (e.g. the receipt contract's rebase walk).
+
+    /// getActionParameters returns exactly the bytes written at schedule time.
+    function testGetActionParametersRoundTrip() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory params = LibStockSplit.encodeParametersV1(twoX);
+
+        vm.prank(ALICE);
+        uint256 actionIndex = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, params);
+
+        bytes memory read = facetViaHarness.getActionParameters(actionIndex);
+        assertEq(read, params, "getActionParameters must round-trip exactly");
+    }
+
+    /// getActionParameters(0) reverts with ActionDoesNotExist.
+    function testGetActionParametersZeroReverts() external {
+        vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, uint256(0)));
+        facetViaHarness.getActionParameters(0);
+    }
+
+    /// getActionParameters beyond the array length reverts with
+    /// ActionDoesNotExist.
+    function testGetActionParametersOutOfBoundsReverts() external {
+        vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, uint256(999)));
+        facetViaHarness.getActionParameters(999);
+    }
+
+    /// getActionParameters on a cancelled node still returns the original
+    /// parameters bytes. Cancelled nodes intentionally retain their
+    /// actionType and parameters (only prev/next/effectiveTime are zeroed)
+    /// — consumers must filter via effectiveTime == 0 from the traversal
+    /// getters before reaching this function. See the cancel @dev block
+    /// in LibCorporateAction for the orphan-node invariant.
+    function testGetActionParametersCancelledNodeRetainsData() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory params = LibStockSplit.encodeParametersV1(twoX);
+
+        vm.prank(ALICE);
+        uint256 actionIndex = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, params);
+
+        vm.prank(ALICE);
+        facetViaHarness.cancelCorporateAction(actionIndex);
+
+        // The parameters are still there (unreachable via traversal, but
+        // this test pins the invariant that direct-index access still
+        // returns the original bytes — a debugging / audit affordance).
+        bytes memory read = facetViaHarness.getActionParameters(actionIndex);
+        assertEq(read, params, "cancelled node parameters are retained");
+    }
+
+    /// Direct call to getActionParameters on the standalone facet reverts
+    /// with FacetMustBeDelegatecalled, like every other entry point.
+    function testGetActionParametersDirectCallReverts() external {
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facetImpl.getActionParameters(1);
+    }
+
+    /// Fuzz: for any raw bytes passed at schedule time,
+    /// `getActionParameters` returns exactly the same bytes. Validates the
+    /// round-trip holds for empty, small, and large payloads — not just
+    /// the 32-byte `abi.encode(Float)` used elsewhere. Schedules with
+    /// `ACTION_TYPE_STABLES_DIVIDEND_V1` (reserved, no validator) via the
+    /// harness's `scheduleRaw` bypass so the payload isn't rejected by
+    /// stock-split validation.
+    function testFuzzGetActionParametersRoundTripArbitraryBytes(bytes memory payload) external {
+        uint256 actionIndex = harness.scheduleRaw(ACTION_TYPE_STABLES_DIVIDEND_V1, 1500, payload);
+        bytes memory read = facetViaHarness.getActionParameters(actionIndex);
+        assertEq(read, payload, "round-trip any bytes via getActionParameters");
     }
 
     /// Authorizer receives the correct context for a real stock split schedule.

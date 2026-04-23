@@ -4,7 +4,8 @@ pragma solidity =0.8.25;
 
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
-import {CompletionFilter, LibCorporateActionNode} from "../lib/LibCorporateActionNode.sol";
+import {ActionDoesNotExist} from "../error/ErrCorporateAction.sol";
+import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "../lib/LibCorporateActionNode.sol";
 import {IAuthorizeV1} from "rain.vats/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetReceiptVault.sol";
 
@@ -138,6 +139,19 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         // component as this function's own return, nothing is discarded.
         // slither-disable-next-line unused-return
         return LibCorporateActionNode.prevActionOfType(cursor, mask, filter);
+    }
+
+    /// @inheritdoc ICorporateActionsV1
+    function getActionParameters(uint256 cursor)
+        external
+        view
+        override
+        onlyDelegatecalled
+        returns (bytes memory parameters)
+    {
+        LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
+        if (cursor == 0 || cursor >= s.nodes.length) revert ActionDoesNotExist(cursor);
+        parameters = s.nodes[cursor].parameters;
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is

@@ -10,7 +10,11 @@ import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/tok
 import {
     IERC20Errors
 } from "openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
-import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/lib/LibCorporateAction.sol";
+import {
+    LibCorporateAction,
+    ACTION_TYPE_STOCK_SPLIT_V1,
+    ACTION_TYPE_STABLES_DIVIDEND_V1
+} from "../../../src/lib/LibCorporateAction.sol";
 import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
 import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 import {LibTotalSupply} from "../../../src/lib/LibTotalSupply.sol";
@@ -30,7 +34,15 @@ contract TestStoxReceiptVault is StoxReceiptVault {
     function _update(address from, address to, uint256 amount) internal override {
         // Mirror the production StoxReceiptVault._update flow exactly, only
         // bypassing the OffchainAssetReceiptVault authorizer/freeze layer.
+        LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
+        uint256 prevLatest = s.totalSupplyLatestSplit;
         LibTotalSupply.fold();
+        uint256 newLatest = s.totalSupplyLatestSplit;
+
+        if (newLatest != prevLatest) {
+            _emitNewlyEffectiveSplits(prevLatest, newLatest);
+        }
+
         _migrateAccount(from);
         _migrateAccount(to);
 
@@ -57,6 +69,12 @@ contract TestStoxReceiptVault is StoxReceiptVault {
         returns (uint256)
     {
         return LibCorporateAction.schedule(actionType, effectiveTime, parameters);
+    }
+
+    /// Expose corporate-action cancellation for tests that need to remove a
+    /// pending split before its effective time.
+    function publicCancel(uint256 actionIndex) external {
+        LibCorporateAction.cancel(actionIndex);
     }
 
     function rawStoredBalance(address account) external view returns (uint256) {
@@ -232,6 +250,43 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         emit StoxReceiptVault.AccountMigrated(BOB, 0, 1, 100, 200);
         // Touch Bob to trigger migration.
         vault.publicUpdate(BOB, BOB, 0);
+    }
+
+    /// `AccountMigrated` must fire exactly once per `_update`, aggregating
+    /// the full multi-split migration into a single event with the aggregate
+    /// `fromCursor → toCursor` and `oldBalance → newBalance`. Pins that the
+    /// emit is not per-split and that the post-rasterization fields reflect
+    /// the end state after all completed splits are applied, not an
+    /// intermediate state.
+    function testAccountMigratedEventAggregatesAcrossMultipleSplits() external {
+        vault.publicUpdate(address(0), BOB, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        vm.warp(3000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 sig = StoxReceiptVault.AccountMigrated.selector;
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 count = 0;
+        uint256 fromCursor;
+        uint256 toCursor;
+        uint256 oldBalance;
+        uint256 newBalance;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
+                count++;
+                assertEq(address(uint160(uint256(logs[i].topics[1]))), BOB, "indexed account is BOB");
+                (fromCursor, toCursor, oldBalance, newBalance) =
+                    abi.decode(logs[i].data, (uint256, uint256, uint256, uint256));
+            }
+        }
+        assertEq(count, 1, "exactly one AccountMigrated event per multi-split migration");
+        assertEq(fromCursor, 0, "fromCursor is pre-migration cursor");
+        assertEq(toCursor, 2, "toCursor is latest completed split index");
+        assertEq(oldBalance, 100, "oldBalance is pre-rasterization stored value");
+        assertEq(newBalance, 600, "newBalance is fully rasterized (100 * 2 * 3)");
     }
 
     /// `AccountMigrated` must NOT fire when a zero-balance account's cursor
@@ -480,6 +535,355 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     }
 
     // -----------------------------------------------------------------------
+    // CorporateActionEffective event tests.
+
+    /// The event fires before any AccountMigrated event when the first
+    /// transaction touches the vault after a split becomes effective.
+    function testCorporateActionEffectiveEventFires() external {
+        vault.publicUpdate(address(0), BOB, 1000);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        // The next _update call should emit CorporateActionEffective(1, STOCK_SPLIT, 1500)
+        // before any AccountMigrated event, because fold() detects the
+        // newly-past-effectiveTime split and the vault emits before migration.
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit StoxReceiptVault.CorporateActionEffective(1, ACTION_TYPE_STOCK_SPLIT_V1, 1500);
+
+        vault.publicUpdate(BOB, BOB, 0);
+    }
+
+    /// The event fires once per newly-effective split, not on every
+    /// subsequent transaction. A second touch should NOT re-emit.
+    function testCorporateActionEffectiveDoesNotReEmit() external {
+        vault.publicUpdate(address(0), BOB, 1000);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        // First touch: fires.
+        vault.publicUpdate(BOB, BOB, 0);
+
+        // Second touch: fold() doesn't advance totalSupplyLatestSplit
+        // (already past the split), so no event.
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        // No CorporateActionEffective event should appear. Filter by the
+        // event signature.
+        bytes32 sig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            assertTrue(logs[i].topics[0] != sig, "CorporateActionEffective must not re-emit");
+        }
+    }
+
+    /// Two splits become effective before anyone touches the vault.
+    /// Both are detected in a single fold() call and both events fire.
+    function testCorporateActionEffectiveMultipleSplits() external {
+        vault.publicUpdate(address(0), BOB, 1000);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        vm.warp(3000);
+
+        // Both splits land in one fold() call; both events fire.
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit StoxReceiptVault.CorporateActionEffective(1, ACTION_TYPE_STOCK_SPLIT_V1, 1500);
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit StoxReceiptVault.CorporateActionEffective(2, ACTION_TYPE_STOCK_SPLIT_V1, 2500);
+
+        vault.publicUpdate(BOB, BOB, 0);
+    }
+
+    /// Many splits become effective before any `_update` touches the vault.
+    /// A single `_update` must emit one `CorporateActionEffective` per split
+    /// walked by `fold()`. Uses `vm.recordLogs()` to assert the exact set
+    /// and order of emitted indices, rather than `vm.expectEmit` which
+    /// would pass on any prefix.
+    function testCorporateActionEffectiveEmitsOnceForEachOfManySplits() external {
+        vault.publicUpdate(address(0), BOB, 1);
+
+        // Schedule 5 splits, each at a later effectiveTime.
+        uint64[5] memory times = [uint64(1500), 2500, 3500, 4500, 5500];
+        for (uint256 i = 0; i < 5; i++) {
+            vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, times[i], _splitParams(2));
+        }
+        vm.warp(6000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 sig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        uint256 emitIndex = 0;
+        uint256[5] memory seenActionIndex;
+        uint64[5] memory seenEffectiveTime;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
+                assertLt(emitIndex, 5, "must not emit more than one per scheduled split");
+                seenActionIndex[emitIndex] = uint256(logs[i].topics[1]);
+                (, uint64 wasEffectiveAt) = abi.decode(logs[i].data, (uint256, uint64));
+                seenEffectiveTime[emitIndex] = wasEffectiveAt;
+                emitIndex++;
+            }
+        }
+        assertEq(emitIndex, 5, "must emit one event per split");
+
+        // Indices emit in list order (time-ascending), which matches schedule
+        // order since effectiveTimes were chosen monotonically.
+        for (uint256 i = 0; i < 5; i++) {
+            assertEq(seenActionIndex[i], i + 1, "actionIndex must ascend in list order");
+            assertEq(seenEffectiveTime[i], times[i], "wasEffectiveAt must match the scheduled effectiveTime");
+        }
+    }
+
+    /// Emit across separated `_update` calls: split A completes, first
+    /// `_update` emits split A. Later, split B is scheduled and reaches
+    /// effective time. Next `_update` emits split B alone — not A (which
+    /// has already been consumed by an earlier `fold()`). Pins the
+    /// `prevLatest → newLatest` delta semantics.
+    function testCorporateActionEffectiveEmitsOnlyNewlyEffectiveAcrossUpdates() external {
+        vault.publicUpdate(address(0), BOB, 1);
+
+        // Split A at 1500.
+        uint256 splitA = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+        vault.publicUpdate(BOB, BOB, 0); // consumes split A, emits A.
+
+        // Split B at 3500.
+        uint256 splitB = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, _splitParams(2));
+        vm.warp(4000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0); // should emit split B only.
+
+        bytes32 sig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 count = 0;
+        uint256 emittedIndex;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
+                emittedIndex = uint256(logs[i].topics[1]);
+                count++;
+            }
+        }
+        assertEq(count, 1, "second update must emit exactly one event");
+        assertEq(emittedIndex, splitB, "emitted index must be splitB");
+        assertTrue(splitA != splitB, "splits must have distinct indices");
+    }
+
+    /// The event triggers on every `_update` path that catches a
+    /// newly-effective split, not just self-transfer touches. Pin that
+    /// mint (from == 0), burn (to == 0), and arbitrary transfer paths
+    /// each trigger the emit when they are the first `_update` after a
+    /// split becomes effective.
+    function testCorporateActionEffectiveTriggersOnMint() external {
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit StoxReceiptVault.CorporateActionEffective(1, ACTION_TYPE_STOCK_SPLIT_V1, 1500);
+        vault.publicUpdate(address(0), BOB, 100); // mint path.
+    }
+
+    function testCorporateActionEffectiveTriggersOnBurn() external {
+        vault.publicUpdate(address(0), BOB, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit StoxReceiptVault.CorporateActionEffective(1, ACTION_TYPE_STOCK_SPLIT_V1, 1500);
+        vault.publicUpdate(BOB, address(0), 50); // burn path — 100 stored becomes 200 post-split, burn 50 → 150.
+    }
+
+    function testCorporateActionEffectiveTriggersOnTransfer() external {
+        vault.publicUpdate(address(0), BOB, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit StoxReceiptVault.CorporateActionEffective(1, ACTION_TYPE_STOCK_SPLIT_V1, 1500);
+        vault.publicUpdate(BOB, ALICE, 50); // transfer path.
+    }
+
+    /// Non-stock-split nodes (e.g. the reserved `ACTION_TYPE_STABLES_DIVIDEND_V1`)
+    /// interleaved with stock splits must be skipped by the emit walk —
+    /// `CorporateActionEffective` is explicitly scoped to stock splits, and
+    /// `fold()` + `_emitNewlyEffectiveSplits` both filter on
+    /// `ACTION_TYPE_STOCK_SPLIT_V1`. Schedules a dividend between two splits
+    /// and asserts only two events fire, with action indices 1 and 3 (the
+    /// split nodes), skipping index 2 (the dividend).
+    function testCorporateActionEffectiveSkipsNonSplitActions() external {
+        vault.publicUpdate(address(0), BOB, 1);
+
+        uint256 splitA = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        uint256 dividend = vault.publicSchedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 2000, hex"");
+        uint256 splitB = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(2));
+
+        vm.warp(3000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 sig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        uint256[2] memory seen;
+        uint256 count = 0;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
+                assertLt(count, 2, "only the two stock-split nodes should emit");
+                seen[count] = uint256(logs[i].topics[1]);
+                count++;
+            }
+        }
+        assertEq(count, 2, "expected 2 events (one per split, dividend skipped)");
+        assertEq(seen[0], splitA, "first emit is splitA");
+        assertEq(seen[1], splitB, "second emit is splitB");
+        // Ensure the dividend index never appeared in the emitted set.
+        assertTrue(seen[0] != dividend && seen[1] != dividend, "dividend index must not be emitted");
+    }
+
+    /// With a split → dividend → split sequence all completed in a single
+    /// `_update`, `fold()` must advance `totalSupplyLatestSplit` to the
+    /// second split (skipping the interleaved dividend), not stop at the
+    /// first split, and `_migrateAccount` must apply both splits'
+    /// multipliers to the holder's balance. Complements
+    /// `testCorporateActionEffectiveSkipsNonSplitActions` which pins the
+    /// emit path; this pins the state path.
+    function testInterleavedDividendDoesNotHaltStockSplitFold() external {
+        vault.publicUpdate(address(0), BOB, 100);
+
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 2000, hex"");
+        uint256 splitB = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(2));
+
+        vm.warp(3000);
+        vault.publicUpdate(BOB, BOB, 0);
+
+        assertEq(vault.totalSupplyLatestSplit(), splitB, "fold() must advance past the dividend to the second split");
+        assertEq(vault.migrationCursor(BOB), splitB, "BOB's cursor must also reach the second split");
+        assertEq(vault.balanceOf(BOB), 400, "100 * 2 * 2 = 400 (dividend does not affect balance)");
+    }
+
+    /// A `_update` that runs while a split is scheduled-but-pending (its
+    /// `effectiveTime` is still in the future) must NOT emit
+    /// `CorporateActionEffective`. `fold()` only advances past completed
+    /// splits, so `prevLatest == newLatest` and the emit branch is skipped.
+    function testCorporateActionEffectivePendingSplitDoesNotEmit() external {
+        vault.publicUpdate(address(0), BOB, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 5000, _splitParams(2));
+        // block.timestamp still 1000, split at 5000 is pending.
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 sig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        for (uint256 i = 0; i < logs.length; i++) {
+            assertTrue(
+                logs[i].topics.length == 0 || logs[i].topics[0] != sig,
+                "pending split must not emit CorporateActionEffective"
+            );
+        }
+    }
+
+    /// A split cancelled before its `effectiveTime` is unlinked from the
+    /// list (`next`/`prev` zeroed) and never reaches `fold()`'s completed
+    /// walk, so it must NOT produce a `CorporateActionEffective` event on
+    /// any subsequent `_update`.
+    function testCorporateActionEffectiveCancelledSplitDoesNotEmit() external {
+        vault.publicUpdate(address(0), BOB, 1000);
+        uint256 id = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicCancel(id);
+        vm.warp(2000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 sig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        for (uint256 i = 0; i < logs.length; i++) {
+            assertTrue(
+                logs[i].topics.length == 0 || logs[i].topics[0] != sig,
+                "cancelled split must not emit CorporateActionEffective"
+            );
+        }
+    }
+
+    /// A cancelled split sandwiched between two completed splits must be
+    /// skipped by `_emitNewlyEffectiveSplits`. The `nextOfType(...COMPLETED)`
+    /// walk never visits cancelled nodes, so only the two real splits should
+    /// emit. This is distinct from `testCorporateActionEffectiveSkipsNonSplitActions`
+    /// (which interleaves a different action type) and
+    /// `testCorporateActionEffectiveCancelledSplitDoesNotEmit` (which has no
+    /// completed siblings): it specifically exercises the completed-filter
+    /// continuation past a cancelled node of the same type.
+    function testCorporateActionEffectiveSkipsCancelledSplitBetweenCompleted() external {
+        vault.publicUpdate(address(0), BOB, 1);
+
+        uint256 splitA = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        uint256 cancelled = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, _splitParams(2));
+        uint256 splitB = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(2));
+        vault.publicCancel(cancelled);
+        vm.warp(3000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 sig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        uint256[2] memory seen;
+        uint256 count = 0;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
+                assertLt(count, 2, "only the two completed splits should emit");
+                seen[count] = uint256(logs[i].topics[1]);
+                count++;
+            }
+        }
+        assertEq(count, 2, "expected 2 events (cancelled split skipped)");
+        assertEq(seen[0], splitA, "first emit is splitA");
+        assertEq(seen[1], splitB, "second emit is splitB");
+        assertTrue(seen[0] != cancelled && seen[1] != cancelled, "cancelled index must not be emitted");
+    }
+
+    /// Ordering claim from the NatSpec: `CorporateActionEffective` fires
+    /// strictly before any `AccountMigrated` in the same transaction.
+    /// `vm.expectEmit` in the other tests does not enforce inter-event
+    /// order — pin it here by grabbing logs in order and asserting the
+    /// effective-event log index is strictly less than the migration-event
+    /// log index.
+    function testCorporateActionEffectiveBeforeAccountMigrated() external {
+        vault.publicUpdate(address(0), BOB, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 effectiveSig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        bytes32 migratedSig = keccak256("AccountMigrated(address,uint256,uint256,uint256,uint256)");
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 effectiveIndex = type(uint256).max;
+        uint256 migratedIndex = type(uint256).max;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length == 0) continue;
+            if (logs[i].topics[0] == effectiveSig && effectiveIndex == type(uint256).max) {
+                effectiveIndex = i;
+            }
+            if (logs[i].topics[0] == migratedSig && migratedIndex == type(uint256).max) {
+                migratedIndex = i;
+            }
+        }
+        assertLt(effectiveIndex, type(uint256).max, "CorporateActionEffective must emit");
+        assertLt(migratedIndex, type(uint256).max, "AccountMigrated must emit");
+        assertLt(effectiveIndex, migratedIndex, "CorporateActionEffective must precede AccountMigrated");
+    }
+
+    // -----------------------------------------------------------------------
     // Audit 2026-04-09-01 Item 1: cursor / totalSupplyLatestSplit invariant.
     //
     // After `_migrateAccount(account)` returns inside `_update` (which runs
@@ -660,18 +1064,17 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// Revisit `LibTotalSupply` with the new action type's rebase semantics
     /// before touching this test.
     function testNonStockSplitNodeAdvancesNeitherCursor() external {
-        // Synthesise a completed node with a bitmap that is NOT
-        // `ACTION_TYPE_STOCK_SPLIT_V1`. Bypass `resolveActionType` (which
-        // would reject the unknown type) by calling schedule() directly
-        // through the public harness.
-        uint256 fakeActionType = 1 << 1;
-        vault.publicSchedule(fakeActionType, 1500, abi.encode(uint256(0)));
+        // Schedule a completed dividend node. `publicSchedule` bypasses
+        // `resolveActionType`, so the dividend's parameters blob doesn't
+        // need to match any validator — we only care that the node lives
+        // in the list with a non-stock-split bitmap.
+        vault.publicSchedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 1500, abi.encode(uint256(0)));
 
         // Give Bob a pre-existing balance so _migrateAccount has something
-        // to rasterize if it ever starts walking the fake node.
+        // to rasterize if it ever starts walking the dividend node.
         vault.publicUpdate(address(0), BOB, 1000);
 
-        // Warp past the fake node's effective time so it counts as completed.
+        // Warp past the dividend's effective time so it counts as completed.
         vm.warp(2000);
 
         // Touch Bob to drive fold() + _migrateAccount.
@@ -697,7 +1100,27 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
         assertEq(vault.migrationCursor(BOB), 2, "cursor must advance to the stock-split node (index 2)");
         assertEq(vault.totalSupplyLatestSplit(), 2, "latest must advance to the stock-split node (index 2)");
-        assertEq(vault.balanceOf(BOB), 2000, "Bob's balance must reflect only the 2x split, not the fake node");
+        assertEq(vault.balanceOf(BOB), 2000, "Bob's balance must reflect only the 2x split, not the dividend");
+    }
+
+    /// Pre-bootstrap `effectiveTotalSupply()` walks ALL completed multipliers
+    /// starting from OZ's raw `_totalSupply`, not just the first one.
+    /// `testTotalSupplyDuringBootstrapDeferredWindow` covers the single-split
+    /// case; this covers multi-split to pin that the walk continues past the
+    /// first completed node without a `fold()` having bootstrapped any pot.
+    function testTotalSupplyMultiSplitPreBootstrap() external {
+        vault.publicUpdate(address(0), BOB, 100);
+
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, _splitParams(5));
+        vm.warp(4000);
+
+        // Critically: no `_update` between the warp and the read, so
+        // `totalSupplyBootstrapped` is still false and the view's walk
+        // starts from `LibERC20Storage.underlyingTotalSupply()`.
+        assertEq(vault.totalSupplyLatestSplit(), 0, "no _update yet => latest unchanged");
+        assertEq(vault.totalSupply(), 3000, "100 * 2 * 3 * 5 via pre-bootstrap multi-multiplier walk");
     }
 
     /// `effectiveTotalSupply()` called between split completion and the first
