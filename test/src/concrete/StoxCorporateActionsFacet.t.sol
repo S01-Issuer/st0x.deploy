@@ -11,7 +11,8 @@ import {
     SCHEDULE_CORPORATE_ACTION,
     CANCEL_CORPORATE_ACTION,
     STOCK_SPLIT_V1_TYPE_HASH,
-    ACTION_TYPE_STOCK_SPLIT_V1
+    ACTION_TYPE_STOCK_SPLIT_V1,
+    ACTION_TYPE_STABLES_DIVIDEND_V1
 } from "../../../src/lib/LibCorporateAction.sol";
 import {
     UnknownActionType,
@@ -73,6 +74,16 @@ contract DelegatecallHarness {
 
     function setAuthorizer(IAuthorizeV1 authorizer_) external {
         authorizer = authorizer_;
+    }
+
+    /// @dev Schedule directly via the library, bypassing auth and
+    /// `resolveActionType` validation. Runs in this harness's storage so that
+    /// a subsequent delegatecalled `getActionParameters` (which also runs in
+    /// this harness's storage) observes the write. Exists purely to support
+    /// fuzzing arbitrary `bytes` payloads that the normal facet path would
+    /// reject.
+    function scheduleRaw(uint256 actionType, uint64 effectiveTime, bytes memory parameters) external returns (uint256) {
+        return LibCorporateAction.schedule(actionType, effectiveTime, parameters);
     }
 
     fallback() external payable {
@@ -1298,6 +1309,19 @@ contract StoxCorporateActionsFacetTest is Test {
     function testGetActionParametersDirectCallReverts() external {
         vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
         facetImpl.getActionParameters(1);
+    }
+
+    /// Fuzz: for any raw bytes passed at schedule time,
+    /// `getActionParameters` returns exactly the same bytes. Validates the
+    /// round-trip holds for empty, small, and large payloads — not just
+    /// the 32-byte `abi.encode(Float)` used elsewhere. Schedules with
+    /// `ACTION_TYPE_STABLES_DIVIDEND_V1` (reserved, no validator) via the
+    /// harness's `scheduleRaw` bypass so the payload isn't rejected by
+    /// stock-split validation.
+    function testFuzzGetActionParametersRoundTripArbitraryBytes(bytes memory payload) external {
+        uint256 actionIndex = harness.scheduleRaw(ACTION_TYPE_STABLES_DIVIDEND_V1, 1500, payload);
+        bytes memory read = facetViaHarness.getActionParameters(actionIndex);
+        assertEq(read, payload, "round-trip any bytes via getActionParameters");
     }
 
     /// Authorizer receives the correct context for a real stock split schedule.
