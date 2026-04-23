@@ -10,7 +10,11 @@ import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/tok
 import {
     IERC20Errors
 } from "openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
-import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/lib/LibCorporateAction.sol";
+import {
+    LibCorporateAction,
+    ACTION_TYPE_STOCK_SPLIT_V1,
+    ACTION_TYPE_STABLES_DIVIDEND_V1
+} from "../../../src/lib/LibCorporateAction.sol";
 import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
 import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 import {LibTotalSupply} from "../../../src/lib/LibTotalSupply.sol";
@@ -594,6 +598,44 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
             assertEq(seenActionIndex[i], i + 1, "actionIndex must ascend in list order");
             assertEq(seenEffectiveTime[i], times[i], "wasEffectiveAt must match the scheduled effectiveTime");
         }
+    }
+
+    /// Non-stock-split nodes (e.g. the reserved `ACTION_TYPE_STABLES_DIVIDEND_V1`)
+    /// interleaved with stock splits must be skipped by the emit walk —
+    /// `CorporateActionEffective` is explicitly scoped to stock splits, and
+    /// `fold()` + `_emitNewlyEffectiveSplits` both filter on
+    /// `ACTION_TYPE_STOCK_SPLIT_V1`. Schedules a dividend between two splits
+    /// and asserts only two events fire, with action indices 1 and 3 (the
+    /// split nodes), skipping index 2 (the dividend).
+    function testCorporateActionEffectiveSkipsNonSplitActions() external {
+        vault.publicUpdate(address(0), BOB, 1);
+
+        uint256 splitA = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        uint256 dividend = vault.publicSchedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 2000, hex"");
+        uint256 splitB = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(2));
+
+        vm.warp(3000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 sig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        uint256[2] memory seen;
+        uint256 count = 0;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
+                assertLt(count, 2, "only the two stock-split nodes should emit");
+                seen[count] = uint256(logs[i].topics[1]);
+                count++;
+            }
+        }
+        assertEq(count, 2, "expected 2 events (one per split, dividend skipped)");
+        assertEq(seen[0], splitA, "first emit is splitA");
+        assertEq(seen[1], splitB, "second emit is splitB");
+        // Ensure the dividend index never appeared in the emitted set.
+        assertTrue(seen[0] != dividend && seen[1] != dividend, "dividend index must not be emitted");
     }
 
     /// A split cancelled before its `effectiveTime` is unlinked from the
