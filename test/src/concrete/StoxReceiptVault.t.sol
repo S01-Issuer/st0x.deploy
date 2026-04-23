@@ -1103,6 +1103,26 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.balanceOf(BOB), 2000, "Bob's balance must reflect only the 2x split, not the dividend");
     }
 
+    /// Pre-bootstrap `effectiveTotalSupply()` walks ALL completed multipliers
+    /// starting from OZ's raw `_totalSupply`, not just the first one.
+    /// `testTotalSupplyDuringBootstrapDeferredWindow` covers the single-split
+    /// case; this covers multi-split to pin that the walk continues past the
+    /// first completed node without a `fold()` having bootstrapped any pot.
+    function testTotalSupplyMultiSplitPreBootstrap() external {
+        vault.publicUpdate(address(0), BOB, 100);
+
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, _splitParams(5));
+        vm.warp(4000);
+
+        // Critically: no `_update` between the warp and the read, so
+        // `totalSupplyBootstrapped` is still false and the view's walk
+        // starts from `LibERC20Storage.underlyingTotalSupply()`.
+        assertEq(vault.totalSupplyLatestSplit(), 0, "no _update yet => latest unchanged");
+        assertEq(vault.totalSupply(), 3000, "100 * 2 * 3 * 5 via pre-bootstrap multi-multiplier walk");
+    }
+
     /// `effectiveTotalSupply()` called between split completion and the first
     /// post-split `_update` exercises the `!totalSupplyBootstrapped` branch:
     /// the view has no pot to read from, so it starts the walk from OZ's raw
