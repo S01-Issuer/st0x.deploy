@@ -744,6 +744,28 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertTrue(seen[0] != dividend && seen[1] != dividend, "dividend index must not be emitted");
     }
 
+    /// With a split → dividend → split sequence all completed in a single
+    /// `_update`, `fold()` must advance `totalSupplyLatestSplit` to the
+    /// second split (skipping the interleaved dividend), not stop at the
+    /// first split, and `_migrateAccount` must apply both splits'
+    /// multipliers to the holder's balance. Complements
+    /// `testCorporateActionEffectiveSkipsNonSplitActions` which pins the
+    /// emit path; this pins the state path.
+    function testInterleavedDividendDoesNotHaltStockSplitFold() external {
+        vault.publicUpdate(address(0), BOB, 100);
+
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 2000, hex"");
+        uint256 splitB = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(2));
+
+        vm.warp(3000);
+        vault.publicUpdate(BOB, BOB, 0);
+
+        assertEq(vault.totalSupplyLatestSplit(), splitB, "fold() must advance past the dividend to the second split");
+        assertEq(vault.migrationCursor(BOB), splitB, "BOB's cursor must also reach the second split");
+        assertEq(vault.balanceOf(BOB), 400, "100 * 2 * 2 = 400 (dividend does not affect balance)");
+    }
+
     /// A `_update` that runs while a split is scheduled-but-pending (its
     /// `effectiveTime` is still in the future) must NOT emit
     /// `CorporateActionEffective`. `fold()` only advances past completed
