@@ -752,6 +752,44 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         }
     }
 
+    /// A cancelled split sandwiched between two completed splits must be
+    /// skipped by `_emitNewlyEffectiveSplits`. The `nextOfType(...COMPLETED)`
+    /// walk never visits cancelled nodes, so only the two real splits should
+    /// emit. This is distinct from `testCorporateActionEffectiveSkipsNonSplitActions`
+    /// (which interleaves a different action type) and
+    /// `testCorporateActionEffectiveCancelledSplitDoesNotEmit` (which has no
+    /// completed siblings): it specifically exercises the completed-filter
+    /// continuation past a cancelled node of the same type.
+    function testCorporateActionEffectiveSkipsCancelledSplitBetweenCompleted() external {
+        vault.publicUpdate(address(0), BOB, 1);
+
+        uint256 splitA = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        uint256 cancelled = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, _splitParams(2));
+        uint256 splitB = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(2));
+        vault.publicCancel(cancelled);
+        vm.warp(3000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 sig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        uint256[2] memory seen;
+        uint256 count = 0;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
+                assertLt(count, 2, "only the two completed splits should emit");
+                seen[count] = uint256(logs[i].topics[1]);
+                count++;
+            }
+        }
+        assertEq(count, 2, "expected 2 events (cancelled split skipped)");
+        assertEq(seen[0], splitA, "first emit is splitA");
+        assertEq(seen[1], splitB, "second emit is splitB");
+        assertTrue(seen[0] != cancelled && seen[1] != cancelled, "cancelled index must not be emitted");
+    }
+
     /// Ordering claim from the NatSpec: `CorporateActionEffective` fires
     /// strictly before any `AccountMigrated` in the same transaction.
     /// `vm.expectEmit` in the other tests does not enforce inter-event
