@@ -1203,43 +1203,63 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(actionType, 1);
         assertEq(effectiveTime, 1500);
 
-        (cursor,,) = facetViaHarness.earliestActionOfType(1, CompletionFilter.COMPLETED);
+        (cursor, actionType, effectiveTime) = facetViaHarness.earliestActionOfType(1, CompletionFilter.COMPLETED);
         assertEq(cursor, 1, "COMPLETED: earliest completed is index 1");
-
-        (cursor,,) = facetViaHarness.earliestActionOfType(1, CompletionFilter.PENDING);
-        assertEq(cursor, 2, "PENDING: earliest pending is index 2");
-
-        // latestActionOfType: walk backward from tail with each filter.
-        (cursor,, effectiveTime) = facetViaHarness.latestActionOfType(1, CompletionFilter.ALL);
-        assertEq(cursor, 2, "ALL: latest is the tail");
-        assertEq(effectiveTime, 2500);
-
-        (cursor,, effectiveTime) = facetViaHarness.latestActionOfType(1, CompletionFilter.COMPLETED);
-        assertEq(cursor, 1, "COMPLETED: latest completed is index 1");
+        assertEq(actionType, 1);
         assertEq(effectiveTime, 1500);
 
-        (cursor,,) = facetViaHarness.latestActionOfType(1, CompletionFilter.PENDING);
+        (cursor, actionType, effectiveTime) = facetViaHarness.earliestActionOfType(1, CompletionFilter.PENDING);
+        assertEq(cursor, 2, "PENDING: earliest pending is index 2");
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 2500);
+
+        // latestActionOfType: walk backward from tail with each filter.
+        (cursor, actionType, effectiveTime) = facetViaHarness.latestActionOfType(1, CompletionFilter.ALL);
+        assertEq(cursor, 2, "ALL: latest is the tail");
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 2500);
+
+        (cursor, actionType, effectiveTime) = facetViaHarness.latestActionOfType(1, CompletionFilter.COMPLETED);
+        assertEq(cursor, 1, "COMPLETED: latest completed is index 1");
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 1500);
+
+        (cursor, actionType, effectiveTime) = facetViaHarness.latestActionOfType(1, CompletionFilter.PENDING);
         assertEq(cursor, 2, "PENDING: latest pending is index 2");
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 2500);
 
         // nextOfType: walk forward from a non-zero cursor with each filter.
-        (cursor,,) = facetViaHarness.nextOfType(1, 1, CompletionFilter.ALL);
+        (cursor, actionType, effectiveTime) = facetViaHarness.nextOfType(1, 1, CompletionFilter.ALL);
         assertEq(cursor, 2, "ALL: next after 1 is 2");
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 2500);
 
-        (cursor,,) = facetViaHarness.nextOfType(1, 1, CompletionFilter.COMPLETED);
+        (cursor, actionType, effectiveTime) = facetViaHarness.nextOfType(1, 1, CompletionFilter.COMPLETED);
         assertEq(cursor, 0, "COMPLETED: nothing completed after 1");
+        assertEq(actionType, 0, "miss must zero actionType");
+        assertEq(effectiveTime, 0, "miss must zero effectiveTime");
 
-        (cursor,,) = facetViaHarness.nextOfType(1, 1, CompletionFilter.PENDING);
+        (cursor, actionType, effectiveTime) = facetViaHarness.nextOfType(1, 1, CompletionFilter.PENDING);
         assertEq(cursor, 2, "PENDING: next pending after 1 is 2");
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 2500);
 
         // prevOfType: walk backward from a non-zero cursor with each filter.
-        (cursor,,) = facetViaHarness.prevOfType(2, 1, CompletionFilter.ALL);
+        (cursor, actionType, effectiveTime) = facetViaHarness.prevOfType(2, 1, CompletionFilter.ALL);
         assertEq(cursor, 1, "ALL: prev before 2 is 1");
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 1500);
 
-        (cursor,,) = facetViaHarness.prevOfType(2, 1, CompletionFilter.COMPLETED);
+        (cursor, actionType, effectiveTime) = facetViaHarness.prevOfType(2, 1, CompletionFilter.COMPLETED);
         assertEq(cursor, 1, "COMPLETED: prev completed before 2 is 1");
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 1500);
 
-        (cursor,,) = facetViaHarness.prevOfType(2, 1, CompletionFilter.PENDING);
+        (cursor, actionType, effectiveTime) = facetViaHarness.prevOfType(2, 1, CompletionFilter.PENDING);
         assertEq(cursor, 0, "PENDING: nothing pending before 2");
+        assertEq(actionType, 0, "miss must zero actionType");
+        assertEq(effectiveTime, 0, "miss must zero effectiveTime");
     }
 
     /// When no matching action exists, the facet wrappers return (0, 0, 0).
