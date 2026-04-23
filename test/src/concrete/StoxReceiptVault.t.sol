@@ -67,6 +67,12 @@ contract TestStoxReceiptVault is StoxReceiptVault {
         return LibCorporateAction.schedule(actionType, effectiveTime, parameters);
     }
 
+    /// Expose corporate-action cancellation for tests that need to remove a
+    /// pending split before its effective time.
+    function publicCancel(uint256 actionIndex) external {
+        LibCorporateAction.cancel(actionIndex);
+    }
+
     function rawStoredBalance(address account) external view returns (uint256) {
         return LibERC20Storage.underlyingBalance(account);
     }
@@ -488,7 +494,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     }
 
     // -----------------------------------------------------------------------
-    // CorporateActionEffective event — token-integration-analyzer §10.8.
+    // CorporateActionEffective event tests.
 
     /// The event fires before any AccountMigrated event when the first
     /// transaction touches the vault after a split becomes effective.
@@ -545,6 +551,63 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         emit StoxReceiptVault.CorporateActionEffective(2, ACTION_TYPE_STOCK_SPLIT_V1, 2500);
 
         vault.publicUpdate(BOB, BOB, 0);
+    }
+
+    /// A split cancelled before its `effectiveTime` is unlinked from the
+    /// list (`next`/`prev` zeroed) and never reaches `fold()`'s completed
+    /// walk, so it must NOT produce a `CorporateActionEffective` event on
+    /// any subsequent `_update`.
+    function testCorporateActionEffectiveCancelledSplitDoesNotEmit() external {
+        vault.publicUpdate(address(0), BOB, 1000);
+        uint256 id = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicCancel(id);
+        vm.warp(2000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 sig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        for (uint256 i = 0; i < logs.length; i++) {
+            assertTrue(
+                logs[i].topics.length == 0 || logs[i].topics[0] != sig,
+                "cancelled split must not emit CorporateActionEffective"
+            );
+        }
+    }
+
+    /// Ordering claim from the NatSpec: `CorporateActionEffective` fires
+    /// strictly before any `AccountMigrated` in the same transaction.
+    /// `vm.expectEmit` in the other tests does not enforce inter-event
+    /// order — pin it here by grabbing logs in order and asserting the
+    /// effective-event log index is strictly less than the migration-event
+    /// log index.
+    function testCorporateActionEffectiveBeforeAccountMigrated() external {
+        vault.publicUpdate(address(0), BOB, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 effectiveSig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        bytes32 migratedSig = keccak256("AccountMigrated(address,uint256,uint256,uint256,uint256)");
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 effectiveIndex = type(uint256).max;
+        uint256 migratedIndex = type(uint256).max;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length == 0) continue;
+            if (logs[i].topics[0] == effectiveSig && effectiveIndex == type(uint256).max) {
+                effectiveIndex = i;
+            }
+            if (logs[i].topics[0] == migratedSig && migratedIndex == type(uint256).max) {
+                migratedIndex = i;
+            }
+        }
+        assertLt(effectiveIndex, type(uint256).max, "CorporateActionEffective must emit");
+        assertLt(migratedIndex, type(uint256).max, "AccountMigrated must emit");
+        assertLt(effectiveIndex, migratedIndex, "CorporateActionEffective must precede AccountMigrated");
     }
 
     // -----------------------------------------------------------------------

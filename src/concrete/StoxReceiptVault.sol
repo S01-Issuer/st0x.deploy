@@ -71,9 +71,6 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// observed it. The difference is however many blocks elapsed between
     /// `effectiveTime` and this first touch.
     ///
-    /// See `audit/2026-04-09-01/token-integration-analyzer.md` recommendation
-    /// §10.8 and `docs/INTEGRATION.md` §Events for detailed integrator guidance.
-    ///
     /// @param actionIndex The 1-based node index of the corporate action.
     /// @param actionType The bitmap action type (e.g. `ACTION_TYPE_STOCK_SPLIT_V1`).
     /// @param wasEffectiveAt The `effectiveTime` recorded at schedule time.
