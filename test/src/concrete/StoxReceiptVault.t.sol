@@ -635,6 +635,40 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertTrue(splitA != splitB, "splits must have distinct indices");
     }
 
+    /// The event triggers on every `_update` path that catches a
+    /// newly-effective split, not just self-transfer touches. Pin that
+    /// mint (from == 0), burn (to == 0), and arbitrary transfer paths
+    /// each trigger the emit when they are the first `_update` after a
+    /// split becomes effective.
+    function testCorporateActionEffectiveTriggersOnMint() external {
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit StoxReceiptVault.CorporateActionEffective(1, ACTION_TYPE_STOCK_SPLIT_V1, 1500);
+        vault.publicUpdate(address(0), BOB, 100); // mint path.
+    }
+
+    function testCorporateActionEffectiveTriggersOnBurn() external {
+        vault.publicUpdate(address(0), BOB, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit StoxReceiptVault.CorporateActionEffective(1, ACTION_TYPE_STOCK_SPLIT_V1, 1500);
+        vault.publicUpdate(BOB, address(0), 50); // burn path — 100 stored becomes 200 post-split, burn 50 → 150.
+    }
+
+    function testCorporateActionEffectiveTriggersOnTransfer() external {
+        vault.publicUpdate(address(0), BOB, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit StoxReceiptVault.CorporateActionEffective(1, ACTION_TYPE_STOCK_SPLIT_V1, 1500);
+        vault.publicUpdate(BOB, ALICE, 50); // transfer path.
+    }
+
     /// Non-stock-split nodes (e.g. the reserved `ACTION_TYPE_STABLES_DIVIDEND_V1`)
     /// interleaved with stock splits must be skipped by the emit walk —
     /// `CorporateActionEffective` is explicitly scoped to stock splits, and
