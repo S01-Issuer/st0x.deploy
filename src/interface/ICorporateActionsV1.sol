@@ -100,20 +100,18 @@ import {CompletionFilter} from "../lib/LibCorporateActionNode.sol";
 /// ```solidity
 /// // Get the most recent completed stock split.
 /// (uint256 cursor, uint256 actionType, uint64 effectiveTime)
-///     = vault.latestActionOfType(ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+///     = vault.latestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
 ///
 /// // Walk backward through all completed splits.
 /// while (cursor != 0) {
-///     bytes memory params = vault.getActionParameters(cursor);
-///     Float multiplier = abi.decode(params, (Float));
-///     // ... process the split ...
+///     // ... process the split at `cursor` ...
 ///     (cursor, actionType, effectiveTime)
-///         = vault.prevOfType(cursor, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+///         = vault.prevOfType(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
 /// }
 ///
 /// // Check for pending (future) splits.
 /// (cursor, actionType, effectiveTime)
-///     = vault.latestActionOfType(ACTION_TYPE_STOCK_SPLIT, CompletionFilter.PENDING);
+///     = vault.latestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
 /// ```
 ///
 /// ERC-1155 RECEIPT BATCH READS:
@@ -128,6 +126,7 @@ import {CompletionFilter} from "../lib/LibCorporateActionNode.sol";
 /// The canonical mapping lives in `src/lib/LibCorporateAction.sol` and is
 /// reproduced here for convenience:
 /// - `1 << 0` — stock split (forward or reverse; multiplier is a Rain Float).
+/// - `1 << 1` — stablecoin dividend (reserved; not yet schedulable).
 ///
 /// Further action types will be added as additional bit positions. Consumers
 /// should mask against the specific bit(s) they care about, not compare
@@ -136,7 +135,7 @@ interface ICorporateActionsV1 {
     /// @notice Emitted when a corporate action is successfully scheduled.
     /// @param sender The msg.sender that called `scheduleCorporateAction`.
     /// @param actionIndex The 1-based index assigned to the new action.
-    /// @param actionType The bitmap action type (e.g. `ACTION_TYPE_STOCK_SPLIT`).
+    /// @param actionType The bitmap action type (e.g. `ACTION_TYPE_STOCK_SPLIT_V1`).
     /// @param effectiveTime The timestamp at which the action becomes effective.
     event CorporateActionScheduled(
         address indexed sender, uint256 indexed actionIndex, uint256 actionType, uint64 effectiveTime
@@ -199,27 +198,36 @@ interface ICorporateActionsV1 {
     /// effective times are possible.
     ///
     /// @param typeHash External identifier for the action type, e.g.
-    /// keccak256("StockSplit"). Resolved to an internal bitmap by the lib.
-    /// @param effectiveTime When the action takes effect. Must be in the future.
+    /// keccak256("st0x.corporate-actions.stock-split.1"). Resolved to an internal
+    /// bitmap by the lib.
+    /// @param effectiveTime When the action takes effect. Must be strictly in
+    /// the future: `effectiveTime > block.timestamp`. Scheduling at the exact
+    /// current timestamp reverts with `EffectiveTimeInPast`.
     /// @param parameters ABI-encoded parameters specific to the action type.
     /// @return actionIndex Handle for the scheduled action.
     function scheduleCorporateAction(bytes32 typeHash, uint64 effectiveTime, bytes calldata parameters)
         external
         returns (uint256 actionIndex);
 
-    /// @notice Cancel a scheduled action whose effectiveTime hasn't passed.
+    /// @notice Cancel a scheduled action. Only valid while the action is
+    /// strictly pending: `block.timestamp < effectiveTime`. At or after the
+    /// exact `effectiveTime`, cancel reverts with `ActionAlreadyComplete`.
     /// @param actionIndex The scheduled action handle to cancel.
     function cancelCorporateAction(uint256 actionIndex) external;
 
     /// @notice Count of all completed corporate actions. An action is complete
-    /// when its effectiveTime has passed.
+    /// when `block.timestamp >= effectiveTime` — i.e. at or after the exact
+    /// effective-time block, inclusive.
     function completedActionCount() external view returns (uint256);
 
     /// @notice Find the latest (most recent) action matching a type mask and
     /// completion filter. Entry point for walking the list backward from the
     /// tail.
-    /// @param mask Bitmap mask to filter action types. Use type(uint256).max
-    /// to match all types.
+    /// @param mask Bitmap mask to filter action types. Must intersect the
+    /// currently defined action types — calls with `mask & VALID_ACTION_TYPES_MASK
+    /// == 0` (zero mask or only undefined bits) revert with `InvalidMask`.
+    /// Use `type(uint256).max` to match every type, including bits reserved
+    /// for future additions.
     /// @param filter Completion filter:
     /// - `ALL` returns the most recent action regardless of effectiveTime
     ///   (includes scheduled-but-pending actions);
@@ -238,7 +246,8 @@ interface ICorporateActionsV1 {
 
     /// @notice Find the earliest action matching a type mask and completion
     /// filter. Entry point for walking the list forward from the head.
-    /// @param mask Bitmap mask to filter action types.
+    /// @param mask Bitmap mask to filter action types — see `latestActionOfType`
+    /// for the validity rules; `InvalidMask` reverts apply here too.
     /// @param filter Completion filter — see `latestActionOfType` for the
     /// semantics of `ALL` / `COMPLETED` / `PENDING`.
     /// @return cursor Opaque handle for continued traversal via `nextOfType`.
@@ -251,8 +260,13 @@ interface ICorporateActionsV1 {
         returns (uint256 cursor, uint256 actionType, uint64 effectiveTime);
 
     /// @notice Walk forward from a cursor to the next matching action.
-    /// @param cursor The cursor returned by a previous traversal call.
-    /// @param mask Bitmap mask to filter action types.
+    /// @param cursor The cursor returned by a previous traversal call. If
+    /// the action at this cursor has been cancelled since it was obtained,
+    /// its `next` pointer was zeroed by `cancelCorporateAction` and the
+    /// walk returns 0 immediately — restart from `earliestActionOfType` to
+    /// recover the new list head.
+    /// @param mask Bitmap mask to filter action types — see `latestActionOfType`
+    /// for the validity rules; `InvalidMask` reverts apply here too.
     /// @param filter Completion filter — see `latestActionOfType`.
     /// @return nextCursor Opaque handle for the next match, or 0 if none.
     /// @return actionType The action's bitmap type (0 if none).
@@ -263,8 +277,12 @@ interface ICorporateActionsV1 {
         returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime);
 
     /// @notice Walk backward from a cursor to the previous matching action.
-    /// @param cursor The cursor returned by a previous traversal call.
-    /// @param mask Bitmap mask to filter action types.
+    /// @param cursor The cursor returned by a previous traversal call. If
+    /// the action at this cursor has been cancelled since it was obtained,
+    /// its `prev` pointer was zeroed and the walk returns 0 immediately —
+    /// restart from `latestActionOfType` to recover the new list tail.
+    /// @param mask Bitmap mask to filter action types — see `latestActionOfType`
+    /// for the validity rules; `InvalidMask` reverts apply here too.
     /// @param filter Completion filter — see `latestActionOfType`.
     /// @return prevCursor Opaque handle for the previous match, or 0 if none.
     /// @return actionType The action's bitmap type (0 if none).
