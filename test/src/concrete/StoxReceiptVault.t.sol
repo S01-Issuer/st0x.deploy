@@ -125,10 +125,11 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         return LibStockSplit.encodeParametersV1(LibDecimalFloat.packLossless(multiplier, 0));
     }
 
-    /// REGRESSION FOR A03-1 (mint pathway).
-    /// Mint to a fresh account AFTER a completed 2x split must credit exactly
-    /// the minted amount, not 2x the minted amount. The bug previously caused
-    /// `balanceOf(alice) == 200` after minting 100.
+    /// Mint to a fresh account after a completed 2x split credits exactly
+    /// the minted amount, not 2x the minted amount. Without the
+    /// zero-balance cursor-advancement guard, the recipient's freshly-
+    /// written post-rebase balance would be re-multiplied on the next
+    /// `balanceOf` read — an inflation bug.
     function testMintToFreshAccountAfterCompletedSplitDoesNotInflate() external {
         // Pre-existing supply so the split has something to rebase.
         vault.publicUpdate(address(0), BOB, 1000);
@@ -144,9 +145,8 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.balanceOf(ALICE), 100, "fresh recipient must not over-multiply on mint");
     }
 
-    /// REGRESSION FOR A03-1 (transfer pathway).
-    /// Transfer to a fresh recipient after a completed split must credit
-    /// exactly the transferred amount.
+    /// Transfer to a fresh recipient after a completed split credits
+    /// exactly the transferred amount, not multiplied by the split.
     function testTransferToFreshRecipientAfterCompletedSplitDoesNotInflate() external {
         // Bob has a pre-existing balance.
         vault.publicUpdate(address(0), BOB, 50);
@@ -516,10 +516,9 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.totalSupply(), 0, "dust resolves to 0 once both migrate");
     }
 
-    /// REGRESSION FOR A28-1: after the bug was fixed, the totalSupply
-    /// computation matches the per-account sum specifically for the mint-after-
-    /// split scenario (which the pre-fix code under-reported relative to
-    /// per-account balanceOf).
+    /// In the mint-after-split scenario, `totalSupply()` equals the sum of
+    /// every holder's `balanceOf` — the share-side integration invariant
+    /// that justifies the per-cursor pot bookkeeping.
     function testTotalSupplyConsistentWithBalanceOfAfterMintFreshPostSplit() external {
         vault.publicUpdate(address(0), BOB, 1000);
         vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
@@ -884,28 +883,15 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     }
 
     // -----------------------------------------------------------------------
-    // Audit 2026-04-09-01 Item 1: cursor / totalSupplyLatestSplit invariant.
+    // Cursor / totalSupplyLatestSplit invariant.
     //
     // After `_migrateAccount(account)` returns inside `_update` (which runs
-    // after `fold()`), `accountMigrationCursor[account]` MUST equal
-    // `s.totalSupplyLatestSplit`. This invariant is load-bearing for the
-    // safety of `LibTotalSupply.onBurn`, which subtracts the burn amount
-    // from `unmigrated[totalSupplyLatestSplit]`. If the burner's migrated
-    // balance had landed in a different pot (cursor != latest), onBurn
-    // would subtract from a pot that never received the balance, and the
-    // subtraction would underflow.
-    //
-    // The existing LibTotalSupply point tests cover the underflow panic
-    // directly (`testOnBurnUnderflowReverts`, `testOnBurnAtBoundarySucceeds
-    // OneBeyondReverts`), and the vault-level integration tests cover the
-    // sum-of-balances == totalSupply invariant after mixed activity. What
-    // was missing was an explicit fuzz that drives arbitrary sequences of
-    // schedule/warp/mint/burn/transfer and asserts the cursor equality
-    // after every migration step. These two tests fill that gap. The
-    // broader stateful invariant harness in
-    // `StoxCorporateActionsInvariant.t.sol` (landing on PR #25) covers the
-    // full space; these tests are the per-PR pins at the layer where
-    // `totalSupplyLatestSplit` and the `onBurn` path are introduced.
+    // after `fold()`), `accountMigrationCursor[account]` equals
+    // `s.totalSupplyLatestSplit`. `LibTotalSupply.onBurn` subtracts the
+    // burn amount from `unmigrated[totalSupplyLatestSplit]`. If the
+    // burner's migrated balance had landed in a different pot (cursor !=
+    // latest), onBurn would subtract from a pot that never received the
+    // balance, and the subtraction would underflow.
 
     /// Deterministic pin for the exact path onBurn's safety relies on:
     /// schedule a split → mint pre-split → warp past it → schedule another

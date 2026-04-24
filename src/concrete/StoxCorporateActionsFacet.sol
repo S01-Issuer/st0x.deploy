@@ -158,7 +158,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     /// delegatecalled by the vault, `address(this)` is the vault and we can
     /// access its storage to find the authorizer. The `data` argument is
     /// forwarded so authorizers can apply per-action policy (e.g. rate-limiting
-    /// by multiplier magnitude or action type) — see audit finding A01-1.
+    /// by multiplier magnitude or action type).
     /// @param user The address requesting the action (typically `msg.sender`).
     /// @param permission The bytes32 permission constant identifying the action.
     /// @param data ABI-encoded action context. For schedule:

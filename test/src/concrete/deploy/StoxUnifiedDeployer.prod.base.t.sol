@@ -106,20 +106,12 @@ contract StoxProdBaseTest is Test {
         );
     }
 
-    /// Verify V1 creation bytecodes match compiled artifacts for contracts
-    /// that are unchanged between V1 and V2. Contracts that changed
+    /// Both StoxReceipt and StoxReceiptVault diverged from V1 when rebase
+    /// logic was added, so no contract's current compiled bytecode matches
+    /// its V1 constant. The V1 bytecodes are frozen in LibProdDeployV1 as
+    /// an audit trail only. Contracts that changed between V1 and V2
     /// (StoxWrappedTokenVault, StoxWrappedTokenVaultBeaconSetDeployer,
     /// StoxUnifiedDeployer) are verified in the V2 tests instead.
-    function checkUnchangedCreationBytecodes() internal view {
-        assertEq(vm.getCode("StoxReceipt.sol:StoxReceipt"), LibProdDeployV1.PROD_STOX_RECEIPT_CREATION_BYTECODE_V1);
-        // StoxReceiptVault diverged from V1 when rebase logic was added.
-        // The V1 bytecode is frozen in LibProdDeployV1 as an audit trail.
-    }
-
-    /// Creation bytecodes must match stored constants.
-    function testProdCreationBytecodes() external view {
-        checkUnchangedCreationBytecodes();
-    }
 
     /// All contracts MUST be deployed on Base.
     function testProdDeployBase() external {

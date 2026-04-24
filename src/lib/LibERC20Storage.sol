@@ -22,19 +22,28 @@ bytes32 constant ERC20_STORAGE_LOCATION =
 ///   slot+2: uint256 _totalSupply
 /// If OZ changes this layout, this library MUST be updated.
 library LibERC20Storage {
+    /// @dev Derive the storage slot holding `_balances[account]`, i.e.
+    /// `keccak256(account || ERC20_STORAGE_LOCATION)` per Solidity's
+    /// mapping slot rule with the base at offset 0 of the namespaced
+    /// struct.
+    function balanceSlot(address account) private pure returns (bytes32 slot) {
+        bytes32 base = ERC20_STORAGE_LOCATION;
+        assembly ("memory-safe") {
+            mstore(0x00, account)
+            mstore(0x20, base)
+            slot := keccak256(0x00, 0x40)
+        }
+    }
+
     /// @notice Read the account's raw underlying balance at OZ's ERC-7201
     /// `_balances` slot. This is whatever value OZ's `_update` has last
     /// written — no semantic overlay is applied here.
     /// @param account The account to read.
     /// @return result The raw value of `_balances[account]`.
     function underlyingBalance(address account) internal view returns (uint256 result) {
-        // Inline assembly only accepts literal number constants; bind the
-        // derived constant to a local first.
-        bytes32 slot = ERC20_STORAGE_LOCATION;
+        bytes32 slot = balanceSlot(account);
         assembly ("memory-safe") {
-            mstore(0x00, account)
-            mstore(0x20, slot)
-            result := sload(keccak256(0x00, 0x40))
+            result := sload(slot)
         }
     }
 
@@ -44,11 +53,9 @@ library LibERC20Storage {
     /// @param account The account to write.
     /// @param newBalance The new value to write to `_balances[account]`.
     function setUnderlyingBalance(address account, uint256 newBalance) internal {
-        bytes32 slot = ERC20_STORAGE_LOCATION;
+        bytes32 slot = balanceSlot(account);
         assembly ("memory-safe") {
-            mstore(0x00, account)
-            mstore(0x20, slot)
-            sstore(keccak256(0x00, 0x40), newBalance)
+            sstore(slot, newBalance)
         }
     }
 

@@ -76,17 +76,41 @@ stack):
   scheduled actions. Storage lives at the ERC-7201 namespace
   `rain.storage.corporate-action.1`.
 - `LibStockSplit` — stock split parameter validation and encode/decode.
+- `LibRebaseMath` — shared `applyMultiplier(balance, Float)` primitive used by
+  every rebase path (share side, totalSupply, receipt side). Single source of
+  truth for the rasterize-one-multiplier-step operation.
 - `LibERC20Storage` — direct storage helpers used by the lazy-rebase migration
   to read/write OZ ERC20 balances without going through `_update`. **Tightly
   coupled to OZ v5 `ERC20Upgradeable` storage layout — see the SAFETY block in
-  that file.**
-- `LibRebase` — lazy rebase application: rewrites holder balances to the
-  post-rebase basis on first touch, rather than applying a global multiplier.
-  **Cursor advancement is load-bearing for fresh recipients — see audit history
-  under `audit/2026-04-07-01/` for the inflation bug fix and the regression
-  tests.**
+  that file and §Dependencies "Breaking dependency bumps".**
+- `LibERC1155Storage` — direct storage helpers for OZ ERC-1155
+  `_balances[id][account]`, used by receipt-side rebase migration. **Tightly
+  coupled to OZ v5 `ERC1155Upgradeable` storage layout — same pin convention as
+  `LibERC20Storage`.**
+- `LibRebase` — lazy share-side rebase application: rewrites holder balances to
+  the post-rebase basis on first touch, rather than applying a global
+  multiplier. Cursor advancement runs even when `storedBalance == 0`; skipping
+  it would let a subsequent write land at a stale cursor and re-apply every
+  completed multiplier on the next `balanceOf` read, inflating the balance. The
+  `testZeroBalanceAdvancesCursor*` tests in `LibRebase.t.sol` and the
+  fresh-recipient tests in `StoxReceiptVault.t.sol` pin this.
+- `LibReceiptRebase` — receipt-side analogue of `LibRebase`. Walks the vault's
+  stock split list through cross-contract `ICorporateActionsV1` view calls and
+  rewrites ERC-1155 `_balances` via `LibERC1155Storage`. Preserves the same
+  zero-balance cursor advancement guard.
+- `LibCorporateActionReceipt` — per-`(holder, id)` receipt-side cursor storage
+  at the ERC-7201 namespace `rain.storage.corporate-action-receipt.1`. Lives on
+  the receipt contract, not the vault.
 - `LibTotalSupply` — rebase-aware `totalSupply` accounting that tracks
   per-cursor pots so the reported supply remains correct mid-migration.
+
+**Receipt-side rebase coordination.** `StoxReceipt` overrides `_update` and
+`balanceOf(account, id)` to rasterize receipt balances in lockstep with the
+share-side rebase. Without this, a stock split on the share side would create an
+arbitrage opportunity against the un-rebased receipts. The receipt reads stock
+split multipliers from the vault via `ICorporateActionsV1.nextOfType` +
+`getActionParameters`. Both sides use `LibRebaseMath.applyMultiplier` so
+rasterization is bitwise-identical.
 
 Storage isolation follows the diamond storage pattern: each library uses a fixed
 namespaced storage slot. New state must live in a library storage struct, not on
@@ -153,6 +177,28 @@ bytecode comparison. On bump:
 3. Verify the struct still has `_balances` at offset 0 and `_totalSupply` at
    offset 2. If either moved, the assembly reads in `LibERC20Storage` must be
    re-pinned.
+
+**`openzeppelin-contracts-upgradeable` v5 — `ERC1155Upgradeable` ERC-7201
+layout.** `src/lib/LibERC1155Storage.sol` (PR #7) hard-codes the ERC-7201
+storage slot for OZ's ERC-1155 `_balances[id][account]` mapping at
+`ERC1155_STORAGE_LOCATION = 0x88be…4500`. The nested-mapping slot derivation is
+`keccak256(abi.encode(account, keccak256(abi.encode(id, ERC1155_STORAGE_LOCATION))))`
+— two hashes, with `_balances` as the base at offset 0 of the namespaced struct.
+Same failure mode as the ERC-20 pin: a layout reorder or namespace rename
+silently remaps every receipt balance the rebase migration writes. On bump:
+
+1. Re-derive `ERC1155_STORAGE_LOCATION` from the new namespace string and update
+   the constant.
+2. Re-run
+   `test/src/lib/LibERC1155Storage.t.sol::testErc1155SlotConstantMatchesDerivation`
+   — it pins the formula.
+3. Re-run `LibERC1155StorageTest` in full: the runtime invariant tests
+   (`testGetBalanceMatchesOzBalanceOf`, `testFuzzRoundTripSingleId`,
+   `testPerIdAndPerAccountSlotIsolation`, etc.) drive an actual
+   `ERC1155Upgradeable` subclass and cross-check every library accessor against
+   the OZ read path.
+4. Verify the struct still has `_balances` at offset 0. If it moved, the
+   two-hash derivation in `LibERC1155Storage` must be re-pinned.
 
 **`rain.math.float` (load-bearing: precision / rounding characteristics).**
 `src/lib/LibStockSplit.sol` enforces multiplier bounds

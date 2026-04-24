@@ -5,9 +5,12 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std/Test.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
+import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
 import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/lib/LibCorporateAction.sol";
+import {LibCorporateActionReceipt} from "../../../src/lib/LibCorporateActionReceipt.sol";
 import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
+import {LibERC1155Storage} from "../../../src/lib/LibERC1155Storage.sol";
 import {LibTotalSupply} from "../../../src/lib/LibTotalSupply.sol";
 import {
     CorporateActionNode,
@@ -98,6 +101,70 @@ contract InvariantVault is StoxReceiptVault {
     function hasCompletedSplit() external view returns (bool) {
         return LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED) != 0;
     }
+
+    // -----------------------------------------------------------------------
+    // ICorporateActionsV1 read surface — forwarded directly to the libraries
+    // so the receipt contract can read stock split multipliers cross-contract
+    // without a facet delegatecall router.
+    //
+    // Only the subset LibReceiptRebase actually consumes is implemented; the
+    // other traversal getters are omitted because the receipt never calls
+    // them. These are view-only; no migration or authorization logic needed.
+
+    function nextOfType(uint256 cursor, uint256 mask, CompletionFilter filter)
+        external
+        view
+        returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime)
+    {
+        nextCursor = LibCorporateActionNode.nextOfType(cursor, mask, filter);
+        if (nextCursor != 0) {
+            CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[nextCursor];
+            actionType = node.actionType;
+            effectiveTime = node.effectiveTime;
+        }
+    }
+
+    function getActionParameters(uint256 cursor) external view returns (bytes memory) {
+        LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
+        require(cursor >= 1 && cursor < s.nodes.length, "InvariantVault: action does not exist");
+        return s.nodes[cursor].parameters;
+    }
+
+    // -----------------------------------------------------------------------
+    // IReceiptManagerV2.authorizeReceiptTransfer3 — no-op override (always
+    // allows the transfer) so the receipt's base `_update` path can run in
+    // the invariant harness without needing an ethgild authorizer wired in.
+    // The real ethgild vault derives a multi-layered auth decision here;
+    // our invariant test doesn't care about auth correctness, only the
+    // rebase math.
+
+    function authorizeReceiptTransfer3(address, address, address, uint256[] memory, uint256[] memory)
+        public
+        pure
+        override
+    {}
+}
+
+/// @dev Receipt harness used by the invariant suite. Initializes `manager`
+/// to the invariant vault via direct slot write (bypassing the Receipt
+/// base's `initializer` lock — we're in a fresh deployment, not a proxy
+/// upgrade path). Exposes the raw stored balance and cursor for
+/// assertions.
+contract InvariantReceipt is StoxReceipt {
+    function testInit(address vaultAddr) external {
+        bytes32 slot = 0xe5444a702a2f437387f4eb075af275e349f1dba9a68923d27352f035d01dc200;
+        assembly {
+            sstore(slot, vaultAddr)
+        }
+    }
+
+    function rawReceiptBalance(address account, uint256 id) external view returns (uint256) {
+        return LibERC1155Storage.underlyingBalance(account, id);
+    }
+
+    function holderIdCursor(address account, uint256 id) external view returns (uint256) {
+        return LibCorporateActionReceipt.getStorage().accountIdCursor[account][id];
+    }
 }
 
 /// @dev Handler for the corporate-actions invariant suite. Foundry's invariant
@@ -115,20 +182,32 @@ contract InvariantVault is StoxReceiptVault {
 /// reverts that would mask real bugs.
 contract StoxCorporateActionsHandler is Test {
     InvariantVault public immutable VAULT;
+    InvariantReceipt public immutable RECEIPT;
 
-    /// @dev Fixed set of actors the handler cycles through.
+    /// @dev Fixed set of actors the handler cycles through. Each actor is
+    /// paired with a fixed receipt id (`i + 1`) for the proportionality
+    /// invariant: `deposit` and `withdraw` create / destroy matching amounts
+    /// of both the share balance and the receipt at that actor's id, so
+    /// `vault.balanceOf(actor_i) == receipt.balanceOf(actor_i, i+1)` holds
+    /// at every post-handler-call checkpoint. Share-only transfers would
+    /// break this proportionality (shares fungible, receipts per-id), so
+    /// the handler deliberately does not expose them.
     address[5] public actors;
 
     /// @dev Total number of mints executed (for ghost-variable assertions).
     uint256 public totalMinted;
     /// @dev Total number of burns executed.
     uint256 public totalBurned;
-    /// @dev Track the most recent cursor value per actor, to verify
-    /// monotonicity (invariant 3).
+    /// @dev Track the most recent share-side cursor value per actor, to
+    /// verify monotonicity (invariant 3).
     mapping(address => uint256) public lastSeenCursor;
+    /// @dev Track the most recent receipt-side cursor per (actor, id) pair
+    /// for the receipt cursor monotonicity invariant.
+    mapping(address => mapping(uint256 => uint256)) public lastSeenReceiptCursor;
 
-    constructor(InvariantVault vault_) {
+    constructor(InvariantVault vault_, InvariantReceipt receipt_) {
         VAULT = vault_;
+        RECEIPT = receipt_;
         actors[0] = address(0xA11CE);
         actors[1] = address(0xB0B);
         actors[2] = address(0xCA401);
@@ -137,6 +216,12 @@ contract StoxCorporateActionsHandler is Test {
         // Start time past 0 so `block.timestamp > 0` and fresh effectiveTime
         // values can land strictly in the future.
         vm.warp(1000);
+    }
+
+    /// @dev Each actor has a fixed receipt id = index + 1. Id 0 is avoided
+    /// (reserved for "no id" semantics in various tests).
+    function _actorId(uint256 actorIndex) internal pure returns (uint256) {
+        return actorIndex + 1;
     }
 
     function _actor(uint256 seed) internal view returns (address) {
@@ -193,53 +278,79 @@ contract StoxCorporateActionsHandler is Test {
         vm.warp(block.timestamp + 1 + uint256(delta));
     }
 
-    /// @dev Mint a bounded amount to a fuzzer-selected actor.
-    function mint(uint256 actorSeed, uint64 amountSeed) external {
-        address to = _actor(actorSeed);
+    /// @dev Deposit — mints matching amounts of share and receipt to an
+    /// actor at their assigned id. Models the real vault flow where a
+    /// deposit creates both a share balance and a receipt in lockstep.
+    /// This is the only mint path in the handler so that the
+    /// share-receipt proportionality invariant holds at every checkpoint.
+    function deposit(uint256 actorSeed, uint64 amountSeed) external {
+        uint256 actorIndex = actorSeed % actors.length;
+        address to = actors[actorIndex];
+        uint256 id = _actorId(actorIndex);
         uint256 amount = uint256(amountSeed) % 1e24 + 1;
+
+        // Share side.
         VAULT.publicUpdate(address(0), to, amount);
+
+        // Receipt side — manager-authorized mint of the same amount at the
+        // actor's assigned id. `managerMint(sender, account, id, amount, data)`.
+        vm.prank(address(VAULT));
+        RECEIPT.managerMint(address(VAULT), to, id, amount, "");
+
         totalMinted += amount;
         _assertCursorInvariant(to);
+        _assertReceiptCursorInvariant(to, id);
         _recordCursor(to);
+        _recordReceiptCursor(to, id);
     }
 
-    /// @dev Burn a bounded amount from a fuzzer-selected actor, capped at the
-    /// actor's current effective balance so OZ doesn't underflow.
-    function burn(uint256 actorSeed, uint64 amountSeed) external {
-        address from = _actor(actorSeed);
+    /// @dev Withdraw — burns matching amounts of share and receipt from an
+    /// actor at their assigned id. Capped at the actor's current effective
+    /// balance (which must match the receipt balance by proportionality)
+    /// so OZ does not underflow.
+    function withdraw(uint256 actorSeed, uint64 amountSeed) external {
+        uint256 actorIndex = actorSeed % actors.length;
+        address from = actors[actorIndex];
+        uint256 id = _actorId(actorIndex);
+
         uint256 effective = VAULT.balanceOf(from);
         if (effective == 0) return;
         uint256 amount = uint256(amountSeed) % (effective + 1);
         if (amount == 0) return;
+
+        // Share side.
         VAULT.publicUpdate(from, address(0), amount);
+
+        // Receipt side.
+        vm.prank(address(VAULT));
+        RECEIPT.managerBurn(address(VAULT), from, id, amount, "");
+
         totalBurned += amount;
         _assertCursorInvariant(from);
+        _assertReceiptCursorInvariant(from, id);
         _recordCursor(from);
+        _recordReceiptCursor(from, id);
     }
 
-    /// @dev Transfer a bounded amount between two fuzzer-selected actors,
-    /// capped at the sender's effective balance.
-    function transfer(uint256 fromSeed, uint256 toSeed, uint64 amountSeed) external {
-        address from = _actor(fromSeed);
-        address to = _actor(toSeed);
-        if (from == to) return; // no-op self transfer not interesting
-        uint256 effective = VAULT.balanceOf(from);
-        if (effective == 0) return;
-        uint256 amount = uint256(amountSeed) % (effective + 1);
-        VAULT.publicUpdate(from, to, amount);
-        _assertCursorInvariant(from);
-        _assertCursorInvariant(to);
-        _recordCursor(from);
-        _recordCursor(to);
-    }
-
-    /// @dev Touch an actor (0-amount self-send) to force migration without
-    /// any balance change. Exposes cursor-only advancement paths.
+    /// @dev Touch an actor by performing a zero-value self-deposit-equivalent
+    /// on both sides. Exercises cursor-only advancement paths (both share
+    /// and receipt).
     function touch(uint256 actorSeed) external {
-        address a = _actor(actorSeed);
+        uint256 actorIndex = actorSeed % actors.length;
+        address a = actors[actorIndex];
+        uint256 id = _actorId(actorIndex);
+
+        // Share side — zero-value self-send.
         VAULT.publicUpdate(a, a, 0);
+
+        // Receipt side — zero-value self-transfer via manager path.
+        vm.prank(address(VAULT));
+        RECEIPT.managerTransferFrom(address(VAULT), a, a, id, 0, "");
+
         _assertCursorInvariant(a);
+        _assertReceiptCursorInvariant(a, id);
         _recordCursor(a);
+        _recordReceiptCursor(a, id);
     }
 
     // -----------------------------------------------------------------------
@@ -268,6 +379,28 @@ contract StoxCorporateActionsHandler is Test {
             cursorReachableForward(last, current), "invariant 3: per-actor cursor must advance forward in list order"
         );
         lastSeenCursor[a] = current;
+    }
+
+    /// @dev After any migration on the receipt, the (holder, id) cursor
+    /// equals the vault's `totalSupplyLatestSplit`. A receipt cursor that
+    /// drifted behind would cause `LibReceiptRebase.migratedBalance` to
+    /// silently re-apply multipliers to an already-rasterized stored
+    /// balance on the next read.
+    function _assertReceiptCursorInvariant(address a, uint256 id) internal view {
+        assertEq(
+            RECEIPT.holderIdCursor(a, id),
+            VAULT.totalSupplyLatestSplit(),
+            "receipt invariant: holderIdCursor == totalSupplyLatestSplit after _migrateHolderId"
+        );
+    }
+
+    /// @dev Record the receipt-side cursor to check per-(holder, id)
+    /// monotonicity.
+    function _recordReceiptCursor(address a, uint256 id) internal {
+        uint256 current = RECEIPT.holderIdCursor(a, id);
+        uint256 last = lastSeenReceiptCursor[a][id];
+        assertGe(current, last, "receipt invariant: per-(holder, id) cursor must be monotonic non-decreasing");
+        lastSeenReceiptCursor[a][id] = current;
     }
 
     /// @dev True iff `current` is `last` itself or reachable by walking
@@ -304,11 +437,14 @@ contract StoxCorporateActionsHandler is Test {
 /// properties defined below still hold.
 contract StoxCorporateActionsInvariantTest is Test {
     InvariantVault internal vault;
+    InvariantReceipt internal receipt;
     StoxCorporateActionsHandler internal handler;
 
     function setUp() public {
         vault = new InvariantVault();
-        handler = new StoxCorporateActionsHandler(vault);
+        receipt = new InvariantReceipt();
+        receipt.testInit(address(vault));
+        handler = new StoxCorporateActionsHandler(vault, receipt);
         targetContract(address(handler));
     }
 
@@ -469,5 +605,37 @@ contract StoxCorporateActionsInvariantTest is Test {
             node.actionType & ACTION_TYPE_STOCK_SPLIT_V1 != 0,
             "invariant 6: totalSupplyLatestSplit must point at a stock split node"
         );
+    }
+
+    /// Share-receipt proportionality. The handler exposes deposit,
+    /// withdraw, and touch operations — never share-only transfers — so
+    /// every actor's share balance equals their receipt balance at the
+    /// actor's assigned id. Drift here means the two sides aren't applying
+    /// multipliers in lockstep and the underlying could be double-counted.
+    function invariantShareReceiptProportionality() external view {
+        for (uint256 i = 0; i < 5; i++) {
+            address a = handler.actor(i);
+            uint256 id = i + 1;
+            assertEq(
+                receipt.balanceOf(a, id),
+                vault.balanceOf(a),
+                "invariant: receipt.balanceOf(actor, id) == vault.balanceOf(actor) under deposit/withdraw-only topology"
+            );
+        }
+    }
+
+    /// Per-(holder, id) receipt cursor monotonicity. Enforced inline in
+    /// the handler via `_recordReceiptCursor`; re-asserted here for every
+    /// tracked (actor, id) pair.
+    function invariantReceiptCursorMonotonicity() external view {
+        for (uint256 i = 0; i < 5; i++) {
+            address a = handler.actor(i);
+            uint256 id = i + 1;
+            assertGe(
+                receipt.holderIdCursor(a, id),
+                handler.lastSeenReceiptCursor(a, id),
+                "invariant: per-(holder, id) receipt cursor must be monotonic non-decreasing"
+            );
+        }
     }
 }
