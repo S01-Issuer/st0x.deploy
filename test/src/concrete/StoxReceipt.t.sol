@@ -370,6 +370,22 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         assertEq(receipt.rawStoredBalance(ALICE, ID_B), 400);
     }
 
+    /// Minting additional balance to a holder who already has a pre-split
+    /// position rasterizes first, then adds the mint amount. The mint is
+    /// denominated in post-rebase units — so the holder ends up with
+    /// `oldBalance * multiplier + mintAmount`, not `(oldBalance +
+    /// mintAmount) * multiplier`.
+    function testMintToExistingHolderAfterSplitRasterizesFirst() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        _mint(ALICE, ID_A, 50);
+
+        assertEq(receipt.balanceOf(ALICE, ID_A), 250, "200 post-rebase + 50 minted");
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 250);
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1);
+    }
+
     /// An approved operator can move up to the post-rebase balance for
     /// any transfer amount in `[0, postRebase]`. Approval semantics are
     /// unchanged by the rebase — the operator sees the rebased ceiling,
