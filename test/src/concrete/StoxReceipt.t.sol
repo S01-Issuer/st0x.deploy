@@ -584,6 +584,32 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         assertEq(recv.observedRecvBalance(), 50, "hook must see post-transfer recv balance");
     }
 
+    /// The batch-receive hook `onERC1155BatchReceived` fires after
+    /// migration and after the batch transfer has executed. A receiver
+    /// that reads balances from inside the callback observes the same
+    /// post-migration, post-transfer state as `onERC1155Received` does
+    /// for single transfers.
+    function testBatchReceiveHookObservesPostMigrationState() external {
+        _mint(ALICE, ID_A, 100);
+        _mint(ALICE, ID_B, 200);
+        _splitParams(2);
+
+        BatchRecordingReceiver recv = new BatchRecordingReceiver(receipt);
+
+        uint256[] memory ids = new uint256[](2);
+        ids[0] = ID_A;
+        ids[1] = ID_B;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 50;
+        amounts[1] = 100;
+
+        vm.prank(ALICE);
+        receipt.safeBatchTransferFrom(ALICE, address(recv), ids, amounts, "");
+
+        assertEq(recv.observedBalance(ID_A), 50, "hook sees post-transfer recv ID_A");
+        assertEq(recv.observedBalance(ID_B), 100, "hook sees post-transfer recv ID_B");
+    }
+
     /// Burn from a (holder, id) with a pending rebase subtracts from the
     /// post-rebase balance. The migration runs first so OZ's
     /// `_balances[id][holder]` is rasterized before `_burn` decrements it.
@@ -660,5 +686,27 @@ contract RecordingReceiver {
         observedAliceBalance = RECEIPT.balanceOf(ALICE, id);
         observedRecvBalance = RECEIPT.balanceOf(address(this), id);
         return this.onERC1155Received.selector;
+    }
+}
+
+/// @dev Contract recipient that records its own balance per id observed
+/// during `onERC1155BatchReceived`. Mirrors `RecordingReceiver` for the
+/// batch path.
+contract BatchRecordingReceiver {
+    StoxReceipt public immutable RECEIPT;
+    mapping(uint256 => uint256) public observedBalance;
+
+    constructor(StoxReceipt receipt_) {
+        RECEIPT = receipt_;
+    }
+
+    function onERC1155BatchReceived(address, address, uint256[] calldata ids, uint256[] calldata, bytes calldata)
+        external
+        returns (bytes4)
+    {
+        for (uint256 i = 0; i < ids.length; i++) {
+            observedBalance[ids[i]] = RECEIPT.balanceOf(address(this), ids[i]);
+        }
+        return this.onERC1155BatchReceived.selector;
     }
 }
