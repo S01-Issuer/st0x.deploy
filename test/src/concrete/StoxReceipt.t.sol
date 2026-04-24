@@ -170,7 +170,7 @@ contract StoxReceiptRebaseIntegrationTest is Test {
     // -----------------------------------------------------------------------
     // Storage-slot pin tests — mirror of the share-side
     // `testStorageSlotCalculation` and `testStorageLayoutPin` tests on the
-    // StoxCorporateActionsFacet side. See audit/2026-04-09-01 Item 10.
+    // StoxCorporateActionsFacet side.
 
     /// The hardcoded ERC-7201 slot constant for LibCorporateActionReceipt
     /// matches its documented derivation formula.
