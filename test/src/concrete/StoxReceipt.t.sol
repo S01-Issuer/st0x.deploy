@@ -544,6 +544,23 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         assertEq(receipt.balanceOf(ALICE, ID_A), 0, "post-migration balance remains zero");
     }
 
+    /// Empty batch `safeBatchTransferFrom` is a no-op — the migration
+    /// loop runs zero iterations, OZ's super._update accepts empty
+    /// arrays, and no state changes.
+    function testBatchUpdateEmptyArraysIsNoOp() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        uint256[] memory ids = new uint256[](0);
+        uint256[] memory amounts = new uint256[](0);
+
+        vm.prank(ALICE);
+        receipt.safeBatchTransferFrom(ALICE, BOB, ids, amounts, "");
+
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 100, "no migration means no rasterization");
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 0, "no migration means cursor stays");
+    }
+
     /// In a multi-id batch transfer, `ReceiptAccountMigrated` events fire
     /// in `(from, ids[0]), (to, ids[0]), (from, ids[1]), (to, ids[1]), ...`
     /// order, all before the `TransferBatch` event. Indexers rely on this
