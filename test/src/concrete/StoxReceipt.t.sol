@@ -168,9 +168,7 @@ contract StoxReceiptRebaseIntegrationTest is Test {
     }
 
     // -----------------------------------------------------------------------
-    // Storage-slot pin tests — mirror of the share-side
-    // `testStorageSlotCalculation` and `testStorageLayoutPin` tests on the
-    // StoxCorporateActionsFacet side.
+    // Storage-slot pin tests
 
     /// The hardcoded ERC-7201 slot constant for LibCorporateActionReceipt
     /// matches its documented derivation formula.
@@ -247,9 +245,11 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         assertEq(receipt.holderIdCursor(ALICE, ID_A), 1, "cursor advanced to first split");
     }
 
-    /// REGRESSION (share-side analogue of A03-1 on the receipt side): mint
-    /// to a fresh recipient AFTER a completed split must credit exactly the
-    /// minted amount, not multiplied by the split.
+    /// Mint to a fresh recipient after a completed split credits exactly
+    /// the minted amount, not multiplied by the split. Without the
+    /// zero-balance cursor-advancement guard, the recipient's freshly-
+    /// written post-rebase balance would be re-multiplied on the next
+    /// `balanceOf` read.
     function testMintToFreshRecipientAfterSplitDoesNotInflate() external {
         // Pre-existing supply so the split has something to rebase.
         _mint(BOB, ID_A, 1000);
@@ -419,7 +419,7 @@ contract StoxReceiptRebaseIntegrationTest is Test {
     }
 
     // -----------------------------------------------------------------------
-    // balanceOfBatch consistency — token-integration-analyzer §8b finding.
+    // balanceOfBatch consistency
 
     /// balanceOfBatch must return the same rebased values as calling
     /// balanceOf on each (account, id) individually. Without the override

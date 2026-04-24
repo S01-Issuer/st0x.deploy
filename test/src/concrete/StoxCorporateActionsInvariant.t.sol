@@ -607,38 +607,34 @@ contract StoxCorporateActionsInvariantTest is Test {
         );
     }
 
-    /// Invariant 7 (receipt coordination, PR #7): share-receipt
-    /// proportionality. Because the handler only exposes deposit / withdraw
-    /// / touch operations — never share-only transfers — every actor's
-    /// share balance equals their receipt balance at the actor's assigned
-    /// id (and vice versa). Any drift means the two sides aren't applying
-    /// multipliers in lockstep, which would re-open the arbitrage gap that
-    /// PR #7 is closing. This is the proof-of-closure for audit
-    /// 2026-04-09-01 Item 2.
-    function invariant_shareReceiptProportionality() external view {
+    /// Share-receipt proportionality. The handler exposes deposit,
+    /// withdraw, and touch operations — never share-only transfers — so
+    /// every actor's share balance equals their receipt balance at the
+    /// actor's assigned id. Drift here means the two sides aren't applying
+    /// multipliers in lockstep and the underlying could be double-counted.
+    function invariantShareReceiptProportionality() external view {
         for (uint256 i = 0; i < 5; i++) {
             address a = handler.actor(i);
             uint256 id = i + 1;
             assertEq(
                 receipt.balanceOf(a, id),
                 vault.balanceOf(a),
-                "invariant 7: receipt.balanceOf(actor, id) == vault.balanceOf(actor) under deposit/withdraw-only topology"
+                "invariant: receipt.balanceOf(actor, id) == vault.balanceOf(actor) under deposit/withdraw-only topology"
             );
         }
     }
 
-    /// Invariant 8 (receipt coordination, PR #7): per-(holder, id) cursor
-    /// monotonicity on the receipt side. Enforced inline in the handler via
-    /// `_recordReceiptCursor`; re-asserted at the framework level for every
+    /// Per-(holder, id) receipt cursor monotonicity. Enforced inline in
+    /// the handler via `_recordReceiptCursor`; re-asserted here for every
     /// tracked (actor, id) pair.
-    function invariant_receiptCursorMonotonicity() external view {
+    function invariantReceiptCursorMonotonicity() external view {
         for (uint256 i = 0; i < 5; i++) {
             address a = handler.actor(i);
             uint256 id = i + 1;
             assertGe(
                 receipt.holderIdCursor(a, id),
                 handler.lastSeenReceiptCursor(a, id),
-                "invariant 8: per-(holder, id) receipt cursor must be monotonic non-decreasing"
+                "invariant: per-(holder, id) receipt cursor must be monotonic non-decreasing"
             );
         }
     }

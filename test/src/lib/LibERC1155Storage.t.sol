@@ -33,15 +33,11 @@ contract TestERC1155 is ERC1155Upgradeable {
     }
 }
 
-/// @dev Regression / drift-detection tests for `LibERC1155Storage`. Mirrors
-/// `LibERC20Storage.t.sol` in structure; landed as part of PR #7 audit Item
-/// "receipt coordination" and serves the same drift-detection purpose for OZ
-/// ERC-1155 v5's `ERC-7201` storage layout that the ERC-20 version serves
-/// for OZ ERC-20 v5's layout.
-///
-/// If a future `forge update` of `openzeppelin-contracts-upgradeable` reorders
-/// the `ERC1155Storage` struct or moves the namespace, every assertion in
-/// this file diverges.
+/// @dev Drift-detection tests for `LibERC1155Storage`. Every assertion is
+/// grounded against `ERC1155Upgradeable` running on the same test contract:
+/// if OZ reorders the `ERC1155Storage` struct or renames the ERC-7201
+/// namespace, the slot derivations stop matching the OZ reads and every
+/// assertion in this file fails.
 contract LibERC1155StorageTest is Test {
     TestERC1155 internal token;
 
