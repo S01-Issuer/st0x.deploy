@@ -150,15 +150,11 @@ contract StoxReceipt is Receipt {
         ICorporateActionsV1 vault = _vault();
 
         // Migrate each (account, id) pair before the transfer executes.
-        // For mint, `from == address(0)` — the zero address has no storage
-        // to migrate and is skipped. Same for burn's `to == address(0)`.
+        // `_migrateHolderId` short-circuits on `address(0)` so mint (from ==
+        // 0) and burn (to == 0) pass straight through to super._update.
         for (uint256 i = 0; i < ids.length; i++) {
-            if (from != address(0)) {
-                _migrateHolderId(from, ids[i], vault);
-            }
-            if (to != address(0)) {
-                _migrateHolderId(to, ids[i], vault);
-            }
+            _migrateHolderId(from, ids[i], vault);
+            _migrateHolderId(to, ids[i], vault);
         }
 
         // Now that both sides are rasterized to the current cursor, run
@@ -177,6 +173,8 @@ contract StoxReceipt is Receipt {
     /// `internal` so test harnesses derived from this contract can exercise
     /// the migration logic in isolation.
     function _migrateHolderId(address account, uint256 id, ICorporateActionsV1 vault) internal {
+        if (account == address(0)) return;
+
         LibCorporateActionReceipt.CorporateActionReceiptStorage storage s = LibCorporateActionReceipt.getStorage();
         uint256 currentCursor = s.accountIdCursor[account][id];
         uint256 storedBalance = LibERC1155Storage.underlyingBalance(account, id);

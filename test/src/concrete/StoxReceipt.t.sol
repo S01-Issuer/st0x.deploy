@@ -151,6 +151,12 @@ contract TestStoxReceipt is StoxReceipt {
     function holderIdCursor(address account, uint256 id) external view returns (uint256) {
         return LibCorporateActionReceipt.getStorage().accountIdCursor[account][id];
     }
+
+    /// Expose internal migration so tests can exercise the zero-address
+    /// short-circuit directly.
+    function publicMigrateHolderId(address account, uint256 id) external {
+        _migrateHolderId(account, id, ICorporateActionsV1(this.manager()));
+    }
 }
 
 contract StoxReceiptRebaseIntegrationTest is Test {
@@ -396,6 +402,20 @@ contract StoxReceiptRebaseIntegrationTest is Test {
 
         assertEq(receipt.balanceOf(ALICE, ID_A), 50);
         assertEq(receipt.rawStoredBalance(ALICE, ID_A), 50);
+    }
+
+    /// `_migrateHolderId(address(0), ...)` short-circuits. After a
+    /// completed split, calling it for address(0) must leave address(0)'s
+    /// cursor and balance at their zero-initialized values (no state
+    /// pollution on the zero address).
+    function testMigrateHolderIdZeroAddressIsNoOp() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        receipt.publicMigrateHolderId(address(0), ID_A);
+
+        assertEq(receipt.holderIdCursor(address(0), ID_A), 0, "zero address cursor must not advance");
+        assertEq(receipt.rawStoredBalance(address(0), ID_A), 0, "zero address balance must stay zero");
     }
 
     /// When the manager's `authorizeReceiptTransfer3` reverts, the
