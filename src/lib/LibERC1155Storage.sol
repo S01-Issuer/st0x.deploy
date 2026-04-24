@@ -2,14 +2,16 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-/// @dev The ERC-7201 storage location for OpenZeppelin's ERC1155Upgradeable.
-/// keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.ERC1155")) - 1)) & ~bytes32(uint256(0xff))
-bytes32 constant ERC1155_STORAGE_LOCATION = 0x88be536d5240c274a3b1d3a1be54482fd9caa294f08c62a7cde569f49a3c4500;
+/// @dev The ERC-7201 namespaced storage root for OpenZeppelin's
+/// `ERC1155Upgradeable`, computed in-source from the spec formula rather
+/// than hardcoded as a hex literal. Mirrors `LibERC20Storage`.
+bytes32 constant ERC1155_STORAGE_LOCATION =
+    keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.ERC1155")) - 1)) & ~bytes32(uint256(0xff));
 
 /// @title LibERC1155Storage
 /// @notice Direct storage access to OpenZeppelin ERC1155Upgradeable internals,
 /// mirroring the role `LibERC20Storage` plays for the share-side rebase.
-/// Used by the receipt-side rebase migration (PR #7) to write
+/// Used by the receipt-side rebase migration to write
 /// `_balances[id][account]` without going through `_update` (which would
 /// recurse into the migration logic, emit spurious TransferSingle events,
 /// and perform the authorizer callback a second time).
@@ -21,8 +23,7 @@ bytes32 constant ERC1155_STORAGE_LOCATION = 0x88be536d5240c274a3b1d3a1be54482fd9
 ///   slot+2: string _uri
 /// If OZ changes this layout, this library MUST be updated and
 /// `testErc1155SlotConstantMatchesDerivation` in the accompanying test file
-/// will fail first. See `audit/2026-04-09-01/guidelines-advisor.md` and the
-/// "Breaking dependency bumps" section of `CLAUDE.md`.
+/// will fail first. See the "Breaking dependency bumps" section of `CLAUDE.md`.
 ///
 /// The nested-mapping slot derivation is:
 ///   outer = keccak256(abi.encode(id, ERC1155_STORAGE_LOCATION))
@@ -30,16 +31,20 @@ bytes32 constant ERC1155_STORAGE_LOCATION = 0x88be536d5240c274a3b1d3a1be54482fd9
 /// i.e. two hashes where the inner hash has `_balances` base slot (offset 0)
 /// as the second word.
 library LibERC1155Storage {
-    /// @notice Read an account's raw stored balance for a given receipt id
-    /// directly from OZ's ERC1155 storage.
+    /// @notice Read an account's raw underlying balance for a given receipt
+    /// id at OZ's ERC-7201 `_balances` slot. This is whatever value OZ's
+    /// `_update` has last written — no semantic overlay is applied here.
     /// @param account The account to read.
     /// @param id The receipt id.
-    /// @return result The raw stored balance (pre-rebase).
-    function getBalance(address account, uint256 id) internal view returns (uint256 result) {
+    /// @return result The raw value of `_balances[id][account]`.
+    function underlyingBalance(address account, uint256 id) internal view returns (uint256 result) {
+        // Inline assembly only accepts literal number constants; bind the
+        // derived constant to a local first.
+        bytes32 slot = ERC1155_STORAGE_LOCATION;
         assembly ("memory-safe") {
             // outer = keccak256(abi.encode(id, ERC1155_STORAGE_LOCATION))
             mstore(0x00, id)
-            mstore(0x20, ERC1155_STORAGE_LOCATION)
+            mstore(0x20, slot)
             let outer := keccak256(0x00, 0x40)
             // entry = keccak256(abi.encode(account, outer))
             mstore(0x00, account)
@@ -49,14 +54,16 @@ library LibERC1155Storage {
     }
 
     /// @notice Write an account's balance for a given receipt id directly to
-    /// OZ's ERC1155 storage.
+    /// OZ's ERC-7201 `_balances` slot. Bypasses OZ's `_update` entirely —
+    /// no `TransferSingle` event, no authorizer callback.
     /// @param account The account to write.
     /// @param id The receipt id.
-    /// @param newBalance The new balance to set.
-    function setBalance(address account, uint256 id, uint256 newBalance) internal {
+    /// @param newBalance The new value to write to `_balances[id][account]`.
+    function setUnderlyingBalance(address account, uint256 id, uint256 newBalance) internal {
+        bytes32 slot = ERC1155_STORAGE_LOCATION;
         assembly ("memory-safe") {
             mstore(0x00, id)
-            mstore(0x20, ERC1155_STORAGE_LOCATION)
+            mstore(0x20, slot)
             let outer := keccak256(0x00, 0x40)
             mstore(0x00, account)
             mstore(0x20, outer)

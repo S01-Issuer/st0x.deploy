@@ -5,7 +5,7 @@ pragma solidity ^0.8.25;
 import {Float} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "./LibCorporateActionNode.sol";
-import {ACTION_TYPE_STOCK_SPLIT} from "./LibCorporateAction.sol";
+import {ACTION_TYPE_STOCK_SPLIT_V1} from "./LibCorporateAction.sol";
 import {LibStockSplit} from "./LibStockSplit.sol";
 import {LibRebaseMath} from "./LibRebaseMath.sol";
 
@@ -61,34 +61,31 @@ library LibReceiptRebase {
     {
         newCursor = cursor;
 
-        (uint256 nodeIndex,,) = vault.nextOfType(cursor, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+        (uint256 nodeIndex,,) = vault.nextOfType(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
 
         // Fast path: zero balance still advances the cursor through
-        // completed splits without any multiplier math. Load-bearing for
-        // fresh recipients of transfers — see LibRebase.migratedBalance
-        // and the 2026-04-07-01 audit post-mortem.
+        // completed splits without any multiplier math. Required for fresh
+        // recipients of transfers: without it, a subsequent write would
+        // land at a stale cursor and the next balanceOf read would re-apply
+        // every completed multiplier to a post-rebase balance, inflating
+        // it. See LibRebase.migratedBalance for the same mechanism on the
+        // share side.
         if (storedBalance == 0) {
             while (nodeIndex != 0) {
                 newCursor = nodeIndex;
-                (nodeIndex,,) = vault.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
+                (nodeIndex,,) = vault.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
             }
             return (0, newCursor);
         }
 
         uint256 balance = storedBalance;
-        bool modified = false;
 
         while (nodeIndex != 0) {
             newCursor = nodeIndex;
-            Float multiplier = LibStockSplit.decodeParameters(vault.getActionParameters(nodeIndex));
+            Float multiplier = LibStockSplit.decodeParametersV1(vault.getActionParameters(nodeIndex));
             balance = LibRebaseMath.applyMultiplier(balance, multiplier);
-            modified = true;
 
-            (nodeIndex,,) = vault.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
-        }
-
-        if (!modified) {
-            return (storedBalance, cursor);
+            (nodeIndex,,) = vault.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         }
 
         return (balance, newCursor);

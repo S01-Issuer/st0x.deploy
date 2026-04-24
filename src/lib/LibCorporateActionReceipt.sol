@@ -18,8 +18,6 @@ bytes32 constant CORPORATE_ACTION_RECEIPT_STORAGE_LOCATION =
 /// that belongs next to the receipt balances it describes. The multiplier
 /// source (stock split linked list) still lives on the vault; the receipt
 /// reads it through cross-contract view calls via `ICorporateActionsV1`.
-/// This is the "Option X" storage choice from `audit/2026-04-09-01/
-/// guidelines-advisor.md` Item 2.
 library LibCorporateActionReceipt {
     /// @custom:storage-location erc7201:rain.storage.corporate-action-receipt.1
     /// @dev **DO NOT REORDER — APPEND ONLY.** Lives at a fixed ERC-7201

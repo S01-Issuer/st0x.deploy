@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: LicenseRef-DCL-1.0
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
-pragma solidity =0.8.25;
+pragma solidity ^0.8.25;
 
 import {Float} from "rain.math.float/lib/LibDecimalFloat.sol";
-import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT} from "./LibCorporateAction.sol";
+import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "./LibCorporateAction.sol";
 import {CompletionFilter, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
-import {LibStockSplit} from "./LibStockSplit.sol";
 import {LibRebaseMath} from "./LibRebaseMath.sol";
+import {LibStockSplit} from "./LibStockSplit.sol";
 
 /// @title LibRebase
 /// @notice Walks the corporate action linked list to apply stock split
 /// multipliers sequentially. Multipliers are read directly from completed
-/// nodes filtered by ACTION_TYPE_STOCK_SPLIT.
+/// nodes filtered by ACTION_TYPE_STOCK_SPLIT_V1.
 ///
 /// ## Sequential precision
 ///
@@ -52,21 +52,20 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 /// (`test/src/lib/LibRebase.t.sol`) locks this exact input → 96
 /// relationship in place. Any change to Rain Float's precision
 /// characteristics will surface there first.
-///
-/// See `audit/2026-04-09-01` Item 7.
 library LibRebase {
     /// @notice Calculate the migrated balance by walking completed stock split
     /// nodes from a cursor, applying each multiplier sequentially.
     ///
-    /// Cursor advancement is performed even when `storedBalance == 0`. This is
-    /// load-bearing for fresh recipients of mints and transfers: if the cursor
-    /// did not advance for a zero-balance account, a subsequent stored-balance
-    /// write (via `super._update` in the vault) would land at a stale cursor
-    /// and the next read of `balanceOf` would re-apply every completed
-    /// multiplier to a balance that was already written at the post-rebase
-    /// basis — over-multiplying and silently inflating the recipient's balance.
-    /// See `audit/2026-04-07-01/pass1/StoxReceiptVault.md::A03-1` and
-    /// `pass1/LibRebase.md::A26-1` for the full reproduction.
+    /// Cursor advancement is performed even when `storedBalance == 0`. Without
+    /// it, a fresh recipient of a mint or transfer-in would have its cursor
+    /// stuck at zero: a subsequent stored-balance write (via `super._update`
+    /// in the vault) would land at a stale cursor and the next read of
+    /// `balanceOf` would re-apply every completed multiplier to a balance
+    /// already written at the post-rebase basis — over-multiplying and
+    /// silently inflating the recipient's balance.
+    /// Regression tests: `testZeroBalanceAdvancesCursor*` in
+    /// `test/src/lib/LibRebase.t.sol`, and the fresh-recipient regression
+    /// tests in `test/src/concrete/StoxReceiptVault.t.sol`.
     ///
     /// @param storedBalance The account's raw stored balance.
     /// @param cursor The index of the last node this account was migrated
@@ -80,41 +79,34 @@ library LibRebase {
 
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
 
-        uint256 nodeIndex =
-            LibCorporateActionNode.nextOfType(cursor, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
-
-        // Fast path: zero balance still advances the cursor through completed
-        // splits without doing any multiplier math.
-        if (storedBalance == 0) {
-            while (nodeIndex != 0) {
-                newCursor = nodeIndex;
-                nodeIndex =
-                    LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
-            }
-            return (0, newCursor);
-        }
-
         uint256 balance = storedBalance;
-        bool modified = false;
+        uint256 nodeIndex =
+            LibCorporateActionNode.nextOfType(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
 
         while (nodeIndex != 0) {
             newCursor = nodeIndex;
-            Float multiplier = LibStockSplit.decodeParameters(s.nodes[nodeIndex].parameters);
-            // Rasterize after each multiplier to match what storage writes
-            // would produce. This ensures dormant and active accounts
-            // converge to identical balances. `LibRebaseMath.applyMultiplier`
-            // is the shared primitive used by every rebase path in the
-            // codebase (share side, totalSupply, receipt side) — see
-            // `LibRebaseMath.sol` for the safety argument on the int256 cast.
-            balance = LibRebaseMath.applyMultiplier(balance, multiplier);
-            modified = true;
+            // Skip the multiplier read and float math whenever the balance
+            // is already zero. This covers both dormant zero-balance accounts
+            // (never held / fully burned) and mid-iteration truncation to
+            // zero (e.g. `balance=1, multiplier=0.5` → 0 after one step),
+            // because every subsequent `trunc(0 × multiplier) = 0`. The
+            // cursor still advances on every pass — skipping the advancement
+            // would inflate fresh recipients' balances on their next write;
+            // see the function NatSpec for the mechanism.
+            if (balance != 0) {
+                Float multiplier = LibStockSplit.decodeParametersV1(s.nodes[nodeIndex].parameters);
+                // Rasterize after each multiplier to match what storage
+                // writes would produce. This ensures dormant and active
+                // accounts converge to identical balances.
+                // `LibRebaseMath.applyMultiplier` is the shared primitive
+                // used by every rebase path in the codebase (share side,
+                // totalSupply, receipt side) — see `LibRebaseMath.sol` for
+                // the safety argument on the int256 cast.
+                balance = LibRebaseMath.applyMultiplier(balance, multiplier);
+            }
 
             nodeIndex =
-                LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT, CompletionFilter.COMPLETED);
-        }
-
-        if (!modified) {
-            return (storedBalance, cursor);
+                LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         }
 
         return (balance, newCursor);

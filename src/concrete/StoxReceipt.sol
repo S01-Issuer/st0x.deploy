@@ -20,10 +20,7 @@ import {LibReceiptRebase} from "../lib/LibReceiptRebase.sol";
 /// When a stock split lands on the vault, every receipt balance must rebase
 /// in lockstep with the vault's ERC-20 share balance — otherwise a holder
 /// arbitrages the two representations (redeem an un-rebased receipt for the
-/// pre-split underlying while holding a post-split share worth double). See
-/// `audit/2026-04-09-01/guidelines-advisor.md` Item 2 and
-/// `CORPORATE-ACTIONS-SPEC.md` §"Receipt Coordination" for the full threat
-/// model.
+/// pre-split underlying while holding a post-split share worth double).
 ///
 /// Migration is lazy, identical in shape to the share-side model:
 ///   - Each `(holder, id)` pair tracks its own migration cursor — the 1-based
@@ -34,7 +31,7 @@ import {LibReceiptRebase} from "../lib/LibReceiptRebase.sol";
 ///     migrated through all completed stock splits for each `id` in the
 ///     batch before the transfer executes.
 ///   - Migration writes the rasterized balance directly to OZ ERC-1155
-///     storage via `LibERC1155Storage.setBalance`, avoiding spurious
+///     storage via `LibERC1155Storage.setUnderlyingBalance`, avoiding spurious
 ///     `TransferSingle` events, recursive `_update` calls, and a second
 ///     manager-authorizer callback.
 ///
@@ -53,15 +50,14 @@ import {LibReceiptRebase} from "../lib/LibReceiptRebase.sol";
 ///
 /// ## Zero-balance cursor advancement
 ///
-/// Same load-bearing invariant as the share side: for a `(holder, id)` pair
-/// with `storedBalance == 0`, the cursor is still advanced through completed
+/// Same invariant as the share side: for a `(holder, id)` pair with
+/// `storedBalance == 0`, the cursor is still advanced through completed
 /// splits during migration. If it were not, a subsequent mint or transfer-in
 /// to that `(holder, id)` would land at a stale cursor and the next
 /// `balanceOf` read would re-apply every completed multiplier to a freshly-
 /// written post-rebase balance, silently inflating the position. See the
 /// `testZeroBalanceAdvancesCursor` regression in both `LibRebase.t.sol` and
-/// `LibReceiptRebase.t.sol`, and the share-side audit post-mortem at
-/// `audit/2026-04-07-01/pass1/LibRebase.md::A26-1`.
+/// `LibReceiptRebase.t.sol`.
 contract StoxReceipt is Receipt {
     /// @notice Emitted when a `(account, id)` pair is migrated through one
     /// or more completed corporate actions. Fires from `_update` via
@@ -98,7 +94,7 @@ contract StoxReceipt is Receipt {
         override(ERC1155Upgradeable, IERC1155)
         returns (uint256)
     {
-        uint256 stored = LibERC1155Storage.getBalance(account, id);
+        uint256 stored = LibERC1155Storage.underlyingBalance(account, id);
         uint256 cursor = LibCorporateActionReceipt.getStorage().accountIdCursor[account][id];
         (uint256 effective,) = LibReceiptRebase.migratedBalance(stored, cursor, _vault());
         return effective;
@@ -108,8 +104,7 @@ contract StoxReceipt is Receipt {
     /// `_balances[id][account]` directly and would bypass the rebase override,
     /// returning raw stored balances instead of rebased ones. This override
     /// applies the same multiplier chain per element so that batch reads are
-    /// consistent with single-element `balanceOf`. See audit/2026-04-09-01
-    /// token-integration-analyzer finding §8b.
+    /// consistent with single-element `balanceOf`.
     /// @inheritdoc ERC1155Upgradeable
     function balanceOfBatch(address[] memory accounts, uint256[] memory ids)
         public
@@ -176,14 +171,15 @@ contract StoxReceipt is Receipt {
     /// stock split the pair has not yet been migrated through. Both the
     /// balance rasterization and the cursor advancement happen here; for
     /// zero-balance pairs the rewrite is a no-op but the cursor advancement
-    /// is still load-bearing (see contract-level NatSpec).
+    /// still matters — see contract-level NatSpec for the inflation bug this
+    /// prevents.
     ///
     /// `internal` so test harnesses derived from this contract can exercise
     /// the migration logic in isolation.
     function _migrateHolderId(address account, uint256 id, ICorporateActionsV1 vault) internal {
         LibCorporateActionReceipt.CorporateActionReceiptStorage storage s = LibCorporateActionReceipt.getStorage();
         uint256 currentCursor = s.accountIdCursor[account][id];
-        uint256 storedBalance = LibERC1155Storage.getBalance(account, id);
+        uint256 storedBalance = LibERC1155Storage.underlyingBalance(account, id);
 
         (uint256 newBalance, uint256 newCursor) = LibReceiptRebase.migratedBalance(storedBalance, currentCursor, vault);
 
@@ -192,7 +188,7 @@ contract StoxReceipt is Receipt {
         s.accountIdCursor[account][id] = newCursor;
 
         if (newBalance != storedBalance) {
-            LibERC1155Storage.setBalance(account, id, newBalance);
+            LibERC1155Storage.setUnderlyingBalance(account, id, newBalance);
             emit ReceiptAccountMigrated(account, id, currentCursor, newCursor, storedBalance, newBalance);
         }
     }

@@ -7,7 +7,7 @@ import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
 import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT} from "../../../src/lib/LibCorporateAction.sol";
+import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/lib/LibCorporateAction.sol";
 import {LibCorporateActionReceipt} from "../../../src/lib/LibCorporateActionReceipt.sol";
 import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
 import {LibERC1155Storage} from "../../../src/lib/LibERC1155Storage.sol";
@@ -17,6 +17,8 @@ import {
     CompletionFilter,
     LibCorporateActionNode
 } from "../../../src/lib/LibCorporateActionNode.sol";
+import {LibTestCorporateAction} from "../../lib/LibTestCorporateAction.sol";
+import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 
 /// @dev Auth-bypassed vault subclass used by the invariant harness. Mirrors
 /// the production `StoxReceiptVault._update` flow exactly, only skipping the
@@ -26,17 +28,25 @@ import {
 /// read it.
 contract InvariantVault is StoxReceiptVault {
     function _update(address from, address to, uint256 amount) internal override {
+        LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
+        uint256 prevLatest = s.totalSupplyLatestSplit;
         LibTotalSupply.fold();
+        uint256 newLatest = s.totalSupplyLatestSplit;
+
+        if (newLatest != prevLatest) {
+            _emitNewlyEffectiveSplits(prevLatest, newLatest);
+        }
+
         _migrateAccount(from);
         _migrateAccount(to);
+
+        ERC20Upgradeable._update(from, to, amount);
 
         if (from == address(0)) {
             LibTotalSupply.onMint(amount);
         } else if (to == address(0)) {
             LibTotalSupply.onBurn(amount);
         }
-
-        ERC20Upgradeable._update(from, to, amount);
     }
 
     function publicUpdate(address from, address to, uint256 amount) external {
@@ -63,11 +73,11 @@ contract InvariantVault is StoxReceiptVault {
     }
 
     function listHead() external view returns (uint256) {
-        return LibCorporateAction.head();
+        return LibTestCorporateAction.head();
     }
 
     function listTail() external view returns (uint256) {
-        return LibCorporateAction.tail();
+        return LibTestCorporateAction.tail();
     }
 
     function getNode(uint256 index) external view returns (CorporateActionNode memory) {
@@ -79,7 +89,17 @@ contract InvariantVault is StoxReceiptVault {
     }
 
     function rawStoredBalance(address account) external view returns (uint256) {
-        return LibERC20Storage.getBalance(account);
+        return LibERC20Storage.underlyingBalance(account);
+    }
+
+    /// @dev Whether any stock split in the list has reached its effective
+    /// time. `effectiveTotalSupply` applies multipliers once this is true
+    /// even if `fold()` has not yet been called to update
+    /// `totalSupplyLatestSplit`, so invariants that depend on the
+    /// no-multiplier regime must gate on this rather than
+    /// `totalSupplyLatestSplit == 0`.
+    function hasCompletedSplit() external view returns (bool) {
+        return LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED) != 0;
     }
 
     // -----------------------------------------------------------------------
@@ -139,7 +159,7 @@ contract InvariantReceipt is StoxReceipt {
     }
 
     function rawReceiptBalance(address account, uint256 id) external view returns (uint256) {
-        return LibERC1155Storage.getBalance(account, id);
+        return LibERC1155Storage.underlyingBalance(account, id);
     }
 
     function holderIdCursor(address account, uint256 id) external view returns (uint256) {
@@ -217,17 +237,17 @@ contract StoxCorporateActionsHandler is Test {
     /// packLossless(n,0))`.
     function _multiplier(uint256 seed) internal pure returns (bytes memory) {
         uint256 bucket = seed % 6;
-        if (bucket == 0) return abi.encode(_asFloat(2, 0));
-        if (bucket == 1) return abi.encode(_asFloat(3, 0));
-        if (bucket == 2) return abi.encode(_asFloat(1, 0)); // 1x — a no-op split (valid)
+        if (bucket == 0) return LibStockSplit.encodeParametersV1(_asFloat(2, 0));
+        if (bucket == 1) return LibStockSplit.encodeParametersV1(_asFloat(3, 0));
+        if (bucket == 2) return LibStockSplit.encodeParametersV1(_asFloat(1, 0)); // 1x — a no-op split (valid)
         if (bucket == 3) {
-            return abi.encode(LibDecimalFloat.div(_asFloat(1, 0), _asFloat(2, 0)));
+            return LibStockSplit.encodeParametersV1(LibDecimalFloat.div(_asFloat(1, 0), _asFloat(2, 0)));
         }
         if (bucket == 4) {
-            return abi.encode(LibDecimalFloat.div(_asFloat(1, 0), _asFloat(3, 0)));
+            return LibStockSplit.encodeParametersV1(LibDecimalFloat.div(_asFloat(1, 0), _asFloat(3, 0)));
         }
         // bucket 5: another 2x (slight weighting toward common cases)
-        return abi.encode(_asFloat(2, 0));
+        return LibStockSplit.encodeParametersV1(_asFloat(2, 0));
     }
 
     /// @dev Schedule a stock split at a bounded future time. Time is drawn
@@ -237,7 +257,7 @@ contract StoxCorporateActionsHandler is Test {
         // time in [1, 256] seconds in the future.
         uint64 effectiveTime = uint64(block.timestamp + 1 + (uint256(timeDelta) % 256));
         bytes memory parameters = _multiplier(multiplierSeed);
-        VAULT.publicSchedule(ACTION_TYPE_STOCK_SPLIT, effectiveTime, parameters);
+        VAULT.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, effectiveTime, parameters);
     }
 
     /// @dev Cancel a scheduled action. Bounded to the current nodes array
@@ -347,10 +367,17 @@ contract StoxCorporateActionsHandler is Test {
     }
 
     /// @dev Record the actor's cursor to check monotonicity (invariant 3).
+    /// Cursor IDs are allocation indices, not chronological positions — a
+    /// later-scheduled action with an earlier effectiveTime is inserted
+    /// before older actions in the list, so a valid migration can move a
+    /// cursor to a numerically lower id. Monotonicity is therefore defined
+    /// in LIST order (forward along `next` pointers), not numeric order.
     function _recordCursor(address a) internal {
         uint256 current = VAULT.migrationCursor(a);
         uint256 last = lastSeenCursor[a];
-        assertGe(current, last, "invariant 3: per-actor cursor must be monotonic non-decreasing");
+        assertTrue(
+            cursorReachableForward(last, current), "invariant 3: per-actor cursor must advance forward in list order"
+        );
         lastSeenCursor[a] = current;
     }
 
@@ -376,6 +403,23 @@ contract StoxCorporateActionsHandler is Test {
         lastSeenReceiptCursor[a][id] = current;
     }
 
+    /// @dev True iff `current` is `last` itself or reachable by walking
+    /// `next` pointers starting from `last`. Walk is bounded by
+    /// `nodesLength` so a cycle (violation of invariant 1) does not hang.
+    /// External so framework-level invariants can call it too.
+    function cursorReachableForward(uint256 last, uint256 current) public view returns (bool) {
+        if (last == current) return true;
+        if (last == 0) return true;
+
+        uint256 len = VAULT.nodesLength();
+        uint256 cursor = last;
+        for (uint256 i = 0; i < len && cursor != 0; i++) {
+            cursor = VAULT.getNode(cursor).next;
+            if (cursor == current) return true;
+        }
+        return false;
+    }
+
     function actorCount() external pure returns (uint256) {
         return 5;
     }
@@ -389,9 +433,8 @@ contract StoxCorporateActionsHandler is Test {
 /// @notice Stateful invariant suite for the corporate-actions system. A
 /// `StoxCorporateActionsHandler` drives the vault through random sequences of
 /// schedule / cancel / warp / mint / burn / transfer / touch operations. After
-/// every handler call, the invariant sweep asserts that the six load-bearing
-/// system properties still hold. See `audit/2026-04-09-01/guidelines-advisor.md`
-/// Item 8 for the derivation of each invariant.
+/// every handler call, the invariant sweep asserts that the six system
+/// properties defined below still hold.
 contract StoxCorporateActionsInvariantTest is Test {
     InvariantVault internal vault;
     InvariantReceipt internal receipt;
@@ -409,7 +452,7 @@ contract StoxCorporateActionsInvariantTest is Test {
     /// pointers and from tail backward along `prev` pointers visits the same
     /// set of reachable nodes. Same count both ways; no cycles in either
     /// direction (enforced by bounding the walk to nodesLength iterations).
-    function invariant_listIntegrity() external view {
+    function invariantListIntegrity() external view {
         uint256 len = vault.nodesLength();
         uint256 head = vault.listHead();
         uint256 tail = vault.listTail();
@@ -419,25 +462,38 @@ contract StoxCorporateActionsInvariantTest is Test {
         }
         assertTrue(head != 0 && tail != 0, "invariant 1: head and tail must be set together");
 
-        // Forward walk from head.
+        // Forward walk from head: pin each `prev` link points back to the
+        // previously visited node, node indices are in-bounds, and the walk
+        // terminates exactly at `tail`.
         uint256 forwardCount = 0;
         uint256 current = head;
+        uint256 previous = 0;
         while (current != 0 && forwardCount <= len) {
-            forwardCount++;
+            assertLt(current, len, "invariant 1: forward node index must be in bounds");
             CorporateActionNode memory node = vault.getNode(current);
+            assertEq(node.prev, previous, "invariant 1: forward prev link must point back to previous");
+            forwardCount++;
+            previous = current;
             current = node.next;
         }
         assertTrue(forwardCount <= len, "invariant 1: forward walk must terminate (no cycles)");
+        assertEq(previous, tail, "invariant 1: forward walk must end at tail");
 
-        // Backward walk from tail.
+        // Backward walk from tail: pin each `next` link points forward to the
+        // previously visited node and the walk terminates exactly at `head`.
         uint256 backwardCount = 0;
         current = tail;
+        uint256 next = 0;
         while (current != 0 && backwardCount <= len) {
-            backwardCount++;
+            assertLt(current, len, "invariant 1: backward node index must be in bounds");
             CorporateActionNode memory node = vault.getNode(current);
+            assertEq(node.next, next, "invariant 1: backward next link must point forward to next");
+            backwardCount++;
+            next = current;
             current = node.prev;
         }
         assertTrue(backwardCount <= len, "invariant 1: backward walk must terminate (no cycles)");
+        assertEq(next, head, "invariant 1: backward walk must end at head");
 
         assertEq(forwardCount, backwardCount, "invariant 1: forward and backward walks must visit same count");
     }
@@ -445,7 +501,7 @@ contract StoxCorporateActionsInvariantTest is Test {
     /// Invariant 2: time ordering. Adjacent reachable nodes have
     /// non-decreasing `effectiveTime`. Ties are permitted (stable insertion
     /// places later-scheduled equal-time nodes after earlier ones).
-    function invariant_timeOrdering() external view {
+    function invariantTimeOrdering() external view {
         uint256 head = vault.listHead();
         if (head == 0) return;
 
@@ -465,17 +521,19 @@ contract StoxCorporateActionsInvariantTest is Test {
 
     /// Invariant 3: per-actor cursor monotonicity is enforced inline in the
     /// handler via `_recordCursor`. This function exists so the invariant
-    /// suite has an assertion at the framework level too — a quick sanity
-    /// read that every actor's current cursor is at least as large as the
-    /// last observed cursor. (In practice the handler catches violations
-    /// first.)
-    function invariant_cursorMonotonicity() external view {
-        for (uint256 i = 0; i < 5; i++) {
+    /// suite has an assertion at the framework level too. Cursor IDs are
+    /// allocation indices so numeric comparison is wrong — assert that the
+    /// current cursor is either the same as the last observed one or
+    /// reachable forward from it along `next` pointers.
+    function invariantCursorMonotonicity() external view {
+        uint256 actorCount = handler.actorCount();
+        for (uint256 i = 0; i < actorCount; i++) {
             address a = handler.actor(i);
-            assertGe(
-                vault.migrationCursor(a),
-                handler.lastSeenCursor(a),
-                "invariant 3: per-actor cursor must be monotonic non-decreasing"
+            uint256 current = vault.migrationCursor(a);
+            uint256 last = handler.lastSeenCursor(a);
+            assertTrue(
+                handler.cursorReachableForward(last, current),
+                "invariant 3: per-actor cursor must advance forward in list order"
             );
         }
     }
@@ -501,19 +559,37 @@ contract StoxCorporateActionsInvariantTest is Test {
     /// truncation drift. The harness's bounded actor set and bounded
     /// multipliers keep the gap small; this assertion pins the one-sided
     /// bound regardless.
-    function invariant_sumBalancesLeqTotalSupply() external view {
+    function invariantSumBalancesLeqTotalSupply() external view {
         uint256 sum = 0;
-        for (uint256 i = 0; i < 5; i++) {
+        uint256 actorCount = handler.actorCount();
+        for (uint256 i = 0; i < actorCount; i++) {
             sum += vault.balanceOf(handler.actor(i));
         }
         uint256 total = vault.totalSupply();
         assertLe(sum, total, "invariant 5: sum(balanceOf) must not exceed totalSupply");
     }
 
+    /// Invariant 7: with no stock split past its effective time,
+    /// `totalSupply()` is exactly `Σmints − Σburns`. This is the default
+    /// state of every token until the first stock split reaches its
+    /// effective time — the corporate-actions override must be a
+    /// straight passthrough of OZ's `_totalSupply` in this regime and
+    /// add no drift. Gates on `hasCompletedSplit()` rather than
+    /// `totalSupplyLatestSplit == 0`: `effectiveTotalSupply` applies
+    /// multipliers as soon as a split's effective time has passed, even
+    /// if no subsequent `_update` has triggered `fold()` to advance the
+    /// latest-split tracker.
+    function invariantNoSplitSupplyEqualsNetMinted() external view {
+        if (vault.hasCompletedSplit()) return;
+
+        uint256 netMinted = handler.totalMinted() - handler.totalBurned();
+        assertEq(vault.totalSupply(), netMinted, "invariant 7: totalSupply == Sum(mints) - Sum(burns) with no split");
+    }
+
     /// Invariant 6: `totalSupplyLatestSplit` is either 0 (no split has ever
     /// folded) or points at a node whose effective time is in the past. It
     /// must also not exceed the nodes array bounds.
-    function invariant_totalSupplyLatestSplitValid() external view {
+    function invariantTotalSupplyLatestSplitValid() external view {
         uint256 latest = vault.totalSupplyLatestSplit();
         if (latest == 0) return;
 
@@ -526,7 +602,7 @@ contract StoxCorporateActionsInvariantTest is Test {
             "invariant 6: totalSupplyLatestSplit must point at a past-effectiveTime node"
         );
         assertTrue(
-            node.actionType & ACTION_TYPE_STOCK_SPLIT != 0,
+            node.actionType & ACTION_TYPE_STOCK_SPLIT_V1 != 0,
             "invariant 6: totalSupplyLatestSplit must point at a stock split node"
         );
     }

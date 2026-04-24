@@ -8,7 +8,7 @@ import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {ICorporateActionsV1} from "../../../src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "../../../src/lib/LibCorporateActionNode.sol";
-import {ACTION_TYPE_STOCK_SPLIT} from "../../../src/lib/LibCorporateAction.sol";
+import {ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/lib/LibCorporateAction.sol";
 import {
     LibCorporateActionReceipt,
     CORPORATE_ACTION_RECEIPT_STORAGE_LOCATION
@@ -59,13 +59,13 @@ contract MockVault is ICorporateActionsV1, IReceiptManagerV2 {
         override
         returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime)
     {
-        require(mask == ACTION_TYPE_STOCK_SPLIT, "mock: unexpected mask");
+        require(mask == ACTION_TYPE_STOCK_SPLIT_V1, "mock: unexpected mask");
         require(filter == CompletionFilter.COMPLETED, "mock: unexpected filter");
         uint256 candidate = cursor + 1;
         if (candidate > splits.length) {
             return (0, 0, 0);
         }
-        return (candidate, ACTION_TYPE_STOCK_SPLIT, 1);
+        return (candidate, ACTION_TYPE_STOCK_SPLIT_V1, 1);
     }
 
     function getActionParameters(uint256 cursor) external view override returns (bytes memory) {
@@ -132,7 +132,7 @@ contract TestStoxReceipt is StoxReceipt {
     /// Expose direct storage read so tests can inspect the raw stored
     /// balance (pre-rebase) without going through the `balanceOf` override.
     function rawStoredBalance(address account, uint256 id) external view returns (uint256) {
-        return LibERC1155Storage.getBalance(account, id);
+        return LibERC1155Storage.underlyingBalance(account, id);
     }
 
     /// Expose the cursor for assertions.

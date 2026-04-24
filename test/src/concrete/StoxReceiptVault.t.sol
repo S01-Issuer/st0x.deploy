@@ -3,18 +3,26 @@
 pragma solidity =0.8.25;
 
 import {Test, Vm} from "forge-std/Test.sol";
-import {LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
+import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT} from "../../../src/lib/LibCorporateAction.sol";
+import {
+    IERC20Errors
+} from "openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
+import {
+    LibCorporateAction,
+    ACTION_TYPE_STOCK_SPLIT_V1,
+    ACTION_TYPE_STABLES_DIVIDEND_V1
+} from "../../../src/lib/LibCorporateAction.sol";
 import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
+import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 import {LibTotalSupply} from "../../../src/lib/LibTotalSupply.sol";
 
 /// @dev Test-only subclass of StoxReceiptVault that bypasses
 /// `OffchainAssetReceiptVault._update`'s authorizer / freeze checks. This lets
 /// us exercise `StoxReceiptVault`'s migration logic in isolation without
-/// standing up the full ethgild auth/freeze infrastructure (admin grants,
+/// standing up the full rain.vats auth/freeze infrastructure (admin grants,
 /// authorizer wiring, certify state, etc).
 ///
 /// The test class re-overrides `_update` to call `_migrateAccount` for both
@@ -38,13 +46,13 @@ contract TestStoxReceiptVault is StoxReceiptVault {
         _migrateAccount(from);
         _migrateAccount(to);
 
+        ERC20Upgradeable._update(from, to, amount);
+
         if (from == address(0)) {
             LibTotalSupply.onMint(amount);
         } else if (to == address(0)) {
             LibTotalSupply.onBurn(amount);
         }
-
-        ERC20Upgradeable._update(from, to, amount);
     }
 
     /// Expose ERC20 _update so tests can drive mints/burns/transfers without
@@ -63,8 +71,14 @@ contract TestStoxReceiptVault is StoxReceiptVault {
         return LibCorporateAction.schedule(actionType, effectiveTime, parameters);
     }
 
+    /// Expose corporate-action cancellation for tests that need to remove a
+    /// pending split before its effective time.
+    function publicCancel(uint256 actionIndex) external {
+        LibCorporateAction.cancel(actionIndex);
+    }
+
     function rawStoredBalance(address account) external view returns (uint256) {
-        return LibERC20Storage.getBalance(account);
+        return LibERC20Storage.underlyingBalance(account);
     }
 
     function migrationCursor(address account) external view returns (uint256) {
@@ -73,6 +87,10 @@ contract TestStoxReceiptVault is StoxReceiptVault {
 
     function totalSupplyLatestSplit() external view returns (uint256) {
         return LibCorporateAction.getStorage().totalSupplyLatestSplit;
+    }
+
+    function unmigrated(uint256 cursor) external view returns (uint256) {
+        return LibCorporateAction.getStorage().unmigrated[cursor];
     }
 }
 
@@ -85,11 +103,11 @@ contract StoxReceiptVaultTest is Test {
     }
 }
 
-/// Integration tests for the corporate-actions hooks added in PR4.
+/// Integration tests for the corporate-actions rebase hooks.
 ///
-/// These tests are the regression guards for `audit/2026-04-07-01/pass1/
-/// StoxReceiptVault.md::A03-1` — the CRITICAL inflation bug where mint or
-/// transfer to a fresh recipient after a completed split would over-multiply
+/// These tests are the regression guards for the CRITICAL inflation bug
+/// where mint or transfer to a fresh recipient after a completed split
+/// would over-multiply
 /// the recipient's balance, minting tokens out of thin air.
 contract StoxReceiptVaultMigrationIntegrationTest is Test {
     TestStoxReceiptVault internal vault;
@@ -104,7 +122,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     }
 
     function _splitParams(int256 multiplier) internal pure returns (bytes memory) {
-        return abi.encode(LibDecimalFloat.packLossless(multiplier, 0));
+        return LibStockSplit.encodeParametersV1(LibDecimalFloat.packLossless(multiplier, 0));
     }
 
     /// REGRESSION FOR A03-1 (mint pathway).
@@ -116,7 +134,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vault.publicUpdate(address(0), BOB, 1000);
 
         // Schedule and complete a 2x stock split.
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         // Mint 100 to Alice — a brand new account.
@@ -134,7 +152,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vault.publicUpdate(address(0), BOB, 50);
 
         // Schedule and complete a 2x stock split.
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         // After the split, Bob's balance should be 100.
@@ -158,7 +176,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// Pre-existing holder's balance correctly reflects a completed split.
     function testBalanceOfRebaseOnExistingHolder() external {
         vault.publicUpdate(address(0), BOB, 50);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         assertEq(vault.balanceOf(BOB), 100);
     }
@@ -168,7 +186,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// latest completed split.
     function testFreshAccountCursorAdvancesAfterMigration() external {
         vault.publicUpdate(address(0), BOB, 1000);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         // Touch Alice via a 0-amount mint. (The publicUpdate path via mint=0
@@ -182,8 +200,8 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// Two consecutive splits, then mint to a fresh account: still no inflation.
     function testMintFreshAccountAfterTwoCompletedSplits() external {
         vault.publicUpdate(address(0), BOB, 100);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(3));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
         vm.warp(3000);
 
         vault.publicUpdate(address(0), ALICE, 100);
@@ -195,8 +213,8 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// migration produces the correct rebased balance.
     function testDormantHolderMigratesCorrectly() external {
         vault.publicUpdate(address(0), BOB, 100);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(3));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
         vm.warp(3000);
 
         // Force a migration via a touch.
@@ -210,7 +228,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// Burn from a holder works correctly after a split.
     function testBurnAfterSplit() external {
         vault.publicUpdate(address(0), BOB, 100);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         // Bob's effective balance is 200 after the split.
@@ -225,13 +243,216 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// account is migrated through a completed split.
     function testAccountMigratedEventEmitted() external {
         vault.publicUpdate(address(0), BOB, 100);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         vm.expectEmit(true, false, false, true, address(vault));
         emit StoxReceiptVault.AccountMigrated(BOB, 0, 1, 100, 200);
         // Touch Bob to trigger migration.
         vault.publicUpdate(BOB, BOB, 0);
+    }
+
+    /// `AccountMigrated` must fire exactly once per `_update`, aggregating
+    /// the full multi-split migration into a single event with the aggregate
+    /// `fromCursor → toCursor` and `oldBalance → newBalance`. Pins that the
+    /// emit is not per-split and that the post-rasterization fields reflect
+    /// the end state after all completed splits are applied, not an
+    /// intermediate state.
+    function testAccountMigratedEventAggregatesAcrossMultipleSplits() external {
+        vault.publicUpdate(address(0), BOB, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        vm.warp(3000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 sig = StoxReceiptVault.AccountMigrated.selector;
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 count = 0;
+        uint256 fromCursor;
+        uint256 toCursor;
+        uint256 oldBalance;
+        uint256 newBalance;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
+                count++;
+                assertEq(address(uint160(uint256(logs[i].topics[1]))), BOB, "indexed account is BOB");
+                (fromCursor, toCursor, oldBalance, newBalance) =
+                    abi.decode(logs[i].data, (uint256, uint256, uint256, uint256));
+            }
+        }
+        assertEq(count, 1, "exactly one AccountMigrated event per multi-split migration");
+        assertEq(fromCursor, 0, "fromCursor is pre-migration cursor");
+        assertEq(toCursor, 2, "toCursor is latest completed split index");
+        assertEq(oldBalance, 100, "oldBalance is pre-rasterization stored value");
+        assertEq(newBalance, 600, "newBalance is fully rasterized (100 * 2 * 3)");
+    }
+
+    /// `AccountMigrated` must NOT fire when a zero-balance account's cursor
+    /// advances — the NatSpec states "Only fires when the stored balance
+    /// actually changes; pure cursor-only advancements (zero-balance
+    /// accounts) do not emit."
+    ///
+    /// NOTE: This behaviour is under review. See issue #81 ("Discuss: emit
+    /// AccountMigrated on cursor-only advancement (balance unchanged)") —
+    /// the project may switch to always-emit to restore the "events on
+    /// every state change" convention. If that decision is made, this
+    /// test's intent inverts: update the assertion to expect the event,
+    /// and update the NatSpec on `StoxReceiptVault.AccountMigrated` to
+    /// match. This test is NOT the source of truth — issue #81 is.
+    function testAccountMigratedNotEmittedForZeroBalanceCursorAdvance() external {
+        // Pre-existing holder so bootstrap has something to read.
+        vault.publicUpdate(address(0), BOB, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        // Touch Alice (zero balance, fresh recipient). Her cursor advances
+        // from 0 to 1, but stored balance stays 0 → no `AccountMigrated`
+        // event for her.
+        vm.recordLogs();
+        vault.publicUpdate(address(0), ALICE, 0);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 sig = StoxReceiptVault.AccountMigrated.selector;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
+                fail();
+            }
+        }
+
+        // Confirm the cursor actually advanced — the event suppression
+        // claim is meaningful only when the cursor DID move.
+        assertEq(vault.migrationCursor(ALICE), 1, "alice cursor must have advanced");
+    }
+
+    /// Transfer attempt after a reverse split truncates the sender's
+    /// balance to zero. Migration runs first, writing the post-truncation
+    /// value to storage. OZ's `_update` then sees `_balances[from] == 0`
+    /// and reverts with `ERC20InsufficientBalance` for any non-zero
+    /// transfer amount.
+    function testTransferRevertsWhenMigrationTruncatesBalanceToZero() external {
+        // Alice has stored 1 pre-split. A 1/2x split truncates her to 0.
+        vault.publicUpdate(address(0), ALICE, 1);
+        Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, LibStockSplit.encodeParametersV1(halfX));
+        vm.warp(2000);
+
+        // View already reflects the truncation.
+        assertEq(vault.balanceOf(ALICE), 0, "balanceOf reflects truncation pre-migration");
+
+        // Any non-zero transfer reverts with OZ's insufficient-balance error —
+        // migration writes stored = 0 before the transfer arithmetic runs.
+        vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, ALICE, 0, 1));
+        vault.publicUpdate(ALICE, BOB, 1);
+    }
+
+    /// Partial truncation: balance is reduced but non-zero, transfer succeeds
+    /// up to the migrated amount.
+    function testTransferSucceedsUpToMigratedBalanceAfterPartialTruncation() external {
+        // Alice has stored 3 pre-split. 1/2x truncates 3 → 1.
+        vault.publicUpdate(address(0), ALICE, 3);
+        Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, LibStockSplit.encodeParametersV1(halfX));
+        vm.warp(2000);
+        assertEq(vault.balanceOf(ALICE), 1, "alice migrated balance = trunc(3 * 0.5) = 1");
+
+        // Transfer exactly the migrated amount.
+        vault.publicUpdate(ALICE, BOB, 1);
+        assertEq(vault.balanceOf(ALICE), 0, "alice drained");
+        assertEq(vault.balanceOf(BOB), 1, "bob received the full 1 unit");
+    }
+
+    /// Boundary on `effectiveTime`: a split whose effective time equals the
+    /// current block timestamp must be treated as completed (via the `<=`
+    /// comparison in `LibCorporateActionNode.nextOfType`). One second before
+    /// its effective time it must NOT be completed. Pins the exact threshold
+    /// so a future refactor flipping `<=` to `<` trips this test.
+    function testEffectiveTimeBoundaryExactlyAtCompletesSplit() external {
+        vault.publicUpdate(address(0), ALICE, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+
+        // One second before: NOT completed. Migration is a no-op, balance
+        // unchanged, cursor stays at 0.
+        vm.warp(1499);
+        vault.publicUpdate(ALICE, ALICE, 0);
+        assertEq(vault.migrationCursor(ALICE), 0, "cursor must not advance before effective time");
+        assertEq(vault.balanceOf(ALICE), 100, "balance must not rebase before effective time");
+
+        // Exactly at effective time: IS completed. Migration fires, cursor
+        // advances, balance rebases.
+        vm.warp(1500);
+        vault.publicUpdate(ALICE, ALICE, 0);
+        assertEq(vault.migrationCursor(ALICE), 1, "cursor must advance at exact effective time");
+        assertEq(vault.balanceOf(ALICE), 200, "balance must rebase at exact effective time");
+    }
+
+    /// Fuzzed no-split accounting: for any sequence of mints and burns
+    /// applied before the first split completes (the default state of any
+    /// token the moment it is deployed), `totalSupply()` equals the plain
+    /// `Σmints − Σburns` sum. The corporate-actions override must be a
+    /// straight passthrough of OZ's `_totalSupply` in this regime and
+    /// introduce zero drift.
+    function testFuzzNoSplitSupplyEqualsNetMinted(uint64[8] memory mints, uint8[8] memory burnsRaw) external {
+        address[3] memory actors = [ALICE, BOB, CAROL];
+        uint256 netMinted;
+
+        for (uint256 i = 0; i < 8; i++) {
+            address to = actors[i % 3];
+            uint256 mintAmount = uint256(mints[i]) % 1e18;
+            if (mintAmount > 0) {
+                vault.publicUpdate(address(0), to, mintAmount);
+                netMinted += mintAmount;
+            }
+
+            address from = actors[(i + 1) % 3];
+            uint256 available = vault.balanceOf(from);
+            if (available > 0 && burnsRaw[i] > 0) {
+                uint256 burnAmount = (uint256(burnsRaw[i]) * available) / 255;
+                if (burnAmount > 0) {
+                    vault.publicUpdate(from, address(0), burnAmount);
+                    netMinted -= burnAmount;
+                }
+            }
+
+            assertEq(vault.totalSupply(), netMinted, "totalSupply drifted from net mint/burn sum without splits");
+            assertEq(vault.totalSupplyLatestSplit(), 0, "bootstrap must not have fired: no split has completed");
+        }
+    }
+
+    /// Pre-bootstrap regime: until the first `_update` after a completed
+    /// split, `fold()` must not bootstrap, `onMint`/`onBurn` must be no-ops,
+    /// and `totalSupply()` must return OZ's raw `_totalSupply`. A pending
+    /// split that has not yet reached its effective time must not trigger
+    /// any of these.
+    function testPreBootstrapIsNoOpUntilCompletedSplit() external {
+        // Mint pre-any-split. No pot update expected — pots haven't been
+        // bootstrapped, onMint is a no-op.
+        vault.publicUpdate(address(0), BOB, 200);
+        assertEq(vault.totalSupplyLatestSplit(), 0, "no split tracked pre-schedule");
+        assertEq(vault.totalSupply(), 200, "totalSupply matches OZ pre-any-split");
+        assertEq(vault.unmigrated(0), 0, "pot 0 untouched pre-bootstrap");
+
+        // Burn pre-any-split. Also a no-op on pots.
+        vault.publicUpdate(BOB, address(0), 50);
+        assertEq(vault.totalSupply(), 150, "totalSupply reflects burn via OZ");
+        assertEq(vault.unmigrated(0), 0, "pot 0 still untouched");
+
+        // Schedule a split but do NOT warp past its effective time. Pending,
+        // not completed. `fold()` must still see no completed split and
+        // early-return before bootstrap.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 5000, _splitParams(2));
+        assertEq(vault.totalSupplyLatestSplit(), 0, "pending split does not advance latest");
+
+        // Mint again with the pending split scheduled. Still pre-bootstrap
+        // because no split has completed.
+        vault.publicUpdate(address(0), BOB, 100);
+        assertEq(vault.totalSupplyLatestSplit(), 0, "still no completed split tracked");
+        assertEq(vault.totalSupply(), 250, "totalSupply tracks OZ while pending");
+        assertEq(vault.unmigrated(0), 0, "pot 0 still untouched");
+
+        // balanceOf also returns OZ stored balance directly (no rebase
+        // walks pending splits).
+        assertEq(vault.balanceOf(BOB), 250, "balanceOf ignores pending splits");
     }
 
     /// totalSupply equals the sum of all per-account balanceOf values after a
@@ -244,7 +465,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vault.publicUpdate(address(0), CAROL, 200);
 
         // Split.
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         // Mint to a fresh account after the split.
@@ -264,13 +485,44 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(sumBalances, vault.totalSupply(), "totalSupply must equal sum of balanceOf");
     }
 
+    /// Fractional / reverse splits cannot maintain `totalSupply == sum(balanceOf)`
+    /// exactly while multiple accounts share a pre-split pot: the walk applies
+    /// the multiplier to the aggregate pot, but per-account `balanceOf` applies
+    /// it to each account individually, so `trunc(Σ aᵢ * m) ≥ Σ trunc(aᵢ * m)`.
+    /// The difference is the per-account truncation dust. The gap closes once
+    /// every account has migrated through the split and `unmigrated[0]` is 0.
+    function testTotalSupplyFractionalDustConvergesAfterMigration() external {
+        Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+
+        vault.publicUpdate(address(0), BOB, 1);
+        vault.publicUpdate(address(0), CAROL, 1);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, LibStockSplit.encodeParametersV1(halfX));
+        vm.warp(2000);
+
+        // Aggregate pot: trunc((1 + 1) * 0.5) == 1. Per-account: trunc(1 * 0.5)
+        // + trunc(1 * 0.5) == 0. totalSupply is the upper bound here.
+        assertEq(vault.totalSupply(), 1, "aggregate pot keeps rounding dust pre-migration");
+        assertEq(vault.balanceOf(BOB) + vault.balanceOf(CAROL), 0, "per-account truncates individually");
+
+        // Migrate both accounts out of the shared pot.
+        vault.publicUpdate(BOB, BOB, 0);
+        vault.publicUpdate(CAROL, CAROL, 0);
+
+        assertEq(
+            vault.totalSupply(),
+            vault.balanceOf(BOB) + vault.balanceOf(CAROL),
+            "totalSupply converges to sum(balanceOf) post-migration"
+        );
+        assertEq(vault.totalSupply(), 0, "dust resolves to 0 once both migrate");
+    }
+
     /// REGRESSION FOR A28-1: after the bug was fixed, the totalSupply
     /// computation matches the per-account sum specifically for the mint-after-
     /// split scenario (which the pre-fix code under-reported relative to
     /// per-account balanceOf).
     function testTotalSupplyConsistentWithBalanceOfAfterMintFreshPostSplit() external {
         vault.publicUpdate(address(0), BOB, 1000);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         vault.publicUpdate(address(0), ALICE, 100);
@@ -283,20 +535,20 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     }
 
     // -----------------------------------------------------------------------
-    // CorporateActionEffective event — token-integration-analyzer §10.8.
+    // CorporateActionEffective event tests.
 
     /// The event fires before any AccountMigrated event when the first
     /// transaction touches the vault after a split becomes effective.
     function testCorporateActionEffectiveEventFires() external {
         vault.publicUpdate(address(0), BOB, 1000);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         // The next _update call should emit CorporateActionEffective(1, STOCK_SPLIT, 1500)
         // before any AccountMigrated event, because fold() detects the
         // newly-past-effectiveTime split and the vault emits before migration.
         vm.expectEmit(true, false, false, true, address(vault));
-        emit StoxReceiptVault.CorporateActionEffective(1, ACTION_TYPE_STOCK_SPLIT, 1500);
+        emit StoxReceiptVault.CorporateActionEffective(1, ACTION_TYPE_STOCK_SPLIT_V1, 1500);
 
         vault.publicUpdate(BOB, BOB, 0);
     }
@@ -305,7 +557,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// subsequent transaction. A second touch should NOT re-emit.
     function testCorporateActionEffectiveDoesNotReEmit() external {
         vault.publicUpdate(address(0), BOB, 1000);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         // First touch: fires.
@@ -329,17 +581,306 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// Both are detected in a single fold() call and both events fire.
     function testCorporateActionEffectiveMultipleSplits() external {
         vault.publicUpdate(address(0), BOB, 1000);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(3));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
         vm.warp(3000);
 
         // Both splits land in one fold() call; both events fire.
         vm.expectEmit(true, false, false, true, address(vault));
-        emit StoxReceiptVault.CorporateActionEffective(1, ACTION_TYPE_STOCK_SPLIT, 1500);
+        emit StoxReceiptVault.CorporateActionEffective(1, ACTION_TYPE_STOCK_SPLIT_V1, 1500);
         vm.expectEmit(true, false, false, true, address(vault));
-        emit StoxReceiptVault.CorporateActionEffective(2, ACTION_TYPE_STOCK_SPLIT, 2500);
+        emit StoxReceiptVault.CorporateActionEffective(2, ACTION_TYPE_STOCK_SPLIT_V1, 2500);
 
         vault.publicUpdate(BOB, BOB, 0);
+    }
+
+    /// Many splits become effective before any `_update` touches the vault.
+    /// A single `_update` must emit one `CorporateActionEffective` per split
+    /// walked by `fold()`. Uses `vm.recordLogs()` to assert the exact set
+    /// and order of emitted indices, rather than `vm.expectEmit` which
+    /// would pass on any prefix.
+    function testCorporateActionEffectiveEmitsOnceForEachOfManySplits() external {
+        vault.publicUpdate(address(0), BOB, 1);
+
+        // Schedule 5 splits, each at a later effectiveTime.
+        uint64[5] memory times = [uint64(1500), 2500, 3500, 4500, 5500];
+        for (uint256 i = 0; i < 5; i++) {
+            vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, times[i], _splitParams(2));
+        }
+        vm.warp(6000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 sig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        uint256 emitIndex = 0;
+        uint256[5] memory seenActionIndex;
+        uint64[5] memory seenEffectiveTime;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
+                assertLt(emitIndex, 5, "must not emit more than one per scheduled split");
+                seenActionIndex[emitIndex] = uint256(logs[i].topics[1]);
+                (, uint64 wasEffectiveAt) = abi.decode(logs[i].data, (uint256, uint64));
+                seenEffectiveTime[emitIndex] = wasEffectiveAt;
+                emitIndex++;
+            }
+        }
+        assertEq(emitIndex, 5, "must emit one event per split");
+
+        // Indices emit in list order (time-ascending), which matches schedule
+        // order since effectiveTimes were chosen monotonically.
+        for (uint256 i = 0; i < 5; i++) {
+            assertEq(seenActionIndex[i], i + 1, "actionIndex must ascend in list order");
+            assertEq(seenEffectiveTime[i], times[i], "wasEffectiveAt must match the scheduled effectiveTime");
+        }
+    }
+
+    /// Emit across separated `_update` calls: split A completes, first
+    /// `_update` emits split A. Later, split B is scheduled and reaches
+    /// effective time. Next `_update` emits split B alone — not A (which
+    /// has already been consumed by an earlier `fold()`). Pins the
+    /// `prevLatest → newLatest` delta semantics.
+    function testCorporateActionEffectiveEmitsOnlyNewlyEffectiveAcrossUpdates() external {
+        vault.publicUpdate(address(0), BOB, 1);
+
+        // Split A at 1500.
+        uint256 splitA = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+        vault.publicUpdate(BOB, BOB, 0); // consumes split A, emits A.
+
+        // Split B at 3500.
+        uint256 splitB = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, _splitParams(2));
+        vm.warp(4000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0); // should emit split B only.
+
+        bytes32 sig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 count = 0;
+        uint256 emittedIndex;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
+                emittedIndex = uint256(logs[i].topics[1]);
+                count++;
+            }
+        }
+        assertEq(count, 1, "second update must emit exactly one event");
+        assertEq(emittedIndex, splitB, "emitted index must be splitB");
+        assertTrue(splitA != splitB, "splits must have distinct indices");
+    }
+
+    /// The event triggers on every `_update` path that catches a
+    /// newly-effective split, not just self-transfer touches. Pin that
+    /// mint (from == 0), burn (to == 0), and arbitrary transfer paths
+    /// each trigger the emit when they are the first `_update` after a
+    /// split becomes effective.
+    function testCorporateActionEffectiveTriggersOnMint() external {
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit StoxReceiptVault.CorporateActionEffective(1, ACTION_TYPE_STOCK_SPLIT_V1, 1500);
+        vault.publicUpdate(address(0), BOB, 100); // mint path.
+    }
+
+    function testCorporateActionEffectiveTriggersOnBurn() external {
+        vault.publicUpdate(address(0), BOB, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit StoxReceiptVault.CorporateActionEffective(1, ACTION_TYPE_STOCK_SPLIT_V1, 1500);
+        vault.publicUpdate(BOB, address(0), 50); // burn path — 100 stored becomes 200 post-split, burn 50 → 150.
+    }
+
+    function testCorporateActionEffectiveTriggersOnTransfer() external {
+        vault.publicUpdate(address(0), BOB, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit StoxReceiptVault.CorporateActionEffective(1, ACTION_TYPE_STOCK_SPLIT_V1, 1500);
+        vault.publicUpdate(BOB, ALICE, 50); // transfer path.
+    }
+
+    /// Non-stock-split nodes (e.g. the reserved `ACTION_TYPE_STABLES_DIVIDEND_V1`)
+    /// interleaved with stock splits must be skipped by the emit walk —
+    /// `CorporateActionEffective` is explicitly scoped to stock splits, and
+    /// `fold()` + `_emitNewlyEffectiveSplits` both filter on
+    /// `ACTION_TYPE_STOCK_SPLIT_V1`. Schedules a dividend between two splits
+    /// and asserts only two events fire, with action indices 1 and 3 (the
+    /// split nodes), skipping index 2 (the dividend).
+    function testCorporateActionEffectiveSkipsNonSplitActions() external {
+        vault.publicUpdate(address(0), BOB, 1);
+
+        uint256 splitA = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        uint256 dividend = vault.publicSchedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 2000, hex"");
+        uint256 splitB = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(2));
+
+        vm.warp(3000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 sig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        uint256[2] memory seen;
+        uint256 count = 0;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
+                assertLt(count, 2, "only the two stock-split nodes should emit");
+                seen[count] = uint256(logs[i].topics[1]);
+                count++;
+            }
+        }
+        assertEq(count, 2, "expected 2 events (one per split, dividend skipped)");
+        assertEq(seen[0], splitA, "first emit is splitA");
+        assertEq(seen[1], splitB, "second emit is splitB");
+        // Ensure the dividend index never appeared in the emitted set.
+        assertTrue(seen[0] != dividend && seen[1] != dividend, "dividend index must not be emitted");
+    }
+
+    /// With a split → dividend → split sequence all completed in a single
+    /// `_update`, `fold()` must advance `totalSupplyLatestSplit` to the
+    /// second split (skipping the interleaved dividend), not stop at the
+    /// first split, and `_migrateAccount` must apply both splits'
+    /// multipliers to the holder's balance. Complements
+    /// `testCorporateActionEffectiveSkipsNonSplitActions` which pins the
+    /// emit path; this pins the state path.
+    function testInterleavedDividendDoesNotHaltStockSplitFold() external {
+        vault.publicUpdate(address(0), BOB, 100);
+
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 2000, hex"");
+        uint256 splitB = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(2));
+
+        vm.warp(3000);
+        vault.publicUpdate(BOB, BOB, 0);
+
+        assertEq(vault.totalSupplyLatestSplit(), splitB, "fold() must advance past the dividend to the second split");
+        assertEq(vault.migrationCursor(BOB), splitB, "BOB's cursor must also reach the second split");
+        assertEq(vault.balanceOf(BOB), 400, "100 * 2 * 2 = 400 (dividend does not affect balance)");
+    }
+
+    /// A `_update` that runs while a split is scheduled-but-pending (its
+    /// `effectiveTime` is still in the future) must NOT emit
+    /// `CorporateActionEffective`. `fold()` only advances past completed
+    /// splits, so `prevLatest == newLatest` and the emit branch is skipped.
+    function testCorporateActionEffectivePendingSplitDoesNotEmit() external {
+        vault.publicUpdate(address(0), BOB, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 5000, _splitParams(2));
+        // block.timestamp still 1000, split at 5000 is pending.
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 sig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        for (uint256 i = 0; i < logs.length; i++) {
+            assertTrue(
+                logs[i].topics.length == 0 || logs[i].topics[0] != sig,
+                "pending split must not emit CorporateActionEffective"
+            );
+        }
+    }
+
+    /// A split cancelled before its `effectiveTime` is unlinked from the
+    /// list (`next`/`prev` zeroed) and never reaches `fold()`'s completed
+    /// walk, so it must NOT produce a `CorporateActionEffective` event on
+    /// any subsequent `_update`.
+    function testCorporateActionEffectiveCancelledSplitDoesNotEmit() external {
+        vault.publicUpdate(address(0), BOB, 1000);
+        uint256 id = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicCancel(id);
+        vm.warp(2000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 sig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        for (uint256 i = 0; i < logs.length; i++) {
+            assertTrue(
+                logs[i].topics.length == 0 || logs[i].topics[0] != sig,
+                "cancelled split must not emit CorporateActionEffective"
+            );
+        }
+    }
+
+    /// A cancelled split sandwiched between two completed splits must be
+    /// skipped by `_emitNewlyEffectiveSplits`. The `nextOfType(...COMPLETED)`
+    /// walk never visits cancelled nodes, so only the two real splits should
+    /// emit. This is distinct from `testCorporateActionEffectiveSkipsNonSplitActions`
+    /// (which interleaves a different action type) and
+    /// `testCorporateActionEffectiveCancelledSplitDoesNotEmit` (which has no
+    /// completed siblings): it specifically exercises the completed-filter
+    /// continuation past a cancelled node of the same type.
+    function testCorporateActionEffectiveSkipsCancelledSplitBetweenCompleted() external {
+        vault.publicUpdate(address(0), BOB, 1);
+
+        uint256 splitA = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        uint256 cancelled = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, _splitParams(2));
+        uint256 splitB = vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(2));
+        vault.publicCancel(cancelled);
+        vm.warp(3000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 sig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        uint256[2] memory seen;
+        uint256 count = 0;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
+                assertLt(count, 2, "only the two completed splits should emit");
+                seen[count] = uint256(logs[i].topics[1]);
+                count++;
+            }
+        }
+        assertEq(count, 2, "expected 2 events (cancelled split skipped)");
+        assertEq(seen[0], splitA, "first emit is splitA");
+        assertEq(seen[1], splitB, "second emit is splitB");
+        assertTrue(seen[0] != cancelled && seen[1] != cancelled, "cancelled index must not be emitted");
+    }
+
+    /// Ordering claim from the NatSpec: `CorporateActionEffective` fires
+    /// strictly before any `AccountMigrated` in the same transaction.
+    /// `vm.expectEmit` in the other tests does not enforce inter-event
+    /// order — pin it here by grabbing logs in order and asserting the
+    /// effective-event log index is strictly less than the migration-event
+    /// log index.
+    function testCorporateActionEffectiveBeforeAccountMigrated() external {
+        vault.publicUpdate(address(0), BOB, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        vm.recordLogs();
+        vault.publicUpdate(BOB, BOB, 0);
+
+        bytes32 effectiveSig = keccak256("CorporateActionEffective(uint256,uint256,uint64)");
+        bytes32 migratedSig = keccak256("AccountMigrated(address,uint256,uint256,uint256,uint256)");
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 effectiveIndex = type(uint256).max;
+        uint256 migratedIndex = type(uint256).max;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length == 0) continue;
+            if (logs[i].topics[0] == effectiveSig && effectiveIndex == type(uint256).max) {
+                effectiveIndex = i;
+            }
+            if (logs[i].topics[0] == migratedSig && migratedIndex == type(uint256).max) {
+                migratedIndex = i;
+            }
+        }
+        assertLt(effectiveIndex, type(uint256).max, "CorporateActionEffective must emit");
+        assertLt(migratedIndex, type(uint256).max, "AccountMigrated must emit");
+        assertLt(effectiveIndex, migratedIndex, "CorporateActionEffective must precede AccountMigrated");
     }
 
     // -----------------------------------------------------------------------
@@ -378,7 +919,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.migrationCursor(BOB), 0, "fresh mint lands at cursor 0 before any split");
         assertEq(vault.totalSupplyLatestSplit(), 0, "no splits completed yet");
 
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
         // Touch Bob — migration should land his cursor on 1 AND
@@ -389,7 +930,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.balanceOf(BOB), 2000, "Bob rebased to 2000");
 
         // Split 2: 3x at t=2500. Schedule and warp.
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(3));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
         vm.warp(3000);
 
         // Now burn some from Bob. Inside `_update`, fold() advances
@@ -446,7 +987,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         _assertCursorInvariant(CAROL);
 
         // Split 1 lands.
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(m1));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(m1));
         vm.warp(2000);
 
         // Transfer from Bob to Carol — migrates both, asserts both have
@@ -460,7 +1001,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.migrationCursor(CAROL), 1, "Carol's cursor advanced through split 1");
 
         // Split 2 lands.
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(m2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(m2));
         vm.warp(3000);
 
         // Burn from Carol — migrates Carol (from cursor 1 through split 2
@@ -495,5 +1036,658 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
             vault.totalSupplyLatestSplit(),
             "migrationCursor must equal totalSupplyLatestSplit after _migrateAccount"
         );
+    }
+
+    /// Structural coupling test between `LibRebase.migratedBalance` and
+    /// `LibTotalSupply.fold()`.
+    ///
+    /// Both functions currently filter the corporate-action linked list with
+    /// `ACTION_TYPE_STOCK_SPLIT_V1`. That coupling keeps
+    /// `accountMigrationCursor` and `totalSupplyLatestSplit` in lockstep.
+    ///
+    /// INTENT: pin the current behaviour that a completed non-stock-split node
+    /// advances *neither* cursor. When a future action type (dividends, rights
+    /// issues, etc.) starts participating in migration, whoever adds that
+    /// support MUST update both `LibRebase` and `LibTotalSupply` together, or
+    /// they'll diverge and the pot accounting will break silently. This test
+    /// fails fast in that scenario:
+    ///
+    ///   - If `_migrateAccount` starts walking the new type without
+    ///     `LibTotalSupply.fold()` doing the same, the first assertion here
+    ///     fails because `migrationCursor` advances past the synthetic node
+    ///     but `totalSupplyLatestSplit` does not.
+    ///   - If `fold()` starts walking the new type without `_migrateAccount`
+    ///     doing the same, the inverse failure mode triggers.
+    ///
+    /// When that happens, DO NOT just update the assertions — the failure is
+    /// signalling that the pot model now needs per-action-type accounting.
+    /// Revisit `LibTotalSupply` with the new action type's rebase semantics
+    /// before touching this test.
+    function testNonStockSplitNodeAdvancesNeitherCursor() external {
+        // Schedule a completed dividend node. `publicSchedule` bypasses
+        // `resolveActionType`, so the dividend's parameters blob doesn't
+        // need to match any validator — we only care that the node lives
+        // in the list with a non-stock-split bitmap.
+        vault.publicSchedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 1500, abi.encode(uint256(0)));
+
+        // Give Bob a pre-existing balance so _migrateAccount has something
+        // to rasterize if it ever starts walking the dividend node.
+        vault.publicUpdate(address(0), BOB, 1000);
+
+        // Warp past the dividend's effective time so it counts as completed.
+        vm.warp(2000);
+
+        // Touch Bob to drive fold() + _migrateAccount.
+        vault.publicUpdate(BOB, BOB, 0);
+
+        assertEq(
+            vault.migrationCursor(BOB), 0, "_migrateAccount must not advance cursor through a non-stock-split node"
+        );
+        assertEq(
+            vault.totalSupplyLatestSplit(),
+            0,
+            "fold() must not advance totalSupplyLatestSplit through a non-stock-split node"
+        );
+        assertEq(vault.balanceOf(BOB), 1000, "Bob's balance must be unaffected by a non-split completed node");
+
+        // Now schedule a real stock split, complete it, and confirm BOTH
+        // cursors advance together. This half of the test pins the
+        // positive-case behaviour: stock splits move both, non-splits move
+        // neither.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(2));
+        vm.warp(3000);
+        vault.publicUpdate(BOB, BOB, 0);
+
+        assertEq(vault.migrationCursor(BOB), 2, "cursor must advance to the stock-split node (index 2)");
+        assertEq(vault.totalSupplyLatestSplit(), 2, "latest must advance to the stock-split node (index 2)");
+        assertEq(vault.balanceOf(BOB), 2000, "Bob's balance must reflect only the 2x split, not the dividend");
+    }
+
+    /// Pre-bootstrap `effectiveTotalSupply()` walks ALL completed multipliers
+    /// starting from OZ's raw `_totalSupply`, not just the first one.
+    /// `testTotalSupplyDuringBootstrapDeferredWindow` covers the single-split
+    /// case; this covers multi-split to pin that the walk continues past the
+    /// first completed node without a `fold()` having bootstrapped any pot.
+    function testTotalSupplyMultiSplitPreBootstrap() external {
+        vault.publicUpdate(address(0), BOB, 100);
+
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, _splitParams(5));
+        vm.warp(4000);
+
+        // Critically: no `_update` between the warp and the read, so
+        // `totalSupplyBootstrapped` is still false and the view's walk
+        // starts from `LibERC20Storage.underlyingTotalSupply()`.
+        assertEq(vault.totalSupplyLatestSplit(), 0, "no _update yet => latest unchanged");
+        assertEq(vault.totalSupply(), 3000, "100 * 2 * 3 * 5 via pre-bootstrap multi-multiplier walk");
+    }
+
+    /// `effectiveTotalSupply()` called between split completion and the first
+    /// post-split `_update` exercises the `!totalSupplyBootstrapped` branch:
+    /// the view has no pot to read from, so it starts the walk from OZ's raw
+    /// `_totalSupply` and applies each completed multiplier.
+    ///
+    /// INTENT: pin the behaviour of the view during the bootstrap-deferred
+    /// window. If the branch shape changes — e.g. if `fold()` is ever moved
+    /// into the view — this test fails and forces the author to re-evaluate
+    /// the state-mutation rules for view functions.
+    function testTotalSupplyDuringBootstrapDeferredWindow() external {
+        // Mint supply before any split is scheduled. No bootstrap yet.
+        vault.publicUpdate(address(0), BOB, 100);
+        assertEq(vault.totalSupplyLatestSplit(), 0, "no split tracked yet");
+
+        // Schedule a 2x split and warp past its effective time. Critically,
+        // do NOT call any `_update` after warping — so `fold()` hasn't run
+        // and `totalSupplyBootstrapped` is still false.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        // The view must still report the rebased supply using OZ's raw
+        // totalSupply as the walk starting point.
+        assertEq(vault.totalSupply(), 200, "view must apply the 2x multiplier without bootstrap");
+
+        // And `totalSupplyLatestSplit` is still 0 because no state-mutating
+        // path has run fold(). The view reads are side-effect-free.
+        assertEq(vault.totalSupplyLatestSplit(), 0, "view must not bootstrap");
+    }
+
+    /// Multiple completed splits land between `_update` calls and no
+    /// account migrates in between. Exercises the view walk across all
+    /// three multipliers while pot 0 still holds mass — the critical
+    /// case that catches a dropped-multiplier regression.
+    ///
+    /// INTENT: pin the behaviour of `effectiveTotalSupply` walking
+    /// through intermediate pots. Asserting totalSupply *before* the
+    /// mass migrates out of pot 0 forces the walk to perform real
+    /// multiplier applications on non-zero running values. If a future
+    /// change ever dropped a multiplier step or tried to "skip empty
+    /// pots" without carrying the multiplication forward, this test
+    /// would fail at the pre-migration assertion.
+    ///
+    /// The post-migration assertion is a second-order check: once all
+    /// mass is in the final pot, the walk's multiplier applications
+    /// operate on zero intermediates and are invisible to the result.
+    /// That assertion only catches pot-accounting bugs, not
+    /// multiplier-walk bugs.
+    function testEffectiveTotalSupplyAcrossGapWithZeroIntermediatePots() external {
+        // Seed: Bob holds 100 pre-split.
+        vault.publicUpdate(address(0), BOB, 100);
+
+        // Three splits complete before anybody touches the vault.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, _splitParams(5));
+        vm.warp(4000);
+
+        // Force `fold()` to bootstrap + advance `totalSupplyLatestSplit`
+        // without moving Bob's mass out of pot 0. CAROL is a fresh
+        // zero-balance account — her "migration" advances only her
+        // cursor, not any pot value. After this, pot 0 still holds 100.
+        vault.publicUpdate(address(0), CAROL, 0);
+        assertEq(vault.totalSupplyLatestSplit(), 3, "fold must advance to the latest split");
+
+        // CRITICAL ASSERTION: pot 0 holds 100, pots 1/2/3 are empty. The
+        // view must walk `100 -> trunc(100*2) -> trunc(200*3) -> trunc(600*5)
+        // = 3000`. A dropped multiplier in the walk collapses to 100.
+        assertEq(vault.totalSupply(), 3000, "view must apply every multiplier while pot 0 holds mass");
+
+        // Now migrate Bob. His mass leaves pot 0 and lands in pot 3.
+        vault.publicUpdate(BOB, BOB, 0);
+        assertEq(vault.rawStoredBalance(BOB), 3000, "bob stored = 100 * 2 * 3 * 5");
+        assertEq(vault.migrationCursor(BOB), 3, "bob cursor at latest split");
+
+        // Post-migration: same total, but now all mass lives in pot 3.
+        // Note: the walk here trivially produces 3000 because the
+        // multiplier applications all operate on zero intermediates.
+        // This assertion catches pot-accounting bugs but not walk bugs
+        // — the pre-migration assertion above is the walk guarantee.
+        assertEq(vault.totalSupply(), 3000, "totalSupply stable across migration");
+    }
+
+    /// Burn-to-zero after a completed split: an account with a non-zero
+    /// pre-split balance migrates through the split and then burns its
+    /// entire post-migration balance. Checks all four pieces of state
+    /// simultaneously to pin the migrate+burn interaction in one test.
+    ///
+    /// INTENT: a future regression that, for example, decoupled
+    /// `onBurn` from `_migrateAccount`'s ordering would leave one of
+    /// the pots or the stored balance inconsistent with the others.
+    /// Asserting all four quantities at once makes such a regression
+    /// visible in a single test failure rather than having to correlate
+    /// individual assertions across separate tests.
+    function testBurnToZeroPostSplitInvariants() external {
+        // Alice holds 50 pre-split.
+        vault.publicUpdate(address(0), ALICE, 50);
+
+        // 2x split completes.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        // Alice's view is 100 (migrated). Burn all of it.
+        assertEq(vault.balanceOf(ALICE), 100, "alice sees 2x post-split");
+        vault.publicUpdate(ALICE, address(0), 100);
+
+        // All four state pieces after burn-to-zero:
+        //   (1) stored balance is 0
+        //   (2) migration cursor advanced to the split (index 1)
+        //   (3) unmigrated[0] drained of alice's pre-split balance
+        //   (4) unmigrated[1] = migrated balance - burn = 100 - 100 = 0
+        //
+        // `effectiveTotalSupply` walks: running = unmigrated[0] = 0;
+        // running = trunc(0 * 2) + unmigrated[1] = 0 + 0 = 0.
+        assertEq(vault.rawStoredBalance(ALICE), 0, "alice stored = 0");
+        assertEq(vault.migrationCursor(ALICE), 1, "alice cursor at split");
+        assertEq(vault.totalSupply(), 0, "totalSupply collapses to 0 after full burn");
+    }
+
+    /// Over-burn by a lone holder at `totalSupplyLatestSplit` must surface
+    /// OZ's `ERC20InsufficientBalance` error, not a raw arithmetic panic
+    /// from the pot subtraction.
+    function testOverBurnSurfacesOzInsufficientBalanceNotPanic() external {
+        vault.publicUpdate(address(0), ALICE, 50);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, ALICE, 100, 101));
+        vault.publicUpdate(ALICE, address(0), 101);
+    }
+
+    /// @dev Asserts `LibTotalSupply`'s pot invariant I(k) directly at a
+    /// given cursor: the pot value equals the sum of stored balances for
+    /// every account at that cursor, and no other accounts are at that
+    /// cursor.
+    function _assertPotInvariant(uint256 cursor, address[] memory accountsAtCursor) internal view {
+        uint256 sum;
+        for (uint256 i = 0; i < accountsAtCursor.length; i++) {
+            assertEq(vault.migrationCursor(accountsAtCursor[i]), cursor, "I(k): account must be at the expected cursor");
+            sum += vault.rawStoredBalance(accountsAtCursor[i]);
+        }
+        assertEq(vault.unmigrated(cursor), sum, "I(k): pot must equal sum of stored balances at cursor");
+    }
+
+    /// @dev Build a one-element address array inline.
+    function _single(address a) internal pure returns (address[] memory arr) {
+        arr = new address[](1);
+        arr[0] = a;
+    }
+
+    /// @dev Build a two-element address array inline.
+    function _pair(address a, address b) internal pure returns (address[] memory arr) {
+        arr = new address[](2);
+        arr[0] = a;
+        arr[1] = b;
+    }
+
+    /// @dev Build a three-element address array inline.
+    function _triple(address a, address b, address c) internal pure returns (address[] memory arr) {
+        arr = new address[](3);
+        arr[0] = a;
+        arr[1] = b;
+        arr[2] = c;
+    }
+
+    /// Direct assertion of the LibTotalSupply pot invariant I(k) across a
+    /// mixed activity sequence: two pre-split mints, a split, a post-split
+    /// mint, a transfer, a burn. After each `_update` (post-bootstrap) the
+    /// invariant must hold for every cursor that has touched accounts.
+    function testPotInvariantDirectAfterMixedActivity() external {
+        address[] memory empty = new address[](0);
+
+        // Pre-split mints. Alice and Bob at cursor 0. Bootstrap hasn't
+        // fired yet, so the pot invariant does not apply here.
+        vault.publicUpdate(address(0), ALICE, 50);
+        vault.publicUpdate(address(0), BOB, 100);
+
+        // Schedule and complete a 2x split.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        // Alice touches: fold bootstraps `unmigrated[0] = 150`, then Alice
+        // migrates 50 → 100, shifting 50 out of pot 0 and 100 into pot 1.
+        vault.publicUpdate(ALICE, ALICE, 0);
+        _assertPotInvariant(0, _single(BOB));
+        _assertPotInvariant(1, _single(ALICE));
+
+        // Mint Carol 40 post-split. Fresh recipient cursor advances 0 → 1
+        // with zero balance (no pot delta from migrate). Then super._update
+        // adds 40 to _balances[CAROL], then onMint adds 40 to pot 1.
+        vault.publicUpdate(address(0), CAROL, 40);
+        _assertPotInvariant(0, _single(BOB));
+        _assertPotInvariant(1, _pair(ALICE, CAROL));
+
+        // Alice transfers 30 to Bob. Both migrate first: Alice already at
+        // cursor 1 (no-op), Bob 0 → 1 with stored 100 → migrated 200. Pot
+        // transitions: pot 0 -= 100 (Bob leaves), pot 1 += 200 (Bob arrives).
+        // Then transfer moves 30 between their balances, both at cursor 1
+        // — Σ at cursor 1 unchanged, no pot write.
+        vault.publicUpdate(ALICE, BOB, 30);
+        _assertPotInvariant(0, empty);
+        _assertPotInvariant(1, _triple(ALICE, BOB, CAROL));
+
+        // Burn 25 from Bob. super._update first: _balances[BOB] -= 25,
+        // _totalSupply -= 25. Then onBurn subtracts 25 from pot 1.
+        vault.publicUpdate(BOB, address(0), 25);
+        _assertPotInvariant(0, empty);
+        _assertPotInvariant(1, _triple(ALICE, BOB, CAROL));
+    }
+
+    /// Fuzzed direct assertion of I(k): drive a fixed sequence of
+    /// parameter-randomised operations across Alice, Bob, Carol and
+    /// two stock splits, asserting the pot invariant for every
+    /// touched cursor after each state transition.
+    function testFuzzPotInvariantAcrossRandomActivity(
+        uint8 m1Raw,
+        uint8 m2Raw,
+        uint64 aliceMintRaw,
+        uint64 bobMintRaw,
+        uint64 carolMintRaw,
+        uint64 transferRaw,
+        uint64 burnRaw
+    ) external {
+        int256 m1 = int256(uint256(m1Raw % 4) + 1);
+        int256 m2 = int256(uint256(m2Raw % 4) + 1);
+        uint256 aliceMint = uint256(aliceMintRaw % 1e18) + 1;
+        uint256 bobMint = uint256(bobMintRaw % 1e18) + 1;
+        uint256 carolMint = uint256(carolMintRaw % 1e18);
+
+        address[] memory empty = new address[](0);
+
+        // Pre-split mints (bootstrap has not fired; invariant doesn't apply).
+        vault.publicUpdate(address(0), ALICE, aliceMint);
+        vault.publicUpdate(address(0), BOB, bobMint);
+
+        // Split 1 lands; Alice migrates.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(m1));
+        vm.warp(2000);
+        vault.publicUpdate(ALICE, ALICE, 0);
+        _assertPotInvariant(0, _single(BOB));
+        _assertPotInvariant(1, _single(ALICE));
+
+        // Mint Carol post-split-1.
+        vault.publicUpdate(address(0), CAROL, carolMint);
+        _assertPotInvariant(0, _single(BOB));
+        _assertPotInvariant(1, _pair(ALICE, CAROL));
+
+        // Split 2 lands; Alice migrates again.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(m2));
+        vm.warp(3000);
+        vault.publicUpdate(ALICE, ALICE, 0);
+        _assertPotInvariant(0, _single(BOB));
+        _assertPotInvariant(1, _single(CAROL));
+        _assertPotInvariant(2, _single(ALICE));
+
+        // Alice → Bob transfer. Both migrate: Alice at 2 (no-op), Bob 0 → 2.
+        uint256 aliceView = vault.balanceOf(ALICE);
+        uint256 transferAmt = aliceView == 0 ? 0 : uint256(transferRaw) % (aliceView + 1);
+        vault.publicUpdate(ALICE, BOB, transferAmt);
+        _assertPotInvariant(0, empty);
+        _assertPotInvariant(1, _single(CAROL));
+        _assertPotInvariant(2, _pair(ALICE, BOB));
+
+        // Burn from Bob.
+        uint256 bobView = vault.balanceOf(BOB);
+        uint256 burnAmt = bobView == 0 ? 0 : uint256(burnRaw) % (bobView + 1);
+        vault.publicUpdate(BOB, address(0), burnAmt);
+        _assertPotInvariant(0, empty);
+        _assertPotInvariant(1, _single(CAROL));
+        _assertPotInvariant(2, _pair(ALICE, BOB));
+    }
+
+    /// Fuzzed convergence invariant: for any initial balance and any sequence
+    /// of stock splits, the view `balanceOf` (pre-migration) must equal the
+    /// rasterized stored balance after `_update`-driven migration. This
+    /// guards the core property that external reads and post-rasterization
+    /// stored state agree — if they diverge, transfers could use different
+    /// balances than what the view reports.
+    function testFuzzConvergenceViewMatchesStoredAfterMigration(uint64 initialBalance, uint8 numSplits, uint8 seed)
+        external
+    {
+        initialBalance = uint64(bound(initialBalance, 1, type(uint32).max));
+        numSplits = uint8(bound(numSplits, 0, 8));
+
+        vault.publicUpdate(address(0), BOB, uint256(initialBalance));
+
+        // Schedule alternating forward and reverse splits.
+        for (uint256 i = 0; i < numSplits; i++) {
+            // Alternate 2x and 1/2x based on i bit 0; use seed to vary starting
+            // direction across fuzz runs.
+            bool forward = ((i ^ seed) & 1) == 0;
+            Float multiplier = forward
+                ? LibDecimalFloat.packLossless(2, 0)
+                : LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+            bytes memory params = LibStockSplit.encodeParametersV1(multiplier);
+            // forge-lint: disable-next-line(unsafe-typecast)
+            vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(1001 + i * 100), params);
+        }
+
+        if (numSplits > 0) {
+            // forge-lint: disable-next-line(unsafe-typecast)
+            vm.warp(uint64(1001 + uint256(numSplits) * 100 + 1));
+        }
+
+        // Snapshot view balance BEFORE migration.
+        uint256 viewBefore = vault.balanceOf(BOB);
+
+        // Force migration via a self-touch.
+        vault.publicUpdate(BOB, BOB, 0);
+
+        // View AFTER migration must still match (idempotence).
+        uint256 viewAfter = vault.balanceOf(BOB);
+        uint256 stored = vault.rawStoredBalance(BOB);
+
+        assertEq(viewBefore, viewAfter, "view balance must not change across migration");
+        assertEq(viewAfter, stored, "view and stored balance must converge");
+    }
+
+    /// After every holder has migrated through every completed split, the
+    /// aggregate pot overestimate from fractional-multiplier truncation
+    /// fully resolves: `totalSupply() == sum(balanceOf over all holders)`
+    /// exactly. Before full migration the equality holds as an upper bound
+    /// (tested elsewhere); this test pins the exact-equality convergence.
+    function testFuzzMultiAccountConvergenceAfterFullMigration(
+        uint32 aliceInit,
+        uint32 bobInit,
+        uint32 carolInit,
+        uint8 numSplits,
+        uint8 seed
+    ) external {
+        aliceInit = uint32(bound(aliceInit, 1, type(uint32).max / 256));
+        bobInit = uint32(bound(bobInit, 1, type(uint32).max / 256));
+        carolInit = uint32(bound(carolInit, 0, type(uint32).max / 256));
+        numSplits = uint8(bound(numSplits, 0, 6));
+
+        vault.publicUpdate(address(0), ALICE, uint256(aliceInit));
+        vault.publicUpdate(address(0), BOB, uint256(bobInit));
+        if (carolInit > 0) vault.publicUpdate(address(0), CAROL, uint256(carolInit));
+
+        for (uint256 i = 0; i < numSplits; i++) {
+            bool forward = ((i ^ seed) & 1) == 0;
+            Float multiplier = forward
+                ? LibDecimalFloat.packLossless(2, 0)
+                : LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+            // forge-lint: disable-next-line(unsafe-typecast)
+            vault.publicSchedule(
+                ACTION_TYPE_STOCK_SPLIT_V1, uint64(1001 + i * 100), LibStockSplit.encodeParametersV1(multiplier)
+            );
+        }
+
+        if (numSplits > 0) {
+            // forge-lint: disable-next-line(unsafe-typecast)
+            vm.warp(uint64(1001 + uint256(numSplits) * 100 + 1));
+        }
+
+        // Migrate every holder through every completed split via self-touches.
+        vault.publicUpdate(ALICE, ALICE, 0);
+        vault.publicUpdate(BOB, BOB, 0);
+        if (carolInit > 0) vault.publicUpdate(CAROL, CAROL, 0);
+
+        uint256 sum = vault.balanceOf(ALICE) + vault.balanceOf(BOB) + vault.balanceOf(CAROL);
+        assertEq(vault.totalSupply(), sum, "post-full-migration: totalSupply must equal sum(balanceOf) exactly");
+    }
+
+    /// Fuzzed convergence across two accounts migrated at different points:
+    /// Alice migrates after split 1, Bob migrates after splits 1 and 2. Their
+    /// balances computed from different migration paths must still match
+    /// their view values and their stored values after full migration.
+    function testFuzzTwoAccountDifferentMigrationPathsConverge(uint32 aliceInit, uint32 bobInit) external {
+        aliceInit = uint32(bound(aliceInit, 1, type(uint32).max));
+        bobInit = uint32(bound(bobInit, 1, type(uint32).max));
+
+        vault.publicUpdate(address(0), ALICE, uint256(aliceInit));
+        vault.publicUpdate(address(0), BOB, uint256(bobInit));
+
+        // Split 1: 2x at t=1500.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(1600);
+
+        // Alice touches after split 1 (migrates partially).
+        vault.publicUpdate(ALICE, ALICE, 0);
+
+        // Split 2: 1/2x at t=2000.
+        Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, LibStockSplit.encodeParametersV1(halfX));
+        vm.warp(2100);
+
+        // Both view balances before final migration.
+        uint256 aliceView = vault.balanceOf(ALICE);
+        uint256 bobView = vault.balanceOf(BOB);
+
+        // Both touched — full migration.
+        vault.publicUpdate(ALICE, ALICE, 0);
+        vault.publicUpdate(BOB, BOB, 0);
+
+        // Convergence: view matches stored for both accounts.
+        assertEq(aliceView, vault.rawStoredBalance(ALICE), "alice view matches stored");
+        assertEq(bobView, vault.rawStoredBalance(BOB), "bob view matches stored");
+        // And the post-migration view equals the stored (idempotence).
+        assertEq(vault.balanceOf(ALICE), vault.rawStoredBalance(ALICE));
+        assertEq(vault.balanceOf(BOB), vault.rawStoredBalance(BOB));
+    }
+
+    /// Fuzzed idempotency: after an initial migration through an arbitrary
+    /// split chain, repeated touches with no new splits must not change
+    /// cursor, stored balance, or view balance, and must not re-emit
+    /// `AccountMigrated`. Guards the `newCursor == currentCursor` early
+    /// return in `_migrateAccount`.
+    function testFuzzMigrationIdempotentAcrossRepeatedTouches(
+        uint32 initialBalance,
+        uint8 numSplits,
+        uint8 seed,
+        uint8 touchCount
+    ) external {
+        initialBalance = uint32(bound(initialBalance, 1, type(uint32).max));
+        numSplits = uint8(bound(numSplits, 0, 8));
+        touchCount = uint8(bound(touchCount, 1, 10));
+
+        vault.publicUpdate(address(0), BOB, uint256(initialBalance));
+
+        for (uint256 i = 0; i < numSplits; i++) {
+            bool forward = ((i ^ seed) & 1) == 0;
+            Float multiplier = forward
+                ? LibDecimalFloat.packLossless(2, 0)
+                : LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+            bytes memory params = LibStockSplit.encodeParametersV1(multiplier);
+            // forge-lint: disable-next-line(unsafe-typecast)
+            vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(1001 + i * 100), params);
+        }
+
+        if (numSplits > 0) {
+            // forge-lint: disable-next-line(unsafe-typecast)
+            vm.warp(uint64(1001 + uint256(numSplits) * 100 + 1));
+        }
+
+        // First touch triggers the migration.
+        vault.publicUpdate(BOB, BOB, 0);
+
+        uint256 cursorAfterFirst = vault.migrationCursor(BOB);
+        uint256 storedAfterFirst = vault.rawStoredBalance(BOB);
+        uint256 viewAfterFirst = vault.balanceOf(BOB);
+
+        // Repeated touches must be idempotent AND must not re-emit.
+        bytes32 migratedSig = StoxReceiptVault.AccountMigrated.selector;
+        for (uint256 i = 0; i < touchCount; i++) {
+            vm.recordLogs();
+            vault.publicUpdate(BOB, BOB, 0);
+            Vm.Log[] memory logs = vm.getRecordedLogs();
+            for (uint256 j = 0; j < logs.length; j++) {
+                if (logs[j].topics.length > 0 && logs[j].topics[0] == migratedSig) {
+                    fail();
+                }
+            }
+            assertEq(vault.migrationCursor(BOB), cursorAfterFirst, "cursor unchanged across idempotent touches");
+            assertEq(vault.rawStoredBalance(BOB), storedAfterFirst, "stored unchanged across idempotent touches");
+            assertEq(vault.balanceOf(BOB), viewAfterFirst, "view unchanged across idempotent touches");
+        }
+    }
+
+    /// Transfers between two distinct accounts, interleaved with multiple
+    /// forward and reverse splits in a single flow. At each transfer, both
+    /// `from` and `to` must migrate before the raw balance change lands,
+    /// otherwise the transfer arithmetic operates on pre-rebase balances and
+    /// inflates / deflates incorrectly. Numbers below are exact.
+    function testInterleavedTransfersAndSplits() external {
+        // Initial: Alice 100, Bob 50 (pre-split basis).
+        vault.publicUpdate(address(0), ALICE, 100);
+        vault.publicUpdate(address(0), BOB, 50);
+
+        // Split 1: 2x at t=1500.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(1600);
+
+        // Transfer Alice → Bob, 30. Both migrate first:
+        //   Alice: 100 → 200, then -30 = 170
+        //   Bob:    50 → 100, then +30 = 130
+        vault.publicUpdate(ALICE, BOB, 30);
+        assertEq(vault.balanceOf(ALICE), 170, "alice after t1");
+        assertEq(vault.balanceOf(BOB), 130, "bob after t1");
+
+        // Split 2: 1/2x at t=2000.
+        Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, LibStockSplit.encodeParametersV1(halfX));
+        vm.warp(2100);
+
+        // Transfer Bob → Alice, 40. Both migrate first:
+        //   Bob:    130 → 65, then -40 = 25
+        //   Alice:  170 → 85, then +40 = 125
+        vault.publicUpdate(BOB, ALICE, 40);
+        assertEq(vault.balanceOf(ALICE), 125, "alice after t2");
+        assertEq(vault.balanceOf(BOB), 25, "bob after t2");
+
+        // Split 3: 3x at t=2500.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        vm.warp(2600);
+
+        // Transfer Alice → Bob, 60. Both migrate first:
+        //   Alice: 125 → 375, then -60 = 315
+        //   Bob:   25  → 75,  then +60 = 135
+        vault.publicUpdate(ALICE, BOB, 60);
+        assertEq(vault.balanceOf(ALICE), 315, "alice after t3");
+        assertEq(vault.balanceOf(BOB), 135, "bob after t3");
+
+        // Stored balances equal view balances (post-migration invariant).
+        assertEq(vault.rawStoredBalance(ALICE), 315, "alice stored = view");
+        assertEq(vault.rawStoredBalance(BOB), 135, "bob stored = view");
+    }
+
+    /// Fuzzed interleaved transfers + splits. After each transfer, stored
+    /// balances must equal view balances for both parties (migration is
+    /// eager on both `from` and `to`), and the pairwise conservation
+    /// invariant must hold: the net balance delta equals the transfer
+    /// amount minus any truncation from the rebase that landed between
+    /// transfers.
+    function testFuzzInterleavedTransfersAndSplits(
+        uint32 aliceInit,
+        uint32 bobInit,
+        uint64 amount1,
+        uint64 amount2,
+        uint64 amount3
+    ) external {
+        aliceInit = uint32(bound(aliceInit, 1000, type(uint32).max));
+        bobInit = uint32(bound(bobInit, 1000, type(uint32).max));
+
+        vault.publicUpdate(address(0), ALICE, uint256(aliceInit));
+        vault.publicUpdate(address(0), BOB, uint256(bobInit));
+
+        // Split 1: 2x.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(1600);
+
+        // Transfer Alice → Bob. `balanceOf` already returns the post-rebase
+        // value, which is exactly what migration will write for Alice's
+        // stored balance inside `_update`. Bound the amount by that.
+        amount1 = uint64(bound(amount1, 0, vault.balanceOf(ALICE)));
+        vault.publicUpdate(ALICE, BOB, uint256(amount1));
+        assertEq(vault.balanceOf(ALICE), vault.rawStoredBalance(ALICE), "alice view=stored after t1");
+        assertEq(vault.balanceOf(BOB), vault.rawStoredBalance(BOB), "bob view=stored after t1");
+
+        // Split 2: 1/2x.
+        Float halfX = LibDecimalFloat.div(LibDecimalFloat.packLossless(1, 0), LibDecimalFloat.packLossless(2, 0));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, LibStockSplit.encodeParametersV1(halfX));
+        vm.warp(2100);
+
+        // Transfer Bob → Alice.
+        amount2 = uint64(bound(amount2, 0, vault.balanceOf(BOB)));
+        vault.publicUpdate(BOB, ALICE, uint256(amount2));
+        assertEq(vault.balanceOf(ALICE), vault.rawStoredBalance(ALICE), "alice view=stored after t2");
+        assertEq(vault.balanceOf(BOB), vault.rawStoredBalance(BOB), "bob view=stored after t2");
+
+        // Split 3: 3x.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        vm.warp(2600);
+
+        // Transfer Alice → Bob.
+        amount3 = uint64(bound(amount3, 0, vault.balanceOf(ALICE)));
+        vault.publicUpdate(ALICE, BOB, uint256(amount3));
+        assertEq(vault.balanceOf(ALICE), vault.rawStoredBalance(ALICE), "alice view=stored after t3");
+        assertEq(vault.balanceOf(BOB), vault.rawStoredBalance(BOB), "bob view=stored after t3");
+
+        // Final convergence: repeated idempotent touches don't change anything.
+        uint256 aliceFinal = vault.balanceOf(ALICE);
+        uint256 bobFinal = vault.balanceOf(BOB);
+        vault.publicUpdate(ALICE, ALICE, 0);
+        vault.publicUpdate(BOB, BOB, 0);
+        assertEq(vault.balanceOf(ALICE), aliceFinal, "alice idempotent after final");
+        assertEq(vault.balanceOf(BOB), bobFinal, "bob idempotent after final");
     }
 }

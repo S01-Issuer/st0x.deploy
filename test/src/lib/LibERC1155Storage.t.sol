@@ -25,11 +25,11 @@ contract TestERC1155 is ERC1155Upgradeable {
     }
 
     function libBalanceOf(address account, uint256 id) external view returns (uint256) {
-        return LibERC1155Storage.getBalance(account, id);
+        return LibERC1155Storage.underlyingBalance(account, id);
     }
 
     function libSetBalance(address account, uint256 id, uint256 newBalance) external {
-        LibERC1155Storage.setBalance(account, id, newBalance);
+        LibERC1155Storage.setUnderlyingBalance(account, id, newBalance);
     }
 }
 
@@ -62,7 +62,7 @@ contract LibERC1155StorageTest is Test {
         assertEq(ERC1155_STORAGE_LOCATION, expected, "ERC1155_STORAGE_LOCATION drift from spec formula");
     }
 
-    /// LibERC1155Storage.getBalance matches ERC1155Upgradeable.balanceOf across
+    /// LibERC1155Storage.underlyingBalance matches ERC1155Upgradeable.balanceOf across
     /// multiple ids and multiple accounts.
     function testGetBalanceMatchesOzBalanceOf() external {
         token.mint(ALICE, ID_A, 1234);
@@ -82,7 +82,7 @@ contract LibERC1155StorageTest is Test {
         assertEq(token.libBalanceOf(BOB, ID_B), 0);
     }
 
-    /// LibERC1155Storage.setBalance writes a value that ERC1155Upgradeable.balanceOf observes.
+    /// LibERC1155Storage.setUnderlyingBalance writes a value that ERC1155Upgradeable.balanceOf observes.
     function testSetBalanceVisibleToOzBalanceOf() external {
         token.mint(ALICE, ID_A, 100);
         token.libSetBalance(ALICE, ID_A, 999);

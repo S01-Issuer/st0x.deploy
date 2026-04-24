@@ -3,12 +3,8 @@
 pragma solidity =0.8.25;
 
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
-import {
-    LibCorporateAction,
-    SCHEDULE_CORPORATE_ACTION,
-    CANCEL_CORPORATE_ACTION,
-    ActionDoesNotExist
-} from "../lib/LibCorporateAction.sol";
+import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
+import {ActionDoesNotExist} from "../error/ErrCorporateAction.sol";
 import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "../lib/LibCorporateActionNode.sol";
 import {IAuthorizeV1} from "rain.vats/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetReceiptVault.sol";
@@ -26,9 +22,8 @@ import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetR
 /// view getters that would not otherwise reach the authorizer lookup.
 ///
 /// Storage lives at the ERC-7201 namespace `rain.storage.corporate-action.1`
-/// (see `LibCorporateAction`). Subsequent PRs add additional external entry
-/// points (linked-list traversal, etc.), each of which must also carry
-/// `onlyDelegatecalled`.
+/// (see `LibCorporateAction`). Any future external entry points added here
+/// (e.g. list traversal) must also carry `onlyDelegatecalled`.
 contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     /// @notice Thrown when a function is called directly on the standalone
     /// facet deployment rather than via delegatecall from the vault.
@@ -98,12 +93,10 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         onlyDelegatecalled
         returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
     {
-        cursor = LibCorporateActionNode.prevOfType(0, mask, filter);
-        if (cursor != 0) {
-            CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[cursor];
-            actionType = node.actionType;
-            effectiveTime = node.effectiveTime;
-        }
+        // False positive: tuple pass-through — `return lib.tupleFn(...)` re-emits every
+        // component as this function's own return, nothing is discarded.
+        // slither-disable-next-line unused-return
+        return LibCorporateActionNode.latestActionOfType(mask, filter);
     }
 
     /// @inheritdoc ICorporateActionsV1
@@ -114,12 +107,10 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         onlyDelegatecalled
         returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
     {
-        cursor = LibCorporateActionNode.nextOfType(0, mask, filter);
-        if (cursor != 0) {
-            CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[cursor];
-            actionType = node.actionType;
-            effectiveTime = node.effectiveTime;
-        }
+        // False positive: tuple pass-through — `return lib.tupleFn(...)` re-emits every
+        // component as this function's own return, nothing is discarded.
+        // slither-disable-next-line unused-return
+        return LibCorporateActionNode.earliestActionOfType(mask, filter);
     }
 
     /// @inheritdoc ICorporateActionsV1
@@ -130,12 +121,10 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         onlyDelegatecalled
         returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime)
     {
-        nextCursor = LibCorporateActionNode.nextOfType(cursor, mask, filter);
-        if (nextCursor != 0) {
-            CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[nextCursor];
-            actionType = node.actionType;
-            effectiveTime = node.effectiveTime;
-        }
+        // False positive: tuple pass-through — `return lib.tupleFn(...)` re-emits every
+        // component as this function's own return, nothing is discarded.
+        // slither-disable-next-line unused-return
+        return LibCorporateActionNode.nextActionOfType(cursor, mask, filter);
     }
 
     /// @inheritdoc ICorporateActionsV1
@@ -146,12 +135,10 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         onlyDelegatecalled
         returns (uint256 prevCursor, uint256 actionType, uint64 effectiveTime)
     {
-        prevCursor = LibCorporateActionNode.prevOfType(cursor, mask, filter);
-        if (prevCursor != 0) {
-            CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[prevCursor];
-            actionType = node.actionType;
-            effectiveTime = node.effectiveTime;
-        }
+        // False positive: tuple pass-through — `return lib.tupleFn(...)` re-emits every
+        // component as this function's own return, nothing is discarded.
+        // slither-disable-next-line unused-return
+        return LibCorporateActionNode.prevActionOfType(cursor, mask, filter);
     }
 
     /// @inheritdoc ICorporateActionsV1

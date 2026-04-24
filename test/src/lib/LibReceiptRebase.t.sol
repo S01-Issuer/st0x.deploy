@@ -7,7 +7,7 @@ import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {LibReceiptRebase} from "src/lib/LibReceiptRebase.sol";
 import {ICorporateActionsV1} from "src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "src/lib/LibCorporateActionNode.sol";
-import {ACTION_TYPE_STOCK_SPLIT} from "src/lib/LibCorporateAction.sol";
+import {ACTION_TYPE_STOCK_SPLIT_V1} from "src/lib/LibCorporateAction.sol";
 
 /// @dev Mock vault exposing only the subset of `ICorporateActionsV1` that
 /// `LibReceiptRebase` consumes (`nextOfType` + `getActionParameters`). Tests
@@ -43,9 +43,9 @@ contract MockCorporateActionsVault is ICorporateActionsV1 {
         override
         returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime)
     {
-        // Only the mask == ACTION_TYPE_STOCK_SPLIT, filter == COMPLETED path
+        // Only the mask == ACTION_TYPE_STOCK_SPLIT_V1, filter == COMPLETED path
         // is tested here; assert any other request so misuse fails loud.
-        require(mask == ACTION_TYPE_STOCK_SPLIT, "mock: unexpected mask");
+        require(mask == ACTION_TYPE_STOCK_SPLIT_V1, "mock: unexpected mask");
         require(filter == CompletionFilter.COMPLETED, "mock: unexpected filter");
 
         // Cursor is the 1-based index of the last visited split. Next is
@@ -54,7 +54,7 @@ contract MockCorporateActionsVault is ICorporateActionsV1 {
         if (candidate > splits.length) {
             return (0, 0, 0);
         }
-        return (candidate, ACTION_TYPE_STOCK_SPLIT, 1);
+        return (candidate, ACTION_TYPE_STOCK_SPLIT_V1, 1);
     }
 
     function getActionParameters(uint256 cursor) external view override returns (bytes memory parameters) {
