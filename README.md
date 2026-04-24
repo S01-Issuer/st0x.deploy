@@ -100,7 +100,6 @@ guidance, and `docs/GLOSSARY.md` for domain terms.
 - `src/generated/` — Zoltu deterministic deployment pointer files
 - `script/` — Forge deployment scripts
 - `test/` — Foundry tests (unit, fuzz, invariant, fork)
-- `audit/` — Audit findings and triage decisions
 - `docs/` — Integration guide for external consumers
 - `lib/` — Git submodule dependencies (rain.vats, rain.deploy,
   rain.extrospection)
