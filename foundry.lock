@@ -5,6 +5,9 @@
   "lib/rain.extrospection": {
     "rev": "60f35a0fc7e38fe6879c638ee25b46e88bfc9892"
   },
+  "lib/rain.tofu.erc20-decimals": {
+    "rev": "67b81b417e3f2311f71058d526e4c16518b393cc"
+  },
   "lib/rain.vats": {
     "rev": "40815c66ac882b7b64f9e036c435128c28956162"
   }

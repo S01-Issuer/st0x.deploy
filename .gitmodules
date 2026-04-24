@@ -7,3 +7,6 @@
 [submodule "lib/rain.vats"]
 	path = lib/rain.vats
 	url = https://github.com/rainlanguage/rain.vats
+[submodule "lib/rain.tofu.erc20-decimals"]
+	path = lib/rain.tofu.erc20-decimals
+	url = https://github.com/rainlanguage/rain.tofu.erc20-decimals

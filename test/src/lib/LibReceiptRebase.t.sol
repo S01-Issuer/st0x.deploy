@@ -7,7 +7,7 @@ import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {LibReceiptRebase} from "src/lib/LibReceiptRebase.sol";
 import {ICorporateActionsV1} from "src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "src/lib/LibCorporateActionNode.sol";
-import {ACTION_TYPE_STOCK_SPLIT} from "src/lib/LibCorporateAction.sol";
+import {ACTION_TYPE_STOCK_SPLIT_V1} from "src/lib/LibCorporateAction.sol";
 
 /// @dev Mock vault exposing only the subset of `ICorporateActionsV1` that
 /// `LibReceiptRebase` consumes (`nextOfType` + `getActionParameters`). Tests
@@ -43,9 +43,9 @@ contract MockCorporateActionsVault is ICorporateActionsV1 {
         override
         returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime)
     {
-        // Only the mask == ACTION_TYPE_STOCK_SPLIT, filter == COMPLETED path
+        // Only the mask == ACTION_TYPE_STOCK_SPLIT_V1, filter == COMPLETED path
         // is tested here; assert any other request so misuse fails loud.
-        require(mask == ACTION_TYPE_STOCK_SPLIT, "mock: unexpected mask");
+        require(mask == ACTION_TYPE_STOCK_SPLIT_V1, "mock: unexpected mask");
         require(filter == CompletionFilter.COMPLETED, "mock: unexpected filter");
 
         // Cursor is the 1-based index of the last visited split. Next is
@@ -54,7 +54,7 @@ contract MockCorporateActionsVault is ICorporateActionsV1 {
         if (candidate > splits.length) {
             return (0, 0, 0);
         }
-        return (candidate, ACTION_TYPE_STOCK_SPLIT, 1);
+        return (candidate, ACTION_TYPE_STOCK_SPLIT_V1, 1);
     }
 
     function getActionParameters(uint256 cursor) external view override returns (bytes memory parameters) {
@@ -153,9 +153,10 @@ contract LibReceiptRebaseTest is Test {
         assertEq(cursor, 2);
     }
 
-    /// Zero balance still advances cursor — the load-bearing invariant from
-    /// audit 2026-04-07-01 (share side), mirrored here to prevent the same
-    /// class of bug on the receipt side.
+    /// Zero balance still advances the cursor so a subsequent write to
+    /// this (holder, id) lands at the latest cursor instead of a stale
+    /// one, preventing the next `balanceOf` read from re-applying every
+    /// completed multiplier to an already-rebased balance.
     function testZeroBalanceAdvancesCursor() external {
         _integerSplit(2);
         (uint256 balance, uint256 cursor) = LibReceiptRebase.migratedBalance(0, 0, ICorporateActionsV1(address(vault)));
@@ -180,14 +181,12 @@ contract LibReceiptRebaseTest is Test {
         assertEq(cursor, 0);
     }
 
-    /// Sequential precision regression: 1/3 × 3 × 1/3 × 3 applied to 100.
-    /// The expected value is 96, matching `LibRebase.t.sol::
-    /// testSequentialPrecision` exactly — because both sides use the same
-    /// `LibRebaseMath.applyMultiplier` primitive, any divergence between
-    /// the share and receipt sides would break the share↔receipt
-    /// proportionality invariant. See audit 2026-04-09-01 Item 7 for the
-    /// explanation of why the answer is 96 (Float's 1/3 is slightly less
-    /// than exact 1/3, so 99 × 1/3_float rounds down to 32 rather than 33).
+    /// Sequential application of 1/3 * 3 * 1/3 * 3 to a stored 100
+    /// produces 96, not 100. Float's 1/3 is slightly less than exact 1/3,
+    /// so 99 * 1/3_float rounds down to 32 rather than 33, which then
+    /// multiplies by 3 to 96. The receipt side must produce the same
+    /// sequence as the share side — both use `LibRebaseMath.applyMultiplier`
+    /// — so any drift here breaks share↔receipt proportionality.
     function testSequentialPrecision() external {
         _fractionalSplit(1, 3);
         _integerSplit(3);

@@ -7,18 +7,9 @@ import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 
 /// @title LibProdDeployV1Test
 /// @notice Verifies V1 creation bytecodes match compiled artifacts for
-/// contracts that are unchanged between V1 and V2.
-contract LibProdDeployV1Test is Test {
-    /// StoxReceipt creation bytecode matches V1 constant.
-    function testCreationBytecodeStoxReceipt() external view {
-        assertEq(vm.getCode("StoxReceipt.sol:StoxReceipt"), LibProdDeployV1.PROD_STOX_RECEIPT_CREATION_BYTECODE_V1);
-    }
-
-    /// StoxReceiptVault creation bytecode matches V1 constant.
-    function testCreationBytecodeStoxReceiptVault() external view {
-        assertEq(
-            vm.getCode("StoxReceiptVault.sol:StoxReceiptVault"),
-            LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_CREATION_BYTECODE_V1
-        );
-    }
-}
+/// contracts that are still unchanged from V1. Both `StoxReceipt` and
+/// `StoxReceiptVault` diverged from V1 when rebase logic was added — their
+/// V1 bytecodes are no longer reproducible from the current source, so the
+/// consistency checks were removed. The V1 constants remain in
+/// `LibProdDeployV1` as an audit trail.
+contract LibProdDeployV1Test is Test {}

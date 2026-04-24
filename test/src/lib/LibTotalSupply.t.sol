@@ -5,8 +5,9 @@ pragma solidity =0.8.25;
 import {Test, stdError} from "forge-std/Test.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {LibTotalSupply} from "src/lib/LibTotalSupply.sol";
-import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT} from "src/lib/LibCorporateAction.sol";
+import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "src/lib/LibCorporateAction.sol";
 import {LibERC20Storage, ERC20_STORAGE_LOCATION} from "src/lib/LibERC20Storage.sol";
+import {LibStockSplit} from "src/lib/LibStockSplit.sol";
 
 contract LibTotalSupplyHarness {
     function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters) external returns (uint256) {
@@ -41,8 +42,11 @@ contract LibTotalSupplyHarness {
     /// `LibTotalSupply` per-cursor pots own the effective supply), so we do
     /// the slot write inline here.
     function setOzTotalSupply(uint256 supply) external {
+        // Bind to a local — inline assembly only accepts literal number
+        // constants, and `ERC20_STORAGE_LOCATION` is now derived in-source.
+        bytes32 slot = ERC20_STORAGE_LOCATION;
         assembly ("memory-safe") {
-            sstore(add(ERC20_STORAGE_LOCATION, 2), supply)
+            sstore(add(slot, 2), supply)
         }
     }
 
@@ -71,12 +75,12 @@ contract LibTotalSupplyTest is Test {
     }
 
     function _splitParams(int256 multiplier) internal pure returns (bytes memory) {
-        return abi.encode(LibDecimalFloat.packLossless(multiplier, 0));
+        return LibStockSplit.encodeParametersV1(LibDecimalFloat.packLossless(multiplier, 0));
     }
 
     function _fractionalParams(int256 num, int256 denom) internal pure returns (bytes memory) {
         Float result = LibDecimalFloat.div(LibDecimalFloat.packLossless(num, 0), LibDecimalFloat.packLossless(denom, 0));
-        return abi.encode(result);
+        return LibStockSplit.encodeParametersV1(result);
     }
 
     /// Before any splits, returns OZ's totalSupply.
@@ -88,7 +92,7 @@ contract LibTotalSupplyTest is Test {
     /// After a 2x split, totalSupply doubles (virtually, before fold).
     function testVirtualFoldDoubles() external {
         h.setOzTotalSupply(1000);
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         assertEq(h.effectiveTotalSupply(), 2000);
     }
@@ -96,7 +100,7 @@ contract LibTotalSupplyTest is Test {
     /// Eager fold bootstraps unmigrated[0] from OZ.
     function testEagerFold() external {
         h.setOzTotalSupply(1000);
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         h.fold();
         assertEq(h.unmigrated(0), 1000);
@@ -107,7 +111,7 @@ contract LibTotalSupplyTest is Test {
     /// Account migration moves balance between pots.
     function testAccountMigration() external {
         h.setOzTotalSupply(200);
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         h.fold();
         // Account with stored=100 migrates from cursor 0 to cursor 1.
@@ -121,7 +125,7 @@ contract LibTotalSupplyTest is Test {
     /// Full migration: all accounts migrated, overestimate fully resolves.
     function testFullMigration() external {
         h.setOzTotalSupply(200);
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         h.fold();
         h.onAccountMigrated(0, 100, 1, 200);
@@ -134,7 +138,7 @@ contract LibTotalSupplyTest is Test {
     /// Second split: pots at different levels get correct multipliers.
     function testSecondSplitWithPartialMigration() external {
         h.setOzTotalSupply(300);
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         h.fold();
 
@@ -143,7 +147,7 @@ contract LibTotalSupplyTest is Test {
         assertEq(h.effectiveTotalSupply(), 600);
 
         // Second split (3x).
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(3));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
         vm.warp(3000);
         h.fold();
 
@@ -173,7 +177,7 @@ contract LibTotalSupplyTest is Test {
         // Individual: floor(7 * 1/3) + floor(3 * 1/3) = 2 + 0 = 2.
         // Aggregate:  floor(10 * 1/3) = 3. Overestimate = 1.
         h.setOzTotalSupply(10);
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _fractionalParams(1, 3));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _fractionalParams(1, 3));
         vm.warp(2000);
         h.fold();
 
@@ -194,7 +198,7 @@ contract LibTotalSupplyTest is Test {
     /// Mint after fold increases the latest cursor pot.
     function testMintAfterFold() external {
         h.setOzTotalSupply(1000);
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         h.fold();
         h.onMint(100);
@@ -204,7 +208,7 @@ contract LibTotalSupplyTest is Test {
     /// Burn after fold decreases the latest cursor pot.
     function testBurnAfterFold() external {
         h.setOzTotalSupply(1000);
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         h.fold();
         h.onAccountMigrated(0, 1000, 1, 2000);
@@ -215,7 +219,7 @@ contract LibTotalSupplyTest is Test {
     /// Fold is idempotent.
     function testFoldIdempotent() external {
         h.setOzTotalSupply(1000);
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         h.fold();
         h.fold();
@@ -226,8 +230,8 @@ contract LibTotalSupplyTest is Test {
     /// Virtual fold matches eager fold.
     function testVirtualMatchesEager() external {
         h.setOzTotalSupply(500);
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(3));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
         vm.warp(3000);
         uint256 virtualResult = h.effectiveTotalSupply();
         h.fold();
@@ -239,10 +243,10 @@ contract LibTotalSupplyTest is Test {
     /// Sequential precision: 1/3 x 3 x 1/3 x 3 on totalSupply.
     function testSequentialPrecision() external {
         h.setOzTotalSupply(100);
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _fractionalParams(1, 3));
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(3));
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 3500, _fractionalParams(1, 3));
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 4500, _splitParams(3));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _fractionalParams(1, 3));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, _fractionalParams(1, 3));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 4500, _splitParams(3));
         vm.warp(5000);
         assertEq(h.effectiveTotalSupply(), 96);
     }
@@ -257,8 +261,8 @@ contract LibTotalSupplyTest is Test {
     /// Cross-epoch migration: account migrates through multiple splits at once.
     function testCrossEpochMigration() external {
         h.setOzTotalSupply(200);
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(3));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
         vm.warp(3000);
         h.fold();
 
@@ -297,11 +301,10 @@ contract LibTotalSupplyTest is Test {
         return running;
     }
 
-    /// Audit finding A28-P2-3: fuzz `effectiveTotalSupply` against an
-    /// in-test reference implementation. Drives a configurable number of
-    /// completed splits + per-pot balances and asserts the production
-    /// accumulator matches a re-implementation that walks the pots in
-    /// pure Solidity.
+    /// Fuzz `effectiveTotalSupply` against an in-test reference
+    /// implementation. Drives a configurable number of completed splits +
+    /// per-pot balances and asserts the production accumulator matches a
+    /// re-implementation that walks the pots in pure Solidity.
     function testFuzzEffectiveTotalSupplyMatchesReference(
         uint64 bootstrapPot,
         uint64[3] memory laterPots,
@@ -315,9 +318,9 @@ contract LibTotalSupplyTest is Test {
 
         // Schedule three splits and warp past all of them.
         h.setOzTotalSupply(uint256(bootstrapPot));
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(m1));
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 2500, _splitParams(m2));
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 3500, _splitParams(m3));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(m1));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(m2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, _splitParams(m3));
         vm.warp(4000);
         h.fold();
 
@@ -344,16 +347,16 @@ contract LibTotalSupplyTest is Test {
         assertEq(h.effectiveTotalSupply(), expected, "production accumulator must match the reference");
     }
 
-    /// Audit P2-3: `onBurn` MUST revert via Solidity 0.8 underflow panic when
-    /// the burn amount exceeds the current pot at `totalSupplyLatestSplit`.
-    /// Under normal vault operation this state is unreachable (every burn is
-    /// preceded by `_migrateAccount(burner)`, which moves the burner's balance
-    /// into the latest pot first), but the invariant is load-bearing and
-    /// would silently break if a future refactor wrapped the subtraction in
-    /// an `unchecked` block.
+    /// `onBurn` reverts via Solidity 0.8 underflow panic when the burn
+    /// amount exceeds the current pot at `totalSupplyLatestSplit`. Under
+    /// normal vault operation this state is unreachable (every burn is
+    /// preceded by `_migrateAccount(burner)`, which moves the burner's
+    /// balance into the latest pot first), but wrapping the subtraction
+    /// in an `unchecked` block would silently skip the check and let a
+    /// refactor corrupt the pot.
     function testOnBurnUnderflowReverts() external {
         h.setOzTotalSupply(1000);
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         h.fold();
         // `unmigrated[1]` is still 0 — nothing has migrated or been minted
@@ -366,7 +369,7 @@ contract LibTotalSupplyTest is Test {
     /// underflows.
     function testOnBurnAtBoundarySucceedsOneBeyondReverts() external {
         h.setOzTotalSupply(1000);
-        h.schedule(ACTION_TYPE_STOCK_SPLIT, 1500, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         h.fold();
         h.onMint(100); // unmigrated[1] = 100
