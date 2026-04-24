@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std/Test.sol";
 import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
@@ -382,6 +382,42 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         _transfer(ALICE, ALICE, ID_A, 0);
     }
 
+    /// A dormant `(holder, id)` touched after multiple completed splits
+    /// emits exactly one `ReceiptAccountMigrated` with aggregated fields:
+    /// fromCursor is the pre-migration cursor, toCursor is the latest
+    /// completed split, oldBalance is the raw stored value, newBalance is
+    /// the fully-rasterized value after all multipliers have been applied.
+    function testReceiptAccountMigratedAggregatesAcrossMultipleSplits() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+        _splitParams(3);
+
+        vm.recordLogs();
+        _transfer(ALICE, ALICE, ID_A, 0);
+
+        bytes32 sig = StoxReceipt.ReceiptAccountMigrated.selector;
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 count = 0;
+        uint256 fromCursor;
+        uint256 toCursor;
+        uint256 oldBalance;
+        uint256 newBalance;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
+                count++;
+                assertEq(address(uint160(uint256(logs[i].topics[1]))), ALICE, "indexed account is ALICE");
+                assertEq(uint256(logs[i].topics[2]), ID_A, "indexed id is ID_A");
+                (fromCursor, toCursor, oldBalance, newBalance) =
+                    abi.decode(logs[i].data, (uint256, uint256, uint256, uint256));
+            }
+        }
+        assertEq(count, 1, "exactly one ReceiptAccountMigrated per multi-split migration");
+        assertEq(fromCursor, 0, "fromCursor is pre-migration cursor");
+        assertEq(toCursor, 2, "toCursor is latest completed split index");
+        assertEq(oldBalance, 100, "oldBalance is pre-rasterization stored value");
+        assertEq(newBalance, 600, "newBalance is fully rasterized (100 * 2 * 3)");
+    }
+
     // -----------------------------------------------------------------------
     // balanceOfBatch consistency — token-integration-analyzer §8b finding.
 
@@ -425,15 +461,10 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         receipt.balanceOfBatch(accounts, ids);
     }
 
-    /// Invariant pinned by the NatSpec on `_update`: by the time OZ's
-    /// `_doSafeTransferAcceptanceCheck` fires `onERC1155Received` on a
-    /// contract recipient, migration has completed and balances are
-    /// rasterized. A receive hook that reads `balanceOf` must observe the
-    /// post-migration, post-transfer values — not stale pre-rebase state.
-    /// Mutation: reordering `_update` so migration runs AFTER
-    /// `super._update` would make the hook observe a pre-migration stored
-    /// balance and the recipient's raw-plus-transferred value (off by a
-    /// factor equal to every completed multiplier).
+    /// By the time OZ's `_doSafeTransferAcceptanceCheck` fires
+    /// `onERC1155Received` on a contract recipient, migration has
+    /// completed and balances are rasterized. A receive hook that reads
+    /// `balanceOf` observes the post-migration, post-transfer values.
     function testReceiveHookObservesPostMigrationState() external {
         _mint(ALICE, ID_A, 100);
         _splitParams(2);
