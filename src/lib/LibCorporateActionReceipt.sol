@@ -18,6 +18,31 @@ bytes32 constant CORPORATE_ACTION_RECEIPT_STORAGE_LOCATION =
 /// that belongs next to the receipt balances it describes. The multiplier
 /// source (stock split linked list) still lives on the vault; the receipt
 /// reads it through cross-contract view calls via `ICorporateActionsV1`.
+///
+/// ## Why the receipt cursor is not unified with the share-side cursor
+///
+/// The share-side `LibCorporateAction.accountMigrationCursor` is keyed by
+/// `address` (one cursor per account, covering all that account's ERC-20
+/// shares). The receipt-side cursor here is keyed by `(address, uint256)`
+/// because receipts and shares are independently transferable ledgers:
+///
+///   - Alice deposits, receiving shares and receipt id 7.
+///   - Alice transfers receipt id 7 to Bob. Bob now holds the receipt;
+///     Alice still holds the shares.
+///   - A stock split lands on the vault.
+///   - Alice's **share** balance rebases when Alice next touches the ERC-20
+///     contract.
+///   - Bob's **receipt id 7** balance rebases when Bob next touches the
+///     ERC-1155 contract — independently of anything Alice does.
+///
+/// A unified per-address cursor can't drive both sides because: (a) the
+/// share-side `_update` doesn't know which receipt ids Bob holds and
+/// ERC-1155 has no enumeration API; (b) Bob's receipts can't be migrated
+/// from inside a call that Bob isn't participating in. Conversely, a
+/// single per-account cursor on the receipt side would be wrong because
+/// each `(holder, id)` pair migrates lazily on its own first-touch, and
+/// different ids of the same holder can legitimately sit at different
+/// cursor values between touches.
 library LibCorporateActionReceipt {
     /// @custom:storage-location erc7201:rain.storage.corporate-action-receipt.1
     /// @dev **DO NOT REORDER — APPEND ONLY.** Lives at a fixed ERC-7201
