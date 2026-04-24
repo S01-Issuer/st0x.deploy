@@ -63,6 +63,11 @@ library LibReceiptRebase {
     {
         newCursor = cursor;
 
+        // Discard (actionType, effectiveTime) — only nextCursor is used
+        // for the walk. The mask already constrains actionType to
+        // stock-splits, and effectiveTime is irrelevant here (the filter
+        // COMPLETED already handled it on the vault side).
+        // slither-disable-next-line unused-return
         (uint256 nodeIndex,,) = vault.nextOfType(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
 
         // Fast path: zero balance still advances the cursor through
@@ -75,6 +80,7 @@ library LibReceiptRebase {
         if (storedBalance == 0) {
             while (nodeIndex != 0) {
                 newCursor = nodeIndex;
+                // slither-disable-next-line unused-return
                 (nodeIndex,,) = vault.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
             }
             return (0, newCursor);
@@ -87,6 +93,7 @@ library LibReceiptRebase {
             Float multiplier = LibStockSplit.decodeParametersV1(vault.getActionParameters(nodeIndex));
             balance = LibRebaseMath.applyMultiplier(balance, multiplier);
 
+            // slither-disable-next-line unused-return
             (nodeIndex,,) = vault.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         }
 

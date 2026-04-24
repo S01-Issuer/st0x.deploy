@@ -94,10 +94,7 @@ contract StoxReceipt is Receipt {
         override(ERC1155Upgradeable, IERC1155)
         returns (uint256)
     {
-        uint256 stored = LibERC1155Storage.underlyingBalance(account, id);
-        uint256 cursor = LibCorporateActionReceipt.getStorage().accountIdCursor[account][id];
-        (uint256 effective,) = LibReceiptRebase.migratedBalance(stored, cursor, _vault());
-        return effective;
+        return _balanceOf(account, id, _vault());
     }
 
     /// @notice Batch-aware `balanceOf`. OZ's default `balanceOfBatch` reads
@@ -116,11 +113,28 @@ contract StoxReceipt is Receipt {
         if (accounts.length != ids.length) {
             revert ERC1155InvalidArrayLength(ids.length, accounts.length);
         }
+        ICorporateActionsV1 vault = _vault();
         uint256[] memory batchBalances = new uint256[](accounts.length);
         for (uint256 i = 0; i < accounts.length; ++i) {
-            batchBalances[i] = balanceOf(accounts[i], ids[i]);
+            batchBalances[i] = _balanceOf(accounts[i], ids[i], vault);
         }
         return batchBalances;
+    }
+
+    /// @dev Shared implementation of the rebased balance read. Takes the
+    /// vault as a parameter so callers inside a loop (`balanceOfBatch`)
+    /// can fetch it once and pass it in, avoiding an external self-call
+    /// per iteration.
+    function _balanceOf(address account, uint256 id, ICorporateActionsV1 vault) internal view returns (uint256) {
+        uint256 stored = LibERC1155Storage.underlyingBalance(account, id);
+        uint256 cursor = LibCorporateActionReceipt.getStorage().accountIdCursor[account][id];
+        // The second return value is the new cursor — intentionally discarded
+        // here because this is a pure read that must not mutate state;
+        // cursor advancement happens on the next `_update` via
+        // `_migrateHolderId`.
+        // slither-disable-next-line unused-return
+        (uint256 effective,) = LibReceiptRebase.migratedBalance(stored, cursor, vault);
+        return effective;
     }
 
     /// @dev Migrates both sender and recipient across every id in the batch,
