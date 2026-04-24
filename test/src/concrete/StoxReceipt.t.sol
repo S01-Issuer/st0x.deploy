@@ -389,6 +389,19 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         assertEq(receipt.rawStoredBalance(ALICE, ID_A), 50);
     }
 
+    /// A non-owner, non-approved caller cannot transfer someone else's
+    /// balance. OZ's approval check runs inside `super._update`, which
+    /// migration precedes. Test asserts the approval revert fires with
+    /// the exact operator/owner pair.
+    function testUnauthorizedTransferRevertsMissingApproval() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        vm.prank(BOB);
+        vm.expectRevert(abi.encodeWithSelector(IERC1155Errors.ERC1155MissingApprovalForAll.selector, BOB, ALICE));
+        receipt.safeTransferFrom(ALICE, BOB, ID_A, 50, "");
+    }
+
     /// Holder-initiated `safeTransferFrom` (no operator approval) moves up
     /// to the post-rebase balance. Distinct from the operator path — the
     /// holder's own `msg.sender == from` call bypasses the approval check
