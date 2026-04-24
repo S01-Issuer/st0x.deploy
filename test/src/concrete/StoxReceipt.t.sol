@@ -481,12 +481,56 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         assertEq(recv.observedRecvBalance(), 50, "hook must see post-transfer recv balance");
     }
 
+    /// Burn from a (holder, id) with a pending rebase subtracts from the
+    /// post-rebase balance. The migration runs first so OZ's
+    /// `_balances[id][holder]` is rasterized before `_burn` decrements it.
+    function testBurnAfterSplitSubtractsFromRebasedBalance() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        _burn(ALICE, ID_A, 50);
+
+        assertEq(receipt.balanceOf(ALICE, ID_A), 150, "post-rebase 200 minus 50 burn");
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 150, "raw stored equals post-rebase minus burn");
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1);
+    }
+
+    /// Burning the full post-rebase balance zeroes the raw stored value
+    /// while leaving the cursor at the latest completed split.
+    function testBurnToZeroAfterSplitLeavesCursorAtLatest() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        _burn(ALICE, ID_A, 200);
+
+        assertEq(receipt.balanceOf(ALICE, ID_A), 0);
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 0);
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1, "cursor still at latest despite zero balance");
+    }
+
+    /// Burning more than the post-rebase balance reverts via OZ's
+    /// `ERC1155InsufficientBalance`. Migration rasterizes the raw value
+    /// first, so the burner's raw balance at the point of `_burn` is the
+    /// same value OZ's check sees.
+    function testOverBurnAfterSplitReverts() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        vm.expectRevert();
+        _burn(ALICE, ID_A, 201);
+    }
+
     // -----------------------------------------------------------------------
     // Helpers
 
     function _mint(address to, uint256 id, uint256 amount) internal {
         vm.prank(address(vault));
         receipt.managerMint(address(vault), to, id, amount, "");
+    }
+
+    function _burn(address from, uint256 id, uint256 amount) internal {
+        vm.prank(address(vault));
+        receipt.managerBurn(address(vault), from, id, amount, "");
     }
 
     function _transfer(address from, address to, uint256 id, uint256 amount) internal {
