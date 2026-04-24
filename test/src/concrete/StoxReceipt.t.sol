@@ -15,6 +15,9 @@ import {
 } from "../../../src/lib/LibCorporateActionReceipt.sol";
 import {LibERC1155Storage} from "../../../src/lib/LibERC1155Storage.sol";
 import {IReceiptManagerV2} from "rain.vats/interface/IReceiptManagerV2.sol";
+import {
+    IERC1155Errors
+} from "openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
 
 contract StoxReceiptTest is Test {
     /// Constructor disables initializers on the implementation.
@@ -661,7 +664,11 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         _mint(ALICE, ID_A, 100);
         _splitParams(2);
 
-        vm.expectRevert();
+        // After migration, Alice's raw stored balance is 200. OZ's check
+        // sees raw 200 vs burn 201 and reverts with the exact amounts.
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC1155Errors.ERC1155InsufficientBalance.selector, ALICE, 200, 201, ID_A)
+        );
         _burn(ALICE, ID_A, 201);
     }
 
