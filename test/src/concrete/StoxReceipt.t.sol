@@ -370,46 +370,89 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         assertEq(receipt.rawStoredBalance(ALICE, ID_B), 400);
     }
 
-    /// A reverse split that truncates the balance to zero followed by a
-    /// forward split does not re-inflate the balance. Truncation is
-    /// irreversible; the sequential walk multiplies 0 by every subsequent
-    /// multiplier and stays at 0.
-    function testFractionalSplitTruncatingToZeroDoesNotReInflate() external {
-        _mint(ALICE, ID_A, 1);
-        _fractionalParams(1, 2);
-        _splitParams(3);
+    /// An approved operator can move up to the post-rebase balance for
+    /// any transfer amount in `[0, postRebase]`. Approval semantics are
+    /// unchanged by the rebase — the operator sees the rebased ceiling,
+    /// not the raw stored value.
+    function testFuzzApprovedOperatorTransfersPostRebaseBalance(uint64 deposit, uint128 transferAmount, uint8 mulSeed)
+        external
+    {
+        int256 multiplier = int256(uint256(bound(mulSeed, 2, 5)));
+        deposit = uint64(bound(deposit, 1, type(uint64).max / uint64(uint256(multiplier))));
+        uint256 postRebase = uint256(deposit) * uint256(multiplier);
+        uint256 amount = bound(transferAmount, 0, postRebase);
 
-        // View path: walks both multipliers, truncates to 0 at step 1,
-        // stays at 0 through step 2.
+        _mint(ALICE, ID_A, deposit);
+        _splitParams(multiplier);
+
+        vm.prank(ALICE);
+        receipt.setApprovalForAll(BOB, true);
+
+        vm.prank(BOB);
+        receipt.safeTransferFrom(ALICE, BOB, ID_A, amount, "");
+
+        assertEq(receipt.balanceOf(ALICE, ID_A), postRebase - amount);
+        assertEq(receipt.balanceOf(BOB, ID_A), amount);
+    }
+
+    /// `balanceOfBatch` returns an empty array when called with empty
+    /// inputs, matching OZ behavior. Does not revert despite the override.
+    function testBalanceOfBatchEmptyInputsReturnsEmpty() external view {
+        address[] memory accounts = new address[](0);
+        uint256[] memory ids = new uint256[](0);
+        uint256[] memory result = receipt.balanceOfBatch(accounts, ids);
+        assertEq(result.length, 0);
+    }
+
+    /// A reverse split that truncates the balance to zero followed by a
+    /// forward split does not re-inflate. For any balance strictly less
+    /// than `denom`, `balance * 1/denom` truncates to 0, and every
+    /// subsequent multiplier applied to 0 stays at 0.
+    function testFuzzFractionalSplitTruncatingToZeroDoesNotReInflate(uint8 balanceSeed, uint8 denomSeed, uint8 mulSeed)
+        external
+    {
+        int256 denom = int256(uint256(bound(denomSeed, 2, 100)));
+        // forge-lint: disable-next-line(unsafe-typecast)
+        uint256 balance = bound(uint256(balanceSeed), 1, uint256(denom) - 1);
+        int256 multiplier = int256(uint256(bound(mulSeed, 2, 100)));
+
+        _mint(ALICE, ID_A, balance);
+        _fractionalParams(1, denom);
+        _splitParams(multiplier);
+
         assertEq(receipt.balanceOf(ALICE, ID_A), 0, "view path sees truncated zero");
 
-        // Migration path: rasterizes to 0 and advances cursor to 2.
         _transfer(ALICE, ALICE, ID_A, 0);
         assertEq(receipt.rawStoredBalance(ALICE, ID_A), 0);
         assertEq(receipt.holderIdCursor(ALICE, ID_A), 2);
         assertEq(receipt.balanceOf(ALICE, ID_A), 0, "post-migration balance remains zero");
     }
 
-    /// A batch with a duplicate id migrates once and subtracts the total
-    /// of all occurrences from the sender. The second migration call for
-    /// the already-advanced cursor is a no-op, and the balance math still
-    /// balances (both amounts transferred).
-    function testBatchUpdateWithDuplicateIdTransfersFullSum() external {
-        _mint(ALICE, ID_A, 100);
+    /// A batch with a duplicate id migrates the (holder, id) pair once
+    /// and subtracts the sum of all amount entries from the sender. Holds
+    /// for any pair of amounts whose sum is at most the post-rebase
+    /// ceiling.
+    function testFuzzBatchUpdateWithDuplicateIdTransfersFullSum(uint32 deposit, uint64 a, uint64 b) external {
+        deposit = uint32(bound(deposit, 1, type(uint32).max));
+        uint256 postRebase = uint256(deposit) * 2;
+        a = uint64(bound(a, 0, postRebase));
+        b = uint64(bound(b, 0, postRebase - a));
+
+        _mint(ALICE, ID_A, deposit);
         _splitParams(2);
 
         uint256[] memory ids = new uint256[](2);
         ids[0] = ID_A;
         ids[1] = ID_A;
         uint256[] memory amounts = new uint256[](2);
-        amounts[0] = 50;
-        amounts[1] = 25;
+        amounts[0] = a;
+        amounts[1] = b;
 
         vm.prank(ALICE);
         receipt.safeBatchTransferFrom(ALICE, BOB, ids, amounts, "");
 
-        assertEq(receipt.balanceOf(ALICE, ID_A), 125, "post-rebase 200 minus (50 + 25) transferred");
-        assertEq(receipt.balanceOf(BOB, ID_A), 75, "bob receives 50 + 25");
+        assertEq(receipt.balanceOf(ALICE, ID_A), postRebase - uint256(a) - uint256(b));
+        assertEq(receipt.balanceOf(BOB, ID_A), uint256(a) + uint256(b));
         assertEq(receipt.holderIdCursor(ALICE, ID_A), 1);
         assertEq(receipt.holderIdCursor(BOB, ID_A), 1);
     }
