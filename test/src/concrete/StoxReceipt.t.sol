@@ -41,14 +41,23 @@ contract StoxReceiptTest is Test {
 /// and `_update` paths that don't hit `uri()`, so the stub implementations
 /// below are minimal.
 contract MockVault is ICorporateActionsV1, IReceiptManagerV2 {
-    bytes[] internal splits; // splits[i-1] is the parameters blob for cursor i
+    error ReceiptTransferDenied();
 
-    /// Authorize hook — always allows the transfer in tests.
+    bytes[] internal splits; // splits[i-1] is the parameters blob for cursor i
+    bool public denyTransfers;
+
+    /// Authorize hook — allows or denies based on `denyTransfers`.
     function authorizeReceiptTransfer3(address, address, address, uint256[] memory, uint256[] memory)
         external
-        pure
+        view
         override
-    {}
+    {
+        if (denyTransfers) revert ReceiptTransferDenied();
+    }
+
+    function setDenyTransfers(bool deny) external {
+        denyTransfers = deny;
+    }
 
     function addSplit(Float multiplier) external {
         splits.push(abi.encode(multiplier));
@@ -387,6 +396,25 @@ contract StoxReceiptRebaseIntegrationTest is Test {
 
         assertEq(receipt.balanceOf(ALICE, ID_A), 50);
         assertEq(receipt.rawStoredBalance(ALICE, ID_A), 50);
+    }
+
+    /// When the manager's `authorizeReceiptTransfer3` reverts, the
+    /// transfer reverts and no migration state persists. Migration runs
+    /// before `super._update` so the authorizer denial inside
+    /// `super._update` would roll back whatever migration wrote if the
+    /// revert propagated. Verify Alice's cursor and stored balance are
+    /// unchanged after the denied call.
+    function testAuthorizerDeniedTransferRollsBackMigration() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+        vault.setDenyTransfers(true);
+
+        vm.prank(ALICE);
+        vm.expectRevert(MockVault.ReceiptTransferDenied.selector);
+        receipt.safeTransferFrom(ALICE, BOB, ID_A, 50, "");
+
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 100, "raw stored balance unchanged after revert");
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 0, "cursor unchanged after revert");
     }
 
     /// A non-owner, non-approved caller cannot transfer someone else's
