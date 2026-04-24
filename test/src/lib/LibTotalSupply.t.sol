@@ -301,11 +301,10 @@ contract LibTotalSupplyTest is Test {
         return running;
     }
 
-    /// Audit finding A28-P2-3: fuzz `effectiveTotalSupply` against an
-    /// in-test reference implementation. Drives a configurable number of
-    /// completed splits + per-pot balances and asserts the production
-    /// accumulator matches a re-implementation that walks the pots in
-    /// pure Solidity.
+    /// Fuzz `effectiveTotalSupply` against an in-test reference
+    /// implementation. Drives a configurable number of completed splits +
+    /// per-pot balances and asserts the production accumulator matches a
+    /// re-implementation that walks the pots in pure Solidity.
     function testFuzzEffectiveTotalSupplyMatchesReference(
         uint64 bootstrapPot,
         uint64[3] memory laterPots,
@@ -348,13 +347,13 @@ contract LibTotalSupplyTest is Test {
         assertEq(h.effectiveTotalSupply(), expected, "production accumulator must match the reference");
     }
 
-    /// Audit P2-3: `onBurn` MUST revert via Solidity 0.8 underflow panic when
-    /// the burn amount exceeds the current pot at `totalSupplyLatestSplit`.
-    /// Under normal vault operation this state is unreachable (every burn is
-    /// preceded by `_migrateAccount(burner)`, which moves the burner's balance
-    /// into the latest pot first), but the invariant is load-bearing and
-    /// would silently break if a future refactor wrapped the subtraction in
-    /// an `unchecked` block.
+    /// `onBurn` reverts via Solidity 0.8 underflow panic when the burn
+    /// amount exceeds the current pot at `totalSupplyLatestSplit`. Under
+    /// normal vault operation this state is unreachable (every burn is
+    /// preceded by `_migrateAccount(burner)`, which moves the burner's
+    /// balance into the latest pot first), but wrapping the subtraction
+    /// in an `unchecked` block would silently skip the check and let a
+    /// refactor corrupt the pot.
     function testOnBurnUnderflowReverts() external {
         h.setOzTotalSupply(1000);
         h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));

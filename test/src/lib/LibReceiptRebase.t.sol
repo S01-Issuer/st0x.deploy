@@ -153,9 +153,10 @@ contract LibReceiptRebaseTest is Test {
         assertEq(cursor, 2);
     }
 
-    /// Zero balance still advances cursor — the load-bearing invariant from
-    /// audit 2026-04-07-01 (share side), mirrored here to prevent the same
-    /// class of bug on the receipt side.
+    /// Zero balance still advances the cursor so a subsequent write to
+    /// this (holder, id) lands at the latest cursor instead of a stale
+    /// one, preventing the next `balanceOf` read from re-applying every
+    /// completed multiplier to an already-rebased balance.
     function testZeroBalanceAdvancesCursor() external {
         _integerSplit(2);
         (uint256 balance, uint256 cursor) = LibReceiptRebase.migratedBalance(0, 0, ICorporateActionsV1(address(vault)));

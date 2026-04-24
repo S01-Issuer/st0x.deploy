@@ -10,10 +10,10 @@ import {LibStockSplit} from "./LibStockSplit.sol";
 import {LibRebaseMath} from "./LibRebaseMath.sol";
 
 /// @title LibReceiptRebase
-/// @notice Receipt-side mirror of `LibRebase.migratedBalance`. Walks the
-/// vault's stock split list from a per-`(holder, id)` cursor forward,
-/// applying each completed split's multiplier sequentially via the shared
-/// `LibRebaseMath.applyMultiplier` primitive.
+/// @notice Walks the vault's stock split list from a per-`(holder, id)`
+/// cursor forward, applying each completed split's multiplier sequentially
+/// via the shared `LibRebaseMath.applyMultiplier` primitive, and returns
+/// the rasterized receipt balance.
 ///
 /// The key structural difference from `LibRebase` is the data source:
 ///
@@ -25,10 +25,12 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 ///   cross-contract view calls against `ICorporateActionsV1.nextOfType`
 ///   and `ICorporateActionsV1.getActionParameters` on the vault.
 ///
-/// The walk semantics are identical to `LibRebase.migratedBalance`:
+/// Walk semantics:
 ///   - Zero-balance accounts still advance the cursor through completed
-///     splits (load-bearing for fresh recipients — same reasoning as the
-///     2026-04-07-01 cursor inflation regression on the share side).
+///     splits. Required for fresh recipients: without it, a subsequent
+///     write at a stale cursor would cause the next `balanceOf` read to
+///     re-apply every completed multiplier to an already-rasterized
+///     balance, inflating it.
 ///   - Non-zero balances apply each multiplier sequentially via
 ///     `LibRebaseMath.applyMultiplier`, matching the share-side
 ///     rasterization step exactly.

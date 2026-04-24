@@ -42,8 +42,6 @@ contract TestERC20 is ERC20Upgradeable {
 /// offsets (`_balances` at +0, `_totalSupply` at +2). If a future
 /// `forge update` of `openzeppelin-contracts-upgradeable` reorders the struct
 /// or moves the namespace, every assertion in this file diverges.
-///
-/// These tests are the runtime invariant guard for audit finding A23-1.
 contract LibERC20StorageTest is Test {
     TestERC20 internal token;
 

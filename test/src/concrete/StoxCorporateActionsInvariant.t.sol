@@ -381,11 +381,11 @@ contract StoxCorporateActionsHandler is Test {
         lastSeenCursor[a] = current;
     }
 
-    /// @dev Receipt-side analogue of `_assertCursorInvariant`: after any
-    /// migration on the receipt, the (holder, id) cursor must equal the
-    /// vault's `totalSupplyLatestSplit`. Same reasoning as the share-side
-    /// version — the invariant is load-bearing for rebased balance reads
-    /// and fires at every handler call that touches a receipt position.
+    /// @dev After any migration on the receipt, the (holder, id) cursor
+    /// equals the vault's `totalSupplyLatestSplit`. A receipt cursor that
+    /// drifted behind would cause `LibReceiptRebase.migratedBalance` to
+    /// silently re-apply multipliers to an already-rasterized stored
+    /// balance on the next read.
     function _assertReceiptCursorInvariant(address a, uint256 id) internal view {
         assertEq(
             RECEIPT.holderIdCursor(a, id),

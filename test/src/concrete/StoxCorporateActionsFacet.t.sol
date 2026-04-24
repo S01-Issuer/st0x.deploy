@@ -397,10 +397,9 @@ contract StoxCorporateActionsFacetTest is Test {
 
     /// Multiple actions scheduled at the same effectiveTime are inserted in
     /// stable order: each new node lands AFTER existing nodes with equal
-    /// effectiveTime. This regression-protects the `<=` comparison in
+    /// effectiveTime. Relies on the `<=` comparison in
     /// LibCorporateAction.schedule's tail walk — flipping it to `<` would
     /// silently reorder same-time actions and break time-stable iteration.
-    /// Audit finding A21-P2-1.
     function testScheduleTiedEffectiveTimeStableOrdering() external {
         uint256 first = corporateActionHarness.schedule(1, 1500, hex"01");
         uint256 second = corporateActionHarness.schedule(1, 1500, hex"02");
@@ -1197,11 +1196,11 @@ contract StoxCorporateActionsFacetTest is Test {
         facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, effectiveTime, parameters);
     }
 
-    /// Audit findings A01-P5-1 / A01-P2-3: the facet's external traversal
-    /// getters now take an explicit `CompletionFilter` and plumb it through
-    /// to the lib. Verify each filter value returns the expected cursor for
-    /// a list with one completed and one pending action of the same type.
-    /// Schedules through the facet so the actions live in the same storage
+    /// The facet's external traversal getters take an explicit
+    /// `CompletionFilter` and plumb it through to the lib. Verify each
+    /// filter value returns the expected cursor for a list with one
+    /// completed and one pending action of the same type. Schedules
+    /// through the facet so the actions live in the same storage
     /// namespace the facet's getters read from.
     function testFacetTraversalGettersFilterParameter() external {
         _scheduleSplitViaFacet(2, 1500); // index 1, will be completed
@@ -1313,9 +1312,9 @@ contract StoxCorporateActionsFacetTest is Test {
     }
 
     // -----------------------------------------------------------------------
-    // getActionParameters (new in PR #7) — returns the raw parameters blob
-    // for a scheduled or completed action, used by cross-contract consumers
-    // (e.g. the receipt contract's rebase walk).
+    // getActionParameters returns the raw parameters blob for a scheduled
+    // or completed action, used by cross-contract consumers (e.g. the
+    // receipt contract's rebase walk).
 
     /// getActionParameters returns exactly the bytes written at schedule time.
     function testGetActionParametersRoundTrip() external {

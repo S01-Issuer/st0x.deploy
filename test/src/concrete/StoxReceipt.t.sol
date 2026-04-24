@@ -302,11 +302,10 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         assertEq(receipt.balanceOf(BOB, ID_A), 600);
     }
 
-    /// Zero-balance cursor advancement — load-bearing regression, mirrors
-    /// the share-side 2026-04-07-01 bug. A fresh recipient whose stored
-    /// balance is 0 at the time of a split must still have their cursor
-    /// advanced on first touch, so a subsequent mint doesn't re-apply the
-    /// multiplier on top of an already-rebased raw balance.
+    /// A fresh recipient whose stored balance is 0 at the time of a split
+    /// has their cursor advanced on first touch, so a subsequent mint or
+    /// transfer-in does not re-apply the multiplier on top of an
+    /// already-rebased raw balance.
     function testZeroBalanceCursorAdvancesOnFreshRecipient() external {
         _mint(BOB, ID_A, 1000);
         _splitParams(2);

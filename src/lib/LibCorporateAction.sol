@@ -200,17 +200,16 @@ library LibCorporateAction {
     /// either never-used (array slot was never populated) or cancelled
     /// (unlinked here).
     ///
-    /// @dev **Load-bearing: `node.effectiveTime = 0` is the double-cancel
-    /// guard.** A second call to `cancel(actionIndex)` on an already-
-    /// cancelled node must be caught by the `node.effectiveTime == 0` check
-    /// at the top of this function. Without the zero-assignment here, a
-    /// double-cancel would: (1) pass the effectiveTime-in-past check
-    /// because the original future time is still set; (2) read
-    /// `prevId = node.prev = 0` and `nextId = node.next = 0` (both zeroed
-    /// by the first cancel); (3) blow away `s.head` and `s.tail` by
-    /// writing `nextId = 0` into both. Catastrophic, silent state
-    /// corruption. A double-cancel-reverts regression test
-    /// (`testCancelAlreadyCancelledReverts`) locks this in — do not remove
+    /// @dev `node.effectiveTime = 0` below is the double-cancel guard. A
+    /// second call to `cancel(actionIndex)` on an already-cancelled node
+    /// is caught by the `node.effectiveTime == 0` check at the top of
+    /// this function. Without the zero-assignment, a double-cancel would:
+    /// (1) pass the effectiveTime-in-past check because the original
+    /// future time is still set; (2) read `prevId = node.prev = 0` and
+    /// `nextId = node.next = 0` (both zeroed by the first cancel); (3)
+    /// blow away `s.head` and `s.tail` by writing `nextId = 0` into both.
+    /// Catastrophic, silent state corruption.
+    /// `testCancelAlreadyCancelledReverts` pins the guard — do not remove
     /// the test or the zero assignment together.
     function cancel(uint256 actionIndex) internal {
         CorporateActionStorage storage s = getStorage();
