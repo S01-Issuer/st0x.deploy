@@ -389,6 +389,26 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         assertEq(receipt.rawStoredBalance(ALICE, ID_A), 50);
     }
 
+    /// Holder-initiated `safeTransferFrom` (no operator approval) moves up
+    /// to the post-rebase balance. Distinct from the operator path — the
+    /// holder's own `msg.sender == from` call bypasses the approval check
+    /// but should still see the rebased ceiling.
+    function testFuzzHolderDirectTransferUsesPostRebaseBalance(uint64 deposit, uint128 amount, uint8 mulSeed) external {
+        int256 multiplier = int256(uint256(bound(mulSeed, 2, 5)));
+        deposit = uint64(bound(deposit, 1, type(uint64).max / uint64(uint256(multiplier))));
+        uint256 postRebase = uint256(deposit) * uint256(multiplier);
+        uint256 xfer = bound(amount, 0, postRebase);
+
+        _mint(ALICE, ID_A, deposit);
+        _splitParams(multiplier);
+
+        vm.prank(ALICE);
+        receipt.safeTransferFrom(ALICE, BOB, ID_A, xfer, "");
+
+        assertEq(receipt.balanceOf(ALICE, ID_A), postRebase - xfer);
+        assertEq(receipt.balanceOf(BOB, ID_A), xfer);
+    }
+
     /// Minting additional balance to a holder who already has a pre-split
     /// position rasterizes first, then adds the mint amount. The mint is
     /// denominated in post-rebase units — so the holder ends up with
