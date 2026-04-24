@@ -370,6 +370,30 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         assertEq(receipt.rawStoredBalance(ALICE, ID_B), 400);
     }
 
+    /// A batch with a duplicate id migrates once and subtracts the total
+    /// of all occurrences from the sender. The second migration call for
+    /// the already-advanced cursor is a no-op, and the balance math still
+    /// balances (both amounts transferred).
+    function testBatchUpdateWithDuplicateIdTransfersFullSum() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        uint256[] memory ids = new uint256[](2);
+        ids[0] = ID_A;
+        ids[1] = ID_A;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 50;
+        amounts[1] = 25;
+
+        vm.prank(ALICE);
+        receipt.safeBatchTransferFrom(ALICE, BOB, ids, amounts, "");
+
+        assertEq(receipt.balanceOf(ALICE, ID_A), 125, "post-rebase 200 minus (50 + 25) transferred");
+        assertEq(receipt.balanceOf(BOB, ID_A), 75, "bob receives 50 + 25");
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1);
+        assertEq(receipt.holderIdCursor(BOB, ID_A), 1);
+    }
+
     /// ReceiptAccountMigrated event is emitted for non-trivial migrations.
     function testReceiptAccountMigratedEventEmitted() external {
         _mint(ALICE, ID_A, 100);
