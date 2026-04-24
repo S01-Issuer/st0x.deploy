@@ -370,6 +370,26 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         assertEq(receipt.rawStoredBalance(ALICE, ID_B), 400);
     }
 
+    /// A reverse split that truncates the balance to zero followed by a
+    /// forward split does not re-inflate the balance. Truncation is
+    /// irreversible; the sequential walk multiplies 0 by every subsequent
+    /// multiplier and stays at 0.
+    function testFractionalSplitTruncatingToZeroDoesNotReInflate() external {
+        _mint(ALICE, ID_A, 1);
+        _fractionalParams(1, 2);
+        _splitParams(3);
+
+        // View path: walks both multipliers, truncates to 0 at step 1,
+        // stays at 0 through step 2.
+        assertEq(receipt.balanceOf(ALICE, ID_A), 0, "view path sees truncated zero");
+
+        // Migration path: rasterizes to 0 and advances cursor to 2.
+        _transfer(ALICE, ALICE, ID_A, 0);
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 0);
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 2);
+        assertEq(receipt.balanceOf(ALICE, ID_A), 0, "post-migration balance remains zero");
+    }
+
     /// A batch with a duplicate id migrates once and subtracts the total
     /// of all occurrences from the sender. The second migration call for
     /// the already-advanced cursor is a no-op, and the balance math still
