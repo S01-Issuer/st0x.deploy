@@ -48,20 +48,29 @@ Fork tests require `RPC_URL_BASE_FORK` in `.env`.
 │ (diamond facet)          │
 │ ICorporateActionsV1      │
 └──────────────────────────┘
-           │ uses
-┌──────────┴───────────────────────────────────────────┐
-│                    src/lib/                            │
-│  LibCorporateAction    — doubly linked list + storage │
-│  LibCorporateActionNode — traversal with filters      │
-│  LibStockSplit         — validation + decode          │
-│  LibRebase             — share-side lazy migration    │
-│  LibReceiptRebase      — receipt-side lazy migration  │
-│  LibRebaseMath         — shared multiplier primitive  │
-│  LibTotalSupply        — per-cursor pot accounting    │
-│  LibERC20Storage       — direct OZ ERC20 slot access  │
-│  LibERC1155Storage     — direct OZ ERC1155 slot access│
-│  LibCorporateActionReceipt — receipt cursor storage   │
-└──────────────────────────────────────────────────────┘
+           │ (facet + concrete contracts use)
+┌──────────┴─────────────────────────────────────────────┐
+│                    src/lib/                             │
+│  Corporate-actions core                                 │
+│    LibCorporateAction     — linked list + storage       │
+│    LibCorporateActionNode — traversal with filters      │
+│    LibStockSplit          — validation + decode         │
+│                                                         │
+│  Rebase math / migration                                │
+│    LibRebase              — share-side lazy migration   │
+│    LibReceiptRebase       — receipt-side lazy migration │
+│    LibRebaseMath          — shared multiplier primitive │
+│    LibTotalSupply         — per-cursor pot accounting   │
+│                                                         │
+│  Namespaced storage access                              │
+│    LibERC20Storage        — OZ ERC20 slot access        │
+│    LibERC1155Storage      — OZ ERC1155 slot access      │
+│    LibCorporateActionReceipt — receipt cursor storage   │
+│                                                         │
+│  Production deploy constants                            │
+│    LibProdDeployV1 / V2 / V2BaseOverrides / V3          │
+│    LibProdTokensBase                                    │
+└────────────────────────────────────────────────────────┘
 ```
 
 ### Token Topology (per deposit)
@@ -90,19 +99,22 @@ guidance, and `docs/GLOSSARY.md` for domain terms.
 ### Directory Structure
 
 - `src/concrete/` — StoxReceipt, StoxReceiptVault, StoxWrappedTokenVault,
-  StoxCorporateActionsFacet
+  StoxWrappedTokenVaultBeacon, StoxCorporateActionsFacet
 - `src/concrete/authorize/` — Authorizer implementations
 - `src/concrete/deploy/` — Deployer contracts (unified deployer, beacon set
   deployers)
-- `src/interface/` — `ICorporateActionsV1` versioned interface
+- `src/interface/` — Versioned interfaces (`ICorporateActionsV1`,
+  `IStoxUnifiedDeployerV1`, `IStoxWrappedTokenVaultBeaconSetDeployerV1`)
+- `src/error/` — Shared error definitions (`ErrCorporateAction`, `ErrRebase`,
+  `ErrStockSplit`)
 - `src/lib/` — Libraries (corporate actions, rebase, storage access, production
   addresses)
 - `src/generated/` — Zoltu deterministic deployment pointer files
 - `script/` — Forge deployment scripts
 - `test/` — Foundry tests (unit, fuzz, invariant, fork)
-- `docs/` — Integration guide for external consumers
+- `docs/` — Domain glossary
 - `lib/` — Git submodule dependencies (rain.vats, rain.deploy,
-  rain.extrospection)
+  rain.extrospection, rain.tofu.erc20-decimals)
 
 ## License
 
