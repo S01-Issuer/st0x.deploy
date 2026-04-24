@@ -24,13 +24,23 @@ bytes32 constant ERC1155_STORAGE_LOCATION =
 /// If OZ changes this layout, this library MUST be updated and
 /// `testErc1155SlotConstantMatchesDerivation` in the accompanying test file
 /// will fail first. See the "Breaking dependency bumps" section of `CLAUDE.md`.
-///
-/// The nested-mapping slot derivation is:
-///   outer = keccak256(abi.encode(id, ERC1155_STORAGE_LOCATION))
-///   entry = keccak256(abi.encode(account, outer))
-/// i.e. two hashes where the inner hash has `_balances` base slot (offset 0)
-/// as the second word.
 library LibERC1155Storage {
+    /// @dev Derive the storage slot holding `_balances[id][account]`. The
+    /// nested mapping resolves in two steps:
+    ///   outer = keccak256(id || ERC1155_STORAGE_LOCATION)
+    ///   slot  = keccak256(account || outer)
+    function balanceSlot(address account, uint256 id) private pure returns (bytes32 slot) {
+        bytes32 base = ERC1155_STORAGE_LOCATION;
+        assembly ("memory-safe") {
+            mstore(0x00, id)
+            mstore(0x20, base)
+            let outer := keccak256(0x00, 0x40)
+            mstore(0x00, account)
+            mstore(0x20, outer)
+            slot := keccak256(0x00, 0x40)
+        }
+    }
+
     /// @notice Read an account's raw underlying balance for a given receipt
     /// id at OZ's ERC-7201 `_balances` slot. This is whatever value OZ's
     /// `_update` has last written — no semantic overlay is applied here.
@@ -38,18 +48,9 @@ library LibERC1155Storage {
     /// @param id The receipt id.
     /// @return result The raw value of `_balances[id][account]`.
     function underlyingBalance(address account, uint256 id) internal view returns (uint256 result) {
-        // Inline assembly only accepts literal number constants; bind the
-        // derived constant to a local first.
-        bytes32 slot = ERC1155_STORAGE_LOCATION;
+        bytes32 slot = balanceSlot(account, id);
         assembly ("memory-safe") {
-            // outer = keccak256(abi.encode(id, ERC1155_STORAGE_LOCATION))
-            mstore(0x00, id)
-            mstore(0x20, slot)
-            let outer := keccak256(0x00, 0x40)
-            // entry = keccak256(abi.encode(account, outer))
-            mstore(0x00, account)
-            mstore(0x20, outer)
-            result := sload(keccak256(0x00, 0x40))
+            result := sload(slot)
         }
     }
 
@@ -60,14 +61,9 @@ library LibERC1155Storage {
     /// @param id The receipt id.
     /// @param newBalance The new value to write to `_balances[id][account]`.
     function setUnderlyingBalance(address account, uint256 id, uint256 newBalance) internal {
-        bytes32 slot = ERC1155_STORAGE_LOCATION;
+        bytes32 slot = balanceSlot(account, id);
         assembly ("memory-safe") {
-            mstore(0x00, id)
-            mstore(0x20, slot)
-            let outer := keccak256(0x00, 0x40)
-            mstore(0x00, account)
-            mstore(0x20, outer)
-            sstore(keccak256(0x00, 0x40), newBalance)
+            sstore(slot, newBalance)
         }
     }
 }

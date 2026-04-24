@@ -12,9 +12,11 @@ import {
     NoActionsScheduled
 } from "../error/ErrCorporateAction.sol";
 
-/// @dev ERC-7201 namespaced storage location for corporate actions.
-/// keccak256(abi.encode(uint256(keccak256("rain.storage.corporate-action.1")) - 1)) & ~bytes32(uint256(0xff))
-bytes32 constant CORPORATE_ACTION_STORAGE_LOCATION = 0xcce8b403dc927e3ec0218603a262b6c4fcc2985ab628bee1e65a6e26753c8300;
+/// @dev ERC-7201 namespaced storage location for corporate actions,
+/// derived in-source from the spec formula rather than hardcoded.
+/// Evaluated at compile time, zero runtime cost.
+bytes32 constant CORPORATE_ACTION_STORAGE_LOCATION =
+    keccak256(abi.encode(uint256(keccak256("rain.storage.corporate-action.1")) - 1)) & ~bytes32(uint256(0xff));
 
 /// @dev Permission hash for scheduling a corporate action via the authorizer.
 bytes32 constant SCHEDULE_CORPORATE_ACTION = keccak256("SCHEDULE_CORPORATE_ACTION");

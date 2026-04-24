@@ -3,10 +3,10 @@
 pragma solidity ^0.8.25;
 
 /// @dev ERC-7201 namespaced storage location for receipt-side corporate
-/// action state on `StoxReceipt`.
-/// keccak256(abi.encode(uint256(keccak256("rain.storage.corporate-action-receipt.1")) - 1)) & ~bytes32(uint256(0xff))
+/// action state on `StoxReceipt`, derived in-source from the spec formula
+/// rather than hardcoded. Evaluated at compile time, zero runtime cost.
 bytes32 constant CORPORATE_ACTION_RECEIPT_STORAGE_LOCATION =
-    0x44d8f0b6fcc32f3d967ed89d473dfc1155704245690f9cab9f363a65b73e3000;
+    keccak256(abi.encode(uint256(keccak256("rain.storage.corporate-action-receipt.1")) - 1)) & ~bytes32(uint256(0xff));
 
 /// @title LibCorporateActionReceipt
 /// @notice Diamond-style storage for receipt-side rebase migration state,
