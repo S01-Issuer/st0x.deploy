@@ -425,6 +425,32 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         receipt.balanceOfBatch(accounts, ids);
     }
 
+    /// Invariant pinned by the NatSpec on `_update`: by the time OZ's
+    /// `_doSafeTransferAcceptanceCheck` fires `onERC1155Received` on a
+    /// contract recipient, migration has completed and balances are
+    /// rasterized. A receive hook that reads `balanceOf` must observe the
+    /// post-migration, post-transfer values — not stale pre-rebase state.
+    /// Mutation: reordering `_update` so migration runs AFTER
+    /// `super._update` would make the hook observe a pre-migration stored
+    /// balance and the recipient's raw-plus-transferred value (off by a
+    /// factor equal to every completed multiplier).
+    function testReceiveHookObservesPostMigrationState() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        // Use a contract receiver that records the state observed during
+        // the onERC1155Received callback.
+        RecordingReceiver recv = new RecordingReceiver(receipt, ALICE);
+        _transfer(ALICE, address(recv), ID_A, 50);
+
+        // Inside the callback, alice's pre-transfer effective balance was
+        // 200 (rebased from stored 100). The hook fires AFTER migration
+        // (alice stored becomes 200) and AFTER the transfer (alice raw:
+        // 200 - 50 = 150, recv raw: 0 + 50 = 50).
+        assertEq(recv.observedAliceBalance(), 150, "hook must see post-transfer alice balance");
+        assertEq(recv.observedRecvBalance(), 50, "hook must see post-transfer recv balance");
+    }
+
     // -----------------------------------------------------------------------
     // Helpers
 
@@ -436,5 +462,26 @@ contract StoxReceiptRebaseIntegrationTest is Test {
     function _transfer(address from, address to, uint256 id, uint256 amount) internal {
         vm.prank(address(vault));
         receipt.managerTransferFrom(address(vault), from, to, id, amount, "");
+    }
+}
+
+/// @dev Contract recipient that records the sender and receiver balances
+/// observed during its `onERC1155Received` callback. Used to pin the
+/// invariant that receive hooks fire post-migration, post-transfer.
+contract RecordingReceiver {
+    StoxReceipt public immutable RECEIPT;
+    address public immutable ALICE;
+    uint256 public observedAliceBalance;
+    uint256 public observedRecvBalance;
+
+    constructor(StoxReceipt receipt_, address alice_) {
+        RECEIPT = receipt_;
+        ALICE = alice_;
+    }
+
+    function onERC1155Received(address, address, uint256 id, uint256, bytes calldata) external returns (bytes4) {
+        observedAliceBalance = RECEIPT.balanceOf(ALICE, id);
+        observedRecvBalance = RECEIPT.balanceOf(address(this), id);
+        return this.onERC1155Received.selector;
     }
 }
