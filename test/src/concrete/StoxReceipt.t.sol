@@ -544,6 +544,53 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         assertEq(receipt.balanceOf(ALICE, ID_A), 0, "post-migration balance remains zero");
     }
 
+    /// In a multi-id batch transfer, `ReceiptAccountMigrated` events fire
+    /// in `(from, ids[0]), (to, ids[0]), (from, ids[1]), (to, ids[1]), ...`
+    /// order, all before the `TransferBatch` event. Indexers rely on this
+    /// interleaving: for each event emitted for `ids[i]`, the balance at
+    /// that cursor for that id is the rasterized value, not yet touched
+    /// by the transfer.
+    function testBatchUpdateEventOrderingAcrossIds() external {
+        _mint(ALICE, ID_A, 100);
+        _mint(ALICE, ID_B, 200);
+        _splitParams(2);
+
+        uint256[] memory ids = new uint256[](2);
+        ids[0] = ID_A;
+        ids[1] = ID_B;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 10;
+        amounts[1] = 20;
+
+        vm.recordLogs();
+        vm.prank(ALICE);
+        receipt.safeBatchTransferFrom(ALICE, BOB, ids, amounts, "");
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 migratedSig = StoxReceipt.ReceiptAccountMigrated.selector;
+        bytes32 batchSig = keccak256("TransferBatch(address,address,address,uint256[],uint256[])");
+
+        uint256[] memory migratedOrder = new uint256[](4);
+        uint256 migratedIdx = 0;
+        uint256 batchIdx = type(uint256).max;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length == 0) continue;
+            if (logs[i].topics[0] == migratedSig && migratedIdx < 4) {
+                address who = address(uint160(uint256(logs[i].topics[1])));
+                uint256 id = uint256(logs[i].topics[2]);
+                migratedOrder[migratedIdx++] = uint256(uint160(who)) << 96 | uint256(uint96(id)); // pack for comparison
+            } else if (logs[i].topics[0] == batchSig) {
+                batchIdx = i;
+            }
+        }
+
+        assertEq(migratedIdx, 2, "alice-only migrations: ID_A and ID_B (bob starts at 0 balance, no emit)");
+        // Each element packs (address, id); compare as (alice, ID_A), (alice, ID_B).
+        assertEq(migratedOrder[0], uint256(uint160(ALICE)) << 96 | uint96(ID_A), "first emit is (alice, ID_A)");
+        assertEq(migratedOrder[1], uint256(uint160(ALICE)) << 96 | uint96(ID_B), "second emit is (alice, ID_B)");
+        assertLt(batchIdx, type(uint256).max, "TransferBatch must be emitted");
+    }
+
     /// A batch with a duplicate id migrates the (holder, id) pair once
     /// and subtracts the sum of all amount entries from the sender. Holds
     /// for any pair of amounts whose sum is at most the post-rebase
