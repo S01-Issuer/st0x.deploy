@@ -370,6 +370,22 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         assertEq(receipt.rawStoredBalance(ALICE, ID_B), 400);
     }
 
+    /// After burning the full post-rebase balance to zero, a subsequent
+    /// transfer-in credits exactly the transferred amount. The zero-balance
+    /// cursor advancement on burn keeps the holder at the latest cursor,
+    /// so the next write is not re-multiplied on the next `balanceOf`.
+    function testTransferInAfterBurnToZeroCreditsExact() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+        _burn(ALICE, ID_A, 200);
+
+        _mint(BOB, ID_A, 50);
+        _transfer(BOB, ALICE, ID_A, 50);
+
+        assertEq(receipt.balanceOf(ALICE, ID_A), 50);
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 50);
+    }
+
     /// Minting additional balance to a holder who already has a pre-split
     /// position rasterizes first, then adds the mint amount. The mint is
     /// denominated in post-rebase units — so the holder ends up with

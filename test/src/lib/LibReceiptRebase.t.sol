@@ -181,14 +181,12 @@ contract LibReceiptRebaseTest is Test {
         assertEq(cursor, 0);
     }
 
-    /// Sequential precision regression: 1/3 × 3 × 1/3 × 3 applied to 100.
-    /// The expected value is 96, matching `LibRebase.t.sol::
-    /// testSequentialPrecision` exactly — because both sides use the same
-    /// `LibRebaseMath.applyMultiplier` primitive, any divergence between
-    /// the share and receipt sides would break the share↔receipt
-    /// proportionality invariant. See audit 2026-04-09-01 Item 7 for the
-    /// explanation of why the answer is 96 (Float's 1/3 is slightly less
-    /// than exact 1/3, so 99 × 1/3_float rounds down to 32 rather than 33).
+    /// Sequential application of 1/3 * 3 * 1/3 * 3 to a stored 100
+    /// produces 96, not 100. Float's 1/3 is slightly less than exact 1/3,
+    /// so 99 * 1/3_float rounds down to 32 rather than 33, which then
+    /// multiplies by 3 to 96. The receipt side must produce the same
+    /// sequence as the share side — both use `LibRebaseMath.applyMultiplier`
+    /// — so any drift here breaks share↔receipt proportionality.
     function testSequentialPrecision() external {
         _fractionalSplit(1, 3);
         _integerSplit(3);
