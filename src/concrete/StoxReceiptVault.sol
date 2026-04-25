@@ -189,6 +189,17 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     ///
     /// Plain ETH transfers with empty calldata hit `receive()`, not this
     /// function, so refunds continue to work without going through delegatecall.
+    ///
+    /// **Trust model.** The corporate-actions facet calls the vault's
+    /// `authorizer()` for any state-mutating entry point (schedule, cancel).
+    /// The authorizer is the canonical permission boundary — set by the
+    /// vault owner during initialization. A compromised authorizer can
+    /// already grant or deny any permission, so re-entrancy through the
+    /// authorizer adds no new attack surface beyond what a sequence of
+    /// authorized calls would already permit. No reentrancy guard is
+    /// applied here on that basis. See `StoxCorporateActionsFacet`'s
+    /// per-function comments for the per-method argument that the
+    /// linked-list and cursor writes remain consistent under re-entry.
     fallback() external payable virtual override {
         address facet = LibProdDeployV3.STOX_CORPORATE_ACTIONS_FACET;
         assembly ("memory-safe") {
