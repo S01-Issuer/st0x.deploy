@@ -314,6 +314,23 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         ICorporateActionsV1(address(vault)).scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 2000, params);
     }
 
+    /// ETH attached to a routed mutating call reverts. The vault's
+    /// `fallback()` is payable, so msg.value enters the delegatecall, but
+    /// `scheduleCorporateAction` on the facet is non-payable so its
+    /// dispatch reverts when msg.value > 0. Pins that the routed call
+    /// doesn't silently accept value into the facet path.
+    function testRoutedMutatingCallWithValueReverts() external {
+        bytes memory params = abi.encode(LibDecimalFloat.packLossless(2, 0));
+        bytes memory data = abi.encodeWithSelector(
+            ICorporateActionsV1.scheduleCorporateAction.selector, STOCK_SPLIT_V1_TYPE_HASH, uint64(2000), params
+        );
+
+        vm.deal(ALICE, 1 ether);
+        vm.prank(ALICE);
+        (bool ok,) = address(vault).call{value: 1}(data);
+        assertFalse(ok, "routed call with non-zero value must revert at facet dispatch");
+    }
+
     /// Plain ETH with empty calldata hits `receive()`, not `fallback()`, and
     /// the vault accepts it without invoking the facet delegatecall. If ETH
     /// were routed through `fallback()` the empty calldata would reach the
