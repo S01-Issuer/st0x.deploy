@@ -348,6 +348,20 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         assertEq(mockAuthorizer.callCount(), 0);
     }
 
+    /// Calldata shorter than 4 bytes (no full selector) still hits the
+    /// vault's fallback (Solidity's dispatch ignores anything that isn't
+    /// a complete selector match). The truncated calldata gets
+    /// delegatecalled into the facet, which can't dispatch to any
+    /// selector, and reverts.
+    function testRoutedCallWithTruncatedCalldataReverts() external {
+        bytes memory truncated = hex"deadbe"; // 3 bytes, not enough for a selector
+
+        vm.prank(ALICE);
+        (bool ok,) = address(vault).call(truncated);
+        assertFalse(ok, "truncated calldata routed through fallback must revert at facet dispatch");
+        assertEq(mockAuthorizer.callCount(), 0);
+    }
+
     /// Plain ETH with empty calldata hits `receive()`, not `fallback()`, and
     /// the vault accepts it without invoking the facet delegatecall. If ETH
     /// were routed through `fallback()` the empty calldata would reach the
