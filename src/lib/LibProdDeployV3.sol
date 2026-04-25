@@ -38,6 +38,10 @@ import {
     BYTECODE_HASH as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_HASH,
     DEPLOYED_ADDRESS as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_ADDR
 } from "../generated/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.pointers.sol";
+import {
+    BYTECODE_HASH as STOX_CORPORATE_ACTIONS_FACET_HASH,
+    DEPLOYED_ADDRESS as STOX_CORPORATE_ACTIONS_FACET_ADDR
+} from "../generated/StoxCorporateActionsFacet.pointers.sol";
 
 /// @title LibProdDeployV3
 /// @notice V3 production deployment addresses and codehashes for the Stox
@@ -91,4 +95,12 @@ library LibProdDeployV3 {
         STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_ADDR;
     bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH =
         STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_HASH;
+
+    /// @dev Deterministic Zoltu address for StoxCorporateActionsFacet. The
+    /// vault's `fallback()` hardcodes this address and delegatecalls every
+    /// non-matching selector here; changing the facet bytecode requires
+    /// redeploying the vault implementation too.
+    address constant STOX_CORPORATE_ACTIONS_FACET = STOX_CORPORATE_ACTIONS_FACET_ADDR;
+    /// @dev Codehash of StoxCorporateActionsFacet when deployed via Zoltu.
+    bytes32 constant STOX_CORPORATE_ACTIONS_FACET_CODEHASH = STOX_CORPORATE_ACTIONS_FACET_HASH;
 }

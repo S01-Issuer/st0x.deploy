@@ -72,6 +72,12 @@ import {
     RUNTIME_CODE as STOX_PAYMENT_MINT_AUTHORIZER_V1_RUNTIME_CODE,
     DEPLOYED_ADDRESS as STOX_PAYMENT_MINT_AUTHORIZER_V1_GENERATED_ADDRESS
 } from "../../../src/generated/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.pointers.sol";
+import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
+import {
+    CREATION_CODE as STOX_CORPORATE_ACTIONS_FACET_CREATION_CODE,
+    RUNTIME_CODE as STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE,
+    DEPLOYED_ADDRESS as STOX_CORPORATE_ACTIONS_FACET_GENERATED_ADDRESS
+} from "../../../src/generated/StoxCorporateActionsFacet.pointers.sol";
 
 contract LibProdDeployV3Test is Test {
     // --- Zoltu deploy address tests ---
@@ -449,5 +455,87 @@ contract LibProdDeployV3Test is Test {
             STOX_PAYMENT_MINT_AUTHORIZER_V1_GENERATED_ADDRESS,
             LibProdDeployV3.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1
         );
+    }
+
+    // --- StoxCorporateActionsFacet ---
+
+    /// Deploying StoxCorporateActionsFacet via Zoltu MUST produce the expected
+    /// address and codehash.
+    function testDeployAddressStoxCorporateActionsFacet() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        address deployed = LibRainDeploy.deployZoltu(type(StoxCorporateActionsFacet).creationCode);
+        assertEq(deployed, LibProdDeployV3.STOX_CORPORATE_ACTIONS_FACET);
+        assertTrue(deployed.code.length > 0);
+        assertEq(deployed.codehash, LibProdDeployV3.STOX_CORPORATE_ACTIONS_FACET_CODEHASH);
+    }
+
+    /// Pointer creation code for StoxCorporateActionsFacet MUST match compiler
+    /// output.
+    function testCreationCodeStoxCorporateActionsFacet() external pure {
+        assertEq(
+            keccak256(STOX_CORPORATE_ACTIONS_FACET_CREATION_CODE),
+            keccak256(type(StoxCorporateActionsFacet).creationCode)
+        );
+    }
+
+    /// Pointer runtime code for StoxCorporateActionsFacet MUST match the
+    /// runtime bytecode produced by Zoltu deployment. The facet has an
+    /// `address private immutable _SELF = address(this)` baked into the
+    /// runtime — comparing against `new` would resolve `address(this)` to
+    /// some test-context address rather than the Zoltu deterministic one,
+    /// so the runtime bytes diverge even when source is identical. Zoltu
+    /// deployment reproduces the address that BuildPointers used.
+    function testRuntimeCodeStoxCorporateActionsFacet() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        address deployed = LibRainDeploy.deployZoltu(type(StoxCorporateActionsFacet).creationCode);
+        assertEq(keccak256(STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE), keccak256(deployed.code));
+    }
+
+    /// Generated pointer address for StoxCorporateActionsFacet MUST match
+    /// library constant.
+    function testGeneratedAddressStoxCorporateActionsFacet() external pure {
+        assertEq(STOX_CORPORATE_ACTIONS_FACET_GENERATED_ADDRESS, LibProdDeployV3.STOX_CORPORATE_ACTIONS_FACET);
+    }
+
+    // --- Build-order invariants ---
+
+    /// The vault's `fallback()` hardcodes `LibProdDeployV3.STOX_CORPORATE_ACTIONS_FACET`,
+    /// which resolves to the facet's pointer `DEPLOYED_ADDRESS`. If
+    /// `BuildPointers.sol` is reordered such that the vault is regenerated
+    /// before the facet (and the facet pointer file does not yet exist or
+    /// holds a stale address), the regenerated vault creation code will embed
+    /// the wrong facet address and route fallback calls to a non-existent or
+    /// unrelated contract.
+    ///
+    /// This asserts the structural invariant: the vault's committed pointer
+    /// creation code MUST contain the facet's committed pointer
+    /// `DEPLOYED_ADDRESS` as a 20-byte sequence. Pairs with
+    /// `testCreationCodeStoxReceiptVault`, which confirms the committed
+    /// creation code matches a fresh compile (i.e. `LibProdDeployV3` resolves
+    /// to the same facet address).
+    function testStoxReceiptVaultCreationCodeEmbedsFacetAddress() external pure {
+        assertTrue(
+            bytesContainAddress(STOX_RECEIPT_VAULT_CREATION_CODE, STOX_CORPORATE_ACTIONS_FACET_GENERATED_ADDRESS),
+            "vault creation code does not embed facet address"
+        );
+    }
+
+    /// Returns true if `haystack` contains `needle` as a contiguous 20-byte
+    /// sequence. Used by the build-order invariant to scan the vault's
+    /// creation code for the facet's deployed address.
+    function bytesContainAddress(bytes memory haystack, address needle) internal pure returns (bool) {
+        bytes20 needleBytes = bytes20(needle);
+        if (haystack.length < 20) return false;
+        for (uint256 i = 0; i + 20 <= haystack.length; i++) {
+            bool match_ = true;
+            for (uint256 j = 0; j < 20; j++) {
+                if (haystack[i + j] != needleBytes[j]) {
+                    match_ = false;
+                    break;
+                }
+            }
+            if (match_) return true;
+        }
+        return false;
     }
 }

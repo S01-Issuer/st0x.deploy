@@ -60,8 +60,13 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     }
 
     /// @inheritdoc ICorporateActionsV1
-    // The authorizer is a trusted contract set by the vault owner. Facet is
-    // stateless — no storage is read-modify-written around the authorizer call.
+    // The authorizer call sits before any state write. Re-entry through it
+    // is bounded by the trust model documented at the contract level: the
+    // authorizer is the canonical permission boundary, and any re-entry
+    // through it is, by definition, an authorized sequence of calls. Each
+    // re-entrant `schedule` independently captures its own `actionIndex`
+    // from `s.nodes.length - 1` and the linked-list insert is atomic per
+    // call, so interleaved invocations cannot corrupt the list.
     // slither-disable-next-line reentrancy-events
     function scheduleCorporateAction(bytes32 typeHash, uint64 effectiveTime, bytes calldata parameters)
         external
@@ -76,8 +81,11 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     }
 
     /// @inheritdoc ICorporateActionsV1
-    // The authorizer is a trusted contract set by the vault owner. Facet is
-    // stateless — no storage is read-modify-written around the authorizer call.
+    // Same trust model as `scheduleCorporateAction`. The outer call's
+    // `actionIndex` is captured from calldata before `_authorize`, so a
+    // re-entrant cancel during the authorizer callback can only act on
+    // whatever index the (trusted) authorizer chooses to cancel — it
+    // cannot redirect the outer call's target.
     // slither-disable-next-line reentrancy-events
     function cancelCorporateAction(uint256 actionIndex) external override onlyDelegatecalled {
         _authorize(msg.sender, CANCEL_CORPORATE_ACTION, abi.encode(actionIndex));

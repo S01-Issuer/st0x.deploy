@@ -268,6 +268,7 @@ per suite to avoid Zoltu factory nonce issues:
   StoxOffchainAssetReceiptVaultBeaconSetDeployer (depends on StoxReceipt,
   StoxReceiptVault)
 - `stox-unified-deployer` — deploys StoxUnifiedDeployer
+- `stox-corporate-actions-facet` — deploys StoxCorporateActionsFacet
 
 Manual deployment via GitHub Actions workflow (`manual-sol-artifacts.yaml`)
 supports multiple networks.
