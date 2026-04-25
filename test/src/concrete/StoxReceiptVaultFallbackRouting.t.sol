@@ -188,6 +188,38 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         assertEq(effectiveTime, 2000);
     }
 
+    /// `CompletionFilter` works correctly through the routed path: a warp
+    /// past one of two scheduled splits flips the COMPLETED / PENDING
+    /// partition, and the routed traversal returns the right cursor for
+    /// each filter. Pins that the timestamp-driven completion check
+    /// (`effectiveTime <= block.timestamp`) reads the outer transaction's
+    /// timestamp under delegatecall — not the facet's own context.
+    function testCompletionFilterAcrossRoutedTraversal() external {
+        bytes memory params = abi.encode(LibDecimalFloat.packLossless(2, 0));
+
+        vm.startPrank(ALICE);
+        uint256 a = ICorporateActionsV1(address(vault)).scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, params);
+        uint256 b = ICorporateActionsV1(address(vault)).scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 5000, params);
+        vm.stopPrank();
+
+        // Warp past `a`'s effectiveTime but not `b`'s.
+        vm.warp(2000);
+
+        (uint256 completedCursor,,) = ICorporateActionsV1(address(vault))
+            .latestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
+        assertEq(completedCursor, a, "a is the only completed split");
+
+        (uint256 pendingCursor,,) =
+            ICorporateActionsV1(address(vault)).latestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
+        assertEq(pendingCursor, b, "b is the only pending split");
+
+        assertEq(
+            ICorporateActionsV1(address(vault)).completedActionCount(),
+            1,
+            "exactly one completed action across the list"
+        );
+    }
+
     /// A sequence of routed schedule and cancel calls leaves the linked
     /// list in a coherent state, traversable end-to-end through the
     /// fallback. Schedules three nodes, cancels the middle one, and walks
