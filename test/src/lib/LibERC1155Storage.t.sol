@@ -25,23 +25,19 @@ contract TestERC1155 is ERC1155Upgradeable {
     }
 
     function libBalanceOf(address account, uint256 id) external view returns (uint256) {
-        return LibERC1155Storage.getBalance(account, id);
+        return LibERC1155Storage.underlyingBalance(account, id);
     }
 
     function libSetBalance(address account, uint256 id, uint256 newBalance) external {
-        LibERC1155Storage.setBalance(account, id, newBalance);
+        LibERC1155Storage.setUnderlyingBalance(account, id, newBalance);
     }
 }
 
-/// @dev Regression / drift-detection tests for `LibERC1155Storage`. Mirrors
-/// `LibERC20Storage.t.sol` in structure; landed as part of PR #7 audit Item
-/// "receipt coordination" and serves the same drift-detection purpose for OZ
-/// ERC-1155 v5's `ERC-7201` storage layout that the ERC-20 version serves
-/// for OZ ERC-20 v5's layout.
-///
-/// If a future `forge update` of `openzeppelin-contracts-upgradeable` reorders
-/// the `ERC1155Storage` struct or moves the namespace, every assertion in
-/// this file diverges.
+/// @dev Drift-detection tests for `LibERC1155Storage`. Every assertion is
+/// grounded against `ERC1155Upgradeable` running on the same test contract:
+/// if OZ reorders the `ERC1155Storage` struct or renames the ERC-7201
+/// namespace, the slot derivations stop matching the OZ reads and every
+/// assertion in this file fails.
 contract LibERC1155StorageTest is Test {
     TestERC1155 internal token;
 
@@ -62,7 +58,7 @@ contract LibERC1155StorageTest is Test {
         assertEq(ERC1155_STORAGE_LOCATION, expected, "ERC1155_STORAGE_LOCATION drift from spec formula");
     }
 
-    /// LibERC1155Storage.getBalance matches ERC1155Upgradeable.balanceOf across
+    /// LibERC1155Storage.underlyingBalance matches ERC1155Upgradeable.balanceOf across
     /// multiple ids and multiple accounts.
     function testGetBalanceMatchesOzBalanceOf() external {
         token.mint(ALICE, ID_A, 1234);
@@ -82,7 +78,7 @@ contract LibERC1155StorageTest is Test {
         assertEq(token.libBalanceOf(BOB, ID_B), 0);
     }
 
-    /// LibERC1155Storage.setBalance writes a value that ERC1155Upgradeable.balanceOf observes.
+    /// LibERC1155Storage.setUnderlyingBalance writes a value that ERC1155Upgradeable.balanceOf observes.
     function testSetBalanceVisibleToOzBalanceOf() external {
         token.mint(ALICE, ID_A, 100);
         token.libSetBalance(ALICE, ID_A, 999);

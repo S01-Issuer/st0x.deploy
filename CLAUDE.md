@@ -89,9 +89,11 @@ stack):
   `LibERC20Storage`.**
 - `LibRebase` — lazy share-side rebase application: rewrites holder balances to
   the post-rebase basis on first touch, rather than applying a global
-  multiplier. **Cursor advancement is load-bearing for fresh recipients — see
-  audit history under `audit/2026-04-07-01/` for the inflation bug fix and the
-  regression tests.**
+  multiplier. Cursor advancement runs even when `storedBalance == 0`; skipping
+  it would let a subsequent write land at a stale cursor and re-apply every
+  completed multiplier on the next `balanceOf` read, inflating the balance. The
+  `testZeroBalanceAdvancesCursor*` tests in `LibRebase.t.sol` and the
+  fresh-recipient tests in `StoxReceiptVault.t.sol` pin this.
 - `LibReceiptRebase` — receipt-side analogue of `LibRebase`. Walks the vault's
   stock split list through cross-contract `ICorporateActionsV1` view calls and
   rewrites ERC-1155 `_balances` via `LibERC1155Storage`. Preserves the same
@@ -108,10 +110,7 @@ share-side rebase. Without this, a stock split on the share side would create an
 arbitrage opportunity against the un-rebased receipts. The receipt reads stock
 split multipliers from the vault via `ICorporateActionsV1.nextOfType` +
 `getActionParameters`. Both sides use `LibRebaseMath.applyMultiplier` so
-rasterization is bitwise-identical. See
-`audit/2026-04-09-01/guidelines-advisor.md` Item 2 and
-`CORPORATE-ACTIONS-SPEC.md` §"Receipt Coordination" for the threat model and
-as-built design.
+rasterization is bitwise-identical.
 
 Storage isolation follows the diamond storage pattern: each library uses a fixed
 namespaced storage slot. New state must live in a library storage struct, not on
@@ -157,28 +156,25 @@ Git submodules managed via Foundry. Key remappings in `foundry.toml`:
 ### Breaking dependency bumps
 
 Two submodule bumps are **breaking** for the corporate-actions stack and cannot
-be treated as routine dependency updates. See
-`audit/2026-04-09-01/guidelines-advisor.md` Item 16.
+be treated as routine dependency updates.
 
-**`openzeppelin-contracts-upgradeable` v5 — `ERC20Upgradeable` ERC-7201
-layout.** `src/lib/LibERC20Storage.sol` hard-codes the ERC-7201 storage slot for
-OZ's `_balances` mapping and `_totalSupply` field at
-`ERC20_STORAGE_LOCATION = 0x52c6…ce00`, with offsets 0 / 2 within the namespaced
-struct. If OZ renames the namespace string (`"openzeppelin.storage.ERC20"`) or
-reshuffles the struct layout — e.g. in a hypothetical v6 — `getBalance` /
-`setBalance` / `getTotalSupply` silently read and write the wrong slots.
-Symptoms would be catastrophic and invisible to bytecode comparison. On bump:
+**`openzeppelin-contracts-upgradeable` v5 (ERC20Upgradeable ERC-7201 layout).**
+`src/lib/LibERC20Storage.sol` derives the ERC-7201 storage root in-source from
+`keccak256("openzeppelin.storage.ERC20")` and reads offsets 0 / 2 within the
+namespaced struct for `_balances` / `_totalSupply`. If OZ renames the namespace
+string or reshuffles the struct layout — e.g. in a hypothetical v6 —
+`underlyingBalance` / `setUnderlyingBalance` / `underlyingTotalSupply` silently
+read and write the wrong slots. Symptoms would be catastrophic and invisible to
+bytecode comparison. On bump:
 
-1. Re-derive `ERC20_STORAGE_LOCATION` from the new namespace string and update
-   the constant.
-2. Re-run
-   `test/src/lib/LibERC20Storage.t.sol::testSlotConstantMatchesDerivation` — it
-   pins the formula.
-3. Re-run `LibERC20StorageTest` in full: the runtime invariant tests
-   (`testGetBalanceMatchesOzBalanceOf`, `testFuzzRoundTrip`, etc.) drive an
-   actual `ERC20Upgradeable` subclass and cross-check every library accessor
-   against the OZ read path. Any layout drift fails here.
-4. Verify the struct still has `_balances` at offset 0 and `_totalSupply` at
+1. Verify the namespace string in OZ still hashes to the same root (or update
+   it); the constant derivation in `LibERC20Storage.sol` uses the formula
+   directly, no separate pin is needed.
+2. Re-run `LibERC20StorageTest` in full: `testGetBalanceMatchesOzBalanceOf`,
+   `testSetBalanceVisibleToOzBalanceOf`, `testFuzzRoundTrip` drive an actual
+   `ERC20Upgradeable` subclass and cross-check every library accessor against
+   the OZ read path. Any layout drift fails here.
+3. Verify the struct still has `_balances` at offset 0 and `_totalSupply` at
    offset 2. If either moved, the assembly reads in `LibERC20Storage` must be
    re-pinned.
 
