@@ -331,6 +331,23 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         assertFalse(ok, "routed call with non-zero value must revert at facet dispatch");
     }
 
+    /// A call with an unknown selector hits the vault's fallback, gets
+    /// delegatecalled into the facet, and reverts because the facet's
+    /// dispatch doesn't recognize the selector. The vault forwards the
+    /// empty revert data via `revert(0, returndatasize())`. Pins that
+    /// unknown selectors don't silently succeed.
+    function testRoutedCallWithUnknownSelectorReverts() external {
+        bytes memory data = abi.encodeWithSelector(0xdeadbeef, uint256(1));
+
+        vm.prank(ALICE);
+        (bool ok,) = address(vault).call(data);
+        assertFalse(ok, "unknown selector must not match anything in the facet");
+
+        // Authorizer was not touched — the call reverted at the facet's
+        // dispatch before any logic ran.
+        assertEq(mockAuthorizer.callCount(), 0);
+    }
+
     /// Plain ETH with empty calldata hits `receive()`, not `fallback()`, and
     /// the vault accepts it without invoking the facet delegatecall. If ETH
     /// were routed through `fallback()` the empty calldata would reach the
