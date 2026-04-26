@@ -16,7 +16,6 @@ import {
 } from "../../../src/lib/LibCorporateAction.sol";
 import {
     UnknownActionType,
-    NoActionsScheduled,
     EffectiveTimeInPast,
     ActionAlreadyComplete,
     ActionDoesNotExist,
@@ -140,14 +139,6 @@ contract CorporateActionHarness {
 
     function tail() external view returns (uint256) {
         return LibTestCorporateAction.tail();
-    }
-
-    function headNode() external view returns (CorporateActionNode memory) {
-        return LibCorporateAction.headNode();
-    }
-
-    function tailNode() external view returns (CorporateActionNode memory) {
-        return LibCorporateAction.tailNode();
     }
 
     /// Library-path readers — all go through `LibCorporateAction.getStorage()`,
@@ -736,18 +727,6 @@ contract StoxCorporateActionsFacetTest is Test {
         assertTrue(corporateActionHarness.totalSupplyBootstrapped(), "totalSupplyBootstrapped must be at offset 6");
     }
 
-    /// headNode and tailNode revert on a completely fresh list where no
-    /// action has ever been scheduled (nodes array has length 0).
-    function testHeadNodeRevertsOnFreshList() external {
-        vm.expectRevert(NoActionsScheduled.selector);
-        corporateActionHarness.headNode();
-    }
-
-    function testTailNodeRevertsOnFreshList() external {
-        vm.expectRevert(NoActionsScheduled.selector);
-        corporateActionHarness.tailNode();
-    }
-
     /// Cancel the head node when a tail exists.
     function testCancelHeadWithTail() external {
         corporateActionHarness.schedule(1, 1500, "");
@@ -992,22 +971,6 @@ contract StoxCorporateActionsFacetTest is Test {
         vm.warp(3000);
 
         assertEq(corporateActionHarness.countCompleted(), 2, "cancelled node excluded from count");
-    }
-
-    /// headNode and tailNode return correct data after scheduling.
-    function testHeadNodeAndTailNodeReturnCorrectData() external {
-        corporateActionHarness.schedule(1, 1500, hex"AA");
-        corporateActionHarness.schedule(2, 2500, hex"BB");
-
-        CorporateActionNode memory h = corporateActionHarness.headNode();
-        assertEq(h.actionType, 1);
-        assertEq(h.effectiveTime, 1500);
-        assertEq(h.parameters, hex"AA");
-
-        CorporateActionNode memory t = corporateActionHarness.tailNode();
-        assertEq(t.actionType, 2);
-        assertEq(t.effectiveTime, 2500);
-        assertEq(t.parameters, hex"BB");
     }
 
     /// Cancel at index == nodes.length reverts.

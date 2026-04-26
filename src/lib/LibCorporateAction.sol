@@ -8,8 +8,7 @@ import {
     EffectiveTimeInPast,
     ActionAlreadyComplete,
     ActionDoesNotExist,
-    UnknownActionType,
-    NoActionsScheduled
+    UnknownActionType
 } from "../error/ErrCorporateAction.sol";
 
 /// @dev ERC-7201 namespaced storage location for corporate actions,
@@ -253,25 +252,5 @@ library LibCorporateAction {
             count++;
             current = LibCorporateActionNode.nextOfType(current, type(uint256).max, CompletionFilter.COMPLETED);
         }
-    }
-
-    /// @notice Return the head node of the list.
-    /// @dev Requires that at least one node has been scheduled (sentinel exists).
-    /// @return The head node, or the sentinel (index == 0) if the list is empty.
-    function headNode() internal view returns (CorporateActionNode storage) {
-        CorporateActionStorage storage s = getStorage();
-        if (s.nodes.length == 0) revert NoActionsScheduled();
-        if (s.head == 0) return s.nodes[0];
-        return s.nodes[s.head];
-    }
-
-    /// @notice Return the tail node of the list.
-    /// @dev Requires that at least one node has been scheduled (sentinel exists).
-    /// @return The tail node, or the sentinel (index == 0) if the list is empty.
-    function tailNode() internal view returns (CorporateActionNode storage) {
-        CorporateActionStorage storage s = getStorage();
-        if (s.nodes.length == 0) revert NoActionsScheduled();
-        if (s.tail == 0) return s.nodes[0];
-        return s.nodes[s.tail];
     }
 }
