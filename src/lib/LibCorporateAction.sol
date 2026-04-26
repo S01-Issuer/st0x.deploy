@@ -253,5 +253,4 @@ library LibCorporateAction {
             current = LibCorporateActionNode.nextOfType(current, type(uint256).max, CompletionFilter.COMPLETED);
         }
     }
-
 }
