@@ -15,9 +15,6 @@ error ActionDoesNotExist(uint256 actionIndex);
 /// @param typeHash The unrecognised external identifier.
 error UnknownActionType(bytes32 typeHash);
 
-/// Thrown when accessing head/tail on a list with no scheduled actions.
-error NoActionsScheduled();
-
 /// Thrown when a traversal getter is called with a mask that contains no
 /// currently valid action-type bits — i.e.
 /// `mask & VALID_ACTION_TYPES_MASK == 0`. Every node's `actionType` has at
