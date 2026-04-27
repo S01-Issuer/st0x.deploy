@@ -5,7 +5,8 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std/Test.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {LibRebase} from "src/lib/LibRebase.sol";
-import {LibCorporateAction, ACTION_TYPE_STOCK_SPLIT_V1} from "src/lib/LibCorporateAction.sol";
+import {LibCorporateAction} from "src/lib/LibCorporateAction.sol";
+import {ACTION_TYPE_STOCK_SPLIT_V1} from "src/interface/ICorporateActionsV1.sol";
 import {LibStockSplit} from "src/lib/LibStockSplit.sol";
 
 contract LibRebaseHarness {

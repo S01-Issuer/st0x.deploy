@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {LibCorporateAction, VALID_ACTION_TYPES_MASK} from "./LibCorporateAction.sol";
+import {LibCorporateAction} from "./LibCorporateAction.sol";
+import {VALID_ACTION_TYPES_MASK} from "../interface/ICorporateActionsV1.sol";
 import {InvalidMask} from "../error/ErrCorporateAction.sol";
 
 /// @dev A corporate action node in the doubly linked list ordered by

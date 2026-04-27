@@ -10,11 +10,11 @@ import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/tok
 import {
     IERC20Errors
 } from "openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
+import {LibCorporateAction} from "../../../src/lib/LibCorporateAction.sol";
 import {
-    LibCorporateAction,
     ACTION_TYPE_STOCK_SPLIT_V1,
     ACTION_TYPE_STABLES_DIVIDEND_V1
-} from "../../../src/lib/LibCorporateAction.sol";
+} from "../../../src/interface/ICorporateActionsV1.sol";
 import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
 import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 import {LibTotalSupply} from "../../../src/lib/LibTotalSupply.sol";

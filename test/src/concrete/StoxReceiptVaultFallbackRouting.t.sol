@@ -5,13 +5,9 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std/Test.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
-import {ICorporateActionsV1} from "../../../src/interface/ICorporateActionsV1.sol";
+import {ICorporateActionsV1, ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/interface/ICorporateActionsV1.sol";
 import {LibProdDeployV3} from "../../../src/lib/LibProdDeployV3.sol";
-import {
-    STOCK_SPLIT_V1_TYPE_HASH,
-    ACTION_TYPE_STOCK_SPLIT_V1,
-    UnknownActionType
-} from "../../../src/lib/LibCorporateAction.sol";
+import {STOCK_SPLIT_V1_TYPE_HASH, UnknownActionType} from "../../../src/lib/LibCorporateAction.sol";
 import {CompletionFilter} from "../../../src/lib/LibCorporateActionNode.sol";
 import {IAuthorizeV1, Unauthorized} from "rain.vats/interface/IAuthorizeV1.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";

@@ -3,9 +3,8 @@
 pragma solidity ^0.8.25;
 
 import {Float} from "rain.math.float/lib/LibDecimalFloat.sol";
-import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
+import {ICorporateActionsV1, ACTION_TYPE_STOCK_SPLIT_V1} from "../interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "./LibCorporateActionNode.sol";
-import {ACTION_TYPE_STOCK_SPLIT_V1} from "./LibCorporateAction.sol";
 import {LibStockSplit} from "./LibStockSplit.sol";
 import {LibRebaseMath} from "./LibRebaseMath.sol";
 

@@ -5,9 +5,8 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std/Test.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {LibReceiptRebase} from "src/lib/LibReceiptRebase.sol";
-import {ICorporateActionsV1} from "src/interface/ICorporateActionsV1.sol";
+import {ICorporateActionsV1, ACTION_TYPE_STOCK_SPLIT_V1} from "src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "src/lib/LibCorporateActionNode.sol";
-import {ACTION_TYPE_STOCK_SPLIT_V1} from "src/lib/LibCorporateAction.sol";
 
 /// @dev Mock vault exposing only the subset of `ICorporateActionsV1` that
 /// `LibReceiptRebase` consumes (`nextOfType` + `getActionParameters`). Tests

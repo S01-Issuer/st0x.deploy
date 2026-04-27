@@ -6,9 +6,8 @@ import {Test, Vm} from "forge-std/Test.sol";
 import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
-import {ICorporateActionsV1} from "../../../src/interface/ICorporateActionsV1.sol";
+import {ICorporateActionsV1, ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "../../../src/lib/LibCorporateActionNode.sol";
-import {ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/lib/LibCorporateAction.sol";
 import {
     LibCorporateActionReceipt,
     CORPORATE_ACTION_RECEIPT_STORAGE_LOCATION

@@ -4,15 +4,17 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std/Test.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
-import {ICorporateActionsV1} from "../../../src/interface/ICorporateActionsV1.sol";
+import {
+    ICorporateActionsV1,
+    ACTION_TYPE_STOCK_SPLIT_V1,
+    ACTION_TYPE_STABLES_DIVIDEND_V1
+} from "../../../src/interface/ICorporateActionsV1.sol";
 import {
     LibCorporateAction,
     CORPORATE_ACTION_STORAGE_LOCATION,
     SCHEDULE_CORPORATE_ACTION,
     CANCEL_CORPORATE_ACTION,
-    STOCK_SPLIT_V1_TYPE_HASH,
-    ACTION_TYPE_STOCK_SPLIT_V1,
-    ACTION_TYPE_STABLES_DIVIDEND_V1
+    STOCK_SPLIT_V1_TYPE_HASH
 } from "../../../src/lib/LibCorporateAction.sol";
 import {
     UnknownActionType,
