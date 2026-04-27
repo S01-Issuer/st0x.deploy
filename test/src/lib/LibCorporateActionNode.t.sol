@@ -3,12 +3,12 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std/Test.sol";
+import {LibCorporateAction} from "src/lib/LibCorporateAction.sol";
 import {
-    LibCorporateAction,
     ACTION_TYPE_STOCK_SPLIT_V1,
     ACTION_TYPE_STABLES_DIVIDEND_V1,
     VALID_ACTION_TYPES_MASK
-} from "src/lib/LibCorporateAction.sol";
+} from "src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter, LibCorporateActionNode} from "src/lib/LibCorporateActionNode.sol";
 import {InvalidMask} from "src/error/ErrCorporateAction.sol";
 

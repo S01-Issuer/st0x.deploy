@@ -4,13 +4,12 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std/Test.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
+import {LibCorporateAction, STOCK_SPLIT_V1_TYPE_HASH} from "../../../src/lib/LibCorporateAction.sol";
 import {
-    LibCorporateAction,
     ACTION_TYPE_STOCK_SPLIT_V1,
     ACTION_TYPE_STABLES_DIVIDEND_V1,
-    VALID_ACTION_TYPES_MASK,
-    STOCK_SPLIT_V1_TYPE_HASH
-} from "../../../src/lib/LibCorporateAction.sol";
+    VALID_ACTION_TYPES_MASK
+} from "../../../src/interface/ICorporateActionsV1.sol";
 import {UnknownActionType} from "../../../src/error/ErrCorporateAction.sol";
 import {
     CorporateActionNode,

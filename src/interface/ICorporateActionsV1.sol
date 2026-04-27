@@ -4,6 +4,23 @@ pragma solidity =0.8.25;
 
 import {CompletionFilter} from "../lib/LibCorporateActionNode.sol";
 
+/// @dev Bitmap action type for V1 stock splits (forward and reverse).
+/// External consumers pass this to the traversal getters
+/// (`latestActionOfType`, `earliestActionOfType`, `nextOfType`, `prevOfType`)
+/// to filter on stock-split actions. Declared at file scope alongside
+/// `ICorporateActionsV1` because Solidity does not allow constant access
+/// via an interface type (`IFoo.X` rejected).
+uint256 constant ACTION_TYPE_STOCK_SPLIT_V1 = 1 << 0;
+
+/// @dev Bitmap action type for V1 stablecoin dividends. Reserved; not yet
+/// schedulable.
+uint256 constant ACTION_TYPE_STABLES_DIVIDEND_V1 = 1 << 1;
+
+/// @dev Union of all currently defined action types. Traversal getters revert
+/// with `InvalidMask` when called with `mask & VALID_ACTION_TYPES_MASK == 0`,
+/// since no node can match such a mask.
+uint256 constant VALID_ACTION_TYPES_MASK = ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1;
+
 /// @title ICorporateActionsV1
 /// @notice Versioned interface for corporate actions on a vault. External
 /// consumers — oracles, lending protocols, wrapper contracts — import this
@@ -123,10 +140,9 @@ import {CompletionFilter} from "../lib/LibCorporateActionNode.sol";
 ///
 /// @dev **Action type bitmap.** The `actionType` field returned by the four
 /// traversal getters is a single-bit mask identifying the action's type.
-/// The canonical mapping lives in `src/lib/LibCorporateAction.sol` and is
-/// reproduced here for convenience:
-/// - `1 << 0` — stock split (forward or reverse; multiplier is a Rain Float).
-/// - `1 << 1` — stablecoin dividend (reserved; not yet schedulable).
+/// The canonical constants — `ACTION_TYPE_STOCK_SPLIT_V1`,
+/// `ACTION_TYPE_STABLES_DIVIDEND_V1`, and `VALID_ACTION_TYPES_MASK` —
+/// are declared at file scope above.
 ///
 /// Further action types will be added as additional bit positions. Consumers
 /// should mask against the specific bit(s) they care about, not compare
