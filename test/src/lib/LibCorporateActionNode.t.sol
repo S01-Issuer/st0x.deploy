@@ -9,7 +9,7 @@ import {
     ACTION_TYPE_STABLES_DIVIDEND_V1,
     VALID_ACTION_TYPES_MASK
 } from "src/interface/ICorporateActionsV1.sol";
-import {CompletionFilter, LibCorporateActionNode} from "src/lib/LibCorporateActionNode.sol";
+import {CompletionFilter, CorporateActionNode, LibCorporateActionNode} from "src/lib/LibCorporateActionNode.sol";
 import {InvalidMask} from "src/error/ErrCorporateAction.sol";
 
 /// @dev Thin harness: exposes the four tuple-returning traversal getters via
@@ -55,6 +55,12 @@ contract TraversalHarness {
         returns (uint256 prevCursor, uint256 actionType, uint64 effectiveTime)
     {
         return LibCorporateActionNode.prevActionOfType(cursor, mask, filter);
+    }
+
+    function nodeAt(uint256 index) external view returns (uint256 actionType, uint64 effectiveTime) {
+        CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[index];
+        actionType = node.actionType;
+        effectiveTime = node.effectiveTime;
     }
 }
 
@@ -357,14 +363,7 @@ contract LibCorporateActionNodeTest is Test {
         assertEq(cursor, 0);
     }
 
-    // Characterisation tests for the per-filter dispatch in
-    // `nextOfType` / `prevOfType`. Each test builds the same mixed list and
-    // walks one (direction, filter) combination across the three mask
-    // variants. Split per filter to keep stack pressure under Solidity's
-    // local-variable limit; the shared list is held in storage to avoid
-    // re-pushing every cursor onto the stack inside each test.
-    //
-    // Layout (effectiveTime ascending — block.timestamp warps to 2700):
+    // Shared list layout (effectiveTime ascending — block.timestamp warps to 2700):
     //   id1 type=1 t=1500   completed
     //   id2 type=2 t=1700   completed
     //   id3 type=1 t=1900   completed
@@ -439,10 +438,8 @@ contract LibCorporateActionNodeTest is Test {
         assertBackwardSequence(2, CompletionFilter.PENDING, cursors1(id7));
     }
 
-    /// All nodes pending (none completed): the COMPLETED filter must
-    /// terminate at 0 in both directions without walking the list. Forward
-    /// hits the early-break on the first node; backward hits the
-    /// skip-suffix walk that consumes every node and returns 0.
+    /// COMPLETED filter on a list where every node is pending returns 0
+    /// in both directions.
     function testAllPendingListReturnsZeroForCompletedFilter() external {
         h.schedule(1, 1500, hex"");
         h.schedule(2, 2500, hex"");
@@ -455,10 +452,8 @@ contract LibCorporateActionNodeTest is Test {
         assertEq(cursor, 0, "latest COMPLETED on all-pending list");
     }
 
-    /// All nodes completed (none pending): the PENDING filter must
-    /// terminate at 0 in both directions. Forward hits the
-    /// skip-prefix-while-completed walk that consumes every node;
-    /// backward hits the early-break on the first node.
+    /// PENDING filter on a list where every node is completed returns 0
+    /// in both directions.
     function testAllCompletedListReturnsZeroForPendingFilter() external {
         h.schedule(1, 1100, hex"");
         h.schedule(2, 1200, hex"");
@@ -471,11 +466,10 @@ contract LibCorporateActionNodeTest is Test {
         assertEq(cursor, 0, "latest PENDING on all-completed list");
     }
 
-    /// Mask matches no nodes in the relevant completion segment: the walk
-    /// must consume the segment and return 0 rather than spilling into
-    /// nodes the filter excludes. Cancel id7 (the only type-2 pending
-    /// node) so PENDING type-2 is genuinely empty even though valid
-    /// type-2 nodes still sit in the completed segment.
+    /// PENDING traversal returns 0 when the completion segment has no
+    /// matching nodes, even when nodes matching the mask exist in the
+    /// other segment. Cancel id7 (the only type-2 pending node) — type-2
+    /// nodes still exist in the completed segment.
     function testNonMatchingMaskInSegmentReturnsZero() external {
         buildMixedCompletedPendingList();
         h.cancel(id7);
@@ -485,20 +479,13 @@ contract LibCorporateActionNodeTest is Test {
         (cursor,,) = h.latest(2, CompletionFilter.PENDING);
         assertEq(cursor, 0, "PENDING type-2 segment empty after cancel");
 
-        // Confirms the PENDING walk terminated without leaking into the
-        // completed section: the COMPLETED segment still finds type-2
-        // matches.
         (cursor,,) = h.earliest(2, CompletionFilter.COMPLETED);
         assertEq(cursor, id2, "COMPLETED type-2 still finds id2");
     }
 
-    /// `effectiveTime <= block.timestamp` is the completion predicate, so a
-    /// node whose `effectiveTime` equals the current block is COMPLETED, not
-    /// PENDING. The boundary check sits in every helper that distinguishes
-    /// the two segments — `walkForwardCompletedMatchingMask`,
-    /// `skipForwardWhileCompleted`, `walkBackwardPendingMatchingMask`,
-    /// `skipBackwardWhilePending` — so the convention has to be uniform
-    /// across all four.
+    /// A node whose `effectiveTime` equals `block.timestamp` is treated
+    /// as COMPLETED, not PENDING — the predicate is
+    /// `effectiveTime <= block.timestamp`.
     function testNodeAtExactTimestampIsCompleted() external {
         uint256 idA = h.schedule(1, 2000, hex"");
         uint256 idB = h.schedule(1, 2500, hex"");
@@ -516,10 +503,8 @@ contract LibCorporateActionNodeTest is Test {
         assertEq(cursor, idB, "node at block.timestamp is NOT PENDING backward");
     }
 
-    /// Cancelled nodes are unlinked but their array slots remain. Traversal
-    /// must skip them under every filter, not just ALL. Pins that the new
-    /// per-filter dispatch keeps the unlink-respecting behaviour the
-    /// existing `testCancelMiddleNodeRelinksTraversal` covers for ALL.
+    /// Cancelled nodes are skipped during traversal under COMPLETED and
+    /// PENDING filters, both directions.
     function testCancelMiddleNodeSkippedUnderCompletedAndPendingFilters() external {
         uint256 idA = h.schedule(1, 1100, hex""); // will be completed
         uint256 idB = h.schedule(1, 1200, hex""); // will be completed, then cancelled
@@ -567,10 +552,8 @@ contract LibCorporateActionNodeTest is Test {
         assertEq(cursor, 0);
     }
 
-    /// `nextOfType` from the tail and `prevOfType` from the head must
-    /// return 0 — there is no further node to step onto. Pins the
-    /// terminator behaviour at the boundary of the linked list across
-    /// all three filters.
+    /// `nextOf` from the tail and `prevOf` from the head return 0 across
+    /// every filter.
     function testTraversalAtBoundariesReturnsZero() external {
         buildMixedCompletedPendingList();
 
@@ -593,11 +576,9 @@ contract LibCorporateActionNodeTest is Test {
         assertEq(cursor, 0, "prev from first pending under PENDING");
     }
 
-    /// Calling `nextOfType` / `prevOfType` with `fromIndex` set to a
-    /// previously-cancelled cursor must terminate at 0 immediately.
-    /// Cancellation zeros `node.prev` and `node.next`, so the
-    /// `s.nodes[fromIndex].next` / `.prev` step at the top of each
-    /// dispatch produces 0 and the loops never enter their bodies.
+    /// `nextOf` / `prevOf` from a previously-cancelled cursor return 0
+    /// across every filter — cancellation zeros `node.prev` and
+    /// `node.next`.
     function testTraversalFromCancelledCursorReturnsZero() external {
         uint256 idA = h.schedule(1, 1500, hex"");
         uint256 idB = h.schedule(2, 2500, hex"");
@@ -622,10 +603,9 @@ contract LibCorporateActionNodeTest is Test {
         assertEq(cursor, 0, "prev from cancelled idB PENDING");
     }
 
-    /// A multi-bit mask matches a node if its `actionType` shares ANY bit
-    /// with the mask, not all of them. Pins the `actionType & mask != 0`
-    /// semantic (rather than `& mask == mask` or `== mask`) across every
-    /// helper.
+    /// A multi-bit mask matches any node sharing at least one bit with
+    /// the mask — the predicate is `actionType & mask != 0`, not
+    /// `& mask == mask`.
     function testMultiBitMaskMatchesAnyBit() external {
         uint256 idType1 = h.schedule(1, 1500, hex"");
         uint256 idType2 = h.schedule(2, 2500, hex"");
@@ -648,11 +628,7 @@ contract LibCorporateActionNodeTest is Test {
     }
 
     /// Nodes scheduled with the same `effectiveTime` are returned in
-    /// insertion order under both forward and backward traversal, across
-    /// every filter dispatch path. Pairs with
-    /// `testScheduleTiedEffectiveTimeStableOrdering` in the facet test
-    /// file (which pins the linked-list structure); this test pins that
-    /// the dispatch helpers consume that structure correctly.
+    /// insertion order forward and reverse-insertion order backward.
     function testTraversalRespectsTiedEffectiveTimeOrdering() external {
         uint256 first = h.schedule(1, 1500, hex"");
         uint256 second = h.schedule(1, 1500, hex"");
@@ -668,11 +644,95 @@ contract LibCorporateActionNodeTest is Test {
         assertBackwardSequence(1, CompletionFilter.COMPLETED, cursors3(third, second, first));
     }
 
-    /// `nextOfType` and `prevOfType` start AFTER `fromIndex` — that node
-    /// itself is never returned, even when it would otherwise match. Pins
-    /// the `s.nodes[fromIndex].next` / `.prev` step at the top of each
-    /// dispatch. Combined with the per-filter dispatch this covers the
-    /// "start mid-segment" case for each helper.
+    /// `latest` / `earliest` / `nextOf` / `prevOf` return
+    /// `(cursor, actionType, effectiveTime)`. A zero cursor returns all
+    /// zeros; a non-zero cursor returns the resolved node's stored
+    /// `actionType` and `effectiveTime`.
+    function testTupleReturnsActionTypeAndEffectiveTime() external {
+        buildMixedCompletedPendingList();
+
+        (uint256 cursor, uint256 actionType, uint64 effectiveTime) = h.earliest(type(uint256).max, CompletionFilter.ALL);
+        assertEq(cursor, id1);
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 1500);
+
+        (cursor, actionType, effectiveTime) = h.earliest(type(uint256).max, CompletionFilter.PENDING);
+        assertEq(cursor, id6);
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 3500);
+
+        (cursor, actionType, effectiveTime) = h.latest(type(uint256).max, CompletionFilter.COMPLETED);
+        assertEq(cursor, id5);
+        assertEq(actionType, 2);
+        assertEq(effectiveTime, 2300);
+
+        (cursor, actionType, effectiveTime) = h.nextOf(id5, type(uint256).max, CompletionFilter.ALL);
+        assertEq(cursor, id6);
+        assertEq(actionType, 1);
+        assertEq(effectiveTime, 3500);
+
+        (cursor, actionType, effectiveTime) = h.prevOf(id3, type(uint256).max, CompletionFilter.COMPLETED);
+        assertEq(cursor, id2);
+        assertEq(actionType, 2);
+        assertEq(effectiveTime, 1700);
+
+        (cursor, actionType, effectiveTime) = h.nextOf(id8, type(uint256).max, CompletionFilter.ALL);
+        assertEq(cursor, 0);
+        assertEq(actionType, 0);
+        assertEq(effectiveTime, 0);
+    }
+
+    /// For any randomly-shaped list, every (direction × filter × mask)
+    /// call returns a cursor that is either 0 or whose node has at
+    /// least one bit in common with `mask` and a completion state
+    /// consistent with `filter`.
+    function testFuzzReturnedCursorSatisfiesFilterAndMask(uint8 nodeCount, uint64 warpTo, uint256 seed) external {
+        nodeCount = uint8(bound(nodeCount, 1, 12));
+        warpTo = uint64(bound(warpTo, 1, 10_000));
+        vm.warp(warpTo);
+
+        for (uint256 i = 0; i < nodeCount; i++) {
+            seed = uint256(keccak256(abi.encode(seed, i)));
+            uint256 actionType = (seed & 1) == 0 ? 1 : 2;
+            uint64 effectiveTime = uint64(warpTo + 1 + (seed >> 8) % 100);
+            h.schedule(actionType, effectiveTime, hex"");
+        }
+
+        // Warp forward so a subset of nodes becomes completed.
+        vm.warp(warpTo + uint64((seed >> 16) % 100));
+
+        uint256[3] memory masks = [uint256(1), uint256(2), type(uint256).max];
+        CompletionFilter[3] memory filters =
+            [CompletionFilter.ALL, CompletionFilter.COMPLETED, CompletionFilter.PENDING];
+
+        for (uint256 m = 0; m < 3; m++) {
+            for (uint256 f = 0; f < 3; f++) {
+                (uint256 cursor,,) = h.earliest(masks[m], filters[f]);
+                assertCursorSatisfiesInvariants(cursor, masks[m], filters[f]);
+
+                (cursor,,) = h.latest(masks[m], filters[f]);
+                assertCursorSatisfiesInvariants(cursor, masks[m], filters[f]);
+            }
+        }
+    }
+
+    function assertCursorSatisfiesInvariants(uint256 cursor, uint256 mask, CompletionFilter filter) internal view {
+        if (cursor == 0) return;
+
+        (uint256 actionType, uint64 effectiveTime) = h.nodeAt(cursor);
+
+        assertTrue(actionType & mask != 0, "returned cursor's actionType matches mask");
+
+        if (filter == CompletionFilter.COMPLETED) {
+            assertTrue(effectiveTime <= block.timestamp, "COMPLETED cursor is at or past effectiveTime");
+        } else if (filter == CompletionFilter.PENDING) {
+            assertTrue(effectiveTime > block.timestamp, "PENDING cursor is in the future");
+        }
+    }
+
+    /// `nextOfType` and `prevOfType` start at the cursor after / before
+    /// `fromIndex` — the `fromIndex` node itself is never returned, even
+    /// when it matches the mask and filter.
     function testFromIndexExcludesSelf() external {
         buildMixedCompletedPendingList();
 
