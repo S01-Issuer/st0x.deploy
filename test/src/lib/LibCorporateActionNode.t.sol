@@ -773,6 +773,105 @@ contract LibCorporateActionNodeTest is Test {
         }
     }
 
+    /// Backward walk from `latest` via repeated `prevOf` calls reaches
+    /// `earliest` for any random list and any (mask, filter).
+    function testFuzzBackwardWalkFromLatestReachesEarliest(uint8 nodeCount, uint64 warpTo, uint256 seed) external {
+        nodeCount = uint8(bound(nodeCount, 1, 12));
+        warpTo = uint64(bound(warpTo, 1, 10_000));
+        vm.warp(warpTo);
+
+        for (uint256 i = 0; i < nodeCount; i++) {
+            seed = uint256(keccak256(abi.encode(seed, i)));
+            uint256 actionType = (seed & 1) == 0 ? 1 : 2;
+            uint64 effectiveTime = uint64(warpTo + 1 + (seed >> 8) % 100);
+            h.schedule(actionType, effectiveTime, hex"");
+        }
+        vm.warp(warpTo + uint64((seed >> 16) % 100));
+
+        uint256[3] memory masks = [uint256(1), uint256(2), type(uint256).max];
+        CompletionFilter[3] memory filters =
+            [CompletionFilter.ALL, CompletionFilter.COMPLETED, CompletionFilter.PENDING];
+
+        for (uint256 m = 0; m < 3; m++) {
+            for (uint256 f = 0; f < 3; f++) {
+                (uint256 cursor,,) = h.latest(masks[m], filters[f]);
+                (uint256 earliestCursor,,) = h.earliest(masks[m], filters[f]);
+
+                if (cursor == 0) {
+                    assertEq(earliestCursor, 0, "latest 0 implies earliest 0");
+                    continue;
+                }
+
+                uint256 hops;
+                while (cursor != earliestCursor) {
+                    (cursor,,) = h.prevOf(cursor, masks[m], filters[f]);
+                    hops++;
+                    assertTrue(cursor != 0, "backward walk hit 0 before reaching earliest");
+                    assertLt(hops, nodeCount, "backward walk exceeded node count");
+                }
+                assertEq(cursor, earliestCursor, "backward walk lands on earliest");
+            }
+        }
+    }
+
+    /// Random schedule + cancel sequences preserve every traversal
+    /// invariant: returned cursors satisfy filter+mask, completeness
+    /// matches brute force, and walks reach the opposite end.
+    function testFuzzInvariantsHoldUnderCancellations(uint8 nodeCount, uint64 warpTo, uint256 seed) external {
+        nodeCount = uint8(bound(nodeCount, 2, 12));
+        warpTo = uint64(bound(warpTo, 1, 10_000));
+        vm.warp(warpTo);
+
+        uint256[] memory ids = new uint256[](nodeCount);
+        for (uint256 i = 0; i < nodeCount; i++) {
+            seed = uint256(keccak256(abi.encode(seed, i)));
+            uint256 actionType = (seed & 1) == 0 ? 1 : 2;
+            uint64 effectiveTime = uint64(warpTo + 1 + (seed >> 8) % 100);
+            ids[i] = h.schedule(actionType, effectiveTime, hex"");
+        }
+
+        // Cancel a random subset of nodes BEFORE warp (only pending nodes
+        // can be cancelled, and at this point all are pending).
+        bool[] memory cancelled = new bool[](nodeCount);
+        for (uint256 i = 0; i < nodeCount; i++) {
+            seed = uint256(keccak256(abi.encode(seed, "cancel", i)));
+            if ((seed & 3) == 0) {
+                h.cancel(ids[i]);
+                cancelled[i] = true;
+            }
+        }
+
+        vm.warp(warpTo + uint64((seed >> 16) % 100));
+
+        uint256[3] memory masks = [uint256(1), uint256(2), type(uint256).max];
+        CompletionFilter[3] memory filters =
+            [CompletionFilter.ALL, CompletionFilter.COMPLETED, CompletionFilter.PENDING];
+
+        for (uint256 m = 0; m < 3; m++) {
+            for (uint256 f = 0; f < 3; f++) {
+                bool anyMatch = false;
+                for (uint256 i = 0; i < nodeCount; i++) {
+                    if (cancelled[i]) continue;
+                    (uint256 actionType, uint64 effectiveTime) = h.nodeAt(ids[i]);
+                    if (actionType & masks[m] == 0) continue;
+                    if (filters[f] == CompletionFilter.COMPLETED && effectiveTime > block.timestamp) continue;
+                    if (filters[f] == CompletionFilter.PENDING && effectiveTime <= block.timestamp) continue;
+                    anyMatch = true;
+                    break;
+                }
+
+                (uint256 earliestCursor,,) = h.earliest(masks[m], filters[f]);
+                if (anyMatch) {
+                    assertTrue(earliestCursor != 0, "earliest must find a non-cancelled match");
+                } else {
+                    assertEq(earliestCursor, 0, "earliest must be 0 when no live node matches");
+                }
+
+                assertCursorSatisfiesInvariants(earliestCursor, masks[m], filters[f]);
+            }
+        }
+    }
+
     /// For any randomly-shaped list, every (direction × filter × mask)
     /// call returns a cursor that is either 0 or whose node has at
     /// least one bit in common with `mask` and a completion state
