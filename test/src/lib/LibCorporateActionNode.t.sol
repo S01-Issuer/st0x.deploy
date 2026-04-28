@@ -356,4 +356,157 @@ contract LibCorporateActionNodeTest is Test {
         (cursor,,) = h.prevOf(id1, 1, CompletionFilter.ALL);
         assertEq(cursor, 0);
     }
+
+    // Characterisation tests for the per-filter dispatch in
+    // `nextOfType` / `prevOfType`. Each test builds the same mixed list and
+    // walks one (direction, filter) combination across the three mask
+    // variants. Split per filter to keep stack pressure under Solidity's
+    // local-variable limit; the shared list is held in storage to avoid
+    // re-pushing every cursor onto the stack inside each test.
+    //
+    // Layout (effectiveTime ascending — block.timestamp warps to 2700):
+    //   id1 type=1 t=1500   completed
+    //   id2 type=2 t=1700   completed
+    //   id3 type=1 t=1900   completed
+    //   id4 type=1 t=2100   completed
+    //   id5 type=2 t=2300   completed
+    //   id6 type=1 t=3500   pending
+    //   id7 type=2 t=3700   pending
+    //   id8 type=1 t=3900   pending
+
+    uint256 internal id1;
+    uint256 internal id2;
+    uint256 internal id3;
+    uint256 internal id4;
+    uint256 internal id5;
+    uint256 internal id6;
+    uint256 internal id7;
+    uint256 internal id8;
+
+    function buildMixedCompletedPendingList() internal {
+        id1 = h.schedule(1, 1500, hex"");
+        id2 = h.schedule(2, 1700, hex"");
+        id3 = h.schedule(1, 1900, hex"");
+        id4 = h.schedule(1, 2100, hex"");
+        id5 = h.schedule(2, 2300, hex"");
+        id6 = h.schedule(1, 3500, hex"");
+        id7 = h.schedule(2, 3700, hex"");
+        id8 = h.schedule(1, 3900, hex"");
+        vm.warp(2700);
+    }
+
+    function testForwardAllVisitsEveryNodeRespectingMask() external {
+        buildMixedCompletedPendingList();
+        assertForwardSequence(type(uint256).max, CompletionFilter.ALL, cursors8(id1, id2, id3, id4, id5, id6, id7, id8));
+        assertForwardSequence(1, CompletionFilter.ALL, cursors5(id1, id3, id4, id6, id8));
+        assertForwardSequence(2, CompletionFilter.ALL, cursors3(id2, id5, id7));
+    }
+
+    function testForwardCompletedStopsAtFirstPendingRespectingMask() external {
+        buildMixedCompletedPendingList();
+        assertForwardSequence(type(uint256).max, CompletionFilter.COMPLETED, cursors5(id1, id2, id3, id4, id5));
+        assertForwardSequence(1, CompletionFilter.COMPLETED, cursors3(id1, id3, id4));
+        assertForwardSequence(2, CompletionFilter.COMPLETED, cursors2(id2, id5));
+    }
+
+    function testForwardPendingSkipsCompletedPrefixRespectingMask() external {
+        buildMixedCompletedPendingList();
+        assertForwardSequence(type(uint256).max, CompletionFilter.PENDING, cursors3(id6, id7, id8));
+        assertForwardSequence(1, CompletionFilter.PENDING, cursors2(id6, id8));
+        assertForwardSequence(2, CompletionFilter.PENDING, cursors1(id7));
+    }
+
+    function testBackwardAllVisitsEveryNodeRespectingMask() external {
+        buildMixedCompletedPendingList();
+        assertBackwardSequence(
+            type(uint256).max, CompletionFilter.ALL, cursors8(id8, id7, id6, id5, id4, id3, id2, id1)
+        );
+        assertBackwardSequence(1, CompletionFilter.ALL, cursors5(id8, id6, id4, id3, id1));
+        assertBackwardSequence(2, CompletionFilter.ALL, cursors3(id7, id5, id2));
+    }
+
+    function testBackwardCompletedSkipsPendingSuffixRespectingMask() external {
+        buildMixedCompletedPendingList();
+        assertBackwardSequence(type(uint256).max, CompletionFilter.COMPLETED, cursors5(id5, id4, id3, id2, id1));
+        assertBackwardSequence(1, CompletionFilter.COMPLETED, cursors3(id4, id3, id1));
+        assertBackwardSequence(2, CompletionFilter.COMPLETED, cursors2(id5, id2));
+    }
+
+    function testBackwardPendingStopsAtFirstCompletedRespectingMask() external {
+        buildMixedCompletedPendingList();
+        assertBackwardSequence(type(uint256).max, CompletionFilter.PENDING, cursors3(id8, id7, id6));
+        assertBackwardSequence(1, CompletionFilter.PENDING, cursors2(id8, id6));
+        assertBackwardSequence(2, CompletionFilter.PENDING, cursors1(id7));
+    }
+
+    /// Walk forward from before-the-head and assert the visit order matches
+    /// `expected`. After the last expected cursor, the next call must return
+    /// 0 (terminator).
+    function assertForwardSequence(uint256 mask, CompletionFilter filter, uint256[] memory expected) internal view {
+        (uint256 cursor,,) = h.earliest(mask, filter);
+        for (uint256 i = 0; i < expected.length; i++) {
+            assertEq(cursor, expected[i], "forward cursor mismatch");
+            (cursor,,) = h.nextOf(cursor, mask, filter);
+        }
+        assertEq(cursor, 0, "forward cursor not terminated");
+    }
+
+    /// Walk backward from after-the-tail and assert the visit order matches
+    /// `expected`. After the last expected cursor, the next call must return
+    /// 0 (terminator).
+    function assertBackwardSequence(uint256 mask, CompletionFilter filter, uint256[] memory expected) internal view {
+        (uint256 cursor,,) = h.latest(mask, filter);
+        for (uint256 i = 0; i < expected.length; i++) {
+            assertEq(cursor, expected[i], "backward cursor mismatch");
+            (cursor,,) = h.prevOf(cursor, mask, filter);
+        }
+        assertEq(cursor, 0, "backward cursor not terminated");
+    }
+
+    function cursors1(uint256 a) internal pure returns (uint256[] memory r) {
+        r = new uint256[](1);
+        r[0] = a;
+    }
+
+    function cursors2(uint256 a, uint256 b) internal pure returns (uint256[] memory r) {
+        r = new uint256[](2);
+        r[0] = a;
+        r[1] = b;
+    }
+
+    function cursors3(uint256 a, uint256 b, uint256 c) internal pure returns (uint256[] memory r) {
+        r = new uint256[](3);
+        r[0] = a;
+        r[1] = b;
+        r[2] = c;
+    }
+
+    function cursors5(uint256 a, uint256 b, uint256 c, uint256 d, uint256 e)
+        internal
+        pure
+        returns (uint256[] memory r)
+    {
+        r = new uint256[](5);
+        r[0] = a;
+        r[1] = b;
+        r[2] = c;
+        r[3] = d;
+        r[4] = e;
+    }
+
+    function cursors8(uint256 a, uint256 b, uint256 c, uint256 d, uint256 e, uint256 f, uint256 g, uint256 h_)
+        internal
+        pure
+        returns (uint256[] memory r)
+    {
+        r = new uint256[](8);
+        r[0] = a;
+        r[1] = b;
+        r[2] = c;
+        r[3] = d;
+        r[4] = e;
+        r[5] = f;
+        r[6] = g;
+        r[7] = h_;
+    }
 }

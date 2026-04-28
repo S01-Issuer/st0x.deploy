@@ -67,24 +67,17 @@ library LibCorporateActionNode {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
         uint256 current = fromIndex == 0 ? s.head : s.nodes[fromIndex].next;
 
-        while (current != 0) {
-            CorporateActionNode storage node = s.nodes[current];
-            bool isCompleted = node.effectiveTime <= block.timestamp;
-
-            if (filter == CompletionFilter.COMPLETED && !isCompleted) break;
-
-            if (
-                (filter == CompletionFilter.ALL
-                        || (filter == CompletionFilter.COMPLETED && isCompleted)
-                        || (filter == CompletionFilter.PENDING && !isCompleted)) && (node.actionType & mask != 0)
-            ) {
-                return current;
-            }
-
-            current = node.next;
+        // Dispatch on `filter` once. The list is ordered by effectiveTime
+        // and completion is monotonic across that order, so each branch
+        // delegates to a tight specialised helper that exploits the
+        // structure rather than re-checking it per iteration.
+        if (filter == CompletionFilter.PENDING) {
+            return walkForwardMatchingMask(s, skipForwardWhileCompleted(s, current), mask);
         }
-
-        return 0;
+        if (filter == CompletionFilter.COMPLETED) {
+            return walkForwardCompletedMatchingMask(s, current, mask);
+        }
+        return walkForwardMatchingMask(s, current, mask);
     }
 
     /// @notice Walk backward from `fromIndex`, returning the index of the
@@ -100,24 +93,113 @@ library LibCorporateActionNode {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
         uint256 current = fromIndex == 0 ? s.tail : s.nodes[fromIndex].prev;
 
+        // Mirror of `nextOfType`'s dispatch, walking backward from the tail.
+        // The pending segment sits at the tail end and the completed segment
+        // at the head end, so the skip-without-mask helper applies to
+        // COMPLETED (skip the pending suffix) and the early-break helper
+        // applies to PENDING.
+        if (filter == CompletionFilter.COMPLETED) {
+            return walkBackwardMatchingMask(s, skipBackwardWhilePending(s, current), mask);
+        }
+        if (filter == CompletionFilter.PENDING) {
+            return walkBackwardPendingMatchingMask(s, current, mask);
+        }
+        return walkBackwardMatchingMask(s, current, mask);
+    }
+
+    /// Walk forward from `current`, returning the first node whose
+    /// `actionType` shares any bit with `mask`. No completion check —
+    /// callers either don't care (ALL) or have already advanced past the
+    /// completed/pending boundary via `skipForwardWhileCompleted`.
+    function walkForwardMatchingMask(LibCorporateAction.CorporateActionStorage storage s, uint256 current, uint256 mask)
+        private
+        view
+        returns (uint256)
+    {
         while (current != 0) {
             CorporateActionNode storage node = s.nodes[current];
-            bool isCompleted = node.effectiveTime <= block.timestamp;
+            if (node.actionType & mask != 0) return current;
+            current = node.next;
+        }
+        return 0;
+    }
 
-            if (filter == CompletionFilter.PENDING && isCompleted) break;
+    /// Walk forward from `current` through the completed prefix, returning
+    /// the first matching node. Breaks at the first pending node — the
+    /// remaining tail can't satisfy a COMPLETED filter.
+    function walkForwardCompletedMatchingMask(
+        LibCorporateAction.CorporateActionStorage storage s,
+        uint256 current,
+        uint256 mask
+    ) private view returns (uint256) {
+        while (current != 0) {
+            CorporateActionNode storage node = s.nodes[current];
+            if (node.effectiveTime > block.timestamp) break;
+            if (node.actionType & mask != 0) return current;
+            current = node.next;
+        }
+        return 0;
+    }
 
-            if (
-                (filter == CompletionFilter.ALL
-                        || (filter == CompletionFilter.COMPLETED && isCompleted)
-                        || (filter == CompletionFilter.PENDING && !isCompleted)) && (node.actionType & mask != 0)
-            ) {
-                return current;
-            }
+    /// Skip forward through completed nodes without reading `actionType` —
+    /// those nodes can't match a PENDING filter regardless of type. Returns
+    /// the first pending cursor (or 0 if every node is completed).
+    function skipForwardWhileCompleted(LibCorporateAction.CorporateActionStorage storage s, uint256 current)
+        private
+        view
+        returns (uint256)
+    {
+        while (current != 0 && s.nodes[current].effectiveTime <= block.timestamp) {
+            current = s.nodes[current].next;
+        }
+        return current;
+    }
 
+    /// Walk backward from `current`, returning the first node whose
+    /// `actionType` shares any bit with `mask`. Mirror of
+    /// `walkForwardMatchingMask`.
+    function walkBackwardMatchingMask(
+        LibCorporateAction.CorporateActionStorage storage s,
+        uint256 current,
+        uint256 mask
+    ) private view returns (uint256) {
+        while (current != 0) {
+            CorporateActionNode storage node = s.nodes[current];
+            if (node.actionType & mask != 0) return current;
             current = node.prev;
         }
-
         return 0;
+    }
+
+    /// Walk backward from `current` through the pending suffix, returning
+    /// the first matching node. Breaks at the first completed node — the
+    /// remaining head can't satisfy a PENDING filter.
+    function walkBackwardPendingMatchingMask(
+        LibCorporateAction.CorporateActionStorage storage s,
+        uint256 current,
+        uint256 mask
+    ) private view returns (uint256) {
+        while (current != 0) {
+            CorporateActionNode storage node = s.nodes[current];
+            if (node.effectiveTime <= block.timestamp) break;
+            if (node.actionType & mask != 0) return current;
+            current = node.prev;
+        }
+        return 0;
+    }
+
+    /// Skip backward through pending nodes without reading `actionType` —
+    /// mirror of `skipForwardWhileCompleted`. Returns the last completed
+    /// cursor (or 0 if every node is pending).
+    function skipBackwardWhilePending(LibCorporateAction.CorporateActionStorage storage s, uint256 current)
+        private
+        view
+        returns (uint256)
+    {
+        while (current != 0 && s.nodes[current].effectiveTime > block.timestamp) {
+            current = s.nodes[current].prev;
+        }
+        return current;
     }
 
     /// @dev Resolve a cursor to `(actionType, effectiveTime)`. Returns
