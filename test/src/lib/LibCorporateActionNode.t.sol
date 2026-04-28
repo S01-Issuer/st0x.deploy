@@ -439,6 +439,59 @@ contract LibCorporateActionNodeTest is Test {
         assertBackwardSequence(2, CompletionFilter.PENDING, cursors1(id7));
     }
 
+    /// All nodes pending (none completed): the COMPLETED filter must
+    /// terminate at 0 in both directions without walking the list. Forward
+    /// hits the early-break on the first node; backward hits the
+    /// skip-suffix walk that consumes every node and returns 0.
+    function testAllPendingListReturnsZeroForCompletedFilter() external {
+        h.schedule(1, 1500, hex"");
+        h.schedule(2, 2500, hex"");
+        h.schedule(1, 3500, hex"");
+        // No warp — block.timestamp stays at 1000 < every effectiveTime.
+
+        (uint256 cursor,,) = h.earliest(type(uint256).max, CompletionFilter.COMPLETED);
+        assertEq(cursor, 0, "earliest COMPLETED on all-pending list");
+        (cursor,,) = h.latest(type(uint256).max, CompletionFilter.COMPLETED);
+        assertEq(cursor, 0, "latest COMPLETED on all-pending list");
+    }
+
+    /// All nodes completed (none pending): the PENDING filter must
+    /// terminate at 0 in both directions. Forward hits the
+    /// skip-prefix-while-completed walk that consumes every node;
+    /// backward hits the early-break on the first node.
+    function testAllCompletedListReturnsZeroForPendingFilter() external {
+        h.schedule(1, 1100, hex"");
+        h.schedule(2, 1200, hex"");
+        h.schedule(1, 1300, hex"");
+        vm.warp(1500); // every node is now completed.
+
+        (uint256 cursor,,) = h.earliest(type(uint256).max, CompletionFilter.PENDING);
+        assertEq(cursor, 0, "earliest PENDING on all-completed list");
+        (cursor,,) = h.latest(type(uint256).max, CompletionFilter.PENDING);
+        assertEq(cursor, 0, "latest PENDING on all-completed list");
+    }
+
+    /// Mask matches no nodes in the relevant completion segment: the walk
+    /// must consume the segment and return 0 rather than spilling into
+    /// nodes the filter excludes. Cancel id7 (the only type-2 pending
+    /// node) so PENDING type-2 is genuinely empty even though valid
+    /// type-2 nodes still sit in the completed segment.
+    function testNonMatchingMaskInSegmentReturnsZero() external {
+        buildMixedCompletedPendingList();
+        h.cancel(id7);
+
+        (uint256 cursor,,) = h.earliest(2, CompletionFilter.PENDING);
+        assertEq(cursor, 0, "PENDING type-2 segment empty after cancel");
+        (cursor,,) = h.latest(2, CompletionFilter.PENDING);
+        assertEq(cursor, 0, "PENDING type-2 segment empty after cancel");
+
+        // Confirms the PENDING walk terminated without leaking into the
+        // completed section: the COMPLETED segment still finds type-2
+        // matches.
+        (cursor,,) = h.earliest(2, CompletionFilter.COMPLETED);
+        assertEq(cursor, id2, "COMPLETED type-2 still finds id2");
+    }
+
     /// Walk forward from before-the-head and assert the visit order matches
     /// `expected`. After the last expected cursor, the next call must return
     /// 0 (terminator).
