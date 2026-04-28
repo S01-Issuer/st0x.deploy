@@ -567,6 +567,107 @@ contract LibCorporateActionNodeTest is Test {
         assertEq(cursor, 0);
     }
 
+    /// `nextOfType` from the tail and `prevOfType` from the head must
+    /// return 0 — there is no further node to step onto. Pins the
+    /// terminator behaviour at the boundary of the linked list across
+    /// all three filters.
+    function testTraversalAtBoundariesReturnsZero() external {
+        buildMixedCompletedPendingList();
+
+        // nextOf from the tail (id8) → 0 across all filters that match it.
+        (uint256 cursor,,) = h.nextOf(id8, type(uint256).max, CompletionFilter.ALL);
+        assertEq(cursor, 0, "next from tail ALL");
+        (cursor,,) = h.nextOf(id8, type(uint256).max, CompletionFilter.PENDING);
+        assertEq(cursor, 0, "next from tail PENDING");
+        // From the last completed node, nextOf COMPLETED → 0 (early-break).
+        (cursor,,) = h.nextOf(id5, type(uint256).max, CompletionFilter.COMPLETED);
+        assertEq(cursor, 0, "next from last completed under COMPLETED");
+
+        // prevOf from the head (id1) → 0 across all filters that match it.
+        (cursor,,) = h.prevOf(id1, type(uint256).max, CompletionFilter.ALL);
+        assertEq(cursor, 0, "prev from head ALL");
+        (cursor,,) = h.prevOf(id1, type(uint256).max, CompletionFilter.COMPLETED);
+        assertEq(cursor, 0, "prev from head COMPLETED");
+        // From the first pending node, prevOf PENDING → 0 (early-break).
+        (cursor,,) = h.prevOf(id6, type(uint256).max, CompletionFilter.PENDING);
+        assertEq(cursor, 0, "prev from first pending under PENDING");
+    }
+
+    /// Calling `nextOfType` / `prevOfType` with `fromIndex` set to a
+    /// previously-cancelled cursor must terminate at 0 immediately.
+    /// Cancellation zeros `node.prev` and `node.next`, so the
+    /// `s.nodes[fromIndex].next` / `.prev` step at the top of each
+    /// dispatch produces 0 and the loops never enter their bodies.
+    function testTraversalFromCancelledCursorReturnsZero() external {
+        uint256 idA = h.schedule(1, 1500, hex"");
+        uint256 idB = h.schedule(2, 2500, hex"");
+        h.schedule(1, 3500, hex"");
+        h.cancel(idA);
+        h.cancel(idB);
+
+        // nextOf from a cancelled cursor — every filter returns 0.
+        (uint256 cursor,,) = h.nextOf(idA, type(uint256).max, CompletionFilter.ALL);
+        assertEq(cursor, 0, "next from cancelled idA ALL");
+        (cursor,,) = h.nextOf(idA, type(uint256).max, CompletionFilter.COMPLETED);
+        assertEq(cursor, 0, "next from cancelled idA COMPLETED");
+        (cursor,,) = h.nextOf(idA, type(uint256).max, CompletionFilter.PENDING);
+        assertEq(cursor, 0, "next from cancelled idA PENDING");
+
+        // prevOf from a cancelled cursor — every filter returns 0.
+        (cursor,,) = h.prevOf(idB, type(uint256).max, CompletionFilter.ALL);
+        assertEq(cursor, 0, "prev from cancelled idB ALL");
+        (cursor,,) = h.prevOf(idB, type(uint256).max, CompletionFilter.COMPLETED);
+        assertEq(cursor, 0, "prev from cancelled idB COMPLETED");
+        (cursor,,) = h.prevOf(idB, type(uint256).max, CompletionFilter.PENDING);
+        assertEq(cursor, 0, "prev from cancelled idB PENDING");
+    }
+
+    /// A multi-bit mask matches a node if its `actionType` shares ANY bit
+    /// with the mask, not all of them. Pins the `actionType & mask != 0`
+    /// semantic (rather than `& mask == mask` or `== mask`) across every
+    /// helper.
+    function testMultiBitMaskMatchesAnyBit() external {
+        uint256 idType1 = h.schedule(1, 1500, hex"");
+        uint256 idType2 = h.schedule(2, 2500, hex"");
+        vm.warp(3000);
+
+        // Mask = type1 | type2 — both nodes match.
+        (uint256 cursor,,) = h.earliest(1 | 2, CompletionFilter.ALL);
+        assertEq(cursor, idType1, "first match under multi-bit mask");
+        (cursor,,) = h.nextOf(cursor, 1 | 2, CompletionFilter.ALL);
+        assertEq(cursor, idType2, "second match under multi-bit mask");
+        (cursor,,) = h.nextOf(cursor, 1 | 2, CompletionFilter.ALL);
+        assertEq(cursor, 0);
+
+        // Multi-bit mask under COMPLETED filter — same matches because
+        // both nodes are now completed.
+        (cursor,,) = h.earliest(1 | 2, CompletionFilter.COMPLETED);
+        assertEq(cursor, idType1);
+        (cursor,,) = h.nextOf(cursor, 1 | 2, CompletionFilter.COMPLETED);
+        assertEq(cursor, idType2);
+    }
+
+    /// Nodes scheduled with the same `effectiveTime` are returned in
+    /// insertion order under both forward and backward traversal, across
+    /// every filter dispatch path. Pairs with
+    /// `testScheduleTiedEffectiveTimeStableOrdering` in the facet test
+    /// file (which pins the linked-list structure); this test pins that
+    /// the dispatch helpers consume that structure correctly.
+    function testTraversalRespectsTiedEffectiveTimeOrdering() external {
+        uint256 first = h.schedule(1, 1500, hex"");
+        uint256 second = h.schedule(1, 1500, hex"");
+        uint256 third = h.schedule(1, 1500, hex"");
+        vm.warp(2000);
+
+        // Forward across all three filters: insertion order.
+        assertForwardSequence(1, CompletionFilter.ALL, cursors3(first, second, third));
+        assertForwardSequence(1, CompletionFilter.COMPLETED, cursors3(first, second, third));
+
+        // Backward: reverse insertion order.
+        assertBackwardSequence(1, CompletionFilter.ALL, cursors3(third, second, first));
+        assertBackwardSequence(1, CompletionFilter.COMPLETED, cursors3(third, second, first));
+    }
+
     /// `nextOfType` and `prevOfType` start AFTER `fromIndex` — that node
     /// itself is never returned, even when it would otherwise match. Pins
     /// the `s.nodes[fromIndex].next` / `.prev` step at the top of each
