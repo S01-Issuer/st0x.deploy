@@ -1676,4 +1676,123 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.balanceOf(ALICE), aliceFinal, "alice idempotent after final");
         assertEq(vault.balanceOf(BOB), bobFinal, "bob idempotent after final");
     }
+
+    uint256 internal constant OP_MINT = 0;
+    uint256 internal constant OP_BURN = 1;
+    uint256 internal constant OP_TRANSFER_OUT = 2;
+    uint256 internal constant OP_SELF_TRANSFER = 3;
+    uint256 internal constant OP_COUNT = 4;
+
+    /// Three deterministic regression tests below pin the invariants that
+    /// `StoxReceiptVault._migrateAccount`'s `if (account == address(0)) return;`
+    /// short-circuit preserves. The skip is sound only because OZ
+    /// `ERC20Upgradeable` routes mints/burns through `_totalSupply`, never
+    /// through `_balances[address(0)]` — if a future refactor (or a new facet)
+    /// writes to that slot, advances the zero-address cursor, or emits a
+    /// migration event for it, the corresponding test below fires.
+    ///
+    /// Each invariant lives in its own test so a mutation maps 1:1 to a
+    /// failing test — combining them would mean a single failure could mask
+    /// which property was actually broken.
+    ///
+    /// All three drive the same fixed mint/burn/transfer/split sequence so
+    /// the path under mutation is identical across the three.
+
+    function testZeroAddressBalanceSlotStaysZero() external {
+        _driveZeroAddressSequence();
+        assertEq(vault.rawStoredBalance(address(0)), 0, "address(0) slot non-zero");
+    }
+
+    function testZeroAddressCursorStaysZero() external {
+        _driveZeroAddressSequence();
+        assertEq(vault.migrationCursor(address(0)), 0, "address(0) cursor advanced");
+    }
+
+    function testNoAccountMigratedEventForZeroAddress() external {
+        vm.recordLogs();
+        _driveZeroAddressSequence();
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 sig = keccak256("AccountMigrated(address,uint256,uint256,uint256,uint256)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 1 && logs[i].topics[0] == sig) {
+                address account = address(uint160(uint256(logs[i].topics[1])));
+                assertTrue(account != address(0), "AccountMigrated for address(0)");
+            }
+        }
+    }
+
+    /// Fixed mint/burn/transfer/split sequence shared by the three
+    /// deterministic invariant tests above. Touches every `_update` path that
+    /// could plausibly interact with the zero address: mint, burn,
+    /// post-bootstrap mint, post-bootstrap burn, post-second-split transfer,
+    /// final burn.
+    function _driveZeroAddressSequence() internal {
+        vault.publicUpdate(address(0), ALICE, 1000);
+        vault.publicUpdate(ALICE, address(0), 300);
+
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        vault.publicUpdate(address(0), BOB, 500);
+        vault.publicUpdate(BOB, address(0), 200);
+
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        vm.warp(3000);
+
+        vault.publicUpdate(ALICE, BOB, 100);
+        vault.publicUpdate(BOB, address(0), 50);
+    }
+
+    /// Fuzz coverage: random mint / burn / transfer / self-transfer ops
+    /// preserve all three zero-address invariants. Wider than the
+    /// deterministic tests but path-dependent — not the mutation-test target.
+    function testFuzzZeroAddressInvariantsHold(uint8 actionCount, uint256 seed) external {
+        actionCount = uint8(bound(actionCount, 1, 32));
+        vm.recordLogs();
+
+        // Pre-seed Alice and Bob with enough headroom that random burns and
+        // transfers don't trivially revert. `ERC20InsufficientBalance` reverts
+        // are caught and treated as no-ops — the invariants are about
+        // address(0)'s slot, cursor, and event surface, all of which a revert
+        // leaves untouched.
+        vault.publicUpdate(address(0), ALICE, 1_000_000);
+        vault.publicUpdate(address(0), BOB, 1_000_000);
+
+        for (uint256 i = 0; i < actionCount; i++) {
+            seed = uint256(keccak256(abi.encode(seed, i)));
+            uint256 op = seed % OP_COUNT;
+            uint256 amount = bound(seed >> 8, 1, 10_000);
+            address actor = (seed >> 16) & 1 == 0 ? ALICE : BOB;
+            address other = actor == ALICE ? BOB : ALICE;
+
+            try this.driveUpdate(op, actor, other, amount) {} catch {}
+
+            assertEq(vault.rawStoredBalance(address(0)), 0, "address(0) slot non-zero");
+            assertEq(vault.migrationCursor(address(0)), 0, "address(0) cursor advanced");
+        }
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 sig = keccak256("AccountMigrated(address,uint256,uint256,uint256,uint256)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 1 && logs[i].topics[0] == sig) {
+                address account = address(uint160(uint256(logs[i].topics[1])));
+                assertTrue(account != address(0), "AccountMigrated for address(0)");
+            }
+        }
+    }
+
+    /// External wrapper so the fuzz loop can swallow `try`/`catch` reverts
+    /// (e.g. `ERC20InsufficientBalance` when a random burn exceeds balance).
+    function driveUpdate(uint256 op, address actor, address other, uint256 amount) external {
+        if (op == OP_MINT) {
+            vault.publicUpdate(address(0), actor, amount);
+        } else if (op == OP_BURN) {
+            vault.publicUpdate(actor, address(0), amount);
+        } else if (op == OP_TRANSFER_OUT) {
+            vault.publicUpdate(actor, other, amount);
+        } else if (op == OP_SELF_TRANSFER) {
+            vault.publicUpdate(actor, actor, amount);
+        }
+    }
 }
