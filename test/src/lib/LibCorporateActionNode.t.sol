@@ -492,6 +492,116 @@ contract LibCorporateActionNodeTest is Test {
         assertEq(cursor, id2, "COMPLETED type-2 still finds id2");
     }
 
+    /// `effectiveTime <= block.timestamp` is the completion predicate, so a
+    /// node whose `effectiveTime` equals the current block is COMPLETED, not
+    /// PENDING. The boundary check sits in every helper that distinguishes
+    /// the two segments — `walkForwardCompletedMatchingMask`,
+    /// `skipForwardWhileCompleted`, `walkBackwardPendingMatchingMask`,
+    /// `skipBackwardWhilePending` — so the convention has to be uniform
+    /// across all four.
+    function testNodeAtExactTimestampIsCompleted() external {
+        uint256 idA = h.schedule(1, 2000, hex"");
+        uint256 idB = h.schedule(1, 2500, hex"");
+        vm.warp(2000); // idA at exact boundary; idB still pending.
+
+        (uint256 cursor,,) = h.earliest(1, CompletionFilter.COMPLETED);
+        assertEq(cursor, idA, "node at block.timestamp is COMPLETED forward");
+        (cursor,,) = h.latest(1, CompletionFilter.COMPLETED);
+        assertEq(cursor, idA, "node at block.timestamp is COMPLETED backward");
+
+        // PENDING filter must not include idA, only idB.
+        (cursor,,) = h.earliest(1, CompletionFilter.PENDING);
+        assertEq(cursor, idB, "node at block.timestamp is NOT PENDING forward");
+        (cursor,,) = h.latest(1, CompletionFilter.PENDING);
+        assertEq(cursor, idB, "node at block.timestamp is NOT PENDING backward");
+    }
+
+    /// Cancelled nodes are unlinked but their array slots remain. Traversal
+    /// must skip them under every filter, not just ALL. Pins that the new
+    /// per-filter dispatch keeps the unlink-respecting behaviour the
+    /// existing `testCancelMiddleNodeRelinksTraversal` covers for ALL.
+    function testCancelMiddleNodeSkippedUnderCompletedAndPendingFilters() external {
+        uint256 idA = h.schedule(1, 1100, hex""); // will be completed
+        uint256 idB = h.schedule(1, 1200, hex""); // will be completed, then cancelled
+        uint256 idC = h.schedule(1, 1300, hex""); // will be completed
+        uint256 idD = h.schedule(1, 3500, hex""); // pending
+        uint256 idE = h.schedule(1, 3600, hex""); // pending, then cancelled
+        uint256 idF = h.schedule(1, 3700, hex""); // pending
+
+        // Cancel idB and idE BEFORE warp — both still pending so cancel is allowed.
+        h.cancel(idB);
+        h.cancel(idE);
+
+        vm.warp(2000); // idA, idC completed; idD, idF pending.
+
+        // COMPLETED forward must skip idB.
+        (uint256 cursor,,) = h.earliest(1, CompletionFilter.COMPLETED);
+        assertEq(cursor, idA);
+        (cursor,,) = h.nextOf(cursor, 1, CompletionFilter.COMPLETED);
+        assertEq(cursor, idC, "COMPLETED forward skips cancelled idB");
+        (cursor,,) = h.nextOf(cursor, 1, CompletionFilter.COMPLETED);
+        assertEq(cursor, 0);
+
+        // COMPLETED backward must skip idB.
+        (cursor,,) = h.latest(1, CompletionFilter.COMPLETED);
+        assertEq(cursor, idC);
+        (cursor,,) = h.prevOf(cursor, 1, CompletionFilter.COMPLETED);
+        assertEq(cursor, idA, "COMPLETED backward skips cancelled idB");
+        (cursor,,) = h.prevOf(cursor, 1, CompletionFilter.COMPLETED);
+        assertEq(cursor, 0);
+
+        // PENDING forward must skip idE.
+        (cursor,,) = h.earliest(1, CompletionFilter.PENDING);
+        assertEq(cursor, idD);
+        (cursor,,) = h.nextOf(cursor, 1, CompletionFilter.PENDING);
+        assertEq(cursor, idF, "PENDING forward skips cancelled idE");
+        (cursor,,) = h.nextOf(cursor, 1, CompletionFilter.PENDING);
+        assertEq(cursor, 0);
+
+        // PENDING backward must skip idE.
+        (cursor,,) = h.latest(1, CompletionFilter.PENDING);
+        assertEq(cursor, idF);
+        (cursor,,) = h.prevOf(cursor, 1, CompletionFilter.PENDING);
+        assertEq(cursor, idD, "PENDING backward skips cancelled idE");
+        (cursor,,) = h.prevOf(cursor, 1, CompletionFilter.PENDING);
+        assertEq(cursor, 0);
+    }
+
+    /// `nextOfType` and `prevOfType` start AFTER `fromIndex` — that node
+    /// itself is never returned, even when it would otherwise match. Pins
+    /// the `s.nodes[fromIndex].next` / `.prev` step at the top of each
+    /// dispatch. Combined with the per-filter dispatch this covers the
+    /// "start mid-segment" case for each helper.
+    function testFromIndexExcludesSelf() external {
+        buildMixedCompletedPendingList();
+
+        // ALL forward: from id3 → id4 (skip id3 itself).
+        (uint256 cursor,,) = h.nextOf(id3, 1, CompletionFilter.ALL);
+        assertEq(cursor, id4, "ALL forward excludes fromIndex");
+
+        // COMPLETED forward: from id3 → id4 (id3 itself is completed and
+        // matches type-1 but is excluded by `next` step).
+        (cursor,,) = h.nextOf(id3, 1, CompletionFilter.COMPLETED);
+        assertEq(cursor, id4, "COMPLETED forward excludes fromIndex");
+
+        // PENDING forward: from id6 → id8 (id6 itself is pending and
+        // matches type-1 but is excluded).
+        (cursor,,) = h.nextOf(id6, 1, CompletionFilter.PENDING);
+        assertEq(cursor, id8, "PENDING forward excludes fromIndex");
+
+        // ALL backward: from id4 → id3.
+        (cursor,,) = h.prevOf(id4, 1, CompletionFilter.ALL);
+        assertEq(cursor, id3, "ALL backward excludes fromIndex");
+
+        // COMPLETED backward: from id4 → id3.
+        (cursor,,) = h.prevOf(id4, 1, CompletionFilter.COMPLETED);
+        assertEq(cursor, id3, "COMPLETED backward excludes fromIndex");
+
+        // PENDING backward: from id8 → id6.
+        (cursor,,) = h.prevOf(id8, 1, CompletionFilter.PENDING);
+        assertEq(cursor, id6, "PENDING backward excludes fromIndex");
+    }
+
     /// Walk forward from before-the-head and assert the visit order matches
     /// `expected`. After the last expected cursor, the next call must return
     /// 0 (terminator).
