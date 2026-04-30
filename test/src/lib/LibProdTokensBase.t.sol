@@ -12,7 +12,10 @@ import {IReceiptVaultV3} from "rain.vats/interface/IReceiptVaultV3.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
 } from "rain.vats/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
-import {ERC1967_BEACON_SLOT} from "rain.extrospection/lib/LibExtrospectERC1967BeaconProxy.sol";
+import {
+    ERC1967_BEACON_SLOT,
+    LibExtrospectERC1967BeaconProxy
+} from "rain.extrospection/lib/LibExtrospectERC1967BeaconProxy.sol";
 
 /// @title LibProdTokensBaseTest
 /// @notice Fork tests verifying production token instances on Base.
@@ -44,18 +47,47 @@ contract LibProdTokensBaseTest is Test {
         IOffchainAssetReceiptVaultBeaconSetDeployerV1 oarvDeployer = IOffchainAssetReceiptVaultBeaconSetDeployerV1(
             LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
         );
-        assertEq(beaconOf(receipt), address(oarvDeployer.I_RECEIPT_BEACON()), "receipt beacon mismatch");
-        assertEq(
-            beaconOf(receiptVault),
-            address(oarvDeployer.I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON()),
-            "receipt vault beacon mismatch"
+        address receiptBeacon = address(oarvDeployer.I_RECEIPT_BEACON());
+        address receiptVaultBeacon = address(oarvDeployer.I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON());
+        // The wrapped vault beacon is not exposed by any deployer getter,
+        // so read it from the proxy's slot. All wrapped proxies share the
+        // same beacon, pinned via the MSTR check below.
+        address wrappedVaultBeacon = beaconOf(LibProdTokensBase.MSTR_WRAPPED_TOKEN_VAULT);
+
+        assertEq(beaconOf(receipt), receiptBeacon, "receipt beacon mismatch");
+        assertEq(beaconOf(receiptVault), receiptVaultBeacon, "receipt vault beacon mismatch");
+        assertEq(beaconOf(wrappedTokenVault), wrappedVaultBeacon, "wrapped vault beacon mismatch");
+
+        assertTrue(
+            LibExtrospectERC1967BeaconProxy.isBeaconImplementationBytecode(
+                receiptBeacon, LibProdDeployV1.PROD_STOX_RECEIPT_IMPLEMENTATION_BASE_CODEHASH_V1
+            ),
+            "receipt beacon impl codehash mismatch"
         );
-        // The wrapped vault beacon is not exposed by any deployer getter.
-        // Assert all wrapped proxies share the same beacon as wtMSTR.
-        assertEq(
-            beaconOf(wrappedTokenVault),
-            beaconOf(LibProdTokensBase.MSTR_WRAPPED_TOKEN_VAULT),
-            "wrapped vault beacon mismatch"
+        assertTrue(
+            LibExtrospectERC1967BeaconProxy.isBeaconImplementationBytecode(
+                receiptVaultBeacon, LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_IMPLEMENTATION_BASE_CODEHASH_V1
+            ),
+            "receipt vault beacon impl codehash mismatch"
+        );
+        assertTrue(
+            LibExtrospectERC1967BeaconProxy.isBeaconImplementationBytecode(
+                wrappedVaultBeacon, LibProdDeployV1.PROD_STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION_BASE_CODEHASH_V1
+            ),
+            "wrapped vault beacon impl codehash mismatch"
+        );
+
+        assertTrue(
+            LibExtrospectERC1967BeaconProxy.isBeaconOwner(receiptBeacon, LibProdDeployV1.BEACON_INITIAL_OWNER),
+            "receipt beacon owner mismatch"
+        );
+        assertTrue(
+            LibExtrospectERC1967BeaconProxy.isBeaconOwner(receiptVaultBeacon, LibProdDeployV1.BEACON_INITIAL_OWNER),
+            "receipt vault beacon owner mismatch"
+        );
+        assertTrue(
+            LibExtrospectERC1967BeaconProxy.isBeaconOwner(wrappedVaultBeacon, LibProdDeployV1.BEACON_INITIAL_OWNER),
+            "wrapped vault beacon owner mismatch"
         );
     }
 
