@@ -12,16 +12,14 @@ import {IReceiptVaultV3} from "rain.vats/interface/IReceiptVaultV3.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
 } from "rain.vats/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
+import {ERC1967_BEACON_SLOT} from "rain.extrospection/lib/LibExtrospectERC1967BeaconProxy.sol";
 
 /// @title LibProdTokensBaseTest
 /// @notice Fork tests verifying production token instances on Base.
 contract LibProdTokensBaseTest is Test {
-    /// @dev EIP-1967 beacon slot.
-    bytes32 constant BEACON_SLOT = 0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50;
-
     /// Read the EIP-1967 beacon address from a proxy contract.
     function beaconOf(address proxy) internal view returns (address) {
-        return address(uint160(uint256(vm.load(proxy, BEACON_SLOT))));
+        return address(uint160(uint256(vm.load(proxy, ERC1967_BEACON_SLOT))));
     }
 
     /// Verify a token set (receipt, receipt vault, wrapped vault) is deployed,
