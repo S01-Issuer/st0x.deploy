@@ -12,6 +12,7 @@ import {IReceiptVaultV3} from "rain.vats/interface/IReceiptVaultV3.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
 } from "rain.vats/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
+import {ICertifiableV1} from "rain.vats/interface/ICertifiableV1.sol";
 import {
     ERC1967_BEACON_SLOT,
     LibExtrospectERC1967BeaconProxy
@@ -89,6 +90,12 @@ contract LibProdTokensBaseTest is Test {
             LibExtrospectERC1967BeaconProxy.isBeaconOwner(wrappedVaultBeacon, LibProdDeployV1.BEACON_INITIAL_OWNER),
             "wrapped vault beacon owner mismatch"
         );
+
+        // Receipt vault transfers are gated on `certifiedUntil`. An expired
+        // certification freezes all transfers on the affected token. Pin
+        // that every prod vault is currently within its certification
+        // window at the fork's block timestamp.
+        assertFalse(ICertifiableV1(receiptVault).isCertificationExpired(), "receipt vault certification expired");
     }
 
     function testMstrTokenSetOnBase() external {
