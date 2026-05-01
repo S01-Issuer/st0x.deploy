@@ -12,6 +12,7 @@ import {IReceiptVaultV3} from "rain.vats/interface/IReceiptVaultV3.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
 } from "rain.vats/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
+import {IAuthorizableV1} from "rain.vats/interface/IAuthorizableV1.sol";
 import {
     ERC1967_BEACON_SLOT,
     LibExtrospectERC1967BeaconProxy
@@ -89,6 +90,14 @@ contract LibProdTokensBaseTest is Test {
             LibExtrospectERC1967BeaconProxy.isBeaconOwner(wrappedVaultBeacon, LibProdDeployV1.BEACON_INITIAL_OWNER),
             "wrapped vault beacon owner mismatch"
         );
+
+        // Every prod receipt vault must report a non-zero authorizer,
+        // and all 13 prod token sets must share the same authorizer
+        // contract. Inconsistency would mean one vault is configured
+        // against a different permission boundary than its siblings.
+        address mstrAuthorizer = address(IAuthorizableV1(LibProdTokensBase.MSTR_RECEIPT_VAULT).authorizer());
+        assertTrue(mstrAuthorizer != address(0), "mstr authorizer is zero");
+        assertEq(address(IAuthorizableV1(receiptVault).authorizer()), mstrAuthorizer, "authorizer differs from mstr's");
     }
 
     function testMstrTokenSetOnBase() external {
