@@ -102,6 +102,31 @@ contract LibProdTokensBaseTest is Test {
         // calculation by ten orders of magnitude per missing decimal.
         assertEq(IERC20Metadata(receiptVault).decimals(), 18, "receipt vault decimals != 18");
         assertEq(IERC20Metadata(wrappedTokenVault).decimals(), 18, "wrapped vault decimals != 18");
+
+        // Per-class proxy codehash consistency. All receipt proxies are
+        // BeaconProxy instances pointing at the same beacon, so their
+        // runtime bytecode must be identical. Same for receipt vault
+        // proxies and wrapped vault proxies. A divergent codehash means
+        // a proxy was deployed through a different mechanism or with
+        // different constructor args than its siblings. The pinned
+        // values live in `LibProdDeployV1` so MSTR is no longer the
+        // canonical reference — every prod proxy is checked against an
+        // in-repo constant.
+        assertEq(
+            keccak256(receipt.code),
+            LibProdDeployV1.PROD_STOX_RECEIPT_PROXY_BASE_CODEHASH_V1,
+            "receipt proxy codehash mismatch"
+        );
+        assertEq(
+            keccak256(receiptVault.code),
+            LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_PROXY_BASE_CODEHASH_V1,
+            "receipt vault proxy codehash mismatch"
+        );
+        assertEq(
+            keccak256(wrappedTokenVault.code),
+            LibProdDeployV1.PROD_STOX_WRAPPED_TOKEN_VAULT_PROXY_BASE_CODEHASH_V1,
+            "wrapped vault proxy codehash mismatch"
+        );
     }
 
     function testMstrTokenSetOnBase() external {
