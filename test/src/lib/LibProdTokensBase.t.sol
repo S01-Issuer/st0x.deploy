@@ -96,6 +96,12 @@ contract LibProdTokensBaseTest is Test {
         // that every prod vault is currently within its certification
         // window at the fork's block timestamp.
         assertFalse(ICertifiableV1(receiptVault).isCertificationExpired(), "receipt vault certification expired");
+
+        // Integrators (DEXes, indexers, UIs) read `decimals()` to scale
+        // amounts. Drift from 18 silently shifts every off-chain
+        // calculation by ten orders of magnitude per missing decimal.
+        assertEq(IERC20Metadata(receiptVault).decimals(), 18, "receipt vault decimals != 18");
+        assertEq(IERC20Metadata(wrappedTokenVault).decimals(), 18, "wrapped vault decimals != 18");
     }
 
     function testMstrTokenSetOnBase() external {
