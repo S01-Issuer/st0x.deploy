@@ -561,11 +561,12 @@ contract StoxReceiptRebaseIntegrationTest is Test {
     }
 
     /// In a multi-id batch transfer, `ReceiptAccountMigrated` events fire
-    /// in `(from, ids[0]), (to, ids[0]), (from, ids[1]), (to, ids[1]), ...`
-    /// order, all before the `TransferBatch` event. Indexers rely on this
-    /// interleaving: for each event emitted for `ids[i]`, the balance at
-    /// that cursor for that id is the rasterized value, not yet touched
-    /// by the transfer.
+    /// in `(from, ids[0]), (to, ids[0]), (from, ids[1]), (to, ids[1])`
+    /// order, all before the `TransferBatch` event. Bob's zero-balance
+    /// migrations also emit (per #81 — every cursor advance fires).
+    /// Indexers rely on this interleaving: for each event emitted for
+    /// `ids[i]`, the balance at that cursor for that id is the rasterized
+    /// value, not yet touched by the transfer.
     function testBatchUpdateEventOrderingAcrossIds() external {
         _mint(ALICE, ID_A, 100);
         _mint(ALICE, ID_B, 200);
@@ -594,16 +595,22 @@ contract StoxReceiptRebaseIntegrationTest is Test {
             if (logs[i].topics[0] == migratedSig && migratedIdx < 4) {
                 address who = address(uint160(uint256(logs[i].topics[1])));
                 uint256 id = uint256(logs[i].topics[2]);
-                migratedOrder[migratedIdx++] = uint256(uint160(who)) << 96 | uint256(uint96(id)); // pack for comparison
+                // forge-lint: disable-next-line(unsafe-typecast)
+                migratedOrder[migratedIdx++] = uint256(uint160(who)) << 96 | uint256(uint96(id));
             } else if (logs[i].topics[0] == batchSig) {
                 batchIdx = i;
             }
         }
 
-        assertEq(migratedIdx, 2, "alice-only migrations: ID_A and ID_B (bob starts at 0 balance, no emit)");
-        // Each element packs (address, id); compare as (alice, ID_A), (alice, ID_B).
+        assertEq(migratedIdx, 4, "every (holder, id) cursor advance emits: alice ID_A/ID_B + bob ID_A/ID_B");
+        // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(migratedOrder[0], uint256(uint160(ALICE)) << 96 | uint96(ID_A), "first emit is (alice, ID_A)");
-        assertEq(migratedOrder[1], uint256(uint160(ALICE)) << 96 | uint96(ID_B), "second emit is (alice, ID_B)");
+        // forge-lint: disable-next-line(unsafe-typecast)
+        assertEq(migratedOrder[1], uint256(uint160(BOB)) << 96 | uint96(ID_A), "second emit is (bob, ID_A)");
+        // forge-lint: disable-next-line(unsafe-typecast)
+        assertEq(migratedOrder[2], uint256(uint160(ALICE)) << 96 | uint96(ID_B), "third emit is (alice, ID_B)");
+        // forge-lint: disable-next-line(unsafe-typecast)
+        assertEq(migratedOrder[3], uint256(uint160(BOB)) << 96 | uint96(ID_B), "fourth emit is (bob, ID_B)");
         assertLt(batchIdx, type(uint256).max, "TransferBatch must be emitted");
     }
 

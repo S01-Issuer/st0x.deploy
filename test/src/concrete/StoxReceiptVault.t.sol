@@ -333,21 +333,25 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.migrationCursor(ALICE), 1, "alice cursor advanced past the split");
     }
 
-    /// Phenomenon 3 (multi-step round-trip): a balance of 3 through `[1/3,
-    /// 3]` rasterizes `3 → 1 → 3` — intermediates differ but the final
-    /// equals the start. The cursor jumps two splits in a single `_update`;
-    /// the event fires once with `oldBalance == newBalance == 3`.
+    /// Phenomenon 3 (multi-step round-trip): a balance of 4 through `[2x,
+    /// 1/2x]` rasterizes `4 -> 8 -> 4`. The intermediate value differs
+    /// from the start but the final equals it. (Rain Float represents 1/2
+    /// exactly in base 10, so this sequence round-trips for any even
+    /// balance — `1/3` would not, since the Float representation of 1/3
+    /// is slightly less than exact 1/3 and `trunc(3 * 1/3_float) = 0`.)
+    /// The cursor jumps two splits in a single `_update`; the event fires
+    /// once with `oldBalance == newBalance == 4`.
     function testAccountMigratedFiresOnMultiStepRoundTrip() external {
-        vault.publicUpdate(address(0), ALICE, 3);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _fractionalParams(1, 3));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        vault.publicUpdate(address(0), ALICE, 4);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _fractionalParams(1, 2));
         vm.warp(3000);
 
         vm.expectEmit(true, false, false, true, address(vault));
-        emit StoxReceiptVault.AccountMigrated(ALICE, 0, 2, 3, 3);
+        emit StoxReceiptVault.AccountMigrated(ALICE, 0, 2, 4, 4);
         vault.publicUpdate(ALICE, ALICE, 0);
 
-        assertEq(vault.rawStoredBalance(ALICE), 3, "stored balance round-tripped to itself");
+        assertEq(vault.rawStoredBalance(ALICE), 4, "stored balance round-tripped to itself");
         assertEq(vault.migrationCursor(ALICE), 2, "alice cursor advanced past both splits");
     }
 
