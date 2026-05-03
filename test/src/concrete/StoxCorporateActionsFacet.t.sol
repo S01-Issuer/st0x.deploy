@@ -1304,8 +1304,8 @@ contract StoxCorporateActionsFacetTest is Test {
     function testFacetTraversalGettersRevertOnInvalidMask() external {
         _scheduleSplitViaFacet(2, 1500);
 
-        // Bit 5 is reserved (defined action types occupy bits 0/1/2).
-        uint256 invalidMask = 1 << 5;
+        // Bit 3 is reserved (defined action types occupy bits 0/1/2).
+        uint256 invalidMask = 1 << 3;
 
         vm.expectRevert(InvalidMask.selector);
         facetViaHarness.latestActionOfType(invalidMask, CompletionFilter.ALL);

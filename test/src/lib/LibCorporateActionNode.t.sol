@@ -165,14 +165,14 @@ contract LibCorporateActionNodeTest is Test {
     function testMaskWithOnlyUndefinedBitsReverts() external {
         h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
 
-        // Bit 5 alone — no action type uses bit 5 today (defined types
+        // Bit 3 alone — no action type uses bit 3 today (defined types
         // occupy bits 0/1/2).
         vm.expectRevert(InvalidMask.selector);
-        h.latest(1 << 5, CompletionFilter.ALL);
+        h.latest(1 << 3, CompletionFilter.ALL);
 
-        // Bits 5 and 6 — both undefined.
+        // Bits 3 and 4 — both undefined.
         vm.expectRevert(InvalidMask.selector);
-        h.latest((1 << 5) | (1 << 6), CompletionFilter.ALL);
+        h.latest((1 << 3) | (1 << 4), CompletionFilter.ALL);
     }
 
     /// Fuzz: any mask with no valid bits (i.e. `mask & VALID_ACTION_TYPES_MASK
@@ -222,13 +222,13 @@ contract LibCorporateActionNodeTest is Test {
     function testMaskWithMixedBitsPasses() external {
         uint256 id = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
 
-        // Bit 0 (valid, stock split) + bit 2 (undefined).
-        (uint256 cursor,,) = h.latest((1 << 0) | (1 << 2), CompletionFilter.ALL);
+        // Stock split bit (valid) + bit 3 (undefined).
+        (uint256 cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1 | (1 << 3), CompletionFilter.ALL);
         assertEq(cursor, id, "valid bit in mask matches node with that bit set");
 
-        // USER_TYPES_TEST_MASK has every bit including bit 0.
+        // USER_TYPES_TEST_MASK includes the stock-split bit.
         (cursor,,) = h.latest(USER_TYPES_TEST_MASK, CompletionFilter.ALL);
-        assertEq(cursor, id, "max-value mask still matches via its valid bits");
+        assertEq(cursor, id, "user-types mask matches via its valid bits");
     }
 
     /// With two defined action types (stock split and stables dividend),
@@ -622,24 +622,24 @@ contract LibCorporateActionNodeTest is Test {
     /// the mask — the predicate is `actionType & mask != 0`, not
     /// `& mask == mask`.
     function testMultiBitMaskMatchesAnyBit() external {
-        uint256 idType1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
-        uint256 idType2 = h.schedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 2500, hex"");
+        uint256 idSplit = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 idDividend = h.schedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 2500, hex"");
         vm.warp(3000);
 
-        // Mask = type1 | type2 — both nodes match.
-        (uint256 cursor,,) = h.earliest(1 | 2, CompletionFilter.ALL);
-        assertEq(cursor, idType1, "first match under multi-bit mask");
-        (cursor,,) = h.nextOf(cursor, 1 | 2, CompletionFilter.ALL);
-        assertEq(cursor, idType2, "second match under multi-bit mask");
-        (cursor,,) = h.nextOf(cursor, 1 | 2, CompletionFilter.ALL);
+        // Mask = stock-split | stables-dividend — both nodes match.
+        (uint256 cursor,,) = h.earliest(USER_TYPES_TEST_MASK, CompletionFilter.ALL);
+        assertEq(cursor, idSplit, "first match under multi-bit mask");
+        (cursor,,) = h.nextOf(cursor, USER_TYPES_TEST_MASK, CompletionFilter.ALL);
+        assertEq(cursor, idDividend, "second match under multi-bit mask");
+        (cursor,,) = h.nextOf(cursor, USER_TYPES_TEST_MASK, CompletionFilter.ALL);
         assertEq(cursor, 0);
 
         // Multi-bit mask under COMPLETED filter — same matches because
         // both nodes are now completed.
-        (cursor,,) = h.earliest(1 | 2, CompletionFilter.COMPLETED);
-        assertEq(cursor, idType1);
-        (cursor,,) = h.nextOf(cursor, 1 | 2, CompletionFilter.COMPLETED);
-        assertEq(cursor, idType2);
+        (cursor,,) = h.earliest(USER_TYPES_TEST_MASK, CompletionFilter.COMPLETED);
+        assertEq(cursor, idSplit);
+        (cursor,,) = h.nextOf(cursor, USER_TYPES_TEST_MASK, CompletionFilter.COMPLETED);
+        assertEq(cursor, idDividend);
     }
 
     /// Nodes scheduled with the same `effectiveTime` are returned in
@@ -651,12 +651,12 @@ contract LibCorporateActionNodeTest is Test {
         vm.warp(2000);
 
         // Forward across all three filters: insertion order.
-        assertForwardSequence(1, CompletionFilter.ALL, cursors3(first, second, third));
-        assertForwardSequence(1, CompletionFilter.COMPLETED, cursors3(first, second, third));
+        assertForwardSequence(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL, cursors3(first, second, third));
+        assertForwardSequence(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED, cursors3(first, second, third));
 
         // Backward: reverse insertion order.
-        assertBackwardSequence(1, CompletionFilter.ALL, cursors3(third, second, first));
-        assertBackwardSequence(1, CompletionFilter.COMPLETED, cursors3(third, second, first));
+        assertBackwardSequence(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL, cursors3(third, second, first));
+        assertBackwardSequence(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED, cursors3(third, second, first));
     }
 
     /// `latest` / `earliest` / `nextOf` / `prevOf` return
