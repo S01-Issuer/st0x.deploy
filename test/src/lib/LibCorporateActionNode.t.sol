@@ -11,7 +11,12 @@ import {
     VALID_ACTION_TYPES_MASK
 } from "src/interface/ICorporateActionsV1.sol";
 
-import {CompletionFilter, CorporateActionNode, LibCorporateActionNode} from "src/lib/LibCorporateActionNode.sol";
+import {
+    CompletionFilter,
+    CorporateActionNode,
+    LibCorporateActionNode,
+    NODE_NONE
+} from "src/lib/LibCorporateActionNode.sol";
 import {InvalidMask} from "src/error/ErrCorporateAction.sol";
 
 /// @dev Mask covering every test-scheduled action type — `STOCK_SPLIT_V1` and
@@ -89,22 +94,22 @@ contract LibCorporateActionNodeTest is Test {
     /// the `_resolve` helper.
     function testEmptyListReturnsZeros() external view {
         (uint256 c1, uint256 t1, uint64 e1) = h.latest(USER_TYPES_TEST_MASK, CompletionFilter.ALL);
-        assertEq(c1, 0);
+        assertEq(\1, NODE_NONE);
         assertEq(t1, 0);
         assertEq(e1, 0);
 
         (uint256 c2, uint256 t2, uint64 e2) = h.earliest(USER_TYPES_TEST_MASK, CompletionFilter.ALL);
-        assertEq(c2, 0);
+        assertEq(\1, NODE_NONE);
         assertEq(t2, 0);
         assertEq(e2, 0);
 
         (uint256 c3, uint256 t3, uint64 e3) = h.nextOf(0, USER_TYPES_TEST_MASK, CompletionFilter.ALL);
-        assertEq(c3, 0);
+        assertEq(\1, NODE_NONE);
         assertEq(t3, 0);
         assertEq(e3, 0);
 
         (uint256 c4, uint256 t4, uint64 e4) = h.prevOf(0, USER_TYPES_TEST_MASK, CompletionFilter.ALL);
-        assertEq(c4, 0);
+        assertEq(\1, NODE_NONE);
         assertEq(t4, 0);
         assertEq(e4, 0);
     }
@@ -132,7 +137,7 @@ contract LibCorporateActionNodeTest is Test {
 
         // Completed filter does NOT match yet.
         (cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
-        assertEq(cursor, 0);
+        assertEq(\1, NODE_NONE);
     }
 
     /// Mask = 0 can never match any node (every node's `actionType` has at
@@ -274,7 +279,7 @@ contract LibCorporateActionNodeTest is Test {
 
         // Pre-1500: both pending.
         (uint256 cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
-        assertEq(cursor, 0);
+        assertEq(\1, NODE_NONE);
         (cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, id1);
 
@@ -366,7 +371,7 @@ contract LibCorporateActionNodeTest is Test {
 
         // next from id3 → none (tail).
         (cursor,,) = h.nextOf(id3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
-        assertEq(cursor, 0);
+        assertEq(\1, NODE_NONE);
 
         // prev from id3 → id2.
         (cursor,,) = h.prevOf(id3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
@@ -374,7 +379,7 @@ contract LibCorporateActionNodeTest is Test {
 
         // prev from id1 → none (head).
         (cursor,,) = h.prevOf(id1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
-        assertEq(cursor, 0);
+        assertEq(\1, NODE_NONE);
     }
 
     // Shared list layout (effectiveTime ascending — block.timestamp warps to 2700):
@@ -541,7 +546,7 @@ contract LibCorporateActionNodeTest is Test {
         (cursor,,) = h.nextOf(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, idC, "COMPLETED forward skips cancelled idB");
         (cursor,,) = h.nextOf(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
-        assertEq(cursor, 0);
+        assertEq(\1, NODE_NONE);
 
         // COMPLETED backward must skip idB.
         (cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
@@ -549,7 +554,7 @@ contract LibCorporateActionNodeTest is Test {
         (cursor,,) = h.prevOf(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, idA, "COMPLETED backward skips cancelled idB");
         (cursor,,) = h.prevOf(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
-        assertEq(cursor, 0);
+        assertEq(\1, NODE_NONE);
 
         // PENDING forward must skip idE.
         (cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
@@ -557,7 +562,7 @@ contract LibCorporateActionNodeTest is Test {
         (cursor,,) = h.nextOf(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, idF, "PENDING forward skips cancelled idE");
         (cursor,,) = h.nextOf(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
-        assertEq(cursor, 0);
+        assertEq(\1, NODE_NONE);
 
         // PENDING backward must skip idE.
         (cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
@@ -565,7 +570,7 @@ contract LibCorporateActionNodeTest is Test {
         (cursor,,) = h.prevOf(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, idD, "PENDING backward skips cancelled idE");
         (cursor,,) = h.prevOf(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
-        assertEq(cursor, 0);
+        assertEq(\1, NODE_NONE);
     }
 
     /// `nextOf` from the tail and `prevOf` from the head return 0 across
@@ -633,7 +638,7 @@ contract LibCorporateActionNodeTest is Test {
         (cursor,,) = h.nextOf(cursor, USER_TYPES_TEST_MASK, CompletionFilter.ALL);
         assertEq(cursor, idDividend, "second match under multi-bit mask");
         (cursor,,) = h.nextOf(cursor, USER_TYPES_TEST_MASK, CompletionFilter.ALL);
-        assertEq(cursor, 0);
+        assertEq(\1, NODE_NONE);
 
         // Multi-bit mask under COMPLETED filter — same matches because
         // both nodes are now completed.
@@ -694,7 +699,7 @@ contract LibCorporateActionNodeTest is Test {
         assertEq(effectiveTime, 1700);
 
         (cursor, actionType, effectiveTime) = h.nextOf(id8, USER_TYPES_TEST_MASK, CompletionFilter.ALL);
-        assertEq(cursor, 0);
+        assertEq(\1, NODE_NONE);
         assertEq(actionType, 0);
         assertEq(effectiveTime, 0);
     }

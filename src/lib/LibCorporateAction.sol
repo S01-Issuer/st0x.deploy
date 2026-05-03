@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
+import {CorporateActionNode, CompletionFilter, LibCorporateActionNode, NODE_NONE} from "./LibCorporateActionNode.sol";
 import {LibStockSplit} from "./LibStockSplit.sol";
 import {LibERC20Storage} from "./LibERC20Storage.sol";
 import {
@@ -45,7 +45,7 @@ bytes32 constant STOCK_SPLIT_V1_TYPE_HASH = keccak256("st0x.corporate-actions.st
 /// `_ensureBootstrap` on the first `schedule` call. User-scheduled actions
 /// start at index 1. The null encoding for `prev`, `next`, and the "from
 /// head/tail inclusive" sentinel for `nextOfType`/`prevOfType` is
-/// `type(uint256).max` — value-level disambiguation, not positional, so a
+/// `NODE_NONE` — value-level disambiguation, not positional, so a
 /// real node at index 0 is never confused with "no node".
 library LibCorporateAction {
     /// @custom:storage-location erc7201:rain.storage.corporate-action.1
@@ -92,7 +92,7 @@ library LibCorporateAction {
         /// balance is added to unmigrated[k'].
         mapping(uint256 => uint256) unmigrated;
         /// Index of the latest completed init-or-stock-split node seen by
-        /// `fold()`. `_ensureBootstrap` writes `type(uint256).max` here as
+        /// `fold()`. `_ensureBootstrap` writes `NODE_NONE` here as
         /// the "no fold has run yet" sentinel so the first `fold()` call
         /// walks the head-inclusive range. Mint/burn amounts route to
         /// `unmigrated[totalSupplyLatestCursor]` after the first fold.
@@ -122,7 +122,8 @@ library LibCorporateAction {
 
     /// @notice Insert a node into the list maintaining time ordering.
     /// effectiveTime must be strictly in the future.
-    /// @return actionIndex The 1-based array index of the new node.
+    /// @return actionIndex The array index of the new node. Index 0 is the
+    /// bootstrap node, so user-scheduled actions have index >= 1.
     function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters)
         internal
         returns (uint256 actionIndex)
@@ -143,13 +144,17 @@ library LibCorporateAction {
         node.actionType = actionType;
         node.effectiveTime = effectiveTime;
         node.parameters = parameters;
+        // Pre-fill list pointers with the null sentinel so any code that
+        // dereferences a never-spliced node sees "no neighbour" rather than
+        // an off-by-one read of node 0.
+        node.prev = NODE_NONE;
+        node.next = NODE_NONE;
 
         _insertOrdered(s, actionIndex, effectiveTime);
     }
 
-    /// @dev Lazily create the index-0 sentinel and the index-1 init/bootstrap
-    /// node on first `schedule` call. Idempotent — every subsequent call is a
-    /// length check.
+    /// @dev Lazily create the index-0 init/bootstrap node on first `schedule`
+    /// call. Idempotent — every subsequent call is a length check.
     ///
     /// Bootstrap semantics:
     /// - `actionType = ACTION_TYPE_INIT_V1` so balance-migration walks
@@ -161,6 +166,8 @@ library LibCorporateAction {
     ///   `LibTotalSupply.effectiveTotalSupply` branch on `actionType ==
     ///   ACTION_TYPE_INIT_V1` and skip the float multiplier read entirely
     ///   (identity migration).
+    /// - `prev = next = NODE_NONE`: the bootstrap is alone in the
+    ///   list at creation time, so both neighbours are "no node".
     ///
     /// Pot snapshot:
     /// - `unmigrated[0] = LibERC20Storage.underlyingTotalSupply()` captures
@@ -168,69 +175,71 @@ library LibCorporateAction {
     ///   holds at this moment because schedule() does not touch balances and
     ///   no `_migrateAccount` has fired yet — so OZ's `_totalSupply == Σ
     ///   _balances` equality is intact, and every account's
-    ///   `accountMigrationCursor` is still 0.
+    ///   `accountMigrationCursor` is still 0 (= bootstrap).
     ///
     /// Cancel safety: bootstrap's `effectiveTime` is `block.timestamp` at
-    /// creation time, so any `cancel(1)` call reverts immediately with
+    /// creation time, so any `cancel(0)` call reverts immediately with
     /// `ActionAlreadyComplete` (the standard guard) — no special-casing
     /// needed in `cancel`.
     function _ensureBootstrap(CorporateActionStorage storage s) private {
         if (s.nodes.length != 0) return;
 
-        // Index 0 — sentinel slot, never read.
+        // Index 0 — bootstrap node.
         s.nodes.push();
-
-        // Index 1 — bootstrap node.
-        s.nodes.push();
-        CorporateActionNode storage bootstrap = s.nodes[1];
+        CorporateActionNode storage bootstrap = s.nodes[0];
         bootstrap.actionType = ACTION_TYPE_INIT_V1;
         bootstrap.effectiveTime = uint64(block.timestamp);
+        bootstrap.prev = NODE_NONE;
+        bootstrap.next = NODE_NONE;
 
-        s.head = 1;
-        s.tail = 1;
+        // head and tail both point at the bootstrap by virtue of
+        // `head == tail == 0` (Solidity zero-init).
 
         // Snapshot pre-action total supply into pot 0. Every existing holder
         // has accountMigrationCursor == 0, so I(0) holds: pot 0 = Σ
         // underlyingBalance(acc) for accounts at cursor 0.
         s.unmigrated[0] = LibERC20Storage.underlyingTotalSupply();
+
+        // `NODE_NONE` is the "no fold has run yet" sentinel so the
+        // first `fold()` call walks the list head-inclusive and lands on
+        // the bootstrap (which is already complete).
+        s.totalSupplyLatestCursor = NODE_NONE;
     }
 
     /// @dev Splice a populated node at `newIndex` into the time-ordered
     /// linked list, walking backward from the tail to find the correct
     /// position. Equal-time nodes are inserted **after** existing nodes of
     /// the same effective time (stable ordering — see the tied-effectiveTime
-    /// regression tests). The node's `actionType`, `effectiveTime`, and
-    /// `parameters` must already be written; this helper only updates the
-    /// list pointers (`prev`, `next`, `head`, `tail`).
+    /// regression tests). The node's `actionType`, `effectiveTime`,
+    /// `parameters`, and the `prev = next = NODE_NONE` placeholders
+    /// must already be written; this helper only fixes up the list
+    /// pointers (`prev`, `next`, `tail`).
     ///
-    /// Extracted from `schedule` so the insertion walk is isolated from
-    /// sentinel allocation and node population. This helper assumes the
-    /// storage struct has been
-    /// initialised (sentinel already pushed) and the node at `newIndex` is
-    /// fully populated.
+    /// Bootstrap is at index 0 with `effectiveTime = block.timestamp`, and
+    /// `schedule` requires `effectiveTime > block.timestamp`, so every user
+    /// node lands strictly after the bootstrap. The walk therefore always
+    /// finds a `current` whose effectiveTime is `<=` the new node's, and
+    /// the "before head" branch is unreachable post-bootstrap.
     ///
     /// @param s Storage pointer (caller already loaded).
-    /// @param newIndex The 1-based array index of the node being inserted.
+    /// @param newIndex The array index of the node being inserted.
     /// @param effectiveTime The node's effective time (cached from storage
     /// so the loop doesn't re-read it on every step).
     function _insertOrdered(CorporateActionStorage storage s, uint256 newIndex, uint64 effectiveTime) private {
         CorporateActionNode storage node = s.nodes[newIndex];
 
-        if (s.tail == 0) {
-            s.head = newIndex;
-            s.tail = newIndex;
-            return;
-        }
-
-        // Walk backwards from tail to find correct position.
+        // Walk backwards from tail to find correct position. `_ensureBootstrap`
+        // guarantees the list always contains at least the bootstrap node, so
+        // the walk always terminates at the bootstrap (whose effectiveTime is
+        // <= every user node's effectiveTime).
         uint256 current = s.tail;
-        while (current != 0) {
+        while (current != NODE_NONE) {
             if (s.nodes[current].effectiveTime <= effectiveTime) {
                 uint256 afterCurrent = s.nodes[current].next;
                 s.nodes[current].next = newIndex;
                 node.prev = current;
                 node.next = afterCurrent;
-                if (afterCurrent != 0) {
+                if (afterCurrent != NODE_NONE) {
                     s.nodes[afterCurrent].prev = newIndex;
                 } else {
                     s.tail = newIndex;
@@ -239,10 +248,6 @@ library LibCorporateAction {
             }
             current = s.nodes[current].prev;
         }
-        // Goes before the current head.
-        node.next = s.head;
-        s.nodes[s.head].prev = newIndex;
-        s.head = newIndex;
     }
 
     /// @notice Unlink a scheduled node from the list. Reverts if the action
@@ -273,23 +278,25 @@ library LibCorporateAction {
     /// the test or the zero assignment together.
     function cancel(uint256 actionIndex) internal {
         CorporateActionStorage storage s = getStorage();
-        if (actionIndex == 0 || actionIndex >= s.nodes.length) revert ActionDoesNotExist(actionIndex);
+        if (actionIndex >= s.nodes.length) revert ActionDoesNotExist(actionIndex);
 
         CorporateActionNode storage node = s.nodes[actionIndex];
 
         if (node.effectiveTime == 0) revert ActionDoesNotExist(actionIndex);
+        // Bootstrap (idx 0) has effectiveTime == block.timestamp at creation,
+        // so this guard rejects `cancel(0)` without a special case.
         if (node.effectiveTime <= block.timestamp) revert ActionAlreadyComplete(actionIndex);
 
         uint256 prevId = node.prev;
         uint256 nextId = node.next;
 
-        if (prevId != 0) {
+        if (prevId != NODE_NONE) {
             s.nodes[prevId].next = nextId;
         } else {
             s.head = nextId;
         }
 
-        if (nextId != 0) {
+        if (nextId != NODE_NONE) {
             s.nodes[nextId].prev = prevId;
         } else {
             s.tail = prevId;
@@ -298,8 +305,8 @@ library LibCorporateAction {
         // Unlink only — do NOT delete actionType/parameters from storage.
         // The `effectiveTime = 0` assignment below is the double-cancel
         // guard — see the @dev block above before touching it.
-        node.prev = 0;
-        node.next = 0;
+        node.prev = NODE_NONE;
+        node.next = NODE_NONE;
         node.effectiveTime = 0;
     }
 
@@ -310,8 +317,8 @@ library LibCorporateAction {
     function countCompleted() internal view returns (uint256 count) {
         if (getStorage().nodes.length == 0) return 0;
         uint256 mask = VALID_ACTION_TYPES_MASK & ~ACTION_TYPE_INIT_V1;
-        uint256 current = LibCorporateActionNode.nextOfType(0, mask, CompletionFilter.COMPLETED);
-        while (current != 0) {
+        uint256 current = LibCorporateActionNode.nextOfType(NODE_NONE, mask, CompletionFilter.COMPLETED);
+        while (current != NODE_NONE) {
             count++;
             current = LibCorporateActionNode.nextOfType(current, mask, CompletionFilter.COMPLETED);
         }

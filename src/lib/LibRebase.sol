@@ -9,7 +9,7 @@ import {
     ACTION_TYPE_STOCK_SPLIT_V1,
     BALANCE_MIGRATION_TYPES_MASK
 } from "../interface/ICorporateActionsV1.sol";
-import {CompletionFilter, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
+import {CompletionFilter, LibCorporateActionNode, NODE_NONE} from "./LibCorporateActionNode.sol";
 import {LibRebaseMath} from "./LibRebaseMath.sol";
 import {LibStockSplit} from "./LibStockSplit.sol";
 
@@ -74,7 +74,9 @@ library LibRebase {
     ///
     /// @param storedBalance The account's raw stored balance.
     /// @param cursor The index of the last node this account was migrated
-    /// through. Use 0 to start from the head.
+    /// through. The default 0 is the bootstrap node — fresh holders start
+    /// at the bootstrap, and the walk advances them through every
+    /// subsequent completed split.
     /// @return migratedBalance The balance after sequential multiplier
     /// application. Always 0 when `storedBalance == 0`.
     /// @return newCursor The index of the last completed split node visited.
@@ -88,7 +90,7 @@ library LibRebase {
         uint256 nodeIndex =
             LibCorporateActionNode.nextOfType(cursor, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
 
-        while (nodeIndex != 0) {
+        while (nodeIndex != NODE_NONE) {
             newCursor = nodeIndex;
             // Skip the multiplier read and float math whenever the balance
             // is already zero. This covers both dormant zero-balance accounts
@@ -101,7 +103,7 @@ library LibRebase {
             //
             // Init nodes (`ACTION_TYPE_INIT_V1`) are also identity — the
             // bootstrap step exists so every holder's cursor advances
-            // through index 1 once, replacing the special "before any
+            // through index 0 once, replacing the special "before any
             // action" state. No multiplier read, no float math.
             if (balance != 0 && s.nodes[nodeIndex].actionType == ACTION_TYPE_STOCK_SPLIT_V1) {
                 Float multiplier = LibStockSplit.decodeParametersV1(s.nodes[nodeIndex].parameters);

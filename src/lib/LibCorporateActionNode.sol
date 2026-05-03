@@ -6,23 +6,34 @@ import {LibCorporateAction} from "./LibCorporateAction.sol";
 import {VALID_ACTION_TYPES_MASK} from "../interface/ICorporateActionsV1.sol";
 import {InvalidMask} from "../error/ErrCorporateAction.sol";
 
+/// @dev Sentinel value for "no node" in `CorporateActionNode.prev`,
+/// `CorporateActionNode.next`, return values from `nextOfType` /
+/// `prevOfType`, and the `fromIndex` argument to those functions (where
+/// it means "start from head/tail inclusive"). Index 0 is reserved for
+/// the bootstrap node, which is a real walkable node — value-level
+/// disambiguation via `type(uint256).max` keeps "no node" distinct from
+/// "the bootstrap node".
+uint256 constant NODE_NONE = type(uint256).max;
+
 /// @dev A corporate action node in the doubly linked list ordered by
 /// effectiveTime. There is no stored status — an action is "complete" when
 /// effectiveTime <= block.timestamp.
 ///
-/// Nodes are stored in a dynamic array. Index 0 is a sentinel (reserved but
-/// unused for real data) so that 0 can represent "no node" in pointer fields.
-/// Index 1 is the lazily-created `ACTION_TYPE_INIT_V1` bootstrap node;
-/// user-scheduled nodes start at index 2. The node does not store its
-/// own index — callers track indices externally.
+/// Nodes are stored in a dynamic array. Index 0 is the lazily-created
+/// `ACTION_TYPE_INIT_V1` bootstrap node; user-scheduled nodes start at
+/// index 1. The node does not store its own index — callers track indices
+/// externally. Pointer fields use `NODE_NONE` (`type(uint256).max`) for
+/// "no neighbour".
 struct CorporateActionNode {
     /// @param actionType Bitmap action type. Each type is a single bit (1 << n).
     uint256 actionType;
     /// @param effectiveTime When this action takes effect.
     uint64 effectiveTime;
-    /// @param prev Previous node in time-ordered list (1-based index, 0 = none).
+    /// @param prev Previous node in time-ordered list. `NODE_NONE` means
+    /// no previous node (the head of the list).
     uint256 prev;
-    /// @param next Next node in time-ordered list (1-based index, 0 = none).
+    /// @param next Next node in time-ordered list. `NODE_NONE` means no
+    /// next node (the tail of the list).
     uint256 next;
     /// @param parameters ABI-encoded parameters specific to the action type.
     bytes parameters;
@@ -57,16 +68,17 @@ library LibCorporateActionNode {
     /// @notice Walk forward from `fromIndex`, returning the index of the next
     /// node matching the type mask and completion filter.
     ///
-    /// @param fromIndex Start after this node (exclusive). Pass 0 to start
-    /// from the head of the list.
+    /// @param fromIndex Start after this node (exclusive). Pass `NODE_NONE`
+    /// to start from the head of the list (head-inclusive).
     /// @param mask Bitmap mask to filter action types. Use type(uint256).max
     /// to match all types.
     /// @param filter Completion filter: ALL, COMPLETED, or PENDING.
-    /// @return The index of the next matching node, or 0 if none found.
+    /// @return The index of the next matching node, or `NODE_NONE` if none.
     function nextOfType(uint256 fromIndex, uint256 mask, CompletionFilter filter) internal view returns (uint256) {
         if (mask & VALID_ACTION_TYPES_MASK == 0) revert InvalidMask();
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        uint256 current = fromIndex == 0 ? s.head : s.nodes[fromIndex].next;
+        if (s.nodes.length == 0) return NODE_NONE;
+        uint256 current = fromIndex == NODE_NONE ? s.head : s.nodes[fromIndex].next;
 
         // Dispatch on `filter` once. The list is ordered by effectiveTime
         // and completion is monotonic across that order, so each branch
@@ -84,15 +96,16 @@ library LibCorporateActionNode {
     /// @notice Walk backward from `fromIndex`, returning the index of the
     /// previous node matching the type mask and completion filter.
     ///
-    /// @param fromIndex Start before this node (exclusive). Pass 0 to start
-    /// from the tail of the list.
+    /// @param fromIndex Start before this node (exclusive). Pass `NODE_NONE`
+    /// to start from the tail of the list (tail-inclusive).
     /// @param mask Bitmap mask to filter action types.
     /// @param filter Completion filter: ALL, COMPLETED, or PENDING.
-    /// @return The index of the previous matching node, or 0 if none found.
+    /// @return The index of the previous matching node, or `NODE_NONE` if none.
     function prevOfType(uint256 fromIndex, uint256 mask, CompletionFilter filter) internal view returns (uint256) {
         if (mask & VALID_ACTION_TYPES_MASK == 0) revert InvalidMask();
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        uint256 current = fromIndex == 0 ? s.tail : s.nodes[fromIndex].prev;
+        if (s.nodes.length == 0) return NODE_NONE;
+        uint256 current = fromIndex == NODE_NONE ? s.tail : s.nodes[fromIndex].prev;
 
         // Mirror of `nextOfType`'s dispatch, walking backward from the tail.
         // The pending segment sits at the tail end and the completed segment
@@ -117,12 +130,12 @@ library LibCorporateActionNode {
         view
         returns (uint256)
     {
-        while (current != 0) {
+        while (current != NODE_NONE) {
             CorporateActionNode storage node = s.nodes[current];
             if (node.actionType & mask != 0) return current;
             current = node.next;
         }
-        return 0;
+        return NODE_NONE;
     }
 
     /// Walk forward from `current` through the completed prefix, returning
@@ -133,24 +146,24 @@ library LibCorporateActionNode {
         uint256 current,
         uint256 mask
     ) private view returns (uint256) {
-        while (current != 0) {
+        while (current != NODE_NONE) {
             CorporateActionNode storage node = s.nodes[current];
             if (node.effectiveTime > block.timestamp) break;
             if (node.actionType & mask != 0) return current;
             current = node.next;
         }
-        return 0;
+        return NODE_NONE;
     }
 
     /// Skip forward through completed nodes without reading `actionType` —
     /// those nodes can't match a PENDING filter regardless of type. Returns
-    /// the first pending cursor (or 0 if every node is completed).
+    /// the first pending cursor (or `NODE_NONE` if every node is completed).
     function skipForwardWhileCompleted(LibCorporateAction.CorporateActionStorage storage s, uint256 current)
         private
         view
         returns (uint256)
     {
-        while (current != 0 && s.nodes[current].effectiveTime <= block.timestamp) {
+        while (current != NODE_NONE && s.nodes[current].effectiveTime <= block.timestamp) {
             current = s.nodes[current].next;
         }
         return current;
@@ -164,12 +177,12 @@ library LibCorporateActionNode {
         uint256 current,
         uint256 mask
     ) private view returns (uint256) {
-        while (current != 0) {
+        while (current != NODE_NONE) {
             CorporateActionNode storage node = s.nodes[current];
             if (node.actionType & mask != 0) return current;
             current = node.prev;
         }
-        return 0;
+        return NODE_NONE;
     }
 
     /// Walk backward from `current` through the pending suffix, returning
@@ -180,34 +193,35 @@ library LibCorporateActionNode {
         uint256 current,
         uint256 mask
     ) private view returns (uint256) {
-        while (current != 0) {
+        while (current != NODE_NONE) {
             CorporateActionNode storage node = s.nodes[current];
             if (node.effectiveTime <= block.timestamp) break;
             if (node.actionType & mask != 0) return current;
             current = node.prev;
         }
-        return 0;
+        return NODE_NONE;
     }
 
     /// Skip backward through pending nodes without reading `actionType` —
     /// mirror of `skipForwardWhileCompleted`. Returns the last completed
-    /// cursor (or 0 if every node is pending).
+    /// cursor (or `NODE_NONE` if every node is pending).
     function skipBackwardWhilePending(LibCorporateAction.CorporateActionStorage storage s, uint256 current)
         private
         view
         returns (uint256)
     {
-        while (current != 0 && s.nodes[current].effectiveTime > block.timestamp) {
+        while (current != NODE_NONE && s.nodes[current].effectiveTime > block.timestamp) {
             current = s.nodes[current].prev;
         }
         return current;
     }
 
     /// @dev Resolve a cursor to `(actionType, effectiveTime)`. Returns
-    /// `(0, 0)` when `cursor == 0` without touching storage, so callers can
-    /// thread "none found" results through without a branch of their own.
+    /// `(0, 0)` when `cursor == NODE_NONE` without touching storage, so
+    /// callers can thread "none found" results through without a branch of
+    /// their own.
     function resolve(uint256 cursor) private view returns (uint256 actionType, uint64 effectiveTime) {
-        if (cursor != 0) {
+        if (cursor != NODE_NONE) {
             CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[cursor];
             actionType = node.actionType;
             effectiveTime = node.effectiveTime;
@@ -220,7 +234,7 @@ library LibCorporateActionNode {
         view
         returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
     {
-        cursor = prevOfType(0, mask, filter);
+        cursor = prevOfType(NODE_NONE, mask, filter);
         (actionType, effectiveTime) = resolve(cursor);
     }
 
@@ -230,7 +244,7 @@ library LibCorporateActionNode {
         view
         returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
     {
-        cursor = nextOfType(0, mask, filter);
+        cursor = nextOfType(NODE_NONE, mask, filter);
         (actionType, effectiveTime) = resolve(cursor);
     }
 

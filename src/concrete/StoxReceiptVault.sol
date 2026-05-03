@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetReceiptVault.sol";
 import {LibCorporateAction} from "../lib/LibCorporateAction.sol";
 import {ACTION_TYPE_STOCK_SPLIT_V1} from "../interface/ICorporateActionsV1.sol";
-import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "../lib/LibCorporateActionNode.sol";
+import {CorporateActionNode, CompletionFilter, LibCorporateActionNode, NODE_NONE} from "../lib/LibCorporateActionNode.sol";
 import {LibRebase} from "../lib/LibRebase.sol";
 import {LibTotalSupply} from "../lib/LibTotalSupply.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
@@ -45,9 +45,12 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// `_migrateAccount`, before the mint / burn / transfer delta is
     /// applied.
     /// @param account The account whose migration state changed.
-    /// @param fromCursor The account's migration cursor before this migration
-    /// (0 means never migrated). Corresponds to the 1-based index of the last
-    /// completed corporate action this account had already seen.
+    /// @param fromCursor The account's migration cursor before this
+    /// migration. The default 0 corresponds to the bootstrap node (idx 0)
+    /// — every fresh holder starts there because the cursor mapping
+    /// defaults to 0 and bootstrap is identity for splits, so "no
+    /// migration applied" and "migrated through the identity bootstrap"
+    /// are the same state.
     /// @param toCursor The account's migration cursor after this migration.
     /// @param oldBalance The account's **stored** balance before rasterization
     /// — i.e. the value returned by `LibERC20Storage.underlyingBalance(account)` at
@@ -73,7 +76,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// observed it. The difference is however many blocks elapsed between
     /// `effectiveTime` and this first touch.
     ///
-    /// @param actionIndex The 1-based node index of the corporate action.
+    /// @param actionIndex The array index of the corporate action.
     /// @param actionType The bitmap action type (e.g. `ACTION_TYPE_STOCK_SPLIT_V1`).
     /// @param wasEffectiveAt The `effectiveTime` recorded at schedule time.
     event CorporateActionEffective(uint256 indexed actionIndex, uint256 actionType, uint64 wasEffectiveAt);
@@ -224,7 +227,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
 
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
 
-        while (nodeIndex != 0) {
+        while (nodeIndex != NODE_NONE) {
             CorporateActionNode storage node = s.nodes[nodeIndex];
             emit CorporateActionEffective(nodeIndex, node.actionType, node.effectiveTime);
             if (nodeIndex == newLatest) break;

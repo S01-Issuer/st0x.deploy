@@ -15,7 +15,8 @@ import {UnknownActionType} from "../../../src/error/ErrCorporateAction.sol";
 import {
     CorporateActionNode,
     CompletionFilter,
-    LibCorporateActionNode
+    LibCorporateActionNode,
+    NODE_NONE
 } from "../../../src/lib/LibCorporateActionNode.sol";
 import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 import {InvalidSplitMultiplier, MultiplierTooSmall, MultiplierTooLarge} from "../../../src/error/ErrStockSplit.sol";
@@ -385,16 +386,16 @@ contract LibStockSplitLifecycleTest is Test {
     /// Stock split full lifecycle: resolve, schedule, complete, walk, read multiplier.
     function testStockSplitLifecycle() external {
         Float threeX = LibDecimalFloat.packLossless(3, 0);
-        // Bootstrap takes idx 1 on first schedule, so the user split lands
-        // at idx 2.
+        // Bootstrap takes idx 0 on first schedule, so the user split lands
+        // at idx 1.
         uint256 id = h.resolveAndSchedule(STOCK_SPLIT_V1_TYPE_HASH, 1500, LibStockSplit.encodeParametersV1(threeX));
-        assertEq(id, 2);
+        assertEq(id, 1);
         assertEq(h.countCompleted(), 0);
 
         vm.warp(2000);
         assertEq(h.countCompleted(), 1);
 
-        uint256 completed = h.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
+        uint256 completed = h.nextOfType(NODE_NONE, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(completed, id);
 
         CorporateActionNode memory node = h.getNode(id);
@@ -416,25 +417,25 @@ contract LibStockSplitLifecycleTest is Test {
         vm.warp(2500);
 
         // COMPLETED filter returns id1 then id2.
-        uint256 c1 = h.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
+        uint256 c1 = h.nextOfType(NODE_NONE, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(c1, id1);
         uint256 c2 = h.nextOfType(c1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(c2, id2);
-        assertEq(h.nextOfType(c2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED), 0);
+        assertEq(h.nextOfType(c2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED), NODE_NONE);
 
         // PENDING filter returns only id3.
-        uint256 p1 = h.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
+        uint256 p1 = h.nextOfType(NODE_NONE, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(p1, id3);
-        assertEq(h.nextOfType(p1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING), 0);
+        assertEq(h.nextOfType(p1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING), NODE_NONE);
 
         // ALL walks all three in time order.
-        uint256 a1 = h.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        uint256 a1 = h.nextOfType(NODE_NONE, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(a1, id1);
         uint256 a2 = h.nextOfType(a1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(a2, id2);
         uint256 a3 = h.nextOfType(a2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(a3, id3);
-        assertEq(h.nextOfType(a3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL), 0);
+        assertEq(h.nextOfType(a3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL), NODE_NONE);
 
         assertEq(h.countCompleted(), 2);
     }

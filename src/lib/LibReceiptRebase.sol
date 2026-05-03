@@ -9,7 +9,7 @@ import {
     ACTION_TYPE_STOCK_SPLIT_V1,
     BALANCE_MIGRATION_TYPES_MASK
 } from "../interface/ICorporateActionsV1.sol";
-import {CompletionFilter} from "./LibCorporateActionNode.sol";
+import {CompletionFilter, NODE_NONE} from "./LibCorporateActionNode.sol";
 import {LibStockSplit} from "./LibStockSplit.sol";
 import {LibRebaseMath} from "./LibRebaseMath.sol";
 
@@ -51,15 +51,17 @@ library LibReceiptRebase {
     ///
     /// @param storedBalance The raw stored receipt balance for
     /// `(holder, id)`, read directly from OZ's ERC1155 storage.
-    /// @param cursor The 1-based index of the last vault corporate-action
-    /// node this `(holder, id)` pair was migrated through. 0 = start from
-    /// the head of the list.
+    /// @param cursor The index of the last vault corporate-action node this
+    /// `(holder, id)` pair was migrated through. The default 0 is the
+    /// vault's bootstrap node — fresh `(holder, id)` pairs start there
+    /// and the walk advances them through every subsequent completed
+    /// stock split.
     /// @param vault The vault contract implementing `ICorporateActionsV1`.
     /// @return migratedBalance The balance after sequential multiplier
     /// application. Always 0 when `storedBalance == 0`.
-    /// @return newCursor The 1-based index of the last completed stock
-    /// split visited. Equals the input cursor if no further completed
-    /// splits were found.
+    /// @return newCursor The index of the last completed stock split
+    /// visited. Equals the input cursor if no further completed splits
+    /// were found.
     function migratedBalance(uint256 storedBalance, uint256 cursor, ICorporateActionsV1 vault)
         internal
         view
@@ -84,7 +86,7 @@ library LibReceiptRebase {
         // inflating it. See LibRebase.migratedBalance for the same
         // mechanism on the share side.
         if (storedBalance == 0) {
-            while (nodeIndex != 0) {
+            while (nodeIndex != NODE_NONE) {
                 newCursor = nodeIndex;
                 // slither-disable-next-line unused-return
                 (nodeIndex, actionType,) =
@@ -95,7 +97,7 @@ library LibReceiptRebase {
 
         uint256 balance = storedBalance;
 
-        while (nodeIndex != 0) {
+        while (nodeIndex != NODE_NONE) {
             newCursor = nodeIndex;
             // Init is identity — no multiplier, no balance change. Skip the
             // cross-contract `getActionParameters` call entirely; the

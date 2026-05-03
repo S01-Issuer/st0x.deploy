@@ -9,7 +9,7 @@ import {
     ACTION_TYPE_STOCK_SPLIT_V1,
     BALANCE_MIGRATION_TYPES_MASK
 } from "../interface/ICorporateActionsV1.sol";
-import {CompletionFilter, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
+import {CompletionFilter, LibCorporateActionNode, NODE_NONE} from "./LibCorporateActionNode.sol";
 import {LibStockSplit} from "./LibStockSplit.sol";
 import {LibERC20Storage} from "./LibERC20Storage.sol";
 import {LibRebaseMath} from "./LibRebaseMath.sol";
@@ -183,12 +183,15 @@ library LibTotalSupply {
             return LibERC20Storage.underlyingTotalSupply();
         }
 
-        uint256 running = s.unmigrated[0];
-
+        // The first iteration walks from the head (the bootstrap node, which
+        // is always completed). The bootstrap is identity, so it contributes
+        // `unmigrated[0]` without a multiplier read — equivalent to seeding
+        // `running = unmigrated[0]` and walking from the bootstrap forward.
         uint256 nodeIndex =
-            LibCorporateActionNode.nextOfType(0, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
+            LibCorporateActionNode.nextOfType(NODE_NONE, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
+        uint256 running;
 
-        while (nodeIndex != 0) {
+        while (nodeIndex != NODE_NONE) {
             uint256 actionType = s.nodes[nodeIndex].actionType;
             if (actionType == ACTION_TYPE_STOCK_SPLIT_V1) {
                 Float multiplier = LibStockSplit.decodeParametersV1(s.nodes[nodeIndex].parameters);
@@ -221,17 +224,20 @@ library LibTotalSupply {
         // nodes (init or stock-split). Track the latest seen in a local and
         // write once at the end — each loop-body SSTORE would otherwise be
         // stomped by the next iteration.
+        // `_ensureBootstrap` initialises `totalSupplyLatestCursor` to
+        // `NODE_NONE`, which `nextOfType` interprets as "from head
+        // inclusive" so the first fold lands on the bootstrap.
         uint256 nodeIndex = LibCorporateActionNode.nextOfType(
             s.totalSupplyLatestCursor, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED
         );
 
-        uint256 latest;
-        while (nodeIndex != 0) {
+        uint256 latest = NODE_NONE;
+        while (nodeIndex != NODE_NONE) {
             latest = nodeIndex;
             nodeIndex =
                 LibCorporateActionNode.nextOfType(nodeIndex, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
         }
-        if (latest != 0) s.totalSupplyLatestCursor = latest;
+        if (latest != NODE_NONE) s.totalSupplyLatestCursor = latest;
     }
 
     /// @notice Update tracking when an account is migrated.
