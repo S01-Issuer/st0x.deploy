@@ -561,11 +561,12 @@ contract StoxReceiptRebaseIntegrationTest is Test {
     }
 
     /// In a multi-id batch transfer, `ReceiptAccountMigrated` events fire
-    /// in `(from, ids[0]), (to, ids[0]), (from, ids[1]), (to, ids[1]), ...`
-    /// order, all before the `TransferBatch` event. Indexers rely on this
-    /// interleaving: for each event emitted for `ids[i]`, the balance at
-    /// that cursor for that id is the rasterized value, not yet touched
-    /// by the transfer.
+    /// in `(from, ids[0]), (to, ids[0]), (from, ids[1]), (to, ids[1])`
+    /// order, all before the `TransferBatch` event. Bob's zero-balance
+    /// migrations also emit (per #81 — every cursor advance fires).
+    /// Indexers rely on this interleaving: for each event emitted for
+    /// `ids[i]`, the balance at that cursor for that id is the rasterized
+    /// value, not yet touched by the transfer.
     function testBatchUpdateEventOrderingAcrossIds() external {
         _mint(ALICE, ID_A, 100);
         _mint(ALICE, ID_B, 200);
@@ -594,16 +595,22 @@ contract StoxReceiptRebaseIntegrationTest is Test {
             if (logs[i].topics[0] == migratedSig && migratedIdx < 4) {
                 address who = address(uint160(uint256(logs[i].topics[1])));
                 uint256 id = uint256(logs[i].topics[2]);
-                migratedOrder[migratedIdx++] = uint256(uint160(who)) << 96 | uint256(uint96(id)); // pack for comparison
+                // forge-lint: disable-next-line(unsafe-typecast)
+                migratedOrder[migratedIdx++] = uint256(uint160(who)) << 96 | uint256(uint96(id));
             } else if (logs[i].topics[0] == batchSig) {
                 batchIdx = i;
             }
         }
 
-        assertEq(migratedIdx, 2, "alice-only migrations: ID_A and ID_B (bob starts at 0 balance, no emit)");
-        // Each element packs (address, id); compare as (alice, ID_A), (alice, ID_B).
+        assertEq(migratedIdx, 4, "every (holder, id) cursor advance emits: alice ID_A/ID_B + bob ID_A/ID_B");
+        // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(migratedOrder[0], uint256(uint160(ALICE)) << 96 | uint96(ID_A), "first emit is (alice, ID_A)");
-        assertEq(migratedOrder[1], uint256(uint160(ALICE)) << 96 | uint96(ID_B), "second emit is (alice, ID_B)");
+        // forge-lint: disable-next-line(unsafe-typecast)
+        assertEq(migratedOrder[1], uint256(uint160(BOB)) << 96 | uint96(ID_A), "second emit is (bob, ID_A)");
+        // forge-lint: disable-next-line(unsafe-typecast)
+        assertEq(migratedOrder[2], uint256(uint160(ALICE)) << 96 | uint96(ID_B), "third emit is (alice, ID_B)");
+        // forge-lint: disable-next-line(unsafe-typecast)
+        assertEq(migratedOrder[3], uint256(uint160(BOB)) << 96 | uint96(ID_B), "fourth emit is (bob, ID_B)");
         assertLt(batchIdx, type(uint256).max, "TransferBatch must be emitted");
     }
 
@@ -681,6 +688,208 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         assertEq(toCursor, 2, "toCursor is latest completed split index");
         assertEq(oldBalance, 100, "oldBalance is pre-rasterization stored value");
         assertEq(newBalance, 600, "newBalance is fully rasterized (100 * 2 * 3)");
+    }
+
+    // -----------------------------------------------------------------------
+    // Issue #81: receipt-side always-emit semantics.
+    //
+    // Mirrors the share-side test matrix on `StoxReceiptVault.t.sol`.
+    // `_migrateHolderId` must emit `ReceiptAccountMigrated` on every
+    // cursor advance, regardless of whether the rasterized balance equals
+    // the pre-rebase balance. Four phenomena drive a balance-equal
+    // cursor advance: zero balance, single-step truncation collision,
+    // multi-step round-trip, and balance-specific identity.
+
+    /// Receipt phenomenon 1 (zero balance): a fresh `(holder, id)` pair
+    /// touched after a completed split advances its cursor; the event
+    /// fires with `oldBalance == newBalance == 0`.
+    function testReceiptAccountMigratedFiresOnZeroBalanceCursorAdvance() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        // Transfer zero from ALICE to BOB at ID_A — BOB's (BOB, ID_A)
+        // pair is fresh, but his cursor still advances.
+        vm.expectEmit(true, true, false, true, address(receipt));
+        emit StoxReceipt.ReceiptAccountMigrated(BOB, ID_A, 0, 1, 0, 0);
+
+        _transfer(ALICE, BOB, ID_A, 0);
+    }
+
+    /// Receipt phenomenon 2 (single-step truncation collision): a stored
+    /// 1 through a 1.5x multiplier rasterizes to `trunc(1.5) == 1`. The
+    /// cursor advances; the stored balance is unchanged; the event fires.
+    function testReceiptAccountMigratedFiresOnTruncationCollision() external {
+        _mint(ALICE, ID_A, 1);
+        _fractionalParams(3, 2);
+
+        vm.expectEmit(true, true, false, true, address(receipt));
+        emit StoxReceipt.ReceiptAccountMigrated(ALICE, ID_A, 0, 1, 1, 1);
+
+        _transfer(ALICE, ALICE, ID_A, 0);
+
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 1, "stored balance unchanged after truncation collision");
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1, "alice cursor advanced past the split");
+    }
+
+    /// Receipt phenomenon 3 (multi-step round-trip): a balance of 4
+    /// through `[2x, 1/2x]` rasterizes `4 -> 8 -> 4`. Float represents
+    /// 1/2 exactly in base 10, so this round-trips deterministically.
+    /// Cursor jumps two splits in a single `_update`; the event fires
+    /// once with `oldBalance == newBalance == 4`.
+    function testReceiptAccountMigratedFiresOnMultiStepRoundTrip() external {
+        _mint(ALICE, ID_A, 4);
+        _splitParams(2);
+        _fractionalParams(1, 2);
+
+        vm.expectEmit(true, true, false, true, address(receipt));
+        emit StoxReceipt.ReceiptAccountMigrated(ALICE, ID_A, 0, 2, 4, 4);
+
+        _transfer(ALICE, ALICE, ID_A, 0);
+
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 4, "stored balance round-tripped to itself");
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 2, "alice cursor advanced past both splits");
+    }
+
+    /// Receipt phenomenon 4 (balance-specific identity): a balance of 10
+    /// through a 1.09x multiplier rasterizes to `trunc(10.9) == 10`. The
+    /// same multiplier on a larger balance produces a real change; the
+    /// no-op here is balance-specific. The event fires.
+    function testReceiptAccountMigratedFiresOnBalanceSpecificIdentity() external {
+        _mint(ALICE, ID_A, 10);
+        _fractionalParams(109, 100);
+
+        vm.expectEmit(true, true, false, true, address(receipt));
+        emit StoxReceipt.ReceiptAccountMigrated(ALICE, ID_A, 0, 1, 10, 10);
+
+        _transfer(ALICE, ALICE, ID_A, 0);
+
+        assertEq(
+            receipt.rawStoredBalance(ALICE, ID_A), 10, "stored balance unchanged for this specific balance / multiplier"
+        );
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1, "alice cursor advanced");
+    }
+
+    /// Already-migrated complement: a `(holder, id)` pair at the latest
+    /// cursor that gets touched again with no new completed splits in
+    /// between must NOT re-emit `ReceiptAccountMigrated`. Pins the
+    /// `newCursor == currentCursor` early return in `_migrateHolderId`.
+    function testReceiptAccountMigratedDoesNotReEmitWhenAlreadyAtLatest() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        // First touch migrates Alice — event fires.
+        _transfer(ALICE, ALICE, ID_A, 0);
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1, "alice migrated to cursor 1");
+
+        // Second touch with no new splits — event must NOT fire.
+        vm.recordLogs();
+        _transfer(ALICE, ALICE, ID_A, 0);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        bytes32 sig = StoxReceipt.ReceiptAccountMigrated.selector;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (
+                logs[i].topics.length > 0 && logs[i].topics[0] == sig
+                    && address(uint160(uint256(logs[i].topics[1]))) == ALICE && uint256(logs[i].topics[2]) == ID_A
+            ) {
+                fail();
+            }
+        }
+    }
+
+    /// Event ordering pin: `ReceiptAccountMigrated` must fire BEFORE the
+    /// corresponding ERC-1155 `TransferSingle` event in the same `_update`
+    /// call, because `_migrateHolderId` runs before the receipt's base
+    /// `_update`. Indexers rely on this ordering to compute pre-transfer
+    /// rasterized balances from the migration log.
+    function testReceiptAccountMigratedOrderedBeforeTransferSingle() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        vm.recordLogs();
+        _transfer(ALICE, BOB, ID_A, 50);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        bytes32 migratedSig = StoxReceipt.ReceiptAccountMigrated.selector;
+        bytes32 transferSig = keccak256("TransferSingle(address,address,address,uint256,uint256)");
+        uint256 firstMigrated = type(uint256).max;
+        uint256 firstTransfer = type(uint256).max;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length == 0) continue;
+            if (logs[i].topics[0] == migratedSig && firstMigrated == type(uint256).max) {
+                firstMigrated = i;
+            } else if (logs[i].topics[0] == transferSig && firstTransfer == type(uint256).max) {
+                firstTransfer = i;
+            }
+        }
+        assertLt(firstMigrated, firstTransfer, "ReceiptAccountMigrated must precede TransferSingle");
+    }
+
+    /// Global receipt-side invariant: across a random balance and a
+    /// random sequence of stock-split multipliers, every `(holder, id)`
+    /// cursor advance is matched by exactly one `ReceiptAccountMigrated`
+    /// log, and the log's `oldBalance / newBalance` pair always equals
+    /// the actual pre/post stored balance.
+    function testFuzzReceiptAccountMigratedFiresOnEveryCursorAdvance(
+        uint64 startBalance,
+        uint8 splitSeed,
+        uint8 splitCount
+    ) external {
+        startBalance = uint64(bound(startBalance, 0, type(uint32).max));
+        splitCount = uint8(bound(splitCount, 1, 5));
+
+        if (startBalance > 0) {
+            _mint(ALICE, ID_A, uint256(startBalance));
+        }
+        uint256 storedBefore = receipt.rawStoredBalance(ALICE, ID_A);
+        uint256 cursorBefore = receipt.holderIdCursor(ALICE, ID_A);
+
+        for (uint256 i = 0; i < splitCount; i++) {
+            uint8 pick = uint8((uint256(splitSeed) >> (i * 2)) & 0x3);
+            if (pick == 0) {
+                _splitParams(2);
+            } else if (pick == 1) {
+                _splitParams(3);
+            } else if (pick == 2) {
+                _fractionalParams(1, 2);
+            } else {
+                _fractionalParams(1, 3);
+            }
+        }
+
+        vm.recordLogs();
+        _transfer(ALICE, ALICE, ID_A, 0);
+
+        bytes32 sig = StoxReceipt.ReceiptAccountMigrated.selector;
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 count;
+        uint256 emittedFromCursor;
+        uint256 emittedToCursor;
+        uint256 emittedOld;
+        uint256 emittedNew;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (
+                logs[i].topics.length > 0 && logs[i].topics[0] == sig
+                    && address(uint160(uint256(logs[i].topics[1]))) == ALICE && uint256(logs[i].topics[2]) == ID_A
+            ) {
+                count++;
+                (emittedFromCursor, emittedToCursor, emittedOld, emittedNew) =
+                    abi.decode(logs[i].data, (uint256, uint256, uint256, uint256));
+            }
+        }
+
+        uint256 cursorAfter = receipt.holderIdCursor(ALICE, ID_A);
+        if (cursorAfter == cursorBefore) {
+            assertEq(count, 0, "no event when cursor did not advance");
+        } else {
+            assertEq(count, 1, "exactly one ReceiptAccountMigrated event per cursor advance");
+            assertEq(emittedFromCursor, cursorBefore, "fromCursor matches pre-migrate cursor");
+            assertEq(emittedToCursor, cursorAfter, "toCursor matches post-migrate cursor");
+            assertEq(emittedOld, storedBefore, "oldBalance matches the pre-migrate stored balance");
+            assertEq(
+                emittedNew, receipt.rawStoredBalance(ALICE, ID_A), "newBalance matches the post-migrate stored balance"
+            );
+        }
     }
 
     // -----------------------------------------------------------------------
