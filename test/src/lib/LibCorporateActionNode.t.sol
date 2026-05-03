@@ -90,7 +90,7 @@ contract LibCorporateActionNodeTest is Test {
     }
 
     /// Empty list: every tuple-returning getter returns all zeros regardless
-    /// of the mask or filter. Exercises the `cursor == 0` short-circuit in
+    /// of the mask or filter. Exercises the `cursor == NODE_NONE` short-circuit in
     /// the `_resolve` helper.
     function testEmptyListReturnsZeros() external view {
         (uint256 c1, uint256 t1, uint64 e1) = h.latest(USER_TYPES_TEST_MASK, CompletionFilter.ALL);
@@ -742,8 +742,8 @@ contract LibCorporateActionNodeTest is Test {
                 (uint256 latestCursor,,) = h.latest(masks[m], filters[f]);
 
                 if (anyMatch) {
-                    assertTrue(earliestCursor != 0, "earliest must find an existing match");
-                    assertTrue(latestCursor != 0, "latest must find an existing match");
+                    assertTrue(earliestCursor != NODE_NONE, "earliest must find an existing match");
+                    assertTrue(latestCursor != NODE_NONE, "latest must find an existing match");
                 } else {
                     assertEq(earliestCursor, NODE_NONE, "earliest must be 0 when no node matches");
                     assertEq(latestCursor, NODE_NONE, "latest must be 0 when no node matches");
@@ -778,8 +778,8 @@ contract LibCorporateActionNodeTest is Test {
                 (uint256 cursor,,) = h.earliest(masks[m], filters[f]);
                 (uint256 latestCursor,,) = h.latest(masks[m], filters[f]);
 
-                if (cursor == 0) {
-                    assertEq(latestCursor, NODE_NONE, "earliest 0 implies latest 0");
+                if (cursor == NODE_NONE) {
+                    assertEq(latestCursor, NODE_NONE, "earliest NODE_NONE implies latest NODE_NONE");
                     continue;
                 }
 
@@ -787,7 +787,7 @@ contract LibCorporateActionNodeTest is Test {
                 while (cursor != latestCursor) {
                     (cursor,,) = h.nextOf(cursor, masks[m], filters[f]);
                     hops++;
-                    assertTrue(cursor != 0, "forward walk hit 0 before reaching latest");
+                    assertTrue(cursor != NODE_NONE, "forward walk hit 0 before reaching latest");
                     assertLt(hops, nodeCount, "forward walk exceeded node count");
                 }
                 assertEq(cursor, latestCursor, "forward walk lands on latest");
@@ -819,8 +819,8 @@ contract LibCorporateActionNodeTest is Test {
                 (uint256 cursor,,) = h.latest(masks[m], filters[f]);
                 (uint256 earliestCursor,,) = h.earliest(masks[m], filters[f]);
 
-                if (cursor == 0) {
-                    assertEq(earliestCursor, NODE_NONE, "latest 0 implies earliest 0");
+                if (cursor == NODE_NONE) {
+                    assertEq(earliestCursor, NODE_NONE, "latest NODE_NONE implies earliest NODE_NONE");
                     continue;
                 }
 
@@ -828,7 +828,7 @@ contract LibCorporateActionNodeTest is Test {
                 while (cursor != earliestCursor) {
                     (cursor,,) = h.prevOf(cursor, masks[m], filters[f]);
                     hops++;
-                    assertTrue(cursor != 0, "backward walk hit 0 before reaching earliest");
+                    assertTrue(cursor != NODE_NONE, "backward walk hit 0 before reaching earliest");
                     assertLt(hops, nodeCount, "backward walk exceeded node count");
                 }
                 assertEq(cursor, earliestCursor, "backward walk lands on earliest");
@@ -884,9 +884,11 @@ contract LibCorporateActionNodeTest is Test {
 
                 (uint256 earliestCursor,,) = h.earliest(masks[m], filters[f]);
                 if (anyMatch) {
-                    assertTrue(earliestCursor != 0, "earliest must find a non-cancelled match");
+                    assertTrue(earliestCursor != NODE_NONE, "earliest must find a non-cancelled match");
                 } else {
-                    assertEq(earliestCursor, NODE_NONE, "earliest must be 0 when no live node matches");
+                    assertEq(
+                        earliestCursor, NODE_NONE, "earliest must be NODE_NONE when no live node matches"
+                    );
                 }
 
                 assertCursorSatisfiesInvariants(earliestCursor, masks[m], filters[f]);
@@ -929,7 +931,7 @@ contract LibCorporateActionNodeTest is Test {
     }
 
     function assertCursorSatisfiesInvariants(uint256 cursor, uint256 mask, CompletionFilter filter) internal view {
-        if (cursor == 0) return;
+        if (cursor == NODE_NONE) return;
 
         (uint256 actionType, uint64 effectiveTime) = h.nodeAt(cursor);
 
