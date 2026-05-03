@@ -767,6 +767,63 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         assertEq(receipt.holderIdCursor(ALICE, ID_A), 1, "alice cursor advanced");
     }
 
+    /// Already-migrated complement: a `(holder, id)` pair at the latest
+    /// cursor that gets touched again with no new completed splits in
+    /// between must NOT re-emit `ReceiptAccountMigrated`. Pins the
+    /// `newCursor == currentCursor` early return in `_migrateHolderId`.
+    function testReceiptAccountMigratedDoesNotReEmitWhenAlreadyAtLatest() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        // First touch migrates Alice — event fires.
+        _transfer(ALICE, ALICE, ID_A, 0);
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1, "alice migrated to cursor 1");
+
+        // Second touch with no new splits — event must NOT fire.
+        vm.recordLogs();
+        _transfer(ALICE, ALICE, ID_A, 0);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        bytes32 sig = StoxReceipt.ReceiptAccountMigrated.selector;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (
+                logs[i].topics.length > 0 && logs[i].topics[0] == sig
+                    && address(uint160(uint256(logs[i].topics[1]))) == ALICE
+                    && uint256(logs[i].topics[2]) == ID_A
+            ) {
+                fail();
+            }
+        }
+    }
+
+    /// Event ordering pin: `ReceiptAccountMigrated` must fire BEFORE the
+    /// corresponding ERC-1155 `TransferSingle` event in the same `_update`
+    /// call, because `_migrateHolderId` runs before the receipt's base
+    /// `_update`. Indexers rely on this ordering to compute pre-transfer
+    /// rasterized balances from the migration log.
+    function testReceiptAccountMigratedOrderedBeforeTransferSingle() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        vm.recordLogs();
+        _transfer(ALICE, BOB, ID_A, 50);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        bytes32 migratedSig = StoxReceipt.ReceiptAccountMigrated.selector;
+        bytes32 transferSig = keccak256("TransferSingle(address,address,address,uint256,uint256)");
+        uint256 firstMigrated = type(uint256).max;
+        uint256 firstTransfer = type(uint256).max;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length == 0) continue;
+            if (logs[i].topics[0] == migratedSig && firstMigrated == type(uint256).max) {
+                firstMigrated = i;
+            } else if (logs[i].topics[0] == transferSig && firstTransfer == type(uint256).max) {
+                firstTransfer = i;
+            }
+        }
+        assertLt(firstMigrated, firstTransfer, "ReceiptAccountMigrated must precede TransferSingle");
+    }
+
     /// Global receipt-side invariant: across a random balance and a
     /// random sequence of stock-split multipliers, every `(holder, id)`
     /// cursor advance is matched by exactly one `ReceiptAccountMigrated`
