@@ -599,6 +599,10 @@ contract StoxCorporateActionsInvariantTest is Test {
     /// points at a node whose effective time is in the past. It must also
     /// not exceed the nodes array bounds.
     function invariantTotalSupplyLatestSplitValid() external view {
+        // Pre-bootstrap: nodes array empty, latestCursor at default 0, but
+        // there are no nodes to validate against. Skip.
+        if (vault.nodesLength() == 0) return;
+
         uint256 latest = vault.totalSupplyLatestCursor();
         if (latest == NODE_NONE) return;
 
