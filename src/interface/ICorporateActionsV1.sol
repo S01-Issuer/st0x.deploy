@@ -4,18 +4,6 @@ pragma solidity =0.8.25;
 
 import {CompletionFilter} from "../lib/LibCorporateActionNode.sol";
 
-/// @dev Bitmap action type for V1 stock splits (forward and reverse).
-/// External consumers pass this to the traversal getters
-/// (`latestActionOfType`, `earliestActionOfType`, `nextOfType`, `prevOfType`)
-/// to filter on stock-split actions. Declared at file scope alongside
-/// `ICorporateActionsV1` because Solidity does not allow constant access
-/// via an interface type (`IFoo.X` rejected).
-uint256 constant ACTION_TYPE_STOCK_SPLIT_V1 = 1 << 0;
-
-/// @dev Bitmap action type for V1 stablecoin dividends. Reserved; not yet
-/// schedulable.
-uint256 constant ACTION_TYPE_STABLES_DIVIDEND_V1 = 1 << 1;
-
 /// @dev Bitmap action type for V1 vault initialisation. Created once per
 /// vault by the first `scheduleCorporateAction` call as the head of the
 /// corporate action list. Has identity semantics for stock split balance
@@ -26,8 +14,21 @@ uint256 constant ACTION_TYPE_STABLES_DIVIDEND_V1 = 1 << 1;
 /// state. Cannot be scheduled or cancelled by users; resolveActionType
 /// rejects it. Future action types decide independently whether to include
 /// this bit in their masks (stock splits do, since identity-on-init is the
-/// correct semantic).
-uint256 constant ACTION_TYPE_INIT_V1 = 1 << 7;
+/// correct semantic). Init occupies bit 0 because it is the primordial
+/// action type — every vault touched by `schedule` has exactly one.
+uint256 constant ACTION_TYPE_INIT_V1 = 1 << 0;
+
+/// @dev Bitmap action type for V1 stock splits (forward and reverse).
+/// External consumers pass this to the traversal getters
+/// (`latestActionOfType`, `earliestActionOfType`, `nextOfType`, `prevOfType`)
+/// to filter on stock-split actions. Declared at file scope alongside
+/// `ICorporateActionsV1` because Solidity does not allow constant access
+/// via an interface type (`IFoo.X` rejected).
+uint256 constant ACTION_TYPE_STOCK_SPLIT_V1 = 1 << 1;
+
+/// @dev Bitmap action type for V1 stablecoin dividends. Reserved; not yet
+/// schedulable.
+uint256 constant ACTION_TYPE_STABLES_DIVIDEND_V1 = 1 << 2;
 
 /// @dev Mask covering action types that participate in lazy balance
 /// migration: init (identity) and stock splits. Used by `LibRebase`,

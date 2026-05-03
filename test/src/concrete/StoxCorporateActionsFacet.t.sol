@@ -357,7 +357,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// schedule time, which is strictly less than every user action's future
     /// effectiveTime); the user action is the tail.
     function testScheduleSingleAction() external {
-        uint256 actionIndex = corporateActionHarness.schedule(1, 1500, "");
+        uint256 actionIndex = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         assertEq(actionIndex, 2);
         assertEq(corporateActionHarness.head(), 1, "bootstrap is the head");
         assertEq(corporateActionHarness.tail(), actionIndex, "user action is the tail");
@@ -365,17 +365,17 @@ contract StoxCorporateActionsFacetTest is Test {
 
     /// Schedule returns 1-based IDs starting after the bootstrap (idx 1).
     function testScheduleReturnsOneBased() external {
-        uint256 id1 = corporateActionHarness.schedule(1, 1500, "");
-        uint256 id2 = corporateActionHarness.schedule(1, 2500, "");
+        uint256 id1 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
+        uint256 id2 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, "");
         assertEq(id1, 2);
         assertEq(id2, 3);
     }
 
     /// Schedule in time order maintains correct ordering.
     function testScheduleTimeOrdering() external {
-        uint256 id1 = corporateActionHarness.schedule(1, 1500, "");
-        uint256 id2 = corporateActionHarness.schedule(1, 2500, "");
-        uint256 id3 = corporateActionHarness.schedule(1, 2000, ""); // inserted in middle
+        uint256 id1 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
+        uint256 id2 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, "");
+        uint256 id3 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, ""); // inserted in middle
 
         assertEq(corporateActionHarness.head(), 1, "bootstrap is the head");
         assertEq(corporateActionHarness.tail(), id2);
@@ -396,9 +396,9 @@ contract StoxCorporateActionsFacetTest is Test {
     /// LibCorporateAction.schedule's tail walk — flipping it to `<` would
     /// silently reorder same-time actions and break time-stable iteration.
     function testScheduleTiedEffectiveTimeStableOrdering() external {
-        uint256 first = corporateActionHarness.schedule(1, 1500, hex"01");
-        uint256 second = corporateActionHarness.schedule(1, 1500, hex"02");
-        uint256 third = corporateActionHarness.schedule(1, 1500, hex"03");
+        uint256 first = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"01");
+        uint256 second = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"02");
+        uint256 third = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"03");
 
         assertEq(first, 2);
         assertEq(second, 3);
@@ -433,13 +433,13 @@ contract StoxCorporateActionsFacetTest is Test {
     /// A new same-time action inserted into the middle of the existing list
     /// also lands at the back of the equal-time run, not in front of it.
     function testScheduleTiedEffectiveTimeInMiddleStableOrdering() external {
-        uint256 earlier = corporateActionHarness.schedule(1, 1000 + 1, hex"01");
-        uint256 later = corporateActionHarness.schedule(1, 1000 + 100, hex"AA");
+        uint256 earlier = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1000 + 1, hex"01");
+        uint256 later = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1000 + 100, hex"AA");
         // Insert two actions with the same time as the existing earlier one;
         // they must land between the earlier-time node and the later-time node,
         // in insertion order.
-        uint256 mid1 = corporateActionHarness.schedule(1, 1000 + 1, hex"02");
-        uint256 mid2 = corporateActionHarness.schedule(1, 1000 + 1, hex"03");
+        uint256 mid1 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1000 + 1, hex"02");
+        uint256 mid2 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1000 + 1, hex"03");
 
         // Walk forward from the first user node, collect parameters.
         uint256 cursor = earlier;
@@ -458,13 +458,13 @@ contract StoxCorporateActionsFacetTest is Test {
     /// Schedule in the past reverts.
     function testSchedulePastReverts() external {
         vm.expectRevert(abi.encodeWithSelector(EffectiveTimeInPast.selector, uint64(500), uint256(1000)));
-        corporateActionHarness.schedule(1, 500, "");
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 500, "");
     }
 
     /// Cancel removes node from list but data stays in array.
     function testCancelUnlinks() external {
-        uint256 id1 = corporateActionHarness.schedule(1, 1500, "");
-        corporateActionHarness.schedule(1, 2500, "");
+        uint256 id1 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, "");
         corporateActionHarness.cancel(id1);
 
         // Bootstrap (idx 1) is still the head; cancelling id1 just unlinks
@@ -476,7 +476,7 @@ contract StoxCorporateActionsFacetTest is Test {
 
     /// Cancel already-complete reverts.
     function testCancelCompleteReverts() external {
-        uint256 id = corporateActionHarness.schedule(1, 1500, "");
+        uint256 id = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         vm.warp(2000);
         vm.expectRevert(abi.encodeWithSelector(ActionAlreadyComplete.selector, id));
         corporateActionHarness.cancel(id);
@@ -486,8 +486,8 @@ contract StoxCorporateActionsFacetTest is Test {
     /// effectiveTime` because the `<=` check treats the action as
     /// already complete. One second before, cancel succeeds.
     function testCancelBoundaryAtExactEffectiveTimeReverts() external {
-        uint256 id1 = corporateActionHarness.schedule(1, 1500, "");
-        uint256 id2 = corporateActionHarness.schedule(1, 2000, "");
+        uint256 id1 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
+        uint256 id2 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
 
         // Warp to exactly id1's effective time. id1 is now "complete"
         // (the same threshold `nextOfType` uses); cancel must revert.
@@ -509,8 +509,8 @@ contract StoxCorporateActionsFacetTest is Test {
 
     /// countCompleted counts only completed actions.
     function testCountCompletedAfterComplete() external {
-        corporateActionHarness.schedule(1, 1500, "");
-        corporateActionHarness.schedule(1, 2500, "");
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, "");
         assertEq(corporateActionHarness.countCompleted(), 0);
 
         vm.warp(2000);
@@ -524,7 +524,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// action has been cancelled returns 0. The bootstrap node still
     /// exists but its `ACTION_TYPE_INIT_V1` bit is not in the user mask.
     function testNextOfTypeCompletedEmpty() external {
-        uint256 id = corporateActionHarness.schedule(1, 1500, "");
+        uint256 id = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         corporateActionHarness.cancel(id);
         // User-only mask: types 1 and 2.
         uint256 userMask = uint256(1) | uint256(2);
@@ -534,62 +534,62 @@ contract StoxCorporateActionsFacetTest is Test {
     /// COMPLETED filter walks forward through completed nodes only. Mask
     /// is type-1 / type-2 only; bootstrap (`ACTION_TYPE_INIT_V1`) is invisible.
     function testNextOfTypeCompletedFilters() external {
-        uint256 a = corporateActionHarness.schedule(1, 1500, ""); // type 1
-        uint256 b = corporateActionHarness.schedule(2, 2000, ""); // type 2
-        uint256 c = corporateActionHarness.schedule(1, 2500, ""); // type 1
+        uint256 a = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, ""); // type 1
+        uint256 b = corporateActionHarness.schedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 2000, ""); // type 2
+        uint256 c = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, ""); // type 1
 
         vm.warp(3000);
 
-        uint256 first = corporateActionHarness.nextOfType(0, 1, CompletionFilter.COMPLETED);
+        uint256 first = corporateActionHarness.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(first, a);
 
-        uint256 second = corporateActionHarness.nextOfType(first, 1, CompletionFilter.COMPLETED);
+        uint256 second = corporateActionHarness.nextOfType(first, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(second, c);
 
-        assertEq(corporateActionHarness.nextOfType(second, 1, CompletionFilter.COMPLETED), 0);
-        assertEq(corporateActionHarness.nextOfType(0, 2, CompletionFilter.COMPLETED), b);
+        assertEq(corporateActionHarness.nextOfType(second, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED), 0);
+        assertEq(corporateActionHarness.nextOfType(0, ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.COMPLETED), b);
     }
 
     /// ALL filter walks both completed and pending nodes.
     function testNextOfTypeAll() external {
-        uint256 a = corporateActionHarness.schedule(1, 1500, ""); // will complete
-        uint256 b = corporateActionHarness.schedule(1, 2500, ""); // will be pending
+        uint256 a = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, ""); // will complete
+        uint256 b = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, ""); // will be pending
 
         vm.warp(2000);
 
-        uint256 first = corporateActionHarness.nextOfType(0, 1, CompletionFilter.ALL);
+        uint256 first = corporateActionHarness.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(first, a);
-        uint256 second = corporateActionHarness.nextOfType(first, 1, CompletionFilter.ALL);
+        uint256 second = corporateActionHarness.nextOfType(first, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(second, b);
-        assertEq(corporateActionHarness.nextOfType(second, 1, CompletionFilter.ALL), 0);
+        assertEq(corporateActionHarness.nextOfType(second, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL), 0);
     }
 
     /// PENDING filter skips completed nodes.
     function testNextOfTypePending() external {
-        corporateActionHarness.schedule(1, 1500, ""); // will complete
-        uint256 b = corporateActionHarness.schedule(1, 2500, ""); // will be pending
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, ""); // will complete
+        uint256 b = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, ""); // will be pending
 
         vm.warp(2000);
 
-        assertEq(corporateActionHarness.nextOfType(0, 1, CompletionFilter.PENDING), b);
-        assertEq(corporateActionHarness.nextOfType(b, 1, CompletionFilter.PENDING), 0);
+        assertEq(corporateActionHarness.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING), b);
+        assertEq(corporateActionHarness.nextOfType(b, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING), 0);
     }
 
     /// prevOfType walks backward from tail with ALL filter.
     function testPrevOfType() external {
-        uint256 a = corporateActionHarness.schedule(1, 1500, ""); // type 1
-        uint256 b = corporateActionHarness.schedule(2, 2000, ""); // type 2
-        uint256 c = corporateActionHarness.schedule(1, 2500, ""); // type 1
+        uint256 a = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, ""); // type 1
+        uint256 b = corporateActionHarness.schedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 2000, ""); // type 2
+        uint256 c = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, ""); // type 1
 
         vm.warp(3000);
 
-        uint256 last = corporateActionHarness.prevOfType(0, 1, CompletionFilter.ALL);
+        uint256 last = corporateActionHarness.prevOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(last, c);
-        uint256 prev = corporateActionHarness.prevOfType(last, 1, CompletionFilter.ALL);
+        uint256 prev = corporateActionHarness.prevOfType(last, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(prev, a);
-        assertEq(corporateActionHarness.prevOfType(prev, 1, CompletionFilter.ALL), 0);
+        assertEq(corporateActionHarness.prevOfType(prev, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL), 0);
 
-        assertEq(corporateActionHarness.prevOfType(0, 2, CompletionFilter.ALL), b);
+        assertEq(corporateActionHarness.prevOfType(0, ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.ALL), b);
     }
 
     /// Fuzz: insertion ordering is always time-sorted.
@@ -600,7 +600,7 @@ contract StoxCorporateActionsFacetTest is Test {
             // Schedule with varying times: alternate near-future and far-future.
             // forge-lint: disable-next-line(unsafe-typecast)
             uint64 time = uint64(1001 + (i % 2 == 0 ? i * 100 : i * 50));
-            corporateActionHarness.schedule(1, time, "");
+            corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, time, "");
         }
 
         // Walk from head and verify non-decreasing effectiveTime.
@@ -616,9 +616,9 @@ contract StoxCorporateActionsFacetTest is Test {
 
     /// Cancel in the middle maintains list integrity.
     function testCancelMiddleMaintainsIntegrity() external {
-        uint256 id1 = corporateActionHarness.schedule(1, 1500, "");
-        uint256 id2 = corporateActionHarness.schedule(1, 2000, "");
-        uint256 id3 = corporateActionHarness.schedule(1, 2500, "");
+        uint256 id1 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
+        uint256 id2 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
+        uint256 id3 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, "");
 
         // Cancel middle user node.
         corporateActionHarness.cancel(id2);
@@ -640,8 +640,8 @@ contract StoxCorporateActionsFacetTest is Test {
     /// cancel) and blow away `s.head` and `s.tail` during unlink. See the
     /// @dev block on `LibCorporateAction.cancel`.
     function testCancelAlreadyCancelledReverts() external {
-        uint256 id = corporateActionHarness.schedule(1, 1500, "");
-        uint256 id2 = corporateActionHarness.schedule(1, 2000, "");
+        uint256 id = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
+        uint256 id2 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
 
         // First cancel succeeds.
         corporateActionHarness.cancel(id);
@@ -690,8 +690,8 @@ contract StoxCorporateActionsFacetTest is Test {
         // differ from tail (bootstrap vs. real), but two schedules also
         // exercises the case where a swap between the head/tail offsets
         // would be detectable.
-        corporateActionHarness.schedule(1, 1500, "");
-        corporateActionHarness.schedule(1, 2000, "");
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
 
         address harnessAddr = address(corporateActionHarness);
         bytes32 base = CORPORATE_ACTION_STORAGE_LOCATION;
@@ -747,9 +747,9 @@ contract StoxCorporateActionsFacetTest is Test {
     /// when later user nodes exist. Bootstrap remains the head; the next
     /// surviving user node points back to bootstrap.
     function testCancelHeadWithTail() external {
-        uint256 id1 = corporateActionHarness.schedule(1, 1500, "");
-        uint256 id2 = corporateActionHarness.schedule(1, 2000, "");
-        uint256 id3 = corporateActionHarness.schedule(1, 2500, "");
+        uint256 id1 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
+        uint256 id2 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
+        uint256 id3 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, "");
 
         corporateActionHarness.cancel(id1);
 
@@ -761,9 +761,9 @@ contract StoxCorporateActionsFacetTest is Test {
 
     /// Cancel the tail user node when other user nodes exist.
     function testCancelTailWithHead() external {
-        uint256 id1 = corporateActionHarness.schedule(1, 1500, "");
-        uint256 id2 = corporateActionHarness.schedule(1, 2000, "");
-        uint256 id3 = corporateActionHarness.schedule(1, 2500, "");
+        uint256 id1 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
+        uint256 id2 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
+        uint256 id3 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, "");
 
         corporateActionHarness.cancel(id3);
 
@@ -778,7 +778,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// Cancelling the only user-scheduled node leaves the list with just
     /// the bootstrap node — head and tail both collapse to the bootstrap.
     function testCancelOnlyNodeLeavesEmptyList() external {
-        uint256 id = corporateActionHarness.schedule(1, 1500, "");
+        uint256 id = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         corporateActionHarness.cancel(id);
 
         assertEq(corporateActionHarness.head(), 1, "bootstrap remains the head");
@@ -788,12 +788,12 @@ contract StoxCorporateActionsFacetTest is Test {
     /// Schedule at exactly block.timestamp reverts.
     function testScheduleAtCurrentTimestampReverts() external {
         vm.expectRevert(abi.encodeWithSelector(EffectiveTimeInPast.selector, uint64(block.timestamp), block.timestamp));
-        corporateActionHarness.schedule(1, uint64(block.timestamp), "");
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(block.timestamp), "");
     }
 
     /// Cancel sentinel index 0 reverts.
     function testCancelSentinelIndexZeroReverts() external {
-        corporateActionHarness.schedule(1, 1500, "");
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, uint256(0)));
         corporateActionHarness.cancel(0);
     }
@@ -813,7 +813,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// Parameters round-trip correctly through schedule and getNode.
     function testScheduleParametersRoundTrip() external {
         bytes memory params = abi.encode(uint256(123456), address(0xDEAD), bytes32(keccak256("test")));
-        uint256 id = corporateActionHarness.schedule(1, 1500, params);
+        uint256 id = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, params);
 
         CorporateActionNode memory node = corporateActionHarness.getNode(id);
         assertEq(node.parameters, params);
@@ -821,9 +821,9 @@ contract StoxCorporateActionsFacetTest is Test {
 
     /// Schedule all, cancel all, then reschedule.
     function testScheduleCancelAllThenReschedule() external {
-        uint256 id1 = corporateActionHarness.schedule(1, 1500, "");
-        uint256 id2 = corporateActionHarness.schedule(1, 2000, "");
-        uint256 id3 = corporateActionHarness.schedule(1, 2500, "");
+        uint256 id1 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
+        uint256 id2 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
+        uint256 id3 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, "");
 
         corporateActionHarness.cancel(id1);
         corporateActionHarness.cancel(id2);
@@ -834,16 +834,16 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(corporateActionHarness.head(), 1, "bootstrap remains the head");
         assertEq(corporateActionHarness.tail(), 1, "bootstrap is now the tail");
 
-        uint256 newId = corporateActionHarness.schedule(1, 3000, "");
+        uint256 newId = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3000, "");
         assertEq(corporateActionHarness.head(), 1, "bootstrap remains the head");
         assertEq(corporateActionHarness.tail(), newId, "tail moves to the rescheduled action");
     }
 
     /// nextOfType from a cancelled node returns 0 (next pointer was zeroed).
     function testNextOfTypeFromCancelledNode() external {
-        corporateActionHarness.schedule(1, 1500, "");
-        uint256 id2 = corporateActionHarness.schedule(1, 2000, "");
-        corporateActionHarness.schedule(1, 2500, "");
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
+        uint256 id2 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, "");
 
         corporateActionHarness.cancel(id2);
 
@@ -856,9 +856,9 @@ contract StoxCorporateActionsFacetTest is Test {
     /// that forgot to zero `prev` would silently leak a backward-walkable
     /// path into the list that users with a stale cursor could traverse.
     function testPrevOfTypeFromCancelledNode() external {
-        corporateActionHarness.schedule(1, 1500, "");
-        uint256 id2 = corporateActionHarness.schedule(1, 2000, "");
-        corporateActionHarness.schedule(1, 2500, "");
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
+        uint256 id2 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, "");
 
         corporateActionHarness.cancel(id2);
 
@@ -870,7 +870,7 @@ contract StoxCorporateActionsFacetTest is Test {
         uint256 count = 0;
         for (uint256 i = 0; i < times.length; i++) {
             uint64 t = uint64(bound(times[i], uint64(block.timestamp) + 1, type(uint64).max));
-            corporateActionHarness.schedule(1, t, "");
+            corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, t, "");
             count++;
         }
 
@@ -897,7 +897,7 @@ contract StoxCorporateActionsFacetTest is Test {
         for (uint256 i = 0; i < n; i++) {
             // i is bounded to < 10, so 1001 + i * 100 fits easily in uint64.
             // forge-lint: disable-next-line(unsafe-typecast)
-            corporateActionHarness.schedule(1, uint64(1001 + i * 100), "");
+            corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(1001 + i * 100), "");
         }
 
         // Cancel odd-numbered USER nodes — user actions live at indices
@@ -933,9 +933,9 @@ contract StoxCorporateActionsFacetTest is Test {
     /// Mask is the user-only mask `1 | 2`; bootstrap (`ACTION_TYPE_INIT_V1`)
     /// is invisible to it.
     function testPrevOfTypeCompleted() external {
-        uint256 a = corporateActionHarness.schedule(1, 1500, "");
-        uint256 b = corporateActionHarness.schedule(1, 2000, "");
-        corporateActionHarness.schedule(1, 3000, ""); // stays pending
+        uint256 a = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
+        uint256 b = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3000, ""); // stays pending
 
         vm.warp(2500);
 
@@ -949,9 +949,9 @@ contract StoxCorporateActionsFacetTest is Test {
 
     /// prevOfType PENDING filter walks backward through pending nodes only.
     function testPrevOfTypePending() external {
-        corporateActionHarness.schedule(1, 1500, ""); // will complete
-        uint256 b = corporateActionHarness.schedule(1, 2500, ""); // pending
-        uint256 c = corporateActionHarness.schedule(1, 3000, ""); // pending
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, ""); // will complete
+        uint256 b = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, ""); // pending
+        uint256 c = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3000, ""); // pending
 
         vm.warp(2000);
 
@@ -970,8 +970,8 @@ contract StoxCorporateActionsFacetTest is Test {
     /// the vault-side `testEffectiveTimeBoundaryExactlyAtCompletesSplit`)
     /// gates the prev-walk direction.
     function testPrevOfTypeEffectiveTimeBoundary() external {
-        uint256 a = corporateActionHarness.schedule(1, 1500, "");
-        uint256 b = corporateActionHarness.schedule(1, 2000, "");
+        uint256 a = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
+        uint256 b = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
 
         uint256 userMask = uint256(1) | uint256(2);
 
@@ -996,9 +996,9 @@ contract StoxCorporateActionsFacetTest is Test {
     /// internal bootstrap node — `LibCorporateAction.countCompleted` masks
     /// it out via `VALID_ACTION_TYPES_MASK & ~ACTION_TYPE_INIT_V1`).
     function testCountCompletedIgnoresCancelled() external {
-        corporateActionHarness.schedule(1, 1500, "");
-        uint256 b = corporateActionHarness.schedule(1, 2000, "");
-        corporateActionHarness.schedule(1, 2500, "");
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
+        uint256 b = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, "");
 
         corporateActionHarness.cancel(b);
 
@@ -1011,31 +1011,31 @@ contract StoxCorporateActionsFacetTest is Test {
     /// nodes array has length 3 (sentinel + bootstrap + user node), so
     /// idx 3 does not exist.
     function testCancelAtNodesLengthReverts() external {
-        corporateActionHarness.schedule(1, 1500, "");
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, uint256(3)));
         corporateActionHarness.cancel(3);
     }
 
     /// prevOfType with type mask filters correctly.
     function testPrevOfTypeWithMask() external {
-        corporateActionHarness.schedule(1, 1500, ""); // type 1
-        uint256 b = corporateActionHarness.schedule(2, 2000, ""); // type 2
-        corporateActionHarness.schedule(1, 2500, ""); // type 1
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, ""); // type 1
+        uint256 b = corporateActionHarness.schedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 2000, ""); // type 2
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, ""); // type 1
 
         vm.warp(3000);
 
         assertEq(
-            corporateActionHarness.prevOfType(0, 2, CompletionFilter.ALL), b, "last type-2 is the second user action"
+            corporateActionHarness.prevOfType(0, ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.ALL), b, "last type-2 is the second user action"
         );
-        assertEq(corporateActionHarness.prevOfType(b, 2, CompletionFilter.ALL), 0, "no earlier type-2");
+        assertEq(corporateActionHarness.prevOfType(b, ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.ALL), 0, "no earlier type-2");
     }
 
     /// Forward and backward walks visit the same nodes in reverse order.
     /// Mask is the user-only mask (`1 | 2 | 3`); bootstrap is excluded.
     function testForwardBackwardConsistency() external {
-        corporateActionHarness.schedule(1, 1500, "");
-        corporateActionHarness.schedule(2, 2000, "");
-        corporateActionHarness.schedule(1, 2500, "");
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
+        corporateActionHarness.schedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 2000, "");
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, "");
         corporateActionHarness.schedule(3, 3000, "");
 
         vm.warp(4000);
@@ -1067,8 +1067,8 @@ contract StoxCorporateActionsFacetTest is Test {
     /// actions never moves head, but does move tail.
     function testCrossFieldIsolationHeadTail() external {
         // Schedule two user nodes so head (bootstrap) != tail (last user).
-        uint256 a = corporateActionHarness.schedule(1, 1500, "");
-        uint256 b = corporateActionHarness.schedule(1, 2000, "");
+        uint256 a = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
+        uint256 b = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
 
         assertEq(corporateActionHarness.head(), 1, "bootstrap is the head");
         assertEq(corporateActionHarness.tail(), b);
@@ -1080,7 +1080,7 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(corporateActionHarness.tail(), b, "tail unchanged after first user cancel");
 
         // Schedule a new node — tail changes, head stays.
-        uint256 c = corporateActionHarness.schedule(1, 3000, "");
+        uint256 c = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3000, "");
         assertEq(corporateActionHarness.head(), 1, "bootstrap remains the head");
         assertEq(corporateActionHarness.tail(), c, "tail updated to new node");
     }
@@ -1151,8 +1151,8 @@ contract StoxCorporateActionsFacetTest is Test {
     function testStorageIsolationBetweenHarnesses() external {
         CorporateActionHarness harness2 = new CorporateActionHarness();
 
-        uint256 id1 = corporateActionHarness.schedule(1, 1500, hex"AA");
-        uint256 id2 = harness2.schedule(2, 2000, hex"BB");
+        uint256 id1 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"AA");
+        uint256 id2 = harness2.schedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 2000, hex"BB");
 
         // Each harness has its own list — bootstrap at idx 1 in both.
         assertEq(corporateActionHarness.head(), 1, "harness1 head is bootstrap");
@@ -1161,8 +1161,8 @@ contract StoxCorporateActionsFacetTest is Test {
         CorporateActionNode memory n1 = corporateActionHarness.getNode(id1);
         CorporateActionNode memory n2 = harness2.getNode(id2);
 
-        assertEq(n1.actionType, 1, "harness1 user node has type 1");
-        assertEq(n2.actionType, 2, "harness2 user node has type 2");
+        assertEq(n1.actionType, ACTION_TYPE_STOCK_SPLIT_V1, "harness1 user node has STOCK_SPLIT_V1");
+        assertEq(n2.actionType, ACTION_TYPE_STABLES_DIVIDEND_V1, "harness2 user node has STABLES_DIVIDEND_V1");
         assertEq(n1.parameters, hex"AA");
         assertEq(n2.parameters, hex"BB");
     }
@@ -1232,63 +1232,63 @@ contract StoxCorporateActionsFacetTest is Test {
         // node (which has `ACTION_TYPE_INIT_V1`).
         (cursor, actionType, effectiveTime) = facetViaHarness.earliestActionOfType(1, CompletionFilter.ALL);
         assertEq(cursor, 2, "ALL: earliest is the first user node (idx 2)");
-        assertEq(actionType, 1);
+        assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 1500);
 
         (cursor, actionType, effectiveTime) = facetViaHarness.earliestActionOfType(1, CompletionFilter.COMPLETED);
         assertEq(cursor, 2, "COMPLETED: earliest completed is user idx 2");
-        assertEq(actionType, 1);
+        assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 1500);
 
         (cursor, actionType, effectiveTime) = facetViaHarness.earliestActionOfType(1, CompletionFilter.PENDING);
         assertEq(cursor, 3, "PENDING: earliest pending is user idx 3");
-        assertEq(actionType, 1);
+        assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 2500);
 
         // latestActionOfType: walk backward from tail with each filter.
         (cursor, actionType, effectiveTime) = facetViaHarness.latestActionOfType(1, CompletionFilter.ALL);
         assertEq(cursor, 3, "ALL: latest is the tail (user idx 3)");
-        assertEq(actionType, 1);
+        assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 2500);
 
         (cursor, actionType, effectiveTime) = facetViaHarness.latestActionOfType(1, CompletionFilter.COMPLETED);
         assertEq(cursor, 2, "COMPLETED: latest completed is user idx 2");
-        assertEq(actionType, 1);
+        assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 1500);
 
         (cursor, actionType, effectiveTime) = facetViaHarness.latestActionOfType(1, CompletionFilter.PENDING);
         assertEq(cursor, 3, "PENDING: latest pending is user idx 3");
-        assertEq(actionType, 1);
+        assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 2500);
 
         // nextOfType: walk forward from a non-zero cursor with each filter.
-        (cursor, actionType, effectiveTime) = facetViaHarness.nextOfType(2, 1, CompletionFilter.ALL);
+        (cursor, actionType, effectiveTime) = facetViaHarness.nextOfType(2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, 3, "ALL: next after user idx 2 is user idx 3");
-        assertEq(actionType, 1);
+        assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 2500);
 
-        (cursor, actionType, effectiveTime) = facetViaHarness.nextOfType(2, 1, CompletionFilter.COMPLETED);
+        (cursor, actionType, effectiveTime) = facetViaHarness.nextOfType(2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, 0, "COMPLETED: nothing completed after user idx 2");
         assertEq(actionType, 0, "miss must zero actionType");
         assertEq(effectiveTime, 0, "miss must zero effectiveTime");
 
-        (cursor, actionType, effectiveTime) = facetViaHarness.nextOfType(2, 1, CompletionFilter.PENDING);
+        (cursor, actionType, effectiveTime) = facetViaHarness.nextOfType(2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, 3, "PENDING: next pending after user idx 2 is user idx 3");
-        assertEq(actionType, 1);
+        assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 2500);
 
         // prevOfType: walk backward from a non-zero cursor with each filter.
-        (cursor, actionType, effectiveTime) = facetViaHarness.prevOfType(3, 1, CompletionFilter.ALL);
+        (cursor, actionType, effectiveTime) = facetViaHarness.prevOfType(3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, 2, "ALL: prev before user idx 3 is user idx 2");
-        assertEq(actionType, 1);
+        assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 1500);
 
-        (cursor, actionType, effectiveTime) = facetViaHarness.prevOfType(3, 1, CompletionFilter.COMPLETED);
+        (cursor, actionType, effectiveTime) = facetViaHarness.prevOfType(3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, 2, "COMPLETED: prev completed before user idx 3 is user idx 2");
-        assertEq(actionType, 1);
+        assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 1500);
 
-        (cursor, actionType, effectiveTime) = facetViaHarness.prevOfType(3, 1, CompletionFilter.PENDING);
+        (cursor, actionType, effectiveTime) = facetViaHarness.prevOfType(3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, 0, "PENDING: nothing pending before user idx 3");
         assertEq(actionType, 0, "miss must zero actionType");
         assertEq(effectiveTime, 0, "miss must zero effectiveTime");
@@ -1304,10 +1304,8 @@ contract StoxCorporateActionsFacetTest is Test {
     function testFacetTraversalGettersRevertOnInvalidMask() external {
         _scheduleSplitViaFacet(2, 1500);
 
-        // Bit 8 is reserved (no defined action type uses it). Bit 7 is
-        // `ACTION_TYPE_INIT_V1` and would be a *valid* mask for the
-        // bootstrap node.
-        uint256 invalidMask = 1 << 8;
+        // Bit 5 is reserved (defined action types occupy bits 0/1/2).
+        uint256 invalidMask = 1 << 5;
 
         vm.expectRevert(InvalidMask.selector);
         facetViaHarness.latestActionOfType(invalidMask, CompletionFilter.ALL);
@@ -1683,6 +1681,32 @@ contract StoxCorporateActionsFacetTest is Test {
         // pinned to the first value.
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
         assertEq(corporateActionHarness.unmigrated(0), 1000, "second schedule must not re-snapshot pot 0");
+    }
+
+    /// Pin the exact `ACTION_TYPE_INIT_V1` bit position. The bootstrap
+    /// node carries this bit, every migration walk includes it via
+    /// `BALANCE_MIGRATION_TYPES_MASK`, and external consumers may have
+    /// hardcoded the value `1 << 0 = 1` against their indexer schemas.
+    /// Renumbering would silently break those consumers without
+    /// breaking any test that reads `ACTION_TYPE_INIT_V1` symbolically.
+    function testActionTypeInitV1BitPosition() external pure {
+        assertEq(ACTION_TYPE_INIT_V1, 1 << 0, "ACTION_TYPE_INIT_V1 must be 1 << 0");
+        assertEq(ACTION_TYPE_INIT_V1, 1, "ACTION_TYPE_INIT_V1 numeric value");
+        assertEq(ACTION_TYPE_STOCK_SPLIT_V1, 1 << 1, "ACTION_TYPE_STOCK_SPLIT_V1 must be 1 << 1");
+        assertEq(ACTION_TYPE_STABLES_DIVIDEND_V1, 1 << 2, "ACTION_TYPE_STABLES_DIVIDEND_V1 must be 1 << 2");
+        assertEq(
+            BALANCE_MIGRATION_TYPES_MASK,
+            ACTION_TYPE_INIT_V1 | ACTION_TYPE_STOCK_SPLIT_V1,
+            "BALANCE_MIGRATION_TYPES_MASK is the union"
+        );
+        // Each action type owns a unique bit.
+        assertEq(ACTION_TYPE_INIT_V1 & ACTION_TYPE_STOCK_SPLIT_V1, 0, "INIT must not overlap STOCK_SPLIT");
+        assertEq(ACTION_TYPE_INIT_V1 & ACTION_TYPE_STABLES_DIVIDEND_V1, 0, "INIT must not overlap STABLES_DIVIDEND");
+        assertEq(
+            ACTION_TYPE_STOCK_SPLIT_V1 & ACTION_TYPE_STABLES_DIVIDEND_V1,
+            0,
+            "STOCK_SPLIT must not overlap STABLES_DIVIDEND"
+        );
     }
 
     /// `countCompleted` excludes the bootstrap node from its count by

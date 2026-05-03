@@ -11,17 +11,18 @@ import {
     VALID_ACTION_TYPES_MASK
 } from "src/interface/ICorporateActionsV1.sol";
 
-/// @dev Mask covering every test-scheduled action type — types 1 and 2 here
-/// — without the bootstrap `ACTION_TYPE_INIT_V1` bit. These tests exercise
-/// pure linked-list traversal over user-scheduled nodes; including INIT in
-/// the mask would surface the bootstrap node at idx 1, which is implementation
-/// detail of `LibCorporateAction.schedule` rather than the traversal API
-/// being tested. The lifecycle / effective-supply tests in
-/// `LibTotalSupply.t.sol` and `LibRebase.t.sol` do exercise the bootstrap
-/// node via `BALANCE_MIGRATION_TYPES_MASK`.
-uint256 constant USER_TYPES_TEST_MASK = uint256(1) | uint256(2);
+/// @dev Mask covering every test-scheduled action type — `STOCK_SPLIT_V1` and
+/// `STABLES_DIVIDEND_V1` — without the bootstrap `ACTION_TYPE_INIT_V1` bit.
+/// These tests exercise pure linked-list traversal over user-scheduled
+/// nodes; including INIT in the mask would surface the bootstrap node at
+/// idx 1, which is implementation detail of `LibCorporateAction.schedule`
+/// rather than the traversal API being tested. The lifecycle /
+/// effective-supply tests in `LibTotalSupply.t.sol` and `LibRebase.t.sol`
+/// do exercise the bootstrap node via `BALANCE_MIGRATION_TYPES_MASK`.
 import {CompletionFilter, CorporateActionNode, LibCorporateActionNode} from "src/lib/LibCorporateActionNode.sol";
 import {InvalidMask} from "src/error/ErrCorporateAction.sol";
+
+uint256 constant USER_TYPES_TEST_MASK = ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1;
 
 /// @dev Thin harness: exposes the four tuple-returning traversal getters via
 /// external calls so the library functions can be exercised directly (not
@@ -112,24 +113,24 @@ contract LibCorporateActionNodeTest is Test {
     /// matching mask and ALL / PENDING filters. COMPLETED filter returns zeros
     /// because the single node has not reached effective time.
     function testSingleNodeResolution() external {
-        uint256 id = h.schedule(1, 1500, hex"");
+        uint256 id = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
 
-        (uint256 cursor, uint256 actionType, uint64 effectiveTime) = h.latest(1, CompletionFilter.ALL);
+        (uint256 cursor, uint256 actionType, uint64 effectiveTime) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, id);
-        assertEq(actionType, 1);
+        assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 1500);
 
-        (cursor, actionType, effectiveTime) = h.earliest(1, CompletionFilter.ALL);
+        (cursor, actionType, effectiveTime) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, id);
-        assertEq(actionType, 1);
+        assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 1500);
 
         // Pending filter also matches (effectiveTime > now).
-        (cursor,,) = h.latest(1, CompletionFilter.PENDING);
+        (cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, id);
 
         // Completed filter does NOT match yet.
-        (cursor,,) = h.latest(1, CompletionFilter.COMPLETED);
+        (cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, 0);
     }
 
@@ -139,7 +140,7 @@ contract LibCorporateActionNodeTest is Test {
     /// surfaces rather than being silently conflated with an empty-list
     /// "no match" result.
     function testMaskZeroReverts() external {
-        h.schedule(1, 1500, hex"");
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
 
         vm.expectRevert(InvalidMask.selector);
         h.latest(0, CompletionFilter.ALL);
@@ -162,15 +163,16 @@ contract LibCorporateActionNodeTest is Test {
     /// is intentional: a caller written against a future version that
     /// adds new types still works against the current deployment.
     function testMaskWithOnlyUndefinedBitsReverts() external {
-        h.schedule(1, 1500, hex"");
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
 
-        // Bit 2 alone — no action type uses bit 2 today.
+        // Bit 5 alone — no action type uses bit 5 today (defined types
+        // occupy bits 0/1/2).
         vm.expectRevert(InvalidMask.selector);
-        h.latest(1 << 2, CompletionFilter.ALL);
+        h.latest(1 << 5, CompletionFilter.ALL);
 
-        // Bits 2 and 3 — both undefined.
+        // Bits 5 and 6 — both undefined.
         vm.expectRevert(InvalidMask.selector);
-        h.latest((1 << 2) | (1 << 3), CompletionFilter.ALL);
+        h.latest((1 << 5) | (1 << 6), CompletionFilter.ALL);
     }
 
     /// Fuzz: any mask with no valid bits (i.e. `mask & VALID_ACTION_TYPES_MASK
@@ -179,7 +181,7 @@ contract LibCorporateActionNodeTest is Test {
     /// complement of the valid mask; the result is either 0 (mask=0) or a
     /// purely-undefined bitfield, both of which must revert.
     function testFuzzMaskWithNoValidBitsAlwaysReverts(uint256 rawMask) external {
-        h.schedule(1, 1500, hex"");
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
 
         uint256 mask = rawMask & ~VALID_ACTION_TYPES_MASK;
 
@@ -203,7 +205,7 @@ contract LibCorporateActionNodeTest is Test {
     /// if filters don't match — but reaching that return means the mask
     /// check passed.
     function testFuzzMaskWithAtLeastOneValidBitPasses(uint256 extraBits) external {
-        h.schedule(1, 1500, hex"");
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
 
         uint256 mask = VALID_ACTION_TYPES_MASK | extraBits;
 
@@ -218,7 +220,7 @@ contract LibCorporateActionNodeTest is Test {
     /// the valid portion. The undefined bits contribute nothing since no
     /// node has them set.
     function testMaskWithMixedBitsPasses() external {
-        uint256 id = h.schedule(1, 1500, hex"");
+        uint256 id = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
 
         // Bit 0 (valid, stock split) + bit 2 (undefined).
         (uint256 cursor,,) = h.latest((1 << 0) | (1 << 2), CompletionFilter.ALL);
@@ -266,28 +268,28 @@ contract LibCorporateActionNodeTest is Test {
     /// matches are PENDING, after the first completes `latest(COMPLETED)`
     /// resolves to it and `earliest(PENDING)` advances to the remaining one.
     function testFilterTracksEffectiveTimeTransitions() external {
-        uint256 id1 = h.schedule(1, 1500, hex"");
-        uint256 id2 = h.schedule(1, 2500, hex"");
+        uint256 id1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 id2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
 
         // Pre-1500: both pending.
-        (uint256 cursor,,) = h.latest(1, CompletionFilter.COMPLETED);
+        (uint256 cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, 0);
-        (cursor,,) = h.earliest(1, CompletionFilter.PENDING);
+        (cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, id1);
 
         // Warp past id1's effective time only.
         vm.warp(2000);
 
-        (cursor,,) = h.latest(1, CompletionFilter.COMPLETED);
+        (cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, id1, "only id1 has completed");
-        (cursor,,) = h.earliest(1, CompletionFilter.PENDING);
+        (cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, id2, "only id2 still pending");
 
         // Warp past both.
         vm.warp(3000);
-        (cursor,,) = h.latest(1, CompletionFilter.COMPLETED);
+        (cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, id2, "tail becomes latest completed");
-        (cursor,,) = h.earliest(1, CompletionFilter.PENDING);
+        (cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, 0, "no pending actions remain");
     }
 
@@ -296,24 +298,24 @@ contract LibCorporateActionNodeTest is Test {
     /// from the tail no longer touches it. Pins the linked-list integrity
     /// under cancellation through the traversal API surface.
     function testCancelMiddleNodeRelinksTraversal() external {
-        uint256 id1 = h.schedule(1, 1500, hex"");
-        uint256 id2 = h.schedule(1, 2500, hex"");
-        uint256 id3 = h.schedule(1, 3500, hex"");
+        uint256 id1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 id2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
+        uint256 id3 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, hex"");
 
         h.cancel(id2);
 
         // nextActionOfType from id1 now skips past id2 to id3.
-        (uint256 cursor,,) = h.nextOf(id1, 1, CompletionFilter.ALL);
+        (uint256 cursor,,) = h.nextOf(id1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, id3, "next(id1) must skip cancelled id2");
 
         // prevActionOfType from id3 now skips id2 back to id1.
-        (cursor,,) = h.prevOf(id3, 1, CompletionFilter.ALL);
+        (cursor,,) = h.prevOf(id3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, id1, "prev(id3) must skip cancelled id2");
 
         // earliest + latest remain unchanged — id2 was never at either end.
-        (cursor,,) = h.earliest(1, CompletionFilter.ALL);
+        (cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, id1, "earliest is still id1");
-        (cursor,,) = h.latest(1, CompletionFilter.ALL);
+        (cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, id3, "latest is still id3");
     }
 
@@ -321,31 +323,31 @@ contract LibCorporateActionNodeTest is Test {
     /// Verifies the head pointer updates and traversal from the new head
     /// works.
     function testCancelHeadAdvancesEarliest() external {
-        uint256 id1 = h.schedule(1, 1500, hex"");
-        uint256 id2 = h.schedule(1, 2500, hex"");
+        uint256 id1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 id2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
 
         h.cancel(id1);
 
-        (uint256 cursor,,) = h.earliest(1, CompletionFilter.ALL);
+        (uint256 cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, id2, "earliest advances to id2 after id1 cancelled");
 
         // Walking prev from the new earliest returns 0 (head has no prev).
-        (cursor,,) = h.prevOf(id2, 1, CompletionFilter.ALL);
+        (cursor,,) = h.prevOf(id2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, 0, "prev of new head is 0");
     }
 
     /// Cancelling the tail moves `latestActionOfType` back to the prior node.
     /// Verifies the tail pointer updates.
     function testCancelTailRetreatsLatest() external {
-        uint256 id1 = h.schedule(1, 1500, hex"");
-        uint256 id2 = h.schedule(1, 2500, hex"");
+        uint256 id1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 id2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
 
         h.cancel(id2);
 
-        (uint256 cursor,,) = h.latest(1, CompletionFilter.ALL);
+        (uint256 cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, id1, "latest retreats to id1 after id2 cancelled");
 
-        (cursor,,) = h.nextOf(id1, 1, CompletionFilter.ALL);
+        (cursor,,) = h.nextOf(id1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, 0, "next of new tail is 0");
     }
 
@@ -353,24 +355,24 @@ contract LibCorporateActionNodeTest is Test {
     /// a cursor. Verify they skip masks that don't match and report the
     /// neighbouring node.
     function testNextAndPrevFromSpecificCursor() external {
-        uint256 id1 = h.schedule(1, 1500, hex"");
-        uint256 id2 = h.schedule(1, 2500, hex"");
-        uint256 id3 = h.schedule(1, 3500, hex"");
+        uint256 id1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 id2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
+        uint256 id3 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, hex"");
 
         // next from id1 → id2.
-        (uint256 cursor,,) = h.nextOf(id1, 1, CompletionFilter.ALL);
+        (uint256 cursor,,) = h.nextOf(id1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, id2);
 
         // next from id3 → none (tail).
-        (cursor,,) = h.nextOf(id3, 1, CompletionFilter.ALL);
+        (cursor,,) = h.nextOf(id3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, 0);
 
         // prev from id3 → id2.
-        (cursor,,) = h.prevOf(id3, 1, CompletionFilter.ALL);
+        (cursor,,) = h.prevOf(id3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, id2);
 
         // prev from id1 → none (head).
-        (cursor,,) = h.prevOf(id1, 1, CompletionFilter.ALL);
+        (cursor,,) = h.prevOf(id1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, 0);
     }
 
@@ -394,14 +396,14 @@ contract LibCorporateActionNodeTest is Test {
     uint256 internal id8;
 
     function buildMixedCompletedPendingList() internal {
-        id1 = h.schedule(1, 1500, hex"");
-        id2 = h.schedule(2, 1700, hex"");
-        id3 = h.schedule(1, 1900, hex"");
-        id4 = h.schedule(1, 2100, hex"");
-        id5 = h.schedule(2, 2300, hex"");
-        id6 = h.schedule(1, 3500, hex"");
-        id7 = h.schedule(2, 3700, hex"");
-        id8 = h.schedule(1, 3900, hex"");
+        id1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        id2 = h.schedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 1700, hex"");
+        id3 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1900, hex"");
+        id4 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2100, hex"");
+        id5 = h.schedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 2300, hex"");
+        id6 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, hex"");
+        id7 = h.schedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 3700, hex"");
+        id8 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3900, hex"");
         vm.warp(2700);
     }
 
@@ -454,9 +456,9 @@ contract LibCorporateActionNodeTest is Test {
     /// COMPLETED filter on a list where every node is pending returns 0
     /// in both directions.
     function testAllPendingListReturnsZeroForCompletedFilter() external {
-        h.schedule(1, 1500, hex"");
-        h.schedule(2, 2500, hex"");
-        h.schedule(1, 3500, hex"");
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        h.schedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 2500, hex"");
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, hex"");
         // No warp — block.timestamp stays at 1000 < every effectiveTime.
 
         (uint256 cursor,,) = h.earliest(USER_TYPES_TEST_MASK, CompletionFilter.COMPLETED);
@@ -468,9 +470,9 @@ contract LibCorporateActionNodeTest is Test {
     /// PENDING filter on a list where every node is completed returns 0
     /// in both directions.
     function testAllCompletedListReturnsZeroForPendingFilter() external {
-        h.schedule(1, 1100, hex"");
-        h.schedule(2, 1200, hex"");
-        h.schedule(1, 1300, hex"");
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1100, hex"");
+        h.schedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 1200, hex"");
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1300, hex"");
         vm.warp(1500); // every node is now completed.
 
         (uint256 cursor,,) = h.earliest(USER_TYPES_TEST_MASK, CompletionFilter.PENDING);
@@ -487,12 +489,12 @@ contract LibCorporateActionNodeTest is Test {
         buildMixedCompletedPendingList();
         h.cancel(id7);
 
-        (uint256 cursor,,) = h.earliest(2, CompletionFilter.PENDING);
+        (uint256 cursor,,) = h.earliest(ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.PENDING);
         assertEq(cursor, 0, "PENDING type-2 segment empty after cancel");
-        (cursor,,) = h.latest(2, CompletionFilter.PENDING);
+        (cursor,,) = h.latest(ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.PENDING);
         assertEq(cursor, 0, "PENDING type-2 segment empty after cancel");
 
-        (cursor,,) = h.earliest(2, CompletionFilter.COMPLETED);
+        (cursor,,) = h.earliest(ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, id2, "COMPLETED type-2 still finds id2");
     }
 
@@ -500,31 +502,31 @@ contract LibCorporateActionNodeTest is Test {
     /// as COMPLETED, not PENDING — the predicate is
     /// `effectiveTime <= block.timestamp`.
     function testNodeAtExactTimestampIsCompleted() external {
-        uint256 idA = h.schedule(1, 2000, hex"");
-        uint256 idB = h.schedule(1, 2500, hex"");
+        uint256 idA = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, hex"");
+        uint256 idB = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
         vm.warp(2000); // idA at exact boundary; idB still pending.
 
-        (uint256 cursor,,) = h.earliest(1, CompletionFilter.COMPLETED);
+        (uint256 cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, idA, "node at block.timestamp is COMPLETED forward");
-        (cursor,,) = h.latest(1, CompletionFilter.COMPLETED);
+        (cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, idA, "node at block.timestamp is COMPLETED backward");
 
         // PENDING filter must not include idA, only idB.
-        (cursor,,) = h.earliest(1, CompletionFilter.PENDING);
+        (cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, idB, "node at block.timestamp is NOT PENDING forward");
-        (cursor,,) = h.latest(1, CompletionFilter.PENDING);
+        (cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, idB, "node at block.timestamp is NOT PENDING backward");
     }
 
     /// Cancelled nodes are skipped during traversal under COMPLETED and
     /// PENDING filters, both directions.
     function testCancelMiddleNodeSkippedUnderCompletedAndPendingFilters() external {
-        uint256 idA = h.schedule(1, 1100, hex""); // will be completed
-        uint256 idB = h.schedule(1, 1200, hex""); // will be completed, then cancelled
-        uint256 idC = h.schedule(1, 1300, hex""); // will be completed
-        uint256 idD = h.schedule(1, 3500, hex""); // pending
-        uint256 idE = h.schedule(1, 3600, hex""); // pending, then cancelled
-        uint256 idF = h.schedule(1, 3700, hex""); // pending
+        uint256 idA = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1100, hex""); // will be completed
+        uint256 idB = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1200, hex""); // will be completed, then cancelled
+        uint256 idC = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1300, hex""); // will be completed
+        uint256 idD = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, hex""); // pending
+        uint256 idE = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3600, hex""); // pending, then cancelled
+        uint256 idF = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3700, hex""); // pending
 
         // Cancel idB and idE BEFORE warp — both still pending so cancel is allowed.
         h.cancel(idB);
@@ -533,35 +535,35 @@ contract LibCorporateActionNodeTest is Test {
         vm.warp(2000); // idA, idC completed; idD, idF pending.
 
         // COMPLETED forward must skip idB.
-        (uint256 cursor,,) = h.earliest(1, CompletionFilter.COMPLETED);
+        (uint256 cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, idA);
-        (cursor,,) = h.nextOf(cursor, 1, CompletionFilter.COMPLETED);
+        (cursor,,) = h.nextOf(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, idC, "COMPLETED forward skips cancelled idB");
-        (cursor,,) = h.nextOf(cursor, 1, CompletionFilter.COMPLETED);
+        (cursor,,) = h.nextOf(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, 0);
 
         // COMPLETED backward must skip idB.
-        (cursor,,) = h.latest(1, CompletionFilter.COMPLETED);
+        (cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, idC);
-        (cursor,,) = h.prevOf(cursor, 1, CompletionFilter.COMPLETED);
+        (cursor,,) = h.prevOf(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, idA, "COMPLETED backward skips cancelled idB");
-        (cursor,,) = h.prevOf(cursor, 1, CompletionFilter.COMPLETED);
+        (cursor,,) = h.prevOf(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, 0);
 
         // PENDING forward must skip idE.
-        (cursor,,) = h.earliest(1, CompletionFilter.PENDING);
+        (cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, idD);
-        (cursor,,) = h.nextOf(cursor, 1, CompletionFilter.PENDING);
+        (cursor,,) = h.nextOf(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, idF, "PENDING forward skips cancelled idE");
-        (cursor,,) = h.nextOf(cursor, 1, CompletionFilter.PENDING);
+        (cursor,,) = h.nextOf(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, 0);
 
         // PENDING backward must skip idE.
-        (cursor,,) = h.latest(1, CompletionFilter.PENDING);
+        (cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, idF);
-        (cursor,,) = h.prevOf(cursor, 1, CompletionFilter.PENDING);
+        (cursor,,) = h.prevOf(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, idD, "PENDING backward skips cancelled idE");
-        (cursor,,) = h.prevOf(cursor, 1, CompletionFilter.PENDING);
+        (cursor,,) = h.prevOf(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, 0);
     }
 
@@ -593,9 +595,9 @@ contract LibCorporateActionNodeTest is Test {
     /// across every filter — cancellation zeros `node.prev` and
     /// `node.next`.
     function testTraversalFromCancelledCursorReturnsZero() external {
-        uint256 idA = h.schedule(1, 1500, hex"");
-        uint256 idB = h.schedule(2, 2500, hex"");
-        h.schedule(1, 3500, hex"");
+        uint256 idA = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 idB = h.schedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 2500, hex"");
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, hex"");
         h.cancel(idA);
         h.cancel(idB);
 
@@ -620,8 +622,8 @@ contract LibCorporateActionNodeTest is Test {
     /// the mask — the predicate is `actionType & mask != 0`, not
     /// `& mask == mask`.
     function testMultiBitMaskMatchesAnyBit() external {
-        uint256 idType1 = h.schedule(1, 1500, hex"");
-        uint256 idType2 = h.schedule(2, 2500, hex"");
+        uint256 idType1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 idType2 = h.schedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 2500, hex"");
         vm.warp(3000);
 
         // Mask = type1 | type2 — both nodes match.
@@ -643,9 +645,9 @@ contract LibCorporateActionNodeTest is Test {
     /// Nodes scheduled with the same `effectiveTime` are returned in
     /// insertion order forward and reverse-insertion order backward.
     function testTraversalRespectsTiedEffectiveTimeOrdering() external {
-        uint256 first = h.schedule(1, 1500, hex"");
-        uint256 second = h.schedule(1, 1500, hex"");
-        uint256 third = h.schedule(1, 1500, hex"");
+        uint256 first = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 second = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 third = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
         vm.warp(2000);
 
         // Forward across all three filters: insertion order.
@@ -667,27 +669,27 @@ contract LibCorporateActionNodeTest is Test {
         (uint256 cursor, uint256 actionType, uint64 effectiveTime) =
             h.earliest(USER_TYPES_TEST_MASK, CompletionFilter.ALL);
         assertEq(cursor, id1);
-        assertEq(actionType, 1);
+        assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 1500);
 
         (cursor, actionType, effectiveTime) = h.earliest(USER_TYPES_TEST_MASK, CompletionFilter.PENDING);
         assertEq(cursor, id6);
-        assertEq(actionType, 1);
+        assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 3500);
 
         (cursor, actionType, effectiveTime) = h.latest(USER_TYPES_TEST_MASK, CompletionFilter.COMPLETED);
         assertEq(cursor, id5);
-        assertEq(actionType, 2);
+        assertEq(actionType, ACTION_TYPE_STABLES_DIVIDEND_V1);
         assertEq(effectiveTime, 2300);
 
         (cursor, actionType, effectiveTime) = h.nextOf(id5, USER_TYPES_TEST_MASK, CompletionFilter.ALL);
         assertEq(cursor, id6);
-        assertEq(actionType, 1);
+        assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 3500);
 
         (cursor, actionType, effectiveTime) = h.prevOf(id3, USER_TYPES_TEST_MASK, CompletionFilter.COMPLETED);
         assertEq(cursor, id2);
-        assertEq(actionType, 2);
+        assertEq(actionType, ACTION_TYPE_STABLES_DIVIDEND_V1);
         assertEq(effectiveTime, 1700);
 
         (cursor, actionType, effectiveTime) = h.nextOf(id8, USER_TYPES_TEST_MASK, CompletionFilter.ALL);
@@ -941,29 +943,29 @@ contract LibCorporateActionNodeTest is Test {
         buildMixedCompletedPendingList();
 
         // ALL forward: from id3 → id4 (skip id3 itself).
-        (uint256 cursor,,) = h.nextOf(id3, 1, CompletionFilter.ALL);
+        (uint256 cursor,,) = h.nextOf(id3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, id4, "ALL forward excludes fromIndex");
 
         // COMPLETED forward: from id3 → id4 (id3 itself is completed and
         // matches type-1 but is excluded by `next` step).
-        (cursor,,) = h.nextOf(id3, 1, CompletionFilter.COMPLETED);
+        (cursor,,) = h.nextOf(id3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, id4, "COMPLETED forward excludes fromIndex");
 
         // PENDING forward: from id6 → id8 (id6 itself is pending and
         // matches type-1 but is excluded).
-        (cursor,,) = h.nextOf(id6, 1, CompletionFilter.PENDING);
+        (cursor,,) = h.nextOf(id6, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, id8, "PENDING forward excludes fromIndex");
 
         // ALL backward: from id4 → id3.
-        (cursor,,) = h.prevOf(id4, 1, CompletionFilter.ALL);
+        (cursor,,) = h.prevOf(id4, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, id3, "ALL backward excludes fromIndex");
 
         // COMPLETED backward: from id4 → id3.
-        (cursor,,) = h.prevOf(id4, 1, CompletionFilter.COMPLETED);
+        (cursor,,) = h.prevOf(id4, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, id3, "COMPLETED backward excludes fromIndex");
 
         // PENDING backward: from id8 → id6.
-        (cursor,,) = h.prevOf(id8, 1, CompletionFilter.PENDING);
+        (cursor,,) = h.prevOf(id8, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, id6, "PENDING backward excludes fromIndex");
     }
 
