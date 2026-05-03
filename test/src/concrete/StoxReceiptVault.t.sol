@@ -375,6 +375,55 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.migrationCursor(ALICE), 1, "alice cursor advanced");
     }
 
+    /// Transfer path with both `from` and `to` stale: both ends migrate
+    /// during `_update`, so two `AccountMigrated` events fire — one per
+    /// account — both before the ERC-20 `Transfer`. Bob's balance is
+    /// non-zero pre-split, so his pre-rebase value is rasterized and
+    /// his event has `oldBalance != newBalance`; Alice's same.
+    function testAccountMigratedFiresForBothEndsOfTransfer() external {
+        vault.publicUpdate(address(0), ALICE, 100);
+        vault.publicUpdate(address(0), BOB, 200);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        vm.recordLogs();
+        vault.publicUpdate(ALICE, BOB, 50);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        bytes32 sig = StoxReceiptVault.AccountMigrated.selector;
+        uint256 aliceCount;
+        uint256 bobCount;
+        uint256 aliceLogIdx = type(uint256).max;
+        uint256 bobLogIdx = type(uint256).max;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length == 0 || logs[i].topics[0] != sig) continue;
+            address who = address(uint160(uint256(logs[i].topics[1])));
+            if (who == ALICE) {
+                aliceCount++;
+                aliceLogIdx = i;
+            } else if (who == BOB) {
+                bobCount++;
+                bobLogIdx = i;
+            }
+        }
+        assertEq(aliceCount, 1, "exactly one AccountMigrated for ALICE");
+        assertEq(bobCount, 1, "exactly one AccountMigrated for BOB");
+        // ordering: ALICE migrates first (the `from` side), then BOB.
+        assertLt(aliceLogIdx, bobLogIdx, "ALICE (from) migrates before BOB (to)");
+
+        // Decode payloads and check each rasterized balance.
+        (, uint256 aliceTo, uint256 aliceOld, uint256 aliceNew) =
+            abi.decode(logs[aliceLogIdx].data, (uint256, uint256, uint256, uint256));
+        (, uint256 bobTo, uint256 bobOld, uint256 bobNew) =
+            abi.decode(logs[bobLogIdx].data, (uint256, uint256, uint256, uint256));
+        assertEq(aliceTo, 1, "alice cursor advanced to split");
+        assertEq(aliceOld, 100);
+        assertEq(aliceNew, 200);
+        assertEq(bobTo, 1, "bob cursor advanced to split");
+        assertEq(bobOld, 200);
+        assertEq(bobNew, 400);
+    }
+
     /// Already-migrated complement of #81's always-emit semantics: an
     /// account at the latest cursor that gets touched again (no new
     /// completed splits in between) must NOT re-emit `AccountMigrated`.
