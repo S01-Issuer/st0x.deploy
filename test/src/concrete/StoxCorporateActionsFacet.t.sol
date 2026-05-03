@@ -30,7 +30,8 @@ import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {
     CorporateActionNode,
     CompletionFilter,
-    LibCorporateActionNode
+    LibCorporateActionNode,
+    NODE_NONE
 } from "../../../src/lib/LibCorporateActionNode.sol";
 import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 import {InvalidSplitMultiplier} from "../../../src/error/ErrStockSplit.sol";
@@ -352,23 +353,23 @@ contract StoxCorporateActionsFacetTest is Test {
     // `CorporateActionHarness` so the library logic is tested in isolation from the facet.
 
     /// Schedule a single action and verify it is inserted. The bootstrap
-    /// node lands at idx 1 on first schedule, so the user action is at idx 2.
+    /// node lands at idx 0 on first schedule, so the user action is at idx 1.
     /// Bootstrap remains the head (its effectiveTime is `block.timestamp` at
     /// schedule time, which is strictly less than every user action's future
     /// effectiveTime); the user action is the tail.
     function testScheduleSingleAction() external {
         uint256 actionIndex = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
-        assertEq(actionIndex, 2);
-        assertEq(corporateActionHarness.head(), 1, "bootstrap is the head");
+        assertEq(actionIndex, 1);
+        assertEq(corporateActionHarness.head(), 0, "bootstrap is the head");
         assertEq(corporateActionHarness.tail(), actionIndex, "user action is the tail");
     }
 
-    /// Schedule returns 1-based IDs starting after the bootstrap (idx 1).
+    /// Schedule returns sequential IDs starting after the bootstrap (idx 0).
     function testScheduleReturnsOneBased() external {
         uint256 id1 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         uint256 id2 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, "");
-        assertEq(id1, 2);
-        assertEq(id2, 3);
+        assertEq(id1, 1);
+        assertEq(id2, 2);
     }
 
     /// Schedule in time order maintains correct ordering.
@@ -377,7 +378,7 @@ contract StoxCorporateActionsFacetTest is Test {
         uint256 id2 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, "");
         uint256 id3 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, ""); // inserted in middle
 
-        assertEq(corporateActionHarness.head(), 1, "bootstrap is the head");
+        assertEq(corporateActionHarness.head(), 0, "bootstrap is the head");
         assertEq(corporateActionHarness.tail(), id2);
 
         CorporateActionNode memory n1 = corporateActionHarness.getNode(id1);
@@ -400,29 +401,29 @@ contract StoxCorporateActionsFacetTest is Test {
         uint256 second = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"02");
         uint256 third = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"03");
 
-        assertEq(first, 2);
-        assertEq(second, 3);
-        assertEq(third, 4);
-        assertEq(corporateActionHarness.head(), 1, "bootstrap is the head");
+        assertEq(first, 1);
+        assertEq(second, 2);
+        assertEq(third, 3);
+        assertEq(corporateActionHarness.head(), 0, "bootstrap is the head");
         assertEq(corporateActionHarness.tail(), third, "tail is the last-inserted user node");
 
         CorporateActionNode memory n1 = corporateActionHarness.getNode(first);
         CorporateActionNode memory n2 = corporateActionHarness.getNode(second);
         CorporateActionNode memory n3 = corporateActionHarness.getNode(third);
 
-        assertEq(n1.prev, 1, "first user node points back to bootstrap");
+        assertEq(n1.prev, 0, "first user node points back to bootstrap");
         assertEq(n1.next, second, "1 -> 2");
         assertEq(n2.prev, first, "2 <- 1");
         assertEq(n2.next, third, "2 -> 3");
         assertEq(n3.prev, second, "3 <- 2");
-        assertEq(n3.next, 0, "tail has no next");
+        assertEq(n3.next, NODE_NONE, "tail has no next");
 
         // Walk forward from the first user node (skipping bootstrap, which
         // has empty parameters) and verify parameters land in insertion
         // order — defends against any walk-direction regression.
         uint256 cursor = first;
         bytes memory walked = "";
-        while (cursor != 0) {
+        while (cursor != NODE_NONE) {
             CorporateActionNode memory node = corporateActionHarness.getNode(cursor);
             walked = bytes.concat(walked, node.parameters);
             cursor = node.next;
@@ -528,7 +529,7 @@ contract StoxCorporateActionsFacetTest is Test {
         corporateActionHarness.cancel(id);
         // User-only mask: types 1 and 2.
         uint256 userMask = ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1;
-        assertEq(corporateActionHarness.nextOfType(0, userMask, CompletionFilter.COMPLETED), 0);
+        assertEq(corporateActionHarness.nextOfType(0, userMask, CompletionFilter.COMPLETED), NODE_NONE);
     }
 
     /// COMPLETED filter walks forward through completed nodes only. Mask
@@ -547,7 +548,7 @@ contract StoxCorporateActionsFacetTest is Test {
             corporateActionHarness.nextOfType(first, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(second, c);
 
-        assertEq(corporateActionHarness.nextOfType(second, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED), 0);
+        assertEq(corporateActionHarness.nextOfType(second, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED), NODE_NONE);
         assertEq(corporateActionHarness.nextOfType(0, ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.COMPLETED), b);
     }
 
@@ -562,7 +563,7 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(first, a);
         uint256 second = corporateActionHarness.nextOfType(first, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(second, b);
-        assertEq(corporateActionHarness.nextOfType(second, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL), 0);
+        assertEq(corporateActionHarness.nextOfType(second, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL), NODE_NONE);
     }
 
     /// PENDING filter skips completed nodes.
@@ -573,7 +574,7 @@ contract StoxCorporateActionsFacetTest is Test {
         vm.warp(2000);
 
         assertEq(corporateActionHarness.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING), b);
-        assertEq(corporateActionHarness.nextOfType(b, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING), 0);
+        assertEq(corporateActionHarness.nextOfType(b, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING), NODE_NONE);
     }
 
     /// prevOfType walks backward from tail with ALL filter.
@@ -588,7 +589,7 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(last, c);
         uint256 prev = corporateActionHarness.prevOfType(last, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(prev, a);
-        assertEq(corporateActionHarness.prevOfType(prev, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL), 0);
+        assertEq(corporateActionHarness.prevOfType(prev, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL), NODE_NONE);
 
         assertEq(corporateActionHarness.prevOfType(0, ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.ALL), b);
     }
@@ -686,7 +687,7 @@ contract StoxCorporateActionsFacetTest is Test {
         // and then read it back through the library-path reader — proving
         // the field is at slot+3 (offset 3 from the namespace base).
         // Schedule TWO actions on top of the lazily-created bootstrap so
-        // head (bootstrap, idx 1) and tail (later real action) have
+        // head (bootstrap, idx 0) and tail (later real action) have
         // distinct values. If only one schedule ran, head would still
         // differ from tail (bootstrap vs. real), but two schedules also
         // exercises the case where a swap between the head/tail offsets
@@ -697,24 +698,23 @@ contract StoxCorporateActionsFacetTest is Test {
         address harnessAddr = address(corporateActionHarness);
         bytes32 base = CORPORATE_ACTION_STORAGE_LOCATION;
 
-        // Offset 0 — head. The bootstrap node always occupies index 1
+        // Offset 0 — head. The bootstrap node always occupies index 0
         // and its effectiveTime is `block.timestamp` at first-schedule
         // time, which is strictly less than every user-scheduled action's
-        // future effectiveTime, so head is pinned at 1.
+        // future effectiveTime, so head is pinned at 0.
         bytes32 headSlot = vm.load(harnessAddr, base);
-        assertEq(uint256(headSlot), 1, "head must be at offset 0");
+        assertEq(uint256(headSlot), 0, "head must be at offset 0");
 
-        // Offset 1 — tail. The second user-scheduled action (idx 3,
-        // because idx 0 is the array sentinel and idx 1 is bootstrap).
+        // Offset 1 — tail. The second user-scheduled action (idx 2;
+        // bootstrap is idx 0 and the first user action is idx 1).
         bytes32 tailSlot = vm.load(harnessAddr, bytes32(uint256(base) + 1));
-        assertEq(uint256(tailSlot), 3, "tail must be at offset 1");
+        assertEq(uint256(tailSlot), 2, "tail must be at offset 1");
 
         // Offset 2 — nodes[] length. Dynamic array layout stores length at
         // the base slot; elements live at `keccak256(slot)`. After two
-        // schedule calls the array contains the sentinel + bootstrap +
-        // two user nodes.
+        // schedule calls the array contains the bootstrap + two user nodes.
         bytes32 nodesLenSlot = vm.load(harnessAddr, bytes32(uint256(base) + 2));
-        assertEq(uint256(nodesLenSlot), 4, "nodes length must be at offset 2");
+        assertEq(uint256(nodesLenSlot), 3, "nodes length must be at offset 2");
 
         // For the struct fields below: poke via `vm.store` at the expected
         // offset, then read via a library-path getter on the harness. The
@@ -945,7 +945,7 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(last, b, "latest completed is the second user action");
         uint256 prev = corporateActionHarness.prevOfType(last, userMask, CompletionFilter.COMPLETED);
         assertEq(prev, a, "previous completed is the first user action");
-        assertEq(corporateActionHarness.prevOfType(prev, userMask, CompletionFilter.COMPLETED), 0);
+        assertEq(corporateActionHarness.prevOfType(prev, userMask, CompletionFilter.COMPLETED), NODE_NONE);
     }
 
     /// prevOfType PENDING filter walks backward through pending nodes only.
@@ -961,7 +961,7 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(last, c, "latest pending is the third user action");
         uint256 prev = corporateActionHarness.prevOfType(last, userMask, CompletionFilter.PENDING);
         assertEq(prev, b, "previous pending is the second user action");
-        assertEq(corporateActionHarness.prevOfType(prev, userMask, CompletionFilter.PENDING), 0, "no more pending");
+        assertEq(corporateActionHarness.prevOfType(prev, userMask, CompletionFilter.PENDING), NODE_NONE, "no more pending");
     }
 
     /// Boundary test for the `<=` completion check shared by `nextOfType`
