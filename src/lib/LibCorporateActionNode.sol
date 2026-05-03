@@ -12,8 +12,9 @@ import {InvalidMask} from "../error/ErrCorporateAction.sol";
 ///
 /// Nodes are stored in a dynamic array. Index 0 is a sentinel (reserved but
 /// unused for real data) so that 0 can represent "no node" in pointer fields.
-/// Real nodes start at index 1. The node does not store its own index —
-/// callers track indices externally.
+/// Index 1 is the lazily-created `ACTION_TYPE_INIT_V1` bootstrap node;
+/// user-scheduled nodes start at index 2. The node does not store its
+/// own index — callers track indices externally.
 struct CorporateActionNode {
     /// @param actionType Bitmap action type. Each type is a single bit (1 << n).
     uint256 actionType;

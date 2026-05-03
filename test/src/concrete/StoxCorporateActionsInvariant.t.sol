@@ -396,11 +396,18 @@ contract StoxCorporateActionsHandler is Test {
     }
 
     /// @dev Record the receipt-side cursor to check per-(holder, id)
-    /// monotonicity.
+    /// monotonicity. Same list-order semantics as the share side: a
+    /// later-scheduled earlier-effective split can land at a numerically
+    /// smaller node id but still be reachable forward from `last`, so a
+    /// raw `assertGe` would falsely flag a valid schedule. Walk forward
+    /// via `next` pointers instead.
     function _recordReceiptCursor(address a, uint256 id) internal {
         uint256 current = RECEIPT.holderIdCursor(a, id);
         uint256 last = lastSeenReceiptCursor[a][id];
-        assertGe(current, last, "receipt invariant: per-(holder, id) cursor must be monotonic non-decreasing");
+        assertTrue(
+            cursorReachableForward(last, current),
+            "receipt invariant: per-(holder, id) cursor must advance forward in list order"
+        );
         lastSeenReceiptCursor[a][id] = current;
     }
 
@@ -632,10 +639,9 @@ contract StoxCorporateActionsInvariantTest is Test {
         for (uint256 i = 0; i < 5; i++) {
             address a = handler.actor(i);
             uint256 id = i + 1;
-            assertGe(
-                receipt.holderIdCursor(a, id),
-                handler.lastSeenReceiptCursor(a, id),
-                "invariant: per-(holder, id) receipt cursor must be monotonic non-decreasing"
+            assertTrue(
+                handler.cursorReachableForward(handler.lastSeenReceiptCursor(a, id), receipt.holderIdCursor(a, id)),
+                "invariant: per-(holder, id) receipt cursor must advance forward in list order"
             );
         }
     }
