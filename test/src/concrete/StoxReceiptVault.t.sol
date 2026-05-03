@@ -1099,9 +1099,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
             // numSplits is bounded so 1001 + i * 100 fits easily in uint64.
             // forge-lint: disable-next-line(unsafe-typecast)
             uint64 effTime = uint64(1001 + i * 100);
-            vault.publicSchedule(
-                ACTION_TYPE_STOCK_SPLIT_V1, effTime, LibStockSplit.encodeParametersV1(multiplier)
-            );
+            vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, effTime, LibStockSplit.encodeParametersV1(multiplier));
         }
 
         if (numSplits > 0) {

@@ -180,5 +180,4 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
             default { return(0, returndatasize()) }
         }
     }
-
 }
