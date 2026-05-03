@@ -11,7 +11,7 @@ import {
     ACTION_TYPE_STOCK_SPLIT_V1,
     BALANCE_MIGRATION_TYPES_MASK
 } from "../../../src/interface/ICorporateActionsV1.sol";
-import {CompletionFilter} from "../../../src/lib/LibCorporateActionNode.sol";
+import {CompletionFilter, NODE_NONE} from "../../../src/lib/LibCorporateActionNode.sol";
 import {
     LibCorporateActionReceipt,
     CORPORATE_ACTION_RECEIPT_STORAGE_LOCATION
@@ -80,9 +80,15 @@ contract MockVault is ICorporateActionsV1, IReceiptManagerV2 {
         // stock-split bit alone.
         require(mask == BALANCE_MIGRATION_TYPES_MASK, "mock: unexpected mask");
         require(filter == CompletionFilter.COMPLETED, "mock: unexpected filter");
+        // Cursor 0 is the vault's bootstrap (identity); splits live at
+        // 1..splits.length. The "no more nodes" sentinel is `NODE_NONE`,
+        // matching the real vault's contract.
+        if (cursor == NODE_NONE) {
+            return (splits.length == 0 ? NODE_NONE : 1, ACTION_TYPE_STOCK_SPLIT_V1, 1);
+        }
         uint256 candidate = cursor + 1;
         if (candidate > splits.length) {
-            return (0, 0, 0);
+            return (NODE_NONE, 0, 0);
         }
         return (candidate, ACTION_TYPE_STOCK_SPLIT_V1, 1);
     }
