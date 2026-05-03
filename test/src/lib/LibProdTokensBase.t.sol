@@ -9,6 +9,7 @@ import {LibTestProd} from "../../lib/LibTestProd.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC4626} from "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {IReceiptVaultV3} from "rain.vats/interface/IReceiptVaultV3.sol";
+import {IReceiptV3} from "rain.vats/interface/IReceiptV3.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
 } from "rain.vats/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
@@ -43,6 +44,11 @@ contract LibProdTokensBaseTest is Test {
         assertEq(IERC20Metadata(wrappedTokenVault).symbol(), expectedWrappedVaultSymbol);
         assertEq(IERC4626(wrappedTokenVault).asset(), receiptVault, "wrapped vault asset mismatch");
         assertEq(address(IReceiptVaultV3(payable(receiptVault)).receipt()), receipt, "receipt address mismatch");
+        // The receipt's manager controls mint/burn. If a prod receipt's
+        // manager isn't its receipt vault, the vault can't mint receipts
+        // when users deposit nor burn receipts when users withdraw —
+        // every deposit and withdraw on this token would revert.
+        assertEq(IReceiptV3(receipt).manager(), receiptVault, "receipt manager != receipt vault");
 
         // All prod tokens on Base are behind the V1 OARV deployer's beacons.
         IOffchainAssetReceiptVaultBeaconSetDeployerV1 oarvDeployer = IOffchainAssetReceiptVaultBeaconSetDeployerV1(
@@ -126,6 +132,17 @@ contract LibProdTokensBaseTest is Test {
             keccak256(wrappedTokenVault.code),
             LibProdDeployV1.PROD_STOX_WRAPPED_TOKEN_VAULT_PROXY_BASE_CODEHASH_V1,
             "wrapped vault proxy codehash mismatch"
+        );
+
+        // Wrapped vault claims (totalAssets) cannot exceed total receipt
+        // vault shares minted (totalSupply). The wrapped vault's holdings
+        // of the receipt vault are a subset of all minted receipt-vault
+        // shares — others may hold receipt-vault shares directly.
+        // Violation indicates an accounting bug.
+        assertLe(
+            IERC4626(wrappedTokenVault).totalAssets(),
+            IERC20Metadata(receiptVault).totalSupply(),
+            "wrapped vault totalAssets > receipt vault totalSupply"
         );
     }
 

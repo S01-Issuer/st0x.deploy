@@ -75,9 +75,9 @@ uint256 constant VALID_ACTION_TYPES_MASK =
 ///     touches the vault after a split becomes effective. Fires BEFORE any
 ///     per-account migration in the same transaction. Use as a trigger to
 ///     re-poll `balanceOf` for all tracked accounts.
-///   - `AccountMigrated`: emitted per account when its stored balance is
-///     rasterized on first touch post-split. Not emitted for zero-balance
-///     accounts.
+///   - `AccountMigrated`: emitted per account on every cursor advance.
+///     `oldBalance` and `newBalance` may be equal when the rasterized
+///     value coincides with the pre-rebase value.
 ///   - `ReceiptAccountMigrated`: same, for ERC-1155 receipt balances.
 ///
 /// `wasEffectiveAt` on `CorporateActionEffective` is almost always in the past
@@ -160,6 +160,75 @@ uint256 constant VALID_ACTION_TYPES_MASK =
 /// other — a batch read returns the same values as calling `balanceOf` per
 /// element.
 ///
+/// EXTENSION MODEL:
+///
+/// New action types are added as new bitmap bits + new type hashes,
+/// alongside existing types in the same chronological linked list. The
+/// model is **add a new type next to the old one**, not "evolve the old
+/// type in place". To add a new type:
+///
+/// 1. Pick a new bitmap bit: `ACTION_TYPE_FOO_V1 = 1 << N`. The bitmap is
+///    `uint256` so 256 types are addressable.
+/// 2. Namespace a new type hash: `keccak256("st0x.corporate-actions.foo.1")`.
+///    The trailing `.1` is the schema version; bumping it to `.2` (with
+///    a corresponding `ACTION_TYPE_FOO_V2 = 1 << M`) is how an existing
+///    type is "versioned" — the V1 nodes keep decoding with V1 logic,
+///    V2 nodes dispatch to V2 logic, both coexist in one list.
+/// 3. Create a new library `LibFoo` with `validateV1`, `encodeParametersV1`,
+///    `decodeParametersV1` — a single-point-of-change for the type's
+///    on-chain schema. Co-locating the codec with the validator keeps the
+///    schema definition in one place.
+/// 4. Extend `LibCorporateAction.resolveActionType`'s if-chain to dispatch
+///    the new type hash to the new validator + encoder. This is the
+///    intentional extension point — adding a type is a core-library edit
+///    and a vault redeployment, not a runtime registration.
+/// 5. Extend any consumer that walks the list (today
+///    `LibRebase.migratedBalance` for stock splits only) to handle the
+///    new action type where relevant. Consumers mask against the
+///    specific bit(s) they care about — not equality — so forward-
+///    compatibility is preserved when new bits land.
+/// 6. Deploy a new vault implementation. Upgrade the beacon.
+///
+/// Old nodes keep decoding with their old libraries; new nodes dispatch
+/// to the new library via their action-type bit. Both coexist in one
+/// linked list, time-ordered.
+///
+/// **What the model handles cleanly:**
+///   - New action types with different parameter shapes (the type-erased
+///     `bytes` payload is exactly this).
+///   - Versioning an existing type (new `_V2` bit + new type hash; old
+///     `_V1` nodes keep decoding under the old codec).
+///   - Single chronological linked list across all types — consumers
+///     traverse in time order regardless of action-type mix.
+///
+/// **What the model does NOT auto-handle — design discipline applies:**
+///   - **Underlying-type drift in `Float` (or any other dependency
+///     library).** The V1 decoder calls `abi.decode(params, (Float))`
+///     directly. If `rain.math.float` ships a new release with a
+///     different mantissa width, old stored parameters silently corrupt
+///     when re-decoded. Mitigation: pin the dependency at a specific
+///     commit and never bump it across a deployed version. If the
+///     dependency must be upgraded, that's a `_V2` action type with a
+///     new type hash — old `_V1` parameters keep decoding under the old
+///     pinned dependency.
+///   - **In-place migration of stored parameters.** Storage bytes do
+///     NOT auto-translate. "Re-encode all V1 nodes as V2" requires
+///     explicit migration code that walks the list, decodes as V1,
+///     re-encodes as V2, and writes back while preserving
+///     `effectiveTime` ordering and `prev`/`next` pointers. The default
+///     policy is "never migrate, always add a new version" — write any
+///     migration code defensively if that policy ever changes.
+///   - **Type-level pause / disable.** `cancelCorporateAction(actionIndex)`
+///     unlinks one specific node. There is no "disable action type X
+///     across the list" primitive; cancelling N pending nodes of type X
+///     takes N transactions. If a type-level pause becomes operationally
+///     necessary it would need a new storage flag and a new entry point.
+///   - **Off-chain discovery of new types.** Indexers learn new bitmap
+///     bits and type hashes from the CHANGELOG / release notes — there
+///     is no on-chain registry of `(bit, typeHash, name)` mappings.
+///     Acceptable at the expected scale (dozens of types lifetime, not
+///     hundreds).
+///
 /// @dev **Action type bitmap.** The `actionType` field returned by the four
 /// traversal getters is a single-bit mask identifying the action's type.
 /// The canonical constants — `ACTION_TYPE_STOCK_SPLIT_V1`,
@@ -194,8 +263,9 @@ interface ICorporateActionsV1 {
     /// past relative to the emitting block).
     event CorporateActionEffective(uint256 indexed actionIndex, uint256 actionType, uint64 wasEffectiveAt);
 
-    /// @notice Emitted when an account's stored ERC-20 balance is rasterized
-    /// to the post-rebase value on first touch after a stock split.
+    /// @notice Emitted whenever an account's migration cursor advances.
+    /// `oldBalance` and `newBalance` may be equal when the rasterized
+    /// value coincides with the pre-rebase value.
     /// @param account The account whose balance was migrated.
     /// @param fromCursor The account's migration cursor before this migration.
     /// @param toCursor The account's migration cursor after this migration.
@@ -205,8 +275,8 @@ interface ICorporateActionsV1 {
         address indexed account, uint256 fromCursor, uint256 toCursor, uint256 oldBalance, uint256 newBalance
     );
 
-    /// @notice Emitted when an account's ERC-1155 receipt balance is
-    /// rasterized to the post-rebase value on first touch after a stock split.
+    /// @notice Emitted whenever a `(account, id)` pair's receipt-side
+    /// migration cursor advances.
     /// @param account The account whose receipt balance was migrated.
     /// @param id The ERC-1155 token ID.
     /// @param fromCursor The account's migration cursor before this migration.

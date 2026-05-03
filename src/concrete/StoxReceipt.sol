@@ -59,11 +59,12 @@ import {LibReceiptRebase} from "../lib/LibReceiptRebase.sol";
 /// `testZeroBalanceAdvancesCursor` regression in both `LibRebase.t.sol` and
 /// `LibReceiptRebase.t.sol`.
 contract StoxReceipt is Receipt {
-    /// @notice Emitted when a `(account, id)` pair is migrated through one
-    /// or more completed corporate actions. Fires from `_update` via
+    /// @notice Emitted whenever `_migrateHolderId` advances a `(account, id)`
+    /// pair's migration cursor. The cursor itself is storage state, so the
+    /// event fires on every cursor advance regardless of whether
+    /// `oldBalance == newBalance`. Fires from `_update` via
     /// `_migrateHolderId`, before the mint / burn / transfer delta is
-    /// applied. Only fires when the stored balance actually changes; pure
-    /// cursor-only advancements (zero-balance pairs) do not emit.
+    /// applied.
     /// @param account The holder whose `(account, id)` migration state changed.
     /// @param id The receipt id.
     /// @param fromCursor The `(account, id)` cursor before this migration
@@ -199,10 +200,11 @@ contract StoxReceipt is Receipt {
 
         s.accountIdCursor[account][id] = newCursor;
 
+        // Skip the SSTORE when the rasterized balance is unchanged.
         if (newBalance != storedBalance) {
             LibERC1155Storage.setUnderlyingBalance(account, id, newBalance);
-            emit ReceiptAccountMigrated(account, id, currentCursor, newCursor, storedBalance, newBalance);
         }
+        emit ReceiptAccountMigrated(account, id, currentCursor, newCursor, storedBalance, newBalance);
     }
 
     /// @dev Cached / fresh read of the configured vault address, cast to

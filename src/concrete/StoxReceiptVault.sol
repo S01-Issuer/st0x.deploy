@@ -38,12 +38,12 @@ import {LibProdDeployV3} from "../lib/LibProdDeployV3.sol";
 /// inflating the recipient's balance. See `LibRebase.migratedBalance` and
 /// its zero-balance regression tests.
 contract StoxReceiptVault is OffchainAssetReceiptVault {
-    /// @notice Emitted when an account's stored balance is rasterized to the
-    /// post-rebase basis and / or its migration cursor advances through
-    /// completed corporate actions. Fires from `_update` via `_migrateAccount`,
-    /// before the mint / burn / transfer delta is applied. Only fires when
-    /// the stored balance actually changes; pure cursor-only advancements
-    /// (zero-balance accounts) do not emit.
+    /// @notice Emitted whenever `_migrateAccount` advances an account's
+    /// migration cursor. The cursor itself is storage state, so the event
+    /// fires on every cursor advance regardless of whether
+    /// `oldBalance == newBalance`. Fires from `_update` via
+    /// `_migrateAccount`, before the mint / burn / transfer delta is
+    /// applied.
     /// @param account The account whose migration state changed.
     /// @param fromCursor The account's migration cursor before this migration
     /// (0 means never migrated). Corresponds to the 1-based index of the last
@@ -171,10 +171,11 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
 
         s.accountMigrationCursor[account] = newCursor;
 
+        // Skip the SSTORE when the rasterized balance is unchanged.
         if (newBalance != storedBalance) {
             LibERC20Storage.setUnderlyingBalance(account, newBalance);
-            emit AccountMigrated(account, currentCursor, newCursor, storedBalance, newBalance);
         }
+        emit AccountMigrated(account, currentCursor, newCursor, storedBalance, newBalance);
 
         LibTotalSupply.onAccountMigrated(currentCursor, storedBalance, newCursor, newBalance);
     }
