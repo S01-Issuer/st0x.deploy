@@ -527,7 +527,7 @@ contract StoxCorporateActionsFacetTest is Test {
         uint256 id = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         corporateActionHarness.cancel(id);
         // User-only mask: types 1 and 2.
-        uint256 userMask = uint256(1) | uint256(2);
+        uint256 userMask = ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1;
         assertEq(corporateActionHarness.nextOfType(0, userMask, CompletionFilter.COMPLETED), 0);
     }
 
@@ -543,7 +543,8 @@ contract StoxCorporateActionsFacetTest is Test {
         uint256 first = corporateActionHarness.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(first, a);
 
-        uint256 second = corporateActionHarness.nextOfType(first, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
+        uint256 second =
+            corporateActionHarness.nextOfType(first, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(second, c);
 
         assertEq(corporateActionHarness.nextOfType(second, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED), 0);
@@ -939,7 +940,7 @@ contract StoxCorporateActionsFacetTest is Test {
 
         vm.warp(2500);
 
-        uint256 userMask = uint256(1) | uint256(2);
+        uint256 userMask = ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1;
         uint256 last = corporateActionHarness.prevOfType(0, userMask, CompletionFilter.COMPLETED);
         assertEq(last, b, "latest completed is the second user action");
         uint256 prev = corporateActionHarness.prevOfType(last, userMask, CompletionFilter.COMPLETED);
@@ -955,7 +956,7 @@ contract StoxCorporateActionsFacetTest is Test {
 
         vm.warp(2000);
 
-        uint256 userMask = uint256(1) | uint256(2);
+        uint256 userMask = ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1;
         uint256 last = corporateActionHarness.prevOfType(0, userMask, CompletionFilter.PENDING);
         assertEq(last, c, "latest pending is the third user action");
         uint256 prev = corporateActionHarness.prevOfType(last, userMask, CompletionFilter.PENDING);
@@ -973,7 +974,7 @@ contract StoxCorporateActionsFacetTest is Test {
         uint256 a = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         uint256 b = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
 
-        uint256 userMask = uint256(1) | uint256(2);
+        uint256 userMask = ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1;
 
         // One second before b's effective time: only a is completed.
         vm.warp(1999);
@@ -1025,22 +1026,30 @@ contract StoxCorporateActionsFacetTest is Test {
         vm.warp(3000);
 
         assertEq(
-            corporateActionHarness.prevOfType(0, ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.ALL), b, "last type-2 is the second user action"
+            corporateActionHarness.prevOfType(0, ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.ALL),
+            b,
+            "last type-2 is the second user action"
         );
-        assertEq(corporateActionHarness.prevOfType(b, ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.ALL), 0, "no earlier type-2");
+        assertEq(
+            corporateActionHarness.prevOfType(b, ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.ALL),
+            0,
+            "no earlier type-2"
+        );
     }
 
     /// Forward and backward walks visit the same nodes in reverse order.
-    /// Mask is the user-only mask (`1 | 2 | 3`); bootstrap is excluded.
+    /// Mask covers stock splits, stables dividends, and a synthetic
+    /// type-at-bit-3 used by this test to schedule a fourth node;
+    /// bootstrap (`ACTION_TYPE_INIT_V1`) is excluded.
     function testForwardBackwardConsistency() external {
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         corporateActionHarness.schedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 2000, "");
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, "");
-        corporateActionHarness.schedule(3, 3000, "");
+        corporateActionHarness.schedule(1 << 3, 3000, "");
 
         vm.warp(4000);
 
-        uint256 userMask = uint256(1) | uint256(2) | uint256(3);
+        uint256 userMask = ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1 | (1 << 3);
 
         // Walk forward, collect indices.
         uint256[] memory forward = new uint256[](4);
@@ -1230,65 +1239,77 @@ contract StoxCorporateActionsFacetTest is Test {
         // earliestActionOfType: walk forward from head with each filter.
         // Mask `1` (`ACTION_TYPE_STOCK_SPLIT_V1`) excludes the bootstrap
         // node (which has `ACTION_TYPE_INIT_V1`).
-        (cursor, actionType, effectiveTime) = facetViaHarness.earliestActionOfType(1, CompletionFilter.ALL);
+        (cursor, actionType, effectiveTime) =
+            facetViaHarness.earliestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, 2, "ALL: earliest is the first user node (idx 2)");
         assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 1500);
 
-        (cursor, actionType, effectiveTime) = facetViaHarness.earliestActionOfType(1, CompletionFilter.COMPLETED);
+        (cursor, actionType, effectiveTime) =
+            facetViaHarness.earliestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, 2, "COMPLETED: earliest completed is user idx 2");
         assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 1500);
 
-        (cursor, actionType, effectiveTime) = facetViaHarness.earliestActionOfType(1, CompletionFilter.PENDING);
+        (cursor, actionType, effectiveTime) =
+            facetViaHarness.earliestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, 3, "PENDING: earliest pending is user idx 3");
         assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 2500);
 
         // latestActionOfType: walk backward from tail with each filter.
-        (cursor, actionType, effectiveTime) = facetViaHarness.latestActionOfType(1, CompletionFilter.ALL);
+        (cursor, actionType, effectiveTime) =
+            facetViaHarness.latestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, 3, "ALL: latest is the tail (user idx 3)");
         assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 2500);
 
-        (cursor, actionType, effectiveTime) = facetViaHarness.latestActionOfType(1, CompletionFilter.COMPLETED);
+        (cursor, actionType, effectiveTime) =
+            facetViaHarness.latestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, 2, "COMPLETED: latest completed is user idx 2");
         assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 1500);
 
-        (cursor, actionType, effectiveTime) = facetViaHarness.latestActionOfType(1, CompletionFilter.PENDING);
+        (cursor, actionType, effectiveTime) =
+            facetViaHarness.latestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, 3, "PENDING: latest pending is user idx 3");
         assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 2500);
 
         // nextOfType: walk forward from a non-zero cursor with each filter.
-        (cursor, actionType, effectiveTime) = facetViaHarness.nextOfType(2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        (cursor, actionType, effectiveTime) =
+            facetViaHarness.nextOfType(2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, 3, "ALL: next after user idx 2 is user idx 3");
         assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 2500);
 
-        (cursor, actionType, effectiveTime) = facetViaHarness.nextOfType(2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
+        (cursor, actionType, effectiveTime) =
+            facetViaHarness.nextOfType(2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, 0, "COMPLETED: nothing completed after user idx 2");
         assertEq(actionType, 0, "miss must zero actionType");
         assertEq(effectiveTime, 0, "miss must zero effectiveTime");
 
-        (cursor, actionType, effectiveTime) = facetViaHarness.nextOfType(2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
+        (cursor, actionType, effectiveTime) =
+            facetViaHarness.nextOfType(2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, 3, "PENDING: next pending after user idx 2 is user idx 3");
         assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 2500);
 
         // prevOfType: walk backward from a non-zero cursor with each filter.
-        (cursor, actionType, effectiveTime) = facetViaHarness.prevOfType(3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        (cursor, actionType, effectiveTime) =
+            facetViaHarness.prevOfType(3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, 2, "ALL: prev before user idx 3 is user idx 2");
         assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 1500);
 
-        (cursor, actionType, effectiveTime) = facetViaHarness.prevOfType(3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
+        (cursor, actionType, effectiveTime) =
+            facetViaHarness.prevOfType(3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, 2, "COMPLETED: prev completed before user idx 3 is user idx 2");
         assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 1500);
 
-        (cursor, actionType, effectiveTime) = facetViaHarness.prevOfType(3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
+        (cursor, actionType, effectiveTime) =
+            facetViaHarness.prevOfType(3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, 0, "PENDING: nothing pending before user idx 3");
         assertEq(actionType, 0, "miss must zero actionType");
         assertEq(effectiveTime, 0, "miss must zero effectiveTime");
@@ -1323,7 +1344,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// When no matching action exists, the facet wrappers return (0, 0, 0).
     function testFacetTraversalGettersEmpty() external view {
         (uint256 cursor, uint256 actionType, uint64 effectiveTime) =
-            facetViaHarness.latestActionOfType(1, CompletionFilter.COMPLETED);
+            facetViaHarness.latestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, 0);
         assertEq(actionType, 0);
         assertEq(effectiveTime, 0);

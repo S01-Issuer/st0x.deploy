@@ -11,6 +11,9 @@ import {
     VALID_ACTION_TYPES_MASK
 } from "src/interface/ICorporateActionsV1.sol";
 
+import {CompletionFilter, CorporateActionNode, LibCorporateActionNode} from "src/lib/LibCorporateActionNode.sol";
+import {InvalidMask} from "src/error/ErrCorporateAction.sol";
+
 /// @dev Mask covering every test-scheduled action type — `STOCK_SPLIT_V1` and
 /// `STABLES_DIVIDEND_V1` — without the bootstrap `ACTION_TYPE_INIT_V1` bit.
 /// These tests exercise pure linked-list traversal over user-scheduled
@@ -19,9 +22,6 @@ import {
 /// rather than the traversal API being tested. The lifecycle /
 /// effective-supply tests in `LibTotalSupply.t.sol` and `LibRebase.t.sol`
 /// do exercise the bootstrap node via `BALANCE_MIGRATION_TYPES_MASK`.
-import {CompletionFilter, CorporateActionNode, LibCorporateActionNode} from "src/lib/LibCorporateActionNode.sol";
-import {InvalidMask} from "src/error/ErrCorporateAction.sol";
-
 uint256 constant USER_TYPES_TEST_MASK = ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1;
 
 /// @dev Thin harness: exposes the four tuple-returning traversal getters via
@@ -115,7 +115,8 @@ contract LibCorporateActionNodeTest is Test {
     function testSingleNodeResolution() external {
         uint256 id = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
 
-        (uint256 cursor, uint256 actionType, uint64 effectiveTime) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        (uint256 cursor, uint256 actionType, uint64 effectiveTime) =
+            h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, id);
         assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 1500);
@@ -412,22 +413,22 @@ contract LibCorporateActionNodeTest is Test {
         assertForwardSequence(
             USER_TYPES_TEST_MASK, CompletionFilter.ALL, cursors8(id1, id2, id3, id4, id5, id6, id7, id8)
         );
-        assertForwardSequence(1, CompletionFilter.ALL, cursors5(id1, id3, id4, id6, id8));
-        assertForwardSequence(2, CompletionFilter.ALL, cursors3(id2, id5, id7));
+        assertForwardSequence(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL, cursors5(id1, id3, id4, id6, id8));
+        assertForwardSequence(ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.ALL, cursors3(id2, id5, id7));
     }
 
     function testForwardCompletedStopsAtFirstPendingRespectingMask() external {
         buildMixedCompletedPendingList();
         assertForwardSequence(USER_TYPES_TEST_MASK, CompletionFilter.COMPLETED, cursors5(id1, id2, id3, id4, id5));
-        assertForwardSequence(1, CompletionFilter.COMPLETED, cursors3(id1, id3, id4));
-        assertForwardSequence(2, CompletionFilter.COMPLETED, cursors2(id2, id5));
+        assertForwardSequence(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED, cursors3(id1, id3, id4));
+        assertForwardSequence(ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.COMPLETED, cursors2(id2, id5));
     }
 
     function testForwardPendingSkipsCompletedPrefixRespectingMask() external {
         buildMixedCompletedPendingList();
         assertForwardSequence(USER_TYPES_TEST_MASK, CompletionFilter.PENDING, cursors3(id6, id7, id8));
-        assertForwardSequence(1, CompletionFilter.PENDING, cursors2(id6, id8));
-        assertForwardSequence(2, CompletionFilter.PENDING, cursors1(id7));
+        assertForwardSequence(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING, cursors2(id6, id8));
+        assertForwardSequence(ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.PENDING, cursors1(id7));
     }
 
     function testBackwardAllVisitsEveryNodeRespectingMask() external {
@@ -435,22 +436,22 @@ contract LibCorporateActionNodeTest is Test {
         assertBackwardSequence(
             USER_TYPES_TEST_MASK, CompletionFilter.ALL, cursors8(id8, id7, id6, id5, id4, id3, id2, id1)
         );
-        assertBackwardSequence(1, CompletionFilter.ALL, cursors5(id8, id6, id4, id3, id1));
-        assertBackwardSequence(2, CompletionFilter.ALL, cursors3(id7, id5, id2));
+        assertBackwardSequence(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL, cursors5(id8, id6, id4, id3, id1));
+        assertBackwardSequence(ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.ALL, cursors3(id7, id5, id2));
     }
 
     function testBackwardCompletedSkipsPendingSuffixRespectingMask() external {
         buildMixedCompletedPendingList();
         assertBackwardSequence(USER_TYPES_TEST_MASK, CompletionFilter.COMPLETED, cursors5(id5, id4, id3, id2, id1));
-        assertBackwardSequence(1, CompletionFilter.COMPLETED, cursors3(id4, id3, id1));
-        assertBackwardSequence(2, CompletionFilter.COMPLETED, cursors2(id5, id2));
+        assertBackwardSequence(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED, cursors3(id4, id3, id1));
+        assertBackwardSequence(ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.COMPLETED, cursors2(id5, id2));
     }
 
     function testBackwardPendingStopsAtFirstCompletedRespectingMask() external {
         buildMixedCompletedPendingList();
         assertBackwardSequence(USER_TYPES_TEST_MASK, CompletionFilter.PENDING, cursors3(id8, id7, id6));
-        assertBackwardSequence(1, CompletionFilter.PENDING, cursors2(id8, id6));
-        assertBackwardSequence(2, CompletionFilter.PENDING, cursors1(id7));
+        assertBackwardSequence(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING, cursors2(id8, id6));
+        assertBackwardSequence(ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.PENDING, cursors1(id7));
     }
 
     /// COMPLETED filter on a list where every node is pending returns 0
@@ -710,13 +711,13 @@ contract LibCorporateActionNodeTest is Test {
         uint256[] memory ids = new uint256[](nodeCount);
         for (uint256 i = 0; i < nodeCount; i++) {
             seed = uint256(keccak256(abi.encode(seed, i)));
-            uint256 actionType = (seed & 1) == 0 ? 1 : 2;
+            uint256 actionType = (seed & 1) == 0 ? ACTION_TYPE_STOCK_SPLIT_V1 : ACTION_TYPE_STABLES_DIVIDEND_V1;
             uint64 effectiveTime = uint64(warpTo + 1 + (seed >> 8) % 100);
             ids[i] = h.schedule(actionType, effectiveTime, hex"");
         }
         vm.warp(warpTo + uint64((seed >> 16) % 100));
 
-        uint256[3] memory masks = [uint256(1), uint256(2), USER_TYPES_TEST_MASK];
+        uint256[3] memory masks = [ACTION_TYPE_STOCK_SPLIT_V1, ACTION_TYPE_STABLES_DIVIDEND_V1, USER_TYPES_TEST_MASK];
         CompletionFilter[3] memory filters =
             [CompletionFilter.ALL, CompletionFilter.COMPLETED, CompletionFilter.PENDING];
 
@@ -757,13 +758,13 @@ contract LibCorporateActionNodeTest is Test {
 
         for (uint256 i = 0; i < nodeCount; i++) {
             seed = uint256(keccak256(abi.encode(seed, i)));
-            uint256 actionType = (seed & 1) == 0 ? 1 : 2;
+            uint256 actionType = (seed & 1) == 0 ? ACTION_TYPE_STOCK_SPLIT_V1 : ACTION_TYPE_STABLES_DIVIDEND_V1;
             uint64 effectiveTime = uint64(warpTo + 1 + (seed >> 8) % 100);
             h.schedule(actionType, effectiveTime, hex"");
         }
         vm.warp(warpTo + uint64((seed >> 16) % 100));
 
-        uint256[3] memory masks = [uint256(1), uint256(2), USER_TYPES_TEST_MASK];
+        uint256[3] memory masks = [ACTION_TYPE_STOCK_SPLIT_V1, ACTION_TYPE_STABLES_DIVIDEND_V1, USER_TYPES_TEST_MASK];
         CompletionFilter[3] memory filters =
             [CompletionFilter.ALL, CompletionFilter.COMPLETED, CompletionFilter.PENDING];
 
@@ -798,13 +799,13 @@ contract LibCorporateActionNodeTest is Test {
 
         for (uint256 i = 0; i < nodeCount; i++) {
             seed = uint256(keccak256(abi.encode(seed, i)));
-            uint256 actionType = (seed & 1) == 0 ? 1 : 2;
+            uint256 actionType = (seed & 1) == 0 ? ACTION_TYPE_STOCK_SPLIT_V1 : ACTION_TYPE_STABLES_DIVIDEND_V1;
             uint64 effectiveTime = uint64(warpTo + 1 + (seed >> 8) % 100);
             h.schedule(actionType, effectiveTime, hex"");
         }
         vm.warp(warpTo + uint64((seed >> 16) % 100));
 
-        uint256[3] memory masks = [uint256(1), uint256(2), USER_TYPES_TEST_MASK];
+        uint256[3] memory masks = [ACTION_TYPE_STOCK_SPLIT_V1, ACTION_TYPE_STABLES_DIVIDEND_V1, USER_TYPES_TEST_MASK];
         CompletionFilter[3] memory filters =
             [CompletionFilter.ALL, CompletionFilter.COMPLETED, CompletionFilter.PENDING];
 
@@ -841,7 +842,7 @@ contract LibCorporateActionNodeTest is Test {
         uint256[] memory ids = new uint256[](nodeCount);
         for (uint256 i = 0; i < nodeCount; i++) {
             seed = uint256(keccak256(abi.encode(seed, i)));
-            uint256 actionType = (seed & 1) == 0 ? 1 : 2;
+            uint256 actionType = (seed & 1) == 0 ? ACTION_TYPE_STOCK_SPLIT_V1 : ACTION_TYPE_STABLES_DIVIDEND_V1;
             uint64 effectiveTime = uint64(warpTo + 1 + (seed >> 8) % 100);
             ids[i] = h.schedule(actionType, effectiveTime, hex"");
         }
@@ -859,7 +860,7 @@ contract LibCorporateActionNodeTest is Test {
 
         vm.warp(warpTo + uint64((seed >> 16) % 100));
 
-        uint256[3] memory masks = [uint256(1), uint256(2), USER_TYPES_TEST_MASK];
+        uint256[3] memory masks = [ACTION_TYPE_STOCK_SPLIT_V1, ACTION_TYPE_STABLES_DIVIDEND_V1, USER_TYPES_TEST_MASK];
         CompletionFilter[3] memory filters =
             [CompletionFilter.ALL, CompletionFilter.COMPLETED, CompletionFilter.PENDING];
 
@@ -899,7 +900,7 @@ contract LibCorporateActionNodeTest is Test {
 
         for (uint256 i = 0; i < nodeCount; i++) {
             seed = uint256(keccak256(abi.encode(seed, i)));
-            uint256 actionType = (seed & 1) == 0 ? 1 : 2;
+            uint256 actionType = (seed & 1) == 0 ? ACTION_TYPE_STOCK_SPLIT_V1 : ACTION_TYPE_STABLES_DIVIDEND_V1;
             uint64 effectiveTime = uint64(warpTo + 1 + (seed >> 8) % 100);
             h.schedule(actionType, effectiveTime, hex"");
         }
@@ -907,7 +908,7 @@ contract LibCorporateActionNodeTest is Test {
         // Warp forward so a subset of nodes becomes completed.
         vm.warp(warpTo + uint64((seed >> 16) % 100));
 
-        uint256[3] memory masks = [uint256(1), uint256(2), USER_TYPES_TEST_MASK];
+        uint256[3] memory masks = [ACTION_TYPE_STOCK_SPLIT_V1, ACTION_TYPE_STABLES_DIVIDEND_V1, USER_TYPES_TEST_MASK];
         CompletionFilter[3] memory filters =
             [CompletionFilter.ALL, CompletionFilter.COMPLETED, CompletionFilter.PENDING];
 
