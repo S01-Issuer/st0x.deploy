@@ -4,7 +4,9 @@ pragma solidity ^0.8.25;
 
 import {Float} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {LibCorporateAction} from "./LibCorporateAction.sol";
-import {ACTION_TYPE_STOCK_SPLIT_V1} from "../interface/ICorporateActionsV1.sol";
+import {
+    ACTION_TYPE_INIT_V1, ACTION_TYPE_STOCK_SPLIT_V1, BALANCE_MIGRATION_TYPES_MASK
+} from "../interface/ICorporateActionsV1.sol";
 import {CompletionFilter, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
 import {LibRebaseMath} from "./LibRebaseMath.sol";
 import {LibStockSplit} from "./LibStockSplit.sol";
@@ -82,7 +84,7 @@ library LibRebase {
 
         uint256 balance = storedBalance;
         uint256 nodeIndex =
-            LibCorporateActionNode.nextOfType(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
+            LibCorporateActionNode.nextOfType(cursor, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
 
         while (nodeIndex != 0) {
             newCursor = nodeIndex;
@@ -94,7 +96,12 @@ library LibRebase {
             // cursor still advances on every pass — skipping the advancement
             // would inflate fresh recipients' balances on their next write;
             // see the function NatSpec for the mechanism.
-            if (balance != 0) {
+            //
+            // Init nodes (`ACTION_TYPE_INIT_V1`) are also identity — the
+            // bootstrap step exists so every holder's cursor advances
+            // through index 1 once, replacing the special "before any
+            // action" state. No multiplier read, no float math.
+            if (balance != 0 && s.nodes[nodeIndex].actionType == ACTION_TYPE_STOCK_SPLIT_V1) {
                 Float multiplier = LibStockSplit.decodeParametersV1(s.nodes[nodeIndex].parameters);
                 // Rasterize after each multiplier to match what storage
                 // writes would produce. This ensures dormant and active
@@ -106,8 +113,9 @@ library LibRebase {
                 balance = LibRebaseMath.applyMultiplier(balance, multiplier);
             }
 
-            nodeIndex =
-                LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
+            nodeIndex = LibCorporateActionNode.nextOfType(
+                nodeIndex, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED
+            );
         }
 
         return (balance, newCursor);

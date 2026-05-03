@@ -3,7 +3,12 @@
 pragma solidity ^0.8.25;
 
 import {Float} from "rain.math.float/lib/LibDecimalFloat.sol";
-import {ICorporateActionsV1, ACTION_TYPE_STOCK_SPLIT_V1} from "../interface/ICorporateActionsV1.sol";
+import {
+    ICorporateActionsV1,
+    ACTION_TYPE_INIT_V1,
+    ACTION_TYPE_STOCK_SPLIT_V1,
+    BALANCE_MIGRATION_TYPES_MASK
+} from "../interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "./LibCorporateActionNode.sol";
 import {LibStockSplit} from "./LibStockSplit.sol";
 import {LibRebaseMath} from "./LibRebaseMath.sol";
@@ -62,25 +67,28 @@ library LibReceiptRebase {
     {
         newCursor = cursor;
 
-        // Discard (actionType, effectiveTime) — only nextCursor is used
-        // for the walk. The mask already constrains actionType to
-        // stock-splits, and effectiveTime is irrelevant here (the filter
-        // COMPLETED already handled it on the vault side).
+        // Discard effectiveTime — only nextCursor and actionType are used
+        // for the walk. The mask covers init and stock-split nodes;
+        // effectiveTime is irrelevant here (the COMPLETED filter already
+        // handled it on the vault side). actionType lets us skip the
+        // float multiplier read for the identity init node.
         // slither-disable-next-line unused-return
-        (uint256 nodeIndex,,) = vault.nextOfType(cursor, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
+        (uint256 nodeIndex, uint256 actionType,) =
+            vault.nextOfType(cursor, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
 
-        // Fast path: zero balance still advances the cursor through
-        // completed splits without any multiplier math. Required for fresh
-        // recipients of transfers: without it, a subsequent write would
-        // land at a stale cursor and the next balanceOf read would re-apply
-        // every completed multiplier to a post-rebase balance, inflating
-        // it. See LibRebase.migratedBalance for the same mechanism on the
-        // share side.
+        // Fast path: zero balance still advances the cursor through every
+        // completed migration node without any multiplier math. Required for
+        // fresh recipients of transfers: without it, a subsequent write
+        // would land at a stale cursor and the next balanceOf read would
+        // re-apply every completed multiplier to a post-rebase balance,
+        // inflating it. See LibRebase.migratedBalance for the same
+        // mechanism on the share side.
         if (storedBalance == 0) {
             while (nodeIndex != 0) {
                 newCursor = nodeIndex;
                 // slither-disable-next-line unused-return
-                (nodeIndex,,) = vault.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
+                (nodeIndex, actionType,) =
+                    vault.nextOfType(nodeIndex, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
             }
             return (0, newCursor);
         }
@@ -89,11 +97,18 @@ library LibReceiptRebase {
 
         while (nodeIndex != 0) {
             newCursor = nodeIndex;
-            Float multiplier = LibStockSplit.decodeParametersV1(vault.getActionParameters(nodeIndex));
-            balance = LibRebaseMath.applyMultiplier(balance, multiplier);
+            // Init is identity — no multiplier, no balance change. Skip the
+            // cross-contract `getActionParameters` call entirely; the
+            // bootstrap node has empty parameters that would not decode as
+            // a Float.
+            if (actionType == ACTION_TYPE_STOCK_SPLIT_V1) {
+                Float multiplier = LibStockSplit.decodeParametersV1(vault.getActionParameters(nodeIndex));
+                balance = LibRebaseMath.applyMultiplier(balance, multiplier);
+            }
 
             // slither-disable-next-line unused-return
-            (nodeIndex,,) = vault.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
+            (nodeIndex, actionType,) =
+                vault.nextOfType(nodeIndex, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
         }
 
         return (balance, newCursor);

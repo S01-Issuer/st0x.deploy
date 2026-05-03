@@ -123,9 +123,9 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// OZ's intended error.
     function _update(address from, address to, uint256 amount) internal virtual override {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        uint256 prevLatest = s.totalSupplyLatestSplit;
+        uint256 prevLatest = s.totalSupplyLatestCursor;
         LibTotalSupply.fold();
-        uint256 newLatest = s.totalSupplyLatestSplit;
+        uint256 newLatest = s.totalSupplyLatestCursor;
 
         // Emit one event per newly-effective split. This fires BEFORE any
         // account migration so indexers see the split signal before any

@@ -6,7 +6,11 @@ import {Test, Vm} from "forge-std/Test.sol";
 import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
-import {ICorporateActionsV1, ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/interface/ICorporateActionsV1.sol";
+import {
+    ICorporateActionsV1,
+    ACTION_TYPE_STOCK_SPLIT_V1,
+    BALANCE_MIGRATION_TYPES_MASK
+} from "../../../src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "../../../src/lib/LibCorporateActionNode.sol";
 import {
     LibCorporateActionReceipt,
@@ -70,7 +74,11 @@ contract MockVault is ICorporateActionsV1, IReceiptManagerV2 {
         override
         returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime)
     {
-        require(mask == ACTION_TYPE_STOCK_SPLIT_V1, "mock: unexpected mask");
+        // Receipt rebase walks `BALANCE_MIGRATION_TYPES_MASK` (init |
+        // stock-split). This mock holds only splits — no init node — so
+        // walking that mask returns the same sequence as walking the
+        // stock-split bit alone.
+        require(mask == BALANCE_MIGRATION_TYPES_MASK, "mock: unexpected mask");
         require(filter == CompletionFilter.COMPLETED, "mock: unexpected filter");
         uint256 candidate = cursor + 1;
         if (candidate > splits.length) {

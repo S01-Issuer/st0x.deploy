@@ -5,7 +5,9 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std/Test.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {LibReceiptRebase} from "src/lib/LibReceiptRebase.sol";
-import {ICorporateActionsV1, ACTION_TYPE_STOCK_SPLIT_V1} from "src/interface/ICorporateActionsV1.sol";
+import {
+    ICorporateActionsV1, ACTION_TYPE_STOCK_SPLIT_V1, BALANCE_MIGRATION_TYPES_MASK
+} from "src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "src/lib/LibCorporateActionNode.sol";
 
 /// @dev Mock vault exposing only the subset of `ICorporateActionsV1` that
@@ -42,9 +44,12 @@ contract MockCorporateActionsVault is ICorporateActionsV1 {
         override
         returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime)
     {
-        // Only the mask == ACTION_TYPE_STOCK_SPLIT_V1, filter == COMPLETED path
-        // is tested here; assert any other request so misuse fails loud.
-        require(mask == ACTION_TYPE_STOCK_SPLIT_V1, "mock: unexpected mask");
+        // Receipt rebase walks `BALANCE_MIGRATION_TYPES_MASK` (init |
+        // stock-split). This mock holds only splits — no init node — so
+        // walking that mask returns the same sequence as walking the
+        // stock-split bit alone. Pin the mask to the production mask;
+        // any other request fails loud.
+        require(mask == BALANCE_MIGRATION_TYPES_MASK, "mock: unexpected mask");
         require(filter == CompletionFilter.COMPLETED, "mock: unexpected filter");
 
         // Cursor is the 1-based index of the last visited split. Next is

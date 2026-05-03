@@ -8,7 +8,7 @@ import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
 import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
 import {LibCorporateAction} from "../../../src/lib/LibCorporateAction.sol";
-import {ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/interface/ICorporateActionsV1.sol";
+import {ACTION_TYPE_STOCK_SPLIT_V1, BALANCE_MIGRATION_TYPES_MASK} from "../../../src/interface/ICorporateActionsV1.sol";
 import {LibCorporateActionReceipt} from "../../../src/lib/LibCorporateActionReceipt.sol";
 import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
 import {LibERC1155Storage} from "../../../src/lib/LibERC1155Storage.sol";
@@ -30,9 +30,9 @@ import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 contract InvariantVault is StoxReceiptVault {
     function _update(address from, address to, uint256 amount) internal override {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        uint256 prevLatest = s.totalSupplyLatestSplit;
+        uint256 prevLatest = s.totalSupplyLatestCursor;
         LibTotalSupply.fold();
-        uint256 newLatest = s.totalSupplyLatestSplit;
+        uint256 newLatest = s.totalSupplyLatestCursor;
 
         if (newLatest != prevLatest) {
             _emitNewlyEffectiveSplits(prevLatest, newLatest);
@@ -69,8 +69,8 @@ contract InvariantVault is StoxReceiptVault {
         return LibCorporateAction.getStorage().accountMigrationCursor[account];
     }
 
-    function totalSupplyLatestSplit() external view returns (uint256) {
-        return LibCorporateAction.getStorage().totalSupplyLatestSplit;
+    function totalSupplyLatestCursor() external view returns (uint256) {
+        return LibCorporateAction.getStorage().totalSupplyLatestCursor;
     }
 
     function listHead() external view returns (uint256) {
@@ -96,9 +96,9 @@ contract InvariantVault is StoxReceiptVault {
     /// @dev Whether any stock split in the list has reached its effective
     /// time. `effectiveTotalSupply` applies multipliers once this is true
     /// even if `fold()` has not yet been called to update
-    /// `totalSupplyLatestSplit`, so invariants that depend on the
+    /// `totalSupplyLatestCursor`, so invariants that depend on the
     /// no-multiplier regime must gate on this rather than
-    /// `totalSupplyLatestSplit == 0`.
+    /// `totalSupplyLatestCursor == 0`.
     function hasCompletedSplit() external view returns (bool) {
         return LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED) != 0;
     }
@@ -358,12 +358,12 @@ contract StoxCorporateActionsHandler is Test {
     // Ghost assertions / recording
 
     /// @dev Assert cursor invariant #4: after any migration, the actor's
-    /// cursor equals the global `totalSupplyLatestSplit`.
+    /// cursor equals the global `totalSupplyLatestCursor`.
     function _assertCursorInvariant(address a) internal view {
         assertEq(
             VAULT.migrationCursor(a),
-            VAULT.totalSupplyLatestSplit(),
-            "invariant 4: cursor(actor) == totalSupplyLatestSplit after _migrateAccount"
+            VAULT.totalSupplyLatestCursor(),
+            "invariant 4: cursor(actor) == totalSupplyLatestCursor after _migrateAccount"
         );
     }
 
@@ -383,15 +383,15 @@ contract StoxCorporateActionsHandler is Test {
     }
 
     /// @dev After any migration on the receipt, the (holder, id) cursor
-    /// equals the vault's `totalSupplyLatestSplit`. A receipt cursor that
+    /// equals the vault's `totalSupplyLatestCursor`. A receipt cursor that
     /// drifted behind would cause `LibReceiptRebase.migratedBalance` to
     /// silently re-apply multipliers to an already-rasterized stored
     /// balance on the next read.
     function _assertReceiptCursorInvariant(address a, uint256 id) internal view {
         assertEq(
             RECEIPT.holderIdCursor(a, id),
-            VAULT.totalSupplyLatestSplit(),
-            "receipt invariant: holderIdCursor == totalSupplyLatestSplit after _migrateHolderId"
+            VAULT.totalSupplyLatestCursor(),
+            "receipt invariant: holderIdCursor == totalSupplyLatestCursor after _migrateHolderId"
         );
     }
 
@@ -541,7 +541,7 @@ contract StoxCorporateActionsInvariantTest is Test {
 
     /// Invariant 4 is a POST-CALL property, not a resting invariant:
     /// after `_migrateAccount(account)` returns inside `_update`, that
-    /// specific account's cursor equals `totalSupplyLatestSplit`. It does
+    /// specific account's cursor equals `totalSupplyLatestCursor`. It does
     /// NOT hold for every actor at every moment — an actor touched before
     /// a later split completes legitimately sits at the older cursor until
     /// they next transact, and that's the whole point of lazy migration.
@@ -576,7 +576,7 @@ contract StoxCorporateActionsInvariantTest is Test {
     /// effective time — the corporate-actions override must be a
     /// straight passthrough of OZ's `_totalSupply` in this regime and
     /// add no drift. Gates on `hasCompletedSplit()` rather than
-    /// `totalSupplyLatestSplit == 0`: `effectiveTotalSupply` applies
+    /// `totalSupplyLatestCursor == 0`: `effectiveTotalSupply` applies
     /// multipliers as soon as a split's effective time has passed, even
     /// if no subsequent `_update` has triggered `fold()` to advance the
     /// latest-split tracker.
@@ -587,24 +587,24 @@ contract StoxCorporateActionsInvariantTest is Test {
         assertEq(vault.totalSupply(), netMinted, "invariant 7: totalSupply == Sum(mints) - Sum(burns) with no split");
     }
 
-    /// Invariant 6: `totalSupplyLatestSplit` is either 0 (no split has ever
+    /// Invariant 6: `totalSupplyLatestCursor` is either 0 (no split has ever
     /// folded) or points at a node whose effective time is in the past. It
     /// must also not exceed the nodes array bounds.
     function invariantTotalSupplyLatestSplitValid() external view {
-        uint256 latest = vault.totalSupplyLatestSplit();
+        uint256 latest = vault.totalSupplyLatestCursor();
         if (latest == 0) return;
 
-        assertLt(latest, vault.nodesLength(), "invariant 6: totalSupplyLatestSplit must be a valid node index");
+        assertLt(latest, vault.nodesLength(), "invariant 6: totalSupplyLatestCursor must be a valid node index");
 
         CorporateActionNode memory node = vault.getNode(latest);
         assertLe(
             uint256(node.effectiveTime),
             block.timestamp,
-            "invariant 6: totalSupplyLatestSplit must point at a past-effectiveTime node"
+            "invariant 6: totalSupplyLatestCursor must point at a past-effectiveTime node"
         );
         assertTrue(
-            node.actionType & ACTION_TYPE_STOCK_SPLIT_V1 != 0,
-            "invariant 6: totalSupplyLatestSplit must point at a stock split node"
+            node.actionType & BALANCE_MIGRATION_TYPES_MASK != 0,
+            "invariant 6: totalSupplyLatestCursor must point at a node walked by migration (init or stock split)"
         );
     }
 

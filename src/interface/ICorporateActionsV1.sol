@@ -16,10 +16,31 @@ uint256 constant ACTION_TYPE_STOCK_SPLIT_V1 = 1 << 0;
 /// schedulable.
 uint256 constant ACTION_TYPE_STABLES_DIVIDEND_V1 = 1 << 1;
 
+/// @dev Bitmap action type for V1 vault initialisation. Created once per
+/// vault by the first `scheduleCorporateAction` call as the head of the
+/// corporate action list. Has identity semantics for stock split balance
+/// migrations (multiplier = 1, no balance change) and exists so that the
+/// per-cursor pot at index 0 has a corresponding migration step in the
+/// chronological walk — every holder's lazy migration first advances
+/// through this node, replacing the special "before any action" sentinel
+/// state. Cannot be scheduled or cancelled by users; resolveActionType
+/// rejects it. Future action types decide independently whether to include
+/// this bit in their masks (stock splits do, since identity-on-init is the
+/// correct semantic).
+uint256 constant ACTION_TYPE_INIT_V1 = 1 << 7;
+
+/// @dev Mask covering action types that participate in lazy balance
+/// migration: init (identity) and stock splits. Used by `LibRebase`,
+/// `LibReceiptRebase`, `LibTotalSupply.fold`, and
+/// `LibTotalSupply.effectiveTotalSupply` so each migration walk visits
+/// the bootstrap node and every completed stock split exactly once.
+uint256 constant BALANCE_MIGRATION_TYPES_MASK = ACTION_TYPE_INIT_V1 | ACTION_TYPE_STOCK_SPLIT_V1;
+
 /// @dev Union of all currently defined action types. Traversal getters revert
 /// with `InvalidMask` when called with `mask & VALID_ACTION_TYPES_MASK == 0`,
 /// since no node can match such a mask.
-uint256 constant VALID_ACTION_TYPES_MASK = ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1;
+uint256 constant VALID_ACTION_TYPES_MASK =
+    ACTION_TYPE_INIT_V1 | ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1;
 
 /// @title ICorporateActionsV1
 /// @notice Versioned interface for corporate actions on a vault. External

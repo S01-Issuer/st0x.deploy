@@ -49,7 +49,9 @@ contract LibRebaseTest is Test {
         vm.warp(2000);
         (uint256 balance, uint256 cursor) = h.migratedBalance(0, 0);
         assertEq(balance, 0);
-        assertEq(cursor, 1);
+        // Bootstrap is at idx 1, the user-scheduled split at idx 2; the
+        // walk advances through both completed migration nodes.
+        assertEq(cursor, 2);
     }
 
     /// Zero balance, multiple completed splits — cursor advances to the latest.
@@ -59,31 +61,39 @@ contract LibRebaseTest is Test {
         vm.warp(3000);
         (uint256 balance, uint256 cursor) = h.migratedBalance(0, 0);
         assertEq(balance, 0);
-        assertEq(cursor, 2);
+        // Bootstrap at idx 1, two splits at idx 2 and 3.
+        assertEq(cursor, 3);
     }
 
-    /// Zero balance with only pending (not yet effective) splits — cursor stays
-    /// where it was, because we only walk completed nodes.
+    /// Zero balance with only pending (not yet effective) splits — the
+    /// bootstrap node is always completed at schedule time, so the cursor
+    /// still advances past it. No further completed splits → walk stops at
+    /// the bootstrap.
     function testZeroBalancePendingSplitDoesNotAdvanceCursor() external {
         h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 5000, _splitParams(2));
         (uint256 balance, uint256 cursor) = h.migratedBalance(0, 0);
         assertEq(balance, 0);
-        assertEq(cursor, 0);
+        // Bootstrap (idx 1) is completed at schedule time; pending split
+        // (idx 2) is not.
+        assertEq(cursor, 1);
     }
 
-    /// Zero balance with no splits scheduled at all — no-op.
+    /// Zero balance with no splits scheduled at all — no-op (bootstrap has
+    /// not fired because no schedule call has run).
     function testZeroBalanceNoSplits() external view {
         (uint256 balance, uint256 cursor) = h.migratedBalance(0, 0);
         assertEq(balance, 0);
         assertEq(cursor, 0);
     }
 
-    /// No completed splits returns stored balance unchanged.
+    /// No completed splits returns stored balance unchanged. The bootstrap
+    /// node (idx 1) is completed at schedule time, so the cursor still
+    /// advances past it via identity migration.
     function testNoCompletedSplits() external {
         h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 5000, _splitParams(2));
         (uint256 balance, uint256 cursor) = h.migratedBalance(100, 0);
         assertEq(balance, 100);
-        assertEq(cursor, 0);
+        assertEq(cursor, 1);
     }
 
     /// Simple 2x split doubles the balance.
@@ -92,7 +102,8 @@ contract LibRebaseTest is Test {
         vm.warp(2000);
         (uint256 balance, uint256 cursor) = h.migratedBalance(100, 0);
         assertEq(balance, 200);
-        assertEq(cursor, 1);
+        // Bootstrap at idx 1 (identity), split at idx 2.
+        assertEq(cursor, 2);
     }
 
     /// Simple 1/3 reverse split.
@@ -101,7 +112,7 @@ contract LibRebaseTest is Test {
         vm.warp(2000);
         (uint256 balance, uint256 cursor) = h.migratedBalance(100, 0);
         assertEq(balance, 33);
-        assertEq(cursor, 1);
+        assertEq(cursor, 2);
     }
 
     /// Sequential precision test: 1/3 x 3 x 1/3 x 3 applied to 100.
@@ -128,11 +139,11 @@ contract LibRebaseTest is Test {
     /// Partial migration: cursor skips already-applied splits.
     function testPartialMigration() external {
         uint256 id1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
-        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        uint256 id2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
         vm.warp(3000);
         (uint256 balance, uint256 cursor) = h.migratedBalance(100, id1);
         assertEq(balance, 300);
-        assertEq(cursor, 2);
+        assertEq(cursor, id2);
     }
 
     /// Cursor already at latest completed node returns balance unchanged.

@@ -5,10 +5,21 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std/Test.sol";
 import {LibCorporateAction} from "src/lib/LibCorporateAction.sol";
 import {
+    ACTION_TYPE_INIT_V1,
     ACTION_TYPE_STOCK_SPLIT_V1,
     ACTION_TYPE_STABLES_DIVIDEND_V1,
     VALID_ACTION_TYPES_MASK
 } from "src/interface/ICorporateActionsV1.sol";
+
+/// @dev Mask covering every test-scheduled action type — types 1 and 2 here
+/// — without the bootstrap `ACTION_TYPE_INIT_V1` bit. These tests exercise
+/// pure linked-list traversal over user-scheduled nodes; including INIT in
+/// the mask would surface the bootstrap node at idx 1, which is implementation
+/// detail of `LibCorporateAction.schedule` rather than the traversal API
+/// being tested. The lifecycle / effective-supply tests in
+/// `LibTotalSupply.t.sol` and `LibRebase.t.sol` do exercise the bootstrap
+/// node via `BALANCE_MIGRATION_TYPES_MASK`.
+uint256 constant USER_TYPES_TEST_MASK = uint256(1) | uint256(2);
 import {CompletionFilter, CorporateActionNode, LibCorporateActionNode} from "src/lib/LibCorporateActionNode.sol";
 import {InvalidMask} from "src/error/ErrCorporateAction.sol";
 
@@ -76,22 +87,22 @@ contract LibCorporateActionNodeTest is Test {
     /// of the mask or filter. Exercises the `cursor == 0` short-circuit in
     /// the `_resolve` helper.
     function testEmptyListReturnsZeros() external view {
-        (uint256 c1, uint256 t1, uint64 e1) = h.latest(type(uint256).max, CompletionFilter.ALL);
+        (uint256 c1, uint256 t1, uint64 e1) = h.latest(USER_TYPES_TEST_MASK, CompletionFilter.ALL);
         assertEq(c1, 0);
         assertEq(t1, 0);
         assertEq(e1, 0);
 
-        (uint256 c2, uint256 t2, uint64 e2) = h.earliest(type(uint256).max, CompletionFilter.ALL);
+        (uint256 c2, uint256 t2, uint64 e2) = h.earliest(USER_TYPES_TEST_MASK, CompletionFilter.ALL);
         assertEq(c2, 0);
         assertEq(t2, 0);
         assertEq(e2, 0);
 
-        (uint256 c3, uint256 t3, uint64 e3) = h.nextOf(0, type(uint256).max, CompletionFilter.ALL);
+        (uint256 c3, uint256 t3, uint64 e3) = h.nextOf(0, USER_TYPES_TEST_MASK, CompletionFilter.ALL);
         assertEq(c3, 0);
         assertEq(t3, 0);
         assertEq(e3, 0);
 
-        (uint256 c4, uint256 t4, uint64 e4) = h.prevOf(0, type(uint256).max, CompletionFilter.ALL);
+        (uint256 c4, uint256 t4, uint64 e4) = h.prevOf(0, USER_TYPES_TEST_MASK, CompletionFilter.ALL);
         assertEq(c4, 0);
         assertEq(t4, 0);
         assertEq(e4, 0);
@@ -213,8 +224,8 @@ contract LibCorporateActionNodeTest is Test {
         (uint256 cursor,,) = h.latest((1 << 0) | (1 << 2), CompletionFilter.ALL);
         assertEq(cursor, id, "valid bit in mask matches node with that bit set");
 
-        // type(uint256).max has every bit including bit 0.
-        (cursor,,) = h.latest(type(uint256).max, CompletionFilter.ALL);
+        // USER_TYPES_TEST_MASK has every bit including bit 0.
+        (cursor,,) = h.latest(USER_TYPES_TEST_MASK, CompletionFilter.ALL);
         assertEq(cursor, id, "max-value mask still matches via its valid bits");
     }
 
@@ -396,21 +407,21 @@ contract LibCorporateActionNodeTest is Test {
 
     function testForwardAllVisitsEveryNodeRespectingMask() external {
         buildMixedCompletedPendingList();
-        assertForwardSequence(type(uint256).max, CompletionFilter.ALL, cursors8(id1, id2, id3, id4, id5, id6, id7, id8));
+        assertForwardSequence(USER_TYPES_TEST_MASK, CompletionFilter.ALL, cursors8(id1, id2, id3, id4, id5, id6, id7, id8));
         assertForwardSequence(1, CompletionFilter.ALL, cursors5(id1, id3, id4, id6, id8));
         assertForwardSequence(2, CompletionFilter.ALL, cursors3(id2, id5, id7));
     }
 
     function testForwardCompletedStopsAtFirstPendingRespectingMask() external {
         buildMixedCompletedPendingList();
-        assertForwardSequence(type(uint256).max, CompletionFilter.COMPLETED, cursors5(id1, id2, id3, id4, id5));
+        assertForwardSequence(USER_TYPES_TEST_MASK, CompletionFilter.COMPLETED, cursors5(id1, id2, id3, id4, id5));
         assertForwardSequence(1, CompletionFilter.COMPLETED, cursors3(id1, id3, id4));
         assertForwardSequence(2, CompletionFilter.COMPLETED, cursors2(id2, id5));
     }
 
     function testForwardPendingSkipsCompletedPrefixRespectingMask() external {
         buildMixedCompletedPendingList();
-        assertForwardSequence(type(uint256).max, CompletionFilter.PENDING, cursors3(id6, id7, id8));
+        assertForwardSequence(USER_TYPES_TEST_MASK, CompletionFilter.PENDING, cursors3(id6, id7, id8));
         assertForwardSequence(1, CompletionFilter.PENDING, cursors2(id6, id8));
         assertForwardSequence(2, CompletionFilter.PENDING, cursors1(id7));
     }
@@ -418,7 +429,7 @@ contract LibCorporateActionNodeTest is Test {
     function testBackwardAllVisitsEveryNodeRespectingMask() external {
         buildMixedCompletedPendingList();
         assertBackwardSequence(
-            type(uint256).max, CompletionFilter.ALL, cursors8(id8, id7, id6, id5, id4, id3, id2, id1)
+            USER_TYPES_TEST_MASK, CompletionFilter.ALL, cursors8(id8, id7, id6, id5, id4, id3, id2, id1)
         );
         assertBackwardSequence(1, CompletionFilter.ALL, cursors5(id8, id6, id4, id3, id1));
         assertBackwardSequence(2, CompletionFilter.ALL, cursors3(id7, id5, id2));
@@ -426,14 +437,14 @@ contract LibCorporateActionNodeTest is Test {
 
     function testBackwardCompletedSkipsPendingSuffixRespectingMask() external {
         buildMixedCompletedPendingList();
-        assertBackwardSequence(type(uint256).max, CompletionFilter.COMPLETED, cursors5(id5, id4, id3, id2, id1));
+        assertBackwardSequence(USER_TYPES_TEST_MASK, CompletionFilter.COMPLETED, cursors5(id5, id4, id3, id2, id1));
         assertBackwardSequence(1, CompletionFilter.COMPLETED, cursors3(id4, id3, id1));
         assertBackwardSequence(2, CompletionFilter.COMPLETED, cursors2(id5, id2));
     }
 
     function testBackwardPendingStopsAtFirstCompletedRespectingMask() external {
         buildMixedCompletedPendingList();
-        assertBackwardSequence(type(uint256).max, CompletionFilter.PENDING, cursors3(id8, id7, id6));
+        assertBackwardSequence(USER_TYPES_TEST_MASK, CompletionFilter.PENDING, cursors3(id8, id7, id6));
         assertBackwardSequence(1, CompletionFilter.PENDING, cursors2(id8, id6));
         assertBackwardSequence(2, CompletionFilter.PENDING, cursors1(id7));
     }
@@ -446,9 +457,9 @@ contract LibCorporateActionNodeTest is Test {
         h.schedule(1, 3500, hex"");
         // No warp — block.timestamp stays at 1000 < every effectiveTime.
 
-        (uint256 cursor,,) = h.earliest(type(uint256).max, CompletionFilter.COMPLETED);
+        (uint256 cursor,,) = h.earliest(USER_TYPES_TEST_MASK, CompletionFilter.COMPLETED);
         assertEq(cursor, 0, "earliest COMPLETED on all-pending list");
-        (cursor,,) = h.latest(type(uint256).max, CompletionFilter.COMPLETED);
+        (cursor,,) = h.latest(USER_TYPES_TEST_MASK, CompletionFilter.COMPLETED);
         assertEq(cursor, 0, "latest COMPLETED on all-pending list");
     }
 
@@ -460,9 +471,9 @@ contract LibCorporateActionNodeTest is Test {
         h.schedule(1, 1300, hex"");
         vm.warp(1500); // every node is now completed.
 
-        (uint256 cursor,,) = h.earliest(type(uint256).max, CompletionFilter.PENDING);
+        (uint256 cursor,,) = h.earliest(USER_TYPES_TEST_MASK, CompletionFilter.PENDING);
         assertEq(cursor, 0, "earliest PENDING on all-completed list");
-        (cursor,,) = h.latest(type(uint256).max, CompletionFilter.PENDING);
+        (cursor,,) = h.latest(USER_TYPES_TEST_MASK, CompletionFilter.PENDING);
         assertEq(cursor, 0, "latest PENDING on all-completed list");
     }
 
@@ -558,21 +569,21 @@ contract LibCorporateActionNodeTest is Test {
         buildMixedCompletedPendingList();
 
         // nextOf from the tail (id8) → 0 across all filters that match it.
-        (uint256 cursor,,) = h.nextOf(id8, type(uint256).max, CompletionFilter.ALL);
+        (uint256 cursor,,) = h.nextOf(id8, USER_TYPES_TEST_MASK, CompletionFilter.ALL);
         assertEq(cursor, 0, "next from tail ALL");
-        (cursor,,) = h.nextOf(id8, type(uint256).max, CompletionFilter.PENDING);
+        (cursor,,) = h.nextOf(id8, USER_TYPES_TEST_MASK, CompletionFilter.PENDING);
         assertEq(cursor, 0, "next from tail PENDING");
         // From the last completed node, nextOf COMPLETED → 0 (early-break).
-        (cursor,,) = h.nextOf(id5, type(uint256).max, CompletionFilter.COMPLETED);
+        (cursor,,) = h.nextOf(id5, USER_TYPES_TEST_MASK, CompletionFilter.COMPLETED);
         assertEq(cursor, 0, "next from last completed under COMPLETED");
 
         // prevOf from the head (id1) → 0 across all filters that match it.
-        (cursor,,) = h.prevOf(id1, type(uint256).max, CompletionFilter.ALL);
+        (cursor,,) = h.prevOf(id1, USER_TYPES_TEST_MASK, CompletionFilter.ALL);
         assertEq(cursor, 0, "prev from head ALL");
-        (cursor,,) = h.prevOf(id1, type(uint256).max, CompletionFilter.COMPLETED);
+        (cursor,,) = h.prevOf(id1, USER_TYPES_TEST_MASK, CompletionFilter.COMPLETED);
         assertEq(cursor, 0, "prev from head COMPLETED");
         // From the first pending node, prevOf PENDING → 0 (early-break).
-        (cursor,,) = h.prevOf(id6, type(uint256).max, CompletionFilter.PENDING);
+        (cursor,,) = h.prevOf(id6, USER_TYPES_TEST_MASK, CompletionFilter.PENDING);
         assertEq(cursor, 0, "prev from first pending under PENDING");
     }
 
@@ -587,19 +598,19 @@ contract LibCorporateActionNodeTest is Test {
         h.cancel(idB);
 
         // nextOf from a cancelled cursor — every filter returns 0.
-        (uint256 cursor,,) = h.nextOf(idA, type(uint256).max, CompletionFilter.ALL);
+        (uint256 cursor,,) = h.nextOf(idA, USER_TYPES_TEST_MASK, CompletionFilter.ALL);
         assertEq(cursor, 0, "next from cancelled idA ALL");
-        (cursor,,) = h.nextOf(idA, type(uint256).max, CompletionFilter.COMPLETED);
+        (cursor,,) = h.nextOf(idA, USER_TYPES_TEST_MASK, CompletionFilter.COMPLETED);
         assertEq(cursor, 0, "next from cancelled idA COMPLETED");
-        (cursor,,) = h.nextOf(idA, type(uint256).max, CompletionFilter.PENDING);
+        (cursor,,) = h.nextOf(idA, USER_TYPES_TEST_MASK, CompletionFilter.PENDING);
         assertEq(cursor, 0, "next from cancelled idA PENDING");
 
         // prevOf from a cancelled cursor — every filter returns 0.
-        (cursor,,) = h.prevOf(idB, type(uint256).max, CompletionFilter.ALL);
+        (cursor,,) = h.prevOf(idB, USER_TYPES_TEST_MASK, CompletionFilter.ALL);
         assertEq(cursor, 0, "prev from cancelled idB ALL");
-        (cursor,,) = h.prevOf(idB, type(uint256).max, CompletionFilter.COMPLETED);
+        (cursor,,) = h.prevOf(idB, USER_TYPES_TEST_MASK, CompletionFilter.COMPLETED);
         assertEq(cursor, 0, "prev from cancelled idB COMPLETED");
-        (cursor,,) = h.prevOf(idB, type(uint256).max, CompletionFilter.PENDING);
+        (cursor,,) = h.prevOf(idB, USER_TYPES_TEST_MASK, CompletionFilter.PENDING);
         assertEq(cursor, 0, "prev from cancelled idB PENDING");
     }
 
@@ -651,32 +662,32 @@ contract LibCorporateActionNodeTest is Test {
     function testTupleReturnsActionTypeAndEffectiveTime() external {
         buildMixedCompletedPendingList();
 
-        (uint256 cursor, uint256 actionType, uint64 effectiveTime) = h.earliest(type(uint256).max, CompletionFilter.ALL);
+        (uint256 cursor, uint256 actionType, uint64 effectiveTime) = h.earliest(USER_TYPES_TEST_MASK, CompletionFilter.ALL);
         assertEq(cursor, id1);
         assertEq(actionType, 1);
         assertEq(effectiveTime, 1500);
 
-        (cursor, actionType, effectiveTime) = h.earliest(type(uint256).max, CompletionFilter.PENDING);
+        (cursor, actionType, effectiveTime) = h.earliest(USER_TYPES_TEST_MASK, CompletionFilter.PENDING);
         assertEq(cursor, id6);
         assertEq(actionType, 1);
         assertEq(effectiveTime, 3500);
 
-        (cursor, actionType, effectiveTime) = h.latest(type(uint256).max, CompletionFilter.COMPLETED);
+        (cursor, actionType, effectiveTime) = h.latest(USER_TYPES_TEST_MASK, CompletionFilter.COMPLETED);
         assertEq(cursor, id5);
         assertEq(actionType, 2);
         assertEq(effectiveTime, 2300);
 
-        (cursor, actionType, effectiveTime) = h.nextOf(id5, type(uint256).max, CompletionFilter.ALL);
+        (cursor, actionType, effectiveTime) = h.nextOf(id5, USER_TYPES_TEST_MASK, CompletionFilter.ALL);
         assertEq(cursor, id6);
         assertEq(actionType, 1);
         assertEq(effectiveTime, 3500);
 
-        (cursor, actionType, effectiveTime) = h.prevOf(id3, type(uint256).max, CompletionFilter.COMPLETED);
+        (cursor, actionType, effectiveTime) = h.prevOf(id3, USER_TYPES_TEST_MASK, CompletionFilter.COMPLETED);
         assertEq(cursor, id2);
         assertEq(actionType, 2);
         assertEq(effectiveTime, 1700);
 
-        (cursor, actionType, effectiveTime) = h.nextOf(id8, type(uint256).max, CompletionFilter.ALL);
+        (cursor, actionType, effectiveTime) = h.nextOf(id8, USER_TYPES_TEST_MASK, CompletionFilter.ALL);
         assertEq(cursor, 0);
         assertEq(actionType, 0);
         assertEq(effectiveTime, 0);
@@ -700,7 +711,7 @@ contract LibCorporateActionNodeTest is Test {
         }
         vm.warp(warpTo + uint64((seed >> 16) % 100));
 
-        uint256[3] memory masks = [uint256(1), uint256(2), type(uint256).max];
+        uint256[3] memory masks = [uint256(1), uint256(2), USER_TYPES_TEST_MASK];
         CompletionFilter[3] memory filters =
             [CompletionFilter.ALL, CompletionFilter.COMPLETED, CompletionFilter.PENDING];
 
@@ -747,7 +758,7 @@ contract LibCorporateActionNodeTest is Test {
         }
         vm.warp(warpTo + uint64((seed >> 16) % 100));
 
-        uint256[3] memory masks = [uint256(1), uint256(2), type(uint256).max];
+        uint256[3] memory masks = [uint256(1), uint256(2), USER_TYPES_TEST_MASK];
         CompletionFilter[3] memory filters =
             [CompletionFilter.ALL, CompletionFilter.COMPLETED, CompletionFilter.PENDING];
 
@@ -788,7 +799,7 @@ contract LibCorporateActionNodeTest is Test {
         }
         vm.warp(warpTo + uint64((seed >> 16) % 100));
 
-        uint256[3] memory masks = [uint256(1), uint256(2), type(uint256).max];
+        uint256[3] memory masks = [uint256(1), uint256(2), USER_TYPES_TEST_MASK];
         CompletionFilter[3] memory filters =
             [CompletionFilter.ALL, CompletionFilter.COMPLETED, CompletionFilter.PENDING];
 
@@ -843,7 +854,7 @@ contract LibCorporateActionNodeTest is Test {
 
         vm.warp(warpTo + uint64((seed >> 16) % 100));
 
-        uint256[3] memory masks = [uint256(1), uint256(2), type(uint256).max];
+        uint256[3] memory masks = [uint256(1), uint256(2), USER_TYPES_TEST_MASK];
         CompletionFilter[3] memory filters =
             [CompletionFilter.ALL, CompletionFilter.COMPLETED, CompletionFilter.PENDING];
 
@@ -891,7 +902,7 @@ contract LibCorporateActionNodeTest is Test {
         // Warp forward so a subset of nodes becomes completed.
         vm.warp(warpTo + uint64((seed >> 16) % 100));
 
-        uint256[3] memory masks = [uint256(1), uint256(2), type(uint256).max];
+        uint256[3] memory masks = [uint256(1), uint256(2), USER_TYPES_TEST_MASK];
         CompletionFilter[3] memory filters =
             [CompletionFilter.ALL, CompletionFilter.COMPLETED, CompletionFilter.PENDING];
 

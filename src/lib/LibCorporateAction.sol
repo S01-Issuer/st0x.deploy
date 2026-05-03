@@ -4,7 +4,9 @@ pragma solidity ^0.8.25;
 
 import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
 import {LibStockSplit} from "./LibStockSplit.sol";
+import {LibERC20Storage} from "./LibERC20Storage.sol";
 import {
+    ACTION_TYPE_INIT_V1,
     ACTION_TYPE_STOCK_SPLIT_V1,
     ACTION_TYPE_STABLES_DIVIDEND_V1,
     VALID_ACTION_TYPES_MASK
@@ -39,8 +41,10 @@ bytes32 constant STOCK_SPLIT_V1_TYPE_HASH = keccak256("st0x.corporate-actions.st
 /// effectiveTime is less than or equal to the current block timestamp.
 ///
 /// Nodes are stored in a dynamic array. Index 0 is a sentinel (never used for
-/// real data). Real nodes start at index 1. Head/tail/prev/next are 1-based
-/// indices where 0 means "none".
+/// real data). Index 1, when the array is non-empty, is always the
+/// `ACTION_TYPE_INIT_V1` bootstrap node lazily created by `_ensureBootstrap`
+/// on the first `schedule` call. Real user-scheduled actions start at index 2.
+/// Head/tail/prev/next are 1-based indices where 0 means "none".
 library LibCorporateAction {
     /// @custom:storage-location erc7201:rain.storage.corporate-action.1
     /// @dev **DO NOT REORDER — APPEND ONLY.** This struct lives at a fixed
@@ -59,25 +63,26 @@ library LibCorporateAction {
         uint256 head;
         /// @param tail Tail of the list (1-based index, latest effectiveTime). 0 = empty.
         uint256 tail;
-        /// @param nodes Node storage. Index 0 is a sentinel. Real nodes start at index 1.
+        /// @param nodes Node storage. Index 0 is a sentinel; index 1 is the
+        /// init/bootstrap node once the list has been touched. Real
+        /// user-scheduled nodes start at index 2.
         CorporateActionNode[] nodes;
         /// @param accountMigrationCursor Per-account migration cursor — the 1-based index of the last
         /// node this account was migrated through.
         mapping(address => uint256) accountMigrationCursor;
         /// Per-cursor unmigrated supply. Maps cursor position (node index) to
         /// the sum of stored balances for accounts at that cursor level.
-        /// Index 0 is the bootstrap pot (pre-any-split balances).
-        /// When an account migrates from cursor k to cursor k', storedBalance
-        /// is subtracted from unmigrated[k] and the migrated balance is added
-        /// to unmigrated[k'].
+        /// Index 0 is the pre-bootstrap pot — captured by `_ensureBootstrap`
+        /// from OZ's `_totalSupply` at the moment the first action is
+        /// scheduled. When an account migrates from cursor k to cursor k',
+        /// storedBalance is subtracted from unmigrated[k] and the migrated
+        /// balance is added to unmigrated[k'].
         mapping(uint256 => uint256) unmigrated;
-        /// 1-based index of the latest completed split node seen by fold().
-        /// Mint/burn amounts are added to unmigrated[totalSupplyLatestSplit].
-        /// 0 = no completed splits seen yet.
-        uint256 totalSupplyLatestSplit;
-        /// Whether totalSupply tracking has been bootstrapped from OZ's
-        /// _totalSupply. Set once when the first completed split is detected.
-        bool totalSupplyBootstrapped;
+        /// 1-based index of the latest completed init-or-stock-split node
+        /// seen by fold(). Mint/burn amounts are routed to
+        /// `unmigrated[totalSupplyLatestCursor]`. 0 means no `_ensureBootstrap`
+        /// has run (no actions ever scheduled).
+        uint256 totalSupplyLatestCursor;
     }
 
     /// @dev Accessor for corporate action storage at the ERC-7201 slot.
@@ -114,10 +119,7 @@ library LibCorporateAction {
 
         CorporateActionStorage storage s = getStorage();
 
-        // Push sentinel at index 0 on first use.
-        if (s.nodes.length == 0) {
-            s.nodes.push();
-        }
+        _ensureBootstrap(s);
 
         // Push new node — its array position is the actionIndex.
         s.nodes.push();
@@ -129,6 +131,54 @@ library LibCorporateAction {
         node.parameters = parameters;
 
         _insertOrdered(s, actionIndex, effectiveTime);
+    }
+
+    /// @dev Lazily create the index-0 sentinel and the index-1 init/bootstrap
+    /// node on first `schedule` call. Idempotent — every subsequent call is a
+    /// length check.
+    ///
+    /// Bootstrap semantics:
+    /// - `actionType = ACTION_TYPE_INIT_V1` so balance-migration walks
+    ///   (`BALANCE_MIGRATION_TYPES_MASK`) visit it but pure stock-split
+    ///   queries (`ACTION_TYPE_STOCK_SPLIT_V1`-only) skip it.
+    /// - `effectiveTime = block.timestamp` so the node is "completed" the
+    ///   instant it is created — no migration walk ever sees it as pending.
+    /// - `parameters` left empty: `LibRebase` / `LibReceiptRebase` /
+    ///   `LibTotalSupply.effectiveTotalSupply` branch on `actionType ==
+    ///   ACTION_TYPE_INIT_V1` and skip the float multiplier read entirely
+    ///   (identity migration).
+    ///
+    /// Pot snapshot:
+    /// - `unmigrated[0] = LibERC20Storage.underlyingTotalSupply()` captures
+    ///   the pre-action total supply into pot 0. The pot invariant `I(0)`
+    ///   holds at this moment because schedule() does not touch balances and
+    ///   no `_migrateAccount` has fired yet — so OZ's `_totalSupply == Σ
+    ///   _balances` equality is intact, and every account's
+    ///   `accountMigrationCursor` is still 0.
+    ///
+    /// Cancel safety: bootstrap's `effectiveTime` is `block.timestamp` at
+    /// creation time, so any `cancel(1)` call reverts immediately with
+    /// `ActionAlreadyComplete` (the standard guard) — no special-casing
+    /// needed in `cancel`.
+    function _ensureBootstrap(CorporateActionStorage storage s) private {
+        if (s.nodes.length != 0) return;
+
+        // Index 0 — sentinel slot, never read.
+        s.nodes.push();
+
+        // Index 1 — bootstrap node.
+        s.nodes.push();
+        CorporateActionNode storage bootstrap = s.nodes[1];
+        bootstrap.actionType = ACTION_TYPE_INIT_V1;
+        bootstrap.effectiveTime = uint64(block.timestamp);
+
+        s.head = 1;
+        s.tail = 1;
+
+        // Snapshot pre-action total supply into pot 0. Every existing holder
+        // has accountMigrationCursor == 0, so I(0) holds: pot 0 = Σ
+        // underlyingBalance(acc) for accounts at cursor 0.
+        s.unmigrated[0] = LibERC20Storage.underlyingTotalSupply();
     }
 
     /// @dev Splice a populated node at `newIndex` into the time-ordered
@@ -239,13 +289,17 @@ library LibCorporateAction {
         node.effectiveTime = 0;
     }
 
-    /// @notice Count completed actions by walking from the head.
+    /// @notice Count completed user-scheduled actions by walking from the
+    /// head. The init/bootstrap node is excluded — `completedActionCount`
+    /// reports actions a scheduler created via `scheduleCorporateAction`,
+    /// not internal infrastructure.
     function countCompleted() internal view returns (uint256 count) {
         if (getStorage().nodes.length == 0) return 0;
-        uint256 current = LibCorporateActionNode.nextOfType(0, type(uint256).max, CompletionFilter.COMPLETED);
+        uint256 mask = VALID_ACTION_TYPES_MASK & ~ACTION_TYPE_INIT_V1;
+        uint256 current = LibCorporateActionNode.nextOfType(0, mask, CompletionFilter.COMPLETED);
         while (current != 0) {
             count++;
-            current = LibCorporateActionNode.nextOfType(current, type(uint256).max, CompletionFilter.COMPLETED);
+            current = LibCorporateActionNode.nextOfType(current, mask, CompletionFilter.COMPLETED);
         }
     }
 }

@@ -6,6 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {LibCorporateAction, STOCK_SPLIT_V1_TYPE_HASH} from "../../../src/lib/LibCorporateAction.sol";
 import {
+    ACTION_TYPE_INIT_V1,
     ACTION_TYPE_STOCK_SPLIT_V1,
     ACTION_TYPE_STABLES_DIVIDEND_V1,
     VALID_ACTION_TYPES_MASK
@@ -207,7 +208,7 @@ contract LibStockSplitValidationTest is Test {
     function testValidActionTypesMaskMatchesUnion() external pure {
         assertEq(
             VALID_ACTION_TYPES_MASK,
-            ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1,
+            ACTION_TYPE_INIT_V1 | ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1,
             "VALID_ACTION_TYPES_MASK must be union of all defined types"
         );
     }
@@ -384,17 +385,19 @@ contract LibStockSplitLifecycleTest is Test {
     /// Stock split full lifecycle: resolve, schedule, complete, walk, read multiplier.
     function testStockSplitLifecycle() external {
         Float threeX = LibDecimalFloat.packLossless(3, 0);
+        // Bootstrap takes idx 1 on first schedule, so the user split lands
+        // at idx 2.
         uint256 id = h.resolveAndSchedule(STOCK_SPLIT_V1_TYPE_HASH, 1500, LibStockSplit.encodeParametersV1(threeX));
-        assertEq(id, 1);
+        assertEq(id, 2);
         assertEq(h.countCompleted(), 0);
 
         vm.warp(2000);
         assertEq(h.countCompleted(), 1);
 
         uint256 completed = h.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
-        assertEq(completed, 1);
+        assertEq(completed, id);
 
-        CorporateActionNode memory node = h.getNode(1);
+        CorporateActionNode memory node = h.getNode(id);
         Float stored = abi.decode(node.parameters, (Float));
         assertEq(Float.unwrap(stored), Float.unwrap(threeX));
     }
