@@ -320,8 +320,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     function testAccountMigratedFiresOnTruncationCollision() external {
         vault.publicUpdate(address(0), ALICE, 1);
         // Multiplier 3/2 = 1.5 — `trunc(1 * 1.5) == 1`.
-        Float oneAndAHalf =
-            LibDecimalFloat.div(LibDecimalFloat.packLossless(3, 0), LibDecimalFloat.packLossless(2, 0));
+        Float oneAndAHalf = LibDecimalFloat.div(LibDecimalFloat.packLossless(3, 0), LibDecimalFloat.packLossless(2, 0));
         vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, LibStockSplit.encodeParametersV1(oneAndAHalf));
         vm.warp(2000);
 

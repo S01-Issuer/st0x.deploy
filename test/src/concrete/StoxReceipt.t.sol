@@ -763,7 +763,9 @@ contract StoxReceiptRebaseIntegrationTest is Test {
 
         _transfer(ALICE, ALICE, ID_A, 0);
 
-        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 10, "stored balance unchanged for this specific balance / multiplier");
+        assertEq(
+            receipt.rawStoredBalance(ALICE, ID_A), 10, "stored balance unchanged for this specific balance / multiplier"
+        );
         assertEq(receipt.holderIdCursor(ALICE, ID_A), 1, "alice cursor advanced");
     }
 
@@ -788,8 +790,7 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         for (uint256 i = 0; i < logs.length; i++) {
             if (
                 logs[i].topics.length > 0 && logs[i].topics[0] == sig
-                    && address(uint160(uint256(logs[i].topics[1]))) == ALICE
-                    && uint256(logs[i].topics[2]) == ID_A
+                    && address(uint160(uint256(logs[i].topics[1]))) == ALICE && uint256(logs[i].topics[2]) == ID_A
             ) {
                 fail();
             }
@@ -869,8 +870,7 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         for (uint256 i = 0; i < logs.length; i++) {
             if (
                 logs[i].topics.length > 0 && logs[i].topics[0] == sig
-                    && address(uint160(uint256(logs[i].topics[1]))) == ALICE
-                    && uint256(logs[i].topics[2]) == ID_A
+                    && address(uint160(uint256(logs[i].topics[1]))) == ALICE && uint256(logs[i].topics[2]) == ID_A
             ) {
                 count++;
                 (emittedFromCursor, emittedToCursor, emittedOld, emittedNew) =
@@ -887,9 +887,7 @@ contract StoxReceiptRebaseIntegrationTest is Test {
             assertEq(emittedToCursor, cursorAfter, "toCursor matches post-migrate cursor");
             assertEq(emittedOld, storedBefore, "oldBalance matches the pre-migrate stored balance");
             assertEq(
-                emittedNew,
-                receipt.rawStoredBalance(ALICE, ID_A),
-                "newBalance matches the post-migrate stored balance"
+                emittedNew, receipt.rawStoredBalance(ALICE, ID_A), "newBalance matches the post-migrate stored balance"
             );
         }
     }
