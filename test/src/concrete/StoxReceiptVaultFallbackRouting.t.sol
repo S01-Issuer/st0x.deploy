@@ -8,7 +8,7 @@ import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActi
 import {ICorporateActionsV1, ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/interface/ICorporateActionsV1.sol";
 import {LibProdDeployV3} from "../../../src/lib/LibProdDeployV3.sol";
 import {STOCK_SPLIT_V1_TYPE_HASH, UnknownActionType} from "../../../src/lib/LibCorporateAction.sol";
-import {CompletionFilter} from "../../../src/lib/LibCorporateActionNode.sol";
+import {CompletionFilter, NODE_NONE} from "../../../src/lib/LibCorporateActionNode.sol";
 import {IAuthorizeV1, Unauthorized} from "rain.vats/interface/IAuthorizeV1.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {LibTestTofu} from "../../lib/LibTestTofu.sol";
@@ -95,12 +95,12 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         assertEq(ICorporateActionsV1(address(vault)).completedActionCount(), 0);
     }
 
-    /// `latestActionOfType` on a fresh vault returns (0, 0, 0) through the
-    /// fallback delegatecall.
+    /// `latestActionOfType` on a fresh vault returns (NODE_NONE, 0, 0)
+    /// through the fallback delegatecall.
     function testLatestActionOfTypeRoutesThroughFallback() external view {
         (uint256 cursor, uint256 actionType, uint64 effectiveTime) =
             ICorporateActionsV1(address(vault)).latestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
-        assertEq(cursor, 0);
+        assertEq(cursor, NODE_NONE);
         assertEq(actionType, 0);
         assertEq(effectiveTime, 0);
     }
@@ -115,6 +115,7 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         vm.prank(ALICE);
         uint256 actionIndex = ICorporateActionsV1(address(vault))
             .scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, effectiveTime, params);
+        // Bootstrap occupies idx 0, so this user action lands at idx 1.
         assertEq(actionIndex, 1);
 
         // Authorizer was invoked from the vault's context (address(this) in
@@ -125,7 +126,7 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         // The scheduled action is readable through the fallback as well.
         (uint256 cursor, uint256 actionType, uint64 gotEffectiveTime) =
             ICorporateActionsV1(address(vault)).latestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
-        assertEq(cursor, 1);
+        assertEq(cursor, actionIndex);
         assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(gotEffectiveTime, effectiveTime);
     }
@@ -159,28 +160,31 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         bytes memory paramsA = abi.encode(LibDecimalFloat.packLossless(2, 0));
         bytes memory paramsB = abi.encode(LibDecimalFloat.packLossless(3, 0));
 
+        // Bootstrap takes idx 1; the two user actions land at idx 2 and 3.
         vm.prank(ALICE);
-        ICorporateActionsV1(address(vault)).scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 2000, paramsA);
+        uint256 idA =
+            ICorporateActionsV1(address(vault)).scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 2000, paramsA);
         vm.prank(ALICE);
-        ICorporateActionsV1(address(vault)).scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 3000, paramsB);
+        uint256 idB =
+            ICorporateActionsV1(address(vault)).scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 3000, paramsB);
 
         // earliest pending → first scheduled
         (uint256 cursor, uint256 actionType, uint64 effectiveTime) = ICorporateActionsV1(address(vault))
             .earliestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
-        assertEq(cursor, 1);
+        assertEq(cursor, idA);
         assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 2000);
 
-        // next from cursor 1 → second scheduled
+        // next from idA → second scheduled
         (cursor, actionType, effectiveTime) =
-            ICorporateActionsV1(address(vault)).nextOfType(1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
-        assertEq(cursor, 2);
+            ICorporateActionsV1(address(vault)).nextOfType(idA, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
+        assertEq(cursor, idB);
         assertEq(effectiveTime, 3000);
 
-        // prev from cursor 2 → first scheduled
+        // prev from idB → first scheduled
         (cursor, actionType, effectiveTime) =
-            ICorporateActionsV1(address(vault)).prevOfType(2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
-        assertEq(cursor, 1);
+            ICorporateActionsV1(address(vault)).prevOfType(idB, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
+        assertEq(cursor, idA);
         assertEq(effectiveTime, 2000);
     }
 
@@ -230,6 +234,7 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         ICorporateActionsV1(address(vault)).cancelCorporateAction(b);
         vm.stopPrank();
 
+        // Bootstrap occupies idx 0; user actions land at idx 1, 2, 3.
         assertEq(a, 1);
         assertEq(b, 2);
         assertEq(c, 3);
@@ -248,7 +253,7 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         // Walk past c — no further pending nodes.
         (uint256 cursor3,,) = ICorporateActionsV1(address(vault))
             .nextOfType(cursor2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
-        assertEq(cursor3, 0);
+        assertEq(cursor3, NODE_NONE);
     }
 
     /// `cancelCorporateAction` reaches the facet through the fallback,
@@ -277,7 +282,7 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         // cancel zeroes its prev/next pointers and resets effectiveTime.
         (uint256 cursor,,) =
             ICorporateActionsV1(address(vault)).latestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
-        assertEq(cursor, 0, "cancelled split is no longer pending");
+        assertEq(cursor, NODE_NONE, "cancelled split is no longer pending");
     }
 
     /// `getActionParameters` returns the raw `bytes` payload through the

@@ -56,14 +56,9 @@ contract LibTotalSupplyHarness {
         return s.unmigrated[cursor];
     }
 
-    function totalSupplyLatestSplit() external view returns (uint256) {
+    function totalSupplyLatestCursor() external view returns (uint256) {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        return s.totalSupplyLatestSplit;
-    }
-
-    function totalSupplyBootstrapped() external view returns (bool) {
-        LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        return s.totalSupplyBootstrapped;
+        return s.totalSupplyLatestCursor;
     }
 }
 
@@ -105,17 +100,21 @@ contract LibTotalSupplyTest is Test {
         vm.warp(2000);
         h.fold();
         assertEq(h.unmigrated(0), 1000);
-        assertEq(h.totalSupplyBootstrapped(), true);
-        assertEq(h.totalSupplyLatestSplit(), 1);
+        // Bootstrap at idx 0 + user split at idx 1; fold advances through
+        // both completed migration nodes to the split.
+        assertEq(h.totalSupplyLatestCursor(), 1);
     }
 
-    /// Account migration moves balance between pots.
+    /// Account migration moves balance between pots. Bootstrap is at idx 0
+    /// (the default cursor) with the user split at idx 1, so a real
+    /// migration from cursor 0 walks straight to cursor 1.
     function testAccountMigration() external {
         h.setOzTotalSupply(200);
         h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         h.fold();
-        // Account with stored=100 migrates from cursor 0 to cursor 1.
+        // Account with stored=100 migrates from cursor 0 (= bootstrap) to
+        // cursor 1 (the user split).
         h.onAccountMigrated(0, 100, 1, 200);
         assertEq(h.unmigrated(0), 100);
         assertEq(h.unmigrated(1), 200);
@@ -143,11 +142,11 @@ contract LibTotalSupplyTest is Test {
         vm.warp(2000);
         h.fold();
 
-        // A migrates through split 1.
+        // A migrates through split 1 (idx 1) only.
         h.onAccountMigrated(0, 100, 1, 200);
         assertEq(h.effectiveTotalSupply(), 600);
 
-        // Second split (3x).
+        // Second split (3x) lands at idx 2.
         h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
         vm.warp(3000);
         h.fold();
@@ -156,15 +155,15 @@ contract LibTotalSupplyTest is Test {
         //             = 1200 + 600 = 1800
         assertEq(h.effectiveTotalSupply(), 1800);
 
-        // B migrates from cursor 0 through both splits.
+        // B migrates from cursor 0 through both splits to cursor 2.
         h.onAccountMigrated(0, 100, 2, 600);
         assertEq(h.effectiveTotalSupply(), 1800);
 
-        // A migrates from cursor 1 through split 2.
+        // A migrates from cursor 1 through split 2 to cursor 2.
         h.onAccountMigrated(1, 200, 2, 600);
         assertEq(h.effectiveTotalSupply(), 1800);
 
-        // C migrates from cursor 0.
+        // C migrates from cursor 0 through both splits.
         h.onAccountMigrated(0, 100, 2, 600);
         assertEq(h.unmigrated(0), 0);
         assertEq(h.unmigrated(1), 0);
@@ -184,7 +183,7 @@ contract LibTotalSupplyTest is Test {
 
         assertEq(h.effectiveTotalSupply(), 3);
 
-        // A migrates: stored=7, effective=2.
+        // A migrates: stored=7, effective=2. Cursor 0 → 1 (split at idx 1).
         h.onAccountMigrated(0, 7, 1, 2);
         // unmigrated[0]=3, totalSupply = floor(3 * 1/3) + 2 = 0 + 2 = 2
         assertEq(h.effectiveTotalSupply(), 2);
@@ -267,6 +266,7 @@ contract LibTotalSupplyTest is Test {
         vm.warp(3000);
         h.fold();
 
+        // Splits live at idx 1 and 2 (bootstrap occupies idx 0).
         h.onAccountMigrated(0, 100, 2, 600);
         assertEq(h.effectiveTotalSupply(), 1200);
 
@@ -327,8 +327,9 @@ contract LibTotalSupplyTest is Test {
 
         // After fold, unmigrated[0] == bootstrapPot. Add later pots via the
         // onAccountMigrated helper with from=0, storedBalance=0 so no
-        // underflow risk on pot[0]. Each call adds `laterPots[i-1]` to the
-        // pot at cursor `i`.
+        // underflow risk on pot[0]. The three splits live at idx 1, 2, 3
+        // (bootstrap is at idx 0). Each call adds `laterPots[i]` to the
+        // pot at the corresponding split cursor.
         h.onAccountMigrated(0, 0, 1, uint256(laterPots[0]));
         h.onAccountMigrated(0, 0, 2, uint256(laterPots[1]));
         h.onAccountMigrated(0, 0, 3, uint256(laterPots[2]));
@@ -349,7 +350,7 @@ contract LibTotalSupplyTest is Test {
     }
 
     /// `onBurn` reverts via Solidity 0.8 underflow panic when the burn
-    /// amount exceeds the current pot at `totalSupplyLatestSplit`. Under
+    /// amount exceeds the current pot at `totalSupplyLatestCursor`. Under
     /// normal vault operation this state is unreachable (every burn is
     /// preceded by `_migrateAccount(burner)`, which moves the burner's
     /// balance into the latest pot first), but wrapping the subtraction
@@ -360,8 +361,9 @@ contract LibTotalSupplyTest is Test {
         h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         h.fold();
-        // `unmigrated[1]` is still 0 — nothing has migrated or been minted
-        // post-fold. Attempting to burn from an empty pot underflows.
+        // `unmigrated[1]` (the latest cursor — the user split at idx 1) is
+        // still 0; nothing has migrated or been minted post-fold.
+        // Attempting to burn from an empty pot underflows.
         vm.expectRevert(stdError.arithmeticError);
         h.onBurn(1);
     }
@@ -373,7 +375,7 @@ contract LibTotalSupplyTest is Test {
         h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         h.fold();
-        h.onMint(100); // unmigrated[1] = 100
+        h.onMint(100); // unmigrated[1] = 100 (latest cursor is the user split)
         h.onBurn(100); // exact boundary — OK
         vm.expectRevert(stdError.arithmeticError);
         h.onBurn(1);

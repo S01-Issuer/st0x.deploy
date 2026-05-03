@@ -4,8 +4,12 @@ pragma solidity ^0.8.25;
 
 import {Float} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {LibCorporateAction} from "./LibCorporateAction.sol";
-import {ACTION_TYPE_STOCK_SPLIT_V1} from "../interface/ICorporateActionsV1.sol";
-import {CompletionFilter, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
+import {
+    ACTION_TYPE_INIT_V1,
+    ACTION_TYPE_STOCK_SPLIT_V1,
+    BALANCE_MIGRATION_TYPES_MASK
+} from "../interface/ICorporateActionsV1.sol";
+import {CompletionFilter, LibCorporateActionNode, NODE_NONE} from "./LibCorporateActionNode.sol";
 import {LibStockSplit} from "./LibStockSplit.sol";
 import {LibERC20Storage} from "./LibERC20Storage.sol";
 import {LibRebaseMath} from "./LibRebaseMath.sol";
@@ -34,11 +38,12 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 ///   `unmigrated[k]` = sum of stored balances for accounts whose migration
 ///   cursor is `k`.
 ///
-/// totalSupply is computed by walking completed splits and accumulating:
+/// totalSupply is computed by walking the init/bootstrap node and every
+/// completed split, accumulating:
 ///
 ///   running = unmigrated[0]
-///   for each completed split at position p with multiplier m:
-///     running = trunc(running * m) + unmigrated[p]
+///   for each completed init-or-split node at position p with multiplier m:
+///     running = trunc(running * m) + unmigrated[p]   (m = 1 for the init node)
 ///   totalSupply = running
 ///
 /// ## Migration
@@ -53,25 +58,38 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 ///
 /// ## Convergence
 ///
-/// When all accounts have migrated through all completed splits,
+/// When all accounts have migrated through every completed split,
 /// `unmigrated[0..latest-1]` are all zero and `unmigrated[latest]` equals the
 /// exact sum of all rasterized balances. The overestimate fully resolves.
 ///
 /// ## Pots are not consolidated
 ///
 /// Unlike the two-bucket approach, pots are never merged or consolidated as
-/// new splits complete. The view walks all completed-split pots at read
+/// new splits complete. The view walks all completed migration pots at read
 /// time and automatically picks up new multipliers.
 ///
-/// `fold()` is still called on every `_update`, but it only does two things:
-/// bootstrap `unmigrated[0]` from OZ's raw totalSupply on the first
-/// completed-split encounter, and advance `totalSupplyLatestSplit` so
-/// mint/burn tracking routes to the correct pot. It does NOT recompute or
-/// redistribute any existing pot.
+/// ## Bootstrap as a real init node
+///
+/// The pre-action snapshot of OZ's `_totalSupply` lives in `unmigrated[0]`,
+/// captured by `LibCorporateAction._ensureBootstrap` on the first
+/// `schedule()` call. The bootstrap simultaneously pushes the index-1 init
+/// node (`actionType = ACTION_TYPE_INIT_V1`, `effectiveTime =
+/// block.timestamp`) so the migration walk has a real first step rather
+/// than a magic invisible slot. The init step is identity for stock-split
+/// migrations, which means every holder's cursor advances `0 → 1 → ...`
+/// uniformly through the list — there is no special-cased "before any
+/// action" state and the disambiguation between "cursor at index 0" and
+/// "cursor not yet set" disappears: every holder starts at the pre-init
+/// cursor 0 and migration is simply walking the chronological list.
+///
+/// `fold()` advances `totalSupplyLatestCursor` through both the init node
+/// and every completed split using `BALANCE_MIGRATION_TYPES_MASK`, so
+/// mint/burn deltas always route to the same pot every account's
+/// `_migrateAccount` lands them in.
 ///
 /// ## Pot invariant
 ///
-/// At every `_update` boundary (post-bootstrap), for every cursor `k`:
+/// At every `_update` boundary (post-`_ensureBootstrap`), for every cursor `k`:
 ///
 ///   `I(k): unmigrated[k] == Σ_{acc : cursor(acc) == k, acc != address(0)} underlyingBalance(acc)`
 ///
@@ -86,8 +104,9 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 ///
 /// ### Proof of preservation
 ///
-/// **Base case** (immediately after first `fold()` bootstrap):
-/// - Every account has `cursor == 0` because no migration has run yet.
+/// **Base case** (immediately after `_ensureBootstrap` runs in the first
+/// `schedule()`):
+/// - Every account has `cursor == 0` because no `_update` has fired yet.
 /// - `unmigrated[0] := underlyingTotalSupply() == Σ_acc underlyingBalance(acc)`
 ///   by OZ's own invariant (`_totalSupply` equals the sum of `_balances`).
 /// - So `unmigrated[0] == Σ_{cursor==0} underlyingBalance(acc)`. I(0) holds.
@@ -100,8 +119,8 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 /// violated in between these steps — we only claim it holds at entry
 /// and exit.
 ///
-/// 1. `fold()` post-bootstrap mutates only `totalSupplyLatestSplit`; no pot
-///    write and no balance write. I(k) unchanged.
+/// 1. `fold()` mutates only `totalSupplyLatestCursor`; no pot write and no
+///    balance write. I(k) unchanged.
 ///
 /// 2. `_migrateAccount(account)` advancing the cursor from `c` to `c'`
 ///    with stored balance `b` rasterizing to `b'`:
@@ -117,27 +136,27 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 ///
 /// 3. `super._update(from, to, amount)`:
 ///    - Mint case (`from == 0`): `_balances[to] += amount;
-///      _totalSupply += amount`. `Σ_{cursor==latestSplit}` rises by
-///      `amount` (since `to` is at `latestSplit` post-migrate). Pot is
+///      _totalSupply += amount`. `Σ_{cursor==latestCursor}` rises by
+///      `amount` (since `to` is at `latestCursor` post-migrate). Pot is
 ///      NOT written yet, so the invariant is temporarily violated.
 ///    - Burn case (`to == 0`): reverts if `_balances[from] < amount`
 ///      (`ERC20InsufficientBalance`). On success,
 ///      `_balances[from] -= amount; _totalSupply -= amount`.
-///      `Σ_{cursor==latestSplit}` drops by `amount`. Pot NOT written
+///      `Σ_{cursor==latestCursor}` drops by `amount`. Pot NOT written
 ///      yet — invariant temporarily violated.
 ///    - Transfer case: `_balances[from] -= amount; _balances[to] += amount`.
-///      Both accounts at `latestSplit`, so `Σ_{cursor==latestSplit}`
+///      Both accounts at `latestCursor`, so `Σ_{cursor==latestCursor}`
 ///      unchanged. I(k) unchanged. Done for transfer.
 ///
 /// 4. `onMint(amount)` (mint case only): adds `amount` to
-///    `unmigrated[totalSupplyLatestSplit]`. Restores the invariant that
+///    `unmigrated[totalSupplyLatestCursor]`. Restores the invariant that
 ///    step 3 temporarily violated — pot now matches the new balance sum. ✓
 ///
 /// 5. `onBurn(amount)` (burn case only): subtracts `amount` from
-///    `unmigrated[totalSupplyLatestSplit]`. Restores the invariant. ✓
+///    `unmigrated[totalSupplyLatestCursor]`. Restores the invariant. ✓
 ///    Underflow safety: OZ's check in step 3 already enforced
 ///    `_balances[from] >= amount`. By IH at `_update` entry,
-///    `unmigrated[latestSplit] >= _balances[from] >= amount`, so the
+///    `unmigrated[latestCursor] >= _balances[from] >= amount`, so the
 ///    subtraction cannot underflow. This is why `onBurn` runs AFTER
 ///    `super._update` — if it ran before, a lone-holder over-burn would
 ///    underflow the pot with a raw panic instead of surfacing OZ's
@@ -147,97 +166,78 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 /// the invariant holds at every `_update` boundary. Q.E.D.
 library LibTotalSupply {
     /// @notice Compute the effective totalSupply without state changes.
-    /// Walks all completed splits, accumulating per-pot contributions with
-    /// sequential rasterization between each multiplier.
+    /// Walks the init node and every completed split, accumulating per-pot
+    /// contributions with sequential rasterization between each multiplier.
+    /// The init node contributes identity (no multiplier), so the
+    /// pre-init pot at index 0 plus the post-init pot at index 1 simply
+    /// equals OZ's `_totalSupply` at the moment bootstrap fired (modulo
+    /// any post-bootstrap mint/burn deltas, which onMint/onBurn route to
+    /// the latest pot).
     /// @return supply The effective total supply.
     function effectiveTotalSupply() internal view returns (uint256 supply) {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
 
-        // No splits ever scheduled — use OZ fallback.
+        // No actions ever scheduled — bootstrap has not fired, so OZ's
+        // totalSupply is authoritative.
         if (s.nodes.length == 0) {
             return LibERC20Storage.underlyingTotalSupply();
         }
 
-        // Find the first completed split. Used both to decide whether to
-        // fall back to OZ (no completed splits → supply is whatever OZ
-        // says) and as the starting node for the walk below.
-        uint256 nodeIndex = LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
-
+        // The first iteration walks from the head (the bootstrap node, which
+        // is always completed). The bootstrap is identity, so it contributes
+        // `unmigrated[0]` without a multiplier read — equivalent to seeding
+        // `running = unmigrated[0]` and walking from the bootstrap forward.
+        uint256 nodeIndex =
+            LibCorporateActionNode.nextOfType(NODE_NONE, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
         uint256 running;
-        if (s.totalSupplyBootstrapped) {
-            running = s.unmigrated[0];
-        } else {
-            if (nodeIndex == 0) return LibERC20Storage.underlyingTotalSupply();
-            running = LibERC20Storage.underlyingTotalSupply();
-        }
 
-        while (nodeIndex != 0) {
-            Float multiplier = LibStockSplit.decodeParametersV1(s.nodes[nodeIndex].parameters);
-            // Rasterize via the shared rebase primitive so every step of
-            // the totalSupply walk uses the same rounding characteristics
-            // as per-account migration. See `LibRebaseMath.applyMultiplier`.
-            running = LibRebaseMath.applyMultiplier(running, multiplier);
+        while (nodeIndex != NODE_NONE) {
+            uint256 actionType = s.nodes[nodeIndex].actionType;
+            if (actionType == ACTION_TYPE_STOCK_SPLIT_V1) {
+                Float multiplier = LibStockSplit.decodeParametersV1(s.nodes[nodeIndex].parameters);
+                // Rasterize via the shared rebase primitive so every step of
+                // the totalSupply walk uses the same rounding characteristics
+                // as per-account migration. See `LibRebaseMath.applyMultiplier`.
+                running = LibRebaseMath.applyMultiplier(running, multiplier);
+            }
+            // ACTION_TYPE_INIT_V1: identity, no multiplier read.
             running += s.unmigrated[nodeIndex];
 
             nodeIndex =
-                LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
+                LibCorporateActionNode.nextOfType(nodeIndex, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
         }
 
         return running;
     }
 
-    /// @notice Bootstrap totalSupply tracking and update the latest split
-    /// cursor. Must be called in `_update` before any account migrations.
+    /// @notice Advance `totalSupplyLatestCursor` through any newly-completed
+    /// init-or-split nodes. Called from `_update` before any account
+    /// migrations so onMint/onBurn route to the correct pot.
     function fold() internal {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
 
-        // No splits ever scheduled — nothing to do.
+        // No actions ever scheduled — bootstrap has not fired; nothing to
+        // advance and no pot to route mint/burn into.
         if (s.nodes.length == 0) return;
 
-        // Bootstrap from OZ's totalSupply on first completed split.
-        //
-        // Safety: `underlyingTotalSupply()` returns OZ's `_totalSupply`, and
-        // the pot invariant requires it to equal `Σ _balances` at the moment
-        // of this read. That equality is maintained by OZ's `_update` but
-        // broken by `_migrateAccount`, which writes balances directly via
-        // `LibERC20Storage.setUnderlyingBalance` without touching
-        // `_totalSupply`.
-        //
-        // Bootstrap fires exactly once, at the top of the first `_update`
-        // where a completed stock split exists. In every prior `_update`,
-        // `_migrateAccount` called `LibRebase.migratedBalance` which walks
-        // only completed splits — so in a world with no completed splits,
-        // it early-returned without writing any balance. Therefore at the
-        // moment bootstrap runs here, no `setUnderlyingBalance` has ever
-        // fired, and OZ's invariant still holds.
-        //
-        // If this ordering changes (e.g. `fold()` moved after
-        // `_migrateAccount`, or a new caller of `setUnderlyingBalance`
-        // added), this bootstrap is no longer safe and must be
-        // re-derived.
-        if (!s.totalSupplyBootstrapped) {
-            uint256 firstIndex =
-                LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
-            if (firstIndex == 0) return;
-
-            s.unmigrated[0] = LibERC20Storage.underlyingTotalSupply();
-            s.totalSupplyBootstrapped = true;
-        }
-
-        // Walk from the last known split to find newly completed ones.
-        // Track the latest seen in a local and write once at the end — each
-        // loop-body SSTORE would otherwise be stomped by the next iteration.
+        // Walk from the last known cursor to find newly completed migration
+        // nodes (init or stock-split). Track the latest seen in a local and
+        // write once at the end — each loop-body SSTORE would otherwise be
+        // stomped by the next iteration.
+        // `_ensureBootstrap` initialises `totalSupplyLatestCursor` to
+        // `NODE_NONE`, which `nextOfType` interprets as "from head
+        // inclusive" so the first fold lands on the bootstrap.
         uint256 nodeIndex = LibCorporateActionNode.nextOfType(
-            s.totalSupplyLatestSplit, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED
+            s.totalSupplyLatestCursor, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED
         );
 
-        uint256 latest;
-        while (nodeIndex != 0) {
+        uint256 latest = NODE_NONE;
+        while (nodeIndex != NODE_NONE) {
             latest = nodeIndex;
             nodeIndex =
-                LibCorporateActionNode.nextOfType(nodeIndex, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
+                LibCorporateActionNode.nextOfType(nodeIndex, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
         }
-        if (latest != 0) s.totalSupplyLatestSplit = latest;
+        if (latest != NODE_NONE) s.totalSupplyLatestCursor = latest;
     }
 
     /// @notice Update tracking when an account is migrated.
@@ -257,34 +257,31 @@ library LibTotalSupply {
     }
 
     /// @notice Update tracking for a mint (adds to the latest cursor pot).
-    /// @dev Pre-bootstrap this is a no-op: OZ's `_totalSupply` is still
-    /// incremented by `super._update` before this runs, and
-    /// `effectiveTotalSupply` falls back to `underlyingTotalSupply()` until
-    /// bootstrap fires. The first `fold()` where a completed split exists
-    /// snapshots `underlyingTotalSupply()` into `unmigrated[0]`, capturing
-    /// every pre-bootstrap mint/burn in a single read. Writing to a pot
-    /// before that snapshot would double-count once bootstrap fires.
+    /// @dev When `nodes.length == 0` (no `schedule` ever called) this is a
+    /// no-op: there is no init node, no pot, and `effectiveTotalSupply`
+    /// falls back to OZ's `_totalSupply` directly. Once the first
+    /// `schedule()` runs, `_ensureBootstrap` snapshots OZ's totalSupply
+    /// into `unmigrated[0]` and `fold()` will advance
+    /// `totalSupplyLatestCursor` to the init node on the next `_update`,
+    /// so all subsequent mints route into the post-init pot.
     /// @param amount The minted amount.
     function onMint(uint256 amount) internal {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        if (s.totalSupplyBootstrapped) {
-            s.unmigrated[s.totalSupplyLatestSplit] += amount;
+        if (s.nodes.length != 0) {
+            s.unmigrated[s.totalSupplyLatestCursor] += amount;
         }
     }
 
     /// @notice Update tracking for a burn (subtracts from the latest cursor pot).
-    /// @dev Pre-bootstrap this is a no-op for the same reason as `onMint`:
-    /// OZ's `_totalSupply` decrement from `super._update` is what the
-    /// pre-bootstrap `effectiveTotalSupply` reads, and bootstrap captures
-    /// the net post-decrement value when it fires.
+    /// @dev Pre-bootstrap is a no-op for the same reason as `onMint`.
     /// @param amount The burned amount.
     function onBurn(uint256 amount) internal {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        if (s.totalSupplyBootstrapped) {
+        if (s.nodes.length != 0) {
             // Checked subtraction: safe by the pot invariant composed with
             // OZ's own `ERC20InsufficientBalance` guard on the burning
             // account's balance. See library NatSpec, proof step 5.
-            s.unmigrated[s.totalSupplyLatestSplit] -= amount;
+            s.unmigrated[s.totalSupplyLatestCursor] -= amount;
         }
     }
 }
