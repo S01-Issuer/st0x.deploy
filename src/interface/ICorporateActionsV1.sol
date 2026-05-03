@@ -49,20 +49,16 @@ uint256 constant VALID_ACTION_TYPES_MASK = ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_T
 /// Do not compute balances from `Transfer` events alone — event-sourced
 /// indexers that sum `Transfer` events will diverge from `balanceOf` after a
 /// split. Supplement with:
-///   - `CorporateActionEffective`: emitted the first time any transaction
-///     touches the vault after a split becomes effective. Fires BEFORE any
-///     per-account migration in the same transaction. Use as a trigger to
-///     re-poll `balanceOf` for all tracked accounts.
+///   - `CorporateActionScheduled` + `CorporateActionCancelled`: mirror
+///     these to reconstruct the linked list of `(actionIndex, actionType,
+///     effectiveTime, parameters)`. A split is in effect once
+///     `block.timestamp >= effectiveTime` for an unscheduled action — no
+///     on-chain notification fires at that moment. Indexers compute
+///     effectiveness from `block.timestamp` against the schedule list.
 ///   - `AccountMigrated`: emitted per account when its stored balance is
 ///     rasterized on first touch post-split. Not emitted for zero-balance
 ///     accounts.
 ///   - `ReceiptAccountMigrated`: same, for ERC-1155 receipt balances.
-///
-/// `wasEffectiveAt` on `CorporateActionEffective` is almost always in the past
-/// relative to the emitting block. It records when the split was scheduled to
-/// take effect, not when the first transaction observed it. The gap is however
-/// many blocks elapsed between `effectiveTime` and the first post-effectiveTime
-/// transaction.
 ///
 /// Balance deltas around a transfer include both the transfer amount and any
 /// pending rebase. Example: Alice has 100 raw shares, a 2x split has landed
@@ -162,15 +158,6 @@ interface ICorporateActionsV1 {
     /// @param sender The msg.sender that called `cancelCorporateAction`.
     /// @param actionIndex The action index that was cancelled.
     event CorporateActionCancelled(address indexed sender, uint256 indexed actionIndex);
-
-    /// @notice Emitted the first time any transaction touches the vault after
-    /// a corporate action's `effectiveTime` has passed. Fires before any
-    /// per-account migration in the same transaction.
-    /// @param actionIndex The 1-based index of the action that became effective.
-    /// @param actionType The bitmap action type.
-    /// @param wasEffectiveAt The scheduled effective time (almost always in the
-    /// past relative to the emitting block).
-    event CorporateActionEffective(uint256 indexed actionIndex, uint256 actionType, uint64 wasEffectiveAt);
 
     /// @notice Emitted when an account's stored ERC-20 balance is rasterized
     /// to the post-rebase value on first touch after a stock split.

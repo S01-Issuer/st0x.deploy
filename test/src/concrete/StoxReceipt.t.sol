@@ -454,8 +454,15 @@ contract StoxReceiptRebaseIntegrationTest is Test {
     /// holder's own `msg.sender == from` call bypasses the approval check
     /// but should still see the rebased ceiling.
     function testFuzzHolderDirectTransferUsesPostRebaseBalance(uint64 deposit, uint128 amount, uint8 mulSeed) external {
+        // mulSeed bound to [2,5] so int256 cast cannot overflow.
+        // forge-lint: disable-next-line(unsafe-typecast)
         int256 multiplier = int256(uint256(bound(mulSeed, 2, 5)));
+        // bound result is < type(uint64).max so uint64 cast is safe;
+        // multiplier is in [2,5] so uint64(uint256(multiplier)) cannot truncate.
+        // forge-lint: disable-next-line(unsafe-typecast)
         deposit = uint64(bound(deposit, 1, type(uint64).max / uint64(uint256(multiplier))));
+        // multiplier is bounded to [2,5] so the int256 → uint256 cast is safe.
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint256 postRebase = uint256(deposit) * uint256(multiplier);
         uint256 xfer = bound(amount, 0, postRebase);
 
@@ -492,8 +499,15 @@ contract StoxReceiptRebaseIntegrationTest is Test {
     function testFuzzApprovedOperatorTransfersPostRebaseBalance(uint64 deposit, uint128 transferAmount, uint8 mulSeed)
         external
     {
+        // mulSeed bound to [2,5] so int256 cast cannot overflow.
+        // forge-lint: disable-next-line(unsafe-typecast)
         int256 multiplier = int256(uint256(bound(mulSeed, 2, 5)));
+        // bound result is < type(uint64).max; multiplier in [2,5] so
+        // uint64(uint256(multiplier)) cannot truncate.
+        // forge-lint: disable-next-line(unsafe-typecast)
         deposit = uint64(bound(deposit, 1, type(uint64).max / uint64(uint256(multiplier))));
+        // multiplier is bounded to [2,5] so the int256 → uint256 cast is safe.
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint256 postRebase = uint256(deposit) * uint256(multiplier);
         uint256 amount = bound(transferAmount, 0, postRebase);
 
@@ -594,7 +608,9 @@ contract StoxReceiptRebaseIntegrationTest is Test {
             if (logs[i].topics[0] == migratedSig && migratedIdx < 4) {
                 address who = address(uint160(uint256(logs[i].topics[1])));
                 uint256 id = uint256(logs[i].topics[2]);
-                migratedOrder[migratedIdx++] = uint256(uint160(who)) << 96 | uint256(uint96(id)); // pack for comparison
+                // ID is small (≤ 2 in this test) so the uint96 cast can't truncate.
+                // forge-lint: disable-next-line(unsafe-typecast)
+                migratedOrder[migratedIdx++] = uint256(uint160(who)) << 96 | uint256(uint96(id));
             } else if (logs[i].topics[0] == batchSig) {
                 batchIdx = i;
             }
@@ -602,7 +618,10 @@ contract StoxReceiptRebaseIntegrationTest is Test {
 
         assertEq(migratedIdx, 2, "alice-only migrations: ID_A and ID_B (bob starts at 0 balance, no emit)");
         // Each element packs (address, id); compare as (alice, ID_A), (alice, ID_B).
+        // ID_A and ID_B are small constants (1 and 2) — uint96 cast cannot truncate.
+        // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(migratedOrder[0], uint256(uint160(ALICE)) << 96 | uint96(ID_A), "first emit is (alice, ID_A)");
+        // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(migratedOrder[1], uint256(uint160(ALICE)) << 96 | uint96(ID_B), "second emit is (alice, ID_B)");
         assertLt(batchIdx, type(uint256).max, "TransferBatch must be emitted");
     }
