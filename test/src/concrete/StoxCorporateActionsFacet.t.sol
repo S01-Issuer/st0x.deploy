@@ -1646,6 +1646,42 @@ contract StoxCorporateActionsFacetTest is Test {
         );
     }
 
+    /// `_ensureBootstrap` snapshots `OZ.underlyingTotalSupply()` into
+    /// `unmigrated[0]` exactly once, on the first `schedule` call. A second
+    /// schedule (with new mints in between) MUST NOT overwrite the snapshot
+    /// — once the bootstrap has fired, additional supply is tracked via
+    /// `onMint`/`onBurn` against `unmigrated[totalSupplyLatestCursor]`,
+    /// not by re-snapshotting OZ. Re-snapshotting would double-count any
+    /// post-first-schedule mint or burn.
+    ///
+    /// This test pokes OZ's `_totalSupply` directly between the two
+    /// schedule calls to make a snapshot drift unambiguous: if
+    /// `_ensureBootstrap` re-fired, `unmigrated[0]` would change to the
+    /// new value; if it correctly bailed out, the original snapshot
+    /// stands.
+    function testEnsureBootstrapSnapshotsOnlyOnFirstSchedule() external {
+        // Pre-schedule, poke OZ's `_totalSupply` (offset 2 of the OZ ERC20
+        // namespaced struct) to a known value. This avoids needing real
+        // mints to seed the value.
+        bytes32 ozBase =
+            keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.ERC20")) - 1)) & ~bytes32(uint256(0xff));
+        vm.store(address(corporateActionHarness), bytes32(uint256(ozBase) + 2), bytes32(uint256(1000)));
+
+        // First schedule — bootstrap fires, snapshots `unmigrated[0] = 1000`.
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        assertEq(corporateActionHarness.unmigrated(0), 1000, "first schedule snapshots 1000 into pot 0");
+
+        // Bump OZ's `_totalSupply` to 5000 directly (simulating what mint/burn
+        // calls outside the corporate-action path would do).
+        vm.store(address(corporateActionHarness), bytes32(uint256(ozBase) + 2), bytes32(uint256(5000)));
+
+        // Second schedule — `_ensureBootstrap` must short-circuit on
+        // `s.nodes.length != 0` and NOT re-snapshot. `unmigrated[0]` stays
+        // pinned to the first value.
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
+        assertEq(corporateActionHarness.unmigrated(0), 1000, "second schedule must not re-snapshot pot 0");
+    }
+
     /// `countCompleted` excludes the bootstrap node from its count by
     /// masking out `ACTION_TYPE_INIT_V1`. Without that exclusion, the
     /// public `completedActionCount` would always be off-by-one once any
