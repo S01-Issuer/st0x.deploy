@@ -29,14 +29,7 @@ import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 /// read it.
 contract InvariantVault is StoxReceiptVault {
     function _update(address from, address to, uint256 amount) internal override {
-        LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        uint256 prevLatest = s.totalSupplyLatestSplit;
         LibTotalSupply.fold();
-        uint256 newLatest = s.totalSupplyLatestSplit;
-
-        if (newLatest != prevLatest) {
-            _emitNewlyEffectiveSplits(prevLatest, newLatest);
-        }
 
         _migrateAccount(from);
         _migrateAccount(to);

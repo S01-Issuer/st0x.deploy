@@ -454,8 +454,15 @@ contract StoxReceiptRebaseIntegrationTest is Test {
     /// holder's own `msg.sender == from` call bypasses the approval check
     /// but should still see the rebased ceiling.
     function testFuzzHolderDirectTransferUsesPostRebaseBalance(uint64 deposit, uint128 amount, uint8 mulSeed) external {
+        // mulSeed bound to [2,5] so int256 cast cannot overflow.
+        // forge-lint: disable-next-line(unsafe-typecast)
         int256 multiplier = int256(uint256(bound(mulSeed, 2, 5)));
+        // bound result is < type(uint64).max so uint64 cast is safe;
+        // multiplier is in [2,5] so uint64(uint256(multiplier)) cannot truncate.
+        // forge-lint: disable-next-line(unsafe-typecast)
         deposit = uint64(bound(deposit, 1, type(uint64).max / uint64(uint256(multiplier))));
+        // multiplier is bounded to [2,5] so the int256 → uint256 cast is safe.
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint256 postRebase = uint256(deposit) * uint256(multiplier);
         uint256 xfer = bound(amount, 0, postRebase);
 
@@ -492,8 +499,15 @@ contract StoxReceiptRebaseIntegrationTest is Test {
     function testFuzzApprovedOperatorTransfersPostRebaseBalance(uint64 deposit, uint128 transferAmount, uint8 mulSeed)
         external
     {
+        // mulSeed bound to [2,5] so int256 cast cannot overflow.
+        // forge-lint: disable-next-line(unsafe-typecast)
         int256 multiplier = int256(uint256(bound(mulSeed, 2, 5)));
+        // bound result is < type(uint64).max; multiplier in [2,5] so
+        // uint64(uint256(multiplier)) cannot truncate.
+        // forge-lint: disable-next-line(unsafe-typecast)
         deposit = uint64(bound(deposit, 1, type(uint64).max / uint64(uint256(multiplier))));
+        // multiplier is bounded to [2,5] so the int256 → uint256 cast is safe.
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint256 postRebase = uint256(deposit) * uint256(multiplier);
         uint256 amount = bound(transferAmount, 0, postRebase);
 
