@@ -375,6 +375,66 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.migrationCursor(ALICE), 1, "alice cursor advanced");
     }
 
+    /// Already-migrated complement of #81's always-emit semantics: an
+    /// account at the latest cursor that gets touched again (no new
+    /// completed splits in between) must NOT re-emit `AccountMigrated`.
+    /// The `newCursor == currentCursor` early return in `_migrateAccount`
+    /// suppresses the spurious event. Pins that "every cursor advance
+    /// emits" reads as "iff cursor advances".
+    function testAccountMigratedDoesNotReEmitWhenAlreadyAtLatest() external {
+        vault.publicUpdate(address(0), ALICE, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        // First touch migrates Alice — event fires.
+        vault.publicUpdate(ALICE, ALICE, 0);
+        assertEq(vault.migrationCursor(ALICE), 1, "alice migrated to cursor 1");
+
+        // Second touch with no new splits — event must NOT fire.
+        vm.recordLogs();
+        vault.publicUpdate(ALICE, ALICE, 0);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        bytes32 sig = StoxReceiptVault.AccountMigrated.selector;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (
+                logs[i].topics.length > 0 && logs[i].topics[0] == sig
+                    && address(uint160(uint256(logs[i].topics[1]))) == ALICE
+            ) {
+                fail();
+            }
+        }
+    }
+
+    /// Event ordering pin: `AccountMigrated` must fire BEFORE the
+    /// corresponding ERC-20 `Transfer` event in the same `_update` call,
+    /// because `_migrateAccount` runs before `super._update`. Indexers
+    /// rely on this ordering to compute pre-transfer rasterized balances
+    /// from the migration log before applying the transfer delta.
+    function testAccountMigratedOrderedBeforeTransfer() external {
+        vault.publicUpdate(address(0), ALICE, 100);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+
+        vm.recordLogs();
+        vault.publicUpdate(ALICE, BOB, 50);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        bytes32 migratedSig = StoxReceiptVault.AccountMigrated.selector;
+        bytes32 transferSig = keccak256("Transfer(address,address,uint256)");
+        uint256 firstMigrated = type(uint256).max;
+        uint256 firstTransfer = type(uint256).max;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length == 0) continue;
+            if (logs[i].topics[0] == migratedSig && firstMigrated == type(uint256).max) {
+                firstMigrated = i;
+            } else if (logs[i].topics[0] == transferSig && firstTransfer == type(uint256).max) {
+                firstTransfer = i;
+            }
+        }
+        assertLt(firstMigrated, firstTransfer, "AccountMigrated must precede Transfer");
+    }
+
     /// Global invariant: across a random balance and a random sequence of
     /// stock-split multipliers, every cursor advance is matched by exactly
     /// one `AccountMigrated` log, and the log's `oldBalance / newBalance`
