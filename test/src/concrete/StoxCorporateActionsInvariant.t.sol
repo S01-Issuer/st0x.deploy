@@ -16,7 +16,8 @@ import {LibTotalSupply} from "../../../src/lib/LibTotalSupply.sol";
 import {
     CorporateActionNode,
     CompletionFilter,
-    LibCorporateActionNode
+    LibCorporateActionNode,
+    NODE_NONE
 } from "../../../src/lib/LibCorporateActionNode.sol";
 import {LibTestCorporateAction} from "../../lib/LibTestCorporateAction.sol";
 import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
@@ -100,7 +101,8 @@ contract InvariantVault is StoxReceiptVault {
     /// no-multiplier regime must gate on this rather than
     /// `totalSupplyLatestCursor == 0`.
     function hasCompletedSplit() external view returns (bool) {
-        return LibCorporateActionNode.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED) != 0;
+        return LibCorporateActionNode.nextOfType(NODE_NONE, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED)
+            != NODE_NONE;
     }
 
     // -----------------------------------------------------------------------
@@ -417,11 +419,10 @@ contract StoxCorporateActionsHandler is Test {
     /// External so framework-level invariants can call it too.
     function cursorReachableForward(uint256 last, uint256 current) public view returns (bool) {
         if (last == current) return true;
-        if (last == 0) return true;
 
         uint256 len = VAULT.nodesLength();
         uint256 cursor = last;
-        for (uint256 i = 0; i < len && cursor != 0; i++) {
+        for (uint256 i = 0; i < len && cursor != NODE_NONE; i++) {
             cursor = VAULT.getNode(cursor).next;
             if (cursor == current) return true;
         }
@@ -462,21 +463,21 @@ contract StoxCorporateActionsInvariantTest is Test {
     /// direction (enforced by bounding the walk to nodesLength iterations).
     function invariantListIntegrity() external view {
         uint256 len = vault.nodesLength();
+
+        if (len == 0) {
+            return; // pre-bootstrap: array empty, head/tail unread.
+        }
+
         uint256 head = vault.listHead();
         uint256 tail = vault.listTail();
-
-        if (head == 0 && tail == 0) {
-            return; // empty list — trivially consistent
-        }
-        assertTrue(head != 0 && tail != 0, "invariant 1: head and tail must be set together");
 
         // Forward walk from head: pin each `prev` link points back to the
         // previously visited node, node indices are in-bounds, and the walk
         // terminates exactly at `tail`.
         uint256 forwardCount = 0;
         uint256 current = head;
-        uint256 previous = 0;
-        while (current != 0 && forwardCount <= len) {
+        uint256 previous = NODE_NONE;
+        while (current != NODE_NONE && forwardCount <= len) {
             assertLt(current, len, "invariant 1: forward node index must be in bounds");
             CorporateActionNode memory node = vault.getNode(current);
             assertEq(node.prev, previous, "invariant 1: forward prev link must point back to previous");
@@ -491,8 +492,8 @@ contract StoxCorporateActionsInvariantTest is Test {
         // previously visited node and the walk terminates exactly at `head`.
         uint256 backwardCount = 0;
         current = tail;
-        uint256 next = 0;
-        while (current != 0 && backwardCount <= len) {
+        uint256 next = NODE_NONE;
+        while (current != NODE_NONE && backwardCount <= len) {
             assertLt(current, len, "invariant 1: backward node index must be in bounds");
             CorporateActionNode memory node = vault.getNode(current);
             assertEq(node.next, next, "invariant 1: backward next link must point forward to next");
@@ -510,15 +511,14 @@ contract StoxCorporateActionsInvariantTest is Test {
     /// non-decreasing `effectiveTime`. Ties are permitted (stable insertion
     /// places later-scheduled equal-time nodes after earlier ones).
     function invariantTimeOrdering() external view {
-        uint256 head = vault.listHead();
-        if (head == 0) return;
+        uint256 len = vault.nodesLength();
+        if (len == 0) return;
 
-        uint256 current = head;
+        uint256 current = vault.listHead();
         uint64 lastTime = 0;
         uint256 iterations = 0;
-        uint256 len = vault.nodesLength();
 
-        while (current != 0 && iterations <= len) {
+        while (current != NODE_NONE && iterations <= len) {
             iterations++;
             CorporateActionNode memory node = vault.getNode(current);
             assertGe(node.effectiveTime, lastTime, "invariant 2: adjacent nodes must be time-ordered");
@@ -594,12 +594,13 @@ contract StoxCorporateActionsInvariantTest is Test {
         assertEq(vault.totalSupply(), netMinted, "invariant 7: totalSupply == Sum(mints) - Sum(burns) with no split");
     }
 
-    /// Invariant 6: `totalSupplyLatestCursor` is either 0 (no split has ever
-    /// folded) or points at a node whose effective time is in the past. It
-    /// must also not exceed the nodes array bounds.
+    /// Invariant 6: `totalSupplyLatestCursor` is either `NODE_NONE` (the
+    /// `_ensureBootstrap`-set sentinel meaning "no fold has run yet") or
+    /// points at a node whose effective time is in the past. It must also
+    /// not exceed the nodes array bounds.
     function invariantTotalSupplyLatestSplitValid() external view {
         uint256 latest = vault.totalSupplyLatestCursor();
-        if (latest == 0) return;
+        if (latest == NODE_NONE) return;
 
         assertLt(latest, vault.nodesLength(), "invariant 6: totalSupplyLatestCursor must be a valid node index");
 
