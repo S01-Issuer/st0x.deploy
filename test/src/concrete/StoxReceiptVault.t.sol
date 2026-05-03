@@ -125,6 +125,11 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         return LibStockSplit.encodeParametersV1(LibDecimalFloat.packLossless(multiplier, 0));
     }
 
+    function _fractionalParams(int256 num, int256 denom) internal pure returns (bytes memory) {
+        Float result = LibDecimalFloat.div(LibDecimalFloat.packLossless(num, 0), LibDecimalFloat.packLossless(denom, 0));
+        return LibStockSplit.encodeParametersV1(result);
+    }
+
     /// Mint to a fresh account after a completed 2x split credits exactly
     /// the minted amount, not 2x the minted amount. Without the
     /// zero-balance cursor-advancement guard, the recipient's freshly-
@@ -289,40 +294,152 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(newBalance, 600, "newBalance is fully rasterized (100 * 2 * 3)");
     }
 
-    /// `AccountMigrated` must NOT fire when a zero-balance account's cursor
-    /// advances — the NatSpec states "Only fires when the stored balance
-    /// actually changes; pure cursor-only advancements (zero-balance
-    /// accounts) do not emit."
-    ///
-    /// NOTE: This behaviour is under review. See issue #81 ("Discuss: emit
-    /// AccountMigrated on cursor-only advancement (balance unchanged)") —
-    /// the project may switch to always-emit to restore the "events on
-    /// every state change" convention. If that decision is made, this
-    /// test's intent inverts: update the assertion to expect the event,
-    /// and update the NatSpec on `StoxReceiptVault.AccountMigrated` to
-    /// match. This test is NOT the source of truth — issue #81 is.
-    function testAccountMigratedNotEmittedForZeroBalanceCursorAdvance() external {
+    /// Phenomenon 1 (zero balance): `AccountMigrated` fires when a
+    /// zero-balance account's cursor advances. `oldBalance == newBalance == 0`,
+    /// the cursor moves from 0 to the latest completed split. Pins issue
+    /// #81 resolution: every cursor advance emits.
+    function testAccountMigratedFiresOnZeroBalanceCursorAdvance() external {
         // Pre-existing holder so bootstrap has something to read.
         vault.publicUpdate(address(0), BOB, 100);
         vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
-        // Touch Alice (zero balance, fresh recipient). Her cursor advances
-        // from 0 to 1, but stored balance stays 0 → no `AccountMigrated`
-        // event for her.
-        vm.recordLogs();
+        // Touch Alice (zero balance, fresh recipient).
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit StoxReceiptVault.AccountMigrated(ALICE, 0, 1, 0, 0);
         vault.publicUpdate(address(0), ALICE, 0);
-        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        // Confirm the cursor actually advanced.
+        assertEq(vault.migrationCursor(ALICE), 1, "alice cursor must have advanced");
+    }
+
+    /// Phenomenon 2 (single-step truncation collision): a stored balance of
+    /// 1 through a 1.5x multiplier rasterizes to `trunc(1.5) == 1`. The
+    /// cursor advances; the stored balance is unchanged; the event still
+    /// fires.
+    function testAccountMigratedFiresOnTruncationCollision() external {
+        vault.publicUpdate(address(0), ALICE, 1);
+        // Multiplier 3/2 = 1.5 — `trunc(1 * 1.5) == 1`.
+        Float oneAndAHalf =
+            LibDecimalFloat.div(LibDecimalFloat.packLossless(3, 0), LibDecimalFloat.packLossless(2, 0));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, LibStockSplit.encodeParametersV1(oneAndAHalf));
+        vm.warp(2000);
+
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit StoxReceiptVault.AccountMigrated(ALICE, 0, 1, 1, 1);
+        vault.publicUpdate(ALICE, ALICE, 0);
+
+        assertEq(vault.rawStoredBalance(ALICE), 1, "stored balance unchanged after truncation collision");
+        assertEq(vault.migrationCursor(ALICE), 1, "alice cursor advanced past the split");
+    }
+
+    /// Phenomenon 3 (multi-step round-trip): a balance of 3 through `[1/3,
+    /// 3]` rasterizes `3 → 1 → 3` — intermediates differ but the final
+    /// equals the start. The cursor jumps two splits in a single `_update`;
+    /// the event fires once with `oldBalance == newBalance == 3`.
+    function testAccountMigratedFiresOnMultiStepRoundTrip() external {
+        vault.publicUpdate(address(0), ALICE, 3);
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _fractionalParams(1, 3));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        vm.warp(3000);
+
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit StoxReceiptVault.AccountMigrated(ALICE, 0, 2, 3, 3);
+        vault.publicUpdate(ALICE, ALICE, 0);
+
+        assertEq(vault.rawStoredBalance(ALICE), 3, "stored balance round-tripped to itself");
+        assertEq(vault.migrationCursor(ALICE), 2, "alice cursor advanced past both splits");
+    }
+
+    /// Phenomenon 4 (balance-specific identity): a balance of 10 through a
+    /// 1.09x multiplier rasterizes to `trunc(10.9) == 10`. Same multiplier
+    /// applied to a larger balance produces a real change; the no-op here
+    /// is balance-specific. The event still fires.
+    function testAccountMigratedFiresOnBalanceSpecificIdentity() external {
+        vault.publicUpdate(address(0), ALICE, 10);
+        // 1.09 = 109/100 — `trunc(10 * 1.09) = trunc(10.9) == 10`.
+        Float oneOhNine =
+            LibDecimalFloat.div(LibDecimalFloat.packLossless(109, 0), LibDecimalFloat.packLossless(100, 0));
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, LibStockSplit.encodeParametersV1(oneOhNine));
+        vm.warp(2000);
+
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit StoxReceiptVault.AccountMigrated(ALICE, 0, 1, 10, 10);
+        vault.publicUpdate(ALICE, ALICE, 0);
+
+        assertEq(vault.rawStoredBalance(ALICE), 10, "stored balance unchanged for this specific balance / multiplier");
+        assertEq(vault.migrationCursor(ALICE), 1, "alice cursor advanced");
+    }
+
+    /// Global invariant: across a random balance and a random sequence of
+    /// stock-split multipliers, every cursor advance is matched by exactly
+    /// one `AccountMigrated` log, and the log's `oldBalance / newBalance`
+    /// pair always equals the actual pre/post stored balance — never a
+    /// stale or skipped value.
+    function testFuzzAccountMigratedFiresOnEveryCursorAdvance(uint64 startBalance, uint8 splitSeed, uint8 splitCount)
+        external
+    {
+        startBalance = uint64(bound(startBalance, 0, type(uint32).max));
+        splitCount = uint8(bound(splitCount, 1, 5));
+
+        vault.publicUpdate(address(0), ALICE, startBalance);
+        uint256 storedBefore = vault.rawStoredBalance(ALICE);
+        uint256 cursorBefore = vault.migrationCursor(ALICE);
+
+        // Schedule N splits with multipliers drawn from a small fixed
+        // palette (2x, 3x, 1/2x, 1/3x) seeded by `splitSeed`. The point is
+        // to drive a variety of rasterization outcomes — not to be
+        // exhaustive over the multiplier space.
+        for (uint256 i = 0; i < splitCount; i++) {
+            uint8 pick = uint8((uint256(splitSeed) >> (i * 2)) & 0x3);
+            // forge-lint: disable-next-line(unsafe-typecast)
+            uint64 effectiveTime = uint64(1500 + i * 1000);
+            if (pick == 0) {
+                vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, effectiveTime, _splitParams(2));
+            } else if (pick == 1) {
+                vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, effectiveTime, _splitParams(3));
+            } else if (pick == 2) {
+                vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, effectiveTime, _fractionalParams(1, 2));
+            } else {
+                vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, effectiveTime, _fractionalParams(1, 3));
+            }
+        }
+        vm.warp(uint64(1500 + uint256(splitCount) * 1000));
+
+        // Touch Alice. Capture every log emitted by `_update`.
+        vm.recordLogs();
+        vault.publicUpdate(ALICE, ALICE, 0);
+
         bytes32 sig = StoxReceiptVault.AccountMigrated.selector;
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 count;
+        uint256 emittedFromCursor;
+        uint256 emittedToCursor;
+        uint256 emittedOld;
+        uint256 emittedNew;
         for (uint256 i = 0; i < logs.length; i++) {
-            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
-                fail();
+            if (
+                logs[i].topics.length > 0 && logs[i].topics[0] == sig
+                    && address(uint160(uint256(logs[i].topics[1]))) == ALICE
+            ) {
+                count++;
+                (emittedFromCursor, emittedToCursor, emittedOld, emittedNew) =
+                    abi.decode(logs[i].data, (uint256, uint256, uint256, uint256));
             }
         }
 
-        // Confirm the cursor actually advanced — the event suppression
-        // claim is meaningful only when the cursor DID move.
-        assertEq(vault.migrationCursor(ALICE), 1, "alice cursor must have advanced");
+        uint256 cursorAfter = vault.migrationCursor(ALICE);
+        if (cursorAfter == cursorBefore) {
+            // No cursor advance → no event. Defensively pin this branch
+            // even though the bounded splitCount makes it unreachable.
+            assertEq(count, 0, "no event when cursor did not advance");
+        } else {
+            assertEq(count, 1, "exactly one AccountMigrated event per cursor advance");
+            assertEq(emittedFromCursor, cursorBefore, "fromCursor matches pre-migrate cursor");
+            assertEq(emittedToCursor, cursorAfter, "toCursor matches post-migrate cursor");
+            assertEq(emittedOld, storedBefore, "oldBalance matches the pre-migrate stored balance");
+            assertEq(emittedNew, vault.rawStoredBalance(ALICE), "newBalance matches the post-migrate stored balance");
+        }
     }
 
     /// Transfer attempt after a reverse split truncates the sender's

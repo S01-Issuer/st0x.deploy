@@ -53,9 +53,9 @@ uint256 constant VALID_ACTION_TYPES_MASK = ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_T
 ///     touches the vault after a split becomes effective. Fires BEFORE any
 ///     per-account migration in the same transaction. Use as a trigger to
 ///     re-poll `balanceOf` for all tracked accounts.
-///   - `AccountMigrated`: emitted per account when its stored balance is
-///     rasterized on first touch post-split. Not emitted for zero-balance
-///     accounts.
+///   - `AccountMigrated`: emitted per account on every cursor advance.
+///     `oldBalance` and `newBalance` may be equal when the rasterized
+///     value coincides with the pre-rebase value.
 ///   - `ReceiptAccountMigrated`: same, for ERC-1155 receipt balances.
 ///
 /// `wasEffectiveAt` on `CorporateActionEffective` is almost always in the past
@@ -172,8 +172,9 @@ interface ICorporateActionsV1 {
     /// past relative to the emitting block).
     event CorporateActionEffective(uint256 indexed actionIndex, uint256 actionType, uint64 wasEffectiveAt);
 
-    /// @notice Emitted when an account's stored ERC-20 balance is rasterized
-    /// to the post-rebase value on first touch after a stock split.
+    /// @notice Emitted whenever an account's migration cursor advances.
+    /// `oldBalance` and `newBalance` may be equal when the rasterized
+    /// value coincides with the pre-rebase value.
     /// @param account The account whose balance was migrated.
     /// @param fromCursor The account's migration cursor before this migration.
     /// @param toCursor The account's migration cursor after this migration.
@@ -183,8 +184,8 @@ interface ICorporateActionsV1 {
         address indexed account, uint256 fromCursor, uint256 toCursor, uint256 oldBalance, uint256 newBalance
     );
 
-    /// @notice Emitted when an account's ERC-1155 receipt balance is
-    /// rasterized to the post-rebase value on first touch after a stock split.
+    /// @notice Emitted whenever a `(account, id)` pair's receipt-side
+    /// migration cursor advances.
     /// @param account The account whose receipt balance was migrated.
     /// @param id The ERC-1155 token ID.
     /// @param fromCursor The account's migration cursor before this migration.
