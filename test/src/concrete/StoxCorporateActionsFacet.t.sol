@@ -445,15 +445,15 @@ contract StoxCorporateActionsFacetTest is Test {
         // Walk forward from the first user node, collect parameters.
         uint256 cursor = earlier;
         bytes memory walked = "";
-        while (cursor != 0) {
+        while (cursor != NODE_NONE) {
             walked = bytes.concat(walked, corporateActionHarness.getNode(cursor).parameters);
             cursor = corporateActionHarness.getNode(cursor).next;
         }
         // Expected order: 0x01 (first earlier), 0x02 (mid1), 0x03 (mid2), 0xAA (later).
         assertEq(walked, hex"010203AA", "tied-time inserts land at back of equal-time run");
         assertEq(corporateActionHarness.tail(), later, "tail unchanged: later-time node still last");
-        assertEq(mid1, 4);
-        assertEq(mid2, 5);
+        assertEq(mid1, 3);
+        assertEq(mid2, 4);
     }
 
     /// Schedule in the past reverts.
@@ -608,7 +608,7 @@ contract StoxCorporateActionsFacetTest is Test {
         // Walk from head and verify non-decreasing effectiveTime.
         uint256 current = corporateActionHarness.head();
         uint64 lastTime = 0;
-        while (current != 0) {
+        while (current != NODE_NONE) {
             CorporateActionNode memory node = corporateActionHarness.getNode(current);
             assertTrue(node.effectiveTime >= lastTime);
             lastTime = node.effectiveTime;
@@ -757,7 +757,7 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(corporateActionHarness.head(), 0, "bootstrap remains the head");
         assertEq(corporateActionHarness.tail(), id3);
         CorporateActionNode memory n2 = corporateActionHarness.getNode(id2);
-        assertEq(n2.prev, 1, "new front-of-user-list points back to bootstrap");
+        assertEq(n2.prev, 0, "new front-of-user-list points back to bootstrap");
     }
 
     /// Cancel the tail user node when other user nodes exist.
@@ -771,7 +771,7 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(corporateActionHarness.head(), 0, "bootstrap remains the head");
         assertEq(corporateActionHarness.tail(), id2);
         CorporateActionNode memory n2 = corporateActionHarness.getNode(id2);
-        assertEq(n2.next, 0, "new tail has no next");
+        assertEq(n2.next, NODE_NONE, "new tail has no next");
         // id1 is unaffected.
         assertEq(corporateActionHarness.getNode(id1).next, id2);
     }
@@ -842,7 +842,8 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(corporateActionHarness.tail(), newId, "tail moves to the rescheduled action");
     }
 
-    /// nextOfType from a cancelled node returns 0 (next pointer was zeroed).
+    /// nextOfType from a cancelled node returns NODE_NONE (next pointer
+    /// was reset to NODE_NONE by `cancel`).
     function testNextOfTypeFromCancelledNode() external {
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         uint256 id2 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
@@ -850,14 +851,15 @@ contract StoxCorporateActionsFacetTest is Test {
 
         corporateActionHarness.cancel(id2);
 
-        assertEq(corporateActionHarness.nextOfType(id2, type(uint256).max, CompletionFilter.ALL), 0);
+        assertEq(corporateActionHarness.nextOfType(id2, type(uint256).max, CompletionFilter.ALL), NODE_NONE);
     }
 
-    /// prevOfType from a cancelled node returns 0 (prev pointer was zeroed).
-    /// Companion to `testNextOfTypeFromCancelledNode` — pins that `cancel`
-    /// zeroes both the `next` and `prev` pointers, not just one. A cancel
-    /// that forgot to zero `prev` would silently leak a backward-walkable
-    /// path into the list that users with a stale cursor could traverse.
+    /// prevOfType from a cancelled node returns NODE_NONE (prev pointer
+    /// was reset). Companion to `testNextOfTypeFromCancelledNode` — pins
+    /// that `cancel` resets both the `next` and `prev` pointers, not just
+    /// one. A cancel that forgot to reset `prev` would silently leak a
+    /// backward-walkable path into the list that users with a stale
+    /// cursor could traverse.
     function testPrevOfTypeFromCancelledNode() external {
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         uint256 id2 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
@@ -865,7 +867,7 @@ contract StoxCorporateActionsFacetTest is Test {
 
         corporateActionHarness.cancel(id2);
 
-        assertEq(corporateActionHarness.prevOfType(id2, type(uint256).max, CompletionFilter.ALL), 0);
+        assertEq(corporateActionHarness.prevOfType(id2, type(uint256).max, CompletionFilter.ALL), NODE_NONE);
     }
 
     /// Fuzz: schedule with random effective times, list stays sorted.
@@ -1035,7 +1037,7 @@ contract StoxCorporateActionsFacetTest is Test {
         );
         assertEq(
             corporateActionHarness.prevOfType(b, ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.ALL),
-            0,
+            NODE_NONE,
             "no earlier type-2"
         );
     }
@@ -1058,7 +1060,7 @@ contract StoxCorporateActionsFacetTest is Test {
         uint256[] memory forward = new uint256[](4);
         uint256 cursor = corporateActionHarness.nextOfType(NODE_NONE, userMask, CompletionFilter.ALL);
         uint256 i = 0;
-        while (cursor != 0) {
+        while (cursor != NODE_NONE) {
             forward[i++] = cursor;
             cursor = corporateActionHarness.nextOfType(cursor, userMask, CompletionFilter.ALL);
         }
@@ -1070,7 +1072,7 @@ contract StoxCorporateActionsFacetTest is Test {
             assertEq(cursor, forward[3 - j], "backward walk matches forward in reverse");
             cursor = corporateActionHarness.prevOfType(cursor, userMask, CompletionFilter.ALL);
         }
-        assertEq(cursor, 0, "backward walk exhausted");
+        assertEq(cursor, NODE_NONE, "backward walk exhausted");
     }
 
     /// Cross-field isolation: writing head must not corrupt tail and vice
@@ -1585,8 +1587,8 @@ contract StoxCorporateActionsFacetTest is Test {
         // Still 1 — cancelled action doesn't complete.
         assertEq(facetViaHarness.completedActionCount(), 1);
 
-        assertEq(id1, 2);
-        assertEq(id2, 3);
+        assertEq(id1, 1);
+        assertEq(id2, 2);
     }
 
     // -----------------------------------------------------------------------
