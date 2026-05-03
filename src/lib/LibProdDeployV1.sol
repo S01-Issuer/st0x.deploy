@@ -114,4 +114,28 @@ library LibProdDeployV1 {
     /// tests to verify deployment integrity.
     bytes32 constant PROD_STOX_UNIFIED_DEPLOYER_BASE_CODEHASH_V1 =
         0xb5167a6cfec58378938913cf93dd0c7cf0aab1501beb653b0b6e0be6f5b8e072;
+
+    /// @dev Expected codehash of every prod StoxReceipt proxy instance on
+    /// Base. All receipt proxies are `BeaconProxy`s pointing at the same
+    /// receipt beacon, so their runtime bytecode is identical. Initial
+    /// value scraped from `MSTR_RECEIPT`. Drift on any prod receipt
+    /// proxy means it was deployed through a different mechanism or
+    /// with different constructor args than its siblings.
+    bytes32 constant PROD_STOX_RECEIPT_PROXY_BASE_CODEHASH_V1 =
+        0x3a6a276173fa980d807d8cdc6e760a76be57ee8cc0d6b8522ca651e7d6e649b6;
+
+    /// @dev Expected codehash of every prod StoxReceiptVault proxy instance
+    /// on Base. All receipt vault proxies are `BeaconProxy`s pointing at
+    /// the same receipt vault beacon, so their runtime bytecode is
+    /// identical. Initial value scraped from `MSTR_RECEIPT_VAULT`.
+    bytes32 constant PROD_STOX_RECEIPT_VAULT_PROXY_BASE_CODEHASH_V1 =
+        0x458736ea3d3ad05745640e02a8e1110d707f793096e3ac278c304110f6d54689;
+
+    /// @dev Expected codehash of every prod StoxWrappedTokenVault proxy
+    /// instance on Base. All wrapped vault proxies are `BeaconProxy`s
+    /// pointing at the same wrapped vault beacon, so their runtime
+    /// bytecode is identical. Initial value scraped from
+    /// `MSTR_WRAPPED_TOKEN_VAULT`.
+    bytes32 constant PROD_STOX_WRAPPED_TOKEN_VAULT_PROXY_BASE_CODEHASH_V1 =
+        0x8227665ab0d770ac6d47cc6b17924f8e64c93ca12f3b4281e8949b67d36f3e44;
 }

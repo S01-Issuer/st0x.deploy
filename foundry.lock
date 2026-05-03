@@ -3,12 +3,12 @@
     "rev": "43a6ed3a98f0141e1963b4b9136e8c80e2889bd1"
   },
   "lib/rain.extrospection": {
-    "rev": "60f35a0fc7e38fe6879c638ee25b46e88bfc9892"
+    "rev": "e32def40f2a5fda5f466ccd091bb22da3f6f8111"
   },
   "lib/rain.tofu.erc20-decimals": {
     "rev": "67b81b417e3f2311f71058d526e4c16518b393cc"
   },
   "lib/rain.vats": {
-    "rev": "cad9ca4c9f230c97d481c58f635a33c774e22c07"
+    "rev": "a522bc26b6904c95119369955cd6ca4ac0db7097"
   }
 }
