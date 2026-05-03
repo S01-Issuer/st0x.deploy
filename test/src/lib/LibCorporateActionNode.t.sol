@@ -407,7 +407,9 @@ contract LibCorporateActionNodeTest is Test {
 
     function testForwardAllVisitsEveryNodeRespectingMask() external {
         buildMixedCompletedPendingList();
-        assertForwardSequence(USER_TYPES_TEST_MASK, CompletionFilter.ALL, cursors8(id1, id2, id3, id4, id5, id6, id7, id8));
+        assertForwardSequence(
+            USER_TYPES_TEST_MASK, CompletionFilter.ALL, cursors8(id1, id2, id3, id4, id5, id6, id7, id8)
+        );
         assertForwardSequence(1, CompletionFilter.ALL, cursors5(id1, id3, id4, id6, id8));
         assertForwardSequence(2, CompletionFilter.ALL, cursors3(id2, id5, id7));
     }
@@ -662,7 +664,8 @@ contract LibCorporateActionNodeTest is Test {
     function testTupleReturnsActionTypeAndEffectiveTime() external {
         buildMixedCompletedPendingList();
 
-        (uint256 cursor, uint256 actionType, uint64 effectiveTime) = h.earliest(USER_TYPES_TEST_MASK, CompletionFilter.ALL);
+        (uint256 cursor, uint256 actionType, uint64 effectiveTime) =
+            h.earliest(USER_TYPES_TEST_MASK, CompletionFilter.ALL);
         assertEq(cursor, id1);
         assertEq(actionType, 1);
         assertEq(effectiveTime, 1500);

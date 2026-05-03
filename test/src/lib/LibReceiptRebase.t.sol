@@ -6,7 +6,9 @@ import {Test} from "forge-std/Test.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {LibReceiptRebase} from "src/lib/LibReceiptRebase.sol";
 import {
-    ICorporateActionsV1, ACTION_TYPE_STOCK_SPLIT_V1, BALANCE_MIGRATION_TYPES_MASK
+    ICorporateActionsV1,
+    ACTION_TYPE_STOCK_SPLIT_V1,
+    BALANCE_MIGRATION_TYPES_MASK
 } from "src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "src/lib/LibCorporateActionNode.sol";
 

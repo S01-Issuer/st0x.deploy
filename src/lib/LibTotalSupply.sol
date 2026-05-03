@@ -5,7 +5,9 @@ pragma solidity ^0.8.25;
 import {Float} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {LibCorporateAction} from "./LibCorporateAction.sol";
 import {
-    ACTION_TYPE_INIT_V1, ACTION_TYPE_STOCK_SPLIT_V1, BALANCE_MIGRATION_TYPES_MASK
+    ACTION_TYPE_INIT_V1,
+    ACTION_TYPE_STOCK_SPLIT_V1,
+    BALANCE_MIGRATION_TYPES_MASK
 } from "../interface/ICorporateActionsV1.sol";
 import {CompletionFilter, LibCorporateActionNode} from "./LibCorporateActionNode.sol";
 import {LibStockSplit} from "./LibStockSplit.sol";
@@ -198,9 +200,8 @@ library LibTotalSupply {
             // ACTION_TYPE_INIT_V1: identity, no multiplier read.
             running += s.unmigrated[nodeIndex];
 
-            nodeIndex = LibCorporateActionNode.nextOfType(
-                nodeIndex, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED
-            );
+            nodeIndex =
+                LibCorporateActionNode.nextOfType(nodeIndex, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
         }
 
         return running;
@@ -227,9 +228,8 @@ library LibTotalSupply {
         uint256 latest;
         while (nodeIndex != 0) {
             latest = nodeIndex;
-            nodeIndex = LibCorporateActionNode.nextOfType(
-                nodeIndex, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED
-            );
+            nodeIndex =
+                LibCorporateActionNode.nextOfType(nodeIndex, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
         }
         if (latest != 0) s.totalSupplyLatestCursor = latest;
     }

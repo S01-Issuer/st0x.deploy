@@ -163,9 +163,11 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
 
         // Bootstrap takes idx 1; the two user actions land at idx 2 and 3.
         vm.prank(ALICE);
-        uint256 idA = ICorporateActionsV1(address(vault)).scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 2000, paramsA);
+        uint256 idA =
+            ICorporateActionsV1(address(vault)).scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 2000, paramsA);
         vm.prank(ALICE);
-        uint256 idB = ICorporateActionsV1(address(vault)).scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 3000, paramsB);
+        uint256 idB =
+            ICorporateActionsV1(address(vault)).scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 3000, paramsB);
 
         // earliest pending → first scheduled
         (uint256 cursor, uint256 actionType, uint64 effectiveTime) = ICorporateActionsV1(address(vault))

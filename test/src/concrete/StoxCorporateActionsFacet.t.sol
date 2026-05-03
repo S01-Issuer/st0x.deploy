@@ -1024,7 +1024,9 @@ contract StoxCorporateActionsFacetTest is Test {
 
         vm.warp(3000);
 
-        assertEq(corporateActionHarness.prevOfType(0, 2, CompletionFilter.ALL), b, "last type-2 is the second user action");
+        assertEq(
+            corporateActionHarness.prevOfType(0, 2, CompletionFilter.ALL), b, "last type-2 is the second user action"
+        );
         assertEq(corporateActionHarness.prevOfType(b, 2, CompletionFilter.ALL), 0, "no earlier type-2");
     }
 
@@ -1582,7 +1584,11 @@ contract StoxCorporateActionsFacetTest is Test {
 
         CorporateActionNode memory bootstrap = corporateActionHarness.getNode(1);
         assertEq(bootstrap.actionType, ACTION_TYPE_INIT_V1, "bootstrap actionType is ACTION_TYPE_INIT_V1");
-        assertEq(uint256(bootstrap.effectiveTime), scheduleTime, "bootstrap effectiveTime is block.timestamp at first schedule");
+        assertEq(
+            uint256(bootstrap.effectiveTime),
+            scheduleTime,
+            "bootstrap effectiveTime is block.timestamp at first schedule"
+        );
         assertEq(bootstrap.parameters.length, 0, "bootstrap has no parameters");
         assertEq(bootstrap.prev, 0, "bootstrap is the head: prev = 0");
         assertEq(bootstrap.next, userId, "bootstrap.next is the first user action");
@@ -1631,10 +1637,7 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(corporateActionHarness.nextOfType(0, ACTION_TYPE_INIT_V1, CompletionFilter.COMPLETED), 1);
 
         // STOCK-SPLIT-only mask skips the bootstrap and returns the user action.
-        assertEq(
-            corporateActionHarness.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED),
-            2
-        );
+        assertEq(corporateActionHarness.nextOfType(0, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED), 2);
 
         // Combined mask hits bootstrap first, then the user action.
         uint256 first = corporateActionHarness.nextOfType(0, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
