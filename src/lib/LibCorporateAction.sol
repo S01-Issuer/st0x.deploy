@@ -40,11 +40,13 @@ bytes32 constant STOCK_SPLIT_V1_TYPE_HASH = keccak256("st0x.corporate-actions.st
 /// There is no stored status or counters — an action is complete when its
 /// effectiveTime is less than or equal to the current block timestamp.
 ///
-/// Nodes are stored in a dynamic array. Index 0 is a sentinel (never used for
-/// real data). Index 1, when the array is non-empty, is always the
-/// `ACTION_TYPE_INIT_V1` bootstrap node lazily created by `_ensureBootstrap`
-/// on the first `schedule` call. Real user-scheduled actions start at index 2.
-/// Head/tail/prev/next are 1-based indices where 0 means "none".
+/// Nodes are stored in a dynamic array. Index 0, when the array is non-empty,
+/// is always the `ACTION_TYPE_INIT_V1` bootstrap node lazily created by
+/// `_ensureBootstrap` on the first `schedule` call. User-scheduled actions
+/// start at index 1. The null encoding for `prev`, `next`, and the "from
+/// head/tail inclusive" sentinel for `nextOfType`/`prevOfType` is
+/// `type(uint256).max` — value-level disambiguation, not positional, so a
+/// real node at index 0 is never confused with "no node".
 library LibCorporateAction {
     /// @custom:storage-location erc7201:rain.storage.corporate-action.1
     /// @dev **DO NOT REORDER — APPEND ONLY.** This struct lives at a fixed
@@ -59,29 +61,41 @@ library LibCorporateAction {
     /// (`testStorageLayoutPin`) must be updated in the same PR to cover
     /// the new field's offset.
     struct CorporateActionStorage {
-        /// @param head Head of the list (1-based index, earliest effectiveTime). 0 = empty.
+        /// @param head Head of the list (earliest effectiveTime). After
+        /// `_ensureBootstrap` has fired this is always 0 (the bootstrap
+        /// node, which has the smallest effectiveTime by construction);
+        /// before any schedule call `nodes.length == 0` and head/tail
+        /// must not be read.
         uint256 head;
-        /// @param tail Tail of the list (1-based index, latest effectiveTime). 0 = empty.
+        /// @param tail Tail of the list (latest effectiveTime). Updated
+        /// as user actions are scheduled or the trailing user action is
+        /// cancelled. Falls back to 0 (bootstrap) when every user action
+        /// has been cancelled.
         uint256 tail;
-        /// @param nodes Node storage. Index 0 is a sentinel; index 1 is the
-        /// init/bootstrap node once the list has been touched. Real
-        /// user-scheduled nodes start at index 2.
+        /// @param nodes Node storage. Index 0 is the init/bootstrap node
+        /// once the list has been touched; user-scheduled nodes start at
+        /// index 1. `nodes.length == 0` is the only "empty" state.
         CorporateActionNode[] nodes;
-        /// @param accountMigrationCursor Per-account migration cursor — the 1-based index of the last
-        /// node this account was migrated through.
+        /// @param accountMigrationCursor Per-account migration cursor — the
+        /// index of the last node this account was migrated through.
+        /// Defaults to 0 (mapping default) which under the new layout means
+        /// "at bootstrap"; bootstrap is identity for splits, so a fresh
+        /// holder's default cursor of 0 is semantically equivalent to "no
+        /// real migration applied yet".
         mapping(address => uint256) accountMigrationCursor;
-        /// Per-cursor unmigrated supply. Maps cursor position (node index) to
-        /// the sum of stored balances for accounts at that cursor level.
-        /// Index 0 is the pre-bootstrap pot — captured by `_ensureBootstrap`
+        /// Per-cursor unmigrated supply. Maps cursor position (node index)
+        /// to the sum of stored balances for accounts at that cursor level.
+        /// Index 0 is the bootstrap pot — captured by `_ensureBootstrap`
         /// from OZ's `_totalSupply` at the moment the first action is
         /// scheduled. When an account migrates from cursor k to cursor k',
         /// storedBalance is subtracted from unmigrated[k] and the migrated
         /// balance is added to unmigrated[k'].
         mapping(uint256 => uint256) unmigrated;
-        /// 1-based index of the latest completed init-or-stock-split node
-        /// seen by fold(). Mint/burn amounts are routed to
-        /// `unmigrated[totalSupplyLatestCursor]`. 0 means no `_ensureBootstrap`
-        /// has run (no actions ever scheduled).
+        /// Index of the latest completed init-or-stock-split node seen by
+        /// `fold()`. `_ensureBootstrap` writes `type(uint256).max` here as
+        /// the "no fold has run yet" sentinel so the first `fold()` call
+        /// walks the head-inclusive range. Mint/burn amounts route to
+        /// `unmigrated[totalSupplyLatestCursor]` after the first fold.
         uint256 totalSupplyLatestCursor;
     }
 
