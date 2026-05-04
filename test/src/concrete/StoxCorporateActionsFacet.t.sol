@@ -541,15 +541,20 @@ contract StoxCorporateActionsFacetTest is Test {
 
         vm.warp(3000);
 
-        uint256 first = corporateActionHarness.nextOfType(NODE_NONE, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
+        uint256 first =
+            corporateActionHarness.nextOfType(NODE_NONE, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(first, a);
 
         uint256 second =
             corporateActionHarness.nextOfType(first, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(second, c);
 
-        assertEq(corporateActionHarness.nextOfType(second, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED), NODE_NONE);
-        assertEq(corporateActionHarness.nextOfType(NODE_NONE, ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.COMPLETED), b);
+        assertEq(
+            corporateActionHarness.nextOfType(second, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED), NODE_NONE
+        );
+        assertEq(
+            corporateActionHarness.nextOfType(NODE_NONE, ACTION_TYPE_STABLES_DIVIDEND_V1, CompletionFilter.COMPLETED), b
+        );
     }
 
     /// ALL filter walks both completed and pending nodes.
@@ -966,7 +971,9 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(last, c, "latest pending is the third user action");
         uint256 prev = corporateActionHarness.prevOfType(last, userMask, CompletionFilter.PENDING);
         assertEq(prev, b, "previous pending is the second user action");
-        assertEq(corporateActionHarness.prevOfType(prev, userMask, CompletionFilter.PENDING), NODE_NONE, "no more pending");
+        assertEq(
+            corporateActionHarness.prevOfType(prev, userMask, CompletionFilter.PENDING), NODE_NONE, "no more pending"
+        );
     }
 
     /// Boundary test for the `<=` completion check shared by `nextOfType`
@@ -1660,7 +1667,9 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(corporateActionHarness.nextOfType(NODE_NONE, ACTION_TYPE_INIT_V1, CompletionFilter.COMPLETED), 0);
 
         // STOCK-SPLIT-only mask skips the bootstrap and returns the user action (idx 1).
-        assertEq(corporateActionHarness.nextOfType(NODE_NONE, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED), 1);
+        assertEq(
+            corporateActionHarness.nextOfType(NODE_NONE, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED), 1
+        );
 
         // Combined mask hits bootstrap first, then the user action.
         uint256 first =

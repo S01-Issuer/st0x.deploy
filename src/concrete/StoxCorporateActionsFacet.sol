@@ -5,7 +5,12 @@ pragma solidity =0.8.25;
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
 import {ActionDoesNotExist} from "../error/ErrCorporateAction.sol";
-import {CorporateActionNode, CompletionFilter, LibCorporateActionNode, NODE_NONE} from "../lib/LibCorporateActionNode.sol";
+import {
+    CorporateActionNode,
+    CompletionFilter,
+    LibCorporateActionNode,
+    NODE_NONE
+} from "../lib/LibCorporateActionNode.sol";
 import {IAuthorizeV1} from "rain.vats/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetReceiptVault.sol";
 

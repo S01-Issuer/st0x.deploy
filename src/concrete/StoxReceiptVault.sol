@@ -5,7 +5,12 @@ pragma solidity =0.8.25;
 import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetReceiptVault.sol";
 import {LibCorporateAction} from "../lib/LibCorporateAction.sol";
 import {ACTION_TYPE_STOCK_SPLIT_V1} from "../interface/ICorporateActionsV1.sol";
-import {CorporateActionNode, CompletionFilter, LibCorporateActionNode, NODE_NONE} from "../lib/LibCorporateActionNode.sol";
+import {
+    CorporateActionNode,
+    CompletionFilter,
+    LibCorporateActionNode,
+    NODE_NONE
+} from "../lib/LibCorporateActionNode.sol";
 import {LibRebase} from "../lib/LibRebase.sol";
 import {LibTotalSupply} from "../lib/LibTotalSupply.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";

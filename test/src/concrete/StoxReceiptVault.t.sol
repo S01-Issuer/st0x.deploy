@@ -1331,9 +1331,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         // migration mask, but Bob's already there. Dividend (idx 1) is NOT
         // in the migration mask, so the walk yields nothing past bootstrap.
         // Net effect: cursor stays at 0, balance unchanged.
-        assertEq(
-            vault.migrationCursor(BOB), 0, "cursor stays at bootstrap; dividend must not advance it"
-        );
+        assertEq(vault.migrationCursor(BOB), 0, "cursor stays at bootstrap; dividend must not advance it");
         assertEq(
             vault.totalSupplyLatestCursor(),
             0,

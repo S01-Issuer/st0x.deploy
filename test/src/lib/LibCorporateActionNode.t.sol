@@ -886,9 +886,7 @@ contract LibCorporateActionNodeTest is Test {
                 if (anyMatch) {
                     assertTrue(earliestCursor != NODE_NONE, "earliest must find a non-cancelled match");
                 } else {
-                    assertEq(
-                        earliestCursor, NODE_NONE, "earliest must be NODE_NONE when no live node matches"
-                    );
+                    assertEq(earliestCursor, NODE_NONE, "earliest must be NODE_NONE when no live node matches");
                 }
 
                 assertCursorSatisfiesInvariants(earliestCursor, masks[m], filters[f]);
