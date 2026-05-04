@@ -46,37 +46,38 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 /// expected to be rare (O(10) over a contract's lifetime) so the
 /// per-receipt-holder migration cost is bounded and acceptable.
 library LibReceiptRebase {
-    /// @notice Walk the vault's completed stock split list from `cursor`
-    /// forward, returning the rebased balance and the advanced cursor.
+    /// @notice Walk the vault's completed stock split list from
+    /// `fromActionId` forward, returning the rebased balance and the
+    /// advanced action id.
     ///
     /// @param storedBalance The raw stored receipt balance for
     /// `(holder, id)`, read directly from OZ's ERC1155 storage.
-    /// @param cursor The index of the last vault corporate-action node this
-    /// `(holder, id)` pair was migrated through. The default 0 is the
-    /// vault's bootstrap node — fresh `(holder, id)` pairs start there
-    /// and the walk advances them through every subsequent completed
-    /// stock split.
+    /// @param fromActionId The action id of the last vault corporate-action
+    /// node this `(holder, id)` pair was migrated through. The default 0
+    /// is the vault's bootstrap node — fresh `(holder, id)` pairs start
+    /// there and the walk advances them through every subsequent
+    /// completed stock split.
     /// @param vault The vault contract implementing `ICorporateActionsV1`.
     /// @return migratedBalance The balance after sequential multiplier
     /// application. Always 0 when `storedBalance == 0`.
-    /// @return newCursor The index of the last completed stock split
-    /// visited. Equals the input cursor if no further completed splits
-    /// were found.
-    function migratedBalance(uint256 storedBalance, uint256 cursor, ICorporateActionsV1 vault)
+    /// @return toActionId The action id of the last completed stock split
+    /// visited. Equals `fromActionId` if no further completed splits were
+    /// found.
+    function migratedBalance(uint256 storedBalance, uint256 fromActionId, ICorporateActionsV1 vault)
         internal
         view
-        returns (uint256, uint256 newCursor)
+        returns (uint256, uint256 toActionId)
     {
-        newCursor = cursor;
+        toActionId = fromActionId;
 
-        // Discard effectiveTime — only nextCursor and actionType are used
+        // Discard effectiveTime — only nextActionId and actionType are used
         // for the walk. The mask covers init and stock-split nodes;
         // effectiveTime is irrelevant here (the COMPLETED filter already
         // handled it on the vault side). actionType lets us skip the
         // float multiplier read for the identity init node.
         // slither-disable-next-line unused-return
         (uint256 nodeIndex, uint256 actionType,) =
-            vault.nextOfType(cursor, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
+            vault.nextOfType(fromActionId, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
 
         // Fast path: zero balance still advances the cursor through every
         // completed migration node without any multiplier math. Required for
@@ -87,18 +88,18 @@ library LibReceiptRebase {
         // mechanism on the share side.
         if (storedBalance == 0) {
             while (nodeIndex != NODE_NONE) {
-                newCursor = nodeIndex;
+                toActionId = nodeIndex;
                 // slither-disable-next-line unused-return
                 (nodeIndex, actionType,) =
                     vault.nextOfType(nodeIndex, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
             }
-            return (0, newCursor);
+            return (0, toActionId);
         }
 
         uint256 balance = storedBalance;
 
         while (nodeIndex != NODE_NONE) {
-            newCursor = nodeIndex;
+            toActionId = nodeIndex;
             // Init is identity — no multiplier, no balance change. Skip the
             // cross-contract `getActionParameters` call entirely; the
             // bootstrap node has empty parameters that would not decode as
@@ -113,6 +114,6 @@ library LibReceiptRebase {
                 vault.nextOfType(nodeIndex, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
         }
 
-        return (balance, newCursor);
+        return (balance, toActionId);
     }
 }

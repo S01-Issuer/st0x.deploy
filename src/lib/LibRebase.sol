@@ -73,25 +73,30 @@ library LibRebase {
     /// tests in `test/src/concrete/StoxReceiptVault.t.sol`.
     ///
     /// @param storedBalance The account's raw stored balance.
-    /// @param cursor The index of the last node this account was migrated
-    /// through. The default 0 is the bootstrap node — fresh holders start
-    /// at the bootstrap, and the walk advances them through every
-    /// subsequent completed split.
+    /// @param fromActionId The action id of the last node this account was
+    /// migrated through. The default 0 is the bootstrap node — fresh
+    /// holders start at the bootstrap, and the walk advances them through
+    /// every subsequent completed split.
     /// @return migratedBalance The balance after sequential multiplier
     /// application. Always 0 when `storedBalance == 0`.
-    /// @return newCursor The index of the last completed split node visited.
-    /// Equals the input cursor if there were no further completed splits.
-    function migratedBalance(uint256 storedBalance, uint256 cursor) internal view returns (uint256, uint256 newCursor) {
-        newCursor = cursor;
+    /// @return toActionId The action id of the last completed split node
+    /// visited. Equals `fromActionId` if there were no further completed
+    /// splits.
+    function migratedBalance(uint256 storedBalance, uint256 fromActionId)
+        internal
+        view
+        returns (uint256, uint256 toActionId)
+    {
+        toActionId = fromActionId;
 
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
 
         uint256 balance = storedBalance;
         uint256 nodeIndex =
-            LibCorporateActionNode.nextOfType(cursor, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
+            LibCorporateActionNode.nextOfType(fromActionId, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
 
         while (nodeIndex != NODE_NONE) {
-            newCursor = nodeIndex;
+            toActionId = nodeIndex;
             // Skip the multiplier read and float math whenever the balance
             // is already zero. This covers both dormant zero-balance accounts
             // (never held / fully burned) and mid-iteration truncation to
@@ -121,6 +126,6 @@ library LibRebase {
                 LibCorporateActionNode.nextOfType(nodeIndex, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
         }
 
-        return (balance, newCursor);
+        return (balance, toActionId);
     }
 }
