@@ -52,10 +52,13 @@ library LibCorporateActionReceipt {
     /// (`testReceiptStorageLayoutPin`) must be extended in every later PR
     /// that appends a new field.
     struct CorporateActionReceiptStorage {
-        /// Per-(holder, id) migration cursor — the 1-based index of the
-        /// last stock split node this `(holder, id)` pair was migrated
-        /// through, as seen on the vault's corporate-action linked list.
-        /// 0 = never migrated.
+        /// Per-(holder, id) migration cursor — the action id of the last
+        /// migration node this `(holder, id)` pair was migrated through,
+        /// as seen on the vault's corporate-action linked list. The
+        /// default 0 corresponds to the vault's bootstrap node (idx 0,
+        /// identity for splits), so a fresh `(holder, id)` pair's default
+        /// cursor of 0 is semantically equivalent to "no real migration
+        /// applied yet".
         mapping(address holder => mapping(uint256 id => uint256 cursor)) accountIdCursor;
     }
 
