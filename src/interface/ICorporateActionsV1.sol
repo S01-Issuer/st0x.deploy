@@ -130,6 +130,27 @@ uint256 constant VALID_ACTION_TYPES_MASK =
 ///
 /// QUERYING CORPORATE ACTION STATE:
 ///
+/// **`actionId` vs `cursor` naming.** Both refer to the same `uint256`
+/// value at runtime — but the names mark two different roles:
+///
+/// - `actionId` is the **opaque handle** as it crosses the API boundary
+///   (params, returns, event fields). External consumers must not reason
+///   about ordering, sequencing, or arithmetic on these values; an action
+///   id is only meaningful when fed back into another API call. Cancelled
+///   actions leave gaps in the underlying numbering, the bootstrap
+///   occupies the lowest id, and future versions may further re-shape
+///   the space.
+/// - `cursor` is the conventional **local-variable name** for a walking
+///   pointer that holds the current action id during a traversal loop.
+///   The example below uses `cursor` for exactly this reason — it's a
+///   live position in a walk, not a stable identifier.
+///
+/// Storage variables that track per-account walk progress over time
+/// (`accountMigrationCursor`, `accountIdCursor`,
+/// `totalSupplyLatestCursor`) follow the cursor convention: they hold a
+/// position in the sequence, not an identifier callers should reason
+/// about.
+///
 /// The vault exposes stock split state through this interface:
 ///
 /// ```solidity
