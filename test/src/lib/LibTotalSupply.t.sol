@@ -220,6 +220,32 @@ contract LibTotalSupplyTest is Test {
         assertEq(h.effectiveTotalSupply(), 1800);
     }
 
+    /// `onMint(0)` and `onBurn(0)` are pot-state-preserving no-ops.
+    /// Both implementations are `unmigrated[latest] += amount` /
+    /// `-= amount`, so zero is mathematically inert. A regression that
+    /// reshaped the implementation (e.g., `unmigrated[latest] =
+    /// f(amount)` instead of `+=`/`-=`) could silently corrupt the pot
+    /// for zero-amount calls without surfacing in any non-zero-amount
+    /// test.
+    function testOnMintOnBurnZeroAreNoOps() external {
+        h.setOzTotalSupply(1000);
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+        h.fold();
+        h.onMint(100);
+
+        uint256 potBefore = h.unmigrated(h.totalSupplyLatestCursor());
+        uint256 supplyBefore = h.effectiveTotalSupply();
+
+        h.onMint(0);
+        assertEq(h.unmigrated(h.totalSupplyLatestCursor()), potBefore, "onMint(0) leaves the pot unchanged");
+        assertEq(h.effectiveTotalSupply(), supplyBefore, "onMint(0) leaves totalSupply unchanged");
+
+        h.onBurn(0);
+        assertEq(h.unmigrated(h.totalSupplyLatestCursor()), potBefore, "onBurn(0) leaves the pot unchanged");
+        assertEq(h.effectiveTotalSupply(), supplyBefore, "onBurn(0) leaves totalSupply unchanged");
+    }
+
     /// Cancelling a pending split must not retroactively rewind
     /// `totalSupplyLatestCursor`. Once `fold()` has advanced past a
     /// completed split, that cursor reflects per-pot accounting state

@@ -806,6 +806,25 @@ contract StoxCorporateActionsFacetTest is Test {
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(block.timestamp), "");
     }
 
+    /// In a single `schedule` call, `_ensureBootstrap` runs BEFORE the
+    /// user node is pushed. Symptoms (bootstrap at idx 0, user at idx 1)
+    /// are pinned by other tests, but the property "bootstrap precedes
+    /// user node in array order" is the precondition. This pins it
+    /// directly: post-first-schedule, the bootstrap node sits at a
+    /// strictly lower array index than the returned actionIndex.
+    /// A regression that flipped the order inside `schedule` (push user,
+    /// then ensureBootstrap) would put the user at idx 0 and bootstrap
+    /// at idx 1 — every downstream cursor assumption would break.
+    function testEnsureBootstrapPrecedesUserActionInArrayOrder() external {
+        uint256 userIdx = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
+
+        // Walk the head-inclusive list filtered by INIT mask: bootstrap
+        // must be the only match, and its index must be < userIdx.
+        uint256 bootstrapIdx =
+            corporateActionHarness.nextOfType(NODE_NONE, ACTION_TYPE_INIT_V1, CompletionFilter.ALL);
+        assertLt(bootstrapIdx, userIdx, "bootstrap must precede user action in array order");
+    }
+
     /// `bootstrap.effectiveTime < user.effectiveTime` for every user
     /// action ever scheduled. Bootstrap is created at the first
     /// schedule call with `effectiveTime == block.timestamp`; `schedule`
