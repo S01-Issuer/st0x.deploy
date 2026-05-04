@@ -286,6 +286,44 @@ contract LibTotalSupplyTest is Test {
         assertEq(h.effectiveTotalSupply(), 2000, "totalSupply unchanged after cancelling a pending split");
     }
 
+    /// `fold()` walks via `nextOfType` (linked list pointers), so cancelled
+    /// nodes — which have `next = NODE_NONE` after unlink — are unreachable
+    /// from the walk. A regression that switched fold to a raw array
+    /// iteration (`current + 1`) would still see the cancelled node's
+    /// `actionType` (cancel preserves type) with `effectiveTime == 0`,
+    /// passing the COMPLETED filter (0 <= block.timestamp). This would
+    /// land `totalSupplyLatestCursor` on a cancelled index, breaking pot
+    /// accounting on subsequent mints.
+    ///
+    /// Setup: schedule A/B/C, fold past A, cancel B (still pending), warp
+    /// past C, fold again. The cursor must skip B and land on C.
+    function testFoldWalksAroundCancelledNode() external {
+        h.setOzTotalSupply(1000);
+
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        uint256 idB = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, _splitParams(5));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+
+        // Complete A only, fold to land cursor on A.
+        vm.warp(1600);
+        h.fold();
+        assertEq(h.totalSupplyLatestCursor(), 1, "first fold lands on A");
+
+        // Cancel pending B before it completes — B is unlinked from the
+        // walk but its array slot retains actionType + a zeroed
+        // effectiveTime (the double-cancel guard).
+        h.cancel(idB);
+
+        // Now complete C and fold again. The walk must skip B (unlinked)
+        // and advance to C.
+        vm.warp(3000);
+        h.fold();
+        assertEq(h.totalSupplyLatestCursor(), 3, "second fold skips cancelled B and lands on C");
+
+        // totalSupply confirms only A and C contributed: 1000 * 2 * 3 = 6000.
+        assertEq(h.effectiveTotalSupply(), 6000, "B's 5x multiplier must not contribute (cancelled)");
+    }
+
     /// Fold is idempotent.
     function testFoldIdempotent() external {
         h.setOzTotalSupply(1000);
