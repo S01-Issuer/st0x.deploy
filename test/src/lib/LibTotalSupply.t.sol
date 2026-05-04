@@ -273,11 +273,7 @@ contract LibTotalSupplyTest is Test {
         // assertion (fold re-walks and lands at the same idx).
         uint256 idB = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 5000, _splitParams(3));
         h.cancel(idB);
-        assertEq(
-            h.totalSupplyLatestCursor(),
-            cursorAfterFirstFold,
-            "cancel must not write totalSupplyLatestCursor"
-        );
+        assertEq(h.totalSupplyLatestCursor(), cursorAfterFirstFold, "cancel must not write totalSupplyLatestCursor");
 
         // After re-folding, the cursor is unchanged either way (fold is
         // idempotent on a list with no newly-completed migration nodes).

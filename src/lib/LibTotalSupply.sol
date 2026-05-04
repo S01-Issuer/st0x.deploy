@@ -72,19 +72,18 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 ///
 /// The pre-action snapshot of OZ's `_totalSupply` lives in `unmigrated[0]`,
 /// captured by `LibCorporateAction._ensureBootstrap` on the first
-/// `schedule()` call. The bootstrap simultaneously pushes the index-1 init
-/// node (`actionType = ACTION_TYPE_INIT_V1`, `effectiveTime =
-/// block.timestamp`) so the migration walk has a real first step rather
-/// than a magic invisible slot. The init step is identity for stock-split
-/// migrations, which means every holder's cursor advances `0 → 1 → ...`
-/// uniformly through the list — there is no special-cased "before any
-/// action" state and the disambiguation between "cursor at index 0" and
-/// "cursor not yet set" disappears: every holder starts at the pre-init
-/// cursor 0 and migration is simply walking the chronological list.
+/// `schedule()` call. `_ensureBootstrap` pushes the bootstrap init node at
+/// index 0 (`actionType = ACTION_TYPE_INIT_V1`, `effectiveTime =
+/// block.timestamp`); user-scheduled splits start at index 1. Every
+/// holder's `accountMigrationCursor` defaults to 0 (Solidity mapping
+/// default), which is the bootstrap node — "no migration applied yet"
+/// and "migrated through the identity bootstrap" are the same state, so
+/// the disambiguation between "cursor at index 0" and "cursor not yet
+/// set" disappears.
 ///
-/// `fold()` advances `totalSupplyLatestCursor` through both the init node
-/// and every completed split using `BALANCE_MIGRATION_TYPES_MASK`, so
-/// mint/burn deltas always route to the same pot every account's
+/// `fold()` advances `totalSupplyLatestCursor` through the bootstrap
+/// (idx 0) and every completed split using `BALANCE_MIGRATION_TYPES_MASK`,
+/// so mint/burn deltas always route to the same pot every account's
 /// `_migrateAccount` lands them in.
 ///
 /// ## Pot invariant

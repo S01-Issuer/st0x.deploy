@@ -820,8 +820,7 @@ contract StoxCorporateActionsFacetTest is Test {
 
         // Walk the head-inclusive list filtered by INIT mask: bootstrap
         // must be the only match, and its index must be < userIdx.
-        uint256 bootstrapIdx =
-            corporateActionHarness.nextOfType(NODE_NONE, ACTION_TYPE_INIT_V1, CompletionFilter.ALL);
+        uint256 bootstrapIdx = corporateActionHarness.nextOfType(NODE_NONE, ACTION_TYPE_INIT_V1, CompletionFilter.ALL);
         assertLt(bootstrapIdx, userIdx, "bootstrap must precede user action in array order");
     }
 
@@ -1523,6 +1522,23 @@ contract StoxCorporateActionsFacetTest is Test {
     function testGetActionParametersOutOfBoundsReverts() external {
         vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, uint256(999)));
         facetViaHarness.getActionParameters(999);
+    }
+
+    /// Boundary pin: `cursor == s.nodes.length` (one past the last valid
+    /// index) reverts with `ActionDoesNotExist`. The bounds check is
+    /// `cursor >= s.nodes.length`; an off-by-one to `>` would silently
+    /// allow reading past the array, which the existing `cursor = 999`
+    /// test wouldn't catch (999 fails the next-bigger guard too).
+    function testGetActionParametersExactBoundaryReverts() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory params = LibStockSplit.encodeParametersV1(twoX);
+        vm.prank(ALICE);
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, params);
+
+        // Bootstrap (idx 0) + user action (idx 1) → nodes.length == 2.
+        // Querying idx 2 must revert at the boundary.
+        vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, uint256(2)));
+        facetViaHarness.getActionParameters(2);
     }
 
     /// getActionParameters on a cancelled node still returns the original

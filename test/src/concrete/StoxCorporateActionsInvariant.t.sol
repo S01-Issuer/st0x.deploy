@@ -479,6 +479,15 @@ contract StoxCorporateActionsInvariantTest is Test {
         uint256 head = vault.listHead();
         uint256 tail = vault.listTail();
 
+        // Once `nodes.length > 0`, bootstrap guarantees at least one
+        // reachable node — head and tail must be real indices, not the
+        // NODE_NONE sentinel. A regression that detached the roots
+        // (e.g., set head/tail to NODE_NONE on cancel of the only user
+        // node instead of falling back to bootstrap) would skip both
+        // walks below and silently pass invariant 1 on a corrupted list.
+        assertTrue(head != NODE_NONE, "invariant 1: head must be a real index when nodes.length > 0");
+        assertTrue(tail != NODE_NONE, "invariant 1: tail must be a real index when nodes.length > 0");
+
         // Forward walk from head: pin each `prev` link points back to the
         // previously visited node, node indices are in-bounds, and the walk
         // terminates exactly at `tail`.

@@ -155,7 +155,9 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
             ICorporateActionsV1(address(vault)).nextOfType(NODE_NONE, ACTION_TYPE_INIT_V1, CompletionFilter.ALL);
         assertEq(cursor, 0, "bootstrap is observable at idx 0 via cross-contract head-inclusive walk");
         assertEq(actionType, ACTION_TYPE_INIT_V1, "actionType matches bootstrap");
-        assertEq(uint256(effectiveTime), block.timestamp, "bootstrap effectiveTime is block.timestamp at first schedule");
+        assertEq(
+            uint256(effectiveTime), block.timestamp, "bootstrap effectiveTime is block.timestamp at first schedule"
+        );
     }
 
     /// Direct calls to the facet at its production address revert with
@@ -187,7 +189,7 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         bytes memory paramsA = abi.encode(LibDecimalFloat.packLossless(2, 0));
         bytes memory paramsB = abi.encode(LibDecimalFloat.packLossless(3, 0));
 
-        // Bootstrap takes idx 1; the two user actions land at idx 2 and 3.
+        // Bootstrap occupies idx 0; the two user actions land at idx 1 and 2.
         vm.prank(ALICE);
         uint256 idA =
             ICorporateActionsV1(address(vault)).scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 2000, paramsA);
@@ -206,12 +208,14 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         (cursor, actionType, effectiveTime) =
             ICorporateActionsV1(address(vault)).nextOfType(idA, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, idB);
+        assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1, "routed nextOfType returns the actionType tuple field");
         assertEq(effectiveTime, 3000);
 
         // prev from idB → first scheduled
         (cursor, actionType, effectiveTime) =
             ICorporateActionsV1(address(vault)).prevOfType(idB, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, idA);
+        assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1, "routed prevOfType returns the actionType tuple field");
         assertEq(effectiveTime, 2000);
     }
 
