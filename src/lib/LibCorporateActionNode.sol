@@ -8,7 +8,7 @@ import {InvalidMask} from "../error/ErrCorporateAction.sol";
 
 /// @dev Sentinel value for "no node" in `CorporateActionNode.prev`,
 /// `CorporateActionNode.next`, return values from `nextOfType` /
-/// `prevOfType`, and the `fromIndex` argument to those functions (where
+/// `prevOfType`, and the `fromId` argument to those functions (where
 /// it means "start from head/tail inclusive"). Index 0 is reserved for
 /// the bootstrap node, which is a real walkable node — value-level
 /// disambiguation via `type(uint256).max` keeps "no node" distinct from
@@ -65,20 +65,20 @@ enum CompletionFilter {
 /// Functions accept and return node indices rather than storage references,
 /// so callers always know the position of the node they are working with.
 library LibCorporateActionNode {
-    /// @notice Walk forward from `fromIndex`, returning the index of the next
+    /// @notice Walk forward from `fromId`, returning the index of the next
     /// node matching the type mask and completion filter.
     ///
-    /// @param fromIndex Start after this node (exclusive). Pass `NODE_NONE`
+    /// @param fromId Start after this node (exclusive). Pass `NODE_NONE`
     /// to start from the head of the list (head-inclusive).
     /// @param mask Bitmap mask to filter action types. Use type(uint256).max
     /// to match all types.
     /// @param filter Completion filter: ALL, COMPLETED, or PENDING.
     /// @return The index of the next matching node, or `NODE_NONE` if none.
-    function nextOfType(uint256 fromIndex, uint256 mask, CompletionFilter filter) internal view returns (uint256) {
+    function nextOfType(uint256 fromId, uint256 mask, CompletionFilter filter) internal view returns (uint256) {
         if (mask & VALID_ACTION_TYPES_MASK == 0) revert InvalidMask();
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
         if (s.nodes.length == 0) return NODE_NONE;
-        uint256 current = fromIndex == NODE_NONE ? s.head : s.nodes[fromIndex].next;
+        uint256 current = fromId == NODE_NONE ? s.head : s.nodes[fromId].next;
 
         // Dispatch on `filter` once. The list is ordered by effectiveTime
         // and completion is monotonic across that order, so each branch
@@ -93,19 +93,19 @@ library LibCorporateActionNode {
         return walkForwardMatchingMask(s, current, mask);
     }
 
-    /// @notice Walk backward from `fromIndex`, returning the index of the
+    /// @notice Walk backward from `fromId`, returning the index of the
     /// previous node matching the type mask and completion filter.
     ///
-    /// @param fromIndex Start before this node (exclusive). Pass `NODE_NONE`
+    /// @param fromId Start before this node (exclusive). Pass `NODE_NONE`
     /// to start from the tail of the list (tail-inclusive).
     /// @param mask Bitmap mask to filter action types.
     /// @param filter Completion filter: ALL, COMPLETED, or PENDING.
     /// @return The index of the previous matching node, or `NODE_NONE` if none.
-    function prevOfType(uint256 fromIndex, uint256 mask, CompletionFilter filter) internal view returns (uint256) {
+    function prevOfType(uint256 fromId, uint256 mask, CompletionFilter filter) internal view returns (uint256) {
         if (mask & VALID_ACTION_TYPES_MASK == 0) revert InvalidMask();
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
         if (s.nodes.length == 0) return NODE_NONE;
-        uint256 current = fromIndex == NODE_NONE ? s.tail : s.nodes[fromIndex].prev;
+        uint256 current = fromId == NODE_NONE ? s.tail : s.nodes[fromId].prev;
 
         // Mirror of `nextOfType`'s dispatch, walking backward from the tail.
         // The pending segment sits at the tail end and the completed segment
@@ -216,13 +216,13 @@ library LibCorporateActionNode {
         return current;
     }
 
-    /// @dev Resolve an action index to `(actionType, effectiveTime)`. Returns
-    /// `(0, 0)` when `actionIndex == NODE_NONE` without touching storage, so
+    /// @dev Resolve an action id to `(actionType, effectiveTime)`. Returns
+    /// `(0, 0)` when `actionId == NODE_NONE` without touching storage, so
     /// callers can thread "none found" results through without a branch of
     /// their own.
-    function resolve(uint256 actionIndex) private view returns (uint256 actionType, uint64 effectiveTime) {
-        if (actionIndex != NODE_NONE) {
-            CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[actionIndex];
+    function resolve(uint256 actionId) private view returns (uint256 actionType, uint64 effectiveTime) {
+        if (actionId != NODE_NONE) {
+            CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[actionId];
             actionType = node.actionType;
             effectiveTime = node.effectiveTime;
         }
@@ -232,39 +232,39 @@ library LibCorporateActionNode {
     function latestActionOfType(uint256 mask, CompletionFilter filter)
         internal
         view
-        returns (uint256 actionIndex, uint256 actionType, uint64 effectiveTime)
+        returns (uint256 actionId, uint256 actionType, uint64 effectiveTime)
     {
-        actionIndex = prevOfType(NODE_NONE, mask, filter);
-        (actionType, effectiveTime) = resolve(actionIndex);
+        actionId = prevOfType(NODE_NONE, mask, filter);
+        (actionType, effectiveTime) = resolve(actionId);
     }
 
     /// @notice Earliest action matching `mask` and `filter`, resolved with metadata.
     function earliestActionOfType(uint256 mask, CompletionFilter filter)
         internal
         view
-        returns (uint256 actionIndex, uint256 actionType, uint64 effectiveTime)
+        returns (uint256 actionId, uint256 actionType, uint64 effectiveTime)
     {
-        actionIndex = nextOfType(NODE_NONE, mask, filter);
-        (actionType, effectiveTime) = resolve(actionIndex);
+        actionId = nextOfType(NODE_NONE, mask, filter);
+        (actionType, effectiveTime) = resolve(actionId);
     }
 
-    /// @notice Next matching action after `fromIndex`, resolved with metadata.
-    function nextActionOfType(uint256 fromIndex, uint256 mask, CompletionFilter filter)
+    /// @notice Next matching action after `fromId`, resolved with metadata.
+    function nextActionOfType(uint256 fromId, uint256 mask, CompletionFilter filter)
         internal
         view
-        returns (uint256 actionIndex, uint256 actionType, uint64 effectiveTime)
+        returns (uint256 actionId, uint256 actionType, uint64 effectiveTime)
     {
-        actionIndex = nextOfType(fromIndex, mask, filter);
-        (actionType, effectiveTime) = resolve(actionIndex);
+        actionId = nextOfType(fromId, mask, filter);
+        (actionType, effectiveTime) = resolve(actionId);
     }
 
-    /// @notice Previous matching action before `fromIndex`, resolved with metadata.
-    function prevActionOfType(uint256 fromIndex, uint256 mask, CompletionFilter filter)
+    /// @notice Previous matching action before `fromId`, resolved with metadata.
+    function prevActionOfType(uint256 fromId, uint256 mask, CompletionFilter filter)
         internal
         view
-        returns (uint256 actionIndex, uint256 actionType, uint64 effectiveTime)
+        returns (uint256 actionId, uint256 actionType, uint64 effectiveTime)
     {
-        actionIndex = prevOfType(fromIndex, mask, filter);
-        (actionType, effectiveTime) = resolve(actionIndex);
+        actionId = prevOfType(fromId, mask, filter);
+        (actionType, effectiveTime) = resolve(actionId);
     }
 }

@@ -72,7 +72,7 @@ uint256 constant VALID_ACTION_TYPES_MASK =
 /// indexers that sum `Transfer` events will diverge from `balanceOf` after a
 /// split. Supplement with:
 ///   - `CorporateActionScheduled` + `CorporateActionCancelled`: mirror
-///     these to reconstruct the linked list of `(actionIndex, actionType,
+///     these to reconstruct the linked list of `(actionId, actionType,
 ///     effectiveTime, parameters)`. A split is in effect once
 ///     `block.timestamp >= effectiveTime` for an unscheduled action — no
 ///     on-chain notification fires at that moment. Indexers compute
@@ -216,7 +216,7 @@ uint256 constant VALID_ACTION_TYPES_MASK =
 ///     `effectiveTime` ordering and `prev`/`next` pointers. The default
 ///     policy is "never migrate, always add a new version" — write any
 ///     migration code defensively if that policy ever changes.
-///   - **Type-level pause / disable.** `cancelCorporateAction(actionIndex)`
+///   - **Type-level pause / disable.** `cancelCorporateAction(actionId)`
 ///     unlinks one specific node. There is no "disable action type X
 ///     across the list" primitive; cancelling N pending nodes of type X
 ///     takes N transactions. If a type-level pause becomes operationally
@@ -239,46 +239,46 @@ uint256 constant VALID_ACTION_TYPES_MASK =
 interface ICorporateActionsV1 {
     /// @notice Emitted when a corporate action is successfully scheduled.
     /// @param sender The msg.sender that called `scheduleCorporateAction`.
-    /// @param actionIndex The array index assigned to the new action.
+    /// @param actionId The array index assigned to the new action.
     /// User-scheduled actions start at index 1; index 0 is the lazily-created
     /// bootstrap node and never appears in this event.
     /// @param actionType The bitmap action type (e.g. `ACTION_TYPE_STOCK_SPLIT_V1`).
     /// @param effectiveTime The timestamp at which the action becomes effective.
     event CorporateActionScheduled(
-        address indexed sender, uint256 indexed actionIndex, uint256 actionType, uint64 effectiveTime
+        address indexed sender, uint256 indexed actionId, uint256 actionType, uint64 effectiveTime
     );
 
     /// @notice Emitted when a previously scheduled action is cancelled before
     /// its `effectiveTime`.
     /// @param sender The msg.sender that called `cancelCorporateAction`.
-    /// @param actionIndex The action index that was cancelled.
-    event CorporateActionCancelled(address indexed sender, uint256 indexed actionIndex);
+    /// @param actionId The action id that was cancelled.
+    event CorporateActionCancelled(address indexed sender, uint256 indexed actionId);
 
     /// @notice Emitted whenever an account's migration cursor advances.
     /// `oldBalance` and `newBalance` may be equal when the rasterized
     /// value coincides with the pre-rebase value.
     /// @param account The account whose balance was migrated.
-    /// @param fromActionIndex The action index the account's cursor was at before this migration.
-    /// @param toActionIndex The action index the account's cursor is at after this migration.
+    /// @param fromActionId The action id the account's cursor was at before this migration.
+    /// @param toActionId The action id the account's cursor is at after this migration.
     /// @param oldBalance The stored balance before rasterization.
     /// @param newBalance The stored balance after rasterization.
     event AccountMigrated(
-        address indexed account, uint256 fromActionIndex, uint256 toActionIndex, uint256 oldBalance, uint256 newBalance
+        address indexed account, uint256 fromActionId, uint256 toActionId, uint256 oldBalance, uint256 newBalance
     );
 
     /// @notice Emitted whenever a `(account, id)` pair's receipt-side
     /// migration cursor advances.
     /// @param account The account whose receipt balance was migrated.
     /// @param id The ERC-1155 token ID.
-    /// @param fromActionIndex The action index the cursor was at before this migration.
-    /// @param toActionIndex The action index the cursor is at after this migration.
+    /// @param fromActionId The action id the cursor was at before this migration.
+    /// @param toActionId The action id the cursor is at after this migration.
     /// @param oldBalance The stored balance before rasterization.
     /// @param newBalance The stored balance after rasterization.
     event ReceiptAccountMigrated(
         address indexed account,
         uint256 indexed id,
-        uint256 fromActionIndex,
-        uint256 toActionIndex,
+        uint256 fromActionId,
+        uint256 toActionId,
         uint256 oldBalance,
         uint256 newBalance
     );
@@ -303,16 +303,16 @@ interface ICorporateActionsV1 {
     /// the future: `effectiveTime > block.timestamp`. Scheduling at the exact
     /// current timestamp reverts with `EffectiveTimeInPast`.
     /// @param parameters ABI-encoded parameters specific to the action type.
-    /// @return actionIndex Handle for the scheduled action.
+    /// @return actionId Handle for the scheduled action.
     function scheduleCorporateAction(bytes32 typeHash, uint64 effectiveTime, bytes calldata parameters)
         external
-        returns (uint256 actionIndex);
+        returns (uint256 actionId);
 
     /// @notice Cancel a scheduled action. Only valid while the action is
     /// strictly pending: `block.timestamp < effectiveTime`. At or after the
     /// exact `effectiveTime`, cancel reverts with `ActionAlreadyComplete`.
-    /// @param actionIndex The scheduled action handle to cancel.
-    function cancelCorporateAction(uint256 actionIndex) external;
+    /// @param actionId The scheduled action handle to cancel.
+    function cancelCorporateAction(uint256 actionId) external;
 
     /// @notice Count of all completed corporate actions. An action is complete
     /// when `block.timestamp >= effectiveTime` — i.e. at or after the exact
@@ -334,14 +334,14 @@ interface ICorporateActionsV1 {
     ///   passed (the typical choice for oracles reading historical state);
     /// - `PENDING` returns the most recent scheduled action whose effectiveTime
     ///   has not yet passed.
-    /// @return actionIndex Opaque handle for continued traversal via `prevOfType`.
+    /// @return actionId Opaque handle for continued traversal via `prevOfType`.
     /// `NODE_NONE` (`type(uint256).max`) if no matching action exists.
     /// @return actionType The action's bitmap type (0 if none).
     /// @return effectiveTime The action's effective timestamp (0 if none).
     function latestActionOfType(uint256 mask, CompletionFilter filter)
         external
         view
-        returns (uint256 actionIndex, uint256 actionType, uint64 effectiveTime);
+        returns (uint256 actionId, uint256 actionType, uint64 effectiveTime);
 
     /// @notice Find the earliest action matching a type mask and completion
     /// filter. Entry point for walking the list forward from the head.
@@ -349,17 +349,17 @@ interface ICorporateActionsV1 {
     /// for the validity rules; `InvalidMask` reverts apply here too.
     /// @param filter Completion filter — see `latestActionOfType` for the
     /// semantics of `ALL` / `COMPLETED` / `PENDING`.
-    /// @return actionIndex Opaque handle for continued traversal via `nextOfType`.
+    /// @return actionId Opaque handle for continued traversal via `nextOfType`.
     /// `NODE_NONE` (`type(uint256).max`) if no matching action exists.
     /// @return actionType The action's bitmap type (0 if none).
     /// @return effectiveTime The action's effective timestamp (0 if none).
     function earliestActionOfType(uint256 mask, CompletionFilter filter)
         external
         view
-        returns (uint256 actionIndex, uint256 actionType, uint64 effectiveTime);
+        returns (uint256 actionId, uint256 actionType, uint64 effectiveTime);
 
-    /// @notice Walk forward from an action index to the next matching action.
-    /// @param fromIndex The action index returned by a previous traversal call.
+    /// @notice Walk forward from an action id to the next matching action.
+    /// @param fromId The action id returned by a previous traversal call.
     /// Pass `NODE_NONE` to start from the head of the list (head-inclusive).
     /// If the action at this index has been cancelled since it was
     /// obtained, its `next` pointer was set to `NODE_NONE` by
@@ -369,17 +369,17 @@ interface ICorporateActionsV1 {
     /// @param mask Bitmap mask to filter action types — see `latestActionOfType`
     /// for the validity rules; `InvalidMask` reverts apply here too.
     /// @param filter Completion filter — see `latestActionOfType`.
-    /// @return nextActionIndex Opaque handle for the next match, or `NODE_NONE`
+    /// @return nextActionId Opaque handle for the next match, or `NODE_NONE`
     /// if none.
     /// @return actionType The action's bitmap type (0 if none).
     /// @return effectiveTime The action's effective timestamp (0 if none).
-    function nextOfType(uint256 fromIndex, uint256 mask, CompletionFilter filter)
+    function nextOfType(uint256 fromId, uint256 mask, CompletionFilter filter)
         external
         view
-        returns (uint256 nextActionIndex, uint256 actionType, uint64 effectiveTime);
+        returns (uint256 nextActionId, uint256 actionType, uint64 effectiveTime);
 
-    /// @notice Walk backward from an action index to the previous matching action.
-    /// @param fromIndex The action index returned by a previous traversal call.
+    /// @notice Walk backward from an action id to the previous matching action.
+    /// @param fromId The action id returned by a previous traversal call.
     /// Pass `NODE_NONE` to start from the tail of the list (tail-inclusive).
     /// If the action at this index has been cancelled since it was
     /// obtained, its `prev` pointer was set to `NODE_NONE` and the walk
@@ -388,14 +388,14 @@ interface ICorporateActionsV1 {
     /// @param mask Bitmap mask to filter action types — see `latestActionOfType`
     /// for the validity rules; `InvalidMask` reverts apply here too.
     /// @param filter Completion filter — see `latestActionOfType`.
-    /// @return prevActionIndex Opaque handle for the previous match, or
+    /// @return prevActionId Opaque handle for the previous match, or
     /// `NODE_NONE` if none.
     /// @return actionType The action's bitmap type (0 if none).
     /// @return effectiveTime The action's effective timestamp (0 if none).
-    function prevOfType(uint256 fromIndex, uint256 mask, CompletionFilter filter)
+    function prevOfType(uint256 fromId, uint256 mask, CompletionFilter filter)
         external
         view
-        returns (uint256 prevActionIndex, uint256 actionType, uint64 effectiveTime);
+        returns (uint256 prevActionId, uint256 actionType, uint64 effectiveTime);
 
     /// @notice Read the ABI-encoded parameters blob for a scheduled or
     /// completed corporate action, given a cursor returned from one of the
@@ -409,9 +409,9 @@ interface ICorporateActionsV1 {
     /// `prevOfType`) before calling this to ensure they know which decoder
     /// to apply.
     ///
-    /// Reverts if `actionIndex == NODE_NONE` or points outside the current
+    /// Reverts if `actionId == NODE_NONE` or points outside the current
     /// nodes array.
-    /// An action index pointing at a cancelled node returns whatever bytes
+    /// An action id pointing at a cancelled node returns whatever bytes
     /// were written at schedule time — cancelled nodes intentionally
     /// retain their `actionType` and `parameters` fields so correct
     /// consumers (who must filter cancelled nodes out via their
@@ -419,7 +419,7 @@ interface ICorporateActionsV1 {
     /// inspect them for debugging. See `LibCorporateAction.cancel` for
     /// the orphan-node invariant.
     ///
-    /// @param actionIndex The action index returned by `nextOfType` / `prevOfType`.
+    /// @param actionId The action id returned by `nextOfType` / `prevOfType`.
     /// @return parameters The raw ABI-encoded parameters for the action.
-    function getActionParameters(uint256 actionIndex) external view returns (bytes memory parameters);
+    function getActionParameters(uint256 actionId) external view returns (bytes memory parameters);
 }

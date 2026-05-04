@@ -122,11 +122,11 @@ library LibCorporateAction {
 
     /// @notice Insert a node into the list maintaining time ordering.
     /// effectiveTime must be strictly in the future.
-    /// @return actionIndex The array index of the new node. Index 0 is the
+    /// @return actionId The array index of the new node. Index 0 is the
     /// bootstrap node, so user-scheduled actions have index >= 1.
     function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters)
         internal
-        returns (uint256 actionIndex)
+        returns (uint256 actionId)
     {
         if (effectiveTime <= block.timestamp) {
             revert EffectiveTimeInPast(effectiveTime, block.timestamp);
@@ -136,11 +136,11 @@ library LibCorporateAction {
 
         _ensureBootstrap(s);
 
-        // Push new node — its array position is the actionIndex.
+        // Push new node — its array position is the actionId.
         s.nodes.push();
-        actionIndex = s.nodes.length - 1;
+        actionId = s.nodes.length - 1;
 
-        CorporateActionNode storage node = s.nodes[actionIndex];
+        CorporateActionNode storage node = s.nodes[actionId];
         node.actionType = actionType;
         node.effectiveTime = effectiveTime;
         node.parameters = parameters;
@@ -150,7 +150,7 @@ library LibCorporateAction {
         node.prev = NODE_NONE;
         node.next = NODE_NONE;
 
-        _insertOrdered(s, actionIndex, effectiveTime);
+        _insertOrdered(s, actionId, effectiveTime);
     }
 
     /// @dev Lazily create the index-0 init/bootstrap node on first `schedule`
@@ -266,7 +266,7 @@ library LibCorporateAction {
     /// (unlinked here).
     ///
     /// @dev `node.effectiveTime = 0` below is the double-cancel guard. A
-    /// second call to `cancel(actionIndex)` on an already-cancelled node
+    /// second call to `cancel(actionId)` on an already-cancelled node
     /// is caught by the `node.effectiveTime == 0` check at the top of
     /// this function. Without the zero-assignment, a double-cancel would:
     /// (1) pass the effectiveTime-in-past check because the original
@@ -276,16 +276,16 @@ library LibCorporateAction {
     /// Catastrophic, silent state corruption.
     /// `testCancelAlreadyCancelledReverts` pins the guard — do not remove
     /// the test or the zero assignment together.
-    function cancel(uint256 actionIndex) internal {
+    function cancel(uint256 actionId) internal {
         CorporateActionStorage storage s = getStorage();
-        if (actionIndex >= s.nodes.length) revert ActionDoesNotExist(actionIndex);
+        if (actionId >= s.nodes.length) revert ActionDoesNotExist(actionId);
 
-        CorporateActionNode storage node = s.nodes[actionIndex];
+        CorporateActionNode storage node = s.nodes[actionId];
 
-        if (node.effectiveTime == 0) revert ActionDoesNotExist(actionIndex);
+        if (node.effectiveTime == 0) revert ActionDoesNotExist(actionId);
         // Bootstrap (idx 0) has effectiveTime == block.timestamp at creation,
         // so this guard rejects `cancel(0)` without a special case.
-        if (node.effectiveTime <= block.timestamp) revert ActionAlreadyComplete(actionIndex);
+        if (node.effectiveTime <= block.timestamp) revert ActionAlreadyComplete(actionId);
 
         uint256 prevId = node.prev;
         uint256 nextId = node.next;

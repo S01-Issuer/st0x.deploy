@@ -6,10 +6,10 @@ pragma solidity ^0.8.25;
 error EffectiveTimeInPast(uint64 effectiveTime, uint256 currentTime);
 
 /// Thrown when trying to cancel an action whose effectiveTime has passed.
-error ActionAlreadyComplete(uint256 actionIndex);
+error ActionAlreadyComplete(uint256 actionId);
 
 /// Thrown when referencing an action that does not exist.
-error ActionDoesNotExist(uint256 actionIndex);
+error ActionDoesNotExist(uint256 actionId);
 
 /// Thrown when the external type hash has no known bitmap mapping.
 /// @param typeHash The unrecognised external identifier.
