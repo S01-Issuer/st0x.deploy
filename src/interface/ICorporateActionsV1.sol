@@ -419,14 +419,14 @@ interface ICorporateActionsV1 {
         returns (uint256 prevActionId, uint256 actionType, uint64 effectiveTime);
 
     /// @notice Read the ABI-encoded parameters blob for a scheduled or
-    /// completed corporate action, given a cursor returned from one of the
-    /// traversal getters.
+    /// completed corporate action, given an `actionId` returned from one
+    /// of the traversal getters.
     ///
     /// @dev Intended for cross-contract consumers that need to apply the
     /// action (e.g. the receipt contract reading a stock split multiplier
     /// during its own rebase walk). For stock splits, the returned bytes
     /// decode to a single `Float` via `LibStockSplit.decodeParametersV1`.
-    /// Consumers should mask the cursor's `actionType` (via `nextOfType` /
+    /// Consumers should mask the action's `actionType` (via `nextOfType` /
     /// `prevOfType`) before calling this to ensure they know which decoder
     /// to apply.
     ///
