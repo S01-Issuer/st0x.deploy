@@ -23,10 +23,12 @@ import {LibReceiptRebase} from "../lib/LibReceiptRebase.sol";
 /// pre-split underlying while holding a post-split share worth double).
 ///
 /// Migration is lazy, identical in shape to the share-side model:
-///   - Each `(holder, id)` pair tracks its own migration cursor — the 1-based
-///     index of the last completed stock split node it has been migrated
-///     through. Storage lives at a dedicated ERC-7201 namespace on this
-///     contract (`LibCorporateActionReceipt`).
+///   - Each `(holder, id)` pair tracks its own migration cursor — the
+///     vault's node index of the last completed stock split this pair has
+///     been migrated through. Storage lives at a dedicated ERC-7201
+///     namespace on this contract (`LibCorporateActionReceipt`). The
+///     default cursor 0 is the vault's bootstrap node — fresh pairs start
+///     there.
 ///   - On every `_update` (transfer / mint / burn), both `from` and `to` are
 ///     migrated through all completed stock splits for each `id` in the
 ///     batch before the transfer executes.
@@ -67,8 +69,8 @@ contract StoxReceipt is Receipt {
     /// applied.
     /// @param account The holder whose `(account, id)` migration state changed.
     /// @param id The receipt id.
-    /// @param fromCursor The `(account, id)` cursor before this migration
-    /// (0 means never migrated).
+    /// @param fromCursor The `(account, id)` cursor before this migration.
+    /// The default 0 is the vault's bootstrap node.
     /// @param toCursor The `(account, id)` cursor after this migration.
     /// @param oldBalance The raw stored balance before rasterization.
     /// @param newBalance The raw stored balance after rasterization.

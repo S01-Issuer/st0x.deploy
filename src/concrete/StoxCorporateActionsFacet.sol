@@ -5,7 +5,12 @@ pragma solidity =0.8.25;
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
 import {ActionDoesNotExist} from "../error/ErrCorporateAction.sol";
-import {CorporateActionNode, CompletionFilter, LibCorporateActionNode} from "../lib/LibCorporateActionNode.sol";
+import {
+    CorporateActionNode,
+    CompletionFilter,
+    LibCorporateActionNode,
+    NODE_NONE
+} from "../lib/LibCorporateActionNode.sol";
 import {IAuthorizeV1} from "rain.vats/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetReceiptVault.sol";
 
@@ -158,7 +163,10 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         returns (bytes memory parameters)
     {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        if (cursor == 0 || cursor >= s.nodes.length) revert ActionDoesNotExist(cursor);
+        // Bounds check covers `NODE_NONE` (= type(uint256).max) implicitly:
+        // `s.nodes.length` is bounded by realistic schedule cadence, so any
+        // sentinel value comparable to max uint256 is >= length.
+        if (cursor >= s.nodes.length) revert ActionDoesNotExist(cursor);
         parameters = s.nodes[cursor].parameters;
     }
 

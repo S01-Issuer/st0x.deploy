@@ -5,10 +5,14 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std/Test.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
-import {ICorporateActionsV1, ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/interface/ICorporateActionsV1.sol";
+import {
+    ICorporateActionsV1,
+    ACTION_TYPE_INIT_V1,
+    ACTION_TYPE_STOCK_SPLIT_V1
+} from "../../../src/interface/ICorporateActionsV1.sol";
 import {LibProdDeployV3} from "../../../src/lib/LibProdDeployV3.sol";
 import {STOCK_SPLIT_V1_TYPE_HASH, UnknownActionType} from "../../../src/lib/LibCorporateAction.sol";
-import {CompletionFilter} from "../../../src/lib/LibCorporateActionNode.sol";
+import {CompletionFilter, NODE_NONE} from "../../../src/lib/LibCorporateActionNode.sol";
 import {IAuthorizeV1, Unauthorized} from "rain.vats/interface/IAuthorizeV1.sol";
 import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
 import {LibTestTofu} from "../../lib/LibTestTofu.sol";
@@ -95,12 +99,12 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         assertEq(ICorporateActionsV1(address(vault)).completedActionCount(), 0);
     }
 
-    /// `latestActionOfType` on a fresh vault returns (0, 0, 0) through the
-    /// fallback delegatecall.
+    /// `latestActionOfType` on a fresh vault returns (NODE_NONE, 0, 0)
+    /// through the fallback delegatecall.
     function testLatestActionOfTypeRoutesThroughFallback() external view {
         (uint256 cursor, uint256 actionType, uint64 effectiveTime) =
             ICorporateActionsV1(address(vault)).latestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
-        assertEq(cursor, 0);
+        assertEq(cursor, NODE_NONE);
         assertEq(actionType, 0);
         assertEq(effectiveTime, 0);
     }
@@ -115,6 +119,7 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         vm.prank(ALICE);
         uint256 actionIndex = ICorporateActionsV1(address(vault))
             .scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, effectiveTime, params);
+        // Bootstrap occupies idx 0, so this user action lands at idx 1.
         assertEq(actionIndex, 1);
 
         // Authorizer was invoked from the vault's context (address(this) in
@@ -125,9 +130,34 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         // The scheduled action is readable through the fallback as well.
         (uint256 cursor, uint256 actionType, uint64 gotEffectiveTime) =
             ICorporateActionsV1(address(vault)).latestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
-        assertEq(cursor, 1);
+        assertEq(cursor, actionIndex);
         assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(gotEffectiveTime, effectiveTime);
+    }
+
+    /// Cross-contract head-inclusive walk hits bootstrap (idx 0) when the
+    /// mask includes `ACTION_TYPE_INIT_V1`. The receipt-side rebase relies
+    /// on this — `LibReceiptRebase.migratedBalance` calls
+    /// `vault.nextOfType(cursor, BALANCE_MIGRATION_TYPES_MASK, COMPLETED)`
+    /// across the contract boundary, expecting bootstrap to surface as a
+    /// real (idx 0) cursor when walking head-inclusive (cursor = NODE_NONE).
+    /// Pins that the fallback delegatecall path returns idx 0 for this,
+    /// not silently rewriting it through some sentinel translation layer.
+    function testNextOfTypeHeadInclusiveReturnsBootstrap() external {
+        // Schedule a user action so `_ensureBootstrap` fires; bootstrap
+        // is at idx 0, user action at idx 1.
+        bytes memory params = abi.encode(LibDecimalFloat.packLossless(2, 0));
+        vm.prank(ALICE);
+        ICorporateActionsV1(address(vault)).scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 2000, params);
+
+        // INIT-only mask + ALL filter: head-inclusive walk hits bootstrap.
+        (uint256 cursor, uint256 actionType, uint64 effectiveTime) =
+            ICorporateActionsV1(address(vault)).nextOfType(NODE_NONE, ACTION_TYPE_INIT_V1, CompletionFilter.ALL);
+        assertEq(cursor, 0, "bootstrap is observable at idx 0 via cross-contract head-inclusive walk");
+        assertEq(actionType, ACTION_TYPE_INIT_V1, "actionType matches bootstrap");
+        assertEq(
+            uint256(effectiveTime), block.timestamp, "bootstrap effectiveTime is block.timestamp at first schedule"
+        );
     }
 
     /// Direct calls to the facet at its production address revert with
@@ -159,28 +189,33 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         bytes memory paramsA = abi.encode(LibDecimalFloat.packLossless(2, 0));
         bytes memory paramsB = abi.encode(LibDecimalFloat.packLossless(3, 0));
 
+        // Bootstrap occupies idx 0; the two user actions land at idx 1 and 2.
         vm.prank(ALICE);
-        ICorporateActionsV1(address(vault)).scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 2000, paramsA);
+        uint256 idA =
+            ICorporateActionsV1(address(vault)).scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 2000, paramsA);
         vm.prank(ALICE);
-        ICorporateActionsV1(address(vault)).scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 3000, paramsB);
+        uint256 idB =
+            ICorporateActionsV1(address(vault)).scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 3000, paramsB);
 
         // earliest pending → first scheduled
         (uint256 cursor, uint256 actionType, uint64 effectiveTime) = ICorporateActionsV1(address(vault))
             .earliestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
-        assertEq(cursor, 1);
+        assertEq(cursor, idA);
         assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(effectiveTime, 2000);
 
-        // next from cursor 1 → second scheduled
+        // next from idA → second scheduled
         (cursor, actionType, effectiveTime) =
-            ICorporateActionsV1(address(vault)).nextOfType(1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
-        assertEq(cursor, 2);
+            ICorporateActionsV1(address(vault)).nextOfType(idA, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
+        assertEq(cursor, idB);
+        assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1, "routed nextOfType returns the actionType tuple field");
         assertEq(effectiveTime, 3000);
 
-        // prev from cursor 2 → first scheduled
+        // prev from idB → first scheduled
         (cursor, actionType, effectiveTime) =
-            ICorporateActionsV1(address(vault)).prevOfType(2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
-        assertEq(cursor, 1);
+            ICorporateActionsV1(address(vault)).prevOfType(idB, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
+        assertEq(cursor, idA);
+        assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1, "routed prevOfType returns the actionType tuple field");
         assertEq(effectiveTime, 2000);
     }
 
@@ -230,6 +265,7 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         ICorporateActionsV1(address(vault)).cancelCorporateAction(b);
         vm.stopPrank();
 
+        // Bootstrap occupies idx 0; user actions land at idx 1, 2, 3.
         assertEq(a, 1);
         assertEq(b, 2);
         assertEq(c, 3);
@@ -248,7 +284,7 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         // Walk past c — no further pending nodes.
         (uint256 cursor3,,) = ICorporateActionsV1(address(vault))
             .nextOfType(cursor2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
-        assertEq(cursor3, 0);
+        assertEq(cursor3, NODE_NONE);
     }
 
     /// `cancelCorporateAction` reaches the facet through the fallback,
@@ -277,7 +313,7 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         // cancel zeroes its prev/next pointers and resets effectiveTime.
         (uint256 cursor,,) =
             ICorporateActionsV1(address(vault)).latestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
-        assertEq(cursor, 0, "cancelled split is no longer pending");
+        assertEq(cursor, NODE_NONE, "cancelled split is no longer pending");
     }
 
     /// `getActionParameters` returns the raw `bytes` payload through the
