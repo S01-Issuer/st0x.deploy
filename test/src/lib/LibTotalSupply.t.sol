@@ -297,6 +297,52 @@ contract LibTotalSupplyTest is Test {
         assertEq(h.unmigrated(0), 1000);
     }
 
+    /// Fold mutates only `totalSupplyLatestCursor` — never a pot. This
+    /// pins step 1 of the pot-invariant inductive proof
+    /// (LibTotalSupply.sol NatSpec): "fold mutates only
+    /// totalSupplyLatestCursor; no pot write and no balance write".
+    /// A regression where someone added a pot write inside fold (e.g.
+    /// `s.unmigrated[latest] = 0` to "clear" a pot, or accidentally
+    /// rolling pots across folds) would silently desync the pot
+    /// invariant from the migration state. This test sets up
+    /// non-trivial pot values, snapshots every pot, runs a fold that
+    /// MUST advance the cursor, then asserts every snapshotted pot is
+    /// unchanged.
+    function testFoldDoesNotMutateAnyPot() external {
+        h.setOzTotalSupply(1000);
+
+        // Two completed splits; populate pots 0/1/2 with distinct values
+        // by partial migration so the test isn't just asserting "all
+        // zero" pots.
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
+        vm.warp(3000);
+        h.fold();
+        // Account A (stored 100) migrates 0 → 2 (rasterizes to 600).
+        h.onAccountMigrated(0, 100, 2, 600);
+        // Account B (stored 100) migrates 0 → 1 (rasterizes to 200).
+        h.onAccountMigrated(0, 100, 1, 200);
+
+        // Schedule a third split and warp past it so the next fold has
+        // real work to do (advancing the cursor from 2 to 3).
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 4000, _splitParams(2));
+        vm.warp(5000);
+
+        uint256 cursorBefore = h.totalSupplyLatestCursor();
+        uint256 pot0Before = h.unmigrated(0);
+        uint256 pot1Before = h.unmigrated(1);
+        uint256 pot2Before = h.unmigrated(2);
+        uint256 pot3Before = h.unmigrated(3);
+
+        h.fold();
+
+        assertGt(h.totalSupplyLatestCursor(), cursorBefore, "fold must have advanced the cursor for the test to bind");
+        assertEq(h.unmigrated(0), pot0Before, "fold must not mutate unmigrated[0]");
+        assertEq(h.unmigrated(1), pot1Before, "fold must not mutate unmigrated[1]");
+        assertEq(h.unmigrated(2), pot2Before, "fold must not mutate unmigrated[2]");
+        assertEq(h.unmigrated(3), pot3Before, "fold must not mutate unmigrated[3]");
+    }
+
     /// Virtual fold matches eager fold.
     function testVirtualMatchesEager() external {
         h.setOzTotalSupply(500);
