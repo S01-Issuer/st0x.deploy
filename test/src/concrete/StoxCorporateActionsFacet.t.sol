@@ -783,12 +783,21 @@ contract StoxCorporateActionsFacetTest is Test {
 
     /// Cancelling the only user-scheduled node leaves the list with just
     /// the bootstrap node — head and tail both collapse to the bootstrap.
+    /// Bootstrap's `prev`/`next` storage fields are also pinned at
+    /// `NODE_NONE` (set by `_ensureBootstrap`, restored by `cancel`'s
+    /// unlink path). A regression that left them at Solidity's default 0
+    /// would create a forward self-loop (bootstrap.next = idx 0 = itself);
+    /// surfaces here without needing a backward-walk-from-bootstrap test.
     function testCancelOnlyNodeLeavesEmptyList() external {
         uint256 id = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         corporateActionHarness.cancel(id);
 
         assertEq(corporateActionHarness.head(), 0, "bootstrap remains the head");
         assertEq(corporateActionHarness.tail(), 0, "bootstrap is now the tail too");
+
+        CorporateActionNode memory bootstrap = corporateActionHarness.getNode(0);
+        assertEq(bootstrap.prev, NODE_NONE, "bootstrap.prev pinned at NODE_NONE");
+        assertEq(bootstrap.next, NODE_NONE, "bootstrap.next pinned at NODE_NONE post-cancel");
     }
 
     /// Schedule at exactly block.timestamp reverts.
@@ -1380,9 +1389,34 @@ contract StoxCorporateActionsFacetTest is Test {
     }
 
     /// getActionParameters(0) reverts with ActionDoesNotExist.
-    function testGetActionParametersZeroReverts() external {
-        vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, uint256(0)));
-        facetViaHarness.getActionParameters(0);
+    /// getActionParameters with the `NODE_NONE` sentinel reverts with
+    /// ActionDoesNotExist. The bounds check `cursor >= s.nodes.length`
+    /// catches it transitively because `NODE_NONE = type(uint256).max`
+    /// is always larger than any realistic `nodes.length`. This pin
+    /// surfaces a regression that ever made `s.nodes.length` reach values
+    /// approaching `type(uint256).max` (impossible in practice but worth
+    /// pinning), or that replaced the bounds check with a different
+    /// validation that doesn't cover the sentinel.
+    function testGetActionParametersNodeNoneReverts() external {
+        vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, NODE_NONE));
+        facetViaHarness.getActionParameters(NODE_NONE);
+    }
+
+    /// getActionParameters at idx 0 (the bootstrap node) returns the empty
+    /// bytes blob `_ensureBootstrap` wrote. Bootstrap is a real walkable
+    /// node under the 0-based scheme — a future "tighten cursor lower
+    /// bound to 1" refactor would silently break receipt-side walks that
+    /// happen to land here.
+    function testGetActionParametersBootstrapReturnsEmpty() external {
+        // Schedule one user action so `_ensureBootstrap` fires and the
+        // bootstrap node lands at idx 0.
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory params = LibStockSplit.encodeParametersV1(twoX);
+        vm.prank(ALICE);
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, params);
+
+        bytes memory bootstrapParams = facetViaHarness.getActionParameters(0);
+        assertEq(bootstrapParams.length, 0, "bootstrap parameters are intentionally empty");
     }
 
     /// getActionParameters beyond the array length reverts with
@@ -1622,6 +1656,30 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(bootstrap.parameters.length, 0, "bootstrap has no parameters");
         assertEq(bootstrap.prev, NODE_NONE, "bootstrap is the head: prev = NODE_NONE");
         assertEq(bootstrap.next, userId, "bootstrap.next is the first user action");
+    }
+
+    /// `_ensureBootstrap` writes `totalSupplyLatestCursor = NODE_NONE` as
+    /// the "no fold has run yet" sentinel. The first `fold()` walks
+    /// head-inclusive against this; `onMint` / `onBurn` use it as a
+    /// guard that they should be no-ops when the array is empty (via
+    /// the separate `nodes.length` check), but should route to
+    /// `unmigrated[NODE_NONE]` on a misuse — pinning the post-bootstrap
+    /// value directly catches a regression that initialised the slot to
+    /// 0 (which would silently mean "fold has landed on bootstrap" and
+    /// route mint/burn into pot 0 from the very first schedule call).
+    function testEnsureBootstrapInitsTotalSupplyLatestCursorToNodeNone() external {
+        // Pre-schedule: storage default is 0. The post-_ensureBootstrap
+        // value must be NODE_NONE, distinct from the default, so the
+        // first `fold` knows it has not run yet.
+        assertEq(corporateActionHarness.totalSupplyLatestCursor(), 0, "default storage is 0 pre-schedule");
+
+        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+
+        assertEq(
+            corporateActionHarness.totalSupplyLatestCursor(),
+            NODE_NONE,
+            "_ensureBootstrap writes NODE_NONE as the no-fold-yet sentinel"
+        );
     }
 
     /// Bootstrap is created exactly once per vault. A second `schedule` call

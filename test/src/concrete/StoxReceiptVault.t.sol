@@ -197,6 +197,18 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.migrationCursor(ALICE), 1, "fresh account cursor must advance");
     }
 
+    /// Pre-schedule fresh-account cursor pin: an address that has never
+    /// interacted with the vault returns `migrationCursor == 0` from the
+    /// `accountMigrationCursor` mapping. The 0-based scheme leans on this
+    /// default — 0 is the bootstrap node, so "no migration applied" and
+    /// "migrated through identity bootstrap" are the same state. A
+    /// regression that changed the namespace base, mapping shape, or
+    /// initialised cursors to anything other than 0 surfaces here.
+    function testMigrationCursorDefaultsToBootstrapForFreshAccount() external view {
+        address fresh = address(0xCAFE);
+        assertEq(vault.migrationCursor(fresh), 0, "fresh account cursor defaults to 0 (= bootstrap)");
+    }
+
     /// Two consecutive splits, then mint to a fresh account: still no inflation.
     function testMintFreshAccountAfterTwoCompletedSplits() external {
         vault.publicUpdate(address(0), BOB, 100);

@@ -5,7 +5,11 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std/Test.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
-import {ICorporateActionsV1, ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/interface/ICorporateActionsV1.sol";
+import {
+    ICorporateActionsV1,
+    ACTION_TYPE_INIT_V1,
+    ACTION_TYPE_STOCK_SPLIT_V1
+} from "../../../src/interface/ICorporateActionsV1.sol";
 import {LibProdDeployV3} from "../../../src/lib/LibProdDeployV3.sol";
 import {STOCK_SPLIT_V1_TYPE_HASH, UnknownActionType} from "../../../src/lib/LibCorporateAction.sol";
 import {CompletionFilter, NODE_NONE} from "../../../src/lib/LibCorporateActionNode.sol";
@@ -129,6 +133,29 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         assertEq(cursor, actionIndex);
         assertEq(actionType, ACTION_TYPE_STOCK_SPLIT_V1);
         assertEq(gotEffectiveTime, effectiveTime);
+    }
+
+    /// Cross-contract head-inclusive walk hits bootstrap (idx 0) when the
+    /// mask includes `ACTION_TYPE_INIT_V1`. The receipt-side rebase relies
+    /// on this — `LibReceiptRebase.migratedBalance` calls
+    /// `vault.nextOfType(cursor, BALANCE_MIGRATION_TYPES_MASK, COMPLETED)`
+    /// across the contract boundary, expecting bootstrap to surface as a
+    /// real (idx 0) cursor when walking head-inclusive (cursor = NODE_NONE).
+    /// Pins that the fallback delegatecall path returns idx 0 for this,
+    /// not silently rewriting it through some sentinel translation layer.
+    function testNextOfTypeHeadInclusiveReturnsBootstrap() external {
+        // Schedule a user action so `_ensureBootstrap` fires; bootstrap
+        // is at idx 0, user action at idx 1.
+        bytes memory params = abi.encode(LibDecimalFloat.packLossless(2, 0));
+        vm.prank(ALICE);
+        ICorporateActionsV1(address(vault)).scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 2000, params);
+
+        // INIT-only mask + ALL filter: head-inclusive walk hits bootstrap.
+        (uint256 cursor, uint256 actionType, uint64 effectiveTime) =
+            ICorporateActionsV1(address(vault)).nextOfType(NODE_NONE, ACTION_TYPE_INIT_V1, CompletionFilter.ALL);
+        assertEq(cursor, 0, "bootstrap is observable at idx 0 via cross-contract head-inclusive walk");
+        assertEq(actionType, ACTION_TYPE_INIT_V1, "actionType matches bootstrap");
+        assertEq(uint256(effectiveTime), block.timestamp, "bootstrap effectiveTime is block.timestamp at first schedule");
     }
 
     /// Direct calls to the facet at its production address revert with

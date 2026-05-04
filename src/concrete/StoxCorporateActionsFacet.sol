@@ -163,7 +163,10 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         returns (bytes memory parameters)
     {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        if (cursor == NODE_NONE || cursor >= s.nodes.length) revert ActionDoesNotExist(cursor);
+        // Bounds check covers `NODE_NONE` (= type(uint256).max) implicitly:
+        // `s.nodes.length` is bounded by realistic schedule cadence, so any
+        // sentinel value comparable to max uint256 is >= length.
+        if (cursor >= s.nodes.length) revert ActionDoesNotExist(cursor);
         parameters = s.nodes[cursor].parameters;
     }
 

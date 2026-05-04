@@ -199,6 +199,23 @@ contract StoxReceiptRebaseIntegrationTest is Test {
     }
 
     // -----------------------------------------------------------------------
+    // Default cursor pin
+
+    /// Pre-mint receipt-side fresh-pair cursor pin: an `(account, id)`
+    /// pair that has never been touched returns `holderIdCursor == 0`
+    /// from the `accountIdCursor` mapping. The 0-based scheme leans on
+    /// this default — 0 is the vault's bootstrap node, so a fresh pair
+    /// is implicitly "at bootstrap" and the first migration walk advances
+    /// from after-bootstrap. A regression that changed the namespace,
+    /// mapping shape, or initialised cursors to anything other than 0
+    /// surfaces here.
+    function testReceiptCursorDefaultsToBootstrapForFreshPair() external view {
+        address fresh = address(0xCAFE);
+        uint256 freshId = 999;
+        assertEq(receipt.holderIdCursor(fresh, freshId), 0, "fresh (account, id) cursor defaults to 0 (= bootstrap)");
+    }
+
+    // -----------------------------------------------------------------------
     // Storage-slot pin tests
 
     /// The hardcoded ERC-7201 slot constant for LibCorporateActionReceipt
