@@ -209,6 +209,33 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.migrationCursor(fresh), 0, "fresh account cursor defaults to 0 (= bootstrap)");
     }
 
+    /// `_migrateAccount` is a complete no-op when no completed splits
+    /// exist past the holder's cursor. Fresh holder (cursor 0 = bootstrap),
+    /// only bootstrap fired, no user splits completed: a touch must not
+    /// emit `AccountMigrated` and must not write to `accountMigrationCursor`
+    /// (it stays at the default 0). The cursor-advance early-return inside
+    /// `_migrateAccount` (`if (newCursor == currentCursor) return;`) is what
+    /// suppresses both. A regression that emitted unconditionally or that
+    /// wrote the cursor before the early-return would surface here.
+    function testMigrateAccountNoOpWhenAtLatest() external {
+        // Schedule a future user split so `_ensureBootstrap` fires.
+        // The split is pending; only bootstrap is completed.
+        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 5000, _splitParams(2));
+
+        vm.recordLogs();
+        vault.publicUpdate(address(0), ALICE, 0); // touch ALICE without minting
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        bytes32 sig = StoxReceiptVault.AccountMigrated.selector;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
+                fail();
+            }
+        }
+        assertEq(vault.migrationCursor(ALICE), 0, "cursor stays at bootstrap default for no-op migration");
+        assertEq(vault.rawStoredBalance(ALICE), 0, "stored balance stays at default for no-op migration");
+    }
+
     /// Two consecutive splits, then mint to a fresh account: still no inflation.
     function testMintFreshAccountAfterTwoCompletedSplits() external {
         vault.publicUpdate(address(0), BOB, 100);

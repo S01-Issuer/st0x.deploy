@@ -450,6 +450,21 @@ contract StoxCorporateActionsInvariantTest is Test {
         targetContract(address(handler));
     }
 
+    /// `InvariantVault.nextOfType` must guard the post-walk metadata read on
+    /// `nextCursor != NODE_NONE`, not on `!= 0`. The earlier shape (`!= 0`)
+    /// caused a silent OOB read on `s.nodes[NODE_NONE]` whenever the walk
+    /// returned no match. Pre-bootstrap the array is empty, so a query on
+    /// any mask must return `(NODE_NONE, 0, 0)` cleanly. A regression that
+    /// reverted the guard to `!= 0` would OOB on the read and surface as
+    /// the invariant suite setup panic we hit during the merge.
+    function testInvariantVaultNextOfTypeGuardsOnNodeNone() external view {
+        (uint256 cursor, uint256 actionType, uint64 effectiveTime) =
+            vault.nextOfType(NODE_NONE, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
+        assertEq(cursor, NODE_NONE, "no-match returns NODE_NONE cursor");
+        assertEq(actionType, 0, "no-match returns zero actionType (read skipped)");
+        assertEq(uint256(effectiveTime), 0, "no-match returns zero effectiveTime (read skipped)");
+    }
+
     /// Invariant 1: list integrity. Walking from head forward along `next`
     /// pointers and from tail backward along `prev` pointers visits the same
     /// set of reachable nodes. Same count both ways; no cycles in either

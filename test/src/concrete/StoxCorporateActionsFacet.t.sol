@@ -806,6 +806,31 @@ contract StoxCorporateActionsFacetTest is Test {
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(block.timestamp), "");
     }
 
+    /// `bootstrap.effectiveTime < user.effectiveTime` for every user
+    /// action ever scheduled. Bootstrap is created at the first
+    /// schedule call with `effectiveTime == block.timestamp`; `schedule`
+    /// requires `effectiveTime > block.timestamp` for user actions. The
+    /// strict-inequality between the user's `> block.timestamp` and
+    /// bootstrap's `== block.timestamp` is the precondition that makes
+    /// `_insertOrdered`'s tail-walk always terminate at bootstrap (the
+    /// tail walks back finding `effectiveTime <= newTime`, which is
+    /// guaranteed at idx 0). If `schedule`'s guard ever weakened to
+    /// `effectiveTime >= block.timestamp`, a user action could share
+    /// bootstrap's effectiveTime and the tail-walk's stable-ordering
+    /// rule (insert AFTER equal-time) still works, but the inequality
+    /// invariant breaks.
+    function testBootstrapEffectiveTimeStrictlyLessThanUserActions() external {
+        uint256 first = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(block.timestamp + 1), "");
+        uint256 second = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(block.timestamp + 2), "");
+
+        CorporateActionNode memory bootstrap = corporateActionHarness.getNode(0);
+        CorporateActionNode memory firstUser = corporateActionHarness.getNode(first);
+        CorporateActionNode memory secondUser = corporateActionHarness.getNode(second);
+
+        assertLt(bootstrap.effectiveTime, firstUser.effectiveTime, "bootstrap < first user action");
+        assertLt(bootstrap.effectiveTime, secondUser.effectiveTime, "bootstrap < second user action");
+    }
+
     /// Cancel idx 0 (the bootstrap node) reverts with `ActionAlreadyComplete`.
     /// Bootstrap's `effectiveTime == block.timestamp` at creation, so the
     /// standard time guard rejects it without a special case.
