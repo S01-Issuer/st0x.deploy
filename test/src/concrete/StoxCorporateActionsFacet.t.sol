@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std/Test.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {
     ICorporateActionsV1,
@@ -909,6 +909,35 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(walked, count + 1, "walked count includes the bootstrap node");
     }
 
+    /// Across any sequence of schedule/cancel ops, `head` remains pinned
+    /// at idx 0 (the bootstrap). Bootstrap can't be cancelled (its
+    /// `effectiveTime == block.timestamp` triggers the
+    /// `ActionAlreadyComplete` guard), and user actions all schedule
+    /// strictly into the future — so `_insertOrdered`'s tail-walk lands
+    /// every user action AFTER bootstrap, never displacing it. This pin
+    /// catches a regression where the head pointer drifted to a user
+    /// action (e.g., an `_insertOrdered` change that mistook an
+    /// equal-time tie for a head insertion) or where bootstrap
+    /// cancellation accidentally became reachable.
+    function testFuzzHeadStaysAtBootstrapAcrossScheduleCancelMix(uint8 nodeCountSeed, uint8 cancelMaskSeed) external {
+        uint256 n = bound(nodeCountSeed, 1, 10);
+
+        uint256[] memory ids = new uint256[](n);
+        for (uint256 i = 0; i < n; i++) {
+            // forge-lint: disable-next-line(unsafe-typecast)
+            ids[i] = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(1001 + i * 100), "");
+            assertEq(corporateActionHarness.head(), 0, "head pinned at bootstrap after schedule");
+        }
+
+        // Cancel a deterministic subset driven by `cancelMaskSeed`.
+        for (uint256 i = 0; i < n; i++) {
+            if ((cancelMaskSeed >> (i % 8)) & 1 == 1) {
+                corporateActionHarness.cancel(ids[i]);
+                assertEq(corporateActionHarness.head(), 0, "head pinned at bootstrap after cancel");
+            }
+        }
+    }
+
     /// Fuzz: schedule N nodes, cancel a random subset, verify list integrity.
     function testFuzzCancelRandomSubset(uint8 seed) external {
         uint256 n = bound(seed, 2, 10);
@@ -1213,6 +1242,32 @@ contract StoxCorporateActionsFacetTest is Test {
         uint256 actionIndex =
             facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, effectiveTime, parameters);
         assertEq(actionIndex, 1);
+    }
+
+    /// `_ensureBootstrap` is silent — it must not emit `CorporateActionScheduled`
+    /// for the bootstrap node, only the user action triggers an emit. A
+    /// regression that taught `_ensureBootstrap` to mirror `schedule`'s
+    /// emit would surface to off-chain indexers as a phantom action with
+    /// idx 0 and `actionType = ACTION_TYPE_INIT_V1` they had never asked
+    /// for, breaking any indexer that assumes one event per
+    /// scheduleCorporateAction call.
+    function testEnsureBootstrapDoesNotEmitScheduledEvent() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
+
+        // Record every log emitted across the first scheduleCorporateAction
+        // call (which fires `_ensureBootstrap` plus the user action splice).
+        vm.recordLogs();
+        vm.prank(ALICE);
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        bytes32 sig = ICorporateActionsV1.CorporateActionScheduled.selector;
+        uint256 count;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) count++;
+        }
+        assertEq(count, 1, "exactly one CorporateActionScheduled event per scheduleCorporateAction call");
     }
 
     /// Audit P2-4: `cancelCorporateAction` emits `CorporateActionCancelled`
@@ -1810,8 +1865,8 @@ contract StoxCorporateActionsFacetTest is Test {
         // No schedule yet → no bootstrap → count == 0.
         assertEq(corporateActionHarness.countCompleted(), 0);
 
-        // First schedule creates bootstrap (idx 1, complete) AND user action
-        // (idx 2, pending). `countCompleted` must report 0 — the bootstrap
+        // First schedule creates bootstrap (idx 0, complete) AND user action
+        // (idx 1, pending). `countCompleted` must report 0 — the bootstrap
         // is completed but masked out, the user action is pending.
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
         assertEq(corporateActionHarness.countCompleted(), 0, "bootstrap must not inflate the user-action count");

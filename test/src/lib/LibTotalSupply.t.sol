@@ -15,6 +15,10 @@ contract LibTotalSupplyHarness {
         return LibCorporateAction.schedule(actionType, effectiveTime, parameters);
     }
 
+    function cancel(uint256 actionIndex) external {
+        LibCorporateAction.cancel(actionIndex);
+    }
+
     function effectiveTotalSupply() external view returns (uint256) {
         return LibTotalSupply.effectiveTotalSupply();
     }
@@ -214,6 +218,50 @@ contract LibTotalSupplyTest is Test {
         h.onAccountMigrated(0, 1000, 1, 2000);
         h.onBurn(200);
         assertEq(h.effectiveTotalSupply(), 1800);
+    }
+
+    /// Cancelling a pending split must not retroactively rewind
+    /// `totalSupplyLatestCursor`. Once `fold()` has advanced past a
+    /// completed split, that cursor reflects per-pot accounting state
+    /// that's already reified in the storage pots — cancelling a
+    /// later-scheduled pending split has no information to communicate
+    /// back to fold's view of the past, so the cursor must remain where
+    /// the prior fold left it.
+    function testCancelPendingDoesNotRewindFoldedCursor() external {
+        h.setOzTotalSupply(1000);
+
+        // Schedule split A, complete it, fold so the cursor advances.
+        h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
+        vm.warp(2000);
+        h.fold();
+        uint256 cursorAfterFirstFold = h.totalSupplyLatestCursor();
+        assertEq(cursorAfterFirstFold, 1, "first fold lands on the completed user split (idx 1)");
+
+        // Schedule a second split with future effectiveTime, then cancel
+        // it before warping. The cursor must still be at idx 1 — the
+        // cancellation of a pending node has no bearing on already-folded
+        // state. Assert immediately after cancel, before any subsequent
+        // fold could re-derive the value: a regression that wrote
+        // `totalSupplyLatestCursor` from inside `cancel` would surface
+        // here, while the same mutation is invisible to a post-fold
+        // assertion (fold re-walks and lands at the same idx).
+        uint256 idB = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 5000, _splitParams(3));
+        h.cancel(idB);
+        assertEq(
+            h.totalSupplyLatestCursor(),
+            cursorAfterFirstFold,
+            "cancel must not write totalSupplyLatestCursor"
+        );
+
+        // After re-folding, the cursor is unchanged either way (fold is
+        // idempotent on a list with no newly-completed migration nodes).
+        h.fold();
+        assertEq(h.totalSupplyLatestCursor(), cursorAfterFirstFold, "fold post-cancel is idempotent");
+
+        // The effectiveTotalSupply must equal what it was after the first
+        // fold (only A applied), confirming the cursor and pot state are
+        // consistent across the cancel.
+        assertEq(h.effectiveTotalSupply(), 2000, "totalSupply unchanged after cancelling a pending split");
     }
 
     /// Fold is idempotent.
