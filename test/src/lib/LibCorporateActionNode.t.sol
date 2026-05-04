@@ -140,6 +140,28 @@ contract LibCorporateActionNodeTest is Test {
         assertEq(cursor, NODE_NONE);
     }
 
+    /// On a pre-bootstrap empty list, an invalid mask must STILL revert with
+    /// `InvalidMask` — the mask check fires before the empty-list early
+    /// return. A regression that reordered the guards (length check first,
+    /// returning `NODE_NONE` for empty lists before even validating the
+    /// mask) would silently conflate "caller bug: invalid mask" with
+    /// "valid query, empty list". This pins the ordering.
+    function testInvalidMaskOnEmptyListStillReverts() external {
+        // No schedule call — list is empty (s.nodes.length == 0).
+
+        vm.expectRevert(InvalidMask.selector);
+        h.latest(0, CompletionFilter.ALL);
+
+        vm.expectRevert(InvalidMask.selector);
+        h.earliest(0, CompletionFilter.ALL);
+
+        vm.expectRevert(InvalidMask.selector);
+        h.nextOf(NODE_NONE, 0, CompletionFilter.ALL);
+
+        vm.expectRevert(InvalidMask.selector);
+        h.prevOf(NODE_NONE, 0, CompletionFilter.ALL);
+    }
+
     /// Mask = 0 can never match any node (every node's `actionType` has at
     /// least one bit set, so `actionType & 0 == 0` for every node). The
     /// traversal primitives revert with `InvalidMask` so a caller bug
