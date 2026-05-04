@@ -104,7 +104,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         view
         override
         onlyDelegatecalled
-        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
+        returns (uint256 actionIndex, uint256 actionType, uint64 effectiveTime)
     {
         // False positive: tuple pass-through — `return lib.tupleFn(...)` re-emits every
         // component as this function's own return, nothing is discarded.
@@ -118,7 +118,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         view
         override
         onlyDelegatecalled
-        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
+        returns (uint256 actionIndex, uint256 actionType, uint64 effectiveTime)
     {
         // False positive: tuple pass-through — `return lib.tupleFn(...)` re-emits every
         // component as this function's own return, nothing is discarded.
@@ -127,35 +127,35 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     }
 
     /// @inheritdoc ICorporateActionsV1
-    function nextOfType(uint256 cursor, uint256 mask, CompletionFilter filter)
+    function nextOfType(uint256 fromIndex, uint256 mask, CompletionFilter filter)
         external
         view
         override
         onlyDelegatecalled
-        returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime)
+        returns (uint256 nextActionIndex, uint256 actionType, uint64 effectiveTime)
     {
         // False positive: tuple pass-through — `return lib.tupleFn(...)` re-emits every
         // component as this function's own return, nothing is discarded.
         // slither-disable-next-line unused-return
-        return LibCorporateActionNode.nextActionOfType(cursor, mask, filter);
+        return LibCorporateActionNode.nextActionOfType(fromIndex, mask, filter);
     }
 
     /// @inheritdoc ICorporateActionsV1
-    function prevOfType(uint256 cursor, uint256 mask, CompletionFilter filter)
+    function prevOfType(uint256 fromIndex, uint256 mask, CompletionFilter filter)
         external
         view
         override
         onlyDelegatecalled
-        returns (uint256 prevCursor, uint256 actionType, uint64 effectiveTime)
+        returns (uint256 prevActionIndex, uint256 actionType, uint64 effectiveTime)
     {
         // False positive: tuple pass-through — `return lib.tupleFn(...)` re-emits every
         // component as this function's own return, nothing is discarded.
         // slither-disable-next-line unused-return
-        return LibCorporateActionNode.prevActionOfType(cursor, mask, filter);
+        return LibCorporateActionNode.prevActionOfType(fromIndex, mask, filter);
     }
 
     /// @inheritdoc ICorporateActionsV1
-    function getActionParameters(uint256 cursor)
+    function getActionParameters(uint256 actionIndex)
         external
         view
         override
@@ -166,8 +166,8 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         // Bounds check covers `NODE_NONE` (= type(uint256).max) implicitly:
         // `s.nodes.length` is bounded by realistic schedule cadence, so any
         // sentinel value comparable to max uint256 is >= length.
-        if (cursor >= s.nodes.length) revert ActionDoesNotExist(cursor);
-        parameters = s.nodes[cursor].parameters;
+        if (actionIndex >= s.nodes.length) revert ActionDoesNotExist(actionIndex);
+        parameters = s.nodes[actionIndex].parameters;
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is

@@ -216,13 +216,13 @@ library LibCorporateActionNode {
         return current;
     }
 
-    /// @dev Resolve a cursor to `(actionType, effectiveTime)`. Returns
-    /// `(0, 0)` when `cursor == NODE_NONE` without touching storage, so
+    /// @dev Resolve an action index to `(actionType, effectiveTime)`. Returns
+    /// `(0, 0)` when `actionIndex == NODE_NONE` without touching storage, so
     /// callers can thread "none found" results through without a branch of
     /// their own.
-    function resolve(uint256 cursor) private view returns (uint256 actionType, uint64 effectiveTime) {
-        if (cursor != NODE_NONE) {
-            CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[cursor];
+    function resolve(uint256 actionIndex) private view returns (uint256 actionType, uint64 effectiveTime) {
+        if (actionIndex != NODE_NONE) {
+            CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[actionIndex];
             actionType = node.actionType;
             effectiveTime = node.effectiveTime;
         }
@@ -232,39 +232,39 @@ library LibCorporateActionNode {
     function latestActionOfType(uint256 mask, CompletionFilter filter)
         internal
         view
-        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
+        returns (uint256 actionIndex, uint256 actionType, uint64 effectiveTime)
     {
-        cursor = prevOfType(NODE_NONE, mask, filter);
-        (actionType, effectiveTime) = resolve(cursor);
+        actionIndex = prevOfType(NODE_NONE, mask, filter);
+        (actionType, effectiveTime) = resolve(actionIndex);
     }
 
     /// @notice Earliest action matching `mask` and `filter`, resolved with metadata.
     function earliestActionOfType(uint256 mask, CompletionFilter filter)
         internal
         view
-        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
+        returns (uint256 actionIndex, uint256 actionType, uint64 effectiveTime)
     {
-        cursor = nextOfType(NODE_NONE, mask, filter);
-        (actionType, effectiveTime) = resolve(cursor);
+        actionIndex = nextOfType(NODE_NONE, mask, filter);
+        (actionType, effectiveTime) = resolve(actionIndex);
     }
 
-    /// @notice Next matching action after `fromCursor`, resolved with metadata.
-    function nextActionOfType(uint256 fromCursor, uint256 mask, CompletionFilter filter)
+    /// @notice Next matching action after `fromIndex`, resolved with metadata.
+    function nextActionOfType(uint256 fromIndex, uint256 mask, CompletionFilter filter)
         internal
         view
-        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
+        returns (uint256 actionIndex, uint256 actionType, uint64 effectiveTime)
     {
-        cursor = nextOfType(fromCursor, mask, filter);
-        (actionType, effectiveTime) = resolve(cursor);
+        actionIndex = nextOfType(fromIndex, mask, filter);
+        (actionType, effectiveTime) = resolve(actionIndex);
     }
 
-    /// @notice Previous matching action before `fromCursor`, resolved with metadata.
-    function prevActionOfType(uint256 fromCursor, uint256 mask, CompletionFilter filter)
+    /// @notice Previous matching action before `fromIndex`, resolved with metadata.
+    function prevActionOfType(uint256 fromIndex, uint256 mask, CompletionFilter filter)
         internal
         view
-        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
+        returns (uint256 actionIndex, uint256 actionType, uint64 effectiveTime)
     {
-        cursor = prevOfType(fromCursor, mask, filter);
-        (actionType, effectiveTime) = resolve(cursor);
+        actionIndex = prevOfType(fromIndex, mask, filter);
+        (actionType, effectiveTime) = resolve(actionIndex);
     }
 }

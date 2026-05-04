@@ -69,16 +69,18 @@ contract StoxReceipt is Receipt {
     /// applied.
     /// @param account The holder whose `(account, id)` migration state changed.
     /// @param id The receipt id.
-    /// @param fromCursor The `(account, id)` cursor before this migration.
-    /// The default 0 is the vault's bootstrap node.
-    /// @param toCursor The `(account, id)` cursor after this migration.
+    /// @param fromActionIndex The action index the `(account, id)` cursor
+    /// was at before this migration. The default 0 is the vault's bootstrap
+    /// node.
+    /// @param toActionIndex The action index the `(account, id)` cursor is
+    /// at after this migration.
     /// @param oldBalance The raw stored balance before rasterization.
     /// @param newBalance The raw stored balance after rasterization.
     event ReceiptAccountMigrated(
         address indexed account,
         uint256 indexed id,
-        uint256 fromCursor,
-        uint256 toCursor,
+        uint256 fromActionIndex,
+        uint256 toActionIndex,
         uint256 oldBalance,
         uint256 newBalance
     );

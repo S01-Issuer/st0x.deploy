@@ -43,13 +43,14 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// `_migrateAccount`, before the mint / burn / transfer delta is
     /// applied.
     /// @param account The account whose migration state changed.
-    /// @param fromCursor The account's migration cursor before this
-    /// migration. The default 0 corresponds to the bootstrap node (idx 0)
-    /// — every fresh holder starts there because the cursor mapping
-    /// defaults to 0 and bootstrap is identity for splits, so "no
+    /// @param fromActionIndex The action index the account's cursor was at
+    /// before this migration. The default 0 corresponds to the bootstrap
+    /// node (idx 0) — every fresh holder starts there because the cursor
+    /// mapping defaults to 0 and bootstrap is identity for splits, so "no
     /// migration applied" and "migrated through the identity bootstrap"
     /// are the same state.
-    /// @param toCursor The account's migration cursor after this migration.
+    /// @param toActionIndex The action index the account's cursor is at
+    /// after this migration.
     /// @param oldBalance The account's **stored** balance before rasterization
     /// — i.e. the value returned by `LibERC20Storage.underlyingBalance(account)` at
     /// the moment the migration starts, NOT the post-rebase effective balance.
@@ -57,7 +58,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// For a single forward 2x split applied to a pre-rebase stored balance of
     /// 100, this is 200.
     event AccountMigrated(
-        address indexed account, uint256 fromCursor, uint256 toCursor, uint256 oldBalance, uint256 newBalance
+        address indexed account, uint256 fromActionIndex, uint256 toActionIndex, uint256 oldBalance, uint256 newBalance
     );
 
     /// @notice Returns `account`'s ERC20 balance including any pending rebase
