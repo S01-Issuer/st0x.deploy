@@ -240,19 +240,19 @@ library LibTotalSupply {
     }
 
     /// @notice Update tracking when an account is migrated.
-    /// @param fromCursor The account's cursor before migration.
+    /// @param fromActionId The action id the account's cursor was at before migration.
     /// @param storedBalance The account's stored balance before migration.
-    /// @param toCursor The account's cursor after migration.
+    /// @param toActionId The action id the account's cursor is at after migration.
     /// @param newBalance The account's rasterized balance after migration.
-    function onAccountMigrated(uint256 fromCursor, uint256 storedBalance, uint256 toCursor, uint256 newBalance)
+    function onAccountMigrated(uint256 fromActionId, uint256 storedBalance, uint256 toActionId, uint256 newBalance)
         internal
     {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        // Checked subtraction: safe by the pot invariant I(fromCursor) stated
+        // Checked subtraction: safe by the pot invariant I(fromActionId) stated
         // at the top of this library. `storedBalance` is one of the summands
-        // of `unmigrated[fromCursor]`, so the subtraction cannot underflow.
-        s.unmigrated[fromCursor] -= storedBalance;
-        s.unmigrated[toCursor] += newBalance;
+        // of `unmigrated[fromActionId]`, so the subtraction cannot underflow.
+        s.unmigrated[fromActionId] -= storedBalance;
+        s.unmigrated[toActionId] += newBalance;
     }
 
     /// @notice Update tracking for a mint (adds to the latest cursor pot).
