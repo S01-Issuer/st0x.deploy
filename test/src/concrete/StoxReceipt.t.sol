@@ -84,7 +84,13 @@ contract MockVault is ICorporateActionsV1, IReceiptManagerV2 {
         // 1..splits.length. The "no more nodes" sentinel is `NODE_NONE`,
         // matching the real vault's contract.
         if (cursor == NODE_NONE) {
-            return (splits.length == 0 ? NODE_NONE : 1, ACTION_TYPE_STOCK_SPLIT_V1, 1);
+            // Empty splits → no-more-nodes shape (NODE_NONE, 0, 0), matching
+            // the cursor-walked-past-end branch below. Returning a non-zero
+            // actionType for a NODE_NONE cursor is a contract violation
+            // CodeRabbit caught — would let traversal tests pass against
+            // states the real vault never produces.
+            if (splits.length == 0) return (NODE_NONE, 0, 0);
+            return (1, ACTION_TYPE_STOCK_SPLIT_V1, 1);
         }
         uint256 candidate = cursor + 1;
         if (candidate > splits.length) {
