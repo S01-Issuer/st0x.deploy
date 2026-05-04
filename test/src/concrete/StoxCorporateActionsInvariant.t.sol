@@ -120,7 +120,7 @@ contract InvariantVault is StoxReceiptVault {
         returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime)
     {
         nextCursor = LibCorporateActionNode.nextOfType(cursor, mask, filter);
-        if (nextCursor != 0) {
+        if (nextCursor != NODE_NONE) {
             CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[nextCursor];
             actionType = node.actionType;
             effectiveTime = node.effectiveTime;
@@ -129,7 +129,7 @@ contract InvariantVault is StoxReceiptVault {
 
     function getActionParameters(uint256 cursor) external view returns (bytes memory) {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        require(cursor >= 1 && cursor < s.nodes.length, "InvariantVault: action does not exist");
+        require(cursor != NODE_NONE && cursor < s.nodes.length, "InvariantVault: action does not exist");
         return s.nodes[cursor].parameters;
     }
 
