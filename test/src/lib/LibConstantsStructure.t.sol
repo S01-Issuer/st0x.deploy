@@ -13,7 +13,9 @@ import {
 } from "src/interface/ICorporateActionsV1.sol";
 import {
     CORPORATE_ACTION_STORAGE_LOCATION,
+    INIT_V1_TYPE_HASH,
     STOCK_SPLIT_V1_TYPE_HASH,
+    STABLES_DIVIDEND_V1_TYPE_HASH,
     SCHEDULE_CORPORATE_ACTION,
     CANCEL_CORPORATE_ACTION
 } from "src/lib/LibCorporateAction.sol";
@@ -114,36 +116,60 @@ contract LibConstantsStructureTest is Test {
     /// bare-string check would only trip on a typo within the hardcoded
     /// literal.
     ///
-    /// **Coverage asymmetry — read before adding a new action type.** Only
-    /// action types that are *user-schedulable* via
-    /// `LibCorporateAction.resolveActionType` carry a type hash. The set
-    /// today:
-    ///
-    /// | ACTION_TYPE_*_V1 | TYPE_HASH | Why |
-    /// |---|---|---|
-    /// | INIT | none | bootstrap-only, system-created via `_ensureBootstrap`; users can never `schedule()` it, so no public dispatch ID exists |
-    /// | STOCK_SPLIT | STOCK_SPLIT_V1_TYPE_HASH | user-schedulable |
-    /// | STABLES_DIVIDEND | none (today) | bit allocated but codec/validator/type-hash unimplemented; #104 tracks the build-out |
-    ///
-    /// When a reserved bit becomes user-schedulable (STABLES_DIVIDEND when
-    /// #104 lands, future types as they're added), the implementer MUST
-    /// add a paired `*_V<N>_TYPE_HASH` constant *and* a corresponding test
-    /// here — co-located so reviewers don't miss either half. Adding a new
-    /// type without the test is the failure mode this file exists to
-    /// catch.
+    /// **One type hash per action type.** Every `ACTION_TYPE_*_V<N>` has a
+    /// matching `*_V<N>_TYPE_HASH` constant. Whether `resolveActionType`
+    /// dispatches the hash is a separate concern from the structural
+    /// invariant — INIT exists as a hash even though it's bootstrap-only
+    /// and can't be scheduled, and STABLES_DIVIDEND exists as a hash even
+    /// though the codec is unimplemented (the hash pins the convention so
+    /// the eventual implementer in #104 has a fixed target). The point of
+    /// this file is to catch convention drift at the namespace level —
+    /// keeping the (action type, type hash, kebab name) registry uniform
+    /// for every action type ensures a future addition can't quietly skip
+    /// the structural check.
     bytes constant TYPE_HASH_NAMESPACE_PREFIX = "st0x.corporate-actions.";
     bytes constant TYPE_HASH_VERSION_SEP = ".";
 
-    function testStockSplitV1TypeHashFollowsNamespaceConvention() external pure {
-        bytes memory action = "stock-split";
-        bytes memory version = "1";
+    function _expectedTypeHash(bytes memory kebab, bytes memory version) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(TYPE_HASH_NAMESPACE_PREFIX, kebab, TYPE_HASH_VERSION_SEP, version));
+    }
 
-        bytes memory preimage = abi.encodePacked(TYPE_HASH_NAMESPACE_PREFIX, action, TYPE_HASH_VERSION_SEP, version);
+    function testInitV1TypeHashFollowsNamespaceConvention() external pure {
+        assertEq(
+            INIT_V1_TYPE_HASH,
+            _expectedTypeHash("init", "1"),
+            "INIT_V1_TYPE_HASH must follow st0x.corporate-actions.<kebab>.<N> convention"
+        );
+    }
+
+    function testStockSplitV1TypeHashFollowsNamespaceConvention() external pure {
         assertEq(
             STOCK_SPLIT_V1_TYPE_HASH,
-            keccak256(preimage),
+            _expectedTypeHash("stock-split", "1"),
             "STOCK_SPLIT_V1_TYPE_HASH must follow st0x.corporate-actions.<kebab>.<N> convention"
         );
+    }
+
+    function testStablesDividendV1TypeHashFollowsNamespaceConvention() external pure {
+        assertEq(
+            STABLES_DIVIDEND_V1_TYPE_HASH,
+            _expectedTypeHash("stables-dividend", "1"),
+            "STABLES_DIVIDEND_V1_TYPE_HASH must follow st0x.corporate-actions.<kebab>.<N> convention"
+        );
+    }
+
+    /// All type-hash constants must be pairwise distinct — a collision
+    /// would make dispatch ambiguous in `resolveActionType` (today only
+    /// STOCK_SPLIT dispatches, but the invariant must hold for every type
+    /// the dispatch may eventually accept).
+    function testTypeHashesPairwiseDistinct() external pure {
+        bytes32[3] memory hashes = [INIT_V1_TYPE_HASH, STOCK_SPLIT_V1_TYPE_HASH, STABLES_DIVIDEND_V1_TYPE_HASH];
+
+        for (uint256 i; i < hashes.length; i++) {
+            for (uint256 j = i + 1; j < hashes.length; j++) {
+                assertTrue(hashes[i] != hashes[j], "type hashes must not collide");
+            }
+        }
     }
 
     // -------------------------------------------------------------------------
