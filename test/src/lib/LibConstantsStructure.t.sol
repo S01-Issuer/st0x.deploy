@@ -44,6 +44,32 @@ import {
 /// running on it.
 contract LibConstantsStructureTest is Test {
     // -------------------------------------------------------------------------
+    // Single-source registries
+    // -------------------------------------------------------------------------
+
+    /// Single source of truth for the action-type bit registry. Adding a
+    /// new `ACTION_TYPE_*_V<N>` to the codebase means appending it here
+    /// once; every action-type structural test reads through this helper
+    /// so the new type is automatically covered by the power-of-two and
+    /// pairwise-disjoint checks.
+    function _actionTypeRegistry() private pure returns (uint256[] memory types_) {
+        types_ = new uint256[](3);
+        types_[0] = ACTION_TYPE_INIT_V1;
+        types_[1] = ACTION_TYPE_STOCK_SPLIT_V1;
+        types_[2] = ACTION_TYPE_STABLES_DIVIDEND_V1;
+    }
+
+    /// Single source of truth for the type-hash registry. Adding a new
+    /// `*_V<N>_TYPE_HASH` means appending it here once; the
+    /// pairwise-distinctness check picks up the new entry automatically.
+    function _typeHashRegistry() private pure returns (bytes32[] memory hashes_) {
+        hashes_ = new bytes32[](3);
+        hashes_[0] = INIT_V1_TYPE_HASH;
+        hashes_[1] = STOCK_SPLIT_V1_TYPE_HASH;
+        hashes_[2] = STABLES_DIVIDEND_V1_TYPE_HASH;
+    }
+
+    // -------------------------------------------------------------------------
     // 1. Bitmap action types
     // -------------------------------------------------------------------------
 
@@ -51,8 +77,7 @@ contract LibConstantsStructureTest is Test {
     /// bitmap encoding stays unambiguous: `actionType & MASK != 0` matches
     /// when (and only when) the action type is in the mask.
     function testActionTypesArePowerOfTwo() external pure {
-        uint256[3] memory actionTypes =
-            [ACTION_TYPE_INIT_V1, ACTION_TYPE_STOCK_SPLIT_V1, ACTION_TYPE_STABLES_DIVIDEND_V1];
+        uint256[] memory actionTypes = _actionTypeRegistry();
 
         for (uint256 i; i < actionTypes.length; i++) {
             uint256 t = actionTypes[i];
@@ -65,8 +90,7 @@ contract LibConstantsStructureTest is Test {
     /// A collision would make traversal masks ambiguous: a mask intended to
     /// match one type would match the other.
     function testActionTypesPairwiseDisjoint() external pure {
-        uint256[3] memory actionTypes =
-            [ACTION_TYPE_INIT_V1, ACTION_TYPE_STOCK_SPLIT_V1, ACTION_TYPE_STABLES_DIVIDEND_V1];
+        uint256[] memory actionTypes = _actionTypeRegistry();
 
         for (uint256 i; i < actionTypes.length; i++) {
             for (uint256 j = i + 1; j < actionTypes.length; j++) {
@@ -163,7 +187,7 @@ contract LibConstantsStructureTest is Test {
     /// STOCK_SPLIT dispatches, but the invariant must hold for every type
     /// the dispatch may eventually accept).
     function testTypeHashesPairwiseDistinct() external pure {
-        bytes32[3] memory hashes = [INIT_V1_TYPE_HASH, STOCK_SPLIT_V1_TYPE_HASH, STABLES_DIVIDEND_V1_TYPE_HASH];
+        bytes32[] memory hashes = _typeHashRegistry();
 
         for (uint256 i; i < hashes.length; i++) {
             for (uint256 j = i + 1; j < hashes.length; j++) {
