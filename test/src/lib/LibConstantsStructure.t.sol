@@ -109,10 +109,28 @@ contract LibConstantsStructureTest is Test {
     /// preimage from named components rather than hardcoding the literal
     /// string is the structural invariant — a bare `keccak256("…literal…")`
     /// check is just a tautology of the source declaration. With the
-    /// component decomposition, drift in the prefix, the version-suffix
-    /// dot separator, or the kebab/version pairing trips the test, while
-    /// the bare-string check would only trip on a typo within the
-    /// hardcoded literal.
+    /// component decomposition, drift in the prefix or the version-suffix
+    /// dot separator trips every type-hash test at once, while the
+    /// bare-string check would only trip on a typo within the hardcoded
+    /// literal.
+    ///
+    /// **Coverage asymmetry — read before adding a new action type.** Only
+    /// action types that are *user-schedulable* via
+    /// `LibCorporateAction.resolveActionType` carry a type hash. The set
+    /// today:
+    ///
+    /// | ACTION_TYPE_*_V1 | TYPE_HASH | Why |
+    /// |---|---|---|
+    /// | INIT | none | bootstrap-only, system-created via `_ensureBootstrap`; users can never `schedule()` it, so no public dispatch ID exists |
+    /// | STOCK_SPLIT | STOCK_SPLIT_V1_TYPE_HASH | user-schedulable |
+    /// | STABLES_DIVIDEND | none (today) | bit allocated but codec/validator/type-hash unimplemented; #104 tracks the build-out |
+    ///
+    /// When a reserved bit becomes user-schedulable (STABLES_DIVIDEND when
+    /// #104 lands, future types as they're added), the implementer MUST
+    /// add a paired `*_V<N>_TYPE_HASH` constant *and* a corresponding test
+    /// here — co-located so reviewers don't miss either half. Adding a new
+    /// type without the test is the failure mode this file exists to
+    /// catch.
     bytes constant TYPE_HASH_NAMESPACE_PREFIX = "st0x.corporate-actions.";
     bytes constant TYPE_HASH_VERSION_SEP = ".";
 
