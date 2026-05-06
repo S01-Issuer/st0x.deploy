@@ -104,15 +104,28 @@ contract LibConstantsStructureTest is Test {
     // 2. Type hashes
     // -------------------------------------------------------------------------
 
-    /// `*_V<N>_TYPE_HASH` constants must equal `keccak256(<documented preimage>)`
-    /// where the preimage follows `st0x.corporate-actions.<kebab>.<N>`.
-    /// Drift between the constant and its declared preimage breaks the
-    /// dispatch in `LibCorporateAction.resolveActionType` silently — the
-    /// schedule call would revert with `UnknownActionType` instead of
-    /// matching the intended type.
-    function testStockSplitV1TypeHashMatchesPreimage() external pure {
-        bytes32 expected = keccak256("st0x.corporate-actions.stock-split.1");
-        assertEq(STOCK_SPLIT_V1_TYPE_HASH, expected, "STOCK_SPLIT_V1_TYPE_HASH must match keccak256 preimage");
+    /// `*_V<N>_TYPE_HASH` constants must follow the namespace convention
+    /// `st0x.corporate-actions.<kebab-action-name>.<N>`. Constructing the
+    /// preimage from named components rather than hardcoding the literal
+    /// string is the structural invariant — a bare `keccak256("…literal…")`
+    /// check is just a tautology of the source declaration. With the
+    /// component decomposition, drift in the prefix, the version-suffix
+    /// dot separator, or the kebab/version pairing trips the test, while
+    /// the bare-string check would only trip on a typo within the
+    /// hardcoded literal.
+    bytes constant TYPE_HASH_NAMESPACE_PREFIX = "st0x.corporate-actions.";
+    bytes constant TYPE_HASH_VERSION_SEP = ".";
+
+    function testStockSplitV1TypeHashFollowsNamespaceConvention() external pure {
+        bytes memory action = "stock-split";
+        bytes memory version = "1";
+
+        bytes memory preimage = abi.encodePacked(TYPE_HASH_NAMESPACE_PREFIX, action, TYPE_HASH_VERSION_SEP, version);
+        assertEq(
+            STOCK_SPLIT_V1_TYPE_HASH,
+            keccak256(preimage),
+            "STOCK_SPLIT_V1_TYPE_HASH must follow st0x.corporate-actions.<kebab>.<N> convention"
+        );
     }
 
     // -------------------------------------------------------------------------
