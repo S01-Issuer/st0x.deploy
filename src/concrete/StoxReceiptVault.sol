@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetReceiptVault.sol";
+import {RebaseMigratable} from "../abstract/RebaseMigratable.sol";
 import {LibCorporateAction} from "../lib/LibCorporateAction.sol";
 import {LibRebase} from "../lib/LibRebase.sol";
 import {LibTotalSupply} from "../lib/LibTotalSupply.sol";
@@ -35,7 +36,7 @@ import {LibProdDeployV3} from "../lib/LibProdDeployV3.sol";
 /// a balance that was already written at the post-rebase basis, silently
 /// inflating the recipient's balance. See `LibRebase.migratedBalance` and
 /// its zero-balance regression tests.
-contract StoxReceiptVault is OffchainAssetReceiptVault {
+contract StoxReceiptVault is OffchainAssetReceiptVault, RebaseMigratable {
     /// @notice Emitted whenever `_migrateAccount` advances an account's
     /// migration cursor. The cursor itself is storage state, so the event
     /// fires on every cursor advance regardless of whether
@@ -106,8 +107,12 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     function _update(address from, address to, uint256 amount) internal virtual override {
         LibTotalSupply.fold();
 
-        _migrateAccount(from);
-        _migrateAccount(to);
+        // Share-side migration uses `id = 0` — the share has no ERC-1155
+        // token id concept; the parameter is part of the unified
+        // `RebaseMigratable._migrate` shape and the share-side overrides
+        // ignore it. See `RebaseMigratable` NatSpec.
+        _migrate(from, 0);
+        _migrate(to, 0);
 
         super._update(from, to, amount);
 
@@ -118,38 +123,53 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         }
     }
 
-    /// @dev Migrate a single account through every completed split that has
-    /// not yet been applied to it (i.e. completed split nodes whose index is
-    /// past the account's current `accountMigrationCursor`). This both
-    /// rasterizes the account's stored balance to the post-rebase basis and
-    /// advances the cursor; for zero-balance accounts the balance rewrite is
-    /// a no-op but the cursor advancement still matters — see
-    /// `LibRebase.migratedBalance` and its zero-balance regression tests for
-    /// the bug this prevents.
-    ///
-    /// `internal` (rather than `private`) so test harnesses derived from this
-    /// contract can exercise the migration logic in isolation. The function is
-    /// only ever called from this contract's `_update` override.
-    function _migrateAccount(address account) internal {
-        if (account == address(0)) return;
+    // -----------------------------------------------------------------------
+    // RebaseMigratable plug-points (share-side)
+    // -----------------------------------------------------------------------
 
-        LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        uint256 currentCursor = s.accountMigrationCursor[account];
-        uint256 storedBalance = LibERC20Storage.underlyingBalance(account);
+    /// @inheritdoc RebaseMigratable
+    function _readCursor(address account, uint256) internal view override returns (uint256) {
+        return LibCorporateAction.getStorage().accountMigrationCursor[account];
+    }
 
-        (uint256 newBalance, uint256 newCursor) = LibRebase.migratedBalance(storedBalance, currentCursor);
+    /// @inheritdoc RebaseMigratable
+    function _writeCursor(address account, uint256, uint256 cursor) internal override {
+        LibCorporateAction.getStorage().accountMigrationCursor[account] = cursor;
+    }
 
-        if (newCursor == currentCursor) return;
+    /// @inheritdoc RebaseMigratable
+    function _readStoredBalance(address account, uint256) internal view override returns (uint256) {
+        return LibERC20Storage.underlyingBalance(account);
+    }
 
-        s.accountMigrationCursor[account] = newCursor;
+    /// @inheritdoc RebaseMigratable
+    function _writeStoredBalance(address account, uint256, uint256 balance) internal override {
+        LibERC20Storage.setUnderlyingBalance(account, balance);
+    }
 
-        // Skip the SSTORE when the rasterized balance is unchanged.
-        if (newBalance != storedBalance) {
-            LibERC20Storage.setUnderlyingBalance(account, newBalance);
-        }
-        emit AccountMigrated(account, currentCursor, newCursor, storedBalance, newBalance);
+    /// @inheritdoc RebaseMigratable
+    function _walkRebase(uint256 storedBalance, uint256 cursor) internal view override returns (uint256, uint256) {
+        return LibRebase.migratedBalance(storedBalance, cursor);
+    }
 
-        LibTotalSupply.onAccountMigrated(currentCursor, storedBalance, newCursor, newBalance);
+    /// @inheritdoc RebaseMigratable
+    function _emitMigrated(
+        address account,
+        uint256,
+        uint256 fromActionId,
+        uint256 toActionId,
+        uint256 oldBalance,
+        uint256 newBalance
+    ) internal override {
+        emit AccountMigrated(account, fromActionId, toActionId, oldBalance, newBalance);
+    }
+
+    /// @inheritdoc RebaseMigratable
+    function _postMigrate(uint256 fromActionId, uint256 toActionId, uint256 oldBalance, uint256 newBalance)
+        internal
+        override
+    {
+        LibTotalSupply.onAccountMigrated(fromActionId, oldBalance, toActionId, newBalance);
     }
 
     /// @notice Routes calls with non-matching selectors to the corporate actions

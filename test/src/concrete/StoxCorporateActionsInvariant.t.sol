@@ -32,8 +32,8 @@ contract InvariantVault is StoxReceiptVault {
     function _update(address from, address to, uint256 amount) internal override {
         LibTotalSupply.fold();
 
-        _migrateAccount(from);
-        _migrateAccount(to);
+        _migrate(from, 0);
+        _migrate(to, 0);
 
         ERC20Upgradeable._update(from, to, amount);
 

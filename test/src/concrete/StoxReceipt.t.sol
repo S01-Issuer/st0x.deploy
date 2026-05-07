@@ -174,7 +174,7 @@ contract TestStoxReceipt is StoxReceipt {
     /// Expose internal migration so tests can exercise the zero-address
     /// short-circuit directly.
     function publicMigrateHolderId(address account, uint256 id) external {
-        _migrateHolderId(account, id, ICorporateActionsV1(this.manager()));
+        _migrate(account, id);
     }
 }
 
