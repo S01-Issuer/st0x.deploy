@@ -173,6 +173,23 @@ contract LibProdTokensBaseTest is Test {
         LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION);
     }
 
+    function testProdOffchainAssetReceiptVaultBeaconSetDeployerHasNoCBOR() external {
+        LibTestProd.createSelectForkBase(vm);
+        LibExtrospectBytecode.checkNoSolidityCBORMetadata(
+            LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+        );
+    }
+
+    function testProdWrappedTokenVaultBeaconSetDeployerHasNoCBOR() external {
+        LibTestProd.createSelectForkBase(vm);
+        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER);
+    }
+
+    function testProdUnifiedDeployerHasNoCBOR() external {
+        LibTestProd.createSelectForkBase(vm);
+        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_UNIFIED_DEPLOYER);
+    }
+
     function testMstrTokenSetOnBase() external {
         LibTestProd.createSelectForkBase(vm);
         checkTokenSet(
