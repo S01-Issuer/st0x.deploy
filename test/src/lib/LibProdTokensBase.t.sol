@@ -207,6 +207,51 @@ contract LibProdTokensBaseTest is Test {
         );
     }
 
+    /// Pin the V1 beacon addresses against in-repo constants. The
+    /// per-token-set assertions in `checkTokenSet` resolve these
+    /// addresses at runtime — receipt and receipt-vault beacons via the
+    /// OARV deployer's getters, wrapped vault beacon via the ERC1967
+    /// slot of any wrapped proxy. Without explicit assertion the
+    /// downstream impl-codehash and beacon-owner checks proceed against
+    /// whatever address was returned by the getter or read from the
+    /// proxy slot. Pinning forces a swapped deployer or tampered slot
+    /// to fail loud at this layer rather than silently re-anchor every
+    /// downstream check on a different beacon.
+    function testProdReceiptBeaconAddress() external {
+        LibTestProd.createSelectForkBase(vm);
+        IOffchainAssetReceiptVaultBeaconSetDeployerV1 oarvDeployer = IOffchainAssetReceiptVaultBeaconSetDeployerV1(
+            LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+        );
+        assertEq(
+            address(oarvDeployer.I_RECEIPT_BEACON()),
+            LibProdDeployV1.STOX_RECEIPT_BEACON_V1,
+            "I_RECEIPT_BEACON resolved to unexpected address"
+        );
+    }
+
+    function testProdReceiptVaultBeaconAddress() external {
+        LibTestProd.createSelectForkBase(vm);
+        IOffchainAssetReceiptVaultBeaconSetDeployerV1 oarvDeployer = IOffchainAssetReceiptVaultBeaconSetDeployerV1(
+            LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+        );
+        assertEq(
+            address(oarvDeployer.I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON()),
+            LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1,
+            "I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON resolved to unexpected address"
+        );
+    }
+
+    function testProdWrappedTokenVaultBeaconAddress() external {
+        LibTestProd.createSelectForkBase(vm);
+        // All wrapped vault proxies share a single beacon. Read it from
+        // MSTR (any one is fine) and assert the in-repo constant.
+        assertEq(
+            beaconOf(LibProdTokensBase.MSTR_WRAPPED_TOKEN_VAULT),
+            LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1,
+            "wrapped vault beacon read from MSTR proxy slot drifted"
+        );
+    }
+
     function testMstrTokenSetOnBase() external {
         LibTestProd.createSelectForkBase(vm);
         checkTokenSet(
