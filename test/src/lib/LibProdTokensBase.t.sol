@@ -18,6 +18,7 @@ import {
     ERC1967_BEACON_SLOT,
     LibExtrospectERC1967BeaconProxy
 } from "rain.extrospection/lib/LibExtrospectERC1967BeaconProxy.sol";
+import {LibExtrospectBytecode} from "rain.extrospection/lib/LibExtrospectBytecode.sol";
 
 /// @title LibProdTokensBaseTest
 /// @notice Fork tests verifying production token instances on Base.
@@ -144,6 +145,32 @@ contract LibProdTokensBaseTest is Test {
             IERC20Metadata(receiptVault).totalSupply(),
             "wrapped vault totalAssets > receipt vault totalSupply"
         );
+    }
+
+    /// Pin the prod V1 implementations to be free of Solidity CBOR metadata.
+    /// `foundry.toml` sets `bytecode_hash = "none"` and `cbor_metadata =
+    /// false` for reproducible Zoltu deployment — this verifies the
+    /// deployed bytecode actually reflects those settings rather than
+    /// having been smuggled in from a different toolchain config.
+    ///
+    /// Largely redundant with the codehash pin: if metadata changes, the
+    /// codehash changes, and the existing `isBeaconImplementationBytecode`
+    /// check catches it. Filed for completeness — the explicit CBOR check
+    /// gives a clearer error message ("metadata present" vs "codehash
+    /// mismatch") if a future toolchain misconfigures the build.
+    function testProdReceiptImplementationHasNoCBOR() external {
+        LibTestProd.createSelectForkBase(vm);
+        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_RECEIPT_IMPLEMENTATION);
+    }
+
+    function testProdReceiptVaultImplementationHasNoCBOR() external {
+        LibTestProd.createSelectForkBase(vm);
+        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION);
+    }
+
+    function testProdWrappedTokenVaultImplementationHasNoCBOR() external {
+        LibTestProd.createSelectForkBase(vm);
+        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION);
     }
 
     function testMstrTokenSetOnBase() external {
