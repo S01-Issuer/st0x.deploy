@@ -19,6 +19,7 @@ import {
     LibExtrospectERC1967BeaconProxy
 } from "rain.extrospection/lib/LibExtrospectERC1967BeaconProxy.sol";
 import {LibExtrospectMetamorphic} from "rain.extrospection/lib/LibExtrospectMetamorphic.sol";
+import {EVM_OP_DELEGATECALL} from "rain.extrospection/lib/EVMOpcodes.sol";
 
 /// @title LibProdTokensBaseTest
 /// @notice Fork tests verifying production token instances on Base.
@@ -169,12 +170,15 @@ contract LibProdTokensBaseTest is Test {
     /// algorithms are intended for offchain / fork-test use, which this
     /// test is.
     /// Bitmap pin for `STOX_RECEIPT_VAULT_IMPLEMENTATION`: only DELEGATECALL
-    /// (opcode 0xF4, bit 244) is reachable. The receipt vault implementation
-    /// contains delegatecall sites from the OZ Upgradeable inheritance chain
-    /// (and/or ERC2771 forwarder machinery). Receipt and wrapped-vault
-    /// implementations are clean (0 — no metamorphic ops reachable). Any
-    /// drift in either direction trips the corresponding assertion.
-    uint256 constant METAMORPHIC_RISK_DELEGATECALL_ONLY = 1 << 244;
+    /// is reachable. The receipt vault implementation contains delegatecall
+    /// sites from the OZ Upgradeable inheritance chain (and/or ERC2771
+    /// forwarder machinery). Receipt and wrapped-vault implementations are
+    /// clean (0 — no metamorphic ops reachable). Any drift in either
+    /// direction trips the corresponding assertion. Bit position derived
+    /// from the upstream `EVM_OP_DELEGATECALL` constant rather than a
+    /// literal so the bitmap stays correct if rain.extrospection ever
+    /// re-derives opcode numbering.
+    uint256 constant METAMORPHIC_RISK_DELEGATECALL_ONLY = 1 << EVM_OP_DELEGATECALL;
 
     function testProdReceiptImplementationMetamorphicRiskPinned() external {
         LibTestProd.createSelectForkBase(vm);
