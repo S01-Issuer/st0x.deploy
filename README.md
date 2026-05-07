@@ -96,26 +96,6 @@ is delegatecalled by the vault. Key design choices:
 See `ICorporateActionsV1` NatSpec for the full external API and integrator
 guidance, and `docs/GLOSSARY.md` for domain terms.
 
-### Directory Structure
-
-- `src/concrete/` — StoxReceipt, StoxReceiptVault, StoxWrappedTokenVault,
-  StoxWrappedTokenVaultBeacon, StoxCorporateActionsFacet
-- `src/concrete/authorize/` — Authorizer implementations
-- `src/concrete/deploy/` — Deployer contracts (unified deployer, beacon set
-  deployers)
-- `src/interface/` — Versioned interfaces (`ICorporateActionsV1`,
-  `IStoxUnifiedDeployerV1`, `IStoxWrappedTokenVaultBeaconSetDeployerV1`)
-- `src/error/` — Shared error definitions (`ErrCorporateAction`, `ErrRebase`,
-  `ErrStockSplit`)
-- `src/lib/` — Libraries (corporate actions, rebase, storage access, production
-  addresses)
-- `src/generated/` — Zoltu deterministic deployment pointer files
-- `script/` — Forge deployment scripts
-- `test/` — Foundry tests (unit, fuzz, invariant, fork)
-- `docs/` — Domain glossary
-- `lib/` — Git submodule dependencies (rain.vats, rain.deploy,
-  rain.extrospection, rain.tofu.erc20-decimals)
-
 ## License
 
 LicenseRef-DCL-1.0 (DecentraLicense). REUSE-compliant.
