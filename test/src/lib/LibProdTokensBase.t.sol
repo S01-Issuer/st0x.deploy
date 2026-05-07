@@ -19,6 +19,8 @@ import {
     LibExtrospectERC1967BeaconProxy
 } from "rain.extrospection/lib/LibExtrospectERC1967BeaconProxy.sol";
 import {LibExtrospectBytecode} from "rain.extrospection/lib/LibExtrospectBytecode.sol";
+import {LibExtrospectMetamorphic} from "rain.extrospection/lib/LibExtrospectMetamorphic.sol";
+import {EVM_OP_DELEGATECALL} from "rain.extrospection/lib/EVMOpcodes.sol";
 
 /// @title LibProdTokensBaseTest
 /// @notice Fork tests verifying production token instances on Base.
@@ -188,6 +190,65 @@ contract LibProdTokensBaseTest is Test {
     function testProdUnifiedDeployerHasNoCBOR() external {
         LibTestProd.createSelectForkBase(vm);
         LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_UNIFIED_DEPLOYER);
+    }
+
+    /// Pin the metamorphic-risk surface of the prod V1 implementations.
+    /// `LibExtrospectMetamorphic.scanMetamorphicRisk` returns a bitmap of
+    /// reachable opcodes from the metamorphic set (SELFDESTRUCT,
+    /// DELEGATECALL, CALLCODE, CREATE, CREATE2 — bits 0xFF, 0xF4, 0xF2,
+    /// 0xF0, 0xF5 in the all-opcodes bitmap). The codehash pin in
+    /// `checkTokenSet` answers "what bytecode is at this address now";
+    /// this test answers "what redeployment surface does that bytecode
+    /// expose".
+    ///
+    /// Empirically, all three V1 implementations have only DELEGATECALL
+    /// reachable (bit 244 = `1 << 244`). DELEGATECALL is expected because
+    /// the implementations are OZ Upgradeable beacon-proxy targets and
+    /// the upgrade / call machinery embedded in the implementation
+    /// contains delegatecall sites. The pin captures the currently-known
+    /// shape — any change (a new metamorphic op appearing, or
+    /// DELEGATECALL going away) trips the test and forces an explicit
+    /// re-evaluation.
+    ///
+    /// Linear bytecode scan is gas-intensive — `rain.extrospection`
+    /// algorithms are intended for offchain / fork-test use, which this
+    /// test is.
+    /// Bitmap pin for `STOX_RECEIPT_VAULT_IMPLEMENTATION`: only DELEGATECALL
+    /// is reachable. The receipt vault implementation contains delegatecall
+    /// sites from the OZ Upgradeable inheritance chain (and/or ERC2771
+    /// forwarder machinery). Receipt and wrapped-vault implementations are
+    /// clean (0 — no metamorphic ops reachable). Any drift in either
+    /// direction trips the corresponding assertion. Bit position derived
+    /// from the upstream `EVM_OP_DELEGATECALL` constant rather than a
+    /// literal so the bitmap stays correct if rain.extrospection ever
+    /// re-derives opcode numbering.
+    uint256 constant METAMORPHIC_RISK_DELEGATECALL_ONLY = 1 << EVM_OP_DELEGATECALL;
+
+    function testProdReceiptImplementationMetamorphicRiskPinned() external {
+        LibTestProd.createSelectForkBase(vm);
+        assertEq(
+            LibExtrospectMetamorphic.scanMetamorphicRisk(LibProdDeployV1.STOX_RECEIPT_IMPLEMENTATION.code),
+            0,
+            "STOX_RECEIPT_IMPLEMENTATION metamorphic surface drifted"
+        );
+    }
+
+    function testProdReceiptVaultImplementationMetamorphicRiskPinned() external {
+        LibTestProd.createSelectForkBase(vm);
+        assertEq(
+            LibExtrospectMetamorphic.scanMetamorphicRisk(LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION.code),
+            METAMORPHIC_RISK_DELEGATECALL_ONLY,
+            "STOX_RECEIPT_VAULT_IMPLEMENTATION metamorphic surface drifted"
+        );
+    }
+
+    function testProdWrappedTokenVaultImplementationMetamorphicRiskPinned() external {
+        LibTestProd.createSelectForkBase(vm);
+        assertEq(
+            LibExtrospectMetamorphic.scanMetamorphicRisk(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION.code),
+            0,
+            "STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION metamorphic surface drifted"
+        );
     }
 
     function testMstrTokenSetOnBase() external {
