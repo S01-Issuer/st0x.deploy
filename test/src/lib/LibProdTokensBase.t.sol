@@ -21,6 +21,7 @@ import {
 import {LibExtrospectBytecode} from "rain.extrospection/lib/LibExtrospectBytecode.sol";
 import {LibExtrospectMetamorphic} from "rain.extrospection/lib/LibExtrospectMetamorphic.sol";
 import {EVM_OP_DELEGATECALL} from "rain.extrospection/lib/EVMOpcodes.sol";
+import {CBORChecker} from "../../concrete/CBORChecker.sol";
 
 /// @title LibProdTokensBaseTest
 /// @notice Fork tests verifying production token instances on Base.
@@ -190,6 +191,43 @@ contract LibProdTokensBaseTest is Test {
     function testProdUnifiedDeployerHasNoCBOR() external {
         LibTestProd.createSelectForkBase(vm);
         LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_UNIFIED_DEPLOYER);
+    }
+
+    /// Mutation pin: the no-CBOR tests above all return clean (no revert),
+    /// which by itself doesn't prove `checkNoSolidityCBORMetadata` would
+    /// catch a deployment that actually carried CBOR metadata. Construct
+    /// fake bytecode at a sentinel address using `vm.etch`, with the exact
+    /// 53-byte Solidity CBOR trailer (`a2 64 "ipfs" 5822 <34 bytes> 64
+    /// "solc" 43 <3 bytes> 0033`), and assert the library reverts with
+    /// `UnexpectedMetadata`. Without this, a regression in
+    /// `tryTrimSolidityCBORMetadata` (e.g. always returning false) would
+    /// silently turn the prod pins into vacuous always-pass tests.
+    ///
+    /// Routes through an external `CBORChecker` because
+    /// `checkNoSolidityCBORMetadata` is library-internal and inlines into
+    /// the test contract, so a same-depth revert wouldn't satisfy
+    /// `vm.expectRevert`.
+    function testCheckNoSolidityCBORMetadataDetectsCBORTrailer() external {
+        bytes memory bytecode = abi.encodePacked(
+            hex"00", // STOP — minimal real bytecode prefix
+            hex"a2", // cbor map header (2 entries)
+            hex"64", // text-string prefix (4 bytes follow)
+            hex"69706673", // "ipfs"
+            hex"5822", // byte-string prefix (34 bytes follow)
+            hex"00000000000000000000000000000000000000000000000000000000000000000000", // 34-byte ipfs hash placeholder
+            hex"64", // text-string prefix (4 bytes follow)
+            hex"736f6c63", // "solc"
+            hex"43", // byte-string prefix (3 bytes follow)
+            hex"000804", // solc version placeholder (e.g. 0.8.4)
+            hex"0033" // metadata length suffix: 51 bytes
+        );
+
+        address sentinel = address(0xCB07);
+        vm.etch(sentinel, bytecode);
+
+        CBORChecker checker = new CBORChecker();
+        vm.expectRevert(bytes4(keccak256("UnexpectedMetadata()")));
+        checker.check(sentinel);
     }
 
     /// Pin the metamorphic-risk surface of the prod V1 implementations.
