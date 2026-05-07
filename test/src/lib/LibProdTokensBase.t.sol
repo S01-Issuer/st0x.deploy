@@ -207,6 +207,58 @@ contract LibProdTokensBaseTest is Test {
         );
     }
 
+    /// Pin the deployed runtime bytecode of each prod V1 deployer against
+    /// its `LibProdDeployV1.PROD_*_BASE_CODEHASH_V1` constant. The
+    /// per-token-set assertions in `checkTokenSet` trust the OARV
+    /// deployer's `I_RECEIPT_BEACON()` / `I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON()`
+    /// getters; if the deployer at the constant address were swapped for a
+    /// contract with different bytecode, those getters could return
+    /// arbitrary addresses and every downstream beacon / impl check would
+    /// proceed against whatever the swapped deployer reported. Pinning the
+    /// runtime keccak forces a swap to fail loud.
+    ///
+    /// The metamorphic-risk pins above answer "could this deployer's code
+    /// change post-deploy"; this answers "is the code at the address what
+    /// we expect today". Both are needed.
+    function testProdOffchainAssetReceiptVaultBeaconSetDeployerCodehash() external {
+        LibTestProd.createSelectForkBase(vm);
+        assertEq(
+            keccak256(LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER.code),
+            LibProdDeployV1.PROD_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_BASE_CODEHASH_V1,
+            "OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER codehash drifted"
+        );
+    }
+
+    function testProdWrappedTokenVaultBeaconSetDeployerCodehash() external {
+        LibTestProd.createSelectForkBase(vm);
+        assertEq(
+            keccak256(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER.code),
+            LibProdDeployV1.PROD_STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_BASE_CODEHASH_V1,
+            "STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER codehash drifted"
+        );
+    }
+
+    function testProdUnifiedDeployerCodehash() external {
+        LibTestProd.createSelectForkBase(vm);
+        assertEq(
+            keccak256(LibProdDeployV1.STOX_UNIFIED_DEPLOYER.code),
+            LibProdDeployV1.PROD_STOX_UNIFIED_DEPLOYER_BASE_CODEHASH_V1,
+            "STOX_UNIFIED_DEPLOYER codehash drifted"
+        );
+
+        // Mutation pin: confirm the assertion would actually catch a swap
+        // by overwriting the deployer's bytecode and verifying the
+        // codehash check would now fail. Without this, a constant equal
+        // to keccak256("") (or any sentinel hash) would silently always
+        // match because of mismatched expectations.
+        vm.etch(LibProdDeployV1.STOX_UNIFIED_DEPLOYER, hex"00");
+        assertNotEq(
+            keccak256(LibProdDeployV1.STOX_UNIFIED_DEPLOYER.code),
+            LibProdDeployV1.PROD_STOX_UNIFIED_DEPLOYER_BASE_CODEHASH_V1,
+            "swapped bytecode must not match the pinned codehash"
+        );
+    }
+
     function testMstrTokenSetOnBase() external {
         LibTestProd.createSelectForkBase(vm);
         checkTokenSet(
