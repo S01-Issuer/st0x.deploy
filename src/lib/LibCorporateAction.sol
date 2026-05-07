@@ -30,8 +30,22 @@ bytes32 constant SCHEDULE_CORPORATE_ACTION = keccak256("SCHEDULE_CORPORATE_ACTIO
 /// @dev Permission hash for cancelling a corporate action via the authorizer.
 bytes32 constant CANCEL_CORPORATE_ACTION = keccak256("CANCEL_CORPORATE_ACTION");
 
+/// @dev External identifier for V1 vault initialisation. INIT is
+/// system-created via `_ensureBootstrap`; users cannot schedule it via
+/// `scheduleCorporateAction` (the dispatch in `resolveActionType` rejects
+/// the hash). The constant exists so every `ACTION_TYPE_*_V<N>` has a
+/// matching `*_V<N>_TYPE_HASH` per the action-type convention — indexers
+/// and other read-only consumers can label nodes by hash uniformly.
+bytes32 constant INIT_V1_TYPE_HASH = keccak256("st0x.corporate-actions.init.1");
+
 /// @dev External identifier for V1 stock splits.
 bytes32 constant STOCK_SPLIT_V1_TYPE_HASH = keccak256("st0x.corporate-actions.stock-split.1");
+
+/// @dev External identifier for V1 stablecoin dividends. Reserved; not yet
+/// dispatchable by `resolveActionType`. Pinned now so the eventual
+/// implementer (#104) has a fixed external label rather than negotiating
+/// it at implementation time.
+bytes32 constant STABLES_DIVIDEND_V1_TYPE_HASH = keccak256("st0x.corporate-actions.stables-dividend.1");
 
 /// @title LibCorporateAction
 /// @notice Library for corporate action diamond storage. Uses ERC-7201
