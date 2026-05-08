@@ -52,16 +52,13 @@ contract LibProdTokensBaseTest is Test {
         // every deposit and withdraw on this token would revert.
         assertEq(IReceiptV3(receipt).manager(), receiptVault, "receipt manager != receipt vault");
 
-        // All prod tokens on Base are behind the V1 OARV deployer's beacons.
-        IOffchainAssetReceiptVaultBeaconSetDeployerV1 oarvDeployer = IOffchainAssetReceiptVaultBeaconSetDeployerV1(
-            LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
-        );
-        address receiptBeacon = address(oarvDeployer.I_RECEIPT_BEACON());
-        address receiptVaultBeacon = address(oarvDeployer.I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON());
-        // The wrapped vault beacon is not exposed by any deployer getter,
-        // so read it from the proxy's slot. All wrapped proxies share the
-        // same beacon, pinned via the MSTR check below.
-        address wrappedVaultBeacon = beaconOf(LibProdTokensBase.MSTR_WRAPPED_TOKEN_VAULT);
+        // All prod tokens on Base are behind the V1 OARV deployer's
+        // beacons. The constants are the canonical source — the cross-check
+        // that they match runtime resolution lives in
+        // `testProdBeaconAddressesMatchConstants`.
+        address receiptBeacon = LibProdDeployV1.STOX_RECEIPT_BEACON_V1;
+        address receiptVaultBeacon = LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1;
+        address wrappedVaultBeacon = LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1;
 
         assertEq(beaconOf(receipt), receiptBeacon, "receipt beacon mismatch");
         assertEq(beaconOf(receiptVault), receiptVaultBeacon, "receipt vault beacon mismatch");
@@ -204,6 +201,36 @@ contract LibProdTokensBaseTest is Test {
             LibExtrospectMetamorphic.scanMetamorphicRisk(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION.code),
             0,
             "STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION metamorphic surface drifted"
+        );
+    }
+
+    /// Single pin test: the runtime-resolved V1 beacon addresses match
+    /// the in-repo constants. Once this passes, the rest of the prod
+    /// fork tests can use the `STOX_*_BEACON_V1` constants directly
+    /// without re-resolving from the deployer's getters or the proxy
+    /// slot — the constants are the canonical source, runtime resolution
+    /// is the cross-check.
+    function testProdBeaconAddressesMatchConstants() external {
+        LibTestProd.createSelectForkBase(vm);
+        IOffchainAssetReceiptVaultBeaconSetDeployerV1 oarvDeployer = IOffchainAssetReceiptVaultBeaconSetDeployerV1(
+            LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+        );
+        assertEq(
+            address(oarvDeployer.I_RECEIPT_BEACON()),
+            LibProdDeployV1.STOX_RECEIPT_BEACON_V1,
+            "I_RECEIPT_BEACON resolved to unexpected address"
+        );
+        assertEq(
+            address(oarvDeployer.I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON()),
+            LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1,
+            "I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON resolved to unexpected address"
+        );
+        // All wrapped vault proxies share a single beacon. Read it from
+        // any wrapped proxy (MSTR is arbitrary) and assert the constant.
+        assertEq(
+            beaconOf(LibProdTokensBase.MSTR_WRAPPED_TOKEN_VAULT),
+            LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1,
+            "wrapped vault beacon read from MSTR proxy slot drifted"
         );
     }
 
