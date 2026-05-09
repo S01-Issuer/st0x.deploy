@@ -20,7 +20,7 @@ import {
 } from "rain.extrospection/lib/LibExtrospectERC1967BeaconProxy.sol";
 import {LibExtrospectBytecode} from "rain.extrospection/lib/LibExtrospectBytecode.sol";
 import {LibExtrospectMetamorphic} from "rain.extrospection/lib/LibExtrospectMetamorphic.sol";
-import {EVM_OP_DELEGATECALL} from "rain.extrospection/lib/EVMOpcodes.sol";
+import {EVM_OP_CREATE, EVM_OP_DELEGATECALL} from "rain.extrospection/lib/EVMOpcodes.sol";
 import {IExtrospectV1} from "rain.extrospection/interface/IExtrospectV1.sol";
 import {EXTROSPECT_ZOLTU_ADDRESS_V1} from "rain.extrospection/concrete/Extrospect.sol";
 import {IBeacon} from "rain.extrospection/interface/IBeacon.sol";
@@ -263,6 +263,13 @@ contract LibProdTokensBaseTest is Test {
     /// re-derives opcode numbering.
     uint256 constant METAMORPHIC_RISK_DELEGATECALL_ONLY = 1 << EVM_OP_DELEGATECALL;
 
+    /// Bitmap pin for the OARV and wrapped vault beacon-set deployers:
+    /// `CREATE` is reachable because the deployer constructs the beacon
+    /// instances via direct EVM `CREATE`, and `DELEGATECALL` is reachable
+    /// from the OZ Upgradeable / forwarder machinery linked into the
+    /// deployer's compiled bytecode.
+    uint256 constant METAMORPHIC_RISK_CREATE_AND_DELEGATECALL = (1 << EVM_OP_CREATE) | (1 << EVM_OP_DELEGATECALL);
+
     function testProdReceiptImplementationMetamorphicRiskPinned() external {
         LibTestProd.createSelectForkBase(vm);
         assertEq(
@@ -287,6 +294,40 @@ contract LibProdTokensBaseTest is Test {
             LibExtrospectMetamorphic.scanMetamorphicRisk(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION.code),
             0,
             "STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION metamorphic surface drifted"
+        );
+    }
+
+    /// Same as the implementation pins above, extended to the three
+    /// first-party deployers. A redeployment with different metamorphic
+    /// characteristics trips the corresponding test.
+    function testProdOffchainAssetReceiptVaultBeaconSetDeployerMetamorphicRiskPinned() external {
+        LibTestProd.createSelectForkBase(vm);
+        assertEq(
+            LibExtrospectMetamorphic.scanMetamorphicRisk(
+                LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER.code
+            ),
+            METAMORPHIC_RISK_CREATE_AND_DELEGATECALL,
+            "OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER metamorphic surface drifted"
+        );
+    }
+
+    function testProdWrappedTokenVaultBeaconSetDeployerMetamorphicRiskPinned() external {
+        LibTestProd.createSelectForkBase(vm);
+        assertEq(
+            LibExtrospectMetamorphic.scanMetamorphicRisk(
+                LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER.code
+            ),
+            METAMORPHIC_RISK_CREATE_AND_DELEGATECALL,
+            "STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER metamorphic surface drifted"
+        );
+    }
+
+    function testProdUnifiedDeployerMetamorphicRiskPinned() external {
+        LibTestProd.createSelectForkBase(vm);
+        assertEq(
+            LibExtrospectMetamorphic.scanMetamorphicRisk(LibProdDeployV1.STOX_UNIFIED_DEPLOYER.code),
+            0,
+            "STOX_UNIFIED_DEPLOYER metamorphic surface drifted"
         );
     }
 
