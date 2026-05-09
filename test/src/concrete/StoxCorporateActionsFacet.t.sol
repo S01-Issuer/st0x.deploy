@@ -160,6 +160,17 @@ contract CorporateActionHarness {
     function totalSupplyLatestCursor() external view returns (uint256) {
         return LibCorporateAction.getStorage().totalSupplyLatestCursor;
     }
+
+    /// Direct call to `_ensureBootstrap` so tests can observe the
+    /// post-bootstrap pre-user-action state (`bootstrap.prev` /
+    /// `bootstrap.next` both `NODE_NONE`). The production `schedule` call
+    /// fires `_ensureBootstrap` and then immediately splices in the user
+    /// action, mutating `bootstrap.next` away from `NODE_NONE` — so the
+    /// only way to pin the in-between state is to invoke
+    /// `_ensureBootstrap` standalone.
+    function ensureBootstrap() external {
+        LibCorporateAction._ensureBootstrap(LibCorporateAction.getStorage());
+    }
 }
 
 contract StoxCorporateActionsFacetTest is Test {
@@ -1782,6 +1793,30 @@ contract StoxCorporateActionsFacetTest is Test {
     /// value directly catches a regression that initialised the slot to
     /// 0 (which would silently mean "fold has landed on bootstrap" and
     /// route mint/burn into pot 0 from the very first schedule call).
+    /// Pin the post-`_ensureBootstrap` storage shape of `bootstrap.prev` /
+    /// `bootstrap.next`. After bootstrap fires, both must be `NODE_NONE` —
+    /// the bootstrap is the only node in the list and has no neighbours.
+    /// The production `schedule` call fires `_ensureBootstrap` and then
+    /// immediately splices in the user action, mutating `bootstrap.next`
+    /// away from `NODE_NONE`; without a standalone hook into
+    /// `_ensureBootstrap` (now `internal`) this in-between state is
+    /// unreachable.
+    ///
+    /// Failure mode this catches: a regression that left
+    /// `bootstrap.prev`/`next` at Solidity's default 0 would create a
+    /// self-loop (head's `next` points at the head itself = idx 0).
+    /// Forward walks from cursor 0 still terminate via the empty-list
+    /// short-circuit, but backward walks from cursor 0 with `prev = 0`
+    /// loop indefinitely until gas. No existing test exercises a
+    /// fresh-bootstrap-only state directly.
+    function testEnsureBootstrapWritesNodeNoneOnBootstrapPrevAndNext() external {
+        corporateActionHarness.ensureBootstrap();
+
+        CorporateActionNode memory bootstrap = corporateActionHarness.getNode(0);
+        assertEq(bootstrap.prev, NODE_NONE, "bootstrap.prev must be NODE_NONE post-_ensureBootstrap");
+        assertEq(bootstrap.next, NODE_NONE, "bootstrap.next must be NODE_NONE post-_ensureBootstrap");
+    }
+
     function testEnsureBootstrapInitsTotalSupplyLatestCursorToNodeNone() external {
         // Pre-schedule: storage default is 0. The post-_ensureBootstrap
         // value must be NODE_NONE, distinct from the default, so the
