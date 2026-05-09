@@ -158,6 +158,11 @@ library LibCorporateAction {
         node.actionType = actionType;
         node.effectiveTime = effectiveTime;
         node.parameters = parameters;
+        // Pre-fill list pointers with the null sentinel so any code that
+        // dereferences a never-spliced node sees "no neighbour" rather than
+        // an off-by-one read of node 0.
+        node.prev = NODE_NONE;
+        node.next = NODE_NONE;
 
         insertOrdered(s, actionId, effectiveTime);
     }
@@ -219,20 +224,16 @@ library LibCorporateAction {
     /// linked list, walking backward from the tail to find the correct
     /// position. Equal-time nodes are inserted **after** existing nodes of
     /// the same effective time (stable ordering — see the tied-effectiveTime
-    /// regression tests). The node's `actionType`, `effectiveTime`, and
-    /// `parameters` must already be written; this helper writes the list
-    /// pointers (`prev`, `next`) and updates `tail` if the new node lands
-    /// at the end.
+    /// regression tests). The node's `actionType`, `effectiveTime`,
+    /// `parameters`, and the `prev = next = NODE_NONE` placeholders
+    /// must already be written; this helper only fixes up the list
+    /// pointers (`prev`, `next`, `tail`).
     ///
     /// Bootstrap is at index 0 with `effectiveTime = block.timestamp`, and
     /// `schedule` requires `effectiveTime > block.timestamp`, so every user
     /// node lands strictly after the bootstrap. The walk therefore always
-    /// finds a `current` whose effectiveTime is `<=` the new node's, hits
-    /// the splice branch, and writes both `node.prev` and `node.next`
-    /// before returning. The "before head" branch is unreachable
-    /// post-bootstrap, which is why the new node's pointers can be left
-    /// fresh (zero-init) before this call — `insertOrdered` always writes
-    /// them.
+    /// finds a `current` whose effectiveTime is `<=` the new node's, and
+    /// the "before head" branch is unreachable post-bootstrap.
     ///
     /// @param s Storage pointer (caller already loaded).
     /// @param newIndex The array index of the node being inserted.
