@@ -37,8 +37,8 @@ contract TestStoxReceiptVault is StoxReceiptVault {
         // bypassing the OffchainAssetReceiptVault authorizer/freeze layer.
         LibTotalSupply.fold();
 
-        _migrateAccount(from);
-        _migrateAccount(to);
+        _migrate(from, 0);
+        _migrate(to, 0);
 
         ERC20Upgradeable._update(from, to, amount);
 

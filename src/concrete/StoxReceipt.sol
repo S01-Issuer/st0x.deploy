@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {Receipt} from "rain.vats/concrete/receipt/Receipt.sol";
 import {ERC1155Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
 import {IERC1155} from "openzeppelin-contracts/contracts/token/ERC1155/IERC1155.sol";
+import {RebaseMigratable} from "../abstract/RebaseMigratable.sol";
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
 import {LibCorporateActionReceipt} from "../lib/LibCorporateActionReceipt.sol";
 import {LibERC1155Storage} from "../lib/LibERC1155Storage.sol";
@@ -60,7 +61,7 @@ import {LibReceiptRebase} from "../lib/LibReceiptRebase.sol";
 /// written post-rebase balance, silently inflating the position. See the
 /// `testZeroBalanceAdvancesCursor` regression in both `LibRebase.t.sol` and
 /// `LibReceiptRebase.t.sol`.
-contract StoxReceipt is Receipt {
+contract StoxReceipt is Receipt, RebaseMigratable {
     /// @notice Emitted whenever `_migrateHolderId` advances a `(account, id)`
     /// pair's migration cursor. The cursor itself is storage state, so the
     /// event fires on every cursor advance regardless of whether
@@ -163,17 +164,12 @@ contract StoxReceipt is Receipt {
         virtual
         override
     {
-        // Snapshot the vault once so we don't pay the external self-call
-        // per iteration. `manager()` is the external view on Receipt that
-        // returns the configured vault address from Receipt7201Storage.
-        ICorporateActionsV1 vault = _vault();
-
         // Migrate each (account, id) pair before the transfer executes.
-        // `_migrateHolderId` short-circuits on `address(0)` so mint (from ==
-        // 0) and burn (to == 0) pass straight through to super._update.
+        // `_migrate` short-circuits on `address(0)` so mint (from == 0)
+        // and burn (to == 0) pass straight through to super._update.
         for (uint256 i = 0; i < ids.length; i++) {
-            _migrateHolderId(from, ids[i], vault);
-            _migrateHolderId(to, ids[i], vault);
+            _migrate(from, ids[i]);
+            _migrate(to, ids[i]);
         }
 
         // Now that both sides are rasterized to the current cursor, run
@@ -182,34 +178,59 @@ contract StoxReceipt is Receipt {
         super._update(from, to, ids, amounts);
     }
 
-    /// @dev Migrate a single `(account, id)` pair through every completed
-    /// stock split the pair has not yet been migrated through. Both the
-    /// balance rasterization and the cursor advancement happen here; for
-    /// zero-balance pairs the rewrite is a no-op but the cursor advancement
-    /// still matters — see contract-level NatSpec for the inflation bug this
-    /// prevents.
-    ///
-    /// `internal` so test harnesses derived from this contract can exercise
-    /// the migration logic in isolation.
-    function _migrateHolderId(address account, uint256 id, ICorporateActionsV1 vault) internal {
-        if (account == address(0)) return;
+    // -----------------------------------------------------------------------
+    // RebaseMigratable plug-points (receipt-side)
+    // -----------------------------------------------------------------------
 
-        LibCorporateActionReceipt.CorporateActionReceiptStorage storage s = LibCorporateActionReceipt.getStorage();
-        uint256 currentCursor = s.accountIdCursor[account][id];
-        uint256 storedBalance = LibERC1155Storage.underlyingBalance(account, id);
-
-        (uint256 newBalance, uint256 newCursor) = LibReceiptRebase.migratedBalance(storedBalance, currentCursor, vault);
-
-        if (newCursor == currentCursor) return;
-
-        s.accountIdCursor[account][id] = newCursor;
-
-        // Skip the SSTORE when the rasterized balance is unchanged.
-        if (newBalance != storedBalance) {
-            LibERC1155Storage.setUnderlyingBalance(account, id, newBalance);
-        }
-        emit ReceiptAccountMigrated(account, id, currentCursor, newCursor, storedBalance, newBalance);
+    /// @inheritdoc RebaseMigratable
+    function _readCursor(address account, uint256 id) internal view override returns (uint256) {
+        return LibCorporateActionReceipt.getStorage().accountIdCursor[account][id];
     }
+
+    /// @inheritdoc RebaseMigratable
+    function _writeCursor(address account, uint256 id, uint256 cursor) internal override {
+        LibCorporateActionReceipt.getStorage().accountIdCursor[account][id] = cursor;
+    }
+
+    /// @inheritdoc RebaseMigratable
+    function _readStoredBalance(address account, uint256 id) internal view override returns (uint256) {
+        return LibERC1155Storage.underlyingBalance(account, id);
+    }
+
+    /// @inheritdoc RebaseMigratable
+    function _writeStoredBalance(address account, uint256 id, uint256 balance) internal override {
+        LibERC1155Storage.setUnderlyingBalance(account, id, balance);
+    }
+
+    /// @inheritdoc RebaseMigratable
+    /// @dev `_vault()` is an external self-call (`this.manager()`); the
+    /// previous shape cached the result once per `_update` and passed it
+    /// down. Under the unified `RebaseMigratable._migrate` shape, the
+    /// vault is fetched per pair instead. Per-call cost is one extra
+    /// CALL opcode against `address(this).manager()`, paid for each
+    /// `_migrate` invocation in the batch.
+    function _walkRebase(uint256 storedBalance, uint256 cursor) internal view override returns (uint256, uint256) {
+        return LibReceiptRebase.migratedBalance(storedBalance, cursor, _vault());
+    }
+
+    /// @inheritdoc RebaseMigratable
+    function _emitMigrated(
+        address account,
+        uint256 id,
+        uint256 fromActionId,
+        uint256 toActionId,
+        uint256 oldBalance,
+        uint256 newBalance
+    ) internal override {
+        emit ReceiptAccountMigrated(account, id, fromActionId, toActionId, oldBalance, newBalance);
+    }
+
+    /// @inheritdoc RebaseMigratable
+    /// @dev Receipt side has no per-cursor pot accounting; the share side
+    /// (`StoxReceiptVault`) drives the totalSupply pots via
+    /// `LibTotalSupply.onAccountMigrated` from its own override. This
+    /// hook is intentionally empty.
+    function _postMigrate(uint256, uint256, uint256, uint256) internal override {}
 
     /// @dev Cached / fresh read of the configured vault address, cast to
     /// the corporate-actions read interface. Uses `this.manager()` (an
