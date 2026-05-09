@@ -192,6 +192,21 @@ contract LibProdTokensBaseTest is Test {
         LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_UNIFIED_DEPLOYER);
     }
 
+    function testProdReceiptBeaconHasNoCBOR() external {
+        LibTestProd.createSelectForkBase(vm);
+        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_RECEIPT_BEACON_V1);
+    }
+
+    function testProdReceiptVaultBeaconHasNoCBOR() external {
+        LibTestProd.createSelectForkBase(vm);
+        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1);
+    }
+
+    function testProdWrappedTokenVaultBeaconHasNoCBOR() external {
+        LibTestProd.createSelectForkBase(vm);
+        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1);
+    }
+
     /// Mutation pin: the no-CBOR tests above all return clean (no revert),
     /// which by itself doesn't prove `checkNoSolidityCBORMetadata` would
     /// catch a deployment that actually carried CBOR metadata. Construct
