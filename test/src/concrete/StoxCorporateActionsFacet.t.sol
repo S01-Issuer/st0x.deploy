@@ -1935,4 +1935,53 @@ contract StoxCorporateActionsFacetTest is Test {
         vm.warp(2000);
         assertEq(corporateActionHarness.countCompleted(), 1, "only the user action counts as completed");
     }
+
+    /// `getActionParameters(0)` returns the bootstrap's empty `parameters`
+    /// blob via the facet's external API. Under the 0-based scheme idx 0
+    /// is a real walkable node, and the facet's bounds check
+    /// (`actionId >= s.nodes.length`) admits cursor 0 once
+    /// `_ensureBootstrap` has fired. Storage-direct reads of
+    /// `bootstrap.parameters.length == 0` already pin the storage shape;
+    /// this pins the public-API contract — a regression that re-introduced
+    /// a `cursor != 0` reject inside `getActionParameters` (matching the
+    /// pre-bootstrap 1-based scheme) would silently break receipt-side
+    /// walks that read parameters at cursor 0 and would not surface in any
+    /// existing test.
+    function testGetActionParametersReturnsEmptyBytesForBootstrap() external {
+        // Schedule a user action via the delegatecall path so bootstrap
+        // exists in the same storage namespace the facet reads from.
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory params = LibStockSplit.encodeParametersV1(twoX);
+        vm.prank(ALICE);
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, params);
+
+        bytes memory bootstrapParams = facetViaHarness.getActionParameters(0);
+        assertEq(bootstrapParams.length, 0, "bootstrap parameters must be empty bytes via facet API");
+    }
+
+    /// Cross-contract pin: `vault.nextOfType(NODE_NONE, INIT, ALL)`
+    /// returns the bootstrap (idx 0) through the facet's external function
+    /// over a delegatecall fallback, not just through the in-process
+    /// `LibCorporateActionNode.nextOfType` library call exercised by
+    /// `testBootstrapIsVisibleViaInitMaskInvisibleViaSplitMask`. The
+    /// receipt contract relies on this exact path:
+    /// `ICorporateActionsV1(address(vault)).nextOfType(...)` reads the
+    /// vault's bootstrap idx during head-inclusive receipt-side walks. A
+    /// regression in the fallback router (e.g., a cursor-rewriting layer
+    /// added between caller and facet) would silently break that walk
+    /// without breaking the library-direct test.
+    function testFacetNextOfTypeReturnsBootstrapForInitMaskFromNodeNone() external {
+        // Schedule a user action via the delegatecall path so bootstrap
+        // exists in the harness's storage namespace.
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory params = LibStockSplit.encodeParametersV1(twoX);
+        vm.prank(ALICE);
+        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, params);
+
+        (uint256 actionId, uint256 actionType, uint64 effectiveTime) =
+            facetViaHarness.nextOfType(NODE_NONE, ACTION_TYPE_INIT_V1, CompletionFilter.ALL);
+        assertEq(actionId, 0, "INIT mask from NODE_NONE returns bootstrap idx 0 via facet");
+        assertEq(actionType, ACTION_TYPE_INIT_V1, "bootstrap actionType is INIT_V1");
+        assertEq(uint256(effectiveTime), block.timestamp, "bootstrap effectiveTime is block.timestamp at schedule");
+    }
 }
