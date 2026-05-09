@@ -195,7 +195,7 @@ library LibCorporateAction {
     /// creation time, so any `cancel(0)` call reverts immediately with
     /// `ActionAlreadyComplete` (the standard guard) — no special-casing
     /// needed in `cancel`.
-    function _ensureBootstrap(CorporateActionStorage storage s) private {
+    function _ensureBootstrap(CorporateActionStorage storage s) internal {
         if (s.nodes.length != 0) return;
 
         // Index 0 — bootstrap node.
