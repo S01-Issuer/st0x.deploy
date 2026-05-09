@@ -21,6 +21,29 @@ library LibProdDeployV1 {
     /// https://basescan.org/address/0xef6f9d21ed2e2742bfd3dfcf67829e4855884fab
     address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER = address(0xeF6f9D21ED2E2742bfd3dFcf67829e4855884faB);
 
+    /// @dev StoxReceipt UpgradeableBeacon deployed by the OARV beacon-set
+    /// deployer on Base. All prod receipt proxies point at this beacon's
+    /// ERC1967 slot. Resolved at runtime via
+    /// `OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER.I_RECEIPT_BEACON()`;
+    /// pinned here so a swapped deployer can't redirect the test chain.
+    /// https://basescan.org/address/0x86e93c39B095be0B0054C8488E26466Ee027D79a
+    address constant STOX_RECEIPT_BEACON_V1 = address(0x86e93c39B095be0B0054C8488E26466Ee027D79a);
+
+    /// @dev StoxReceiptVault (OffchainAssetReceiptVault) UpgradeableBeacon
+    /// deployed by the OARV beacon-set deployer on Base. Resolved at
+    /// runtime via
+    /// `OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER.I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON()`.
+    /// https://basescan.org/address/0xEa084c8F4331CDF3328E772781b59F8A24F28F1A
+    address constant STOX_RECEIPT_VAULT_BEACON_V1 = address(0xEa084c8F4331CDF3328E772781b59F8A24F28F1A);
+
+    /// @dev StoxWrappedTokenVault UpgradeableBeacon deployed by the wrapped
+    /// vault beacon-set deployer on Base. Not exposed via any deployer
+    /// getter; resolved at runtime by reading the ERC1967 beacon slot of
+    /// any wrapped vault proxy. Pinned here so a tampered proxy slot
+    /// can't redirect the impl-codehash chain.
+    /// https://basescan.org/address/0x4c2d2d3bf1232bf0d3fb7123007a9b8444637bc8
+    address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_V1 = address(0x4c2d2d3Bf1232bf0d3FB7123007A9B8444637bC8);
+
     /// @dev The StoxWrappedTokenVault implementation deployed inside the
     /// StoxWrappedTokenVault beacon set on Base. Accessible via
     /// iStoxWrappedTokenVaultBeacon.implementation(). No proxy instances have
