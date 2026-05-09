@@ -40,7 +40,7 @@ contract StoxReceiptTest is Test {
 /// contract implementing both.
 ///
 /// `IReceiptManagerV2` also requires `symbol()`, `decimals()` etc. via the
-/// Receipt's `_vaultShareSymbol` helper. In tests we only call `balanceOf`
+/// Receipt's `getVaultShareSymbol` helper. In tests we only call `balanceOf`
 /// and `_update` paths that don't hit `uri()`, so the stub implementations
 /// below are minimal.
 contract MockVault is ICorporateActionsV1, IReceiptManagerV2 {
@@ -128,7 +128,7 @@ contract MockVault is ICorporateActionsV1, IReceiptManagerV2 {
         revert("mock");
     }
 
-    /// Expose minimal IERC20Metadata surface that `Receipt._vaultShareSymbol`
+    /// Expose minimal IERC20Metadata surface that `Receipt.getVaultShareSymbol`
     /// calls via `IERC20Metadata(address(manager)).symbol()`. Not actually
     /// used in our tests (we never hit `uri()`), but the `_update` path may
     /// touch it if anything inspects name/symbol. Stubbed for safety.
@@ -174,7 +174,7 @@ contract TestStoxReceipt is StoxReceipt {
     /// Expose internal migration so tests can exercise the zero-address
     /// short-circuit directly.
     function publicMigrateHolderId(address account, uint256 id) external {
-        _migrateHolderId(account, id, ICorporateActionsV1(this.manager()));
+        migrateHolderId(account, id, ICorporateActionsV1(this.manager()));
     }
 }
 
@@ -440,7 +440,7 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         assertEq(receipt.rawStoredBalance(ALICE, ID_A), 50);
     }
 
-    /// `_migrateHolderId(address(0), ...)` short-circuits. After a
+    /// `migrateHolderId(address(0), ...)` short-circuits. After a
     /// completed split, calling it for address(0) must leave address(0)'s
     /// cursor and balance at their zero-initialized values (no state
     /// pollution on the zero address).
@@ -745,7 +745,7 @@ contract StoxReceiptRebaseIntegrationTest is Test {
     // Issue #81: receipt-side always-emit semantics.
     //
     // Mirrors the share-side test matrix on `StoxReceiptVault.t.sol`.
-    // `_migrateHolderId` must emit `ReceiptAccountMigrated` on every
+    // `migrateHolderId` must emit `ReceiptAccountMigrated` on every
     // cursor advance, regardless of whether the rasterized balance equals
     // the pre-rebase balance. Four phenomena drive a balance-equal
     // cursor advance: zero balance, single-step truncation collision,
@@ -823,7 +823,7 @@ contract StoxReceiptRebaseIntegrationTest is Test {
     /// Already-migrated complement: a `(holder, id)` pair at the latest
     /// cursor that gets touched again with no new completed splits in
     /// between must NOT re-emit `ReceiptAccountMigrated`. Pins the
-    /// `newCursor == currentCursor` early return in `_migrateHolderId`.
+    /// `newCursor == currentCursor` early return in `migrateHolderId`.
     function testReceiptAccountMigratedDoesNotReEmitWhenAlreadyAtLatest() external {
         _mint(ALICE, ID_A, 100);
         _splitParams(2);
@@ -850,7 +850,7 @@ contract StoxReceiptRebaseIntegrationTest is Test {
 
     /// Event ordering pin: `ReceiptAccountMigrated` must fire BEFORE the
     /// corresponding ERC-1155 `TransferSingle` event in the same `_update`
-    /// call, because `_migrateHolderId` runs before the receipt's base
+    /// call, because `migrateHolderId` runs before the receipt's base
     /// `_update`. Indexers rely on this ordering to compute pre-transfer
     /// rasterized balances from the migration log.
     function testReceiptAccountMigratedOrderedBeforeTransferSingle() external {

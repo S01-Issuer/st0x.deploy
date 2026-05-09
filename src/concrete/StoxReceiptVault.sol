@@ -36,11 +36,11 @@ import {LibProdDeployV3} from "../lib/LibProdDeployV3.sol";
 /// inflating the recipient's balance. See `LibRebase.migratedBalance` and
 /// its zero-balance regression tests.
 contract StoxReceiptVault is OffchainAssetReceiptVault {
-    /// @notice Emitted whenever `_migrateAccount` advances an account's
+    /// @notice Emitted whenever `migrateAccount` advances an account's
     /// migration cursor. The cursor itself is storage state, so the event
     /// fires on every cursor advance regardless of whether
     /// `oldBalance == newBalance`. Fires from `_update` via
-    /// `_migrateAccount`, before the mint / burn / transfer delta is
+    /// `migrateAccount`, before the mint / burn / transfer delta is
     /// applied.
     /// @param account The account whose migration state changed.
     /// @param fromActionId The action id the account's cursor was at
@@ -76,7 +76,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         // The second return value is the new cursor — intentionally discarded
         // here because `balanceOf` is a pure read that must not mutate state;
         // the cursor advancement happens on the next `_update` touch via
-        // `_migrateAccount`.
+        // `migrateAccount`.
         // slither-disable-next-line unused-return
         (uint256 balance,) = LibRebase.migratedBalance(stored, s.accountMigrationCursor[account]);
         return balance;
@@ -106,8 +106,8 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     function _update(address from, address to, uint256 amount) internal virtual override {
         LibTotalSupply.fold();
 
-        _migrateAccount(from);
-        _migrateAccount(to);
+        migrateAccount(from);
+        migrateAccount(to);
 
         super._update(from, to, amount);
 
@@ -130,7 +130,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// `internal` (rather than `private`) so test harnesses derived from this
     /// contract can exercise the migration logic in isolation. The function is
     /// only ever called from this contract's `_update` override.
-    function _migrateAccount(address account) internal {
+    function migrateAccount(address account) internal {
         if (account == address(0)) return;
 
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();

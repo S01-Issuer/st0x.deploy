@@ -71,8 +71,8 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 /// ## Bootstrap as a real init node
 ///
 /// The pre-action snapshot of OZ's `_totalSupply` lives in `unmigrated[0]`,
-/// captured by `LibCorporateAction._ensureBootstrap` on the first
-/// `schedule()` call. `_ensureBootstrap` pushes the bootstrap init node at
+/// captured by `LibCorporateAction.ensureBootstrap` on the first
+/// `schedule()` call. `ensureBootstrap` pushes the bootstrap init node at
 /// index 0 (`actionType = ACTION_TYPE_INIT_V1`, `effectiveTime =
 /// block.timestamp`); user-scheduled splits start at index 1. Every
 /// holder's `accountMigrationCursor` defaults to 0 (Solidity mapping
@@ -84,11 +84,11 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 /// `fold()` advances `totalSupplyLatestCursor` through the bootstrap
 /// (idx 0) and every completed split using `BALANCE_MIGRATION_TYPES_MASK`,
 /// so mint/burn deltas always route to the same pot every account's
-/// `_migrateAccount` lands them in.
+/// `migrateAccount` lands them in.
 ///
 /// ## Pot invariant
 ///
-/// At every `_update` boundary (post-`_ensureBootstrap`), for every cursor `k`:
+/// At every `_update` boundary (post-`ensureBootstrap`), for every cursor `k`:
 ///
 ///   `I(k): unmigrated[k] == Σ_{acc : cursor(acc) == k, acc != address(0)} underlyingBalance(acc)`
 ///
@@ -103,7 +103,7 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 ///
 /// ### Proof of preservation
 ///
-/// **Base case** (immediately after `_ensureBootstrap` runs in the first
+/// **Base case** (immediately after `ensureBootstrap` runs in the first
 /// `schedule()`):
 /// - Every account has `cursor == 0` because no `_update` has fired yet.
 /// - `unmigrated[0] := underlyingTotalSupply() == Σ_acc underlyingBalance(acc)`
@@ -113,7 +113,7 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 ///
 /// **Inductive step.** Assume `I(k)` holds for all `k` on entry to an
 /// `_update` call. Show it holds again on exit. The sequence is
-/// `fold → _migrateAccount(from) → _migrateAccount(to) → super._update →
+/// `fold → migrateAccount(from) → migrateAccount(to) → super._update →
 /// (onMint | onBurn if from/to == 0)`. The invariant can be temporarily
 /// violated in between these steps — we only claim it holds at entry
 /// and exit.
@@ -121,7 +121,7 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 /// 1. `fold()` mutates only `totalSupplyLatestCursor`; no pot write and no
 ///    balance write. I(k) unchanged.
 ///
-/// 2. `_migrateAccount(account)` advancing the cursor from `c` to `c'`
+/// 2. `migrateAccount(account)` advancing the cursor from `c` to `c'`
 ///    with stored balance `b` rasterizing to `b'`:
 ///    - Writes `cursor(account) = c'` and `underlyingBalance(account) = b'`.
 ///    - Calls `onAccountMigrated`, which does `unmigrated[c] -= b;
@@ -223,7 +223,7 @@ library LibTotalSupply {
         // nodes (init or stock-split). Track the latest seen in a local and
         // write once at the end — each loop-body SSTORE would otherwise be
         // stomped by the next iteration.
-        // `_ensureBootstrap` initialises `totalSupplyLatestCursor` to
+        // `ensureBootstrap` initialises `totalSupplyLatestCursor` to
         // `NODE_NONE`, which `nextOfType` interprets as "from head
         // inclusive" so the first fold lands on the bootstrap.
         uint256 nodeIndex = LibCorporateActionNode.nextOfType(
@@ -259,7 +259,7 @@ library LibTotalSupply {
     /// @dev When `nodes.length == 0` (no `schedule` ever called) this is a
     /// no-op: there is no init node, no pot, and `effectiveTotalSupply`
     /// falls back to OZ's `_totalSupply` directly. Once the first
-    /// `schedule()` runs, `_ensureBootstrap` snapshots OZ's totalSupply
+    /// `schedule()` runs, `ensureBootstrap` snapshots OZ's totalSupply
     /// into `unmigrated[0]` and `fold()` will advance
     /// `totalSupplyLatestCursor` to the init node on the next `_update`,
     /// so all subsequent mints route into the post-init pot.

@@ -61,11 +61,11 @@ import {LibReceiptRebase} from "../lib/LibReceiptRebase.sol";
 /// `testZeroBalanceAdvancesCursor` regression in both `LibRebase.t.sol` and
 /// `LibReceiptRebase.t.sol`.
 contract StoxReceipt is Receipt {
-    /// @notice Emitted whenever `_migrateHolderId` advances a `(account, id)`
+    /// @notice Emitted whenever `migrateHolderId` advances a `(account, id)`
     /// pair's migration cursor. The cursor itself is storage state, so the
     /// event fires on every cursor advance regardless of whether
     /// `oldBalance == newBalance`. Fires from `_update` via
-    /// `_migrateHolderId`, before the mint / burn / transfer delta is
+    /// `migrateHolderId`, before the mint / burn / transfer delta is
     /// applied.
     /// @param account The holder whose `(account, id)` migration state changed.
     /// @param id The receipt id.
@@ -99,7 +99,7 @@ contract StoxReceipt is Receipt {
         override(ERC1155Upgradeable, IERC1155)
         returns (uint256)
     {
-        return _balanceOf(account, id, _vault());
+        return balanceOfFor(account, id, getVault());
     }
 
     /// @notice Batch-aware `balanceOf`. OZ's default `balanceOfBatch` reads
@@ -118,10 +118,10 @@ contract StoxReceipt is Receipt {
         if (accounts.length != ids.length) {
             revert ERC1155InvalidArrayLength(ids.length, accounts.length);
         }
-        ICorporateActionsV1 vault = _vault();
+        ICorporateActionsV1 vault = getVault();
         uint256[] memory batchBalances = new uint256[](accounts.length);
         for (uint256 i = 0; i < accounts.length; ++i) {
-            batchBalances[i] = _balanceOf(accounts[i], ids[i], vault);
+            batchBalances[i] = balanceOfFor(accounts[i], ids[i], vault);
         }
         return batchBalances;
     }
@@ -130,13 +130,13 @@ contract StoxReceipt is Receipt {
     /// vault as a parameter so callers inside a loop (`balanceOfBatch`)
     /// can fetch it once and pass it in, avoiding an external self-call
     /// per iteration.
-    function _balanceOf(address account, uint256 id, ICorporateActionsV1 vault) internal view returns (uint256) {
+    function balanceOfFor(address account, uint256 id, ICorporateActionsV1 vault) internal view returns (uint256) {
         uint256 stored = LibERC1155Storage.underlyingBalance(account, id);
         uint256 cursor = LibCorporateActionReceipt.getStorage().accountIdCursor[account][id];
         // The second return value is the new cursor — intentionally discarded
         // here because this is a pure read that must not mutate state;
         // cursor advancement happens on the next `_update` via
-        // `_migrateHolderId`.
+        // `migrateHolderId`.
         // slither-disable-next-line unused-return
         (uint256 effective,) = LibReceiptRebase.migratedBalance(stored, cursor, vault);
         return effective;
@@ -166,14 +166,14 @@ contract StoxReceipt is Receipt {
         // Snapshot the vault once so we don't pay the external self-call
         // per iteration. `manager()` is the external view on Receipt that
         // returns the configured vault address from Receipt7201Storage.
-        ICorporateActionsV1 vault = _vault();
+        ICorporateActionsV1 vault = getVault();
 
         // Migrate each (account, id) pair before the transfer executes.
-        // `_migrateHolderId` short-circuits on `address(0)` so mint (from ==
+        // `migrateHolderId` short-circuits on `address(0)` so mint (from ==
         // 0) and burn (to == 0) pass straight through to super._update.
         for (uint256 i = 0; i < ids.length; i++) {
-            _migrateHolderId(from, ids[i], vault);
-            _migrateHolderId(to, ids[i], vault);
+            migrateHolderId(from, ids[i], vault);
+            migrateHolderId(to, ids[i], vault);
         }
 
         // Now that both sides are rasterized to the current cursor, run
@@ -191,7 +191,7 @@ contract StoxReceipt is Receipt {
     ///
     /// `internal` so test harnesses derived from this contract can exercise
     /// the migration logic in isolation.
-    function _migrateHolderId(address account, uint256 id, ICorporateActionsV1 vault) internal {
+    function migrateHolderId(address account, uint256 id, ICorporateActionsV1 vault) internal {
         if (account == address(0)) return;
 
         LibCorporateActionReceipt.CorporateActionReceiptStorage storage s = LibCorporateActionReceipt.getStorage();
@@ -217,7 +217,7 @@ contract StoxReceipt is Receipt {
     /// `Receipt7201Storage` slot literal in this file — the cost is one
     /// CALL opcode per `_update`, which is amortized across every
     /// `(account, id)` pair the batch touches.
-    function _vault() internal view returns (ICorporateActionsV1) {
+    function getVault() internal view returns (ICorporateActionsV1) {
         return ICorporateActionsV1(this.manager());
     }
 }
