@@ -22,6 +22,17 @@ and updates the upstream `rain.vats` dependency.
   overridden — plain ETH transfers still bypass the facet. Changes the
   implementation codehash vs V2.
 
+### LibCorporateAction
+
+- `schedule` no longer pre-fills `node.prev` / `node.next` with `NODE_NONE`
+  before splicing. The bootstrap invariant (`schedule` requires
+  `effectiveTime > block.timestamp`, bootstrap has
+  `effectiveTime == block.timestamp`) guarantees `insertOrdered` always reaches
+  the splice branch and writes both pointers. Saves two SSTOREs per `schedule`
+  call. Pinned by `testScheduleTiedEffectiveTimeStableOrdering`
+  (mutation-confirmed: removing `node.next = afterCurrent` in `insertOrdered`
+  fails the test).
+
 ## V2 (Zoltu deterministic deployment)
 
 Deployed via Zoltu factory — deterministic addresses identical across all EVM
