@@ -18,8 +18,11 @@ import {
     ERC1967_BEACON_SLOT,
     LibExtrospectERC1967BeaconProxy
 } from "rain.extrospection/lib/LibExtrospectERC1967BeaconProxy.sol";
+import {LibExtrospectBytecode} from "rain.extrospection/lib/LibExtrospectBytecode.sol";
 import {LibExtrospectMetamorphic} from "rain.extrospection/lib/LibExtrospectMetamorphic.sol";
 import {EVM_OP_DELEGATECALL} from "rain.extrospection/lib/EVMOpcodes.sol";
+import {IExtrospectV1} from "rain.extrospection/interface/IExtrospectV1.sol";
+import {EXTROSPECT_ZOLTU_ADDRESS_V1} from "rain.extrospection/concrete/Extrospect.sol";
 
 /// @title LibProdTokensBaseTest
 /// @notice Fork tests verifying production token instances on Base.
@@ -143,6 +146,88 @@ contract LibProdTokensBaseTest is Test {
             IERC20Metadata(receiptVault).totalSupply(),
             "wrapped vault totalAssets > receipt vault totalSupply"
         );
+    }
+
+    /// Pin the prod V1 implementations to be free of Solidity CBOR metadata.
+    /// `foundry.toml` sets `bytecode_hash = "none"` and `cbor_metadata =
+    /// false` for reproducible Zoltu deployment — this verifies the
+    /// deployed bytecode actually reflects those settings rather than
+    /// having been smuggled in from a different toolchain config.
+    ///
+    /// Largely redundant with the codehash pin: if metadata changes, the
+    /// codehash changes, and the existing `isBeaconImplementationBytecode`
+    /// check catches it. Filed for completeness — the explicit CBOR check
+    /// gives a clearer error message ("metadata present" vs "codehash
+    /// mismatch") if a future toolchain misconfigures the build.
+    function testProdReceiptImplementationHasNoCBOR() external {
+        LibTestProd.createSelectForkBase(vm);
+        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_RECEIPT_IMPLEMENTATION);
+    }
+
+    function testProdReceiptVaultImplementationHasNoCBOR() external {
+        LibTestProd.createSelectForkBase(vm);
+        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION);
+    }
+
+    function testProdWrappedTokenVaultImplementationHasNoCBOR() external {
+        LibTestProd.createSelectForkBase(vm);
+        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION);
+    }
+
+    function testProdOffchainAssetReceiptVaultBeaconSetDeployerHasNoCBOR() external {
+        LibTestProd.createSelectForkBase(vm);
+        LibExtrospectBytecode.checkNoSolidityCBORMetadata(
+            LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+        );
+    }
+
+    function testProdWrappedTokenVaultBeaconSetDeployerHasNoCBOR() external {
+        LibTestProd.createSelectForkBase(vm);
+        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER);
+    }
+
+    function testProdUnifiedDeployerHasNoCBOR() external {
+        LibTestProd.createSelectForkBase(vm);
+        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_UNIFIED_DEPLOYER);
+    }
+
+    /// Mutation pin: the no-CBOR tests above all return clean (no revert),
+    /// which by itself doesn't prove `checkNoSolidityCBORMetadata` would
+    /// catch a deployment that actually carried CBOR metadata. Construct
+    /// fake bytecode at a sentinel address using `vm.etch`, with the exact
+    /// 53-byte Solidity CBOR trailer (`a2 64 "ipfs" 5822 <34 bytes> 64
+    /// "solc" 43 <3 bytes> 0033`), and assert the library reverts with
+    /// `UnexpectedMetadata`. Without this, a regression in
+    /// `tryTrimSolidityCBORMetadata` (e.g. always returning false) would
+    /// silently turn the prod pins into vacuous always-pass tests.
+    ///
+    /// Routes through the deployed `Extrospect` contract at the
+    /// deterministic Zoltu address — `checkNoSolidityCBORMetadata` is
+    /// library-internal and inlines into the test contract, so a
+    /// same-depth revert wouldn't satisfy `vm.expectRevert`. The
+    /// concrete contract provides the external call hop and is on Base
+    /// at `EXTROSPECT_ZOLTU_ADDRESS_V1`.
+    function testCheckNoSolidityCBORMetadataDetectsCBORTrailer() external {
+        LibTestProd.createSelectForkBase(vm);
+        bytes memory bytecode = abi.encodePacked(
+            hex"00", // STOP — minimal real bytecode prefix
+            hex"a2", // cbor map header (2 entries)
+            hex"64", // text-string prefix (4 bytes follow)
+            hex"69706673", // "ipfs"
+            hex"5822", // byte-string prefix (34 bytes follow)
+            hex"00000000000000000000000000000000000000000000000000000000000000000000", // 34-byte ipfs hash placeholder
+            hex"64", // text-string prefix (4 bytes follow)
+            hex"736f6c63", // "solc"
+            hex"43", // byte-string prefix (3 bytes follow)
+            hex"000804", // solc version placeholder (e.g. 0.8.4)
+            hex"0033" // metadata length suffix: 51 bytes
+        );
+
+        address sentinel = address(0xCB07);
+        vm.etch(sentinel, bytecode);
+
+        vm.expectRevert(bytes4(keccak256("UnexpectedMetadata()")));
+        IExtrospectV1(EXTROSPECT_ZOLTU_ADDRESS_V1).checkNoSolidityCBORMetadata(sentinel);
     }
 
     /// Pin the metamorphic-risk surface of the prod V1 implementations.
