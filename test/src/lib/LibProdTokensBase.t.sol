@@ -331,6 +331,36 @@ contract LibProdTokensBaseTest is Test {
         );
     }
 
+    /// Same pattern extended to the three V1 beacons. UpgradeableBeacon
+    /// doesn't contain reachable DELEGATECALL on its own (the upgrade
+    /// flow is a storage write); expected bitmap is 0 per beacon.
+    function testProdReceiptBeaconMetamorphicRiskPinned() external {
+        LibTestProd.createSelectForkBase(vm);
+        assertEq(
+            LibExtrospectMetamorphic.scanMetamorphicRisk(LibProdDeployV1.STOX_RECEIPT_BEACON_V1.code),
+            0,
+            "STOX_RECEIPT_BEACON_V1 metamorphic surface drifted"
+        );
+    }
+
+    function testProdReceiptVaultBeaconMetamorphicRiskPinned() external {
+        LibTestProd.createSelectForkBase(vm);
+        assertEq(
+            LibExtrospectMetamorphic.scanMetamorphicRisk(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1.code),
+            0,
+            "STOX_RECEIPT_VAULT_BEACON_V1 metamorphic surface drifted"
+        );
+    }
+
+    function testProdWrappedTokenVaultBeaconMetamorphicRiskPinned() external {
+        LibTestProd.createSelectForkBase(vm);
+        assertEq(
+            LibExtrospectMetamorphic.scanMetamorphicRisk(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1.code),
+            0,
+            "STOX_WRAPPED_TOKEN_VAULT_BEACON_V1 metamorphic surface drifted"
+        );
+    }
+
     /// Pin the deployed runtime bytecode of each prod V1 deployer against
     /// its `LibProdDeployV1.PROD_*_BASE_CODEHASH_V1` constant. The
     /// per-token-set assertions in `checkTokenSet` trust the OARV
