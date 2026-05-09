@@ -21,7 +21,8 @@ import {
 import {LibExtrospectBytecode} from "rain.extrospection/lib/LibExtrospectBytecode.sol";
 import {LibExtrospectMetamorphic} from "rain.extrospection/lib/LibExtrospectMetamorphic.sol";
 import {EVM_OP_DELEGATECALL} from "rain.extrospection/lib/EVMOpcodes.sol";
-import {CBORChecker} from "../../concrete/CBORChecker.sol";
+import {IExtrospectV1} from "rain.extrospection/interface/IExtrospectV1.sol";
+import {EXTROSPECT_ZOLTU_ADDRESS_V1} from "rain.extrospection/concrete/Extrospect.sol";
 
 /// @title LibProdTokensBaseTest
 /// @notice Fork tests verifying production token instances on Base.
@@ -200,11 +201,14 @@ contract LibProdTokensBaseTest is Test {
     /// `tryTrimSolidityCBORMetadata` (e.g. always returning false) would
     /// silently turn the prod pins into vacuous always-pass tests.
     ///
-    /// Routes through an external `CBORChecker` because
-    /// `checkNoSolidityCBORMetadata` is library-internal and inlines into
-    /// the test contract, so a same-depth revert wouldn't satisfy
-    /// `vm.expectRevert`.
+    /// Routes through the deployed `Extrospect` contract at the
+    /// deterministic Zoltu address — `checkNoSolidityCBORMetadata` is
+    /// library-internal and inlines into the test contract, so a
+    /// same-depth revert wouldn't satisfy `vm.expectRevert`. The
+    /// concrete contract provides the external call hop and is on Base
+    /// at `EXTROSPECT_ZOLTU_ADDRESS_V1`.
     function testCheckNoSolidityCBORMetadataDetectsCBORTrailer() external {
+        LibTestProd.createSelectForkBase(vm);
         bytes memory bytecode = abi.encodePacked(
             hex"00", // STOP — minimal real bytecode prefix
             hex"a2", // cbor map header (2 entries)
@@ -222,9 +226,8 @@ contract LibProdTokensBaseTest is Test {
         address sentinel = address(0xCB07);
         vm.etch(sentinel, bytecode);
 
-        CBORChecker checker = new CBORChecker();
         vm.expectRevert(bytes4(keccak256("UnexpectedMetadata()")));
-        checker.check(sentinel);
+        IExtrospectV1(EXTROSPECT_ZOLTU_ADDRESS_V1).checkNoSolidityCBORMetadata(sentinel);
     }
 
     /// Pin the metamorphic-risk surface of the prod V1 implementations.
