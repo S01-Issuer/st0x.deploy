@@ -23,6 +23,7 @@ import {LibExtrospectMetamorphic} from "rain.extrospection/lib/LibExtrospectMeta
 import {EVM_OP_DELEGATECALL} from "rain.extrospection/lib/EVMOpcodes.sol";
 import {IExtrospectV1} from "rain.extrospection/interface/IExtrospectV1.sol";
 import {EXTROSPECT_ZOLTU_ADDRESS_V1} from "rain.extrospection/concrete/Extrospect.sol";
+import {IBeacon} from "rain.extrospection/interface/IBeacon.sol";
 
 /// @title LibProdTokensBaseTest
 /// @notice Fork tests verifying production token instances on Base.
@@ -316,6 +317,41 @@ contract LibProdTokensBaseTest is Test {
             beaconOf(LibProdTokensBase.MSTR_WRAPPED_TOKEN_VAULT),
             LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1,
             "wrapped vault beacon read from MSTR proxy slot drifted"
+        );
+    }
+
+    /// Pin each V1 beacon's `implementation()` to the matching
+    /// `STOX_*_IMPLEMENTATION` constant. `checkTokenSet`'s
+    /// `isBeaconImplementationBytecode` only compares the resolved impl's
+    /// runtime keccak — a beacon pointing at a different address with
+    /// the same bytecode would pass. Pinning the address closes that
+    /// gap. Mutation pin (vm.etch on the unified deployer) lives in the
+    /// deployer-codehash test in #114; here we rely on the per-pin
+    /// assertEq + the codehash chain in `checkTokenSet`.
+    function testProdReceiptBeaconImplementationAddress() external {
+        LibTestProd.createSelectForkBase(vm);
+        assertEq(
+            IBeacon(LibProdDeployV1.STOX_RECEIPT_BEACON_V1).implementation(),
+            LibProdDeployV1.STOX_RECEIPT_IMPLEMENTATION,
+            "STOX_RECEIPT_BEACON_V1.implementation() drifted"
+        );
+    }
+
+    function testProdReceiptVaultBeaconImplementationAddress() external {
+        LibTestProd.createSelectForkBase(vm);
+        assertEq(
+            IBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1).implementation(),
+            LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION,
+            "STOX_RECEIPT_VAULT_BEACON_V1.implementation() drifted"
+        );
+    }
+
+    function testProdWrappedTokenVaultBeaconImplementationAddress() external {
+        LibTestProd.createSelectForkBase(vm);
+        assertEq(
+            IBeacon(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1).implementation(),
+            LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION,
+            "STOX_WRAPPED_TOKEN_VAULT_BEACON_V1.implementation() drifted"
         );
     }
 
