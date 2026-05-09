@@ -506,7 +506,7 @@ contract LibTotalSupplyTest is Test {
     /// `onBurn` reverts via Solidity 0.8 underflow panic when the burn
     /// amount exceeds the current pot at `totalSupplyLatestCursor`. Under
     /// normal vault operation this state is unreachable (every burn is
-    /// preceded by `_migrateAccount(burner)`, which moves the burner's
+    /// preceded by `migrateAccount(burner)`, which moves the burner's
     /// balance into the latest pot first), but wrapping the subtraction
     /// in an `unchecked` block would silently skip the check and let a
     /// refactor corrupt the pot.

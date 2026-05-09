@@ -31,7 +31,7 @@ bytes32 constant SCHEDULE_CORPORATE_ACTION = keccak256("SCHEDULE_CORPORATE_ACTIO
 bytes32 constant CANCEL_CORPORATE_ACTION = keccak256("CANCEL_CORPORATE_ACTION");
 
 /// @dev External identifier for V1 vault initialisation. INIT is
-/// system-created via `_ensureBootstrap`; users cannot schedule it via
+/// system-created via `ensureBootstrap`; users cannot schedule it via
 /// `scheduleCorporateAction` (the dispatch in `resolveActionType` rejects
 /// the hash). The constant exists so every `ACTION_TYPE_*_V<N>` has a
 /// matching `*_V<N>_TYPE_HASH` per the action-type convention — indexers
@@ -56,7 +56,7 @@ bytes32 constant STABLES_DIVIDEND_V1_TYPE_HASH = keccak256("st0x.corporate-actio
 ///
 /// Nodes are stored in a dynamic array. Index 0, when the array is non-empty,
 /// is always the `ACTION_TYPE_INIT_V1` bootstrap node lazily created by
-/// `_ensureBootstrap` on the first `schedule` call. User-scheduled actions
+/// `ensureBootstrap` on the first `schedule` call. User-scheduled actions
 /// start at index 1. The null encoding for `prev`, `next`, and the "from
 /// head/tail inclusive" sentinel for `nextOfType`/`prevOfType` is
 /// `NODE_NONE` — value-level disambiguation, not positional, so a
@@ -76,7 +76,7 @@ library LibCorporateAction {
     /// the new field's offset.
     struct CorporateActionStorage {
         /// @param head Head of the list (earliest effectiveTime). After
-        /// `_ensureBootstrap` has fired this is always 0 (the bootstrap
+        /// `ensureBootstrap` has fired this is always 0 (the bootstrap
         /// node, which has the smallest effectiveTime by construction);
         /// before any schedule call `nodes.length == 0` and head/tail
         /// must not be read.
@@ -99,14 +99,14 @@ library LibCorporateAction {
         mapping(address => uint256) accountMigrationCursor;
         /// Per-cursor unmigrated supply. Maps cursor position (node index)
         /// to the sum of stored balances for accounts at that cursor level.
-        /// Index 0 is the bootstrap pot — captured by `_ensureBootstrap`
+        /// Index 0 is the bootstrap pot — captured by `ensureBootstrap`
         /// from OZ's `_totalSupply` at the moment the first action is
         /// scheduled. When an account migrates from cursor k to cursor k',
         /// storedBalance is subtracted from unmigrated[k] and the migrated
         /// balance is added to unmigrated[k'].
         mapping(uint256 => uint256) unmigrated;
         /// Index of the latest completed init-or-stock-split node seen by
-        /// `fold()`. `_ensureBootstrap` writes `NODE_NONE` here as
+        /// `fold()`. `ensureBootstrap` writes `NODE_NONE` here as
         /// the "no fold has run yet" sentinel so the first `fold()` call
         /// walks the head-inclusive range. Mint/burn amounts route to
         /// `unmigrated[totalSupplyLatestCursor]` after the first fold.
@@ -148,7 +148,7 @@ library LibCorporateAction {
 
         CorporateActionStorage storage s = getStorage();
 
-        _ensureBootstrap(s);
+        ensureBootstrap(s);
 
         // Push new node — its array position is the actionId.
         s.nodes.push();
@@ -164,7 +164,7 @@ library LibCorporateAction {
         node.prev = NODE_NONE;
         node.next = NODE_NONE;
 
-        _insertOrdered(s, actionId, effectiveTime);
+        insertOrdered(s, actionId, effectiveTime);
     }
 
     /// @dev Lazily create the index-0 init/bootstrap node on first `schedule`
@@ -187,7 +187,7 @@ library LibCorporateAction {
     /// - `unmigrated[0] = LibERC20Storage.underlyingTotalSupply()` captures
     ///   the pre-action total supply into pot 0. The pot invariant `I(0)`
     ///   holds at this moment because schedule() does not touch balances and
-    ///   no `_migrateAccount` has fired yet — so OZ's `_totalSupply == Σ
+    ///   no `migrateAccount` has fired yet — so OZ's `_totalSupply == Σ
     ///   _balances` equality is intact, and every account's
     ///   `accountMigrationCursor` is still 0 (= bootstrap).
     ///
@@ -195,7 +195,7 @@ library LibCorporateAction {
     /// creation time, so any `cancel(0)` call reverts immediately with
     /// `ActionAlreadyComplete` (the standard guard) — no special-casing
     /// needed in `cancel`.
-    function _ensureBootstrap(CorporateActionStorage storage s) internal {
+    function ensureBootstrap(CorporateActionStorage storage s) internal {
         if (s.nodes.length != 0) return;
 
         // Index 0 — bootstrap node.
@@ -239,10 +239,10 @@ library LibCorporateAction {
     /// @param newIndex The array index of the node being inserted.
     /// @param effectiveTime The node's effective time (cached from storage
     /// so the loop doesn't re-read it on every step).
-    function _insertOrdered(CorporateActionStorage storage s, uint256 newIndex, uint64 effectiveTime) private {
+    function insertOrdered(CorporateActionStorage storage s, uint256 newIndex, uint64 effectiveTime) private {
         CorporateActionNode storage node = s.nodes[newIndex];
 
-        // Walk backwards from tail to find correct position. `_ensureBootstrap`
+        // Walk backwards from tail to find correct position. `ensureBootstrap`
         // guarantees the list always contains at least the bootstrap node, so
         // the walk always terminates at the bootstrap (whose effectiveTime is
         // <= every user node's effectiveTime).

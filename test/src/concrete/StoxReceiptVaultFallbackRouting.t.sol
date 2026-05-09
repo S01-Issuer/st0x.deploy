@@ -144,7 +144,7 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
     /// Pins that the fallback delegatecall path returns idx 0 for this,
     /// not silently rewriting it through some sentinel translation layer.
     function testNextOfTypeHeadInclusiveReturnsBootstrap() external {
-        // Schedule a user action so `_ensureBootstrap` fires; bootstrap
+        // Schedule a user action so `ensureBootstrap` fires; bootstrap
         // is at idx 0, user action at idx 1.
         bytes memory params = abi.encode(LibDecimalFloat.packLossless(2, 0));
         vm.prank(ALICE);

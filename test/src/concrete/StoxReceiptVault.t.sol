@@ -26,7 +26,7 @@ import {LibTotalSupply} from "../../../src/lib/LibTotalSupply.sol";
 /// standing up the full rain.vats auth/freeze infrastructure (admin grants,
 /// authorizer wiring, certify state, etc).
 ///
-/// The test class re-overrides `_update` to call `_migrateAccount` for both
+/// The test class re-overrides `_update` to call `migrateAccount` for both
 /// sides and then call `ERC20Upgradeable._update` directly, skipping the
 /// `OffchainAssetReceiptVault._update` middle layer. The migration semantics
 /// being tested live entirely in `StoxReceiptVault` and the libraries it calls,
@@ -37,8 +37,8 @@ contract TestStoxReceiptVault is StoxReceiptVault {
         // bypassing the OffchainAssetReceiptVault authorizer/freeze layer.
         LibTotalSupply.fold();
 
-        _migrateAccount(from);
-        _migrateAccount(to);
+        migrateAccount(from);
+        migrateAccount(to);
 
         ERC20Upgradeable._update(from, to, amount);
 
@@ -209,16 +209,16 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.migrationCursor(fresh), 0, "fresh account cursor defaults to 0 (= bootstrap)");
     }
 
-    /// `_migrateAccount` is a complete no-op when no completed splits
+    /// `migrateAccount` is a complete no-op when no completed splits
     /// exist past the holder's cursor. Fresh holder (cursor 0 = bootstrap),
     /// only bootstrap fired, no user splits completed: a touch must not
     /// emit `AccountMigrated` and must not write to `accountMigrationCursor`
     /// (it stays at the default 0). The cursor-advance early-return inside
-    /// `_migrateAccount` (`if (newCursor == currentCursor) return;`) is what
+    /// `migrateAccount` (`if (newCursor == currentCursor) return;`) is what
     /// suppresses both. A regression that emitted unconditionally or that
     /// wrote the cursor before the early-return would surface here.
     function testMigrateAccountNoOpWhenAtLatest() external {
-        // Schedule a future user split so `_ensureBootstrap` fires.
+        // Schedule a future user split so `ensureBootstrap` fires.
         // The split is pending; only bootstrap is completed.
         vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 5000, _splitParams(2));
 
@@ -464,7 +464,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// Already-migrated complement of #81's always-emit semantics: an
     /// account at the latest cursor that gets touched again (no new
     /// completed splits in between) must NOT re-emit `AccountMigrated`.
-    /// The `newCursor == currentCursor` early return in `_migrateAccount`
+    /// The `newCursor == currentCursor` early return in `migrateAccount`
     /// suppresses the spurious event. Pins that "every cursor advance
     /// emits" reads as "iff cursor advances".
     function testAccountMigratedDoesNotReEmitWhenAlreadyAtLatest() external {
@@ -494,7 +494,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
     /// Event ordering pin: `AccountMigrated` must fire BEFORE the
     /// corresponding ERC-20 `Transfer` event in the same `_update` call,
-    /// because `_migrateAccount` runs before `super._update`. Indexers
+    /// because `migrateAccount` runs before `super._update`. Indexers
     /// rely on this ordering to compute pre-transfer rasterized balances
     /// from the migration log before applying the transfer delta.
     function testAccountMigratedOrderedBeforeTransfer() external {
@@ -707,7 +707,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.totalSupply(), 150, "totalSupply reflects burn via OZ");
         assertEq(vault.unmigrated(0), 0, "pot 0 still untouched");
 
-        // Schedule a split with a future effective time. `_ensureBootstrap`
+        // Schedule a split with a future effective time. `ensureBootstrap`
         // fires here: pushes the bootstrap node at idx 0 with `effectiveTime
         // = block.timestamp` (immediately completed), captures `unmigrated[0]
         // = OZ.totalSupply` (= 150 after the prior mint/burn), and writes
@@ -715,7 +715,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         // sentinel. The user split lands at idx 1 and is pending until warp.
         vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 5000, _splitParams(2));
         // `totalSupplyLatestCursor` only moves inside `fold` (called from
-        // `_update`), so it stays at the `NODE_NONE` sentinel `_ensureBootstrap`
+        // `_update`), so it stays at the `NODE_NONE` sentinel `ensureBootstrap`
         // wrote until the next _update.
         assertEq(vault.totalSupplyLatestCursor(), NODE_NONE, "schedule alone does not advance latest cursor");
         assertEq(vault.unmigrated(0), 150, "ensureBootstrap snapshotted OZ total supply into pot 0");
@@ -724,7 +724,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         // is at idx 0 and completed at schedule time, so `fold()` advances
         // `totalSupplyLatestCursor` to the bootstrap (idx 0). BOB's cursor
         // default is already 0 (= bootstrap), and there are no completed
-        // splits past it, so `_migrateAccount` is a no-op for him. Then
+        // splits past it, so `migrateAccount` is a no-op for him. Then
         // super._update mints 100 into _balances[BOB], and onMint adds
         // 100 to `unmigrated[0]` (the latest pot).
         vault.publicUpdate(address(0), BOB, 100);
@@ -819,7 +819,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     // -----------------------------------------------------------------------
     // Cursor / totalSupplyLatestCursor invariant.
     //
-    // After `_migrateAccount(account)` returns inside `_update` (which runs
+    // After `migrateAccount(account)` returns inside `_update` (which runs
     // after `fold()`), `accountMigrationCursor[account]` equals
     // `s.totalSupplyLatestCursor`. `LibTotalSupply.onBurn` subtracts the
     // burn amount from `unmigrated[totalSupplyLatestCursor]`. If the
@@ -856,7 +856,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
         // Now burn some from Bob. Inside `_update`, fold() advances
         // totalSupplyLatestCursor to 2 (the second split), then
-        // _migrateAccount(BOB) walks Bob's cursor from 1 to 2, rasterizing
+        // migrateAccount(BOB) walks Bob's cursor from 1 to 2, rasterizing
         // the balance to 6000. Then onBurn(500) subtracts 500 from
         // unmigrated[2]. If the cursor invariant held, this succeeds; if
         // it didn't, onBurn would underflow.
@@ -955,7 +955,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(
             vault.migrationCursor(account),
             vault.totalSupplyLatestCursor(),
-            "migrationCursor must equal totalSupplyLatestCursor after _migrateAccount"
+            "migrationCursor must equal totalSupplyLatestCursor after migrateAccount"
         );
     }
 
@@ -973,11 +973,11 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// they'll diverge and the pot accounting will break silently. This test
     /// fails fast in that scenario:
     ///
-    ///   - If `_migrateAccount` starts walking the new type without
+    ///   - If `migrateAccount` starts walking the new type without
     ///     `LibTotalSupply.fold()` doing the same, the first assertion here
     ///     fails because `migrationCursor` advances past the synthetic node
     ///     but `totalSupplyLatestCursor` does not.
-    ///   - If `fold()` starts walking the new type without `_migrateAccount`
+    ///   - If `fold()` starts walking the new type without `migrateAccount`
     ///     doing the same, the inverse failure mode triggers.
     ///
     /// When that happens, DO NOT just update the assertions — the failure is
@@ -993,14 +993,14 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         // lands at idx 2.
         vault.publicSchedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 1500, abi.encode(uint256(0)));
 
-        // Give Bob a pre-existing balance so _migrateAccount has something
+        // Give Bob a pre-existing balance so migrateAccount has something
         // to rasterize if it ever starts walking the dividend node.
         vault.publicUpdate(address(0), BOB, 1000);
 
         // Warp past the dividend's effective time so it counts as completed.
         vm.warp(2000);
 
-        // Touch Bob to drive fold() + _migrateAccount.
+        // Touch Bob to drive fold() + migrateAccount.
         vault.publicUpdate(BOB, BOB, 0);
 
         // Bootstrap (idx 0, type INIT) is the default cursor and IS in the
@@ -1043,7 +1043,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
         // Critically: no `_update` between the warp and the read, so
         // `fold()` hasn't run; `totalSupplyLatestCursor` is still the
-        // `NODE_NONE` sentinel `_ensureBootstrap` set even though it
+        // `NODE_NONE` sentinel `ensureBootstrap` set even though it
         // populated `unmigrated[0]` from the schedule. The view's walk
         // reads `unmigrated[0]` directly.
         assertEq(vault.totalSupplyLatestCursor(), NODE_NONE, "no _update yet => latestCursor unchanged");
@@ -1052,7 +1052,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
     /// `effectiveTotalSupply()` called between split completion and the first
     /// post-split `_update` reads `unmigrated[0]` (snapshotted by
-    /// `_ensureBootstrap` at schedule time) and walks every completed
+    /// `ensureBootstrap` at schedule time) and walks every completed
     /// multiplier. No state mutation in the view path.
     ///
     /// INTENT: pin the behaviour of the view during the post-schedule,
@@ -1065,7 +1065,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.totalSupplyLatestCursor(), 0, "no split tracked yet (default storage)");
 
         // Schedule a 2x split and warp past its effective time. Schedule
-        // runs `_ensureBootstrap`, which snapshots `unmigrated[0] = 100`
+        // runs `ensureBootstrap`, which snapshots `unmigrated[0] = 100`
         // and sets `totalSupplyLatestCursor = NODE_NONE` as the "no fold
         // has run yet" sentinel. Critically, do NOT call any `_update`
         // after warping — so `fold()` hasn't run.
@@ -1144,7 +1144,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// simultaneously to pin the migrate+burn interaction in one test.
     ///
     /// INTENT: a future regression that, for example, decoupled
-    /// `onBurn` from `_migrateAccount`'s ordering would leave one of
+    /// `onBurn` from `migrateAccount`'s ordering would leave one of
     /// the pots or the stored balance inconsistent with the others.
     /// Asserting all four quantities at once makes such a regression
     /// visible in a single test failure rather than having to correlate
@@ -1236,7 +1236,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
 
-        // Alice touches: `_ensureBootstrap` already snapshotted
+        // Alice touches: `ensureBootstrap` already snapshotted
         // `unmigrated[0] = 150` at schedule time; the user split is at
         // idx 1 (bootstrap is at idx 0). Alice migrates 50 → 100, shifting
         // 50 out of pot 0 and 100 into pot 1.
@@ -1464,7 +1464,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// split chain, repeated touches with no new splits must not change
     /// cursor, stored balance, or view balance, and must not re-emit
     /// `AccountMigrated`. Guards the `newCursor == currentCursor` early
-    /// return in `_migrateAccount`.
+    /// return in `migrateAccount`.
     function testFuzzMigrationIdempotentAcrossRepeatedTouches(
         uint32 initialBalance,
         uint8 numSplits,
@@ -1633,7 +1633,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     uint256 internal constant OP_COUNT = 4;
 
     /// Three deterministic regression tests below pin the invariants that
-    /// `StoxReceiptVault._migrateAccount`'s `if (account == address(0)) return;`
+    /// `StoxReceiptVault.migrateAccount`'s `if (account == address(0)) return;`
     /// short-circuit preserves. The skip is sound only because OZ
     /// `ERC20Upgradeable` routes mints/burns through `_totalSupply`, never
     /// through `_balances[address(0)]` — if a future refactor (or a new facet)

@@ -79,7 +79,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         onlyDelegatecalled
         returns (uint256 actionId)
     {
-        _authorize(msg.sender, SCHEDULE_CORPORATE_ACTION, abi.encode(typeHash, effectiveTime, parameters));
+        authorizeAction(msg.sender, SCHEDULE_CORPORATE_ACTION, abi.encode(typeHash, effectiveTime, parameters));
         uint256 actionType = LibCorporateAction.resolveActionType(typeHash, parameters);
         actionId = LibCorporateAction.schedule(actionType, effectiveTime, parameters);
         emit CorporateActionScheduled(msg.sender, actionId, actionType, effectiveTime);
@@ -87,13 +87,13 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
 
     /// @inheritdoc ICorporateActionsV1
     // Same trust model as `scheduleCorporateAction`. The outer call's
-    // `actionId` is captured from calldata before `_authorize`, so a
+    // `actionId` is captured from calldata before `authorizeAction`, so a
     // re-entrant cancel during the authorizer callback can only act on
     // whatever index the (trusted) authorizer chooses to cancel — it
     // cannot redirect the outer call's target.
     // slither-disable-next-line reentrancy-events
     function cancelCorporateAction(uint256 actionId) external override onlyDelegatecalled {
-        _authorize(msg.sender, CANCEL_CORPORATE_ACTION, abi.encode(actionId));
+        authorizeAction(msg.sender, CANCEL_CORPORATE_ACTION, abi.encode(actionId));
         LibCorporateAction.cancel(actionId);
         emit CorporateActionCancelled(msg.sender, actionId);
     }
@@ -180,7 +180,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     /// @param data ABI-encoded action context. For schedule:
     /// `abi.encode(bytes32 typeHash, uint64 effectiveTime, bytes parameters)`.
     /// For cancel: `abi.encode(uint256 actionId)`.
-    function _authorize(address user, bytes32 permission, bytes memory data) internal {
+    function authorizeAction(address user, bytes32 permission, bytes memory data) internal {
         IAuthorizeV1 auth = OffchainAssetReceiptVault(payable(address(this))).authorizer();
         auth.authorize(user, permission, data);
     }

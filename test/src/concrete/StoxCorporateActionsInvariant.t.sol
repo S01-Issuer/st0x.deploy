@@ -32,8 +32,8 @@ contract InvariantVault is StoxReceiptVault {
     function _update(address from, address to, uint256 amount) internal override {
         LibTotalSupply.fold();
 
-        _migrateAccount(from);
-        _migrateAccount(to);
+        migrateAccount(from);
+        migrateAccount(to);
 
         ERC20Upgradeable._update(from, to, amount);
 
@@ -358,7 +358,7 @@ contract StoxCorporateActionsHandler is Test {
         assertEq(
             VAULT.migrationCursor(a),
             VAULT.totalSupplyLatestCursor(),
-            "invariant 4: cursor(actor) == totalSupplyLatestCursor after _migrateAccount"
+            "invariant 4: cursor(actor) == totalSupplyLatestCursor after migrateAccount"
         );
     }
 
@@ -386,7 +386,7 @@ contract StoxCorporateActionsHandler is Test {
         assertEq(
             RECEIPT.holderIdCursor(a, id),
             VAULT.totalSupplyLatestCursor(),
-            "receipt invariant: holderIdCursor == totalSupplyLatestCursor after _migrateHolderId"
+            "receipt invariant: holderIdCursor == totalSupplyLatestCursor after migrateHolderId"
         );
     }
 
@@ -564,7 +564,7 @@ contract StoxCorporateActionsInvariantTest is Test {
     }
 
     /// Invariant 4 is a POST-CALL property, not a resting invariant:
-    /// after `_migrateAccount(account)` returns inside `_update`, that
+    /// after `migrateAccount(account)` returns inside `_update`, that
     /// specific account's cursor equals `totalSupplyLatestCursor`. It does
     /// NOT hold for every actor at every moment — an actor touched before
     /// a later split completes legitimately sits at the older cursor until
@@ -612,7 +612,7 @@ contract StoxCorporateActionsInvariantTest is Test {
     }
 
     /// Invariant 6: `totalSupplyLatestCursor` is either `NODE_NONE` (the
-    /// `_ensureBootstrap`-set sentinel meaning "no fold has run yet") or
+    /// `ensureBootstrap`-set sentinel meaning "no fold has run yet") or
     /// points at a node whose effective time is in the past. It must also
     /// not exceed the nodes array bounds.
     function invariantTotalSupplyLatestSplitValid() external view {
