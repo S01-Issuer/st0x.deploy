@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test, Vm} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std-1.16.1/src/Test.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {
     ICorporateActionsV1,
@@ -25,8 +25,8 @@ import {
     ActionDoesNotExist,
     InvalidMask
 } from "../../../src/error/ErrCorporateAction.sol";
-import {IAuthorizeV1, Unauthorized} from "rain.vats/interface/IAuthorizeV1.sol";
-import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
+import {IAuthorizeV1, Unauthorized} from "rain-vats-0.1.1/src/interface/IAuthorizeV1.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
 import {
     CorporateActionNode,
     CompletionFilter,

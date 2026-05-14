@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std/Test.sol";
-import {ERC1155Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
+import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {ERC1155Upgradeable} from "@openzeppelin-contracts-upgradeable-5.6.1/token/ERC1155/ERC1155Upgradeable.sol";
 import {LibERC1155Storage, ERC1155_STORAGE_LOCATION} from "src/lib/LibERC1155Storage.sol";
 
 /// @dev A minimal `ERC1155Upgradeable` subclass that exposes `_mint` / `_burn`

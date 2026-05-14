@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std/Test.sol";
+import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {
@@ -13,8 +13,8 @@ import {
 import {LibProdDeployV3} from "../../../src/lib/LibProdDeployV3.sol";
 import {STOCK_SPLIT_V1_TYPE_HASH, UnknownActionType} from "../../../src/lib/LibCorporateAction.sol";
 import {CompletionFilter, NODE_NONE} from "../../../src/lib/LibCorporateActionNode.sol";
-import {IAuthorizeV1, Unauthorized} from "rain.vats/interface/IAuthorizeV1.sol";
-import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
+import {IAuthorizeV1, Unauthorized} from "rain-vats-0.1.1/src/interface/IAuthorizeV1.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
 import {LibTestTofu} from "../../lib/LibTestTofu.sol";
 
 /// @dev Slot 0 of the OffchainAssetReceiptVault ERC-7201 namespace

@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test, Vm} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std-1.16.1/src/Test.sol";
 import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
-import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
+import {Initializable} from "@openzeppelin-contracts-upgradeable-5.6.1/proxy/utils/Initializable.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
 import {
     ICorporateActionsV1,
     ACTION_TYPE_STOCK_SPLIT_V1,
@@ -17,10 +17,10 @@ import {
     CORPORATE_ACTION_RECEIPT_STORAGE_LOCATION
 } from "../../../src/lib/LibCorporateActionReceipt.sol";
 import {LibERC1155Storage} from "../../../src/lib/LibERC1155Storage.sol";
-import {IReceiptManagerV2} from "rain.vats/interface/IReceiptManagerV2.sol";
+import {IReceiptManagerV2} from "rain-vats-0.1.1/src/interface/IReceiptManagerV2.sol";
 import {
     IERC1155Errors
-} from "openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
+} from "@openzeppelin-contracts-5.6.1/interfaces/draft-IERC6093.sol";
 
 contract StoxReceiptTest is Test {
     /// Constructor disables initializers on the implementation.

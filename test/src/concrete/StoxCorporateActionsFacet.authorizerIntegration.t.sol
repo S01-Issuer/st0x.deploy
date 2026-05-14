@@ -2,21 +2,21 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std/Test.sol";
+import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../src/lib/LibCorporateAction.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config,
     CERTIFY,
     CERTIFY_ADMIN
-} from "rain.vats/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.1.1/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1,
     SCHEDULE_CORPORATE_ACTION_ADMIN,
     CANCEL_CORPORATE_ACTION_ADMIN
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
-import {Unauthorized} from "rain.vats/interface/IAuthorizeV1.sol";
-import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
-import {CloneFactory} from "rain.factory/concrete/CloneFactory.sol";
+import {Unauthorized} from "rain-vats-0.1.1/src/interface/IAuthorizeV1.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
+import {CloneFactory} from "rain-factory-0.1.0/src/concrete/CloneFactory.sol";
 
 /// @title StoxCorporateActionsFacetAuthorizerIntegrationTest
 /// @notice Tests that the real OffchainAssetReceiptVaultAuthorizerV1 handles
