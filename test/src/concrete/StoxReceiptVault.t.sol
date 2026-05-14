@@ -7,9 +7,7 @@ import {Float, LibDecimalFloat} from "rain-math-float-0.1.1/src/lib/LibDecimalFl
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {Initializable} from "@openzeppelin-contracts-upgradeable-5.6.1/proxy/utils/Initializable.sol";
 import {ERC20Upgradeable} from "@openzeppelin-contracts-upgradeable-5.6.1/token/ERC20/ERC20Upgradeable.sol";
-import {
-    IERC20Errors
-} from "@openzeppelin-contracts-5.6.1/interfaces/draft-IERC6093.sol";
+import {IERC20Errors} from "@openzeppelin-contracts-5.6.1/interfaces/draft-IERC6093.sol";
 import {LibCorporateAction} from "../../../src/lib/LibCorporateAction.sol";
 import {NODE_NONE} from "../../../src/lib/LibCorporateActionNode.sol";
 import {

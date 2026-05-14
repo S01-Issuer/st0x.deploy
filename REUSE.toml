@@ -6,6 +6,7 @@ path = [
   ".github/workflows/**/",
   ".gitignore",
   ".soldeerignore",
+  "remappings.txt",
   "soldeer.lock",
   "CHANGELOG.md",
   "CLAUDE.md",
