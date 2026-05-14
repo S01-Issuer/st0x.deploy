@@ -44,6 +44,18 @@ library LibProdDeployV1 {
     /// https://basescan.org/address/0x4c2d2d3bf1232bf0d3fb7123007a9b8444637bc8
     address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_V1 = address(0x4c2d2d3Bf1232bf0d3FB7123007A9B8444637bC8);
 
+    /// @dev Runtime codehash shared by all three V1 beacon contracts on Base
+    /// (`STOX_RECEIPT_BEACON_V1`, `STOX_RECEIPT_VAULT_BEACON_V1`,
+    /// `STOX_WRAPPED_TOKEN_VAULT_BEACON_V1`). All three are
+    /// `UpgradeableBeacon` instances — their implementation and owner live
+    /// in storage, not in code, so the runtime bytecode is identical across
+    /// every beacon constructed from the same `UpgradeableBeacon` source.
+    /// Pinning this codehash guards against a tampered beacon contract
+    /// proxying through `implementation()`/`owner()` selectors that would
+    /// otherwise pass the existing impl-codehash and owner checks.
+    bytes32 constant PROD_BEACON_BASE_RUNTIME_CODEHASH_V1 =
+        0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630;
+
     /// @dev The StoxWrappedTokenVault implementation deployed inside the
     /// StoxWrappedTokenVault beacon set on Base. Accessible via
     /// iStoxWrappedTokenVaultBeacon.implementation(). No proxy instances have

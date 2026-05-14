@@ -207,6 +207,31 @@ contract LibProdTokensBaseTest is Test {
         LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1);
     }
 
+    /// All three V1 beacons are `UpgradeableBeacon` instances — implementation
+    /// and owner live in storage, runtime bytecode is identical. Pinning the
+    /// shared codehash detects a beacon address swapped to a contract that
+    /// merely mimics the `implementation()` / `owner()` selectors used by the
+    /// other checks, which would otherwise pass through unnoticed.
+    function testProdReceiptBeaconRuntimeCodehash() external {
+        LibTestProd.createSelectForkBase(vm);
+        assertEq(LibProdDeployV1.STOX_RECEIPT_BEACON_V1.codehash, LibProdDeployV1.PROD_BEACON_BASE_RUNTIME_CODEHASH_V1);
+    }
+
+    function testProdReceiptVaultBeaconRuntimeCodehash() external {
+        LibTestProd.createSelectForkBase(vm);
+        assertEq(
+            LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1.codehash, LibProdDeployV1.PROD_BEACON_BASE_RUNTIME_CODEHASH_V1
+        );
+    }
+
+    function testProdWrappedTokenVaultBeaconRuntimeCodehash() external {
+        LibTestProd.createSelectForkBase(vm);
+        assertEq(
+            LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1.codehash,
+            LibProdDeployV1.PROD_BEACON_BASE_RUNTIME_CODEHASH_V1
+        );
+    }
+
     /// Mutation pin: the no-CBOR tests above all return clean (no revert),
     /// which by itself doesn't prove `checkNoSolidityCBORMetadata` would
     /// catch a deployment that actually carried CBOR metadata. Construct
