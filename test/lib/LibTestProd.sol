@@ -8,6 +8,6 @@ uint256 constant PROD_TEST_BLOCK_NUMBER_BASE = 45775000;
 
 library LibTestProd {
     function createSelectForkBase(Vm vm) internal {
-        vm.createSelectFork(vm.envString("RPC_URL_BASE_FORK"), PROD_TEST_BLOCK_NUMBER_BASE);
+        vm.createSelectFork(vm.envString("BASE_RPC_URL"), PROD_TEST_BLOCK_NUMBER_BASE);
     }
 }
