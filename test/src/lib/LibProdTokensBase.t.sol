@@ -2,28 +2,28 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std/Test.sol";
+import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibProdTokensBase} from "../../../src/lib/LibProdTokensBase.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibTestProd} from "../../lib/LibTestProd.sol";
-import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {IERC4626} from "openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
-import {IReceiptVaultV3} from "rain.vats/interface/IReceiptVaultV3.sol";
-import {IReceiptV3} from "rain.vats/interface/IReceiptV3.sol";
+import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensions/IERC20Metadata.sol";
+import {IERC4626} from "@openzeppelin-contracts-5.6.1/interfaces/IERC4626.sol";
+import {IReceiptVaultV3} from "rain-vats-0.1.1/src/interface/IReceiptVaultV3.sol";
+import {IReceiptV3} from "rain-vats-0.1.1/src/interface/IReceiptV3.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
-} from "rain.vats/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
-import {ICertifiableV1} from "rain.vats/interface/ICertifiableV1.sol";
+} from "rain-vats-0.1.1/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
+import {ICertifiableV1} from "rain-vats-0.1.1/src/interface/ICertifiableV1.sol";
 import {
     ERC1967_BEACON_SLOT,
     LibExtrospectERC1967BeaconProxy
-} from "rain.extrospection/lib/LibExtrospectERC1967BeaconProxy.sol";
-import {LibExtrospectBytecode} from "rain.extrospection/lib/LibExtrospectBytecode.sol";
-import {LibExtrospectMetamorphic} from "rain.extrospection/lib/LibExtrospectMetamorphic.sol";
-import {EVM_OP_CREATE, EVM_OP_DELEGATECALL} from "rain.extrospection/lib/EVMOpcodes.sol";
-import {IExtrospectV1} from "rain.extrospection/interface/IExtrospectV1.sol";
-import {EXTROSPECT_ZOLTU_ADDRESS_V1} from "rain.extrospection/concrete/Extrospect.sol";
-import {IBeacon} from "rain.extrospection/interface/IBeacon.sol";
+} from "rain-extrospection-0.1.0/src/lib/LibExtrospectERC1967BeaconProxy.sol";
+import {LibExtrospectBytecode} from "rain-extrospection-0.1.0/src/lib/LibExtrospectBytecode.sol";
+import {LibExtrospectMetamorphic} from "rain-extrospection-0.1.0/src/lib/LibExtrospectMetamorphic.sol";
+import {EVM_OP_CREATE, EVM_OP_DELEGATECALL} from "rain-extrospection-0.1.0/src/lib/EVMOpcodes.sol";
+import {IExtrospectV1} from "rain-extrospection-0.1.0/src/interface/IExtrospectV1.sol";
+import {EXTROSPECT_ZOLTU_ADDRESS_V1} from "rain-extrospection-0.1.0/src/concrete/Extrospect.sol";
+import {IBeacon} from "rain-extrospection-0.1.0/src/interface/IBeacon.sol";
 
 /// @title LibProdTokensBaseTest
 /// @notice Fork tests verifying production token instances on Base.
@@ -276,14 +276,15 @@ contract LibProdTokensBaseTest is Test {
     /// from the upstream `EVM_OP_DELEGATECALL` constant rather than a
     /// literal so the bitmap stays correct if rain.extrospection ever
     /// re-derives opcode numbering.
-    uint256 constant METAMORPHIC_RISK_DELEGATECALL_ONLY = 1 << EVM_OP_DELEGATECALL;
+    uint256 constant METAMORPHIC_RISK_DELEGATECALL_ONLY = uint256(1) << uint256(EVM_OP_DELEGATECALL);
 
     /// Bitmap pin for the OARV and wrapped vault beacon-set deployers:
     /// `CREATE` is reachable because the deployer constructs the beacon
     /// instances via direct EVM `CREATE`, and `DELEGATECALL` is reachable
     /// from the OZ Upgradeable / forwarder machinery linked into the
     /// deployer's compiled bytecode.
-    uint256 constant METAMORPHIC_RISK_CREATE_AND_DELEGATECALL = (1 << EVM_OP_CREATE) | (1 << EVM_OP_DELEGATECALL);
+    uint256 constant METAMORPHIC_RISK_CREATE_AND_DELEGATECALL =
+        (uint256(1) << uint256(EVM_OP_CREATE)) | (uint256(1) << uint256(EVM_OP_DELEGATECALL));
 
     function testProdReceiptImplementationMetamorphicRiskPinned() external {
         LibTestProd.createSelectForkBase(vm);

@@ -2,25 +2,25 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std/Test.sol";
-import {Clones} from "openzeppelin-contracts/contracts/proxy/Clones.sol";
+import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {Clones} from "@openzeppelin-contracts-5.6.1/proxy/Clones.sol";
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../../src/lib/LibCorporateAction.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain.vats/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.1.1/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1,
     SCHEDULE_CORPORATE_ACTION_ADMIN,
     CANCEL_CORPORATE_ACTION_ADMIN
 } from "../../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
-import {ICLONEABLE_V2_SUCCESS} from "rain.factory/interface/ICloneableV2.sol";
+import {ICLONEABLE_V2_SUCCESS} from "rain-factory-0.1.0/src/interface/ICloneableV2.sol";
 
 /// @dev Overrides _initialize to return a non-success value, simulating
 /// a parent initialization failure.
 contract FailingSuperInitAuthorizer is StoxOffchainAssetReceiptVaultAuthorizerV1 {
     bytes32 public constant FAILURE_SENTINEL = bytes32(uint256(1));
 
-    function _initialize(OffchainAssetReceiptVaultAuthorizerV1Config memory) internal override returns (bytes32) {
+    function _initialize(OffchainAssetReceiptVaultAuthorizerV1Config memory) internal pure override returns (bytes32) {
         return FAILURE_SENTINEL;
     }
 }

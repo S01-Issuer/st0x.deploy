@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std/Test.sol";
-import {LibRainDeploy} from "rain.deploy/lib/LibRainDeploy.sol";
+import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.2/src/lib/LibRainDeploy.sol";
 import {LibProdDeployV3} from "../../../src/lib/LibProdDeployV3.sol";
 import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
@@ -38,9 +38,9 @@ import {
 } from "../../../src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV2
-} from "rain.vats/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV2.sol";
-import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
-import {IBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
+} from "rain-vats-0.1.1/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV2.sol";
+import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {
     CREATION_CODE as STOX_BEACON_CREATION_CODE,
     RUNTIME_CODE as STOX_BEACON_RUNTIME_CODE,

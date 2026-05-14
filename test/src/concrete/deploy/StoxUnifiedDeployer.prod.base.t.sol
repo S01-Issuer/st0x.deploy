@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test, Vm} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std-1.16.1/src/Test.sol";
 
 import {StoxUnifiedDeployer} from "../../../../src/concrete/deploy/StoxUnifiedDeployer.sol";
 import {LibProdDeployV1} from "../../../../src/lib/LibProdDeployV1.sol";
@@ -10,14 +10,14 @@ import {LibTestProd} from "../../../lib/LibTestProd.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
-} from "rain.vats/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
-import {OffchainAssetReceiptVaultConfigV2} from "rain.vats/concrete/vault/OffchainAssetReceiptVault.sol";
-import {ReceiptVaultConfigV2} from "rain.vats/abstract/ReceiptVault.sol";
+} from "rain-vats-0.1.1/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
+import {OffchainAssetReceiptVaultConfigV2} from "rain-vats-0.1.1/src/concrete/vault/OffchainAssetReceiptVault.sol";
+import {ReceiptVaultConfigV2} from "rain-vats-0.1.1/src/abstract/ReceiptVault.sol";
 import {
     StoxWrappedTokenVaultBeaconSetDeployer
 } from "../../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
-import {IBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
-import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
+import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {MockERC20} from "../../../concrete/MockERC20.sol";
 
 contract StoxProdBaseTest is Test {
