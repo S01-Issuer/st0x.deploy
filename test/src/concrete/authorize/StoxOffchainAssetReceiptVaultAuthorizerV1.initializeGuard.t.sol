@@ -20,7 +20,7 @@ import {ICLONEABLE_V2_SUCCESS} from "rain-factory-0.1.0/src/interface/ICloneable
 contract FailingSuperInitAuthorizer is StoxOffchainAssetReceiptVaultAuthorizerV1 {
     bytes32 public constant FAILURE_SENTINEL = bytes32(uint256(1));
 
-    function _initialize(OffchainAssetReceiptVaultAuthorizerV1Config memory) internal override returns (bytes32) {
+    function _initialize(OffchainAssetReceiptVaultAuthorizerV1Config memory) internal pure override returns (bytes32) {
         return FAILURE_SENTINEL;
     }
 }
