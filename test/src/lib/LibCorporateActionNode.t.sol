@@ -296,27 +296,27 @@ contract LibCorporateActionNodeTest is Test {
     /// matches are PENDING, after the first completes `latest(COMPLETED)`
     /// resolves to it and `earliest(PENDING)` advances to the remaining one.
     function testFilterTracksEffectiveTimeTransitions() external {
-        uint256 id1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
-        uint256 id2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
+        uint256 a1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 a2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
 
         // Pre-1500: both pending.
         (uint256 cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, NODE_NONE);
         (cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
-        assertEq(cursor, id1);
+        assertEq(cursor, a1);
 
-        // Warp past id1's effective time only.
+        // Warp past a1's effective time only.
         vm.warp(2000);
 
         (cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
-        assertEq(cursor, id1, "only id1 has completed");
+        assertEq(cursor, a1, "only a1 has completed");
         (cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
-        assertEq(cursor, id2, "only id2 still pending");
+        assertEq(cursor, a2, "only a2 still pending");
 
         // Warp past both.
         vm.warp(3000);
         (cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
-        assertEq(cursor, id2, "tail becomes latest completed");
+        assertEq(cursor, a2, "tail becomes latest completed");
         (cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, NODE_NONE, "no pending actions remain");
     }
@@ -326,56 +326,56 @@ contract LibCorporateActionNodeTest is Test {
     /// from the tail no longer touches it. Pins the linked-list integrity
     /// under cancellation through the traversal API surface.
     function testCancelMiddleNodeRelinksTraversal() external {
-        uint256 id1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
-        uint256 id2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
-        uint256 id3 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, hex"");
+        uint256 a1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 a2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
+        uint256 a3 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, hex"");
 
-        h.cancel(id2);
+        h.cancel(a2);
 
-        // nextActionOfType from id1 now skips past id2 to id3.
-        (uint256 cursor,,) = h.nextOf(id1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
-        assertEq(cursor, id3, "next(id1) must skip cancelled id2");
+        // nextActionOfType from a1 now skips past a2 to a3.
+        (uint256 cursor,,) = h.nextOf(a1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        assertEq(cursor, a3, "next(a1) must skip cancelled a2");
 
-        // prevActionOfType from id3 now skips id2 back to id1.
-        (cursor,,) = h.prevOf(id3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
-        assertEq(cursor, id1, "prev(id3) must skip cancelled id2");
+        // prevActionOfType from a3 now skips a2 back to a1.
+        (cursor,,) = h.prevOf(a3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        assertEq(cursor, a1, "prev(a3) must skip cancelled a2");
 
-        // earliest + latest remain unchanged — id2 was never at either end.
+        // earliest + latest remain unchanged — a2 was never at either end.
         (cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
-        assertEq(cursor, id1, "earliest is still id1");
+        assertEq(cursor, a1, "earliest is still a1");
         (cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
-        assertEq(cursor, id3, "latest is still id3");
+        assertEq(cursor, a3, "latest is still a3");
     }
 
     /// Cancelling the head advances `earliestActionOfType` to the next node.
     /// Verifies the head pointer updates and traversal from the new head
     /// works.
     function testCancelHeadAdvancesEarliest() external {
-        uint256 id1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
-        uint256 id2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
+        uint256 a1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 a2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
 
-        h.cancel(id1);
+        h.cancel(a1);
 
         (uint256 cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
-        assertEq(cursor, id2, "earliest advances to id2 after id1 cancelled");
+        assertEq(cursor, a2, "earliest advances to a2 after a1 cancelled");
 
         // Walking prev from the new earliest returns 0 (head has no prev).
-        (cursor,,) = h.prevOf(id2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        (cursor,,) = h.prevOf(a2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, NODE_NONE, "prev of new head is 0");
     }
 
     /// Cancelling the tail moves `latestActionOfType` back to the prior node.
     /// Verifies the tail pointer updates.
     function testCancelTailRetreatsLatest() external {
-        uint256 id1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
-        uint256 id2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
+        uint256 a1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 a2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
 
-        h.cancel(id2);
+        h.cancel(a2);
 
         (uint256 cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
-        assertEq(cursor, id1, "latest retreats to id1 after id2 cancelled");
+        assertEq(cursor, a1, "latest retreats to a1 after a2 cancelled");
 
-        (cursor,,) = h.nextOf(id1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        (cursor,,) = h.nextOf(a1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, NODE_NONE, "next of new tail is 0");
     }
 
@@ -383,24 +383,24 @@ contract LibCorporateActionNodeTest is Test {
     /// a cursor. Verify they skip masks that don't match and report the
     /// neighbouring node.
     function testNextAndPrevFromSpecificCursor() external {
-        uint256 id1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
-        uint256 id2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
-        uint256 id3 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, hex"");
+        uint256 a1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 a2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
+        uint256 a3 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, hex"");
 
-        // next from id1 → id2.
-        (uint256 cursor,,) = h.nextOf(id1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
-        assertEq(cursor, id2);
+        // next from a1 → a2.
+        (uint256 cursor,,) = h.nextOf(a1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        assertEq(cursor, a2);
 
-        // next from id3 → none (tail).
-        (cursor,,) = h.nextOf(id3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        // next from a3 → none (tail).
+        (cursor,,) = h.nextOf(a3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, NODE_NONE);
 
-        // prev from id3 → id2.
-        (cursor,,) = h.prevOf(id3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
-        assertEq(cursor, id2);
+        // prev from a3 → a2.
+        (cursor,,) = h.prevOf(a3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        assertEq(cursor, a2);
 
-        // prev from id1 → none (head).
-        (cursor,,) = h.prevOf(id1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        // prev from a1 → none (head).
+        (cursor,,) = h.prevOf(a1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, NODE_NONE);
     }
 
