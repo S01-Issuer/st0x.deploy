@@ -20,6 +20,8 @@ import {IAuthorizeV1} from "rain-vats-0.1.4/src/interface/IAuthorizeV1.sol";
 import {CloneFactory} from "rain-factory-0.1.0/src/concrete/CloneFactory.sol";
 import {VerifyAlwaysApproved} from "rain-verify-interface-0.1.0/src/concrete/VerifyAlwaysApproved.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
+import {IERC165} from "@openzeppelin-contracts-5.6.1/utils/introspection/IERC165.sol";
+import {IncompatibleAuthorizer} from "rain-vats-0.1.4/src/concrete/vault/OffchainAssetReceiptVault.sol";
 import {AuthorizerMissingCorporateActionAdmin} from "../../../src/error/ErrCorporateAction.sol";
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../src/lib/LibCorporateAction.sol";
 import {MockERC20} from "../../concrete/MockERC20.sol";
@@ -182,5 +184,156 @@ contract StoxReceiptVaultSetAuthorizerGuardTest is Test {
         vault.setAuthorizer(IAuthorizeV1(address(second)));
         assertEq(address(vault.authorizer()), address(second));
         vm.stopPrank();
+    }
+
+    /// A revert raised inside the authorizer's `getRoleAdmin` propagates
+    /// verbatim. The guard does not try-catch, swallow, or rewrap — if
+    /// the authorizer signals an error during the role-admin probe the
+    /// caller sees exactly that error, not
+    /// `AuthorizerMissingCorporateActionAdmin`.
+    function testSetAuthorizerBubblesUpRevertFromAuthorizer() external {
+        OwnedStoxReceiptVault vault = new OwnedStoxReceiptVault(OWNER);
+        address reverting = makeAddr("reverting-authorizer");
+        bytes memory canary = abi.encodeWithSignature("AuthorizerProbeFailed(string)", "probe");
+        vm.mockCallRevert(
+            reverting,
+            abi.encodeWithSelector(IAccessControl.getRoleAdmin.selector, SCHEDULE_CORPORATE_ACTION),
+            canary
+        );
+        vm.prank(OWNER);
+        vm.expectRevert(canary);
+        vault.setAuthorizer(IAuthorizeV1(reverting));
+    }
+
+    /// Reinstalling the same authorizer is a no-op from the role-admin
+    /// guard's perspective: the same staticcalls run again, the same
+    /// non-zero admins are read, the call falls through to super, and
+    /// `authorizer()` returns the same address. Pin that idempotent
+    /// installation is allowed — the guard isn't accidentally one-shot.
+    function testSetAuthorizerSameAuthorizerTwiceIsAllowed() external {
+        OwnedStoxReceiptVault vault = new OwnedStoxReceiptVault(OWNER);
+        StoxOffchainAssetReceiptVaultAuthorizerV1 good = _newCorporateActionsAuthorizer();
+        vm.startPrank(OWNER);
+        vault.setAuthorizer(IAuthorizeV1(address(good)));
+        vault.setAuthorizer(IAuthorizeV1(address(good)));
+        vm.stopPrank();
+        assertEq(address(vault.authorizer()), address(good));
+    }
+
+    /// `address(0)` is the canonical "no authorizer" sentinel. It has no
+    /// code, so `getRoleAdmin` reverts at staticcall time. Pinning this
+    /// as a named case (rather than relying on the EOA fuzz, which
+    /// happens to include it) documents intent: "install no authorizer"
+    /// must not silently succeed.
+    function testSetAuthorizerRejectsZeroAddressAuthorizer() external {
+        OwnedStoxReceiptVault vault = new OwnedStoxReceiptVault(OWNER);
+        vm.prank(OWNER);
+        vm.expectRevert();
+        vault.setAuthorizer(IAuthorizeV1(address(0)));
+    }
+
+    /// Pin that the guard probes BOTH role admins, not just one. A
+    /// refactor that collapses the two staticcalls into one — or skips
+    /// the CANCEL check on the assumption that SCHEDULE implies it —
+    /// would silently widen the gap the guard exists to close. Uses
+    /// `vm.expectCall` so the assertion fires on call-shape, not on
+    /// downstream effects.
+    function testSetAuthorizerCallsGetRoleAdminForBothRoles() external {
+        OwnedStoxReceiptVault vault = new OwnedStoxReceiptVault(OWNER);
+        StoxOffchainAssetReceiptVaultAuthorizerV1 good = _newCorporateActionsAuthorizer();
+        vm.expectCall(
+            address(good), abi.encodeWithSelector(IAccessControl.getRoleAdmin.selector, SCHEDULE_CORPORATE_ACTION)
+        );
+        vm.expectCall(
+            address(good), abi.encodeWithSelector(IAccessControl.getRoleAdmin.selector, CANCEL_CORPORATE_ACTION)
+        );
+        vm.prank(OWNER);
+        vault.setAuthorizer(IAuthorizeV1(address(good)));
+    }
+
+    /// A guard revert must leave the prior authorizer in place — the
+    /// install is all-or-nothing. Install a valid authorizer first, then
+    /// try to install a bad one and assert the prior authorizer is
+    /// still active. Pins that `super.setAuthorizer` runs only after the
+    /// guard returns cleanly; if the guard's reverts were ever moved
+    /// after the super call this assertion would fail.
+    function testSetAuthorizerKeepsPriorAuthorizerOnGuardRevert() external {
+        OwnedStoxReceiptVault vault = new OwnedStoxReceiptVault(OWNER);
+        StoxOffchainAssetReceiptVaultAuthorizerV1 good = _newCorporateActionsAuthorizer();
+        StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1 bad = _newPaymentMintAuthorizer();
+
+        vm.startPrank(OWNER);
+        vault.setAuthorizer(IAuthorizeV1(address(good)));
+        assertEq(address(vault.authorizer()), address(good));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AuthorizerMissingCorporateActionAdmin.selector, address(bad), SCHEDULE_CORPORATE_ACTION
+            )
+        );
+        vault.setAuthorizer(IAuthorizeV1(address(bad)));
+        vm.stopPrank();
+        assertEq(address(vault.authorizer()), address(good));
+    }
+
+    /// The guard's predicate is exactly `admin == bytes32(0)`, not a
+    /// magnitude check or a range check. Any non-zero bytes32 — single
+    /// bit, high bit, all bits — must pass. Fuzz this boundary so a
+    /// refactor to `admin < someThreshold` or `uint256(admin) <= N`
+    /// breaks the test rather than silently widening rejection.
+    function testSetAuthorizerAcceptsAnyNonZeroRoleAdmin(bytes32 scheduleAdmin, bytes32 cancelAdmin) external {
+        vm.assume(scheduleAdmin != bytes32(0));
+        vm.assume(cancelAdmin != bytes32(0));
+        OwnedStoxReceiptVault vault = new OwnedStoxReceiptVault(OWNER);
+        address mocked = makeAddr("mocked-authorizer");
+        vm.mockCall(
+            mocked,
+            abi.encodeWithSelector(IAccessControl.getRoleAdmin.selector, SCHEDULE_CORPORATE_ACTION),
+            abi.encode(scheduleAdmin)
+        );
+        vm.mockCall(
+            mocked,
+            abi.encodeWithSelector(IAccessControl.getRoleAdmin.selector, CANCEL_CORPORATE_ACTION),
+            abi.encode(cancelAdmin)
+        );
+        // super._setAuthorizer probes IERC165(authorizer).supportsInterface(IAuthorizeV1).
+        vm.mockCall(
+            mocked,
+            abi.encodeWithSelector(IERC165.supportsInterface.selector, type(IAuthorizeV1).interfaceId),
+            abi.encode(true)
+        );
+        vm.prank(OWNER);
+        vault.setAuthorizer(IAuthorizeV1(mocked));
+        assertEq(address(vault.authorizer()), mocked);
+    }
+
+    /// The guard is additive on top of `super.setAuthorizer`, not a
+    /// replacement for its checks. Construct an authorizer that passes
+    /// our role-admin guard (both admins non-zero) but explicitly fails
+    /// `supportsInterface(IAuthorizeV1)`, and confirm the parent's
+    /// `IncompatibleAuthorizer` revert fires. Without this pin a future
+    /// refactor that drops `super.setAuthorizer` in favour of writing
+    /// the storage slot directly would silently bypass the ERC165
+    /// check.
+    function testSetAuthorizerStillEnforcesSuperInterfaceCheck() external {
+        OwnedStoxReceiptVault vault = new OwnedStoxReceiptVault(OWNER);
+        address mocked = makeAddr("interface-failing-authorizer");
+        vm.mockCall(
+            mocked,
+            abi.encodeWithSelector(IAccessControl.getRoleAdmin.selector, SCHEDULE_CORPORATE_ACTION),
+            abi.encode(bytes32(uint256(1)))
+        );
+        vm.mockCall(
+            mocked,
+            abi.encodeWithSelector(IAccessControl.getRoleAdmin.selector, CANCEL_CORPORATE_ACTION),
+            abi.encode(bytes32(uint256(1)))
+        );
+        vm.mockCall(
+            mocked,
+            abi.encodeWithSelector(IERC165.supportsInterface.selector, type(IAuthorizeV1).interfaceId),
+            abi.encode(false)
+        );
+        vm.prank(OWNER);
+        vm.expectRevert(IncompatibleAuthorizer.selector);
+        vault.setAuthorizer(IAuthorizeV1(mocked));
     }
 }
