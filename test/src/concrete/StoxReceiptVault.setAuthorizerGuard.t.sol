@@ -19,6 +19,7 @@ import {
 import {IAuthorizeV1} from "rain-vats-0.1.4/src/interface/IAuthorizeV1.sol";
 import {CloneFactory} from "rain-factory-0.1.0/src/concrete/CloneFactory.sol";
 import {VerifyAlwaysApproved} from "rain-verify-interface-0.1.0/src/concrete/VerifyAlwaysApproved.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {AuthorizerMissingCorporateActionAdmin} from "../../../src/error/ErrCorporateAction.sol";
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../src/lib/LibCorporateAction.sol";
 import {MockERC20} from "../../concrete/MockERC20.sol";
@@ -103,5 +104,43 @@ contract StoxReceiptVaultSetAuthorizerGuardTest is Test {
         vm.prank(attacker);
         vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, attacker));
         vault.setAuthorizer(IAuthorizeV1(address(good)));
+    }
+
+    /// Independence of the two role checks: an authorizer that
+    /// configures the SCHEDULE admin but leaves CANCEL falling back to
+    /// DEFAULT_ADMIN_ROLE still gets rejected — on the CANCEL role.
+    /// Mocked because no production authorizer presents this exact
+    /// shape; the test exists to prove the second check isn't a
+    /// duplicate of the first.
+    function testSetAuthorizerRejectsAuthorizerWithOnlyScheduleAdminConfigured() external {
+        OwnedStoxReceiptVault vault = new OwnedStoxReceiptVault(OWNER);
+        address half = makeAddr("half-configured-authorizer");
+        vm.mockCall(
+            half,
+            abi.encodeWithSelector(IAccessControl.getRoleAdmin.selector, SCHEDULE_CORPORATE_ACTION),
+            abi.encode(bytes32(uint256(1)))
+        );
+        vm.mockCall(
+            half,
+            abi.encodeWithSelector(IAccessControl.getRoleAdmin.selector, CANCEL_CORPORATE_ACTION),
+            abi.encode(bytes32(0))
+        );
+        vm.prank(OWNER);
+        vm.expectRevert(
+            abi.encodeWithSelector(AuthorizerMissingCorporateActionAdmin.selector, half, CANCEL_CORPORATE_ACTION)
+        );
+        vault.setAuthorizer(IAuthorizeV1(half));
+    }
+
+    /// On the happy path the installation actually lands — `authorizer()`
+    /// returns the new address. Without `super.setAuthorizer` the guard
+    /// could pass while the state stays stale, so this pins the call-
+    /// through.
+    function testSetAuthorizerInstallsAuthorizerOnSuccess() external {
+        OwnedStoxReceiptVault vault = new OwnedStoxReceiptVault(OWNER);
+        StoxOffchainAssetReceiptVaultAuthorizerV1 good = _newCorporateActionsAuthorizer();
+        vm.prank(OWNER);
+        vault.setAuthorizer(IAuthorizeV1(address(good)));
+        assertEq(address(vault.authorizer()), address(good));
     }
 }
