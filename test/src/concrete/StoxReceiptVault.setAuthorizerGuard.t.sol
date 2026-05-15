@@ -91,12 +91,11 @@ contract StoxReceiptVaultSetAuthorizerGuardTest is Test {
         vault.setAuthorizer(IAuthorizeV1(address(good)));
     }
 
-    /// `onlyOwner` is inherited via `super.setAuthorizer` — pin that a
-    /// non-owner caller is rejected before the guard's role-admin
-    /// staticcalls fire. The override declares `onlyOwner` itself so the
-    /// permission check is the first thing that runs; an attacker
-    /// supplying a malicious authorizer can't even reach the
-    /// `getRoleAdmin` calls.
+    /// `onlyOwner` is inherited via `super.setAuthorizer` — the override
+    /// itself has no modifier, so the guard's role-admin staticcalls run
+    /// before the ownership check. With a well-behaved authorizer that
+    /// passes the guard, control falls through to `super.setAuthorizer`,
+    /// which reverts `OwnableUnauthorizedAccount` for non-owner callers.
     function testSetAuthorizerRejectsNonOwnerCaller(address attacker) external {
         vm.assume(attacker != OWNER);
         OwnedStoxReceiptVault vault = new OwnedStoxReceiptVault(OWNER);
