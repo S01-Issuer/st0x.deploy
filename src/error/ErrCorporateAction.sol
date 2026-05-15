@@ -23,3 +23,13 @@ error UnknownActionType(bytes32 typeHash);
 /// outside `VALID_ACTION_TYPES_MASK`. Reverting distinguishes a caller input
 /// bug from a legitimate "no match found" result for a valid mask.
 error InvalidMask();
+
+/// Thrown when an authorizer is paired with the vault without an admin
+/// hierarchy for a corporate-action role. Without an explicit admin the
+/// role's admin resolves to the unassigned `DEFAULT_ADMIN_ROLE` and the
+/// role becomes permanently ungrantable, silently disabling that
+/// corporate-action surface. Surfaced at the pairing point rather than
+/// the (much later) first attempted use.
+/// @param authorizer The authorizer being installed.
+/// @param role The corporate-action role with no configured admin.
+error AuthorizerMissingCorporateActionAdmin(address authorizer, bytes32 role);

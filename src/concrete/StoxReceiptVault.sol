@@ -2,12 +2,15 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {OffchainAssetReceiptVault} from "rain-vats-0.1.2/src/concrete/vault/OffchainAssetReceiptVault.sol";
-import {LibCorporateAction} from "../lib/LibCorporateAction.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.1.3/src/concrete/vault/OffchainAssetReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.1.3/src/interface/IAuthorizeV1.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
+import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
 import {LibRebase} from "../lib/LibRebase.sol";
 import {LibTotalSupply} from "../lib/LibTotalSupply.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
 import {LibProdDeployV3} from "../lib/LibProdDeployV3.sol";
+import {AuthorizerMissingCorporateActionAdmin} from "../error/ErrCorporateAction.sol";
 
 /// @title StoxReceiptVault
 /// @notice An OffchainAssetReceiptVault that supports corporate actions such
@@ -184,5 +187,31 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
             case 0 { revert(0, returndatasize()) }
             default { return(0, returndatasize()) }
         }
+    }
+
+    /// @notice Reject authorizers that don't configure admin hierarchies
+    /// for the corporate-action roles. Without an explicit admin, the
+    /// role's admin resolves to the unassigned `DEFAULT_ADMIN_ROLE` and
+    /// the role becomes permanently ungrantable — silently disabling
+    /// corporate actions and drifting the vault away from the underlying
+    /// off-chain asset. Surfaces the misconfiguration at the pairing
+    /// point so the operator hears about it immediately, not on the
+    /// first attempted `scheduleCorporateAction` call months later.
+    ///
+    /// Reverts with `AuthorizerMissingCorporateActionAdmin` if either
+    /// `SCHEDULE_CORPORATE_ACTION` or `CANCEL_CORPORATE_ACTION` resolves
+    /// to `DEFAULT_ADMIN_ROLE` on the supplied authorizer. Requires the
+    /// authorizer to implement `IAccessControl`.
+    /// @inheritdoc OffchainAssetReceiptVault
+    function setAuthorizer(IAuthorizeV1 newAuthorizer) external override onlyOwner {
+        bytes32 scheduleAdmin = IAccessControl(address(newAuthorizer)).getRoleAdmin(SCHEDULE_CORPORATE_ACTION);
+        if (scheduleAdmin == bytes32(0)) {
+            revert AuthorizerMissingCorporateActionAdmin(address(newAuthorizer), SCHEDULE_CORPORATE_ACTION);
+        }
+        bytes32 cancelAdmin = IAccessControl(address(newAuthorizer)).getRoleAdmin(CANCEL_CORPORATE_ACTION);
+        if (cancelAdmin == bytes32(0)) {
+            revert AuthorizerMissingCorporateActionAdmin(address(newAuthorizer), CANCEL_CORPORATE_ACTION);
+        }
+        _setAuthorizer(newAuthorizer);
     }
 }
