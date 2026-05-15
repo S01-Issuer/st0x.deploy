@@ -157,6 +157,16 @@ contract StoxReceipt is Receipt {
     /// is no window for reentrancy to observe inconsistent data.
     /// If a future refactor moves ANY state mutation after `super._update`,
     /// this analysis is invalidated and reentrancy risk must be re-evaluated.
+    ///
+    /// **Vault trust:** migration walks `vault.nextOfType` /
+    /// `vault.getActionParameters` per node without snapshotting; the loop
+    /// trusts each STATICCALL return individually. A malicious vault
+    /// implementation installed via beacon upgrade could serve
+    /// inconsistent answers across iterations and inflate, zero, or drift
+    /// any first-touched balance. The protocol relies on
+    /// `BEACON_INITIAL_OWNER = rainlang.eth` only installing audited
+    /// vault implementations behind every receipt's manager pointer.
+    /// Beacon upgrade authority is the trust root.
     /// @inheritdoc ERC1155Upgradeable
     function _update(address from, address to, uint256[] memory ids, uint256[] memory amounts)
         internal

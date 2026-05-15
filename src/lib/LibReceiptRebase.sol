@@ -45,6 +45,16 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 /// view calls (`nextOfType` + `getActionParameters`). Stock splits are
 /// expected to be rare (O(10) over a contract's lifetime) so the
 /// per-receipt-holder migration cost is bounded and acceptable.
+///
+/// **Trust model.** The walk has no defence against a malicious vault
+/// implementation serving inconsistent answers across `nextOfType` /
+/// `getActionParameters` iterations — such an implementation could
+/// inflate, zero, or arbitrarily drift balances on first-touch. The
+/// receipt assumes the beacon owner (`BEACON_INITIAL_OWNER =
+/// rainlang.eth`) only installs audited vault implementations behind
+/// every receipt's manager pointer. Beacon upgrade authority is the
+/// trust root; if that key is compromised, every downstream balance
+/// derived from this walk is compromised.
 library LibReceiptRebase {
     /// @notice Walk the vault's completed stock split list from
     /// `fromActionId` forward, returning the rebased balance and the
