@@ -6,7 +6,7 @@ import {
     OffchainAssetReceiptVaultBeaconSetDeployer,
     OffchainAssetReceiptVaultConfigV2,
     OffchainAssetReceiptVault
-} from "rain-vats-0.1.3/src/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
+} from "rain-vats-0.1.4/src/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
 import {IERC165} from "@openzeppelin-contracts-5.6.1/utils/introspection/IERC165.sol";
 import {StoxWrappedTokenVaultBeaconSetDeployer} from "./StoxWrappedTokenVaultBeaconSetDeployer.sol";
 import {LibProdDeployV3} from "../../lib/LibProdDeployV3.sol";

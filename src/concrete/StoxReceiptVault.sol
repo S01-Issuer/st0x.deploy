@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {OffchainAssetReceiptVault} from "rain-vats-0.1.3/src/concrete/vault/OffchainAssetReceiptVault.sol";
-import {IAuthorizeV1} from "rain-vats-0.1.3/src/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.1.4/src/concrete/vault/OffchainAssetReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.1.4/src/interface/IAuthorizeV1.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
 import {LibRebase} from "../lib/LibRebase.sol";
@@ -203,7 +203,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// to `DEFAULT_ADMIN_ROLE` on the supplied authorizer. Requires the
     /// authorizer to implement `IAccessControl`.
     /// @inheritdoc OffchainAssetReceiptVault
-    function setAuthorizer(IAuthorizeV1 newAuthorizer) external override onlyOwner {
+    function setAuthorizer(IAuthorizeV1 newAuthorizer) public override {
         bytes32 scheduleAdmin = IAccessControl(address(newAuthorizer)).getRoleAdmin(SCHEDULE_CORPORATE_ACTION);
         if (scheduleAdmin == bytes32(0)) {
             revert AuthorizerMissingCorporateActionAdmin(address(newAuthorizer), SCHEDULE_CORPORATE_ACTION);
@@ -212,6 +212,6 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         if (cancelAdmin == bytes32(0)) {
             revert AuthorizerMissingCorporateActionAdmin(address(newAuthorizer), CANCEL_CORPORATE_ACTION);
         }
-        _setAuthorizer(newAuthorizer);
+        super.setAuthorizer(newAuthorizer);
     }
 }
