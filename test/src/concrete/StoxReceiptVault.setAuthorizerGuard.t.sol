@@ -143,4 +143,45 @@ contract StoxReceiptVaultSetAuthorizerGuardTest is Test {
         vault.setAuthorizer(IAuthorizeV1(address(good)));
         assertEq(address(vault.authorizer()), address(good));
     }
+
+    /// `super.setAuthorizer` emits `AuthorizerSet`. The guard adds no
+    /// events of its own; pin that the call-through still emits.
+    function testSetAuthorizerEmitsAuthorizerSet() external {
+        OwnedStoxReceiptVault vault = new OwnedStoxReceiptVault(OWNER);
+        StoxOffchainAssetReceiptVaultAuthorizerV1 good = _newCorporateActionsAuthorizer();
+        vm.prank(OWNER);
+        vm.expectEmit(true, true, true, true, address(vault));
+        emit IAuthorizeV1.AuthorizerSet(OWNER, IAuthorizeV1(address(good)));
+        vault.setAuthorizer(IAuthorizeV1(address(good)));
+    }
+
+    /// An EOA / zero-code address can't satisfy `getRoleAdmin`. Solidity
+    /// reverts the staticcall when the target has no code. The guard
+    /// surfaces this as a raw revert, not as
+    /// `AuthorizerMissingCorporateActionAdmin` — the latter is reserved
+    /// for the case where the contract IS present but explicitly leaves
+    /// the admin unconfigured.
+    function testSetAuthorizerRevertsOnNonContractAuthorizer(address eoa) external {
+        vm.assume(eoa.code.length == 0);
+        OwnedStoxReceiptVault vault = new OwnedStoxReceiptVault(OWNER);
+        vm.prank(OWNER);
+        vm.expectRevert();
+        vault.setAuthorizer(IAuthorizeV1(eoa));
+    }
+
+    /// Setting authorizer twice in sequence with two distinct valid
+    /// authorizers works — second call overwrites the first.
+    function testSetAuthorizerReinstallReplacesPriorAuthorizer() external {
+        OwnedStoxReceiptVault vault = new OwnedStoxReceiptVault(OWNER);
+        StoxOffchainAssetReceiptVaultAuthorizerV1 first = _newCorporateActionsAuthorizer();
+        StoxOffchainAssetReceiptVaultAuthorizerV1 second = _newCorporateActionsAuthorizer();
+        assertTrue(address(first) != address(second), "fixture must produce distinct authorizers");
+
+        vm.startPrank(OWNER);
+        vault.setAuthorizer(IAuthorizeV1(address(first)));
+        assertEq(address(vault.authorizer()), address(first));
+        vault.setAuthorizer(IAuthorizeV1(address(second)));
+        assertEq(address(vault.authorizer()), address(second));
+        vm.stopPrank();
+    }
 }
