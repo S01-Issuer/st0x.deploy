@@ -167,6 +167,10 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         // `s.nodes.length` is bounded by realistic schedule cadence, so any
         // sentinel value comparable to max uint256 is >= length.
         if (actionId >= s.nodes.length) revert ActionDoesNotExist(actionId);
+        // `effectiveTime == 0` means the slot was never populated or the
+        // action was cancelled; both are surfaced as nonexistent so the
+        // facet's view of the schedule matches what list walks see.
+        if (s.nodes[actionId].effectiveTime == 0) revert ActionDoesNotExist(actionId);
         parameters = s.nodes[actionId].parameters;
     }
 

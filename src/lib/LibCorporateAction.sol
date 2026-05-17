@@ -264,27 +264,26 @@ library LibCorporateAction {
         }
     }
 
-    /// @notice Unlink a scheduled node from the list. Reverts if the action
-    /// is already complete or does not exist.
+    /// @notice Unlink a scheduled node from the list and clear its storage.
+    /// Reverts if the action is already complete or does not exist.
     ///
-    /// @dev **Orphaned node data.** This function unlinks the node from the
-    /// doubly linked list and zeroes `prev`, `next`, and `effectiveTime`, but
-    /// deliberately leaves `actionType` and `parameters` untouched. The node
-    /// is no longer reachable via head/tail traversal and every correct
-    /// consumer (balanceOf, totalSupply, the `*OfType` getters, `fold`)
-    /// walks the list rather than indexing `s.nodes[i]` directly, so ghost
-    /// data is invisible. Any future consumer that needs to look up a node
-    /// by its array index MUST check `node.effectiveTime != 0` before
-    /// trusting any field on the node; an `effectiveTime == 0` node is
-    /// either never-used (array slot was never populated) or cancelled
-    /// (unlinked here).
+    /// @dev **Fully cleared on cancel.** This function unlinks the node from
+    /// the doubly linked list and zeroes every field on it (`prev`, `next`,
+    /// `effectiveTime`, `actionType`, `parameters`). After cancellation a
+    /// raw array-indexed lookup `s.nodes[i]` is indistinguishable from a
+    /// slot that was never populated — same defaults, same sentinel
+    /// (`effectiveTime == 0`). Consumers that index by array slot still
+    /// gate on `effectiveTime != 0` before reading other fields; clearing
+    /// the rest aligns array-indexed reads (e.g. `getActionParameters`)
+    /// with what list walks see and removes a class of cancelled-payload
+    /// leaks from any future indexer that forgets the gate.
     ///
-    /// @dev `node.effectiveTime = 0` below is the double-cancel guard. A
-    /// second call to `cancel(actionId)` on an already-cancelled node
-    /// is caught by the `node.effectiveTime == 0` check at the top of
-    /// this function. Without the zero-assignment, a double-cancel would:
-    /// (1) pass the effectiveTime-in-past check because the original
-    /// future time is still set; (2) read `prevId = node.prev = 0` and
+    /// @dev `node.effectiveTime = 0` below is the double-cancel guard.
+    /// A second call to `cancel(actionId)` on an already-cancelled node is
+    /// caught by the `node.effectiveTime == 0` check at the top of this
+    /// function. Without the zero-assignment, a double-cancel would: (1)
+    /// pass the effectiveTime-in-past check because the original future
+    /// time is still set; (2) read `prevId = node.prev = 0` and
     /// `nextId = node.next = 0` (both zeroed by the first cancel); (3)
     /// blow away `s.head` and `s.tail` by writing `nextId = 0` into both.
     /// Catastrophic, silent state corruption.
@@ -316,12 +315,13 @@ library LibCorporateAction {
             s.tail = prevId;
         }
 
-        // Unlink only — do NOT delete actionType/parameters from storage.
-        // The `effectiveTime = 0` assignment below is the double-cancel
-        // guard — see the @dev block above before touching it.
+        // Fully clear the node. `effectiveTime = 0` also serves as the
+        // double-cancel guard — see the @dev block above before touching it.
         node.prev = NODE_NONE;
         node.next = NODE_NONE;
         node.effectiveTime = 0;
+        node.actionType = 0;
+        delete node.parameters;
     }
 
     /// @notice Count completed user-scheduled actions by walking from the
