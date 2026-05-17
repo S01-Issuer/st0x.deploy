@@ -7,7 +7,7 @@ import {Clones} from "@openzeppelin-contracts-5.6.1/proxy/Clones.sol";
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../../src/lib/LibCorporateAction.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.1.2/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.1.4/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1,
     SCHEDULE_CORPORATE_ACTION_ADMIN,

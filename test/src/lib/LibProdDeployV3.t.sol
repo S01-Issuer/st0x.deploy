@@ -38,7 +38,7 @@ import {
 } from "../../../src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV2
-} from "rain-vats-0.1.2/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV2.sol";
+} from "rain-vats-0.1.4/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV2.sol";
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {

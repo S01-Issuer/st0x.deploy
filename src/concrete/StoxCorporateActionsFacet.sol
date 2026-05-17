@@ -11,8 +11,8 @@ import {
     LibCorporateActionNode,
     NODE_NONE
 } from "../lib/LibCorporateActionNode.sol";
-import {IAuthorizeV1} from "rain-vats-0.1.2/src/interface/IAuthorizeV1.sol";
-import {OffchainAssetReceiptVault} from "rain-vats-0.1.2/src/concrete/vault/OffchainAssetReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.1.4/src/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.1.4/src/concrete/vault/OffchainAssetReceiptVault.sol";
 
 /// @title StoxCorporateActionsFacet
 /// @notice Diamond facet implementing the corporate action linked list.
