@@ -1198,24 +1198,27 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     }
 
     /// @dev Build a one-element address array inline.
-    function _single(address a) internal pure returns (address[] memory arr) {
-        arr = new address[](1);
+    function _single(address a) internal pure returns (address[] memory) {
+        address[] memory arr = new address[](1);
         arr[0] = a;
+        return arr;
     }
 
     /// @dev Build a two-element address array inline.
-    function _pair(address a, address b) internal pure returns (address[] memory arr) {
-        arr = new address[](2);
+    function _pair(address a, address b) internal pure returns (address[] memory) {
+        address[] memory arr = new address[](2);
         arr[0] = a;
         arr[1] = b;
+        return arr;
     }
 
     /// @dev Build a three-element address array inline.
-    function _triple(address a, address b, address c) internal pure returns (address[] memory arr) {
-        arr = new address[](3);
+    function _triple(address a, address b, address c) internal pure returns (address[] memory) {
+        address[] memory arr = new address[](3);
         arr[0] = a;
         arr[1] = b;
         arr[2] = c;
+        return arr;
     }
 
     /// Direct assertion of the LibTotalSupply pot invariant I(k) across a

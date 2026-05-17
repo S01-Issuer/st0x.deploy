@@ -14,11 +14,7 @@ contract LibRebaseHarness {
         return LibCorporateAction.schedule(actionType, effectiveTime, parameters);
     }
 
-    function migratedBalance(uint256 storedBalance, uint256 cursor)
-        external
-        view
-        returns (uint256 balance, uint256 newCursor)
-    {
+    function migratedBalance(uint256 storedBalance, uint256 cursor) external view returns (uint256, uint256) {
         return LibRebase.migratedBalance(storedBalance, cursor);
     }
 }

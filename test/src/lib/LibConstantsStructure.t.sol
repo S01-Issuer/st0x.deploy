@@ -52,21 +52,23 @@ contract LibConstantsStructureTest is Test {
     /// once; every action-type structural test reads through this helper
     /// so the new type is automatically covered by the power-of-two and
     /// pairwise-disjoint checks.
-    function _actionTypeRegistry() private pure returns (uint256[] memory types_) {
-        types_ = new uint256[](3);
+    function _actionTypeRegistry() private pure returns (uint256[] memory) {
+        uint256[] memory types_ = new uint256[](3);
         types_[0] = ACTION_TYPE_INIT_V1;
         types_[1] = ACTION_TYPE_STOCK_SPLIT_V1;
         types_[2] = ACTION_TYPE_STABLES_DIVIDEND_V1;
+        return types_;
     }
 
     /// Single source of truth for the type-hash registry. Adding a new
     /// `*_V<N>_TYPE_HASH` means appending it here once; the
     /// pairwise-distinctness check picks up the new entry automatically.
-    function _typeHashRegistry() private pure returns (bytes32[] memory hashes_) {
-        hashes_ = new bytes32[](3);
+    function _typeHashRegistry() private pure returns (bytes32[] memory) {
+        bytes32[] memory hashes_ = new bytes32[](3);
         hashes_[0] = INIT_V1_TYPE_HASH;
         hashes_[1] = STOCK_SPLIT_V1_TYPE_HASH;
         hashes_[2] = STABLES_DIVIDEND_V1_TYPE_HASH;
+        return hashes_;
     }
 
     // -------------------------------------------------------------------------

@@ -26,25 +26,29 @@ library LibERC20Storage {
     /// `keccak256(account || ERC20_STORAGE_LOCATION)` per Solidity's
     /// mapping slot rule with the base at offset 0 of the namespaced
     /// struct.
-    function balanceSlot(address account) private pure returns (bytes32 slot) {
+    function balanceSlot(address account) private pure returns (bytes32) {
         bytes32 base = ERC20_STORAGE_LOCATION;
+        bytes32 slot;
         assembly ("memory-safe") {
             mstore(0x00, account)
             mstore(0x20, base)
             slot := keccak256(0x00, 0x40)
         }
+        return slot;
     }
 
     /// @notice Read the account's raw underlying balance at OZ's ERC-7201
     /// `_balances` slot. This is whatever value OZ's `_update` has last
     /// written — no semantic overlay is applied here.
     /// @param account The account to read.
-    /// @return result The raw value of `_balances[account]`.
-    function underlyingBalance(address account) internal view returns (uint256 result) {
+    /// @return The raw value of `_balances[account]`.
+    function underlyingBalance(address account) internal view returns (uint256) {
         bytes32 slot = balanceSlot(account);
+        uint256 result;
         assembly ("memory-safe") {
             result := sload(slot)
         }
+        return result;
     }
 
     /// @notice Write the account's raw underlying balance at OZ's ERC-7201
@@ -63,11 +67,13 @@ library LibERC20Storage {
     /// This is whatever value OZ's `_update` has last written; no semantic
     /// overlay is applied here. Consumers that need a rebase-aware or
     /// otherwise-derived supply figure must compute it themselves.
-    /// @return supply The raw value of OZ's `_totalSupply`.
-    function underlyingTotalSupply() internal view returns (uint256 supply) {
+    /// @return The raw value of OZ's `_totalSupply`.
+    function underlyingTotalSupply() internal view returns (uint256) {
         bytes32 slot = ERC20_STORAGE_LOCATION;
+        uint256 supply;
         assembly ("memory-safe") {
             supply := sload(add(slot, 2))
         }
+        return supply;
     }
 }

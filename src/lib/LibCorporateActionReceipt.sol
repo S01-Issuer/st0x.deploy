@@ -64,10 +64,12 @@ library LibCorporateActionReceipt {
 
     /// @dev Accessor for receipt-side corporate action storage at the
     /// ERC-7201 slot.
-    function getStorage() internal pure returns (CorporateActionReceiptStorage storage s) {
+    function getStorage() internal pure returns (CorporateActionReceiptStorage storage) {
         bytes32 position = CORPORATE_ACTION_RECEIPT_STORAGE_LOCATION;
+        CorporateActionReceiptStorage storage s;
         assembly ("memory-safe") {
             s.slot := position
         }
+        return s;
     }
 }

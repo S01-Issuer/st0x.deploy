@@ -869,16 +869,18 @@ contract StoxCorporateActionsFacetTest is Test {
         corporateActionHarness.cancel(0);
     }
 
-    /// Cancel preserves actionType and parameters (spec: intentionally not cleared).
-    function testCancelPreservesActionTypeAndParameters() external {
+    /// Cancel fully clears the node: every field is zeroed so an
+    /// array-indexed reader sees the same defaults a never-populated
+    /// slot would.
+    function testCancelZeroesActionTypeAndParameters() external {
         bytes memory params = abi.encode(uint256(42), address(0xBEEF));
         uint256 id = corporateActionHarness.schedule(5, 1500, params);
         corporateActionHarness.cancel(id);
 
         CorporateActionNode memory node = corporateActionHarness.getNode(id);
         assertEq(node.effectiveTime, 0, "effectiveTime zeroed");
-        assertEq(node.actionType, 5, "actionType preserved");
-        assertEq(node.parameters, params, "parameters preserved");
+        assertEq(node.actionType, 0, "actionType zeroed on cancel");
+        assertEq(node.parameters.length, 0, "parameters zeroed on cancel");
     }
 
     /// Parameters round-trip correctly through schedule and getNode.
@@ -1535,6 +1537,25 @@ contract StoxCorporateActionsFacetTest is Test {
         facetViaHarness.getActionParameters(999);
     }
 
+    /// A cancelled action behaves like one that never existed: the
+    /// facet reverts `ActionDoesNotExist` on the same actionId that a
+    /// moment earlier returned the scheduled payload. Pins both the
+    /// storage-side clearing in `cancel()` and the gate on the facet
+    /// getter — a regression in either surface fails this test.
+    function testGetActionParametersRevertsForCancelledAction() external {
+        Float twoX = LibDecimalFloat.packLossless(2, 0);
+        bytes memory params = LibStockSplit.encodeParametersV1(twoX);
+        vm.prank(ALICE);
+        uint256 actionId = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, params);
+        assertEq(facetViaHarness.getActionParameters(actionId), params, "scheduled payload readable before cancel");
+
+        vm.prank(ALICE);
+        facetViaHarness.cancelCorporateAction(actionId);
+
+        vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, actionId));
+        facetViaHarness.getActionParameters(actionId);
+    }
+
     /// Boundary pin: `cursor == s.nodes.length` (one past the last valid
     /// index) reverts with `ActionDoesNotExist`. The bounds check is
     /// `cursor >= s.nodes.length`; an off-by-one to `>` would silently
@@ -1550,29 +1571,6 @@ contract StoxCorporateActionsFacetTest is Test {
         // Querying idx 2 must revert at the boundary.
         vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, uint256(2)));
         facetViaHarness.getActionParameters(2);
-    }
-
-    /// getActionParameters on a cancelled node still returns the original
-    /// parameters bytes. Cancelled nodes intentionally retain their
-    /// actionType and parameters (only prev/next/effectiveTime are zeroed)
-    /// — consumers must filter via effectiveTime == 0 from the traversal
-    /// getters before reaching this function. See the cancel @dev block
-    /// in LibCorporateAction for the orphan-node invariant.
-    function testGetActionParametersCancelledNodeRetainsData() external {
-        Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory params = LibStockSplit.encodeParametersV1(twoX);
-
-        vm.prank(ALICE);
-        uint256 actionIndex = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, params);
-
-        vm.prank(ALICE);
-        facetViaHarness.cancelCorporateAction(actionIndex);
-
-        // The parameters are still there (unreachable via traversal, but
-        // this test pins the invariant that direct-index access still
-        // returns the original bytes — a debugging / audit affordance).
-        bytes memory read = facetViaHarness.getActionParameters(actionIndex);
-        assertEq(read, params, "cancelled node parameters are retained");
     }
 
     /// Direct call to getActionParameters on the standalone facet reverts

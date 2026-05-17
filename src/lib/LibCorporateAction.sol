@@ -114,19 +114,21 @@ library LibCorporateAction {
     }
 
     /// @dev Accessor for corporate action storage at the ERC-7201 slot.
-    function getStorage() internal pure returns (CorporateActionStorage storage s) {
+    function getStorage() internal pure returns (CorporateActionStorage storage) {
         bytes32 position = CORPORATE_ACTION_STORAGE_LOCATION;
+        CorporateActionStorage storage s;
         assembly ("memory-safe") {
             s.slot := position
         }
+        return s;
     }
 
     /// @notice Map an external type identifier to its internal bitmap and
     /// validate parameters. Reverts if the type hash is not recognised.
     /// @param typeHash External identifier, e.g. keccak256("st0x.corporate-actions.stock-split.1").
     /// @param parameters ABI-encoded parameters for the action type.
-    /// @return actionType The internal bitmap for this type.
-    function resolveActionType(bytes32 typeHash, bytes calldata parameters) internal returns (uint256 actionType) {
+    /// @return The internal bitmap for this type.
+    function resolveActionType(bytes32 typeHash, bytes calldata parameters) internal returns (uint256) {
         if (typeHash == STOCK_SPLIT_V1_TYPE_HASH) {
             LibStockSplit.validateMultiplierV1(LibStockSplit.decodeParametersV1(parameters));
             return ACTION_TYPE_STOCK_SPLIT_V1;
@@ -136,12 +138,9 @@ library LibCorporateAction {
 
     /// @notice Insert a node into the list maintaining time ordering.
     /// effectiveTime must be strictly in the future.
-    /// @return actionId The array index of the new node. Index 0 is the
-    /// bootstrap node, so user-scheduled actions have index >= 1.
-    function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters)
-        internal
-        returns (uint256 actionId)
-    {
+    /// @return The array index of the new node. Index 0 is the bootstrap
+    /// node, so user-scheduled actions have index >= 1.
+    function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters) internal returns (uint256) {
         if (effectiveTime <= block.timestamp) {
             revert EffectiveTimeInPast(effectiveTime, block.timestamp);
         }
@@ -152,7 +151,7 @@ library LibCorporateAction {
 
         // Push new node — its array position is the actionId.
         s.nodes.push();
-        actionId = s.nodes.length - 1;
+        uint256 actionId = s.nodes.length - 1;
 
         CorporateActionNode storage node = s.nodes[actionId];
         node.actionType = actionType;
@@ -165,6 +164,7 @@ library LibCorporateAction {
         node.next = NODE_NONE;
 
         insertOrdered(s, actionId, effectiveTime);
+        return actionId;
     }
 
     /// @dev Lazily create the index-0 init/bootstrap node on first `schedule`
@@ -264,32 +264,33 @@ library LibCorporateAction {
         }
     }
 
-    /// @notice Unlink a scheduled node from the list. Reverts if the action
-    /// is already complete or does not exist.
+    /// @notice Unlink a scheduled node from the list and clear its storage.
+    /// Reverts if the action is already complete or does not exist.
     ///
-    /// @dev **Orphaned node data.** This function unlinks the node from the
-    /// doubly linked list and zeroes `prev`, `next`, and `effectiveTime`, but
-    /// deliberately leaves `actionType` and `parameters` untouched. The node
-    /// is no longer reachable via head/tail traversal and every correct
-    /// consumer (balanceOf, totalSupply, the `*OfType` getters, `fold`)
-    /// walks the list rather than indexing `s.nodes[i]` directly, so ghost
-    /// data is invisible. Any future consumer that needs to look up a node
-    /// by its array index MUST check `node.effectiveTime != 0` before
-    /// trusting any field on the node; an `effectiveTime == 0` node is
-    /// either never-used (array slot was never populated) or cancelled
-    /// (unlinked here).
+    /// @dev **Fully cleared on cancel.** This function unlinks the node from
+    /// the doubly linked list, resets `prev`/`next` to `NODE_NONE`, and
+    /// zeroes the payload fields `effectiveTime`, `actionType`, `parameters`.
+    /// After cancellation a raw array-indexed lookup `s.nodes[i]` is
+    /// indistinguishable from a slot that was never populated — same
+    /// defaults, same sentinel (`effectiveTime == 0`). Consumers that index
+    /// by array slot still gate on `effectiveTime != 0` before reading
+    /// other fields; clearing the rest aligns array-indexed reads (e.g.
+    /// `getActionParameters`) with what list walks see and removes a class
+    /// of cancelled-payload leaks from any future indexer that forgets the
+    /// gate.
     ///
-    /// @dev `node.effectiveTime = 0` below is the double-cancel guard. A
-    /// second call to `cancel(actionId)` on an already-cancelled node
-    /// is caught by the `node.effectiveTime == 0` check at the top of
-    /// this function. Without the zero-assignment, a double-cancel would:
-    /// (1) pass the effectiveTime-in-past check because the original
-    /// future time is still set; (2) read `prevId = node.prev = 0` and
-    /// `nextId = node.next = 0` (both zeroed by the first cancel); (3)
-    /// blow away `s.head` and `s.tail` by writing `nextId = 0` into both.
-    /// Catastrophic, silent state corruption.
-    /// `testCancelAlreadyCancelledReverts` pins the guard — do not remove
-    /// the test or the zero assignment together.
+    /// @dev `node.effectiveTime = 0` below is the double-cancel guard.
+    /// A second call to `cancel(actionId)` on an already-cancelled node is
+    /// caught by the `node.effectiveTime == 0` check at the top of this
+    /// function. Without that zero-assignment, a double-cancel would: (1)
+    /// pass the effectiveTime-in-past check because the original future
+    /// time is still set; (2) read `prevId = node.prev = NODE_NONE` and
+    /// `nextId = node.next = NODE_NONE` (both reset to the sentinel by
+    /// the first cancel) — both fall through to the head/tail branches
+    /// and (3) overwrite `s.head` and `s.tail` with `NODE_NONE`, making
+    /// every other live node unreachable. Catastrophic, silent state
+    /// corruption. `testCancelAlreadyCancelledReverts` pins the guard —
+    /// do not remove the test or the zero assignment together.
     function cancel(uint256 actionId) internal {
         CorporateActionStorage storage s = getStorage();
         if (actionId >= s.nodes.length) revert ActionDoesNotExist(actionId);
@@ -316,25 +317,28 @@ library LibCorporateAction {
             s.tail = prevId;
         }
 
-        // Unlink only — do NOT delete actionType/parameters from storage.
-        // The `effectiveTime = 0` assignment below is the double-cancel
-        // guard — see the @dev block above before touching it.
+        // Fully clear the node. `effectiveTime = 0` also serves as the
+        // double-cancel guard — see the @dev block above before touching it.
         node.prev = NODE_NONE;
         node.next = NODE_NONE;
         node.effectiveTime = 0;
+        node.actionType = 0;
+        delete node.parameters;
     }
 
     /// @notice Count completed user-scheduled actions by walking from the
     /// head. The init/bootstrap node is excluded — `completedActionCount`
     /// reports actions a scheduler created via `scheduleCorporateAction`,
     /// not internal infrastructure.
-    function countCompleted() internal view returns (uint256 count) {
+    function countCompleted() internal view returns (uint256) {
         if (getStorage().nodes.length == 0) return 0;
         uint256 mask = VALID_ACTION_TYPES_MASK & ~ACTION_TYPE_INIT_V1;
+        uint256 count = 0;
         uint256 current = LibCorporateActionNode.nextOfType(NODE_NONE, mask, CompletionFilter.COMPLETED);
         while (current != NODE_NONE) {
             count++;
             current = LibCorporateActionNode.nextOfType(current, mask, CompletionFilter.COMPLETED);
         }
+        return count;
     }
 }
