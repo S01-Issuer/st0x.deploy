@@ -331,7 +331,7 @@ library LibCorporateAction {
     function countCompleted() internal view returns (uint256) {
         if (getStorage().nodes.length == 0) return 0;
         uint256 mask = VALID_ACTION_TYPES_MASK & ~ACTION_TYPE_INIT_V1;
-        uint256 count;
+        uint256 count = 0;
         uint256 current = LibCorporateActionNode.nextOfType(NODE_NONE, mask, CompletionFilter.COMPLETED);
         while (current != NODE_NONE) {
             count++;
