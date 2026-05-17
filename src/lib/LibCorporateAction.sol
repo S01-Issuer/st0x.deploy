@@ -268,27 +268,29 @@ library LibCorporateAction {
     /// Reverts if the action is already complete or does not exist.
     ///
     /// @dev **Fully cleared on cancel.** This function unlinks the node from
-    /// the doubly linked list and zeroes every field on it (`prev`, `next`,
-    /// `effectiveTime`, `actionType`, `parameters`). After cancellation a
-    /// raw array-indexed lookup `s.nodes[i]` is indistinguishable from a
-    /// slot that was never populated — same defaults, same sentinel
-    /// (`effectiveTime == 0`). Consumers that index by array slot still
-    /// gate on `effectiveTime != 0` before reading other fields; clearing
-    /// the rest aligns array-indexed reads (e.g. `getActionParameters`)
-    /// with what list walks see and removes a class of cancelled-payload
-    /// leaks from any future indexer that forgets the gate.
+    /// the doubly linked list, resets `prev`/`next` to `NODE_NONE`, and
+    /// zeroes the payload fields `effectiveTime`, `actionType`, `parameters`.
+    /// After cancellation a raw array-indexed lookup `s.nodes[i]` is
+    /// indistinguishable from a slot that was never populated — same
+    /// defaults, same sentinel (`effectiveTime == 0`). Consumers that index
+    /// by array slot still gate on `effectiveTime != 0` before reading
+    /// other fields; clearing the rest aligns array-indexed reads (e.g.
+    /// `getActionParameters`) with what list walks see and removes a class
+    /// of cancelled-payload leaks from any future indexer that forgets the
+    /// gate.
     ///
     /// @dev `node.effectiveTime = 0` below is the double-cancel guard.
     /// A second call to `cancel(actionId)` on an already-cancelled node is
     /// caught by the `node.effectiveTime == 0` check at the top of this
-    /// function. Without the zero-assignment, a double-cancel would: (1)
+    /// function. Without that zero-assignment, a double-cancel would: (1)
     /// pass the effectiveTime-in-past check because the original future
-    /// time is still set; (2) read `prevId = node.prev = 0` and
-    /// `nextId = node.next = 0` (both zeroed by the first cancel); (3)
-    /// blow away `s.head` and `s.tail` by writing `nextId = 0` into both.
-    /// Catastrophic, silent state corruption.
-    /// `testCancelAlreadyCancelledReverts` pins the guard — do not remove
-    /// the test or the zero assignment together.
+    /// time is still set; (2) read `prevId = node.prev = NODE_NONE` and
+    /// `nextId = node.next = NODE_NONE` (both reset to the sentinel by
+    /// the first cancel) — both fall through to the head/tail branches
+    /// and (3) overwrite `s.head` and `s.tail` with `NODE_NONE`, making
+    /// every other live node unreachable. Catastrophic, silent state
+    /// corruption. `testCancelAlreadyCancelledReverts` pins the guard —
+    /// do not remove the test or the zero assignment together.
     function cancel(uint256 actionId) internal {
         CorporateActionStorage storage s = getStorage();
         if (actionId >= s.nodes.length) revert ActionDoesNotExist(actionId);
