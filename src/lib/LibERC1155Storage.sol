@@ -29,8 +29,9 @@ library LibERC1155Storage {
     /// nested mapping resolves in two steps:
     ///   outer = keccak256(id || ERC1155_STORAGE_LOCATION)
     ///   slot  = keccak256(account || outer)
-    function balanceSlot(address account, uint256 id) private pure returns (bytes32 slot) {
+    function balanceSlot(address account, uint256 id) private pure returns (bytes32) {
         bytes32 base = ERC1155_STORAGE_LOCATION;
+        bytes32 slot;
         assembly ("memory-safe") {
             mstore(0x00, id)
             mstore(0x20, base)
@@ -39,6 +40,7 @@ library LibERC1155Storage {
             mstore(0x20, outer)
             slot := keccak256(0x00, 0x40)
         }
+        return slot;
     }
 
     /// @notice Read an account's raw underlying balance for a given receipt
@@ -46,12 +48,14 @@ library LibERC1155Storage {
     /// `_update` has last written — no semantic overlay is applied here.
     /// @param account The account to read.
     /// @param id The receipt id.
-    /// @return result The raw value of `_balances[id][account]`.
-    function underlyingBalance(address account, uint256 id) internal view returns (uint256 result) {
+    /// @return The raw value of `_balances[id][account]`.
+    function underlyingBalance(address account, uint256 id) internal view returns (uint256) {
         bytes32 slot = balanceSlot(account, id);
+        uint256 result;
         assembly ("memory-safe") {
             result := sload(slot)
         }
+        return result;
     }
 
     /// @notice Write an account's balance for a given receipt id directly to

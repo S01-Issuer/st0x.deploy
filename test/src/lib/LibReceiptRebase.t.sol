@@ -46,7 +46,7 @@ contract MockCorporateActionsVault is ICorporateActionsV1 {
         external
         view
         override
-        returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime)
+        returns (uint256, uint256, uint64)
     {
         // Receipt rebase walks `BALANCE_MIGRATION_TYPES_MASK` (init |
         // stock-split). This mock holds only splits — no init node — so
@@ -73,7 +73,7 @@ contract MockCorporateActionsVault is ICorporateActionsV1 {
         return (candidate, ACTION_TYPE_STOCK_SPLIT_V1, 1);
     }
 
-    function getActionParameters(uint256 cursor) external view override returns (bytes memory parameters) {
+    function getActionParameters(uint256 cursor) external view override returns (bytes memory) {
         require(cursor >= 1 && cursor <= splits.length, "mock: cursor out of range");
         return splits[cursor - 1];
     }

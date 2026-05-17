@@ -85,9 +85,9 @@ library LibRebase {
     function migratedBalance(uint256 storedBalance, uint256 fromActionId)
         internal
         view
-        returns (uint256, uint256 toActionId)
+        returns (uint256, uint256)
     {
-        toActionId = fromActionId;
+        uint256 toActionId = fromActionId;
 
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
 

@@ -9,7 +9,6 @@ import {StoxWrappedTokenVault} from "../concrete/StoxWrappedTokenVault.sol";
 interface IStoxWrappedTokenVaultBeaconSetDeployerV1 {
     /// @notice Deploys and initializes a new StoxWrappedTokenVault contract.
     /// @param asset The address of the underlying asset for the vault.
-    /// @return stoxWrappedTokenVault The address of the deployed
-    /// StoxWrappedTokenVault contract.
-    function newStoxWrappedTokenVault(address asset) external returns (StoxWrappedTokenVault stoxWrappedTokenVault);
+    /// @return The address of the deployed StoxWrappedTokenVault contract.
+    function newStoxWrappedTokenVault(address asset) external returns (StoxWrappedTokenVault);
 }

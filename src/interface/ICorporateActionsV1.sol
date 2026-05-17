@@ -324,10 +324,10 @@ interface ICorporateActionsV1 {
     /// the future: `effectiveTime > block.timestamp`. Scheduling at the exact
     /// current timestamp reverts with `EffectiveTimeInPast`.
     /// @param parameters ABI-encoded parameters specific to the action type.
-    /// @return actionId Handle for the scheduled action.
+    /// @return Handle for the scheduled action.
     function scheduleCorporateAction(bytes32 typeHash, uint64 effectiveTime, bytes calldata parameters)
         external
-        returns (uint256 actionId);
+        returns (uint256);
 
     /// @notice Cancel a scheduled action. Only valid while the action is
     /// strictly pending: `block.timestamp < effectiveTime`. At or after the
@@ -355,14 +355,14 @@ interface ICorporateActionsV1 {
     ///   passed (the typical choice for oracles reading historical state);
     /// - `PENDING` returns the most recent scheduled action whose effectiveTime
     ///   has not yet passed.
-    /// @return actionId Opaque handle for continued traversal via `prevOfType`.
+    /// @return Opaque handle for continued traversal via `prevOfType`.
     /// `NODE_NONE` (`type(uint256).max`) if no matching action exists.
-    /// @return actionType The action's bitmap type (0 if none).
-    /// @return effectiveTime The action's effective timestamp (0 if none).
+    /// @return The action's bitmap type (0 if none).
+    /// @return The action's effective timestamp (0 if none).
     function latestActionOfType(uint256 mask, CompletionFilter filter)
         external
         view
-        returns (uint256 actionId, uint256 actionType, uint64 effectiveTime);
+        returns (uint256, uint256, uint64);
 
     /// @notice Find the earliest action matching a type mask and completion
     /// filter. Entry point for walking the list forward from the head.
@@ -370,14 +370,14 @@ interface ICorporateActionsV1 {
     /// for the validity rules; `InvalidMask` reverts apply here too.
     /// @param filter Completion filter — see `latestActionOfType` for the
     /// semantics of `ALL` / `COMPLETED` / `PENDING`.
-    /// @return actionId Opaque handle for continued traversal via `nextOfType`.
+    /// @return Opaque handle for continued traversal via `nextOfType`.
     /// `NODE_NONE` (`type(uint256).max`) if no matching action exists.
-    /// @return actionType The action's bitmap type (0 if none).
-    /// @return effectiveTime The action's effective timestamp (0 if none).
+    /// @return The action's bitmap type (0 if none).
+    /// @return The action's effective timestamp (0 if none).
     function earliestActionOfType(uint256 mask, CompletionFilter filter)
         external
         view
-        returns (uint256 actionId, uint256 actionType, uint64 effectiveTime);
+        returns (uint256, uint256, uint64);
 
     /// @notice Walk forward from an action id to the next matching action.
     /// @param fromId The action id returned by a previous traversal call.
@@ -390,14 +390,13 @@ interface ICorporateActionsV1 {
     /// @param mask Bitmap mask to filter action types — see `latestActionOfType`
     /// for the validity rules; `InvalidMask` reverts apply here too.
     /// @param filter Completion filter — see `latestActionOfType`.
-    /// @return nextActionId Opaque handle for the next match, or `NODE_NONE`
-    /// if none.
-    /// @return actionType The action's bitmap type (0 if none).
-    /// @return effectiveTime The action's effective timestamp (0 if none).
+    /// @return Opaque handle for the next match, or `NODE_NONE` if none.
+    /// @return The action's bitmap type (0 if none).
+    /// @return The action's effective timestamp (0 if none).
     function nextOfType(uint256 fromId, uint256 mask, CompletionFilter filter)
         external
         view
-        returns (uint256 nextActionId, uint256 actionType, uint64 effectiveTime);
+        returns (uint256, uint256, uint64);
 
     /// @notice Walk backward from an action id to the previous matching action.
     /// @param fromId The action id returned by a previous traversal call.
@@ -409,14 +408,13 @@ interface ICorporateActionsV1 {
     /// @param mask Bitmap mask to filter action types — see `latestActionOfType`
     /// for the validity rules; `InvalidMask` reverts apply here too.
     /// @param filter Completion filter — see `latestActionOfType`.
-    /// @return prevActionId Opaque handle for the previous match, or
-    /// `NODE_NONE` if none.
-    /// @return actionType The action's bitmap type (0 if none).
-    /// @return effectiveTime The action's effective timestamp (0 if none).
+    /// @return Opaque handle for the previous match, or `NODE_NONE` if none.
+    /// @return The action's bitmap type (0 if none).
+    /// @return The action's effective timestamp (0 if none).
     function prevOfType(uint256 fromId, uint256 mask, CompletionFilter filter)
         external
         view
-        returns (uint256 prevActionId, uint256 actionType, uint64 effectiveTime);
+        returns (uint256, uint256, uint64);
 
     /// @notice Read the ABI-encoded parameters blob for a scheduled or
     /// completed corporate action, given an `actionId` returned from one
@@ -430,17 +428,13 @@ interface ICorporateActionsV1 {
     /// `prevOfType`) before calling this to ensure they know which decoder
     /// to apply.
     ///
-    /// Reverts if `actionId == NODE_NONE` or points outside the current
-    /// nodes array.
-    /// An action id pointing at a cancelled node returns whatever bytes
-    /// were written at schedule time — cancelled nodes intentionally
-    /// retain their `actionType` and `parameters` fields so correct
-    /// consumers (who must filter cancelled nodes out via their
-    /// `effectiveTime == 0` sentinel before dereferencing) can still
-    /// inspect them for debugging. See `LibCorporateAction.cancel` for
-    /// the orphan-node invariant.
+    /// Reverts `ActionDoesNotExist` if `actionId == NODE_NONE`, points
+    /// outside the current nodes array, or refers to a cancelled action.
+    /// Cancelled actions are fully cleared in `LibCorporateAction.cancel`
+    /// and indistinguishable from never-scheduled slots through this
+    /// getter.
     ///
     /// @param actionId The action id returned by `nextOfType` / `prevOfType`.
-    /// @return parameters The raw ABI-encoded parameters for the action.
-    function getActionParameters(uint256 actionId) external view returns (bytes memory parameters);
+    /// @return The raw ABI-encoded parameters for the action.
+    function getActionParameters(uint256 actionId) external view returns (bytes memory);
 }

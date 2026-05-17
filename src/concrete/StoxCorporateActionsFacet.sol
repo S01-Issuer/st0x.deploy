@@ -77,12 +77,13 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         external
         override
         onlyDelegatecalled
-        returns (uint256 actionId)
+        returns (uint256)
     {
         authorizeAction(msg.sender, SCHEDULE_CORPORATE_ACTION, abi.encode(typeHash, effectiveTime, parameters));
         uint256 actionType = LibCorporateAction.resolveActionType(typeHash, parameters);
-        actionId = LibCorporateAction.schedule(actionType, effectiveTime, parameters);
+        uint256 actionId = LibCorporateAction.schedule(actionType, effectiveTime, parameters);
         emit CorporateActionScheduled(msg.sender, actionId, actionType, effectiveTime);
+        return actionId;
     }
 
     /// @inheritdoc ICorporateActionsV1
@@ -104,7 +105,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         view
         override
         onlyDelegatecalled
-        returns (uint256 actionId, uint256 actionType, uint64 effectiveTime)
+        returns (uint256, uint256, uint64)
     {
         // False positive: tuple pass-through — `return lib.tupleFn(...)` re-emits every
         // component as this function's own return, nothing is discarded.
@@ -118,7 +119,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         view
         override
         onlyDelegatecalled
-        returns (uint256 actionId, uint256 actionType, uint64 effectiveTime)
+        returns (uint256, uint256, uint64)
     {
         // False positive: tuple pass-through — `return lib.tupleFn(...)` re-emits every
         // component as this function's own return, nothing is discarded.
@@ -132,7 +133,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         view
         override
         onlyDelegatecalled
-        returns (uint256 nextActionId, uint256 actionType, uint64 effectiveTime)
+        returns (uint256, uint256, uint64)
     {
         // False positive: tuple pass-through — `return lib.tupleFn(...)` re-emits every
         // component as this function's own return, nothing is discarded.
@@ -146,7 +147,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         view
         override
         onlyDelegatecalled
-        returns (uint256 prevActionId, uint256 actionType, uint64 effectiveTime)
+        returns (uint256, uint256, uint64)
     {
         // False positive: tuple pass-through — `return lib.tupleFn(...)` re-emits every
         // component as this function's own return, nothing is discarded.
@@ -160,7 +161,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         view
         override
         onlyDelegatecalled
-        returns (bytes memory parameters)
+        returns (bytes memory)
     {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
         // Bounds check covers `NODE_NONE` (= type(uint256).max) implicitly:
@@ -171,7 +172,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         // action was cancelled; both are surfaced as nonexistent so the
         // facet's view of the schedule matches what list walks see.
         if (s.nodes[actionId].effectiveTime == 0) revert ActionDoesNotExist(actionId);
-        parameters = s.nodes[actionId].parameters;
+        return s.nodes[actionId].parameters;
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is

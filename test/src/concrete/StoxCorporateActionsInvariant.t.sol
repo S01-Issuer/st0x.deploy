@@ -110,14 +110,14 @@ contract InvariantVault is StoxReceiptVault {
     function nextOfType(uint256 cursor, uint256 mask, CompletionFilter filter)
         external
         view
-        returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime)
+        returns (uint256, uint256, uint64)
     {
-        nextCursor = LibCorporateActionNode.nextOfType(cursor, mask, filter);
-        if (nextCursor != NODE_NONE) {
-            CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[nextCursor];
-            actionType = node.actionType;
-            effectiveTime = node.effectiveTime;
+        uint256 nextCursor = LibCorporateActionNode.nextOfType(cursor, mask, filter);
+        if (nextCursor == NODE_NONE) {
+            return (nextCursor, 0, 0);
         }
+        CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[nextCursor];
+        return (nextCursor, node.actionType, node.effectiveTime);
     }
 
     function getActionParameters(uint256 cursor) external view returns (bytes memory) {

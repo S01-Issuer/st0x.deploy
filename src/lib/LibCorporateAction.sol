@@ -114,19 +114,21 @@ library LibCorporateAction {
     }
 
     /// @dev Accessor for corporate action storage at the ERC-7201 slot.
-    function getStorage() internal pure returns (CorporateActionStorage storage s) {
+    function getStorage() internal pure returns (CorporateActionStorage storage) {
         bytes32 position = CORPORATE_ACTION_STORAGE_LOCATION;
+        CorporateActionStorage storage s;
         assembly ("memory-safe") {
             s.slot := position
         }
+        return s;
     }
 
     /// @notice Map an external type identifier to its internal bitmap and
     /// validate parameters. Reverts if the type hash is not recognised.
     /// @param typeHash External identifier, e.g. keccak256("st0x.corporate-actions.stock-split.1").
     /// @param parameters ABI-encoded parameters for the action type.
-    /// @return actionType The internal bitmap for this type.
-    function resolveActionType(bytes32 typeHash, bytes calldata parameters) internal returns (uint256 actionType) {
+    /// @return The internal bitmap for this type.
+    function resolveActionType(bytes32 typeHash, bytes calldata parameters) internal returns (uint256) {
         if (typeHash == STOCK_SPLIT_V1_TYPE_HASH) {
             LibStockSplit.validateMultiplierV1(LibStockSplit.decodeParametersV1(parameters));
             return ACTION_TYPE_STOCK_SPLIT_V1;
@@ -136,11 +138,11 @@ library LibCorporateAction {
 
     /// @notice Insert a node into the list maintaining time ordering.
     /// effectiveTime must be strictly in the future.
-    /// @return actionId The array index of the new node. Index 0 is the
-    /// bootstrap node, so user-scheduled actions have index >= 1.
+    /// @return The array index of the new node. Index 0 is the bootstrap
+    /// node, so user-scheduled actions have index >= 1.
     function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters)
         internal
-        returns (uint256 actionId)
+        returns (uint256)
     {
         if (effectiveTime <= block.timestamp) {
             revert EffectiveTimeInPast(effectiveTime, block.timestamp);
@@ -152,7 +154,7 @@ library LibCorporateAction {
 
         // Push new node — its array position is the actionId.
         s.nodes.push();
-        actionId = s.nodes.length - 1;
+        uint256 actionId = s.nodes.length - 1;
 
         CorporateActionNode storage node = s.nodes[actionId];
         node.actionType = actionType;
@@ -165,6 +167,7 @@ library LibCorporateAction {
         node.next = NODE_NONE;
 
         insertOrdered(s, actionId, effectiveTime);
+        return actionId;
     }
 
     /// @dev Lazily create the index-0 init/bootstrap node on first `schedule`
@@ -328,13 +331,15 @@ library LibCorporateAction {
     /// head. The init/bootstrap node is excluded — `completedActionCount`
     /// reports actions a scheduler created via `scheduleCorporateAction`,
     /// not internal infrastructure.
-    function countCompleted() internal view returns (uint256 count) {
+    function countCompleted() internal view returns (uint256) {
         if (getStorage().nodes.length == 0) return 0;
         uint256 mask = VALID_ACTION_TYPES_MASK & ~ACTION_TYPE_INIT_V1;
+        uint256 count;
         uint256 current = LibCorporateActionNode.nextOfType(NODE_NONE, mask, CompletionFilter.COMPLETED);
         while (current != NODE_NONE) {
             count++;
             current = LibCorporateActionNode.nextOfType(current, mask, CompletionFilter.COMPLETED);
         }
+        return count;
     }
 }

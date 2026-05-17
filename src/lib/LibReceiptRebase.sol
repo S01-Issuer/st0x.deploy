@@ -66,9 +66,9 @@ library LibReceiptRebase {
     function migratedBalance(uint256 storedBalance, uint256 fromActionId, ICorporateActionsV1 vault)
         internal
         view
-        returns (uint256, uint256 toActionId)
+        returns (uint256, uint256)
     {
-        toActionId = fromActionId;
+        uint256 toActionId = fromActionId;
 
         // Discard effectiveTime — only nextActionId and actionType are used
         // for the walk. The mask covers init and stock-split nodes;

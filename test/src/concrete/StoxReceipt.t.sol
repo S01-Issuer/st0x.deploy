@@ -70,7 +70,7 @@ contract MockVault is ICorporateActionsV1, IReceiptManagerV2 {
         external
         view
         override
-        returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime)
+        returns (uint256, uint256, uint64)
     {
         // Receipt rebase walks `BALANCE_MIGRATION_TYPES_MASK` (init |
         // stock-split). This mock holds only splits — no init node — so

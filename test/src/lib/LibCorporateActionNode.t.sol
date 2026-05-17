@@ -45,7 +45,7 @@ contract TraversalHarness {
     function latest(uint256 mask, CompletionFilter filter)
         external
         view
-        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
+        returns (uint256, uint256, uint64)
     {
         return LibCorporateActionNode.latestActionOfType(mask, filter);
     }
@@ -53,7 +53,7 @@ contract TraversalHarness {
     function earliest(uint256 mask, CompletionFilter filter)
         external
         view
-        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
+        returns (uint256, uint256, uint64)
     {
         return LibCorporateActionNode.earliestActionOfType(mask, filter);
     }
@@ -61,7 +61,7 @@ contract TraversalHarness {
     function nextOf(uint256 cursor, uint256 mask, CompletionFilter filter)
         external
         view
-        returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime)
+        returns (uint256, uint256, uint64)
     {
         return LibCorporateActionNode.nextActionOfType(cursor, mask, filter);
     }
@@ -69,15 +69,14 @@ contract TraversalHarness {
     function prevOf(uint256 cursor, uint256 mask, CompletionFilter filter)
         external
         view
-        returns (uint256 prevCursor, uint256 actionType, uint64 effectiveTime)
+        returns (uint256, uint256, uint64)
     {
         return LibCorporateActionNode.prevActionOfType(cursor, mask, filter);
     }
 
-    function nodeAt(uint256 index) external view returns (uint256 actionType, uint64 effectiveTime) {
+    function nodeAt(uint256 index) external view returns (uint256, uint64) {
         CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[index];
-        actionType = node.actionType;
-        effectiveTime = node.effectiveTime;
+        return (node.actionType, node.effectiveTime);
     }
 }
 
@@ -1021,43 +1020,47 @@ contract LibCorporateActionNodeTest is Test {
         assertEq(cursor, NODE_NONE, "backward cursor not terminated");
     }
 
-    function cursors1(uint256 a) internal pure returns (uint256[] memory r) {
-        r = new uint256[](1);
+    function cursors1(uint256 a) internal pure returns (uint256[] memory) {
+        uint256[] memory r = new uint256[](1);
         r[0] = a;
+        return r;
     }
 
-    function cursors2(uint256 a, uint256 b) internal pure returns (uint256[] memory r) {
-        r = new uint256[](2);
+    function cursors2(uint256 a, uint256 b) internal pure returns (uint256[] memory) {
+        uint256[] memory r = new uint256[](2);
         r[0] = a;
         r[1] = b;
+        return r;
     }
 
-    function cursors3(uint256 a, uint256 b, uint256 c) internal pure returns (uint256[] memory r) {
-        r = new uint256[](3);
+    function cursors3(uint256 a, uint256 b, uint256 c) internal pure returns (uint256[] memory) {
+        uint256[] memory r = new uint256[](3);
         r[0] = a;
         r[1] = b;
         r[2] = c;
+        return r;
     }
 
     function cursors5(uint256 a, uint256 b, uint256 c, uint256 d, uint256 e)
         internal
         pure
-        returns (uint256[] memory r)
+        returns (uint256[] memory)
     {
-        r = new uint256[](5);
+        uint256[] memory r = new uint256[](5);
         r[0] = a;
         r[1] = b;
         r[2] = c;
         r[3] = d;
         r[4] = e;
+        return r;
     }
 
     function cursors8(uint256 a, uint256 b, uint256 c, uint256 d, uint256 e, uint256 f, uint256 g, uint256 h_)
         internal
         pure
-        returns (uint256[] memory r)
+        returns (uint256[] memory)
     {
-        r = new uint256[](8);
+        uint256[] memory r = new uint256[](8);
         r[0] = a;
         r[1] = b;
         r[2] = c;
@@ -1066,5 +1069,6 @@ contract LibCorporateActionNodeTest is Test {
         r[5] = f;
         r[6] = g;
         r[7] = h_;
+        return r;
     }
 }
