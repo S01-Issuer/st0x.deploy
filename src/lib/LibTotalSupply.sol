@@ -172,8 +172,8 @@ library LibTotalSupply {
     /// equals OZ's `_totalSupply` at the moment bootstrap fired (modulo
     /// any post-bootstrap mint/burn deltas, which onMint/onBurn route to
     /// the latest pot).
-    /// @return supply The effective total supply.
-    function effectiveTotalSupply() internal view returns (uint256 supply) {
+    /// @return The effective total supply.
+    function effectiveTotalSupply() internal view returns (uint256) {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
 
         // No actions ever scheduled — bootstrap has not fired, so OZ's
