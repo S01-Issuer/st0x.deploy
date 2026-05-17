@@ -359,10 +359,7 @@ interface ICorporateActionsV1 {
     /// `NODE_NONE` (`type(uint256).max`) if no matching action exists.
     /// @return The action's bitmap type (0 if none).
     /// @return The action's effective timestamp (0 if none).
-    function latestActionOfType(uint256 mask, CompletionFilter filter)
-        external
-        view
-        returns (uint256, uint256, uint64);
+    function latestActionOfType(uint256 mask, CompletionFilter filter) external view returns (uint256, uint256, uint64);
 
     /// @notice Find the earliest action matching a type mask and completion
     /// filter. Entry point for walking the list forward from the head.

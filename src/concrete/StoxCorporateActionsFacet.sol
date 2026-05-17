@@ -156,13 +156,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     }
 
     /// @inheritdoc ICorporateActionsV1
-    function getActionParameters(uint256 actionId)
-        external
-        view
-        override
-        onlyDelegatecalled
-        returns (bytes memory)
-    {
+    function getActionParameters(uint256 actionId) external view override onlyDelegatecalled returns (bytes memory) {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
         // Bounds check covers `NODE_NONE` (= type(uint256).max) implicitly:
         // `s.nodes.length` is bounded by realistic schedule cadence, so any

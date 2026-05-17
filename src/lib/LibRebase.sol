@@ -82,11 +82,7 @@ library LibRebase {
     /// @return toActionId The action id of the last completed split node
     /// visited. Equals `fromActionId` if there were no further completed
     /// splits.
-    function migratedBalance(uint256 storedBalance, uint256 fromActionId)
-        internal
-        view
-        returns (uint256, uint256)
-    {
+    function migratedBalance(uint256 storedBalance, uint256 fromActionId) internal view returns (uint256, uint256) {
         uint256 toActionId = fromActionId;
 
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();

@@ -140,10 +140,7 @@ library LibCorporateAction {
     /// effectiveTime must be strictly in the future.
     /// @return The array index of the new node. Index 0 is the bootstrap
     /// node, so user-scheduled actions have index >= 1.
-    function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters)
-        internal
-        returns (uint256)
-    {
+    function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters) internal returns (uint256) {
         if (effectiveTime <= block.timestamp) {
             revert EffectiveTimeInPast(effectiveTime, block.timestamp);
         }

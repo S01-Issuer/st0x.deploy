@@ -42,19 +42,11 @@ contract TraversalHarness {
         LibCorporateAction.cancel(actionIndex);
     }
 
-    function latest(uint256 mask, CompletionFilter filter)
-        external
-        view
-        returns (uint256, uint256, uint64)
-    {
+    function latest(uint256 mask, CompletionFilter filter) external view returns (uint256, uint256, uint64) {
         return LibCorporateActionNode.latestActionOfType(mask, filter);
     }
 
-    function earliest(uint256 mask, CompletionFilter filter)
-        external
-        view
-        returns (uint256, uint256, uint64)
-    {
+    function earliest(uint256 mask, CompletionFilter filter) external view returns (uint256, uint256, uint64) {
         return LibCorporateActionNode.earliestActionOfType(mask, filter);
     }
 
@@ -1041,11 +1033,7 @@ contract LibCorporateActionNodeTest is Test {
         return r;
     }
 
-    function cursors5(uint256 a, uint256 b, uint256 c, uint256 d, uint256 e)
-        internal
-        pure
-        returns (uint256[] memory)
-    {
+    function cursors5(uint256 a, uint256 b, uint256 c, uint256 d, uint256 e) internal pure returns (uint256[] memory) {
         uint256[] memory r = new uint256[](5);
         r[0] = a;
         r[1] = b;
