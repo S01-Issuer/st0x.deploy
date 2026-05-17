@@ -22,7 +22,8 @@ import {VerifyAlwaysApproved} from "rain-verify-interface-0.1.0/src/concrete/Ver
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {IERC165} from "@openzeppelin-contracts-5.6.1/utils/introspection/IERC165.sol";
 import {
-    IncompatibleAuthorizer, OffchainAssetReceiptVault
+    IncompatibleAuthorizer,
+    OffchainAssetReceiptVault
 } from "rain-vats-0.1.4/src/concrete/vault/OffchainAssetReceiptVault.sol";
 import {AuthorizerMissingCorporateActionAdmin} from "../../../src/error/ErrCorporateAction.sol";
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../src/lib/LibCorporateAction.sol";
@@ -198,9 +199,7 @@ contract StoxReceiptVaultSetAuthorizerGuardTest is Test {
         address reverting = makeAddr("reverting-authorizer");
         bytes memory canary = abi.encodeWithSignature("AuthorizerProbeFailed(string)", "probe");
         vm.mockCallRevert(
-            reverting,
-            abi.encodeWithSelector(IAccessControl.getRoleAdmin.selector, SCHEDULE_CORPORATE_ACTION),
-            canary
+            reverting, abi.encodeWithSelector(IAccessControl.getRoleAdmin.selector, SCHEDULE_CORPORATE_ACTION), canary
         );
         vm.prank(OWNER);
         vm.expectRevert(canary);
