@@ -1,14 +1,25 @@
 name: multisig-artifact
 on:
-  push:
-    branches:
-      - 'feat/rai-296-*'
-# Builds the RAI-296 Safe Tx Builder JSON artifact via a forge-script
-# dry-run on the active branch's HEAD and uploads `out/*.json` so PR
-# reviewers can download the bundle directly. The dry-run uses the same
-# unpinned Base head fork as the migration script's tests, so any drift
-# in the Safe's owner set, threshold, or vault ownership trips the
-# pre-flight here before a signer ever sees the bundle.
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'script/MigrateMultisigThreshold.s.sol'
+      - 'src/lib/LibSafeOps.sol'
+      - 'src/lib/LibSafeInvariants.sol'
+      - 'src/lib/LibTokenOwnership.sol'
+      - 'src/lib/LibProdSafes.sol'
+      - 'src/interface/IGnosisSafe.sol'
+      - '.github/workflows/multisig-artifact.yaml'
+# Builds the Safe Tx Builder JSON for the multisig threshold migration
+# via a forge-script dry-run and uploads `out/*.json` as a build artifact.
+# `workflow_dispatch` lets a maintainer run the job manually from the
+# GitHub UI to produce the bundle for live submission; the `pull_request`
+# trigger (paths-filtered to the migration code and its dependencies)
+# runs the dry-run as a sanity check whenever the migration touches any
+# of those files. Either way, the dry-run uses the same unpinned Base
+# head fork as the migration script's tests, so any drift in the Safe's
+# owner set, threshold, or vault ownership trips the pre-flight here
+# before a signer ever sees the bundle.
 jobs:
   build-artifact:
     runs-on: ubuntu-latest
@@ -19,7 +30,7 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@v17
       - name: Install Soldeer dependencies
         run: nix develop --command forge soldeer install
-      - name: Build RAI-296 Tx Builder artifact (dry-run)
+      - name: Build Tx Builder artifact (dry-run)
         env:
           BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
         run: |
@@ -31,6 +42,6 @@ jobs:
       - name: Upload Tx Builder JSON
         uses: actions/upload-artifact@v4
         with:
-          name: rai-296-tx-builder-json
+          name: safe-threshold-tx-builder-json
           path: out/*.json
           if-no-files-found: error

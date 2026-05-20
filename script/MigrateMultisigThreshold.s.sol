@@ -9,7 +9,6 @@ import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibProdSafes} from "../src/lib/LibProdSafes.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
-import {LibTokenOwnership} from "../src/lib/LibTokenOwnership.sol";
 
 /// @notice A previously emitted Tx Builder JSON artifact (parsed via
 /// `LibSafeOps.parseTxBuilderJson`) does not match the bundle the live
@@ -21,18 +20,20 @@ import {LibTokenOwnership} from "../src/lib/LibTokenOwnership.sol";
 error VerifyMismatch(string field);
 
 /// @notice The verify pre-flight got a non-1 tx count from the artifact.
-/// The RAI-296 migration is a single-tx bundle; a multi-tx artifact at
+/// The threshold migration is a single-tx bundle; a multi-tx artifact at
 /// this path is unambiguous drift rather than a future-proofing exercise.
 /// @param actualCount The number of transactions in the parsed artifact.
 error VerifyExpectedSingleTx(uint256 actualCount);
 
 /// @title MigrateMultisigThreshold
-/// @notice Forge script for RAI-296: bumps the ST0x token-owner Safe's
-/// signature threshold from 1-of-4 to 3-of-4. The script performs an
-/// exhaustive on-chain pre-flight (Safe invariants + owner set +
-/// threshold + uniform vault ownership), simulates the post-state, emits
-/// a Safe Tx Builder JSON artifact to `out/`, and logs the canonical
-/// `SafeTxHash` that owners must sign.
+/// @notice Forge script that authors the ST0x token-owner Safe's
+/// multisig threshold migration (1-of-4 -> 3-of-4). Performs an
+/// exhaustive on-chain pre-flight via `LibSafeInvariants.assertAllChecks`
+/// (proxy codehash, singleton + bytecode, version, modules, guard,
+/// fallback handler, uniform vault ownership, expected owner set,
+/// expected threshold), simulates the post-state, emits a Safe Tx
+/// Builder JSON artifact to `out/`, and logs the canonical `SafeTxHash`
+/// that owners must sign.
 /// @dev Two entrypoints:
 /// - `run()`: dry-run against the active fork (typically a Base head
 ///   fork). Asserts every invariant the live execution will rely on,
@@ -42,7 +43,7 @@ error VerifyExpectedSingleTx(uint256 actualCount);
 ///   pre-flight would emit. Used by signers (or CI) to confirm an
 ///   artifact wasn't tampered with between authoring and signing.
 contract MigrateMultisigThreshold is Script {
-    /// @notice Target signature threshold post-RAI-296. Hardcoded literal
+    /// @notice Target signature threshold post-migration. Hardcoded literal
     /// (not derived from any constant) because the migration is a
     /// one-shot: encoding `3` as `THRESHOLD_PRE + 2` or similar would
     /// invite the "what if the pre-state changes" failure mode the script
@@ -51,22 +52,29 @@ contract MigrateMultisigThreshold is Script {
 
     /// @notice Human-readable name embedded in the emitted Tx Builder
     /// JSON's `meta.name`. Visible to signers in the Safe Tx Builder UI.
-    string internal constant BUNDLE_NAME = "RAI-296 ST0x Safe threshold 1->3";
+    string internal constant BUNDLE_NAME = "ST0x Safe threshold 1->3";
 
     /// @notice Output path (relative to the project root) for the Tx
     /// Builder JSON artifact. Picked up by the multisig-artifact GH
-    /// workflow so PRs that touch RAI-296 expose the bundle as an
-    /// artifact for review.
-    string internal constant ARTIFACT_PATH = "out/rai-296-threshold-migration.json";
+    /// workflow so PRs that touch the migration code expose the bundle
+    /// as an artifact for review.
+    string internal constant ARTIFACT_PATH = "out/safe-threshold-migration.json";
 
-    /// @notice Dry-run the RAI-296 migration: pre-flight every invariant,
-    /// simulate the post-state, emit the Tx Builder JSON artifact, and
-    /// log the canonical SafeTxHash. Does not broadcast anything — the
-    /// inner call is gated behind the Safe's own signature verification
-    /// in production and we explicitly simulate via `vm.prank`.
+    /// @notice Dry-run the threshold migration: pre-flight every invariant
+    /// via `assertAllChecks`, simulate the post-state, emit the Tx Builder
+    /// JSON artifact, and log the canonical SafeTxHash. Does not broadcast
+    /// anything — the inner call is gated behind the Safe's own signature
+    /// verification in production and we explicitly simulate via
+    /// `vm.prank`.
     function run() external {
         IGnosisSafe safe = IGnosisSafe(LibProdSafes.STOX_TOKEN_OWNER_SAFE);
-        _preFlight(safe);
+        // Pre-flight: every immutable invariant plus the pinned 4-owner
+        // roster plus the pre-migration threshold of 1. Reverts with the
+        // relevant typed error from the underlying library on first
+        // mismatch.
+        LibSafeInvariants.assertAllChecks(
+            safe, LibProdSafes.expectedOwners(), LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD_PRE_MIGRATION
+        );
 
         // Build the single-tx bundle: a self-call to `changeThreshold(3)`.
         SafeTx memory txn = SafeTx({
@@ -82,12 +90,16 @@ contract MigrateMultisigThreshold is Script {
         uint256 nonce = safe.nonce();
         bytes32 safeTxHash = LibSafeOps.computeSafeTxHashViaSafe(safe, txn, nonce);
 
-        // Simulate the inner call and re-assert post-state. This is the
-        // load-bearing dry-run: if anything about the Safe rejects the
+        // Simulate the inner call and re-assert post-state via the same
+        // bundle the pre-flight uses, only differing on the expected
+        // threshold argument. If anything about the Safe rejects the
         // changeThreshold(3) call in production, it would also reject it
         // here (modulo the signature check, which `vm.prank` bypasses).
+        // The bundle re-check guards against a `changeThreshold`
+        // implementation that secretly mutates the owner roster, modules,
+        // or fallback handler as a side effect.
         LibSafeOps.simulateSelfCall(safe, txn.data);
-        _postState(safe);
+        LibSafeInvariants.assertAllChecks(safe, LibProdSafes.expectedOwners(), TARGET_THRESHOLD);
 
         // Emit the Tx Builder JSON artifact and write it under `out/`.
         SafeTx[] memory txs = new SafeTx[](1);
@@ -105,14 +117,19 @@ contract MigrateMultisigThreshold is Script {
         console2.log("Nonce:", nonce);
     }
 
-    /// @notice Re-runs the RAI-296 pre-flight and asserts that a
-    /// pre-emitted Tx Builder JSON at `jsonPath` matches what the live
+    /// @notice Re-runs the threshold migration pre-flight and asserts that
+    /// a pre-emitted Tx Builder JSON at `jsonPath` matches what the live
     /// pre-flight would emit. Used by signers to confirm an artifact's
     /// integrity before signing.
     /// @param jsonPath Filesystem path to the Tx Builder JSON to verify.
     function verify(string calldata jsonPath) external view {
         IGnosisSafe safe = IGnosisSafe(LibProdSafes.STOX_TOKEN_OWNER_SAFE);
-        _preFlight(safe);
+        // Same pre-flight bundle as `run()`. If the live state has drifted
+        // since the artifact was authored, the typed error bubbles before
+        // we even open the file.
+        LibSafeInvariants.assertAllChecks(
+            safe, LibProdSafes.expectedOwners(), LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD_PRE_MIGRATION
+        );
 
         (uint256 parsedChainId, address parsedSafe, SafeTx[] memory parsedTxs) = LibSafeOps.parseTxBuilderJson(jsonPath);
 
@@ -139,30 +156,5 @@ contract MigrateMultisigThreshold is Script {
         bytes32 liveHash = LibSafeOps.computeSafeTxHashViaSafe(safe, expected, safe.nonce());
         bytes32 artifactHash = LibSafeOps.computeSafeTxHashViaSafe(safe, parsedTxs[0], safe.nonce());
         if (liveHash != artifactHash) revert VerifyMismatch("safeTxHash");
-    }
-
-    /// @notice Run the full pre-flight: Safe structural invariants, the
-    /// pinned 4-owner roster, the pre-RAI-296 threshold of 1, and uniform
-    /// vault ownership. Reverts with the relevant typed error from the
-    /// underlying library on first mismatch.
-    /// @param safe The Safe to validate.
-    function _preFlight(IGnosisSafe safe) internal view {
-        LibSafeInvariants.assertBaseSafeInvariants(safe);
-        LibSafeInvariants.assertOwnerSet(safe, LibProdSafes.expectedOwners());
-        LibSafeInvariants.assertThreshold(safe, LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD_PRE_RAI296);
-        LibTokenOwnership.assertUniformOwnership(address(safe));
-    }
-
-    /// @notice Assert the post-simulation state: threshold is now
-    /// `TARGET_THRESHOLD`, owners are unchanged, and the base Safe
-    /// invariants still hold (codehash, singleton, version, modules,
-    /// guard, fallback handler). The owner-set re-check guards against a
-    /// `changeThreshold` implementation that secretly mutates the owner
-    /// roster as a side effect.
-    /// @param safe The Safe to validate post-simulation.
-    function _postState(IGnosisSafe safe) internal view {
-        LibSafeInvariants.assertThreshold(safe, TARGET_THRESHOLD);
-        LibSafeInvariants.assertOwnerSet(safe, LibProdSafes.expectedOwners());
-        LibSafeInvariants.assertBaseSafeInvariants(safe);
     }
 }

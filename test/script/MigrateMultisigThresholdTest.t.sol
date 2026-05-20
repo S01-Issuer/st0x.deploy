@@ -16,10 +16,10 @@ import {LibTokenOwnership, IOwnable, ReceiptVaultOwnerMismatch} from "../../src/
 import {LibRainDeploy} from "rain-deploy-0.1.2/src/lib/LibRainDeploy.sol";
 
 /// @title MigrateMultisigThresholdTest
-/// @notice End-to-end fork tests for the RAI-296 migration script.
-/// Covers the happy-path `run()` dry-run, inverted preconditions (each
-/// pre-flight invariant is exercised by mocking a single drift in
-/// isolation), and the `run()` → `verify()` chain (i.e. `verify` accepts
+/// @notice End-to-end fork tests for the multisig threshold migration
+/// script. Covers the happy-path `run()` dry-run, inverted preconditions
+/// (each pre-flight invariant is exercised by mocking a single drift in
+/// isolation), and the `run()` -> `verify()` chain (i.e. `verify` accepts
 /// what `run` emits).
 contract MigrateMultisigThresholdTest is Test {
     /// @notice The script under test, deployed fresh per fork.
@@ -45,12 +45,12 @@ contract MigrateMultisigThresholdTest is Test {
 
         // The artifact path the script writes to is project-relative,
         // resolved against `vm.projectRoot()`.
-        string memory artifactPath = string.concat(vm.projectRoot(), "/out/rai-296-threshold-migration.json");
+        string memory artifactPath = string.concat(vm.projectRoot(), "/out/safe-threshold-migration.json");
         string memory json = vm.readFile(artifactPath);
 
         // Smoke-check the JSON shape.
         string memory bundleName = vm.parseJsonString(json, ".meta.name");
-        assertEq(bundleName, "RAI-296 ST0x Safe threshold 1->3", "meta.name pinned");
+        assertEq(bundleName, "ST0x Safe threshold 1->3", "meta.name pinned");
         bool hasFirstTx = vm.keyExistsJson(json, ".transactions[0].to");
         bool hasSecondTx = vm.keyExistsJson(json, ".transactions[1].to");
         assertTrue(hasFirstTx, "first transaction present");
@@ -69,7 +69,7 @@ contract MigrateMultisigThresholdTest is Test {
         // the same pre-migration threshold it would see in production.
         uint256 snapshot = vm.snapshotState();
         script.run();
-        string memory artifactPath = string.concat(vm.projectRoot(), "/out/rai-296-threshold-migration.json");
+        string memory artifactPath = string.concat(vm.projectRoot(), "/out/safe-threshold-migration.json");
         vm.revertToState(snapshot);
         script.verify(artifactPath);
     }
@@ -118,8 +118,9 @@ contract MigrateMultisigThresholdTest is Test {
         txs[0] = txn;
         // Emit a bundle that claims to be for a different chain id by
         // bypassing the live `block.chainid` and passing `block.chainid + 1`.
-        string memory json = LibSafeOps.emitTxBuilderJson(address(safe), block.chainid + 1, "rai-296-wrong-chain", txs);
-        string memory path = string.concat(vm.projectRoot(), "/out/rai-296-verify-wrong-chain.json");
+        string memory json =
+            LibSafeOps.emitTxBuilderJson(address(safe), block.chainid + 1, "safe-verify-wrong-chain", txs);
+        string memory path = string.concat(vm.projectRoot(), "/out/safe-verify-wrong-chain.json");
         vm.writeFile(path, json);
 
         vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, "chainId"));
@@ -136,8 +137,8 @@ contract MigrateMultisigThresholdTest is Test {
         });
         SafeTx[] memory txs = new SafeTx[](1);
         txs[0] = txn;
-        string memory json = LibSafeOps.emitTxBuilderJson(impostor, block.chainid, "rai-296-wrong-safe", txs);
-        string memory path = string.concat(vm.projectRoot(), "/out/rai-296-verify-wrong-safe.json");
+        string memory json = LibSafeOps.emitTxBuilderJson(impostor, block.chainid, "safe-verify-wrong-safe", txs);
+        string memory path = string.concat(vm.projectRoot(), "/out/safe-verify-wrong-safe.json");
         vm.writeFile(path, json);
 
         vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, "safeAddress"));
@@ -153,8 +154,9 @@ contract MigrateMultisigThresholdTest is Test {
         });
         SafeTx[] memory txs = new SafeTx[](1);
         txs[0] = txn;
-        string memory json = LibSafeOps.emitTxBuilderJson(address(safe), block.chainid, "rai-296-wrong-threshold", txs);
-        string memory path = string.concat(vm.projectRoot(), "/out/rai-296-verify-wrong-threshold.json");
+        string memory json =
+            LibSafeOps.emitTxBuilderJson(address(safe), block.chainid, "safe-verify-wrong-threshold", txs);
+        string memory path = string.concat(vm.projectRoot(), "/out/safe-verify-wrong-threshold.json");
         vm.writeFile(path, json);
 
         vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, "data"));
