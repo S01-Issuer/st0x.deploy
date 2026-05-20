@@ -20,8 +20,9 @@ pragma solidity ^0.8.25;
 ///   Safe L2 deployment, so the proxy codehash below is also constant.
 /// - ST0x Safe address & live state read on Base on 2026-05-20 via
 ///   `cast call`. The owner set, threshold, and storage-slot pins below
-///   match the post-removal state. `LibProdSafes.t.sol` exercises these
-///   against an unpinned head fork so the next CI run catches any further
+///   match the post-removal state. `StoxProdV2.t.sol::testProdDeployBaseV2`
+///   exercises these against an unpinned head fork (via
+///   `LibSafeInvariants.assertAll`) so the next CI run catches any further
 ///   drift; see that test for why `LibTestProd.PROD_TEST_BLOCK_NUMBER_BASE`
 ///   is not reused.
 library LibProdSafes {
@@ -69,12 +70,12 @@ library LibProdSafes {
     /// https://basescan.org/address/0xe70d821f3462A074E63b42D0aac6523faAe1D611
     address constant STOX_TOKEN_OWNER_SAFE = 0xe70d821f3462a074e63b42d0AaC6523faAe1d611;
 
-    /// @notice The Safe's threshold prior to the multisig threshold
-    /// migration. Used by migration scripts as the expected starting state.
-    /// The post-migration threshold (3) is not encoded as a constant here
-    /// because it is the target of a single migration script and lives in
-    /// that script for locality.
-    uint256 constant STOX_TOKEN_OWNER_SAFE_THRESHOLD_PRE_MIGRATION = 1;
+    /// @notice The current expected threshold for `STOX_TOKEN_OWNER_SAFE`.
+    /// Updated by the threshold-migration PR family once live execution
+    /// lands: scripts and the post-migration pin both treat this constant
+    /// as the canonical current truth, so the value bumps from `1` to `3`
+    /// in the same PR that records the live post-execution state.
+    uint256 constant STOX_TOKEN_OWNER_SAFE_THRESHOLD = 1;
 
     /// @notice Owner #1 of `STOX_TOKEN_OWNER_SAFE`. Order matches
     /// `getOwners()` (Safe-internal linked-list order).
@@ -97,11 +98,13 @@ library LibProdSafes {
     address constant STOX_TOKEN_OWNER_SAFE_OWNER_4 = 0xBF8a5DE7BaAFaD46495217d467F43ae305cb900f;
 
     /// @notice Returns the expected owner set for `STOX_TOKEN_OWNER_SAFE` in
-    /// the exact order returned by `getOwners()` against a fork pinned to a
-    /// block at or after the 2026-05-18 owner removal (see fork-block
-    /// selection in `LibProdSafes.t.sol`). Provided as a helper because
-    /// Solidity 0.8 cannot express a file-scope `constant address[]` and
-    /// declaring the array as `immutable` is contract-scoped only.
+    /// the exact order returned by `getOwners()` against an unpinned Base
+    /// head fork (the live-state pin lives in
+    /// `StoxProdV2.t.sol::testProdDeployBaseV2`, which selects head rather
+    /// than pinning to a historical block so the next CI run catches any
+    /// further drift). Provided as a helper because Solidity 0.8 cannot
+    /// express a file-scope `constant address[]` and declaring the array
+    /// as `immutable` is contract-scoped only.
     /// @return The four owners of the ST0x token-owner Safe in
     /// `getOwners()` order.
     function expectedOwners() internal pure returns (address[] memory) {
