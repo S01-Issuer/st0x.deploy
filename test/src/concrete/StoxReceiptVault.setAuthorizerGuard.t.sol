@@ -12,19 +12,19 @@ import {
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.1.4/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.1.5/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {
     OffchainAssetReceiptVaultPaymentMintAuthorizerV1Config
-} from "rain-vats-0.1.4/src/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
-import {IAuthorizeV1} from "rain-vats-0.1.4/src/interface/IAuthorizeV1.sol";
-import {CloneFactory} from "rain-factory-0.1.0/src/concrete/CloneFactory.sol";
+} from "rain-vats-0.1.5/src/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.1.5/src/interface/IAuthorizeV1.sol";
+import {CloneFactory} from "rain-factory-0.1.1/src/concrete/CloneFactory.sol";
 import {VerifyAlwaysApproved} from "rain-verify-interface-0.1.0/src/concrete/VerifyAlwaysApproved.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {IERC165} from "@openzeppelin-contracts-5.6.1/utils/introspection/IERC165.sol";
 import {
     IncompatibleAuthorizer,
     OffchainAssetReceiptVault
-} from "rain-vats-0.1.4/src/concrete/vault/OffchainAssetReceiptVault.sol";
+} from "rain-vats-0.1.5/src/concrete/vault/OffchainAssetReceiptVault.sol";
 import {AuthorizerMissingCorporateActionAdmin} from "../../../src/error/ErrCorporateAction.sol";
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../src/lib/LibCorporateAction.sol";
 import {MockERC20} from "../../concrete/MockERC20.sol";

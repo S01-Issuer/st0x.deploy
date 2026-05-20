@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Receipt} from "rain-vats-0.1.4/src/concrete/receipt/Receipt.sol";
+import {Receipt} from "rain-vats-0.1.5/src/concrete/receipt/Receipt.sol";
 import {ERC1155Upgradeable} from "@openzeppelin-contracts-upgradeable-5.6.1/token/ERC1155/ERC1155Upgradeable.sol";
 import {IERC1155} from "@openzeppelin-contracts-5.6.1/token/ERC1155/IERC1155.sol";
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";

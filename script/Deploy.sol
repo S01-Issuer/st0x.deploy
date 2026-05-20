@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {Script, console2} from "forge-std-1.16.1/src/Script.sol";
 
-import {LibRainDeploy} from "rain-deploy-0.1.2/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
 import {LibProdDeployV2} from "../src/lib/LibProdDeployV2.sol";
 import {LibProdDeployV3} from "../src/lib/LibProdDeployV3.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
