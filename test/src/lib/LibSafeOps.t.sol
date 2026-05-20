@@ -59,7 +59,7 @@ contract LibSafeOpsTest is Test {
         selectBaseFork();
         uint256 nonceBefore = safe.nonce();
         uint256 thresholdBefore = safe.getThreshold();
-        assertEq(thresholdBefore, LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD_PRE_MIGRATION);
+        assertEq(thresholdBefore, LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
 
         SafeTx memory txn = _buildThresholdTx();
         LibSafeOps.simulateSelfCall(safe, txn.data);
