@@ -5,10 +5,12 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibProdSafes} from "../../../src/lib/LibProdSafes.sol";
-import {LibTokenOwnership, IOwnable, ReceiptVaultOwnerMismatch} from "../../../src/lib/LibTokenOwnership.sol";
+import {LibProdTokensBase} from "../../../src/lib/LibProdTokensBase.sol";
 import {IGnosisSafe} from "../../../src/interface/IGnosisSafe.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.2/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
 import {
+    IOwnable,
+    ReceiptVaultOwnerMismatch,
     SafeProxyCodehashMismatch,
     SafeSingletonMismatch,
     SafeSingletonBytecodeMismatch,
@@ -39,20 +41,26 @@ contract LibSafeInvariantsHarness {
         LibSafeInvariants.assertThreshold(safe, expected);
     }
 
-    function callAssertAllChecks(IGnosisSafe safe, address[] memory expectedOwners, uint256 expectedThreshold)
-        external
-        view
-    {
-        LibSafeInvariants.assertAllChecks(safe, expectedOwners, expectedThreshold);
+    function callAssertAll(IGnosisSafe safe, uint256 expectedThreshold, address[] memory expectedOwners) external view {
+        LibSafeInvariants.assertAll(safe, expectedThreshold, expectedOwners);
+    }
+
+    function callAssertAllDefaults(IGnosisSafe safe) external view {
+        LibSafeInvariants.assertAll(safe);
     }
 }
 
 /// @title LibSafeInvariantsTest
-/// @notice Live fork tests that exercise each invariant in `LibSafeInvariants`
-/// against the production ST0x token-owner Safe on Base, plus one inverted
-/// test per invariant that injects drift via `vm.mockCall` and asserts the
-/// matching typed error is raised. Uses an unpinned head fork to keep drift
-/// detection live; see the rationale in `LibProdSafes.t.sol::selectBaseFork`.
+/// @notice Inverted fork tests that exercise each invariant in
+/// `LibSafeInvariants` by injecting drift via `vm.etch` / `vm.mockCall` /
+/// `vm.store` and asserting the matching typed error is raised. The
+/// positive ("live state passes") cases live in
+/// `StoxProdV2.t.sol::testProdDeployBaseV2` (via `checkAllSafeBase`),
+/// so this file focuses on coverage of every error path.
+/// @dev Uses an unpinned Base head fork (same precedent as
+/// `StoxProdV2.t.sol::testProdDeployBaseV2`). Pinning would freeze the
+/// invariant assertions against a stale snapshot and let new drift slip
+/// through unnoticed.
 contract LibSafeInvariantsTest is Test {
     /// @notice Wrapper for the production Safe address; reset by every test
     /// after `selectBaseFork` because `vm.createSelectFork` resets cheatcode
@@ -60,60 +68,27 @@ contract LibSafeInvariantsTest is Test {
     IGnosisSafe internal safe;
 
     /// @notice External-call harness deployed fresh per test (via fork
-    /// rebuild). Kept off the fork via `vm.makePersistent` is unnecessary
-    /// here because each test calls `selectBaseFork` before deploying the
+    /// rebuild). Each test calls `selectBaseFork` before deploying the
     /// harness; the harness is recreated against the active fork.
     LibSafeInvariantsHarness internal harness;
 
-    /// @notice Selects the Base fork at chain head — deliberately unpinned.
-    /// Mirrors the precedent set in `LibProdSafes.t.sol::selectBaseFork`
-    /// (and `StoxProdV2.t.sol::testProdDeployBaseV2`): pinning would freeze
-    /// the invariant assertions against a stale snapshot and let new drift
-    /// slip through unnoticed.
+    /// @notice Selects the Base fork at chain head — deliberately
+    /// unpinned. Live drift detector; see contract-level rationale.
     function selectBaseFork() internal {
         vm.createSelectFork(LibRainDeploy.BASE);
         safe = IGnosisSafe(LibProdSafes.STOX_TOKEN_OWNER_SAFE);
         harness = new LibSafeInvariantsHarness();
     }
 
-    /// @notice The immutable-invariant bundle passes against the live Safe
-    /// (including the uniform-ownership leg now folded in via
-    /// `LibTokenOwnership.assertUniformOwnership`).
-    function testAssertImmutableInvariantsLive() external {
-        selectBaseFork();
-        LibSafeInvariants.assertImmutableInvariants(safe);
-    }
-
-    /// @notice The expected 4-owner roster matches the live Safe in order.
-    function testAssertOwnerSetLive() external {
-        selectBaseFork();
-        LibSafeInvariants.assertOwnerSet(safe, LibProdSafes.expectedOwners());
-    }
-
-    /// @notice The pre-migration threshold of `1` matches the live Safe.
-    function testAssertThresholdLive() external {
-        selectBaseFork();
-        LibSafeInvariants.assertThreshold(safe, LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD_PRE_MIGRATION);
-    }
-
-    /// @notice `assertAllChecks` accepts the live Safe at its pre-migration
-    /// pinned state (4-owner roster, threshold `1`). This is the call site
-    /// the migration script's pre-flight uses.
-    function testAssertAllChecksLivePreMigration() external {
-        selectBaseFork();
-        LibSafeInvariants.assertAllChecks(
-            safe, LibProdSafes.expectedOwners(), LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD_PRE_MIGRATION
-        );
-    }
-
     /// @notice Token-side ownership drift bubbles
     /// `ReceiptVaultOwnerMismatch` through `assertImmutableInvariants`.
     /// Confirms the token-ownership leg is exercised by the immutable
-    /// bundle rather than only by direct calls into `LibTokenOwnership`.
+    /// bundle. The victim vault address comes from `LibProdTokensBase`
+    /// (the source of truth for production receipt vaults).
     function testInvertedImmutableInvariantsTokenOwnershipDrift() external {
         selectBaseFork();
         address rogueOwner = address(0xBADC0DE);
-        address victim = LibTokenOwnership.ST0X_RECEIPT_VAULT_NVDA;
+        address victim = LibProdTokensBase.MSTR_RECEIPT_VAULT;
         vm.mockCall(victim, abi.encodeWithSelector(IOwnable.owner.selector), abi.encode(rogueOwner));
         vm.expectRevert(abi.encodeWithSelector(ReceiptVaultOwnerMismatch.selector, victim, address(safe), rogueOwner));
         harness.callAssertImmutableInvariants(safe);
@@ -309,5 +284,34 @@ contract LibSafeInvariantsTest is Test {
         selectBaseFork();
         vm.expectRevert(abi.encodeWithSelector(SafeThresholdMismatch.selector, address(safe), uint256(3), uint256(1)));
         harness.callAssertThreshold(safe, 3);
+    }
+
+    /// @notice `assertAll(safe)` (no-arg overload) trips
+    /// `SafeThresholdMismatch` when the live threshold drifts from the
+    /// pinned current truth. Mocks `getThreshold()` to `5` and asserts the
+    /// bundle surfaces the threshold error rather than passing silently.
+    /// This is the load-bearing test for the no-arg overload's defaulting
+    /// to `LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD`.
+    function testInvertedAssertAllDefaultsThresholdDrift() external {
+        selectBaseFork();
+        vm.mockCall(address(safe), abi.encodeWithSelector(IGnosisSafe.getThreshold.selector), abi.encode(uint256(5)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                SafeThresholdMismatch.selector, address(safe), LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD, uint256(5)
+            )
+        );
+        harness.callAssertAllDefaults(safe);
+    }
+
+    /// @notice `assertAll(safe, threshold, owners)` (full-args overload)
+    /// trips `SafeThresholdMismatch` when the caller's supplied threshold
+    /// diverges from the live Safe — covering the migration script's
+    /// post-state call site. Caller asks for `4` against a live threshold
+    /// of `1`; the bundle reports the mismatch with the caller's `4` as
+    /// the expected value, not the pinned constant.
+    function testInvertedAssertAllFullArgsThresholdMismatch() external {
+        selectBaseFork();
+        vm.expectRevert(abi.encodeWithSelector(SafeThresholdMismatch.selector, address(safe), uint256(4), uint256(1)));
+        harness.callAssertAll(safe, 4, LibProdSafes.expectedOwners());
     }
 }

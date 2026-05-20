@@ -4,7 +4,18 @@ pragma solidity ^0.8.25;
 
 import {IGnosisSafe} from "../interface/IGnosisSafe.sol";
 import {LibProdSafes} from "./LibProdSafes.sol";
-import {LibTokenOwnership} from "./LibTokenOwnership.sol";
+import {LibProdTokensBase} from "./LibProdTokensBase.sol";
+
+/// @notice Minimal `Ownable`-like surface used by ST0x receipt vaults.
+/// Every production receipt vault exposes `owner()`; this library only
+/// needs the getter, not the transfer/renounce mutators. Declared inline
+/// here so the Safe invariant bundle owns its only external surface
+/// rather than depending on a token-side interface that could drift.
+interface IOwnable {
+    /// @notice The current owner of the contract.
+    /// @return The owner address.
+    function owner() external view returns (address);
+}
 
 /// @notice The runtime codehash at the Safe's address does not match the
 /// pinned Safe v1.4.1 L2 proxy codehash. Signals either that the address has
@@ -75,6 +86,16 @@ error SafeUnexpectedGuard(address safe, address guard);
 /// fallback handler slot.
 error SafeFallbackHandlerMismatch(address safe, address expected, address actual);
 
+/// @notice A production receipt vault's `owner()` does not match the Safe
+/// the immutable-invariants leg expected to own every vault. Surfaces the
+/// exact vault address that breaks the uniform-ownership invariant rather
+/// than a generic mismatch.
+/// @param vault The receipt vault whose owner was read.
+/// @param expected The Safe address every vault is expected to report as
+/// `owner()`.
+/// @param actual The owner address returned by `vault.owner()`.
+error ReceiptVaultOwnerMismatch(address vault, address expected, address actual);
+
 /// @notice The Safe's `getOwners()` array length does not match the
 /// caller-supplied `expected` array length.
 /// @param safe The Safe address whose owner set was queried.
@@ -120,9 +141,14 @@ error SafeThresholdMismatch(address safe, uint256 expected, uint256 actual);
 ///   threshold migration). Wrong values here are caller intent, not Safe
 ///   drift, so the comparison target is an argument.
 ///
-/// `assertAllChecks` bundles the immutable invariants and the two
-/// parameterised checks into a single call site, so a migration script's
-/// pre-flight and post-state are both expressed as one line per phase.
+/// The `assertAll` overloads bundle the immutable invariants and the two
+/// parameterised checks into a single call site. The pattern mirrors
+/// `StoxProdV2Test::checkAllV2OnChain`: a full-args helper that takes
+/// every expected value, and a no-arg default that fills in the
+/// current-truth pins from `LibProdSafes`. Scripts default to the no-arg
+/// version for pre-flight; only the migration script with deliberate
+/// state changes uses the full-args overload for its post-state
+/// assertion.
 ///
 /// Centralising the assertions here keeps drift detection consistent
 /// across the threshold migration script, its tests, the post-migration
@@ -168,8 +194,9 @@ library LibSafeInvariants {
     /// pinned proxy codehash, pinned singleton pointer, pinned singleton
     /// bytecode, pinned version, no modules, no guard, pinned fallback
     /// handler, and uniform `owner()` across every production ST0x receipt
-    /// vault. Reverts with a typed error (from this library or from
-    /// `LibTokenOwnership`) on first failure; returns silently otherwise.
+    /// vault (as enumerated by
+    /// `LibProdTokensBase.productionReceiptVaults`). Reverts with a typed
+    /// error on first failure; returns silently otherwise.
     /// @dev "Immutable" here means properties that should hold against the
     /// production Safe at any point in time, regardless of pending or
     /// past operational migrations. The same set is asserted pre-migration
@@ -257,10 +284,17 @@ library LibSafeInvariants {
         }
 
         // Token-side uniform ownership: every production receipt vault
-        // reports `owner() == safe`. Bubbles `ReceiptVaultOwnerMismatch`
-        // from `LibTokenOwnership` on the first drift, which pinpoints
-        // the offending vault.
-        LibTokenOwnership.assertUniformOwnership(safeAddr);
+        // reports `owner() == safe`. Iterates the vault list emitted by
+        // `LibProdTokensBase.productionReceiptVaults` and reverts with
+        // `ReceiptVaultOwnerMismatch` on the first drift, surfacing the
+        // offending vault.
+        address[] memory vaults = LibProdTokensBase.productionReceiptVaults();
+        for (uint256 i = 0; i < vaults.length; i++) {
+            address actualOwner = IOwnable(vaults[i]).owner();
+            if (actualOwner != safeAddr) {
+                revert ReceiptVaultOwnerMismatch(vaults[i], safeAddr, actualOwner);
+            }
+        }
     }
 
     /// @notice Reads a single 32-byte storage slot from a Safe via
@@ -309,28 +343,42 @@ library LibSafeInvariants {
         }
     }
 
-    /// @notice Bundle every check exposed by this library into one call:
-    /// `assertImmutableInvariants` plus the two parameterised state
-    /// assertions (`assertOwnerSet`, `assertThreshold`). Migration scripts
-    /// call this twice — once pre-execution with the expected pre-state
-    /// threshold, once post-execution with the new threshold — and the
-    /// caller only changes one argument across the two calls.
-    /// @dev This is intentionally a thin wrapper rather than a separate
-    /// implementation: keeping each underlying check addressable in
+    /// @notice Full-args invariant bundle. Use when you want to override
+    /// the expected threshold or owner set from the `LibProdSafes`
+    /// current-truth pins — typically only when running a script that
+    /// intentionally changes one of those (post-state assertion).
+    /// @dev Mirrors the `StoxProdV2Test::checkAllV2OnChain` pattern: a
+    /// full-args helper alongside a no-arg overload. Migration scripts
+    /// call the no-arg overload pre-execution to assert the pinned
+    /// current truth, then call this overload post-execution with the
+    /// deliberately-changed expectation.
+    ///
+    /// Implementation is intentionally a thin wrapper rather than a
+    /// separate body: keeping each underlying check addressable in
     /// isolation lets fork tests exercise individual drift surfaces, and
     /// keeping the bundle alongside them means migration code never has
     /// to remember which of the three pieces to run.
     /// @param safe The Safe to validate.
+    /// @param expectedThreshold The expected signature threshold.
     /// @param expectedOwners The expected owner set in `getOwners()` order.
-    /// @param expectedThreshold The expected signature threshold (the
-    /// pre-state threshold for the pre-flight call; the post-state
-    /// threshold for the post-execution call).
-    function assertAllChecks(IGnosisSafe safe, address[] memory expectedOwners, uint256 expectedThreshold)
-        internal
-        view
-    {
+    function assertAll(IGnosisSafe safe, uint256 expectedThreshold, address[] memory expectedOwners) internal view {
         assertImmutableInvariants(safe);
         assertOwnerSet(safe, expectedOwners);
         assertThreshold(safe, expectedThreshold);
+    }
+
+    /// @notice No-arg invariant bundle that fills in the
+    /// `LibProdSafes`-pinned current-truth defaults: the threshold from
+    /// `STOX_TOKEN_OWNER_SAFE_THRESHOLD` and the owner set from
+    /// `expectedOwners()`. Pre-flight at the start of every script and
+    /// fork test that runs against the production Safe; if this passes
+    /// silently, the Safe is in its current expected state.
+    /// @dev The full-args overload is the right call site only when a
+    /// caller is *deliberately* asserting a state that diverges from the
+    /// pinned current truth (e.g. the migration script's post-state
+    /// re-check after it has simulated `changeThreshold`).
+    /// @param safe The Safe to validate against the pinned current truth.
+    function assertAll(IGnosisSafe safe) internal view {
+        assertAll(safe, LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD, LibProdSafes.expectedOwners());
     }
 }

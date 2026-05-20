@@ -216,4 +216,26 @@ library LibProdTokensBase {
     /// @dev Wrapped token vault (ERC-4626, "wtSGOV") — the StoxWrappedTokenVault instance.
     /// https://basescan.org/address/0x78c31580c97101694c70022c83d570150c11e935
     address constant SGOV_WRAPPED_TOKEN_VAULT = address(0x78c31580c97101694C70022c83D570150c11e935);
+
+    /// @notice Returns the 13 production receipt vault addresses on Base, in
+    /// the order they were deployed. Provided so consumers (e.g. invariant
+    /// assertions, migration scripts) can iterate without hardcoding the
+    /// list inline.
+    /// @return vaults The 13 production receipt vault addresses on Base.
+    function productionReceiptVaults() internal pure returns (address[] memory vaults) {
+        vaults = new address[](13);
+        vaults[0] = MSTR_RECEIPT_VAULT;
+        vaults[1] = TSLA_RECEIPT_VAULT;
+        vaults[2] = COIN_RECEIPT_VAULT;
+        vaults[3] = SPYM_RECEIPT_VAULT;
+        vaults[4] = SIVR_RECEIPT_VAULT;
+        vaults[5] = CRCL_RECEIPT_VAULT;
+        vaults[6] = NVDA_RECEIPT_VAULT;
+        vaults[7] = IAU_RECEIPT_VAULT;
+        vaults[8] = PPLT_RECEIPT_VAULT;
+        vaults[9] = AMZN_RECEIPT_VAULT;
+        vaults[10] = BMNR_RECEIPT_VAULT;
+        vaults[11] = IBHG_RECEIPT_VAULT;
+        vaults[12] = SGOV_RECEIPT_VAULT;
+    }
 }
