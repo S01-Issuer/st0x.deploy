@@ -11,8 +11,13 @@ import {
 import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
 import {LibProdSafes} from "../../src/lib/LibProdSafes.sol";
 import {LibSafeOps, SafeTx} from "../../src/lib/LibSafeOps.sol";
-import {LibSafeInvariants, SafeThresholdMismatch} from "../../src/lib/LibSafeInvariants.sol";
-import {LibTokenOwnership, IOwnable, ReceiptVaultOwnerMismatch} from "../../src/lib/LibTokenOwnership.sol";
+import {
+    LibSafeInvariants,
+    IOwnable,
+    SafeThresholdMismatch,
+    ReceiptVaultOwnerMismatch
+} from "../../src/lib/LibSafeInvariants.sol";
+import {LibProdTokensBase} from "../../src/lib/LibProdTokensBase.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.2/src/lib/LibRainDeploy.sol";
 
 /// @title MigrateMultisigThresholdTest
@@ -29,7 +34,8 @@ contract MigrateMultisigThresholdTest is Test {
     IGnosisSafe internal safe;
 
     /// @notice Selects the Base fork at chain head — deliberately
-    /// unpinned. Same precedent as `LibProdSafes.t.sol::selectBaseFork`.
+    /// unpinned. Same precedent as
+    /// `StoxProdV2.t.sol::testProdDeployBaseV2`.
     function selectBaseFork() internal {
         vm.createSelectFork(LibRainDeploy.BASE);
         script = new MigrateMultisigThreshold();
@@ -66,7 +72,7 @@ contract MigrateMultisigThresholdTest is Test {
         // `run()` simulates the inner call via `vm.prank`, which mutates
         // the Safe's threshold on the active fork. Snapshot first so we
         // can roll the fork back to the pre-run state and `verify()` sees
-        // the same pre-migration threshold it would see in production.
+        // the same pinned current threshold it would see in production.
         uint256 snapshot = vm.snapshotState();
         script.run();
         string memory artifactPath = string.concat(vm.projectRoot(), "/out/safe-threshold-migration.json");
@@ -96,7 +102,10 @@ contract MigrateMultisigThresholdTest is Test {
     function testRunRejectsVaultOwnershipDrift() external {
         selectBaseFork();
         address rogueOwner = address(0xBADC0DE);
-        address victim = LibTokenOwnership.ST0X_RECEIPT_VAULT_NVDA;
+        // Victim address sourced from `LibProdTokensBase` — the canonical
+        // list of production receipt vaults. Any vault from the list
+        // would do; MSTR is the first entry.
+        address victim = LibProdTokensBase.MSTR_RECEIPT_VAULT;
         vm.mockCall(victim, abi.encodeWithSelector(IOwnable.owner.selector), abi.encode(rogueOwner));
 
         vm.expectRevert(abi.encodeWithSelector(ReceiptVaultOwnerMismatch.selector, victim, address(safe), rogueOwner));
