@@ -41,6 +41,19 @@ library LibProdSafes {
     /// @notice Expected `VERSION()` string from a Safe v1.4.1 singleton.
     string constant SAFE_V1_4_1_VERSION = "1.4.1";
 
+    /// @notice Runtime codehash of the Safe v1.4.1 L2 singleton bytecode at
+    /// `SAFE_V1_4_1_L2_SINGLETON`. Pinning this guards against an attacker
+    /// who replaces the bytecode at the singleton address (e.g. via
+    /// `SELFDESTRUCT` + re-create) while preserving the proxy codehash.
+    /// Without this pin, every implementation-backed accessor on the Safe
+    /// (`VERSION()`, `getOwners()`, `getThreshold()`, etc.) is mediated by
+    /// untrusted code at the singleton address. Asserting this codehash
+    /// before any of those reads closes that gap.
+    /// @dev Computed via `keccak256(eth_getCode(SAFE_V1_4_1_L2_SINGLETON))`
+    /// on Base on 2026-05-20.
+    bytes32 constant SAFE_V1_4_1_L2_SINGLETON_CODEHASH =
+        0xb1f926978a0f44a2c0ec8fe822418ae969bd8c3f18d61e5103100339894f81ff;
+
     /// @notice CompatibilityFallbackHandler v1.4.1 address on Base. Verified
     /// against the live Safe's fallback handler storage slot. Pinned so a
     /// swapped-in malicious handler that shadows view selectors via

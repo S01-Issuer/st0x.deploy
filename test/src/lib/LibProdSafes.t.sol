@@ -137,4 +137,20 @@ contract LibProdSafesTest is Test {
         address actual = address(uint160(uint256(abi.decode(raw, (bytes32)))));
         assertEq(actual, LibProdSafes.SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER);
     }
+
+    /// @notice The runtime bytecode at `SAFE_V1_4_1_L2_SINGLETON` hashes
+    /// to `SAFE_V1_4_1_L2_SINGLETON_CODEHASH`. This is the defence
+    /// against a bytecode swap at the singleton address that preserves
+    /// the proxy codehash and superficial view returns. Every other
+    /// implementation-backed Safe accessor relies on this code being
+    /// genuine — pinning its hash closes that trust gap.
+    function testSingletonCodehashMatchesPinned() external {
+        selectBaseFork();
+        bytes32 actual;
+        address singleton = LibProdSafes.SAFE_V1_4_1_L2_SINGLETON;
+        assembly ("memory-safe") {
+            actual := extcodehash(singleton)
+        }
+        assertEq(actual, LibProdSafes.SAFE_V1_4_1_L2_SINGLETON_CODEHASH);
+    }
 }
