@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibProdSafes} from "../../../src/lib/LibProdSafes.sol";
+import {LibTokenOwnership, IOwnable, ReceiptVaultOwnerMismatch} from "../../../src/lib/LibTokenOwnership.sol";
 import {IGnosisSafe} from "../../../src/interface/IGnosisSafe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.2/src/lib/LibRainDeploy.sol";
 import {
@@ -26,8 +27,8 @@ import {
 /// catches reverts from external calls; library `internal` functions inline
 /// and would fail the depth check otherwise.
 contract LibSafeInvariantsHarness {
-    function callAssertBaseSafeInvariants(IGnosisSafe safe) external view {
-        LibSafeInvariants.assertBaseSafeInvariants(safe);
+    function callAssertImmutableInvariants(IGnosisSafe safe) external view {
+        LibSafeInvariants.assertImmutableInvariants(safe);
     }
 
     function callAssertOwnerSet(IGnosisSafe safe, address[] memory expected) external view {
@@ -36,6 +37,13 @@ contract LibSafeInvariantsHarness {
 
     function callAssertThreshold(IGnosisSafe safe, uint256 expected) external view {
         LibSafeInvariants.assertThreshold(safe, expected);
+    }
+
+    function callAssertAllChecks(IGnosisSafe safe, address[] memory expectedOwners, uint256 expectedThreshold)
+        external
+        view
+    {
+        LibSafeInvariants.assertAllChecks(safe, expectedOwners, expectedThreshold);
     }
 }
 
@@ -68,10 +76,12 @@ contract LibSafeInvariantsTest is Test {
         harness = new LibSafeInvariantsHarness();
     }
 
-    /// @notice The full invariant bundle passes against the live Safe.
-    function testAssertBaseSafeInvariantsLive() external {
+    /// @notice The immutable-invariant bundle passes against the live Safe
+    /// (including the uniform-ownership leg now folded in via
+    /// `LibTokenOwnership.assertUniformOwnership`).
+    function testAssertImmutableInvariantsLive() external {
         selectBaseFork();
-        LibSafeInvariants.assertBaseSafeInvariants(safe);
+        LibSafeInvariants.assertImmutableInvariants(safe);
     }
 
     /// @notice The expected 4-owner roster matches the live Safe in order.
@@ -80,10 +90,33 @@ contract LibSafeInvariantsTest is Test {
         LibSafeInvariants.assertOwnerSet(safe, LibProdSafes.expectedOwners());
     }
 
-    /// @notice The pre-RAI-296 threshold of `1` matches the live Safe.
+    /// @notice The pre-migration threshold of `1` matches the live Safe.
     function testAssertThresholdLive() external {
         selectBaseFork();
-        LibSafeInvariants.assertThreshold(safe, LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD_PRE_RAI296);
+        LibSafeInvariants.assertThreshold(safe, LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD_PRE_MIGRATION);
+    }
+
+    /// @notice `assertAllChecks` accepts the live Safe at its pre-migration
+    /// pinned state (4-owner roster, threshold `1`). This is the call site
+    /// the migration script's pre-flight uses.
+    function testAssertAllChecksLivePreMigration() external {
+        selectBaseFork();
+        LibSafeInvariants.assertAllChecks(
+            safe, LibProdSafes.expectedOwners(), LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD_PRE_MIGRATION
+        );
+    }
+
+    /// @notice Token-side ownership drift bubbles
+    /// `ReceiptVaultOwnerMismatch` through `assertImmutableInvariants`.
+    /// Confirms the token-ownership leg is exercised by the immutable
+    /// bundle rather than only by direct calls into `LibTokenOwnership`.
+    function testInvertedImmutableInvariantsTokenOwnershipDrift() external {
+        selectBaseFork();
+        address rogueOwner = address(0xBADC0DE);
+        address victim = LibTokenOwnership.ST0X_RECEIPT_VAULT_NVDA;
+        vm.mockCall(victim, abi.encodeWithSelector(IOwnable.owner.selector), abi.encode(rogueOwner));
+        vm.expectRevert(abi.encodeWithSelector(ReceiptVaultOwnerMismatch.selector, victim, address(safe), rogueOwner));
+        harness.callAssertImmutableInvariants(safe);
     }
 
     /// @notice Drift in the proxy runtime codehash trips
@@ -107,7 +140,7 @@ contract LibSafeInvariantsTest is Test {
                 mutatedCodehash
             )
         );
-        harness.callAssertBaseSafeInvariants(safe);
+        harness.callAssertImmutableInvariants(safe);
     }
 
     /// @notice Drift in the singleton pointer (slot 0) trips
@@ -126,7 +159,7 @@ contract LibSafeInvariantsTest is Test {
                 SafeSingletonMismatch.selector, address(safe), LibProdSafes.SAFE_V1_4_1_L2_SINGLETON, impostor
             )
         );
-        harness.callAssertBaseSafeInvariants(safe);
+        harness.callAssertImmutableInvariants(safe);
     }
 
     /// @notice Drift in the singleton's bytecode trips
@@ -160,7 +193,7 @@ contract LibSafeInvariantsTest is Test {
                 actual
             )
         );
-        harness.callAssertBaseSafeInvariants(safe);
+        harness.callAssertImmutableInvariants(safe);
     }
 
     /// @notice Drift in the singleton's reported version trips
@@ -173,7 +206,7 @@ contract LibSafeInvariantsTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(SafeVersionMismatch.selector, address(safe), LibProdSafes.SAFE_V1_4_1_VERSION, bogus)
         );
-        harness.callAssertBaseSafeInvariants(safe);
+        harness.callAssertImmutableInvariants(safe);
     }
 
     /// @notice A non-empty module list trips `SafeUnexpectedModules`.
@@ -192,7 +225,7 @@ contract LibSafeInvariantsTest is Test {
             abi.encode(mockModules, LibSafeInvariants.SAFE_MODULES_SENTINEL)
         );
         vm.expectRevert(abi.encodeWithSelector(SafeUnexpectedModules.selector, address(safe), rogueModule));
-        harness.callAssertBaseSafeInvariants(safe);
+        harness.callAssertImmutableInvariants(safe);
     }
 
     /// @notice A non-zero guard slot trips `SafeUnexpectedGuard`. Simulated
@@ -209,7 +242,7 @@ contract LibSafeInvariantsTest is Test {
             abi.encode(abi.encodePacked(bytes32(uint256(uint160(rogueGuard)))))
         );
         vm.expectRevert(abi.encodeWithSelector(SafeUnexpectedGuard.selector, address(safe), rogueGuard));
-        harness.callAssertBaseSafeInvariants(safe);
+        harness.callAssertImmutableInvariants(safe);
     }
 
     /// @notice Drift in the fallback handler slot trips
@@ -235,7 +268,7 @@ contract LibSafeInvariantsTest is Test {
                 impostor
             )
         );
-        harness.callAssertBaseSafeInvariants(safe);
+        harness.callAssertImmutableInvariants(safe);
     }
 
     /// @notice Owner count drift trips `SafeOwnerCountMismatch`. The caller

@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 
 import {IGnosisSafe} from "../interface/IGnosisSafe.sol";
 import {LibProdSafes} from "./LibProdSafes.sol";
+import {LibTokenOwnership} from "./LibTokenOwnership.sol";
 
 /// @notice The runtime codehash at the Safe's address does not match the
 /// pinned Safe v1.4.1 L2 proxy codehash. Signals either that the address has
@@ -103,12 +104,30 @@ error SafeThresholdMismatch(address safe, uint256 expected, uint256 actual);
 /// pinned to the ST0x token-owner deployment. Each public assertion either
 /// returns silently when the invariant holds against the live chain state
 /// or reverts with a typed error that pinpoints the drift.
-/// @dev The library is consumed by the RAI-296 migration script (and
-/// post-migration drift tests) as a single chokepoint for "is this Safe
-/// still the Safe we think it is?" checks. Centralising the assertions here
-/// keeps drift detection consistent across the script, its tests, and any
-/// future migrations: anyone extending the Safe touch-points only needs to
-/// add new invariants in one place.
+/// @dev The library splits checks into two categories:
+///
+/// - **Immutable invariants** (`assertImmutableInvariants`) — properties
+///   that always hold against this Safe regardless of any pending or past
+///   migration: proxy codehash, singleton pointer + bytecode, version,
+///   modules empty, guard zero, fallback handler pinned, and uniform
+///   `owner()` across every production receipt vault. The same set is
+///   evaluated pre-migration and post-migration; nothing here is
+///   parameterised on operational intent.
+///
+/// - **Parameterised state assertions** (`assertOwnerSet`, `assertThreshold`)
+///   — properties whose expected value is supplied by the caller because
+///   the caller is deliberately mutating that property (notably the
+///   threshold migration). Wrong values here are caller intent, not Safe
+///   drift, so the comparison target is an argument.
+///
+/// `assertAllChecks` bundles the immutable invariants and the two
+/// parameterised checks into a single call site, so a migration script's
+/// pre-flight and post-state are both expressed as one line per phase.
+///
+/// Centralising the assertions here keeps drift detection consistent
+/// across the threshold migration script, its tests, the post-migration
+/// pin, and any future migrations: anyone extending the Safe touch-points
+/// only needs to add new invariants in one place.
 ///
 /// All storage-slot constants come from the Safe v1.4.1 source:
 /// https://github.com/safe-global/safe-contracts/tree/v1.4.1/contracts
@@ -145,18 +164,36 @@ library LibSafeInvariants {
     /// `safe-contracts/contracts/base/ModuleManager.sol` at the v1.4.1 tag.
     address internal constant SAFE_MODULES_SENTINEL = address(0x1);
 
-    /// @notice Assert that the Safe at `safe` is structurally the Safe we
-    /// expect: pinned proxy codehash, pinned singleton, pinned version, no
-    /// modules, no guard, and pinned fallback handler. Reverts with a typed
-    /// error on first failure; returns silently otherwise.
-    /// @dev The check ordering is deliberate. Codehash first (cheapest, and
+    /// @notice Assert every immutable invariant of the Safe at `safe`:
+    /// pinned proxy codehash, pinned singleton pointer, pinned singleton
+    /// bytecode, pinned version, no modules, no guard, pinned fallback
+    /// handler, and uniform `owner()` across every production ST0x receipt
+    /// vault. Reverts with a typed error (from this library or from
+    /// `LibTokenOwnership`) on first failure; returns silently otherwise.
+    /// @dev "Immutable" here means properties that should hold against the
+    /// production Safe at any point in time, regardless of pending or
+    /// past operational migrations. The same set is asserted pre-migration
+    /// and post-migration; nothing in this call is parameterised on
+    /// caller intent.
+    ///
+    /// Token-side uniform ownership is included as an immutable Safe
+    /// invariant because the threshold migration (and any future Safe
+    /// migration on this deployment) does not independently transfer
+    /// vault ownership: drift in the vault ownership set against the Safe
+    /// at migration time is therefore an invariant break to surface here,
+    /// not a separate pre-flight concern of every consumer.
+    ///
+    /// The check ordering is deliberate. Codehash first (cheapest, and
     /// catches an EOA at the address or a fake proxy). Singleton slot next
-    /// (catches a swap of the implementation pointer). VERSION() third
-    /// (catches an unexpected implementation that happens to have the same
-    /// bytecode hash). Modules/guard/fallback handler last, after the proxy
-    /// has been proven to be the singleton we expect.
-    /// @param safe The Safe to assert invariants on.
-    function assertBaseSafeInvariants(IGnosisSafe safe) internal view {
+    /// (catches a swap of the implementation pointer). Singleton bytecode
+    /// third (catches a swap behind the singleton address). VERSION()
+    /// fourth (catches an unexpected implementation that happens to have
+    /// the same bytecode hash). Modules/guard/fallback handler next, after
+    /// the proxy has been proven to be the singleton we expect. Uniform
+    /// vault ownership last, because it is the most expensive (13 external
+    /// calls) and only meaningful once the Safe itself has been validated.
+    /// @param safe The Safe to assert immutable invariants on.
+    function assertImmutableInvariants(IGnosisSafe safe) internal view {
         address safeAddr = address(safe);
 
         bytes32 actualCodehash;
@@ -218,6 +255,12 @@ library LibSafeInvariants {
                 safeAddr, LibProdSafes.SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER, actualFallbackHandler
             );
         }
+
+        // Token-side uniform ownership: every production receipt vault
+        // reports `owner() == safe`. Bubbles `ReceiptVaultOwnerMismatch`
+        // from `LibTokenOwnership` on the first drift, which pinpoints
+        // the offending vault.
+        LibTokenOwnership.assertUniformOwnership(safeAddr);
     }
 
     /// @notice Reads a single 32-byte storage slot from a Safe via
@@ -264,5 +307,30 @@ library LibSafeInvariants {
         if (actual != expected) {
             revert SafeThresholdMismatch(address(safe), expected, actual);
         }
+    }
+
+    /// @notice Bundle every check exposed by this library into one call:
+    /// `assertImmutableInvariants` plus the two parameterised state
+    /// assertions (`assertOwnerSet`, `assertThreshold`). Migration scripts
+    /// call this twice — once pre-execution with the expected pre-state
+    /// threshold, once post-execution with the new threshold — and the
+    /// caller only changes one argument across the two calls.
+    /// @dev This is intentionally a thin wrapper rather than a separate
+    /// implementation: keeping each underlying check addressable in
+    /// isolation lets fork tests exercise individual drift surfaces, and
+    /// keeping the bundle alongside them means migration code never has
+    /// to remember which of the three pieces to run.
+    /// @param safe The Safe to validate.
+    /// @param expectedOwners The expected owner set in `getOwners()` order.
+    /// @param expectedThreshold The expected signature threshold (the
+    /// pre-state threshold for the pre-flight call; the post-state
+    /// threshold for the post-execution call).
+    function assertAllChecks(IGnosisSafe safe, address[] memory expectedOwners, uint256 expectedThreshold)
+        internal
+        view
+    {
+        assertImmutableInvariants(safe);
+        assertOwnerSet(safe, expectedOwners);
+        assertThreshold(safe, expectedThreshold);
     }
 }
