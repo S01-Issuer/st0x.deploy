@@ -100,4 +100,41 @@ contract LibProdSafesTest is Test {
         }
         assertEq(actual, LibProdSafes.SAFE_V1_4_1_L2_PROXY_CODEHASH);
     }
+
+    /// @notice `VERSION()` matches the pinned `SAFE_V1_4_1_VERSION`
+    /// constant. Catches a singleton swap where the upgrade preserves
+    /// the proxy bytecode but changes the implementation behind it.
+    function testVersionMatchesPinned() external {
+        selectBaseFork();
+        IGnosisSafe safe = IGnosisSafe(LibProdSafes.STOX_TOKEN_OWNER_SAFE);
+        assertEq(safe.VERSION(), LibProdSafes.SAFE_V1_4_1_VERSION);
+    }
+
+    /// @notice Slot 0 of the Safe proxy stores the singleton address.
+    /// Asserts the live singleton equals `SAFE_V1_4_1_L2_SINGLETON`.
+    /// Belt-and-braces alongside `testProxyCodehashMatches` — the
+    /// codehash pin already encodes the singleton inline, but this
+    /// surfaces a singleton mismatch directly if a future proxy variant
+    /// reorganises that encoding.
+    function testSingletonSlotMatchesPinned() external {
+        selectBaseFork();
+        IGnosisSafe safe = IGnosisSafe(LibProdSafes.STOX_TOKEN_OWNER_SAFE);
+        bytes memory raw = safe.getStorageAt(0, 1);
+        address actual = address(uint160(uint256(abi.decode(raw, (bytes32)))));
+        assertEq(actual, LibProdSafes.SAFE_V1_4_1_L2_SINGLETON);
+    }
+
+    /// @notice The Safe fallback handler slot
+    /// (`keccak256("fallback_manager.handler.address")`) holds the
+    /// pinned `SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER` address.
+    /// Detects a silent fallback handler swap, which would otherwise
+    /// expose the Safe to arbitrary delegate-call surface.
+    function testFallbackHandlerSlotMatchesPinned() external {
+        selectBaseFork();
+        IGnosisSafe safe = IGnosisSafe(LibProdSafes.STOX_TOKEN_OWNER_SAFE);
+        uint256 slot = uint256(keccak256("fallback_manager.handler.address"));
+        bytes memory raw = safe.getStorageAt(slot, 1);
+        address actual = address(uint160(uint256(abi.decode(raw, (bytes32)))));
+        assertEq(actual, LibProdSafes.SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER);
+    }
 }
