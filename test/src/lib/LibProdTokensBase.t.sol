@@ -8,22 +8,22 @@ import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibTestProd} from "../../lib/LibTestProd.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC4626} from "@openzeppelin-contracts-5.6.1/interfaces/IERC4626.sol";
-import {IReceiptVaultV3} from "rain-vats-0.1.4/src/interface/IReceiptVaultV3.sol";
-import {IReceiptV3} from "rain-vats-0.1.4/src/interface/IReceiptV3.sol";
+import {IReceiptVaultV3} from "rain-vats-0.1.5/src/interface/IReceiptVaultV3.sol";
+import {IReceiptV3} from "rain-vats-0.1.5/src/interface/IReceiptV3.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
-} from "rain-vats-0.1.4/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
-import {ICertifiableV1} from "rain-vats-0.1.4/src/interface/ICertifiableV1.sol";
+} from "rain-vats-0.1.5/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
+import {ICertifiableV1} from "rain-vats-0.1.5/src/interface/ICertifiableV1.sol";
 import {
     ERC1967_BEACON_SLOT,
     LibExtrospectERC1967BeaconProxy
-} from "rain-extrospection-0.1.0/src/lib/LibExtrospectERC1967BeaconProxy.sol";
-import {LibExtrospectBytecode} from "rain-extrospection-0.1.0/src/lib/LibExtrospectBytecode.sol";
-import {LibExtrospectMetamorphic} from "rain-extrospection-0.1.0/src/lib/LibExtrospectMetamorphic.sol";
-import {EVM_OP_CREATE, EVM_OP_DELEGATECALL} from "rain-extrospection-0.1.0/src/lib/EVMOpcodes.sol";
-import {IExtrospectV1} from "rain-extrospection-0.1.0/src/interface/IExtrospectV1.sol";
-import {EXTROSPECT_ZOLTU_ADDRESS_V1} from "rain-extrospection-0.1.0/src/concrete/Extrospect.sol";
-import {IBeacon} from "rain-extrospection-0.1.0/src/interface/IBeacon.sol";
+} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1967BeaconProxy.sol";
+import {LibExtrospectBytecode} from "rain-extrospection-0.1.1/src/lib/LibExtrospectBytecode.sol";
+import {LibExtrospectMetamorphic} from "rain-extrospection-0.1.1/src/lib/LibExtrospectMetamorphic.sol";
+import {EVM_OP_CREATE, EVM_OP_DELEGATECALL} from "rain-extrospection-0.1.1/src/lib/EVMOpcodes.sol";
+import {IExtrospectV1} from "rain-extrospection-0.1.1/src/interface/IExtrospectV1.sol";
+import {EXTROSPECT_ZOLTU_ADDRESS_V1} from "rain-extrospection-0.1.1/src/concrete/Extrospect.sol";
+import {IBeacon} from "rain-extrospection-0.1.1/src/interface/IBeacon.sol";
 
 /// @title LibProdTokensBaseTest
 /// @notice Fork tests verifying production token instances on Base.
