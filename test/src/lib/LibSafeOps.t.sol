@@ -59,7 +59,7 @@ contract LibSafeOpsTest is Test {
         selectBaseFork();
         uint256 nonceBefore = safe.nonce();
         uint256 thresholdBefore = safe.getThreshold();
-        assertEq(thresholdBefore, LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD_PRE_RAI296);
+        assertEq(thresholdBefore, LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD_PRE_MIGRATION);
 
         SafeTx memory txn = _buildThresholdTx();
         LibSafeOps.simulateSelfCall(safe, txn.data);
@@ -90,7 +90,7 @@ contract LibSafeOpsTest is Test {
         SafeTx[] memory txs = new SafeTx[](1);
         txs[0] = txn;
 
-        string memory json = LibSafeOps.emitTxBuilderJson(address(safe), block.chainid, "rai-296-threshold-test", txs);
+        string memory json = LibSafeOps.emitTxBuilderJson(address(safe), block.chainid, "safe-threshold-test", txs);
 
         // Write the emitted JSON through forge's writeFile cheatcode then
         // re-read via parseTxBuilderJson. The on-disk hop ensures we
@@ -119,7 +119,7 @@ contract LibSafeOpsTest is Test {
         SafeTx[] memory txs = new SafeTx[](1);
         txs[0] = _buildThresholdTx();
 
-        string memory json = LibSafeOps.emitTxBuilderJson(address(safe), block.chainid, "rai-296-shape-test", txs);
+        string memory json = LibSafeOps.emitTxBuilderJson(address(safe), block.chainid, "safe-shape-test", txs);
 
         string memory schemaVersion = vm.parseJsonString(json, ".version");
         string memory txBuilderVersion = vm.parseJsonString(json, ".meta.txBuilderVersion");
@@ -134,7 +134,7 @@ contract LibSafeOpsTest is Test {
 
         assertEq(schemaVersion, "1.0", "schema version pin");
         assertEq(txBuilderVersion, "1.16.5", "tx builder version pin");
-        assertEq(bundleName, "rai-296-shape-test", "name pass-through");
+        assertEq(bundleName, "safe-shape-test", "name pass-through");
         assertTrue(hasFirst, "transactions[0] should exist");
         assertFalse(hasSecond, "transactions[1] should not exist");
     }

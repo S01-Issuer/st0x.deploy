@@ -28,11 +28,11 @@ struct SafeTx {
 }
 
 /// @title LibSafeOps
-/// @notice Off-chain Safe transaction helpers shared between the RAI-296
-/// migration script and its tests. Wraps the canonical `getTransactionHash`
-/// view, foundry-level simulation of self-calls and external calls, and the
-/// Safe Tx Builder JSON serialise/parse round-trip used to hand the bundle
-/// to signers via the Safe UI.
+/// @notice Off-chain Safe transaction helpers shared between the multisig
+/// threshold migration script and its tests. Wraps the canonical
+/// `getTransactionHash` view, foundry-level simulation of self-calls and
+/// external calls, and the Safe Tx Builder JSON serialise/parse round-trip
+/// used to hand the bundle to signers via the Safe UI.
 /// @dev The library is `Vm`-aware: it pokes the foundry cheatcode address
 /// directly so callers can use it from non-Test contracts (notably the
 /// `MigrateMultisigThreshold` script). The JSON helpers hand-assemble the
@@ -48,13 +48,14 @@ library LibSafeOps {
 
     /// @notice Safe Tx Builder version stamped into the `meta` block of
     /// emitted JSON bundles. Currently pinned at `"1.16.5"` to match the
-    /// version produced by the public Safe Tx Builder app at the time of
-    /// RAI-296 tooling authorship.
+    /// version produced by the public Safe Tx Builder app at the time
+    /// this library was authored.
     string internal constant TX_BUILDER_VERSION = "1.16.5";
 
     /// @notice Tx Builder JSON schema version stamped into the top-level
     /// `version` field. Pinned at `"1.0"` (the only version the public Tx
-    /// Builder UI currently accepts as of RAI-296 authorship).
+    /// Builder UI currently accepts at the time this library was
+    /// authored).
     string internal constant TX_BUILDER_SCHEMA_VERSION = "1.0";
 
     /// @notice Wrapper around `getTransactionHash` on the live Safe.
@@ -236,7 +237,7 @@ library LibSafeOps {
         // a wildcard path mis-decodes a single match, so we discover the
         // array length by probing `.transactions[i]` via `keyExistsJson`
         // until the index is no longer present. The cap is a defensive
-        // upper bound — RAI-296's migration bundle is single-tx, and the
+        // upper bound — the threshold migration bundle is single-tx, and the
         // Tx Builder UI itself imposes a far smaller practical limit.
         uint256 cap = 256;
         SafeTx[] memory scratch = new SafeTx[](cap);
