@@ -20,7 +20,13 @@ evm_version = "cancun"
 bytecode_hash = "none"
 cbor_metadata = false
 
-fs_permissions = [{ access = "read-write", path = "src/generated" }]
+fs_permissions = [
+  { access = "read-write", path = "src/generated" },
+  # `out` is needed by the RAI-296 multisig migration script and its tests:
+  # the script writes the Safe Tx Builder JSON artifact under `out/`, and
+  # the LibSafeOps round-trip tests round-trip the JSON through disk.
+  { access = "read-write", path = "out" },
+]
 
 remappings = [
   # Third-party soldeer dep whose own source uses unversioned import
