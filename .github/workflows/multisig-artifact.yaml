@@ -1,0 +1,34 @@
+name: multisig-artifact
+on:
+  push:
+    branches:
+      - 'feat/rai-296-*'
+# Builds the RAI-296 Safe Tx Builder JSON artifact via a forge-script
+# dry-run on the active branch's HEAD and uploads `out/*.json` so PR
+# reviewers can download the bundle directly. The dry-run uses the same
+# unpinned Base head fork as the migration script's tests, so any drift
+# in the Safe's owner set, threshold, or vault ownership trips the
+# pre-flight here before a signer ever sees the bundle.
+jobs:
+  build-artifact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: DeterminateSystems/nix-installer-action@v17
+      - name: Build RAI-296 Tx Builder artifact (dry-run)
+        env:
+          BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
+        run: |
+          nix develop --command bash -c '
+            forge script script/MigrateMultisigThreshold.s.sol \
+              --rpc-url base \
+              --no-storage-caching
+          '
+      - name: Upload Tx Builder JSON
+        uses: actions/upload-artifact@v4
+        with:
+          name: rai-296-tx-builder-json
+          path: out/*.json
+          if-no-files-found: error
