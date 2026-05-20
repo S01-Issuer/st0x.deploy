@@ -25,6 +25,21 @@ error SafeProxyCodehashMismatch(address safe, bytes32 expected, bytes32 actual);
 /// @param actual The singleton address read from slot `0x0` of the proxy.
 error SafeSingletonMismatch(address safe, address expected, address actual);
 
+/// @notice The Safe singleton's runtime bytecode codehash does not match the
+/// pinned `LibProdSafes.SAFE_V1_4_1_L2_SINGLETON_CODEHASH`. Pinning the
+/// singleton address alone trusts the bytecode at that address; a swap (e.g.
+/// `SELFDESTRUCT` + recreate, or a delegatecall-time substitution on a
+/// forked test environment) could preserve the address while replacing the
+/// implementation entirely. Asserting the singleton codehash closes that
+/// gap before any implementation-backed read (`VERSION()`, `getOwners()`,
+/// `getThreshold()`, etc.) is trusted.
+/// @param safe The Safe proxy address that was inspected.
+/// @param singleton The singleton address read from slot `0x0` of the proxy.
+/// @param expected The pinned singleton codehash
+/// (`LibProdSafes.SAFE_V1_4_1_L2_SINGLETON_CODEHASH`).
+/// @param actual The codehash observed at `singleton`.
+error SafeSingletonBytecodeMismatch(address safe, address singleton, bytes32 expected, bytes32 actual);
+
 /// @notice The Safe singleton's `VERSION()` selector returned a string other
 /// than `"1.4.1"`. This is a defence-in-depth check against the codehash and
 /// singleton-slot pins: it cross-references the version the implementation
@@ -158,6 +173,22 @@ library LibSafeInvariants {
         address actualSingleton = readSafeStorageAddress(safe, 0);
         if (actualSingleton != LibProdSafes.SAFE_V1_4_1_L2_SINGLETON) {
             revert SafeSingletonMismatch(safeAddr, LibProdSafes.SAFE_V1_4_1_L2_SINGLETON, actualSingleton);
+        }
+
+        // Address pin alone trusts whatever code lives at the singleton
+        // address. Pin the singleton's bytecode too so a swap there
+        // (preserving the proxy codehash and superficial view returns)
+        // cannot route every implementation-backed call through attacker
+        // code. Asserted before `VERSION()` and any other read that
+        // delegate-routes through the singleton.
+        bytes32 actualSingletonCodehash;
+        assembly ("memory-safe") {
+            actualSingletonCodehash := extcodehash(actualSingleton)
+        }
+        if (actualSingletonCodehash != LibProdSafes.SAFE_V1_4_1_L2_SINGLETON_CODEHASH) {
+            revert SafeSingletonBytecodeMismatch(
+                safeAddr, actualSingleton, LibProdSafes.SAFE_V1_4_1_L2_SINGLETON_CODEHASH, actualSingletonCodehash
+            );
         }
 
         string memory actualVersion = safe.VERSION();

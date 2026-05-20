@@ -10,6 +10,7 @@ import {LibRainDeploy} from "rain-deploy-0.1.2/src/lib/LibRainDeploy.sol";
 import {
     SafeProxyCodehashMismatch,
     SafeSingletonMismatch,
+    SafeSingletonBytecodeMismatch,
     SafeVersionMismatch,
     SafeUnexpectedModules,
     SafeUnexpectedGuard,
@@ -123,6 +124,40 @@ contract LibSafeInvariantsTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(
                 SafeSingletonMismatch.selector, address(safe), LibProdSafes.SAFE_V1_4_1_L2_SINGLETON, impostor
+            )
+        );
+        harness.callAssertBaseSafeInvariants(safe);
+    }
+
+    /// @notice Drift in the singleton's bytecode trips
+    /// `SafeSingletonBytecodeMismatch`. Simulated by `vm.etch`-ing alien
+    /// bytecode at the singleton address — the codehash diverges from
+    /// the pinned `SAFE_V1_4_1_L2_SINGLETON_CODEHASH` even though slot
+    /// 0 still points at the canonical address.
+    /// @dev `vm.etch` on the singleton breaks every delegate-routed
+    /// read on the proxy, so the slot-0 fetch is mocked back to the
+    /// canonical singleton address. Only the explicit `getStorageAt(0,
+    /// 1)` calldata is mocked; later `getStorageAt` reads (guard slot,
+    /// fallback handler slot) are unaffected and never execute, because
+    /// the bytecode check reverts first.
+    function testInvertedSingletonBytecodeMismatch() external {
+        selectBaseFork();
+        bytes memory bogusCode = hex"60016000526001601ff3";
+        vm.etch(LibProdSafes.SAFE_V1_4_1_L2_SINGLETON, bogusCode);
+        vm.mockCall(
+            address(safe),
+            abi.encodeWithSelector(IGnosisSafe.getStorageAt.selector, uint256(0), uint256(1)),
+            abi.encode(abi.encodePacked(bytes32(uint256(uint160(LibProdSafes.SAFE_V1_4_1_L2_SINGLETON)))))
+        );
+        bytes32 expected = LibProdSafes.SAFE_V1_4_1_L2_SINGLETON_CODEHASH;
+        bytes32 actual = keccak256(bogusCode);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                SafeSingletonBytecodeMismatch.selector,
+                address(safe),
+                LibProdSafes.SAFE_V1_4_1_L2_SINGLETON,
+                expected,
+                actual
             )
         );
         harness.callAssertBaseSafeInvariants(safe);
