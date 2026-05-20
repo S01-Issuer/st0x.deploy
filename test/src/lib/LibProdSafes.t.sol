@@ -79,13 +79,14 @@ contract LibProdSafesTest is Test {
         }
     }
 
-    /// @notice The pre-RAI-296 threshold is `1`. (Still `1` post-roster-
-    /// reduction; RAI-296 will bump it to `3` against the 4-owner set.)
-    function testGetThresholdIsPreRai296() external {
+    /// @notice The pre-migration threshold is `1`. (Still `1` post-roster-
+    /// reduction; the multisig threshold migration will bump it to `3`
+    /// against the 4-owner set.)
+    function testGetThresholdIsPreMigration() external {
         selectBaseFork();
         IGnosisSafe safe = IGnosisSafe(LibProdSafes.STOX_TOKEN_OWNER_SAFE);
 
-        assertEq(safe.getThreshold(), LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD_PRE_RAI296);
+        assertEq(safe.getThreshold(), LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD_PRE_MIGRATION);
     }
 
     /// @notice The proxy runtime codehash matches the pinned Safe v1.4.1

@@ -4,11 +4,11 @@ pragma solidity ^0.8.25;
 
 /// @title IGnosisSafe
 /// @notice Minimal interface for interacting with a Safe (formerly Gnosis Safe)
-/// proxy. Pinned at the surface required by RAI-296 multisig threshold
-/// migration tooling: read-only owner/threshold/version/storage introspection,
-/// the canonical transaction hash builder, and the privileged
-/// `changeThreshold` mutator (self-call only — guarded by the Safe's own
-/// signature verification in production; reachable in tests via `vm.prank`).
+/// proxy. Pinned at the surface required by the multisig threshold migration
+/// tooling: read-only owner/threshold/version/storage introspection, the
+/// canonical transaction hash builder, and the privileged `changeThreshold`
+/// mutator (self-call only — guarded by the Safe's own signature verification
+/// in production; reachable in tests via `vm.prank`).
 /// @dev This interface intentionally omits the rest of the Safe ABI (sigs,
 /// owner management, module management, fallback handler config, etc.) — the
 /// migration tooling only needs the functions declared here. Extending this

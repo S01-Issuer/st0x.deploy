@@ -9,10 +9,10 @@ pragma solidity ^0.8.25;
 /// canonical Safe deployment manifest, then re-asserted from fork tests so
 /// that drift between this file and reality trips CI rather than slipping
 /// into a migration script.
-/// @dev Scope: RAI-296 migrates the ST0x token-owner Safe threshold from
+/// @dev Scope: the multisig threshold migration raises this Safe from
 /// 1-of-4 to 3-of-4. (Originally specced as 1-of-5 -> 3-of-5; the owner
 /// roster was reduced to four on 2026-05-18 via the `RemovedOwner` event
-/// at block 46156528, before RAI-296 was executed.)
+/// at block 46156528, before the threshold migration was executed.)
 /// @dev Sources:
 /// - Safe v1.4.1 L2 singleton & proxy: github.com/safe-global/safe-deployments
 ///   under `src/assets/v1.4.1/safe_l2.json` (chainId 8453 entry). Both the
@@ -64,16 +64,17 @@ library LibProdSafes {
     address constant SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER = 0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99;
 
     /// @notice The Safe that owns every ST0x receipt vault on Base. Subject
-    /// of the RAI-296 threshold migration (1 -> 3, against the current
-    /// 4-owner roster).
+    /// of the threshold migration (1 -> 3, against the current 4-owner
+    /// roster).
     /// https://basescan.org/address/0xe70d821f3462A074E63b42D0aac6523faAe1D611
     address constant STOX_TOKEN_OWNER_SAFE = 0xe70d821f3462a074e63b42d0AaC6523faAe1d611;
 
-    /// @notice The Safe's threshold prior to RAI-296. Used by migration
-    /// scripts as the expected starting state. The post-migration threshold
-    /// (3) is not encoded as a constant here because it is the target of a
-    /// single migration script and lives in that script for locality.
-    uint256 constant STOX_TOKEN_OWNER_SAFE_THRESHOLD_PRE_RAI296 = 1;
+    /// @notice The Safe's threshold prior to the multisig threshold
+    /// migration. Used by migration scripts as the expected starting state.
+    /// The post-migration threshold (3) is not encoded as a constant here
+    /// because it is the target of a single migration script and lives in
+    /// that script for locality.
+    uint256 constant STOX_TOKEN_OWNER_SAFE_THRESHOLD_PRE_MIGRATION = 1;
 
     /// @notice Owner #1 of `STOX_TOKEN_OWNER_SAFE`. Order matches
     /// `getOwners()` (Safe-internal linked-list order).
