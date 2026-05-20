@@ -17,6 +17,8 @@ jobs:
         with:
           submodules: recursive
       - uses: DeterminateSystems/nix-installer-action@v17
+      - name: Install Soldeer dependencies
+        run: nix develop --command forge soldeer install
       - name: Build RAI-296 Tx Builder artifact (dry-run)
         env:
           BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
