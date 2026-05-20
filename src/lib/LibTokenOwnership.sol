@@ -20,18 +20,19 @@ interface IOwnable {
 error ReceiptVaultOwnerMismatch(address vault, address expected, address actual);
 
 /// @title LibTokenOwnership
-/// @notice Pinned addresses for the ST0x receipt vaults on Base and helpers
-/// for asserting that every vault shares the same `owner()`. Used by the
-/// RAI-296 migration tooling to confirm that the Safe whose threshold is
-/// being changed actually controls every production vault before the
-/// migration runs, and that no vault has drifted out of the shared
-/// ownership set.
+/// @notice Pinned addresses for the ST0x production receipt vaults on Base
+/// and helpers for asserting that every vault shares the same `owner()`.
+/// Consumed by the multisig threshold migration tooling to confirm that the
+/// Safe whose threshold is being changed actually controls every production
+/// vault before the migration runs, and that no vault has drifted out of
+/// the shared ownership set.
 /// @dev Addresses are sourced from `st0x.registry/token-lists/base.json`
-/// (`extensions.unwrappedAddress` per token entry). The legacy NVDA
-/// receipt vault is included because it still has an `owner()` on chain
-/// and so still participates in the uniform-ownership invariant; the
-/// other "legacyAddress" entries in the registry are not receipt vaults
-/// (they're older wrapper variants without a uniform `owner()` surface).
+/// (`extensions.unwrappedAddress` per token entry). Only the 13 current
+/// production receipt vaults participate in the invariant — deprecated
+/// (legacy) receipt vaults are intentionally excluded because they are not
+/// part of ongoing operations and bundling them into an operational
+/// invariant would tie live drift detection to assets that are no longer
+/// actively managed.
 library LibTokenOwnership {
     /// @notice NVIDIA wtNVDA receipt vault — current.
     address internal constant ST0X_RECEIPT_VAULT_NVDA = 0x7271A3C91Bb6070eD09333B84a815949D4f16d14;
@@ -72,19 +73,11 @@ library LibTokenOwnership {
     /// @notice iShares 0-3 Month Treasury wtSGOV receipt vault — current.
     address internal constant ST0X_RECEIPT_VAULT_SGOV = 0xc941C1506B7555Ba8C506Fb6c9b9CC259902d612;
 
-    /// @notice Legacy NVIDIA receipt vault. Still on chain with the same
-    /// `owner()` surface as the current vaults, so still participates in
-    /// the uniform-ownership invariant — drift here would indicate the
-    /// legacy vault was sold/transferred without coordinating with the
-    /// current Safe-managed ownership model.
-    address internal constant ST0X_RECEIPT_VAULT_LEGACY_NVDA = 0x69FCA9f7fAd46a7eEF3aCeF5BEAc9Df5B7Eca73B;
-
     /// @notice The 13 production receipt vaults backing the current
     /// `wt<TICKER>` wrappers, in registry order (NVDA, AMZN, TSLA, MSTR,
-    /// IAU, COIN, SPYM, SIVR, CRCL, BMNR, PPLT, IBHG, SGOV). Useful when
-    /// callers want to assert against the live set without picking up the
-    /// legacy NVDA vault. Order is fixed so callers can index into it
-    /// against the registry without re-sorting.
+    /// IAU, COIN, SPYM, SIVR, CRCL, BMNR, PPLT, IBHG, SGOV). Order is
+    /// fixed so callers can index into it against the registry without
+    /// re-sorting.
     /// @return The current-production receipt vault addresses.
     function productionReceiptVaults() internal pure returns (address[] memory) {
         address[] memory vaults = new address[](13);
@@ -104,30 +97,15 @@ library LibTokenOwnership {
         return vaults;
     }
 
-    /// @notice All 14 receipt vaults the uniform-ownership invariant
-    /// applies to: the 13 production vaults plus the legacy NVDA vault.
-    /// This is the set callers should iterate when asserting "every ST0x
-    /// receipt vault owns the same Safe".
-    /// @return The production and legacy receipt vault addresses.
-    function allReceiptVaults() internal pure returns (address[] memory) {
-        address[] memory production = productionReceiptVaults();
-        address[] memory all = new address[](production.length + 1);
-        for (uint256 i = 0; i < production.length; i++) {
-            all[i] = production[i];
-        }
-        all[production.length] = ST0X_RECEIPT_VAULT_LEGACY_NVDA;
-        return all;
-    }
-
     /// @notice Assert that every receipt vault returned by
-    /// `allReceiptVaults()` has its `owner()` set to `expectedOwner`.
+    /// `productionReceiptVaults()` has its `owner()` set to `expectedOwner`.
     /// Reverts with `ReceiptVaultOwnerMismatch` on first mismatch,
-    /// surfacing the offending vault and both owners so the migration
-    /// script's pre-flight pinpoints the drift.
-    /// @param expectedOwner The owner every receipt vault is expected to
-    /// report.
+    /// surfacing the offending vault and both owners so the calling
+    /// pre-flight pinpoints the drift.
+    /// @param expectedOwner The owner every production receipt vault is
+    /// expected to report.
     function assertUniformOwnership(address expectedOwner) internal view {
-        address[] memory vaults = allReceiptVaults();
+        address[] memory vaults = productionReceiptVaults();
         for (uint256 i = 0; i < vaults.length; i++) {
             address actualOwner = IOwnable(vaults[i]).owner();
             if (actualOwner != expectedOwner) {
