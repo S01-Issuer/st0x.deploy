@@ -6,8 +6,8 @@ on:
       - 'script/MigrateMultisigThreshold.s.sol'
       - 'src/lib/LibSafeOps.sol'
       - 'src/lib/LibSafeInvariants.sol'
-      - 'src/lib/LibTokenOwnership.sol'
       - 'src/lib/LibProdSafes.sol'
+      - 'src/lib/LibProdTokensBase.sol'
       - 'src/interface/IGnosisSafe.sol'
       - '.github/workflows/multisig-artifact.yaml'
 # Builds the Safe Tx Builder JSON for the multisig threshold migration
@@ -25,8 +25,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
       - uses: DeterminateSystems/nix-installer-action@v17
       - name: Install Soldeer dependencies
         run: nix develop --command forge soldeer install
