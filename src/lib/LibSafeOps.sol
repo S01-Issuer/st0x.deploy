@@ -282,6 +282,178 @@ library LibSafeOps {
         return result;
     }
 
+    /// @notice Reversibility / "not stuck" check for a state-changing
+    /// operation. After a script has simulated its forward state change
+    /// (e.g. `changeThreshold(newThreshold)`), this helper proves on the
+    /// same fork that the safe accepts a valid `execTransaction` under the
+    /// new threshold and that the threshold gate correctly rejects
+    /// undersigned attempts. Specifically, builds an inverse follow-up
+    /// transaction (`changeThreshold(oldThreshold)`) and:
+    ///
+    /// 1. Pre-approves the followup hash from `newThreshold` owners via
+    ///    `vm.prank(owner) + safe.approveHash(hash)`. Sorted ascending by
+    ///    signer address to satisfy Safe v1.4.1's `checkSignatures`.
+    /// 2. Calls `execTransaction` with only `newThreshold - 1` packed
+    ///    approved-hash signatures; asserts the call reverts with
+    ///    `"GS020"` (Safe v1.4.1's "Signatures data too short").
+    /// 3. Calls `execTransaction` with all `newThreshold` packed
+    ///    approved-hash signatures; asserts success and that
+    ///    `getThreshold()` is now back at `oldThreshold`.
+    ///
+    /// The check uses pre-approved hashes (`approvedHashes` mapping +
+    /// `v=1` signature type) rather than ECDSA signatures, avoiding the
+    /// need for test private keys or owner-slot overwrites. The real
+    /// `checkSignatures` path is exercised end-to-end; only the source of
+    /// the approval is the cheatcode prank.
+    ///
+    /// Intended to be called from operational scripts as the final post-
+    /// state assertion, so every dry-run proves the new state is not a
+    /// dead-end. Generalises to other critical state changes (e.g.
+    /// authoriser swaps, role grants) by parameterising the inverse op
+    /// in a future variant.
+    ///
+    /// @param safe The Safe whose post-mutation state to exercise.
+    /// @param oldThreshold The threshold the safe should return to after
+    /// the reversal executes. Must match the safe's threshold before the
+    /// forward change.
+    /// @param newThreshold The threshold the safe is currently in. Both
+    /// the number of approvals collected and the number passed in the
+    /// successful `execTransaction` call.
+    function simulateNPlus1Reversal(IGnosisSafe safe, uint256 oldThreshold, uint256 newThreshold) internal {
+        // Construct the inverse calldata: `changeThreshold(oldThreshold)`.
+        // The follow-up is by definition a self-call; the inverse threshold
+        // change is the simplest, most reversible "n+1" transaction we can
+        // model and it carries no side effects other than the threshold
+        // mutation itself.
+        bytes memory revertData = abi.encodeCall(IGnosisSafe.changeThreshold, (oldThreshold));
+        SafeTx memory followup = SafeTx({to: address(safe), value: 0, data: revertData, operation: 0});
+        uint256 followupNonce = safe.nonce();
+        bytes32 followupHash = computeSafeTxHashViaSafe(safe, followup, followupNonce);
+
+        // Collect approvals from `newThreshold` owners. We always take the
+        // first `newThreshold` entries from `getOwners()` — the linked-list
+        // order is deterministic per-Safe so the choice is stable, and
+        // sorting the resulting array by address normalises against the
+        // arbitrary Safe-internal ordering before passing to
+        // `checkSignatures`.
+        address[] memory owners = safe.getOwners();
+        require(owners.length >= newThreshold, "LibSafeOps: not enough owners for n+1");
+        address[] memory approvers = new address[](newThreshold);
+        for (uint256 i = 0; i < newThreshold; i++) {
+            approvers[i] = owners[i];
+            VM.prank(owners[i]);
+            safe.approveHash(followupHash);
+        }
+
+        // Sort ascending by signer address — Safe v1.4.1's `checkSignatures`
+        // requires the packed signature blob to be ordered by signer to
+        // prevent the same signer counting twice.
+        address[] memory sortedSigners = sortAddressesAscending(approvers);
+
+        // Negative case: undersigned call must revert with `GS020`
+        // ("Signatures data too short"). This is what proves the threshold
+        // gate is doing its job — a follow-up tx is not magically waveable
+        // through just because the approvals exist; the packed blob has to
+        // contain at least `threshold` entries.
+        bytes memory tooFewSigs = packApprovedHashSignatures(sortedSigners, newThreshold - 1);
+        VM.expectRevert(bytes("GS020"));
+        // The return value is meaningless under `expectRevert` — the call
+        // must revert with the literal `GS020` reason, and the cheatcode
+        // bubbles a test failure if it does not. Discarding the return is
+        // therefore the correct behaviour.
+        //slither-disable-next-line unused-return
+        safe.execTransaction(
+            followup.to,
+            followup.value,
+            followup.data,
+            followup.operation,
+            0,
+            0,
+            0,
+            address(0),
+            payable(address(0)),
+            tooFewSigs
+        );
+
+        // Positive case: full `newThreshold`-many signatures must succeed
+        // and roll the threshold back to `oldThreshold`. The success
+        // assertion plus the threshold check together prove that the new
+        // state is genuinely exitable: the signature path verifies, the
+        // inner call executes, and the safe is back in a state another
+        // forward migration could run against.
+        bytes memory enoughSigs = packApprovedHashSignatures(sortedSigners, newThreshold);
+        bool ok = safe.execTransaction(
+            followup.to,
+            followup.value,
+            followup.data,
+            followup.operation,
+            0,
+            0,
+            0,
+            address(0),
+            payable(address(0)),
+            enoughSigs
+        );
+        require(ok, "LibSafeOps: n+1 execTransaction reverted unexpectedly");
+        require(safe.getThreshold() == oldThreshold, "LibSafeOps: n+1 did not restore the prior threshold");
+    }
+
+    /// @notice Insertion-sort an in-memory address array ascending. Used to
+    /// satisfy Safe v1.4.1's requirement that packed signatures are ordered
+    /// by signer address before being passed to `checkSignatures`.
+    /// @dev Insertion sort is O(n^2) but the input is bounded by the Safe
+    /// owner count (single-digit in practice), so the constant factor wins
+    /// over any more elaborate algorithm. The function returns a fresh array
+    /// rather than sorting in place so callers can keep the original-order
+    /// approver list around if they need it.
+    /// @param addrs The unsorted address array.
+    /// @return The same addresses in ascending order, in a freshly-allocated
+    /// array of the same length.
+    function sortAddressesAscending(address[] memory addrs) internal pure returns (address[] memory) {
+        address[] memory sorted = new address[](addrs.length);
+        for (uint256 i = 0; i < addrs.length; i++) {
+            sorted[i] = addrs[i];
+        }
+        for (uint256 i = 1; i < sorted.length; i++) {
+            address current = sorted[i];
+            uint256 j = i;
+            while (j > 0 && sorted[j - 1] > current) {
+                sorted[j] = sorted[j - 1];
+                j--;
+            }
+            sorted[j] = current;
+        }
+        return sorted;
+    }
+
+    /// @notice Pack the first `count` entries of `sortedSigners` into a
+    /// Safe v1.4.1 approved-hash signature bytes blob. Each entry is 65
+    /// bytes laid out as `r || s || v` where `r = bytes32(signerAddress)`
+    /// (left-zero-padded), `s = bytes32(0)`, `v = 0x01`.
+    /// @dev `v = 1` is the Safe v1.4.1 marker for "this hash was previously
+    /// approved by `r` via `approveHash`": `checkSignatures` reads `r` as an
+    /// address and consults the Safe's `approvedHashes[r][hash]` mapping
+    /// instead of doing ECDSA recovery. `sortedSigners` MUST already be in
+    /// ascending order — Safe's own ordering check rejects duplicates by
+    /// requiring strict ascent.
+    /// @param sortedSigners The signer addresses, sorted ascending.
+    /// @param count The number of leading entries to pack. Allows callers
+    /// to pack a deliberately-undersigned blob (for the negative branch of
+    /// `simulateNPlus1Reversal`) without rebuilding the input array.
+    /// @return packed The packed signature bytes, `count * 65` bytes long.
+    function packApprovedHashSignatures(address[] memory sortedSigners, uint256 count)
+        internal
+        pure
+        returns (bytes memory packed)
+    {
+        require(count <= sortedSigners.length, "LibSafeOps: pack count exceeds signers");
+        packed = new bytes(0);
+        for (uint256 i = 0; i < count; i++) {
+            packed =
+                bytes.concat(packed, bytes32(uint256(uint160(sortedSigners[i]))), bytes32(uint256(0)), bytes1(0x01));
+        }
+    }
+
     /// @notice Helper: emit a JSON `"key": value` field. The value must
     /// already be a serialised JSON literal (quoted string, number, or
     /// object); use `_quote` to wrap raw strings.

@@ -101,4 +101,48 @@ interface IGnosisSafe {
     /// renaming would break ABI compatibility with the live deployment.
     //slither-disable-next-line naming-convention
     function VERSION() external view returns (string memory);
+
+    /// @notice Marks the supplied Safe transaction hash as pre-approved by
+    /// `msg.sender`. Subsequent `execTransaction` calls can satisfy
+    /// `checkSignatures` for this hash by supplying a `v=1` signature entry
+    /// whose `r` field is `bytes32(uint256(uint160(msg.sender)))` instead of
+    /// an ECDSA tuple.
+    /// @dev Only callable by an owner of the Safe. Used by the reversibility
+    /// helper in `LibSafeOps` to satisfy signature verification under a
+    /// `vm.prank` without requiring test private keys for owner addresses.
+    /// @param hashToApprove The Safe transaction hash to pre-approve.
+    function approveHash(bytes32 hashToApprove) external;
+
+    /// @notice Executes a Safe transaction. Signature verification routes
+    /// through `checkSignatures`, which accepts both ECDSA signatures and
+    /// the `v=1` pre-approved-hash variant produced by `approveHash`.
+    /// @dev The Safe v1.4.1 source asserts the packed `signatures` blob is
+    /// sorted ascending by signer address and contains at least `threshold`
+    /// entries (`GS020`: "Signatures data too short" when too few).
+    /// @param to Destination of the inner transaction.
+    /// @param value Native value forwarded to `to`.
+    /// @param data Calldata forwarded to `to`.
+    /// @param operation `0` for `CALL`, `1` for `DELEGATECALL`.
+    /// @param safeTxGas Gas forwarded to the inner call.
+    /// @param baseGas Fixed gas costs added on top of `safeTxGas` for refund.
+    /// @param gasPrice Refund gas price (zero for non-refunded executions).
+    /// @param gasToken Token used for the refund (zero address for native).
+    /// @param refundReceiver Refund receiver (zero address for `tx.origin`).
+    /// @param signatures Packed owner signatures, ordered ascending by
+    /// signer address. Each entry is 65 bytes (`r || s || v`); the `v=1`
+    /// variant treats `r` as a pre-approver address.
+    /// @return success Whether the inner call succeeded after signature
+    /// verification.
+    function execTransaction(
+        address to,
+        uint256 value,
+        bytes calldata data,
+        uint8 operation,
+        uint256 safeTxGas,
+        uint256 baseGas,
+        uint256 gasPrice,
+        address gasToken,
+        address payable refundReceiver,
+        bytes calldata signatures
+    ) external payable returns (bool success);
 }
