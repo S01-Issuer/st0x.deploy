@@ -44,7 +44,10 @@ contract MigrateMultisigThresholdTest is Test {
 
     /// @notice `run()` dry-run completes against the live pre-state,
     /// writes the artifact, and the artifact has the expected single-tx
-    /// shape.
+    /// shape. The final fork state must show the threshold back at the
+    /// pinned pre-migration value — this is the n+1 reversibility check's
+    /// observable side effect: the script ends with the safe rolled back,
+    /// proving the new state is exitable.
     function testRunCompletesAndWritesArtifact() external {
         selectBaseFork();
         script.run();
@@ -61,6 +64,18 @@ contract MigrateMultisigThresholdTest is Test {
         bool hasSecondTx = vm.keyExistsJson(json, ".transactions[1].to");
         assertTrue(hasFirstTx, "first transaction present");
         assertFalse(hasSecondTx, "exactly one transaction emitted");
+
+        // After `run()` the n+1 reversibility check has rolled the
+        // threshold back to its pre-migration value. Asserting the final
+        // fork state matches the pinned pre-migration threshold is the
+        // observable evidence that the reversal path executed
+        // successfully — without it we'd be relying solely on the absence
+        // of an internal revert.
+        assertEq(
+            safe.getThreshold(),
+            LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD,
+            "n+1 reversibility check rolled threshold back to pre-migration value"
+        );
     }
 
     /// @notice `verify()` accepts the artifact emitted by `run()`. This

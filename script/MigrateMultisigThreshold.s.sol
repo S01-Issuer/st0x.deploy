@@ -120,6 +120,21 @@ contract MigrateMultisigThreshold is Script {
         console2.log("==== TX BUILDER JSON END ====");
         console2.log("SafeTxHash:", vm.toString(safeTxHash));
         console2.log("Nonce:", nonce);
+
+        // n+1 reversibility check: prove the new state is not a dead end.
+        // Builds the inverse `changeThreshold(STOX_TOKEN_OWNER_SAFE_THRESHOLD)`
+        // as a follow-up tx; asserts undersigned attempts revert with
+        // `GS020` and that `TARGET_THRESHOLD`-many sigs successfully roll
+        // the threshold back. Per DevOps convention every critical state
+        // change ships with the proof that it isn't terminal — DM's "ppl
+        // put things in a state that cant be moved out of" framing.
+        //
+        // Sequenced AFTER the JSON emission so the artifact reflects the
+        // forward migration (`changeThreshold(3)`) rather than the
+        // reversal. The reversal exists only as a fork-local simulation;
+        // signers never see it.
+        LibSafeOps.simulateNPlus1Reversal(safe, LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD, TARGET_THRESHOLD);
+        console2.log("n+1 reversibility check passed: threshold reverted to", safe.getThreshold());
     }
 
     /// @notice Re-runs the threshold migration pre-flight and asserts that
