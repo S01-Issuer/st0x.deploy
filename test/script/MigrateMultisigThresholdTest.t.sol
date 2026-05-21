@@ -18,7 +18,7 @@ import {
     ReceiptVaultOwnerMismatch
 } from "../../src/lib/LibSafeInvariants.sol";
 import {LibProdTokensBase} from "../../src/lib/LibProdTokensBase.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.2/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
 
 /// @title MigrateMultisigThresholdTest
 /// @notice End-to-end fork tests for the multisig threshold migration
