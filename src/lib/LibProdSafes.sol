@@ -58,7 +58,7 @@ library LibProdSafes {
     /// @notice CompatibilityFallbackHandler v1.4.1 address on Base. Verified
     /// against the live Safe's fallback handler storage slot. Pinned so a
     /// swapped-in malicious handler that shadows view selectors via
-    /// fallback can be detected by `assertBaseSafeInvariants`.
+    /// fallback can be detected by `LibSafeInvariants.assertImmutableInvariants`.
     /// @dev Source: github.com/safe-global/safe-deployments
     /// `src/assets/v1.4.1/compatibility_fallback_handler.json` (chainId
     /// 8453 entry). Cross-checked on Base on 2026-05-20.
