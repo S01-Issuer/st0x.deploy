@@ -30,4 +30,8 @@ contract LibSafeInvariantsHarness {
     function callAssertAllDefaults(IGnosisSafe safe) external view {
         LibSafeInvariants.assertAll(safe);
     }
+
+    function callAssertBeaconInvariants(address beacon, address expectedOwner, address expectedImpl) external view {
+        LibSafeInvariants.assertBeaconInvariants(beacon, expectedOwner, expectedImpl);
+    }
 }

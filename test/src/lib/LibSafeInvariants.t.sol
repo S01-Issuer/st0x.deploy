@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {IOwnable} from "../../../src/lib/LibTokenInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibSafeInvariantsHarness} from "./LibSafeInvariantsHarness.sol";
 import {IGnosisSafe} from "../../../src/interface/IGnosisSafe.sol";
@@ -17,8 +18,13 @@ import {
     SafeFallbackHandlerMismatch,
     SafeOwnerCountMismatch,
     SafeOwnerMismatch,
-    SafeThresholdMismatch
+    SafeThresholdMismatch,
+    BeaconCodehashMismatch,
+    BeaconOwnerMismatch,
+    BeaconImplementationMismatch
 } from "../../../src/lib/LibSafeInvariants.sol";
+import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 
 /// @title LibSafeInvariantsTest
 /// @notice Inverted fork tests that exercise each invariant in
@@ -274,5 +280,70 @@ contract LibSafeInvariantsTest is Test {
         selectBaseFork();
         vm.expectRevert(abi.encodeWithSelector(SafeThresholdMismatch.selector, address(safe), uint256(4), uint256(1)));
         harness.callAssertAll(safe, 4, LibSafeInvariants.expectedOwners());
+    }
+
+    /// @notice `assertBeaconInvariants` trips `BeaconCodehashMismatch` when
+    /// the beacon's runtime codehash drifts from the pinned OZ
+    /// `UpgradeableBeacon` bytecode. Simulated by `vm.etch`-ing a single
+    /// `INVALID` opcode at the beacon address; `extcodehash` then returns the
+    /// hash of `0xFE`, which differs from the pinned codehash. Uses the live
+    /// receipt vault beacon as the victim.
+    function testInvertedBeaconCodehashMismatch() external {
+        selectBaseFork();
+        address beacon = LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1;
+        bytes memory mutatedCode = hex"FE";
+        vm.etch(beacon, mutatedCode);
+        bytes32 mutatedCodehash;
+        assembly ("memory-safe") {
+            mutatedCodehash := extcodehash(beacon)
+        }
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BeaconCodehashMismatch.selector, beacon, LibSafeInvariants.UPGRADEABLE_BEACON_CODEHASH, mutatedCodehash
+            )
+        );
+        harness.callAssertBeaconInvariants(
+            beacon, LibProdDeployV1.BEACON_INITIAL_OWNER, LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION
+        );
+    }
+
+    /// @notice `assertBeaconInvariants` trips `BeaconOwnerMismatch` when the
+    /// beacon's `owner()` differs from the expected owner. Simulated by
+    /// mocking `owner()` on the live receipt vault beacon to a rogue address.
+    function testInvertedBeaconOwnerMismatch() external {
+        selectBaseFork();
+        address beacon = LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1;
+        address rogueOwner = address(0xBADC0DE);
+        vm.mockCall(beacon, abi.encodeWithSelector(IOwnable.owner.selector), abi.encode(rogueOwner));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BeaconOwnerMismatch.selector, beacon, LibProdDeployV1.BEACON_INITIAL_OWNER, rogueOwner
+            )
+        );
+        harness.callAssertBeaconInvariants(
+            beacon, LibProdDeployV1.BEACON_INITIAL_OWNER, LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION
+        );
+    }
+
+    /// @notice `assertBeaconInvariants` trips `BeaconImplementationMismatch`
+    /// when the beacon's `implementation()` differs from the expected
+    /// implementation. Simulated by mocking `implementation()` on the live
+    /// receipt vault beacon to a rogue address.
+    function testInvertedBeaconImplementationMismatch() external {
+        selectBaseFork();
+        address beacon = LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1;
+        address rogueImpl = address(0xBADBEEF);
+        vm.mockCall(beacon, abi.encodeWithSelector(IBeacon.implementation.selector), abi.encode(rogueImpl));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BeaconImplementationMismatch.selector,
+                beacon,
+                LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION,
+                rogueImpl
+            )
+        );
+        harness.callAssertBeaconInvariants(
+            beacon, LibProdDeployV1.BEACON_INITIAL_OWNER, LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION
+        );
     }
 }
