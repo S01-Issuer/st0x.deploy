@@ -15,7 +15,7 @@ import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
 import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV3} from "../../src/lib/LibProdDeployV3.sol";
 import {LibProdSafes} from "../../src/lib/LibProdSafes.sol";
-import {LibSafeInvariants, BeaconImplementationMismatch} from "../../src/lib/LibSafeInvariants.sol";
+import {LibBeaconInvariants, BeaconImplementationMismatch} from "../../src/lib/LibBeaconInvariants.sol";
 import {IUpgradeableBeacon} from "../../src/lib/LibSafeOps.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
 
@@ -127,7 +127,7 @@ contract UpgradeReceiptVaultToV3Test is Test {
         vm.revertToState(snapshot);
 
         // Pre-upgrade state restored: beacon Safe-owned, still at V1 impl.
-        LibSafeInvariants.assertBeaconInvariants(BEACON, LibProdSafes.STOX_TOKEN_OWNER_SAFE, V1_IMPL);
+        LibBeaconInvariants.assertBeaconInvariants(BEACON, LibProdSafes.STOX_TOKEN_OWNER_SAFE, V1_IMPL);
     }
 
     /// @notice Inverted: the pre-flight rejects an undeployed V3
