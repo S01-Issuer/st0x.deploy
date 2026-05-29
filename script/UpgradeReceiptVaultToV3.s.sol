@@ -10,6 +10,7 @@ import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV3} from "../src/lib/LibProdDeployV3.sol";
 import {LibProdSafes} from "../src/lib/LibProdSafes.sol";
+import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibSafeOps, SafeTx, IUpgradeableBeacon} from "../src/lib/LibSafeOps.sol";
 
@@ -90,7 +91,7 @@ contract UpgradeReceiptVaultToV3 is Script {
         // the V1 implementation, and the V3 implementation is deployed with
         // the audited codehash.
         LibSafeInvariants.assertAll(safe);
-        LibSafeInvariants.assertBeaconInvariants(BEACON, LibProdSafes.STOX_TOKEN_OWNER_SAFE, V1_IMPL);
+        LibBeaconInvariants.assertBeaconInvariants(BEACON, LibProdSafes.STOX_TOKEN_OWNER_SAFE, V1_IMPL);
         if (V3_IMPL.code.length == 0) {
             revert V3ImplementationNotDeployed(V3_IMPL);
         }
@@ -114,7 +115,7 @@ contract UpgradeReceiptVaultToV3 is Script {
         // beacon now points at the V3 implementation and is still Safe-owned;
         // the Safe itself is unchanged by the upgrade.
         LibSafeOps.simulateExternalCall(safe, BEACON, data);
-        LibSafeInvariants.assertBeaconInvariants(BEACON, LibProdSafes.STOX_TOKEN_OWNER_SAFE, V3_IMPL);
+        LibBeaconInvariants.assertBeaconInvariants(BEACON, LibProdSafes.STOX_TOKEN_OWNER_SAFE, V3_IMPL);
         LibSafeInvariants.assertAll(safe);
 
         // Emit the Tx Builder JSON artifact and write it under `out/`.
