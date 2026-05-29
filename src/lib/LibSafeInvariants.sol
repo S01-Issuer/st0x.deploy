@@ -17,6 +17,16 @@ interface IOwnable {
     function owner() external view returns (address);
 }
 
+/// @notice Minimal authoriser-getter surface exposed by ST0x receipt
+/// vaults. Declared inline (returning `address`) rather than importing
+/// the upstream `IAuthorizableV1` so this library owns its only external
+/// surface and doesn't carry the upstream's richer return type.
+interface IAuthorisable {
+    /// @notice The authoriser contract gating restricted vault operations.
+    /// @return The authoriser address.
+    function authorizer() external view returns (address);
+}
+
 /// @notice The runtime codehash at the Safe's address does not match the
 /// pinned Safe v1.4.1 L2 proxy codehash. Signals either that the address has
 /// been swapped under us or that the Safe singleton has been redeployed with
@@ -95,6 +105,14 @@ error SafeFallbackHandlerMismatch(address safe, address expected, address actual
 /// `owner()`.
 /// @param actual The owner address returned by `vault.owner()`.
 error ReceiptVaultOwnerMismatch(address vault, address expected, address actual);
+
+/// @notice A production receipt vault's `authorizer()` does not match the
+/// authoriser every vault is expected to share. Surfaces the exact vault
+/// that breaks the uniform-authoriser invariant.
+/// @param vault The receipt vault whose authoriser was read.
+/// @param expected The authoriser address every vault is expected to share.
+/// @param actual The authoriser address returned by `vault.authorizer()`.
+error ReceiptVaultAuthoriserMismatch(address vault, address expected, address actual);
 
 /// @notice The Safe's `getOwners()` array length does not match the
 /// caller-supplied `expected` array length.
@@ -380,5 +398,26 @@ library LibSafeInvariants {
     /// @param safe The Safe to validate against the pinned current truth.
     function assertAll(IGnosisSafe safe) internal view {
         assertAll(safe, LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD, LibProdSafes.expectedOwners());
+    }
+
+    /// @notice Every production receipt vault reports the same authoriser.
+    /// Iterates `LibProdTokensBase.productionReceiptVaults` and reverts with
+    /// `ReceiptVaultAuthoriserMismatch` on the first vault whose
+    /// `authorizer()` diverges from `expected`, surfacing the offending vault.
+    /// @dev A divergent authoriser means a token is gated by a different RBAC
+    /// contract than the rest of the system — the class of inconsistency a
+    /// uniform authoriser is meant to prevent. This is deliberately NOT part
+    /// of the `assertAll` bundle: it is a standalone prod-state invariant, not
+    /// a Safe pre-flight check, and it must not gate the operational scripts.
+    /// @param expected The authoriser address every production receipt vault
+    /// is expected to share.
+    function assertUniformAuthoriser(address expected) internal view {
+        address[] memory vaults = LibProdTokensBase.productionReceiptVaults();
+        for (uint256 i = 0; i < vaults.length; i++) {
+            address actual = IAuthorisable(vaults[i]).authorizer();
+            if (actual != expected) {
+                revert ReceiptVaultAuthoriserMismatch(vaults[i], expected, actual);
+            }
+        }
     }
 }
