@@ -3,8 +3,6 @@
 pragma solidity ^0.8.25;
 
 import {IGnosisSafe} from "../interface/IGnosisSafe.sol";
-import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
-import {IOwnable} from "./LibTokenInvariants.sol";
 
 /// @notice The runtime codehash at the Safe's address does not match the
 /// pinned Safe v1.4.1 L2 proxy codehash. Signals either that the address has
@@ -99,52 +97,6 @@ error SafeOwnerMismatch(address safe, uint256 index, address expectedOwner, addr
 /// @param actual The threshold returned by `getThreshold()`.
 error SafeThresholdMismatch(address safe, uint256 expected, uint256 actual);
 
-/// @notice The address supplied as a beacon has no runtime code. Either the
-/// beacon was never deployed at this address or it has been
-/// `SELFDESTRUCT`-ed. Caught first so later reads against the address are
-/// only attempted once it is known to be a contract.
-/// @param beacon The address that was expected to be a deployed beacon.
-error BeaconNotDeployed(address beacon);
-
-/// @notice The beacon's runtime codehash does not match the pinned OZ
-/// `UpgradeableBeacon` bytecode (`UPGRADEABLE_BEACON_CODEHASH`).
-/// Signals either an address swap or a look-alike contract shadowing the
-/// `implementation()` / `owner()` selectors. The codehash pin is what lets
-/// the access-control behaviour be trusted as OZ's audited bytecode rather
-/// than re-tested here.
-/// @param beacon The beacon address whose codehash was checked.
-/// @param expected The pinned `UpgradeableBeacon` codehash.
-/// @param actual The codehash returned by `extcodehash(beacon)`.
-error BeaconCodehashMismatch(address beacon, bytes32 expected, bytes32 actual);
-
-/// @notice The beacon's `owner()` does not match the expected owner. Used
-/// both to assert the pre-migration EOA owner and the post-migration Safe
-/// owner; the caller supplies which one it expects because the owner is the
-/// property the migration deliberately changes.
-/// @param beacon The beacon address whose owner was read.
-/// @param expected The owner address the caller expected.
-/// @param actual The owner address returned by `Ownable(beacon).owner()`.
-error BeaconOwnerMismatch(address beacon, address expected, address actual);
-
-/// @notice The beacon's `implementation()` does not match the expected
-/// implementation. The ownership migration must not change any beacon's
-/// implementation, so this is asserted equal pre- and post-migration; the
-/// upgrade script asserts it against the new implementation after the
-/// upgrade.
-/// @param beacon The beacon address whose implementation pointer was read.
-/// @param expected The implementation address the caller expected.
-/// @param actual The implementation address returned by
-/// `IBeacon(beacon).implementation()`.
-error BeaconImplementationMismatch(address beacon, address expected, address actual);
-
-/// @notice The beacon's implementation pointer resolves to an address with
-/// no runtime code. A beacon pointing at a code-less implementation would
-/// brick every proxy that delegates through it, so this is surfaced as an
-/// invariant break rather than discovered at the first proxy call.
-/// @param beacon The beacon address whose implementation was inspected.
-/// @param implementation The implementation address that has no code.
-error BeaconImplNotDeployed(address beacon, address implementation);
-
 /// @title LibSafeInvariants
 /// @notice Reusable invariant assertions for a Safe v1.4.1 L2 multisig
 /// pinned to the ST0x token-owner deployment. Each public assertion either
@@ -187,95 +139,27 @@ error BeaconImplNotDeployed(address beacon, address implementation);
 /// they cannot collide with the owner/module/threshold linked-list slots.
 library LibSafeInvariants {
     // =========================================================================
-    // Safe v1.4.1 deployment manifest constants. Universal to every v1.4.1 L2
-    // Safe; sourced from `safe-deployments` for chainId 8453 and cross-checked
-    // against the live ST0x production Safe.
+    // Safe v1.4.1 deployment manifest constants.
     // =========================================================================
-
-    /// @notice Safe v1.4.1 L2 singleton (master copy) address on Base.
-    /// Verified by reading proxy storage slot `0x0` of
-    /// `STOX_TOKEN_OWNER_SAFE` and matching against the
-    /// `safe-deployments` manifest.
     address internal constant SAFE_V1_4_1_L2_SINGLETON = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
-
-    /// @notice Runtime codehash of a Safe v1.4.1 proxy on Base. Equal to
-    /// `extcodehash(STOX_TOKEN_OWNER_SAFE)` and to every other v1.4.1 L2
-    /// proxy pointing at `SAFE_V1_4_1_L2_SINGLETON`. Pinning this codehash
-    /// guards against the Safe address being replaced by an EOA-controlled
-    /// contract or a fake proxy pointing at a malicious singleton.
     bytes32 internal constant SAFE_V1_4_1_L2_PROXY_CODEHASH =
         0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000;
-
-    /// @notice Expected `VERSION()` string from a Safe v1.4.1 singleton.
     string internal constant SAFE_V1_4_1_VERSION = "1.4.1";
-
-    /// @notice Runtime codehash of the Safe v1.4.1 L2 singleton bytecode at
-    /// `SAFE_V1_4_1_L2_SINGLETON`. Pinning this guards against an attacker
-    /// who replaces the bytecode at the singleton address (e.g. via
-    /// `SELFDESTRUCT` + re-create) while preserving the proxy codehash.
-    /// Without this pin, every implementation-backed accessor on the Safe
-    /// (`VERSION()`, `getOwners()`, `getThreshold()`, etc.) is mediated by
-    /// untrusted code at the singleton address. Asserting this codehash
-    /// before any of those reads closes that gap.
-    /// @dev Computed via `keccak256(eth_getCode(SAFE_V1_4_1_L2_SINGLETON))`
-    /// on Base on 2026-05-20.
     bytes32 internal constant SAFE_V1_4_1_L2_SINGLETON_CODEHASH =
         0xb1f926978a0f44a2c0ec8fe822418ae969bd8c3f18d61e5103100339894f81ff;
-
-    /// @notice CompatibilityFallbackHandler v1.4.1 address on Base. Verified
-    /// against the live Safe's fallback handler storage slot. Pinned so a
-    /// swapped-in malicious handler that shadows view selectors via
-    /// fallback can be detected by `assertImmutableInvariants`.
-    /// @dev Source: github.com/safe-global/safe-deployments
-    /// `src/assets/v1.4.1/compatibility_fallback_handler.json` (chainId
-    /// 8453 entry). Cross-checked on Base on 2026-05-20.
     address internal constant SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER = 0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99;
 
     // =========================================================================
-    // ST0x token-owner Safe pins. Current-state invariants for the specific
-    // Safe at `STOX_TOKEN_OWNER_SAFE`; updated when the live state changes
-    // (e.g. the threshold migration bumps `STOX_TOKEN_OWNER_SAFE_THRESHOLD`
-    // from `1` to `3` in the same PR that records the post-execution state).
+    // ST0x token-owner Safe current-state pins.
     // =========================================================================
-
-    /// @notice The Safe that owns every ST0x receipt vault on Base. Subject
-    /// of the threshold migration (1 -> 3, against the post-rotation
-    /// 6-owner roster).
-    /// https://basescan.org/address/0xe70d821f3462A074E63b42D0aac6523faAe1D611
     address internal constant STOX_TOKEN_OWNER_SAFE = 0xe70d821f3462a074e63b42d0AaC6523faAe1d611;
-
-    /// @notice The current expected threshold for `STOX_TOKEN_OWNER_SAFE`.
-    /// Updated by the threshold-migration PR family once live execution
-    /// lands: scripts and the post-migration pin both treat this constant
-    /// as the canonical current truth, so the value bumps from `1` to `3`
-    /// in the same PR that records the live post-execution state.
     uint256 internal constant STOX_TOKEN_OWNER_SAFE_THRESHOLD = 1;
-
-    /// @notice Owner #1 of `STOX_TOKEN_OWNER_SAFE`. Order matches
-    /// `getOwners()` (Safe-internal linked-list order) against the
-    /// post-rotation roster: `getOwners()` returns owners newest-first,
-    /// so the last signer to be added via `addOwnerWithThreshold` appears
-    /// at slot 0.
     address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_1 = 0x4746095B1Ea1A84446d34448f44e74D3d51f92F2;
-
-    /// @notice Owner #2 of `STOX_TOKEN_OWNER_SAFE`.
     address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_2 = 0xceC2cb8B8EE4000FFA3F8a7f8E0Fa0A3E3DAb72d;
-
-    /// @notice Owner #3 of `STOX_TOKEN_OWNER_SAFE`.
     address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_3 = 0x8D5901d8aE48101B59400235ad8614A2e0510466;
-
-    /// @notice Owner #4 of `STOX_TOKEN_OWNER_SAFE`.
     address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_4 = 0xC1C89b7f5448F447d59f920456A9610f6b2544bC;
-
-    /// @notice Owner #5 of `STOX_TOKEN_OWNER_SAFE`.
     address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_5 = 0xAB92b327c97A6E7461cBd76E2a789E5e106FF87e;
-
-    /// @notice Owner #6 of `STOX_TOKEN_OWNER_SAFE`.
     address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_6 = 0x5CCd3cE683b66ff271DDB8915fF528b8fcFa23c2;
-
-    // =========================================================================
-    // Storage layout constants for paginated / direct slot reads.
-    // =========================================================================
 
     /// @notice Storage slot at which Safe v1.4.1 stores the transaction
     /// guard address. Equal to
@@ -477,16 +361,9 @@ library LibSafeInvariants {
         assertAll(safe, STOX_TOKEN_OWNER_SAFE_THRESHOLD, expectedOwners());
     }
 
-    /// @notice Returns the expected owner set for `STOX_TOKEN_OWNER_SAFE` in
-    /// the exact order returned by `getOwners()` against an unpinned Base
-    /// head fork (the live-state pin lives in
-    /// `StoxProdV2.t.sol::testProdDeployBaseV2`, which selects head rather
-    /// than pinning to a historical block so the next CI run catches any
-    /// further drift). Provided as a helper because Solidity 0.8 cannot
-    /// express a file-scope `constant address[]` and declaring the array
-    /// as `immutable` is contract-scoped only.
-    /// @return The six owners of the ST0x token-owner Safe in
-    /// `getOwners()` order.
+    /// @notice Expected owner set for `STOX_TOKEN_OWNER_SAFE` in
+    /// `getOwners()` order. Helper because Solidity 0.8 cannot express a
+    /// file-scope `constant address[]`.
     function expectedOwners() internal pure returns (address[] memory) {
         address[] memory owners = new address[](6);
         owners[0] = STOX_TOKEN_OWNER_SAFE_OWNER_1;
@@ -496,71 +373,5 @@ library LibSafeInvariants {
         owners[4] = STOX_TOKEN_OWNER_SAFE_OWNER_5;
         owners[5] = STOX_TOKEN_OWNER_SAFE_OWNER_6;
         return owners;
-    }
-
-    /// @notice Assert the invariants of an OpenZeppelin `UpgradeableBeacon`
-    /// at `beacon`: it is a deployed contract, its runtime codehash matches
-    /// the pinned OZ `UpgradeableBeacon` bytecode, its `owner()` matches
-    /// `expectedOwner`, its `implementation()` matches `expectedImpl`, and
-    /// that implementation is itself deployed. Reverts with a typed error on
-    /// first failure; returns silently otherwise.
-    /// @dev Generic over any beacon (V1, V2, or future) so the same helper
-    /// serves the beacon-ownership migration pre/post-flight and the receipt
-    /// vault upgrade pre/post-flight. The owner and implementation are
-    /// caller-supplied because both are properties an operational script
-    /// deliberately mutates: the ownership migration changes the owner from
-    /// the EOA to the Safe, and the V3 upgrade changes the implementation.
-    ///
-    /// The codehash pin (check #2) is the load-bearing invariant. OZ's
-    /// `UpgradeableBeacon` ships the access control (`onlyOwner` on
-    /// `upgradeTo`, `Ownable` transfer/renounce semantics) that this
-    /// deployment relies on; pinning the bytecode means that behaviour is
-    /// guaranteed by OZ's audit rather than re-tested in this repo. A
-    /// beacon whose codehash matches by definition behaves like the OZ
-    /// beacon, so no behavioural access-control assertions are duplicated
-    /// here.
-    ///
-    /// Check ordering mirrors `assertImmutableInvariants`: code presence
-    /// first (cheapest, and catches an EOA or empty address), codehash
-    /// second (catches a look-alike), then the storage-backed reads
-    /// (`owner()`, `implementation()`) once the bytecode is proven to be the
-    /// OZ beacon, and the implementation code-presence check last because it
-    /// depends on the implementation read having succeeded.
-    /// @notice OpenZeppelin `UpgradeableBeacon` runtime codehash. Pinned
-    /// here so the beacon-side codehash check has a concrete invariant
-    /// target; matches the bytecode at every prod beacon deployment.
-    bytes32 internal constant UPGRADEABLE_BEACON_CODEHASH =
-        0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630;
-
-    /// @param beacon The beacon to assert invariants on.
-    /// @param expectedOwner The owner the beacon is expected to report.
-    /// @param expectedImpl The implementation the beacon is expected to
-    /// point at.
-    function assertBeaconInvariants(address beacon, address expectedOwner, address expectedImpl) internal view {
-        if (beacon.code.length == 0) {
-            revert BeaconNotDeployed(beacon);
-        }
-
-        bytes32 actualCodehash;
-        assembly ("memory-safe") {
-            actualCodehash := extcodehash(beacon)
-        }
-        if (actualCodehash != UPGRADEABLE_BEACON_CODEHASH) {
-            revert BeaconCodehashMismatch(beacon, UPGRADEABLE_BEACON_CODEHASH, actualCodehash);
-        }
-
-        address actualOwner = IOwnable(beacon).owner();
-        if (actualOwner != expectedOwner) {
-            revert BeaconOwnerMismatch(beacon, expectedOwner, actualOwner);
-        }
-
-        address actualImpl = IBeacon(beacon).implementation();
-        if (actualImpl != expectedImpl) {
-            revert BeaconImplementationMismatch(beacon, expectedImpl, actualImpl);
-        }
-
-        if (actualImpl.code.length == 0) {
-            revert BeaconImplNotDeployed(beacon, actualImpl);
-        }
     }
 }

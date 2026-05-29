@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
-import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
+import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibSafeOps} from "../../src/lib/LibSafeOps.sol";
 
 /// @title MigrateBeaconOwnersHarness
@@ -16,7 +16,7 @@ import {LibSafeOps} from "../../src/lib/LibSafeOps.sol";
 /// simulate the on-chain broadcast's effect).
 contract MigrateBeaconOwnersHarness {
     function callAssertBeaconInvariants(address beacon, address expectedOwner, address expectedImpl) external view {
-        LibSafeInvariants.assertBeaconInvariants(beacon, expectedOwner, expectedImpl);
+        LibBeaconInvariants.assertBeaconInvariants(beacon, expectedOwner, expectedImpl);
     }
 
     function callSimulateBeaconNPlus1(IGnosisSafe safe, address beacon, address currentImpl, uint256 threshold)

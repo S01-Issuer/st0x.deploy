@@ -9,7 +9,7 @@ import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
-import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
+import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibSafeOps} from "../src/lib/LibSafeOps.sol";
 
 /// @title MigrateBeaconOwners
@@ -30,7 +30,7 @@ import {LibSafeOps} from "../src/lib/LibSafeOps.sol";
 /// direct-broadcast op:
 ///
 /// 1. **Pre-flight** — every beacon is asserted to be in the expected
-///    EOA-owned state via `LibSafeInvariants.assertBeaconInvariants` (deployed
+///    EOA-owned state via `LibBeaconInvariants.assertBeaconInvariants` (deployed
 ///    contract, pinned OZ `UpgradeableBeacon` codehash, EOA owner, pinned
 ///    current implementation). If any beacon has drifted, the script aborts
 ///    before broadcasting anything.
@@ -90,12 +90,10 @@ contract MigrateBeaconOwners is Script {
         address[3] memory implList = currentImpls();
 
         // Pre-flight: every beacon is in the expected EOA-owned state. Reverts
-        // with the relevant typed error from `LibSafeInvariants` on the first
-        // drift, before any broadcast happens.
+        // with the relevant typed error from `LibBeaconInvariants` on the
+        // first drift, before any broadcast happens.
         for (uint256 i = 0; i < beaconList.length; i++) {
-            LibSafeInvariants.assertBeaconInvariants(
-                beaconList[i], LibProdDeployV1.BEACON_INITIAL_OWNER, implList[i]
-            );
+            LibBeaconInvariants.assertBeaconInvariants(beaconList[i], LibProdDeployV1.BEACON_INITIAL_OWNER, implList[i]);
         }
 
         // Broadcast the ownership transfers from the EOA. Three separate
@@ -110,7 +108,9 @@ contract MigrateBeaconOwners is Script {
         // Post-state: every beacon is now Safe-owned, implementations
         // unchanged.
         for (uint256 i = 0; i < beaconList.length; i++) {
-            LibSafeInvariants.assertBeaconInvariants(beaconList[i], LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, implList[i]);
+            LibBeaconInvariants.assertBeaconInvariants(
+                beaconList[i], LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, implList[i]
+            );
         }
 
         // n+1 reversibility: prove the Safe can act on each beacon by running

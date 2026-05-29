@@ -8,7 +8,8 @@ import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 
 import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
 import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
-import {LibSafeInvariants, BeaconOwnerMismatch} from "../../src/lib/LibSafeInvariants.sol";
+import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
+import {BeaconOwnerMismatch} from "../../src/lib/LibBeaconInvariants.sol";
 import {MigrateBeaconOwnersHarness} from "./MigrateBeaconOwnersHarness.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
 
@@ -101,7 +102,9 @@ contract MigrateBeaconOwnersTest is Test {
             // After the idempotent n+1, the beacon still points at the same
             // implementation and is still Safe-owned.
             assertEq(IBeacon(beaconList[i]).implementation(), implList[i], "implementation preserved through n+1");
-            assertEq(Ownable(beaconList[i]).owner(), LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, "still Safe-owned after n+1");
+            assertEq(
+                Ownable(beaconList[i]).owner(), LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, "still Safe-owned after n+1"
+            );
         }
     }
 
