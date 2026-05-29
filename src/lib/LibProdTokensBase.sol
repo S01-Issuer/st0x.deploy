@@ -217,13 +217,12 @@ library LibProdTokensBase {
     /// https://basescan.org/address/0x78c31580c97101694c70022c83d570150c11e935
     address constant SGOV_WRAPPED_TOKEN_VAULT = address(0x78c31580c97101694C70022c83D570150c11e935);
 
-    /// @notice The authoriser that every production receipt vault is expected
-    /// to share. This is the value 12 of the 13 vaults report today.
-    /// @dev As of 2026-05-29 one vault (IBHG) still reports a different
-    /// authoriser (`0x6e0F1c31Fca4Ff07cD0C3e8658b1e3a473f3393a`); the
-    /// uniform-authoriser invariant test pinning this constant therefore
-    /// fails on IBHG by design, as a forcing function to bring it into line.
-    /// Read from `authorizer()` on the live vaults on Base on 2026-05-29.
+    /// @notice The single authoriser every production receipt vault is gated
+    /// by. Pinned as a first-class invariant (see
+    /// `LibSafeInvariants.assertUniformAuthoriser`, folded into `assertAll`).
+    /// @dev Read from `authorizer()` on the live vaults on Base on 2026-05-29.
+    /// A vault reporting any other authoriser is gated by a different RBAC
+    /// contract than the rest of the system and trips the invariant.
     address constant PROD_RECEIPT_VAULT_AUTHORISER = address(0x35f9fA9d80aAF2B0fB27f0FF015641B3408d7456);
 
     /// @notice Returns the 13 production receipt vault addresses on Base, in
