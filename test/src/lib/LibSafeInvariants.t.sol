@@ -6,12 +6,9 @@ import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibSafeInvariantsHarness} from "./LibSafeInvariantsHarness.sol";
 import {LibProdSafes} from "../../../src/lib/LibProdSafes.sol";
-import {LibProdTokensBase} from "../../../src/lib/LibProdTokensBase.sol";
 import {IGnosisSafe} from "../../../src/interface/IGnosisSafe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
 import {
-    IOwnable,
-    ReceiptVaultOwnerMismatch,
     SafeProxyCodehashMismatch,
     SafeSingletonMismatch,
     SafeSingletonBytecodeMismatch,
@@ -52,20 +49,6 @@ contract LibSafeInvariantsTest is Test {
         vm.createSelectFork(LibRainDeploy.BASE);
         safe = IGnosisSafe(LibProdSafes.STOX_TOKEN_OWNER_SAFE);
         harness = new LibSafeInvariantsHarness();
-    }
-
-    /// @notice Token-side ownership drift bubbles
-    /// `ReceiptVaultOwnerMismatch` through `assertImmutableInvariants`.
-    /// Confirms the token-ownership leg is exercised by the immutable
-    /// bundle. The victim vault address comes from `LibProdTokensBase`
-    /// (the source of truth for production receipt vaults).
-    function testInvertedImmutableInvariantsTokenOwnershipDrift() external {
-        selectBaseFork();
-        address rogueOwner = address(0xBADC0DE);
-        address victim = LibProdTokensBase.MSTR_RECEIPT_VAULT;
-        vm.mockCall(victim, abi.encodeWithSelector(IOwnable.owner.selector), abi.encode(rogueOwner));
-        vm.expectRevert(abi.encodeWithSelector(ReceiptVaultOwnerMismatch.selector, victim, address(safe), rogueOwner));
-        harness.callAssertImmutableInvariants(safe);
     }
 
     /// @notice Drift in the proxy runtime codehash trips

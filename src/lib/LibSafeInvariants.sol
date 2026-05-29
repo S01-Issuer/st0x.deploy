@@ -5,27 +5,7 @@ pragma solidity ^0.8.25;
 import {IGnosisSafe} from "../interface/IGnosisSafe.sol";
 import {LibProdSafes} from "./LibProdSafes.sol";
 import {LibProdTokensBase} from "./LibProdTokensBase.sol";
-
-/// @notice Minimal `Ownable`-like surface used by ST0x receipt vaults.
-/// Every production receipt vault exposes `owner()`; this library only
-/// needs the getter, not the transfer/renounce mutators. Declared inline
-/// here so the Safe invariant bundle owns its only external surface
-/// rather than depending on a token-side interface that could drift.
-interface IOwnable {
-    /// @notice The current owner of the contract.
-    /// @return The owner address.
-    function owner() external view returns (address);
-}
-
-/// @notice Minimal authoriser-getter surface exposed by ST0x receipt
-/// vaults. Declared inline (returning `address`) rather than importing
-/// the upstream `IAuthorizableV1` so this library owns its only external
-/// surface and doesn't carry the upstream's richer return type.
-interface IAuthorisable {
-    /// @notice The authoriser contract gating restricted vault operations.
-    /// @return The authoriser address.
-    function authorizer() external view returns (address);
-}
+import {LibTokenInvariants} from "./LibTokenInvariants.sol";
 
 /// @notice The runtime codehash at the Safe's address does not match the
 /// pinned Safe v1.4.1 L2 proxy codehash. Signals either that the address has
@@ -96,24 +76,6 @@ error SafeUnexpectedGuard(address safe, address guard);
 /// fallback handler slot.
 error SafeFallbackHandlerMismatch(address safe, address expected, address actual);
 
-/// @notice A production receipt vault's `owner()` does not match the Safe
-/// the immutable-invariants leg expected to own every vault. Surfaces the
-/// exact vault address that breaks the uniform-ownership invariant rather
-/// than a generic mismatch.
-/// @param vault The receipt vault whose owner was read.
-/// @param expected The Safe address every vault is expected to report as
-/// `owner()`.
-/// @param actual The owner address returned by `vault.owner()`.
-error ReceiptVaultOwnerMismatch(address vault, address expected, address actual);
-
-/// @notice A production receipt vault's `authorizer()` does not match the
-/// authoriser every vault is expected to share. Surfaces the exact vault
-/// that breaks the uniform-authoriser invariant.
-/// @param vault The receipt vault whose authoriser was read.
-/// @param expected The authoriser address every vault is expected to share.
-/// @param actual The authoriser address returned by `vault.authorizer()`.
-error ReceiptVaultAuthoriserMismatch(address vault, address expected, address actual);
-
 /// @notice The Safe's `getOwners()` array length does not match the
 /// caller-supplied `expected` array length.
 /// @param safe The Safe address whose owner set was queried.
@@ -145,13 +107,12 @@ error SafeThresholdMismatch(address safe, uint256 expected, uint256 actual);
 /// or reverts with a typed error that pinpoints the drift.
 /// @dev The library splits checks into two categories:
 ///
-/// - **Immutable invariants** (`assertImmutableInvariants`) — properties
-///   that always hold against this Safe regardless of any pending or past
-///   migration: proxy codehash, singleton pointer + bytecode, version,
-///   modules empty, guard zero, fallback handler pinned, and uniform
-///   `owner()` across every production receipt vault. The same set is
-///   evaluated pre-migration and post-migration; nothing here is
-///   parameterised on operational intent.
+/// - **Immutable invariants** (`assertImmutableInvariants`) — pure Safe
+///   identity and configuration properties that always hold against this
+///   Safe regardless of any pending or past migration: proxy codehash,
+///   singleton pointer + bytecode, version, modules empty, guard zero, and
+///   fallback handler pinned. The same set is evaluated pre-migration and
+///   post-migration; nothing here is parameterised on operational intent.
 ///
 /// - **Parameterised state assertions** (`assertOwnerSet`, `assertThreshold`)
 ///   — properties whose expected value is supplied by the caller because
@@ -159,8 +120,10 @@ error SafeThresholdMismatch(address safe, uint256 expected, uint256 actual);
 ///   threshold migration). Wrong values here are caller intent, not Safe
 ///   drift, so the comparison target is an argument.
 ///
-/// The `assertAll` overloads bundle the immutable invariants and the two
-/// parameterised checks into a single call site. The pattern mirrors
+/// The `assertAll` overloads bundle the Safe-side immutable invariants,
+/// the two parameterised checks, and the token-side uniformity invariants
+/// (`LibTokenInvariants.assertUniformOwnership` /
+/// `assertUniformAuthoriser`) into a single call site. The pattern mirrors
 /// `StoxProdV2Test::checkAllV2OnChain`: a full-args helper that takes
 /// every expected value, and a no-arg default that fills in the
 /// current-truth pins from `LibProdSafes`. Scripts default to the no-arg
@@ -210,33 +173,26 @@ library LibSafeInvariants {
 
     /// @notice Assert every immutable invariant of the Safe at `safe`:
     /// pinned proxy codehash, pinned singleton pointer, pinned singleton
-    /// bytecode, pinned version, no modules, no guard, pinned fallback
-    /// handler, and uniform `owner()` across every production ST0x receipt
-    /// vault (as enumerated by
-    /// `LibProdTokensBase.productionReceiptVaults`). Reverts with a typed
-    /// error on first failure; returns silently otherwise.
-    /// @dev "Immutable" here means properties that should hold against the
-    /// production Safe at any point in time, regardless of pending or
-    /// past operational migrations. The same set is asserted pre-migration
-    /// and post-migration; nothing in this call is parameterised on
-    /// caller intent.
-    ///
-    /// Token-side uniform ownership is included as an immutable Safe
-    /// invariant because the threshold migration (and any future Safe
-    /// migration on this deployment) does not independently transfer
-    /// vault ownership: drift in the vault ownership set against the Safe
-    /// at migration time is therefore an invariant break to surface here,
-    /// not a separate pre-flight concern of every consumer.
+    /// bytecode, pinned version, no modules, no guard, and pinned fallback
+    /// handler. Reverts with a typed error on first failure; returns
+    /// silently otherwise.
+    /// @dev "Immutable" here means pure Safe identity and configuration
+    /// properties that should hold against the production Safe at any
+    /// point in time, regardless of pending or past operational
+    /// migrations. The same set is asserted pre-migration and
+    /// post-migration; nothing in this call is parameterised on caller
+    /// intent. Token-side uniformity (vault owner/authoriser) is a
+    /// separate concern composed into `assertAll` via `LibTokenInvariants`
+    /// rather than here, because it is a property of the token deployment
+    /// rather than of the Safe.
     ///
     /// The check ordering is deliberate. Codehash first (cheapest, and
     /// catches an EOA at the address or a fake proxy). Singleton slot next
     /// (catches a swap of the implementation pointer). Singleton bytecode
     /// third (catches a swap behind the singleton address). VERSION()
     /// fourth (catches an unexpected implementation that happens to have
-    /// the same bytecode hash). Modules/guard/fallback handler next, after
-    /// the proxy has been proven to be the singleton we expect. Uniform
-    /// vault ownership last, because it is the most expensive (13 external
-    /// calls) and only meaningful once the Safe itself has been validated.
+    /// the same bytecode hash). Modules/guard/fallback handler last, after
+    /// the proxy has been proven to be the singleton we expect.
     /// @param safe The Safe to assert immutable invariants on.
     function assertImmutableInvariants(IGnosisSafe safe) internal view {
         address safeAddr = address(safe);
@@ -300,25 +256,6 @@ library LibSafeInvariants {
                 safeAddr, LibProdSafes.SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER, actualFallbackHandler
             );
         }
-
-        // Token-side uniform ownership: every production receipt vault
-        // reports `owner() == safe`. Iterates the vault list emitted by
-        // `LibProdTokensBase.productionReceiptVaults` and reverts with
-        // `ReceiptVaultOwnerMismatch` on the first drift, surfacing the
-        // offending vault.
-        address[] memory vaults = LibProdTokensBase.productionReceiptVaults();
-        for (uint256 i = 0; i < vaults.length; i++) {
-            address actualOwner = IOwnable(vaults[i]).owner();
-            if (actualOwner != safeAddr) {
-                revert ReceiptVaultOwnerMismatch(vaults[i], safeAddr, actualOwner);
-            }
-        }
-
-        // Token-side uniform authoriser: every production receipt vault is
-        // gated by the same authoriser contract. A divergent authoriser means
-        // a token follows a different RBAC contract than the rest of the
-        // system — the inconsistency this invariant exists to prevent.
-        assertUniformAuthoriser(LibProdTokensBase.PROD_RECEIPT_VAULT_AUTHORISER);
     }
 
     /// @notice Reads a single 32-byte storage slot from a Safe via
@@ -371,7 +308,17 @@ library LibSafeInvariants {
     /// the expected threshold or owner set from the `LibProdSafes`
     /// current-truth pins — typically only when running a script that
     /// intentionally changes one of those (post-state assertion).
-    /// @dev Mirrors the `StoxProdV2Test::checkAllV2OnChain` pattern: a
+    /// @dev Composes both the Safe-side invariants (immutable Safe
+    /// identity/config, owner set, threshold) and the token-side
+    /// uniformity invariants (`LibTokenInvariants.assertUniformOwnership`
+    /// against the Safe, and `assertUniformAuthoriser` against the pinned
+    /// `LibProdTokensBase.PROD_RECEIPT_VAULT_AUTHORISER`). The token legs
+    /// live in `LibTokenInvariants` because vault owner/authoriser
+    /// uniformity is a property of the token deployment, but they are
+    /// bundled here so a consumer asserting the full production state never
+    /// has to remember to run them separately.
+    ///
+    /// Mirrors the `StoxProdV2Test::checkAllV2OnChain` pattern: a
     /// full-args helper alongside a no-arg overload. Migration scripts
     /// call the no-arg overload pre-execution to assert the pinned
     /// current truth, then call this overload post-execution with the
@@ -381,7 +328,11 @@ library LibSafeInvariants {
     /// separate body: keeping each underlying check addressable in
     /// isolation lets fork tests exercise individual drift surfaces, and
     /// keeping the bundle alongside them means migration code never has
-    /// to remember which of the three pieces to run.
+    /// to remember which of the pieces to run. The token-side ownership
+    /// leg is asserted against `address(safe)`, so it also surfaces vault
+    /// ownership drift against the Safe at migration time. Both token legs
+    /// run last because they are the most expensive (13 external calls
+    /// each) and only meaningful once the Safe itself has been validated.
     /// @param safe The Safe to validate.
     /// @param expectedThreshold The expected signature threshold.
     /// @param expectedOwners The expected owner set in `getOwners()` order.
@@ -389,6 +340,8 @@ library LibSafeInvariants {
         assertImmutableInvariants(safe);
         assertOwnerSet(safe, expectedOwners);
         assertThreshold(safe, expectedThreshold);
+        LibTokenInvariants.assertUniformOwnership(address(safe));
+        LibTokenInvariants.assertUniformAuthoriser(LibProdTokensBase.PROD_RECEIPT_VAULT_AUTHORISER);
     }
 
     /// @notice No-arg invariant bundle that fills in the
@@ -404,26 +357,5 @@ library LibSafeInvariants {
     /// @param safe The Safe to validate against the pinned current truth.
     function assertAll(IGnosisSafe safe) internal view {
         assertAll(safe, LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD, LibProdSafes.expectedOwners());
-    }
-
-    /// @notice Every production receipt vault reports the same authoriser.
-    /// Iterates `LibProdTokensBase.productionReceiptVaults` and reverts with
-    /// `ReceiptVaultAuthoriserMismatch` on the first vault whose
-    /// `authorizer()` diverges from `expected`, surfacing the offending vault.
-    /// @dev A divergent authoriser means a token is gated by a different RBAC
-    /// contract than the rest of the system — the class of inconsistency this
-    /// invariant exists to prevent. Folded into `assertImmutableInvariants`
-    /// (and therefore `assertAll`) as a first-class token-side invariant
-    /// alongside uniform ownership; also callable standalone.
-    /// @param expected The authoriser address every production receipt vault
-    /// is expected to share.
-    function assertUniformAuthoriser(address expected) internal view {
-        address[] memory vaults = LibProdTokensBase.productionReceiptVaults();
-        for (uint256 i = 0; i < vaults.length; i++) {
-            address actual = IAuthorisable(vaults[i]).authorizer();
-            if (actual != expected) {
-                revert ReceiptVaultAuthoriserMismatch(vaults[i], expected, actual);
-            }
-        }
     }
 }

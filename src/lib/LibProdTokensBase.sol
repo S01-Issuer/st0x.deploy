@@ -219,7 +219,8 @@ library LibProdTokensBase {
 
     /// @notice The single authoriser every production receipt vault is gated
     /// by. Pinned as a first-class invariant (see
-    /// `LibSafeInvariants.assertUniformAuthoriser`, folded into `assertAll`).
+    /// `LibTokenInvariants.assertUniformAuthoriser`, composed into
+    /// `LibSafeInvariants.assertAll`).
     /// @dev Read from `authorizer()` on the live vaults on Base on 2026-05-29.
     /// A vault reporting any other authoriser is gated by a different RBAC
     /// contract than the rest of the system and trips the invariant.

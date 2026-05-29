@@ -11,12 +11,8 @@ import {
 import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
 import {LibProdSafes} from "../../src/lib/LibProdSafes.sol";
 import {LibSafeOps, SafeTx} from "../../src/lib/LibSafeOps.sol";
-import {
-    LibSafeInvariants,
-    IOwnable,
-    SafeThresholdMismatch,
-    ReceiptVaultOwnerMismatch
-} from "../../src/lib/LibSafeInvariants.sol";
+import {LibSafeInvariants, SafeThresholdMismatch} from "../../src/lib/LibSafeInvariants.sol";
+import {IOwnable, ReceiptVaultOwnerMismatch} from "../../src/lib/LibTokenInvariants.sol";
 import {LibProdTokensBase} from "../../src/lib/LibProdTokensBase.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
 
