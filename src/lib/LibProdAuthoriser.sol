@@ -39,14 +39,18 @@ library LibProdAuthoriser {
     /// constant for call-site clarity.
     address constant GRANTEE_TOKEN_OWNER_SAFE = LibProdSafes.STOX_TOKEN_OWNER_SAFE;
 
-    /// @notice External service EOA granted `DEPOSIT` (block 41715293) and
-    /// `WITHDRAW` (block 41715310) at authoriser commissioning. EOA, active
-    /// service signer.
-    /// @dev TODO: confirm whether this is the issuance bot or the liquidity
-    /// bot signer and rename the constant accordingly. The address is
-    /// authoritative; only the human-friendly name is open.
+    /// @notice The liquidity-side Fireblocks signer wallet. This address is
+    /// a **separate legal entity** from the issuer and was granted `DEPOSIT`
+    /// (block 41715293) and `WITHDRAW` (block 41715310) at authoriser
+    /// commissioning **in error** — the issuer's authoriser should not gate
+    /// liquidity-side custody. The grants have never been exercised (zero
+    /// `Deposit` / `Withdraw` events sourced to this address across any of
+    /// the 13 production receipt vaults as of 2026-05-31), but their
+    /// presence is a legal-separation hole that must be revoked before any
+    /// further authoriser work ships. Listed in `disallowedGrants()` so the
+    /// invariant test fails until the revoke lands on-chain.
     /// https://basescan.org/address/0xbd41f40d91ee4e816ada1aa842e94aeb6b6385a6
-    address constant GRANTEE_SERVICE_BD41 = 0xbd41F40D91eE4E816Ada1Aa842e94aEb6B6385a6;
+    address constant GRANTEE_LIQUIDITY_FIREBLOCKS = 0xbd41F40D91eE4E816Ada1Aa842e94aEb6B6385a6;
 
     /// @notice External service EOA granted `DEPOSIT` (block 41797262),
     /// `WITHDRAW` (block 41797281) and `CERTIFY` (block 41797297) shortly
@@ -69,16 +73,18 @@ library LibProdAuthoriser {
         address grantee;
     }
 
-    /// @notice The full pinned `(role, grantee)` map currently in effect on
-    /// the live authoriser. Folded from the
-    /// `RoleGranted` / `RoleRevoked` history on 2026-05-31: 13 grants, 0
-    /// revokes. Pre-flight calls `hasRole(role, grantee)` for each pair;
-    /// the fork test additionally scans the same events via `vm.rpc` and
-    /// asserts the folded set equals this map exactly (catches both missing
-    /// pins and unexpected additions).
-    /// @return grants The exact `(role, grantee)` pairs currently in effect.
+    /// @notice The `(role, grantee)` map that **should** be in effect on the
+    /// live authoriser. Deliberately excludes the two grants currently held
+    /// by the liquidity Fireblocks wallet (see `disallowedGrants()`); the
+    /// invariant test below will pass on every pin here but **fail** on the
+    /// disallowed pair until those grants are revoked on-chain (forcing
+    /// function — see RAI-730).
+    /// @dev 11 entries. Source of truth folded from `RoleGranted` /
+    /// `RoleRevoked` event scan on Base 2026-05-31 (13 raw grants, 0
+    /// revokes) minus the 2 disallowed Fireblocks grants.
+    /// @return grants The pinned `(role, grantee)` pairs that must hold.
     function expectedGrants() internal pure returns (RoleGrant[] memory grants) {
-        grants = new RoleGrant[](13);
+        grants = new RoleGrant[](11);
 
         // Init grants (block 41715184) — Safe receives every `_ADMIN` role.
         grants[0] = RoleGrant(keccak256("DEPOSIT_ADMIN"), GRANTEE_TOKEN_OWNER_SAFE);
@@ -87,19 +93,33 @@ library LibProdAuthoriser {
         grants[3] = RoleGrant(keccak256("CONFISCATE_SHARES_ADMIN"), GRANTEE_TOKEN_OWNER_SAFE);
         grants[4] = RoleGrant(keccak256("CONFISCATE_RECEIPT_ADMIN"), GRANTEE_TOKEN_OWNER_SAFE);
 
-        // First service provisioned at commissioning (blocks 41715293, 41715310).
-        grants[5] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_BD41);
-        grants[6] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_BD41);
-
         // Second service provisioned at blocks 41797262, 41797281, 41797297.
-        grants[7] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_1C66);
-        grants[8] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_1C66);
-        grants[9] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_1C66);
+        grants[5] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_1C66);
+        grants[6] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_1C66);
+        grants[7] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_1C66);
 
         // Safe later granted itself the corresponding action roles (blocks
         // 42704120, 42704140, 44076075) for direct operational use.
-        grants[10] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_TOKEN_OWNER_SAFE);
-        grants[11] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_TOKEN_OWNER_SAFE);
-        grants[12] = RoleGrant(keccak256("CERTIFY"), GRANTEE_TOKEN_OWNER_SAFE);
+        grants[8] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_TOKEN_OWNER_SAFE);
+        grants[9] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_TOKEN_OWNER_SAFE);
+        grants[10] = RoleGrant(keccak256("CERTIFY"), GRANTEE_TOKEN_OWNER_SAFE);
+    }
+
+    /// @notice `(role, grantee)` pairs that exist on the live authoriser
+    /// today but **should not** — i.e. live grants we deliberately exclude
+    /// from `expectedGrants()` because they are operationally wrong and
+    /// need to be revoked. The invariant test asserts each of these is
+    /// **absent** (`hasRole == false`); it therefore fails today and greens
+    /// automatically once RAI-730 has executed the revoke on-chain.
+    /// @dev Same `RoleGrant` shape as `expectedGrants` so a single iterator
+    /// can consume both lists.
+    /// @return grants The `(role, grantee)` pairs that must NOT hold.
+    function disallowedGrants() internal pure returns (RoleGrant[] memory grants) {
+        grants = new RoleGrant[](2);
+        // Liquidity-side Fireblocks wallet, separate legal entity from the
+        // issuer. Granted in error at commissioning, never exercised, must
+        // be revoked. See RAI-730.
+        grants[0] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_LIQUIDITY_FIREBLOCKS);
+        grants[1] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_LIQUIDITY_FIREBLOCKS);
     }
 }
