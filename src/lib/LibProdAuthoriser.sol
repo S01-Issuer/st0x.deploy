@@ -32,6 +32,34 @@ library LibProdAuthoriser {
     /// https://basescan.org/address/0x2b4a510c3619d5e888095bfe9f95902d32da5556
     address constant STOX_PROD_AUTHORISER_IMPL_PRE_V3 = 0x2B4A510c3619d5E888095BFE9f95902D32dA5556;
 
+    /// @notice The V4 production authoriser clone — the EIP-1167 minimal
+    /// proxy of `StoxOffchainAssetReceiptVaultAuthorizerV1` (the corporate-
+    /// action-aware authoriser) that the V3 receipt vault upgrade script
+    /// rewires every production receipt vault onto via `setAuthorizer`. The
+    /// impl is `LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_TBD`.
+    ///
+    /// **PLACEHOLDER** until: (a) DM cuts the patched rain.vats tag, (b) the
+    /// V4 impl is deployed at its (post-bump) Zoltu address, and (c) this
+    /// clone is deployed against that impl as a one-off ops step
+    /// (initialized with `STOX_TOKEN_OWNER_SAFE` as `initialAdmin`, then the
+    /// non-admin grants from `expectedGrants()` are mirrored onto it). The
+    /// clone's address is fixed once deployed but is not deterministic
+    /// ahead of time (Rain `CloneFactory` uses non-deterministic
+    /// `Clones.clone`); the post-deploy edit drops the real address in
+    /// place of `address(0)` here.
+    address constant STOX_PROD_AUTHORISER_V4_CLONE = address(0);
+
+    /// @notice The pinned EIP-1167 runtime codehash for
+    /// `STOX_PROD_AUTHORISER_V4_CLONE`. Deterministic from the V4 impl
+    /// address embedded in the minimal-proxy runtime
+    /// (`363d3d373d3d3d363d73<impl>5af43d82803e903d91602b57fd5bf3`); the
+    /// invariant uses it to prove the clone hasn't been etched over.
+    ///
+    /// **PLACEHOLDER** — fill in once the V4 impl address is known and the
+    /// clone is deployed. Easiest path: compute via
+    /// `keccak256(abi.encodePacked(hex"363d3d373d3d3d363d73", v4Impl, hex"5af43d82803e903d91602b57fd5bf3"))`.
+    bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH = bytes32(0);
+
     /// @notice The ST0x token-owner Safe — holds every `_ADMIN` role on the
     /// live authoriser (set at init) and was later granted DEPOSIT, WITHDRAW
     /// and CERTIFY as a privileged operator. Identical to
