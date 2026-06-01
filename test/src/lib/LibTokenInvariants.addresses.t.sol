@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {LibProdTokensBase} from "../../../src/lib/LibProdTokensBase.sol";
+import {LibTokenInvariants} from "../../../src/lib/LibTokenInvariants.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibTestProd} from "../../lib/LibTestProd.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensions/IERC20Metadata.sol";
@@ -25,9 +25,9 @@ import {IExtrospectV1} from "rain-extrospection-0.1.1/src/interface/IExtrospectV
 import {EXTROSPECT_ZOLTU_ADDRESS_V1} from "rain-extrospection-0.1.1/src/concrete/Extrospect.sol";
 import {IBeacon} from "rain-extrospection-0.1.1/src/interface/IBeacon.sol";
 
-/// @title LibProdTokensBaseTest
+/// @title LibTokenInvariantsAddressesTest
 /// @notice Fork tests verifying production token instances on Base.
-contract LibProdTokensBaseTest is Test {
+contract LibTokenInvariantsAddressesTest is Test {
     /// Read the EIP-1967 beacon address from a proxy contract.
     function beaconOf(address proxy) internal view returns (address) {
         return address(uint160(uint256(vm.load(proxy, ERC1967_BEACON_SLOT))));
@@ -478,7 +478,7 @@ contract LibProdTokensBaseTest is Test {
         // All wrapped vault proxies share a single beacon. Read it from
         // any wrapped proxy (MSTR is arbitrary) and assert the constant.
         assertEq(
-            beaconOf(LibProdTokensBase.MSTR_WRAPPED_TOKEN_VAULT),
+            beaconOf(LibTokenInvariants.MSTR_WRAPPED_TOKEN_VAULT),
             LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1,
             "wrapped vault beacon read from MSTR proxy slot drifted"
         );
@@ -522,9 +522,9 @@ contract LibProdTokensBaseTest is Test {
     function testMstrTokenSetOnBase() external {
         LibTestProd.createSelectForkBase(vm);
         checkTokenSet(
-            LibProdTokensBase.MSTR_RECEIPT,
-            LibProdTokensBase.MSTR_RECEIPT_VAULT,
-            LibProdTokensBase.MSTR_WRAPPED_TOKEN_VAULT,
+            LibTokenInvariants.MSTR_RECEIPT,
+            LibTokenInvariants.MSTR_RECEIPT_VAULT,
+            LibTokenInvariants.MSTR_WRAPPED_TOKEN_VAULT,
             "tMSTR",
             "wtMSTR"
         );
@@ -533,9 +533,9 @@ contract LibProdTokensBaseTest is Test {
     function testTslaTokenSetOnBase() external {
         LibTestProd.createSelectForkBase(vm);
         checkTokenSet(
-            LibProdTokensBase.TSLA_RECEIPT,
-            LibProdTokensBase.TSLA_RECEIPT_VAULT,
-            LibProdTokensBase.TSLA_WRAPPED_TOKEN_VAULT,
+            LibTokenInvariants.TSLA_RECEIPT,
+            LibTokenInvariants.TSLA_RECEIPT_VAULT,
+            LibTokenInvariants.TSLA_WRAPPED_TOKEN_VAULT,
             "tTSLA",
             "wtTSLA"
         );
@@ -544,9 +544,9 @@ contract LibProdTokensBaseTest is Test {
     function testCoinTokenSetOnBase() external {
         LibTestProd.createSelectForkBase(vm);
         checkTokenSet(
-            LibProdTokensBase.COIN_RECEIPT,
-            LibProdTokensBase.COIN_RECEIPT_VAULT,
-            LibProdTokensBase.COIN_WRAPPED_TOKEN_VAULT,
+            LibTokenInvariants.COIN_RECEIPT,
+            LibTokenInvariants.COIN_RECEIPT_VAULT,
+            LibTokenInvariants.COIN_WRAPPED_TOKEN_VAULT,
             "tCOIN",
             "wtCOIN"
         );
@@ -555,9 +555,9 @@ contract LibProdTokensBaseTest is Test {
     function testSpymTokenSetOnBase() external {
         LibTestProd.createSelectForkBase(vm);
         checkTokenSet(
-            LibProdTokensBase.SPYM_RECEIPT,
-            LibProdTokensBase.SPYM_RECEIPT_VAULT,
-            LibProdTokensBase.SPYM_WRAPPED_TOKEN_VAULT,
+            LibTokenInvariants.SPYM_RECEIPT,
+            LibTokenInvariants.SPYM_RECEIPT_VAULT,
+            LibTokenInvariants.SPYM_WRAPPED_TOKEN_VAULT,
             "tSPYM",
             "wtSPYM"
         );
@@ -566,9 +566,9 @@ contract LibProdTokensBaseTest is Test {
     function testSivrTokenSetOnBase() external {
         LibTestProd.createSelectForkBase(vm);
         checkTokenSet(
-            LibProdTokensBase.SIVR_RECEIPT,
-            LibProdTokensBase.SIVR_RECEIPT_VAULT,
-            LibProdTokensBase.SIVR_WRAPPED_TOKEN_VAULT,
+            LibTokenInvariants.SIVR_RECEIPT,
+            LibTokenInvariants.SIVR_RECEIPT_VAULT,
+            LibTokenInvariants.SIVR_WRAPPED_TOKEN_VAULT,
             "tSIVR",
             "wtSIVR"
         );
@@ -577,9 +577,9 @@ contract LibProdTokensBaseTest is Test {
     function testCrclTokenSetOnBase() external {
         LibTestProd.createSelectForkBase(vm);
         checkTokenSet(
-            LibProdTokensBase.CRCL_RECEIPT,
-            LibProdTokensBase.CRCL_RECEIPT_VAULT,
-            LibProdTokensBase.CRCL_WRAPPED_TOKEN_VAULT,
+            LibTokenInvariants.CRCL_RECEIPT,
+            LibTokenInvariants.CRCL_RECEIPT_VAULT,
+            LibTokenInvariants.CRCL_WRAPPED_TOKEN_VAULT,
             "tCRCL",
             "wtCRCL"
         );
@@ -588,9 +588,9 @@ contract LibProdTokensBaseTest is Test {
     function testNvdaTokenSetOnBase() external {
         LibTestProd.createSelectForkBase(vm);
         checkTokenSet(
-            LibProdTokensBase.NVDA_RECEIPT,
-            LibProdTokensBase.NVDA_RECEIPT_VAULT,
-            LibProdTokensBase.NVDA_WRAPPED_TOKEN_VAULT,
+            LibTokenInvariants.NVDA_RECEIPT,
+            LibTokenInvariants.NVDA_RECEIPT_VAULT,
+            LibTokenInvariants.NVDA_WRAPPED_TOKEN_VAULT,
             "tNVDA",
             "wtNVDA"
         );
@@ -599,9 +599,9 @@ contract LibProdTokensBaseTest is Test {
     function testIauTokenSetOnBase() external {
         LibTestProd.createSelectForkBase(vm);
         checkTokenSet(
-            LibProdTokensBase.IAU_RECEIPT,
-            LibProdTokensBase.IAU_RECEIPT_VAULT,
-            LibProdTokensBase.IAU_WRAPPED_TOKEN_VAULT,
+            LibTokenInvariants.IAU_RECEIPT,
+            LibTokenInvariants.IAU_RECEIPT_VAULT,
+            LibTokenInvariants.IAU_WRAPPED_TOKEN_VAULT,
             "tIAU",
             "wtIAU"
         );
@@ -610,9 +610,9 @@ contract LibProdTokensBaseTest is Test {
     function testPpltTokenSetOnBase() external {
         LibTestProd.createSelectForkBase(vm);
         checkTokenSet(
-            LibProdTokensBase.PPLT_RECEIPT,
-            LibProdTokensBase.PPLT_RECEIPT_VAULT,
-            LibProdTokensBase.PPLT_WRAPPED_TOKEN_VAULT,
+            LibTokenInvariants.PPLT_RECEIPT,
+            LibTokenInvariants.PPLT_RECEIPT_VAULT,
+            LibTokenInvariants.PPLT_WRAPPED_TOKEN_VAULT,
             "tPPLT",
             "wtPPLT"
         );
@@ -621,9 +621,9 @@ contract LibProdTokensBaseTest is Test {
     function testAmznTokenSetOnBase() external {
         LibTestProd.createSelectForkBase(vm);
         checkTokenSet(
-            LibProdTokensBase.AMZN_RECEIPT,
-            LibProdTokensBase.AMZN_RECEIPT_VAULT,
-            LibProdTokensBase.AMZN_WRAPPED_TOKEN_VAULT,
+            LibTokenInvariants.AMZN_RECEIPT,
+            LibTokenInvariants.AMZN_RECEIPT_VAULT,
+            LibTokenInvariants.AMZN_WRAPPED_TOKEN_VAULT,
             "tAMZN",
             "wtAMZN"
         );
@@ -632,9 +632,9 @@ contract LibProdTokensBaseTest is Test {
     function testBmnrTokenSetOnBase() external {
         LibTestProd.createSelectForkBase(vm);
         checkTokenSet(
-            LibProdTokensBase.BMNR_RECEIPT,
-            LibProdTokensBase.BMNR_RECEIPT_VAULT,
-            LibProdTokensBase.BMNR_WRAPPED_TOKEN_VAULT,
+            LibTokenInvariants.BMNR_RECEIPT,
+            LibTokenInvariants.BMNR_RECEIPT_VAULT,
+            LibTokenInvariants.BMNR_WRAPPED_TOKEN_VAULT,
             "tBMNR",
             "wtBMNR"
         );
@@ -643,9 +643,9 @@ contract LibProdTokensBaseTest is Test {
     function testIbhgTokenSetOnBase() external {
         LibTestProd.createSelectForkBase(vm);
         checkTokenSet(
-            LibProdTokensBase.IBHG_RECEIPT,
-            LibProdTokensBase.IBHG_RECEIPT_VAULT,
-            LibProdTokensBase.IBHG_WRAPPED_TOKEN_VAULT,
+            LibTokenInvariants.IBHG_RECEIPT,
+            LibTokenInvariants.IBHG_RECEIPT_VAULT,
+            LibTokenInvariants.IBHG_WRAPPED_TOKEN_VAULT,
             "tIBHG",
             "wtIBHG"
         );
@@ -654,9 +654,9 @@ contract LibProdTokensBaseTest is Test {
     function testSgovTokenSetOnBase() external {
         LibTestProd.createSelectForkBase(vm);
         checkTokenSet(
-            LibProdTokensBase.SGOV_RECEIPT,
-            LibProdTokensBase.SGOV_RECEIPT_VAULT,
-            LibProdTokensBase.SGOV_WRAPPED_TOKEN_VAULT,
+            LibTokenInvariants.SGOV_RECEIPT,
+            LibTokenInvariants.SGOV_RECEIPT_VAULT,
+            LibTokenInvariants.SGOV_WRAPPED_TOKEN_VAULT,
             "tSGOV",
             "wtSGOV"
         );

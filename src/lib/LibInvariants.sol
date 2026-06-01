@@ -3,7 +3,6 @@
 pragma solidity ^0.8.25;
 
 import {IGnosisSafe} from "../interface/IGnosisSafe.sol";
-import {LibProdSafes} from "./LibProdSafes.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibTokenInvariants} from "./LibTokenInvariants.sol";
 
@@ -30,24 +29,24 @@ library LibInvariants {
     /// caller is *deliberately* asserting a state that diverges from the
     /// pinned current truth (e.g. a migration script's post-state re-check
     /// after it has simulated `changeThreshold`); the no-arg overload
-    /// fills in the `LibProdSafes`-pinned defaults.
+    /// fills in the `LibSafeInvariants`-pinned defaults.
     /// @param safe The Safe to validate against the pinned current truth.
     function assertAll(IGnosisSafe safe) internal view {
         LibSafeInvariants.assertAll(safe);
-        LibTokenInvariants.assertAll(address(safe));
+        LibTokenInvariants.assertAll(address(safe), LibTokenInvariants.STOX_PROD_AUTHORISER);
     }
 
     /// @notice Full-args bundle. Use when overriding the Safe-side
-    /// threshold or owner set from `LibProdSafes`' current-truth pins —
+    /// threshold or owner set from `LibSafeInvariants`' current-truth pins —
     /// typically only when running a script that intentionally changes
-    /// one of those (post-state assertion). The token-side leg always
-    /// uses the pinned defaults (vault ownership against the Safe,
-    /// authoriser against `LibProdTokensBase.PROD_RECEIPT_VAULT_AUTHORISER`).
+    /// one of those (post-state assertion). The token-side leg uses the
+    /// pinned defaults (vault ownership against the Safe, authoriser
+    /// against `LibTokenInvariants.STOX_PROD_AUTHORISER`).
     /// @param safe The Safe to validate.
     /// @param expectedThreshold The expected signature threshold.
     /// @param expectedOwners The expected owner set in `getOwners()` order.
     function assertAll(IGnosisSafe safe, uint256 expectedThreshold, address[] memory expectedOwners) internal view {
         LibSafeInvariants.assertAll(safe, expectedThreshold, expectedOwners);
-        LibTokenInvariants.assertAll(address(safe));
+        LibTokenInvariants.assertAll(address(safe), LibTokenInvariants.STOX_PROD_AUTHORISER);
     }
 }

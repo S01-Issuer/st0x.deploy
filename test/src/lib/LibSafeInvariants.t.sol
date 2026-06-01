@@ -5,7 +5,6 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibSafeInvariantsHarness} from "./LibSafeInvariantsHarness.sol";
-import {LibProdSafes} from "../../../src/lib/LibProdSafes.sol";
 import {IGnosisSafe} from "../../../src/interface/IGnosisSafe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
 import {
@@ -47,7 +46,7 @@ contract LibSafeInvariantsTest is Test {
     /// unpinned. Live drift detector; see contract-level rationale.
     function selectBaseFork() internal {
         vm.createSelectFork(LibRainDeploy.BASE);
-        safe = IGnosisSafe(LibProdSafes.STOX_TOKEN_OWNER_SAFE);
+        safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
         harness = new LibSafeInvariantsHarness();
     }
 
@@ -68,7 +67,7 @@ contract LibSafeInvariantsTest is Test {
             abi.encodeWithSelector(
                 SafeProxyCodehashMismatch.selector,
                 safeAddr,
-                LibProdSafes.SAFE_V1_4_1_L2_PROXY_CODEHASH,
+                LibSafeInvariants.SAFE_V1_4_1_L2_PROXY_CODEHASH,
                 mutatedCodehash
             )
         );
@@ -88,7 +87,7 @@ contract LibSafeInvariantsTest is Test {
         );
         vm.expectRevert(
             abi.encodeWithSelector(
-                SafeSingletonMismatch.selector, address(safe), LibProdSafes.SAFE_V1_4_1_L2_SINGLETON, impostor
+                SafeSingletonMismatch.selector, address(safe), LibSafeInvariants.SAFE_V1_4_1_L2_SINGLETON, impostor
             )
         );
         harness.callAssertImmutableInvariants(safe);
@@ -108,19 +107,19 @@ contract LibSafeInvariantsTest is Test {
     function testInvertedSingletonBytecodeMismatch() external {
         selectBaseFork();
         bytes memory bogusCode = hex"60016000526001601ff3";
-        vm.etch(LibProdSafes.SAFE_V1_4_1_L2_SINGLETON, bogusCode);
+        vm.etch(LibSafeInvariants.SAFE_V1_4_1_L2_SINGLETON, bogusCode);
         vm.mockCall(
             address(safe),
             abi.encodeWithSelector(IGnosisSafe.getStorageAt.selector, uint256(0), uint256(1)),
-            abi.encode(abi.encodePacked(bytes32(uint256(uint160(LibProdSafes.SAFE_V1_4_1_L2_SINGLETON)))))
+            abi.encode(abi.encodePacked(bytes32(uint256(uint160(LibSafeInvariants.SAFE_V1_4_1_L2_SINGLETON)))))
         );
-        bytes32 expected = LibProdSafes.SAFE_V1_4_1_L2_SINGLETON_CODEHASH;
+        bytes32 expected = LibSafeInvariants.SAFE_V1_4_1_L2_SINGLETON_CODEHASH;
         bytes32 actual = keccak256(bogusCode);
         vm.expectRevert(
             abi.encodeWithSelector(
                 SafeSingletonBytecodeMismatch.selector,
                 address(safe),
-                LibProdSafes.SAFE_V1_4_1_L2_SINGLETON,
+                LibSafeInvariants.SAFE_V1_4_1_L2_SINGLETON,
                 expected,
                 actual
             )
@@ -136,7 +135,9 @@ contract LibSafeInvariantsTest is Test {
         string memory bogus = "9.9.9";
         vm.mockCall(address(safe), abi.encodeWithSelector(IGnosisSafe.VERSION.selector), abi.encode(bogus));
         vm.expectRevert(
-            abi.encodeWithSelector(SafeVersionMismatch.selector, address(safe), LibProdSafes.SAFE_V1_4_1_VERSION, bogus)
+            abi.encodeWithSelector(
+                SafeVersionMismatch.selector, address(safe), LibSafeInvariants.SAFE_V1_4_1_VERSION, bogus
+            )
         );
         harness.callAssertImmutableInvariants(safe);
     }
@@ -196,7 +197,7 @@ contract LibSafeInvariantsTest is Test {
             abi.encodeWithSelector(
                 SafeFallbackHandlerMismatch.selector,
                 address(safe),
-                LibProdSafes.SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER,
+                LibSafeInvariants.SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER,
                 impostor
             )
         );
@@ -208,9 +209,9 @@ contract LibSafeInvariantsTest is Test {
     function testInvertedOwnerCountMismatch() external {
         selectBaseFork();
         address[] memory truncated = new address[](3);
-        truncated[0] = LibProdSafes.STOX_TOKEN_OWNER_SAFE_OWNER_1;
-        truncated[1] = LibProdSafes.STOX_TOKEN_OWNER_SAFE_OWNER_2;
-        truncated[2] = LibProdSafes.STOX_TOKEN_OWNER_SAFE_OWNER_3;
+        truncated[0] = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_OWNER_1;
+        truncated[1] = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_OWNER_2;
+        truncated[2] = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_OWNER_3;
         vm.expectRevert(abi.encodeWithSelector(SafeOwnerCountMismatch.selector, address(safe), uint256(3), uint256(6)));
         harness.callAssertOwnerSet(safe, truncated);
     }
@@ -220,7 +221,7 @@ contract LibSafeInvariantsTest is Test {
     /// index 1.
     function testInvertedOwnerMismatch() external {
         selectBaseFork();
-        address[] memory swapped = LibProdSafes.expectedOwners();
+        address[] memory swapped = LibSafeInvariants.expectedOwners();
         address impostor = address(0xC0FFEE);
         swapped[1] = impostor;
         vm.expectRevert(
@@ -229,7 +230,7 @@ contract LibSafeInvariantsTest is Test {
                 address(safe),
                 uint256(1),
                 impostor,
-                LibProdSafes.STOX_TOKEN_OWNER_SAFE_OWNER_2
+                LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_OWNER_2
             )
         );
         harness.callAssertOwnerSet(safe, swapped);
@@ -248,13 +249,16 @@ contract LibSafeInvariantsTest is Test {
     /// pinned current truth. Mocks `getThreshold()` to `5` and asserts the
     /// bundle surfaces the threshold error rather than passing silently.
     /// This is the load-bearing test for the no-arg overload's defaulting
-    /// to `LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD`.
+    /// to `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD`.
     function testInvertedAssertAllDefaultsThresholdDrift() external {
         selectBaseFork();
         vm.mockCall(address(safe), abi.encodeWithSelector(IGnosisSafe.getThreshold.selector), abi.encode(uint256(5)));
         vm.expectRevert(
             abi.encodeWithSelector(
-                SafeThresholdMismatch.selector, address(safe), LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD, uint256(5)
+                SafeThresholdMismatch.selector,
+                address(safe),
+                LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD,
+                uint256(5)
             )
         );
         harness.callAssertAllDefaults(safe);
@@ -269,6 +273,6 @@ contract LibSafeInvariantsTest is Test {
     function testInvertedAssertAllFullArgsThresholdMismatch() external {
         selectBaseFork();
         vm.expectRevert(abi.encodeWithSelector(SafeThresholdMismatch.selector, address(safe), uint256(4), uint256(1)));
-        harness.callAssertAll(safe, 4, LibProdSafes.expectedOwners());
+        harness.callAssertAll(safe, 4, LibSafeInvariants.expectedOwners());
     }
 }

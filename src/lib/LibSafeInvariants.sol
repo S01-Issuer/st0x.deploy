@@ -3,7 +3,6 @@
 pragma solidity ^0.8.25;
 
 import {IGnosisSafe} from "../interface/IGnosisSafe.sol";
-import {LibProdSafes} from "./LibProdSafes.sol";
 
 /// @notice The runtime codehash at the Safe's address does not match the
 /// pinned Safe v1.4.1 L2 proxy codehash. Signals either that the address has
@@ -11,7 +10,7 @@ import {LibProdSafes} from "./LibProdSafes.sol";
 /// different bytecode.
 /// @param safe The Safe address whose codehash was checked.
 /// @param expected The pinned codehash that was expected
-/// (`LibProdSafes.SAFE_V1_4_1_L2_PROXY_CODEHASH`).
+/// (`SAFE_V1_4_1_L2_PROXY_CODEHASH`).
 /// @param actual The codehash returned by `extcodehash(safe)`.
 error SafeProxyCodehashMismatch(address safe, bytes32 expected, bytes32 actual);
 
@@ -21,12 +20,12 @@ error SafeProxyCodehashMismatch(address safe, bytes32 expected, bytes32 actual);
 /// different singleton.
 /// @param safe The Safe proxy address that was inspected.
 /// @param expected The pinned singleton address
-/// (`LibProdSafes.SAFE_V1_4_1_L2_SINGLETON`).
+/// (`SAFE_V1_4_1_L2_SINGLETON`).
 /// @param actual The singleton address read from slot `0x0` of the proxy.
 error SafeSingletonMismatch(address safe, address expected, address actual);
 
 /// @notice The Safe singleton's runtime bytecode codehash does not match the
-/// pinned `LibProdSafes.SAFE_V1_4_1_L2_SINGLETON_CODEHASH`. Pinning the
+/// pinned `SAFE_V1_4_1_L2_SINGLETON_CODEHASH`. Pinning the
 /// singleton address alone trusts the bytecode at that address; a swap (e.g.
 /// `SELFDESTRUCT` + recreate, or a delegatecall-time substitution on a
 /// forked test environment) could preserve the address while replacing the
@@ -36,7 +35,7 @@ error SafeSingletonMismatch(address safe, address expected, address actual);
 /// @param safe The Safe proxy address that was inspected.
 /// @param singleton The singleton address read from slot `0x0` of the proxy.
 /// @param expected The pinned singleton codehash
-/// (`LibProdSafes.SAFE_V1_4_1_L2_SINGLETON_CODEHASH`).
+/// (`SAFE_V1_4_1_L2_SINGLETON_CODEHASH`).
 /// @param actual The codehash observed at `singleton`.
 error SafeSingletonBytecodeMismatch(address safe, address singleton, bytes32 expected, bytes32 actual);
 
@@ -69,7 +68,7 @@ error SafeUnexpectedGuard(address safe, address guard);
 /// used for introspection) so the pin is enforced as an invariant.
 /// @param safe The Safe address whose fallback handler slot was read.
 /// @param expected The pinned fallback handler address
-/// (`LibProdSafes.SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER`).
+/// (`SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER`).
 /// @param actual The fallback handler address read from the well-known
 /// fallback handler slot.
 error SafeFallbackHandlerMismatch(address safe, address expected, address actual);
@@ -122,7 +121,7 @@ error SafeThresholdMismatch(address safe, uint256 expected, uint256 actual);
 /// and the two parameterised checks into a single call site. The pattern
 /// mirrors `StoxProdV2Test::checkAllV2OnChain`: a full-args helper that
 /// takes every expected value, and a no-arg default that fills in the
-/// current-truth pins from `LibProdSafes`. Token-side invariants are
+/// current-truth pins from `LibSafeInvariants`. Token-side invariants are
 /// composed alongside these by `LibInvariants.assertAll` for callers
 /// asserting the full production state; this lib is Safe-only by design
 /// so the file name doesn't mislead.
@@ -139,6 +138,97 @@ error SafeThresholdMismatch(address safe, uint256 expected, uint256 actual);
 /// slot are explicit constants in `GuardManager`/`FallbackManager` chosen so
 /// they cannot collide with the owner/module/threshold linked-list slots.
 library LibSafeInvariants {
+    // =========================================================================
+    // Safe v1.4.1 deployment manifest constants. Universal to every v1.4.1 L2
+    // Safe; sourced from `safe-deployments` for chainId 8453 and cross-checked
+    // against the live ST0x production Safe.
+    // =========================================================================
+
+    /// @notice Safe v1.4.1 L2 singleton (master copy) address on Base.
+    /// Verified by reading proxy storage slot `0x0` of
+    /// `STOX_TOKEN_OWNER_SAFE` and matching against the
+    /// `safe-deployments` manifest.
+    address internal constant SAFE_V1_4_1_L2_SINGLETON = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
+
+    /// @notice Runtime codehash of a Safe v1.4.1 proxy on Base. Equal to
+    /// `extcodehash(STOX_TOKEN_OWNER_SAFE)` and to every other v1.4.1 L2
+    /// proxy pointing at `SAFE_V1_4_1_L2_SINGLETON`. Pinning this codehash
+    /// guards against the Safe address being replaced by an EOA-controlled
+    /// contract or a fake proxy pointing at a malicious singleton.
+    bytes32 internal constant SAFE_V1_4_1_L2_PROXY_CODEHASH =
+        0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000;
+
+    /// @notice Expected `VERSION()` string from a Safe v1.4.1 singleton.
+    string internal constant SAFE_V1_4_1_VERSION = "1.4.1";
+
+    /// @notice Runtime codehash of the Safe v1.4.1 L2 singleton bytecode at
+    /// `SAFE_V1_4_1_L2_SINGLETON`. Pinning this guards against an attacker
+    /// who replaces the bytecode at the singleton address (e.g. via
+    /// `SELFDESTRUCT` + re-create) while preserving the proxy codehash.
+    /// Without this pin, every implementation-backed accessor on the Safe
+    /// (`VERSION()`, `getOwners()`, `getThreshold()`, etc.) is mediated by
+    /// untrusted code at the singleton address. Asserting this codehash
+    /// before any of those reads closes that gap.
+    /// @dev Computed via `keccak256(eth_getCode(SAFE_V1_4_1_L2_SINGLETON))`
+    /// on Base on 2026-05-20.
+    bytes32 internal constant SAFE_V1_4_1_L2_SINGLETON_CODEHASH =
+        0xb1f926978a0f44a2c0ec8fe822418ae969bd8c3f18d61e5103100339894f81ff;
+
+    /// @notice CompatibilityFallbackHandler v1.4.1 address on Base. Verified
+    /// against the live Safe's fallback handler storage slot. Pinned so a
+    /// swapped-in malicious handler that shadows view selectors via
+    /// fallback can be detected by `assertImmutableInvariants`.
+    /// @dev Source: github.com/safe-global/safe-deployments
+    /// `src/assets/v1.4.1/compatibility_fallback_handler.json` (chainId
+    /// 8453 entry). Cross-checked on Base on 2026-05-20.
+    address internal constant SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER = 0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99;
+
+    // =========================================================================
+    // ST0x token-owner Safe pins. Current-state invariants for the specific
+    // Safe at `STOX_TOKEN_OWNER_SAFE`; updated when the live state changes
+    // (e.g. the threshold migration bumps `STOX_TOKEN_OWNER_SAFE_THRESHOLD`
+    // from `1` to `3` in the same PR that records the post-execution state).
+    // =========================================================================
+
+    /// @notice The Safe that owns every ST0x receipt vault on Base. Subject
+    /// of the threshold migration (1 -> 3, against the post-rotation
+    /// 6-owner roster).
+    /// https://basescan.org/address/0xe70d821f3462A074E63b42D0aac6523faAe1D611
+    address internal constant STOX_TOKEN_OWNER_SAFE = 0xe70d821f3462a074e63b42d0AaC6523faAe1d611;
+
+    /// @notice The current expected threshold for `STOX_TOKEN_OWNER_SAFE`.
+    /// Updated by the threshold-migration PR family once live execution
+    /// lands: scripts and the post-migration pin both treat this constant
+    /// as the canonical current truth, so the value bumps from `1` to `3`
+    /// in the same PR that records the live post-execution state.
+    uint256 internal constant STOX_TOKEN_OWNER_SAFE_THRESHOLD = 1;
+
+    /// @notice Owner #1 of `STOX_TOKEN_OWNER_SAFE`. Order matches
+    /// `getOwners()` (Safe-internal linked-list order) against the
+    /// post-rotation roster: `getOwners()` returns owners newest-first,
+    /// so the last signer to be added via `addOwnerWithThreshold` appears
+    /// at slot 0.
+    address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_1 = 0x4746095B1Ea1A84446d34448f44e74D3d51f92F2;
+
+    /// @notice Owner #2 of `STOX_TOKEN_OWNER_SAFE`.
+    address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_2 = 0xceC2cb8B8EE4000FFA3F8a7f8E0Fa0A3E3DAb72d;
+
+    /// @notice Owner #3 of `STOX_TOKEN_OWNER_SAFE`.
+    address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_3 = 0x8D5901d8aE48101B59400235ad8614A2e0510466;
+
+    /// @notice Owner #4 of `STOX_TOKEN_OWNER_SAFE`.
+    address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_4 = 0xC1C89b7f5448F447d59f920456A9610f6b2544bC;
+
+    /// @notice Owner #5 of `STOX_TOKEN_OWNER_SAFE`.
+    address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_5 = 0xAB92b327c97A6E7461cBd76E2a789E5e106FF87e;
+
+    /// @notice Owner #6 of `STOX_TOKEN_OWNER_SAFE`.
+    address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_6 = 0x5CCd3cE683b66ff271DDB8915fF528b8fcFa23c2;
+
+    // =========================================================================
+    // Storage layout constants for paginated / direct slot reads.
+    // =========================================================================
+
     /// @notice Storage slot at which Safe v1.4.1 stores the transaction
     /// guard address. Equal to
     /// `keccak256("guard_manager.guard.address")`. A non-zero value here
@@ -197,16 +287,16 @@ library LibSafeInvariants {
         assembly ("memory-safe") {
             actualCodehash := extcodehash(safeAddr)
         }
-        if (actualCodehash != LibProdSafes.SAFE_V1_4_1_L2_PROXY_CODEHASH) {
-            revert SafeProxyCodehashMismatch(safeAddr, LibProdSafes.SAFE_V1_4_1_L2_PROXY_CODEHASH, actualCodehash);
+        if (actualCodehash != SAFE_V1_4_1_L2_PROXY_CODEHASH) {
+            revert SafeProxyCodehashMismatch(safeAddr, SAFE_V1_4_1_L2_PROXY_CODEHASH, actualCodehash);
         }
 
         // Slot 0 of a Safe proxy holds the singleton (master copy) address.
         // Read it raw via `getStorageAt` rather than going through any
         // accessor so a malicious fallback can't shadow the result.
         address actualSingleton = readSafeStorageAddress(safe, 0);
-        if (actualSingleton != LibProdSafes.SAFE_V1_4_1_L2_SINGLETON) {
-            revert SafeSingletonMismatch(safeAddr, LibProdSafes.SAFE_V1_4_1_L2_SINGLETON, actualSingleton);
+        if (actualSingleton != SAFE_V1_4_1_L2_SINGLETON) {
+            revert SafeSingletonMismatch(safeAddr, SAFE_V1_4_1_L2_SINGLETON, actualSingleton);
         }
 
         // Address pin alone trusts whatever code lives at the singleton
@@ -219,15 +309,15 @@ library LibSafeInvariants {
         assembly ("memory-safe") {
             actualSingletonCodehash := extcodehash(actualSingleton)
         }
-        if (actualSingletonCodehash != LibProdSafes.SAFE_V1_4_1_L2_SINGLETON_CODEHASH) {
+        if (actualSingletonCodehash != SAFE_V1_4_1_L2_SINGLETON_CODEHASH) {
             revert SafeSingletonBytecodeMismatch(
-                safeAddr, actualSingleton, LibProdSafes.SAFE_V1_4_1_L2_SINGLETON_CODEHASH, actualSingletonCodehash
+                safeAddr, actualSingleton, SAFE_V1_4_1_L2_SINGLETON_CODEHASH, actualSingletonCodehash
             );
         }
 
         string memory actualVersion = safe.VERSION();
-        if (keccak256(bytes(actualVersion)) != keccak256(bytes(LibProdSafes.SAFE_V1_4_1_VERSION))) {
-            revert SafeVersionMismatch(safeAddr, LibProdSafes.SAFE_V1_4_1_VERSION, actualVersion);
+        if (keccak256(bytes(actualVersion)) != keccak256(bytes(SAFE_V1_4_1_VERSION))) {
+            revert SafeVersionMismatch(safeAddr, SAFE_V1_4_1_VERSION, actualVersion);
         }
 
         // Page size 10 is sufficient: any non-zero module count trips the
@@ -247,9 +337,9 @@ library LibSafeInvariants {
         }
 
         address actualFallbackHandler = readSafeStorageAddress(safe, uint256(SAFE_FALLBACK_HANDLER_STORAGE_SLOT));
-        if (actualFallbackHandler != LibProdSafes.SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER) {
+        if (actualFallbackHandler != SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER) {
             revert SafeFallbackHandlerMismatch(
-                safeAddr, LibProdSafes.SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER, actualFallbackHandler
+                safeAddr, SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER, actualFallbackHandler
             );
         }
     }
@@ -301,7 +391,7 @@ library LibSafeInvariants {
     }
 
     /// @notice Full-args Safe-side invariant bundle. Use when you want to
-    /// override the expected threshold or owner set from the `LibProdSafes`
+    /// override the expected threshold or owner set from the `LibSafeInvariants`
     /// current-truth pins — typically only when running a script that
     /// intentionally changes one of those (post-state assertion).
     /// @dev Composes the Safe-side invariants only: immutable Safe
@@ -317,15 +407,15 @@ library LibSafeInvariants {
     /// deliberately-changed expectation.
     /// @param safe The Safe to validate.
     /// @param expectedThreshold The expected signature threshold.
-    /// @param expectedOwners The expected owner set in `getOwners()` order.
-    function assertAll(IGnosisSafe safe, uint256 expectedThreshold, address[] memory expectedOwners) internal view {
+    /// @param expectedOwnerSet The expected owner set in `getOwners()` order.
+    function assertAll(IGnosisSafe safe, uint256 expectedThreshold, address[] memory expectedOwnerSet) internal view {
         assertImmutableInvariants(safe);
-        assertOwnerSet(safe, expectedOwners);
+        assertOwnerSet(safe, expectedOwnerSet);
         assertThreshold(safe, expectedThreshold);
     }
 
     /// @notice No-arg Safe-side invariant bundle that fills in the
-    /// `LibProdSafes`-pinned current-truth defaults: the threshold from
+    /// `LibSafeInvariants`-pinned current-truth defaults: the threshold from
     /// `STOX_TOKEN_OWNER_SAFE_THRESHOLD` and the owner set from
     /// `expectedOwners()`. Pre-flight at the start of every script and
     /// fork test that runs against the production Safe; if this passes
@@ -336,6 +426,27 @@ library LibSafeInvariants {
     /// re-check after it has simulated `changeThreshold`).
     /// @param safe The Safe to validate against the pinned current truth.
     function assertAll(IGnosisSafe safe) internal view {
-        assertAll(safe, LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD, LibProdSafes.expectedOwners());
+        assertAll(safe, STOX_TOKEN_OWNER_SAFE_THRESHOLD, expectedOwners());
+    }
+
+    /// @notice Returns the expected owner set for `STOX_TOKEN_OWNER_SAFE` in
+    /// the exact order returned by `getOwners()` against an unpinned Base
+    /// head fork (the live-state pin lives in
+    /// `StoxProdV2.t.sol::testProdDeployBaseV2`, which selects head rather
+    /// than pinning to a historical block so the next CI run catches any
+    /// further drift). Provided as a helper because Solidity 0.8 cannot
+    /// express a file-scope `constant address[]` and declaring the array
+    /// as `immutable` is contract-scoped only.
+    /// @return The six owners of the ST0x token-owner Safe in
+    /// `getOwners()` order.
+    function expectedOwners() internal pure returns (address[] memory) {
+        address[] memory owners = new address[](6);
+        owners[0] = STOX_TOKEN_OWNER_SAFE_OWNER_1;
+        owners[1] = STOX_TOKEN_OWNER_SAFE_OWNER_2;
+        owners[2] = STOX_TOKEN_OWNER_SAFE_OWNER_3;
+        owners[3] = STOX_TOKEN_OWNER_SAFE_OWNER_4;
+        owners[4] = STOX_TOKEN_OWNER_SAFE_OWNER_5;
+        owners[5] = STOX_TOKEN_OWNER_SAFE_OWNER_6;
+        return owners;
     }
 }
