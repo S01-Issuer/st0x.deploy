@@ -13,7 +13,7 @@ import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
-} from "rain-vats-0.1.5/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
+} from "rain-vats-0.1.6/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
 
 /// @title StoxProdV2Test
 /// @notice Fork tests verifying all V2 Zoltu deployments exist on all
