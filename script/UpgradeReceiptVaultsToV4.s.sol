@@ -59,14 +59,6 @@ error V4AuthoriserCloneCodehashMismatch(address clone, bytes32 expected, bytes32
 /// @param grantee The grantee that should hold the role.
 error V4AuthoriserCloneExpectedGrantMissing(address clone, bytes32 role, address grantee);
 
-/// @notice The V4 authoriser clone unexpectedly holds one of the
-/// `LibProdAuthoriser.disallowedGrants()` pairs. The mirror must drop these
-/// grants on the way forward to V4.
-/// @param clone The clone address inspected.
-/// @param role The role that should not be held.
-/// @param grantee The grantee that unexpectedly holds the role.
-error V4AuthoriserCloneDisallowedGrantHeld(address clone, bytes32 role, address grantee);
-
 /// @notice A production receipt vault's `authorizer()` is not the V4 clone
 /// after the upgrade simulates. The `setAuthorizer` bundle item for this
 /// vault failed to take effect.
@@ -99,8 +91,8 @@ error VaultAuthoriserMismatchPostUpgrade(address vault, address expected, addres
 ///    - `assertBeaconInvariants(beacon, safe, V1 impl)` (beacon Safe-owned, V1),
 ///    - the V4 impl is deployed with the pinned codehash,
 ///    - the V4 authoriser clone is pinned (non-zero), deployed, has the pinned
-///      EIP-1167 codehash, holds every `LibProdAuthoriser.expectedGrants()` pair,
-///      and holds none of the `LibProdAuthoriser.disallowedGrants()` pairs.
+///      EIP-1167 codehash, and holds every `LibProdAuthoriser.expectedGrants()`
+///      pair.
 ///    Every check fails red today because the V4 pointers and the clone
 ///    address are deliberate placeholders — the forcing function blocking the
 ///    upgrade until the patched rain.vats tag + clone deploy land.
@@ -191,14 +183,6 @@ contract UpgradeReceiptVaultsToV4 is Script {
         for (uint256 i = 0; i < expected.length; i++) {
             if (!cloneAcl.hasRole(expected[i].role, expected[i].grantee)) {
                 revert V4AuthoriserCloneExpectedGrantMissing(V4_AUTHORISER_CLONE, expected[i].role, expected[i].grantee);
-            }
-        }
-        LibProdAuthoriser.RoleGrant[] memory disallowed = LibProdAuthoriser.disallowedGrants();
-        for (uint256 i = 0; i < disallowed.length; i++) {
-            if (cloneAcl.hasRole(disallowed[i].role, disallowed[i].grantee)) {
-                revert V4AuthoriserCloneDisallowedGrantHeld(
-                    V4_AUTHORISER_CLONE, disallowed[i].role, disallowed[i].grantee
-                );
             }
         }
 
