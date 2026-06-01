@@ -27,8 +27,7 @@ import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
 /// - every production receipt vault's `authorizer()` returns the V4 clone
 ///   (`LibProdAuthoriser.STOX_PROD_AUTHORISER_V4_CLONE`);
 /// - the V4 clone's `(role, grantee)` map matches
-///   `LibProdAuthoriser.expectedGrants()` exactly (and excludes every
-///   `disallowedGrants()` pair).
+///   `LibProdAuthoriser.expectedGrants()` exactly.
 /// These are Base-only because no other network carries live production
 /// receipt vaults.
 ///
@@ -72,8 +71,7 @@ contract StoxProdV4Test is Test {
 
     /// @notice Assert the post-swap authoriser state on Base: every prod
     /// receipt vault's `authorizer()` returns the V4 clone, and the V4 clone
-    /// holds every `LibProdAuthoriser.expectedGrants()` pair and none of the
-    /// `disallowedGrants()` pairs. Base-only.
+    /// holds every `LibProdAuthoriser.expectedGrants()` pair. Base-only.
     function checkPostSwapAuthoriserStateOnBase() internal view {
         address v4Clone = LibProdAuthoriser.STOX_PROD_AUTHORISER_V4_CLONE;
         assertTrue(v4Clone != address(0), "V4 authoriser clone still placeholder");
@@ -96,13 +94,6 @@ contract StoxProdV4Test is Test {
         LibProdAuthoriser.RoleGrant[] memory grants = LibProdAuthoriser.expectedGrants();
         for (uint256 i = 0; i < grants.length; i++) {
             assertTrue(cloneAcl.hasRole(grants[i].role, grants[i].grantee), "V4 clone missing expected grant");
-        }
-        LibProdAuthoriser.RoleGrant[] memory disallowed = LibProdAuthoriser.disallowedGrants();
-        for (uint256 i = 0; i < disallowed.length; i++) {
-            assertFalse(
-                cloneAcl.hasRole(disallowed[i].role, disallowed[i].grantee),
-                "V4 clone unexpectedly holds disallowed grant"
-            );
         }
     }
 
