@@ -51,11 +51,10 @@ error ReceiptVaultAuthoriserMismatch(address vault, address expected, address ac
 /// or reverts with a typed error that pinpoints the offending vault.
 /// @dev These are token-side prod invariants: a receipt vault's owner and
 /// authoriser uniformity is a property of the token deployment, not of the
-/// Safe multisig. They are composed into `LibSafeInvariants.assertAll`
-/// alongside the Safe-side invariants so the full production state bundle
-/// carries both, but they live here because owner/authoriser uniformity is
-/// a token-side concern that does not belong in a Safe-named library. Both
-/// asserts are also callable standalone for focused drift detection.
+/// Safe multisig. `LibInvariants.assertAll` composes this lib's `assertAll`
+/// alongside `LibSafeInvariants.assertAll` so consumers asserting the full
+/// production state get both. Individual asserts are also callable
+/// standalone for focused drift detection.
 library LibTokenInvariants {
     /// @notice Assert that every production receipt vault reports the same
     /// `owner()`. Iterates `LibProdTokensBase.productionReceiptVaults` and
@@ -64,9 +63,9 @@ library LibTokenInvariants {
     /// vault.
     /// @dev A divergent owner means a token is controlled by a different
     /// account than the rest of the system — the class of inconsistency
-    /// this invariant exists to prevent. Composed into
-    /// `LibSafeInvariants.assertAll` (with the Safe as the expected owner)
-    /// as a first-class token-side invariant; also callable standalone.
+    /// this invariant exists to prevent. Composed into `assertAll` (with
+    /// the Safe as the expected owner) and through there into
+    /// `LibInvariants.assertAll`; also callable standalone.
     /// @param expectedOwner The address every production receipt vault is
     /// expected to report as `owner()`.
     function assertUniformOwnership(address expectedOwner) internal view {
@@ -85,9 +84,8 @@ library LibTokenInvariants {
     /// `authorizer()` diverges from `expected`, surfacing the offending vault.
     /// @dev A divergent authoriser means a token is gated by a different RBAC
     /// contract than the rest of the system — the class of inconsistency this
-    /// invariant exists to prevent. Composed into
-    /// `LibSafeInvariants.assertAll` as a first-class token-side invariant;
-    /// also callable standalone.
+    /// invariant exists to prevent. Composed into `assertAll` and through
+    /// there into `LibInvariants.assertAll`; also callable standalone.
     /// @param expected The authoriser address every production receipt vault
     /// is expected to share.
     function assertUniformAuthoriser(address expected) internal view {
@@ -98,5 +96,22 @@ library LibTokenInvariants {
                 revert ReceiptVaultAuthoriserMismatch(vaults[i], expected, actual);
             }
         }
+    }
+
+    /// @notice Full token-side invariant bundle: every production receipt
+    /// vault reports the Safe as its `owner()` AND the pinned production
+    /// authoriser as its `authorizer()`. Pre-flight / post-state hook for
+    /// any script touching the production receipt vault set; consumers
+    /// asserting the full production state (Safe + token) compose this
+    /// alongside `LibSafeInvariants.assertAll` via `LibInvariants.assertAll`.
+    /// @dev Both legs run last in the composed bundle because each is
+    /// `O(13)` external calls and only meaningful once the Safe itself has
+    /// been validated.
+    /// @param safe The Safe address every production receipt vault is
+    /// expected to report as `owner()`. The authoriser is sourced from
+    /// `LibProdTokensBase.PROD_RECEIPT_VAULT_AUTHORISER`.
+    function assertAll(address safe) internal view {
+        assertUniformOwnership(safe);
+        assertUniformAuthoriser(LibProdTokensBase.PROD_RECEIPT_VAULT_AUTHORISER);
     }
 }

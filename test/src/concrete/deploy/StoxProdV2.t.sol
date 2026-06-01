@@ -6,7 +6,7 @@ import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibProdDeployV2} from "../../../../src/lib/LibProdDeployV2.sol";
 import {LibProdDeployV2BaseOverrides} from "../../../../src/lib/LibProdDeployV2BaseOverrides.sol";
 import {LibProdSafes} from "../../../../src/lib/LibProdSafes.sol";
-import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
+import {LibInvariants} from "../../../../src/lib/LibInvariants.sol";
 import {IGnosisSafe} from "../../../../src/interface/IGnosisSafe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
@@ -122,12 +122,13 @@ contract StoxProdV2Test is Test {
     }
 
     /// Per-Safe invariant bundle for the ST0x token-owner Safe on Base.
-    /// Calls `LibSafeInvariants.assertAll` against the production Safe
-    /// address pinned in `LibProdSafes`. The Safe is Base-only (no Safe
+    /// Calls `LibInvariants.assertAll` against the production Safe
+    /// address pinned in `LibProdSafes` — composes the Safe-side and
+    /// token-side invariants in one call. The Safe is Base-only (no Safe
     /// on Arbitrum / Base Sepolia / Flare / Polygon for ST0x ops), so
     /// this helper is only invoked from `testProdDeployBaseV2`.
     function checkAllSafeBase() internal view {
-        LibSafeInvariants.assertAll(IGnosisSafe(LibProdSafes.STOX_TOKEN_OWNER_SAFE));
+        LibInvariants.assertAll(IGnosisSafe(LibProdSafes.STOX_TOKEN_OWNER_SAFE));
     }
 
     /// All V2 contracts MUST be deployed on Arbitrum.

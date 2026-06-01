@@ -7,7 +7,7 @@ import {console2} from "forge-std-1.16.1/src/console2.sol";
 
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibProdSafes} from "../src/lib/LibProdSafes.sol";
-import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
+import {LibInvariants} from "../src/lib/LibInvariants.sol";
 import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
 
 /// @notice A previously emitted Tx Builder JSON artifact (parsed via
@@ -28,7 +28,7 @@ error VerifyExpectedSingleTx(uint256 actualCount);
 /// @title MigrateMultisigThreshold
 /// @notice Forge script that authors the ST0x token-owner Safe's
 /// multisig threshold migration (1-of-6 -> 3-of-6 against the post-rotation roster). Performs an
-/// exhaustive on-chain pre-flight via `LibSafeInvariants.assertAll`
+/// exhaustive on-chain pre-flight via `LibInvariants.assertAll`
 /// (proxy codehash, singleton + bytecode, version, modules, guard,
 /// fallback handler, uniform vault ownership, expected owner set,
 /// expected threshold), simulates the post-state, emits a Safe Tx
@@ -78,7 +78,7 @@ contract MigrateMultisigThreshold is Script {
         // roster plus the pinned current threshold. Defaults from
         // `LibProdSafes` (no-arg overload). Reverts with the relevant
         // typed error from the underlying library on first mismatch.
-        LibSafeInvariants.assertAll(safe);
+        LibInvariants.assertAll(safe);
 
         // Build the single-tx bundle: a self-call to `changeThreshold(3)`.
         SafeTx memory txn = SafeTx({
@@ -104,7 +104,7 @@ contract MigrateMultisigThreshold is Script {
         // implementation that secretly mutates the owner roster, modules,
         // or fallback handler as a side effect.
         LibSafeOps.simulateSelfCall(safe, txn.data);
-        LibSafeInvariants.assertAll(safe, TARGET_THRESHOLD, LibProdSafes.expectedOwners());
+        LibInvariants.assertAll(safe, TARGET_THRESHOLD, LibProdSafes.expectedOwners());
 
         // Emit the Tx Builder JSON artifact and write it under `out/`.
         SafeTx[] memory txs = new SafeTx[](1);
@@ -147,7 +147,7 @@ contract MigrateMultisigThreshold is Script {
         // Same pre-flight bundle as `run()`. If the live state has drifted
         // since the artifact was authored, the typed error bubbles before
         // we even open the file.
-        LibSafeInvariants.assertAll(safe);
+        LibInvariants.assertAll(safe);
 
         (uint256 parsedChainId, address parsedSafe, SafeTx[] memory parsedTxs) = LibSafeOps.parseTxBuilderJson(jsonPath);
 

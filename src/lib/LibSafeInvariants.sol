@@ -4,8 +4,6 @@ pragma solidity ^0.8.25;
 
 import {IGnosisSafe} from "../interface/IGnosisSafe.sol";
 import {LibProdSafes} from "./LibProdSafes.sol";
-import {LibProdTokensBase} from "./LibProdTokensBase.sol";
-import {LibTokenInvariants} from "./LibTokenInvariants.sol";
 
 /// @notice The runtime codehash at the Safe's address does not match the
 /// pinned Safe v1.4.1 L2 proxy codehash. Signals either that the address has
@@ -120,16 +118,14 @@ error SafeThresholdMismatch(address safe, uint256 expected, uint256 actual);
 ///   threshold migration). Wrong values here are caller intent, not Safe
 ///   drift, so the comparison target is an argument.
 ///
-/// The `assertAll` overloads bundle the Safe-side immutable invariants,
-/// the two parameterised checks, and the token-side uniformity invariants
-/// (`LibTokenInvariants.assertUniformOwnership` /
-/// `assertUniformAuthoriser`) into a single call site. The pattern mirrors
-/// `StoxProdV2Test::checkAllV2OnChain`: a full-args helper that takes
-/// every expected value, and a no-arg default that fills in the
-/// current-truth pins from `LibProdSafes`. Scripts default to the no-arg
-/// version for pre-flight; only the migration script with deliberate
-/// state changes uses the full-args overload for its post-state
-/// assertion.
+/// The `assertAll` overloads bundle the Safe-side immutable invariants
+/// and the two parameterised checks into a single call site. The pattern
+/// mirrors `StoxProdV2Test::checkAllV2OnChain`: a full-args helper that
+/// takes every expected value, and a no-arg default that fills in the
+/// current-truth pins from `LibProdSafes`. Token-side invariants are
+/// composed alongside these by `LibInvariants.assertAll` for callers
+/// asserting the full production state; this lib is Safe-only by design
+/// so the file name doesn't mislead.
 ///
 /// Centralising the assertions here keeps drift detection consistent
 /// across the threshold migration script, its tests, the post-migration
@@ -304,35 +300,21 @@ library LibSafeInvariants {
         }
     }
 
-    /// @notice Full-args invariant bundle. Use when you want to override
-    /// the expected threshold or owner set from the `LibProdSafes`
+    /// @notice Full-args Safe-side invariant bundle. Use when you want to
+    /// override the expected threshold or owner set from the `LibProdSafes`
     /// current-truth pins — typically only when running a script that
     /// intentionally changes one of those (post-state assertion).
-    /// @dev Composes both the Safe-side invariants (immutable Safe
-    /// identity/config, owner set, threshold) and the token-side
-    /// uniformity invariants (`LibTokenInvariants.assertUniformOwnership`
-    /// against the Safe, and `assertUniformAuthoriser` against the pinned
-    /// `LibProdTokensBase.PROD_RECEIPT_VAULT_AUTHORISER`). The token legs
-    /// live in `LibTokenInvariants` because vault owner/authoriser
-    /// uniformity is a property of the token deployment, but they are
-    /// bundled here so a consumer asserting the full production state never
-    /// has to remember to run them separately.
+    /// @dev Composes the Safe-side invariants only: immutable Safe
+    /// identity/config, owner set, and threshold. Token-side uniformity
+    /// invariants are composed in `LibInvariants.assertAll` so the
+    /// full-production-state bundle still exists, but they don't live
+    /// here — this lib is purely Safe-side.
     ///
     /// Mirrors the `StoxProdV2Test::checkAllV2OnChain` pattern: a
     /// full-args helper alongside a no-arg overload. Migration scripts
     /// call the no-arg overload pre-execution to assert the pinned
     /// current truth, then call this overload post-execution with the
     /// deliberately-changed expectation.
-    ///
-    /// Implementation is intentionally a thin wrapper rather than a
-    /// separate body: keeping each underlying check addressable in
-    /// isolation lets fork tests exercise individual drift surfaces, and
-    /// keeping the bundle alongside them means migration code never has
-    /// to remember which of the pieces to run. The token-side ownership
-    /// leg is asserted against `address(safe)`, so it also surfaces vault
-    /// ownership drift against the Safe at migration time. Both token legs
-    /// run last because they are the most expensive (13 external calls
-    /// each) and only meaningful once the Safe itself has been validated.
     /// @param safe The Safe to validate.
     /// @param expectedThreshold The expected signature threshold.
     /// @param expectedOwners The expected owner set in `getOwners()` order.
@@ -340,11 +322,9 @@ library LibSafeInvariants {
         assertImmutableInvariants(safe);
         assertOwnerSet(safe, expectedOwners);
         assertThreshold(safe, expectedThreshold);
-        LibTokenInvariants.assertUniformOwnership(address(safe));
-        LibTokenInvariants.assertUniformAuthoriser(LibProdTokensBase.PROD_RECEIPT_VAULT_AUTHORISER);
     }
 
-    /// @notice No-arg invariant bundle that fills in the
+    /// @notice No-arg Safe-side invariant bundle that fills in the
     /// `LibProdSafes`-pinned current-truth defaults: the threshold from
     /// `STOX_TOKEN_OWNER_SAFE_THRESHOLD` and the owner set from
     /// `expectedOwners()`. Pre-flight at the start of every script and

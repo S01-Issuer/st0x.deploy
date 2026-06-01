@@ -14,13 +14,11 @@ import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
 /// production receipt vault on Base shares the same `owner()` and the same
 /// `authorizer()`.
 ///
-/// The uniform-ownership invariant currently holds on-chain (every vault is
-/// owned by `LibProdSafes.STOX_TOKEN_OWNER_SAFE`), so the positive ownership
-/// case passes. The uniform-authoriser invariant may be transiently red: at
-/// the time of writing one vault (IBHG) is being migrated onto the shared
-/// authoriser. Once that lands on-chain the authoriser test greens
-/// automatically with no code change. The inverted ownership-drift case is
-/// also exercised here for full error-path coverage.
+/// Both uniformity invariants currently hold on-chain (every vault is
+/// owned by `LibProdSafes.STOX_TOKEN_OWNER_SAFE` and reports the pinned
+/// `LibProdTokensBase.PROD_RECEIPT_VAULT_AUTHORISER`), so the positive
+/// cases pass against the live Base fork. The inverted ownership-drift
+/// case is also exercised here for full error-path coverage.
 /// @dev Uses an unpinned Base head fork (same precedent as the other
 /// prod-state drift detectors in this repo), so the next CI run reflects the
 /// current on-chain wiring. Pinning would freeze the invariant assertions
@@ -46,9 +44,8 @@ contract LibTokenInvariantsTest is Test {
     }
 
     /// @notice Every production receipt vault reports
-    /// `LibProdTokensBase.PROD_RECEIPT_VAULT_AUTHORISER`. May be transiently
-    /// red while IBHG's authoriser is migrated on-chain; greens automatically
-    /// once that lands.
+    /// `LibProdTokensBase.PROD_RECEIPT_VAULT_AUTHORISER`. Passes against
+    /// the live chain state: vault authoriser is uniform.
     function testProdReceiptVaultsShareUniformAuthoriser() external {
         selectBaseFork();
         LibTokenInvariants.assertUniformAuthoriser(LibProdTokensBase.PROD_RECEIPT_VAULT_AUTHORISER);
