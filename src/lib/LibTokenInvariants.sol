@@ -165,15 +165,6 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x78c31580c97101694c70022c83d570150c11e935
     address internal constant SGOV_WRAPPED_TOKEN_VAULT = address(0x78c31580c97101694C70022c83D570150c11e935);
 
-    /// @notice The single authoriser every production receipt vault is gated
-    /// by, as a token-side invariant. Pinned here as the expected value for
-    /// `assertUniformAuthoriser`; updated post-swap when the receipt vaults
-    /// are rewired onto a new authoriser clone.
-    /// @dev Read from `authorizer()` on the live vaults on Base. A vault
-    /// reporting any other authoriser is gated by a different RBAC contract
-    /// than the rest of the system and trips the invariant.
-    address internal constant STOX_PROD_AUTHORISER = address(0x35f9fA9d80aAF2B0fB27f0FF015641B3408d7456);
-
     /// @notice Returns the 13 production receipt vault addresses on Base, in
     /// the order they were deployed. Provided so consumers (e.g. invariant
     /// assertions, migration scripts) can iterate without hardcoding the
