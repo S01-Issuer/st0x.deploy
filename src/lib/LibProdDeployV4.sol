@@ -73,9 +73,9 @@ library LibProdDeployV4 {
     address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_TBD = address(0);
     bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_RAIN_VATS_TBD = bytes32(0);
 
-    /// @dev The corporate-action-aware authoriser impl. The clone deployed for
-    /// the issuer (see `LibProdAuthoriser.STOX_PROD_AUTHORISER_V4_CLONE` once
-    /// added) points at this impl via EIP-1167.
+    /// @dev The corporate-action-aware authoriser impl. The clone deployed
+    /// for the issuer (see `STOX_PROD_AUTHORISER_V4_CLONE` below) points
+    /// at this impl via EIP-1167.
     address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_TBD = address(0);
     bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_RAIN_VATS_TBD = bytes32(0);
 
@@ -89,4 +89,37 @@ library LibProdDeployV4 {
     /// is rebuilt in lock-step.
     address constant STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_TBD = address(0);
     bytes32 constant STOX_CORPORATE_ACTIONS_FACET_CODEHASH_RAIN_VATS_TBD = bytes32(0);
+
+    /// @notice The V4 production authoriser clone — an EIP-1167 minimal
+    /// proxy of `STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_TBD`
+    /// that the upgrade script `setAuthorizer`s every production receipt
+    /// vault onto, replacing the current pre-V3 clone pinned in
+    /// `LibAuthoriserInvariants.STOX_PROD_AUTHORISER`.
+    ///
+    /// **PLACEHOLDER** (`address(0)` literal) until the clone is deployed
+    /// against the V4 impl as a one-off ops step (initialised with the
+    /// ST0x token-owner Safe as `initialAdmin`, then the non-admin grants
+    /// from `LibAuthoriserInvariants.expectedGrants()` are mirrored onto
+    /// it). The clone's address is not deterministic ahead of time (Rain
+    /// `CloneFactory` uses non-deterministic `Clones.clone`); the
+    /// post-deploy edit hand-writes the real literal in place of
+    /// `address(0)` here.
+    ///
+    /// Lives in this lib (the deploy artifacts pin) rather than in
+    /// `LibAuthoriserInvariants` because it's a deploy target, not a
+    /// current-state invariant. Post-swap, `LibAuthoriserInvariants.STOX_PROD_AUTHORISER`
+    /// updates to this address; the constant here is the immutable
+    /// historical record of the V4 artifact.
+    address constant STOX_PROD_AUTHORISER_V4_CLONE = address(0);
+
+    /// @notice The pinned EIP-1167 runtime codehash for
+    /// `STOX_PROD_AUTHORISER_V4_CLONE`. Deterministic from the V4 impl
+    /// address embedded in the minimal-proxy runtime
+    /// (`363d3d373d3d3d363d73<impl>5af43d82803e903d91602b57fd5bf3`); the
+    /// invariant uses it to prove the clone hasn't been etched over.
+    ///
+    /// **PLACEHOLDER** — fill in once the V4 impl address is known and the
+    /// clone is deployed. Easiest path: compute via
+    /// `keccak256(abi.encodePacked(hex"363d3d373d3d3d363d73", v4Impl, hex"5af43d82803e903d91602b57fd5bf3"))`.
+    bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH = bytes32(0);
 }
