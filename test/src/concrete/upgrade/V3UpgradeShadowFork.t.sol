@@ -9,8 +9,8 @@ import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensio
 
 import {LibProdDeployV1} from "../../../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV3} from "../../../../src/lib/LibProdDeployV3.sol";
-import {LibProdSafes} from "../../../../src/lib/LibProdSafes.sol";
-import {LibProdTokensBase} from "../../../../src/lib/LibProdTokensBase.sol";
+import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
+import {LibTokenInvariants} from "../../../../src/lib/LibTokenInvariants.sol";
 import {LibSafeOps, IUpgradeableBeacon} from "../../../../src/lib/LibSafeOps.sol";
 import {
     ICorporateActionsV1,
@@ -19,11 +19,11 @@ import {
 } from "../../../../src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "../../../../src/lib/LibCorporateActionNode.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
-import {IReceiptVaultV3} from "rain-vats-0.1.5/src/interface/IReceiptVaultV3.sol";
-import {IReceiptV3} from "rain-vats-0.1.5/src/interface/IReceiptV3.sol";
-import {IAuthorizableV1} from "rain-vats-0.1.5/src/interface/IAuthorizableV1.sol";
-import {IAuthorizeV1} from "rain-vats-0.1.5/src/interface/IAuthorizeV1.sol";
-import {ICertifiableV1} from "rain-vats-0.1.5/src/interface/ICertifiableV1.sol";
+import {IReceiptVaultV3} from "rain-vats-0.1.6/src/interface/IReceiptVaultV3.sol";
+import {IReceiptV3} from "rain-vats-0.1.6/src/interface/IReceiptV3.sol";
+import {IAuthorizableV1} from "rain-vats-0.1.6/src/interface/IAuthorizableV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
+import {ICertifiableV1} from "rain-vats-0.1.6/src/interface/ICertifiableV1.sol";
 import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1967BeaconProxy.sol";
 
 /// @title V3UpgradeShadowForkTest
@@ -61,14 +61,14 @@ contract V3UpgradeShadowForkTest is Test {
 
     /// @notice A representative live production receipt vault behind the
     /// upgraded beacon. MSTR is the first entry in
-    /// `LibProdTokensBase.productionReceiptVaults`.
-    address internal constant LIVE_RECEIPT_VAULT = LibProdTokensBase.MSTR_RECEIPT_VAULT;
+    /// `LibTokenInvariants.productionReceiptVaults`.
+    address internal constant LIVE_RECEIPT_VAULT = LibTokenInvariants.MSTR_RECEIPT_VAULT;
 
     /// @notice The live receipt (ERC-1155) paired with `LIVE_RECEIPT_VAULT`.
-    address internal constant LIVE_RECEIPT = LibProdTokensBase.MSTR_RECEIPT;
+    address internal constant LIVE_RECEIPT = LibTokenInvariants.MSTR_RECEIPT;
 
     /// @notice The live wrapped token vault paired with `LIVE_RECEIPT_VAULT`.
-    address internal constant LIVE_WRAPPED_VAULT = LibProdTokensBase.MSTR_WRAPPED_TOKEN_VAULT;
+    address internal constant LIVE_WRAPPED_VAULT = LibTokenInvariants.MSTR_WRAPPED_TOKEN_VAULT;
 
     function setUp() public {
         vm.createSelectFork(LibRainDeploy.BASE);
@@ -84,16 +84,16 @@ contract V3UpgradeShadowForkTest is Test {
         );
 
         // 2. Simulate PR-A: transfer the beacon from the EOA to the Safe.
-        vm.prank(LibProdSafes.BEACON_PRE_MIGRATION_OWNER);
-        Ownable(BEACON).transferOwnership(LibProdSafes.STOX_TOKEN_OWNER_SAFE);
+        vm.prank(LibProdDeployV1.BEACON_INITIAL_OWNER);
+        Ownable(BEACON).transferOwnership(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
 
         // 3. Apply the upgrade: the Safe points the beacon at the V3 impl.
-        vm.prank(LibProdSafes.STOX_TOKEN_OWNER_SAFE);
+        vm.prank(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
         IUpgradeableBeacon(BEACON).upgradeTo(LibProdDeployV3.STOX_RECEIPT_VAULT);
     }
 
     /// @notice Read the EIP-1967 beacon address from a proxy contract. Mirrors
-    /// `LibProdTokensBaseTest.beaconOf`.
+    /// `LibTokenInvariantsAddressesTest.beaconOf`.
     function beaconOf(address proxy) internal view returns (address) {
         return address(uint160(uint256(vm.load(proxy, ERC1967_BEACON_SLOT))));
     }
@@ -102,7 +102,7 @@ contract V3UpgradeShadowForkTest is Test {
     /// Safe-owned, points at the V3 implementation, and the live receipt vault
     /// is still behind this beacon.
     function testForkIsInUpgradedState() external view {
-        assertEq(Ownable(BEACON).owner(), LibProdSafes.STOX_TOKEN_OWNER_SAFE, "beacon Safe-owned");
+        assertEq(Ownable(BEACON).owner(), LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, "beacon Safe-owned");
         assertEq(IBeacon(BEACON).implementation(), LibProdDeployV3.STOX_RECEIPT_VAULT, "beacon at V3 impl");
         assertEq(beaconOf(LIVE_RECEIPT_VAULT), BEACON, "live vault behind the upgraded beacon");
     }
