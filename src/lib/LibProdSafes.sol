@@ -79,11 +79,14 @@ library LibProdSafes {
     address constant STOX_TOKEN_OWNER_SAFE = 0xe70d821f3462a074e63b42d0AaC6523faAe1d611;
 
     /// @notice The current expected threshold for `STOX_TOKEN_OWNER_SAFE`.
-    /// Updated by the threshold-migration PR family once live execution
-    /// lands: scripts and the post-migration pin both treat this constant
-    /// as the canonical current truth, so the value bumps from `1` to `3`
-    /// in the same PR that records the live post-execution state.
-    uint256 constant STOX_TOKEN_OWNER_SAFE_THRESHOLD = 1;
+    /// Bumped from `1` to `3` to record the live post-execution state of
+    /// the threshold migration against the post-rotation 6-signer roster.
+    /// From this PR onward, the no-arg `LibSafeInvariants.assertAll(safe)`
+    /// overload (which defaults its expected threshold to this constant)
+    /// is the canonical drift detector for the Safe's current threshold;
+    /// any further change to the threshold should land in a new PR that
+    /// updates this constant in lockstep with live execution.
+    uint256 constant STOX_TOKEN_OWNER_SAFE_THRESHOLD = 3;
 
     /// @notice Owner #1 of `STOX_TOKEN_OWNER_SAFE`. **PLACEHOLDER**
     /// (`address(0)`) until the post-rotation roster is published and each
