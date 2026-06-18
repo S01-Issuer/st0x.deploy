@@ -16,6 +16,7 @@ import {CompletionFilter, NODE_NONE} from "../../../src/lib/LibCorporateActionNo
 import {IAuthorizeV1, Unauthorized} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
 import {LibTestTofu} from "../../lib/LibTestTofu.sol";
+import {PermissiveAuthorizer} from "./PermissiveAuthorizer.sol";
 
 /// @dev Slot 0 of the OffchainAssetReceiptVault ERC-7201 namespace
 /// ("rain.storage.offchain-asset-receipt-vault.1") holds the authorizer
@@ -23,31 +24,6 @@ import {LibTestTofu} from "../../lib/LibTestTofu.sol";
 /// on the rain.vats internal constant layout beyond this single SSTORE.
 bytes32 constant OFFCHAIN_ASSET_RECEIPT_VAULT_STORAGE_LOCATION =
     0xba9f160a0257aef2aa878e698d5363429ea67cc3c427f23f7cb9c3069b67bd00;
-
-/// @dev Permissive authorizer used by the fallback routing tests. Records the
-/// most recent call and allows every permission by default so we can exercise
-/// the forward-to-facet path without reproducing the full ethgild auth setup.
-contract PermissiveAuthorizer is IAuthorizeV1 {
-    address public lastUser;
-    bytes32 public lastPermission;
-    bytes public lastData;
-    uint256 public callCount;
-    bool public denyMode;
-
-    function setDenyMode(bool deny) external {
-        denyMode = deny;
-    }
-
-    function authorize(address user, bytes32 permission, bytes memory data) external override {
-        callCount++;
-        lastUser = user;
-        lastPermission = permission;
-        lastData = data;
-        if (denyMode) {
-            revert Unauthorized(user, permission, data);
-        }
-    }
-}
 
 /// Fallback routing tests for `StoxReceiptVault`. The vault's `fallback()`
 /// override delegatecalls into `StoxCorporateActionsFacet` at the deterministic
