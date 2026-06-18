@@ -3,20 +3,14 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {LibCorporateAction} from "src/lib/LibCorporateAction.sol";
+import {TraversalHarness} from "./TraversalHarness.sol";
 import {
-    ACTION_TYPE_INIT_V1,
     ACTION_TYPE_STOCK_SPLIT_V1,
     ACTION_TYPE_STABLES_DIVIDEND_V1,
     VALID_ACTION_TYPES_MASK
 } from "src/interface/ICorporateActionsV1.sol";
 
-import {
-    CompletionFilter,
-    CorporateActionNode,
-    LibCorporateActionNode,
-    NODE_NONE
-} from "src/lib/LibCorporateActionNode.sol";
+import {CompletionFilter, NODE_NONE} from "src/lib/LibCorporateActionNode.sol";
 import {InvalidMask} from "src/error/ErrCorporateAction.sol";
 
 /// @dev Mask covering every test-scheduled action type — `STOCK_SPLIT_V1` and
@@ -28,49 +22,6 @@ import {InvalidMask} from "src/error/ErrCorporateAction.sol";
 /// effective-supply tests in `LibTotalSupply.t.sol` and `LibRebase.t.sol`
 /// do exercise the bootstrap node via `BALANCE_MIGRATION_TYPES_MASK`.
 uint256 constant USER_TYPES_TEST_MASK = ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1;
-
-/// @dev Thin harness: exposes the four tuple-returning traversal getters via
-/// external calls so the library functions can be exercised directly (not
-/// through the facet). Also schedules actions into the harness's own storage
-/// namespace so there is no ambient state between tests.
-contract TraversalHarness {
-    function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters) external returns (uint256) {
-        return LibCorporateAction.schedule(actionType, effectiveTime, parameters);
-    }
-
-    function cancel(uint256 actionIndex) external {
-        LibCorporateAction.cancel(actionIndex);
-    }
-
-    function latest(uint256 mask, CompletionFilter filter) external view returns (uint256, uint256, uint64) {
-        return LibCorporateActionNode.latestActionOfType(mask, filter);
-    }
-
-    function earliest(uint256 mask, CompletionFilter filter) external view returns (uint256, uint256, uint64) {
-        return LibCorporateActionNode.earliestActionOfType(mask, filter);
-    }
-
-    function nextOf(uint256 cursor, uint256 mask, CompletionFilter filter)
-        external
-        view
-        returns (uint256, uint256, uint64)
-    {
-        return LibCorporateActionNode.nextActionOfType(cursor, mask, filter);
-    }
-
-    function prevOf(uint256 cursor, uint256 mask, CompletionFilter filter)
-        external
-        view
-        returns (uint256, uint256, uint64)
-    {
-        return LibCorporateActionNode.prevActionOfType(cursor, mask, filter);
-    }
-
-    function nodeAt(uint256 index) external view returns (uint256, uint64) {
-        CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[index];
-        return (node.actionType, node.effectiveTime);
-    }
-}
 
 contract LibCorporateActionNodeTest is Test {
     TraversalHarness internal h;
