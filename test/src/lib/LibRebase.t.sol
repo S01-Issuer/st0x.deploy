@@ -4,20 +4,9 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
-import {LibRebase} from "src/lib/LibRebase.sol";
-import {LibCorporateAction} from "src/lib/LibCorporateAction.sol";
+import {LibRebaseHarness} from "./LibRebaseHarness.sol";
 import {ACTION_TYPE_STOCK_SPLIT_V1} from "src/interface/ICorporateActionsV1.sol";
 import {LibStockSplit} from "src/lib/LibStockSplit.sol";
-
-contract LibRebaseHarness {
-    function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters) external returns (uint256) {
-        return LibCorporateAction.schedule(actionType, effectiveTime, parameters);
-    }
-
-    function migratedBalance(uint256 storedBalance, uint256 cursor) external view returns (uint256, uint256) {
-        return LibRebase.migratedBalance(storedBalance, cursor);
-    }
-}
 
 contract LibRebaseTest is Test {
     LibRebaseHarness internal h;
