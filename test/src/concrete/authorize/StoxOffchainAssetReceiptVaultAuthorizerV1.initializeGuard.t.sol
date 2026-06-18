@@ -9,21 +9,11 @@ import {
     OffchainAssetReceiptVaultAuthorizerV1Config
 } from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {
-    StoxOffchainAssetReceiptVaultAuthorizerV1,
     SCHEDULE_CORPORATE_ACTION_ADMIN,
     CANCEL_CORPORATE_ACTION_ADMIN
 } from "../../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
+import {FailingSuperInitAuthorizer} from "./FailingSuperInitAuthorizer.sol";
 import {ICLONEABLE_V2_SUCCESS} from "rain-factory-0.1.1/src/interface/ICloneableV2.sol";
-
-/// @dev Overrides _initialize to return a non-success value, simulating
-/// a parent initialization failure.
-contract FailingSuperInitAuthorizer is StoxOffchainAssetReceiptVaultAuthorizerV1 {
-    bytes32 public constant FAILURE_SENTINEL = bytes32(uint256(1));
-
-    function _initialize(OffchainAssetReceiptVaultAuthorizerV1Config memory) internal pure override returns (bytes32) {
-        return FAILURE_SENTINEL;
-    }
-}
 
 contract StoxOffchainAssetReceiptVaultAuthorizerV1InitializeGuardTest is Test {
     address constant ADMIN = address(uint160(uint256(keccak256("ADMIN"))));
