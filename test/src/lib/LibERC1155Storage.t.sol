@@ -3,35 +3,8 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {ERC1155Upgradeable} from "@openzeppelin-contracts-upgradeable-5.6.1/token/ERC1155/ERC1155Upgradeable.sol";
-import {LibERC1155Storage, ERC1155_STORAGE_LOCATION} from "src/lib/LibERC1155Storage.sol";
-
-/// @dev A minimal `ERC1155Upgradeable` subclass that exposes `_mint` / `_burn`
-/// and the `LibERC1155Storage` helpers as external methods. The library uses
-/// `internal` functions so they get inlined into this contract and read /
-/// write its own storage at the OZ ERC-7201 namespaced slot — exactly the
-/// invariant being tested.
-contract TestERC1155 is ERC1155Upgradeable {
-    constructor() initializer {
-        __ERC1155_init("");
-    }
-
-    function mint(address to, uint256 id, uint256 amount) external {
-        _mint(to, id, amount, "");
-    }
-
-    function burn(address from, uint256 id, uint256 amount) external {
-        _burn(from, id, amount);
-    }
-
-    function libBalanceOf(address account, uint256 id) external view returns (uint256) {
-        return LibERC1155Storage.underlyingBalance(account, id);
-    }
-
-    function libSetBalance(address account, uint256 id, uint256 newBalance) external {
-        LibERC1155Storage.setUnderlyingBalance(account, id, newBalance);
-    }
-}
+import {TestERC1155} from "./TestERC1155.sol";
+import {ERC1155_STORAGE_LOCATION} from "src/lib/LibERC1155Storage.sol";
 
 /// @dev Drift-detection tests for `LibERC1155Storage`. Every assertion is
 /// grounded against `ERC1155Upgradeable` running on the same test contract:
