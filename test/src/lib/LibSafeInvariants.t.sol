@@ -221,14 +221,14 @@ contract LibSafeInvariantsTest is Test {
     }
 
     /// @notice Owner count drift trips `SafeOwnerCountMismatch`. The caller
-    /// passes a 3-entry array against the live 4-owner Safe.
+    /// passes a 3-entry array against the live 6-owner Safe.
     function testInvertedOwnerCountMismatch() external {
         selectBaseFork();
         address[] memory truncated = new address[](3);
         truncated[0] = LibProdSafes.STOX_TOKEN_OWNER_SAFE_OWNER_1;
         truncated[1] = LibProdSafes.STOX_TOKEN_OWNER_SAFE_OWNER_2;
         truncated[2] = LibProdSafes.STOX_TOKEN_OWNER_SAFE_OWNER_3;
-        vm.expectRevert(abi.encodeWithSelector(SafeOwnerCountMismatch.selector, address(safe), uint256(3), uint256(4)));
+        vm.expectRevert(abi.encodeWithSelector(SafeOwnerCountMismatch.selector, address(safe), uint256(3), uint256(6)));
         harness.callAssertOwnerSet(safe, truncated);
     }
 

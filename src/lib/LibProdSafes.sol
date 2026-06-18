@@ -5,14 +5,23 @@ pragma solidity ^0.8.25;
 /// @title LibProdSafes
 /// @notice Production Safe constants for the ST0x token-owner multisig on
 /// Base. Pinned addresses, codehashes, slot values, and the expected owner
-/// set (currently 4 owners) are derived from live on-chain state and the
-/// canonical Safe deployment manifest, then re-asserted from fork tests so
-/// that drift between this file and reality trips CI rather than slipping
-/// into a migration script.
-/// @dev Scope: the multisig threshold migration raises this Safe from
-/// 1-of-4 to 3-of-4. (Originally specced as 1-of-5 -> 3-of-5; the owner
-/// roster was reduced to four on 2026-05-18 via the `RemovedOwner` event
-/// at block 46156528, before the threshold migration was executed.)
+/// set (6 owners post-rotation) are derived from live on-chain state and
+/// the canonical Safe deployment manifest, then re-asserted from fork
+/// tests so that drift between this file and reality trips CI rather than
+/// slipping into a migration script.
+/// @dev Scope: this file pins the *post-rotation* roster (6 ST0x
+/// governance signers) and the threshold migration script targets 3-of-6
+/// against that roster. The owner rotation itself is done manually via
+/// the Safe UI under the current 1-of-N threshold (no rotation script
+/// needed — at threshold 1 a single signer can execute each
+/// `addOwnerWithThreshold` / `removeOwner` call via the Safe UI). Each
+/// pinned address was verified off-chain via a send-back ceremony before
+/// being committed here; the per-signer verification tracker is held
+/// privately. Until the manual roster swap finishes executing on-chain
+/// (i.e. all 6 listed addresses are present and the previous owners are
+/// removed), every script and fork test that asserts against
+/// `expectedOwners()` deliberately fails — the red CI is the explicit
+/// forcing function gating the threshold-raise script.
 /// @dev Sources:
 /// - Safe v1.4.1 L2 singleton & proxy: github.com/safe-global/safe-deployments
 ///   under `src/assets/v1.4.1/safe_l2.json` (chainId 8453 entry). Both the
@@ -65,8 +74,8 @@ library LibProdSafes {
     address constant SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER = 0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99;
 
     /// @notice The Safe that owns every ST0x receipt vault on Base. Subject
-    /// of the threshold migration (1 -> 3, against the current 4-owner
-    /// roster).
+    /// of the threshold migration (1 -> 3, against the post-rotation
+    /// 6-owner roster).
     /// https://basescan.org/address/0xe70d821f3462A074E63b42D0aac6523faAe1D611
     address constant STOX_TOKEN_OWNER_SAFE = 0xe70d821f3462a074e63b42d0AaC6523faAe1d611;
 
@@ -77,25 +86,30 @@ library LibProdSafes {
     /// in the same PR that records the live post-execution state.
     uint256 constant STOX_TOKEN_OWNER_SAFE_THRESHOLD = 1;
 
-    /// @notice Owner #1 of `STOX_TOKEN_OWNER_SAFE`. Order matches
-    /// `getOwners()` (Safe-internal linked-list order).
-    address constant STOX_TOKEN_OWNER_SAFE_OWNER_1 = 0x19f95a84aa1C48A2c6a7B2d5de164331c86D030C;
+    /// @notice Owner #1 of `STOX_TOKEN_OWNER_SAFE`.
+    /// @dev Order matches `getOwners()` (Safe-internal linked-list order)
+    /// against the post-rotation roster: `getOwners()` returns owners
+    /// newest-first, so the last signer to be added via
+    /// `addOwnerWithThreshold` appears at slot 0. The owner rotation
+    /// itself is done manually via the Safe UI under the current 1-of-N
+    /// threshold (no rotation script); only the threshold raise is
+    /// scripted.
+    address constant STOX_TOKEN_OWNER_SAFE_OWNER_1 = 0x4746095B1Ea1A84446d34448f44e74D3d51f92F2;
 
-    /// @notice Owner #2 of `STOX_TOKEN_OWNER_SAFE`. Order matches
-    /// `getOwners()` (Safe-internal linked-list order).
-    address constant STOX_TOKEN_OWNER_SAFE_OWNER_2 = 0x8f6bF4A948Af2Fc74eE34982C4435a7C013D1A52;
+    /// @notice Owner #2 of `STOX_TOKEN_OWNER_SAFE`.
+    address constant STOX_TOKEN_OWNER_SAFE_OWNER_2 = 0xceC2cb8B8EE4000FFA3F8a7f8E0Fa0A3E3DAb72d;
 
-    /// @notice Owner #3 of `STOX_TOKEN_OWNER_SAFE`. Order matches
-    /// `getOwners()` (Safe-internal linked-list order). This slot previously
-    /// held the now-removed owner `0x691AcCd4...`; after the 2026-05-18
-    /// `RemovedOwner` event at block 46156528 the linked list shifted up
-    /// and what was owner #4 became owner #3.
-    address constant STOX_TOKEN_OWNER_SAFE_OWNER_3 = 0x91E2AF6Ee6bc5d0f7AA1644Bb94957932629d2DB;
+    /// @notice Owner #3 of `STOX_TOKEN_OWNER_SAFE`.
+    address constant STOX_TOKEN_OWNER_SAFE_OWNER_3 = 0x8D5901d8aE48101B59400235ad8614A2e0510466;
 
-    /// @notice Owner #4 of `STOX_TOKEN_OWNER_SAFE`. Order matches
-    /// `getOwners()` (Safe-internal linked-list order). Formerly owner #5
-    /// before the 2026-05-18 roster reduction.
-    address constant STOX_TOKEN_OWNER_SAFE_OWNER_4 = 0xBF8a5DE7BaAFaD46495217d467F43ae305cb900f;
+    /// @notice Owner #4 of `STOX_TOKEN_OWNER_SAFE`.
+    address constant STOX_TOKEN_OWNER_SAFE_OWNER_4 = 0xC1C89b7f5448F447d59f920456A9610f6b2544bC;
+
+    /// @notice Owner #5 of `STOX_TOKEN_OWNER_SAFE`.
+    address constant STOX_TOKEN_OWNER_SAFE_OWNER_5 = 0xAB92b327c97A6E7461cBd76E2a789E5e106FF87e;
+
+    /// @notice Owner #6 of `STOX_TOKEN_OWNER_SAFE`.
+    address constant STOX_TOKEN_OWNER_SAFE_OWNER_6 = 0x5CCd3cE683b66ff271DDB8915fF528b8fcFa23c2;
 
     /// @notice Returns the expected owner set for `STOX_TOKEN_OWNER_SAFE` in
     /// the exact order returned by `getOwners()` against an unpinned Base
@@ -105,14 +119,21 @@ library LibProdSafes {
     /// further drift). Provided as a helper because Solidity 0.8 cannot
     /// express a file-scope `constant address[]` and declaring the array
     /// as `immutable` is contract-scoped only.
-    /// @return The four owners of the ST0x token-owner Safe in
+    /// @dev Six entries post-rotation. The roster uses a mixed-vendor
+    /// hardware-wallet policy: the 3-of-6 threshold combined with the
+    /// vendor mix enforces that no single-vendor subset can reach quorum
+    /// on its own, so a single-vendor compromise cannot sign a tx without
+    /// recruiting a different-vendor signer.
+    /// @return The six owners of the ST0x token-owner Safe in
     /// `getOwners()` order.
     function expectedOwners() internal pure returns (address[] memory) {
-        address[] memory owners = new address[](4);
+        address[] memory owners = new address[](6);
         owners[0] = STOX_TOKEN_OWNER_SAFE_OWNER_1;
         owners[1] = STOX_TOKEN_OWNER_SAFE_OWNER_2;
         owners[2] = STOX_TOKEN_OWNER_SAFE_OWNER_3;
         owners[3] = STOX_TOKEN_OWNER_SAFE_OWNER_4;
+        owners[4] = STOX_TOKEN_OWNER_SAFE_OWNER_5;
+        owners[5] = STOX_TOKEN_OWNER_SAFE_OWNER_6;
         return owners;
     }
 }

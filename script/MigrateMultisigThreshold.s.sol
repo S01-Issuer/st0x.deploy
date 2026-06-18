@@ -27,7 +27,7 @@ error VerifyExpectedSingleTx(uint256 actualCount);
 
 /// @title MigrateMultisigThreshold
 /// @notice Forge script that authors the ST0x token-owner Safe's
-/// multisig threshold migration (1-of-4 -> 3-of-4). Performs an
+/// multisig threshold migration (1-of-6 -> 3-of-6 against the post-rotation roster). Performs an
 /// exhaustive on-chain pre-flight via `LibSafeInvariants.assertAll`
 /// (proxy codehash, singleton + bytecode, version, modules, guard,
 /// fallback handler, uniform vault ownership, expected owner set,
@@ -58,7 +58,7 @@ contract MigrateMultisigThreshold is Script {
 
     /// @notice Human-readable name embedded in the emitted Tx Builder
     /// JSON's `meta.name`. Visible to signers in the Safe Tx Builder UI.
-    string internal constant BUNDLE_NAME = "ST0x Safe threshold 1->3";
+    string internal constant BUNDLE_NAME = "ST0x Safe threshold 1->3 (post-rotation roster)";
 
     /// @notice Output path (relative to the project root) for the Tx
     /// Builder JSON artifact. Picked up by the multisig-artifact GH
@@ -74,7 +74,7 @@ contract MigrateMultisigThreshold is Script {
     /// `vm.prank`.
     function run() external {
         IGnosisSafe safe = IGnosisSafe(LibProdSafes.STOX_TOKEN_OWNER_SAFE);
-        // Pre-flight: every immutable invariant plus the pinned 4-owner
+        // Pre-flight: every immutable invariant plus the pinned 6-owner
         // roster plus the pinned current threshold. Defaults from
         // `LibProdSafes` (no-arg overload). Reverts with the relevant
         // typed error from the underlying library on first mismatch.
