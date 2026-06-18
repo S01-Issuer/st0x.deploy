@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {LibSafeInvariantsHarness} from "./LibSafeInvariantsHarness.sol";
 import {LibProdSafes} from "../../../src/lib/LibProdSafes.sol";
 import {LibProdTokensBase} from "../../../src/lib/LibProdTokensBase.sol";
 import {IGnosisSafe} from "../../../src/interface/IGnosisSafe.sol";
@@ -22,33 +23,6 @@ import {
     SafeOwnerMismatch,
     SafeThresholdMismatch
 } from "../../../src/lib/LibSafeInvariants.sol";
-
-/// @title LibSafeInvariantsHarness
-/// @notice External-call shim around the internal library so
-/// `vm.expectRevert` can intercept the typed errors. `vm.expectRevert` only
-/// catches reverts from external calls; library `internal` functions inline
-/// and would fail the depth check otherwise.
-contract LibSafeInvariantsHarness {
-    function callAssertImmutableInvariants(IGnosisSafe safe) external view {
-        LibSafeInvariants.assertImmutableInvariants(safe);
-    }
-
-    function callAssertOwnerSet(IGnosisSafe safe, address[] memory expected) external view {
-        LibSafeInvariants.assertOwnerSet(safe, expected);
-    }
-
-    function callAssertThreshold(IGnosisSafe safe, uint256 expected) external view {
-        LibSafeInvariants.assertThreshold(safe, expected);
-    }
-
-    function callAssertAll(IGnosisSafe safe, uint256 expectedThreshold, address[] memory expectedOwners) external view {
-        LibSafeInvariants.assertAll(safe, expectedThreshold, expectedOwners);
-    }
-
-    function callAssertAllDefaults(IGnosisSafe safe) external view {
-        LibSafeInvariants.assertAll(safe);
-    }
-}
 
 /// @title LibSafeInvariantsTest
 /// @notice Inverted fork tests that exercise each invariant in
