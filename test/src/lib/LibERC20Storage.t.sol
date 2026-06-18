@@ -3,39 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {ERC20Upgradeable} from "@openzeppelin-contracts-upgradeable-5.6.1/token/ERC20/ERC20Upgradeable.sol";
-import {LibERC20Storage} from "src/lib/LibERC20Storage.sol";
-
-/// @dev A minimal `ERC20Upgradeable` subclass that exposes `_mint` / `_burn`
-/// and the `LibERC20Storage` helpers as external methods. The library uses
-/// `internal` functions so they get inlined into this contract and read /
-/// write its own storage at the OZ ERC-7201 namespaced slot — exactly the
-/// invariant being tested.
-contract TestERC20 is ERC20Upgradeable {
-    constructor() initializer {
-        __ERC20_init("Test", "TST");
-    }
-
-    function mint(address to, uint256 amount) external {
-        _mint(to, amount);
-    }
-
-    function burn(address from, uint256 amount) external {
-        _burn(from, amount);
-    }
-
-    function libBalanceOf(address account) external view returns (uint256) {
-        return LibERC20Storage.underlyingBalance(account);
-    }
-
-    function libTotalSupply() external view returns (uint256) {
-        return LibERC20Storage.underlyingTotalSupply();
-    }
-
-    function libSetBalance(address account, uint256 newBalance) external {
-        LibERC20Storage.setUnderlyingBalance(account, newBalance);
-    }
-}
+import {TestERC20} from "./TestERC20.sol";
 
 /// @dev Regression / drift-detection tests for `LibERC20Storage`. The library
 /// reads and writes OZ `ERC20Upgradeable` storage at hardcoded ERC-7201 slot
