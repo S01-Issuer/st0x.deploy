@@ -26,6 +26,13 @@ error VerifyMismatch(string field);
 error VerifyExpectedSingleTx(uint256 actualCount);
 
 /// @title MigrateMultisigThreshold
+/// @notice **EXECUTED 2026-06-18.** The Safe Tx Builder bundle this script
+/// emits was signed by the post-rotation 6-signer roster and landed on
+/// Base at nonce 688 with `SafeTxHash`
+/// `0x30f008fb35c5bfd49386377289ea03a3ff9678c6151795ef9eae014728b8c18f`,
+/// bumping the ST0x token-owner Safe threshold from 1-of-6 to 3-of-6.
+/// Retained verbatim for retrospective re-verification (`verify(jsonPath)`)
+/// and as the historical record of how the migration was authored.
 /// @notice Forge script that authors the ST0x token-owner Safe's
 /// multisig threshold migration (1-of-6 -> 3-of-6 against the post-rotation roster). Performs an
 /// exhaustive on-chain pre-flight via `LibInvariants.assertAll`
