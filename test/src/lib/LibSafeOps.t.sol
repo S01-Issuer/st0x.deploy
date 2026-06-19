@@ -7,6 +7,10 @@ import {LibSafeOps, SafeTx, TxBuilderJsonNoTransactions} from "../../../src/lib/
 import {LibProdSafes} from "../../../src/lib/LibProdSafes.sol";
 import {IGnosisSafe} from "../../../src/interface/IGnosisSafe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
+import {CallerRecorder} from "./CallerRecorder.sol";
+import {ParseHarness} from "./ParseHarness.sol";
+import {NPlus1Harness} from "./NPlus1Harness.sol";
+import {PackHarness} from "./PackHarness.sol";
 
 /// @title LibSafeOpsTest
 /// @notice Live fork tests for `LibSafeOps`: cross-checks the local hash
@@ -288,46 +292,3 @@ contract LibSafeOpsTest is Test {
     }
 }
 
-/// @notice Stub contract used by `testSimulateExternalCallPrankRoutes` to
-/// capture the caller address of an external call. Kept inline because it
-/// is single-use and trivially small.
-contract CallerRecorder {
-    /// @notice The most recent `msg.sender` to call `ping`.
-    address public lastCaller;
-
-    /// @notice Records the caller address. No return value; the recording
-    /// is the side effect under test.
-    function ping() external {
-        lastCaller = msg.sender;
-    }
-}
-
-/// @notice External-call harness around `LibSafeOps.parseTxBuilderJson` so
-/// `vm.expectRevert` can catch the typed error. `expectRevert` only sees
-/// reverts that bubble from a lower call depth than the cheatcode itself,
-/// and library-internal reverts inline.
-contract ParseHarness {
-    function callParse(string calldata jsonPath) external view {
-        LibSafeOps.parseTxBuilderJson(jsonPath);
-    }
-}
-
-/// @notice External-call harness around `LibSafeOps.simulateNPlus1Reversal`
-/// for cases where the helper itself is expected to revert (e.g. the
-/// "not enough owners" require). `vm.expectRevert` needs the revert to
-/// originate from a deeper call frame than the cheatcode call, which a
-/// direct library invocation from the test does not produce.
-contract NPlus1Harness {
-    function callSimulateNPlus1Reversal(IGnosisSafe safe, uint256 oldThreshold, uint256 newThreshold) external {
-        LibSafeOps.simulateNPlus1Reversal(safe, oldThreshold, newThreshold);
-    }
-}
-
-/// @notice External-call harness around `LibSafeOps.packApprovedHashSignatures`
-/// so the pure-function's overflow `require` can be caught by
-/// `vm.expectRevert`.
-contract PackHarness {
-    function callPack(address[] calldata sortedSigners, uint256 count) external pure returns (bytes memory) {
-        return LibSafeOps.packApprovedHashSignatures(sortedSigners, count);
-    }
-}

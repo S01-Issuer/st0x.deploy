@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
+import {OwnedStoxReceiptVault} from "./OwnedStoxReceiptVault.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
@@ -29,17 +30,6 @@ import {AuthorizerMissingCorporateActionAdmin} from "../../../src/error/ErrCorpo
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../src/lib/LibCorporateAction.sol";
 import {MockERC20} from "../../concrete/MockERC20.sol";
 import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.6.1/access/OwnableUpgradeable.sol";
-
-/// Minimal subclass that transfers ownership to a known address in its
-/// constructor so the test can pose as the vault owner without running
-/// the full Zoltu-deployer-and-initialize flow. The guard under test is
-/// `setAuthorizer`, which only depends on `OwnableUpgradeable`'s owner
-/// being set — not on the rest of vault initialization.
-contract OwnedStoxReceiptVault is StoxReceiptVault {
-    constructor(address owner) {
-        _transferOwnership(owner);
-    }
-}
 
 /// @title StoxReceiptVault setAuthorizer guard
 /// @notice Pins that `StoxReceiptVault.setAuthorizer` rejects authorizers

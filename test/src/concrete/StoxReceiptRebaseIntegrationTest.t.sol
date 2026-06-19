@@ -1,0 +1,936 @@
+// SPDX-License-Identifier: LicenseRef-DCL-1.0
+// SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
+pragma solidity =0.8.25;
+
+import {Test, Vm} from "forge-std-1.16.1/src/Test.sol";
+import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
+import {ICorporateActionsV1} from "../../../src/interface/ICorporateActionsV1.sol";
+import {CompletionFilter, NODE_NONE} from "../../../src/lib/LibCorporateActionNode.sol";
+import {
+    LibCorporateActionReceipt,
+    CORPORATE_ACTION_RECEIPT_STORAGE_LOCATION
+} from "../../../src/lib/LibCorporateActionReceipt.sol";
+import {IReceiptManagerV2} from "rain-vats-0.1.6/src/interface/IReceiptManagerV2.sol";
+import {IERC1155Errors} from "@openzeppelin-contracts-5.6.1/interfaces/draft-IERC6093.sol";
+import {MockVault} from "./MockVault.sol";
+import {TestStoxReceipt} from "./TestStoxReceipt.sol";
+import {RecordingReceiver} from "./RecordingReceiver.sol";
+import {BatchRecordingReceiver} from "./BatchRecordingReceiver.sol";
+
+contract StoxReceiptRebaseIntegrationTest is Test {
+    TestStoxReceipt internal receipt;
+    MockVault internal vault;
+
+    address internal constant ALICE = address(0xA11CE);
+    address internal constant BOB = address(0xB0B);
+
+    uint256 internal constant ID_A = 1;
+    uint256 internal constant ID_B = 2;
+
+    function setUp() public {
+        vault = new MockVault();
+        receipt = new TestStoxReceipt();
+        receipt.testInit(address(vault));
+    }
+
+    function _splitParams(int256 multiplier) internal {
+        vault.addSplit(LibDecimalFloat.packLossless(multiplier, 0));
+    }
+
+    function _fractionalParams(int256 num, int256 denom) internal {
+        vault.addSplit(
+            LibDecimalFloat.div(LibDecimalFloat.packLossless(num, 0), LibDecimalFloat.packLossless(denom, 0))
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Default cursor pin
+
+    /// Pre-mint receipt-side fresh-pair cursor pin: an `(account, id)`
+    /// pair that has never been touched returns `holderIdCursor == 0`
+    /// from the `accountIdCursor` mapping. The 0-based scheme leans on
+    /// this default — 0 is the vault's bootstrap node, so a fresh pair
+    /// is implicitly "at bootstrap" and the first migration walk advances
+    /// from after-bootstrap. A regression that changed the namespace,
+    /// mapping shape, or initialised cursors to anything other than 0
+    /// surfaces here.
+    function testReceiptCursorDefaultsToBootstrapForFreshPair() external view {
+        address fresh = address(0xCAFE);
+        uint256 freshId = 999;
+        assertEq(receipt.holderIdCursor(fresh, freshId), 0, "fresh (account, id) cursor defaults to 0 (= bootstrap)");
+    }
+
+    // -----------------------------------------------------------------------
+    // Storage-slot pin tests
+
+    /// The hardcoded ERC-7201 slot constant for LibCorporateActionReceipt
+    /// matches its documented derivation formula.
+    function testReceiptCorporateActionSlotMatchesDerivation() external pure {
+        bytes32 expected = keccak256(abi.encode(uint256(keccak256("rain.storage.corporate-action-receipt.1")) - 1))
+            & ~bytes32(uint256(0xff));
+        assertEq(
+            CORPORATE_ACTION_RECEIPT_STORAGE_LOCATION,
+            expected,
+            "receipt corporate-action storage slot must match derivation"
+        );
+    }
+
+    /// Layout pin: each field of `CorporateActionReceiptStorage` lives at
+    /// its expected offset from the namespace base. Must be extended for
+    /// every later PR that appends a new field. See the DO NOT REORDER
+    /// comment on the struct.
+    function testReceiptStorageLayoutPin() external {
+        // accountIdCursor is at offset 0 within the struct. Poke a key via
+        // the library accessor (indirectly by setting a cursor through a
+        // full mint+split+touch path) and assert the entry lives at the
+        // expected derived slot.
+        bytes32 base = CORPORATE_ACTION_RECEIPT_STORAGE_LOCATION;
+
+        // Use a sentinel holder + id.
+        address holder = address(0xBEEF);
+        uint256 id = 0xCAFE;
+
+        // Write a sentinel directly to the outer mapping slot at offset 0,
+        // then read through the library accessor to verify that offset 0
+        // is the accountIdCursor mapping base.
+        bytes32 outerSlot = keccak256(abi.encode(holder, base));
+        bytes32 entrySlot = keccak256(abi.encode(id, outerSlot));
+        vm.store(address(receipt), entrySlot, bytes32(uint256(0x12345)));
+
+        assertEq(
+            receipt.holderIdCursor(holder, id),
+            0x12345,
+            "accountIdCursor mapping must be at offset 0 in CorporateActionReceiptStorage"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Rebase integration — happy path
+
+    /// Before any splits, balanceOf returns the raw stored balance.
+    function testBalanceOfNoSplits() external {
+        // Mint directly to Alice via vault-as-manager path.
+        _mint(ALICE, ID_A, 100);
+        assertEq(receipt.balanceOf(ALICE, ID_A), 100);
+    }
+
+    /// After a 2x split, balanceOf returns the rebased balance even before
+    /// migration actually runs (view-only multiplier application).
+    function testBalanceOfAfterSplitPreMigration() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+        assertEq(receipt.balanceOf(ALICE, ID_A), 200, "view-only rebase must reflect the split");
+        // Stored balance hasn't actually changed yet (no touch).
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 100, "rasterize is lazy");
+    }
+
+    /// A touch via zero-value manager transfer migrates the stored balance.
+    function testMigrationOnTransferRasterizesStoredBalance() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        // Self-transfer of 0 — triggers _update on (Alice, ID_A) from both
+        // sides and rasterizes Alice's stored balance.
+        _transfer(ALICE, ALICE, ID_A, 0);
+
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 200, "stored balance rasterized");
+        assertEq(receipt.balanceOf(ALICE, ID_A), 200);
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1, "cursor advanced to first split");
+    }
+
+    /// Mint to a fresh recipient after a completed split credits exactly
+    /// the minted amount, not multiplied by the split. Without the
+    /// zero-balance cursor-advancement guard, the recipient's freshly-
+    /// written post-rebase balance would be re-multiplied on the next
+    /// `balanceOf` read.
+    function testMintToFreshRecipientAfterSplitDoesNotInflate() external {
+        // Pre-existing supply so the split has something to rebase.
+        _mint(BOB, ID_A, 1000);
+
+        _splitParams(2);
+
+        // Alice mints 100 AFTER the split. Should receive exactly 100.
+        _mint(ALICE, ID_A, 100);
+        assertEq(receipt.balanceOf(ALICE, ID_A), 100, "fresh recipient must not over-multiply on mint");
+    }
+
+    /// Transfer to a fresh recipient after a completed split: recipient
+    /// receives the transferred amount exactly, not multiplied.
+    function testTransferToFreshRecipientAfterSplitDoesNotInflate() external {
+        _mint(BOB, ID_A, 50);
+        _splitParams(2);
+
+        // Bob's effective balance is now 100. Transfer all 100 to Alice.
+        _transfer(BOB, ALICE, ID_A, 100);
+
+        assertEq(receipt.balanceOf(ALICE, ID_A), 100, "recipient got exactly the transferred amount");
+        assertEq(receipt.balanceOf(BOB, ID_A), 0, "Bob is now empty");
+    }
+
+    /// Per-(holder, id) cursor independence: Alice's cursor for ID_A
+    /// advances without touching her cursor for ID_B or anyone else's.
+    function testPerHolderIdCursorIndependence() external {
+        _mint(ALICE, ID_A, 100);
+        _mint(ALICE, ID_B, 200);
+        _mint(BOB, ID_A, 300);
+
+        _splitParams(2);
+
+        // Touch only (Alice, ID_A) via a zero-value manager transfer for
+        // that specific id.
+        _transfer(ALICE, ALICE, ID_A, 0);
+
+        // (Alice, ID_A) is at cursor 1 and rasterized.
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1);
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 200);
+
+        // (Alice, ID_B) and (Bob, ID_A) are untouched — cursor 0, raw
+        // balance unchanged, but view balanceOf still reflects the split.
+        assertEq(receipt.holderIdCursor(ALICE, ID_B), 0);
+        assertEq(receipt.rawStoredBalance(ALICE, ID_B), 200);
+        assertEq(receipt.balanceOf(ALICE, ID_B), 400, "view override still applies the split");
+
+        assertEq(receipt.holderIdCursor(BOB, ID_A), 0);
+        assertEq(receipt.rawStoredBalance(BOB, ID_A), 300);
+        assertEq(receipt.balanceOf(BOB, ID_A), 600);
+    }
+
+    /// A fresh recipient whose stored balance is 0 at the time of a split
+    /// has their cursor advanced on first touch, so a subsequent mint or
+    /// transfer-in does not re-apply the multiplier on top of an
+    /// already-rebased raw balance.
+    function testZeroBalanceCursorAdvancesOnFreshRecipient() external {
+        _mint(BOB, ID_A, 1000);
+        _splitParams(2);
+
+        // Touch Alice (who has 0 balance) with a 0-value transfer.
+        _transfer(ALICE, ALICE, ID_A, 0);
+
+        // Alice's cursor must now point at the split, even though her raw
+        // balance was never rewritten.
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1, "zero-balance cursor must advance");
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 0);
+
+        // A subsequent mint lands at cursor 1 (post-split basis). The
+        // stored balance write of 100 must NOT be re-multiplied by the
+        // split on a later balanceOf read.
+        _mint(ALICE, ID_A, 100);
+        assertEq(receipt.balanceOf(ALICE, ID_A), 100, "post-touch mint must not re-inflate");
+    }
+
+    /// Sequential precision — receipt side must match share side exactly.
+    /// 1/3 × 3 × 1/3 × 3 applied to 100 = 96.
+    function testSequentialPrecisionMatchesShareSide() external {
+        _mint(ALICE, ID_A, 100);
+
+        _fractionalParams(1, 3);
+        _splitParams(3);
+        _fractionalParams(1, 3);
+        _splitParams(3);
+
+        // Touch to rasterize.
+        _transfer(ALICE, ALICE, ID_A, 0);
+
+        assertEq(receipt.balanceOf(ALICE, ID_A), 96, "receipt side must match share-side sequential precision");
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 96);
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 4);
+    }
+
+    /// Batch update: a batch transfer touching multiple ids migrates all of
+    /// them independently.
+    function testBatchUpdateMigratesEachIdIndependently() external {
+        _mint(ALICE, ID_A, 100);
+        _mint(ALICE, ID_B, 200);
+        _splitParams(2);
+
+        uint256[] memory ids = new uint256[](2);
+        ids[0] = ID_A;
+        ids[1] = ID_B;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 0; // zero-value batch transfer just to touch both ids
+        amounts[1] = 0;
+
+        // Alice calls safeBatchTransferFrom herself — sender == from so no
+        // operator approval is required.
+        vm.prank(ALICE);
+        receipt.safeBatchTransferFrom(ALICE, ALICE, ids, amounts, "");
+
+        // Both (Alice, ID_A) and (Alice, ID_B) must be at cursor 1 and
+        // rasterized.
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1);
+        assertEq(receipt.holderIdCursor(ALICE, ID_B), 1);
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 200);
+        assertEq(receipt.rawStoredBalance(ALICE, ID_B), 400);
+    }
+
+    /// After burning the full post-rebase balance to zero, a subsequent
+    /// transfer-in credits exactly the transferred amount. The zero-balance
+    /// cursor advancement on burn keeps the holder at the latest cursor,
+    /// so the next write is not re-multiplied on the next `balanceOf`.
+    function testTransferInAfterBurnToZeroCreditsExact() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+        _burn(ALICE, ID_A, 200);
+
+        _mint(BOB, ID_A, 50);
+        _transfer(BOB, ALICE, ID_A, 50);
+
+        assertEq(receipt.balanceOf(ALICE, ID_A), 50);
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 50);
+    }
+
+    /// `migrateHolderId(address(0), ...)` short-circuits. After a
+    /// completed split, calling it for address(0) must leave address(0)'s
+    /// cursor and balance at their zero-initialized values (no state
+    /// pollution on the zero address).
+    function testMigrateHolderIdZeroAddressIsNoOp() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        receipt.publicMigrateHolderId(address(0), ID_A);
+
+        assertEq(receipt.holderIdCursor(address(0), ID_A), 0, "zero address cursor must not advance");
+        assertEq(receipt.rawStoredBalance(address(0), ID_A), 0, "zero address balance must stay zero");
+    }
+
+    /// When the manager's `authorizeReceiptTransfer3` reverts, the
+    /// transfer reverts and no migration state persists. Migration runs
+    /// before `super._update` so the authorizer denial inside
+    /// `super._update` would roll back whatever migration wrote if the
+    /// revert propagated. Verify Alice's cursor and stored balance are
+    /// unchanged after the denied call.
+    function testAuthorizerDeniedTransferRollsBackMigration() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+        vault.setDenyTransfers(true);
+
+        vm.prank(ALICE);
+        vm.expectRevert(MockVault.ReceiptTransferDenied.selector);
+        receipt.safeTransferFrom(ALICE, BOB, ID_A, 50, "");
+
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 100, "raw stored balance unchanged after revert");
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 0, "cursor unchanged after revert");
+    }
+
+    /// A non-owner, non-approved caller cannot transfer someone else's
+    /// balance. OZ's approval check runs inside `super._update`, which
+    /// migration precedes. Test asserts the approval revert fires with
+    /// the exact operator/owner pair.
+    function testUnauthorizedTransferRevertsMissingApproval() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        vm.prank(BOB);
+        vm.expectRevert(abi.encodeWithSelector(IERC1155Errors.ERC1155MissingApprovalForAll.selector, BOB, ALICE));
+        receipt.safeTransferFrom(ALICE, BOB, ID_A, 50, "");
+    }
+
+    /// Holder-initiated `safeTransferFrom` (no operator approval) moves up
+    /// to the post-rebase balance. Distinct from the operator path — the
+    /// holder's own `msg.sender == from` call bypasses the approval check
+    /// but should still see the rebased ceiling.
+    function testFuzzHolderDirectTransferUsesPostRebaseBalance(uint64 deposit, uint128 amount, uint8 mulSeed) external {
+        // mulSeed bound to [2,5] so int256 cast cannot overflow.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        int256 multiplier = int256(uint256(bound(mulSeed, 2, 5)));
+        // bound result is < type(uint64).max so uint64 cast is safe;
+        // multiplier is in [2,5] so uint64(uint256(multiplier)) cannot truncate.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        deposit = uint64(bound(deposit, 1, type(uint64).max / uint64(uint256(multiplier))));
+        // multiplier is bounded to [2,5] so the int256 → uint256 cast is safe.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        uint256 postRebase = uint256(deposit) * uint256(multiplier);
+        uint256 xfer = bound(amount, 0, postRebase);
+
+        _mint(ALICE, ID_A, deposit);
+        _splitParams(multiplier);
+
+        vm.prank(ALICE);
+        receipt.safeTransferFrom(ALICE, BOB, ID_A, xfer, "");
+
+        assertEq(receipt.balanceOf(ALICE, ID_A), postRebase - xfer);
+        assertEq(receipt.balanceOf(BOB, ID_A), xfer);
+    }
+
+    /// Minting additional balance to a holder who already has a pre-split
+    /// position rasterizes first, then adds the mint amount. The mint is
+    /// denominated in post-rebase units — so the holder ends up with
+    /// `oldBalance * multiplier + mintAmount`, not `(oldBalance +
+    /// mintAmount) * multiplier`.
+    function testMintToExistingHolderAfterSplitRasterizesFirst() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        _mint(ALICE, ID_A, 50);
+
+        assertEq(receipt.balanceOf(ALICE, ID_A), 250, "200 post-rebase + 50 minted");
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 250);
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1);
+    }
+
+    /// An approved operator can move up to the post-rebase balance for
+    /// any transfer amount in `[0, postRebase]`. Approval semantics are
+    /// unchanged by the rebase — the operator sees the rebased ceiling,
+    /// not the raw stored value.
+    function testFuzzApprovedOperatorTransfersPostRebaseBalance(uint64 deposit, uint128 transferAmount, uint8 mulSeed)
+        external
+    {
+        // mulSeed bound to [2,5] so int256 cast cannot overflow.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        int256 multiplier = int256(uint256(bound(mulSeed, 2, 5)));
+        // bound result is < type(uint64).max; multiplier in [2,5] so
+        // uint64(uint256(multiplier)) cannot truncate.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        deposit = uint64(bound(deposit, 1, type(uint64).max / uint64(uint256(multiplier))));
+        // multiplier is bounded to [2,5] so the int256 → uint256 cast is safe.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        uint256 postRebase = uint256(deposit) * uint256(multiplier);
+        uint256 amount = bound(transferAmount, 0, postRebase);
+
+        _mint(ALICE, ID_A, deposit);
+        _splitParams(multiplier);
+
+        vm.prank(ALICE);
+        receipt.setApprovalForAll(BOB, true);
+
+        vm.prank(BOB);
+        receipt.safeTransferFrom(ALICE, BOB, ID_A, amount, "");
+
+        assertEq(receipt.balanceOf(ALICE, ID_A), postRebase - amount);
+        assertEq(receipt.balanceOf(BOB, ID_A), amount);
+    }
+
+    /// `balanceOfBatch` returns an empty array when called with empty
+    /// inputs, matching OZ behavior. Does not revert despite the override.
+    function testBalanceOfBatchEmptyInputsReturnsEmpty() external view {
+        address[] memory accounts = new address[](0);
+        uint256[] memory ids = new uint256[](0);
+        uint256[] memory result = receipt.balanceOfBatch(accounts, ids);
+        assertEq(result.length, 0);
+    }
+
+    /// A reverse split that truncates the balance to zero followed by a
+    /// forward split does not re-inflate. For any balance strictly less
+    /// than `denom`, `balance * 1/denom` truncates to 0, and every
+    /// subsequent multiplier applied to 0 stays at 0.
+    function testFuzzFractionalSplitTruncatingToZeroDoesNotReInflate(uint8 balanceSeed, uint8 denomSeed, uint8 mulSeed)
+        external
+    {
+        int256 denom = int256(uint256(bound(denomSeed, 2, 100)));
+        // forge-lint: disable-next-line(unsafe-typecast)
+        uint256 balance = bound(uint256(balanceSeed), 1, uint256(denom) - 1);
+        int256 multiplier = int256(uint256(bound(mulSeed, 2, 100)));
+
+        _mint(ALICE, ID_A, balance);
+        _fractionalParams(1, denom);
+        _splitParams(multiplier);
+
+        assertEq(receipt.balanceOf(ALICE, ID_A), 0, "view path sees truncated zero");
+
+        _transfer(ALICE, ALICE, ID_A, 0);
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 0);
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 2);
+        assertEq(receipt.balanceOf(ALICE, ID_A), 0, "post-migration balance remains zero");
+    }
+
+    /// Empty batch `safeBatchTransferFrom` is a no-op — the migration
+    /// loop runs zero iterations, OZ's super._update accepts empty
+    /// arrays, and no state changes.
+    function testBatchUpdateEmptyArraysIsNoOp() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        uint256[] memory ids = new uint256[](0);
+        uint256[] memory amounts = new uint256[](0);
+
+        vm.prank(ALICE);
+        receipt.safeBatchTransferFrom(ALICE, BOB, ids, amounts, "");
+
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 100, "no migration means no rasterization");
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 0, "no migration means cursor stays");
+    }
+
+    /// In a multi-id batch transfer, `ReceiptAccountMigrated` events fire
+    /// in `(from, ids[0]), (to, ids[0]), (from, ids[1]), (to, ids[1])`
+    /// order, all before the `TransferBatch` event. Bob's zero-balance
+    /// migrations also emit (per #81 — every cursor advance fires).
+    /// Indexers rely on this interleaving: for each event emitted for
+    /// `ids[i]`, the balance at that cursor for that id is the rasterized
+    /// value, not yet touched by the transfer.
+    function testBatchUpdateEventOrderingAcrossIds() external {
+        _mint(ALICE, ID_A, 100);
+        _mint(ALICE, ID_B, 200);
+        _splitParams(2);
+
+        uint256[] memory ids = new uint256[](2);
+        ids[0] = ID_A;
+        ids[1] = ID_B;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 10;
+        amounts[1] = 20;
+
+        vm.recordLogs();
+        vm.prank(ALICE);
+        receipt.safeBatchTransferFrom(ALICE, BOB, ids, amounts, "");
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 migratedSig = StoxReceipt.ReceiptAccountMigrated.selector;
+        bytes32 batchSig = keccak256("TransferBatch(address,address,address,uint256[],uint256[])");
+
+        uint256[] memory migratedOrder = new uint256[](4);
+        uint256 migratedIdx = 0;
+        uint256 batchIdx = type(uint256).max;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length == 0) continue;
+            if (logs[i].topics[0] == migratedSig && migratedIdx < 4) {
+                address who = address(uint160(uint256(logs[i].topics[1])));
+                uint256 id = uint256(logs[i].topics[2]);
+                // forge-lint: disable-next-line(unsafe-typecast)
+                migratedOrder[migratedIdx++] = uint256(uint160(who)) << 96 | uint256(uint96(id));
+            } else if (logs[i].topics[0] == batchSig) {
+                batchIdx = i;
+            }
+        }
+
+        assertEq(migratedIdx, 4, "every (holder, id) cursor advance emits: alice ID_A/ID_B + bob ID_A/ID_B");
+        // forge-lint: disable-next-line(unsafe-typecast)
+        assertEq(migratedOrder[0], uint256(uint160(ALICE)) << 96 | uint96(ID_A), "first emit is (alice, ID_A)");
+        // forge-lint: disable-next-line(unsafe-typecast)
+        assertEq(migratedOrder[1], uint256(uint160(BOB)) << 96 | uint96(ID_A), "second emit is (bob, ID_A)");
+        // forge-lint: disable-next-line(unsafe-typecast)
+        assertEq(migratedOrder[2], uint256(uint160(ALICE)) << 96 | uint96(ID_B), "third emit is (alice, ID_B)");
+        // forge-lint: disable-next-line(unsafe-typecast)
+        assertEq(migratedOrder[3], uint256(uint160(BOB)) << 96 | uint96(ID_B), "fourth emit is (bob, ID_B)");
+        assertLt(batchIdx, type(uint256).max, "TransferBatch must be emitted");
+    }
+
+    /// A batch with a duplicate id migrates the (holder, id) pair once
+    /// and subtracts the sum of all amount entries from the sender. Holds
+    /// for any pair of amounts whose sum is at most the post-rebase
+    /// ceiling.
+    function testFuzzBatchUpdateWithDuplicateIdTransfersFullSum(uint32 deposit, uint64 a, uint64 b) external {
+        deposit = uint32(bound(deposit, 1, type(uint32).max));
+        uint256 postRebase = uint256(deposit) * 2;
+        a = uint64(bound(a, 0, postRebase));
+        b = uint64(bound(b, 0, postRebase - a));
+
+        _mint(ALICE, ID_A, deposit);
+        _splitParams(2);
+
+        uint256[] memory ids = new uint256[](2);
+        ids[0] = ID_A;
+        ids[1] = ID_A;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = a;
+        amounts[1] = b;
+
+        vm.prank(ALICE);
+        receipt.safeBatchTransferFrom(ALICE, BOB, ids, amounts, "");
+
+        assertEq(receipt.balanceOf(ALICE, ID_A), postRebase - uint256(a) - uint256(b));
+        assertEq(receipt.balanceOf(BOB, ID_A), uint256(a) + uint256(b));
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1);
+        assertEq(receipt.holderIdCursor(BOB, ID_A), 1);
+    }
+
+    /// ReceiptAccountMigrated event is emitted for non-trivial migrations.
+    function testReceiptAccountMigratedEventEmitted() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        vm.expectEmit(true, true, false, true, address(receipt));
+        emit StoxReceipt.ReceiptAccountMigrated(ALICE, ID_A, 0, 1, 100, 200);
+
+        _transfer(ALICE, ALICE, ID_A, 0);
+    }
+
+    /// A dormant `(holder, id)` touched after multiple completed splits
+    /// emits exactly one `ReceiptAccountMigrated` with aggregated fields:
+    /// fromCursor is the pre-migration cursor, toCursor is the latest
+    /// completed split, oldBalance is the raw stored value, newBalance is
+    /// the fully-rasterized value after all multipliers have been applied.
+    function testReceiptAccountMigratedAggregatesAcrossMultipleSplits() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+        _splitParams(3);
+
+        vm.recordLogs();
+        _transfer(ALICE, ALICE, ID_A, 0);
+
+        bytes32 sig = StoxReceipt.ReceiptAccountMigrated.selector;
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 count = 0;
+        uint256 fromCursor;
+        uint256 toCursor;
+        uint256 oldBalance;
+        uint256 newBalance;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
+                count++;
+                assertEq(address(uint160(uint256(logs[i].topics[1]))), ALICE, "indexed account is ALICE");
+                assertEq(uint256(logs[i].topics[2]), ID_A, "indexed id is ID_A");
+                (fromCursor, toCursor, oldBalance, newBalance) =
+                    abi.decode(logs[i].data, (uint256, uint256, uint256, uint256));
+            }
+        }
+        assertEq(count, 1, "exactly one ReceiptAccountMigrated per multi-split migration");
+        assertEq(fromCursor, 0, "fromCursor is pre-migration cursor");
+        assertEq(toCursor, 2, "toCursor is latest completed split index");
+        assertEq(oldBalance, 100, "oldBalance is pre-rasterization stored value");
+        assertEq(newBalance, 600, "newBalance is fully rasterized (100 * 2 * 3)");
+    }
+
+    // -----------------------------------------------------------------------
+    // Issue #81: receipt-side always-emit semantics.
+    //
+    // Mirrors the share-side test matrix on `StoxReceiptVault.t.sol`.
+    // `migrateHolderId` must emit `ReceiptAccountMigrated` on every
+    // cursor advance, regardless of whether the rasterized balance equals
+    // the pre-rebase balance. Four phenomena drive a balance-equal
+    // cursor advance: zero balance, single-step truncation collision,
+    // multi-step round-trip, and balance-specific identity.
+
+    /// Receipt phenomenon 1 (zero balance): a fresh `(holder, id)` pair
+    /// touched after a completed split advances its cursor; the event
+    /// fires with `oldBalance == newBalance == 0`.
+    function testReceiptAccountMigratedFiresOnZeroBalanceCursorAdvance() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        // Transfer zero from ALICE to BOB at ID_A — BOB's (BOB, ID_A)
+        // pair is fresh, but his cursor still advances.
+        vm.expectEmit(true, true, false, true, address(receipt));
+        emit StoxReceipt.ReceiptAccountMigrated(BOB, ID_A, 0, 1, 0, 0);
+
+        _transfer(ALICE, BOB, ID_A, 0);
+    }
+
+    /// Receipt phenomenon 2 (single-step truncation collision): a stored
+    /// 1 through a 1.5x multiplier rasterizes to `trunc(1.5) == 1`. The
+    /// cursor advances; the stored balance is unchanged; the event fires.
+    function testReceiptAccountMigratedFiresOnTruncationCollision() external {
+        _mint(ALICE, ID_A, 1);
+        _fractionalParams(3, 2);
+
+        vm.expectEmit(true, true, false, true, address(receipt));
+        emit StoxReceipt.ReceiptAccountMigrated(ALICE, ID_A, 0, 1, 1, 1);
+
+        _transfer(ALICE, ALICE, ID_A, 0);
+
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 1, "stored balance unchanged after truncation collision");
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1, "alice cursor advanced past the split");
+    }
+
+    /// Receipt phenomenon 3 (multi-step round-trip): a balance of 4
+    /// through `[2x, 1/2x]` rasterizes `4 -> 8 -> 4`. Float represents
+    /// 1/2 exactly in base 10, so this round-trips deterministically.
+    /// Cursor jumps two splits in a single `_update`; the event fires
+    /// once with `oldBalance == newBalance == 4`.
+    function testReceiptAccountMigratedFiresOnMultiStepRoundTrip() external {
+        _mint(ALICE, ID_A, 4);
+        _splitParams(2);
+        _fractionalParams(1, 2);
+
+        vm.expectEmit(true, true, false, true, address(receipt));
+        emit StoxReceipt.ReceiptAccountMigrated(ALICE, ID_A, 0, 2, 4, 4);
+
+        _transfer(ALICE, ALICE, ID_A, 0);
+
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 4, "stored balance round-tripped to itself");
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 2, "alice cursor advanced past both splits");
+    }
+
+    /// Receipt phenomenon 4 (balance-specific identity): a balance of 10
+    /// through a 1.09x multiplier rasterizes to `trunc(10.9) == 10`. The
+    /// same multiplier on a larger balance produces a real change; the
+    /// no-op here is balance-specific. The event fires.
+    function testReceiptAccountMigratedFiresOnBalanceSpecificIdentity() external {
+        _mint(ALICE, ID_A, 10);
+        _fractionalParams(109, 100);
+
+        vm.expectEmit(true, true, false, true, address(receipt));
+        emit StoxReceipt.ReceiptAccountMigrated(ALICE, ID_A, 0, 1, 10, 10);
+
+        _transfer(ALICE, ALICE, ID_A, 0);
+
+        assertEq(
+            receipt.rawStoredBalance(ALICE, ID_A), 10, "stored balance unchanged for this specific balance / multiplier"
+        );
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1, "alice cursor advanced");
+    }
+
+    /// Already-migrated complement: a `(holder, id)` pair at the latest
+    /// cursor that gets touched again with no new completed splits in
+    /// between must NOT re-emit `ReceiptAccountMigrated`. Pins the
+    /// `newCursor == currentCursor` early return in `migrateHolderId`.
+    function testReceiptAccountMigratedDoesNotReEmitWhenAlreadyAtLatest() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        // First touch migrates Alice — event fires.
+        _transfer(ALICE, ALICE, ID_A, 0);
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1, "alice migrated to cursor 1");
+
+        // Second touch with no new splits — event must NOT fire.
+        vm.recordLogs();
+        _transfer(ALICE, ALICE, ID_A, 0);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        bytes32 sig = StoxReceipt.ReceiptAccountMigrated.selector;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (
+                logs[i].topics.length > 0 && logs[i].topics[0] == sig
+                    && address(uint160(uint256(logs[i].topics[1]))) == ALICE && uint256(logs[i].topics[2]) == ID_A
+            ) {
+                fail();
+            }
+        }
+    }
+
+    /// Event ordering pin: `ReceiptAccountMigrated` must fire BEFORE the
+    /// corresponding ERC-1155 `TransferSingle` event in the same `_update`
+    /// call, because `migrateHolderId` runs before the receipt's base
+    /// `_update`. Indexers rely on this ordering to compute pre-transfer
+    /// rasterized balances from the migration log.
+    function testReceiptAccountMigratedOrderedBeforeTransferSingle() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        vm.recordLogs();
+        _transfer(ALICE, BOB, ID_A, 50);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        bytes32 migratedSig = StoxReceipt.ReceiptAccountMigrated.selector;
+        bytes32 transferSig = keccak256("TransferSingle(address,address,address,uint256,uint256)");
+        uint256 firstMigrated = type(uint256).max;
+        uint256 firstTransfer = type(uint256).max;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length == 0) continue;
+            if (logs[i].topics[0] == migratedSig && firstMigrated == type(uint256).max) {
+                firstMigrated = i;
+            } else if (logs[i].topics[0] == transferSig && firstTransfer == type(uint256).max) {
+                firstTransfer = i;
+            }
+        }
+        assertLt(firstMigrated, firstTransfer, "ReceiptAccountMigrated must precede TransferSingle");
+    }
+
+    /// Global receipt-side invariant: across a random balance and a
+    /// random sequence of stock-split multipliers, every `(holder, id)`
+    /// cursor advance is matched by exactly one `ReceiptAccountMigrated`
+    /// log, and the log's `oldBalance / newBalance` pair always equals
+    /// the actual pre/post stored balance.
+    function testFuzzReceiptAccountMigratedFiresOnEveryCursorAdvance(
+        uint64 startBalance,
+        uint8 splitSeed,
+        uint8 splitCount
+    ) external {
+        startBalance = uint64(bound(startBalance, 0, type(uint32).max));
+        splitCount = uint8(bound(splitCount, 1, 5));
+
+        if (startBalance > 0) {
+            _mint(ALICE, ID_A, uint256(startBalance));
+        }
+        uint256 storedBefore = receipt.rawStoredBalance(ALICE, ID_A);
+        uint256 cursorBefore = receipt.holderIdCursor(ALICE, ID_A);
+
+        for (uint256 i = 0; i < splitCount; i++) {
+            uint8 pick = uint8((uint256(splitSeed) >> (i * 2)) & 0x3);
+            if (pick == 0) {
+                _splitParams(2);
+            } else if (pick == 1) {
+                _splitParams(3);
+            } else if (pick == 2) {
+                _fractionalParams(1, 2);
+            } else {
+                _fractionalParams(1, 3);
+            }
+        }
+
+        vm.recordLogs();
+        _transfer(ALICE, ALICE, ID_A, 0);
+
+        bytes32 sig = StoxReceipt.ReceiptAccountMigrated.selector;
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 count;
+        uint256 emittedFromCursor;
+        uint256 emittedToCursor;
+        uint256 emittedOld;
+        uint256 emittedNew;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (
+                logs[i].topics.length > 0 && logs[i].topics[0] == sig
+                    && address(uint160(uint256(logs[i].topics[1]))) == ALICE && uint256(logs[i].topics[2]) == ID_A
+            ) {
+                count++;
+                (emittedFromCursor, emittedToCursor, emittedOld, emittedNew) =
+                    abi.decode(logs[i].data, (uint256, uint256, uint256, uint256));
+            }
+        }
+
+        uint256 cursorAfter = receipt.holderIdCursor(ALICE, ID_A);
+        if (cursorAfter == cursorBefore) {
+            assertEq(count, 0, "no event when cursor did not advance");
+        } else {
+            assertEq(count, 1, "exactly one ReceiptAccountMigrated event per cursor advance");
+            assertEq(emittedFromCursor, cursorBefore, "fromCursor matches pre-migrate cursor");
+            assertEq(emittedToCursor, cursorAfter, "toCursor matches post-migrate cursor");
+            assertEq(emittedOld, storedBefore, "oldBalance matches the pre-migrate stored balance");
+            assertEq(
+                emittedNew, receipt.rawStoredBalance(ALICE, ID_A), "newBalance matches the post-migrate stored balance"
+            );
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // balanceOfBatch consistency
+
+    /// balanceOfBatch must return the same rebased values as calling
+    /// balanceOf on each (account, id) individually. Without the override
+    /// OZ's default balanceOfBatch reads _balances directly and bypasses
+    /// the rebase.
+    function testBalanceOfBatchRebaseConsistency() external {
+        _mint(ALICE, ID_A, 100);
+        _mint(BOB, ID_B, 200);
+        _splitParams(2);
+
+        // Neither account has touched since the split — raw stored balances
+        // are stale, but balanceOf should return rebased values.
+        address[] memory accounts = new address[](3);
+        accounts[0] = ALICE;
+        accounts[1] = BOB;
+        accounts[2] = ALICE;
+        uint256[] memory ids = new uint256[](3);
+        ids[0] = ID_A;
+        ids[1] = ID_B;
+        ids[2] = ID_B; // Alice has 0 of ID_B
+
+        uint256[] memory batch = receipt.balanceOfBatch(accounts, ids);
+
+        assertEq(batch[0], receipt.balanceOf(ALICE, ID_A), "batch[0] must match balanceOf(ALICE, ID_A)");
+        assertEq(batch[1], receipt.balanceOf(BOB, ID_B), "batch[1] must match balanceOf(BOB, ID_B)");
+        assertEq(batch[2], receipt.balanceOf(ALICE, ID_B), "batch[2] must match balanceOf(ALICE, ID_B)");
+
+        // Concrete values: 2× split on 100 and 200.
+        assertEq(batch[0], 200);
+        assertEq(batch[1], 400);
+        assertEq(batch[2], 0);
+    }
+
+    /// balanceOfBatch with mismatched array lengths reverts.
+    function testBalanceOfBatchMismatchedLengthsReverts() external {
+        address[] memory accounts = new address[](2);
+        uint256[] memory ids = new uint256[](1);
+        vm.expectRevert();
+        receipt.balanceOfBatch(accounts, ids);
+    }
+
+    /// By the time OZ's `_doSafeTransferAcceptanceCheck` fires
+    /// `onERC1155Received` on a contract recipient, migration has
+    /// completed and balances are rasterized. A receive hook that reads
+    /// `balanceOf` observes the post-migration, post-transfer values.
+    function testReceiveHookObservesPostMigrationState() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        // Use a contract receiver that records the state observed during
+        // the onERC1155Received callback.
+        RecordingReceiver recv = new RecordingReceiver(receipt, ALICE);
+        _transfer(ALICE, address(recv), ID_A, 50);
+
+        // Inside the callback, alice's pre-transfer effective balance was
+        // 200 (rebased from stored 100). The hook fires AFTER migration
+        // (alice stored becomes 200) and AFTER the transfer (alice raw:
+        // 200 - 50 = 150, recv raw: 0 + 50 = 50).
+        assertEq(recv.observedAliceBalance(), 150, "hook must see post-transfer alice balance");
+        assertEq(recv.observedRecvBalance(), 50, "hook must see post-transfer recv balance");
+    }
+
+    /// The batch-receive hook `onERC1155BatchReceived` fires after
+    /// migration and after the batch transfer has executed. A receiver
+    /// that reads balances from inside the callback observes the same
+    /// post-migration, post-transfer state as `onERC1155Received` does
+    /// for single transfers.
+    function testBatchReceiveHookObservesPostMigrationState() external {
+        _mint(ALICE, ID_A, 100);
+        _mint(ALICE, ID_B, 200);
+        _splitParams(2);
+
+        BatchRecordingReceiver recv = new BatchRecordingReceiver(receipt);
+
+        uint256[] memory ids = new uint256[](2);
+        ids[0] = ID_A;
+        ids[1] = ID_B;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 50;
+        amounts[1] = 100;
+
+        vm.prank(ALICE);
+        receipt.safeBatchTransferFrom(ALICE, address(recv), ids, amounts, "");
+
+        assertEq(recv.observedBalance(ID_A), 50, "hook sees post-transfer recv ID_A");
+        assertEq(recv.observedBalance(ID_B), 100, "hook sees post-transfer recv ID_B");
+    }
+
+    /// Burn from a (holder, id) with a pending rebase subtracts from the
+    /// post-rebase balance. The migration runs first so OZ's
+    /// `_balances[id][holder]` is rasterized before `_burn` decrements it.
+    function testBurnAfterSplitSubtractsFromRebasedBalance() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        _burn(ALICE, ID_A, 50);
+
+        assertEq(receipt.balanceOf(ALICE, ID_A), 150, "post-rebase 200 minus 50 burn");
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 150, "raw stored equals post-rebase minus burn");
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1);
+    }
+
+    /// Burning the full post-rebase balance zeroes the raw stored value
+    /// while leaving the cursor at the latest completed split.
+    function testBurnToZeroAfterSplitLeavesCursorAtLatest() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        _burn(ALICE, ID_A, 200);
+
+        assertEq(receipt.balanceOf(ALICE, ID_A), 0);
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 0);
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1, "cursor still at latest despite zero balance");
+    }
+
+    /// Burning more than the post-rebase balance reverts via OZ's
+    /// `ERC1155InsufficientBalance`. Migration rasterizes the raw value
+    /// first, so the burner's raw balance at the point of `_burn` is the
+    /// same value OZ's check sees.
+    function testOverBurnAfterSplitReverts() external {
+        _mint(ALICE, ID_A, 100);
+        _splitParams(2);
+
+        // After migration, Alice's raw stored balance is 200. OZ's check
+        // sees raw 200 vs burn 201 and reverts with the exact amounts.
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC1155Errors.ERC1155InsufficientBalance.selector, ALICE, 200, 201, ID_A)
+        );
+        _burn(ALICE, ID_A, 201);
+    }
+
+    // -----------------------------------------------------------------------
+    // Helpers
+
+    function _mint(address to, uint256 id, uint256 amount) internal {
+        vm.prank(address(vault));
+        receipt.managerMint(address(vault), to, id, amount, "");
+    }
+
+    function _burn(address from, uint256 id, uint256 amount) internal {
+        vm.prank(address(vault));
+        receipt.managerBurn(address(vault), from, id, amount, "");
+    }
+
+    function _transfer(address from, address to, uint256 id, uint256 amount) internal {
+        vm.prank(address(vault));
+        receipt.managerTransferFrom(address(vault), from, to, id, amount, "");
+    }
+}
