@@ -7,20 +7,45 @@ on:
         required: true
         type: choice
         options:
+          # ===================================================================
+          # V4 (rain.vats 0.1.6 — audited build). Deploy these in the listed
+          # order; later entries reference earlier ones via dependency pointers
+          # so an out-of-order run trips the dep-codehash check.
+          # ===================================================================
           # 1. Implementations (no dependencies, deploy first)
+          - stox-receipt-v4
+          - stox-receipt-vault-v4
+          - stox-wrapped-token-vault-v4
+          # 2. Beacon (depends on stox-wrapped-token-vault-v4)
+          - stox-wrapped-token-vault-beacon-v4
+          # 3. Deployers (depend on their beacons/implementations)
+          - stox-wrapped-token-vault-beacon-set-deployer-v4
+          - stox-offchain-asset-receipt-vault-beacon-set-deployer-v4
+          # 4. Unified deployer (depends on the two set-deployers above)
+          - stox-unified-deployer-v4
+          # 5. Authorizers (no on-chain dependencies)
+          - stox-offchain-asset-receipt-vault-authorizer-v1-v4
+          - stox-offchain-asset-receipt-vault-payment-mint-authorizer-v1-v4
+          # 6. Corporate-actions facet (no on-chain dependencies — the
+          #    receipt-vault impl hardcodes its address but doesn't link to it
+          #    at deploy time).
+          - stox-corporate-actions-facet-v4
+          # ===================================================================
+          # Pre-V4 / pre-audit entries — retained so a historical re-run is
+          # still possible (e.g. to deploy on a fresh network using the V2/V3
+          # snapshot for chain-history parity). Do NOT use these for the
+          # current rain.vats 0.1.6 build.
+          # ===================================================================
           - stox-receipt
           - stox-receipt-vault
           - stox-wrapped-token-vault
-          # 2. Beacon (depends on stox-wrapped-token-vault)
           - stox-wrapped-token-vault-beacon
-          # 3. Deployers (depend on their beacons/implementations)
           - stox-wrapped-token-vault-beacon-set-deployer
           - stox-offchain-asset-receipt-vault-beacon-set-deployer
-          # 4. Unified deployer (no on-chain dependencies)
           - stox-unified-deployer
-          # 5. Authorizers (no on-chain dependencies)
           - stox-offchain-asset-receipt-vault-authorizer-v1
           - stox-offchain-asset-receipt-vault-payment-mint-authorizer-v1
+          - stox-corporate-actions-facet
 jobs:
   deploy:
     uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-artifacts.yaml@main
