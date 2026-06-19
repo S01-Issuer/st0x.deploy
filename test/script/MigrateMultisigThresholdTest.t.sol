@@ -59,7 +59,7 @@ contract MigrateMultisigThresholdTest is Test {
 
         // Smoke-check the JSON shape.
         string memory bundleName = vm.parseJsonString(json, ".meta.name");
-        assertEq(bundleName, "ST0x Safe threshold 1->3", "meta.name pinned");
+        assertEq(bundleName, "ST0x Safe threshold 1->3 (post-rotation roster)", "meta.name pinned");
         bool hasFirstTx = vm.keyExistsJson(json, ".transactions[0].to");
         bool hasSecondTx = vm.keyExistsJson(json, ".transactions[1].to");
         assertTrue(hasFirstTx, "first transaction present");
@@ -113,7 +113,7 @@ contract MigrateMultisigThresholdTest is Test {
     /// If even one receipt vault has its `owner()` pointing somewhere
     /// other than the Safe, the migration must abort before producing an
     /// artifact (the migration would otherwise lock the wrong Safe into
-    /// 3-of-4 without controlling the vaults).
+    /// 3-of-6 without controlling the vaults).
     function testRunRejectsVaultOwnershipDrift() external {
         selectBaseFork();
         address rogueOwner = address(0xBADC0DE);
