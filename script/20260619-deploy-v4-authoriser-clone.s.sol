@@ -61,6 +61,32 @@ error CloneFactoryCodehashMismatch(address factory, bytes32 expected, bytes32 ac
 /// @param actual The codehash observed at `clone`.
 error CloneCodehashMismatch(address clone, bytes32 expected, bytes32 actual);
 
+/// @notice Pre-flight failed (grants branch only): the V4 authoriser
+/// clone constant in `LibProdDeployV4` is still the `address(0)`
+/// placeholder. The clone must be deployed (and its address dropped
+/// into the lib by the post-execution hydrate PR) before the mirror
+/// bundle can be authored — the typed revert is the explicit
+/// forcing-function that blocks a grants bundle pointing at an
+/// arbitrary operator-supplied address.
+error V4AuthoriserCloneNotPinned();
+
+/// @notice Pre-flight failed (grants branch only): the lib-pinned V4
+/// authoriser clone address is non-zero but has no runtime code. Either
+/// the hydrate PR landed before the deploy bundle executed on Base or
+/// the pinned address was wrong.
+/// @param clone The pinned clone address that has no code.
+error V4AuthoriserCloneNotDeployed(address clone);
+
+/// @notice Pre-flight failed (grants branch only): the lib-pinned V4
+/// authoriser clone's runtime codehash does not match
+/// `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH`. Signals
+/// either that the clone has been etched over since the hydrate PR
+/// merged or that the hydrate PR pinned the wrong literal.
+/// @param clone The pinned clone address inspected.
+/// @param expected The pinned clone codehash.
+/// @param actual The codehash observed on-chain.
+error V4AuthoriserCloneCodehashMismatch(address clone, bytes32 expected, bytes32 actual);
+
 /// @notice Pre-flight failed: a role grant that the base authoriser's
 /// `initialize` is expected to make automatically against the Safe is
 /// missing on the clone. Surfaces the exact role + grantee that broke
@@ -116,12 +142,17 @@ error VerifyUnknownBundleShape(uint256 actualCount);
 ///    No further action is required to put the Safe in admin position;
 ///    the deploy bundle alone is enough to land the clone.
 ///
-/// 2. After bundle 1 executes on Base, the operator hydrates
-///    `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE` with the literal
-///    clone address (separate follow-up PR — the "post-execution pin"
-///    pattern), then calls `mirrorGrants(clone)` to author bundle 2.
+/// 2. After bundle 1 executes on Base, a separate human-reviewed PR
+///    hydrates `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE` from
+///    `address(0)` to the literal clone address and
+///    `STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH` from `bytes32(0)` to the
+///    keccak256 of the EIP-1167 minimal-proxy runtime ("post-execution
+///    pin" pattern). Until that PR merges, `mirrorGrants()` trips the
+///    pre-flight rather than accept an arbitrary address.
 ///
-/// 3. `mirrorGrants(clone)` — authors a six-tx bundle that
+/// 3. `mirrorGrants()` — reads the clone address from the lib pin,
+///    refuses to proceed unless the pin is non-zero, has code, and the
+///    pinned codehash matches; then authors a six-tx bundle that
 ///    `grantRole(role, grantee)`s the six non-admin entries from
 ///    `LibAuthoriserInvariants.expectedGrants()` (indices 5..10) onto
 ///    the clone. After this bundle lands the clone holds all 13 grants
@@ -129,13 +160,13 @@ error VerifyUnknownBundleShape(uint256 actualCount);
 ///    corporate-action admins, ready for `setAuthorizer` to swap every
 ///    receipt vault onto it.
 ///
-/// 4. `verify(jsonPath, clone)` — re-runs the relevant pre-flight,
-///    parses the artifact, and asserts the parsed bundle matches what
-///    the live pre-flight would emit. Used by signers to confirm an
-///    artifact wasn't tampered with between authoring and signing. The
-///    `clone` argument is ignored when the artifact is the deploy
-///    bundle (the deploy bundle is authored before the clone exists);
-///    callers pass `address(0)` in that case.
+/// 4. `verify(jsonPath)` — re-runs the relevant pre-flight, parses the
+///    artifact, and asserts the parsed bundle matches what the live
+///    pre-flight would emit. Used by signers to confirm an artifact
+///    wasn't tampered with between authoring and signing. The grants-
+///    bundle branch sources the clone address from the same lib pin
+///    `mirrorGrants()` reads, so the same hydrate-then-verify ordering
+///    applies.
 ///
 /// The two-bundle separation also gives the Safe owners a natural
 /// checkpoint between deploying the clone and mirroring grants: the
@@ -178,6 +209,48 @@ contract DeployV4AuthoriserClone is Script {
     /// service + Safe) that must be hand-mirrored.
     uint256 internal constant MIRROR_START_INDEX = 5;
 
+    /// @notice Resolve the V4 authoriser clone address by reading the
+    /// `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE` lib pin.
+    /// @dev Virtual so test scaffolding can subclass the script and
+    /// inject a simulated post-hydrate address without monkeying with
+    /// the library's bytecode constant (library constants live in
+    /// bytecode, not storage, so `vm.store` is not an option). All
+    /// production reads of the constant inside this script go through
+    /// this helper — never bypass it.
+    /// @return The pinned clone address, or `address(0)` while the
+    /// post-execution hydrate PR is still pending.
+    function _resolveClone() internal view virtual returns (address) {
+        return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+    }
+
+    /// @notice Hook invoked by `run()` after the deploy simulation has
+    /// produced a predicted clone address. No-op in production; test
+    /// scaffolding overrides this to stash the address so the grants-
+    /// bundle suite can pre-load `_resolveClone()` with the same value
+    /// `run()` simulated.
+    /// @dev Virtual rather than letting tests re-scan `vm.recordLogs()`
+    /// themselves because `run()` already consumes the recorded logs
+    /// via `vm.getRecordedLogs()`; a second outer `getRecordedLogs()`
+    /// call returns an empty array.
+    /// @param predictedClone The clone address the deploy simulation
+    /// predicted (the `NewClone` event's `clone` field).
+    function _recordPredictedClone(address predictedClone) internal virtual {}
+
+    /// @notice Resolve the expected EIP-1167 codehash of the lib-pinned
+    /// V4 authoriser clone by reading
+    /// `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH`.
+    /// @dev Virtual for the same reason as `_resolveClone()` — the lib
+    /// constant is `bytes32(0)` until the post-execution hydrate PR
+    /// merges, and tests need to simulate the post-hydrate value
+    /// without rewriting the library bytecode. Always read via this
+    /// helper rather than the lib constant directly so the testable
+    /// subclass's override applies uniformly.
+    /// @return The pinned codehash, or `bytes32(0)` while the post-
+    /// execution hydrate PR is still pending.
+    function _resolveCloneCodehash() internal view virtual returns (bytes32) {
+        return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH;
+    }
+
     /// @notice Dry-run the V4 authoriser clone deploy: pre-flight every
     /// invariant the bundle will rely on, simulate the clone, assert
     /// the post-state matches the auto-grants the base + override
@@ -213,13 +286,9 @@ contract DeployV4AuthoriserClone is Script {
 
         // Build the single-tx bundle: target = CloneFactory, calldata =
         // `clone(v4Impl, abi.encode(Config(Safe)))`.
-        bytes memory initData =
-            abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: address(safe)}));
+        bytes memory initData = abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: address(safe)}));
         SafeTx memory txn = SafeTx({
-            to: factoryAddr,
-            value: 0,
-            data: abi.encodeCall(ICloneableFactoryV2.clone, (v4Impl, initData)),
-            operation: 0
+            to: factoryAddr, value: 0, data: abi.encodeCall(ICloneableFactoryV2.clone, (v4Impl, initData)), operation: 0
         });
 
         // Capture the nonce before any simulation. `simulateExternalCall`
@@ -271,39 +340,56 @@ contract DeployV4AuthoriserClone is Script {
         console2.log("Nonce:", nonce);
         console2.log("PredictedClone:", vm.toString(predictedClone));
         console2.log("ExpectedCloneCodehash:", vm.toString(expectedCloneCodehash));
+
+        // Hook for test scaffolding. No-op in production.
+        _recordPredictedClone(predictedClone);
     }
 
     /// @notice Dry-run the V4 authoriser non-admin grant mirror: pre-
-    /// flight the Safe + the supplied clone, build the six-tx grants
+    /// flight the Safe + the lib-pinned clone, build the six-tx grants
     /// bundle, simulate each `grantRole` call via `vm.prank(safe)`,
     /// assert the full 11-entry `expectedGrants()` map plus the two
     /// auto-granted corporate-action admins all hold on the clone post-
     /// state, emit the Tx Builder JSON artifact, and log the canonical
-    /// SafeTxHash. The bundle targets the supplied `clone` six times
-    /// (one `grantRole` per non-admin entry).
-    /// @dev The clone is supplied as an argument because the address is
-    /// not deterministic ahead of the first bundle landing on Base;
-    /// post-deploy the operator passes the literal in. This script does
-    /// not consult `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`
-    /// because the constant is `address(0)` until the post-execution
-    /// hydration PR lands.
-    /// @param clone The deployed clone's address (the result of the
-    /// `run()` bundle, observed on Base).
-    function mirrorGrants(address clone) external {
+    /// SafeTxHash. The bundle targets the resolved clone six times (one
+    /// `grantRole` per non-admin entry).
+    /// @dev The clone address is read from
+    /// `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE` via
+    /// `_resolveClone()` rather than taken as a parameter so that until
+    /// the post-execution hydration PR lands the pre-flight reverts
+    /// with `V4AuthoriserCloneNotPinned()` instead of accepting an
+    /// arbitrary operator-supplied address. Three pre-flight checks
+    /// gate the bundle: (1) the lib constant is non-zero (the hydrate
+    /// PR has merged), (2) the resolved address has runtime code (the
+    /// deploy bundle has executed on Base), and (3) the resolved
+    /// address's codehash matches the lib-pinned codehash (the hydrate
+    /// PR pinned the right literal). Together these guarantee the
+    /// grants bundle cannot drift onto a wrong-shaped or attacker-
+    /// supplied target.
+    function mirrorGrants() external {
         IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
 
         // Pre-flight: Safe immutable invariants + pinned owner set +
         // pinned threshold.
         LibSafeInvariants.assertAll(safe);
 
-        // Pre-flight: the clone has code, has the expected EIP-1167
-        // codehash for the V4 impl, and already holds the seven auto-
-        // grants the base + override `initialize` should have made
-        // during deploy. If any of those is missing the deploy bundle
-        // either failed or initialised against a different admin.
-        address v4Impl = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6;
-        bytes32 expectedCloneCodehash = computeMinimalProxyCodehash(v4Impl);
-        assertCloneCodehash(clone, expectedCloneCodehash);
+        // Pre-flight: read the clone from the lib pin and trip
+        // typed-error reverts if any of the three forcing-function
+        // invariants is broken (pin still `address(0)`, pin has no
+        // runtime code, pin's codehash drifts from the lib).
+        address clone = _resolveClone();
+        if (clone == address(0)) revert V4AuthoriserCloneNotPinned();
+        if (clone.code.length == 0) revert V4AuthoriserCloneNotDeployed(clone);
+        bytes32 expectedCloneCodehash = _resolveCloneCodehash();
+        bytes32 actualCloneCodehash = clone.codehash;
+        if (actualCloneCodehash != expectedCloneCodehash) {
+            revert V4AuthoriserCloneCodehashMismatch(clone, expectedCloneCodehash, actualCloneCodehash);
+        }
+
+        // Pre-flight: the clone already holds the seven auto-grants the
+        // base + override `initialize` should have made during deploy.
+        // If any of those is missing the deploy bundle either failed or
+        // initialised against a different admin.
         assertAutoGrantsHeld(clone, address(safe));
 
         // Build the N-tx bundle: one `grantRole(role, grantee)` per
@@ -352,23 +438,26 @@ contract DeployV4AuthoriserClone is Script {
     /// emitted Tx Builder JSON at `jsonPath` matches what the live
     /// pre-flight would emit. Discriminates the deploy bundle from the
     /// grants bundle by tx count.
+    /// @dev The grants-bundle branch sources the clone address from
+    /// `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE` (via
+    /// `_resolveClone()`) and applies the same three forcing-function
+    /// pre-flight checks as `mirrorGrants()`. The deploy-bundle branch
+    /// does not need a clone address (the deploy bundle is authored
+    /// before the clone exists).
     /// @param jsonPath Filesystem path to the Tx Builder JSON to
     /// verify.
-    /// @param clone The deployed clone address. Ignored for the deploy
-    /// bundle (pass `address(0)`); required for the grants bundle.
-    function verify(string calldata jsonPath, address clone) external view {
+    function verify(string calldata jsonPath) external view {
         IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
         LibSafeInvariants.assertAll(safe);
 
-        (uint256 parsedChainId, address parsedTo, SafeTx[] memory parsedTxs) =
-            LibSafeOps.parseTxBuilderJson(jsonPath);
+        (uint256 parsedChainId, address parsedTo, SafeTx[] memory parsedTxs) = LibSafeOps.parseTxBuilderJson(jsonPath);
 
         if (parsedChainId != block.chainid) revert VerifyMismatch("chainId");
 
         if (parsedTxs.length == DEPLOY_TX_COUNT) {
             verifyDeployBundle(safe, parsedTo, parsedTxs);
         } else if (parsedTxs.length == GRANTS_TX_COUNT) {
-            verifyGrantsBundle(safe, parsedTo, parsedTxs, clone);
+            verifyGrantsBundle(safe, parsedTo, parsedTxs);
         } else {
             revert VerifyUnknownBundleShape(parsedTxs.length);
         }
@@ -395,13 +484,9 @@ contract DeployV4AuthoriserClone is Script {
 
         if (parsedTo != factoryAddr) revert VerifyMismatch("to");
 
-        bytes memory initData =
-            abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: address(safe)}));
+        bytes memory initData = abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: address(safe)}));
         SafeTx memory expected = SafeTx({
-            to: factoryAddr,
-            value: 0,
-            data: abi.encodeCall(ICloneableFactoryV2.clone, (v4Impl, initData)),
-            operation: 0
+            to: factoryAddr, value: 0, data: abi.encodeCall(ICloneableFactoryV2.clone, (v4Impl, initData)), operation: 0
         });
 
         if (parsedTxs[0].to != expected.to) revert VerifyMismatch("to");
@@ -413,24 +498,28 @@ contract DeployV4AuthoriserClone is Script {
         if (liveHash != artifactHash) revert VerifyMismatch("safeTxHash");
     }
 
-    /// @notice Grants-bundle verify branch. Re-checks the clone's
-    /// codehash against the EIP-1167 runtime for the V4 impl, asserts
-    /// each parsed tx targets the clone with the canonical
-    /// `grantRole(role, grantee)` calldata for the matching non-admin
-    /// slice of `expectedGrants()`, and cross-checks the implied
-    /// per-tx SafeTxHash chain against the live Safe's hash builder.
+    /// @notice Grants-bundle verify branch. Reads the clone address
+    /// from `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE` via
+    /// `_resolveClone()`, runs the same three forcing-function pre-
+    /// flight checks as `mirrorGrants()` (pin non-zero, pin has code,
+    /// pin's codehash matches the lib), asserts each parsed tx targets
+    /// the resolved clone with the canonical `grantRole(role, grantee)`
+    /// calldata for the matching non-admin slice of `expectedGrants()`,
+    /// and cross-checks the implied per-tx SafeTxHash chain against the
+    /// live Safe's hash builder.
     /// @param safe The live Safe handle.
     /// @param parsedTo The `transactions[0].to` reported by the parser
-    /// — should equal `clone`.
+    /// — should equal the resolved clone address.
     /// @param parsedTxs The parsed transactions array (length == 6).
-    /// @param clone The deployed clone address.
-    function verifyGrantsBundle(IGnosisSafe safe, address parsedTo, SafeTx[] memory parsedTxs, address clone)
-        internal
-        view
-    {
-        address v4Impl = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6;
-        bytes32 expectedCloneCodehash = computeMinimalProxyCodehash(v4Impl);
-        assertCloneCodehash(clone, expectedCloneCodehash);
+    function verifyGrantsBundle(IGnosisSafe safe, address parsedTo, SafeTx[] memory parsedTxs) internal view {
+        address clone = _resolveClone();
+        if (clone == address(0)) revert V4AuthoriserCloneNotPinned();
+        if (clone.code.length == 0) revert V4AuthoriserCloneNotDeployed(clone);
+        bytes32 expectedCloneCodehash = _resolveCloneCodehash();
+        bytes32 actualCloneCodehash = clone.codehash;
+        if (actualCloneCodehash != expectedCloneCodehash) {
+            revert V4AuthoriserCloneCodehashMismatch(clone, expectedCloneCodehash, actualCloneCodehash);
+        }
 
         if (parsedTo != clone) revert VerifyMismatch("to");
 
@@ -496,8 +585,10 @@ contract DeployV4AuthoriserClone is Script {
 
     /// @notice Assert the simulated clone's runtime codehash matches
     /// the EIP-1167 minimal-proxy runtime computed from the V4 impl
-    /// literal. Shared by `run()`, `mirrorGrants()`, and the grants-
-    /// branch of `verify()`.
+    /// literal. Used by `run()` against the freshly-simulated clone,
+    /// which has no representation in the lib pin yet (the pin is still
+    /// `bytes32(0)` until the post-execution hydrate PR lands), so the
+    /// expected hash must be re-derived from the V4 impl literal here.
     /// @param clone The clone address to check.
     /// @param expected The pre-computed minimal-proxy codehash.
     function assertCloneCodehash(address clone, bytes32 expected) internal view {
@@ -579,9 +670,7 @@ contract DeployV4AuthoriserClone is Script {
     /// proxy.
     /// @return The keccak256 of the minimal-proxy runtime bytecode.
     function computeMinimalProxyCodehash(address impl) internal pure returns (bytes32) {
-        return keccak256(
-            abi.encodePacked(hex"363d3d373d3d3d363d73", impl, hex"5af43d82803e903d91602b57fd5bf3")
-        );
+        return keccak256(abi.encodePacked(hex"363d3d373d3d3d363d73", impl, hex"5af43d82803e903d91602b57fd5bf3"));
     }
 
     /// @notice Fish the `NewClone(sender, implementation, clone)`
