@@ -126,6 +126,16 @@ library LibProdDeployV4 {
     /// post-deploy edit hand-writes the real literal in place of
     /// `address(0)` here.
     ///
+    /// @dev Hydration of this constant + `STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH`
+    /// below happens in the post-Bundle-1 clone-pin PR. That PR is the
+    /// "pin before modify" gate between the clone-deploy script's
+    /// `run()` (Bundle 1) and its `mirrorGrants()` (Bundle 2): until the
+    /// pin lands, `mirrorGrants()` reverts with `V4AuthoriserCloneNotPinned()`
+    /// in pre-flight, so a grant-mirror bundle cannot be authored against
+    /// an arbitrary contract. See `docs/OPERATIONAL_SCRIPTS.md` §
+    /// "Pin before modify" for the full rationale and the field-by-field
+    /// hydration checklist.
+    ///
     /// Lives in this lib (the deploy artifacts pin) rather than in
     /// `LibAuthoriserInvariants` because it's a deploy target, not a
     /// current-state invariant. Post-swap, `LibAuthoriserInvariants.STOX_PROD_AUTHORISER`
