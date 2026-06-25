@@ -196,12 +196,11 @@ library LibSafeInvariants {
     /// https://basescan.org/address/0xe70d821f3462A074E63b42D0aac6523faAe1D611
     address internal constant STOX_TOKEN_OWNER_SAFE = 0xe70d821f3462a074e63b42d0AaC6523faAe1d611;
 
-    /// @notice The current expected threshold for `STOX_TOKEN_OWNER_SAFE`.
-    /// Updated by the threshold-migration PR family once live execution
-    /// lands: scripts and the post-migration pin both treat this constant
-    /// as the canonical current truth, so the value bumps from `1` to `3`
-    /// in the same PR that records the live post-execution state.
-    uint256 internal constant STOX_TOKEN_OWNER_SAFE_THRESHOLD = 1;
+    /// @notice The current expected threshold for `STOX_TOKEN_OWNER_SAFE`:
+    /// 3-of-6 against the post-rotation owner roster. Scripts and the
+    /// prod-state invariant pin treat this as the canonical current truth
+    /// for the Safe's threshold.
+    uint256 internal constant STOX_TOKEN_OWNER_SAFE_THRESHOLD = 3;
 
     /// @notice Owner #1 of `STOX_TOKEN_OWNER_SAFE`. Order matches
     /// `getOwners()` (Safe-internal linked-list order) against the
