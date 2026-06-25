@@ -3,6 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {IGnosisSafe} from "../interface/IGnosisSafe.sol";
+import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibTokenInvariants} from "./LibTokenInvariants.sol";
 
@@ -33,20 +34,22 @@ library LibInvariants {
     /// @param safe The Safe to validate against the pinned current truth.
     function assertAll(IGnosisSafe safe) internal view {
         LibSafeInvariants.assertAll(safe);
-        LibTokenInvariants.assertAll(address(safe), LibTokenInvariants.STOX_PROD_AUTHORISER);
+        LibTokenInvariants.assertAll(address(safe), LibAuthoriserInvariants.STOX_PROD_AUTHORISER);
+        LibAuthoriserInvariants.assertAll();
     }
 
     /// @notice Full-args bundle. Use when overriding the Safe-side
     /// threshold or owner set from `LibSafeInvariants`' current-truth pins —
     /// typically only when running a script that intentionally changes
-    /// one of those (post-state assertion). The token-side leg uses the
-    /// pinned defaults (vault ownership against the Safe, authoriser
-    /// against `LibTokenInvariants.STOX_PROD_AUTHORISER`).
+    /// one of those (post-state assertion). The token-side and authoriser-
+    /// side legs use the pinned current-truth defaults from
+    /// `LibAuthoriserInvariants.STOX_PROD_AUTHORISER`.
     /// @param safe The Safe to validate.
     /// @param expectedThreshold The expected signature threshold.
     /// @param expectedOwners The expected owner set in `getOwners()` order.
     function assertAll(IGnosisSafe safe, uint256 expectedThreshold, address[] memory expectedOwners) internal view {
         LibSafeInvariants.assertAll(safe, expectedThreshold, expectedOwners);
-        LibTokenInvariants.assertAll(address(safe), LibTokenInvariants.STOX_PROD_AUTHORISER);
+        LibTokenInvariants.assertAll(address(safe), LibAuthoriserInvariants.STOX_PROD_AUTHORISER);
+        LibAuthoriserInvariants.assertAll();
     }
 }

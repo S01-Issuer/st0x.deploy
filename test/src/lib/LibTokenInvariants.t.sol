@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {LibAuthoriserInvariants} from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibTokenInvariants, IOwnable, ReceiptVaultOwnerMismatch} from "../../../src/lib/LibTokenInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTokenInvariantsHarness} from "./LibTokenInvariantsHarness.sol";
@@ -15,7 +16,7 @@ import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
 ///
 /// Both uniformity invariants currently hold on-chain (every vault is
 /// owned by `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE` and reports the pinned
-/// `LibTokenInvariants.STOX_PROD_AUTHORISER`), so the positive
+/// `LibAuthoriserInvariants.STOX_PROD_AUTHORISER`), so the positive
 /// cases pass against the live Base fork. The inverted ownership-drift
 /// case is also exercised here for full error-path coverage.
 /// @dev Uses an unpinned Base head fork (same precedent as the other
@@ -43,11 +44,11 @@ contract LibTokenInvariantsTest is Test {
     }
 
     /// @notice Every production receipt vault reports
-    /// `LibTokenInvariants.STOX_PROD_AUTHORISER`. Passes against
+    /// `LibAuthoriserInvariants.STOX_PROD_AUTHORISER`. Passes against
     /// the live chain state: vault authoriser is uniform.
     function testProdReceiptVaultsShareUniformAuthoriser() external {
         selectBaseFork();
-        LibTokenInvariants.assertUniformAuthoriser(LibTokenInvariants.STOX_PROD_AUTHORISER);
+        LibTokenInvariants.assertUniformAuthoriser(LibAuthoriserInvariants.STOX_PROD_AUTHORISER);
     }
 
     /// @notice Token-side ownership drift trips `ReceiptVaultOwnerMismatch`.
