@@ -237,11 +237,11 @@ contract LibSafeInvariantsTest is Test {
     }
 
     /// @notice Threshold drift trips `SafeThresholdMismatch`. Caller asks
-    /// for `3` against a live threshold of `1`.
+    /// for `1` against a live threshold of `3`.
     function testInvertedThresholdMismatch() external {
         selectBaseFork();
-        vm.expectRevert(abi.encodeWithSelector(SafeThresholdMismatch.selector, address(safe), uint256(3), uint256(1)));
-        harness.callAssertThreshold(safe, 3);
+        vm.expectRevert(abi.encodeWithSelector(SafeThresholdMismatch.selector, address(safe), uint256(1), uint256(3)));
+        harness.callAssertThreshold(safe, 1);
     }
 
     /// @notice `assertAll(safe)` (no-arg overload) trips
@@ -268,11 +268,11 @@ contract LibSafeInvariantsTest is Test {
     /// trips `SafeThresholdMismatch` when the caller's supplied threshold
     /// diverges from the live Safe — covering the migration script's
     /// post-state call site. Caller asks for `4` against a live threshold
-    /// of `1`; the bundle reports the mismatch with the caller's `4` as
+    /// of `3`; the bundle reports the mismatch with the caller's `4` as
     /// the expected value, not the pinned constant.
     function testInvertedAssertAllFullArgsThresholdMismatch() external {
         selectBaseFork();
-        vm.expectRevert(abi.encodeWithSelector(SafeThresholdMismatch.selector, address(safe), uint256(4), uint256(1)));
+        vm.expectRevert(abi.encodeWithSelector(SafeThresholdMismatch.selector, address(safe), uint256(4), uint256(3)));
         harness.callAssertAll(safe, 4, LibSafeInvariants.expectedOwners());
     }
 }

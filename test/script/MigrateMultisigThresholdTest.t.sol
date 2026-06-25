@@ -91,17 +91,18 @@ contract MigrateMultisigThresholdTest is Test {
         script.verify(artifactPath);
     }
 
-    /// @notice Inverted: the pre-flight rejects a drifted threshold. If
-    /// the Safe's threshold already moved off `1` (e.g. someone else ran
-    /// a migration first), `run()` must trip the threshold invariant
-    /// rather than emitting a stale artifact.
-    function testRunRejectsAlreadyMigratedThreshold() external {
+    /// @notice Inverted: the pre-flight rejects a drifted threshold. If the
+    /// Safe's threshold has moved off the pinned current value (3), `run()`
+    /// must trip the threshold invariant rather than emitting a stale
+    /// artifact.
+    function testRunRejectsThresholdDrift() external {
         selectBaseFork();
-        // Mock the Safe's threshold to `3` to simulate post-migration
-        // pre-state; the pre-flight should reject this.
-        vm.mockCall(address(safe), abi.encodeWithSelector(IGnosisSafe.getThreshold.selector), abi.encode(uint256(3)));
+        // Mock the Safe's threshold away from the pinned current value (3)
+        // to simulate drift; the pre-flight rejects before producing an
+        // artifact.
+        vm.mockCall(address(safe), abi.encodeWithSelector(IGnosisSafe.getThreshold.selector), abi.encode(uint256(1)));
 
-        vm.expectRevert(abi.encodeWithSelector(SafeThresholdMismatch.selector, address(safe), uint256(1), uint256(3)));
+        vm.expectRevert(abi.encodeWithSelector(SafeThresholdMismatch.selector, address(safe), uint256(3), uint256(1)));
         script.run();
     }
 
