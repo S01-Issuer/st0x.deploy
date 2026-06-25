@@ -9,15 +9,11 @@ import {
     VerifyExpectedSingleTx
 } from "../../script/MigrateMultisigThreshold.s.sol";
 import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
-import {LibProdSafes} from "../../src/lib/LibProdSafes.sol";
+import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibSafeOps, SafeTx} from "../../src/lib/LibSafeOps.sol";
-import {
-    LibSafeInvariants,
-    IOwnable,
-    SafeThresholdMismatch,
-    ReceiptVaultOwnerMismatch
-} from "../../src/lib/LibSafeInvariants.sol";
-import {LibProdTokensBase} from "../../src/lib/LibProdTokensBase.sol";
+import {LibSafeInvariants, SafeThresholdMismatch} from "../../src/lib/LibSafeInvariants.sol";
+import {IOwnable, ReceiptVaultOwnerMismatch} from "../../src/lib/LibTokenInvariants.sol";
+import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
 
 /// @title MigrateMultisigThresholdTest
@@ -39,7 +35,7 @@ contract MigrateMultisigThresholdTest is Test {
     function selectBaseFork() internal {
         vm.createSelectFork(LibRainDeploy.BASE);
         script = new MigrateMultisigThreshold();
-        safe = IGnosisSafe(LibProdSafes.STOX_TOKEN_OWNER_SAFE);
+        safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
     }
 
     /// @notice `run()` dry-run completes against the live pre-state,
@@ -73,7 +69,7 @@ contract MigrateMultisigThresholdTest is Test {
         // of an internal revert.
         assertEq(
             safe.getThreshold(),
-            LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD,
+            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD,
             "n+1 reversibility check rolled threshold back to pre-migration value"
         );
     }
@@ -95,17 +91,18 @@ contract MigrateMultisigThresholdTest is Test {
         script.verify(artifactPath);
     }
 
-    /// @notice Inverted: the pre-flight rejects a drifted threshold. If
-    /// the Safe's threshold already moved off `1` (e.g. someone else ran
-    /// a migration first), `run()` must trip the threshold invariant
-    /// rather than emitting a stale artifact.
-    function testRunRejectsAlreadyMigratedThreshold() external {
+    /// @notice Inverted: the pre-flight rejects a drifted threshold. If the
+    /// Safe's threshold has moved off the pinned current value (3), `run()`
+    /// must trip the threshold invariant rather than emitting a stale
+    /// artifact.
+    function testRunRejectsThresholdDrift() external {
         selectBaseFork();
-        // Mock the Safe's threshold to `3` to simulate post-migration
-        // pre-state; the pre-flight should reject this.
-        vm.mockCall(address(safe), abi.encodeWithSelector(IGnosisSafe.getThreshold.selector), abi.encode(uint256(3)));
+        // Mock the Safe's threshold away from the pinned current value (3)
+        // to simulate drift; the pre-flight rejects before producing an
+        // artifact.
+        vm.mockCall(address(safe), abi.encodeWithSelector(IGnosisSafe.getThreshold.selector), abi.encode(uint256(1)));
 
-        vm.expectRevert(abi.encodeWithSelector(SafeThresholdMismatch.selector, address(safe), uint256(1), uint256(3)));
+        vm.expectRevert(abi.encodeWithSelector(SafeThresholdMismatch.selector, address(safe), uint256(3), uint256(1)));
         script.run();
     }
 
@@ -117,10 +114,10 @@ contract MigrateMultisigThresholdTest is Test {
     function testRunRejectsVaultOwnershipDrift() external {
         selectBaseFork();
         address rogueOwner = address(0xBADC0DE);
-        // Victim address sourced from `LibProdTokensBase` — the canonical
+        // Victim address sourced from `LibTokenInvariants` — the canonical
         // list of production receipt vaults. Any vault from the list
         // would do; MSTR is the first entry.
-        address victim = LibProdTokensBase.MSTR_RECEIPT_VAULT;
+        address victim = LibTokenInvariants.MSTR_RECEIPT_VAULT;
         vm.mockCall(victim, abi.encodeWithSelector(IOwnable.owner.selector), abi.encode(rogueOwner));
 
         vm.expectRevert(abi.encodeWithSelector(ReceiptVaultOwnerMismatch.selector, victim, address(safe), rogueOwner));

@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibSafeOps, SafeTx, TxBuilderJsonNoTransactions} from "../../../src/lib/LibSafeOps.sol";
-import {LibProdSafes} from "../../../src/lib/LibProdSafes.sol";
+import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {IGnosisSafe} from "../../../src/interface/IGnosisSafe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
 import {CallerRecorder} from "./CallerRecorder.sol";
@@ -22,12 +22,12 @@ contract LibSafeOpsTest is Test {
     IGnosisSafe internal safe;
 
     /// @notice Selects the Base fork at chain head — deliberately unpinned.
-    /// Mirrors `LibProdSafes.t.sol::selectBaseFork` and
+    /// Mirrors `LibSafeInvariants.t.sol::selectBaseFork` and
     /// `StoxProdV2.t.sol::testProdDeployBaseV2`: any drift in the live Safe
     /// surfaces immediately on the next CI run.
     function selectBaseFork() internal {
         vm.createSelectFork(LibRainDeploy.BASE);
-        safe = IGnosisSafe(LibProdSafes.STOX_TOKEN_OWNER_SAFE);
+        safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
     }
 
     /// @notice Build a single-tx bundle that changes the Safe's threshold
@@ -63,7 +63,7 @@ contract LibSafeOpsTest is Test {
         selectBaseFork();
         uint256 nonceBefore = safe.nonce();
         uint256 thresholdBefore = safe.getThreshold();
-        assertEq(thresholdBefore, LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
+        assertEq(thresholdBefore, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
 
         SafeTx memory txn = _buildThresholdTx();
         LibSafeOps.simulateSelfCall(safe, txn.data);
@@ -175,7 +175,7 @@ contract LibSafeOpsTest is Test {
     function testSimulateNPlus1ReversalRoundTrip() external {
         selectBaseFork();
         uint256 oldThreshold = safe.getThreshold();
-        assertEq(oldThreshold, LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD, "pre-state threshold pin");
+        assertEq(oldThreshold, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD, "pre-state threshold pin");
 
         // Simulate the forward state change the migration script makes.
         // After this prank-call the Safe is in the "post-migration" state
@@ -202,8 +202,8 @@ contract LibSafeOpsTest is Test {
         // for `newThreshold = 3`. The require in `simulateNPlus1Reversal`
         // should fire before any prank/approve hit the Safe.
         address[] memory shortRoster = new address[](2);
-        shortRoster[0] = LibProdSafes.STOX_TOKEN_OWNER_SAFE_OWNER_1;
-        shortRoster[1] = LibProdSafes.STOX_TOKEN_OWNER_SAFE_OWNER_2;
+        shortRoster[0] = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_OWNER_1;
+        shortRoster[1] = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_OWNER_2;
         vm.mockCall(address(safe), abi.encodeWithSelector(IGnosisSafe.getOwners.selector), abi.encode(shortRoster));
 
         NPlus1Harness harness = new NPlus1Harness();

@@ -6,8 +6,8 @@ import {Script} from "forge-std-1.16.1/src/Script.sol";
 import {console2} from "forge-std-1.16.1/src/console2.sol";
 
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
-import {LibProdSafes} from "../src/lib/LibProdSafes.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
+import {LibInvariants} from "../src/lib/LibInvariants.sol";
 import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
 
 /// @notice A previously emitted Tx Builder JSON artifact (parsed via
@@ -28,7 +28,7 @@ error VerifyExpectedSingleTx(uint256 actualCount);
 /// @title MigrateMultisigThreshold
 /// @notice Forge script that authors the ST0x token-owner Safe's
 /// multisig threshold migration (1-of-6 -> 3-of-6 against the post-rotation roster). Performs an
-/// exhaustive on-chain pre-flight via `LibSafeInvariants.assertAll`
+/// exhaustive on-chain pre-flight via `LibInvariants.assertAll`
 /// (proxy codehash, singleton + bytecode, version, modules, guard,
 /// fallback handler, uniform vault ownership, expected owner set,
 /// expected threshold), simulates the post-state, emits a Safe Tx
@@ -44,7 +44,7 @@ error VerifyExpectedSingleTx(uint256 actualCount);
 ///   artifact wasn't tampered with between authoring and signing.
 ///
 /// Pre-flight uses the no-arg `assertAll(safe)` overload, which defaults
-/// the expected threshold and owner set to the `LibProdSafes`-pinned
+/// the expected threshold and owner set to the `LibSafeInvariants`-pinned
 /// current truth. Post-state uses the full-args overload to override
 /// the threshold with the deliberately-changed `TARGET_THRESHOLD`
 /// while keeping the owner set pinned.
@@ -73,12 +73,12 @@ contract MigrateMultisigThreshold is Script {
     /// verification in production and we explicitly simulate via
     /// `vm.prank`.
     function run() external {
-        IGnosisSafe safe = IGnosisSafe(LibProdSafes.STOX_TOKEN_OWNER_SAFE);
+        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
         // Pre-flight: every immutable invariant plus the pinned 6-owner
         // roster plus the pinned current threshold. Defaults from
-        // `LibProdSafes` (no-arg overload). Reverts with the relevant
+        // `LibSafeInvariants` (no-arg overload). Reverts with the relevant
         // typed error from the underlying library on first mismatch.
-        LibSafeInvariants.assertAll(safe);
+        LibInvariants.assertAll(safe);
 
         // Build the single-tx bundle: a self-call to `changeThreshold(3)`.
         SafeTx memory txn = SafeTx({
@@ -104,7 +104,7 @@ contract MigrateMultisigThreshold is Script {
         // implementation that secretly mutates the owner roster, modules,
         // or fallback handler as a side effect.
         LibSafeOps.simulateSelfCall(safe, txn.data);
-        LibSafeInvariants.assertAll(safe, TARGET_THRESHOLD, LibProdSafes.expectedOwners());
+        LibInvariants.assertAll(safe, TARGET_THRESHOLD, LibSafeInvariants.expectedOwners());
 
         // Emit the Tx Builder JSON artifact and write it under `out/`.
         SafeTx[] memory txs = new SafeTx[](1);
@@ -133,7 +133,7 @@ contract MigrateMultisigThreshold is Script {
         // forward migration (`changeThreshold(3)`) rather than the
         // reversal. The reversal exists only as a fork-local simulation;
         // signers never see it.
-        LibSafeOps.simulateNPlus1Reversal(safe, LibProdSafes.STOX_TOKEN_OWNER_SAFE_THRESHOLD, TARGET_THRESHOLD);
+        LibSafeOps.simulateNPlus1Reversal(safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD, TARGET_THRESHOLD);
         console2.log("n+1 reversibility check passed: threshold reverted to", safe.getThreshold());
     }
 
@@ -143,11 +143,11 @@ contract MigrateMultisigThreshold is Script {
     /// integrity before signing.
     /// @param jsonPath Filesystem path to the Tx Builder JSON to verify.
     function verify(string calldata jsonPath) external view {
-        IGnosisSafe safe = IGnosisSafe(LibProdSafes.STOX_TOKEN_OWNER_SAFE);
+        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
         // Same pre-flight bundle as `run()`. If the live state has drifted
         // since the artifact was authored, the typed error bubbles before
         // we even open the file.
-        LibSafeInvariants.assertAll(safe);
+        LibInvariants.assertAll(safe);
 
         (uint256 parsedChainId, address parsedSafe, SafeTx[] memory parsedTxs) = LibSafeOps.parseTxBuilderJson(jsonPath);
 
