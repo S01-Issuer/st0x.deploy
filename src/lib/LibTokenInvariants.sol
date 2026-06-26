@@ -147,13 +147,69 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x78c31580c97101694c70022c83d570150c11e935
     address internal constant SGOV_WRAPPED_TOKEN_VAULT = address(0x78c31580c97101694C70022c83D570150c11e935);
 
-    /// @notice Returns the 13 production receipt vault addresses on Base, in
+    // ---- tQQQM / wtQQQM — Invesco NASDAQ 100 ETF ST0x ----
+    /// https://basescan.org/address/0x6Dcca0af274EB97f15ECc22d01a4F980f23F5E56
+    address internal constant QQQM_RECEIPT = address(0x6Dcca0af274EB97f15ECc22d01a4F980f23F5E56);
+    /// https://basescan.org/address/0x09ee803ba675052e10a54bfc8e18c0f67793056b
+    address internal constant QQQM_RECEIPT_VAULT = address(0x09eE803bA675052e10A54BFc8E18c0f67793056b);
+    /// https://basescan.org/address/0x823FF7Bbde2869aAe73A6CD53e7f614442836757
+    address internal constant QQQM_WRAPPED_TOKEN_VAULT = address(0x823FF7Bbde2869aAe73A6CD53e7f614442836757);
+
+    // ---- tVWO / wtVWO — Vanguard Emerging Markets Stock Index Fund ST0x ----
+    /// https://basescan.org/address/0x3EC7C053Fd515353Df294B43F4c4d81F76eF0924
+    address internal constant VWO_RECEIPT = address(0x3EC7C053Fd515353Df294B43F4c4d81F76eF0924);
+    /// https://basescan.org/address/0x0acfea6833c4a3f41bf2fbd736aa9eea547d90ee
+    address internal constant VWO_RECEIPT_VAULT = address(0x0acFea6833c4a3f41BF2FBD736aa9eEa547D90Ee);
+    /// https://basescan.org/address/0x23ec6886b49D7ab123E9ee8e474D2fa7AB6Cbc2d
+    address internal constant VWO_WRAPPED_TOKEN_VAULT = address(0x23ec6886b49D7ab123E9ee8e474D2fa7AB6Cbc2d);
+
+    // ---- tARKK / wtARKK — ARK Innovation ETF ST0x ----
+    /// https://basescan.org/address/0x5C497a52857b71538a7b57E6f57322877eD792B2
+    address internal constant ARKK_RECEIPT = address(0x5C497a52857b71538a7b57E6f57322877eD792B2);
+    /// https://basescan.org/address/0x323804af6f3bb463d688b854667c6870a0fc06ad
+    address internal constant ARKK_RECEIPT_VAULT = address(0x323804af6f3Bb463d688B854667C6870A0Fc06aD);
+    /// https://basescan.org/address/0x9FfF48B4535AF3765Ac9E1b164720EDc01DF8EE7
+    address internal constant ARKK_WRAPPED_TOKEN_VAULT = address(0x9FfF48B4535AF3765Ac9E1b164720EDc01DF8EE7);
+
+    // ---- tSPCX / wtSPCX — Space Exploration Technologies Corp. ST0x ----
+    /// https://basescan.org/address/0xba81B21F8a22bD99900E00Ed1373EC77C0772F55
+    address internal constant SPCX_RECEIPT = address(0xba81B21F8a22bD99900E00Ed1373EC77C0772F55);
+    /// https://basescan.org/address/0xc585AeB8B76c5F5e4215470A7625258e86ED7746
+    address internal constant SPCX_RECEIPT_VAULT = address(0xc585AeB8B76c5F5e4215470A7625258e86ED7746);
+    /// https://basescan.org/address/0x19F89aaEf8a93f38A974beca9776f09aB844887F
+    address internal constant SPCX_WRAPPED_TOKEN_VAULT = address(0x19F89aaEf8a93f38A974beca9776f09aB844887F);
+
+    // ---- tCEG / wtCEG — Constellation Energy Corporation ST0x ----
+    /// https://basescan.org/address/0xc6bc19DF197cCd0DB4c02cCd6AAFf7B2Ce698e08
+    address internal constant CEG_RECEIPT = address(0xc6bc19DF197cCd0DB4c02cCd6AAFf7B2Ce698e08);
+    /// https://basescan.org/address/0x9a5D3cAeC90b0332b18C0B93fEF42F3F8C918289
+    address internal constant CEG_RECEIPT_VAULT = address(0x9a5D3cAeC90b0332b18C0B93fEF42F3F8C918289);
+    /// https://basescan.org/address/0x3aF952888Cd89DAD3e8AF67cf4b7E740B36829C3
+    address internal constant CEG_WRAPPED_TOKEN_VAULT = address(0x3aF952888Cd89DAD3e8AF67cf4b7E740B36829C3);
+
+    // ---- tDRAM / wtDRAM — Roundhill Memory ETF ST0x ----
+    /// https://basescan.org/address/0x728734768a772c137A5364b10e61943De13921C4
+    address internal constant DRAM_RECEIPT = address(0x728734768a772c137A5364b10e61943De13921C4);
+    /// https://basescan.org/address/0x96DE077262609298CD891E4Ab21bd34837dE33aB
+    address internal constant DRAM_RECEIPT_VAULT = address(0x96DE077262609298CD891E4Ab21bd34837dE33aB);
+    /// https://basescan.org/address/0x1A91Df4a970EBaB1bB4AF32Eb6d10509028eE4b8
+    address internal constant DRAM_WRAPPED_TOKEN_VAULT = address(0x1A91Df4a970EBaB1bB4AF32Eb6d10509028eE4b8);
+
+    // ---- tTSM / wtTSM — Taiwan Semiconductor Manufacturing Company ST0x ----
+    /// https://basescan.org/address/0x6553f9A5352ec3ca808138eaB56FE4cC496eA5A9
+    address internal constant TSM_RECEIPT = address(0x6553f9A5352ec3ca808138eaB56FE4cC496eA5A9);
+    /// https://basescan.org/address/0x7001e2974F775f0Fd73a3D2e5914e591f3EC3fBB
+    address internal constant TSM_RECEIPT_VAULT = address(0x7001e2974F775f0Fd73a3D2e5914e591f3EC3fBB);
+    /// https://basescan.org/address/0x71C66449d2528E23514A9c197BFD55Ae9DB3B714
+    address internal constant TSM_WRAPPED_TOKEN_VAULT = address(0x71C66449d2528E23514A9c197BFD55Ae9DB3B714);
+
+    /// @notice Returns the 20 production receipt vault addresses on Base, in
     /// the order they were deployed. Provided so consumers (e.g. invariant
     /// assertions, migration scripts) can iterate without hardcoding the
     /// list inline.
-    /// @return vaults The 13 production receipt vault addresses on Base.
+    /// @return vaults The 20 production receipt vault addresses on Base.
     function productionReceiptVaults() internal pure returns (address[] memory vaults) {
-        vaults = new address[](13);
+        vaults = new address[](20);
         vaults[0] = MSTR_RECEIPT_VAULT;
         vaults[1] = TSLA_RECEIPT_VAULT;
         vaults[2] = COIN_RECEIPT_VAULT;
@@ -167,6 +223,13 @@ library LibTokenInvariants {
         vaults[10] = BMNR_RECEIPT_VAULT;
         vaults[11] = IBHG_RECEIPT_VAULT;
         vaults[12] = SGOV_RECEIPT_VAULT;
+        vaults[13] = QQQM_RECEIPT_VAULT;
+        vaults[14] = VWO_RECEIPT_VAULT;
+        vaults[15] = ARKK_RECEIPT_VAULT;
+        vaults[16] = SPCX_RECEIPT_VAULT;
+        vaults[17] = CEG_RECEIPT_VAULT;
+        vaults[18] = DRAM_RECEIPT_VAULT;
+        vaults[19] = TSM_RECEIPT_VAULT;
     }
 
     /// @notice Assert that every production receipt vault reports the same
