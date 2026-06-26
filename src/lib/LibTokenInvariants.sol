@@ -2,26 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-/// @notice Minimal `Ownable`-like surface used by ST0x receipt vaults.
-/// Every production receipt vault exposes `owner()`; this library only
-/// needs the getter, not the transfer/renounce mutators. Declared inline
-/// here so the token-invariant bundle owns its only external surface
-/// rather than depending on a richer token-side interface that could drift.
-interface IOwnable {
-    /// @notice The current owner of the contract.
-    /// @return The owner address.
-    function owner() external view returns (address);
-}
-
-/// @notice Minimal authoriser-getter surface exposed by ST0x receipt
-/// vaults. Declared inline (returning `address`) rather than importing
-/// the upstream `IAuthorizableV1` so this library owns its only external
-/// surface and doesn't carry the upstream's richer return type.
-interface IAuthorisable {
-    /// @notice The authoriser contract gating restricted vault operations.
-    /// @return The authoriser address.
-    function authorizer() external view returns (address);
-}
+import {IOwnable} from "../interface/IOwnable.sol";
+import {IAuthorisable} from "../interface/IAuthorisable.sol";
 
 /// @notice A production receipt vault's `owner()` does not match the owner
 /// the uniform-ownership invariant expected every vault to share. Surfaces

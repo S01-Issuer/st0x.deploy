@@ -153,7 +153,18 @@ library LibSafeInvariants {
     // ST0x token-owner Safe current-state pins.
     // =========================================================================
     address internal constant STOX_TOKEN_OWNER_SAFE = 0xe70d821f3462a074e63b42d0AaC6523faAe1d611;
-    uint256 internal constant STOX_TOKEN_OWNER_SAFE_THRESHOLD = 1;
+
+    /// @notice The current expected threshold for `STOX_TOKEN_OWNER_SAFE`:
+    /// 3-of-6 against the post-rotation owner roster. Scripts and the
+    /// prod-state invariant pin treat this as the canonical current truth
+    /// for the Safe's threshold.
+    uint256 internal constant STOX_TOKEN_OWNER_SAFE_THRESHOLD = 3;
+
+    /// @notice Owner #1 of `STOX_TOKEN_OWNER_SAFE`. Order matches
+    /// `getOwners()` (Safe-internal linked-list order) against the
+    /// post-rotation roster: `getOwners()` returns owners newest-first,
+    /// so the last signer to be added via `addOwnerWithThreshold` appears
+    /// at slot 0.
     address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_1 = 0x4746095B1Ea1A84446d34448f44e74D3d51f92F2;
     address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_2 = 0xceC2cb8B8EE4000FFA3F8a7f8E0Fa0A3E3DAb72d;
     address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_3 = 0x8D5901d8aE48101B59400235ad8614A2e0510466;
