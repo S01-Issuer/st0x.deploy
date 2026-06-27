@@ -661,4 +661,81 @@ contract LibTokenInvariantsAddressesTest is Test {
             "wtSGOV"
         );
     }
+
+    function testQqqmTokenSetOnBase() external {
+        LibTestProd.createSelectForkBase(vm);
+        checkTokenSet(
+            LibTokenInvariants.QQQM_RECEIPT,
+            LibTokenInvariants.QQQM_RECEIPT_VAULT,
+            LibTokenInvariants.QQQM_WRAPPED_TOKEN_VAULT,
+            "tQQQM",
+            "wtQQQM"
+        );
+    }
+
+    function testVwoTokenSetOnBase() external {
+        LibTestProd.createSelectForkBase(vm);
+        checkTokenSet(
+            LibTokenInvariants.VWO_RECEIPT,
+            LibTokenInvariants.VWO_RECEIPT_VAULT,
+            LibTokenInvariants.VWO_WRAPPED_TOKEN_VAULT,
+            "tVWO",
+            "wtVWO"
+        );
+    }
+
+    function testArkkTokenSetOnBase() external {
+        LibTestProd.createSelectForkBase(vm);
+        checkTokenSet(
+            LibTokenInvariants.ARKK_RECEIPT,
+            LibTokenInvariants.ARKK_RECEIPT_VAULT,
+            LibTokenInvariants.ARKK_WRAPPED_TOKEN_VAULT,
+            "tARKK",
+            "wtARKK"
+        );
+    }
+
+    function testSpcxTokenSetOnBase() external {
+        LibTestProd.createSelectForkBase(vm);
+        checkTokenSet(
+            LibTokenInvariants.SPCX_RECEIPT,
+            LibTokenInvariants.SPCX_RECEIPT_VAULT,
+            LibTokenInvariants.SPCX_WRAPPED_TOKEN_VAULT,
+            "tSPCX",
+            "wtSPCX"
+        );
+    }
+
+    function testCegTokenSetOnBase() external {
+        LibTestProd.createSelectForkBase(vm);
+        checkTokenSet(
+            LibTokenInvariants.CEG_RECEIPT,
+            LibTokenInvariants.CEG_RECEIPT_VAULT,
+            LibTokenInvariants.CEG_WRAPPED_TOKEN_VAULT,
+            "tCEG",
+            "wtCEG"
+        );
+    }
+
+    function testDramTokenSetOnBase() external {
+        LibTestProd.createSelectForkBase(vm);
+        checkTokenSet(
+            LibTokenInvariants.DRAM_RECEIPT,
+            LibTokenInvariants.DRAM_RECEIPT_VAULT,
+            LibTokenInvariants.DRAM_WRAPPED_TOKEN_VAULT,
+            "tDRAM",
+            "wtDRAM"
+        );
+    }
+
+    function testTsmTokenSetOnBase() external {
+        LibTestProd.createSelectForkBase(vm);
+        checkTokenSet(
+            LibTokenInvariants.TSM_RECEIPT,
+            LibTokenInvariants.TSM_RECEIPT_VAULT,
+            LibTokenInvariants.TSM_WRAPPED_TOKEN_VAULT,
+            "tTSM",
+            "wtTSM"
+        );
+    }
 }
