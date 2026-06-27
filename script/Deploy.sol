@@ -95,7 +95,8 @@ contract Deploy is Script {
         bytes32 expectedCodeHash,
         address[] memory dependencies
     ) internal {
-        string[] memory networks = LibRainDeploy.supportedNetworks();
+        string[] memory networks = new string[](1);
+        networks[0] = "base";
         uint256 deployerPrivateKey = vm.envUint("DEPLOYMENT_KEY");
 
         console2.log("Suite deploying:", contractPath);
