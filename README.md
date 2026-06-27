@@ -98,42 +98,66 @@ guidance, and `docs/GLOSSARY.md` for domain terms.
 
 ## Operational scripts
 
-Scripts under `script/` that produce off-chain artifacts (Safe Tx Builder JSON,
-signer briefs) live alongside the deploy contracts but are run manually rather
-than as part of CI deploys. Each runs a full on-chain pre-flight, simulates the
-post-state, emits the artifact, and logs the canonical hash that signers must
-verify.
+Scripts under `script/` produce off-chain artifacts (Safe Tx Builder JSON,
+signer briefs) and are run manually rather than as part of CI deploys. Each runs
+a full on-chain pre-flight, simulates the post-state, emits the artifact, and
+logs the canonical hash that signers must verify.
 
-### Worked example: the multisig threshold migration
+### Convention
 
-`script/MigrateMultisigThreshold.s.sol` bumps the `STOX_TOKEN_OWNER_SAFE`
-threshold from 1-of-4 to 3-of-4 against the current 4-owner roster. The script's
-pre-flight asserts, in one call into `LibSafeInvariants.assertAllChecks`, the
-pinned Safe v1.4.1 proxy codehash, singleton + bytecode, version, absence of
-modules and guard, fallback handler, uniform `owner()` across every production
-receipt vault returned by `LibTokenOwnership.productionReceiptVaults()` (13
-vaults), the expected owner set, and the expected pre-migration threshold
-(`= 1`). Only after that bundle passes does it simulate `changeThreshold(3)` via
-`vm.prank`, re-run the same bundle against the post-state with the new threshold
-argument, and emit the Tx Builder JSON.
+- **Flat directory.** Every operational script lives directly under `script/`.
+  Scripts are not moved post-execution; their history is captured in the file
+  itself.
+- **Date-prefixed file name.** Format: `YYYYMMDD-<kebab-name>.s.sol`. The date
+  is the day the script was added to the dispatcher dropdown. Chronological sort
+  drops out naturally from `ls`.
+- **Status in NatSpec.** The file-level NatSpec on each script leads with a
+  status banner:
+  - Upcoming: `@notice **PENDING.** …`
+  - Executed:
+    `@notice **EXECUTED YYYY-MM-DD.** … SafeTxHash 0x… landed on
+    Base at nonce N. Retained verbatim for retrospective re-verification.`
+- **Append-only dispatcher.** `.github/workflows/run-script.yaml` exposes a
+  `workflow_dispatch` dropdown that registers every script by its date-prefixed
+  name. New scripts are appended to the bottom; entries are never reordered or
+  removed (so re-dispatching a historical script remains possible).
+- **Adding a new script.** Drop the file under `script/`, append its
+  date-prefixed name to the `options:` list in `run-script.yaml`, push.
 
-Dry-run and produce the artifact:
+### Worked example: the multisig threshold migration (executed)
+
+`script/20260619-migrate-multisig-threshold.s.sol` bumped the
+`STOX_TOKEN_OWNER_SAFE` threshold from 1-of-6 to 3-of-6 against the
+post-rotation 6-owner roster. The bundle landed on Base at nonce 688 with
+SafeTxHash `0x30f008fb35c5bfd49386377289ea03a3ff9678c6151795ef9eae014728b8c18f`.
+
+The script's pre-flight asserts, in one call into
+`LibSafeInvariants.assertAllChecks`, the pinned Safe v1.4.1 proxy codehash,
+singleton + bytecode, version, absence of modules and guard, fallback handler,
+uniform `owner()` across every production receipt vault returned by
+`LibTokenOwnership.productionReceiptVaults()` (13 vaults), the expected owner
+set, and the expected pre-migration threshold (`= 1`). Only after that bundle
+passes does it simulate `changeThreshold(3)` via `vm.prank`, re-run the same
+bundle against the post-state with the new threshold argument, and emit the Tx
+Builder JSON.
+
+Re-derive the artifact (e.g. to retrospectively verify the on-chain bundle
+matched what this code emitted):
 
 ```shell
 BASE_RPC_URL=https://base-rpc.publicnode.com \
-  forge script script/MigrateMultisigThreshold.s.sol --rpc-url base
+  forge script script/20260619-migrate-multisig-threshold.s.sol --rpc-url base
 ```
 
 The artifact is written to `out/safe-threshold-migration.json` and the canonical
 `SafeTxHash` is logged between explicit `==== TX BUILDER JSON BEGIN ====` /
 `==== TX BUILDER JSON END ====` markers so it is greppable from CI logs.
 
-Verify an existing artifact against the live Safe (signers should run this
-before signing):
+Verify an existing artifact against the live Safe:
 
 ```shell
 BASE_RPC_URL=https://base-rpc.publicnode.com \
-  forge script script/MigrateMultisigThreshold.s.sol \
+  forge script script/20260619-migrate-multisig-threshold.s.sol \
   --rpc-url base \
   --sig 'verify(string)' \
   out/safe-threshold-migration.json
@@ -143,11 +167,9 @@ A successful `verify` exits silently. Any pre-flight or artifact-mismatch
 failure surfaces a typed error (`SafeThresholdMismatch`,
 `ReceiptVaultOwnerMismatch`, `VerifyMismatch`, etc.) that pinpoints the drift.
 
-The `multisig-artifact` GitHub workflow runs the dry-run on `workflow_dispatch`
-(maintainer-triggered, for producing the bundle the signers actually use) and on
-`pull_request` events that touch the migration code or any of its direct
-dependencies, uploading `out/*.json` as a build artifact so reviewers can
-download the bundle directly from the run.
+The `run-script` GitHub workflow dispatches any registered script on demand
+(maintainer-triggered via the Actions UI), uploading `out/*.json` as a build
+artifact so signers can download the bundle directly from the run.
 
 ## License
 
