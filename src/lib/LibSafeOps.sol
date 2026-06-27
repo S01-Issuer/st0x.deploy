@@ -4,6 +4,19 @@ pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.16.1/src/Vm.sol";
 import {IGnosisSafe} from "../interface/IGnosisSafe.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
+
+/// @notice Minimal `UpgradeableBeacon` surface used by the beacon n+1
+/// helper: the privileged `upgradeTo` mutator. Declared inline so
+/// `LibSafeOps` owns the only beacon selector it encodes rather than
+/// importing the full OZ `UpgradeableBeacon` type for a single `abi.encodeCall`.
+interface IUpgradeableBeacon {
+    /// @notice Point the beacon at a new implementation. `onlyOwner` on the
+    /// OZ beacon; reachable here only because the n+1 helper routes the call
+    /// through the owning Safe's `execTransaction`.
+    /// @param newImplementation The implementation address to set.
+    function upgradeTo(address newImplementation) external;
+}
 
 /// @notice The parsed Tx Builder JSON has zero transactions. Empty bundles
 /// are never produced by `emitTxBuilderJson` and so a zero-length
@@ -320,26 +333,71 @@ library LibSafeOps {
     /// the number of approvals collected and the number passed in the
     /// successful `execTransaction` call.
     function simulateNPlus1Reversal(IGnosisSafe safe, uint256 oldThreshold, uint256 newThreshold) internal {
-        // Construct the inverse calldata: `changeThreshold(oldThreshold)`.
-        // The follow-up is by definition a self-call; the inverse threshold
-        // change is the simplest, most reversible "n+1" transaction we can
-        // model and it carries no side effects other than the threshold
-        // mutation itself.
-        bytes memory revertData = abi.encodeCall(IGnosisSafe.changeThreshold, (oldThreshold));
-        SafeTx memory followup = SafeTx({to: address(safe), value: 0, data: revertData, operation: 0});
+        // The inverse op is a self-call to `changeThreshold(oldThreshold)`:
+        // the simplest, most reversible follow-up, with no side effect other
+        // than the threshold mutation itself. Delegated to the generic
+        // `simulateNPlus1` so the signature mechanics live in one place; this
+        // wrapper keeps its original signature and behaviour so the
+        // threshold-migration tests continue to pass unchanged.
+        bytes memory inverseCalldata = abi.encodeCall(IGnosisSafe.changeThreshold, (oldThreshold));
+        simulateNPlus1(safe, address(safe), inverseCalldata, newThreshold);
+        require(safe.getThreshold() == oldThreshold, "LibSafeOps: n+1 did not restore the prior threshold");
+    }
+
+    /// @notice Generic n+1 reversibility / "not stuck" check. Given a Safe in
+    /// some post-mutation state, an arbitrary follow-up call (`target` +
+    /// `inverseCalldata`), and the Safe's current `threshold`, this proves on
+    /// the active fork that:
+    ///
+    /// 1. The Safe accepts a valid `execTransaction` for the follow-up under
+    ///    the current threshold (the positive case), and
+    /// 2. The threshold gate rejects an undersigned attempt with `GS020`
+    ///    (the negative case).
+    ///
+    /// Together these prove the post-mutation state is genuinely exitable:
+    /// the owning Safe can still author and execute a transaction against
+    /// `target`, and the signature gate is doing its job. The follow-up call
+    /// is supplied as raw calldata so the same mechanics serve a Safe
+    /// self-call (threshold migration: `target == safe`), a beacon upgrade
+    /// (`target == beacon`, `upgradeTo(...)`), or any other critical state
+    /// change.
+    ///
+    /// As with `simulateNPlus1Reversal`, approvals are sourced via
+    /// `approveHash` under `vm.prank` rather than ECDSA signatures, so no
+    /// test private keys are needed; the real `checkSignatures` path is
+    /// exercised end-to-end. The Safe's nonce IS advanced by the successful
+    /// `execTransaction` (unlike `simulateSelfCall`), because this models the
+    /// full wrapping exec.
+    ///
+    /// @dev This helper asserts the follow-up executes and the gate rejects
+    /// undersigned attempts, but does NOT assert anything about the inner
+    /// call's effect — callers that need a specific post-condition (e.g. the
+    /// threshold rolled back to a prior value) assert it themselves after
+    /// this returns. `simulateNPlus1Reversal` is exactly such a caller.
+    /// @param safe The Safe whose post-mutation state to exercise.
+    /// @param target The destination of the follow-up call. Pass
+    /// `address(safe)` for a Safe self-call.
+    /// @param inverseCalldata The calldata for the follow-up call.
+    /// @param threshold The Safe's current threshold. Both the number of
+    /// approvals collected and the number passed in the successful
+    /// `execTransaction` call.
+    function simulateNPlus1(IGnosisSafe safe, address target, bytes memory inverseCalldata, uint256 threshold)
+        internal
+    {
+        SafeTx memory followup = SafeTx({to: target, value: 0, data: inverseCalldata, operation: 0});
         uint256 followupNonce = safe.nonce();
         bytes32 followupHash = computeSafeTxHashViaSafe(safe, followup, followupNonce);
 
-        // Collect approvals from `newThreshold` owners. We always take the
-        // first `newThreshold` entries from `getOwners()` — the linked-list
+        // Collect approvals from `threshold` owners. We always take the
+        // first `threshold` entries from `getOwners()` — the linked-list
         // order is deterministic per-Safe so the choice is stable, and
         // sorting the resulting array by address normalises against the
         // arbitrary Safe-internal ordering before passing to
         // `checkSignatures`.
         address[] memory owners = safe.getOwners();
-        require(owners.length >= newThreshold, "LibSafeOps: not enough owners for n+1");
-        address[] memory approvers = new address[](newThreshold);
-        for (uint256 i = 0; i < newThreshold; i++) {
+        require(owners.length >= threshold, "LibSafeOps: not enough owners for n+1");
+        address[] memory approvers = new address[](threshold);
+        for (uint256 i = 0; i < threshold; i++) {
             approvers[i] = owners[i];
             VM.prank(owners[i]);
             safe.approveHash(followupHash);
@@ -355,7 +413,7 @@ library LibSafeOps {
         // gate is doing its job — a follow-up tx is not magically waveable
         // through just because the approvals exist; the packed blob has to
         // contain at least `threshold` entries.
-        bytes memory tooFewSigs = packApprovedHashSignatures(sortedSigners, newThreshold - 1);
+        bytes memory tooFewSigs = packApprovedHashSignatures(sortedSigners, threshold - 1);
         VM.expectRevert(bytes("GS020"));
         // The return value is meaningless under `expectRevert` — the call
         // must revert with the literal `GS020` reason, and the cheatcode
@@ -375,13 +433,11 @@ library LibSafeOps {
             tooFewSigs
         );
 
-        // Positive case: full `newThreshold`-many signatures must succeed
-        // and roll the threshold back to `oldThreshold`. The success
-        // assertion plus the threshold check together prove that the new
-        // state is genuinely exitable: the signature path verifies, the
-        // inner call executes, and the safe is back in a state another
-        // forward migration could run against.
-        bytes memory enoughSigs = packApprovedHashSignatures(sortedSigners, newThreshold);
+        // Positive case: full `threshold`-many signatures must succeed. The
+        // success assertion proves the new state is genuinely exitable: the
+        // signature path verifies, the inner call executes, and the owning
+        // Safe could run another forward migration against `target`.
+        bytes memory enoughSigs = packApprovedHashSignatures(sortedSigners, threshold);
         bool ok = safe.execTransaction(
             followup.to,
             followup.value,
@@ -395,7 +451,35 @@ library LibSafeOps {
             enoughSigs
         );
         require(ok, "LibSafeOps: n+1 execTransaction reverted unexpectedly");
-        require(safe.getThreshold() == oldThreshold, "LibSafeOps: n+1 did not restore the prior threshold");
+    }
+
+    /// @notice Beacon-specific n+1 reversibility convenience. Proves the
+    /// owning Safe can act on `beacon` post-ownership-migration by running an
+    /// idempotent `upgradeTo(currentImpl)` as the follow-up op: the call
+    /// routes through the Safe's `execTransaction` (exercising the threshold
+    /// gate both ways) and re-sets the beacon to the implementation it
+    /// already points at, so there is no net state change.
+    /// @dev The idempotent `upgradeTo` is the inverse op recommended in the
+    /// design plan: it touches no real state (the beacon ends pointing at the
+    /// same implementation) yet proves the Safe -> beacon call path works
+    /// end-to-end through the signature-verified exec. Delegates to the
+    /// generic `simulateNPlus1` with the `upgradeTo(currentImpl)` calldata.
+    /// @param safe The Safe that owns the beacon after the migration.
+    /// @param beacon The beacon to exercise.
+    /// @param currentImpl The beacon's current implementation. Passed as the
+    /// `upgradeTo` argument so the op is idempotent.
+    /// @param threshold The Safe's current threshold.
+    function simulateBeaconNPlus1(IGnosisSafe safe, address beacon, address currentImpl, uint256 threshold) internal {
+        bytes memory inverseCalldata = abi.encodeCall(IUpgradeableBeacon.upgradeTo, (currentImpl));
+        simulateNPlus1(safe, beacon, inverseCalldata, threshold);
+        // Post-condition: the idempotent upgrade left the beacon pointing at
+        // the same implementation it started on, confirming the routed call
+        // actually executed against the beacon (not just that the Safe
+        // accepted the signatures).
+        require(
+            IBeacon(beacon).implementation() == currentImpl,
+            "LibSafeOps: beacon n+1 did not preserve the implementation"
+        );
     }
 
     /// @notice Insertion-sort an in-memory address array ascending. Used to

@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {LibBeaconInvariants} from "../../../src/lib/LibBeaconInvariants.sol";
 import {IGnosisSafe} from "../../../src/interface/IGnosisSafe.sol";
 
 /// @title LibSafeInvariantsHarness
@@ -29,5 +30,9 @@ contract LibSafeInvariantsHarness {
 
     function callAssertAllDefaults(IGnosisSafe safe) external view {
         LibSafeInvariants.assertAll(safe);
+    }
+
+    function callAssertBeaconInvariants(address beacon, address expectedOwner, address expectedImpl) external view {
+        LibBeaconInvariants.assertBeaconInvariants(beacon, expectedOwner, expectedImpl);
     }
 }

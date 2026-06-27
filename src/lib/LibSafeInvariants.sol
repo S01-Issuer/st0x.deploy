@@ -139,61 +139,19 @@ error SafeThresholdMismatch(address safe, uint256 expected, uint256 actual);
 /// they cannot collide with the owner/module/threshold linked-list slots.
 library LibSafeInvariants {
     // =========================================================================
-    // Safe v1.4.1 deployment manifest constants. Universal to every v1.4.1 L2
-    // Safe; sourced from `safe-deployments` for chainId 8453 and cross-checked
-    // against the live ST0x production Safe.
+    // Safe v1.4.1 deployment manifest constants.
     // =========================================================================
-
-    /// @notice Safe v1.4.1 L2 singleton (master copy) address on Base.
-    /// Verified by reading proxy storage slot `0x0` of
-    /// `STOX_TOKEN_OWNER_SAFE` and matching against the
-    /// `safe-deployments` manifest.
     address internal constant SAFE_V1_4_1_L2_SINGLETON = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
-
-    /// @notice Runtime codehash of a Safe v1.4.1 proxy on Base. Equal to
-    /// `extcodehash(STOX_TOKEN_OWNER_SAFE)` and to every other v1.4.1 L2
-    /// proxy pointing at `SAFE_V1_4_1_L2_SINGLETON`. Pinning this codehash
-    /// guards against the Safe address being replaced by an EOA-controlled
-    /// contract or a fake proxy pointing at a malicious singleton.
     bytes32 internal constant SAFE_V1_4_1_L2_PROXY_CODEHASH =
         0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000;
-
-    /// @notice Expected `VERSION()` string from a Safe v1.4.1 singleton.
     string internal constant SAFE_V1_4_1_VERSION = "1.4.1";
-
-    /// @notice Runtime codehash of the Safe v1.4.1 L2 singleton bytecode at
-    /// `SAFE_V1_4_1_L2_SINGLETON`. Pinning this guards against an attacker
-    /// who replaces the bytecode at the singleton address (e.g. via
-    /// `SELFDESTRUCT` + re-create) while preserving the proxy codehash.
-    /// Without this pin, every implementation-backed accessor on the Safe
-    /// (`VERSION()`, `getOwners()`, `getThreshold()`, etc.) is mediated by
-    /// untrusted code at the singleton address. Asserting this codehash
-    /// before any of those reads closes that gap.
-    /// @dev Computed via `keccak256(eth_getCode(SAFE_V1_4_1_L2_SINGLETON))`
-    /// on Base on 2026-05-20.
     bytes32 internal constant SAFE_V1_4_1_L2_SINGLETON_CODEHASH =
         0xb1f926978a0f44a2c0ec8fe822418ae969bd8c3f18d61e5103100339894f81ff;
-
-    /// @notice CompatibilityFallbackHandler v1.4.1 address on Base. Verified
-    /// against the live Safe's fallback handler storage slot. Pinned so a
-    /// swapped-in malicious handler that shadows view selectors via
-    /// fallback can be detected by `assertImmutableInvariants`.
-    /// @dev Source: github.com/safe-global/safe-deployments
-    /// `src/assets/v1.4.1/compatibility_fallback_handler.json` (chainId
-    /// 8453 entry). Cross-checked on Base on 2026-05-20.
     address internal constant SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER = 0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99;
 
     // =========================================================================
-    // ST0x token-owner Safe pins. Current-state invariants for the specific
-    // Safe at `STOX_TOKEN_OWNER_SAFE`; updated when the live state changes
-    // (e.g. the threshold migration bumps `STOX_TOKEN_OWNER_SAFE_THRESHOLD`
-    // from `1` to `3` in the same PR that records the post-execution state).
+    // ST0x token-owner Safe current-state pins.
     // =========================================================================
-
-    /// @notice The Safe that owns every ST0x receipt vault on Base. Subject
-    /// of the threshold migration (1 -> 3, against the post-rotation
-    /// 6-owner roster).
-    /// https://basescan.org/address/0xe70d821f3462A074E63b42D0aac6523faAe1D611
     address internal constant STOX_TOKEN_OWNER_SAFE = 0xe70d821f3462a074e63b42d0AaC6523faAe1d611;
 
     /// @notice The current expected threshold for `STOX_TOKEN_OWNER_SAFE`:
@@ -208,25 +166,11 @@ library LibSafeInvariants {
     /// so the last signer to be added via `addOwnerWithThreshold` appears
     /// at slot 0.
     address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_1 = 0x4746095B1Ea1A84446d34448f44e74D3d51f92F2;
-
-    /// @notice Owner #2 of `STOX_TOKEN_OWNER_SAFE`.
     address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_2 = 0xceC2cb8B8EE4000FFA3F8a7f8E0Fa0A3E3DAb72d;
-
-    /// @notice Owner #3 of `STOX_TOKEN_OWNER_SAFE`.
     address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_3 = 0x8D5901d8aE48101B59400235ad8614A2e0510466;
-
-    /// @notice Owner #4 of `STOX_TOKEN_OWNER_SAFE`.
     address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_4 = 0xC1C89b7f5448F447d59f920456A9610f6b2544bC;
-
-    /// @notice Owner #5 of `STOX_TOKEN_OWNER_SAFE`.
     address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_5 = 0xAB92b327c97A6E7461cBd76E2a789E5e106FF87e;
-
-    /// @notice Owner #6 of `STOX_TOKEN_OWNER_SAFE`.
     address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_6 = 0x5CCd3cE683b66ff271DDB8915fF528b8fcFa23c2;
-
-    // =========================================================================
-    // Storage layout constants for paginated / direct slot reads.
-    // =========================================================================
 
     /// @notice Storage slot at which Safe v1.4.1 stores the transaction
     /// guard address. Equal to
@@ -428,16 +372,9 @@ library LibSafeInvariants {
         assertAll(safe, STOX_TOKEN_OWNER_SAFE_THRESHOLD, expectedOwners());
     }
 
-    /// @notice Returns the expected owner set for `STOX_TOKEN_OWNER_SAFE` in
-    /// the exact order returned by `getOwners()` against an unpinned Base
-    /// head fork (the live-state pin lives in
-    /// `StoxProdV2.t.sol::testProdDeployBaseV2`, which selects head rather
-    /// than pinning to a historical block so the next CI run catches any
-    /// further drift). Provided as a helper because Solidity 0.8 cannot
-    /// express a file-scope `constant address[]` and declaring the array
-    /// as `immutable` is contract-scoped only.
-    /// @return The six owners of the ST0x token-owner Safe in
-    /// `getOwners()` order.
+    /// @notice Expected owner set for `STOX_TOKEN_OWNER_SAFE` in
+    /// `getOwners()` order. Helper because Solidity 0.8 cannot express a
+    /// file-scope `constant address[]`.
     function expectedOwners() internal pure returns (address[] memory) {
         address[] memory owners = new address[](6);
         owners[0] = STOX_TOKEN_OWNER_SAFE_OWNER_1;

@@ -96,7 +96,7 @@ contract LibSafeInvariantsTest is Test {
     /// @notice Drift in the singleton's bytecode trips
     /// `SafeSingletonBytecodeMismatch`. Simulated by `vm.etch`-ing alien
     /// bytecode at the singleton address — the codehash diverges from
-    /// the pinned `SAFE_V1_4_1_L2_SINGLETON_CODEHASH` even though slot
+    /// the pinned `LibSafeInvariants.SAFE_V1_4_1_L2_SINGLETON_CODEHASH` even though slot
     /// 0 still points at the canonical address.
     /// @dev `vm.etch` on the singleton breaks every delegate-routed
     /// read on the proxy, so the slot-0 fetch is mocked back to the
