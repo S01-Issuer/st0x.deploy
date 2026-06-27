@@ -104,6 +104,12 @@ than as part of CI deploys. Each runs a full on-chain pre-flight, simulates the
 post-state, emits the artifact, and logs the canonical hash that signers must
 verify.
 
+**See [`docs/OPERATIONAL_SCRIPTS.md`](docs/OPERATIONAL_SCRIPTS.md)** for the
+full how-to: invariant library structure + usage, the script lifecycle
+(authoring, testing, dispatching, post-execution pin), naming convention, and
+the post-run process for getting a bundle from a workflow artifact onto Base via
+the Safe UI.
+
 ### Worked example: the multisig threshold migration
 
 `script/MigrateMultisigThreshold.s.sol` bumps the `STOX_TOKEN_OWNER_SAFE`
