@@ -58,58 +58,58 @@ library LibProdDeployV4 {
     // bump.
     // =========================================================================
 
-    address constant STOX_RECEIPT_RAIN_VATS_0_1_6 = address(0x636178081C59A458B34C6226Dee79c7567a4f542);
+    address constant STOX_RECEIPT_RAIN_VATS_0_1_6 = address(0x2dF5cFE6d688EF9fF1B7c59A499D254b1527b286);
     bytes32 constant STOX_RECEIPT_CODEHASH_RAIN_VATS_0_1_6 =
-        0x9a9a1e1f776f72c253aece25d01c4b2b16aaafe60d20ee81233c786c220a0301;
+        0x06fffbad12ea80897d55aab5d4f1cd3f34f674237db44a148cc133334a0cca54;
 
-    address constant STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6 = address(0x93545768D43A723Fe8E07d9381edC56341E76a25);
+    address constant STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6 = address(0x2BCcEd626566Ef1e65F922DD03748C5C7aa2d748);
     bytes32 constant STOX_RECEIPT_VAULT_CODEHASH_RAIN_VATS_0_1_6 =
-        0x577df3fa0da43c77ab39988fb287becea335ac426bacee1dc305fe11ccd2ee19;
+        0x11da975b8024dd98441bfdf42a68462fa5db9bd4e3af348f05928ef359924671;
 
-    address constant STOX_WRAPPED_TOKEN_VAULT_RAIN_VATS_0_1_6 = address(0xDEa4812b74b7Cc18abcb8aDd388fCBaC9109Ac65);
+    address constant STOX_WRAPPED_TOKEN_VAULT_RAIN_VATS_0_1_6 = address(0x0D99e0174DbF885ceD6AE8dEb939b0F890450099);
     bytes32 constant STOX_WRAPPED_TOKEN_VAULT_CODEHASH_RAIN_VATS_0_1_6 =
-        0xdbec9bf08b1123b03e631604066a61a6ed640018baa9527445b6138312fc05f3;
+        0x6de4c556c1811293da4ad2e509ee476f3eb635f019845087e1d2777a1b272034;
 
-    address constant STOX_UNIFIED_DEPLOYER_RAIN_VATS_0_1_6 = address(0x4125e8d2CAd6Cbc1651ea03B53E2EF12085f8083);
+    address constant STOX_UNIFIED_DEPLOYER_RAIN_VATS_0_1_6 = address(0x81D0ecD58346bf2d484E7774f55EABc1AA3F4bcc);
     bytes32 constant STOX_UNIFIED_DEPLOYER_CODEHASH_RAIN_VATS_0_1_6 =
-        0xf5a36af1ab8fa8d7fbb704c54bb752c1c1e76f3619e52dae83088c231f1771e3;
+        0x91035080d8e610cc0657d7f44efa8fbf57ce5800e6a35694d107c05987d24e3f;
 
     address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_RAIN_VATS_0_1_6 =
-        address(0x96f85E33a881dF30275d9bA7058D9270b050E6F9);
+        address(0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2);
     bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_RAIN_VATS_0_1_6 =
         0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630;
 
     address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6 =
-        address(0x278897319b6969BF84C59882403925EF214513A1);
+        address(0xd64246e6b25F745f005E6233e050C9B879E660Dc);
     bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_RAIN_VATS_0_1_6 =
-        0xebe5d9e38fbf28ee2759863ed3e071045ef104d9aabe06a2d1ae90be356cb55a;
+        0x621c1edbd850939acba8bcd999812a83999b5680d4ca6804e1995b95f138b9e5;
 
     address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6 =
-        address(0x326eDc56E8F7CcA3555482D65ce4627A021c52FD);
+        address(0xbe5f05C4576e6D3e7bCCb4E64f08fc4F46Adf0cA);
     bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_RAIN_VATS_0_1_6 =
-        0x803324df5e86d2b6e6ef94ba5fca3f0d2ccdcdba32c9feb81255bdce9b05e02e;
+        0xa2c4bd29f36bc6636938f3ad66e6de5d126ce41ed3134bed166cde259d5775ad;
 
     /// @dev The corporate-action-aware authoriser impl. The clone deployed
     /// for the issuer (see `STOX_PROD_AUTHORISER_V4_CLONE` below) points
     /// at this impl via EIP-1167.
     address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6 =
-        address(0xd20B8066ad1E7F93B4828e849522BbF698B107eC);
+        address(0x2EA0d35d0B1F57C42e6130f298930228bCbFDe9b);
     bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_RAIN_VATS_0_1_6 =
-        0xaf9f471789bc889b5c3b0a0454cbc18aaa7041fddf42167d775043a016deec64;
+        0xf8a1d9b2fa068bae3c1a607434db48364a5cdab3020bd7e315ed2662a3b35b5f;
 
     address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_RAIN_VATS_0_1_6 =
-        address(0xb9b78F1e7b297fede490C4b82f368Ee2CB3eD844);
+        address(0xeaD68E489Cb19453b294dc46a3A5710b0d46d17F);
     bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_RAIN_VATS_0_1_6 =
-        0x3a8b4a4ace029d507180a5de34d92c4b0bde4d4c74887c7a407b0a9bd7419cea;
+        0x4d94318cde48f1bc20f97e00aefad84bfb7c9db15c81b882862e127b05e06e15;
 
     /// @dev The corporate-actions facet. The receipt vault's `fallback()`
     /// hardcodes this address and delegatecalls every non-matching selector
     /// here, so a facet bytecode change forces a vault impl redeploy too. With
     /// the new rain.vats tag the receipt vault impl is rebuilt, so this facet
     /// is rebuilt in lock-step.
-    address constant STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6 = address(0xDb479091164A15f1Ba29dE513776fFFbb4A9F0aF);
+    address constant STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6 = address(0x51f78B77EdffDB62b8AeB753066C318a46D05D74);
     bytes32 constant STOX_CORPORATE_ACTIONS_FACET_CODEHASH_RAIN_VATS_0_1_6 =
-        0x90ace0ac65308dca37ec165bab1fd33aef0e2d88fd1a1eadd58a377f10f0c3c2;
+        0x2a67c52129dff74d956bb7dcde1aac598c28dd29685237aca56dccb1d49bd6f8;
 
     /// @notice The V4 production authoriser clone — an EIP-1167 minimal
     /// proxy of `STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6`
