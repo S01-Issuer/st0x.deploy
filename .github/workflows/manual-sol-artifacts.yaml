@@ -48,7 +48,7 @@ on:
           - stox-corporate-actions-facet
 jobs:
   deploy:
-    uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-artifacts.yaml@main
+    uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-artifacts.yaml@debug/base-rpc-log
     with:
       suite: ${{ inputs.suite }}
     # The reusable workflow lives in a different org (rainlanguage), so
