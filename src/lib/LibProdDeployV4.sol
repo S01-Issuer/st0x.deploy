@@ -26,9 +26,9 @@ pragma solidity ^0.8.25;
 /// Soldeer's import path already encodes the version at the dependency
 /// boundary, so the lib name doesn't need to.
 ///
-/// `LibProdDeployV3` is retained for archaeological reference (it pins the
-/// pre-patch rain.vats 0.1.5 addresses that are not safe to ship) but should
-/// no longer be referenced by any active script.
+/// The frozen pre-V4 deployments are pinned in `LibProdDeployV1` and
+/// `LibProdDeployV2` as audit trails; active source and scripts reference this
+/// (latest) lib.
 library LibProdDeployV4 {
     /// @notice The rain.vats tag whose audited build these constants pin.
     /// Encoded in every deployed-contract constant name (e.g.

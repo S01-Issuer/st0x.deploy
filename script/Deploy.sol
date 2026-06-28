@@ -6,7 +6,7 @@ import {Script, console2} from "forge-std-1.16.1/src/Script.sol";
 
 import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
 import {LibProdDeployV2} from "../src/lib/LibProdDeployV2.sol";
-import {LibProdDeployV3} from "../src/lib/LibProdDeployV3.sol";
+import {LibProdDeployV4} from "../src/lib/LibProdDeployV4.sol";
 import {LibProdDeployV4} from "../src/lib/LibProdDeployV4.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
@@ -221,8 +221,8 @@ contract Deploy is Script {
             deploySuite(
                 type(StoxCorporateActionsFacet).creationCode,
                 "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
-                LibProdDeployV3.STOX_CORPORATE_ACTIONS_FACET,
-                LibProdDeployV3.STOX_CORPORATE_ACTIONS_FACET_CODEHASH,
+                LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6,
+                LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_RAIN_VATS_0_1_6,
                 noDeps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_RECEIPT_V4) {
