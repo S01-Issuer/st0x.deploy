@@ -9,7 +9,7 @@ import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} 
 import {LibRebase} from "../lib/LibRebase.sol";
 import {LibTotalSupply} from "../lib/LibTotalSupply.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
-import {LibProdDeployV3} from "../lib/LibProdDeployV3.sol";
+import {LibProdDeployV4} from "../lib/LibProdDeployV4.sol";
 import {AuthorizerMissingCorporateActionAdmin} from "../error/ErrCorporateAction.sol";
 
 /// @title StoxReceiptVault
@@ -157,7 +157,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
 
     /// @notice Routes calls with non-matching selectors to the corporate actions
     /// facet via delegatecall. The facet address is hardcoded to its
-    /// deterministic Zoltu deploy address from `LibProdDeployV3`.
+    /// deterministic Zoltu deploy address from `LibProdDeployV4`.
     ///
     /// @dev Baking the facet address into the vault implementation bytecode
     /// means upgrading the facet requires upgrading the vault implementation
@@ -178,7 +178,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// per-function comments for the per-method argument that the
     /// linked-list and cursor writes remain consistent under re-entry.
     fallback() external payable virtual override {
-        address facet = LibProdDeployV3.STOX_CORPORATE_ACTIONS_FACET;
+        address facet = LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6;
         assembly ("memory-safe") {
             calldatacopy(0, 0, calldatasize())
             let success := delegatecall(gas(), facet, 0, calldatasize(), 0, 0)

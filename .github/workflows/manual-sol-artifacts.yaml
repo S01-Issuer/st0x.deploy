@@ -7,23 +7,44 @@ on:
         required: true
         type: choice
         options:
+          # ===================================================================
+          # V4 (rain.vats 0.1.6 — audited build). Deploy these in the listed
+          # order; later entries reference earlier ones via dependency pointers
+          # so an out-of-order run trips the dep-codehash check.
+          # ===================================================================
           # 1. Implementations (no dependencies, deploy first)
-          - stox-receipt
-          - stox-receipt-vault
-          - stox-wrapped-token-vault
-          # 2. Beacon (depends on stox-wrapped-token-vault)
-          - stox-wrapped-token-vault-beacon
+          - stox-receipt-v4
+          - stox-receipt-vault-v4
+          - stox-wrapped-token-vault-v4
+          # 2. Beacon (depends on stox-wrapped-token-vault-v4)
+          - stox-wrapped-token-vault-beacon-v4
           # 3. Deployers (depend on their beacons/implementations)
-          - stox-wrapped-token-vault-beacon-set-deployer
-          - stox-offchain-asset-receipt-vault-beacon-set-deployer
-          # 4. Unified deployer (no on-chain dependencies)
-          - stox-unified-deployer
+          - stox-wrapped-token-vault-beacon-set-deployer-v4
+          - stox-offchain-asset-receipt-vault-beacon-set-deployer-v4
+          # 4. Unified deployer (depends on the two set-deployers above)
+          - stox-unified-deployer-v4
           # 5. Authorizers (no on-chain dependencies)
-          - stox-offchain-asset-receipt-vault-authorizer-v1
-          - stox-offchain-asset-receipt-vault-payment-mint-authorizer-v1
+          - stox-offchain-asset-receipt-vault-authorizer-v1-v4
+          - stox-offchain-asset-receipt-vault-payment-mint-authorizer-v1-v4
+          # 6. Corporate-actions facet (no on-chain dependencies — the
+          #    receipt-vault impl hardcodes its address but doesn't link to it
+          #    at deploy time).
+          - stox-corporate-actions-facet-v4
 jobs:
   deploy:
     uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-artifacts.yaml@main
     with:
       suite: ${{ inputs.suite }}
-    secrets: inherit
+    # The reusable workflow lives in a different org (rainlanguage), so
+    # `secrets: inherit` does not forward this repo's secrets to it — they must
+    # be passed explicitly. Only the secrets this repo actually holds are
+    # listed; the reusable workflow declares the full set as optional and falls
+    # back to `|| vars.* || ''` for any it isn't given.
+    secrets:
+      PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+      RPC_URL_ARBITRUM_FORK: ${{ secrets.RPC_URL_ARBITRUM_FORK }}
+      RPC_URL_BASE_FORK: ${{ secrets.RPC_URL_BASE_FORK }}
+      RPC_URL_BASE_SEPOLIA_FORK: ${{ secrets.RPC_URL_BASE_SEPOLIA_FORK }}
+      RPC_URL_FLARE_FORK: ${{ secrets.RPC_URL_FLARE_FORK }}
+      RPC_URL_POLYGON_FORK: ${{ secrets.RPC_URL_POLYGON_FORK }}
+      CI_DEPLOY_BASE_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_BASE_ETHERSCAN_API_KEY }}

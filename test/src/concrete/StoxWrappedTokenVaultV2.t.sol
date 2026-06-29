@@ -8,7 +8,7 @@ import {
     StoxWrappedTokenVaultBeaconSetDeployer,
     ZeroVaultAsset
 } from "../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
-import {LibProdDeployV3} from "../../../src/lib/LibProdDeployV3.sol";
+import {LibProdDeployV4} from "../../../src/lib/LibProdDeployV4.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {MockERC20} from "../../concrete/MockERC20.sol";
 
@@ -20,8 +20,9 @@ contract StoxWrappedTokenVaultV2Test is Test {
     function testV2ZeroAssetReverts() external {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         vm.expectRevert(abi.encodeWithSelector(ZeroVaultAsset.selector));
-        StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER)
-            .newStoxWrappedTokenVault(address(0));
+        StoxWrappedTokenVaultBeaconSetDeployer(
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6
+            ).newStoxWrappedTokenVault(address(0));
     }
 
     /// V2 StoxWrappedTokenVaultBeaconSetDeployer emits Deployment event
@@ -31,8 +32,9 @@ contract StoxWrappedTokenVaultV2Test is Test {
         MockERC20 asset = new MockERC20();
 
         vm.recordLogs();
-        StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER)
-            .newStoxWrappedTokenVault(address(asset));
+        StoxWrappedTokenVaultBeaconSetDeployer(
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6
+            ).newStoxWrappedTokenVault(address(asset));
 
         Vm.Log[] memory logs = vm.getRecordedLogs();
         assertTrue(logs.length > 0, "should have logs");
@@ -64,7 +66,7 @@ contract StoxWrappedTokenVaultV2Test is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6
             ).newStoxWrappedTokenVault(address(asset));
 
         assertEq(vault.asset(), address(asset));

@@ -3,42 +3,40 @@
 pragma solidity ^0.8.25;
 
 /// @title LibProdDeployV4
-/// @notice V4 production deployment pins for the ST0x contract set on Base.
-/// V4 is rebuilt against the patched `rain.vats` tag carrying the high-severity
-/// vulnerability fix (rainlanguage/rain.vats#313). Every deterministic Zoltu
-/// address derives from the compiled bytecode, so the patched rain.vats tag
-/// produces a new address for every Zoltu-deployed implementation in this set.
+/// @notice V4 production deployment pins for the ST0x contract set on Base,
+/// rebuilt against the audited rain.vats `sol-v0.1.6` tag (Renascence Labs
+/// audit dated 2026-06; H01 "ERC1155 acceptance callback enables persistent
+/// operator approval via `_msgSender` spoofing" fixed at upstream commit
+/// `5275093` and reflected as the 0.1.6 Soldeer pin in `foundry.toml`).
+/// Every deterministic Zoltu address derives from the compiled bytecode, so
+/// every ST0x contract whose source-or-dependency tree changed under the
+/// rain.vats bump gets a new V4 address here.
 ///
-/// **All address and codehash constants in this lib are PLACEHOLDERS** until
-/// (a) DM cuts the patched rain.vats tag, (b) we bump the `rain-vats` Soldeer
-/// pin in this repo, and (c) `script/BuildPointers.s.sol` regenerates the
-/// `src/generated/*.pointers.sol` files. Once those land, swap each placeholder
-/// for the imported `BYTECODE_HASH` / `DEPLOYED_ADDRESS` from the regenerated
-/// pointers (mirroring `LibProdDeployV3`'s structure), and rename every
-/// `_RAIN_VATS_TBD` suffix to the actual tag (e.g. `_RAIN_VATS_0_1_6`).
+/// **The clone (`STOX_PROD_AUTHORISER_V4_CLONE`) is still `address(0)`** —
+/// it gets hydrated by the V4 authoriser deploy script (sibling PR), which
+/// is the only entry that isn't deterministic at lib-author time. Every
+/// other address + codehash pair is the Zoltu-deterministic value generated
+/// by `script/BuildPointers.sol` against rain.vats 0.1.6 and mirrors the
+/// `DEPLOYED_ADDRESS` constants in `src/generated/*.pointers.sol`.
 ///
-/// While the placeholders are in place, any script or test that asserts
-/// against these constants (notably the V3 upgrade script and its fork tests)
-/// will deliberately fail — the red CI is the forcing function that the
-/// rebuild on the patched tag must complete before the V3 upgrade can ship.
+/// Naming convention (per Josh + DM, 2026-05-31): the rain.vats tag is
+/// encoded in each deployed-contract constant name (`_RAIN_VATS_0_1_6`) so a
+/// future tag bump produces a new constant rather than silently overwriting
+/// an existing one. The lib name itself is generic (`LibProdDeployV4`) —
+/// Soldeer's import path already encodes the version at the dependency
+/// boundary, so the lib name doesn't need to.
 ///
-/// Naming convention (per Josh + DM, 2026-05-31): the rain.vats tag is encoded
-/// in each deployed-contract constant name so a future tag bump produces a new
-/// constant rather than silently overwriting an existing one. The lib name
-/// itself is generic (`LibProdDeployV4`) — Soldeer's import path already
-/// encodes the version at the dependency boundary, so the lib name doesn't
-/// need to.
-///
-/// `LibProdDeployV3` is retained for archaeological reference (it pins the
-/// pre-patch rain.vats 0.1.5 addresses that are not safe to ship) but should
-/// no longer be referenced by any active script.
+/// The frozen pre-V4 deployments are pinned in `LibProdDeployV1` and
+/// `LibProdDeployV2` as audit trails; active source and scripts reference this
+/// (latest) lib.
 library LibProdDeployV4 {
-    /// @notice Placeholder rain.vats tag suffix. Search-and-replace this token
-    /// across the whole lib with the real tag (e.g. `RAIN_VATS_0_1_6`) once DM
-    /// cuts and propagates the patched rain.vats tag.
+    /// @notice The rain.vats tag whose audited build these constants pin.
+    /// Encoded in every deployed-contract constant name (e.g.
+    /// `STOX_RECEIPT_RAIN_VATS_0_1_6`) so a future tag bump produces a new
+    /// constant alongside this one rather than silently overwriting.
     /// @dev String constant, present only as a written reminder — Solidity has
-    /// no preprocessor so the rename must be done by hand in the source.
-    string constant RAIN_VATS_TAG_PLACEHOLDER = "RAIN_VATS_TBD";
+    /// no preprocessor so future renames must be done by hand in the source.
+    string constant RAIN_VATS_TAG = "RAIN_VATS_0_1_6";
 
     /// @notice The beacon initial owner. Resolves to rainlang.eth. Unchanged
     /// across V1 / V2 / V3 / V4; this is the EOA that receives ownership at
@@ -47,51 +45,74 @@ library LibProdDeployV4 {
     address constant BEACON_INITIAL_OWNER = address(0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b);
 
     // =========================================================================
-    // Deployed-contract pointers — all PLACEHOLDER until patched rain.vats tag
-    // lands and `BuildPointers` regenerates `src/generated/*.pointers.sol`.
-    // Rename every `_RAIN_VATS_TBD` suffix to the actual tag at that point.
+    // Deployed-contract pointers for the audited rain.vats 0.1.6 build.
+    //
+    // Each `_RAIN_VATS_0_1_6` constant pair is the deterministic Zoltu
+    // address and its runtime codehash for the ST0x contract compiled against
+    // `rain-vats = "0.1.6"` (see `foundry.toml`). The addresses match the
+    // `DEPLOYED_ADDRESS` constants in `src/generated/*.pointers.sol` — that
+    // file is the authoritative source generated by
+    // `script/BuildPointers.sol`. The codehashes here are
+    // `keccak256(RUNTIME_CODE)` from the same pointer files; a future
+    // `BuildPointers` run must regenerate them in lockstep with any rain.vats
+    // bump.
     // =========================================================================
 
-    address constant STOX_RECEIPT_RAIN_VATS_TBD = address(0);
-    bytes32 constant STOX_RECEIPT_CODEHASH_RAIN_VATS_TBD = bytes32(0);
+    address constant STOX_RECEIPT_RAIN_VATS_0_1_6 = address(0x2dF5cFE6d688EF9fF1B7c59A499D254b1527b286);
+    bytes32 constant STOX_RECEIPT_CODEHASH_RAIN_VATS_0_1_6 =
+        0x06fffbad12ea80897d55aab5d4f1cd3f34f674237db44a148cc133334a0cca54;
 
-    address constant STOX_RECEIPT_VAULT_RAIN_VATS_TBD = address(0);
-    bytes32 constant STOX_RECEIPT_VAULT_CODEHASH_RAIN_VATS_TBD = bytes32(0);
+    address constant STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6 = address(0x2BCcEd626566Ef1e65F922DD03748C5C7aa2d748);
+    bytes32 constant STOX_RECEIPT_VAULT_CODEHASH_RAIN_VATS_0_1_6 =
+        0x11da975b8024dd98441bfdf42a68462fa5db9bd4e3af348f05928ef359924671;
 
-    address constant STOX_WRAPPED_TOKEN_VAULT_RAIN_VATS_TBD = address(0);
-    bytes32 constant STOX_WRAPPED_TOKEN_VAULT_CODEHASH_RAIN_VATS_TBD = bytes32(0);
+    address constant STOX_WRAPPED_TOKEN_VAULT_RAIN_VATS_0_1_6 = address(0x0D99e0174DbF885ceD6AE8dEb939b0F890450099);
+    bytes32 constant STOX_WRAPPED_TOKEN_VAULT_CODEHASH_RAIN_VATS_0_1_6 =
+        0x6de4c556c1811293da4ad2e509ee476f3eb635f019845087e1d2777a1b272034;
 
-    address constant STOX_UNIFIED_DEPLOYER_RAIN_VATS_TBD = address(0);
-    bytes32 constant STOX_UNIFIED_DEPLOYER_CODEHASH_RAIN_VATS_TBD = bytes32(0);
+    address constant STOX_UNIFIED_DEPLOYER_RAIN_VATS_0_1_6 = address(0x81D0ecD58346bf2d484E7774f55EABc1AA3F4bcc);
+    bytes32 constant STOX_UNIFIED_DEPLOYER_CODEHASH_RAIN_VATS_0_1_6 =
+        0x91035080d8e610cc0657d7f44efa8fbf57ce5800e6a35694d107c05987d24e3f;
 
-    address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_RAIN_VATS_TBD = address(0);
-    bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_RAIN_VATS_TBD = bytes32(0);
+    address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_RAIN_VATS_0_1_6 =
+        address(0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2);
+    bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_RAIN_VATS_0_1_6 =
+        0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630;
 
-    address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_TBD = address(0);
-    bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_RAIN_VATS_TBD = bytes32(0);
+    address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6 =
+        address(0xd64246e6b25F745f005E6233e050C9B879E660Dc);
+    bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_RAIN_VATS_0_1_6 =
+        0x621c1edbd850939acba8bcd999812a83999b5680d4ca6804e1995b95f138b9e5;
 
-    address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_TBD = address(0);
-    bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_RAIN_VATS_TBD = bytes32(0);
+    address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6 =
+        address(0xbe5f05C4576e6D3e7bCCb4E64f08fc4F46Adf0cA);
+    bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_RAIN_VATS_0_1_6 =
+        0xa2c4bd29f36bc6636938f3ad66e6de5d126ce41ed3134bed166cde259d5775ad;
 
     /// @dev The corporate-action-aware authoriser impl. The clone deployed
     /// for the issuer (see `STOX_PROD_AUTHORISER_V4_CLONE` below) points
     /// at this impl via EIP-1167.
-    address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_TBD = address(0);
-    bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_RAIN_VATS_TBD = bytes32(0);
+    address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6 =
+        address(0x2EA0d35d0B1F57C42e6130f298930228bCbFDe9b);
+    bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_RAIN_VATS_0_1_6 =
+        0xf8a1d9b2fa068bae3c1a607434db48364a5cdab3020bd7e315ed2662a3b35b5f;
 
-    address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_RAIN_VATS_TBD = address(0);
-    bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_RAIN_VATS_TBD = bytes32(0);
+    address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_RAIN_VATS_0_1_6 =
+        address(0xeaD68E489Cb19453b294dc46a3A5710b0d46d17F);
+    bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_RAIN_VATS_0_1_6 =
+        0x4d94318cde48f1bc20f97e00aefad84bfb7c9db15c81b882862e127b05e06e15;
 
     /// @dev The corporate-actions facet. The receipt vault's `fallback()`
     /// hardcodes this address and delegatecalls every non-matching selector
     /// here, so a facet bytecode change forces a vault impl redeploy too. With
     /// the new rain.vats tag the receipt vault impl is rebuilt, so this facet
     /// is rebuilt in lock-step.
-    address constant STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_TBD = address(0);
-    bytes32 constant STOX_CORPORATE_ACTIONS_FACET_CODEHASH_RAIN_VATS_TBD = bytes32(0);
+    address constant STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6 = address(0x51f78B77EdffDB62b8AeB753066C318a46D05D74);
+    bytes32 constant STOX_CORPORATE_ACTIONS_FACET_CODEHASH_RAIN_VATS_0_1_6 =
+        0x2a67c52129dff74d956bb7dcde1aac598c28dd29685237aca56dccb1d49bd6f8;
 
     /// @notice The V4 production authoriser clone — an EIP-1167 minimal
-    /// proxy of `STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_TBD`
+    /// proxy of `STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6`
     /// that the upgrade script `setAuthorizer`s every production receipt
     /// vault onto, replacing the current pre-V3 clone pinned in
     /// `LibAuthoriserInvariants.STOX_PROD_AUTHORISER`.

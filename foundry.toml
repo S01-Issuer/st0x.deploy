@@ -5,15 +5,15 @@ libs = ['dependencies']
 
 solc = "0.8.25"
 optimizer = true
-# `optimizer_runs` is a runtime-gas vs deploy-bytecode tradeoff: high values
-# inline aggressively for fast runtime at the cost of deployed bytecode size.
-# StoxReceiptVault is at the EIP-170 24,576-byte limit. 24483 is the highest
-# value found by empirical binary search (legacy pipeline; via_ir was tried
-# in #144 and made the vault larger) where StoxReceiptVault stays under
-# EIP-170. 24484 trips the limit. Re-run the search if vault source changes
-# or the dependency tree's bytecode shifts under us; the boundary is
-# sensitive and not stable across compiler versions or refactors.
-optimizer_runs = 24483
+# `optimizer_runs` is a runtime-gas vs deploy-bytecode tradeoff: higher values
+# inline aggressively for faster runtime at the cost of larger deployed
+# bytecode. StoxReceiptVault is the contract that binds against the EIP-170
+# 24,576-byte runtime limit; 5000 keeps it under the limit while the rest of
+# the suite stays well clear. The margin is thin and sensitive to vault source
+# changes and dependency-tree bytecode shifts — re-check StoxReceiptVault's
+# `forge build --sizes` runtime margin on any such change. via_ir is OFF (tried
+# in #144, made the vault larger for this inheritance shape).
+optimizer_runs = 5000
 
 evm_version = "cancun"
 
@@ -40,7 +40,7 @@ remappings = [
 forge-std = "1.16.1"
 "@openzeppelin-contracts" = "5.6.1"
 "@openzeppelin-contracts-upgradeable" = "5.6.1"
-"rain-deploy" = "0.1.3"
+"rain-deploy" = "0.1.4"
 "rain-extrospection" = "0.1.1"
 "rain-factory" = "0.1.1"
 "rain-math-fixedpoint" = "0.2.0"

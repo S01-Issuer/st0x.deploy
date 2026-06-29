@@ -9,7 +9,7 @@ import {
 import {ReceiptVaultConfigV2} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
 import {StoxUnifiedDeployer} from "../../../../src/concrete/deploy/StoxUnifiedDeployer.sol";
 import {StoxWrappedTokenVault} from "../../../../src/concrete/StoxWrappedTokenVault.sol";
-import {LibProdDeployV3} from "../../../../src/lib/LibProdDeployV3.sol";
+import {LibProdDeployV4} from "../../../../src/lib/LibProdDeployV4.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 
 /// @title StoxUnifiedDeployerIntegrationTest
@@ -19,7 +19,7 @@ contract StoxUnifiedDeployerIntegrationTest is Test {
     /// Deploy full V2 stack via Zoltu and call newTokenAndWrapperVault.
     function testNewTokenAndWrapperVaultV2Integration() external {
         LibTestDeploy.deployAll(vm);
-        StoxUnifiedDeployer unifiedDeployer = StoxUnifiedDeployer(LibProdDeployV3.STOX_UNIFIED_DEPLOYER);
+        StoxUnifiedDeployer unifiedDeployer = StoxUnifiedDeployer(LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RAIN_VATS_0_1_6);
 
         OffchainAssetReceiptVaultConfigV2 memory config = OffchainAssetReceiptVaultConfigV2({
             initialAdmin: address(this),
