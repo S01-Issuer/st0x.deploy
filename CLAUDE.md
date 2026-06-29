@@ -271,23 +271,31 @@ library. When making changes to contract source:
 ## Deployment
 
 `script/Deploy.sol` dispatches based on `DEPLOYMENT_SUITE` env var. One contract
-per suite to avoid Zoltu factory nonce issues:
+per suite to avoid Zoltu factory nonce issues. Every suite targets the
+`LibProdDeployV4` (rain.vats 0.1.6) pins and deploys to Base; the frozen pre-V4
+deployments live in `LibProdDeployV1` / `LibProdDeployV2` as an audit trail and
+are not redeployable from the current source.
 
-- `stox-receipt` — deploys StoxReceipt
-- `stox-receipt-vault` — deploys StoxReceiptVault
-- `stox-wrapped-token-vault` — deploys StoxWrappedTokenVault
-- `stox-wrapped-token-vault-beacon` — deploys StoxWrappedTokenVaultBeacon
+- `stox-receipt-v4` — deploys StoxReceipt
+- `stox-receipt-vault-v4` — deploys StoxReceiptVault
+- `stox-wrapped-token-vault-v4` — deploys StoxWrappedTokenVault
+- `stox-wrapped-token-vault-beacon-v4` — deploys StoxWrappedTokenVaultBeacon
   (depends on StoxWrappedTokenVault)
-- `stox-wrapped-token-vault-beacon-set-deployer` — deploys
+- `stox-wrapped-token-vault-beacon-set-deployer-v4` — deploys
   StoxWrappedTokenVaultBeaconSetDeployer (depends on beacon)
-- `stox-offchain-asset-receipt-vault-beacon-set-deployer` — deploys
+- `stox-offchain-asset-receipt-vault-beacon-set-deployer-v4` — deploys
   StoxOffchainAssetReceiptVaultBeaconSetDeployer (depends on StoxReceipt,
   StoxReceiptVault)
-- `stox-unified-deployer` — deploys StoxUnifiedDeployer
-- `stox-corporate-actions-facet` — deploys StoxCorporateActionsFacet
+- `stox-unified-deployer-v4` — deploys StoxUnifiedDeployer (depends on both
+  beacon-set deployers)
+- `stox-offchain-asset-receipt-vault-authorizer-v1-v4` — deploys
+  StoxOffchainAssetReceiptVaultAuthorizerV1
+- `stox-offchain-asset-receipt-vault-payment-mint-authorizer-v1-v4` — deploys
+  StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
+- `stox-corporate-actions-facet-v4` — deploys StoxCorporateActionsFacet
 
-Manual deployment via GitHub Actions workflow (`manual-sol-artifacts.yaml`)
-supports multiple networks.
+Manual deployment runs via the GitHub Actions workflow
+(`manual-sol-artifacts.yaml`), which deploys to Base.
 
 ## Naming Conventions
 

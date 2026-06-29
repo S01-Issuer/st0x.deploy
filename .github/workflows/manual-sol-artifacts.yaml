@@ -30,22 +30,6 @@ on:
           #    receipt-vault impl hardcodes its address but doesn't link to it
           #    at deploy time).
           - stox-corporate-actions-facet-v4
-          # ===================================================================
-          # Pre-V4 / pre-audit entries — retained so a historical re-run is
-          # still possible (e.g. to deploy on a fresh network using the V2/V3
-          # snapshot for chain-history parity). Do NOT use these for the
-          # current rain.vats 0.1.6 build.
-          # ===================================================================
-          - stox-receipt
-          - stox-receipt-vault
-          - stox-wrapped-token-vault
-          - stox-wrapped-token-vault-beacon
-          - stox-wrapped-token-vault-beacon-set-deployer
-          - stox-offchain-asset-receipt-vault-beacon-set-deployer
-          - stox-unified-deployer
-          - stox-offchain-asset-receipt-vault-authorizer-v1
-          - stox-offchain-asset-receipt-vault-payment-mint-authorizer-v1
-          - stox-corporate-actions-facet
 jobs:
   deploy:
     uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-artifacts.yaml@main
