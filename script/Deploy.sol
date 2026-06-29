@@ -6,6 +6,7 @@ import {Script, console2} from "forge-std-1.16.1/src/Script.sol";
 
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {LibProdDeployV4} from "../src/lib/LibProdDeployV4.sol";
+import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../src/concrete/StoxWrappedTokenVault.sol";
@@ -73,8 +74,7 @@ contract Deploy is Script {
         bytes32 expectedCodeHash,
         address[] memory dependencies
     ) internal {
-        string[] memory networks = new string[](1);
-        networks[0] = "base";
+        string[] memory networks = LibStoxDeployNetworks.supportedNetworks();
         uint256 deployerPrivateKey = vm.envUint("DEPLOYMENT_KEY");
 
         console2.log("Suite deploying:", contractPath);
