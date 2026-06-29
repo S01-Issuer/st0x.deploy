@@ -7,6 +7,9 @@ import {LibProdDeployV4} from "../../../../src/lib/LibProdDeployV4.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
+import {
+    IOffchainAssetReceiptVaultBeaconSetDeployerV2
+} from "rain-vats-0.1.6/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV2.sol";
 
 /// @title StoxProdV4Test
 /// @notice Fork test verifying every V4 Zoltu deployment exists on Base with
@@ -25,9 +28,11 @@ import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 /// placeholder until the clone is hydrated.
 contract StoxProdV4Test is Test {
     /// Asserts every V4 deployed contract is present at its pinned address with
-    /// the pinned codehash, and that the wrapped-token-vault beacon points at
-    /// the V4 vault implementation and is still held by the beacon initial
-    /// owner (pre-migration deploy state).
+    /// the pinned codehash; that the wrapped-token-vault beacon points at the V4
+    /// vault implementation; and that the offchain-asset-receipt-vault
+    /// beacon-set deployer's two beacons point at the V4 receipt and receipt
+    /// vault implementations. All three beacons are still held by the beacon
+    /// initial owner (pre-migration deploy state).
     function checkAllV4OnChain() internal view {
         assertTrue(LibProdDeployV4.STOX_RECEIPT_RAIN_VATS_0_1_6.code.length > 0, "V4 StoxReceipt not deployed");
         assertEq(
@@ -127,6 +132,39 @@ contract StoxProdV4Test is Test {
             Ownable(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RAIN_VATS_0_1_6).owner(),
             LibProdDeployV4.BEACON_INITIAL_OWNER,
             "V4 beacon owner mismatch"
+        );
+
+        // The offchain-asset-receipt-vault beacon-set deployer creates two
+        // beacons in its constructor: the receipt beacon points at the V4
+        // receipt implementation and the offchain-asset-receipt-vault beacon
+        // points at the V4 receipt vault implementation, both held by the
+        // beacon initial owner.
+        IOffchainAssetReceiptVaultBeaconSetDeployerV2 oarvDeployer = IOffchainAssetReceiptVaultBeaconSetDeployerV2(
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6
+        );
+
+        IBeacon receiptBeacon = oarvDeployer.iReceiptBeacon();
+        assertEq(
+            receiptBeacon.implementation(),
+            LibProdDeployV4.STOX_RECEIPT_RAIN_VATS_0_1_6,
+            "V4 OARV receipt beacon implementation mismatch"
+        );
+        assertEq(
+            Ownable(address(receiptBeacon)).owner(),
+            LibProdDeployV4.BEACON_INITIAL_OWNER,
+            "V4 OARV receipt beacon owner mismatch"
+        );
+
+        IBeacon vaultBeacon = oarvDeployer.iOffchainAssetReceiptVaultBeacon();
+        assertEq(
+            vaultBeacon.implementation(),
+            LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6,
+            "V4 OARV vault beacon implementation mismatch"
+        );
+        assertEq(
+            Ownable(address(vaultBeacon)).owner(),
+            LibProdDeployV4.BEACON_INITIAL_OWNER,
+            "V4 OARV vault beacon owner mismatch"
         );
     }
 
