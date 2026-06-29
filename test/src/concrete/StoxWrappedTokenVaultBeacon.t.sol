@@ -30,7 +30,7 @@ contract StoxWrappedTokenVaultBeaconTest is Test {
         assertEq(Ownable(beacon).owner(), LibProdDeployV4.BEACON_INITIAL_OWNER);
     }
 
-    /// BEACON_INITIAL_OWNER is the same across V1 and V3.
+    /// BEACON_INITIAL_OWNER is the same across V1 and V4.
     function testBeaconInitialOwnerConsistentAcrossVersions() external pure {
         assertEq(LibProdDeployV1.BEACON_INITIAL_OWNER, LibProdDeployV4.BEACON_INITIAL_OWNER);
     }

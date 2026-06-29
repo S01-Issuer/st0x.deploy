@@ -228,14 +228,15 @@ this stack.
 
 - Solidity 0.8.25 (exact pin `=0.8.25` in contracts, `^0.8.25` in libraries)
 - EVM target: Cancun
-- Optimizer: 24483 runs — empirically the highest value where `StoxReceiptVault`
-  runtime stays under EIP-170 (24,576 bytes). The setting is a runtime-gas vs
+- Optimizer: 5000 runs — `StoxReceiptVault` is the contract that binds against
+  EIP-170 (24,576-byte runtime limit), and 5000 keeps it under the limit while
+  the rest of the suite stays well clear. The setting is a runtime-gas vs
   deploy-bytecode tradeoff (high values inline aggressively for fast runtime at
-  the cost of deployed bytecode size); we pin the highest value that keeps the
-  vault deployable to mainnet chains. 500-byte margin at this value — sensitive
-  to vault source changes and dependency-tree bytecode shifts. Re-run the binary
-  search if the vault size approaches the limit again. The corresponding
-  `foundry.toml` comment block flags this; both must stay in sync.
+  the cost of deployed bytecode size). The margin is thin and sensitive to vault
+  source changes and dependency-tree bytecode shifts — re-check
+  `StoxReceiptVault`'s `forge build --sizes` runtime margin on any such change.
+  The corresponding `foundry.toml` comment block flags this; both must stay in
+  sync.
 - `via_ir` is OFF. IR was tried (#144) and made the vault larger for our
   inheritance shape, opposite of the goal. Don't enable without a measurement
   showing it now helps.
