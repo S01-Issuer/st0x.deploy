@@ -5,7 +5,7 @@ pragma solidity ^0.8.25;
 import {Vm} from "forge-std-1.16.1/src/StdCheats.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
-uint256 constant PROD_TEST_BLOCK_NUMBER_BASE = 47981900;
+uint256 constant PROD_TEST_BLOCK_NUMBER_BASE = 47983566;
 
 library LibTestProd {
     function createSelectForkBase(Vm vm) internal {
