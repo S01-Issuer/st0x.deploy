@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {Script, console2} from "forge-std-1.16.1/src/Script.sol";
 
-import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {LibProdDeployV2} from "../src/lib/LibProdDeployV2.sol";
 import {LibProdDeployV4} from "../src/lib/LibProdDeployV4.sol";
 import {LibProdDeployV4} from "../src/lib/LibProdDeployV4.sol";
@@ -73,8 +73,6 @@ bytes32 constant DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT
 bytes32 constant DEPLOYMENT_SUITE_STOX_CORPORATE_ACTIONS_FACET_V4 = keccak256("stox-corporate-actions-facet-v4");
 
 contract Deploy is Script {
-    mapping(string => mapping(address => bytes32)) internal depCodeHashes;
-
     /// @dev Deploys a single contract via the Zoltu deterministic deployer
     /// across all supported networks. Reads `DEPLOYMENT_KEY` from the
     /// environment, logs diagnostic information (expected address, codehash,
@@ -121,8 +119,7 @@ contract Deploy is Script {
             contractPath,
             expectedAddress,
             expectedCodeHash,
-            dependencies,
-            depCodeHashes
+            dependencies
         );
     }
 
