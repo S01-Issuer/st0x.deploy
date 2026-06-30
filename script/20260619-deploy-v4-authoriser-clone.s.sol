@@ -156,10 +156,10 @@ error VerifyUnknownBundleShape(uint256 actualCount);
 ///    pinned codehash matches; then authors a six-tx bundle that
 ///    `grantRole(role, grantee)`s the six non-admin entries from
 ///    `LibAuthoriserInvariants.expectedGrants()` (indices 5..10) onto
-///    the clone. After this bundle lands the clone holds all 13 grants
-///    enumerated in `expectedGrants()` plus the two extra
-///    corporate-action admins, ready for `setAuthorizer` to swap every
-///    receipt vault onto it.
+///    the clone. After this bundle lands the clone holds all 11 grants
+///    enumerated in `expectedGrants()` plus the two extra corporate-action
+///    admins (13 role grants in total), ready for `setAuthorizer` to swap
+///    every receipt vault onto it.
 ///
 /// 4. `verify(jsonPath)` — re-runs the relevant pre-flight, parses the
 ///    artifact, and asserts the parsed bundle matches what the live

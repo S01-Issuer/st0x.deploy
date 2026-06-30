@@ -3,12 +3,18 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {LibSafeOps, SafeTx, TxBuilderJsonNoTransactions} from "../../../src/lib/LibSafeOps.sol";
+import {
+    LibSafeOps,
+    SafeTx,
+    TxBuilderJsonNoTransactions,
+    TxBuilderJsonUnsupportedOperation
+} from "../../../src/lib/LibSafeOps.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {IGnosisSafe} from "../../../src/interface/IGnosisSafe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {CallerRecorder} from "./CallerRecorder.sol";
 import {ParseHarness} from "./ParseHarness.sol";
+import {EmitHarness} from "./EmitHarness.sol";
 import {NPlus1Harness} from "./NPlus1Harness.sol";
 import {PackHarness} from "./PackHarness.sol";
 
@@ -161,6 +167,23 @@ contract LibSafeOpsTest is Test {
         ParseHarness harness = new ParseHarness();
         vm.expectRevert(TxBuilderJsonNoTransactions.selector);
         harness.callParse(path);
+    }
+
+    /// @notice `emitTxBuilderJson` reverts on a non-CALL `operation` rather
+    /// than silently dropping it. The Tx Builder schema has no `operation`
+    /// field and `MultiSendCallOnly` is CALL-only, so a DELEGATECALL tx can't
+    /// be faithfully represented — emitting it would produce an artifact that
+    /// misdescribes how the bundle executes. The guard fires on the offending
+    /// index, so the bundle's first (CALL) tx is accepted and the second
+    /// (DELEGATECALL) one trips the revert.
+    function testEmitRejectsNonCallOperation() external {
+        SafeTx[] memory txs = new SafeTx[](2);
+        txs[0] = SafeTx({to: address(0xBEEF), value: 0, data: hex"deadbeef", operation: 0});
+        txs[1] = SafeTx({to: address(0xCAFE), value: 0, data: hex"feed", operation: 1});
+
+        EmitHarness harness = new EmitHarness();
+        vm.expectRevert(abi.encodeWithSelector(TxBuilderJsonUnsupportedOperation.selector, uint256(1), uint8(1)));
+        harness.callEmit(address(0x5AFE), 8453, "op-guard", txs);
     }
 
     /// @notice `simulateNPlus1Reversal` round-trips the Safe through a
