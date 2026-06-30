@@ -9,18 +9,31 @@ import {
     DeployV4AuthoriserClone,
     V4ImplNotDeployed,
     V4ImplCodehashMismatch,
+    CloneFactoryNotDeployed,
+    CloneFactoryCodehashMismatch,
+    CloneCodehashMismatch,
     V4AuthoriserCloneNotPinned,
+    V4AuthoriserCloneNotDeployed,
     V4AuthoriserCloneCodehashMismatch,
-    VerifyMismatch
+    AutoGrantMissing,
+    UnexpectedAutoGrantHeld,
+    VerifyMismatch,
+    VerifyUnknownBundleShape
 } from "../../script/20260619-deploy-v4-authoriser-clone.s.sol";
 import {TestableDeployV4AuthoriserClone} from "./TestableDeployV4AuthoriserClone.sol";
 import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
 import {LibSafeInvariants, SafeOwnerCountMismatch} from "../../src/lib/LibSafeInvariants.sol";
+import {LibSafeOps, SafeTx} from "../../src/lib/LibSafeOps.sol";
 import {LibProdDeployV4} from "../../src/lib/LibProdDeployV4.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
+import {LibCloneFactoryDeploy} from "rain-factory-0.1.1/src/lib/LibCloneFactoryDeploy.sol";
+import {ICloneableFactoryV2} from "rain-factory-0.1.1/src/interface/ICloneableFactoryV2.sol";
+import {
+    OffchainAssetReceiptVaultAuthorizerV1Config
+} from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
 /// @title DeployV4AuthoriserCloneTest
@@ -99,6 +112,11 @@ contract DeployV4AuthoriserCloneTest is Test {
         // The deploy bundle's only tx targets the canonical CloneFactory.
         address parsedTo = vm.parseJsonAddress(json, ".transactions[0].to");
         assertEq(parsedTo, address(0x444acC29d63fa643E8adCC35FD9aa6DE111dCb39), "tx targets canonical CloneFactory");
+
+        // ...and carries the canonical `clone(v4Impl, abi.encode(Config(Safe)))`
+        // calldata, not just the right target.
+        bytes memory parsedData = vm.parseJsonBytes(json, ".transactions[0].data");
+        assertEq(parsedData, _expectedDeployData(), "deploy tx calldata mismatch");
     }
 
     /// @notice Happy-path `mirrorGrants()` against a fork-deployed clone
@@ -131,10 +149,18 @@ contract DeployV4AuthoriserCloneTest is Test {
         assertTrue(vm.keyExistsJson(json, ".transactions[5].to"), "sixth transaction present");
         assertFalse(vm.keyExistsJson(json, ".transactions[6].to"), "exactly six transactions emitted");
 
-        // Each tx targets the clone.
+        // Each tx targets the clone with the canonical grantRole(role,
+        // grantee) calldata for the matching non-admin slice (indices 5..10)
+        // of expectedGrants() — not just the right target.
+        RoleGrant[] memory expected = LibAuthoriserInvariants.expectedGrants();
         for (uint256 i = 0; i < 6; i++) {
             string memory toPath = string.concat(".transactions[", vm.toString(i), "].to");
             assertEq(vm.parseJsonAddress(json, toPath), clone, "tx targets clone");
+            RoleGrant memory g = expected[5 + i];
+            bytes memory parsedData = vm.parseJsonBytes(json, string.concat(".transactions[", vm.toString(i), "].data"));
+            assertEq(
+                parsedData, abi.encodeCall(IAccessControl.grantRole, (g.role, g.grantee)), "grant tx calldata mismatch"
+            );
         }
 
         // Post-state: the clone holds the full expectedGrants() map.
@@ -291,5 +317,253 @@ contract DeployV4AuthoriserCloneTest is Test {
             )
         );
         testable.mirrorGrants();
+    }
+
+    // -------------------------------------------------------------------------
+    // CloneFactory pre-flight (deploy branch)
+    // -------------------------------------------------------------------------
+
+    /// @notice Inverted: `run()` rejects a missing canonical CloneFactory with
+    /// `CloneFactoryNotDeployed`. Zeros the runtime code at the pinned factory
+    /// address; the V4 impl etch still passes the prior pre-flight check.
+    function testRunRejectsMissingCloneFactory() external {
+        selectBaseFork();
+        address factory = LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS;
+        vm.etch(factory, new bytes(0));
+        vm.expectRevert(abi.encodeWithSelector(CloneFactoryNotDeployed.selector, factory));
+        script.run();
+    }
+
+    /// @notice Inverted: `run()` rejects a CloneFactory whose runtime codehash
+    /// drifts from the pin with `CloneFactoryCodehashMismatch`. Etches a stub
+    /// so the address has code but the wrong bytecode.
+    function testRunRejectsCloneFactoryCodehashDrift() external {
+        selectBaseFork();
+        address factory = LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS;
+        bytes memory stub = hex"60005260206000F3";
+        vm.etch(factory, stub);
+        bytes32 expectedHash = LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_CODEHASH;
+        bytes32 actualHash = keccak256(stub);
+        vm.expectRevert(
+            abi.encodeWithSelector(CloneFactoryCodehashMismatch.selector, factory, expectedHash, actualHash)
+        );
+        script.run();
+    }
+
+    // -------------------------------------------------------------------------
+    // Clone pin pre-flight (grants branch)
+    // -------------------------------------------------------------------------
+
+    /// @notice Inverted: `mirrorGrants()` rejects a pinned clone address that
+    /// is non-zero (passes the not-pinned check) but has no runtime code with
+    /// `V4AuthoriserCloneNotDeployed` — the hydrate PR landed before the deploy
+    /// bundle executed on Base.
+    function testMirrorGrantsRejectsCloneWithNoCode() external {
+        selectBaseFork();
+        TestableDeployV4AuthoriserClone testable = new TestableDeployV4AuthoriserClone();
+        address uncoded = address(0xc10e0000000000000000000000000000000000A1);
+        testable.setResolvedClone(uncoded);
+        assertEq(uncoded.code.length, 0, "test precondition: resolved clone has no code");
+        vm.expectRevert(abi.encodeWithSelector(V4AuthoriserCloneNotDeployed.selector, uncoded));
+        testable.mirrorGrants();
+    }
+
+    // -------------------------------------------------------------------------
+    // verify() rejection paths (the anti-tamper guarantee)
+    // -------------------------------------------------------------------------
+
+    /// @notice `verify()` rejects an artifact whose chainId is not the live
+    /// chain with `VerifyMismatch("chainId")` — the first check, before any
+    /// bundle-shape branching.
+    function testVerifyRejectsWrongChainId() external {
+        selectBaseFork();
+        string memory path = _writeArtifact(block.chainid + 1, _deployTxs(), "chainid");
+        vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, "chainId"));
+        script.verify(path);
+    }
+
+    /// @notice `verify()` rejects an artifact whose tx count is neither the
+    /// deploy bundle's 1 nor the grants bundle's 6 with
+    /// `VerifyUnknownBundleShape`.
+    function testVerifyRejectsUnknownBundleShape() external {
+        selectBaseFork();
+        SafeTx memory deployTx = _deployTxs()[0];
+        SafeTx[] memory txs = new SafeTx[](2);
+        txs[0] = deployTx;
+        txs[1] = deployTx;
+        string memory path = _writeArtifact(block.chainid, txs, "shape");
+        vm.expectRevert(abi.encodeWithSelector(VerifyUnknownBundleShape.selector, uint256(2)));
+        script.verify(path);
+    }
+
+    /// @notice Deploy-branch `verify()` rejects a bundle whose tx target is not
+    /// the canonical CloneFactory with `VerifyMismatch("to")`.
+    function testVerifyRejectsTamperedDeployTarget() external {
+        selectBaseFork();
+        SafeTx[] memory txs = _deployTxs();
+        txs[0].to = address(0x1111111111111111111111111111111111111111);
+        string memory path = _writeArtifact(block.chainid, txs, "deploy-to");
+        vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, "to"));
+        script.verify(path);
+    }
+
+    /// @notice Deploy-branch `verify()` rejects a bundle carrying a non-zero
+    /// ETH value with `VerifyMismatch("value")`.
+    function testVerifyRejectsTamperedDeployValue() external {
+        selectBaseFork();
+        SafeTx[] memory txs = _deployTxs();
+        txs[0].value = 1;
+        string memory path = _writeArtifact(block.chainid, txs, "deploy-value");
+        vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, "value"));
+        script.verify(path);
+    }
+
+    /// @notice Deploy-branch `verify()` rejects a bundle whose calldata is not
+    /// the canonical `clone(...)` call with `VerifyMismatch("data")`.
+    function testVerifyRejectsTamperedDeployData() external {
+        selectBaseFork();
+        SafeTx[] memory txs = _deployTxs();
+        txs[0].data = hex"deadbeef";
+        string memory path = _writeArtifact(block.chainid, txs, "deploy-data");
+        vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, "data"));
+        script.verify(path);
+    }
+
+    /// @notice Grants-branch `verify()` rejects a bundle whose first tx target
+    /// is not the resolved clone with `VerifyMismatch("to")`.
+    function testVerifyRejectsTamperedGrantTarget() external {
+        selectBaseFork();
+        TestableDeployV4AuthoriserClone testable = new TestableDeployV4AuthoriserClone();
+        testable.run();
+        address clone = testable.lastPredictedClone();
+        testable.setResolvedClone(clone);
+        testable.setResolvedCloneCodehash(clone.codehash);
+
+        SafeTx[] memory txs = _grantsTxs(clone);
+        txs[0].to = address(0x2222222222222222222222222222222222222222);
+        string memory path = _writeArtifact(block.chainid, txs, "grant-to");
+        vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, "to"));
+        testable.verify(path);
+    }
+
+    /// @notice Grants-branch `verify()` rejects a bundle whose grantRole
+    /// calldata is tampered with `VerifyMismatch("data")`.
+    function testVerifyRejectsTamperedGrantData() external {
+        selectBaseFork();
+        TestableDeployV4AuthoriserClone testable = new TestableDeployV4AuthoriserClone();
+        testable.run();
+        address clone = testable.lastPredictedClone();
+        testable.setResolvedClone(clone);
+        testable.setResolvedCloneCodehash(clone.codehash);
+
+        SafeTx[] memory txs = _grantsTxs(clone);
+        txs[2].data = hex"deadbeef";
+        string memory path = _writeArtifact(block.chainid, txs, "grant-data");
+        vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, "data"));
+        testable.verify(path);
+    }
+
+    // -------------------------------------------------------------------------
+    // Internal grant-state assertions (reached directly via exposed wrappers —
+    // the production call sites in run() always see a real, correctly-shaped,
+    // freshly-deployed clone, so these revert branches are otherwise dead).
+    // -------------------------------------------------------------------------
+
+    /// @notice Inverted: `assertCloneCodehash` reverts `CloneCodehashMismatch`
+    /// when the clone's runtime codehash differs from the expected EIP-1167
+    /// codehash.
+    function testAssertCloneCodehashRejectsMismatch() external {
+        selectBaseFork();
+        TestableDeployV4AuthoriserClone testable = new TestableDeployV4AuthoriserClone();
+        address probe = address(0xC0Dec0dec0DeC0Dec0dEc0DEC0DEC0DEC0DEC0dE);
+        bytes memory stub = hex"60005260206000F3";
+        vm.etch(probe, stub);
+        bytes32 actual = keccak256(stub);
+        bytes32 wrongExpected = keccak256("not-a-minimal-proxy");
+        vm.expectRevert(abi.encodeWithSelector(CloneCodehashMismatch.selector, probe, wrongExpected, actual));
+        testable.exposed_assertCloneCodehash(probe, wrongExpected);
+    }
+
+    /// @notice Inverted: `assertAutoGrantsHeld` reverts `AutoGrantMissing` when
+    /// one of the seven auto-granted `_ADMIN` roles is not held by the admin.
+    /// Mocks every `hasRole` true except `CONFISCATE_RECEIPT_ADMIN`, so the
+    /// iteration trips on the missing role.
+    function testAssertAutoGrantsRejectsMissing() external {
+        selectBaseFork();
+        TestableDeployV4AuthoriserClone testable = new TestableDeployV4AuthoriserClone();
+        address clone = address(0xAcc0000000000000000000000000000000000001);
+        address admin = address(safe);
+        vm.mockCall(clone, abi.encodeWithSelector(IAccessControl.hasRole.selector), abi.encode(true));
+        bytes32 missingRole = keccak256("CONFISCATE_RECEIPT_ADMIN");
+        vm.mockCall(
+            clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, missingRole, admin), abi.encode(false)
+        );
+        vm.expectRevert(abi.encodeWithSelector(AutoGrantMissing.selector, clone, missingRole, admin));
+        testable.exposed_assertAutoGrantsHeld(clone, admin);
+    }
+
+    /// @notice Inverted: `assertNonAdminGrantsAbsent` reverts
+    /// `UnexpectedAutoGrantHeld` when a non-admin grant the mirror bundle is
+    /// supposed to add is already held on the supposedly-fresh clone. Mocks
+    /// every `hasRole` false except the first non-admin entry (index 5).
+    function testAssertNonAdminGrantsRejectsUnexpected() external {
+        selectBaseFork();
+        TestableDeployV4AuthoriserClone testable = new TestableDeployV4AuthoriserClone();
+        address clone = address(0xACc0000000000000000000000000000000000002);
+        RoleGrant memory g = LibAuthoriserInvariants.expectedGrants()[5];
+        vm.mockCall(clone, abi.encodeWithSelector(IAccessControl.hasRole.selector), abi.encode(false));
+        vm.mockCall(clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, g.role, g.grantee), abi.encode(true));
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedAutoGrantHeld.selector, clone, g.role, g.grantee));
+        testable.exposed_assertNonAdminGrantsAbsent(clone);
+    }
+
+    // -------------------------------------------------------------------------
+    // Bundle-construction helpers (mirror the script so a tamper test can
+    // perturb exactly one field of an otherwise-canonical bundle).
+    // -------------------------------------------------------------------------
+
+    /// @notice The canonical deploy-bundle calldata:
+    /// `clone(v4Impl, abi.encode(Config(Safe)))` against the CloneFactory.
+    function _expectedDeployData() internal view returns (bytes memory) {
+        address v4Impl = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6;
+        bytes memory initData = abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: address(safe)}));
+        return abi.encodeCall(ICloneableFactoryV2.clone, (v4Impl, initData));
+    }
+
+    /// @notice The canonical single-tx deploy bundle (target = CloneFactory).
+    function _deployTxs() internal view returns (SafeTx[] memory txs) {
+        txs = new SafeTx[](1);
+        txs[0] = SafeTx({
+            to: LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS,
+            value: 0,
+            data: _expectedDeployData(),
+            operation: 0
+        });
+    }
+
+    /// @notice The canonical six-tx grants bundle targeting `clone` — one
+    /// `grantRole` per non-admin entry (indices 5..10) of `expectedGrants()`.
+    function _grantsTxs(address clone) internal pure returns (SafeTx[] memory txs) {
+        RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants();
+        txs = new SafeTx[](6);
+        for (uint256 i = 0; i < 6; i++) {
+            RoleGrant memory g = grants[5 + i];
+            txs[i] = SafeTx({
+                to: clone, value: 0, data: abi.encodeCall(IAccessControl.grantRole, (g.role, g.grantee)), operation: 0
+            });
+        }
+    }
+
+    /// @notice Emit `txs` as a Tx Builder JSON artifact (via the same
+    /// `LibSafeOps.emitTxBuilderJson` the script uses, so the schema is always
+    /// valid) at a unique path, and return that path so a tampered/malformed
+    /// bundle can be fed to `verify()`.
+    function _writeArtifact(uint256 chainId, SafeTx[] memory txs, string memory tag)
+        internal
+        returns (string memory path)
+    {
+        string memory json = LibSafeOps.emitTxBuilderJson(address(safe), chainId, "tamper-fixture", txs);
+        path = string.concat(vm.projectRoot(), "/out/tamper-", tag, ".json");
+        vm.writeFile(path, json);
     }
 }

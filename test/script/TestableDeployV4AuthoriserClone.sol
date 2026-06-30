@@ -72,4 +72,25 @@ contract TestableDeployV4AuthoriserClone is DeployV4AuthoriserClone {
     function _recordPredictedClone(address predictedClone) internal override {
         lastPredictedClone = predictedClone;
     }
+
+    /// @notice Test-only wrapper exposing the internal `assertCloneCodehash`
+    /// so its `CloneCodehashMismatch` revert path can be exercised directly —
+    /// the production call site in `run()` always sees a correctly-shaped
+    /// simulated clone, so the branch is otherwise unreachable.
+    function exposed_assertCloneCodehash(address clone, bytes32 expected) external view {
+        assertCloneCodehash(clone, expected);
+    }
+
+    /// @notice Test-only wrapper exposing the internal `assertAutoGrantsHeld`
+    /// so its `AutoGrantMissing` revert path can be exercised directly.
+    function exposed_assertAutoGrantsHeld(address clone, address admin) external view {
+        assertAutoGrantsHeld(clone, admin);
+    }
+
+    /// @notice Test-only wrapper exposing the internal
+    /// `assertNonAdminGrantsAbsent` so its `UnexpectedAutoGrantHeld` revert
+    /// path can be exercised directly.
+    function exposed_assertNonAdminGrantsAbsent(address clone) external view {
+        assertNonAdminGrantsAbsent(clone);
+    }
 }
