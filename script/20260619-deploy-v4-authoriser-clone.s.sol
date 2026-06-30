@@ -501,9 +501,9 @@ contract DeployV4AuthoriserClone is Script {
 
     /// @notice Grants-bundle verify branch. Reads the clone address
     /// from `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE` via
-    /// `_resolveClone()`, runs the same three forcing-function pre-
-    /// flight checks as `mirrorGrants()` (pin non-zero, pin has code,
-    /// pin's codehash matches the lib), asserts each parsed tx targets
+    /// `_resolveClone()`, runs the same pre-flight as `mirrorGrants()`
+    /// (pin non-zero, pin has code, pin's codehash matches the lib, and
+    /// the auto-grants are held), asserts each parsed tx targets
     /// the resolved clone with the canonical `grantRole(role, grantee)`
     /// calldata for the matching non-admin slice of `expectedGrants()`,
     /// and cross-checks the implied per-tx SafeTxHash chain against the
@@ -521,6 +521,13 @@ contract DeployV4AuthoriserClone is Script {
         if (actualCloneCodehash != expectedCloneCodehash) {
             revert V4AuthoriserCloneCodehashMismatch(clone, expectedCloneCodehash, actualCloneCodehash);
         }
+
+        // Mirror `mirrorGrants()`'s grant-state pre-flight: the clone must hold
+        // the seven auto-grants (i.e. it was initialised with the Safe as
+        // admin), otherwise every grantRole tx in the bundle would revert on
+        // execution. Gives a signer verifying the artifact the same guarantee
+        // as the authoring path.
+        assertAutoGrantsHeld(clone, address(safe));
 
         if (parsedTo != clone) revert VerifyMismatch("to");
 

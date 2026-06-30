@@ -35,7 +35,6 @@ import {ICloneableFactoryV2} from "rain-factory-0.1.1/src/interface/ICloneableFa
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
 } from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
-import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1167Proxy.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
 /// @title DeployV4AuthoriserCloneTest
@@ -201,38 +200,24 @@ contract DeployV4AuthoriserCloneTest is Test {
     /// `mirrorGrants()` against the fork-deployed clone. Uses the testable
     /// subclass for both authoring + verification so `_resolveClone()` /
     /// `_resolveCloneCodehash()` return the same simulated post-hydrate
-    /// values in both phases. Snapshots, runs the deploy + mirror, then
-    /// reverts and re-verifies — same shape as the deploy round-trip.
+    /// values in both phases.
+    /// @dev Verifies against the real clone `run()` + `mirrorGrants()` leave on
+    /// the fork — its actual CloneFactory-deployed runtime and post-mirror
+    /// access-control state — rather than reverting and re-etching a
+    /// reconstructed proxy. That exercises the bytecode the factory really
+    /// deploys and satisfies the auto-grant pre-flight `verify()` now shares
+    /// with `mirrorGrants()`.
     function testVerifyAcceptsMirrorGrantsArtifact() external {
         selectBaseFork();
         TestableDeployV4AuthoriserClone testable = new TestableDeployV4AuthoriserClone();
 
-        uint256 snap = vm.snapshotState();
         testable.run();
         address clone = testable.lastPredictedClone();
-        bytes32 cloneCodehash = clone.codehash;
-        testable.setResolvedClone(clone);
-        testable.setResolvedCloneCodehash(cloneCodehash);
-        testable.mirrorGrants();
-        string memory artifactPath = string.concat(vm.projectRoot(), "/out/v4-authoriser-clone-grants.json");
-        vm.revertToState(snap);
-        vm.etch(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6, v4ImplRuntime);
-        // Re-etch the clone too: it was created in the pre-snapshot state
-        // and the revert wiped it. Etch the minimal-proxy runtime so the
-        // codehash check passes; the access-control storage isn't read by
-        // `verify` so we don't need to repopulate it.
-        bytes memory cloneRuntime = abi.encodePacked(
-            ERC1167_PREFIX,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6,
-            ERC1167_SUFFIX
-        );
-        vm.etch(clone, cloneRuntime);
-        // Re-load the testable's overrides after the revert (the
-        // testable's contract storage is also wiped). Re-derive the
-        // codehash from the freshly-etched runtime so the override
-        // matches the post-revert reality.
         testable.setResolvedClone(clone);
         testable.setResolvedCloneCodehash(clone.codehash);
+        testable.mirrorGrants();
+
+        string memory artifactPath = string.concat(vm.projectRoot(), "/out/v4-authoriser-clone-grants.json");
         testable.verify(artifactPath);
     }
 
