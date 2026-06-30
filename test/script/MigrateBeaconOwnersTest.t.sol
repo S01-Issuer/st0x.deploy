@@ -11,7 +11,7 @@ import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {BeaconOwnerMismatch} from "../../src/lib/LibBeaconInvariants.sol";
 import {MigrateBeaconOwnersHarness} from "./MigrateBeaconOwnersHarness.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
 /// @title MigrateBeaconOwnersTest
 /// @notice End-to-end fork tests for the beacon-ownership migration. Because

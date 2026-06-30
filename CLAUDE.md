@@ -228,14 +228,15 @@ this stack.
 
 - Solidity 0.8.25 (exact pin `=0.8.25` in contracts, `^0.8.25` in libraries)
 - EVM target: Cancun
-- Optimizer: 24483 runs — empirically the highest value where `StoxReceiptVault`
-  runtime stays under EIP-170 (24,576 bytes). The setting is a runtime-gas vs
+- Optimizer: 5000 runs — `StoxReceiptVault` is the contract that binds against
+  EIP-170 (24,576-byte runtime limit), and 5000 keeps it under the limit while
+  the rest of the suite stays well clear. The setting is a runtime-gas vs
   deploy-bytecode tradeoff (high values inline aggressively for fast runtime at
-  the cost of deployed bytecode size); we pin the highest value that keeps the
-  vault deployable to mainnet chains. 500-byte margin at this value — sensitive
-  to vault source changes and dependency-tree bytecode shifts. Re-run the binary
-  search if the vault size approaches the limit again. The corresponding
-  `foundry.toml` comment block flags this; both must stay in sync.
+  the cost of deployed bytecode size). The margin is thin and sensitive to vault
+  source changes and dependency-tree bytecode shifts — re-check
+  `StoxReceiptVault`'s `forge build --sizes` runtime margin on any such change.
+  The corresponding `foundry.toml` comment block flags this; both must stay in
+  sync.
 - `via_ir` is OFF. IR was tried (#144) and made the vault larger for our
   inheritance shape, opposite of the goal. Don't enable without a measurement
   showing it now helps.
@@ -270,23 +271,31 @@ library. When making changes to contract source:
 ## Deployment
 
 `script/Deploy.sol` dispatches based on `DEPLOYMENT_SUITE` env var. One contract
-per suite to avoid Zoltu factory nonce issues:
+per suite to avoid Zoltu factory nonce issues. Every suite targets the
+`LibProdDeployV4` (rain.vats 0.1.6) pins and deploys to Base; the frozen pre-V4
+deployments live in `LibProdDeployV1` / `LibProdDeployV2` as an audit trail and
+are not redeployable from the current source.
 
-- `stox-receipt` — deploys StoxReceipt
-- `stox-receipt-vault` — deploys StoxReceiptVault
-- `stox-wrapped-token-vault` — deploys StoxWrappedTokenVault
-- `stox-wrapped-token-vault-beacon` — deploys StoxWrappedTokenVaultBeacon
+- `stox-receipt-v4` — deploys StoxReceipt
+- `stox-receipt-vault-v4` — deploys StoxReceiptVault
+- `stox-wrapped-token-vault-v4` — deploys StoxWrappedTokenVault
+- `stox-wrapped-token-vault-beacon-v4` — deploys StoxWrappedTokenVaultBeacon
   (depends on StoxWrappedTokenVault)
-- `stox-wrapped-token-vault-beacon-set-deployer` — deploys
+- `stox-wrapped-token-vault-beacon-set-deployer-v4` — deploys
   StoxWrappedTokenVaultBeaconSetDeployer (depends on beacon)
-- `stox-offchain-asset-receipt-vault-beacon-set-deployer` — deploys
+- `stox-offchain-asset-receipt-vault-beacon-set-deployer-v4` — deploys
   StoxOffchainAssetReceiptVaultBeaconSetDeployer (depends on StoxReceipt,
   StoxReceiptVault)
-- `stox-unified-deployer` — deploys StoxUnifiedDeployer
-- `stox-corporate-actions-facet` — deploys StoxCorporateActionsFacet
+- `stox-unified-deployer-v4` — deploys StoxUnifiedDeployer (depends on both
+  beacon-set deployers)
+- `stox-offchain-asset-receipt-vault-authorizer-v1-v4` — deploys
+  StoxOffchainAssetReceiptVaultAuthorizerV1
+- `stox-offchain-asset-receipt-vault-payment-mint-authorizer-v1-v4` — deploys
+  StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
+- `stox-corporate-actions-facet-v4` — deploys StoxCorporateActionsFacet
 
-Manual deployment via GitHub Actions workflow (`manual-sol-artifacts.yaml`)
-supports multiple networks.
+Manual deployment runs via the GitHub Actions workflow
+(`manual-sol-artifacts.yaml`), which deploys to Base.
 
 ## Naming Conventions
 

@@ -10,11 +10,11 @@ import {
 } from "../../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
 import {StoxWrappedTokenVault} from "../../../../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxWrappedTokenVaultBeacon} from "../../../../src/concrete/StoxWrappedTokenVaultBeacon.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {MockERC20} from "../../../concrete/MockERC20.sol";
 import {BadInitializeVault} from "../../../concrete/BadInitializeVault.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
-import {LibProdDeployV3} from "../../../../src/lib/LibProdDeployV3.sol";
+import {LibProdDeployV4} from "../../../../src/lib/LibProdDeployV4.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
 
 contract StoxWrappedTokenVaultBeaconSetDeployerTest is Test {
@@ -23,8 +23,9 @@ contract StoxWrappedTokenVaultBeaconSetDeployerTest is Test {
     function testNewVaultZeroAsset() external {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         vm.expectRevert(abi.encodeWithSelector(ZeroVaultAsset.selector));
-        StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER)
-            .newStoxWrappedTokenVault(address(0));
+        StoxWrappedTokenVaultBeaconSetDeployer(
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6
+            ).newStoxWrappedTokenVault(address(0));
     }
 
     /// newStoxWrappedTokenVault succeeds with valid asset and emits
@@ -32,8 +33,9 @@ contract StoxWrappedTokenVaultBeaconSetDeployerTest is Test {
     function testNewVaultSuccess() external {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
-        StoxWrappedTokenVaultBeaconSetDeployer deployer =
-            StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER);
+        StoxWrappedTokenVaultBeaconSetDeployer deployer = StoxWrappedTokenVaultBeaconSetDeployer(
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6
+        );
 
         vm.recordLogs();
         StoxWrappedTokenVault vault = deployer.newStoxWrappedTokenVault(address(asset));
@@ -59,11 +61,12 @@ contract StoxWrappedTokenVaultBeaconSetDeployerTest is Test {
     function testNewVaultInitializeVaultFailed() external {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         BadInitializeVault badImpl = new BadInitializeVault();
-        vm.prank(LibProdDeployV3.BEACON_INITIAL_OWNER);
-        UpgradeableBeacon(LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON).upgradeTo(address(badImpl));
+        vm.prank(LibProdDeployV4.BEACON_INITIAL_OWNER);
+        UpgradeableBeacon(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RAIN_VATS_0_1_6).upgradeTo(address(badImpl));
 
         vm.expectRevert(abi.encodeWithSelector(InitializeVaultFailed.selector));
-        StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER)
-            .newStoxWrappedTokenVault(address(1));
+        StoxWrappedTokenVaultBeaconSetDeployer(
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6
+            ).newStoxWrappedTokenVault(address(1));
     }
 }
