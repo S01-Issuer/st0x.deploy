@@ -21,7 +21,7 @@ import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInv
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
 /// @title DeployV4AuthoriserCloneTest
 /// @notice End-to-end fork tests for the V4 authoriser clone deploy + grants
