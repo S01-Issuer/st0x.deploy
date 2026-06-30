@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {DeployV4AuthoriserClone} from "../../script/20260619-deploy-v4-authoriser-clone.s.sol";
+import {VmSafe} from "forge-std-1.16.1/src/Vm.sol";
 
 /// @title TestableDeployV4AuthoriserClone
 /// @notice Test scaffolding around `DeployV4AuthoriserClone` that lets the
@@ -92,5 +93,17 @@ contract TestableDeployV4AuthoriserClone is DeployV4AuthoriserClone {
     /// path can be exercised directly.
     function exposed_assertNonAdminGrantsAbsent(address clone) external view {
         assertNonAdminGrantsAbsent(clone);
+    }
+
+    /// @notice Test-only wrapper exposing the internal
+    /// `extractCloneAddressFromLogs` so its NewClone-absent and impl-mismatch
+    /// revert paths can be exercised with hand-built logs (the production call
+    /// site reads the real factory, which always emits a matching event).
+    function exposed_extractCloneAddressFromLogs(VmSafe.Log[] memory logs, address factory, address expectedImpl)
+        external
+        pure
+        returns (address)
+    {
+        return extractCloneAddressFromLogs(logs, factory, expectedImpl);
     }
 }

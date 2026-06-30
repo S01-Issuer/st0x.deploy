@@ -17,6 +17,7 @@ import {LibCloneFactoryDeploy} from "rain-factory-0.1.1/src/lib/LibCloneFactoryD
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
 } from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1167Proxy.sol";
 
 /// @notice Pre-flight failed: the pinned V4 authoriser impl in
 /// `LibProdDeployV4` has no runtime code at its pinned address. Surfaces
@@ -659,18 +660,19 @@ contract DeployV4AuthoriserClone is Script {
     /// @notice Compute the EIP-1167 minimal-proxy runtime codehash for
     /// the supplied implementation. The OpenZeppelin `Clones` impl
     /// deploys this exact bytecode shape:
-    /// `363d3d373d3d3d363d73<impl>5af43d82803e903d91602b57fd5bf3`
+    /// `<ERC1167_PREFIX><impl><ERC1167_SUFFIX>`
     /// which is what `CloneFactory.clone` produces under the hood.
-    /// @dev Re-implements the codehash computation in-source rather
-    /// than reading it from any external lib so the script doesn't
-    /// depend on the post-deploy `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH`
-    /// pin (which is `bytes32(0)` until the clone is deployed and the
-    /// post-execution PR hydrates it).
+    /// @dev Computes the codehash in-source from the canonical EIP-1167 byte
+    /// constants (`rain-extrospection`'s `ERC1167_PREFIX` / `ERC1167_SUFFIX`)
+    /// rather than hardcoding the proxy bytes, so it stays independent of the
+    /// post-deploy `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH` pin
+    /// (which is `bytes32(0)` until the clone is deployed and the post-execution
+    /// PR hydrates it).
     /// @param impl The implementation address embedded in the minimal
     /// proxy.
     /// @return The keccak256 of the minimal-proxy runtime bytecode.
     function computeMinimalProxyCodehash(address impl) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(hex"363d3d373d3d3d363d73", impl, hex"5af43d82803e903d91602b57fd5bf3"));
+        return keccak256(abi.encodePacked(ERC1167_PREFIX, impl, ERC1167_SUFFIX));
     }
 
     /// @notice Fish the `NewClone(sender, implementation, clone)`

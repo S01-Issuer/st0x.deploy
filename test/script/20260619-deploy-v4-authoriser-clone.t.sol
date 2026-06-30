@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {VmSafe} from "forge-std-1.16.1/src/Vm.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 
 import {
@@ -34,6 +35,7 @@ import {ICloneableFactoryV2} from "rain-factory-0.1.1/src/interface/ICloneableFa
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
 } from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1167Proxy.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
 /// @title DeployV4AuthoriserCloneTest
@@ -220,9 +222,9 @@ contract DeployV4AuthoriserCloneTest is Test {
         // codehash check passes; the access-control storage isn't read by
         // `verify` so we don't need to repopulate it.
         bytes memory cloneRuntime = abi.encodePacked(
-            hex"363d3d373d3d3d363d73",
+            ERC1167_PREFIX,
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6,
-            hex"5af43d82803e903d91602b57fd5bf3"
+            ERC1167_SUFFIX
         );
         vm.etch(clone, cloneRuntime);
         // Re-load the testable's overrides after the revert (the
@@ -515,6 +517,58 @@ contract DeployV4AuthoriserCloneTest is Test {
         vm.mockCall(clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, g.role, g.grantee), abi.encode(true));
         vm.expectRevert(abi.encodeWithSelector(UnexpectedAutoGrantHeld.selector, clone, g.role, g.grantee));
         testable.exposed_assertNonAdminGrantsAbsent(clone);
+    }
+
+    // -------------------------------------------------------------------------
+    // NewClone log extraction (reached via exposed wrapper — the production
+    // call site reads the real factory, which always emits a matching event).
+    // -------------------------------------------------------------------------
+
+    /// @notice Inverted: `extractCloneAddressFromLogs` reverts when no NewClone
+    /// event from the factory is present — an invariant break on the factory.
+    /// The fixture takes every skip branch first (right-topic/wrong-emitter,
+    /// right-emitter/empty-topics, right-emitter/wrong-topic) before the
+    /// fall-through revert.
+    function testExtractCloneAddressRejectsMissingNewClone() external {
+        TestableDeployV4AuthoriserClone testable = new TestableDeployV4AuthoriserClone();
+        address factory = makeAddr("factory");
+
+        bytes32[] memory newCloneTopic = new bytes32[](1);
+        newCloneTopic[0] = keccak256("NewClone(address,address,address)");
+        bytes32[] memory otherTopic = new bytes32[](1);
+        otherTopic[0] = keccak256("SomethingElse(uint256)");
+
+        VmSafe.Log[] memory logs = new VmSafe.Log[](3);
+        // Right topic, wrong emitter -> skipped by the emitter check.
+        logs[0] = VmSafe.Log({topics: newCloneTopic, data: hex"", emitter: makeAddr("notFactory")});
+        // Right emitter, no topics -> skipped by the topics.length check.
+        logs[1] = VmSafe.Log({topics: new bytes32[](0), data: hex"", emitter: factory});
+        // Right emitter, wrong topic -> skipped by the topic[0] check.
+        logs[2] = VmSafe.Log({topics: otherTopic, data: hex"", emitter: factory});
+
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "DeployV4AuthoriserClone: NewClone not emitted"));
+        testable.exposed_extractCloneAddressFromLogs(logs, factory, makeAddr("expectedImpl"));
+    }
+
+    /// @notice Inverted: `extractCloneAddressFromLogs` reverts when a NewClone
+    /// event is present but its `implementation` field does not match the
+    /// expected V4 impl — the cross-check that the clone proxies the right
+    /// logic. NewClone's three address args are all in `data` (no indexed args).
+    function testExtractCloneAddressRejectsImplMismatch() external {
+        TestableDeployV4AuthoriserClone testable = new TestableDeployV4AuthoriserClone();
+        address factory = makeAddr("factory");
+        address expectedImpl = makeAddr("expectedImpl");
+        address wrongImpl = makeAddr("wrongImpl");
+
+        bytes32[] memory topics = new bytes32[](1);
+        topics[0] = keccak256("NewClone(address,address,address)");
+        VmSafe.Log[] memory logs = new VmSafe.Log[](1);
+        logs[0] = VmSafe.Log({
+            topics: topics, data: abi.encode(makeAddr("sender"), wrongImpl, makeAddr("clone")), emitter: factory
+        });
+
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "DeployV4AuthoriserClone: NewClone impl mismatch"));
+        testable.exposed_extractCloneAddressFromLogs(logs, factory, expectedImpl);
     }
 
     // -------------------------------------------------------------------------
