@@ -1,5 +1,21 @@
 # Changelog
 
+## V4 (rain.vats 0.1.6)
+
+### New contracts
+
+- **ST0xOrchestrator**: Per-token mint/burn proxy (Initializable, deployed as
+  `BeaconProxy` clones). Holds the vault's `DEPOSIT` + `WITHDRAW` roles and
+  owns every ERC-1155 receipt; permissioned callers (`MINT_BURN_ROLE`) mint
+  and burn without touching receipts. Burn walks a sequential receipt-id
+  pointer with a mint-on-demand fallback (observable via
+  `BurnShortfallMinted`) for burning more than was ever minted. Admin escape
+  hatches: `setBurnIndex`, `withdrawReceipt`, `withdrawShares`.
+- **ST0xOrchestratorBeaconSetDeployer**: Beacon-set deployer minting per-token
+  orchestrator clones behind a shared `UpgradeableBeacon`. Config-in-
+  constructor base; the Zoltu-deployable concrete subclass with hardcoded
+  `LibProdDeploy*` config lands with the deploy wiring.
+
 ## V3 (corporate actions)
 
 V3 introduces the corporate-actions diamond facet and wires it into the receipt
