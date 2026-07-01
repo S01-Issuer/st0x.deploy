@@ -27,9 +27,8 @@ error TxBuilderJsonNoTransactions();
 /// @notice `emitTxBuilderJson` was handed a transaction with a non-CALL
 /// `operation`. The Safe Tx Builder JSON schema has no per-transaction
 /// `operation` field and the canonical batch executor (`MultiSendCallOnly`)
-/// only performs CALLs, so a DELEGATECALL cannot be faithfully represented in
-/// the artifact. Rejected at serialisation rather than silently emitted as a
-/// CALL, which would make the JSON misdescribe how the bundle executes.
+/// only performs CALLs, so a non-CALL operation cannot be represented in the
+/// artifact and is rejected.
 /// @param index The index of the offending transaction in the bundle.
 /// @param operation The unsupported operation value.
 error TxBuilderJsonUnsupportedOperation(uint256 index, uint8 operation);
@@ -191,9 +190,8 @@ library LibSafeOps {
     {
         string memory transactions = "[";
         for (uint256 i = 0; i < txs.length; i++) {
-            // The Tx Builder schema + MultiSendCallOnly are CALL-only; refuse
-            // to serialise a non-CALL op rather than silently flatten it to a
-            // CALL on the parse side, which would misdescribe the execution.
+            // The Tx Builder schema + MultiSendCallOnly are CALL-only, so a
+            // non-CALL op cannot be represented in the artifact.
             if (txs[i].operation != 0) {
                 revert TxBuilderJsonUnsupportedOperation(i, txs[i].operation);
             }

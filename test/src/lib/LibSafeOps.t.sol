@@ -169,13 +169,11 @@ contract LibSafeOpsTest is Test {
         harness.callParse(path);
     }
 
-    /// @notice `emitTxBuilderJson` reverts on a non-CALL `operation` rather
-    /// than silently dropping it. The Tx Builder schema has no `operation`
-    /// field and `MultiSendCallOnly` is CALL-only, so a DELEGATECALL tx can't
-    /// be faithfully represented — emitting it would produce an artifact that
-    /// misdescribes how the bundle executes. The guard fires on the offending
-    /// index, so the bundle's first (CALL) tx is accepted and the second
-    /// (DELEGATECALL) one trips the revert.
+    /// @notice `emitTxBuilderJson` reverts on a non-CALL `operation`. The Tx
+    /// Builder schema has no `operation` field and `MultiSendCallOnly` is
+    /// CALL-only, so a non-CALL operation cannot be represented. The revert
+    /// reports the offending index: a bundle whose first tx is a CALL and
+    /// second is a DELEGATECALL trips on index 1.
     function testEmitRejectsNonCallOperation() external {
         SafeTx[] memory txs = new SafeTx[](2);
         txs[0] = SafeTx({to: address(0xBEEF), value: 0, data: hex"deadbeef", operation: 0});
