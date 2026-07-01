@@ -9,6 +9,8 @@ import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
+import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
+import {StoxST0xOrchestratorBeaconSetDeployer} from "../src/concrete/deploy/StoxST0xOrchestratorBeaconSetDeployer.sol";
 import {StoxWrappedTokenVault} from "../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxUnifiedDeployer} from "../src/concrete/deploy/StoxUnifiedDeployer.sol";
 import {StoxWrappedTokenVaultBeacon} from "../src/concrete/StoxWrappedTokenVaultBeacon.sol";
@@ -68,6 +70,15 @@ contract BuildPointers is Script {
         LibRainDeploy.etchZoltuFactory(vm);
 
         buildContractPointers("StoxCorporateActionsFacet", type(StoxCorporateActionsFacet).creationCode);
+        // ST0xOrchestrator impl has a parameterless constructor (Initializable
+        // pattern) — Zoltu-deployable as a singleton implementation. Per-token
+        // clones are minted via `StoxST0xOrchestratorBeaconSetDeployer`.
+        buildContractPointers("ST0xOrchestrator", type(ST0xOrchestrator).creationCode);
+        // Depends on ST0xOrchestrator pointers (impl address baked into
+        // constructor via LibProdDeployV4).
+        buildContractPointers(
+            "StoxST0xOrchestratorBeaconSetDeployer", type(StoxST0xOrchestratorBeaconSetDeployer).creationCode
+        );
         buildContractPointers("StoxReceipt", type(StoxReceipt).creationCode);
         buildContractPointers("StoxReceiptVault", type(StoxReceiptVault).creationCode);
         buildContractPointers("StoxWrappedTokenVault", type(StoxWrappedTokenVault).creationCode);
