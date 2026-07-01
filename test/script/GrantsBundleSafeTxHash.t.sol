@@ -20,13 +20,9 @@ import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 /// @notice The SafeTxHash the deploy script logs for the six-tx grants bundle
 /// is the hash the live Safe requires to execute that bundle. The Safe
 /// Transaction Builder submits a batch as a single `MultiSendCallOnly`
-/// delegatecall at one nonce, so the logged hash equals that single execution
-/// hash and a signer who signs it authorizes the bundle.
+/// delegatecall at one nonce, so signing the logged hash authorizes the whole
+/// bundle and it lands atomically.
 contract GrantsBundleSafeTxHashTest is Test {
-    /// @notice Safe{Wallet} v1.4.1 `MultiSendCallOnly`, the contract the
-    /// Transaction Builder delegatecalls to execute a batch. Deployed on Base.
-    address internal constant MULTISEND_CALL_ONLY_1_4_1 = 0x9641d764fc13c8B624c04430C7356C1C7C8102e2;
-
     IGnosisSafe internal safe;
 
     /// @notice Fork Base, etch the V4 impl runtime at its pin (the impl is not
@@ -59,36 +55,6 @@ contract GrantsBundleSafeTxHashTest is Test {
         }
     }
 
-    /// @notice The SafeTxHash the script logs for the grants bundle: keccak256
-    /// of the six per-tx Safe hashes bound to nonces baseNonce..baseNonce+5.
-    function _loggedGrantsSafeTxHash(SafeTx[] memory txs, uint256 baseNonce) internal view returns (bytes32) {
-        bytes memory acc = new bytes(0);
-        for (uint256 i = 0; i < txs.length; i++) {
-            acc = bytes.concat(acc, LibSafeOps.computeSafeTxHashViaSafe(safe, txs[i], baseNonce + i));
-        }
-        return keccak256(acc);
-    }
-
-    /// @notice The `MultiSendCallOnly.multiSend(bytes)` calldata the Safe
-    /// Transaction Builder produces for a batch: each inner tx packed as
-    /// `operation(1) || to(20) || value(32) || len(32) || data`, ABI-wrapped
-    /// behind the `multiSend(bytes)` selector.
-    function _encodeMultiSend(SafeTx[] memory txs) internal pure returns (bytes memory) {
-        bytes memory payload = new bytes(0);
-        for (uint256 i = 0; i < txs.length; i++) {
-            payload = bytes.concat(
-                payload, abi.encodePacked(uint8(0), txs[i].to, txs[i].value, txs[i].data.length, txs[i].data)
-            );
-        }
-        return abi.encodeWithSignature("multiSend(bytes)", payload);
-    }
-
-    /// @notice The Safe transaction that executes the grants bundle: a single
-    /// DELEGATECALL to `MultiSendCallOnly` carrying the batched grants.
-    function _batchTx(SafeTx[] memory txs) internal pure returns (SafeTx memory) {
-        return SafeTx({to: MULTISEND_CALL_ONLY_1_4_1, value: 0, data: _encodeMultiSend(txs), operation: 1});
-    }
-
     /// @notice Approve `hash` from the first `threshold` owners and return the
     /// ascending packed approved-hash signature blob Safe expects.
     function _thresholdSigs(bytes32 hash) internal returns (bytes memory) {
@@ -103,45 +69,52 @@ contract GrantsBundleSafeTxHashTest is Test {
         return LibSafeOps.packApprovedHashSignatures(LibSafeOps.sortAddressesAscending(approvers), threshold);
     }
 
-    /// @notice The SafeTxHash the script logs for the grants bundle equals the
-    /// SafeTxHash the Safe requires to execute the bundle as a single
-    /// `MultiSendCallOnly` delegatecall — the hash a signer signs.
-    function testLoggedGrantsSafeTxHashMatchesSafeExecutionHash() external {
+    /// @notice Threshold owners signing the SafeTxHash the script logs for the
+    /// grants bundle authorize its execution: the Safe runs the batch as one
+    /// `MultiSendCallOnly` delegatecall, consuming a single nonce, and all six
+    /// grants land on the clone.
+    function testGrantsBundleExecutesViaItsLoggedSafeTxHash() external {
         address clone = _setUpForkAndClone();
         SafeTx[] memory txs = _grantsTxs(clone);
         uint256 nonce = safe.nonce();
 
-        bytes32 logged = _loggedGrantsSafeTxHash(txs, nonce);
-        bytes32 execution = LibSafeOps.computeSafeTxHashViaSafe(safe, _batchTx(txs), nonce);
+        bytes32 loggedHash = LibSafeOps.computeMultiSendSafeTxHash(safe, txs, nonce);
+        bytes memory sigs = _thresholdSigs(loggedHash);
+        bool ok = safe.execTransaction(
+            LibSafeOps.MULTISEND_CALL_ONLY_1_4_1,
+            0,
+            LibSafeOps.encodeMultiSend(txs),
+            1,
+            0,
+            0,
+            0,
+            address(0),
+            payable(address(0)),
+            sigs
+        );
+        assertTrue(ok, "batch executed via the logged SafeTxHash");
+        assertEq(safe.nonce(), nonce + 1, "batch consumed exactly one nonce");
 
-        assertEq(logged, execution, "logged grants SafeTxHash must equal the Safe's multiSend execution hash");
+        RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants();
+        for (uint256 i = 0; i < 6; i++) {
+            assertTrue(
+                IAccessControl(clone).hasRole(grants[5 + i].role, grants[5 + i].grantee),
+                "grant landed via the single multiSend"
+            );
+        }
     }
 
-    /// @notice Threshold owners who sign the SafeTxHash the script logs for the
-    /// grants bundle authorize its execution: approving the logged hash and
-    /// submitting the `MultiSendCallOnly` batch via `execTransaction` succeeds.
-    function testSigningLoggedGrantsSafeTxHashExecutesTheBundle() external {
+    /// @notice The logged SafeTxHash binds to every transaction in the bundle:
+    /// changing any grant's target flips the hash.
+    function testTamperingAGrantChangesTheLoggedSafeTxHash() external {
         address clone = _setUpForkAndClone();
         SafeTx[] memory txs = _grantsTxs(clone);
-        SafeTx memory batchTx = _batchTx(txs);
+        uint256 nonce = safe.nonce();
 
-        bytes memory sigs = _thresholdSigs(_loggedGrantsSafeTxHash(txs, safe.nonce()));
-        (bool ok,) = address(safe)
-            .call(
-                abi.encodeWithSelector(
-                    IGnosisSafe.execTransaction.selector,
-                    batchTx.to,
-                    batchTx.value,
-                    batchTx.data,
-                    batchTx.operation,
-                    uint256(0),
-                    uint256(0),
-                    uint256(0),
-                    address(0),
-                    payable(address(0)),
-                    sigs
-                )
-            );
-        assertTrue(ok, "signing the logged grants SafeTxHash must authorize the bundle");
+        bytes32 original = LibSafeOps.computeMultiSendSafeTxHash(safe, txs, nonce);
+        txs[3].to = makeAddr("tampered");
+        bytes32 tampered = LibSafeOps.computeMultiSendSafeTxHash(safe, txs, nonce);
+
+        assertTrue(original != tampered, "tampering a grant must change the SafeTxHash");
     }
 }

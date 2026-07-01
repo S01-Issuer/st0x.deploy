@@ -409,7 +409,7 @@ contract DeployV4AuthoriserClone is Script {
 
         // Capture the nonce before simulation.
         uint256 nonce = safe.nonce();
-        bytes32 safeTxHash = computeBatchSafeTxHash(safe, txs, nonce);
+        bytes32 safeTxHash = LibSafeOps.computeMultiSendSafeTxHash(safe, txs, nonce);
 
         // Simulate each `grantRole` call via `vm.prank(safe)`. The Safe
         // nonce is intentionally NOT advanced by `simulateExternalCall`.
@@ -506,7 +506,7 @@ contract DeployV4AuthoriserClone is Script {
     /// the auto-grants are held), asserts each parsed tx targets
     /// the resolved clone with the canonical `grantRole(role, grantee)`
     /// calldata for the matching non-admin slice of `expectedGrants()`,
-    /// and cross-checks the implied per-tx SafeTxHash chain against the
+    /// and cross-checks the bundle's `MultiSend` SafeTxHash against the
     /// live Safe's hash builder.
     /// @param safe The live Safe handle.
     /// @param parsedTo The `transactions[0].to` reported by the parser
@@ -545,8 +545,8 @@ contract DeployV4AuthoriserClone is Script {
             if (keccak256(parsedTxs[i].data) != keccak256(expected.data)) revert VerifyMismatch("data");
         }
 
-        bytes32 liveHash = computeBatchSafeTxHash(safe, _buildExpectedGrantsTxs(clone), safe.nonce());
-        bytes32 artifactHash = computeBatchSafeTxHash(safe, parsedTxs, safe.nonce());
+        bytes32 liveHash = LibSafeOps.computeMultiSendSafeTxHash(safe, _buildExpectedGrantsTxs(clone), safe.nonce());
+        bytes32 artifactHash = LibSafeOps.computeMultiSendSafeTxHash(safe, parsedTxs, safe.nonce());
         if (liveHash != artifactHash) revert VerifyMismatch("safeTxHash");
     }
 
@@ -715,35 +715,5 @@ contract DeployV4AuthoriserClone is Script {
             return cloneFromEvent;
         }
         revert("DeployV4AuthoriserClone: NewClone not emitted");
-    }
-
-    /// @notice Compute a stable composite SafeTxHash over a batch of
-    /// transactions by hashing the concatenation of the per-tx hashes.
-    /// Used by `mirrorGrants` and the grants-branch of `verify` so a
-    /// signer can confirm the bundle they're about to sign matches the
-    /// authored artifact end-to-end.
-    /// @dev Composite rather than per-tx because the Tx Builder UI
-    /// signs each tx independently — the per-tx SafeTxHash chain
-    /// captures the canonical hash of every signed inner tx, so any
-    /// drift in any tx flips the composite. We don't try to bind to
-    /// the Safe's wrapping `multiSend` hash because the bundle is a
-    /// sequence of individual `execTransaction` calls, not a single
-    /// delegatecall.
-    /// @param safe The Safe whose nonce/domain bind into each per-tx
-    /// hash.
-    /// @param txs The batch of transactions.
-    /// @param baseNonce The starting Safe nonce. Each tx's hash binds
-    /// to `baseNonce + i`.
-    /// @return The keccak256 of the concatenated per-tx hashes.
-    function computeBatchSafeTxHash(IGnosisSafe safe, SafeTx[] memory txs, uint256 baseNonce)
-        internal
-        view
-        returns (bytes32)
-    {
-        bytes memory acc = new bytes(0);
-        for (uint256 i = 0; i < txs.length; i++) {
-            acc = bytes.concat(acc, LibSafeOps.computeSafeTxHashViaSafe(safe, txs[i], baseNonce + i));
-        }
-        return keccak256(acc);
     }
 }

@@ -80,6 +80,13 @@ library LibSafeOps {
     /// authored).
     string internal constant TX_BUILDER_SCHEMA_VERSION = "1.0";
 
+    /// @notice The canonical Safe{Wallet} v1.4.1 `MultiSendCallOnly` — the
+    /// contract the Transaction Builder delegatecalls to execute a batch of
+    /// transactions atomically. Performs only CALLs. Pinned alongside the
+    /// Safe v1.4.1 assumption enforced by `LibSafeInvariants`.
+    /// https://basescan.org/address/0x9641d764fc13c8B624c04430C7356C1C7C8102e2
+    address internal constant MULTISEND_CALL_ONLY_1_4_1 = 0x9641d764fc13c8B624c04430C7356C1C7C8102e2;
+
     /// @notice Wrapper around `getTransactionHash` on the live Safe.
     /// Binds the hash to the Safe's own EIP-712 domain separator (chain id,
     /// verifying contract) rather than recomputing it locally, so the
@@ -110,6 +117,42 @@ library LibSafeOps {
             address(0),
             nonce
         );
+    }
+
+    /// @notice Encode a batch of transactions into the
+    /// `MultiSendCallOnly.multiSend(bytes)` calldata the Safe Transaction
+    /// Builder submits for a batch: each transaction packed as
+    /// `operation(1 byte) || to(20) || value(32) || dataLength(32) || data`,
+    /// concatenated and ABI-wrapped behind the `multiSend(bytes)` selector.
+    /// @param txs The transactions to batch.
+    /// @return The `multiSend(bytes)` calldata.
+    function encodeMultiSend(SafeTx[] memory txs) internal pure returns (bytes memory) {
+        bytes memory payload = new bytes(0);
+        for (uint256 i = 0; i < txs.length; i++) {
+            payload = bytes.concat(
+                payload, abi.encodePacked(txs[i].operation, txs[i].to, txs[i].value, txs[i].data.length, txs[i].data)
+            );
+        }
+        return abi.encodeWithSignature("multiSend(bytes)", payload);
+    }
+
+    /// @notice The canonical Safe transaction hash owners must sign to execute
+    /// a multi-transaction bundle through the Transaction Builder. The bundle
+    /// executes as a single `execTransaction` DELEGATECALL to
+    /// `MULTISEND_CALL_ONLY_1_4_1` at one nonce, so the hash binds to that one
+    /// wrapping transaction rather than to the individual inner calls.
+    /// @param safe The Safe whose nonce/domain bind into the hash.
+    /// @param txs The batched transactions.
+    /// @param nonce The Safe nonce the batch consumes on execute.
+    /// @return The canonical Safe transaction hash owners must sign.
+    function computeMultiSendSafeTxHash(IGnosisSafe safe, SafeTx[] memory txs, uint256 nonce)
+        internal
+        view
+        returns (bytes32)
+    {
+        SafeTx memory batchTx =
+            SafeTx({to: MULTISEND_CALL_ONLY_1_4_1, value: 0, data: encodeMultiSend(txs), operation: 1});
+        return computeSafeTxHashViaSafe(safe, batchTx, nonce);
     }
 
     /// @notice Simulate a Safe self-call: `vm.prank` as the Safe itself and
