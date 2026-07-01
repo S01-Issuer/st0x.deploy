@@ -89,6 +89,23 @@ library LibProdDeployV4 {
     bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_RAIN_VATS_0_1_6 =
         0xa2c4bd29f36bc6636938f3ad66e6de5d126ce41ed3134bed166cde259d5775ad;
 
+    /// @dev The `ST0xOrchestrator` implementation contract. Parameterless
+    /// (Initializable) — deployed once via Zoltu and pointed at by the
+    /// beacon inside `StoxST0xOrchestratorBeaconSetDeployer`. Per-token
+    /// orchestrators are `BeaconProxy` clones minted by the beacon deployer.
+    address constant ST0X_ORCHESTRATOR_RAIN_VATS_0_1_6 = address(0x77ab9b240caC5F37a5D4d51651936ea1d61DF1A2);
+    bytes32 constant ST0X_ORCHESTRATOR_CODEHASH_RAIN_VATS_0_1_6 =
+        0xf05134e6b0ac1a88a8ba69eba472e651ee204c60914782543bcf339bcf273b7a;
+
+    /// @dev `StoxST0xOrchestratorBeaconSetDeployer` — Zoltu-deployable
+    /// concrete deployer with `BEACON_INITIAL_OWNER` and the impl above
+    /// baked in. Anyone can call `deploy(owner)` to mint a
+    /// `BeaconProxy`-cloned singleton orchestrator.
+    address constant STOX_ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6 =
+        address(0xB4DbDe909ee0c8Aef8A87bC6db8879f2F10d9837);
+    bytes32 constant STOX_ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_RAIN_VATS_0_1_6 =
+        0x7e4e68b86348bf2786851a3855c969a20d6d8088229993aca35fc06a39d9e461;
+
     /// @dev The corporate-action-aware authoriser impl. The clone deployed
     /// for the issuer (see `STOX_PROD_AUTHORISER_V4_CLONE` below) points
     /// at this impl via EIP-1167.
