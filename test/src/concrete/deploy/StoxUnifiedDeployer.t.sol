@@ -14,16 +14,22 @@ import {StoxWrappedTokenVault} from "../../../../src/concrete/StoxWrappedTokenVa
 import {
     StoxWrappedTokenVaultBeaconSetDeployer
 } from "../../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
+import {ST0xOrchestratorBeaconSetDeployer} from "../../../../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
+import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 import {ReceiptVaultConfigV2} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
 import {MockERC20} from "../../../concrete/MockERC20.sol";
 
 contract StoxUnifiedDeployerTest is Test {
-    function testStoxUnifiedDeployer(address asset, address vault, OffchainAssetReceiptVaultConfigV2 memory config)
-        external
-    {
+    function testStoxUnifiedDeployer(
+        address asset,
+        address vault,
+        address orchestrator,
+        OffchainAssetReceiptVaultConfigV2 memory config
+    ) external {
         vm.assume(asset.code.length == 0);
         vm.assume(vault.code.length == 0);
+        vm.assume(orchestrator.code.length == 0);
         StoxUnifiedDeployer unifiedDeployer = new StoxUnifiedDeployer();
 
         vm.etch(
@@ -50,8 +56,20 @@ contract StoxUnifiedDeployerTest is Test {
             abi.encode(address(vault))
         );
 
+        vm.etch(
+            LibProdDeployV4.STOX_ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6,
+            vm.getCode("ST0xOrchestratorBeaconSetDeployer.sol:ST0xOrchestratorBeaconSetDeployer")
+        );
+        vm.mockCall(
+            LibProdDeployV4.STOX_ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6,
+            abi.encodeWithSelector(
+                ST0xOrchestratorBeaconSetDeployer.deploy.selector, asset, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE
+            ),
+            abi.encode(orchestrator)
+        );
+
         vm.expectEmit();
-        emit StoxUnifiedDeployer.Deployment(address(this), asset, vault);
+        emit StoxUnifiedDeployer.Deployment(address(this), asset, vault, orchestrator);
         unifiedDeployer.newTokenAndWrapperVault(config);
     }
 
