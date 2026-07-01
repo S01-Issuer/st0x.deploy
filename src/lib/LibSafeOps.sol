@@ -129,6 +129,13 @@ library LibSafeOps {
     function encodeMultiSend(SafeTx[] memory txs) internal pure returns (bytes memory) {
         bytes memory payload = new bytes(0);
         for (uint256 i = 0; i < txs.length; i++) {
+            // MultiSendCallOnly performs only CALLs, so a non-CALL op cannot be
+            // batched. Reject it here (not just at JSON-emit time) so the
+            // mistake surfaces before owners sign, rather than reverting at
+            // execution after signatures are collected.
+            if (txs[i].operation != 0) {
+                revert TxBuilderJsonUnsupportedOperation(i, txs[i].operation);
+            }
             payload = bytes.concat(
                 payload, abi.encodePacked(txs[i].operation, txs[i].to, txs[i].value, txs[i].data.length, txs[i].data)
             );

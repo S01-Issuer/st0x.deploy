@@ -184,6 +184,21 @@ contract LibSafeOpsTest is Test {
         harness.callEmit(address(0x5AFE), 8453, "op-guard", txs);
     }
 
+    /// @notice `encodeMultiSend` reverts on a non-CALL `operation`, so a
+    /// DELEGATECALL inner tx cannot be batched and signed only to revert in
+    /// `MultiSendCallOnly` at execution. The revert reports the offending
+    /// index: a bundle whose first tx is a CALL and second is a DELEGATECALL
+    /// trips on index 1.
+    function testEncodeMultiSendRejectsNonCallOperation() external {
+        SafeTx[] memory txs = new SafeTx[](2);
+        txs[0] = SafeTx({to: address(0xBEEF), value: 0, data: hex"deadbeef", operation: 0});
+        txs[1] = SafeTx({to: address(0xCAFE), value: 0, data: hex"feed", operation: 1});
+
+        EmitHarness harness = new EmitHarness();
+        vm.expectRevert(abi.encodeWithSelector(TxBuilderJsonUnsupportedOperation.selector, uint256(1), uint8(1)));
+        harness.callEncodeMultiSend(txs);
+    }
+
     /// @notice A three-transaction bundle spanning fidelity edge cases: empty
     /// calldata with zero value, a large value with calldata, and calldata
     /// with a leading-zero byte. Each transaction targets a distinct address.

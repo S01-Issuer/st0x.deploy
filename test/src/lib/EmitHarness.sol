@@ -16,4 +16,8 @@ contract EmitHarness {
     {
         return LibSafeOps.emitTxBuilderJson(safeAddr, chainId, name, txs);
     }
+
+    function callEncodeMultiSend(SafeTx[] calldata txs) external pure returns (bytes memory) {
+        return LibSafeOps.encodeMultiSend(txs);
+    }
 }
