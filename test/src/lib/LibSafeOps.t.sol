@@ -184,6 +184,49 @@ contract LibSafeOpsTest is Test {
         harness.callEmit(address(0x5AFE), 8453, "op-guard", txs);
     }
 
+    /// @notice A three-transaction bundle spanning fidelity edge cases: empty
+    /// calldata with zero value, a large value with calldata, and calldata
+    /// with a leading-zero byte. Each transaction targets a distinct address.
+    function _multiTxBundle() internal pure returns (SafeTx[] memory txs) {
+        txs = new SafeTx[](3);
+        txs[0] = SafeTx({to: address(uint160(0xA11CE)), value: 0, data: hex"", operation: 0});
+        txs[1] = SafeTx({to: address(uint160(0xB0B)), value: 1e18, data: hex"deadbeef", operation: 0});
+        txs[2] = SafeTx({to: address(uint160(0xCA11)), value: 7, data: hex"00ff00", operation: 0});
+    }
+
+    /// @notice A multi-transaction bundle round-trips through emit + parse with
+    /// every transaction's `to`, `value` and `data` preserved in order,
+    /// including empty calldata, a large value, and a leading-zero calldata
+    /// byte. Signers ingest the emitted JSON directly, so per-transaction
+    /// fidelity across the whole array is load-bearing.
+    function testEmitParseMultiTxRoundtrip() external {
+        SafeTx[] memory txs = _multiTxBundle();
+        string memory json = LibSafeOps.emitTxBuilderJson(address(0x5AFE), 8453, "multi-roundtrip", txs);
+        string memory path = string.concat(vm.projectRoot(), "/out/test-multi-tx-builder.json");
+        vm.writeFile(path, json);
+
+        (uint256 chainId, address safeAddr, SafeTx[] memory parsed) = LibSafeOps.parseTxBuilderJson(path);
+        assertEq(chainId, 8453, "chainId round-trips");
+        assertEq(safeAddr, txs[0].to, "parsed Safe is the first tx target");
+        assertEq(parsed.length, txs.length, "tx count round-trips");
+        for (uint256 i = 0; i < txs.length; i++) {
+            assertEq(parsed[i].to, txs[i].to, "to round-trips in order");
+            assertEq(parsed[i].value, txs[i].value, "value round-trips");
+            assertEq(parsed[i].data, txs[i].data, "data round-trips");
+        }
+    }
+
+    /// @notice The emitted JSON for a multi-transaction bundle contains exactly
+    /// one entry per transaction, in order, with no trailing entry.
+    function testEmittedJsonShapeMultiTx() external {
+        SafeTx[] memory txs = _multiTxBundle();
+        string memory json = LibSafeOps.emitTxBuilderJson(address(0x5AFE), 8453, "multi-shape", txs);
+
+        assertTrue(vm.keyExistsJson(json, ".transactions[2].to"), "third transaction present");
+        assertFalse(vm.keyExistsJson(json, ".transactions[3].to"), "no fourth transaction");
+        assertEq(vm.parseJsonAddress(json, ".transactions[1].to"), txs[1].to, "middle transaction target serialized");
+    }
+
     /// @notice `simulateNPlus1Reversal` round-trips the Safe through a
     /// forward state change (`changeThreshold(3)`) and back. We first
     /// simulate the forward change via `vm.prank(safe) + changeThreshold(3)`
