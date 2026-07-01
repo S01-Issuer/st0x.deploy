@@ -199,6 +199,31 @@ contract LibSafeOpsTest is Test {
         harness.callEncodeMultiSend(txs);
     }
 
+    /// @notice `emitTxBuilderJson` reverts `TxBuilderJsonNoTransactions` on an
+    /// empty bundle, enforcing on the write side the non-empty invariant the
+    /// read side (`parseTxBuilderJson`) already asserts.
+    function testEmitRejectsEmptyBundle() external {
+        SafeTx[] memory txs = new SafeTx[](0);
+        EmitHarness harness = new EmitHarness();
+        vm.expectRevert(TxBuilderJsonNoTransactions.selector);
+        harness.callEmit(address(0x5AFE), 8453, "empty", txs);
+    }
+
+    /// @notice `parseTxBuilderJson` reverts when a decimal field (here
+    /// `chainId`) is an empty string rather than silently coercing it to 0.
+    function testParseRejectsEmptyDecimalField() external {
+        string memory json = string.concat(
+            '{"version":"1.0","chainId":"","createdAt":0,"meta":{"name":"x","txBuilderVersion":"1.16.5"},',
+            '"transactions":[{"to":"0x0000000000000000000000000000000000000001","value":"0","data":"0x"}]}'
+        );
+        string memory path = string.concat(vm.projectRoot(), "/out/test-empty-decimal.json");
+        vm.writeFile(path, json);
+
+        ParseHarness harness = new ParseHarness();
+        vm.expectRevert(bytes("LibSafeOps: empty decimal string"));
+        harness.callParse(path);
+    }
+
     /// @notice A three-transaction bundle spanning fidelity edge cases: empty
     /// calldata with zero value, a large value with calldata, and calldata
     /// with a leading-zero byte. Each transaction targets a distinct address.

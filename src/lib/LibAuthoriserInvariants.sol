@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
+import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1167Proxy.sol";
 
 /// @notice A pinned `(role, grantee)` pair on the live authoriser.
 struct RoleGrant {
@@ -18,6 +19,22 @@ struct RoleGrant {
 /// @param role The role that should be held.
 /// @param grantee The grantee that should hold the role.
 error ExpectedGrantMissing(address authoriser, bytes32 role, address grantee);
+
+/// @notice A pinned grantee unexpectedly holds `DEFAULT_ADMIN_ROLE`. The role
+/// hierarchy admins each action role by its own `<ROLE>_ADMIN`, never by
+/// `DEFAULT_ADMIN_ROLE`, so a root-admin holder is an unexpected escalation
+/// path outside the pinned grant map.
+/// @param authoriser The authoriser inspected.
+/// @param holder The grantee found to hold `DEFAULT_ADMIN_ROLE`.
+error UnexpectedDefaultAdmin(address authoriser, address holder);
+
+/// @notice The authoriser's runtime codehash is not the EIP-1167 minimal-proxy
+/// codehash of the pinned `STOX_PROD_AUTHORISER_IMPL`, i.e. the clone does not
+/// proxy the pinned implementation.
+/// @param authoriser The authoriser inspected.
+/// @param expected The EIP-1167(`STOX_PROD_AUTHORISER_IMPL`) codehash.
+/// @param actual The codehash observed on-chain.
+error AuthoriserImplCodehashMismatch(address authoriser, bytes32 expected, bytes32 actual);
 
 /// @title LibAuthoriserInvariants
 /// @notice Reusable invariants for the ST0x production authoriser on Base:
@@ -62,8 +79,8 @@ library LibAuthoriserInvariants {
     /// sets `<ROLE>_ADMIN` as the admin of each action role rather than
     /// `DEFAULT_ADMIN_ROLE`. Consequently no `DEFAULT_ADMIN_ROLE` grant was
     /// emitted at init and no address holds it. Pinned as the explicit
-    /// expectation so the invariant flags any future grant of
-    /// `DEFAULT_ADMIN_ROLE` as unexpected.
+    /// expectation so `assertExpectedGrants` reverts `UnexpectedDefaultAdmin`
+    /// if any pinned grantee holds it.
     bytes32 internal constant DEFAULT_ADMIN_ROLE = bytes32(0);
 
     /// @notice The ST0x token-owner Safe — holds every `_ADMIN` role on the
@@ -110,16 +127,29 @@ library LibAuthoriserInvariants {
     }
 
     /// @notice Assert every pinned `(role, grantee)` pair in
-    /// `expectedGrants()` is held on the supplied authoriser. Reverts with
-    /// `ExpectedGrantMissing` on the first pair that fails, surfacing the
-    /// exact role + grantee that broke the invariant.
+    /// `expectedGrants()` is held on the supplied authoriser, and that no
+    /// pinned grantee holds `DEFAULT_ADMIN_ROLE`. Reverts with
+    /// `UnexpectedDefaultAdmin` if a pinned grantee holds the root admin role,
+    /// or `ExpectedGrantMissing` on the first missing pair, surfacing the exact
+    /// role + grantee that broke the invariant.
     /// @dev Parameterised on the authoriser address so the same assertion
     /// can run against the live current clone (pre-swap) AND against a
     /// freshly-deployed clone (the script's pre-flight on the swap target)
-    /// without duplicating the iteration.
+    /// without duplicating the iteration. The `DEFAULT_ADMIN_ROLE` check is a
+    /// negative assertion over the pinned grantees, not an exhaustive scan (a
+    /// plain `AccessControl` cannot enumerate members).
     /// @param authoriser The authoriser to validate.
     function assertExpectedGrants(address authoriser) internal view {
         IAccessControl acl = IAccessControl(authoriser);
+        // No pinned grantee holds DEFAULT_ADMIN_ROLE: the hierarchy admins each
+        // action role by its own `<ROLE>_ADMIN`, so a root-admin holder would
+        // be an escalation path the pinned map does not sanction.
+        if (acl.hasRole(DEFAULT_ADMIN_ROLE, GRANTEE_TOKEN_OWNER_SAFE)) {
+            revert UnexpectedDefaultAdmin(authoriser, GRANTEE_TOKEN_OWNER_SAFE);
+        }
+        if (acl.hasRole(DEFAULT_ADMIN_ROLE, GRANTEE_SERVICE_1C66)) {
+            revert UnexpectedDefaultAdmin(authoriser, GRANTEE_SERVICE_1C66);
+        }
         RoleGrant[] memory grants = expectedGrants();
         for (uint256 i = 0; i < grants.length; i++) {
             if (!acl.hasRole(grants[i].role, grants[i].grantee)) {
@@ -128,13 +158,30 @@ library LibAuthoriserInvariants {
         }
     }
 
-    /// @notice Full authoriser-side invariant bundle against the live
-    /// pinned `STOX_PROD_AUTHORISER`. Pre-flight at the start of every
-    /// migration script and prod-state fork test; if this passes silently
-    /// the live authoriser is in its current expected state.
+    /// @notice Assert the authoriser's runtime codehash is the EIP-1167
+    /// minimal-proxy codehash of the pinned `STOX_PROD_AUTHORISER_IMPL`, so the
+    /// clone actually proxies the pinned implementation before any
+    /// implementation-backed read (`hasRole`) is trusted. Mirrors the
+    /// singleton-bytecode pin `LibSafeInvariants` applies to the Safe.
+    /// @param authoriser The authoriser clone to validate.
+    function assertImplPinned(address authoriser) internal view {
+        bytes32 expected = keccak256(abi.encodePacked(ERC1167_PREFIX, STOX_PROD_AUTHORISER_IMPL, ERC1167_SUFFIX));
+        bytes32 actual = authoriser.codehash;
+        if (actual != expected) {
+            revert AuthoriserImplCodehashMismatch(authoriser, expected, actual);
+        }
+    }
+
+    /// @notice Full authoriser-side invariant bundle against the live pinned
+    /// `STOX_PROD_AUTHORISER`: the clone proxies the pinned impl
+    /// (`assertImplPinned`) and holds exactly the pinned grant map with no
+    /// root admin (`assertExpectedGrants`). Pre-flight at the start of every
+    /// migration script and prod-state fork test; if this passes silently the
+    /// live authoriser is in its current expected state.
     /// @dev No-arg overload uses the lib's `STOX_PROD_AUTHORISER` constant.
     /// Composed into `LibInvariants.assertAll`.
     function assertAll() internal view {
+        assertImplPinned(STOX_PROD_AUTHORISER);
         assertExpectedGrants(STOX_PROD_AUTHORISER);
     }
 }

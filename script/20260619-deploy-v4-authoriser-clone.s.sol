@@ -123,6 +123,15 @@ error VerifyMismatch(string field);
 /// @param actualCount The number of transactions in the parsed artifact.
 error VerifyUnknownBundleShape(uint256 actualCount);
 
+/// @notice `LibAuthoriserInvariants.expectedGrants()` no longer has the length
+/// the hand-maintained non-admin slice (`MIRROR_START_INDEX` ..
+/// `MIRROR_START_INDEX + GRANTS_TX_COUNT`) assumes, so the mirror would
+/// silently truncate or mis-select the grants it authors. Forces a lib reshape
+/// to fail fast here rather than as an out-of-bounds panic downstream.
+/// @param actual The current `expectedGrants()` length.
+/// @param expected The length the slice constants assume.
+error GrantsSliceLengthDrift(uint256 actual, uint256 expected);
+
 /// @title DeployV4AuthoriserClone
 /// @notice Forge script that authors the V4 authoriser clone deploy +
 /// the forward-mirror of the live non-admin role grants onto the new
@@ -271,6 +280,10 @@ contract DeployV4AuthoriserClone is Script {
         // `LibSafeInvariants` on first mismatch.
         LibSafeInvariants.assertAll(safe);
 
+        // Pre-flight: the invariant map still matches the hand-maintained
+        // non-admin slice constants.
+        assertGrantsSliceInvariant();
+
         // Pre-flight: V4 impl deployed at the pinned address with the
         // pinned codehash. The clone will EIP-1167-proxy this address;
         // if it isn't there or has the wrong code, the clone would
@@ -373,6 +386,10 @@ contract DeployV4AuthoriserClone is Script {
         // Pre-flight: Safe immutable invariants + pinned owner set +
         // pinned threshold.
         LibSafeInvariants.assertAll(safe);
+
+        // Pre-flight: the invariant map still matches the hand-maintained
+        // non-admin slice constants.
+        assertGrantsSliceInvariant();
 
         // Pre-flight: read the clone from the lib pin and trip
         // typed-error reverts if any of the three forcing-function
@@ -513,6 +530,7 @@ contract DeployV4AuthoriserClone is Script {
     /// — should equal the resolved clone address.
     /// @param parsedTxs The parsed transactions array (length == 6).
     function verifyGrantsBundle(IGnosisSafe safe, address parsedTo, SafeTx[] memory parsedTxs) internal view {
+        assertGrantsSliceInvariant();
         address clone = _resolveClone();
         if (clone == address(0)) revert V4AuthoriserCloneNotPinned();
         if (clone.code.length == 0) revert V4AuthoriserCloneNotDeployed(clone);
@@ -548,6 +566,18 @@ contract DeployV4AuthoriserClone is Script {
         bytes32 liveHash = LibSafeOps.computeMultiSendSafeTxHash(safe, _buildExpectedGrantsTxs(clone), safe.nonce());
         bytes32 artifactHash = LibSafeOps.computeMultiSendSafeTxHash(safe, parsedTxs, safe.nonce());
         if (liveHash != artifactHash) revert VerifyMismatch("safeTxHash");
+    }
+
+    /// @notice Assert `LibAuthoriserInvariants.expectedGrants()` still has
+    /// exactly the length the hand-maintained non-admin slice assumes
+    /// (`MIRROR_START_INDEX + GRANTS_TX_COUNT`), so a lib reshape that would
+    /// silently truncate or mis-select the mirrored grants fails fast with a
+    /// typed error rather than as an out-of-bounds panic.
+    function assertGrantsSliceInvariant() internal pure {
+        uint256 actual = LibAuthoriserInvariants.expectedGrants().length;
+        if (actual != MIRROR_START_INDEX + GRANTS_TX_COUNT) {
+            revert GrantsSliceLengthDrift(actual, MIRROR_START_INDEX + GRANTS_TX_COUNT);
+        }
     }
 
     /// @notice Rebuild the canonical six-tx grants array for `clone`.

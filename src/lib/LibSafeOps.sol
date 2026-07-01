@@ -238,6 +238,10 @@ library LibSafeOps {
         view
         returns (string memory)
     {
+        // Enforce the non-empty invariant the read side (parseTxBuilderJson)
+        // and TxBuilderJsonNoTransactions already assert: never serialise an
+        // empty bundle.
+        if (txs.length == 0) revert TxBuilderJsonNoTransactions();
         string memory transactions = "[";
         for (uint256 i = 0; i < txs.length; i++) {
             // The Tx Builder schema + MultiSendCallOnly are CALL-only, so a
@@ -292,14 +296,14 @@ library LibSafeOps {
     /// @notice Parse a Safe Tx Builder JSON file from disk and return the
     /// chain id, target Safe, and transactions array.
     /// @dev The Tx Builder JSON's `transactions[*].value` is a decimal
-    /// string and `data` is a `0x`-prefixed hex byte string. The first
-    /// transaction's `to` is reported as the bundle's target Safe address
-    /// because by Tx Builder convention every Safe-self-mutating bundle
-    /// has every tx target the Safe itself; bundles with cross-target
-    /// calls have to inspect the array directly.
+    /// string and `data` is a `0x`-prefixed hex byte string. `safeAddr` is
+    /// `transactions[0].to`: for a Safe-self-mutating bundle every tx targets
+    /// the Safe so it is the Safe address, but for a cross-target bundle (e.g.
+    /// a CloneFactory deploy) it is the first target — callers must not treat
+    /// it as a validated Safe address.
     /// @param jsonPath Filesystem path to the JSON file.
     /// @return chainId The chain id parsed from the JSON.
-    /// @return safeAddr The Safe address (parsed from `transactions[0].to`).
+    /// @return safeAddr `transactions[0].to` (see @dev — not necessarily the Safe).
     /// @return txs The decoded transactions array.
     function parseTxBuilderJson(string memory jsonPath)
         internal
@@ -352,6 +356,9 @@ library LibSafeOps {
     /// @return The parsed unsigned integer.
     function _parseDecimalUint(string memory decimal) private pure returns (uint256) {
         bytes memory raw = bytes(decimal);
+        // A decimal field must contain at least one digit; an empty string is
+        // not a valid encoding of any number and the NatSpec forbids it.
+        require(raw.length > 0, "LibSafeOps: empty decimal string");
         uint256 result = 0;
         for (uint256 i = 0; i < raw.length; i++) {
             uint8 c = uint8(raw[i]);
