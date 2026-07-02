@@ -4,38 +4,59 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
+import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
+import {IST0xVaultBeaconSet} from "../../../src/interface/IST0xVaultBeaconSet.sol";
+import {LibProdDeployV4} from "../../../src/lib/LibProdDeployV4.sol";
+
 import {Initializable} from "@openzeppelin-contracts-upgradeable-5.6.1/proxy/utils/Initializable.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {IERC20} from "@openzeppelin-contracts-5.6.1/token/ERC20/IERC20.sol";
 import {IERC1155} from "@openzeppelin-contracts-5.6.1/token/ERC1155/IERC1155.sol";
 import {IERC1155Receiver} from "@openzeppelin-contracts-5.6.1/token/ERC1155/IERC1155Receiver.sol";
 import {IERC165} from "@openzeppelin-contracts-5.6.1/utils/introspection/IERC165.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "@openzeppelin-contracts-5.6.1/proxy/beacon/BeaconProxy.sol";
+import {IERC1271} from "@openzeppelin-contracts-5.6.1/interfaces/IERC1271.sol";
 import {OffchainAssetReceiptVault} from "rain-vats-0.1.6/src/concrete/vault/OffchainAssetReceiptVault.sol";
 import {ReceiptVault} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
 
-/// @dev Comprehensive unit + fuzz tests for `ST0xOrchestrator`. All external
-/// dependencies (vault, receipt, ERC-20 shares) are mocked via `vm.mockCall`
-/// against fixed vault / receipt addresses — no forking, no real vault
-/// deployment. See parent contract source for the code paths being exercised.
+/// @dev Comprehensive unit + fuzz tests for the SINGLETON `ST0xOrchestrator`.
+/// All external dependencies (vault, receipt, ERC-20 shares, the production
+/// beacon set) are mocked via `vm.mockCall` against fixed addresses — no
+/// forking, no real vault deployment. The orchestrator is deployed behind a
+/// real `UpgradeableBeacon` + `BeaconProxy`.
+///
+/// Each "token" in the singleton model is just a mock vault address on which
+/// we mock the vault selectors (`receipt()`, `highwaterId()`, `mint`,
+/// `redeem`), the ERC-20 selectors (`transfer`, `transferFrom`), and — on the
+/// associated receipt address — the ERC-1155 `balanceOf`.
 contract ST0xOrchestratorTest is Test {
-    /// Canonical placeholders for the vault and receipt addresses. The vault
-    /// is a distinct, code-less address that we mock every relevant selector
-    /// on; likewise the receipt.
-    address internal constant VAULT_ADDR = address(0xAA17);
+    /// Canonical placeholder vault ("token") + receipt addresses. Each is a
+    /// distinct, code-less address that we mock every relevant selector on.
+    address internal constant TOKEN = address(0xAA17);
     address internal constant RECEIPT_ADDR = address(0xEEC1D7);
 
-    /// A canonical non-orchestrator counterparty that appears throughout the
-    /// tests. Chosen to be distinct from `address(this)` so the "transfer"
-    /// branches are exercised.
+    /// A second token to prove per-token pointer independence.
+    address internal constant TOKEN2 = address(0xBB28);
+    address internal constant RECEIPT_ADDR2 = address(0xEEC1D8);
+
+    /// A canonical non-orchestrator counterparty. Distinct from
+    /// `address(this)` so the "transferFrom" branch is exercised.
     address internal constant BOB = address(0xB0B);
 
-    /// Default admin passed to `initialize`. Used to check role plumbing.
+    /// Default admin passed to `initialize`.
     address internal constant OWNER = address(0x0FFCE);
 
-    /// Storage-slot pre-image constant kept for cross-checking against the
-    /// contract source — updated in lockstep if the source changes.
+    /// The vault-version guard reads these fixed production addresses.
+    address internal constant DEPLOYER =
+        LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6;
+    address internal constant VAULT_BEACON = address(0xBEAC04);
+    address internal constant RECEIPT_BEACON = address(0xBEAC12);
+    address internal constant EXPECTED_VAULT_IMPL = LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6;
+    address internal constant EXPECTED_RECEIPT_IMPL = LibProdDeployV4.STOX_RECEIPT_RAIN_VATS_0_1_6;
+
+    /// Storage-slot pre-image constant kept for cross-checking against source.
     bytes32 internal constant EXPECTED_MAIN_STORAGE_LOCATION =
         0x4bb94ceb743cdbfc320393e9b6fac11d883b2f90ac89bce731e459177c5be700;
 
@@ -44,7 +65,10 @@ contract ST0xOrchestratorTest is Test {
 
     function setUp() public {
         impl = new ST0xOrchestrator();
-        orchestrator = _deployProxy(VAULT_ADDR, OWNER);
+        orchestrator = _deployProxy(OWNER);
+        _makeGuardPass();
+        _mockVaultTopology(TOKEN, RECEIPT_ADDR);
+        _mockVaultTopology(TOKEN2, RECEIPT_ADDR2);
     }
 
     // ------------------------------------------------------------------ //
@@ -52,1122 +76,963 @@ contract ST0xOrchestratorTest is Test {
     // ------------------------------------------------------------------ //
 
     /// Deploy a fresh beacon + proxy pair pointing at `impl`, initialised
-    /// with `(vault_, owner)`. Mocks `vault.receipt()` and
-    /// `vault.highwaterId()` first — the initializer reads both (receipt for
-    /// storage, highwater to seed the burn pointer at `highwaterId + 1`).
-    /// The pointer is then reset to 0 so the walk tests can lay receipts out
-    /// from id 0 without each re-deriving the seeded offset; the seeding
-    /// itself has its own dedicated tests.
-    function _deployProxy(address vault_, address owner) internal returns (ST0xOrchestrator) {
-        vm.mockCall(vault_, abi.encodeWithSelector(ReceiptVault.receipt.selector), abi.encode(RECEIPT_ADDR));
-        vm.mockCall(vault_, abi.encodeWithSelector(OffchainAssetReceiptVault.highwaterId.selector), abi.encode(0));
-
+    /// with `owner`.
+    function _deployProxy(address owner) internal returns (ST0xOrchestrator) {
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        bytes memory initData =
-            abi.encodeCall(ST0xOrchestrator.initialize, (OffchainAssetReceiptVault(payable(vault_)), owner));
+        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, (owner));
         BeaconProxy proxy = new BeaconProxy(address(beacon), initData);
-        ST0xOrchestrator o = ST0xOrchestrator(payable(address(proxy)));
-        vm.prank(owner);
-        o.setBurnIndex(0);
-        return o;
+        return ST0xOrchestrator(payable(address(proxy)));
     }
 
-    /// Grant `MINT_BURN_ROLE` to `who` via the initialised OWNER.
-    /// Reads the role first so `vm.prank(OWNER)` isn't consumed by the view.
-    function _grantMintBurn(ST0xOrchestrator o, address who) internal {
-        bytes32 role = o.MINT_BURN_ROLE();
+    /// Make the vault-logic version guard PASS: the deployer resolves each
+    /// beacon and each beacon reports the expected implementation.
+    function _makeGuardPass() internal {
+        vm.mockCall(
+            DEPLOYER,
+            abi.encodeWithSelector(IST0xVaultBeaconSet.iOffchainAssetReceiptVaultBeacon.selector),
+            abi.encode(VAULT_BEACON)
+        );
+        vm.mockCall(
+            DEPLOYER, abi.encodeWithSelector(IST0xVaultBeaconSet.iReceiptBeacon.selector), abi.encode(RECEIPT_BEACON)
+        );
+        vm.mockCall(
+            VAULT_BEACON, abi.encodeWithSelector(IBeacon.implementation.selector), abi.encode(EXPECTED_VAULT_IMPL)
+        );
+        vm.mockCall(
+            RECEIPT_BEACON, abi.encodeWithSelector(IBeacon.implementation.selector), abi.encode(EXPECTED_RECEIPT_IMPL)
+        );
+    }
+
+    /// Break the vault guard on the vault-impl leg (receipt leg is checked
+    /// second, so a broken vault impl surfaces `VaultLogicMismatch`).
+    function _makeGuardFailVault() internal {
+        vm.mockCall(VAULT_BEACON, abi.encodeWithSelector(IBeacon.implementation.selector), abi.encode(address(0xDEAD)));
+    }
+
+    /// Break the vault guard on the receipt-impl leg only (vault leg still
+    /// passes, so this surfaces `ReceiptLogicMismatch`).
+    function _makeGuardFailReceipt() internal {
+        vm.mockCall(
+            RECEIPT_BEACON, abi.encodeWithSelector(IBeacon.implementation.selector), abi.encode(address(0xDEAD))
+        );
+    }
+
+    /// Mock a token's static vault topology: `receipt()` returns its receipt.
+    function _mockVaultTopology(address token, address receipt_) internal {
+        vm.mockCall(token, abi.encodeWithSelector(ReceiptVault.receipt.selector), abi.encode(receipt_));
+    }
+
+    /// Mock `highwaterId()` for a token.
+    function _mockHighwater(address token, uint256 hw) internal {
+        vm.mockCall(token, abi.encodeWithSelector(OffchainAssetReceiptVault.highwaterId.selector), abi.encode(hw));
+    }
+
+    /// Mock the orchestrator's receipt balance at `id`.
+    function _mockBalance(address receipt_, uint256 id, uint256 bal) internal {
+        vm.mockCall(
+            receipt_, abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), id), abi.encode(bal)
+        );
+    }
+
+    /// Mock a redeem call at `id` for `shares`.
+    function _mockRedeem(address token, uint256 shares, uint256 id, bytes memory info) internal {
+        vm.mockCall(
+            token,
+            abi.encodeWithSelector(
+                ReceiptVault.redeem.selector, shares, address(orchestrator), address(orchestrator), id, info
+            ),
+            abi.encode(shares)
+        );
+    }
+
+    /// Mock the token-as-ERC20 transfer / transferFrom to succeed.
+    function _mockERC20(address token) internal {
+        vm.mockCall(token, abi.encodeWithSelector(IERC20.transfer.selector), abi.encode(true));
+        vm.mockCall(token, abi.encodeWithSelector(IERC20.transferFrom.selector), abi.encode(true));
+    }
+
+    /// Grant a role to `who` via OWNER (reads the role first so the
+    /// `vm.prank` isn't consumed by the view).
+    function _grant(bytes32 role, address who) internal {
         vm.prank(OWNER);
-        o.grantRole(role, who);
+        orchestrator.grantRole(role, who);
+    }
+
+    /// Encode `mint` data: `abi.encode(signature, nonce, receiptInformation)`.
+    function _mintData(bytes memory sig, bytes32 nonce, bytes memory info) internal pure returns (bytes memory) {
+        return abi.encode(sig, nonce, info);
     }
 
     // ------------------------------------------------------------------ //
     //                     Storage-layout constant check                  //
     // ------------------------------------------------------------------ //
 
-    /// The `MAIN_STORAGE_LOCATION` constant matches the ERC-7201 formula.
     function testStorageLocationConstant() external pure {
         bytes32 expected =
             keccak256(abi.encode(uint256(keccak256("st0x.orchestrator.main")) - 1)) & ~bytes32(uint256(0xff));
-        assertEq(expected, EXPECTED_MAIN_STORAGE_LOCATION, "expected constant off");
+        assertEq(expected, EXPECTED_MAIN_STORAGE_LOCATION, "MAIN_STORAGE_LOCATION formula mismatch");
     }
 
     // ------------------------------------------------------------------ //
-    //                             Constructor                            //
+    //                       Constructor / initialize                     //
     // ------------------------------------------------------------------ //
 
     /// The constructor disables initializers on the raw implementation.
-    /// Calling `initialize` on the impl must revert with
-    /// `Initializable.InvalidInitialization`.
     function testConstructorDisablesInitializers() external {
         ST0xOrchestrator raw = new ST0xOrchestrator();
         vm.expectRevert(Initializable.InvalidInitialization.selector);
-        raw.initialize(OffchainAssetReceiptVault(payable(VAULT_ADDR)), OWNER);
+        raw.initialize(OWNER);
     }
 
-    // ------------------------------------------------------------------ //
-    //                              initialize                            //
-    // ------------------------------------------------------------------ //
-
-    /// `initialize` on a proxy stores the vault + receipt + zero pointer and
-    /// grants `DEFAULT_ADMIN_ROLE` to the given owner.
-    function testInitialize() external view {
-        assertEq(address(orchestrator.vault()), VAULT_ADDR, "vault mismatch");
-        assertEq(address(orchestrator.receipt()), RECEIPT_ADDR, "receipt mismatch");
-        assertEq(orchestrator.nextBurnReceiptId(), 0, "helper resets pointer to 0 for walk tests");
+    function testInitializeGrantsAdmin() external view {
         assertTrue(orchestrator.hasRole(orchestrator.DEFAULT_ADMIN_ROLE(), OWNER), "owner missing admin role");
     }
 
-    /// Fuzz vault + owner: initialize sets each field correctly.
-    function testFuzzInitialize(address vault_, address owner, address fakeReceipt) external {
-        // Deployment path uses `vault.receipt()` which mockCall must serve.
-        vm.assume(vault_ != address(0));
-        vm.assume(owner != address(0));
-        vm.assume(fakeReceipt != address(0));
-        // Avoid clashing with the two cheatcode-managed globals and with
-        // precompiles (which vm.etch rejects).
-        vm.assume(vault_ != address(vm) && fakeReceipt != address(vm));
-        vm.assume(uint160(vault_) > 0x10);
-        // Force an empty EOA-ish target so `vm.mockCall` doesn't tangle with
-        // pre-existing code at these addresses.
-        vm.etch(vault_, hex"");
-        vm.mockCall(vault_, abi.encodeWithSelector(ReceiptVault.receipt.selector), abi.encode(fakeReceipt));
-        vm.mockCall(vault_, abi.encodeWithSelector(OffchainAssetReceiptVault.highwaterId.selector), abi.encode(0));
-
-        UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        bytes memory initData =
-            abi.encodeCall(ST0xOrchestrator.initialize, (OffchainAssetReceiptVault(payable(vault_)), owner));
-        BeaconProxy proxy = new BeaconProxy(address(beacon), initData);
-        ST0xOrchestrator o = ST0xOrchestrator(payable(address(proxy)));
-
-        assertEq(address(o.vault()), vault_);
-        assertEq(address(o.receipt()), fakeReceipt);
-        assertEq(o.nextBurnReceiptId(), 1, "pointer seeds at highwaterId + 1");
-        assertTrue(o.hasRole(o.DEFAULT_ADMIN_ROLE(), owner));
-    }
-
-    /// `initialize` seeds the burn pointer past the vault's current highwater
-    /// so a fresh clone never scans other depositors' id history.
-    function testFuzzInitializeSeedsPointer(uint256 highwater) external {
-        highwater = bound(highwater, 0, type(uint256).max - 1);
-        address vault_ = address(0x5EED);
-        vm.etch(vault_, hex"");
-        vm.mockCall(vault_, abi.encodeWithSelector(ReceiptVault.receipt.selector), abi.encode(RECEIPT_ADDR));
-        vm.mockCall(
-            vault_, abi.encodeWithSelector(OffchainAssetReceiptVault.highwaterId.selector), abi.encode(highwater)
-        );
-
-        UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        BeaconProxy proxy = new BeaconProxy(
-            address(beacon),
-            abi.encodeCall(ST0xOrchestrator.initialize, (OffchainAssetReceiptVault(payable(vault_)), OWNER))
-        );
-        assertEq(ST0xOrchestrator(payable(address(proxy))).nextBurnReceiptId(), highwater + 1);
-    }
-
-    /// A second `initialize` reverts `InvalidInitialization`.
-    function testInitializeSecondCallReverts() external {
-        vm.expectRevert(Initializable.InvalidInitialization.selector);
-        orchestrator.initialize(OffchainAssetReceiptVault(payable(VAULT_ADDR)), OWNER);
-    }
-
-    /// `initialize` with `vault == address(0)` reverts `ZeroVault`.
-    function testInitializeZeroVaultReverts() external {
-        UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        bytes memory initData =
-            abi.encodeCall(ST0xOrchestrator.initialize, (OffchainAssetReceiptVault(payable(address(0))), OWNER));
-        vm.expectRevert(ST0xOrchestrator.ZeroVault.selector);
-        new BeaconProxy(address(beacon), initData);
-    }
-
-    /// `initialize` with `owner == address(0)` reverts `ZeroOwner`.
     function testInitializeZeroOwnerReverts() external {
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        bytes memory initData =
-            abi.encodeCall(ST0xOrchestrator.initialize, (OffchainAssetReceiptVault(payable(VAULT_ADDR)), address(0)));
+        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, (address(0)));
         vm.expectRevert(ST0xOrchestrator.ZeroOwner.selector);
         new BeaconProxy(address(beacon), initData);
     }
 
-    /// `initialize` with a vault whose `receipt()` returns `address(0)`
-    /// reverts `ZeroReceipt`.
-    function testInitializeZeroReceiptReverts() external {
-        address vaultWithZeroReceipt = address(0x1234);
-        vm.etch(vaultWithZeroReceipt, hex"");
-        vm.mockCall(vaultWithZeroReceipt, abi.encodeWithSelector(ReceiptVault.receipt.selector), abi.encode(address(0)));
+    function testDoubleInitializeReverts() external {
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        orchestrator.initialize(OWNER);
+    }
 
-        UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        bytes memory initData = abi.encodeCall(
-            ST0xOrchestrator.initialize, (OffchainAssetReceiptVault(payable(vaultWithZeroReceipt)), OWNER)
-        );
-        vm.expectRevert(ST0xOrchestrator.ZeroReceipt.selector);
-        new BeaconProxy(address(beacon), initData);
+    function testFuzzInitializeGrantsAdmin(address owner) external {
+        vm.assume(owner != address(0));
+        ST0xOrchestrator o = _deployProxy(owner);
+        assertTrue(o.hasRole(o.DEFAULT_ADMIN_ROLE(), owner));
     }
 
     // ------------------------------------------------------------------ //
-    //                              mint()                                //
+    //                               Roles                                //
     // ------------------------------------------------------------------ //
 
-    /// Any caller without `MINT_BURN_ROLE` reverts.
-    function testFuzzMintUnauthorized(address caller, address to, uint256 amount) external {
-        // Caller must genuinely not have MINT_BURN.
-        vm.assume(!orchestrator.hasRole(orchestrator.MINT_BURN_ROLE(), caller));
+    function testRolesAreDistinct() external view {
+        assertTrue(orchestrator.MINT_ROLE() != orchestrator.BURN_ROLE());
+        assertTrue(orchestrator.MINT_ROLE() != orchestrator.EMERGENCY_ROLE());
+        assertTrue(orchestrator.BURN_ROLE() != orchestrator.EMERGENCY_ROLE());
+        assertEq(orchestrator.MINT_ROLE(), keccak256("MINT"));
+        assertEq(orchestrator.BURN_ROLE(), keccak256("BURN"));
+        assertEq(orchestrator.EMERGENCY_ROLE(), keccak256("EMERGENCY"));
+    }
+
+    function testFuzzMintUnauthorized(address caller) external {
+        vm.assume(!orchestrator.hasRole(orchestrator.MINT_ROLE(), caller));
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.MINT_BURN_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.MINT_ROLE()
             )
         );
         vm.prank(caller);
-        orchestrator.mint(to, amount);
+        orchestrator.mint(TOKEN, BOB, 1, _mintData("", bytes32(0), ""));
     }
 
-    /// `mint(to != this, amount)` calls `vault.mint` then `vault.safeTransfer(to, amount)`
-    /// and emits `Minted(caller, to, amount)`.
-    function testMintToOther() external {
-        _grantMintBurn(orchestrator, address(this));
-        uint256 amount = 12345;
-
-        vm.mockCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(ReceiptVault.mint.selector, amount, address(orchestrator), uint256(0), ""),
-            abi.encode(amount)
-        );
-        vm.mockCall(VAULT_ADDR, abi.encodeWithSelector(IERC20.transfer.selector, BOB, amount), abi.encode(true));
-
-        // Expect both external calls in order.
-        vm.expectCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(ReceiptVault.mint.selector, amount, address(orchestrator), uint256(0), "")
-        );
-        vm.expectCall(VAULT_ADDR, abi.encodeWithSelector(IERC20.transfer.selector, BOB, amount));
-
-        vm.expectEmit(true, true, false, true, address(orchestrator));
-        emit ST0xOrchestrator.Minted(address(this), BOB, amount);
-        orchestrator.mint(BOB, amount);
-    }
-
-    /// `mint(this, amount)` calls `vault.mint` but does NOT trigger any
-    /// share transfer.
-    function testMintToSelfNoTransfer() external {
-        _grantMintBurn(orchestrator, address(this));
-        uint256 amount = 42;
-
-        vm.mockCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(ReceiptVault.mint.selector, amount, address(orchestrator), uint256(0), ""),
-            abi.encode(amount)
-        );
-        // Mock the transfer path to revert if hit — proves no transfer call.
-        vm.mockCallRevert(
-            VAULT_ADDR,
-            abi.encodeWithSelector(IERC20.transfer.selector, address(orchestrator), amount),
-            abi.encode("must not be called")
-        );
-
-        vm.expectCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(ReceiptVault.mint.selector, amount, address(orchestrator), uint256(0), "")
-        );
-        vm.expectEmit(true, true, false, true, address(orchestrator));
-        emit ST0xOrchestrator.Minted(address(this), address(orchestrator), amount);
-        orchestrator.mint(address(orchestrator), amount);
-    }
-
-    /// Fuzz `to` + amount: cover both to-branches over the non-zero amount
-    /// range (zero amounts revert `ZeroAmount` — see dedicated test). The
-    /// count-form expectCall pins the transfer branch: exactly one transfer
-    /// for external `to`, exactly zero for self-mints.
-    function testFuzzMint(address to, uint256 amount) external {
-        amount = bound(amount, 1, type(uint256).max);
-        _grantMintBurn(orchestrator, address(this));
-
-        vm.mockCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(ReceiptVault.mint.selector, amount, address(orchestrator), uint256(0), ""),
-            abi.encode(amount)
-        );
-        vm.mockCall(VAULT_ADDR, abi.encodeWithSelector(IERC20.transfer.selector, to, amount), abi.encode(true));
-        vm.expectCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(IERC20.transfer.selector, to, amount),
-            to == address(orchestrator) ? 0 : 1
-        );
-
-        vm.expectEmit(true, true, false, true, address(orchestrator));
-        emit ST0xOrchestrator.Minted(address(this), to, amount);
-        orchestrator.mint(to, amount);
-    }
-
-    /// Zero-amount mints and burns revert `ZeroAmount` before touching the
-    /// vault — zero mints would revert with a vault-internal error anyway,
-    /// and zero burns would emit a phantom `Burned` event.
-    function testZeroAmountReverts() external {
-        _grantMintBurn(orchestrator, address(this));
-        vm.expectRevert(ST0xOrchestrator.ZeroAmount.selector);
-        orchestrator.mint(BOB, 0);
-        vm.expectRevert(ST0xOrchestrator.ZeroAmount.selector);
-        orchestrator.burn(BOB, 0);
-    }
-
-    // ------------------------------------------------------------------ //
-    //                              burn()                                //
-    // ------------------------------------------------------------------ //
-
-    /// Non-holder of `MINT_BURN_ROLE` cannot burn.
-    function testFuzzBurnUnauthorized(address caller, address from, uint256 amount) external {
-        vm.assume(!orchestrator.hasRole(orchestrator.MINT_BURN_ROLE(), caller));
+    function testFuzzBurnUnauthorized(address caller) external {
+        vm.assume(!orchestrator.hasRole(orchestrator.BURN_ROLE(), caller));
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.MINT_BURN_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.BURN_ROLE()
             )
         );
         vm.prank(caller);
-        orchestrator.burn(from, amount);
+        orchestrator.burn(TOKEN, BOB, 1, "");
     }
-
-    /// `burn(from != this)` pulls shares via `safeTransferFrom(from, this, amount)`.
-    /// `burn(from == this)` does NOT pull. Verified by both `expectCall` for
-    /// the pull path and `mockCallRevert` for the self path.
-    function testBurnFromOtherPulls() external {
-        _grantMintBurn(orchestrator, address(this));
-        uint256 amount = 100;
-
-        // One receipt with enough balance at id 0 covers the whole burn.
-        vm.mockCall(VAULT_ADDR, abi.encodeWithSelector(OffchainAssetReceiptVault.highwaterId.selector), abi.encode(1));
-        vm.mockCall(
-            RECEIPT_ADDR,
-            abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), uint256(0)),
-            abi.encode(amount)
-        );
-        vm.mockCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(
-                ReceiptVault.redeem.selector, amount, address(orchestrator), address(orchestrator), uint256(0), ""
-            ),
-            abi.encode(amount)
-        );
-        vm.mockCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(IERC20.transferFrom.selector, BOB, address(orchestrator), amount),
-            abi.encode(true)
-        );
-
-        vm.expectCall(
-            VAULT_ADDR, abi.encodeWithSelector(IERC20.transferFrom.selector, BOB, address(orchestrator), amount)
-        );
-        vm.expectEmit(true, true, false, true, address(orchestrator));
-        emit ST0xOrchestrator.Burned(address(this), BOB, amount, 0, 1);
-        orchestrator.burn(BOB, amount);
-        assertEq(orchestrator.nextBurnReceiptId(), 1);
-    }
-
-    /// `burn(from == this)` skips the transferFrom pull.
-    function testBurnFromSelfNoPull() external {
-        _grantMintBurn(orchestrator, address(this));
-        uint256 amount = 100;
-
-        vm.mockCall(VAULT_ADDR, abi.encodeWithSelector(OffchainAssetReceiptVault.highwaterId.selector), abi.encode(1));
-        vm.mockCall(
-            RECEIPT_ADDR,
-            abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), uint256(0)),
-            abi.encode(amount)
-        );
-        vm.mockCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(
-                ReceiptVault.redeem.selector, amount, address(orchestrator), address(orchestrator), uint256(0), ""
-            ),
-            abi.encode(amount)
-        );
-        vm.mockCallRevert(
-            VAULT_ADDR,
-            abi.encodeWithSelector(IERC20.transferFrom.selector, address(orchestrator), address(orchestrator), amount),
-            abi.encode("must not pull from self")
-        );
-
-        vm.expectEmit(true, true, false, true, address(orchestrator));
-        emit ST0xOrchestrator.Burned(address(this), address(orchestrator), amount, 0, 1);
-        orchestrator.burn(address(orchestrator), amount);
-    }
-
-    /// Zero-balance receipts are skipped and idx advances until it finds a
-    /// non-zero balance or exhausts the cap.
-    function testBurnSkipsZeroBalanceReceipts() external {
-        _grantMintBurn(orchestrator, address(this));
-        uint256 amount = 50;
-
-        // highwater = 5, only id 3 holds balance covering the whole burn.
-        vm.mockCall(VAULT_ADDR, abi.encodeWithSelector(OffchainAssetReceiptVault.highwaterId.selector), abi.encode(5));
-        vm.mockCall(
-            RECEIPT_ADDR,
-            abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), uint256(0)),
-            abi.encode(0)
-        );
-        vm.mockCall(
-            RECEIPT_ADDR,
-            abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), uint256(1)),
-            abi.encode(0)
-        );
-        vm.mockCall(
-            RECEIPT_ADDR,
-            abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), uint256(2)),
-            abi.encode(0)
-        );
-        vm.mockCall(
-            RECEIPT_ADDR,
-            abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), uint256(3)),
-            abi.encode(amount)
-        );
-        vm.mockCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(
-                ReceiptVault.redeem.selector, amount, address(orchestrator), address(orchestrator), uint256(3), ""
-            ),
-            abi.encode(amount)
-        );
-        vm.mockCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(IERC20.transferFrom.selector, BOB, address(orchestrator), amount),
-            abi.encode(true)
-        );
-
-        vm.expectEmit(true, true, false, true, address(orchestrator));
-        emit ST0xOrchestrator.Burned(address(this), BOB, amount, 0, 4);
-        orchestrator.burn(BOB, amount);
-        assertEq(orchestrator.nextBurnReceiptId(), 4);
-    }
-
-    /// Multiple receipts are consumed in sequence when a single receipt
-    /// doesn't cover the amount.
-    function testBurnMultipleReceiptsSequential() external {
-        _grantMintBurn(orchestrator, address(this));
-        uint256 amount = 300;
-
-        // highwater = 3. Balances: id0=100, id1=200 → covers 300 exactly,
-        // walk advances to 2 (one past id1 since fully drained).
-        vm.mockCall(VAULT_ADDR, abi.encodeWithSelector(OffchainAssetReceiptVault.highwaterId.selector), abi.encode(3));
-        vm.mockCall(
-            RECEIPT_ADDR,
-            abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), uint256(0)),
-            abi.encode(100)
-        );
-        vm.mockCall(
-            RECEIPT_ADDR,
-            abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), uint256(1)),
-            abi.encode(200)
-        );
-        vm.mockCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(
-                ReceiptVault.redeem.selector, uint256(100), address(orchestrator), address(orchestrator), uint256(0), ""
-            ),
-            abi.encode(uint256(100))
-        );
-        vm.mockCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(
-                ReceiptVault.redeem.selector, uint256(200), address(orchestrator), address(orchestrator), uint256(1), ""
-            ),
-            abi.encode(uint256(200))
-        );
-        vm.mockCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(IERC20.transferFrom.selector, BOB, address(orchestrator), amount),
-            abi.encode(true)
-        );
-
-        vm.expectCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(
-                ReceiptVault.redeem.selector, uint256(100), address(orchestrator), address(orchestrator), uint256(0), ""
-            )
-        );
-        vm.expectCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(
-                ReceiptVault.redeem.selector, uint256(200), address(orchestrator), address(orchestrator), uint256(1), ""
-            )
-        );
-        vm.expectEmit(true, true, false, true, address(orchestrator));
-        emit ST0xOrchestrator.Burned(address(this), BOB, amount, 0, 2);
-        orchestrator.burn(BOB, amount);
-        assertEq(orchestrator.nextBurnReceiptId(), 2);
-    }
-
-    /// Partial drain: the last receipt is only partially consumed; idx stays
-    /// on it (not advanced) because `take != bal`.
-    function testBurnPartialDrainDoesNotAdvance() external {
-        _grantMintBurn(orchestrator, address(this));
-        uint256 amount = 30;
-
-        vm.mockCall(VAULT_ADDR, abi.encodeWithSelector(OffchainAssetReceiptVault.highwaterId.selector), abi.encode(2));
-        vm.mockCall(
-            RECEIPT_ADDR,
-            abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), uint256(0)),
-            abi.encode(uint256(100))
-        );
-        vm.mockCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(
-                ReceiptVault.redeem.selector, amount, address(orchestrator), address(orchestrator), uint256(0), ""
-            ),
-            abi.encode(amount)
-        );
-        vm.mockCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(IERC20.transferFrom.selector, BOB, address(orchestrator), amount),
-            abi.encode(true)
-        );
-
-        vm.expectEmit(true, true, false, true, address(orchestrator));
-        emit ST0xOrchestrator.Burned(address(this), BOB, amount, 0, 0);
-        orchestrator.burn(BOB, amount);
-        // Pointer parked on the same id — the next burn re-reads its balance.
-        assertEq(orchestrator.nextBurnReceiptId(), 0);
-    }
-
-    /// Overshoot: idx > cap and remaining > 0. Contract mints a fresh
-    /// receipt-backed batch, re-reads highwaterId, resumes the walk at the
-    /// new cap. Verify `vault.mint(remaining, this, 0, "")` is invoked.
-    ///
-    /// Sequencing highwaterId across mint requires a stateful vault mock —
-    /// `vm.mockCall` returns the same value forever. We deploy a
-    /// `_HighwaterFlipper` and use `vm.mockFunction` to route the
-    /// `highwaterId` and `mint` selectors on VAULT_ADDR through it; the
-    /// flipper bumps `_highwater` on mint, so the subsequent highwaterId
-    /// read returns the new cap. See `_HighwaterFlipper` for the mechanic.
-    function testBurnOvershootMintsOnDemand() external {
-        _grantMintBurn(orchestrator, address(this));
-        // Bootstrap the pointer at id=1 so idx (1) > initial cap (0) and the
-        // overshoot branch fires on the first while iteration.
-        vm.prank(OWNER);
-        orchestrator.setBurnIndex(1);
-
-        uint256 amount = 42;
-
-        _HighwaterFlipper flipper = new _HighwaterFlipper();
-        flipper.setHighwater(0);
-
-        // Route `highwaterId()` calls on VAULT_ADDR to the flipper.
-        vm.mockFunction(VAULT_ADDR, address(flipper), abi.encodePacked(OffchainAssetReceiptVault.highwaterId.selector));
-        // Route `mint(...)` calls on VAULT_ADDR to the flipper — its mint
-        // bumps the internal highwater, so the subsequent `highwaterId()`
-        // returns 1. Match on selector only (prefix), not on args.
-        vm.mockFunction(VAULT_ADDR, address(flipper), abi.encodePacked(ReceiptVault.mint.selector));
-
-        // Receipt at the newly-minted id (=1) has enough to cover the burn.
-        vm.mockCall(
-            RECEIPT_ADDR,
-            abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), uint256(1)),
-            abi.encode(amount)
-        );
-        vm.mockCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(
-                ReceiptVault.redeem.selector, amount, address(orchestrator), address(orchestrator), uint256(1), ""
-            ),
-            abi.encode(amount)
-        );
-        vm.mockCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(IERC20.transferFrom.selector, BOB, address(orchestrator), amount),
-            abi.encode(true)
-        );
-
-        // Under-hood expected call sequence:
-        // 1. transferFrom(BOB, this, amount) — pull shares.
-        // 2. highwaterId() → 0 — cap seed.
-        // 3. mint(amount, this, 0, "") — mint-on-demand.
-        // 4. highwaterId() → 1 — new cap after mint.
-        // 5. balanceOf(this, 1) → amount.
-        // 6. redeem(amount, this, this, 1, "") — consume.
-        // `expectCall` doesn't see mockFunction-delegated calls, so we
-        // verify mint fired via the vault's post-state. `mockFunction`
-        // delegatecalls into the flipper — storage writes land in
-        // VAULT_ADDR's slot 0 (the flipper's `_highwater`), not the
-        // flipper's own storage. If mint hadn't been called, the value would
-        // remain 0 and the second highwaterId() would return 0, wedging the
-        // walk into an infinite loop / gas failure.
-        //
-        // With zero receipts held the WHOLE burn is shortfall: the event
-        // covers the full amount at the freshly minted id 1 (the flipper's
-        // post-bump highwater).
-        vm.expectEmit(false, false, false, true, address(orchestrator));
-        emit ST0xOrchestrator.BurnShortfallMinted(amount, 1);
-        vm.expectEmit(true, true, false, true, address(orchestrator));
-        emit ST0xOrchestrator.Burned(address(this), BOB, amount, 1, 2);
-        orchestrator.burn(BOB, amount);
-        assertEq(orchestrator.nextBurnReceiptId(), 2);
-        assertEq(uint256(vm.load(VAULT_ADDR, bytes32(uint256(0)))), 1, "mint should have bumped highwater");
-        // Slot 1 is the flipper's `_lastMintShares` — with zero receipts held
-        // the whole burn is shortfall, so the on-demand mint covers it all.
-        assertEq(uint256(vm.load(VAULT_ADDR, bytes32(uint256(1)))), amount, "mint should cover the full shortfall");
-    }
-
-    /// Mixed walk: real receipts are consumed FIRST, then the walk overruns
-    /// the cap and mints on demand for the shortfall only — the realistic
-    /// "interest accrued in tStock form" burn shape, executed in a single
-    /// `burn`. Layout: cap = 1, id 0 empty, id 1 holds 30; burn 50. Expected
-    /// walk: skip id 0 (zero balance), redeem 30 at id 1, idx (2) > cap (1)
-    /// → mint-on-demand of the remaining 20 → cap re-reads 2, redeem 20 at
-    /// the fresh id 2, pointer parks at 3.
-    ///
-    /// Reuses the `_HighwaterFlipper` + `vm.mockFunction` mechanic from
-    /// `testBurnOvershootMintsOnDemand` for the stateful highwaterId
-    /// sequencing. One extra wrinkle: the initial cap must be 1, and the
-    /// delegatecalled `highwaterId()` reads VAULT_ADDR's storage (not the
-    /// flipper's), so we seed it with `vm.store` on VAULT_ADDR slot 0 —
-    /// `setHighwater` would only touch the flipper's own storage, which the
-    /// delegated code never sees.
-    function testBurnPartialThenMintOnDemand() external {
-        _grantMintBurn(orchestrator, address(this));
-        uint256 amount = 50;
-
-        _HighwaterFlipper flipper = new _HighwaterFlipper();
-        vm.store(VAULT_ADDR, bytes32(uint256(0)), bytes32(uint256(1)));
-
-        // Route `highwaterId()` and `mint(...)` calls on VAULT_ADDR to the
-        // flipper. Match on selector only (prefix), not on args.
-        vm.mockFunction(VAULT_ADDR, address(flipper), abi.encodePacked(OffchainAssetReceiptVault.highwaterId.selector));
-        vm.mockFunction(VAULT_ADDR, address(flipper), abi.encodePacked(ReceiptVault.mint.selector));
-
-        // Receipts: id 0 empty (skipped), id 1 holds 30 (partial cover),
-        // id 2 is the freshly minted cover for the remaining 20.
-        vm.mockCall(
-            RECEIPT_ADDR,
-            abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), uint256(0)),
-            abi.encode(0)
-        );
-        vm.mockCall(
-            RECEIPT_ADDR,
-            abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), uint256(1)),
-            abi.encode(uint256(30))
-        );
-        vm.mockCall(
-            RECEIPT_ADDR,
-            abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), uint256(2)),
-            abi.encode(uint256(20))
-        );
-        vm.mockCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(
-                ReceiptVault.redeem.selector, uint256(30), address(orchestrator), address(orchestrator), uint256(1), ""
-            ),
-            abi.encode(uint256(30))
-        );
-        vm.mockCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(
-                ReceiptVault.redeem.selector, uint256(20), address(orchestrator), address(orchestrator), uint256(2), ""
-            ),
-            abi.encode(uint256(20))
-        );
-        vm.mockCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(IERC20.transferFrom.selector, BOB, address(orchestrator), amount),
-            abi.encode(true)
-        );
-
-        // The redeems go through `vm.mockCall` (not `vm.mockFunction`), so
-        // `expectCall` can pin the consume sequence: 30 from the real id 1,
-        // then 20 from the freshly minted id 2.
-        vm.expectCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(
-                ReceiptVault.redeem.selector, uint256(30), address(orchestrator), address(orchestrator), uint256(1), ""
-            )
-        );
-        vm.expectCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(
-                ReceiptVault.redeem.selector, uint256(20), address(orchestrator), address(orchestrator), uint256(2), ""
-            )
-        );
-
-        // The shortfall event fires mid-walk (before the final redeem and
-        // the closing `Burned`), covering only the remaining 20 — NOT the
-        // original 50 — at the freshly minted id 2.
-        vm.expectEmit(false, false, false, true, address(orchestrator));
-        emit ST0xOrchestrator.BurnShortfallMinted(20, 2);
-        vm.expectEmit(true, true, false, true, address(orchestrator));
-        emit ST0xOrchestrator.Burned(address(this), BOB, amount, 0, 3);
-        orchestrator.burn(BOB, amount);
-
-        assertEq(orchestrator.nextBurnReceiptId(), 3);
-        assertEq(uint256(vm.load(VAULT_ADDR, bytes32(uint256(0)))), 2, "mint should have bumped highwater to 2");
-        // Slot 1 is the flipper's `_lastMintShares` — the on-demand mint
-        // must cover only the post-consume shortfall, not the full burn.
-        assertEq(uint256(vm.load(VAULT_ADDR, bytes32(uint256(1)))), 20, "mint should cover only the remaining 20");
-    }
-
-    /// Fuzz burn amount + initial pointer. Uses a single all-covering
-    /// receipt at the starting id so the walk drains in one shot; verifies
-    /// the pointer moves to `startIdx + 1` and the event carries the right
-    /// bounds.
-    function testFuzzBurnSingleReceipt(uint256 startIdx, uint256 amount) external {
-        // Bound to keep `+ 1` arithmetic safe (contract itself uses unchecked
-        // so an actual overflow would just wrap — this stays inside the
-        // realistic domain). Zero amounts revert `ZeroAmount` (dedicated
-        // test), so fuzz strictly positive.
-        startIdx = bound(startIdx, 0, type(uint256).max - 2);
-        amount = bound(amount, 1, type(uint256).max);
-        // Cap = startIdx + 1, so the walk stays inside the cap.
-        _grantMintBurn(orchestrator, address(this));
-        if (startIdx != 0) {
-            vm.prank(OWNER);
-            orchestrator.setBurnIndex(startIdx);
-        }
-
-        vm.mockCall(
-            VAULT_ADDR, abi.encodeWithSelector(OffchainAssetReceiptVault.highwaterId.selector), abi.encode(startIdx + 1)
-        );
-        vm.mockCall(
-            RECEIPT_ADDR,
-            abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), startIdx),
-            abi.encode(amount)
-        );
-        vm.mockCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(
-                ReceiptVault.redeem.selector, amount, address(orchestrator), address(orchestrator), startIdx, ""
-            ),
-            abi.encode(amount)
-        );
-        vm.mockCall(
-            VAULT_ADDR,
-            abi.encodeWithSelector(IERC20.transferFrom.selector, BOB, address(orchestrator), amount),
-            abi.encode(true)
-        );
-
-        // Expected: idx=startIdx, take=amount(==bal), remaining=0 → loop
-        // exits with `take==bal` bumping idx by 1 → end idx = startIdx+1.
-        uint256 expectedEnd = startIdx + 1;
-
-        vm.expectEmit(true, true, false, true, address(orchestrator));
-        emit ST0xOrchestrator.Burned(address(this), BOB, amount, startIdx, expectedEnd);
-        orchestrator.burn(BOB, amount);
-        assertEq(orchestrator.nextBurnReceiptId(), expectedEnd);
-    }
-
-    // ------------------------------------------------------------------ //
-    //                          setBurnIndex()                            //
-    // ------------------------------------------------------------------ //
 
     function testFuzzSetBurnIndexUnauthorized(address caller, uint256 newIndex) external {
-        vm.assume(!orchestrator.hasRole(orchestrator.DEFAULT_ADMIN_ROLE(), caller));
+        vm.assume(!orchestrator.hasRole(orchestrator.EMERGENCY_ROLE(), caller));
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.DEFAULT_ADMIN_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.EMERGENCY_ROLE()
             )
         );
         vm.prank(caller);
-        orchestrator.setBurnIndex(newIndex);
+        orchestrator.setBurnIndex(TOKEN, newIndex);
     }
 
-    /// Admin can move the pointer forwards and backwards and to
-    /// `type(uint256).max`; each call emits `BurnIndexSet(old, new)`.
-    function testFuzzSetBurnIndex(uint256 first, uint256 second) external {
-        vm.startPrank(OWNER);
-        vm.expectEmit(false, false, false, true, address(orchestrator));
-        emit ST0xOrchestrator.BurnIndexSet(0, first);
-        orchestrator.setBurnIndex(first);
-        assertEq(orchestrator.nextBurnReceiptId(), first);
-
-        vm.expectEmit(false, false, false, true, address(orchestrator));
-        emit ST0xOrchestrator.BurnIndexSet(first, second);
-        orchestrator.setBurnIndex(second);
-        assertEq(orchestrator.nextBurnReceiptId(), second);
-        vm.stopPrank();
+    function testFuzzWithdrawSharesUnauthorized(address caller) external {
+        vm.assume(!orchestrator.hasRole(orchestrator.EMERGENCY_ROLE(), caller));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.EMERGENCY_ROLE()
+            )
+        );
+        vm.prank(caller);
+        orchestrator.withdrawShares(TOKEN, 1, BOB);
     }
 
-    /// Explicit uint256.max exercise — belt-and-braces above the fuzz.
-    function testSetBurnIndexMax() external {
-        vm.prank(OWNER);
-        orchestrator.setBurnIndex(type(uint256).max);
-        assertEq(orchestrator.nextBurnReceiptId(), type(uint256).max);
+    function testAdminCanGrantAndRevokeEachRole() external {
+        bytes32[3] memory roles = [orchestrator.MINT_ROLE(), orchestrator.BURN_ROLE(), orchestrator.EMERGENCY_ROLE()];
+        for (uint256 i = 0; i < roles.length; i++) {
+            _grant(roles[i], BOB);
+            assertTrue(orchestrator.hasRole(roles[i], BOB));
+            vm.prank(OWNER);
+            orchestrator.revokeRole(roles[i], BOB);
+            assertFalse(orchestrator.hasRole(roles[i], BOB));
+        }
+    }
+
+    /// A MINT_ROLE holder canNOT setBurnIndex or withdraw (EMERGENCY-gated).
+    function testMintHolderCannotEmergency() external {
+        _grant(orchestrator.MINT_ROLE(), BOB);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, BOB, orchestrator.EMERGENCY_ROLE()
+            )
+        );
+        vm.prank(BOB);
+        orchestrator.setBurnIndex(TOKEN, 5);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, BOB, orchestrator.EMERGENCY_ROLE()
+            )
+        );
+        vm.prank(BOB);
+        orchestrator.withdrawShares(TOKEN, 1, BOB);
+    }
+
+    /// An EMERGENCY_ROLE holder cannot mint or burn.
+    function testEmergencyHolderCannotMintOrBurn() external {
+        _grant(orchestrator.EMERGENCY_ROLE(), BOB);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, BOB, orchestrator.MINT_ROLE()
+            )
+        );
+        vm.prank(BOB);
+        orchestrator.mint(TOKEN, BOB, 1, _mintData("", bytes32(0), ""));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, BOB, orchestrator.BURN_ROLE()
+            )
+        );
+        vm.prank(BOB);
+        orchestrator.burn(TOKEN, BOB, 1, "");
     }
 
     // ------------------------------------------------------------------ //
-    //                         advanceBurnIndex()                         //
+    //                               mint()                               //
     // ------------------------------------------------------------------ //
 
-    /// `advanceBurnIndex` is permissionless: any fuzzed caller can advance
-    /// the pointer across a zero-balance id, and the event credits them.
+    /// Set up the vault-side mocks for a mint that mints `amount` and returns
+    /// shares. Highwater arbitrary (mint doesn't walk).
+    function _prepMint(address token, uint256 hw, bytes memory info) internal {
+        _mockHighwater(token, hw);
+        _mockERC20(token);
+        vm.mockCall(
+            token,
+            abi.encodeWithSelector(ReceiptVault.mint.selector, uint256(0), address(orchestrator), uint256(0), info),
+            abi.encode(uint256(0))
+        );
+    }
+
+    /// (a) ECDSA signature: `to` is an EOA whose key signs the digest.
+    function testMintWithEcdsaSignature() external {
+        (address eoa, uint256 pk) = makeAddrAndKey("recipient");
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        uint256 amount = 500;
+        bytes32 nonce = keccak256("n1");
+        bytes memory info = hex"1234";
+
+        _mockHighwater(TOKEN, 0);
+        _mockERC20(TOKEN);
+        vm.mockCall(
+            TOKEN,
+            abi.encodeWithSelector(ReceiptVault.mint.selector, amount, address(orchestrator), uint256(0), info),
+            abi.encode(amount)
+        );
+
+        bytes32 digest = orchestrator.mintAuthDigest(TOKEN, eoa, amount, nonce);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
+        bytes memory sig = abi.encodePacked(r, s, v);
+
+        // vault.mint called with (amount, orchestrator, 0, info).
+        vm.expectCall(
+            TOKEN, abi.encodeWithSelector(ReceiptVault.mint.selector, amount, address(orchestrator), uint256(0), info)
+        );
+        // then token.transfer(to, amount).
+        vm.expectCall(TOKEN, abi.encodeWithSelector(IERC20.transfer.selector, eoa, amount));
+
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit ST0xOrchestrator.Minted(address(this), TOKEN, eoa, amount, nonce);
+        orchestrator.mint(TOKEN, eoa, amount, _mintData(sig, nonce, info));
+    }
+
+    /// (b) EIP-1271: `to` is a contract returning the 1271 magic value.
+    function testMintWith1271() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        uint256 amount = 100;
+        bytes32 nonce = keccak256("n2");
+        bytes memory info = "";
+
+        Mock1271 recipient = new Mock1271(true);
+        _mockHighwater(TOKEN, 0);
+        _mockERC20(TOKEN);
+        vm.mockCall(
+            TOKEN,
+            abi.encodeWithSelector(ReceiptVault.mint.selector, amount, address(orchestrator), uint256(0), info),
+            abi.encode(amount)
+        );
+        // Any non-empty signature triggers the 1271 path since `to` is a contract.
+        bytes memory sig = hex"deadbeef";
+
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit ST0xOrchestrator.Minted(address(this), TOKEN, address(recipient), amount, nonce);
+        orchestrator.mint(TOKEN, address(recipient), amount, _mintData(sig, nonce, info));
+    }
+
+    function testMint1271RejectReverts() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        Mock1271 recipient = new Mock1271(false);
+        _prepMint(TOKEN, 0, "");
+        vm.expectRevert(ST0xOrchestrator.BadRecipientSignature.selector);
+        orchestrator.mint(TOKEN, address(recipient), 100, _mintData(hex"deadbeef", keccak256("x"), ""));
+    }
+
+    /// (c) Callback: empty signature; `to` implements IMintRecipient.
+    function testMintWithCallback() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        uint256 amount = 250;
+        bytes32 nonce = keccak256("n3");
+        bytes memory info = hex"abcd";
+
+        MockRecipient recipient = new MockRecipient(true);
+        _mockHighwater(TOKEN, 0);
+        _mockERC20(TOKEN);
+        vm.mockCall(
+            TOKEN,
+            abi.encodeWithSelector(ReceiptVault.mint.selector, amount, address(orchestrator), uint256(0), info),
+            abi.encode(amount)
+        );
+
+        bytes32 digest = orchestrator.mintAuthDigest(TOKEN, address(recipient), amount, nonce);
+        vm.expectCall(address(recipient), abi.encodeWithSelector(IMintRecipient.authorizeMint.selector, digest));
+
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit ST0xOrchestrator.Minted(address(this), TOKEN, address(recipient), amount, nonce);
+        orchestrator.mint(TOKEN, address(recipient), amount, _mintData("", nonce, info));
+    }
+
+    function testMintCallbackWrongValueReverts() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        MockRecipient recipient = new MockRecipient(false);
+        _prepMint(TOKEN, 0, "");
+        vm.expectRevert(abi.encodeWithSelector(ST0xOrchestrator.RecipientCallbackRejected.selector, address(recipient)));
+        orchestrator.mint(TOKEN, address(recipient), 100, _mintData("", keccak256("x"), ""));
+    }
+
+    /// Signature present but recovers to a different address → BadRecipientSignature.
+    function testMintBadSignatureReverts() external {
+        (address eoa,) = makeAddrAndKey("recipient");
+        (, uint256 wrongPk) = makeAddrAndKey("someone-else");
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        uint256 amount = 500;
+        bytes32 nonce = keccak256("n1");
+        _prepMint(TOKEN, 0, "");
+
+        bytes32 digest = orchestrator.mintAuthDigest(TOKEN, eoa, amount, nonce);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(wrongPk, digest);
+        bytes memory sig = abi.encodePacked(r, s, v);
+
+        vm.expectRevert(ST0xOrchestrator.BadRecipientSignature.selector);
+        orchestrator.mint(TOKEN, eoa, amount, _mintData(sig, nonce, ""));
+    }
+
+    function testMintZeroAmountReverts() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        vm.expectRevert(ST0xOrchestrator.ZeroAmount.selector);
+        orchestrator.mint(TOKEN, BOB, 0, _mintData("", bytes32(0), ""));
+    }
+
+    /// Nonce/digest replay: identical (token,to,amount,nonce) twice reverts.
+    function testMintReplayReverts() external {
+        (address eoa, uint256 pk) = makeAddrAndKey("recipient");
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        uint256 amount = 500;
+        bytes32 nonce = keccak256("n1");
+        _prepMintExact(TOKEN, amount, "");
+
+        bytes32 digest = orchestrator.mintAuthDigest(TOKEN, eoa, amount, nonce);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
+        bytes memory sig = abi.encodePacked(r, s, v);
+
+        orchestrator.mint(TOKEN, eoa, amount, _mintData(sig, nonce, ""));
+        assertTrue(orchestrator.mintAuthUsed(digest));
+
+        vm.expectRevert(abi.encodeWithSelector(ST0xOrchestrator.MintAuthReplayed.selector, digest));
+        orchestrator.mint(TOKEN, eoa, amount, _mintData(sig, nonce, ""));
+    }
+
+    /// A different amount with the SAME nonce is NOT blocked — replay is
+    /// per-digest and the digest binds amount too.
+    function testMintDifferentAmountSameNonceNotBlocked() external {
+        (address eoa, uint256 pk) = makeAddrAndKey("recipient");
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        bytes32 nonce = keccak256("n1");
+        _mockHighwater(TOKEN, 0);
+        _mockERC20(TOKEN);
+        vm.mockCall(TOKEN, abi.encodeWithSelector(ReceiptVault.mint.selector), abi.encode(uint256(0)));
+
+        // Mint amount 500.
+        bytes32 d1 = orchestrator.mintAuthDigest(TOKEN, eoa, 500, nonce);
+        (uint8 v1, bytes32 r1, bytes32 s1) = vm.sign(pk, d1);
+        orchestrator.mint(TOKEN, eoa, 500, _mintData(abi.encodePacked(r1, s1, v1), nonce, ""));
+
+        // Same nonce, amount 600 → different digest → succeeds.
+        bytes32 d2 = orchestrator.mintAuthDigest(TOKEN, eoa, 600, nonce);
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(pk, d2);
+        orchestrator.mint(TOKEN, eoa, 600, _mintData(abi.encodePacked(r2, s2, v2), nonce, ""));
+        assertTrue(orchestrator.mintAuthUsed(d2));
+    }
+
+    function testMintVaultGuardFailReverts() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        _makeGuardFailVault();
+        vm.expectRevert(
+            abi.encodeWithSelector(ST0xOrchestrator.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD))
+        );
+        orchestrator.mint(TOKEN, BOB, 1, _mintData("", bytes32(0), ""));
+    }
+
+    function testMintReceiptGuardFailReverts() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        _makeGuardFailReceipt();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ST0xOrchestrator.ReceiptLogicMismatch.selector, EXPECTED_RECEIPT_IMPL, address(0xDEAD)
+            )
+        );
+        orchestrator.mint(TOKEN, BOB, 1, _mintData("", bytes32(0), ""));
+    }
+
+    /// First mint of a token lazily seeds nextBurnReceiptId to highwater+1
+    /// and emits TokenSeeded.
+    function testMintFirstTouchSeedsToken() external {
+        (address eoa, uint256 pk) = makeAddrAndKey("recipient");
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        uint256 amount = 500;
+        bytes32 nonce = keccak256("seed");
+        _mockHighwater(TOKEN, 41);
+        _mockERC20(TOKEN);
+        vm.mockCall(TOKEN, abi.encodeWithSelector(ReceiptVault.mint.selector), abi.encode(amount));
+
+        bytes32 digest = orchestrator.mintAuthDigest(TOKEN, eoa, amount, nonce);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, digest);
+
+        assertFalse(orchestrator.tokenSeeded(TOKEN));
+        vm.expectEmit(true, false, false, true, address(orchestrator));
+        emit ST0xOrchestrator.TokenSeeded(TOKEN, 42);
+        orchestrator.mint(TOKEN, eoa, amount, _mintData(abi.encodePacked(r, s, v), nonce, ""));
+        assertTrue(orchestrator.tokenSeeded(TOKEN));
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 42);
+    }
+
+    /// Helper: mock vault.mint for the exact `amount` (for replay test where
+    /// two mints of the same amount fire).
+    function _prepMintExact(address token, uint256 amount, bytes memory info) internal {
+        _mockHighwater(token, 0);
+        _mockERC20(token);
+        vm.mockCall(
+            token,
+            abi.encodeWithSelector(ReceiptVault.mint.selector, amount, address(orchestrator), uint256(0), info),
+            abi.encode(amount)
+        );
+    }
+
+    // ------------------------------------------------------------------ //
+    //                               burn()                               //
+    // ------------------------------------------------------------------ //
+
+    /// Seed a token's pointer to `idx` via EMERGENCY setBurnIndex so walk
+    /// tests can lay receipts from a known base.
+    function _seedPointer(address token, uint256 idx) internal {
+        _grant(orchestrator.EMERGENCY_ROLE(), address(this));
+        orchestrator.setBurnIndex(token, idx);
+    }
+
+    function testBurnZeroAmountReverts() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        vm.expectRevert(ST0xOrchestrator.ZeroAmount.selector);
+        orchestrator.burn(TOKEN, BOB, 0, "");
+    }
+
+    function testBurnVaultGuardFailReverts() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        _makeGuardFailVault();
+        vm.expectRevert(
+            abi.encodeWithSelector(ST0xOrchestrator.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD))
+        );
+        orchestrator.burn(TOKEN, BOB, 1, "");
+    }
+
+    /// Single receipt exact drain: pointer advances by 1. from != orchestrator
+    /// → pulls via transferFrom.
+    function testBurnSingleReceiptExactDrain() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        _seedPointer(TOKEN, 0);
+        uint256 amount = 300;
+        _mockHighwater(TOKEN, 1);
+        _mockERC20(TOKEN);
+        _mockBalance(RECEIPT_ADDR, 0, amount);
+        _mockRedeem(TOKEN, amount, 0, "");
+
+        vm.expectCall(TOKEN, abi.encodeWithSelector(IERC20.transferFrom.selector, BOB, address(orchestrator), amount));
+        vm.expectCall(
+            TOKEN,
+            abi.encodeWithSelector(
+                ReceiptVault.redeem.selector, amount, address(orchestrator), address(orchestrator), uint256(0), ""
+            )
+        );
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit ST0xOrchestrator.Burned(address(this), TOKEN, BOB, amount, 0, 1);
+        orchestrator.burn(TOKEN, BOB, amount, "");
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 1);
+    }
+
+    /// from == orchestrator skips the transferFrom pull.
+    function testBurnFromSelfSkipsPull() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        _seedPointer(TOKEN, 0);
+        uint256 amount = 300;
+        _mockHighwater(TOKEN, 1);
+        _mockBalance(RECEIPT_ADDR, 0, amount);
+        _mockRedeem(TOKEN, amount, 0, "");
+        // No transferFrom mock; a call would revert. Assert none happens.
+        orchestrator.burn(TOKEN, address(orchestrator), amount, "");
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 1);
+    }
+
+    /// Zero-balance skip: id 0 empty, id 1 empty, id 2 covers.
+    function testBurnZeroBalanceSkip() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        _seedPointer(TOKEN, 0);
+        uint256 amount = 300;
+        _mockHighwater(TOKEN, 5);
+        _mockERC20(TOKEN);
+        _mockBalance(RECEIPT_ADDR, 0, 0);
+        _mockBalance(RECEIPT_ADDR, 1, 0);
+        _mockBalance(RECEIPT_ADDR, 2, amount);
+        _mockRedeem(TOKEN, amount, 2, "");
+
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit ST0xOrchestrator.Burned(address(this), TOKEN, BOB, amount, 0, 3);
+        orchestrator.burn(TOKEN, BOB, amount, "");
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 3);
+    }
+
+    /// Multi-receipt sequential: id0=100, id1=200 → drain both, pointer→2.
+    function testBurnMultiReceiptSequential() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        _seedPointer(TOKEN, 0);
+        _mockHighwater(TOKEN, 3);
+        _mockERC20(TOKEN);
+        _mockBalance(RECEIPT_ADDR, 0, 100);
+        _mockBalance(RECEIPT_ADDR, 1, 200);
+        _mockRedeem(TOKEN, 100, 0, "");
+        _mockRedeem(TOKEN, 200, 1, "");
+
+        vm.expectCall(
+            TOKEN,
+            abi.encodeWithSelector(
+                ReceiptVault.redeem.selector, uint256(100), address(orchestrator), address(orchestrator), uint256(0), ""
+            )
+        );
+        vm.expectCall(
+            TOKEN,
+            abi.encodeWithSelector(
+                ReceiptVault.redeem.selector, uint256(200), address(orchestrator), address(orchestrator), uint256(1), ""
+            )
+        );
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit ST0xOrchestrator.Burned(address(this), TOKEN, BOB, 300, 0, 2);
+        orchestrator.burn(TOKEN, BOB, 300, "");
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 2);
+    }
+
+    /// Partial drain parks the pointer AT the id (does not advance).
+    function testBurnPartialDrainParksPointer() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        _seedPointer(TOKEN, 0);
+        _mockHighwater(TOKEN, 2);
+        _mockERC20(TOKEN);
+        // id0 holds 500, burn only 200 → partial, take==200 != bal → park at 0.
+        _mockBalance(RECEIPT_ADDR, 0, 500);
+        _mockRedeem(TOKEN, 200, 0, "");
+
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit ST0xOrchestrator.Burned(address(this), TOKEN, BOB, 200, 0, 0);
+        orchestrator.burn(TOKEN, BOB, 200, "");
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 0, "pointer parked at partially-drained id");
+    }
+
+    /// Overshoot: pointer above cap → mint-on-demand for the whole burn.
+    /// Uses the stateful `_HighwaterFlipper` + `vm.mockFunction` mechanic.
+    function testBurnOvershootMintsOnDemand() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        // Seed pointer at 1, cap at 0 → idx(1) > cap(0) immediately.
+        _seedPointer(TOKEN, 1);
+        uint256 amount = 42;
+        _mockERC20(TOKEN);
+
+        _HighwaterFlipper flipper = new _HighwaterFlipper();
+        // Route highwaterId() + mint() on TOKEN through the flipper. The
+        // flipper delegatecall lands in TOKEN's storage, so seed slot 0 = 0.
+        vm.store(TOKEN, bytes32(uint256(0)), bytes32(uint256(0)));
+        vm.mockFunction(TOKEN, address(flipper), abi.encodePacked(OffchainAssetReceiptVault.highwaterId.selector));
+        vm.mockFunction(TOKEN, address(flipper), abi.encodePacked(ReceiptVault.mint.selector));
+
+        // After mint, cap becomes 1 and idx resets to 1; balance covers.
+        _mockBalance(RECEIPT_ADDR, 1, amount);
+        _mockRedeem(TOKEN, amount, 1, "");
+
+        vm.expectEmit(true, false, false, true, address(orchestrator));
+        emit ST0xOrchestrator.BurnShortfallMinted(TOKEN, amount, 1);
+        orchestrator.burn(TOKEN, BOB, amount, "");
+
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 2, "pointer advanced past drained shortfall id");
+        assertEq(uint256(vm.load(TOKEN, bytes32(uint256(0)))), 1, "mint bumped highwater to 1");
+        assertEq(uint256(vm.load(TOKEN, bytes32(uint256(1)))), amount, "mint covers full shortfall");
+    }
+
+    /// Mixed partial-then-shortfall: id1 covers 30, then idx(2)>cap(1) →
+    /// mint-on-demand of the remaining 20 → redeem 20 at new id 2.
+    function testBurnMixedPartialThenShortfall() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        _seedPointer(TOKEN, 0);
+        uint256 amount = 50;
+        _mockERC20(TOKEN);
+
+        _HighwaterFlipper flipper = new _HighwaterFlipper();
+        // Seed cap = 1 on TOKEN slot 0 (flipper's _highwater).
+        vm.store(TOKEN, bytes32(uint256(0)), bytes32(uint256(1)));
+        vm.mockFunction(TOKEN, address(flipper), abi.encodePacked(OffchainAssetReceiptVault.highwaterId.selector));
+        vm.mockFunction(TOKEN, address(flipper), abi.encodePacked(ReceiptVault.mint.selector));
+
+        _mockBalance(RECEIPT_ADDR, 0, 0); // skip
+        _mockBalance(RECEIPT_ADDR, 1, 30); // covers 30
+        _mockBalance(RECEIPT_ADDR, 2, 20); // fresh minted id covers 20
+        _mockRedeem(TOKEN, 30, 1, "");
+        _mockRedeem(TOKEN, 20, 2, "");
+
+        vm.expectEmit(true, false, false, true, address(orchestrator));
+        emit ST0xOrchestrator.BurnShortfallMinted(TOKEN, 20, 2);
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit ST0xOrchestrator.Burned(address(this), TOKEN, BOB, amount, 0, 3);
+        orchestrator.burn(TOKEN, BOB, amount, "");
+
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 3);
+        assertEq(uint256(vm.load(TOKEN, bytes32(uint256(1)))), 20, "on-demand mint covers only remaining 20");
+    }
+
+    /// Two tokens maintain independent pointers.
+    function testBurnPerTokenIndependentPointers() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        _grant(orchestrator.EMERGENCY_ROLE(), address(this));
+        orchestrator.setBurnIndex(TOKEN, 0);
+        orchestrator.setBurnIndex(TOKEN2, 10);
+
+        _mockHighwater(TOKEN, 1);
+        _mockERC20(TOKEN);
+        _mockBalance(RECEIPT_ADDR, 0, 100);
+        _mockRedeem(TOKEN, 100, 0, "");
+        orchestrator.burn(TOKEN, BOB, 100, "");
+
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 1);
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN2), 10, "token2 pointer untouched");
+    }
+
+    /// Fuzz single-receipt burn: pointer moves to startIdx+1.
+    function testFuzzBurnSingleReceipt(uint256 startIdx, uint256 amount) external {
+        startIdx = bound(startIdx, 0, type(uint256).max - 2);
+        amount = bound(amount, 1, type(uint256).max);
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        _seedPointer(TOKEN, startIdx);
+
+        _mockHighwater(TOKEN, startIdx + 1);
+        _mockERC20(TOKEN);
+        _mockBalance(RECEIPT_ADDR, startIdx, amount);
+        _mockRedeem(TOKEN, amount, startIdx, "");
+
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit ST0xOrchestrator.Burned(address(this), TOKEN, BOB, amount, startIdx, startIdx + 1);
+        orchestrator.burn(TOKEN, BOB, amount, "");
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), startIdx + 1);
+    }
+
+    // ------------------------------------------------------------------ //
+    //                          advanceBurnIndex()                        //
+    // ------------------------------------------------------------------ //
+
+    /// Permissionless: any caller can advance across zero-balance ids.
     function testFuzzAdvanceBurnIndexPermissionless(address caller) external {
-        vm.mockCall(VAULT_ADDR, abi.encodeWithSelector(OffchainAssetReceiptVault.highwaterId.selector), abi.encode(1));
-        vm.mockCall(
-            RECEIPT_ADDR,
-            abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), uint256(0)),
-            abi.encode(0)
-        );
-        vm.mockCall(
-            RECEIPT_ADDR,
-            abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), uint256(1)),
-            abi.encode(uint256(1))
-        );
+        _seedPointer(TOKEN, 0);
+        _mockHighwater(TOKEN, 5);
+        _mockBalance(RECEIPT_ADDR, 0, 0);
+        _mockBalance(RECEIPT_ADDR, 1, 0);
+        _mockBalance(RECEIPT_ADDR, 2, 100); // stop AT first non-zero.
 
-        vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit ST0xOrchestrator.BurnIndexAdvanced(caller, 0, 1);
         vm.prank(caller);
-        uint256 result = orchestrator.advanceBurnIndex(10);
-        assertEq(result, 1, "returns the advanced pointer");
-        assertEq(orchestrator.nextBurnReceiptId(), 1, "pointer persisted");
+        uint256 ret = orchestrator.advanceBurnIndex(TOKEN, 10);
+        assertEq(ret, 2, "stops at first non-zero balance");
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 2);
     }
 
-    /// The walk crosses zero-balance ids but inspects at most `maxIds` of
-    /// them, persisting partial progress and emitting
-    /// `BurnIndexAdvanced(caller, old, new)`.
-    function testAdvanceBurnIndexBoundedByMaxIds() external {
-        // highwater = 10, ids 0..3 all zero-balance (the walk never reads
-        // past its maxIds budget of 4).
-        vm.mockCall(VAULT_ADDR, abi.encodeWithSelector(OffchainAssetReceiptVault.highwaterId.selector), abi.encode(10));
-        for (uint256 i = 0; i < 4; i++) {
-            vm.mockCall(
-                RECEIPT_ADDR,
-                abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), i),
-                abi.encode(0)
-            );
-        }
-
+    /// First touch seeds the token.
+    function testAdvanceSeedsOnFirstTouch() external {
+        _mockHighwater(TOKEN, 7);
+        assertFalse(orchestrator.tokenSeeded(TOKEN));
         vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit ST0xOrchestrator.BurnIndexAdvanced(address(this), 0, 4);
-        assertEq(orchestrator.advanceBurnIndex(4), 4, "returns the advanced pointer");
-        assertEq(orchestrator.nextBurnReceiptId(), 4, "partial progress persisted");
+        emit ST0xOrchestrator.TokenSeeded(TOKEN, 8);
+        orchestrator.advanceBurnIndex(TOKEN, 5);
+        assertTrue(orchestrator.tokenSeeded(TOKEN));
+        // Seeded to 8 which is > cap(7), so no advance / no event beyond seed.
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 8);
     }
 
-    /// The walk stops at the first id with a non-zero balance — the pointer
-    /// lands ON that id (the next burn must consume it), not past it.
-    function testAdvanceBurnIndexStopsAtFirstNonZeroBalance() external {
-        vm.mockCall(VAULT_ADDR, abi.encodeWithSelector(OffchainAssetReceiptVault.highwaterId.selector), abi.encode(10));
-        vm.mockCall(
-            RECEIPT_ADDR,
-            abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), uint256(0)),
-            abi.encode(0)
-        );
-        vm.mockCall(
-            RECEIPT_ADDR,
-            abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), uint256(1)),
-            abi.encode(0)
-        );
-        vm.mockCall(
-            RECEIPT_ADDR,
-            abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), uint256(2)),
-            abi.encode(uint256(7))
-        );
-
-        vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit ST0xOrchestrator.BurnIndexAdvanced(address(this), 0, 2);
-        assertEq(orchestrator.advanceBurnIndex(10), 2, "returns the advanced pointer");
-        assertEq(orchestrator.nextBurnReceiptId(), 2, "pointer lands ON the first non-zero id");
-    }
-
-    /// With every id zero-balance the walk exits at `cap + 1` — beyond the
-    /// highwater no receipt can exist, so further inspection is pointless —
-    /// even with maxIds budget to spare.
-    function testAdvanceBurnIndexStopsAtCapPlusOne() external {
-        vm.mockCall(VAULT_ADDR, abi.encodeWithSelector(OffchainAssetReceiptVault.highwaterId.selector), abi.encode(2));
-        for (uint256 i = 0; i < 3; i++) {
-            vm.mockCall(
-                RECEIPT_ADDR,
-                abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), i),
-                abi.encode(0)
-            );
+    /// maxIds caps the walk.
+    function testAdvanceRespectsMaxIds() external {
+        _seedPointer(TOKEN, 0);
+        _mockHighwater(TOKEN, 10);
+        for (uint256 i = 0; i < 11; i++) {
+            _mockBalance(RECEIPT_ADDR, i, 0);
         }
-
-        vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit ST0xOrchestrator.BurnIndexAdvanced(address(this), 0, 3);
-        assertEq(orchestrator.advanceBurnIndex(100), 3, "returns cap + 1");
-        assertEq(orchestrator.nextBurnReceiptId(), 3, "pointer parked at cap + 1");
+        vm.expectEmit(true, true, false, true, address(orchestrator));
+        emit ST0xOrchestrator.BurnIndexAdvanced(address(this), TOKEN, 0, 3);
+        uint256 ret = orchestrator.advanceBurnIndex(TOKEN, 3);
+        assertEq(ret, 3, "advances exactly maxIds");
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 3);
     }
 
-    /// A pointer already parked beyond `cap + 1` (e.g. after an admin
-    /// `setBurnIndex`) is a no-op: the unchanged pointer is returned, no
-    /// state write, no event.
-    function testAdvanceBurnIndexParkedAboveCapNoOp() external {
-        vm.prank(OWNER);
-        orchestrator.setBurnIndex(5);
-        // highwater = 2 — the loop condition fails immediately, so no
-        // `balanceOf` mocks are needed (any read would revert unmocked).
-        vm.mockCall(VAULT_ADDR, abi.encodeWithSelector(OffchainAssetReceiptVault.highwaterId.selector), abi.encode(2));
-
-        vm.recordLogs();
-        assertEq(orchestrator.advanceBurnIndex(10), 5, "returns the unchanged pointer");
-        assertEq(orchestrator.nextBurnReceiptId(), 5, "pointer untouched");
-        assertEq(vm.getRecordedLogs().length, 0, "no event for a no-op");
+    /// Never passes highwaterId + 1: walk stops at cap even with room in maxIds.
+    function testAdvanceNeverPassesHighwater() external {
+        _seedPointer(TOKEN, 0);
+        _mockHighwater(TOKEN, 2);
+        _mockBalance(RECEIPT_ADDR, 0, 0);
+        _mockBalance(RECEIPT_ADDR, 1, 0);
+        _mockBalance(RECEIPT_ADDR, 2, 0);
+        uint256 ret = orchestrator.advanceBurnIndex(TOKEN, 100);
+        assertEq(ret, 3, "stops one past cap (idx <= cap loop bound)");
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 3);
     }
 
-    /// `maxIds == 0` is a no-op: nothing inspected, nothing persisted, no
-    /// event — the unchanged pointer is returned.
-    function testAdvanceBurnIndexZeroMaxIdsNoOp() external {
-        vm.mockCall(VAULT_ADDR, abi.encodeWithSelector(OffchainAssetReceiptVault.highwaterId.selector), abi.encode(5));
-
-        vm.recordLogs();
-        assertEq(orchestrator.advanceBurnIndex(0), 0, "returns the unchanged pointer");
-        assertEq(orchestrator.nextBurnReceiptId(), 0, "pointer untouched");
-        assertEq(vm.getRecordedLogs().length, 0, "no event for a no-op");
+    /// maxIds == 0 is a no-op (no event).
+    function testAdvanceMaxIdsZeroNoOp() external {
+        _seedPointer(TOKEN, 0);
+        _mockHighwater(TOKEN, 5);
+        uint256 ret = orchestrator.advanceBurnIndex(TOKEN, 0);
+        assertEq(ret, 0);
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 0);
     }
 
-    /// Fuzz maxIds over an all-zero-balance layout: the return value always
-    /// equals the stored pointer after the call, and both equal
-    /// `min(maxIds, cap + 1)`.
-    function testFuzzAdvanceBurnIndexReturnMatchesStorage(uint256 maxIds) external {
-        maxIds = bound(maxIds, 0, 10);
-        vm.mockCall(VAULT_ADDR, abi.encodeWithSelector(OffchainAssetReceiptVault.highwaterId.selector), abi.encode(5));
-        for (uint256 i = 0; i < 6; i++) {
-            vm.mockCall(
-                RECEIPT_ADDR,
-                abi.encodeWithSelector(IERC1155.balanceOf.selector, address(orchestrator), i),
-                abi.encode(0)
-            );
-        }
-
-        uint256 result = orchestrator.advanceBurnIndex(maxIds);
-        assertEq(result, orchestrator.nextBurnReceiptId(), "return value mirrors storage");
-        assertEq(result, maxIds < 6 ? maxIds : 6, "walk bounded by min(maxIds, cap + 1)");
+    /// Parked above cap → no-op, no event.
+    function testAdvanceParkedAboveCapNoOp() external {
+        _seedPointer(TOKEN, 10);
+        _mockHighwater(TOKEN, 5);
+        uint256 ret = orchestrator.advanceBurnIndex(TOKEN, 100);
+        assertEq(ret, 10, "pointer above cap stays put");
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 10);
     }
 
     // ------------------------------------------------------------------ //
-    //                          withdrawReceipt()                         //
+    //                            setBurnIndex()                          //
     // ------------------------------------------------------------------ //
 
-    function testFuzzWithdrawReceiptUnauthorized(address caller, uint256 id, uint256 amount, address to) external {
-        vm.assume(!orchestrator.hasRole(orchestrator.DEFAULT_ADMIN_ROLE(), caller));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.DEFAULT_ADMIN_ROLE()
-            )
-        );
-        vm.prank(caller);
-        orchestrator.withdrawReceipt(id, amount, to);
+    function testFuzzSetBurnIndex(uint256 first, uint256 second) external {
+        _grant(orchestrator.EMERGENCY_ROLE(), address(this));
+        vm.expectEmit(true, false, false, true, address(orchestrator));
+        emit ST0xOrchestrator.BurnIndexSet(TOKEN, 0, first);
+        orchestrator.setBurnIndex(TOKEN, first);
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), first);
+        assertTrue(orchestrator.tokenSeeded(TOKEN));
+
+        vm.expectEmit(true, false, false, true, address(orchestrator));
+        emit ST0xOrchestrator.BurnIndexSet(TOKEN, first, second);
+        orchestrator.setBurnIndex(TOKEN, second);
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), second);
     }
 
-    /// Admin call routes to `receipt.safeTransferFrom(this, to, id, amount, "")`
-    /// and emits `ReceiptsWithdrawn(to, id, amount)`.
+    // ------------------------------------------------------------------ //
+    //                       Emergency sweeps                             //
+    // ------------------------------------------------------------------ //
+
     function testFuzzWithdrawReceipt(uint256 id, uint256 amount, address to) external {
-        vm.mockCall(
-            RECEIPT_ADDR,
-            abi.encodeWithSelector(IERC1155.safeTransferFrom.selector, address(orchestrator), to, id, amount, ""),
-            abi.encode()
-        );
-
+        vm.assume(to != address(0));
+        _grant(orchestrator.EMERGENCY_ROLE(), address(this));
+        vm.mockCall(RECEIPT_ADDR, abi.encodeWithSelector(IERC1155.safeTransferFrom.selector), abi.encode());
         vm.expectCall(
             RECEIPT_ADDR,
             abi.encodeWithSelector(IERC1155.safeTransferFrom.selector, address(orchestrator), to, id, amount, "")
         );
-        vm.expectEmit(true, true, false, true, address(orchestrator));
-        emit ST0xOrchestrator.ReceiptsWithdrawn(to, id, amount);
-        vm.prank(OWNER);
-        orchestrator.withdrawReceipt(id, amount, to);
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit ST0xOrchestrator.ReceiptsWithdrawn(TOKEN, to, id, amount);
+        orchestrator.withdrawReceipt(TOKEN, id, amount, to);
     }
 
-    // ------------------------------------------------------------------ //
-    //                          withdrawShares()                          //
-    // ------------------------------------------------------------------ //
-
-    function testFuzzWithdrawSharesUnauthorized(address caller, uint256 amount, address to) external {
-        vm.assume(!orchestrator.hasRole(orchestrator.DEFAULT_ADMIN_ROLE(), caller));
+    function testFuzzWithdrawReceiptUnauthorized(address caller) external {
+        vm.assume(!orchestrator.hasRole(orchestrator.EMERGENCY_ROLE(), caller));
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.DEFAULT_ADMIN_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.EMERGENCY_ROLE()
             )
         );
         vm.prank(caller);
-        orchestrator.withdrawShares(amount, to);
+        orchestrator.withdrawReceipt(TOKEN, 0, 1, BOB);
     }
 
     function testFuzzWithdrawShares(uint256 amount, address to) external {
-        vm.mockCall(VAULT_ADDR, abi.encodeWithSelector(IERC20.transfer.selector, to, amount), abi.encode(true));
+        vm.assume(to != address(0));
+        _grant(orchestrator.EMERGENCY_ROLE(), address(this));
+        vm.mockCall(TOKEN, abi.encodeWithSelector(IERC20.transfer.selector), abi.encode(true));
+        vm.expectCall(TOKEN, abi.encodeWithSelector(IERC20.transfer.selector, to, amount));
+        vm.expectEmit(true, true, false, true, address(orchestrator));
+        emit ST0xOrchestrator.SharesWithdrawn(TOKEN, to, amount);
+        orchestrator.withdrawShares(TOKEN, amount, to);
+    }
 
-        vm.expectCall(VAULT_ADDR, abi.encodeWithSelector(IERC20.transfer.selector, to, amount));
-        vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit ST0xOrchestrator.SharesWithdrawn(to, amount);
-        vm.prank(OWNER);
-        orchestrator.withdrawShares(amount, to);
+    function testFuzzSweepERC1155(address erc1155, uint256 id, uint256 amount, address to) external {
+        vm.assume(to != address(0));
+        vm.assume(erc1155.code.length == 0);
+        _grant(orchestrator.EMERGENCY_ROLE(), address(this));
+        vm.mockCall(erc1155, abi.encodeWithSelector(IERC1155.safeTransferFrom.selector), abi.encode());
+        vm.expectCall(
+            erc1155,
+            abi.encodeWithSelector(IERC1155.safeTransferFrom.selector, address(orchestrator), to, id, amount, "")
+        );
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit ST0xOrchestrator.ForeignERC1155Swept(erc1155, to, id, amount);
+        orchestrator.sweepERC1155(erc1155, id, amount, to);
+    }
+
+    /// Malformed `mint` `data` reverts cleanly on the abi.decode.
+    function testMintMalformedDataReverts() external {
+        _makeGuardPass();
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        vm.expectRevert();
+        orchestrator.mint(TOKEN, BOB, 1, hex"01");
+    }
+
+    function testFuzzSweepERC1155Unauthorized(address caller) external {
+        vm.assume(!orchestrator.hasRole(orchestrator.EMERGENCY_ROLE(), caller));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.EMERGENCY_ROLE()
+            )
+        );
+        vm.prank(caller);
+        orchestrator.sweepERC1155(RECEIPT_ADDR, 0, 1, BOB);
     }
 
     // ------------------------------------------------------------------ //
-    //                    ERC-1155 receiver / ERC-165                     //
+    //                       ERC-1155 receiver / 165                      //
     // ------------------------------------------------------------------ //
 
-    /// `onERC1155Received` returns the correct selector when called by the
-    /// configured receipt token; any inputs are accepted (fuzzed).
-    function testFuzzOnERC1155ReceivedFromReceipt(
-        address operator,
-        address from,
-        uint256 id,
-        uint256 value,
-        bytes calldata data
-    ) external {
-        vm.prank(RECEIPT_ADDR);
-        bytes4 sel = orchestrator.onERC1155Received(operator, from, id, value, data);
-        assertEq(sel, IERC1155Receiver.onERC1155Received.selector);
+    function testFuzzOnERC1155Received(address operator, address from, uint256 id, uint256 value, bytes calldata data)
+        external
+        view
+    {
+        assertEq(
+            orchestrator.onERC1155Received(operator, from, id, value, data), IERC1155Receiver.onERC1155Received.selector
+        );
     }
 
-    /// `onERC1155BatchReceived` returns the correct selector from the receipt.
-    function testFuzzOnERC1155BatchReceivedFromReceipt(
+    function testFuzzOnERC1155BatchReceived(
         address operator,
         address from,
         uint256[] calldata ids,
         uint256[] calldata values,
         bytes calldata data
-    ) external {
-        vm.prank(RECEIPT_ADDR);
-        bytes4 sel = orchestrator.onERC1155BatchReceived(operator, from, ids, values, data);
-        assertEq(sel, IERC1155Receiver.onERC1155BatchReceived.selector);
+    ) external view {
+        assertEq(
+            orchestrator.onERC1155BatchReceived(operator, from, ids, values, data),
+            IERC1155Receiver.onERC1155BatchReceived.selector
+        );
     }
 
-    /// Non-receipt callers are rejected with `UnrecognisedERC1155Source`.
-    function testFuzzOnERC1155ReceivedRejectsOthers(
-        address caller,
-        address operator,
-        address from,
-        uint256 id,
-        uint256 value,
-        bytes calldata data
-    ) external {
-        vm.assume(caller != RECEIPT_ADDR);
-        vm.prank(caller);
-        vm.expectRevert(abi.encodeWithSelector(ST0xOrchestrator.UnrecognisedERC1155Source.selector, caller));
-        orchestrator.onERC1155Received(operator, from, id, value, data);
-    }
-
-    function testFuzzOnERC1155BatchReceivedRejectsOthers(
-        address caller,
-        address operator,
-        address from,
-        uint256[] calldata ids,
-        uint256[] calldata values,
-        bytes calldata data
-    ) external {
-        vm.assume(caller != RECEIPT_ADDR);
-        vm.prank(caller);
-        vm.expectRevert(abi.encodeWithSelector(ST0xOrchestrator.UnrecognisedERC1155Source.selector, caller));
-        orchestrator.onERC1155BatchReceived(operator, from, ids, values, data);
-    }
-
-    /// `supportsInterface` returns true for the three canonical interfaces.
-    function testSupportsInterfaceKnown() external view {
+    function testSupportsInterface() external view {
         assertTrue(orchestrator.supportsInterface(type(IERC1155Receiver).interfaceId));
         assertTrue(orchestrator.supportsInterface(type(IERC165).interfaceId));
         assertTrue(orchestrator.supportsInterface(type(IAccessControl).interfaceId));
     }
 
-    /// Fuzz other selectors: only interfaceIds that match the three canonical
-    /// ones must return true. Everything else is false.
-    function testFuzzSupportsInterfaceUnknown(bytes4 selector) external view {
-        vm.assume(selector != type(IERC1155Receiver).interfaceId);
-        vm.assume(selector != type(IERC165).interfaceId);
-        vm.assume(selector != type(IAccessControl).interfaceId);
-        assertFalse(orchestrator.supportsInterface(selector));
+    function testFuzzSupportsInterfaceFalse(bytes4 interfaceId) external view {
+        vm.assume(interfaceId != type(IERC1155Receiver).interfaceId);
+        vm.assume(interfaceId != type(IERC165).interfaceId);
+        vm.assume(interfaceId != type(IAccessControl).interfaceId);
+        vm.assume(interfaceId != 0xffffffff);
+        assertFalse(orchestrator.supportsInterface(interfaceId));
     }
 
     // ------------------------------------------------------------------ //
-    //                          receive() / ETH                           //
+    //                               receive()                            //
     // ------------------------------------------------------------------ //
 
-    /// The orchestrator accepts arbitrary ETH via `receive()`.
     function testReceiveEth() external {
         vm.deal(address(this), 1 ether);
-        (bool ok,) = address(orchestrator).call{value: 1 ether}("");
-        assertTrue(ok, "receive should accept ETH");
+        (bool ok,) = payable(address(orchestrator)).call{value: 1 ether}("");
+        assertTrue(ok, "orchestrator must accept ETH");
         assertEq(address(orchestrator).balance, 1 ether);
     }
 
-    /// A zero-value send — matches `Address.sendValue(this, 0)` from the
-    /// vault's `mint` refund path — must also succeed.
-    function testReceiveZeroEth() external {
-        (bool ok,) = address(orchestrator).call{value: 0}("");
-        assertTrue(ok, "receive should accept zero-value ETH");
-    }
-
-    /// Fuzz any callable value.
-    function testFuzzReceiveEth(uint96 amount) external {
-        vm.deal(address(this), amount);
-        (bool ok,) = address(orchestrator).call{value: amount}("");
-        assertTrue(ok);
-    }
-
     // ------------------------------------------------------------------ //
-    //                     Role admin & role plumbing                     //
+    //                       vaultLogicIsExpected view                    //
     // ------------------------------------------------------------------ //
 
-    /// `MINT_BURN_ROLE`'s admin is `DEFAULT_ADMIN_ROLE`. The admin can grant
-    /// and revoke it; a non-admin cannot.
-    function testRoleAdminMintBurn() external view {
-        assertEq(orchestrator.getRoleAdmin(orchestrator.MINT_BURN_ROLE()), orchestrator.DEFAULT_ADMIN_ROLE());
+    function testVaultLogicIsExpectedTrue() external view {
+        assertTrue(orchestrator.vaultLogicIsExpected());
     }
 
-    /// A non-admin cannot grant `MINT_BURN_ROLE`.
-    function testFuzzGrantMintBurnFromNonAdminReverts(address stranger, address grantee) external {
-        bytes32 adminRole = orchestrator.DEFAULT_ADMIN_ROLE();
-        bytes32 mintBurnRole = orchestrator.MINT_BURN_ROLE();
-        vm.assume(!orchestrator.hasRole(adminRole, stranger));
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, stranger, adminRole)
-        );
-        vm.prank(stranger);
-        orchestrator.grantRole(mintBurnRole, grantee);
-    }
-
-    /// The admin can grant and revoke `MINT_BURN_ROLE`.
-    function testFuzzAdminGrantsAndRevokesMintBurn(address grantee) external {
-        assertFalse(orchestrator.hasRole(orchestrator.MINT_BURN_ROLE(), grantee));
-        vm.startPrank(OWNER);
-        orchestrator.grantRole(orchestrator.MINT_BURN_ROLE(), grantee);
-        assertTrue(orchestrator.hasRole(orchestrator.MINT_BURN_ROLE(), grantee));
-        orchestrator.revokeRole(orchestrator.MINT_BURN_ROLE(), grantee);
-        assertFalse(orchestrator.hasRole(orchestrator.MINT_BURN_ROLE(), grantee));
-        vm.stopPrank();
+    function testVaultLogicIsExpectedFalse() external {
+        _makeGuardFailVault();
+        assertFalse(orchestrator.vaultLogicIsExpected());
     }
 }
 
-// ------------------------------------------------------------------ //
-//                    Stateful mock helpers                           //
-// ------------------------------------------------------------------ //
-
-/// @dev Stateful stand-in used by `testBurnOvershootMintsOnDemand`.
-/// Provides a stubbed `highwaterId` that can be mutated between calls, and a
-/// `mint` that bumps the highwater by 1 (mirroring the real vault, which
-/// mints a fresh receipt id and advances the highwater).
+/// @dev Stateful vault mock for the mint-on-demand burn walk. Routed onto the
+/// token address via `vm.mockFunction`, so its `highwaterId()` / `mint(...)`
+/// delegatecalls land in the TOKEN's storage (slot 0 = highwater, slot 1 =
+/// last mint shares). See `testBurnOvershootMintsOnDemand`.
 contract _HighwaterFlipper {
     uint256 internal _highwater;
-    /// Shares argument of the last delegated `mint` call. Slot 1 — tests
-    /// read it back with `vm.load(VAULT_ADDR, bytes32(uint256(1)))` because
-    /// `vm.mockFunction` delegatecalls, landing the write in VAULT_ADDR's
-    /// storage rather than the flipper's own.
     uint256 internal _lastMintShares;
 
-    function setHighwater(uint256 v) external {
-        _highwater = v;
-    }
-
-    function getHighwater() external view returns (uint256) {
-        return _highwater;
-    }
-
-    /// Delegated `highwaterId()` — matches the vault's selector.
     function highwaterId() external view returns (uint256) {
         return _highwater;
     }
 
-    /// Delegated `mint(uint256,address,uint256,bytes)` — bumps the flipper's
-    /// internal highwater to simulate a fresh receipt id and records the
-    /// shares argument so tests can assert the exact on-demand mint amount.
-    /// Payable to match the vault's signature exactly (`ReceiptVault.mint`
-    /// is payable).
-    function mint(
-        uint256 shares,
-        address,
-        /*receiver*/
-        uint256,
-        /*mintMinShareRatio*/
-        bytes memory /*data*/
-    )
-        external
-        payable
-        returns (uint256)
-    {
+    function mint(uint256 shares, address, uint256, bytes memory) external payable returns (uint256) {
         _highwater += 1;
         _lastMintShares = shares;
         return shares;
+    }
+}
+
+/// @dev EIP-1271 recipient mock. Returns the magic value when `accept`.
+contract Mock1271 is IERC1271 {
+    bool internal immutable ACCEPT;
+
+    constructor(bool accept) {
+        ACCEPT = accept;
+    }
+
+    function isValidSignature(bytes32, bytes memory) external view returns (bytes4) {
+        return ACCEPT ? IERC1271.isValidSignature.selector : bytes4(0xffffffff);
+    }
+}
+
+/// @dev Callback recipient mock. Returns the `authorizeMint` selector when
+/// `accept`, else a wrong value.
+contract MockRecipient is IMintRecipient {
+    bool internal immutable ACCEPT;
+
+    constructor(bool accept) {
+        ACCEPT = accept;
+    }
+
+    function authorizeMint(bytes32) external view returns (bytes4) {
+        return ACCEPT ? IMintRecipient.authorizeMint.selector : bytes4(0xdeadbeef);
     }
 }
