@@ -129,13 +129,9 @@ library LibSafeOps {
     function encodeMultiSend(SafeTx[] memory txs) internal pure returns (bytes memory) {
         bytes memory payload = new bytes(0);
         for (uint256 i = 0; i < txs.length; i++) {
-            // MultiSendCallOnly performs only CALLs, so a non-CALL op cannot be
-            // batched. Reject it here (not just at JSON-emit time) so the
-            // mistake surfaces before owners sign, rather than reverting at
-            // execution after signatures are collected.
-            if (txs[i].operation != 0) {
-                revert TxBuilderJsonUnsupportedOperation(i, txs[i].operation);
-            }
+            // Reject a non-CALL op before owners sign, so the mistake surfaces
+            // here rather than reverting in MultiSendCallOnly at execution.
+            _requireCallOperation(i, txs[i].operation);
             payload = bytes.concat(
                 payload, abi.encodePacked(txs[i].operation, txs[i].to, txs[i].value, txs[i].data.length, txs[i].data)
             );
@@ -244,11 +240,7 @@ library LibSafeOps {
         if (txs.length == 0) revert TxBuilderJsonNoTransactions();
         string memory transactions = "[";
         for (uint256 i = 0; i < txs.length; i++) {
-            // The Tx Builder schema + MultiSendCallOnly are CALL-only, so a
-            // non-CALL op cannot be represented in the artifact.
-            if (txs[i].operation != 0) {
-                revert TxBuilderJsonUnsupportedOperation(i, txs[i].operation);
-            }
+            _requireCallOperation(i, txs[i].operation);
             string memory txJson = string.concat(
                 "{",
                 _jsonField("to", _quote(VM.toString(txs[i].to))),
@@ -609,6 +601,20 @@ library LibSafeOps {
         for (uint256 i = 0; i < count; i++) {
             packed =
                 bytes.concat(packed, bytes32(uint256(uint160(sortedSigners[i]))), bytes32(uint256(0)), bytes1(0x01));
+        }
+    }
+
+    /// @notice Revert `TxBuilderJsonUnsupportedOperation` unless `operation`
+    /// is CALL (`0`). The Tx Builder JSON schema has no per-tx operation field
+    /// and `MultiSendCallOnly` performs only CALLs, so a non-CALL op cannot be
+    /// represented in either the emitted artifact or the batched multiSend
+    /// calldata. Shared by `emitTxBuilderJson` and `encodeMultiSend` so the two
+    /// paths cannot drift.
+    /// @param index The transaction index (surfaced in the revert).
+    /// @param operation The operation to check.
+    function _requireCallOperation(uint256 index, uint8 operation) private pure {
+        if (operation != 0) {
+            revert TxBuilderJsonUnsupportedOperation(index, operation);
         }
     }
 
