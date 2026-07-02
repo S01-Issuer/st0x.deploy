@@ -3,12 +3,18 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {LibSafeOps, SafeTx, TxBuilderJsonNoTransactions} from "../../../src/lib/LibSafeOps.sol";
+import {
+    LibSafeOps,
+    SafeTx,
+    TxBuilderJsonNoTransactions,
+    TxBuilderJsonUnsupportedOperation
+} from "../../../src/lib/LibSafeOps.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {IGnosisSafe} from "../../../src/interface/IGnosisSafe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {CallerRecorder} from "./CallerRecorder.sol";
 import {ParseHarness} from "./ParseHarness.sol";
+import {EmitHarness} from "./EmitHarness.sol";
 import {NPlus1Harness} from "./NPlus1Harness.sol";
 import {PackHarness} from "./PackHarness.sol";
 
@@ -161,6 +167,152 @@ contract LibSafeOpsTest is Test {
         ParseHarness harness = new ParseHarness();
         vm.expectRevert(TxBuilderJsonNoTransactions.selector);
         harness.callParse(path);
+    }
+
+    /// @notice `emitTxBuilderJson` reverts on a non-CALL `operation`. The Tx
+    /// Builder schema has no `operation` field and `MultiSendCallOnly` is
+    /// CALL-only, so a non-CALL operation cannot be represented. The revert
+    /// reports the offending index: a bundle whose first tx is a CALL and
+    /// second is a DELEGATECALL trips on index 1.
+    function testEmitRejectsNonCallOperation() external {
+        SafeTx[] memory txs = new SafeTx[](2);
+        txs[0] = SafeTx({to: address(0xBEEF), value: 0, data: hex"deadbeef", operation: 0});
+        txs[1] = SafeTx({to: address(0xCAFE), value: 0, data: hex"feed", operation: 1});
+
+        EmitHarness harness = new EmitHarness();
+        vm.expectRevert(abi.encodeWithSelector(TxBuilderJsonUnsupportedOperation.selector, uint256(1), uint8(1)));
+        harness.callEmit(address(0x5AFE), 8453, "op-guard", txs);
+    }
+
+    /// @notice `encodeMultiSend` reverts on a non-CALL `operation`, so a
+    /// DELEGATECALL inner tx cannot be batched and signed only to revert in
+    /// `MultiSendCallOnly` at execution. The revert reports the offending
+    /// index: a bundle whose first tx is a CALL and second is a DELEGATECALL
+    /// trips on index 1.
+    function testEncodeMultiSendRejectsNonCallOperation() external {
+        SafeTx[] memory txs = new SafeTx[](2);
+        txs[0] = SafeTx({to: address(0xBEEF), value: 0, data: hex"deadbeef", operation: 0});
+        txs[1] = SafeTx({to: address(0xCAFE), value: 0, data: hex"feed", operation: 1});
+
+        EmitHarness harness = new EmitHarness();
+        vm.expectRevert(abi.encodeWithSelector(TxBuilderJsonUnsupportedOperation.selector, uint256(1), uint8(1)));
+        harness.callEncodeMultiSend(txs);
+    }
+
+    /// @notice `emitTxBuilderJson` reverts `TxBuilderJsonNoTransactions` on an
+    /// empty bundle, enforcing on the write side the non-empty invariant the
+    /// read side (`parseTxBuilderJson`) already asserts.
+    function testEmitRejectsEmptyBundle() external {
+        SafeTx[] memory txs = new SafeTx[](0);
+        EmitHarness harness = new EmitHarness();
+        vm.expectRevert(TxBuilderJsonNoTransactions.selector);
+        harness.callEmit(address(0x5AFE), 8453, "empty", txs);
+    }
+
+    /// @notice `parseTxBuilderJson` reverts when a decimal field (here
+    /// `chainId`) is an empty string rather than silently coercing it to 0.
+    function testParseRejectsEmptyDecimalField() external {
+        string memory json = string.concat(
+            '{"version":"1.0","chainId":"","createdAt":0,"meta":{"name":"x","txBuilderVersion":"1.16.5"},',
+            '"transactions":[{"to":"0x0000000000000000000000000000000000000001","value":"0","data":"0x"}]}'
+        );
+        string memory path = string.concat(vm.projectRoot(), "/out/test-empty-decimal.json");
+        vm.writeFile(path, json);
+
+        ParseHarness harness = new ParseHarness();
+        vm.expectRevert(bytes("LibSafeOps: empty decimal string"));
+        harness.callParse(path);
+    }
+
+    /// @notice A three-transaction bundle spanning fidelity edge cases: empty
+    /// calldata with zero value, a large value with calldata, and calldata
+    /// with a leading-zero byte. Each transaction targets a distinct address.
+    function _multiTxBundle() internal pure returns (SafeTx[] memory txs) {
+        txs = new SafeTx[](3);
+        txs[0] = SafeTx({to: address(uint160(0xA11CE)), value: 0, data: hex"", operation: 0});
+        txs[1] = SafeTx({to: address(uint160(0xB0B)), value: 1e18, data: hex"deadbeef", operation: 0});
+        txs[2] = SafeTx({to: address(uint160(0xCA11)), value: 7, data: hex"00ff00", operation: 0});
+    }
+
+    /// @notice A multi-transaction bundle round-trips through emit + parse with
+    /// every transaction's `to`, `value` and `data` preserved in order,
+    /// including empty calldata, a large value, and a leading-zero calldata
+    /// byte. Signers ingest the emitted JSON directly, so per-transaction
+    /// fidelity across the whole array is load-bearing.
+    function testEmitParseMultiTxRoundtrip() external {
+        SafeTx[] memory txs = _multiTxBundle();
+        string memory json = LibSafeOps.emitTxBuilderJson(address(0x5AFE), 8453, "multi-roundtrip", txs);
+        string memory path = string.concat(vm.projectRoot(), "/out/test-multi-tx-builder.json");
+        vm.writeFile(path, json);
+
+        (uint256 chainId, address safeAddr, SafeTx[] memory parsed) = LibSafeOps.parseTxBuilderJson(path);
+        assertEq(chainId, 8453, "chainId round-trips");
+        assertEq(safeAddr, txs[0].to, "parsed Safe is the first tx target");
+        assertEq(parsed.length, txs.length, "tx count round-trips");
+        for (uint256 i = 0; i < txs.length; i++) {
+            assertEq(parsed[i].to, txs[i].to, "to round-trips in order");
+            assertEq(parsed[i].value, txs[i].value, "value round-trips");
+            assertEq(parsed[i].data, txs[i].data, "data round-trips");
+        }
+    }
+
+    /// @notice The emitted JSON for a multi-transaction bundle contains exactly
+    /// one entry per transaction, in order, with no trailing entry.
+    function testEmittedJsonShapeMultiTx() external view {
+        SafeTx[] memory txs = _multiTxBundle();
+        string memory json = LibSafeOps.emitTxBuilderJson(address(0x5AFE), 8453, "multi-shape", txs);
+
+        assertTrue(vm.keyExistsJson(json, ".transactions[2].to"), "third transaction present");
+        assertFalse(vm.keyExistsJson(json, ".transactions[3].to"), "no fourth transaction");
+        assertEq(vm.parseJsonAddress(json, ".transactions[1].to"), txs[1].to, "middle transaction target serialized");
+    }
+
+    /// @notice Approve `hash` from the first `threshold` owners and return the
+    /// ascending packed approved-hash signature blob Safe expects.
+    function _thresholdApprovedSigs(bytes32 hash) internal returns (bytes memory) {
+        uint256 threshold = safe.getThreshold();
+        address[] memory owners = safe.getOwners();
+        address[] memory approvers = new address[](threshold);
+        for (uint256 i = 0; i < threshold; i++) {
+            approvers[i] = owners[i];
+            vm.prank(owners[i]);
+            safe.approveHash(hash);
+        }
+        return LibSafeOps.packApprovedHashSignatures(LibSafeOps.sortAddressesAscending(approvers), threshold);
+    }
+
+    /// @notice `computeMultiSendSafeTxHash` yields the hash the live Safe
+    /// accepts to execute a batch as one `MultiSendCallOnly` delegatecall:
+    /// signing it authorizes both inner calls, both run with the Safe as
+    /// caller, and exactly one nonce is consumed.
+    function testMultiSendBatchExecutesAtOneNonceViaComputedHash() external {
+        selectBaseFork();
+        CallerRecorder first = new CallerRecorder();
+        CallerRecorder second = new CallerRecorder();
+        SafeTx[] memory txs = new SafeTx[](2);
+        txs[0] = SafeTx({to: address(first), value: 0, data: abi.encodeCall(CallerRecorder.ping, ()), operation: 0});
+        txs[1] = SafeTx({to: address(second), value: 0, data: abi.encodeCall(CallerRecorder.ping, ()), operation: 0});
+
+        uint256 nonce = safe.nonce();
+        bytes32 hash = LibSafeOps.computeMultiSendSafeTxHash(safe, txs, nonce);
+        bytes memory sigs = _thresholdApprovedSigs(hash);
+
+        bool ok = safe.execTransaction(
+            LibSafeOps.MULTISEND_CALL_ONLY_1_4_1,
+            0,
+            LibSafeOps.encodeMultiSend(txs),
+            1,
+            0,
+            0,
+            0,
+            address(0),
+            payable(address(0)),
+            sigs
+        );
+        assertTrue(ok, "multiSend batch executed");
+        assertEq(safe.nonce(), nonce + 1, "batch consumed exactly one nonce");
+        assertEq(first.lastCaller(), address(safe), "first inner call ran as the Safe");
+        assertEq(second.lastCaller(), address(safe), "second inner call ran as the Safe");
     }
 
     /// @notice `simulateNPlus1Reversal` round-trips the Safe through a
