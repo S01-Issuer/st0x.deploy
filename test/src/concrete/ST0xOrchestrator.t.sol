@@ -19,6 +19,8 @@ import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "@openzeppelin-contracts-5.6.1/proxy/beacon/BeaconProxy.sol";
 import {IERC1271} from "@openzeppelin-contracts-5.6.1/interfaces/IERC1271.sol";
+import {Mock1271} from "./Mock1271.sol";
+import {MockMintRecipient} from "./MockMintRecipient.sol";
 import {OffchainAssetReceiptVault} from "rain-vats-0.1.6/src/concrete/vault/OffchainAssetReceiptVault.sol";
 import {ReceiptVault} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
 import {IReceiptV3} from "rain-vats-0.1.6/src/interface/IReceiptV3.sol";
@@ -446,7 +448,7 @@ contract ST0xOrchestratorTest is Test {
         bytes32 nonce = keccak256("n3");
         bytes memory info = hex"abcd";
 
-        MockRecipient recipient = new MockRecipient(true);
+        MockMintRecipient recipient = new MockMintRecipient(true);
         _prepMintExact(TOKEN, amount, info);
 
         bytes32 digest = _digest(TOKEN, address(recipient), amount, nonce);
@@ -459,7 +461,7 @@ contract ST0xOrchestratorTest is Test {
 
     function testMintCallbackWrongValueReverts() external {
         _grant(orchestrator.MINT_ROLE(), address(this));
-        MockRecipient recipient = new MockRecipient(false);
+        MockMintRecipient recipient = new MockMintRecipient(false);
         _prepMint(TOKEN, "");
         vm.expectRevert(
             abi.encodeWithSelector(IST0xOrchestratorV1.RecipientCallbackRejected.selector, address(recipient))
@@ -1057,32 +1059,5 @@ contract ST0xOrchestratorTest is Test {
     function testVaultLogicIsExpectedFalse() external {
         _makeGuardFailVault();
         assertFalse(orchestrator.vaultLogicIsExpected());
-    }
-}
-
-/// @dev EIP-1271 recipient mock. Returns the magic value when `accept`.
-contract Mock1271 is IERC1271 {
-    bool internal immutable ACCEPT;
-
-    constructor(bool accept) {
-        ACCEPT = accept;
-    }
-
-    function isValidSignature(bytes32, bytes memory) external view returns (bytes4) {
-        return ACCEPT ? IERC1271.isValidSignature.selector : bytes4(0xffffffff);
-    }
-}
-
-/// @dev Callback recipient mock. Returns the `authorizeMint` selector when
-/// `accept`, else a wrong value.
-contract MockRecipient is IMintRecipient {
-    bool internal immutable ACCEPT;
-
-    constructor(bool accept) {
-        ACCEPT = accept;
-    }
-
-    function authorizeMint(Digest) external view returns (bytes4) {
-        return ACCEPT ? IMintRecipient.authorizeMint.selector : bytes4(0xdeadbeef);
     }
 }

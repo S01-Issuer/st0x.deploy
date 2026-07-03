@@ -191,11 +191,3 @@ abstract contract OrchestratorIntegrationTest is Test {
         vm.warp(effectiveTime + 500);
     }
 }
-
-/// @dev Contract recipient that authorises any mint via the `IMintRecipient`
-/// callback (accepts unconditionally). Holds the shares it is minted.
-contract AcceptingMintRecipient is IMintRecipient {
-    function authorizeMint(Digest) external pure returns (bytes4) {
-        return IMintRecipient.authorizeMint.selector;
-    }
-}

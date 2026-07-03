@@ -14,14 +14,10 @@ import {
     ZeroOrchestratorImplementation,
     ZeroOwner
 } from "../../../../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
+import {UpgradedImpl} from "./UpgradedImpl.sol";
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IST0xVaultBeaconSet} from "../../../../src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployV4} from "../../../../src/lib/LibProdDeployV4.sol";
-
-/// @dev Trivial stub impl for beacon-upgrade observation.
-contract UpgradedImpl {
-    uint256 public constant TAG = 0xBEEF;
-}
 
 contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     // ERC-1967 beacon slot.

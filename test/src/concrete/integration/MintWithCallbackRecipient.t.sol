@@ -4,7 +4,8 @@ pragma solidity =0.8.25;
 
 import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";
 import {Digest} from "../../../../src/interface/IST0xOrchestratorV1.sol";
-import {OrchestratorIntegrationTest, AcceptingMintRecipient} from "./OrchestratorIntegrationTest.sol";
+import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
+import {AcceptingMintRecipient} from "./AcceptingMintRecipient.sol";
 
 /// @title MintWithCallbackRecipientTest
 /// @notice Workflow: a contract recipient with no key authorises via the
