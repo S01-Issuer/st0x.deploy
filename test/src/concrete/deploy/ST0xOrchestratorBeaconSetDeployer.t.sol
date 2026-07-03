@@ -15,6 +15,8 @@ import {
     ZeroOwner
 } from "../../../../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
+import {IST0xVaultBeaconSet} from "../../../../src/interface/IST0xVaultBeaconSet.sol";
+import {LibProdDeployV4} from "../../../../src/lib/LibProdDeployV4.sol";
 
 /// @dev Trivial stub impl for beacon-upgrade observation.
 contract UpgradedImpl {
@@ -25,10 +27,46 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     // ERC-1967 beacon slot.
     bytes32 internal constant BEACON_SLOT = 0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50;
 
+    /// The orchestrator's vault-logic version guard (run by `initialize`,
+    /// i.e. inside `deploy`) reads these fixed production addresses.
+    address internal constant GUARD_DEPLOYER =
+        LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6;
+    address internal constant VAULT_BEACON = address(0xBEAC04);
+    address internal constant RECEIPT_BEACON = address(0xBEAC12);
+
     ST0xOrchestrator internal impl;
 
     function setUp() public {
         impl = new ST0xOrchestrator();
+        // `deploy` initialises the proxy, which runs the orchestrator's
+        // vault-logic version guard — install passing mocks up front.
+        _makeGuardPass();
+    }
+
+    /// Make the orchestrator's vault-logic version guard PASS: the production
+    /// deployer resolves each beacon and each beacon reports the expected
+    /// implementation.
+    function _makeGuardPass() internal {
+        vm.mockCall(
+            GUARD_DEPLOYER,
+            abi.encodeWithSelector(IST0xVaultBeaconSet.iOffchainAssetReceiptVaultBeacon.selector),
+            abi.encode(VAULT_BEACON)
+        );
+        vm.mockCall(
+            GUARD_DEPLOYER,
+            abi.encodeWithSelector(IST0xVaultBeaconSet.iReceiptBeacon.selector),
+            abi.encode(RECEIPT_BEACON)
+        );
+        vm.mockCall(
+            VAULT_BEACON,
+            abi.encodeWithSelector(IBeacon.implementation.selector),
+            abi.encode(LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6)
+        );
+        vm.mockCall(
+            RECEIPT_BEACON,
+            abi.encodeWithSelector(IBeacon.implementation.selector),
+            abi.encode(LibProdDeployV4.STOX_RECEIPT_RAIN_VATS_0_1_6)
+        );
     }
 
     function _deployer(address owner) internal returns (ST0xOrchestratorBeaconSetDeployer) {

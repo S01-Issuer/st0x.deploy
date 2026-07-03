@@ -14,10 +14,13 @@ import {IERC165} from "@openzeppelin-contracts-5.6.1/utils/introspection/IERC165
 import {SignatureChecker} from "@openzeppelin-contracts-5.6.1/utils/cryptography/SignatureChecker.sol";
 
 import {OffchainAssetReceiptVault} from "rain-vats-0.1.6/src/concrete/vault/OffchainAssetReceiptVault.sol";
+import {IReceiptV3} from "rain-vats-0.1.6/src/interface/IReceiptV3.sol";
+import {ReceiptVault} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
 
 import {LibProdDeployV4} from "../lib/LibProdDeployV4.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
 import {IST0xVaultBeaconSet} from "../interface/IST0xVaultBeaconSet.sol";
+import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../interface/IST0xOrchestratorV1.sol";
 
 /// @title ST0xOrchestrator
 /// @notice Singleton mint/burn proxy for the whole ST0x receipt-vault set.
@@ -38,32 +41,37 @@ import {IST0xVaultBeaconSet} from "../interface/IST0xVaultBeaconSet.sol";
 /// **Mint recipient authorisation.** `mint` sends shares to an external
 /// `to`; to stop a compromised `MINT_ROLE` key from directing freshly minted
 /// shares anywhere it likes, every mint must carry the recipient's own
-/// authorisation of `(token, to, amount, nonce)`: either an EIP-712
-/// signature (verified with `SignatureChecker`, so EOAs sign with ECDSA and
-/// contracts via EIP-1271) or, when no signature is supplied, an
-/// `IMintRecipient.authorizeMint` callback on `to`. The nonce is single-use
-/// (replay-guarded by digest).
+/// authorisation of `(token, to, amount, nonce)` as a `MintAuthV1`: either an
+/// EIP-712 signature (verified with `SignatureChecker`, so EOAs sign with
+/// ECDSA and contracts via EIP-1271) or, when no signature is supplied, an
+/// `IMintRecipient.authorizeMint` callback on `to`. Replay protection is
+/// namespaced by recipient: `(to, nonce)` is single-use, regardless of token
+/// or amount. The minter's `receiptInformation` audit payload is a separate
+/// parameter — it is the MINTER's responsibility and never part of the
+/// recipient's authorisation.
 ///
 /// **Vault-logic version lock.** So much of the burn/mint logic depends on
 /// the exact behaviour of the current receipt-vault implementation that
-/// `mint`/`burn` refuse to run unless the production vault + receipt beacons
-/// still point at the implementations this orchestrator was built against
-/// (`LibProdDeployV4`). If the vault is upgraded, the orchestrator halts
-/// until its own implementation is upgraded in lockstep. This mirrors the
-/// vault baking the corporate-actions facet address into its own bytecode.
+/// `initialize` and `mint`/`burn` refuse to run unless the production vault +
+/// receipt beacons still point at the implementations this orchestrator was
+/// built against (`LibProdDeployV4`). If the vault is upgraded, the
+/// orchestrator halts until its own implementation is upgraded in lockstep.
+/// This mirrors the vault baking the corporate-actions facet address into its
+/// own bytecode.
 ///
 /// **Burn walk.** `burn` walks a per-token `nextBurnReceiptId` pointer over
 /// the orchestrator's own rebased receipt balances. Burning more than the
 /// orchestrator holds reverts `InsufficientReceipts` — a shortfall is an
 /// anomaly to recover manually (transfer receipts in, `setBurnIndex`), never
-/// papered over by minting fresh receipts. The pointer is lazily seeded to
-/// `highwaterId + 1` on a token's first touch so a fresh token never scans
-/// the vault's pre-existing id history; `advanceBurnIndex` crosses
-/// accumulated zero-balance gaps incrementally without burning.
+/// papered over by minting fresh receipts. When a production receipt arrives
+/// at an id below the pointer, the ERC-1155 receiver hook lowers the pointer
+/// to it automatically, so transferred-in receipts are always burnable
+/// without manual intervention.
 ///
 /// All `mint`/`burn` amounts are current rebased tStock units, matching
 /// `vault.balanceOf` semantics.
 contract ST0xOrchestrator is
+    IST0xOrchestratorV1,
     Initializable,
     AccessControlUpgradeable,
     EIP712Upgradeable,
@@ -83,8 +91,7 @@ contract ST0xOrchestrator is
     /// @custom:storage-location erc7201:st0x.orchestrator.main
     struct MainStorage {
         mapping(address token => uint256) nextBurnReceiptId;
-        mapping(address token => bool) tokenSeeded;
-        mapping(bytes32 mintAuthDigest => bool) usedMintAuth;
+        mapping(address to => mapping(bytes32 nonce => bool)) usedNonce;
     }
 
     // keccak256(abi.encode(uint256(keccak256("st0x.orchestrator.main")) - 1)) & ~bytes32(uint256(0xff))
@@ -96,47 +103,6 @@ contract ST0xOrchestrator is
         }
     }
 
-    event Minted(address indexed caller, address indexed token, address indexed to, uint256 amount, bytes32 nonce);
-    /// @param firstReceiptId `nextBurnReceiptId[token]` at the start of the call.
-    /// @param nextBurnReceiptIdAfter The pointer at the end of the call. The
-    /// walk only ever moves forward, so `[firstReceiptId,
-    /// nextBurnReceiptIdAfter)` is the consumed id range.
-    event Burned(
-        address indexed caller,
-        address indexed token,
-        address indexed from,
-        uint256 amount,
-        uint256 firstReceiptId,
-        uint256 nextBurnReceiptIdAfter
-    );
-    event BurnIndexSet(address indexed token, uint256 oldIndex, uint256 newIndex);
-    event BurnIndexAdvanced(address indexed caller, address indexed token, uint256 oldIndex, uint256 newIndex);
-    event TokenSeeded(address indexed token, uint256 pointer);
-    event ReceiptsWithdrawn(address indexed token, address indexed to, uint256 indexed id, uint256 amount);
-    event SharesWithdrawn(address indexed token, address indexed to, uint256 amount);
-    /// @notice A foreign ERC-1155 (not a production receipt) was swept out via
-    /// `sweepERC1155`. Distinct from `ReceiptsWithdrawn` so indexers never
-    /// mistake `erc1155` for a receipt-vault address.
-    event ForeignERC1155Swept(address indexed erc1155, address indexed to, uint256 indexed id, uint256 amount);
-
-    error ZeroOwner();
-    error ZeroAmount();
-    error MintAuthReplayed(bytes32 digest);
-    error BadRecipientSignature();
-    error RecipientCallbackRejected(address recipient);
-    /// @notice The production receipt-vault beacon no longer points at the
-    /// implementation this orchestrator was built against.
-    error VaultLogicMismatch(address expected, address actual);
-    /// @notice The production receipt beacon no longer points at the
-    /// implementation this orchestrator was built against.
-    error ReceiptLogicMismatch(address expected, address actual);
-    /// @notice The burn walk exhausted the orchestrator's held receipts for
-    /// `token` with `shortfall` still unburned. Burning more than the
-    /// orchestrator holds is an anomaly (interest-accrual overrun, mis-set
-    /// pointer, receipts never transferred in) — recover manually, e.g.
-    /// transfer receipts in or `setBurnIndex`, then retry.
-    error InsufficientReceipts(address token, uint256 shortfall);
-
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -145,10 +111,13 @@ contract ST0xOrchestrator is
     /// @notice Initialise the singleton. Grants `DEFAULT_ADMIN_ROLE` to
     /// `owner` (the owner multisig). Operational roles (`MINT_ROLE`,
     /// `BURN_ROLE`, `EMERGENCY_ROLE`) are granted separately by the admin.
+    /// Reverts unless the vault-logic version lock passes, so an orchestrator
+    /// can never be initialised against vault logic it wasn't built for.
     /// @param owner Address granted `DEFAULT_ADMIN_ROLE` — the role admin
     /// only; it performs no mint/burn/recovery operations itself.
     function initialize(address owner) external initializer {
         if (owner == address(0)) revert ZeroOwner();
+        _checkVaultLogic();
         __AccessControl_init();
         __EIP712_init("ST0xOrchestrator", "1");
         _grantRole(DEFAULT_ADMIN_ROLE, owner);
@@ -170,6 +139,11 @@ contract ST0xOrchestrator is
     /// (they can never back or drain a real token). The orchestrator is only
     /// ever wired to the production tokens on the shared beacon set.
     modifier onlyExpectedVaultLogic() {
+        _checkVaultLogic();
+        _;
+    }
+
+    function _checkVaultLogic() internal view {
         IST0xVaultBeaconSet beaconSet =
             IST0xVaultBeaconSet(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6);
         address vaultImpl = beaconSet.iOffchainAssetReceiptVaultBeacon().implementation();
@@ -180,12 +154,9 @@ contract ST0xOrchestrator is
         if (receiptImpl != LibProdDeployV4.STOX_RECEIPT_RAIN_VATS_0_1_6) {
             revert ReceiptLogicMismatch(LibProdDeployV4.STOX_RECEIPT_RAIN_VATS_0_1_6, receiptImpl);
         }
-        _;
     }
 
-    /// @notice True if the production vault + receipt beacons currently point
-    /// at the implementations this orchestrator expects (i.e. mint/burn are
-    /// live rather than version-locked). Offchain convenience.
+    /// @inheritdoc IST0xOrchestratorV1
     function vaultLogicIsExpected() external view returns (bool) {
         IST0xVaultBeaconSet beaconSet =
             IST0xVaultBeaconSet(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6);
@@ -198,70 +169,47 @@ contract ST0xOrchestrator is
     //                       Mint / Burn entrypoints                      //
     // ------------------------------------------------------------------ //
 
-    /// @notice Mint `amount` rebased tStocks of `token` to `to`. The receipt
-    /// is minted to (and kept by) the orchestrator; the shares are forwarded
-    /// to `to`, which must authorise the mint.
-    /// @param token The `OffchainAssetReceiptVault` to mint.
-    /// @param to Recipient of the shares. Must authorise via `data`.
-    /// @param amount Rebased tStock units to mint.
-    /// @param data `abi.encode(bytes signature, bytes32 nonce, bytes
-    /// receiptInformation)`. If `signature` is non-empty it is checked
-    /// against `to` (ECDSA or EIP-1271) over the EIP-712 digest of
-    /// `(token, to, amount, nonce)`; if empty, `IMintRecipient(to)` is
-    /// called back. `receiptInformation` is forwarded to `vault.mint` for the
-    /// on-chain audit trail.
-    function mint(address token, address to, uint256 amount, bytes calldata data)
-        external
-        onlyRole(MINT_ROLE)
-        onlyExpectedVaultLogic
-        nonReentrant
-    {
+    /// @inheritdoc IST0xOrchestratorV1
+    function mint(
+        address token,
+        address to,
+        uint256 amount,
+        MintAuthV1 calldata auth,
+        bytes calldata receiptInformation
+    ) external onlyRole(MINT_ROLE) onlyExpectedVaultLogic nonReentrant {
         if (amount == 0) revert ZeroAmount();
-        (bytes32 nonce, bytes memory receiptInformation) = _consumeMintAuth(token, to, amount, data);
+        _consumeMintAuth(token, to, amount, auth);
 
-        _seedToken(token);
         OffchainAssetReceiptVault(payable(token)).mint(amount, address(this), 0, receiptInformation);
         IERC20(token).safeTransfer(to, amount);
-        emit Minted(msg.sender, token, to, amount, nonce);
+        emit Minted(msg.sender, token, to, amount, auth.nonce);
     }
 
-    /// @dev Decode `data`, verify + consume the recipient's single-use mint
-    /// authorisation, and return `(nonce, receiptInformation)`. Split out of
-    /// `mint` to keep that frame within stack limits.
-    function _consumeMintAuth(address token, address to, uint256 amount, bytes calldata data)
-        internal
-        returns (bytes32 nonce, bytes memory receiptInformation)
-    {
-        bytes memory signature;
-        (signature, nonce, receiptInformation) = abi.decode(data, (bytes, bytes32, bytes));
-        bytes32 digest = _mintAuthDigest(token, to, amount, nonce);
+    /// @dev Consume the recipient's single-use `(to, nonce)` replay slot and
+    /// verify the recipient authorised this exact mint. Split out of `mint`
+    /// to keep that frame within stack limits.
+    function _consumeMintAuth(address token, address to, uint256 amount, MintAuthV1 calldata auth) internal {
         MainStorage storage $ = _main();
-        if ($.usedMintAuth[digest]) revert MintAuthReplayed(digest);
-        $.usedMintAuth[digest] = true;
-        _verifyRecipientAuth(to, digest, signature);
+        if ($.usedNonce[to][auth.nonce]) revert NonceReplayed(to, auth.nonce);
+        $.usedNonce[to][auth.nonce] = true;
+        _verifyRecipientAuth(to, _mintAuthDigest(token, to, amount, auth.nonce), auth.signature);
     }
 
-    /// @notice Burn `amount` rebased tStocks of `token` from `from`. Pulls
-    /// the shares (if not already held), then walks the per-token pointer.
-    /// Reverts `InsufficientReceipts` if the orchestrator's held receipts
-    /// cannot cover `amount` — recover manually, never by minting.
-    /// @param data `receiptInformation` forwarded to `vault.redeem` for the
-    /// audit trail — e.g. a tag marking a debt-repay burn.
-    function burn(address token, address from, uint256 amount, bytes calldata data)
+    /// @inheritdoc IST0xOrchestratorV1
+    function burn(address token, address from, uint256 amount, bytes calldata burnInfo)
         external
         onlyRole(BURN_ROLE)
         onlyExpectedVaultLogic
         nonReentrant
     {
         if (amount == 0) revert ZeroAmount();
-        _seedToken(token);
 
         if (from != address(this)) {
             IERC20(token).safeTransferFrom(from, address(this), amount);
         }
 
         uint256 startIdx = _main().nextBurnReceiptId[token];
-        uint256 endIdx = _burnWalk(token, amount, data);
+        uint256 endIdx = _burnWalk(token, amount, burnInfo);
         emit Burned(msg.sender, token, from, amount, startIdx, endIdx);
     }
 
@@ -269,9 +217,9 @@ contract ST0xOrchestrator is
     /// `InsufficientReceipts` when the walk crosses `highwaterId` with any
     /// amount still unburned — the orchestrator never mints to cover a
     /// shortfall. Persists and returns the final pointer. Split out of
-    /// `burn`, and `data` taken as `memory`, to keep both frames within
+    /// `burn`, and `burnInfo` taken as `memory`, to keep both frames within
     /// stack limits.
-    function _burnWalk(address token, uint256 remaining, bytes memory info) internal returns (uint256 idx) {
+    function _burnWalk(address token, uint256 remaining, bytes memory burnInfo) internal returns (uint256 idx) {
         OffchainAssetReceiptVault vault = OffchainAssetReceiptVault(payable(token));
         IERC1155 receipt_ = IERC1155(address(vault.receipt()));
         idx = _main().nextBurnReceiptId[token];
@@ -286,7 +234,7 @@ contract ST0xOrchestrator is
                 continue;
             }
             uint256 take = remaining < bal ? remaining : bal;
-            vault.redeem(take, address(this), address(this), idx, info);
+            vault.redeem(take, address(this), address(this), idx, burnInfo);
             remaining -= take;
             if (take == bal) {
                 unchecked {
@@ -301,53 +249,16 @@ contract ST0xOrchestrator is
     //                          Pointer management                        //
     // ------------------------------------------------------------------ //
 
-    /// @notice Walk `token`'s burn pointer forward across zero-balance ids
-    /// WITHOUT burning, persisting progress. Permissionless: it can only skip
-    /// ids the orchestrator holds no balance at, stops at the first non-zero
-    /// balance, and never passes `highwaterId + 1` — so no caller can strand
-    /// receipts held at call time or misposition the pointer. Lets keepers
-    /// cross a long zero-balance gap incrementally (bounded by `maxIds`)
-    /// instead of forcing a single burn to cross it and risk out-of-gas.
-    /// Receipts arriving later at already-skipped ids are inert until an
-    /// `EMERGENCY_ROLE` `setBurnIndex`, as with `burn`.
-    function advanceBurnIndex(address token, uint256 maxIds)
-        external
-        onlyExpectedVaultLogic
-        nonReentrant
-        returns (uint256)
-    {
-        _seedToken(token);
-        MainStorage storage $ = _main();
-        IERC1155 receipt_ = IERC1155(address(OffchainAssetReceiptVault(payable(token)).receipt()));
-        uint256 old = $.nextBurnReceiptId[token];
-        uint256 idx = old;
-        uint256 cap = OffchainAssetReceiptVault(payable(token)).highwaterId();
-        uint256 inspected = 0;
-        while (inspected < maxIds && idx <= cap) {
-            if (receipt_.balanceOf(address(this), idx) != 0) break;
-            unchecked {
-                idx++;
-                inspected++;
-            }
-        }
-        if (idx != old) {
-            $.nextBurnReceiptId[token] = idx;
-            emit BurnIndexAdvanced(msg.sender, token, old, idx);
-        }
-        return idx;
-    }
-
-    /// @notice `EMERGENCY_ROLE` override of `token`'s burn pointer — bootstrap
-    /// after receipts are transferred in, or recover from a mis-set pointer.
+    /// @inheritdoc IST0xOrchestratorV1
     /// @dev O(gap) hazard, both directions: set too LOW and the next `burn`
     /// pays one external rebased `balanceOf` per id to cross the gap in a
-    /// single tx (mitigate with `advanceBurnIndex`); set too HIGH and held
-    /// receipts behind the pointer are stranded, so burns revert
-    /// `InsufficientReceipts` once the receipts ahead of it are exhausted.
-    /// Set at (or just below) the first id with non-zero balance.
+    /// single tx; set too HIGH and held receipts behind the pointer are
+    /// stranded, so burns revert `InsufficientReceipts` once the receipts
+    /// ahead of it are exhausted. Set at (or just below) the first id with
+    /// non-zero balance. Rarely needed: the receiver hook lowers the pointer
+    /// automatically when a receipt arrives below it.
     function setBurnIndex(address token, uint256 newIndex) external onlyRole(EMERGENCY_ROLE) nonReentrant {
         MainStorage storage $ = _main();
-        $.tokenSeeded[token] = true;
         uint256 old = $.nextBurnReceiptId[token];
         $.nextBurnReceiptId[token] = newIndex;
         emit BurnIndexSet(token, old, newIndex);
@@ -357,17 +268,17 @@ contract ST0xOrchestrator is
     //                           Emergency sweeps                         //
     // ------------------------------------------------------------------ //
 
-    /// @notice `EMERGENCY_ROLE` escape hatch: pull a specific receipt out.
+    /// @inheritdoc IST0xOrchestratorV1
     function withdrawReceipt(address token, uint256 id, uint256 amount, address to) external onlyRole(EMERGENCY_ROLE) {
         IERC1155(address(OffchainAssetReceiptVault(payable(token)).receipt()))
             .safeTransferFrom(address(this), to, id, amount, "");
         emit ReceiptsWithdrawn(token, to, id, amount);
     }
 
-    /// @notice `EMERGENCY_ROLE` escape hatch: rescue any ERC-1155 stuck on
-    /// the orchestrator. The receiver hooks accept all senders (a singleton
-    /// cannot cheaply identify every legitimate receipt token up front), so
-    /// this is the recovery path for a foreign ERC-1155 that lands here.
+    /// @inheritdoc IST0xOrchestratorV1
+    /// @dev The receiver hooks accept all senders (a singleton cannot cheaply
+    /// identify every legitimate receipt token up front), so this is the
+    /// recovery path for a foreign ERC-1155 that lands here.
     function sweepERC1155(address erc1155, uint256 id, uint256 amount, address to)
         external
         onlyRole(EMERGENCY_ROLE)
@@ -377,9 +288,9 @@ contract ST0xOrchestrator is
         emit ForeignERC1155Swept(erc1155, to, id, amount);
     }
 
-    /// @notice `EMERGENCY_ROLE` escape hatch: sweep tStocks stranded on the
-    /// orchestrator (sent directly to it, or rebase-truncation dust after
-    /// fractional splits).
+    /// @inheritdoc IST0xOrchestratorV1
+    /// @dev Sweeps tStocks stranded on the orchestrator (sent directly to it,
+    /// or rebase-truncation dust after fractional splits).
     function withdrawShares(address token, uint256 amount, address to) external onlyRole(EMERGENCY_ROLE) nonReentrant {
         IERC20(token).safeTransfer(to, amount);
         emit SharesWithdrawn(token, to, amount);
@@ -389,21 +300,18 @@ contract ST0xOrchestrator is
     //                              Views                                 //
     // ------------------------------------------------------------------ //
 
+    /// @inheritdoc IST0xOrchestratorV1
     function nextBurnReceiptId(address token) external view returns (uint256) {
         return _main().nextBurnReceiptId[token];
     }
 
-    function tokenSeeded(address token) external view returns (bool) {
-        return _main().tokenSeeded[token];
+    /// @inheritdoc IST0xOrchestratorV1
+    function nonceUsed(address to, bytes32 nonce) external view returns (bool) {
+        return _main().usedNonce[to][nonce];
     }
 
-    function mintAuthUsed(bytes32 digest) external view returns (bool) {
-        return _main().usedMintAuth[digest];
-    }
-
-    /// @notice The EIP-712 digest a recipient signs (or checks in its
-    /// `authorizeMint` callback) to authorise a mint.
-    function mintAuthDigest(address token, address to, uint256 amount, bytes32 nonce) external view returns (bytes32) {
+    /// @inheritdoc IST0xOrchestratorV1
+    function mintAuthDigest(address token, address to, uint256 amount, bytes32 nonce) external view returns (Digest) {
         return _mintAuthDigest(token, to, amount, nonce);
     }
 
@@ -411,16 +319,18 @@ contract ST0xOrchestrator is
     //                            Internals                               //
     // ------------------------------------------------------------------ //
 
-    function _mintAuthDigest(address token, address to, uint256 amount, bytes32 nonce) internal view returns (bytes32) {
-        return _hashTypedDataV4(keccak256(abi.encode(MINT_AUTH_TYPEHASH, token, to, amount, nonce)));
+    function _mintAuthDigest(address token, address to, uint256 amount, bytes32 nonce) internal view returns (Digest) {
+        return Digest.wrap(_hashTypedDataV4(keccak256(abi.encode(MINT_AUTH_TYPEHASH, token, to, amount, nonce))));
     }
 
     /// @dev Verify `to` authorised the mint: an EIP-712 signature (ECDSA or
     /// EIP-1271) when `signature` is non-empty, else an `IMintRecipient`
     /// callback returning the magic selector.
-    function _verifyRecipientAuth(address to, bytes32 digest, bytes memory signature) internal {
+    function _verifyRecipientAuth(address to, Digest digest, bytes memory signature) internal {
         if (signature.length > 0) {
-            if (!SignatureChecker.isValidSignatureNow(to, digest, signature)) revert BadRecipientSignature();
+            if (!SignatureChecker.isValidSignatureNow(to, Digest.unwrap(digest), signature)) {
+                revert BadRecipientSignature();
+            }
         } else {
             if (IMintRecipient(to).authorizeMint(digest) != IMintRecipient.authorizeMint.selector) {
                 revert RecipientCallbackRejected(to);
@@ -428,39 +338,51 @@ contract ST0xOrchestrator is
         }
     }
 
-    /// @dev Lazily seed a token's burn pointer to `highwaterId + 1` on first
-    /// touch, so a fresh token never scans the vault's pre-existing id
-    /// history. Bootstraps of transferred-in receipts at lower ids use an
-    /// `EMERGENCY_ROLE` `setBurnIndex` afterwards.
-    function _seedToken(address token) internal {
-        MainStorage storage $ = _main();
-        if ($.tokenSeeded[token]) return;
-        $.tokenSeeded[token] = true;
-        uint256 seeded = OffchainAssetReceiptVault(payable(token)).highwaterId() + 1;
-        $.nextBurnReceiptId[token] = seeded;
-        emit TokenSeeded(token, seeded);
-    }
-
     // ------------------------------------------------------------------ //
     //                          ERC-1155 receiver                         //
     // ------------------------------------------------------------------ //
 
-    /// @dev A singleton cannot cheaply identify every legitimate receipt
-    /// token at callback time (each token has its own receipt, and a
-    /// `BeaconProxy`'s beacon is not externally readable), so the hooks
-    /// accept all senders. This is safe: the orchestrator only credits its
-    /// burn walk against receipts its OWN `vault.mint` created, and any
-    /// foreign ERC-1155 that lands here is recoverable via `sweepERC1155`.
-    function onERC1155Received(address, address, uint256, uint256, bytes calldata) external pure returns (bytes4) {
+    /// @dev The hooks accept all senders (a foreign ERC-1155 that lands here
+    /// is recoverable via `sweepERC1155`), but when the sender proves to be a
+    /// genuine production receipt they self-maintain the burn pointer: a
+    /// receipt arriving at an id below `token`'s pointer lowers the pointer
+    /// to that id, so transferred-in receipts are always reachable by the
+    /// burn walk without any manual `setBurnIndex`.
+    function onERC1155Received(address, address, uint256 id, uint256, bytes calldata) external returns (bytes4) {
+        _maybeLowerBurnIndex(msg.sender, id);
         return IERC1155Receiver.onERC1155Received.selector;
     }
 
-    function onERC1155BatchReceived(address, address, uint256[] calldata, uint256[] calldata, bytes calldata)
+    function onERC1155BatchReceived(address, address, uint256[] calldata ids, uint256[] calldata, bytes calldata)
         external
-        pure
         returns (bytes4)
     {
+        for (uint256 i = 0; i < ids.length; i++) {
+            _maybeLowerBurnIndex(msg.sender, ids[i]);
+        }
         return IERC1155Receiver.onERC1155BatchReceived.selector;
+    }
+
+    /// @dev If `erc1155` is a genuine production receipt (its claimed vault
+    /// round-trips: `vault.receipt() == erc1155`) and `id` is below that
+    /// vault's burn pointer, lower the pointer to `id`. All probes are
+    /// defensive raw staticcalls so a foreign or malicious ERC-1155 can never
+    /// revert the transfer or spoof a pointer move — spoofing requires
+    /// controlling `vault.receipt()`, i.e. already controlling the vault.
+    function _maybeLowerBurnIndex(address erc1155, uint256 id) internal {
+        (bool ok, bytes memory ret) = erc1155.staticcall(abi.encodeWithSelector(IReceiptV3.manager.selector));
+        if (!ok || ret.length != 32) return;
+        address vault = address(uint160(uint256(bytes32(ret))));
+        (ok, ret) = vault.staticcall(abi.encodeWithSelector(ReceiptVault.receipt.selector));
+        if (!ok || ret.length != 32) return;
+        if (address(uint160(uint256(bytes32(ret)))) != erc1155) return;
+
+        MainStorage storage $ = _main();
+        uint256 old = $.nextBurnReceiptId[vault];
+        if (id < old) {
+            $.nextBurnReceiptId[vault] = id;
+            emit BurnIndexLowered(vault, old, id);
+        }
     }
 
     function supportsInterface(bytes4 interfaceId)
