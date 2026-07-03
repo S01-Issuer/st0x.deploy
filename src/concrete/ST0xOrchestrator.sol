@@ -269,7 +269,11 @@ contract ST0xOrchestrator is
     // ------------------------------------------------------------------ //
 
     /// @inheritdoc IST0xOrchestratorV1
-    function withdrawReceipt(address token, uint256 id, uint256 amount, address to) external onlyRole(EMERGENCY_ROLE) {
+    function withdrawReceipt(address token, uint256 id, uint256 amount, address to)
+        external
+        onlyRole(EMERGENCY_ROLE)
+        nonReentrant
+    {
         IERC1155(address(OffchainAssetReceiptVault(payable(token)).receipt()))
             .safeTransferFrom(address(this), to, id, amount, "");
         emit ReceiptsWithdrawn(token, to, id, amount);
