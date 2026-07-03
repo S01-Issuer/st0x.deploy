@@ -8,10 +8,12 @@ import {IST0xOrchestratorV1, MintAuthV1} from "../../../../src/interface/IST0xOr
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 
 /// @title BurnHappyPathTest
-/// @notice Workflow: MM mints to an EOA, the EOA approves the orchestrator,
-/// MM burns the full amount. The recipient is drained, the receipt consumed,
-/// and the burn walk — starting from the fresh token's pointer at 0 — steps
-/// over the empty id 0, consumes id 1, and lands one past it.
+/// @notice Workflow: MM mints to an EOA, the EOA hands the shares back to
+/// the burner (burns always pull from the caller — no burning out of
+/// third-party wallets), MM burns the full amount. The shares are consumed,
+/// the receipt consumed, and the burn walk — starting from the fresh token's
+/// pointer at 0 — steps over the empty id 0, consumes id 1, and lands one
+/// past it.
 contract BurnHappyPathTest is OrchestratorIntegrationTest {
     function testBurnHappyPathAndPointer() external {
         (address eoa, uint256 pk) = makeAddrAndKey("burn-recipient");
@@ -25,16 +27,19 @@ contract BurnHappyPathTest is OrchestratorIntegrationTest {
         assertEq(orchestrator.nextBurnReceiptId(address(vault)), 0, "fresh token's pointer starts at 0");
 
         vm.prank(eoa);
+        assertTrue(IERC20(address(vault)).transfer(MM, amount), "hand shares to the burner");
+        vm.prank(MM);
         IERC20(address(vault)).approve(address(orchestrator), amount);
 
         // The walk starts at 0 (skipping the zero-balance id 0) and ends one
         // past the consumed id, so the consumed range is [0, mintedId + 1).
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(MM, address(vault), eoa, amount, 0, mintedId + 1);
+        emit IST0xOrchestratorV1.Burned(MM, address(vault), amount, 0, mintedId + 1);
         vm.prank(MM);
-        orchestrator.burn(address(vault), eoa, amount, "");
+        orchestrator.burn(address(vault), amount, "");
 
         assertEq(vault.balanceOf(eoa), 0, "recipient drained");
+        assertEq(vault.balanceOf(MM), 0, "burner drained");
         assertEq(receipt.balanceOf(address(orchestrator), mintedId), 0, "receipt consumed");
         assertEq(IERC20(address(vault)).balanceOf(address(orchestrator)), 0, "no shares stranded");
         assertEq(orchestrator.nextBurnReceiptId(address(vault)), mintedId + 1, "pointer advanced one past consumed id");

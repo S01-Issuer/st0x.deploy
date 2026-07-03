@@ -30,12 +30,15 @@ contract BurnAfterForwardSplitTest is OrchestratorIntegrationTest {
         assertEq(receipt.balanceOf(address(orchestrator), mintedId), 270e18, "orchestrator receipt rebased 3x");
 
         vm.prank(eoa);
+        assertTrue(IERC20(address(vault)).transfer(MM, 270e18), "hand shares to the burner");
+        vm.prank(MM);
         IERC20(address(vault)).approve(address(orchestrator), 270e18);
 
         vm.prank(MM);
-        orchestrator.burn(address(vault), eoa, 270e18, "");
+        orchestrator.burn(address(vault), 270e18, "");
 
         assertEq(vault.balanceOf(eoa), 0, "recipient drained");
+        assertEq(vault.balanceOf(MM), 0, "burner drained");
         assertEq(IERC20(address(vault)).balanceOf(address(orchestrator)), 0, "no shares stranded");
         assertEq(receipt.balanceOf(address(orchestrator), mintedId), 0, "receipt fully consumed");
         // The walk starts at 0 (id 0 has zero balance) and ends one past the

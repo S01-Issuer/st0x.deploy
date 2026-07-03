@@ -45,10 +45,13 @@ contract ReceiptTransferInLowersPointerTest is OrchestratorIntegrationTest {
         vm.prank(MM);
         orchestrator.mint(address(vault), eoa, 4e18, authHigh, "");
         uint256 highId = vault.highwaterId();
+        // Burns pull from the caller: hand all of the EOA's shares to MM.
         vm.prank(eoa);
+        assertTrue(IERC20(address(vault)).transfer(MM, 14e18), "hand shares to the burner");
+        vm.prank(MM);
         IERC20(address(vault)).approve(address(orchestrator), type(uint256).max);
         vm.prank(MM);
-        orchestrator.burn(address(vault), eoa, 4e18, "");
+        orchestrator.burn(address(vault), 4e18, "");
         assertEq(orchestrator.nextBurnReceiptId(address(vault)), highId + 1, "pointer parked above the low receipt");
 
         // The outstanding 10e18 is unburnable: the orchestrator holds nothing
@@ -57,7 +60,7 @@ contract ReceiptTransferInLowersPointerTest is OrchestratorIntegrationTest {
         vm.expectRevert(
             abi.encodeWithSelector(IST0xOrchestratorV1.InsufficientReceipts.selector, address(vault), 10e18)
         );
-        orchestrator.burn(address(vault), eoa, 10e18, "");
+        orchestrator.burn(address(vault), 10e18, "");
 
         // The holder transfers the receipt back in. The receiver hook
         // recognises the genuine production receipt and lowers the pointer to
@@ -70,8 +73,8 @@ contract ReceiptTransferInLowersPointerTest is OrchestratorIntegrationTest {
 
         // The burn now covers the outstanding shares.
         vm.prank(MM);
-        orchestrator.burn(address(vault), eoa, 10e18, "");
-        assertEq(vault.balanceOf(eoa), 0, "recipient drained");
+        orchestrator.burn(address(vault), 10e18, "");
+        assertEq(vault.balanceOf(MM), 0, "burner drained");
         assertEq(receipt.balanceOf(address(orchestrator), lowId), 0, "transferred-in receipt consumed");
         assertEq(orchestrator.nextBurnReceiptId(address(vault)), lowId + 1, "pointer one past the consumed id");
         assertEq(vault.totalSupply(), 0, "supply fully unwound");

@@ -40,7 +40,6 @@ interface IST0xOrchestratorV1 {
     event Burned(
         address indexed caller,
         address indexed token,
-        address indexed from,
         uint256 amount,
         uint256 firstReceiptId,
         uint256 nextBurnReceiptIdAfter
@@ -78,6 +77,11 @@ interface IST0xOrchestratorV1 {
     /// pointer, receipts never transferred in) — recover manually, e.g.
     /// transfer receipts in or `setBurnIndex`, then retry.
     error InsufficientReceipts(address token, uint256 shortfall);
+    /// @notice The vault reported an assets amount different from the shares
+    /// requested. The share ratio is 1:1 by construction, so any mismatch
+    /// means the vault is not behaving as this orchestrator was built to
+    /// expect — halt loudly rather than continue on bad accounting.
+    error VaultAmountMismatch(uint256 expected, uint256 actual);
 
     /// @notice Mint `amount` rebased tStocks of `token` to `to`. The receipt
     /// is minted to (and kept by) the orchestrator; the shares are forwarded
@@ -96,13 +100,14 @@ interface IST0xOrchestratorV1 {
         bytes calldata receiptInformation
     ) external;
 
-    /// @notice Burn `amount` rebased tStocks of `token` from `from`. Pulls
-    /// the shares (if not already held), then walks the per-token pointer.
-    /// Reverts `InsufficientReceipts` if the orchestrator's held receipts
-    /// cannot cover `amount` — recover manually, never by minting.
+    /// @notice Burn `amount` rebased tStocks of `token`, pulled from the
+    /// CALLER (burners always burn shares they hold — there is no burning out
+    /// of third-party wallets), then walks the per-token pointer. Reverts
+    /// `InsufficientReceipts` if the orchestrator's held receipts cannot
+    /// cover `amount` — recover manually, never by minting.
     /// @param burnInfo `receiptInformation` forwarded to `vault.redeem` for
     /// the audit trail — e.g. a tag marking a debt-repay burn.
-    function burn(address token, address from, uint256 amount, bytes calldata burnInfo) external;
+    function burn(address token, uint256 amount, bytes calldata burnInfo) external;
 
     /// @notice `EMERGENCY_ROLE` override of `token`'s burn pointer.
     function setBurnIndex(address token, uint256 newIndex) external;

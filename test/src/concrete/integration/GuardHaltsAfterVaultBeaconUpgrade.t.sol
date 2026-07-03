@@ -52,6 +52,6 @@ contract GuardHaltsAfterVaultBeaconUpgradeTest is OrchestratorIntegrationTest {
                 newImpl
             )
         );
-        orchestrator.burn(address(vault), eoa, 1e18, "");
+        orchestrator.burn(address(vault), 1e18, "");
     }
 }

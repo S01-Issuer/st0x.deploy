@@ -45,25 +45,27 @@ contract BurnFractionalSplitTruncationDustTest is OrchestratorIntegrationTest {
         assertGt(gap, 0, "scenario must produce truncation dust");
 
         vm.prank(eoa);
+        assertTrue(IERC20(address(vault)).transfer(MM, burnAmount), "hand shares to the burner");
+        vm.prank(MM);
         IERC20(address(vault)).approve(address(orchestrator), burnAmount);
 
         // Burning the full rebased balance overruns the held receipts by
         // `gap` → the whole burn reverts; nothing is pulled or consumed.
         vm.prank(MM);
         vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.InsufficientReceipts.selector, address(vault), gap));
-        orchestrator.burn(address(vault), eoa, burnAmount, "");
+        orchestrator.burn(address(vault), burnAmount, "");
 
-        assertEq(vault.balanceOf(eoa), burnAmount, "reverted burn pulled nothing");
+        assertEq(vault.balanceOf(MM), burnAmount, "reverted burn pulled nothing");
         assertEq(receipt.balanceOf(address(orchestrator), idA), 1, "receipt idA untouched");
         assertEq(receipt.balanceOf(address(orchestrator), idB), 1, "receipt idB untouched");
 
         // Burning only what the receipts cover succeeds; the dust share
-        // stays with the holder awaiting manual recovery (e.g. receipts
+        // stays with the burner awaiting manual recovery (e.g. receipts
         // transferred in, which auto-lower the pointer).
         vm.prank(MM);
-        orchestrator.burn(address(vault), eoa, receiptTotal, "");
+        orchestrator.burn(address(vault), receiptTotal, "");
 
-        assertEq(vault.balanceOf(eoa), gap, "holder keeps exactly the truncation dust");
+        assertEq(vault.balanceOf(MM), gap, "burner keeps exactly the truncation dust");
         assertEq(receipt.balanceOf(address(orchestrator), idA), 0, "receipt idA consumed");
         assertEq(receipt.balanceOf(address(orchestrator), idB), 0, "receipt idB consumed");
         assertEq(IERC20(address(vault)).balanceOf(address(orchestrator)), 0, "no shares stranded on the orchestrator");

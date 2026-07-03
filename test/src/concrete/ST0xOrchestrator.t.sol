@@ -290,7 +290,7 @@ contract ST0xOrchestratorTest is Test {
             )
         );
         vm.prank(caller);
-        orchestrator.burn(TOKEN, BOB, 1, "");
+        orchestrator.burn(TOKEN, 1, "");
     }
 
     function testFuzzSetBurnIndexUnauthorized(address caller, uint256 newIndex) external {
@@ -363,7 +363,7 @@ contract ST0xOrchestratorTest is Test {
             )
         );
         vm.prank(BOB);
-        orchestrator.burn(TOKEN, BOB, 1, "");
+        orchestrator.burn(TOKEN, 1, "");
     }
 
     // ------------------------------------------------------------------ //
@@ -512,7 +512,7 @@ contract ST0xOrchestratorTest is Test {
         _grant(orchestrator.MINT_ROLE(), address(this));
         bytes32 nonce = keccak256("n1");
         _mockERC20(TOKEN);
-        vm.mockCall(TOKEN, abi.encodeWithSelector(ReceiptVault.mint.selector), abi.encode(uint256(0)));
+        vm.mockCall(TOKEN, abi.encodeWithSelector(ReceiptVault.mint.selector), abi.encode(uint256(500)));
 
         // Mint amount 500 consumes (eoa, nonce).
         orchestrator.mint(TOKEN, eoa, 500, _auth(_sign(pk, TOKEN, eoa, 500, nonce), nonce), "");
@@ -530,7 +530,7 @@ contract ST0xOrchestratorTest is Test {
         _grant(orchestrator.MINT_ROLE(), address(this));
         bytes32 nonce = keccak256("n1");
         _mockERC20(TOKEN);
-        vm.mockCall(TOKEN, abi.encodeWithSelector(ReceiptVault.mint.selector), abi.encode(uint256(0)));
+        vm.mockCall(TOKEN, abi.encodeWithSelector(ReceiptVault.mint.selector), abi.encode(uint256(500)));
 
         orchestrator.mint(TOKEN, eoa, 500, _auth(_sign(pk, TOKEN, eoa, 500, nonce), nonce), "");
 
@@ -548,7 +548,7 @@ contract ST0xOrchestratorTest is Test {
         uint256 amount = 500;
         bytes32 nonce = keccak256("shared");
         _mockERC20(TOKEN);
-        vm.mockCall(TOKEN, abi.encodeWithSelector(ReceiptVault.mint.selector), abi.encode(uint256(0)));
+        vm.mockCall(TOKEN, abi.encodeWithSelector(ReceiptVault.mint.selector), abi.encode(uint256(500)));
 
         orchestrator.mint(TOKEN, alice, amount, _auth(_sign(alicePk, TOKEN, alice, amount, nonce), nonce), "");
         assertTrue(orchestrator.nonceUsed(alice, nonce));
@@ -606,7 +606,49 @@ contract ST0xOrchestratorTest is Test {
     function testBurnZeroAmountReverts() external {
         _grant(orchestrator.BURN_ROLE(), address(this));
         vm.expectRevert(IST0xOrchestratorV1.ZeroAmount.selector);
-        orchestrator.burn(TOKEN, BOB, 0, "");
+        orchestrator.burn(TOKEN, 0, "");
+    }
+
+    /// The vault reporting an assets amount != the shares requested (the
+    /// ratio is 1:1 by construction) halts the mint loudly.
+    function testMintVaultAmountMismatchReverts() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        uint256 amount = 100;
+        (address eoa, uint256 pk) = makeAddrAndKey("vam-recipient");
+        bytes memory sig = _sign(pk, TOKEN, eoa, amount, keccak256("vam-mint"));
+        _mockERC20(TOKEN);
+        vm.mockCall(
+            TOKEN,
+            abi.encodeWithSelector(ReceiptVault.mint.selector, amount, address(orchestrator), uint256(0), bytes("")),
+            abi.encode(amount - 1)
+        );
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.VaultAmountMismatch.selector, amount, amount - 1));
+        orchestrator.mint(TOKEN, eoa, amount, _auth(sig, keccak256("vam-mint")), "");
+    }
+
+    /// The vault reporting an assets amount != the shares redeemed halts the
+    /// burn loudly.
+    function testBurnVaultAmountMismatchReverts() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        _seedPointer(TOKEN, 0);
+        uint256 amount = 300;
+        _mockHighwater(TOKEN, 1);
+        _mockERC20(TOKEN);
+        _mockBalance(RECEIPT_ADDR, 0, amount);
+        vm.mockCall(
+            TOKEN,
+            abi.encodeWithSelector(
+                ReceiptVault.redeem.selector,
+                amount,
+                address(orchestrator),
+                address(orchestrator),
+                uint256(0),
+                bytes("")
+            ),
+            abi.encode(amount - 1)
+        );
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.VaultAmountMismatch.selector, amount, amount - 1));
+        orchestrator.burn(TOKEN, amount, "");
     }
 
     function testBurnVaultGuardFailReverts() external {
@@ -617,11 +659,11 @@ contract ST0xOrchestratorTest is Test {
                 IST0xOrchestratorV1.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD)
             )
         );
-        orchestrator.burn(TOKEN, BOB, 1, "");
+        orchestrator.burn(TOKEN, 1, "");
     }
 
-    /// Single receipt exact drain: pointer advances by 1. from != orchestrator
-    /// → pulls via transferFrom.
+    /// Single receipt exact drain: pointer advances by 1. The shares are
+    /// pulled from the caller via transferFrom.
     function testBurnSingleReceiptExactDrain() external {
         _grant(orchestrator.BURN_ROLE(), address(this));
         _seedPointer(TOKEN, 0);
@@ -631,7 +673,9 @@ contract ST0xOrchestratorTest is Test {
         _mockBalance(RECEIPT_ADDR, 0, amount);
         _mockRedeem(TOKEN, amount, 0, "");
 
-        vm.expectCall(TOKEN, abi.encodeWithSelector(IERC20.transferFrom.selector, BOB, address(orchestrator), amount));
+        vm.expectCall(
+            TOKEN, abi.encodeWithSelector(IERC20.transferFrom.selector, address(this), address(orchestrator), amount)
+        );
         vm.expectCall(
             TOKEN,
             abi.encodeWithSelector(
@@ -639,21 +683,8 @@ contract ST0xOrchestratorTest is Test {
             )
         );
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, BOB, amount, 0, 1);
-        orchestrator.burn(TOKEN, BOB, amount, "");
-        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 1);
-    }
-
-    /// from == orchestrator skips the transferFrom pull.
-    function testBurnFromSelfSkipsPull() external {
-        _grant(orchestrator.BURN_ROLE(), address(this));
-        _seedPointer(TOKEN, 0);
-        uint256 amount = 300;
-        _mockHighwater(TOKEN, 1);
-        _mockBalance(RECEIPT_ADDR, 0, amount);
-        _mockRedeem(TOKEN, amount, 0, "");
-        // No transferFrom mock; a call would revert. Assert none happens.
-        orchestrator.burn(TOKEN, address(orchestrator), amount, "");
+        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, amount, 0, 1);
+        orchestrator.burn(TOKEN, amount, "");
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 1);
     }
 
@@ -670,8 +701,8 @@ contract ST0xOrchestratorTest is Test {
         _mockRedeem(TOKEN, amount, 2, "");
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, BOB, amount, 0, 3);
-        orchestrator.burn(TOKEN, BOB, amount, "");
+        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, amount, 0, 3);
+        orchestrator.burn(TOKEN, amount, "");
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 3);
     }
 
@@ -699,8 +730,8 @@ contract ST0xOrchestratorTest is Test {
             )
         );
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, BOB, 300, 0, 2);
-        orchestrator.burn(TOKEN, BOB, 300, "");
+        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, 300, 0, 2);
+        orchestrator.burn(TOKEN, 300, "");
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 2);
     }
 
@@ -715,8 +746,8 @@ contract ST0xOrchestratorTest is Test {
         _mockRedeem(TOKEN, 200, 0, "");
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, BOB, 200, 0, 0);
-        orchestrator.burn(TOKEN, BOB, 200, "");
+        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, 200, 0, 0);
+        orchestrator.burn(TOKEN, 200, "");
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 0, "pointer parked at partially-drained id");
     }
 
@@ -731,7 +762,7 @@ contract ST0xOrchestratorTest is Test {
         _mockHighwater(TOKEN, 0);
 
         vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.InsufficientReceipts.selector, TOKEN, amount));
-        orchestrator.burn(TOKEN, BOB, amount, "");
+        orchestrator.burn(TOKEN, amount, "");
 
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 1, "pointer untouched by reverted burn");
     }
@@ -751,7 +782,7 @@ contract ST0xOrchestratorTest is Test {
         _mockRedeem(TOKEN, 30, 1, "");
 
         vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.InsufficientReceipts.selector, TOKEN, 20));
-        orchestrator.burn(TOKEN, BOB, amount, "");
+        orchestrator.burn(TOKEN, amount, "");
 
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 0, "pointer untouched by reverted burn");
     }
@@ -767,7 +798,7 @@ contract ST0xOrchestratorTest is Test {
         _mockERC20(TOKEN);
         _mockBalance(RECEIPT_ADDR, 0, 100);
         _mockRedeem(TOKEN, 100, 0, "");
-        orchestrator.burn(TOKEN, BOB, 100, "");
+        orchestrator.burn(TOKEN, 100, "");
 
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 1);
         assertEq(orchestrator.nextBurnReceiptId(TOKEN2), 10, "token2 pointer untouched");
@@ -786,8 +817,8 @@ contract ST0xOrchestratorTest is Test {
         _mockRedeem(TOKEN, amount, startIdx, "");
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, BOB, amount, startIdx, startIdx + 1);
-        orchestrator.burn(TOKEN, BOB, amount, "");
+        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, amount, startIdx, startIdx + 1);
+        orchestrator.burn(TOKEN, amount, "");
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), startIdx + 1);
     }
 

@@ -180,7 +180,10 @@ contract ST0xOrchestrator is
         if (amount == 0) revert ZeroAmount();
         _consumeMintAuth(token, to, amount, auth);
 
-        OffchainAssetReceiptVault(payable(token)).mint(amount, address(this), 0, receiptInformation);
+        // Share ratio is 1:1 by construction; anything else is the vault
+        // misbehaving and must halt the mint.
+        uint256 assets = OffchainAssetReceiptVault(payable(token)).mint(amount, address(this), 0, receiptInformation);
+        if (assets != amount) revert VaultAmountMismatch(amount, assets);
         IERC20(token).safeTransfer(to, amount);
         emit Minted(msg.sender, token, to, amount, auth.nonce);
     }
@@ -196,7 +199,7 @@ contract ST0xOrchestrator is
     }
 
     /// @inheritdoc IST0xOrchestratorV1
-    function burn(address token, address from, uint256 amount, bytes calldata burnInfo)
+    function burn(address token, uint256 amount, bytes calldata burnInfo)
         external
         onlyRole(BURN_ROLE)
         onlyExpectedVaultLogic
@@ -204,13 +207,11 @@ contract ST0xOrchestrator is
     {
         if (amount == 0) revert ZeroAmount();
 
-        if (from != address(this)) {
-            IERC20(token).safeTransferFrom(from, address(this), amount);
-        }
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
         uint256 startIdx = _main().nextBurnReceiptId[token];
         uint256 endIdx = _burnWalk(token, amount, burnInfo);
-        emit Burned(msg.sender, token, from, amount, startIdx, endIdx);
+        emit Burned(msg.sender, token, amount, startIdx, endIdx);
     }
 
     /// @dev Walk `token`'s pointer, consuming held receipts. Reverts
@@ -219,6 +220,9 @@ contract ST0xOrchestrator is
     /// shortfall. Persists and returns the final pointer. Split out of
     /// `burn`, and `burnInfo` taken as `memory`, to keep both frames within
     /// stack limits.
+    // Pointer write after external calls is safe: every caller holds the
+    // ReentrancyGuardTransient lock for the whole entrypoint.
+    // slither-disable-next-line reentrancy-no-eth
     function _burnWalk(address token, uint256 remaining, bytes memory burnInfo) internal returns (uint256 idx) {
         OffchainAssetReceiptVault vault = OffchainAssetReceiptVault(payable(token));
         IERC1155 receipt_ = IERC1155(address(vault.receipt()));
@@ -226,6 +230,8 @@ contract ST0xOrchestrator is
         uint256 cap = vault.highwaterId();
         while (remaining > 0) {
             if (idx > cap) revert InsufficientReceipts(token, remaining);
+            // One rebased balanceOf per inspected id is the walk's design.
+            // slither-disable-next-line calls-loop
             uint256 bal = receipt_.balanceOf(address(this), idx);
             if (bal == 0) {
                 unchecked {
@@ -234,7 +240,11 @@ contract ST0xOrchestrator is
                 continue;
             }
             uint256 take = remaining < bal ? remaining : bal;
-            vault.redeem(take, address(this), address(this), idx, burnInfo);
+            // Share ratio is 1:1 by construction; anything else is the vault
+            // misbehaving and must halt the burn.
+            // slither-disable-next-line calls-loop
+            uint256 assets = vault.redeem(take, address(this), address(this), idx, burnInfo);
+            if (assets != take) revert VaultAmountMismatch(take, assets);
             remaining -= take;
             if (take == bal) {
                 unchecked {
@@ -374,9 +384,15 @@ contract ST0xOrchestrator is
     /// revert the transfer or spoof a pointer move — spoofing requires
     /// controlling `vault.receipt()`, i.e. already controlling the vault.
     function _maybeLowerBurnIndex(address erc1155, uint256 id) internal {
+        // Deliberately raw staticcalls: typed try/catch cannot catch
+        // returndata-decode failures, so a malicious ERC-1155 returning
+        // garbage could revert the hook and block transfers. Raw calls make
+        // the probe unable to revert, preserving accept-all semantics.
+        // slither-disable-next-line low-level-calls,calls-loop
         (bool ok, bytes memory ret) = erc1155.staticcall(abi.encodeWithSelector(IReceiptV3.manager.selector));
         if (!ok || ret.length != 32) return;
         address vault = address(uint160(uint256(bytes32(ret))));
+        // slither-disable-next-line low-level-calls,calls-loop
         (ok, ret) = vault.staticcall(abi.encodeWithSelector(ReceiptVault.receipt.selector));
         if (!ok || ret.length != 32) return;
         if (address(uint160(uint256(bytes32(ret)))) != erc1155) return;
@@ -402,5 +418,6 @@ contract ST0xOrchestrator is
     /// holds to `msg.sender` (this orchestrator) via `Address.sendValue` —
     /// always zero in practice. No sweep by design; the orchestrator does
     /// not handle ETH.
+    // slither-disable-next-line locked-ether
     receive() external payable {}
 }
