@@ -134,11 +134,11 @@ abstract contract OrchestratorIntegrationTest is Test {
                         )
                         .newOffchainAssetReceiptVault(
                             OffchainAssetReceiptVaultConfigV2({
-                                initialAdmin: ADMIN,
-                                receiptVaultConfig: ReceiptVaultConfigV2({
-                                    asset: address(0), name: "Test tStock", symbol: "tTEST", receipt: address(0)
-                                })
-                            })
+                            initialAdmin: ADMIN,
+                            receiptVaultConfig: ReceiptVaultConfigV2({
+                            asset: address(0), name: "Test tStock", symbol: "tTEST", receipt: address(0)
+                        })
+                        })
                         )
                 ))
         );
