@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Test, Vm} from "forge-std-1.16.1/src/Test.sol";
+import {Test} from "forge-std-1.16.1/src/Test.sol";
 
 import {IERC20} from "@openzeppelin-contracts-5.6.1/token/ERC20/IERC20.sol";
 import {IERC1155} from "@openzeppelin-contracts-5.6.1/token/ERC1155/IERC1155.sol";
@@ -192,22 +192,6 @@ contract ST0xOrchestratorIntegration is Test {
         vm.warp(effectiveTime + 500);
     }
 
-    /// Count `BurnShortfallMinted` logs emitted by the orchestrator and return
-    /// the decoded fields of the last one seen.
-    function _shortfallLogs(Vm.Log[] memory logs)
-        internal
-        view
-        returns (uint256 count, uint256 amount, uint256 receiptId)
-    {
-        bytes32 sig = ST0xOrchestrator.BurnShortfallMinted.selector;
-        for (uint256 i = 0; i < logs.length; i++) {
-            if (logs[i].emitter == address(orchestrator) && logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
-                count++;
-                (amount, receiptId) = abi.decode(logs[i].data, (uint256, uint256));
-            }
-        }
-    }
-
     // ------------------------------------------------------------------ //
     // 1. Guard passes against the real V4 beacons                        //
     // ------------------------------------------------------------------ //
@@ -296,7 +280,7 @@ contract ST0xOrchestratorIntegration is Test {
 
     /// MM mints to an EOA, the EOA approves the orchestrator, MM burns the
     /// full amount. The recipient is drained, the receipt consumed, the
-    /// pointer advances one past the consumed id, and no shortfall is minted.
+    /// pointer advances one past the consumed id.
     function testBurnHappyPathAndPointer() external {
         (address eoa, uint256 pk) = makeAddrAndKey("burn-recipient");
         uint256 amount = 55e18;
@@ -310,7 +294,6 @@ contract ST0xOrchestratorIntegration is Test {
         vm.prank(eoa);
         IERC20(address(vault)).approve(address(orchestrator), amount);
 
-        vm.recordLogs();
         vm.prank(MM);
         orchestrator.burn(address(vault), eoa, amount, "");
 
@@ -319,9 +302,6 @@ contract ST0xOrchestratorIntegration is Test {
         assertEq(IERC20(address(vault)).balanceOf(address(orchestrator)), 0, "no shares stranded");
         assertEq(orchestrator.nextBurnReceiptId(address(vault)), mintedId + 1, "pointer advanced one past consumed id");
         assertEq(vault.totalSupply(), 0, "supply fully unwound");
-
-        (uint256 count,,) = _shortfallLogs(vm.getRecordedLogs());
-        assertEq(count, 0, "no BurnShortfallMinted on an exactly-covered burn");
     }
 
     // ------------------------------------------------------------------ //
@@ -330,7 +310,7 @@ contract ST0xOrchestratorIntegration is Test {
 
     /// A 3:1 forward split rebases the recipient's shares and the
     /// orchestrator's held receipt in lockstep. Burning the full rebased
-    /// balance drains both exactly with no shortfall mint.
+    /// balance drains both exactly.
     function testBurnAfterForwardSplitConsumesRebasedReceiptExactly() external {
         (address eoa, uint256 pk) = makeAddrAndKey("split-recipient");
         uint256 minted = 90e18;
@@ -350,7 +330,6 @@ contract ST0xOrchestratorIntegration is Test {
         vm.prank(eoa);
         IERC20(address(vault)).approve(address(orchestrator), 270e18);
 
-        vm.recordLogs();
         vm.prank(MM);
         orchestrator.burn(address(vault), eoa, 270e18, "");
 
@@ -359,22 +338,19 @@ contract ST0xOrchestratorIntegration is Test {
         assertEq(receipt.balanceOf(address(orchestrator), mintedId), 0, "receipt fully consumed");
         assertEq(orchestrator.nextBurnReceiptId(address(vault)), mintedId + 1, "pointer advanced one past consumed id");
         assertEq(vault.totalSupply(), 0, "supply fully unwound");
-
-        (uint256 count,,) = _shortfallLogs(vm.getRecordedLogs());
-        assertEq(count, 0, "no BurnShortfallMinted for an exactly-covered burn");
     }
 
     // ------------------------------------------------------------------ //
-    // 6. Burn after fractional split covers truncation dust              //
+    // 6. Burn after fractional split reverts on truncation dust          //
     // ------------------------------------------------------------------ //
 
     /// A 1:3 reverse split truncates the receipt side per-id but the share
     /// side per-account, leaving the held receipts short of the rebased share
-    /// balance by one unit. Burning the full balance covers the gap with a
-    /// single mint-on-demand (`BurnShortfallMinted`), stranding exactly the
-    /// gap on the orchestrator; the `EMERGENCY_ROLE` `withdrawShares` sweeps
-    /// it to zero.
-    function testBurnAfterFractionalSplitCoversTruncationDust() external {
+    /// balance by one unit. Burning the full balance now REVERTS
+    /// `InsufficientReceipts(token, gap)` — the orchestrator never mints to
+    /// cover a shortfall. Burning only what the receipts cover succeeds, and
+    /// the truncation-dust share stays with the holder for manual recovery.
+    function testBurnAfterFractionalSplitRevertsOnTruncationDust() external {
         (address eoa, uint256 pkA) = makeAddrAndKey("frac-recipient");
 
         // Two separate small receipts, each of which truncates on a 1/3
@@ -405,32 +381,28 @@ contract ST0xOrchestratorIntegration is Test {
         vm.prank(eoa);
         IERC20(address(vault)).approve(address(orchestrator), burnAmount);
 
-        vm.recordLogs();
+        // Burning the full rebased balance overruns the held receipts by
+        // `gap` → the whole burn reverts; nothing is pulled or consumed.
         vm.prank(MM);
+        vm.expectRevert(abi.encodeWithSelector(ST0xOrchestrator.InsufficientReceipts.selector, address(vault), gap));
         orchestrator.burn(address(vault), eoa, burnAmount, "");
 
-        assertEq(vault.balanceOf(eoa), 0, "recipient drained");
+        assertEq(vault.balanceOf(eoa), burnAmount, "reverted burn pulled nothing");
+        assertEq(receipt.balanceOf(address(orchestrator), idA), 1, "receipt idA untouched");
+        assertEq(receipt.balanceOf(address(orchestrator), idB), 1, "receipt idB untouched");
+
+        // Burning only what the receipts cover succeeds; the dust share
+        // stays with the holder awaiting manual recovery (e.g. receipts
+        // transferred in + `setBurnIndex`).
+        vm.prank(MM);
+        orchestrator.burn(address(vault), eoa, receiptTotal, "");
+
+        assertEq(vault.balanceOf(eoa), gap, "holder keeps exactly the truncation dust");
         assertEq(receipt.balanceOf(address(orchestrator), idA), 0, "receipt idA consumed");
         assertEq(receipt.balanceOf(address(orchestrator), idB), 0, "receipt idB consumed");
-
-        uint256 onDemandId = idB + 1;
-        (uint256 count, uint256 shortfallAmount, uint256 shortfallId) = _shortfallLogs(vm.getRecordedLogs());
-        assertEq(count, 1, "exactly one BurnShortfallMinted");
-        assertEq(shortfallAmount, gap, "shortfall equals the truncation gap");
-        assertEq(shortfallId, onDemandId, "shortfall receipt minted at highwater + 1");
-        assertEq(orchestrator.nextBurnReceiptId(address(vault)), onDemandId + 1, "pointer one past the on-demand id");
-
-        // Stranded shares equal the truncation gap, awaiting the sweep.
-        assertEq(IERC20(address(vault)).balanceOf(address(orchestrator)), gap, "stranded shares equal the gap");
-
-        // EMERGENCY_ROLE sweep completes the cycle.
-        bytes32 emergencyRole = orchestrator.EMERGENCY_ROLE();
-        vm.prank(OWNER);
-        orchestrator.grantRole(emergencyRole, ADMIN);
-        vm.prank(ADMIN);
-        orchestrator.withdrawShares(address(vault), gap, SWEEP);
-        assertEq(IERC20(address(vault)).balanceOf(SWEEP), gap, "swept dust arrived at the destination");
-        assertEq(IERC20(address(vault)).balanceOf(address(orchestrator)), 0, "orchestrator fully swept");
+        assertEq(IERC20(address(vault)).balanceOf(address(orchestrator)), 0, "no shares stranded on the orchestrator");
+        assertEq(orchestrator.nextBurnReceiptId(address(vault)), idB + 1, "pointer one past the last consumed id");
+        assertEq(vault.totalSupply(), gap, "only the dust remains outstanding");
     }
 
     // ------------------------------------------------------------------ //

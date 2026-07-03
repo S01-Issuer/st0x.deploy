@@ -669,63 +669,40 @@ contract ST0xOrchestratorTest is Test {
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 0, "pointer parked at partially-drained id");
     }
 
-    /// Overshoot: pointer above cap → mint-on-demand for the whole burn.
-    /// Uses the stateful `_HighwaterFlipper` + `vm.mockFunction` mechanic.
-    function testBurnOvershootMintsOnDemand() external {
+    /// Overshoot: pointer above cap → the walk cannot cover anything →
+    /// revert `InsufficientReceipts(token, amount)`. No mint-on-demand.
+    function testBurnOvershootReverts() external {
         _grant(orchestrator.BURN_ROLE(), address(this));
         // Seed pointer at 1, cap at 0 → idx(1) > cap(0) immediately.
         _seedPointer(TOKEN, 1);
         uint256 amount = 42;
         _mockERC20(TOKEN);
+        _mockHighwater(TOKEN, 0);
 
-        _HighwaterFlipper flipper = new _HighwaterFlipper();
-        // Route highwaterId() + mint() on TOKEN through the flipper. The
-        // flipper delegatecall lands in TOKEN's storage, so seed slot 0 = 0.
-        vm.store(TOKEN, bytes32(uint256(0)), bytes32(uint256(0)));
-        vm.mockFunction(TOKEN, address(flipper), abi.encodePacked(OffchainAssetReceiptVault.highwaterId.selector));
-        vm.mockFunction(TOKEN, address(flipper), abi.encodePacked(ReceiptVault.mint.selector));
-
-        // After mint, cap becomes 1 and idx resets to 1; balance covers.
-        _mockBalance(RECEIPT_ADDR, 1, amount);
-        _mockRedeem(TOKEN, amount, 1, "");
-
-        vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit ST0xOrchestrator.BurnShortfallMinted(TOKEN, amount, 1);
+        vm.expectRevert(abi.encodeWithSelector(ST0xOrchestrator.InsufficientReceipts.selector, TOKEN, amount));
         orchestrator.burn(TOKEN, BOB, amount, "");
 
-        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 2, "pointer advanced past drained shortfall id");
-        assertEq(uint256(vm.load(TOKEN, bytes32(uint256(0)))), 1, "mint bumped highwater to 1");
-        assertEq(uint256(vm.load(TOKEN, bytes32(uint256(1)))), amount, "mint covers full shortfall");
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 1, "pointer untouched by reverted burn");
     }
 
-    /// Mixed partial-then-shortfall: id1 covers 30, then idx(2)>cap(1) →
-    /// mint-on-demand of the remaining 20 → redeem 20 at new id 2.
-    function testBurnMixedPartialThenShortfall() external {
+    /// Partial-then-insufficient: id1 covers 30 of 50, then idx(2)>cap(1)
+    /// with 20 still unburned → the WHOLE burn reverts `InsufficientReceipts`
+    /// (the id1 redeem included — no partial state survives).
+    function testBurnPartialThenInsufficientReverts() external {
         _grant(orchestrator.BURN_ROLE(), address(this));
         _seedPointer(TOKEN, 0);
         uint256 amount = 50;
         _mockERC20(TOKEN);
-
-        _HighwaterFlipper flipper = new _HighwaterFlipper();
-        // Seed cap = 1 on TOKEN slot 0 (flipper's _highwater).
-        vm.store(TOKEN, bytes32(uint256(0)), bytes32(uint256(1)));
-        vm.mockFunction(TOKEN, address(flipper), abi.encodePacked(OffchainAssetReceiptVault.highwaterId.selector));
-        vm.mockFunction(TOKEN, address(flipper), abi.encodePacked(ReceiptVault.mint.selector));
+        _mockHighwater(TOKEN, 1);
 
         _mockBalance(RECEIPT_ADDR, 0, 0); // skip
-        _mockBalance(RECEIPT_ADDR, 1, 30); // covers 30
-        _mockBalance(RECEIPT_ADDR, 2, 20); // fresh minted id covers 20
+        _mockBalance(RECEIPT_ADDR, 1, 30); // covers 30, leaves 20 unburnable
         _mockRedeem(TOKEN, 30, 1, "");
-        _mockRedeem(TOKEN, 20, 2, "");
 
-        vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit ST0xOrchestrator.BurnShortfallMinted(TOKEN, 20, 2);
-        vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit ST0xOrchestrator.Burned(address(this), TOKEN, BOB, amount, 0, 3);
+        vm.expectRevert(abi.encodeWithSelector(ST0xOrchestrator.InsufficientReceipts.selector, TOKEN, 20));
         orchestrator.burn(TOKEN, BOB, amount, "");
 
-        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 3);
-        assertEq(uint256(vm.load(TOKEN, bytes32(uint256(1)))), 20, "on-demand mint covers only remaining 20");
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 0, "pointer untouched by reverted burn");
     }
 
     /// Two tokens maintain independent pointers.
@@ -988,25 +965,6 @@ contract ST0xOrchestratorTest is Test {
     function testVaultLogicIsExpectedFalse() external {
         _makeGuardFailVault();
         assertFalse(orchestrator.vaultLogicIsExpected());
-    }
-}
-
-/// @dev Stateful vault mock for the mint-on-demand burn walk. Routed onto the
-/// token address via `vm.mockFunction`, so its `highwaterId()` / `mint(...)`
-/// delegatecalls land in the TOKEN's storage (slot 0 = highwater, slot 1 =
-/// last mint shares). See `testBurnOvershootMintsOnDemand`.
-contract _HighwaterFlipper {
-    uint256 internal _highwater;
-    uint256 internal _lastMintShares;
-
-    function highwaterId() external view returns (uint256) {
-        return _highwater;
-    }
-
-    function mint(uint256 shares, address, uint256, bytes memory) external payable returns (uint256) {
-        _highwater += 1;
-        _lastMintShares = shares;
-        return shares;
     }
 }
 

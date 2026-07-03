@@ -53,12 +53,13 @@ import {IST0xVaultBeaconSet} from "../interface/IST0xVaultBeaconSet.sol";
 /// vault baking the corporate-actions facet address into its own bytecode.
 ///
 /// **Burn walk.** `burn` walks a per-token `nextBurnReceiptId` pointer over
-/// the orchestrator's own rebased receipt balances, minting on demand (and
-/// emitting `BurnShortfallMinted`) when the caller burns more than the
-/// orchestrator holds. The pointer is lazily seeded to `highwaterId + 1` on
-/// a token's first touch so a fresh token never scans the vault's
-/// pre-existing id history; `advanceBurnIndex` crosses accumulated
-/// zero-balance gaps incrementally without burning.
+/// the orchestrator's own rebased receipt balances. Burning more than the
+/// orchestrator holds reverts `InsufficientReceipts` — a shortfall is an
+/// anomaly to recover manually (transfer receipts in, `setBurnIndex`), never
+/// papered over by minting fresh receipts. The pointer is lazily seeded to
+/// `highwaterId + 1` on a token's first touch so a fresh token never scans
+/// the vault's pre-existing id history; `advanceBurnIndex` crosses
+/// accumulated zero-balance gaps incrementally without burning.
 ///
 /// All `mint`/`burn` amounts are current rebased tStock units, matching
 /// `vault.balanceOf` semantics.
@@ -97,10 +98,9 @@ contract ST0xOrchestrator is
 
     event Minted(address indexed caller, address indexed token, address indexed to, uint256 amount, bytes32 nonce);
     /// @param firstReceiptId `nextBurnReceiptId[token]` at the start of the call.
-    /// @param nextBurnReceiptIdAfter The pointer at the end. May be LESS than
-    /// `firstReceiptId` when a pointer parked beyond `highwaterId + 1` reset
-    /// down to a freshly minted shortfall id — do not treat
-    /// `[firstReceiptId, nextBurnReceiptIdAfter)` as a consumed range then.
+    /// @param nextBurnReceiptIdAfter The pointer at the end of the call. The
+    /// walk only ever moves forward, so `[firstReceiptId,
+    /// nextBurnReceiptIdAfter)` is the consumed id range.
     event Burned(
         address indexed caller,
         address indexed token,
@@ -109,11 +109,6 @@ contract ST0xOrchestrator is
         uint256 firstReceiptId,
         uint256 nextBurnReceiptIdAfter
     );
-    /// @notice The burn walk exhausted the orchestrator's held receipts for
-    /// `token` and minted a fresh receipt-backed batch to cover the shortfall
-    /// (interest-accrual case, or rebase-truncation dust after fractional
-    /// splits, or a mis-set pointer — monitor accordingly).
-    event BurnShortfallMinted(address indexed token, uint256 amount, uint256 receiptId);
     event BurnIndexSet(address indexed token, uint256 oldIndex, uint256 newIndex);
     event BurnIndexAdvanced(address indexed caller, address indexed token, uint256 oldIndex, uint256 newIndex);
     event TokenSeeded(address indexed token, uint256 pointer);
@@ -135,6 +130,12 @@ contract ST0xOrchestrator is
     /// @notice The production receipt beacon no longer points at the
     /// implementation this orchestrator was built against.
     error ReceiptLogicMismatch(address expected, address actual);
+    /// @notice The burn walk exhausted the orchestrator's held receipts for
+    /// `token` with `shortfall` still unburned. Burning more than the
+    /// orchestrator holds is an anomaly (interest-accrual overrun, mis-set
+    /// pointer, receipts never transferred in) — recover manually, e.g.
+    /// transfer receipts in or `setBurnIndex`, then retry.
+    error InsufficientReceipts(address token, uint256 shortfall);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -241,11 +242,11 @@ contract ST0xOrchestrator is
     }
 
     /// @notice Burn `amount` rebased tStocks of `token` from `from`. Pulls
-    /// the shares (if not already held), then walks the per-token pointer,
-    /// minting on demand when it overruns held receipts.
-    /// @param data `receiptInformation` forwarded to `vault.redeem` (and to
-    /// the on-demand `vault.mint`) for the audit trail — e.g. a tag marking a
-    /// debt-repay burn.
+    /// the shares (if not already held), then walks the per-token pointer.
+    /// Reverts `InsufficientReceipts` if the orchestrator's held receipts
+    /// cannot cover `amount` — recover manually, never by minting.
+    /// @param data `receiptInformation` forwarded to `vault.redeem` for the
+    /// audit trail — e.g. a tag marking a debt-repay burn.
     function burn(address token, address from, uint256 amount, bytes calldata data)
         external
         onlyRole(BURN_ROLE)
@@ -264,22 +265,19 @@ contract ST0xOrchestrator is
         emit Burned(msg.sender, token, from, amount, startIdx, endIdx);
     }
 
-    /// @dev Walk `token`'s pointer, consuming held receipts and minting on
-    /// demand for any shortfall. Persists and returns the final pointer.
-    /// Split out of `burn`, and `data` taken as `memory`, to keep both
-    /// frames within stack limits.
+    /// @dev Walk `token`'s pointer, consuming held receipts. Reverts
+    /// `InsufficientReceipts` when the walk crosses `highwaterId` with any
+    /// amount still unburned — the orchestrator never mints to cover a
+    /// shortfall. Persists and returns the final pointer. Split out of
+    /// `burn`, and `data` taken as `memory`, to keep both frames within
+    /// stack limits.
     function _burnWalk(address token, uint256 remaining, bytes memory info) internal returns (uint256 idx) {
         OffchainAssetReceiptVault vault = OffchainAssetReceiptVault(payable(token));
         IERC1155 receipt_ = IERC1155(address(vault.receipt()));
         idx = _main().nextBurnReceiptId[token];
         uint256 cap = vault.highwaterId();
         while (remaining > 0) {
-            if (idx > cap) {
-                vault.mint(remaining, address(this), 0, info);
-                cap = vault.highwaterId();
-                idx = cap;
-                emit BurnShortfallMinted(token, remaining, cap);
-            }
+            if (idx > cap) revert InsufficientReceipts(token, remaining);
             uint256 bal = receipt_.balanceOf(address(this), idx);
             if (bal == 0) {
                 unchecked {
@@ -343,9 +341,10 @@ contract ST0xOrchestrator is
     /// after receipts are transferred in, or recover from a mis-set pointer.
     /// @dev O(gap) hazard, both directions: set too LOW and the next `burn`
     /// pays one external rebased `balanceOf` per id to cross the gap in a
-    /// single tx (mitigate with `advanceBurnIndex`); set too HIGH and every
-    /// burn becomes 100% mint-on-demand shortfall, silently stranding pulled
-    /// shares. Set at (or just below) the first id with non-zero balance.
+    /// single tx (mitigate with `advanceBurnIndex`); set too HIGH and held
+    /// receipts behind the pointer are stranded, so burns revert
+    /// `InsufficientReceipts` once the receipts ahead of it are exhausted.
+    /// Set at (or just below) the first id with non-zero balance.
     function setBurnIndex(address token, uint256 newIndex) external onlyRole(EMERGENCY_ROLE) nonReentrant {
         MainStorage storage $ = _main();
         $.tokenSeeded[token] = true;
@@ -379,8 +378,8 @@ contract ST0xOrchestrator is
     }
 
     /// @notice `EMERGENCY_ROLE` escape hatch: sweep tStocks stranded on the
-    /// orchestrator by the mint-on-demand cycle (interest income, plus
-    /// rebase-truncation dust after fractional splits).
+    /// orchestrator (sent directly to it, or rebase-truncation dust after
+    /// fractional splits).
     function withdrawShares(address token, uint256 amount, address to) external onlyRole(EMERGENCY_ROLE) nonReentrant {
         IERC20(token).safeTransfer(to, amount);
         emit SharesWithdrawn(token, to, amount);
