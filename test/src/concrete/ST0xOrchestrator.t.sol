@@ -21,6 +21,10 @@ import {BeaconProxy} from "@openzeppelin-contracts-5.6.1/proxy/beacon/BeaconProx
 import {IERC1271} from "@openzeppelin-contracts-5.6.1/interfaces/IERC1271.sol";
 import {Mock1271} from "./Mock1271.sol";
 import {MockMintRecipient} from "./MockMintRecipient.sol";
+import {ReentrantMintRecipient} from "./ReentrantMintRecipient.sol";
+import {ReentrantBurnVault} from "./ReentrantBurnVault.sol";
+import {MockManagerRevert1155} from "./MockManagerRevert1155.sol";
+import {ReentrancyGuardTransient} from "@openzeppelin-contracts-5.6.1/utils/ReentrancyGuardTransient.sol";
 import {OffchainAssetReceiptVault} from "rain-vats-0.1.6/src/concrete/vault/OffchainAssetReceiptVault.sol";
 import {ReceiptVault} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
 import {IReceiptV3} from "rain-vats-0.1.6/src/interface/IReceiptV3.sol";
@@ -197,6 +201,66 @@ contract ST0xOrchestratorTest is Test {
         bytes32 expected =
             keccak256(abi.encode(uint256(keccak256("st0x.orchestrator.main")) - 1)) & ~bytes32(uint256(0xff));
         assertEq(expected, EXPECTED_MAIN_STORAGE_LOCATION, "MAIN_STORAGE_LOCATION formula mismatch");
+    }
+
+    // ------------------------------------------------------------------ //
+    //                       EIP-712 domain pinning                       //
+    // ------------------------------------------------------------------ //
+
+    /// The ERC-5267 self-description must advertise exactly the documented
+    /// signer domain: name "ST0xOrchestrator", version "1", the current
+    /// chain, and the proxy address, with no salt or extensions. External
+    /// integrations (wallets, recipients) build their digests from these
+    /// values, so they are pinned as literals here.
+    function testEip712DomainFields() external view {
+        (
+            bytes1 fields,
+            string memory name,
+            string memory version,
+            uint256 chainId,
+            address verifyingContract,
+            bytes32 salt,
+            uint256[] memory extensions
+        ) = orchestrator.eip712Domain();
+        assertEq(uint8(fields), 0x0f, "fields must flag name+version+chainId+verifyingContract only");
+        assertEq(name, "ST0xOrchestrator", "domain name");
+        assertEq(version, "1", "domain version");
+        assertEq(chainId, block.chainid, "domain chainId");
+        assertEq(verifyingContract, address(orchestrator), "domain verifyingContract");
+        assertEq(salt, bytes32(0), "domain salt");
+        assertEq(extensions.length, 0, "domain extensions");
+    }
+
+    /// `mintAuthDigest` must equal a FULLY independent EIP-712 computation:
+    /// domain separator built from the literal ("ST0xOrchestrator", "1",
+    /// chainid, proxy) and struct hash built from the literal MintAuth type
+    /// string. This is what an external signer computes from the docs alone,
+    /// so any drift in domain name/version, typehash, or field order breaks
+    /// this test.
+    function testMintAuthDigestMatchesIndependentComputation(address token, address to, uint256 amount, bytes32 nonce)
+        external
+        view
+    {
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(bytes("ST0xOrchestrator")),
+                keccak256(bytes("1")),
+                block.chainid,
+                address(orchestrator)
+            )
+        );
+        bytes32 structHash = keccak256(
+            abi.encode(
+                keccak256("MintAuth(address token,address recipient,uint256 amount,bytes32 nonce)"),
+                token,
+                to,
+                amount,
+                nonce
+            )
+        );
+        bytes32 expected = keccak256(abi.encodePacked(hex"1901", domainSeparator, structHash));
+        assertEq(_digest(token, to, amount, nonce), expected, "digest vs independent EIP-712 computation");
     }
 
     // ------------------------------------------------------------------ //
@@ -628,6 +692,127 @@ contract ST0xOrchestratorTest is Test {
         orchestrator.mint(TOKEN, eoa, amount, _auth(sig, keccak256("vam-mint")), "");
     }
 
+    // ------------------------------------------------------------------ //
+    //                EIP-712 digest reference vectors                    //
+    // ------------------------------------------------------------------ //
+
+    /// The canonical MintAuth EIP-712 type string, exactly as documented on
+    /// `MINT_AUTH_TYPEHASH`. Offchain signers are built against this string,
+    /// so the contract constant must hash it byte-for-byte.
+    string internal constant MINT_AUTH_TYPE = "MintAuth(address token,address recipient,uint256 amount,bytes32 nonce)";
+
+    /// Reconstruct the mint-auth digest fully independently of the contract:
+    /// domain separator from the documented ("ST0xOrchestrator", "1") domain
+    /// and struct hash from the canonical type string. This is what a
+    /// spec-conformant offchain signer computes.
+    function _referenceMintAuthDigest(address token, address to, uint256 amount, bytes32 nonce)
+        internal
+        view
+        returns (bytes32)
+    {
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256(bytes("ST0xOrchestrator")),
+                keccak256(bytes("1")),
+                block.chainid,
+                address(orchestrator)
+            )
+        );
+        bytes32 structHash = keccak256(abi.encode(keccak256(bytes(MINT_AUTH_TYPE)), token, to, amount, nonce));
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+    }
+
+    /// Pin the typehash constant to the documented type string so offchain
+    /// signers built to the spec can never silently diverge.
+    function testMintAuthTypehashPinned() external view {
+        assertEq(
+            orchestrator.MINT_AUTH_TYPEHASH(),
+            keccak256(bytes(MINT_AUTH_TYPE)),
+            "MINT_AUTH_TYPEHASH does not hash the canonical MintAuth type string"
+        );
+    }
+
+    /// `mintAuthDigest` must equal the independently reconstructed EIP-712
+    /// digest for distinct non-zero (token, recipient, amount, nonce), so the
+    /// signed payload provably commits to every field.
+    function testMintAuthDigestMatchesEip712Reference() external view {
+        address token = TOKEN;
+        address to = BOB;
+        uint256 amount = 12345;
+        bytes32 nonce = keccak256("reference-vector");
+        assertEq(
+            Digest.unwrap(orchestrator.mintAuthDigest(token, to, amount, nonce)),
+            _referenceMintAuthDigest(token, to, amount, nonce),
+            "mintAuthDigest diverges from the EIP-712 reference construction"
+        );
+    }
+
+    /// Same reference check across the whole input space.
+    function testFuzzMintAuthDigestMatchesEip712Reference(address token, address to, uint256 amount, bytes32 nonce)
+        external
+        view
+    {
+        assertEq(
+            Digest.unwrap(orchestrator.mintAuthDigest(token, to, amount, nonce)),
+            _referenceMintAuthDigest(token, to, amount, nonce),
+            "mintAuthDigest diverges from the EIP-712 reference construction"
+        );
+    }
+
+    /// End-to-end: an EOA signing the INDEPENDENTLY reconstructed digest (as
+    /// a spec-conformant offchain signer would, never calling the contract's
+    /// own view) is accepted by `mint`. Any drift between the contract digest
+    /// and the documented construction turns this into BadRecipientSignature.
+    function testMintWithSignatureOverReferenceDigest() external {
+        (address eoa, uint256 pk) = makeAddrAndKey("reference-signer");
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        uint256 amount = 777;
+        bytes32 nonce = keccak256("reference-signed");
+        bytes memory info = hex"5157";
+
+        _prepMintExact(TOKEN, amount, info);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, _referenceMintAuthDigest(TOKEN, eoa, amount, nonce));
+        bytes memory sig = abi.encodePacked(r, s, v);
+
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit IST0xOrchestratorV1.Minted(address(this), TOKEN, eoa, amount, nonce);
+        orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), info);
+    }
+
+    // ------------------------------------------------------------------ //
+    //                        Reentrancy guard                            //
+    // ------------------------------------------------------------------ //
+
+    /// A malicious callback recipient that reenters `mint` from inside its
+    /// `authorizeMint` callback (holding MINT_ROLE itself) must be stopped by
+    /// the reentrancy guard: the nested call reverts
+    /// `ReentrancyGuardReentrantCall` and the whole outer mint unwinds, so
+    /// neither nonce is consumed.
+    function testMintReenteredFromCallbackReverts() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        uint256 outerAmount = 400;
+        uint256 innerAmount = 5;
+        bytes32 outerNonce = keccak256("outer");
+        bytes32 innerNonce = keccak256("inner");
+
+        ReentrantMintRecipient recipient = new ReentrantMintRecipient(orchestrator, TOKEN, innerAmount, innerNonce);
+        _grant(orchestrator.MINT_ROLE(), address(recipient));
+
+        // Mock the vault legs for BOTH mints so that, were the guard absent,
+        // nested and outer mint would both complete instead of reverting for
+        // an unrelated reason.
+        _prepMintExact(TOKEN, outerAmount, "");
+        _prepMintExact(TOKEN, innerAmount, "");
+
+        vm.expectRevert(ReentrancyGuardTransient.ReentrancyGuardReentrantCall.selector);
+        orchestrator.mint(TOKEN, address(recipient), outerAmount, _auth("", outerNonce), "");
+
+        assertFalse(orchestrator.nonceUsed(address(recipient), outerNonce), "outer nonce must not persist");
+        assertFalse(orchestrator.nonceUsed(address(recipient), innerNonce), "inner nonce must not persist");
+    }
+
     /// The vault reporting an assets amount != the shares redeemed halts the
     /// burn loudly.
     function testBurnVaultAmountMismatchReverts() external {
@@ -1011,6 +1196,10 @@ contract ST0xOrchestratorTest is Test {
         ids[2] = 3;
         ids[3] = 9;
         uint256[] memory values = new uint256[](4);
+        values[0] = 1;
+        values[1] = 1;
+        values[2] = 1;
+        values[3] = 1;
 
         // Each qualifying id lowers in turn: 10 → 7 → 3.
         vm.expectEmit(true, false, false, true, address(orchestrator));
@@ -1021,6 +1210,47 @@ contract ST0xOrchestratorTest is Test {
         bytes4 ret = orchestrator.onERC1155BatchReceived(address(this), BOB, ids, values, "");
         assertEq(ret, IERC1155Receiver.onERC1155BatchReceived.selector);
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 3, "pointer lowered to minimum qualifying id");
+    }
+
+    /// A ZERO-value transfer of a genuine receipt at a low id must NOT lower
+    /// the pointer: a zero-value transfer delivers no burnable balance, so
+    /// lowering to its id would strand the pointer over an empty id. Without
+    /// this gate any unprivileged account could floor the pointer for free
+    /// (a zero-value transfer needs no balance) and inflate the next burn's
+    /// walk to O(highwaterId) as a repeatable griefing vector.
+    function testOnERC1155ReceivedZeroValueDoesNotLowerPointer() external {
+        _seedPointer(TOKEN, 10);
+        _mockManager(RECEIPT_ADDR, TOKEN);
+
+        vm.recordLogs();
+        vm.prank(RECEIPT_ADDR);
+        bytes4 ret = orchestrator.onERC1155Received(address(this), BOB, 5, 0, "");
+        assertEq(ret, IERC1155Receiver.onERC1155Received.selector);
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 10, "zero-value transfer must not move the pointer");
+        assertEq(vm.getRecordedLogs().length, 0, "no BurnIndexLowered for a zero-value transfer");
+    }
+
+    /// Batch variant: only the non-zero entries lower the pointer; a zero-value
+    /// entry at an even lower id is ignored.
+    function testOnERC1155BatchReceivedZeroValueEntriesIgnored() external {
+        _seedPointer(TOKEN, 10);
+        _mockManager(RECEIPT_ADDR, TOKEN);
+
+        uint256[] memory ids = new uint256[](2);
+        ids[0] = 2; // lower id, but zero value -> ignored
+        ids[1] = 6; // non-zero value -> lowers to 6
+        uint256[] memory values = new uint256[](2);
+        values[0] = 0;
+        values[1] = 1;
+
+        vm.expectEmit(true, false, false, true, address(orchestrator));
+        emit IST0xOrchestratorV1.BurnIndexLowered(TOKEN, 10, 6);
+        vm.prank(RECEIPT_ADDR);
+        bytes4 ret = orchestrator.onERC1155BatchReceived(address(this), BOB, ids, values, "");
+        assertEq(ret, IERC1155Receiver.onERC1155BatchReceived.selector);
+        assertEq(
+            orchestrator.nextBurnReceiptId(TOKEN), 6, "zero-value entry ignored; pointer lowered only by non-zero entry"
+        );
     }
 
     function testSupportsInterface() external view {
@@ -1059,5 +1289,100 @@ contract ST0xOrchestratorTest is Test {
     function testVaultLogicIsExpectedFalse() external {
         _makeGuardFailVault();
         assertFalse(orchestrator.vaultLogicIsExpected());
+    }
+
+    /// `burnInfo` is forwarded VERBATIM to `vault.redeem` as the audit-trail
+    /// `receiptInformation`: the interface promises it, indexers rely on it.
+    function testBurnForwardsBurnInfoToRedeem() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        _seedPointer(TOKEN, 0);
+        uint256 amount = 300;
+        bytes memory burnInfo = hex"c0ffee0123";
+        _mockHighwater(TOKEN, 1);
+        _mockERC20(TOKEN);
+        _mockBalance(RECEIPT_ADDR, 0, amount);
+        _mockRedeem(TOKEN, amount, 0, burnInfo);
+
+        vm.expectCall(
+            TOKEN,
+            abi.encodeWithSelector(
+                ReceiptVault.redeem.selector, amount, address(orchestrator), address(orchestrator), uint256(0), burnInfo
+            )
+        );
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, amount, 0, 1);
+        orchestrator.burn(TOKEN, amount, burnInfo);
+        assertEq(orchestrator.nextBurnReceiptId(TOKEN), 1);
+    }
+
+    /// `burn` holds the ReentrancyGuardTransient lock for the whole
+    /// entrypoint: a token whose `transferFrom` reenters `burn` must see the
+    /// nested call revert `ReentrancyGuardReentrantCall` (the pointer write
+    /// after external calls in `_burnWalk` is only safe under this lock),
+    /// while the outer burn completes normally.
+    function testBurnReentrantCallReverts() external {
+        ReentrantBurnVault attacker = new ReentrantBurnVault(orchestrator);
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        // The nested call comes FROM the attacker, so it passes the role
+        // check and reaches the reentrancy guard.
+        _grant(orchestrator.BURN_ROLE(), address(attacker));
+
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit IST0xOrchestratorV1.Burned(address(this), address(attacker), 100, 0, 0);
+        orchestrator.burn(address(attacker), 100, "");
+
+        assertTrue(attacker.reentryAttempted(), "attacker must have attempted reentry");
+        assertFalse(attacker.reentrySucceeded(), "nested burn must not succeed");
+        assertEq(
+            attacker.reentryRevertData(),
+            abi.encodeWithSelector(ReentrancyGuardTransient.ReentrancyGuardReentrantCall.selector),
+            "nested burn must revert ReentrancyGuardReentrantCall"
+        );
+    }
+
+    /// A sender whose `manager()` probe REVERTS with exactly 32 bytes of
+    /// returndata (decoding to a vault whose `receipt()` round-trips back to
+    /// the sender) must be treated as foreign: accepted, no pointer move, no
+    /// `BurnIndexLowered`. Only the `!ok` guard on the manager() staticcall
+    /// separates this revert payload from a genuine manager() answer.
+    function testOnERC1155ReceivedManagerRevert32BytesNoOp() external {
+        address fakeVault = address(0xFA6E);
+        MockManagerRevert1155 evil = new MockManagerRevert1155(fakeVault);
+        // Make the round-trip leg pass so the ONLY thing rejecting the
+        // sender is the failure status of the manager() probe itself.
+        vm.mockCall(fakeVault, abi.encodeWithSelector(ReceiptVault.receipt.selector), abi.encode(address(evil)));
+        _seedPointer(fakeVault, 10);
+
+        vm.recordLogs();
+        vm.prank(address(evil));
+        bytes4 ret = orchestrator.onERC1155Received(address(this), BOB, 5, 1, "");
+        assertEq(ret, IERC1155Receiver.onERC1155Received.selector);
+        assertEq(orchestrator.nextBurnReceiptId(fakeVault), 10, "reverting manager() probe must not move the pointer");
+        assertEq(vm.getRecordedLogs().length, 0, "no BurnIndexLowered may be emitted for a reverting manager() probe");
+    }
+
+    /// Sibling of the manager()-probe guard: a sender whose manager() probe
+    /// SUCCEEDS (returns a vault), but whose vault's receipt() probe REVERTS
+    /// with exactly 32 bytes decoding to the sender itself, must still be
+    /// treated as foreign: accepted, no pointer move, no BurnIndexLowered.
+    /// Only the `!ok` half of the guard on the receipt() staticcall separates
+    /// that revert payload from a genuine round-tripping receipt() answer that
+    /// would (wrongly) lower the pointer.
+    function testOnERC1155ReceivedReceiptRevert32BytesNoOp() external {
+        address evil = address(0xE711);
+        address fakeVault = address(0xFA6E);
+        // manager() probe succeeds and points at fakeVault.
+        vm.mockCall(evil, abi.encodeWithSelector(IReceiptV3.manager.selector), abi.encode(fakeVault));
+        // receipt() probe REVERTS with 32 bytes that decode back to the
+        // sender, so dropping the `!ok` guard would let it round-trip.
+        vm.mockCallRevert(fakeVault, abi.encodeWithSelector(ReceiptVault.receipt.selector), abi.encode(evil));
+        _seedPointer(fakeVault, 10);
+
+        vm.recordLogs();
+        vm.prank(evil);
+        bytes4 ret = orchestrator.onERC1155Received(address(this), BOB, 5, 1, "");
+        assertEq(ret, IERC1155Receiver.onERC1155Received.selector);
+        assertEq(orchestrator.nextBurnReceiptId(fakeVault), 10, "reverting receipt() probe must not move the pointer");
+        assertEq(vm.getRecordedLogs().length, 0, "no BurnIndexLowered may be emitted for a reverting receipt() probe");
     }
 }

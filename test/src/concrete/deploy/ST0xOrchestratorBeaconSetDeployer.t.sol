@@ -103,7 +103,12 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
 
     function testDeployRevertsZeroOwner() external {
         ST0xOrchestratorBeaconSetDeployer d = _deployer(address(0xB0B));
-        vm.expectRevert(ZeroOwner.selector);
+        // Pin the reverter to the deployer itself: the deployer's own guard
+        // must trip BEFORE any BeaconProxy construction is attempted. A plain
+        // selector expectation would also be satisfied by the same-selector
+        // ZeroOwner() bubbling out of ST0xOrchestrator.initialize inside the
+        // proxy constructor, which reverts from a different address.
+        vm.expectRevert(ZeroOwner.selector, address(d));
         d.deploy(address(0));
     }
 

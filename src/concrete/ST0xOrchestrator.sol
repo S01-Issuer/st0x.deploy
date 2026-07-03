@@ -64,9 +64,11 @@ import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../interface/IST0xOrchest
 /// orchestrator holds reverts `InsufficientReceipts` — a shortfall is an
 /// anomaly to recover manually (transfer receipts in, `setBurnIndex`), never
 /// papered over by minting fresh receipts. When a production receipt arrives
-/// at an id below the pointer, the ERC-1155 receiver hook lowers the pointer
-/// to it automatically, so transferred-in receipts are always burnable
-/// without manual intervention.
+/// at an id below the pointer with a non-zero balance, the ERC-1155 receiver
+/// hook lowers the pointer to it automatically, so transferred-in receipts are
+/// always burnable without manual intervention. Zero-value transfers are
+/// ignored so the pointer can never be floored over an empty id (see the
+/// receiver hooks).
 ///
 /// All `mint`/`burn` amounts are current rebased tStock units, matching
 /// `vault.balanceOf` semantics.
@@ -362,17 +364,29 @@ contract ST0xOrchestrator is
     /// receipt arriving at an id below `token`'s pointer lowers the pointer
     /// to that id, so transferred-in receipts are always reachable by the
     /// burn walk without any manual `setBurnIndex`.
-    function onERC1155Received(address, address, uint256 id, uint256, bytes calldata) external returns (bytes4) {
-        _maybeLowerBurnIndex(msg.sender, id);
+    ///
+    /// The auto-lower only fires for a NON-ZERO transfer. A zero-value
+    /// transfer delivers no burnable balance, so lowering the pointer to its
+    /// id would only strand the pointer over an empty id: any unprivileged
+    /// account could then floor the pointer for free (a zero-value transfer
+    /// needs no balance) and inflate the next burn's walk to `O(highwaterId)`,
+    /// a repeatable griefing vector. Gating on `value > 0` blocks it while
+    /// preserving the intended case — a real receipt transferred in always
+    /// carries a non-zero balance.
+    function onERC1155Received(address, address, uint256 id, uint256 value, bytes calldata) external returns (bytes4) {
+        if (value > 0) _maybeLowerBurnIndex(msg.sender, id);
         return IERC1155Receiver.onERC1155Received.selector;
     }
 
-    function onERC1155BatchReceived(address, address, uint256[] calldata ids, uint256[] calldata, bytes calldata)
+    function onERC1155BatchReceived(address, address, uint256[] calldata ids, uint256[] calldata values, bytes calldata)
         external
         returns (bytes4)
     {
+        // A genuine ERC-1155 batch always passes equal-length arrays; the
+        // `i < values.length` bound only matters for a hand-crafted direct
+        // call, which the accept-all hooks must never revert on.
         for (uint256 i = 0; i < ids.length; i++) {
-            _maybeLowerBurnIndex(msg.sender, ids[i]);
+            if (i < values.length && values[i] > 0) _maybeLowerBurnIndex(msg.sender, ids[i]);
         }
         return IERC1155Receiver.onERC1155BatchReceived.selector;
     }
