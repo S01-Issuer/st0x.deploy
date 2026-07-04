@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {CompletionFilter, NODE_NONE} from "../lib/LibCorporateActionNode.sol";
+import {Float} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
 
 /// @dev Bitmap action type for V1 vault initialisation. Created once per
 /// vault by the first `scheduleCorporateAction` call as the head of the
@@ -434,4 +435,33 @@ interface ICorporateActionsV1 {
     /// @param actionId The action id returned by `nextOfType` / `prevOfType`.
     /// @return The raw ABI-encoded parameters for the action.
     function getActionParameters(uint256 actionId) external view returns (bytes memory);
+
+    /// @notice The cumulative balance-migration multiplier since genesis, as
+    /// a single collapsed `Float` product.
+    ///
+    /// Walks every COMPLETED balance-migration action in chronological order
+    /// — the same `BALANCE_MIGRATION_TYPES_MASK` / `CompletionFilter.COMPLETED`
+    /// selection that `LibRebase.migratedBalance` applies during lazy
+    /// migration — and multiplies the stock-split multipliers together via
+    /// `LibDecimalFloat.mul`. Init/bootstrap nodes are identity and
+    /// contribute nothing. Returns the identity Float (`packLossless(1, 0)`)
+    /// when no completed balance-migration action exists (including a vault
+    /// where no action was ever scheduled). Pending and cancelled actions
+    /// are excluded.
+    ///
+    /// @dev This view is explicitly NOT for balance migration. Balance
+    /// migration NEVER collapses multipliers into a cumulative product —
+    /// each step is rasterized to uint256 (truncating) before the next
+    /// multiplier applies, so that dormant and active accounts converge to
+    /// identical stored balances (see the sequential-precision NatSpec on
+    /// `LibRebase`). A collapsed product diverges from that sequential
+    /// result and MUST NOT be used to compute or verify token balances.
+    /// It exists for external consumers — e.g. the atomic bridge — that
+    /// need to convert genesis-denominated debt units into current units,
+    /// where a single collapsed `Float` product is exactly the wanted
+    /// semantics and per-step truncation would be wrong.
+    ///
+    /// @return The product of every completed balance-migration multiplier
+    /// since genesis, as a `Float`; identity (1) when there are none.
+    function cumulativeBalanceMultiplierSinceGenesis() external view returns (Float);
 }

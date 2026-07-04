@@ -108,6 +108,10 @@ contract MockVault is ICorporateActionsV1, IReceiptManagerV2 {
         revert("mock");
     }
 
+    function cumulativeBalanceMultiplierSinceGenesis() external pure override returns (Float) {
+        revert("mock");
+    }
+
     /// Expose minimal IERC20Metadata surface that `Receipt.getVaultShareSymbol`
     /// calls via `IERC20Metadata(address(manager)).symbol()`. Not actually
     /// used in our tests (we never hit `uri()`), but the `_update` path may

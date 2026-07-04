@@ -100,4 +100,8 @@ contract MockCorporateActionsVault is ICorporateActionsV1 {
     function prevOfType(uint256, uint256, CompletionFilter) external pure override returns (uint256, uint256, uint64) {
         revert("mock: not implemented");
     }
+
+    function cumulativeBalanceMultiplierSinceGenesis() external pure override returns (Float) {
+        revert("mock: not implemented");
+    }
 }
