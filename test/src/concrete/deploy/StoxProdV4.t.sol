@@ -7,9 +7,6 @@ import {LibProdDeployV4} from "../../../../src/lib/LibProdDeployV4.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
-import {
-    IOffchainAssetReceiptVaultBeaconSetDeployerV2
-} from "rain-vats-0.1.6/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV2.sol";
 
 /// @title StoxProdV4Test
 /// @notice Fork test verifying every V4 Zoltu deployment exists on Base with
@@ -40,28 +37,12 @@ contract StoxProdV4Test is Test {
         );
 
         assertTrue(
-            LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6.code.length > 0, "V4 StoxReceiptVault not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6.codehash,
-            LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_RAIN_VATS_0_1_6
-        );
-
-        assertTrue(
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_RAIN_VATS_0_1_6.code.length > 0,
             "V4 StoxWrappedTokenVault not deployed"
         );
         assertEq(
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_RAIN_VATS_0_1_6.codehash,
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_RAIN_VATS_0_1_6
-        );
-
-        assertTrue(
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RAIN_VATS_0_1_6.code.length > 0, "V4 StoxUnifiedDeployer not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RAIN_VATS_0_1_6.codehash,
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_RAIN_VATS_0_1_6
         );
 
         assertTrue(
@@ -83,15 +64,6 @@ contract StoxProdV4Test is Test {
         );
 
         assertTrue(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6.code.length > 0,
-            "V4 StoxOffchainAssetReceiptVaultBeaconSetDeployer not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6.codehash,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_RAIN_VATS_0_1_6
-        );
-
-        assertTrue(
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6.code.length > 0,
             "V4 StoxOffchainAssetReceiptVaultAuthorizerV1 not deployed"
         );
@@ -110,15 +82,6 @@ contract StoxProdV4Test is Test {
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_RAIN_VATS_0_1_6
         );
 
-        assertTrue(
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6.code.length > 0,
-            "V4 StoxCorporateActionsFacet not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6.codehash,
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_RAIN_VATS_0_1_6
-        );
-
         // The wrapped-token-vault beacon points at the V4 vault implementation
         // and is still held by the beacon initial owner (rainlang.eth), which
         // is the deploy-time state before ownership migration to the ST0x
@@ -134,37 +97,38 @@ contract StoxProdV4Test is Test {
             "V4 beacon owner mismatch"
         );
 
-        // The offchain-asset-receipt-vault beacon-set deployer creates two
-        // beacons in its constructor: the receipt beacon points at the V4
-        // receipt implementation and the offchain-asset-receipt-vault beacon
-        // points at the V4 receipt vault implementation, both held by the
-        // beacon initial owner.
-        IOffchainAssetReceiptVaultBeaconSetDeployerV2 oarvDeployer = IOffchainAssetReceiptVaultBeaconSetDeployerV2(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6
-        );
-
-        IBeacon receiptBeacon = oarvDeployer.iReceiptBeacon();
+        // ------------------------------------------------------------------ //
+        // Pending-redeploy tripwires (2026-07-04 cumulative-multiplier change) //
+        // ------------------------------------------------------------------ //
+        // The facet gained `cumulativeBalanceMultiplierSinceGenesis`, moving
+        // its deterministic address and, transitively, the vault impl, the
+        // OARV beacon-set deployer, the orchestrator set, and the unified
+        // deployer. The pins were updated AHEAD of the on-chain upgrade wave
+        // (deliberately — the constants must be right before the upgrades
+        // run). Until that wave deploys, these addresses MUST be empty; the
+        // moment the deploy lands these tripwires fail loudly, and whoever
+        // sees that must flip this block back to full deployed+codehash
+        // assertions (and restore the OARV beacon implementation/owner
+        // checks that previously lived at the bottom of this function).
         assertEq(
-            receiptBeacon.implementation(),
-            LibProdDeployV4.STOX_RECEIPT_RAIN_VATS_0_1_6,
-            "V4 OARV receipt beacon implementation mismatch"
-        );
-        assertEq(
-            Ownable(address(receiptBeacon)).owner(),
-            LibProdDeployV4.BEACON_INITIAL_OWNER,
-            "V4 OARV receipt beacon owner mismatch"
-        );
-
-        IBeacon vaultBeacon = oarvDeployer.iOffchainAssetReceiptVaultBeacon();
-        assertEq(
-            vaultBeacon.implementation(),
-            LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6,
-            "V4 OARV vault beacon implementation mismatch"
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6.code.length,
+            0,
+            "V4.1 facet now deployed - flip StoxProdV4 tripwires to full assertions"
         );
         assertEq(
-            Ownable(address(vaultBeacon)).owner(),
-            LibProdDeployV4.BEACON_INITIAL_OWNER,
-            "V4 OARV vault beacon owner mismatch"
+            LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6.code.length,
+            0,
+            "V4.1 StoxReceiptVault now deployed - flip StoxProdV4 tripwires to full assertions"
+        );
+        assertEq(
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6.code.length,
+            0,
+            "V4.1 OARV beacon-set deployer now deployed - flip StoxProdV4 tripwires to full assertions"
+        );
+        assertEq(
+            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RAIN_VATS_0_1_6.code.length,
+            0,
+            "V4.1 StoxUnifiedDeployer now deployed - flip StoxProdV4 tripwires to full assertions"
         );
     }
 
