@@ -1,0 +1,85 @@
+name: run-script
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: 'Operational script to dispatch'
+        required: true
+        type: choice
+        options:
+          # Append-only registry: add new entries at the bottom; never reorder
+          # or delete. Re-dispatching a historical (executed) script must
+          # remain possible — a signer/auditor may want to re-derive its
+          # bundle to verify what landed on-chain.
+          #
+          # Each entry is the date-prefixed filename (without `.s.sol`) of a
+          # script under `script/`. Convention: `YYYYMMDD-<kebab-name>`,
+          # where the date is the day the script was added to this dropdown.
+          # Execution status (PENDING / EXECUTED + SafeTxHash) lives in the
+          # script's file-level NatSpec — this dropdown is a registry of
+          # *which* scripts exist, not *whether* they've run.
+          - 20260619-migrate-multisig-threshold
+      sig:
+        description: 'Entrypoint to dispatch (default: run())'
+        required: true
+        type: choice
+        default: 'run()'
+        options:
+          # Append-only registry of entrypoint signatures. The dispatcher
+          # does not validate that the selected script implements the
+          # selected signature — `forge script` will surface a clear revert
+          # if not. Add new entries here when a new script ships an
+          # additional entrypoint (e.g. `mirrorGrants()` on the V4
+          # authoriser deploy).
+          - 'run()'
+# Manually dispatches an operational script from `script/` and uploads any
+# JSON it writes to `out/` as a build artifact.
+#
+# Operational scripts produce off-chain artifacts (Safe Tx Builder JSON,
+# signer briefs) under `out/`. They run a full on-chain pre-flight, simulate
+# the post-state, emit the artifact, and log the canonical hash that signers
+# must verify. The dry-run uses an unpinned Base head fork so any drift in
+# the underlying contracts trips the pre-flight here before a signer ever
+# sees the bundle.
+#
+# Why a single dispatcher rather than one workflow per script:
+# - The Actions sidebar stays tight as more scripts accumulate.
+# - Boilerplate (nix install, soldeer install, artifact upload) lives in
+#   one place.
+# - Adding a new script is a single yaml entry + a new file under
+#   `script/`, no new workflow file.
+#
+# The `sig` input lets a single script expose multiple entrypoints (e.g.
+# `run()` and `mirrorGrants()` on the V4 authoriser deploy) without
+# splitting them into separate dispatcher entries. `forge --sig` is the
+# canonical way to pick which function `forge script` calls.
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v17
+      - name: Install Soldeer dependencies
+        run: nix develop --command forge soldeer install
+      - name: Run script
+        env:
+          BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
+        run: |
+          nix develop --command bash -c "
+            forge script script/${{ inputs.script }}.s.sol \
+              --sig '${{ inputs.sig }}' \
+              --rpc-url base \
+              --no-storage-caching
+          "
+      - name: Upload script output
+        uses: actions/upload-artifact@v4
+        with:
+          # Artifact name encodes both script + sig so the run() and
+          # mirrorGrants() outputs of the same script don't clobber each
+          # other if both are dispatched in the same operational window.
+          name: ${{ inputs.script }}-${{ inputs.sig }}-out
+          path: out/*.json
+          # `warn` instead of `error`: some operational scripts may not
+          # produce a JSON artifact (e.g. a pure verifier or a status
+          # printer). Falling back to a warning keeps the dispatcher generic.
+          if-no-files-found: warn
