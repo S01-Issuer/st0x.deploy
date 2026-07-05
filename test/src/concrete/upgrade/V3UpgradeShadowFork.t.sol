@@ -8,7 +8,7 @@ import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensions/IERC20Metadata.sol";
 
 import {LibProdDeployV1} from "../../../../src/lib/LibProdDeployV1.sol";
-import {LibProdDeployV3} from "../../../../src/lib/LibProdDeployV3.sol";
+import {LibProdDeployV4} from "../../../../src/lib/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibTokenInvariants} from "../../../../src/lib/LibTokenInvariants.sol";
 import {LibSafeOps, IUpgradeableBeacon} from "../../../../src/lib/LibSafeOps.sol";
@@ -18,7 +18,7 @@ import {
     VALID_ACTION_TYPES_MASK
 } from "../../../../src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "../../../../src/lib/LibCorporateActionNode.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {IReceiptVaultV3} from "rain-vats-0.1.6/src/interface/IReceiptVaultV3.sol";
 import {IReceiptV3} from "rain-vats-0.1.6/src/interface/IReceiptV3.sol";
 import {IAuthorizableV1} from "rain-vats-0.1.6/src/interface/IAuthorizableV1.sol";
@@ -77,10 +77,12 @@ contract V3UpgradeShadowForkTest is Test {
         //    actions facet at their deterministic addresses, running their
         //    constructors there so the facet's `_SELF` and the vault's pinned
         //    facet target line up.
-        deployCodeTo("src/concrete/StoxReceiptVault.sol:StoxReceiptVault", LibProdDeployV3.STOX_RECEIPT_VAULT);
+        deployCodeTo(
+            "src/concrete/StoxReceiptVault.sol:StoxReceiptVault", LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6
+        );
         deployCodeTo(
             "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
-            LibProdDeployV3.STOX_CORPORATE_ACTIONS_FACET
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6
         );
 
         // 2. Simulate PR-A: transfer the beacon from the EOA to the Safe.
@@ -89,7 +91,7 @@ contract V3UpgradeShadowForkTest is Test {
 
         // 3. Apply the upgrade: the Safe points the beacon at the V3 impl.
         vm.prank(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
-        IUpgradeableBeacon(BEACON).upgradeTo(LibProdDeployV3.STOX_RECEIPT_VAULT);
+        IUpgradeableBeacon(BEACON).upgradeTo(LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6);
     }
 
     /// @notice Read the EIP-1967 beacon address from a proxy contract. Mirrors
@@ -103,7 +105,9 @@ contract V3UpgradeShadowForkTest is Test {
     /// is still behind this beacon.
     function testForkIsInUpgradedState() external view {
         assertEq(Ownable(BEACON).owner(), LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, "beacon Safe-owned");
-        assertEq(IBeacon(BEACON).implementation(), LibProdDeployV3.STOX_RECEIPT_VAULT, "beacon at V3 impl");
+        assertEq(
+            IBeacon(BEACON).implementation(), LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6, "beacon at V3 impl"
+        );
         assertEq(beaconOf(LIVE_RECEIPT_VAULT), BEACON, "live vault behind the upgraded beacon");
     }
 
