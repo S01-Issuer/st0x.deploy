@@ -8,7 +8,7 @@ import {IAuthorizableV1} from "rain-vats-0.1.6/src/interface/IAuthorizableV1.sol
 import {LibAuthoriserInvariants, RoleGrant} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../../../src/lib/LibProdDeployV4.sol";
 import {LibTokenInvariants} from "../../../../src/lib/LibTokenInvariants.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.3/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
 /// @title StoxProdV4Test
 /// @notice Post-deploy + post-swap integrity pin for V4 on-chain state.
