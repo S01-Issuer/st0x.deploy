@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {ST0xOrchestratorBeaconSetDeployer} from "../../../../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
@@ -355,6 +356,16 @@ contract StoxProdV4Test is Test {
     /// All V4 contracts MUST be deployed on Base with the expected codehashes.
     function testProdDeployBaseV4() external {
         vm.createSelectFork(LibRainDeploy.BASE);
+        checkAllV4OnChain();
+    }
+
+    /// All V4 contracts MUST be deployed on Ethereum mainnet with the same
+    /// deterministic Zoltu addresses + codehashes as every other network
+    /// (RAI-1095). Ethereum bootstraps directly at V4 — there is no pre-V4
+    /// history there. Red until the V4 suites are broadcast to Ethereum; the
+    /// addresses/codehashes are identical to Base by construction.
+    function testProdDeployEthereumV4() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
         checkAllV4OnChain();
     }
 }
