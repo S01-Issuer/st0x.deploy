@@ -110,6 +110,13 @@ contract StoxProdV4Test is Test {
         // sees that must flip this block back to full deployed+codehash
         // assertions (and restore the OARV beacon implementation/owner
         // checks that previously lived at the bottom of this function).
+        // The flip must ALSO add full deployed+codehash assertions for the
+        // two orchestrator contracts below (never previously deployed, so
+        // there are no old checks to restore), plus a check that the
+        // orchestrator beacon-set deployer's `iOrchestratorBeacon()`
+        // implementation is `ST0X_ORCHESTRATOR_RAIN_VATS_0_1_6` and its
+        // owner is `BEACON_INITIAL_OWNER`, mirroring the OARV beacon checks
+        // being restored.
         assertEq(
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6.code.length,
             0,
@@ -129,6 +136,16 @@ contract StoxProdV4Test is Test {
             LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RAIN_VATS_0_1_6.code.length,
             0,
             "V4.1 StoxUnifiedDeployer now deployed - flip StoxProdV4 tripwires to full assertions"
+        );
+        assertEq(
+            LibProdDeployV4.ST0X_ORCHESTRATOR_RAIN_VATS_0_1_6.code.length,
+            0,
+            "V4.1 ST0xOrchestrator now deployed - flip StoxProdV4 tripwires to full assertions"
+        );
+        assertEq(
+            LibProdDeployV4.STOX_ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6.code.length,
+            0,
+            "V4.1 orchestrator beacon-set deployer now deployed - flip StoxProdV4 tripwires to full assertions"
         );
     }
 

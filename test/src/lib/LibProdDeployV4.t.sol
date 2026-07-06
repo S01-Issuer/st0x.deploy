@@ -23,6 +23,10 @@ import {
     StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
+import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
+import {
+    StoxST0xOrchestratorBeaconSetDeployer
+} from "../../../src/concrete/deploy/StoxST0xOrchestratorBeaconSetDeployer.sol";
 import {
     RUNTIME_CODE as STOX_RECEIPT_RUNTIME_CODE,
     DEPLOYED_ADDRESS as STOX_RECEIPT_GENERATED_ADDRESS
@@ -63,6 +67,14 @@ import {
     RUNTIME_CODE as STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE,
     DEPLOYED_ADDRESS as STOX_CORPORATE_ACTIONS_FACET_GENERATED_ADDRESS
 } from "../../../src/generated/StoxCorporateActionsFacet.pointers.sol";
+import {
+    RUNTIME_CODE as ST0X_ORCHESTRATOR_RUNTIME_CODE,
+    DEPLOYED_ADDRESS as ST0X_ORCHESTRATOR_GENERATED_ADDRESS
+} from "../../../src/generated/ST0xOrchestrator.pointers.sol";
+import {
+    RUNTIME_CODE as STOX_ORCHESTRATOR_DEPLOYER_RUNTIME_CODE,
+    DEPLOYED_ADDRESS as STOX_ORCHESTRATOR_DEPLOYER_GENERATED_ADDRESS
+} from "../../../src/generated/StoxST0xOrchestratorBeaconSetDeployer.pointers.sol";
 
 /// @title LibProdDeployV4Test
 /// @notice Pins every constant in `LibProdDeployV4` so a wrong address or
@@ -320,6 +332,49 @@ contract LibProdDeployV4Test is Test {
         assertEq(
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_RAIN_VATS_0_1_6,
             keccak256(STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE)
+        );
+    }
+
+    // --- ST0xOrchestrator ---
+
+    function testDeployAddressST0xOrchestrator() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        address deployed = LibRainDeploy.deployZoltu(type(ST0xOrchestrator).creationCode);
+        assertEq(deployed, LibProdDeployV4.ST0X_ORCHESTRATOR_RAIN_VATS_0_1_6);
+        assertTrue(deployed.code.length > 0);
+        assertEq(deployed.codehash, LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_RAIN_VATS_0_1_6);
+    }
+
+    function testGeneratedAddressST0xOrchestrator() external pure {
+        assertEq(ST0X_ORCHESTRATOR_GENERATED_ADDRESS, LibProdDeployV4.ST0X_ORCHESTRATOR_RAIN_VATS_0_1_6);
+    }
+
+    function testCodehashMatchesPointerST0xOrchestrator() external pure {
+        assertEq(LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_RAIN_VATS_0_1_6, keccak256(ST0X_ORCHESTRATOR_RUNTIME_CODE));
+    }
+
+    // --- StoxST0xOrchestratorBeaconSetDeployer (needs the orchestrator impl first) ---
+
+    function testDeployAddressStoxST0xOrchestratorBeaconSetDeployer() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(type(ST0xOrchestrator).creationCode);
+        address deployed = LibRainDeploy.deployZoltu(type(StoxST0xOrchestratorBeaconSetDeployer).creationCode);
+        assertEq(deployed, LibProdDeployV4.STOX_ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6);
+        assertTrue(deployed.code.length > 0);
+        assertEq(deployed.codehash, LibProdDeployV4.STOX_ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_RAIN_VATS_0_1_6);
+    }
+
+    function testGeneratedAddressStoxST0xOrchestratorBeaconSetDeployer() external pure {
+        assertEq(
+            STOX_ORCHESTRATOR_DEPLOYER_GENERATED_ADDRESS,
+            LibProdDeployV4.STOX_ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6
+        );
+    }
+
+    function testCodehashMatchesPointerStoxST0xOrchestratorBeaconSetDeployer() external pure {
+        assertEq(
+            LibProdDeployV4.STOX_ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_RAIN_VATS_0_1_6,
+            keccak256(STOX_ORCHESTRATOR_DEPLOYER_RUNTIME_CODE)
         );
     }
 
