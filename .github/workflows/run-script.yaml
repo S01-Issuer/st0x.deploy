@@ -27,6 +27,19 @@ on:
           # `--broadcast`) — useful as a pre-flight smoke test.
           - 20260619-deploy-v4-authoriser-clone
           - 20260623-upgrade-receipt-vaults-to-v4
+      network:
+        description: 'Network to dry-run against (default: base)'
+        required: true
+        type: choice
+        default: 'base'
+        options:
+          # The chain the pre-flight forks and the bundle targets. Base is
+          # the original single-chain default; multichain scripts (e.g. the
+          # Ethereum authoriser bootstrap) dry-run against their own chain.
+          # The value is both the foundry.toml rpc alias (`--rpc-url <network>`)
+          # and the key selecting which fork RPC secret to expose.
+          - 'base'
+          - 'ethereum'
       sig:
         description: 'Entrypoint to dispatch (default: run())'
         required: true
@@ -70,7 +83,7 @@ jobs:
     # Serialise dispatches of the same script+sig so overlapping runs don't
     # race on the shared out/ artifacts; distinct entrypoints run in parallel.
     concurrency:
-      group: run-script-${{ inputs.script }}-${{ inputs.sig }}
+      group: run-script-${{ inputs.script }}-${{ inputs.sig }}-${{ inputs.network }}
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -81,16 +94,20 @@ jobs:
         run: nix develop --command forge soldeer install
       - name: Run script
         env:
+          # Expose every network's fork RPC; `--rpc-url ${NETWORK}` selects
+          # which one foundry.toml resolves via its `[rpc_endpoints]` aliases.
           BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
+          ETHEREUM_RPC_URL: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
           # Pass the choice inputs via env rather than template-expanding them
           # into the command, so a dispatch (even one crafted via the API) is
           # used as a literal argument and cannot inject shell.
           SCRIPT: ${{ inputs.script }}
           SIG: ${{ inputs.sig }}
+          NETWORK: ${{ inputs.network }}
         run: |
           nix develop --command forge script "script/${SCRIPT}.s.sol" \
             --sig "${SIG}" \
-            --rpc-url base \
+            --rpc-url "${NETWORK}" \
             --no-storage-caching
       - name: Upload script output
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
