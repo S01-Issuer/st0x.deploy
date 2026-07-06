@@ -251,6 +251,26 @@ library LibTokenInvariants {
         tokens[19] = TokenInstance("TSM", TSM_RECEIPT, TSM_RECEIPT_VAULT, TSM_WRAPPED_TOKEN_VAULT);
     }
 
+    /// @notice Returns the production token instance triples on Ethereum
+    /// mainnet — the same 20 underlyings as Base, in the same order, so the
+    /// two tables pair by index as well as by key.
+    ///
+    /// **ALL PLACEHOLDERS** (`address(0)`) until the Ethereum token
+    /// deployments execute (docs/ETHEREUM_BOOTSTRAP.md § 7) and the
+    /// post-execution pin PR hydrates every entry in one reviewed change.
+    /// Hydration is all-or-nothing across the table: the multichain
+    /// issuance cutover is lockstep over the full token set, so a partially
+    /// hydrated table is an error state, which the cross-chain parity suite
+    /// rejects rather than half-checks.
+    /// @return tokens The 20 production token instances on Ethereum.
+    function productionTokensEthereum() internal pure returns (TokenInstance[] memory tokens) {
+        TokenInstance[] memory baseTokens = productionTokensBase();
+        tokens = new TokenInstance[](baseTokens.length);
+        for (uint256 i = 0; i < baseTokens.length; i++) {
+            tokens[i] = TokenInstance(baseTokens[i].underlying, address(0), address(0), address(0));
+        }
+    }
+
     /// @notice Returns the 20 production receipt vault addresses on Base, in
     /// the order they were deployed. Provided so consumers (e.g. invariant
     /// assertions, migration scripts) can iterate without hardcoding the
