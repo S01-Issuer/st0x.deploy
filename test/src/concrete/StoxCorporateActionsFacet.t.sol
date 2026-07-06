@@ -1907,12 +1907,23 @@ contract StoxCorporateActionsFacetTest is Test {
         assertTrue(LibDecimalFloat.eq(actual, expected), message);
     }
 
+    /// The identity seed is the canonical `FLOAT_ONE` constant exported by
+    /// rain-math-float, and it is numerically the same value as the
+    /// `packLossless(1, 0)` construction it replaced — locking in that the
+    /// swap changed no behaviour.
+    function testCumulativeMultiplierIdentityIsFloatOneConstant() external pure {
+        assertTrue(
+            LibDecimalFloat.eq(LibDecimalFloat.FLOAT_ONE, LibDecimalFloat.packLossless(1, 0)),
+            "FLOAT_ONE must equal packLossless(1, 0)"
+        );
+    }
+
     /// Identity when no corporate action was ever scheduled — the list is
     /// empty (not even a bootstrap node) and the walk finds nothing.
     function testCumulativeMultiplierIdentityWhenNoActions() external view {
         assertFloatEq(
             facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
-            LibDecimalFloat.packLossless(1, 0),
+            LibDecimalFloat.FLOAT_ONE,
             "empty list must yield the identity multiplier"
         );
     }
@@ -1926,7 +1937,7 @@ contract StoxCorporateActionsFacetTest is Test {
         // only the bootstrap (effectiveTime = 1000) is completed.
         assertFloatEq(
             facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
-            LibDecimalFloat.packLossless(1, 0),
+            LibDecimalFloat.FLOAT_ONE,
             "bootstrap-only completion must yield the identity multiplier"
         );
     }

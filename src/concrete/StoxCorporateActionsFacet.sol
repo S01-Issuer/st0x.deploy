@@ -178,8 +178,8 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     /// @inheritdoc ICorporateActionsV1
     function cumulativeBalanceMultiplierSinceGenesis() external view override onlyDelegatecalled returns (Float) {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        // Identity: 1 * 10^0.
-        Float cumulative = LibDecimalFloat.packLossless(1, 0);
+        // Identity: the canonical one exported by rain-math-float.
+        Float cumulative = LibDecimalFloat.FLOAT_ONE;
         // Same selection as `LibRebase.migratedBalance`: completed
         // balance-migration nodes only, in chronological order from the
         // head of the list (`NODE_NONE` start is head-inclusive, so the

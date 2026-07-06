@@ -444,10 +444,10 @@ interface ICorporateActionsV1 {
     /// selection that `LibRebase.migratedBalance` applies during lazy
     /// migration — and multiplies the stock-split multipliers together via
     /// `LibDecimalFloat.mul`. Init/bootstrap nodes are identity and
-    /// contribute nothing. Returns the identity Float (`packLossless(1, 0)`)
-    /// when no completed balance-migration action exists (including a vault
-    /// where no action was ever scheduled). Pending and cancelled actions
-    /// are excluded.
+    /// contribute nothing. Returns the identity Float
+    /// (`LibDecimalFloat.FLOAT_ONE`) when no completed balance-migration
+    /// action exists (including a vault where no action was ever scheduled).
+    /// Pending and cancelled actions are excluded.
     ///
     /// @dev This view is explicitly NOT for balance migration. Balance
     /// migration NEVER collapses multipliers into a cumulative product —
