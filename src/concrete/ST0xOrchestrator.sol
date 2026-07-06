@@ -105,7 +105,9 @@ contract ST0xOrchestrator is
         }
     }
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
+    // Constructor only disables initializers on the implementation; the
+    // proxy initialises via `initialize` (OZ upgrades-plugin annotation not
+    // used — the repo's Zoltu/beacon deploy path doesn't run that tooling).
     constructor() {
         _disableInitializers();
     }
