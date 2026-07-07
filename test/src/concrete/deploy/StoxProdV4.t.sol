@@ -140,6 +140,25 @@ contract StoxProdV4Test is Test {
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_1
         );
 
+        // ST0x orchestrator release 0.1.2 — the singleton orchestrator impl and
+        // its Zoltu beacon-set deployer, deployed on Base after the 0.1.1 set.
+        assertTrue(LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_2.code.length > 0, "V4 ST0xOrchestrator not deployed");
+        assertEq(LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_2.codehash, LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_0_1_2);
+        assertEq(LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_2.code, LibProdDeployV4.ST0X_ORCHESTRATOR_RUNTIME_CODE_0_1_2);
+
+        assertTrue(
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_2.code.length > 0,
+            "V4 ST0xOrchestratorBeaconSetDeployer not deployed"
+        );
+        assertEq(
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_2.codehash,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_2
+        );
+        assertEq(
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_2.code,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_2
+        );
+
         // The wrapped-token-vault beacon points at the V4 vault implementation
         // and is still held by the beacon initial owner (rainlang.eth), which
         // is the deploy-time state before ownership migration to the ST0x
