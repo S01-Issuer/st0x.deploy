@@ -36,9 +36,8 @@ contract ST0xOrchestratorBeaconSetDeployer is ERC165, IST0xOrchestratorBeaconSet
     IBeacon public immutable iOrchestratorBeacon;
 
     constructor() {
-        iOrchestratorBeacon = new UpgradeableBeacon(
-            LibProdDeployV4.ST0X_ORCHESTRATOR_RAIN_VATS_0_1_7, LibProdDeployV4.BEACON_INITIAL_OWNER
-        );
+        iOrchestratorBeacon =
+            new UpgradeableBeacon(LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_2, LibProdDeployV4.BEACON_INITIAL_OWNER);
     }
 
     /// @notice Deploy an `ST0xOrchestrator` singleton owned by `owner`.

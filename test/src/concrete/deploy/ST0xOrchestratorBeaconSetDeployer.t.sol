@@ -25,7 +25,7 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     /// The orchestrator's vault-logic version guard (run by `initialize`,
     /// i.e. inside `deploy`) reads these fixed production addresses.
     address internal constant GUARD_DEPLOYER =
-        LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6;
+        LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1;
     address internal constant VAULT_BEACON = address(0xBEAC04);
     address internal constant RECEIPT_BEACON = address(0xBEAC12);
 
@@ -34,10 +34,10 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     function setUp() public {
         impl = new ST0xOrchestrator();
         // The Zoltu deployer hardcodes the beacon implementation to the fixed
-        // production impl address (`ST0X_ORCHESTRATOR_RAIN_VATS_0_1_7`), so etch
+        // production impl address (`ST0X_ORCHESTRATOR_0_1_2`), so etch
         // the freshly-built orchestrator runtime there — the beacon requires
         // code at that address, and `deploy` delegatecalls it via the proxy.
-        vm.etch(LibProdDeployV4.ST0X_ORCHESTRATOR_RAIN_VATS_0_1_7, address(impl).code);
+        vm.etch(LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_2, address(impl).code);
         // `deploy` initialises the proxy, which runs the orchestrator's
         // vault-logic version guard — install passing mocks up front.
         _makeGuardPass();
@@ -60,12 +60,12 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
         vm.mockCall(
             VAULT_BEACON,
             abi.encodeWithSelector(IBeacon.implementation.selector),
-            abi.encode(LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6)
+            abi.encode(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1)
         );
         vm.mockCall(
             RECEIPT_BEACON,
             abi.encodeWithSelector(IBeacon.implementation.selector),
-            abi.encode(LibProdDeployV4.STOX_RECEIPT_RAIN_VATS_0_1_6)
+            abi.encode(LibProdDeployV4.STOX_RECEIPT_0_1_1)
         );
     }
 
@@ -78,7 +78,7 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     function testConstructorSuccess() external {
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
         IBeacon beacon = d.iOrchestratorBeacon();
-        assertEq(beacon.implementation(), LibProdDeployV4.ST0X_ORCHESTRATOR_RAIN_VATS_0_1_7, "beacon impl");
+        assertEq(beacon.implementation(), LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_2, "beacon impl");
         assertEq(Ownable(address(beacon)).owner(), LibProdDeployV4.BEACON_INITIAL_OWNER, "beacon owner");
     }
 

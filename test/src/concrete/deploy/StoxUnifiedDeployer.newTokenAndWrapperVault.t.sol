@@ -19,7 +19,7 @@ contract StoxUnifiedDeployerIntegrationTest is Test {
     /// Deploy full V2 stack via Zoltu and call newTokenAndWrapperVault.
     function testNewTokenAndWrapperVaultV2Integration() external {
         LibTestDeploy.deployAll(vm);
-        StoxUnifiedDeployer unifiedDeployer = StoxUnifiedDeployer(LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RAIN_VATS_0_1_6);
+        StoxUnifiedDeployer unifiedDeployer = StoxUnifiedDeployer(LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1);
 
         OffchainAssetReceiptVaultConfigV2 memory config = OffchainAssetReceiptVaultConfigV2({
             initialAdmin: address(this),

@@ -34,89 +34,77 @@ contract StoxProdV4Test is Test {
     /// vault implementations. All three beacons are still held by the beacon
     /// initial owner (pre-migration deploy state).
     function checkAllV4OnChain() internal view {
-        assertTrue(LibProdDeployV4.STOX_RECEIPT_RAIN_VATS_0_1_6.code.length > 0, "V4 StoxReceipt not deployed");
+        assertTrue(LibProdDeployV4.STOX_RECEIPT_0_1_1.code.length > 0, "V4 StoxReceipt not deployed");
+        assertEq(LibProdDeployV4.STOX_RECEIPT_0_1_1.codehash, LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_1);
+
+        assertTrue(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1.code.length > 0, "V4 StoxReceiptVault not deployed");
+        assertEq(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1.codehash, LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_1);
+
+        assertTrue(
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1.code.length > 0, "V4 StoxWrappedTokenVault not deployed"
+        );
         assertEq(
-            LibProdDeployV4.STOX_RECEIPT_RAIN_VATS_0_1_6.codehash, LibProdDeployV4.STOX_RECEIPT_CODEHASH_RAIN_VATS_0_1_6
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1.codehash,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_1
+        );
+
+        assertTrue(LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1.code.length > 0, "V4 StoxUnifiedDeployer not deployed");
+        assertEq(
+            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1.codehash, LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_1
         );
 
         assertTrue(
-            LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6.code.length > 0, "V4 StoxReceiptVault not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6.codehash,
-            LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_RAIN_VATS_0_1_6
-        );
-
-        assertTrue(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_RAIN_VATS_0_1_6.code.length > 0,
-            "V4 StoxWrappedTokenVault not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_RAIN_VATS_0_1_6.codehash,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_RAIN_VATS_0_1_6
-        );
-
-        assertTrue(
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RAIN_VATS_0_1_6.code.length > 0, "V4 StoxUnifiedDeployer not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RAIN_VATS_0_1_6.codehash,
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_RAIN_VATS_0_1_6
-        );
-
-        assertTrue(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RAIN_VATS_0_1_6.code.length > 0,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1.code.length > 0,
             "V4 StoxWrappedTokenVaultBeacon not deployed"
         );
         assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RAIN_VATS_0_1_6.codehash,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_RAIN_VATS_0_1_6
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1.codehash,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_1
         );
 
         assertTrue(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6.code.length > 0,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1.code.length > 0,
             "V4 StoxWrappedTokenVaultBeaconSetDeployer not deployed"
         );
         assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6.codehash,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_RAIN_VATS_0_1_6
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1.codehash,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1
         );
 
         assertTrue(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6.code.length > 0,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1.code.length > 0,
             "V4 StoxOffchainAssetReceiptVaultBeaconSetDeployer not deployed"
         );
         assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6.codehash,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_RAIN_VATS_0_1_6
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1.codehash,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1
         );
 
         assertTrue(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6.code.length > 0,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1.code.length > 0,
             "V4 StoxOffchainAssetReceiptVaultAuthorizerV1 not deployed"
         );
         assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6.codehash,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_RAIN_VATS_0_1_6
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1.codehash,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_1
         );
 
         assertTrue(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_RAIN_VATS_0_1_6.code.length
-                > 0,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_0_1_1.code.length > 0,
             "V4 StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1 not deployed"
         );
         assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_RAIN_VATS_0_1_6.codehash,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_RAIN_VATS_0_1_6
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_0_1_1.codehash,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_1
         );
 
         assertTrue(
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6.code.length > 0,
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1.code.length > 0,
             "V4 StoxCorporateActionsFacet not deployed"
         );
         assertEq(
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6.codehash,
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_RAIN_VATS_0_1_6
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1.codehash,
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_1
         );
 
         // The wrapped-token-vault beacon points at the V4 vault implementation
@@ -124,12 +112,12 @@ contract StoxProdV4Test is Test {
         // is the deploy-time state before ownership migration to the ST0x
         // token-owner Safe.
         assertEq(
-            IBeacon(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RAIN_VATS_0_1_6).implementation(),
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_RAIN_VATS_0_1_6,
+            IBeacon(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1).implementation(),
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1,
             "V4 beacon implementation mismatch"
         );
         assertEq(
-            Ownable(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RAIN_VATS_0_1_6).owner(),
+            Ownable(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1).owner(),
             LibProdDeployV4.BEACON_INITIAL_OWNER,
             "V4 beacon owner mismatch"
         );
@@ -140,13 +128,13 @@ contract StoxProdV4Test is Test {
         // points at the V4 receipt vault implementation, both held by the
         // beacon initial owner.
         IOffchainAssetReceiptVaultBeaconSetDeployerV2 oarvDeployer = IOffchainAssetReceiptVaultBeaconSetDeployerV2(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1
         );
 
         IBeacon receiptBeacon = oarvDeployer.iReceiptBeacon();
         assertEq(
             receiptBeacon.implementation(),
-            LibProdDeployV4.STOX_RECEIPT_RAIN_VATS_0_1_6,
+            LibProdDeployV4.STOX_RECEIPT_0_1_1,
             "V4 OARV receipt beacon implementation mismatch"
         );
         assertEq(
@@ -158,7 +146,7 @@ contract StoxProdV4Test is Test {
         IBeacon vaultBeacon = oarvDeployer.iOffchainAssetReceiptVaultBeacon();
         assertEq(
             vaultBeacon.implementation(),
-            LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6,
+            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1,
             "V4 OARV vault beacon implementation mismatch"
         );
         assertEq(

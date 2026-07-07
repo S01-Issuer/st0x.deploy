@@ -83,7 +83,7 @@ abstract contract OrchestratorIntegrationTest is Test {
         // Real corporate-actions facet at the deterministic address the
         // vault's fallback delegatecalls into.
         address facet = LibRainDeploy.deployZoltu(type(StoxCorporateActionsFacet).creationCode);
-        require(facet == LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6, "facet address mismatch");
+        require(facet == LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1, "facet address mismatch");
 
         // A real vault + receipt beacon-proxy pair via the deterministic
         // deployer the guard version-locks against.
@@ -130,7 +130,7 @@ abstract contract OrchestratorIntegrationTest is Test {
         return StoxReceiptVault(
             payable(address(
                     StoxOffchainAssetReceiptVaultBeaconSetDeployer(
-                            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6
+                            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1
                         )
                         .newOffchainAssetReceiptVault(
                             OffchainAssetReceiptVaultConfigV2({

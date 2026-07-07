@@ -19,15 +19,15 @@ contract GuardPassesAgainstRealV4BeaconsTest is OrchestratorIntegrationTest {
 
         // Cross-check the beacons the guard reads really are the V4 impls.
         IST0xVaultBeaconSet beaconSet =
-            IST0xVaultBeaconSet(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6);
+            IST0xVaultBeaconSet(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1);
         assertEq(
             beaconSet.iOffchainAssetReceiptVaultBeacon().implementation(),
-            LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6,
+            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1,
             "vault beacon points at V4 vault impl"
         );
         assertEq(
             beaconSet.iReceiptBeacon().implementation(),
-            LibProdDeployV4.STOX_RECEIPT_RAIN_VATS_0_1_6,
+            LibProdDeployV4.STOX_RECEIPT_0_1_1,
             "receipt beacon points at V4 receipt impl"
         );
 

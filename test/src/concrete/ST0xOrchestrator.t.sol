@@ -62,12 +62,11 @@ contract ST0xOrchestratorTest is Test {
     address internal constant OWNER = address(0x0FFCE);
 
     /// The vault-version guard reads these fixed production addresses.
-    address internal constant DEPLOYER =
-        LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6;
+    address internal constant DEPLOYER = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1;
     address internal constant VAULT_BEACON = address(0xBEAC04);
     address internal constant RECEIPT_BEACON = address(0xBEAC12);
-    address internal constant EXPECTED_VAULT_IMPL = LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6;
-    address internal constant EXPECTED_RECEIPT_IMPL = LibProdDeployV4.STOX_RECEIPT_RAIN_VATS_0_1_6;
+    address internal constant EXPECTED_VAULT_IMPL = LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1;
+    address internal constant EXPECTED_RECEIPT_IMPL = LibProdDeployV4.STOX_RECEIPT_0_1_1;
 
     /// Storage-slot pre-image constant kept for cross-checking against source.
     bytes32 internal constant EXPECTED_MAIN_STORAGE_LOCATION =

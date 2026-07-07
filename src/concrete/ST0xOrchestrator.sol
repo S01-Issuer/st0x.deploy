@@ -149,24 +149,23 @@ contract ST0xOrchestrator is
 
     function _checkVaultLogic() internal view {
         IST0xVaultBeaconSet beaconSet =
-            IST0xVaultBeaconSet(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6);
+            IST0xVaultBeaconSet(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_2);
         address vaultImpl = beaconSet.iOffchainAssetReceiptVaultBeacon().implementation();
-        if (vaultImpl != LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6) {
-            revert VaultLogicMismatch(LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6, vaultImpl);
+        if (vaultImpl != LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_2) {
+            revert VaultLogicMismatch(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_2, vaultImpl);
         }
         address receiptImpl = beaconSet.iReceiptBeacon().implementation();
-        if (receiptImpl != LibProdDeployV4.STOX_RECEIPT_RAIN_VATS_0_1_6) {
-            revert ReceiptLogicMismatch(LibProdDeployV4.STOX_RECEIPT_RAIN_VATS_0_1_6, receiptImpl);
+        if (receiptImpl != LibProdDeployV4.STOX_RECEIPT_0_1_2) {
+            revert ReceiptLogicMismatch(LibProdDeployV4.STOX_RECEIPT_0_1_2, receiptImpl);
         }
     }
 
     /// @inheritdoc IST0xOrchestratorV1
     function vaultLogicIsExpected() external view returns (bool) {
         IST0xVaultBeaconSet beaconSet =
-            IST0xVaultBeaconSet(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6);
-        return beaconSet.iOffchainAssetReceiptVaultBeacon().implementation()
-                == LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6
-            && beaconSet.iReceiptBeacon().implementation() == LibProdDeployV4.STOX_RECEIPT_RAIN_VATS_0_1_6;
+            IST0xVaultBeaconSet(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_2);
+        return beaconSet.iOffchainAssetReceiptVaultBeacon().implementation() == LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_2
+            && beaconSet.iReceiptBeacon().implementation() == LibProdDeployV4.STOX_RECEIPT_0_1_2;
     }
 
     // ------------------------------------------------------------------ //
