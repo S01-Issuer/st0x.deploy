@@ -32,17 +32,6 @@ error ZeroOwner();
 /// to fix the config for Zoltu, this deployer's logic is local to this repo,
 /// so it is the concrete Zoltu contract itself — no subclass.
 contract ST0xOrchestratorBeaconSetDeployer is ERC165, IST0xOrchestratorBeaconSetDeployerV1 {
-    /// Emitted when an `ST0xOrchestrator` singleton is deployed.
-    /// @dev `deploy` is permissionless, so anyone can emit this event with
-    /// any owner. Consumers MUST filter on the expected `owner` (and ideally
-    /// take the address from their own deploy transaction rather than event
-    /// discovery) — an attacker can front-run a lookalike that differs only
-    /// in who holds `DEFAULT_ADMIN_ROLE`.
-    /// @param sender The address that called `deploy`.
-    /// @param orchestrator Address of the newly deployed orchestrator proxy.
-    /// @param owner The address granted `DEFAULT_ADMIN_ROLE`.
-    event Deployment(address indexed sender, address indexed orchestrator, address owner);
-
     /// The beacon every deployed orchestrator proxy points at.
     IBeacon public immutable iOrchestratorBeacon;
 
