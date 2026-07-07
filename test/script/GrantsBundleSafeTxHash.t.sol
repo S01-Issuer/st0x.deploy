@@ -33,7 +33,7 @@ contract GrantsBundleSafeTxHashTest is Test {
         safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
 
         StoxOffchainAssetReceiptVaultAuthorizerV1 impl = new StoxOffchainAssetReceiptVaultAuthorizerV1();
-        vm.etch(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6, address(impl).code);
+        vm.etch(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1, address(impl).code);
 
         TestableDeployV4AuthoriserClone testable = new TestableDeployV4AuthoriserClone();
         testable.run();
