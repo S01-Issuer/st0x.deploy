@@ -3,7 +3,14 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {LibAuthoriserInvariants} from "../../../src/lib/LibAuthoriserInvariants.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
+import {
+    LibAuthoriserInvariants,
+    UnexpectedDefaultAdmin,
+    AuthoriserImplCodehashMismatch
+} from "../../../src/lib/LibAuthoriserInvariants.sol";
+import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
+import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1167Proxy.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
 /// @title LibAuthoriserInvariantsTest
@@ -31,5 +38,40 @@ contract LibAuthoriserInvariantsTest is Test {
     function testAssertAllPasses() external {
         selectBaseFork();
         LibAuthoriserInvariants.assertAll();
+    }
+
+    /// @notice `assertImplPinned` reverts when the authoriser's runtime
+    /// codehash is not the EIP-1167 minimal proxy of the pinned impl.
+    function testAssertImplPinnedRejectsWrongCodehash() external {
+        selectBaseFork();
+        address fake = makeAddr("fakeAuthoriser");
+        vm.etch(fake, hex"600160005260206000f3");
+        bytes32 expected = keccak256(
+            abi.encodePacked(ERC1167_PREFIX, LibAuthoriserInvariants.STOX_PROD_AUTHORISER_IMPL, ERC1167_SUFFIX)
+        );
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        vm.expectRevert(abi.encodeWithSelector(AuthoriserImplCodehashMismatch.selector, fake, expected, fake.codehash));
+        harness.callAssertImplPinned(fake);
+    }
+
+    /// @notice `assertExpectedGrants` reverts `UnexpectedDefaultAdmin` when a
+    /// pinned grantee holds `DEFAULT_ADMIN_ROLE`.
+    function testAssertExpectedGrantsRejectsDefaultAdmin() external {
+        selectBaseFork();
+        address auth = LibAuthoriserInvariants.STOX_PROD_AUTHORISER;
+        vm.mockCall(
+            auth,
+            abi.encodeWithSelector(
+                IAccessControl.hasRole.selector, bytes32(0), LibAuthoriserInvariants.GRANTEE_TOKEN_OWNER_SAFE
+            ),
+            abi.encode(true)
+        );
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                UnexpectedDefaultAdmin.selector, auth, LibAuthoriserInvariants.GRANTEE_TOKEN_OWNER_SAFE
+            )
+        );
+        harness.callAssertExpectedGrants(auth);
     }
 }

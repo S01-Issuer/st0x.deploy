@@ -24,6 +24,15 @@ interface IUpgradeableBeacon {
 /// no-op.
 error TxBuilderJsonNoTransactions();
 
+/// @notice `emitTxBuilderJson` was handed a transaction with a non-CALL
+/// `operation`. The Safe Tx Builder JSON schema has no per-transaction
+/// `operation` field and the canonical batch executor (`MultiSendCallOnly`)
+/// only performs CALLs, so a non-CALL operation cannot be represented in the
+/// artifact and is rejected.
+/// @param index The index of the offending transaction in the bundle.
+/// @param operation The unsupported operation value.
+error TxBuilderJsonUnsupportedOperation(uint256 index, uint8 operation);
+
 /// @notice A single Safe-Tx Builder transaction in canonical form. Mirrors
 /// the per-transaction shape of the Safe Tx Builder JSON.
 /// @param to The destination address of the inner transaction.
@@ -71,6 +80,13 @@ library LibSafeOps {
     /// authored).
     string internal constant TX_BUILDER_SCHEMA_VERSION = "1.0";
 
+    /// @notice The canonical Safe{Wallet} v1.4.1 `MultiSendCallOnly` — the
+    /// contract the Transaction Builder delegatecalls to execute a batch of
+    /// transactions atomically. Performs only CALLs. Pinned alongside the
+    /// Safe v1.4.1 assumption enforced by `LibSafeInvariants`.
+    /// https://basescan.org/address/0x9641d764fc13c8B624c04430C7356C1C7C8102e2
+    address internal constant MULTISEND_CALL_ONLY_1_4_1 = 0x9641d764fc13c8B624c04430C7356C1C7C8102e2;
+
     /// @notice Wrapper around `getTransactionHash` on the live Safe.
     /// Binds the hash to the Safe's own EIP-712 domain separator (chain id,
     /// verifying contract) rather than recomputing it locally, so the
@@ -101,6 +117,45 @@ library LibSafeOps {
             address(0),
             nonce
         );
+    }
+
+    /// @notice Encode a batch of transactions into the
+    /// `MultiSendCallOnly.multiSend(bytes)` calldata the Safe Transaction
+    /// Builder submits for a batch: each transaction packed as
+    /// `operation(1 byte) || to(20) || value(32) || dataLength(32) || data`,
+    /// concatenated and ABI-wrapped behind the `multiSend(bytes)` selector.
+    /// @param txs The transactions to batch.
+    /// @return The `multiSend(bytes)` calldata.
+    function encodeMultiSend(SafeTx[] memory txs) internal pure returns (bytes memory) {
+        bytes memory payload = new bytes(0);
+        for (uint256 i = 0; i < txs.length; i++) {
+            // Reject a non-CALL op before owners sign, so the mistake surfaces
+            // here rather than reverting in MultiSendCallOnly at execution.
+            _requireCallOperation(i, txs[i].operation);
+            payload = bytes.concat(
+                payload, abi.encodePacked(txs[i].operation, txs[i].to, txs[i].value, txs[i].data.length, txs[i].data)
+            );
+        }
+        return abi.encodeWithSignature("multiSend(bytes)", payload);
+    }
+
+    /// @notice The canonical Safe transaction hash owners must sign to execute
+    /// a multi-transaction bundle through the Transaction Builder. The bundle
+    /// executes as a single `execTransaction` DELEGATECALL to
+    /// `MULTISEND_CALL_ONLY_1_4_1` at one nonce, so the hash binds to that one
+    /// wrapping transaction rather than to the individual inner calls.
+    /// @param safe The Safe whose nonce/domain bind into the hash.
+    /// @param txs The batched transactions.
+    /// @param nonce The Safe nonce the batch consumes on execute.
+    /// @return The canonical Safe transaction hash owners must sign.
+    function computeMultiSendSafeTxHash(IGnosisSafe safe, SafeTx[] memory txs, uint256 nonce)
+        internal
+        view
+        returns (bytes32)
+    {
+        SafeTx memory batchTx =
+            SafeTx({to: MULTISEND_CALL_ONLY_1_4_1, value: 0, data: encodeMultiSend(txs), operation: 1});
+        return computeSafeTxHashViaSafe(safe, batchTx, nonce);
     }
 
     /// @notice Simulate a Safe self-call: `vm.prank` as the Safe itself and
@@ -179,8 +234,13 @@ library LibSafeOps {
         view
         returns (string memory)
     {
+        // Enforce the non-empty invariant the read side (parseTxBuilderJson)
+        // and TxBuilderJsonNoTransactions already assert: never serialise an
+        // empty bundle.
+        if (txs.length == 0) revert TxBuilderJsonNoTransactions();
         string memory transactions = "[";
         for (uint256 i = 0; i < txs.length; i++) {
+            _requireCallOperation(i, txs[i].operation);
             string memory txJson = string.concat(
                 "{",
                 _jsonField("to", _quote(VM.toString(txs[i].to))),
@@ -228,14 +288,14 @@ library LibSafeOps {
     /// @notice Parse a Safe Tx Builder JSON file from disk and return the
     /// chain id, target Safe, and transactions array.
     /// @dev The Tx Builder JSON's `transactions[*].value` is a decimal
-    /// string and `data` is a `0x`-prefixed hex byte string. The first
-    /// transaction's `to` is reported as the bundle's target Safe address
-    /// because by Tx Builder convention every Safe-self-mutating bundle
-    /// has every tx target the Safe itself; bundles with cross-target
-    /// calls have to inspect the array directly.
+    /// string and `data` is a `0x`-prefixed hex byte string. `safeAddr` is
+    /// `transactions[0].to`: for a Safe-self-mutating bundle every tx targets
+    /// the Safe so it is the Safe address, but for a cross-target bundle (e.g.
+    /// a CloneFactory deploy) it is the first target — callers must not treat
+    /// it as a validated Safe address.
     /// @param jsonPath Filesystem path to the JSON file.
     /// @return chainId The chain id parsed from the JSON.
-    /// @return safeAddr The Safe address (parsed from `transactions[0].to`).
+    /// @return safeAddr `transactions[0].to` (see @dev — not necessarily the Safe).
     /// @return txs The decoded transactions array.
     function parseTxBuilderJson(string memory jsonPath)
         internal
@@ -264,6 +324,9 @@ library LibSafeOps {
             uint256 value =
                 _parseDecimalUint(VM.parseJsonString(json, string.concat(".transactions[", iStr, "].value")));
             bytes memory data = VM.parseJsonBytes(json, string.concat(".transactions[", iStr, "].data"));
+            // The Tx Builder schema has no per-tx `operation` field; every
+            // entry is a CALL (operation 0). `emitTxBuilderJson` rejects
+            // non-CALL ops, so 0 is the only value a well-formed bundle carries.
             scratch[count] = SafeTx({to: to, value: value, data: data, operation: 0});
             count++;
         }
@@ -285,6 +348,9 @@ library LibSafeOps {
     /// @return The parsed unsigned integer.
     function _parseDecimalUint(string memory decimal) private pure returns (uint256) {
         bytes memory raw = bytes(decimal);
+        // A decimal field must contain at least one digit; an empty string is
+        // not a valid encoding of any number and the NatSpec forbids it.
+        require(raw.length > 0, "LibSafeOps: empty decimal string");
         uint256 result = 0;
         for (uint256 i = 0; i < raw.length; i++) {
             uint8 c = uint8(raw[i]);
@@ -535,6 +601,20 @@ library LibSafeOps {
         for (uint256 i = 0; i < count; i++) {
             packed =
                 bytes.concat(packed, bytes32(uint256(uint160(sortedSigners[i]))), bytes32(uint256(0)), bytes1(0x01));
+        }
+    }
+
+    /// @notice Revert `TxBuilderJsonUnsupportedOperation` unless `operation`
+    /// is CALL (`0`). The Tx Builder JSON schema has no per-tx operation field
+    /// and `MultiSendCallOnly` performs only CALLs, so a non-CALL op cannot be
+    /// represented in either the emitted artifact or the batched multiSend
+    /// calldata. Shared by `emitTxBuilderJson` and `encodeMultiSend` so the two
+    /// paths cannot drift.
+    /// @param index The transaction index (surfaced in the revert).
+    /// @param operation The operation to check.
+    function _requireCallOperation(uint256 index, uint8 operation) private pure {
+        if (operation != 0) {
+            revert TxBuilderJsonUnsupportedOperation(index, operation);
         }
     }
 
