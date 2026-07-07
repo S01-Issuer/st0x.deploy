@@ -135,9 +135,9 @@ library LibProdDeployV4 {
     /// subclass; its logic is local to this repo). Anyone can call
     /// `deploy(owner)` to mint a `BeaconProxy`-cloned singleton orchestrator.
     address constant ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_7 =
-        address(0x77C18dc6cFb38EaE7Bd00220DB1b0CE1660dB480);
+        address(0xBd81E4B0992E6fA49812e341f917c05f5c97728d);
     bytes32 constant ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_RAIN_VATS_0_1_7 =
-        0x05e7b15ab8411e1f432ea2908c5a63812b7d610ae390dfe0b541cb42c9262046;
+        0x61d4098eb564665d48f4ca6fefa6396b6ecd3ff9cb72df7760f06e80ca56292b;
 
     /// @notice The V4 production authoriser clone — an EIP-1167 minimal
     /// proxy of `STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6`

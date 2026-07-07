@@ -5,10 +5,11 @@ pragma solidity =0.8.25;
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "@openzeppelin-contracts-5.6.1/proxy/beacon/BeaconProxy.sol";
-import {IERC165} from "@openzeppelin-contracts-5.6.1/utils/introspection/IERC165.sol";
+import {ERC165} from "@openzeppelin-contracts-5.6.1/utils/introspection/ERC165.sol";
 
 import {ST0xOrchestrator} from "../ST0xOrchestrator.sol";
 import {LibProdDeployV4} from "../../lib/LibProdDeployV4.sol";
+import {IST0xOrchestratorBeaconSetDeployerV1} from "../../interface/IST0xOrchestratorBeaconSetDeployerV1.sol";
 
 /// Thrown when `deploy` is called with `owner == address(0)`.
 error ZeroOwner();
@@ -30,7 +31,7 @@ error ZeroOwner();
 /// lives in the `rain-vats` dependency and therefore needs a `Stox…` subclass
 /// to fix the config for Zoltu, this deployer's logic is local to this repo,
 /// so it is the concrete Zoltu contract itself — no subclass.
-contract ST0xOrchestratorBeaconSetDeployer is IERC165 {
+contract ST0xOrchestratorBeaconSetDeployer is ERC165, IST0xOrchestratorBeaconSetDeployerV1 {
     /// Emitted when an `ST0xOrchestrator` singleton is deployed.
     /// @dev `deploy` is permissionless, so anyone can emit this event with
     /// any owner. Consumers MUST filter on the expected `owner` (and ideally
@@ -64,8 +65,10 @@ contract ST0xOrchestratorBeaconSetDeployer is IERC165 {
         return address(proxy);
     }
 
-    /// @inheritdoc IERC165
-    function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
-        return interfaceId == type(IERC165).interfaceId;
+    /// @inheritdoc ERC165
+    function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
+        return
+            interfaceId == type(IST0xOrchestratorBeaconSetDeployerV1).interfaceId
+                || super.supportsInterface(interfaceId);
     }
 }

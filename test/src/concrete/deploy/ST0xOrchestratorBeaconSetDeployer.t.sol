@@ -6,6 +6,7 @@ import {Test, Vm} from "forge-std-1.16.1/src/Test.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
+import {IERC165} from "@openzeppelin-contracts-5.6.1/utils/introspection/IERC165.sol";
 
 import {
     ST0xOrchestratorBeaconSetDeployer,
@@ -15,6 +16,7 @@ import {UpgradedImpl} from "./UpgradedImpl.sol";
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IST0xVaultBeaconSet} from "../../../../src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployV4} from "../../../../src/lib/LibProdDeployV4.sol";
+import {IST0xOrchestratorBeaconSetDeployerV1} from "../../../../src/interface/IST0xOrchestratorBeaconSetDeployerV1.sol";
 
 contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     // ERC-1967 beacon slot.
@@ -159,7 +161,19 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
 
     function testSupportsInterface() external {
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
-        assertTrue(d.supportsInterface(0x01ffc9a7), "IERC165");
-        assertFalse(d.supportsInterface(0xffffffff), "not 0xffffffff");
+        // Both advertised interfaces report true.
+        assertTrue(d.supportsInterface(type(IST0xOrchestratorBeaconSetDeployerV1).interfaceId), "V1");
+        assertTrue(d.supportsInterface(type(IERC165).interfaceId), "IERC165");
+        // ERC-165 requires the 0xffffffff sentinel to always be unsupported.
+        assertFalse(d.supportsInterface(0xffffffff), "0xffffffff");
+    }
+
+    /// No false positives: every interface id other than the two advertised
+    /// ones must report unsupported.
+    function testFuzzSupportsInterfaceRejectsOthers(bytes4 badInterfaceId) external {
+        vm.assume(badInterfaceId != type(IST0xOrchestratorBeaconSetDeployerV1).interfaceId);
+        vm.assume(badInterfaceId != type(IERC165).interfaceId);
+        ST0xOrchestratorBeaconSetDeployer d = _deployer();
+        assertFalse(d.supportsInterface(badInterfaceId), "no false positive");
     }
 }
