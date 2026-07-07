@@ -25,6 +25,8 @@ import {
     StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 } from "../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
+import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
+import {ST0xOrchestratorBeaconSetDeployer} from "../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
 
 /// @dev Error thrown when the DEPLOYMENT_SUITE env var does not match any
 /// known suite.
@@ -52,6 +54,9 @@ bytes32 constant DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V
 bytes32 constant DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_V4 =
     keccak256("stox-offchain-asset-receipt-vault-payment-mint-authorizer-v1-v4");
 bytes32 constant DEPLOYMENT_SUITE_STOX_CORPORATE_ACTIONS_FACET_V4 = keccak256("stox-corporate-actions-facet-v4");
+bytes32 constant DEPLOYMENT_SUITE_ST0X_ORCHESTRATOR_V4 = keccak256("st0x-orchestrator-v4");
+bytes32 constant DEPLOYMENT_SUITE_ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_V4 =
+    keccak256("st0x-orchestrator-beacon-set-deployer-v4");
 
 contract Deploy is Script {
     /// @dev Deploys a single contract via the Zoltu deterministic deployer on
@@ -116,91 +121,113 @@ contract Deploy is Script {
             deploySuite(
                 type(StoxReceipt).creationCode,
                 "src/concrete/StoxReceipt.sol:StoxReceipt",
-                LibProdDeployV4.STOX_RECEIPT_RAIN_VATS_0_1_6,
-                LibProdDeployV4.STOX_RECEIPT_CODEHASH_RAIN_VATS_0_1_6,
+                LibProdDeployV4.STOX_RECEIPT_0_1_2,
+                LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_2,
                 noDeps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_RECEIPT_VAULT_V4) {
             deploySuite(
                 type(StoxReceiptVault).creationCode,
                 "src/concrete/StoxReceiptVault.sol:StoxReceiptVault",
-                LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6,
-                LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_RAIN_VATS_0_1_6,
+                LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_2,
+                LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_2,
                 noDeps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_WRAPPED_TOKEN_VAULT_V4) {
             deploySuite(
                 type(StoxWrappedTokenVault).creationCode,
                 "src/concrete/StoxWrappedTokenVault.sol:StoxWrappedTokenVault",
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_RAIN_VATS_0_1_6,
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_RAIN_VATS_0_1_6,
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_2,
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_2,
                 noDeps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_WRAPPED_TOKEN_VAULT_BEACON_V4) {
             address[] memory deps = new address[](1);
-            deps[0] = LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_RAIN_VATS_0_1_6;
+            deps[0] = LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_2;
             deploySuite(
                 type(StoxWrappedTokenVaultBeacon).creationCode,
                 "src/concrete/StoxWrappedTokenVaultBeacon.sol:StoxWrappedTokenVaultBeacon",
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RAIN_VATS_0_1_6,
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_RAIN_VATS_0_1_6,
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_2,
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_2,
                 deps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_V4) {
             address[] memory deps = new address[](1);
-            deps[0] = LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RAIN_VATS_0_1_6;
+            deps[0] = LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_2;
             deploySuite(
                 type(StoxWrappedTokenVaultBeaconSetDeployer).creationCode,
                 "src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol:StoxWrappedTokenVaultBeaconSetDeployer",
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6,
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_RAIN_VATS_0_1_6,
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_2,
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_2,
                 deps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_V4) {
             address[] memory deps = new address[](2);
-            deps[0] = LibProdDeployV4.STOX_RECEIPT_RAIN_VATS_0_1_6;
-            deps[1] = LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6;
+            deps[0] = LibProdDeployV4.STOX_RECEIPT_0_1_2;
+            deps[1] = LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_2;
             deploySuite(
                 type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode,
                 "src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer",
-                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6,
-                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_RAIN_VATS_0_1_6,
+                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_2,
+                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_2,
                 deps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_UNIFIED_DEPLOYER_V4) {
             address[] memory deps = new address[](2);
-            deps[0] = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6;
-            deps[1] = LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6;
+            deps[0] = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_2;
+            deps[1] = LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_2;
             deploySuite(
                 type(StoxUnifiedDeployer).creationCode,
                 "src/concrete/deploy/StoxUnifiedDeployer.sol:StoxUnifiedDeployer",
-                LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RAIN_VATS_0_1_6,
-                LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_RAIN_VATS_0_1_6,
+                LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_2,
+                LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_2,
                 deps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_V4) {
             deploySuite(
                 type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode,
                 "src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol:StoxOffchainAssetReceiptVaultAuthorizerV1",
-                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6,
-                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_RAIN_VATS_0_1_6,
+                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_2,
+                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_2,
                 noDeps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_V4) {
             deploySuite(
                 type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode,
                 "src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol:StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1",
-                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_RAIN_VATS_0_1_6,
-                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_RAIN_VATS_0_1_6,
+                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_0_1_2,
+                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_2,
                 noDeps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_CORPORATE_ACTIONS_FACET_V4) {
             deploySuite(
                 type(StoxCorporateActionsFacet).creationCode,
                 "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
-                LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6,
-                LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_RAIN_VATS_0_1_6,
+                LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_2,
+                LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_2,
                 noDeps
+            );
+        } else if (suite == DEPLOYMENT_SUITE_ST0X_ORCHESTRATOR_V4) {
+            // ST0xOrchestrator impl — parameterless (Initializable). Depends
+            // on nothing at deploy time. 0.1.7 codebase (new audit round).
+            deploySuite(
+                type(ST0xOrchestrator).creationCode,
+                "src/concrete/ST0xOrchestrator.sol:ST0xOrchestrator",
+                LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_2,
+                LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_0_1_2,
+                noDeps
+            );
+        } else if (suite == DEPLOYMENT_SUITE_ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_V4) {
+            // Depends on the ST0xOrchestrator impl (embedded via
+            // LibProdDeployV4 in the constructor). 0.1.7 codebase.
+            address[] memory deps = new address[](1);
+            deps[0] = LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_2;
+            deploySuite(
+                type(ST0xOrchestratorBeaconSetDeployer).creationCode,
+                "src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol:ST0xOrchestratorBeaconSetDeployer",
+                LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_2,
+                LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_2,
+                deps
             );
         } else {
             revert UnknownDeploymentSuite(suite);
