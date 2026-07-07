@@ -129,17 +129,48 @@ DEPLOYMENT_KEY=<hex> ETHEREUM_RPC_URL=<url> forge script \
 
 ## 7. Token deployment (matched names / symbols / policies)
 
-For each of the 20 production tokens (the `underlying` keys in
-`LibTokenInvariants.productionTokensBase()`), deploy the token triple on
-Ethereum via the V4 `StoxUnifiedDeployer` at its deterministic address, with
-`name` / `symbol` / `decimals` identical to the Base instance and the Ethereum
-authoriser clone as the authoriser. Transfer each receipt vault's ownership to
-the Ethereum Safe (matching Base, where every vault's `owner()` is the Safe).
+Both operations are in `script/20260706-deploy-tokens-ethereum.s.sol`, reading
+the Base-verbatim name/symbol table
+`LibProdTokenConfig.productionTokenConfigs()` (pinned equal to live Base by
+`LibProdTokenConfigTest`, including the leading space in SGOV's name).
 
-- [ ] 20 token triples deployed; per-token config matches Base.
-- [ ] **[pin PR]** Hydrate the Ethereum token table (added alongside the
-      cross-chain parity pin) with the deployed addresses; register the
-      per-chain entries in st0x.registry (RAI-1101).
+**7a. Deploy the 20 token pairs** (EOA broadcast). Each
+`newTokenAndWrapperVault` call sets `initialAdmin` = the Ethereum Safe, so every
+vault is Safe-owned from block one and the deploying key holds nothing. The
+wrapped vault derives its own name/symbol (`"Wrapped " + name`, `"w" + symbol`),
+so no wrapped input is needed. Decimals come from the shared vault impl
+bytecode, identical to Base by construction.
+
+```bash
+DEPLOYMENT_KEY=<hex> ETHEREUM_RPC_URL=<url> forge script \
+  script/20260706-deploy-tokens-ethereum.s.sol \
+  --rpc-url ethereum --sig 'run()' --broadcast
+```
+
+The script logs each `(underlying, receiptVault, wrappedTokenVault)` — the
+beacon-proxy addresses are nonce-based, not deterministic, so they are read from
+the run rather than predicted.
+
+- [ ] 20 token pairs deployed, Safe-owned.
+- [ ] **[pin PR]** Hydrate `LibTokenInvariants.productionTokensEthereum()` with
+      the logged addresses; register the per-chain entries in st0x.registry
+      (RAI-1101).
+
+**7b. Wire the authoriser** (Safe bundle). Freshly-deployed vaults initialise
+with themselves as authoriser (every op reverts) until the Safe sets the real
+one, exactly as on Base:
+
+```bash
+ETHEREUM_RPC_URL=<url> forge script \
+  script/20260706-deploy-tokens-ethereum.s.sol \
+  --rpc-url ethereum --sig 'authorizeTokens()'
+```
+
+Emits `out/tokens-ethereum-authorize.json` (20 × `setAuthorizer(clone)`) for the
+Safe signers; verify with `--sig 'verify(string)'` before signing.
+
+- [ ] Authorise bundle executed; every vault's `authorizer()` is the Ethereum
+      clone.
 
 ## 8. Parity green
 

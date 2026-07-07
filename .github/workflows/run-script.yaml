@@ -27,6 +27,7 @@ on:
           # `--broadcast`) — useful as a pre-flight smoke test.
           - 20260619-deploy-v4-authoriser-clone
           - 20260623-upgrade-receipt-vaults-to-v4
+          - 20260706-deploy-tokens-ethereum
       network:
         description: 'Network to dry-run against (default: base)'
         required: true
@@ -55,6 +56,7 @@ on:
           # JSON path argument this dispatcher can't supply and runs off-chain
           # on the signer's machine, not in CI.
           - 'run()'
+          - 'authorizeTokens()'
 # Manually dispatches an operational script from `script/` and uploads any
 # JSON it writes to `out/` as a build artifact.
 #
