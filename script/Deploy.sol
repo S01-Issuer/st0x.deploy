@@ -25,6 +25,8 @@ import {
     StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 } from "../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
+import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
+import {ST0xOrchestratorBeaconSetDeployer} from "../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
 
 /// @dev Error thrown when the DEPLOYMENT_SUITE env var does not match any
 /// known suite.
@@ -52,6 +54,9 @@ bytes32 constant DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V
 bytes32 constant DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_V4 =
     keccak256("stox-offchain-asset-receipt-vault-payment-mint-authorizer-v1-v4");
 bytes32 constant DEPLOYMENT_SUITE_STOX_CORPORATE_ACTIONS_FACET_V4 = keccak256("stox-corporate-actions-facet-v4");
+bytes32 constant DEPLOYMENT_SUITE_ST0X_ORCHESTRATOR_V4 = keccak256("st0x-orchestrator-v4");
+bytes32 constant DEPLOYMENT_SUITE_ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_V4 =
+    keccak256("st0x-orchestrator-beacon-set-deployer-v4");
 
 contract Deploy is Script {
     /// @dev Deploys a single contract via the Zoltu deterministic deployer on
@@ -201,6 +206,28 @@ contract Deploy is Script {
                 LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6,
                 LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_RAIN_VATS_0_1_6,
                 noDeps
+            );
+        } else if (suite == DEPLOYMENT_SUITE_ST0X_ORCHESTRATOR_V4) {
+            // ST0xOrchestrator impl — parameterless (Initializable). Depends
+            // on nothing at deploy time. 0.1.7 codebase (new audit round).
+            deploySuite(
+                type(ST0xOrchestrator).creationCode,
+                "src/concrete/ST0xOrchestrator.sol:ST0xOrchestrator",
+                LibProdDeployV4.ST0X_ORCHESTRATOR_RAIN_VATS_0_1_7,
+                LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_RAIN_VATS_0_1_7,
+                noDeps
+            );
+        } else if (suite == DEPLOYMENT_SUITE_ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_V4) {
+            // Depends on the ST0xOrchestrator impl (embedded via
+            // LibProdDeployV4 in the constructor). 0.1.7 codebase.
+            address[] memory deps = new address[](1);
+            deps[0] = LibProdDeployV4.ST0X_ORCHESTRATOR_RAIN_VATS_0_1_7;
+            deploySuite(
+                type(ST0xOrchestratorBeaconSetDeployer).creationCode,
+                "src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol:ST0xOrchestratorBeaconSetDeployer",
+                LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_7,
+                LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_RAIN_VATS_0_1_7,
+                deps
             );
         } else {
             revert UnknownDeploymentSuite(suite);

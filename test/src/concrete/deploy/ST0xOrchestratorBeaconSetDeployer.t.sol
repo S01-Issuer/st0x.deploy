@@ -9,9 +9,6 @@ import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 
 import {
     ST0xOrchestratorBeaconSetDeployer,
-    ST0xOrchestratorBeaconSetDeployerConfig,
-    ZeroInitialOwner,
-    ZeroOrchestratorImplementation,
     ZeroOwner
 } from "../../../../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
 import {UpgradedImpl} from "./UpgradedImpl.sol";
@@ -34,6 +31,11 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
 
     function setUp() public {
         impl = new ST0xOrchestrator();
+        // The Zoltu deployer hardcodes the beacon implementation to the fixed
+        // production impl address (`ST0X_ORCHESTRATOR_RAIN_VATS_0_1_7`), so etch
+        // the freshly-built orchestrator runtime there — the beacon requires
+        // code at that address, and `deploy` delegatecalls it via the proxy.
+        vm.etch(LibProdDeployV4.ST0X_ORCHESTRATOR_RAIN_VATS_0_1_7, address(impl).code);
         // `deploy` initialises the proxy, which runs the orchestrator's
         // vault-logic version guard — install passing mocks up front.
         _makeGuardPass();
@@ -65,44 +67,21 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
         );
     }
 
-    function _deployer(address owner) internal returns (ST0xOrchestratorBeaconSetDeployer) {
-        return new ST0xOrchestratorBeaconSetDeployer(
-            ST0xOrchestratorBeaconSetDeployerConfig({
-                initialOwner: owner, initialOrchestratorImplementation: address(impl)
-            })
-        );
+    function _deployer() internal returns (ST0xOrchestratorBeaconSetDeployer) {
+        return new ST0xOrchestratorBeaconSetDeployer();
     }
 
-    function testFuzzConstructorRevertsZeroInitialOwner(address implAddr) external {
-        vm.assume(implAddr != address(0));
-        vm.expectRevert(ZeroInitialOwner.selector);
-        new ST0xOrchestratorBeaconSetDeployer(
-            ST0xOrchestratorBeaconSetDeployerConfig({
-                initialOwner: address(0), initialOrchestratorImplementation: implAddr
-            })
-        );
-    }
-
-    function testFuzzConstructorRevertsZeroImpl(address owner) external {
-        vm.assume(owner != address(0));
-        vm.expectRevert(ZeroOrchestratorImplementation.selector);
-        new ST0xOrchestratorBeaconSetDeployer(
-            ST0xOrchestratorBeaconSetDeployerConfig({
-                initialOwner: owner, initialOrchestratorImplementation: address(0)
-            })
-        );
-    }
-
-    function testFuzzConstructorSuccess(address owner) external {
-        vm.assume(owner != address(0));
-        ST0xOrchestratorBeaconSetDeployer d = _deployer(owner);
+    /// The no-arg constructor bakes the beacon owner + implementation from
+    /// `LibProdDeployV4` — the whole point of being Zoltu-deployable.
+    function testConstructorSuccess() external {
+        ST0xOrchestratorBeaconSetDeployer d = _deployer();
         IBeacon beacon = d.iOrchestratorBeacon();
-        assertEq(beacon.implementation(), address(impl), "beacon impl");
-        assertEq(Ownable(address(beacon)).owner(), owner, "beacon owner");
+        assertEq(beacon.implementation(), LibProdDeployV4.ST0X_ORCHESTRATOR_RAIN_VATS_0_1_7, "beacon impl");
+        assertEq(Ownable(address(beacon)).owner(), LibProdDeployV4.BEACON_INITIAL_OWNER, "beacon owner");
     }
 
     function testDeployRevertsZeroOwner() external {
-        ST0xOrchestratorBeaconSetDeployer d = _deployer(address(0xB0B));
+        ST0xOrchestratorBeaconSetDeployer d = _deployer();
         // Pin the reverter to the deployer itself: the deployer's own guard
         // must trip BEFORE any BeaconProxy construction is attempted. A plain
         // selector expectation would also be satisfied by the same-selector
@@ -112,12 +91,11 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
         d.deploy(address(0));
     }
 
-    function testFuzzDeploySuccess(address initialOwner, address owner, address caller) external {
-        vm.assume(initialOwner != address(0));
+    function testFuzzDeploySuccess(address owner, address caller) external {
         vm.assume(owner != address(0));
         vm.assume(caller != address(0));
         vm.assume(caller != owner);
-        ST0xOrchestratorBeaconSetDeployer d = _deployer(initialOwner);
+        ST0xOrchestratorBeaconSetDeployer d = _deployer();
         IBeacon beacon = d.iOrchestratorBeacon();
 
         vm.recordLogs();
@@ -149,20 +127,20 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     }
 
     function testDeployMultipleDistinct() external {
-        ST0xOrchestratorBeaconSetDeployer d = _deployer(address(0xB0B));
+        ST0xOrchestratorBeaconSetDeployer d = _deployer();
         address a = d.deploy(address(0xA11CE));
         address b = d.deploy(address(0xBEEF));
         assertTrue(a != b, "distinct proxies");
     }
 
     function testBeaconUpgradeRedirectsSingleton() external {
-        address initialOwner = address(0xB0B);
-        ST0xOrchestratorBeaconSetDeployer d = _deployer(initialOwner);
+        ST0xOrchestratorBeaconSetDeployer d = _deployer();
         IBeacon beacon = d.iOrchestratorBeacon();
         address orchestrator = d.deploy(address(0xA11CE));
 
         UpgradedImpl newImpl = new UpgradedImpl();
-        vm.prank(initialOwner);
+        // The beacon owner is the fixed production owner, not a deploy param.
+        vm.prank(LibProdDeployV4.BEACON_INITIAL_OWNER);
         UpgradeableBeacon(address(beacon)).upgradeTo(address(newImpl));
 
         // Call through the proxy proves live delegation to the new impl.
@@ -170,9 +148,8 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     }
 
     function testFuzzBeaconUpgradeUnauthorised(address notOwner) external {
-        address initialOwner = address(0xB0B);
-        vm.assume(notOwner != initialOwner && notOwner != address(0));
-        ST0xOrchestratorBeaconSetDeployer d = _deployer(initialOwner);
+        vm.assume(notOwner != LibProdDeployV4.BEACON_INITIAL_OWNER && notOwner != address(0));
+        ST0xOrchestratorBeaconSetDeployer d = _deployer();
         IBeacon beacon = d.iOrchestratorBeacon();
         UpgradedImpl newImpl = new UpgradedImpl();
         vm.prank(notOwner);
@@ -181,7 +158,7 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     }
 
     function testSupportsInterface() external {
-        ST0xOrchestratorBeaconSetDeployer d = _deployer(address(0xB0B));
+        ST0xOrchestratorBeaconSetDeployer d = _deployer();
         assertTrue(d.supportsInterface(0x01ffc9a7), "IERC165");
         assertFalse(d.supportsInterface(0xffffffff), "not 0xffffffff");
     }
