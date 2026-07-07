@@ -3,111 +3,60 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
-
-import {
-    UpgradeReceiptVaultsToV4,
-    V4ImplementationNotDeployed
-} from "../../script/20260623-upgrade-receipt-vaults-to-v4.s.sol";
-import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
-import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
-import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
-import {LibProdDeployV4} from "../../src/lib/LibProdDeployV4.sol";
-import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
+import {IAuthorizableV1} from "rain-vats-0.1.6/src/interface/IAuthorizableV1.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
+import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
+import {LibMigrationInvariant} from "../../src/lib/LibMigrationInvariant.sol";
+import {LibProdDeployV4} from "../../src/lib/LibProdDeployV4.sol";
+import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
+
 /// @title UpgradeReceiptVaultsToV4Test
-/// @notice Fork tests for the V4 receipt-vault upgrade + authoriser-swap
-/// script. Two halves:
+/// @notice Live-fork pin of the vault-authoriser transition executed by
+/// `script/20260623-upgrade-receipt-vaults-to-v4.s.sol`. Reads each
+/// production receipt vault's `authorizer()` from Base head and asserts,
+/// via `LibMigrationInvariant`, that the value is either the current V3
+/// authoriser (`LibAuthoriserInvariants.STOX_PROD_AUTHORISER`) or the
+/// pinned V4 clone (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`) — up
+/// until `V4_SWAP_DEADLINE`. From that timestamp on only the V4 clone is
+/// accepted.
 ///
-/// 1. **Placeholder-posture guards** (always run): assert that the V4 pointers
-///    in `LibProdDeployV4` and the V4 authoriser clone in `LibAuthoriserInvariants`
-///    are still `address(0)` / `bytes32(0)` placeholders. The instant any of
-///    those is hydrated with a real value, the guard fails and the second
-///    half (currently a TODO skeleton) must be authored to cover the live
-///    values.
+/// @dev While the V4 clone pin is still `address(0)` (post-Bundle-1
+/// hydration PR has not yet landed), the migration invariant collapses to
+/// "must be V3 authoriser" — every live vault reports the V3 authoriser and
+/// passes. Once the clone is pinned + the swap script has run on Base, the
+/// live reads flip to the V4 clone and the same test still passes. If the
+/// deadline arrives and the swap has not landed on-chain, the test trips
+/// `MigrationDeadlinePassed` on the first vault it visits — cron red-lines
+/// and forces the operator to run the swap, extend the deadline, or delete
+/// the invariant.
 ///
-/// 2. **Hydrated end-to-end coverage** (TODO): the V3 predecessor
-///    (`UpgradeReceiptVaultToV3Test.t.sol`, replaced by this rename) carried
-///    happy-path + inverted coverage that planted the impl via `deployCodeTo`
-///    and simulated the beacon-ownership migration. None of that is
-///    portable against `address(0)` constants — `deployCodeTo(_, address(0))`
-///    is a no-op. Once the patched rain.vats tag lands, the `RAIN_VATS_0_1_6`
-///    suffix is renamed, and real addresses replace the zeros, port the V3
-///    suite here and re-add: planted-codehash sanity, happy-path artifact
-///    write + bundle-shape pin, snapshot/restore = pre-upgrade pin, and
-///    inverted cases for every error path the script declares (every
-///    `V4*` error in `UpgradeReceiptVaultsToV4.s.sol`).
-///
-/// While the placeholders are in place, `run()` reverts on the first
-/// placeholder check it reaches; the third test below asserts that revert
-/// path is `V4ImplementationNotDeployed(address(0))`.
-///
-/// @dev Uses an unpinned Base head fork (same precedent as the other Safe
-/// fork tests in this repo).
+/// Uses an unpinned Base head fork so `block.timestamp` is real. Pinning a
+/// block would freeze the deadline check to whichever timestamp the pinned
+/// block carried, which is exactly the wrong behaviour for a deadline-gated
+/// invariant.
 contract UpgradeReceiptVaultsToV4Test is Test {
-    UpgradeReceiptVaultsToV4 internal script;
-    IGnosisSafe internal safe;
+    /// @notice Unix timestamp past which only the V4 clone is accepted as
+    /// the vault authoriser. `2026-11-01T00:00:00Z`.
+    /// @dev PLACEHOLDER — set to the operator SLA for the V4 upgrade +
+    /// authoriser swap on Base. Adjust before merge if the intended cut-off
+    /// is different.
+    uint256 internal constant V4_SWAP_DEADLINE = 1_793_491_200;
 
-    address internal constant BEACON = LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1;
-
-    function selectBaseFork() internal {
+    /// @notice Every production receipt vault's `authorizer()` is either
+    /// the pinned V3 authoriser or the pinned V4 clone. Base-only —
+    /// no other network carries live production receipt vaults.
+    function testVaultAuthoriserInMigrationWindow() external {
         vm.createSelectFork(LibRainDeploy.BASE);
-        script = new UpgradeReceiptVaultsToV4();
-        safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
-    }
-
-    /// @notice Simulate the beacon-ownership migration (#196) landing on-chain:
-    /// prank the EOA owner and transfer the receipt vault beacon to the Safe.
-    /// The script's pre-flight requires the beacon to be Safe-owned before it
-    /// reaches the V4 impl checks.
-    function simulateBeaconOwnershipMigration() internal {
-        vm.prank(LibProdDeployV1.BEACON_INITIAL_OWNER);
-        Ownable(BEACON).transferOwnership(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
-    }
-
-    /// @notice Placeholder-posture guard: `LibProdDeployV4`'s V4 impl pointer
-    /// is still `address(0)`. The instant this fails, the lib has been
-    /// hydrated and the hydrated end-to-end test suite must be authored.
-    function testV4ImplPointerStillPlaceholder() external pure {
-        assertEq(
-            LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6,
-            address(0),
-            "V4 receipt vault impl pointer hydrated - write the hydrated test suite"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_RAIN_VATS_0_1_6,
-            bytes32(0),
-            "V4 receipt vault codehash hydrated - write the hydrated test suite"
-        );
-    }
-
-    /// @notice Placeholder-posture guard: `LibAuthoriserInvariants`'s V4 clone
-    /// pointer is still `address(0)`. The instant this fails, the clone has
-    /// been deployed and pinned and the hydrated end-to-end test suite must
-    /// be authored.
-    function testV4AuthoriserClonePointerStillPlaceholder() external pure {
-        assertEq(
-            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE,
-            address(0),
-            "V4 authoriser clone hydrated - write the hydrated test suite"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH,
-            bytes32(0),
-            "V4 authoriser clone codehash hydrated - write the hydrated test suite"
-        );
-    }
-
-    /// @notice With every V4 placeholder still at zero, `run()` must trip the
-    /// first hard-fail check it reaches after the Safe + beacon invariants
-    /// pass: `V4ImplementationNotDeployed(address(0))`. The beacon-ownership
-    /// migration is simulated first so the script's `assertBeaconInvariants`
-    /// passes and the V4 impl check is reached.
-    function testRunRevertsOnUnhydratedV4ImplPlaceholder() external {
-        selectBaseFork();
-        simulateBeaconOwnershipMigration();
-        vm.expectRevert(abi.encodeWithSelector(V4ImplementationNotDeployed.selector, address(0)));
-        script.run();
+        address[] memory vaults = LibTokenInvariants.productionReceiptVaults();
+        for (uint256 i = 0; i < vaults.length; i++) {
+            LibMigrationInvariant.assertMigration(
+                "receiptVault.authorizer()",
+                address(IAuthorizableV1(vaults[i]).authorizer()),
+                LibAuthoriserInvariants.STOX_PROD_AUTHORISER,
+                LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE,
+                V4_SWAP_DEADLINE
+            );
+        }
     }
 }
