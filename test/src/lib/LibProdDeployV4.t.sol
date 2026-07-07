@@ -455,4 +455,97 @@ contract LibProdDeployV4Test is Test {
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_1
         );
     }
+
+    /// Each release's frozen runtime bytecode hashes to that release's codehash
+    /// pin — proving the per-tag bytecode record is self-consistent (and, for
+    /// 0.1.1, that the frozen snapshot matches the codehash independent of the
+    /// current build).
+    function testTaggedRuntimeHashesToCodehash() external pure {
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_RECEIPT_RUNTIME_CODE_0_1_1), LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_1
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_1),
+            LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_1
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_0_1_1),
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_1
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RUNTIME_CODE_0_1_1),
+            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_1
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RUNTIME_CODE_0_1_1),
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_1
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_1),
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_1),
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_CODE_0_1_1),
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_1
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_RUNTIME_CODE_0_1_1),
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_1
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_1),
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_1
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_RECEIPT_RUNTIME_CODE_0_1_2), LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_2
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_2),
+            LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_2
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_0_1_2),
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_2
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RUNTIME_CODE_0_1_2),
+            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_2
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RUNTIME_CODE_0_1_2),
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_2
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_2),
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_2
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_2),
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_2
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_CODE_0_1_2),
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_2
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_RUNTIME_CODE_0_1_2),
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_2
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_2),
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_2
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.ST0X_ORCHESTRATOR_RUNTIME_CODE_0_1_2),
+            LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_0_1_2
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_2),
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_2
+        );
+    }
 }

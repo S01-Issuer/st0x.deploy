@@ -35,7 +35,7 @@ generated_dir="${repo_root}/src/generated"
 
 missing=()
 
-for pointer_file in "${generated_dir}"/*.pointers.sol; do
+for pointer_file in "${generated_dir}"/*.pointers.sol "${generated_dir}"/*/*.pointers.sol; do
     # Extract the 40-hex address from the `DEPLOYED_ADDRESS` declaration, if the
     # pointer file has one. Format:
     #   address constant DEPLOYED_ADDRESS = address(0x<40 hex>);
