@@ -548,4 +548,186 @@ contract LibProdDeployV4Test is Test {
             LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_2
         );
     }
+
+    // =========================================================================
+    // Frozen-record redeploy reproducibility (no fork).
+    //
+    // Deploying the FROZEN per-release creation bytecode — the historical
+    // `X_CREATION_CODE_<tag>` record in `LibProdDeployV4`, NOT the current
+    // source's `type(X).creationCode` — back through the Zoltu factory lands at
+    // the frozen `X_<tag>` address holding the frozen `X_RUNTIME_CODE_<tag>`
+    // bytecode with the frozen `X_CODEHASH_<tag>`. This proves the release is
+    // reproducible from the pinned constants alone: given only the frozen
+    // record, the same runtime redeploys to the same address even after the
+    // current source diverges. The `testDeployAddress*` tests above instead
+    // deploy the CURRENT source and are what break when the source drifts; these
+    // pin the frozen bytecode itself.
+    //
+    // Only DISTINCT (creation code, address) pairs are covered: the ten 0.1.1
+    // contracts plus the two 0.1.2-only contracts (the orchestrator and its
+    // deployer). The 0.1.2 twins of the ten are byte-identical creation code, so
+    // they Zoltu-derive the SAME address (already proven equal by
+    // `testRelease012TwinsEqualRelease011`) and redeploying them would collide
+    // on the already-occupied address.
+    //
+    // Deployer dependency ordering mirrors the `testDeployAddress*` tests
+    // exactly: a deployer/beacon whose constructor bakes an impl address needs
+    // that impl deployed first, so each such test first deploys the impl(s)'
+    // FROZEN creation code (which lands at the same frozen Zoltu address the
+    // constructor bakes) before deploying the target.
+    // =========================================================================
+
+    /// Deploys `creationCode` through the Zoltu factory and asserts the deploy
+    /// reproduces the frozen address, full runtime bytecode, and codehash.
+    function _assertFrozenRedeploy(
+        bytes memory creationCode,
+        address expectedAddress,
+        bytes memory expectedRuntimeCode,
+        bytes32 expectedCodehash
+    ) internal {
+        address deployed = LibRainDeploy.deployZoltu(creationCode);
+        assertEq(deployed, expectedAddress);
+        assertEq(deployed.code, expectedRuntimeCode);
+        assertEq(deployed.codehash, expectedCodehash);
+    }
+
+    // --- 0.1.1 frozen redeploys ---
+
+    function testFrozenRedeployStoxReceipt() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.STOX_RECEIPT_CREATION_CODE_0_1_1,
+            LibProdDeployV4.STOX_RECEIPT_0_1_1,
+            LibProdDeployV4.STOX_RECEIPT_RUNTIME_CODE_0_1_1,
+            LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_1
+        );
+    }
+
+    function testFrozenRedeployStoxReceiptVault() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.STOX_RECEIPT_VAULT_CREATION_CODE_0_1_1,
+            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1,
+            LibProdDeployV4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_1,
+            LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_1
+        );
+    }
+
+    function testFrozenRedeployStoxWrappedTokenVault() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CREATION_CODE_0_1_1,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_0_1_1,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_1
+        );
+    }
+
+    function testFrozenRedeployStoxUnifiedDeployer() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CREATION_CODE_0_1_1,
+            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1,
+            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RUNTIME_CODE_0_1_1,
+            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_1
+        );
+    }
+
+    /// The beacon's `UpgradeableBeacon` constructor validates its impl has code,
+    /// so the wrapped-token-vault impl is deployed (frozen) first.
+    function testFrozenRedeployStoxWrappedTokenVaultBeacon() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CREATION_CODE_0_1_1);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CREATION_CODE_0_1_1,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RUNTIME_CODE_0_1_1,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_1
+        );
+    }
+
+    /// Needs the wrapped-token-vault impl and its beacon deployed (frozen)
+    /// first, matching `testDeployAddressStoxWrappedTokenVaultBeaconSetDeployer`.
+    function testFrozenRedeployStoxWrappedTokenVaultBeaconSetDeployer() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CREATION_CODE_0_1_1);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CREATION_CODE_0_1_1);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_1,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_1,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1
+        );
+    }
+
+    /// Its constructor builds two beacons over the receipt and receipt-vault
+    /// impls, so both are deployed (frozen) first, matching
+    /// `testDeployAddressStoxOffchainAssetReceiptVaultBeaconSetDeployer`.
+    function testFrozenRedeployStoxOffchainAssetReceiptVaultBeaconSetDeployer() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.STOX_RECEIPT_CREATION_CODE_0_1_1);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.STOX_RECEIPT_VAULT_CREATION_CODE_0_1_1);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_1,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_1,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1
+        );
+    }
+
+    function testFrozenRedeployStoxOffchainAssetReceiptVaultAuthorizerV1() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CREATION_CODE_0_1_1,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_CODE_0_1_1,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_1
+        );
+    }
+
+    function testFrozenRedeployStoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CREATION_CODE_0_1_1,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_0_1_1,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_RUNTIME_CODE_0_1_1,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_1
+        );
+    }
+
+    function testFrozenRedeployStoxCorporateActionsFacet() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CREATION_CODE_0_1_1,
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1,
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_1,
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_1
+        );
+    }
+
+    // --- 0.1.2-only frozen redeploys (new to the 0.1.2 release) ---
+
+    function testFrozenRedeployST0xOrchestrator() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_0_1_2,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_2,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_RUNTIME_CODE_0_1_2,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_0_1_2
+        );
+    }
+
+    /// Its constructor builds an `UpgradeableBeacon` over the orchestrator impl,
+    /// so the impl is deployed (frozen) first, matching
+    /// `testDeployAddressST0xOrchestratorBeaconSetDeployer`.
+    function testFrozenRedeployST0xOrchestratorBeaconSetDeployer() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_0_1_2);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_2,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_2,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_2,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_2
+        );
+    }
 }

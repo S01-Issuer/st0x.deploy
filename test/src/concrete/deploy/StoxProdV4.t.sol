@@ -36,9 +36,11 @@ contract StoxProdV4Test is Test {
     function checkAllV4OnChain() internal view {
         assertTrue(LibProdDeployV4.STOX_RECEIPT_0_1_1.code.length > 0, "V4 StoxReceipt not deployed");
         assertEq(LibProdDeployV4.STOX_RECEIPT_0_1_1.codehash, LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_1);
+        assertEq(LibProdDeployV4.STOX_RECEIPT_0_1_1.code, LibProdDeployV4.STOX_RECEIPT_RUNTIME_CODE_0_1_1);
 
         assertTrue(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1.code.length > 0, "V4 StoxReceiptVault not deployed");
         assertEq(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1.codehash, LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_1);
+        assertEq(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1.code, LibProdDeployV4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_1);
 
         assertTrue(
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1.code.length > 0, "V4 StoxWrappedTokenVault not deployed"
@@ -47,10 +49,17 @@ contract StoxProdV4Test is Test {
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1.codehash,
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_1
         );
+        assertEq(
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1.code,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_0_1_1
+        );
 
         assertTrue(LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1.code.length > 0, "V4 StoxUnifiedDeployer not deployed");
         assertEq(
             LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1.codehash, LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_1
+        );
+        assertEq(
+            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1.code, LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RUNTIME_CODE_0_1_1
         );
 
         assertTrue(
@@ -61,6 +70,10 @@ contract StoxProdV4Test is Test {
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1.codehash,
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_1
         );
+        assertEq(
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1.code,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RUNTIME_CODE_0_1_1
+        );
 
         assertTrue(
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1.code.length > 0,
@@ -69,6 +82,10 @@ contract StoxProdV4Test is Test {
         assertEq(
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1.codehash,
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1
+        );
+        assertEq(
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1.code,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_1
         );
 
         assertTrue(
@@ -79,6 +96,10 @@ contract StoxProdV4Test is Test {
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1.codehash,
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1
         );
+        assertEq(
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1.code,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_1
+        );
 
         assertTrue(
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1.code.length > 0,
@@ -87,6 +108,10 @@ contract StoxProdV4Test is Test {
         assertEq(
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1.codehash,
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_1
+        );
+        assertEq(
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1.code,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_CODE_0_1_1
         );
 
         assertTrue(
@@ -97,6 +122,10 @@ contract StoxProdV4Test is Test {
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_0_1_1.codehash,
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_1
         );
+        assertEq(
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_0_1_1.code,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_RUNTIME_CODE_0_1_1
+        );
 
         assertTrue(
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1.code.length > 0,
@@ -105,6 +134,10 @@ contract StoxProdV4Test is Test {
         assertEq(
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1.codehash,
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_1
+        );
+        assertEq(
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1.code,
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_1
         );
 
         // The wrapped-token-vault beacon points at the V4 vault implementation
