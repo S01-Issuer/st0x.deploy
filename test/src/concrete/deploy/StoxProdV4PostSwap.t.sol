@@ -17,10 +17,14 @@ import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 ///
 /// **Layer 1 — V4 bytecode integrity (per-network).** The deterministic V4
 /// receipt vault implementation and the V4 corporate-actions facet must exist
-/// at their post-rebuild Zoltu addresses with the audited V4 codehash. Mirrors
-/// the V2 / V3 patterns of `checkAllV{N}OnChain` and runs against every EVM
-/// network the ST0x deploy targets, since the Zoltu deploy is identical
-/// across them.
+/// at their post-rebuild Zoltu addresses with the audited V4 codehash on every
+/// EVM network the ST0x deploy targets. Since V4 is only Zoltu-deployed on
+/// Base today, the per-network check reads each address's `codehash` and
+/// gates it through `LibMigrationInvariant`: either `bytes32(0)` (impl
+/// undeployed) or the pinned V4 codehash is accepted until
+/// `V4_CROSS_NETWORK_DEPLOY_DEADLINE`; only the pinned codehash is
+/// accepted after. If the impl has not been redeployed on a network by the
+/// deadline, cron red-lines against that network.
 ///
 /// **Layer 2 — Authoriser swap window (Base only).** Every production
 /// receipt vault reports either the V3 authoriser (`LibAuthoriserInvariants.
@@ -46,28 +50,35 @@ contract StoxProdV4PostSwapTest is Test {
     /// is different.
     uint256 internal constant V4_SWAP_DEADLINE = 1_793_491_200;
 
+    /// @notice Unix timestamp past which every network the ST0x deploy
+    /// targets must carry the V4 receipt vault impl + corporate-actions
+    /// facet at their Zoltu addresses with the pinned codehash.
+    /// `2026-11-01T00:00:00Z`.
+    /// @dev PLACEHOLDER — set to the operator SLA for the cross-network V4
+    /// Zoltu redeploy. Adjust before merge if the intended cut-off is
+    /// different.
+    uint256 internal constant V4_CROSS_NETWORK_DEPLOY_DEADLINE = 1_793_491_200;
+
     /// @notice Assert both V4 artifacts (receipt vault impl + corporate-
-    /// actions facet) are deployed at their deterministic addresses with the
-    /// pinned codehash on the active fork. The Zoltu deploy is identical
-    /// across every EVM network, so this same check runs per-network.
+    /// actions facet) are either undeployed (`codehash == 0`) or deployed
+    /// with the pinned codehash on the active fork, gated by
+    /// `V4_CROSS_NETWORK_DEPLOY_DEADLINE`. Before the deadline both states
+    /// pass; after the deadline only the pinned codehash is accepted.
     function checkAllV4OnChain() internal view {
-        assertTrue(
-            LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6.code.length > 0, "V4 StoxReceiptVault impl not deployed"
-        );
-        assertEq(
+        LibMigrationInvariant.assertMigration(
+            "STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6.codehash",
             LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6.codehash,
+            bytes32(0),
             LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_RAIN_VATS_0_1_6,
-            "V4 StoxReceiptVault impl codehash mismatch"
+            V4_CROSS_NETWORK_DEPLOY_DEADLINE
         );
 
-        assertTrue(
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6.code.length > 0,
-            "V4 StoxCorporateActionsFacet not deployed"
-        );
-        assertEq(
+        LibMigrationInvariant.assertMigration(
+            "STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6.codehash",
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6.codehash,
+            bytes32(0),
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_RAIN_VATS_0_1_6,
-            "V4 StoxCorporateActionsFacet codehash mismatch"
+            V4_CROSS_NETWORK_DEPLOY_DEADLINE
         );
     }
 
