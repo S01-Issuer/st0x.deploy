@@ -44,51 +44,51 @@ import {
 import {
     CREATION_CODE as STOX_RECEIPT_CREATION_0_1_2_GEN,
     RUNTIME_CODE as STOX_RECEIPT_RUNTIME_0_1_2_GEN
-} from "../generated/StoxReceipt.pointers.sol";
+} from "../generated/0_1_2/StoxReceipt.pointers.sol";
 import {
     CREATION_CODE as STOX_RECEIPT_VAULT_CREATION_0_1_2_GEN,
     RUNTIME_CODE as STOX_RECEIPT_VAULT_RUNTIME_0_1_2_GEN
-} from "../generated/StoxReceiptVault.pointers.sol";
+} from "../generated/0_1_2/StoxReceiptVault.pointers.sol";
 import {
     CREATION_CODE as STOX_WRAPPED_TOKEN_VAULT_CREATION_0_1_2_GEN,
     RUNTIME_CODE as STOX_WRAPPED_TOKEN_VAULT_RUNTIME_0_1_2_GEN
-} from "../generated/StoxWrappedTokenVault.pointers.sol";
+} from "../generated/0_1_2/StoxWrappedTokenVault.pointers.sol";
 import {
     CREATION_CODE as STOX_UNIFIED_DEPLOYER_CREATION_0_1_2_GEN,
     RUNTIME_CODE as STOX_UNIFIED_DEPLOYER_RUNTIME_0_1_2_GEN
-} from "../generated/StoxUnifiedDeployer.pointers.sol";
+} from "../generated/0_1_2/StoxUnifiedDeployer.pointers.sol";
 import {
     CREATION_CODE as STOX_WRAPPED_TOKEN_VAULT_BEACON_CREATION_0_1_2_GEN,
     RUNTIME_CODE as STOX_WRAPPED_TOKEN_VAULT_BEACON_RUNTIME_0_1_2_GEN
-} from "../generated/StoxWrappedTokenVaultBeacon.pointers.sol";
+} from "../generated/0_1_2/StoxWrappedTokenVaultBeacon.pointers.sol";
 import {
     CREATION_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_0_1_2_GEN,
     RUNTIME_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_0_1_2_GEN
-} from "../generated/StoxOffchainAssetReceiptVaultBeaconSetDeployer.pointers.sol";
+} from "../generated/0_1_2/StoxOffchainAssetReceiptVaultBeaconSetDeployer.pointers.sol";
 import {
     CREATION_CODE as STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CREATION_0_1_2_GEN,
     RUNTIME_CODE as STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RUNTIME_0_1_2_GEN
-} from "../generated/StoxWrappedTokenVaultBeaconSetDeployer.pointers.sol";
+} from "../generated/0_1_2/StoxWrappedTokenVaultBeaconSetDeployer.pointers.sol";
 import {
     CREATION_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CREATION_0_1_2_GEN,
     RUNTIME_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_0_1_2_GEN
-} from "../generated/StoxOffchainAssetReceiptVaultAuthorizerV1.pointers.sol";
+} from "../generated/0_1_2/StoxOffchainAssetReceiptVaultAuthorizerV1.pointers.sol";
 import {
     CREATION_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CREATION_0_1_2_GEN,
     RUNTIME_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_RUNTIME_0_1_2_GEN
-} from "../generated/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.pointers.sol";
+} from "../generated/0_1_2/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.pointers.sol";
 import {
     CREATION_CODE as STOX_CORPORATE_ACTIONS_FACET_CREATION_0_1_2_GEN,
     RUNTIME_CODE as STOX_CORPORATE_ACTIONS_FACET_RUNTIME_0_1_2_GEN
-} from "../generated/StoxCorporateActionsFacet.pointers.sol";
+} from "../generated/0_1_2/StoxCorporateActionsFacet.pointers.sol";
 import {
     CREATION_CODE as ST0X_ORCHESTRATOR_CREATION_0_1_2_GEN,
     RUNTIME_CODE as ST0X_ORCHESTRATOR_RUNTIME_0_1_2_GEN
-} from "../generated/ST0xOrchestrator.pointers.sol";
+} from "../generated/0_1_2/ST0xOrchestrator.pointers.sol";
 import {
     CREATION_CODE as ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_0_1_2_GEN,
     RUNTIME_CODE as ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_0_1_2_GEN
-} from "../generated/ST0xOrchestratorBeaconSetDeployer.pointers.sol";
+} from "../generated/0_1_2/ST0xOrchestratorBeaconSetDeployer.pointers.sol";
 
 /// @title LibProdDeployV4
 /// @notice V4 production deployment pins for the ST0x contract set on Base,
@@ -113,10 +113,14 @@ import {
 /// contract's own source AND its dependency tree, so an st0x-only source
 /// change moves addresses with no rain.vats bump — keying the suffix on the
 /// dependency alone was both incomplete and misleading. `0_1_1` is the
-/// current published release; `0_1_2` is the next release: the 0.1.1 set at
-/// identical addresses plus the ST0x orchestrator + its deployer. A future
-/// release adds a new suffixed set rather than overwriting a frozen one. The
-/// lib name itself is generic (`LibProdDeployV4`).
+/// current published release; `0_1_2` is this release — the `0_1_1` set at
+/// identical addresses plus the ST0x orchestrator + its deployer. Each tag's
+/// creation and runtime bytecode is frozen in a per-tag snapshot under
+/// `src/generated/<tag>/` (imported at the top of this file), so a future
+/// `BuildPointers` run — which rewrites only the top-level `src/generated/`
+/// pointers — cannot drift a released tag's records. A future release adds a
+/// new suffixed set + snapshot rather than overwriting a frozen one. The lib
+/// name itself is generic (`LibProdDeployV4`).
 ///
 /// The frozen pre-V4 deployments are pinned in `LibProdDeployV1` and
 /// `LibProdDeployV2` as audit trails; active source and scripts reference this
@@ -201,14 +205,15 @@ library LibProdDeployV4 {
         0x2a67c52129dff74d956bb7dcde1aac598c28dd29685237aca56dccb1d49bd6f8;
 
     // =========================================================================
-    // st0x-deploy release 0.1.2 — the next release (= 0.1.1 + orchestrator).
+    // st0x-deploy release 0.1.2 — this release (= 0.1.1 + orchestrator).
     //
     // The ten contracts above are unchanged, so each `_0_1_2` pin below holds
     // the SAME address + codehash as its `_0_1_1` twin; the release adds the
-    // ST0x orchestrator and its Zoltu deployer. Deploy wiring targets this
-    // (current) release. As with 0.1.1 these are the deterministic Zoltu values
-    // from `src/generated/*.pointers.sol`, generated by
-    // `script/BuildPointers.sol`.
+    // ST0x orchestrator and its Zoltu deployer, deployed on Base at the pinned
+    // addresses. As with 0.1.1, creation + runtime bytecode is frozen in the
+    // per-tag snapshot under `src/generated/0_1_2/` (imported above), so the
+    // pinned records cannot drift when `BuildPointers` regenerates the
+    // top-level `src/generated/` pointers.
     // =========================================================================
 
     address constant STOX_RECEIPT_0_1_2 = address(0x2dF5cFE6d688EF9fF1B7c59A499D254b1527b286);

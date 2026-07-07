@@ -228,14 +228,14 @@ contract ST0xOrchestrator is
     // slither-disable-next-line reentrancy-no-eth
     function _burnWalk(address token, uint256 remaining, bytes memory burnInfo) internal returns (uint256 idx) {
         OffchainAssetReceiptVault vault = OffchainAssetReceiptVault(payable(token));
-        IERC1155 receipt_ = IERC1155(address(vault.receipt()));
+        IERC1155 vaultReceipt = IERC1155(address(vault.receipt()));
         idx = _main().nextBurnReceiptId[token];
         uint256 cap = vault.highwaterId();
         while (remaining > 0) {
             if (idx > cap) revert InsufficientReceipts(token, remaining);
             // One rebased balanceOf per inspected id is the walk's design.
             // slither-disable-next-line calls-loop
-            uint256 bal = receipt_.balanceOf(address(this), idx);
+            uint256 bal = vaultReceipt.balanceOf(address(this), idx);
             if (bal == 0) {
                 unchecked {
                     idx++;

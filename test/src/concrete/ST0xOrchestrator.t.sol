@@ -1384,4 +1384,40 @@ contract ST0xOrchestratorTest is Test {
         assertEq(orchestrator.nextBurnReceiptId(fakeVault), 10, "reverting receipt() probe must not move the pointer");
         assertEq(vm.getRecordedLogs().length, 0, "no BurnIndexLowered may be emitted for a reverting receipt() probe");
     }
+
+    /// A sender whose `manager()` probe succeeds but names a CODE-LESS claimed
+    /// vault is treated as foreign: the `vault.receipt()` staticcall to an
+    /// address with no code succeeds with EMPTY returndata, so the
+    /// `ret.length != 32` half of the second-probe guard bails. Accepted, no
+    /// pointer move, no `BurnIndexLowered`.
+    function testOnERC1155ReceivedCodelessClaimedVaultNoOp() external {
+        address codelessVault = address(0xC0DE1E55);
+        _mockManager(FOREIGN_1155, codelessVault);
+        _seedPointer(codelessVault, 10);
+
+        vm.recordLogs();
+        vm.prank(FOREIGN_1155);
+        bytes4 ret = orchestrator.onERC1155Received(address(this), BOB, 5, 1, "");
+        assertEq(ret, IERC1155Receiver.onERC1155Received.selector);
+        assertEq(orchestrator.nextBurnReceiptId(codelessVault), 10, "code-less claimed vault must not move the pointer");
+        assertEq(vm.getRecordedLogs().length, 0, "no BurnIndexLowered for a code-less claimed vault");
+    }
+
+    /// A sender whose `manager()` probe succeeds but whose claimed vault
+    /// REVERTS on `receipt()` is treated as foreign: the `!ok` half of the
+    /// second-probe guard bails. Accepted, no pointer move, no
+    /// `BurnIndexLowered`.
+    function testOnERC1155ReceivedRevertingClaimedVaultNoOp() external {
+        address claimedVault = address(0xDEAD5EA7);
+        _mockManager(FOREIGN_1155, claimedVault);
+        vm.mockCallRevert(claimedVault, abi.encodeWithSelector(ReceiptVault.receipt.selector), "");
+        _seedPointer(claimedVault, 10);
+
+        vm.recordLogs();
+        vm.prank(FOREIGN_1155);
+        bytes4 ret = orchestrator.onERC1155Received(address(this), BOB, 5, 1, "");
+        assertEq(ret, IERC1155Receiver.onERC1155Received.selector);
+        assertEq(orchestrator.nextBurnReceiptId(claimedVault), 10, "reverting claimed vault must not move the pointer");
+        assertEq(vm.getRecordedLogs().length, 0, "no BurnIndexLowered for a reverting claimed vault");
+    }
 }

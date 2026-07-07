@@ -7,6 +7,7 @@ import {LibProdDeployV4} from "../../../../src/lib/LibProdDeployV4.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
+import {ST0xOrchestratorBeaconSetDeployer} from "../../../../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV2
 } from "rain-vats-0.1.6/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV2.sol";
@@ -205,6 +206,23 @@ contract StoxProdV4Test is Test {
             Ownable(address(vaultBeacon)).owner(),
             LibProdDeployV4.BEACON_INITIAL_OWNER,
             "V4 OARV vault beacon owner mismatch"
+        );
+
+        // The ST0x orchestrator beacon-set deployer creates one beacon in its
+        // constructor: the orchestrator beacon points at the V4 orchestrator
+        // implementation, held by the beacon initial owner.
+        IBeacon orchestratorBeacon = ST0xOrchestratorBeaconSetDeployer(
+                LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_2
+            ).iOrchestratorBeacon();
+        assertEq(
+            orchestratorBeacon.implementation(),
+            LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_2,
+            "V4 orchestrator beacon implementation mismatch"
+        );
+        assertEq(
+            Ownable(address(orchestratorBeacon)).owner(),
+            LibProdDeployV4.BEACON_INITIAL_OWNER,
+            "V4 orchestrator beacon owner mismatch"
         );
     }
 
