@@ -70,8 +70,7 @@ error NewCloneEventMissing();
 error GrantsSliceOutOfRange(uint256 startIndex, uint256 sliceLength, uint256 gramGrantsLen);
 
 /// @title DeployV4AuthoriserClone
-/// @notice Broadcast script (dispatched by the same deploy key that lands
-/// impl artifacts via `manual-sol-artifacts`) that:
+/// @notice Broadcast script that:
 ///
 ///   1. Deploys a fresh V4 authoriser clone via `CloneFactory.clone`,
 ///      initialised with the deployer as `initialAdmin`. The five
@@ -89,9 +88,12 @@ error GrantsSliceOutOfRange(uint256 startIndex, uint256 sliceLength, uint256 gra
 ///
 /// All four steps run under a single `vm.startBroadcast()` — the deploy
 /// key executes them in sequence in one `forge script --broadcast`
-/// invocation. The Safe never signs anything for this deploy: the whole
-/// clone-configuration ceremony collapses into an ordinary broadcast
-/// operation matching the impl-deploy pattern the ops flow already uses.
+/// invocation. Dispatched via `.github/workflows/manual-broadcast.yaml`,
+/// which broadcasts as `secrets.PRIVATE_KEY` — the same CI-held deploy
+/// key `manual-sol-artifacts.yaml` uses for Zoltu impl deploys. The Safe
+/// never signs anything for this deploy: the whole clone-configuration
+/// ceremony collapses into a workflow-dispatch broadcast matching the
+/// impl-deploy pattern the ops flow already uses.
 ///
 /// @dev Trust model. During the four-step sequence the deployer key
 /// holds every `_ADMIN` role and could self-grant additional operational

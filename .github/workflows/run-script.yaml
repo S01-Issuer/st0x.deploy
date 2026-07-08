@@ -13,11 +13,18 @@ on:
           # bundle to verify what landed on-chain.
           #
           # Each entry is the date-prefixed filename (without `.s.sol`) of a
-          # script under `script/`. Convention: `YYYYMMDD-<kebab-name>`,
-          # where the date is the day the script was added to this dropdown.
-          # Execution status (PENDING / EXECUTED + SafeTxHash) lives in the
-          # script's file-level NatSpec — this dropdown is a registry of
-          # *which* scripts exist, not *whether* they've run.
+          # Safe Tx Builder JSON emitting script under `script/`. Convention:
+          # `YYYYMMDD-<kebab-name>`, where the date is the day the script was
+          # added to this dropdown. Execution status (PENDING / EXECUTED +
+          # SafeTxHash) lives in the script's file-level NatSpec — this
+          # dropdown is a registry of *which* scripts exist, not *whether*
+          # they've run.
+          #
+          # Broadcast scripts (dispatched with `--broadcast` from the CI
+          # deploy key) live in `manual-broadcast.yaml` instead. The
+          # `20260619-deploy-v4-authoriser-clone` entry stays listed here
+          # too, but dispatching via run-script.yaml is DRY-RUN ONLY (no
+          # `--broadcast`) — useful as a pre-flight smoke test.
           - 20260619-deploy-v4-authoriser-clone
       sig:
         description: 'Entrypoint to dispatch (default: run())'
