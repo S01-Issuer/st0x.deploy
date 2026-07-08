@@ -129,15 +129,20 @@ contract Deploy is Script {
                 noDeps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_RECEIPT_VAULT) {
-            // StoxReceiptVault impl. Its `fallback()` hardcodes the
-            // corporate-actions facet address but does not link to it at deploy
-            // time, so it has no on-chain dependencies.
+            // StoxReceiptVault impl. Its `fallback()` delegatecalls the
+            // hardcoded corporate-actions facet, and a delegatecall to a
+            // code-less address silently no-ops — so the facet must already be
+            // on-chain. Declare it as a dependency: LibRainDeploy reverts
+            // MissingDependency if the facet is not yet deployed on the target
+            // network, enforcing the order structurally rather than by runbook.
+            address[] memory deps = new address[](1);
+            deps[0] = LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_3;
             deploySuite(
                 type(StoxReceiptVault).creationCode,
                 "src/concrete/StoxReceiptVault.sol:StoxReceiptVault",
                 LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_3,
                 LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_3,
-                noDeps
+                deps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_WRAPPED_TOKEN_VAULT) {
             deploySuite(

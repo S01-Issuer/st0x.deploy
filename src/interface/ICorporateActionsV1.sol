@@ -308,11 +308,15 @@ interface ICorporateActionsV1 {
     /// @notice Schedule a new corporate action.
     ///
     /// For stock splits, the multiplier in `parameters` is expected to be in the
-    /// range 1/100x to 100x per action in practice. The system enforces bounds
-    /// of trunc(1e18 * multiplier) in [1, 1e36] — a much wider ceiling designed
-    /// for safety rather than operational use. In practice, the multi-sig
-    /// scheduler will stay within the real-world range (2x to 10x for forward
-    /// splits, 1/2x to 1/10x for reverse splits).
+    /// range 1/100x to 100x per action in practice. The system enforces per-vault
+    /// bounds scaled by the vault's asset decimals D: the multiplier must lie in
+    /// [10^-D, 10^D] — the floor rejects a multiplier that would truncate a
+    /// one-whole-token (10^D-wei) balance to zero, the ceiling bounds
+    /// sequential-overflow risk. For an 18-decimal vault this is [1e-18, 1e18];
+    /// for a 6-decimal USDC vault it is [1e-6, 1e6]. Do not assume a fixed 1e36
+    /// ceiling. This is far wider than operational use requires; in practice the
+    /// multi-sig scheduler stays within the real-world range (2x to 10x for
+    /// forward splits, 1/2x to 1/10x for reverse splits).
     ///
     /// There is no limit on the number of splits that can accumulate; each one
     /// compounds on the previous. Multiple pending splits at different future

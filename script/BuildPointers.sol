@@ -93,10 +93,9 @@ contract BuildPointers is Script {
             "StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1",
             type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode
         );
-        // ST0x orchestrator (0.1.7 codebase). The beacon-set deployer's
-        // constructor bakes the orchestrator impl via
-        // `LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_2`, so the impl must
-        // be built (and thus Zoltu-deployed at that address) before the deployer.
+        // ST0x orchestrator. The beacon-set deployer's constructor bakes the
+        // orchestrator impl constant, so the impl must be built (and thus
+        // Zoltu-deployed at that address) before the deployer.
         buildContractPointers("ST0xOrchestrator", type(ST0xOrchestrator).creationCode);
         buildContractPointers("ST0xOrchestratorBeaconSetDeployer", type(ST0xOrchestratorBeaconSetDeployer).creationCode);
     }

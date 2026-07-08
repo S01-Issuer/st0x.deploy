@@ -426,7 +426,8 @@ contract ST0xOrchestrator is
         override(AccessControlUpgradeable, IERC165)
         returns (bool)
     {
-        return interfaceId == type(IERC1155Receiver).interfaceId || super.supportsInterface(interfaceId);
+        return interfaceId == type(IERC1155Receiver).interfaceId || interfaceId == type(IST0xOrchestratorV1).interfaceId
+            || super.supportsInterface(interfaceId);
     }
 
     /// @dev `ReceiptVault.mint` is payable and refunds any ETH the vault

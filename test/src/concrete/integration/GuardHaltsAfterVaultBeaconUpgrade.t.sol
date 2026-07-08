@@ -21,7 +21,7 @@ contract GuardHaltsAfterVaultBeaconUpgradeTest is OrchestratorIntegrationTest {
         assertTrue(orchestrator.vaultLogicIsExpected(), "guard passes before the upgrade");
 
         IBeacon vaultBeacon = IST0xVaultBeaconSet(
-                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1
+                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3
             ).iOffchainAssetReceiptVaultBeacon();
 
         // A fresh, valid impl address (any contract with code works as an
@@ -37,7 +37,7 @@ contract GuardHaltsAfterVaultBeaconUpgradeTest is OrchestratorIntegrationTest {
         vm.prank(MM);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.VaultLogicMismatch.selector, LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1, newImpl
+                IST0xOrchestratorV1.VaultLogicMismatch.selector, LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_3, newImpl
             )
         );
         orchestrator.mint(address(vault), eoa, 1e18, auth, "");
@@ -45,7 +45,7 @@ contract GuardHaltsAfterVaultBeaconUpgradeTest is OrchestratorIntegrationTest {
         vm.prank(MM);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.VaultLogicMismatch.selector, LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1, newImpl
+                IST0xOrchestratorV1.VaultLogicMismatch.selector, LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_3, newImpl
             )
         );
         orchestrator.burn(address(vault), 1e18, "");

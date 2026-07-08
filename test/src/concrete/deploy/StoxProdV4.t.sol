@@ -141,13 +141,14 @@ contract StoxProdV4Test is Test {
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_1
         );
 
-        // st0x-deploy 0.1.3 rebuilds six contracts at new Zoltu addresses: the
+        // st0x-deploy 0.1.3 rebuilds seven contracts at new Zoltu addresses: the
         // corporate-actions facet (the cumulative-multiplier change) plus the
         // receipt vault, OARV beacon-set deployer, unified deployer, orchestrator,
-        // and orchestrator beacon-set deployer that cascade from it. The other
-        // six 0.1.3 contracts are byte-identical 0.1.2 twins already checked
-        // above at the same addresses, so only the six movers are checked
-        // on-chain here.
+        // and orchestrator beacon-set deployer that cascade from it, and the
+        // wrapped-token-vault beacon-set deployer moved by the ERC-165
+        // `supportsInterface` fix. The other five 0.1.3 contracts are
+        // byte-identical 0.1.2 twins already checked above at the same addresses,
+        // so only the seven movers are checked on-chain here.
         assertTrue(
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_3.code.length > 0,
             "0.1.3 StoxCorporateActionsFacet not deployed"
@@ -203,6 +204,19 @@ contract StoxProdV4Test is Test {
         assertEq(
             LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_3.code,
             LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_3
+        );
+
+        assertTrue(
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3.code.length > 0,
+            "0.1.3 StoxWrappedTokenVaultBeaconSetDeployer not deployed"
+        );
+        assertEq(
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3.codehash,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3
+        );
+        assertEq(
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3.code,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_3
         );
 
         // ST0x orchestrator release 0.1.2 — the singleton orchestrator impl and

@@ -194,28 +194,32 @@ contract LibProdDeployV4Test is Test {
         assertEq(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_1, keccak256(STOX_BEACON_RUNTIME_CODE));
     }
 
-    // --- StoxWrappedTokenVaultBeaconSetDeployer (needs vault + beacon first) ---
+    // --- StoxWrappedTokenVaultBeaconSetDeployer (0.1.3 — a mover: its
+    // `supportsInterface` inherits OpenZeppelin `ERC165` and chains `super`, so
+    // its bytecode differs from the byte-identical 0.1.2 twin and the current
+    // source and the top-level generated pointer compile to the 0.1.3 deployer.
+    // Needs vault + beacon first). ---
 
     function testDeployAddressStoxWrappedTokenVaultBeaconSetDeployer() external {
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
         LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeacon).creationCode);
         address deployed = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeaconSetDeployer).creationCode);
-        assertEq(deployed, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1);
+        assertEq(deployed, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1);
+        assertEq(deployed.codehash, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3);
     }
 
     function testGeneratedAddressStoxWrappedTokenVaultBeaconSetDeployer() external pure {
         assertEq(
             STOX_BEACON_SET_DEPLOYER_GENERATED_ADDRESS,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
         );
     }
 
     function testCodehashMatchesPointerStoxWrappedTokenVaultBeaconSetDeployer() external pure {
         assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3,
             keccak256(STOX_BEACON_SET_DEPLOYER_RUNTIME_CODE)
         );
     }
@@ -473,13 +477,18 @@ contract LibProdDeployV4Test is Test {
         );
     }
 
-    /// st0x-deploy 0.1.3 re-pins SIX of the twelve 0.1.2 contracts at IDENTICAL
-    /// values and rebuilds the other SIX. `StoxCorporateActionsFacet` changed at
-    /// the source (the cumulative-multiplier change); the receipt vault hardcodes
-    /// that facet in its `fallback()` and each downstream deployer/orchestrator
-    /// embeds a rebuilt address, so the change cascades — the receipt vault, the
-    /// OARV beacon-set deployer, the unified deployer, the orchestrator, and the
+    /// st0x-deploy 0.1.3 re-pins FIVE of the twelve 0.1.2 contracts at IDENTICAL
+    /// values and rebuilds the other SEVEN. Two source changes drive the
+    /// rebuilds. `StoxCorporateActionsFacet` changed at the source (the
+    /// cumulative-multiplier change); the receipt vault hardcodes that facet in
+    /// its `fallback()` and each downstream deployer/orchestrator embeds a
+    /// rebuilt address, so the change cascades — the receipt vault, the OARV
+    /// beacon-set deployer, the unified deployer, the orchestrator, and the
     /// orchestrator beacon-set deployer each get a new Zoltu address + codehash.
+    /// An ERC-165 fix changed the `supportsInterface` bytecode of the unified
+    /// deployer, the wrapped-token-vault beacon-set deployer, and the
+    /// orchestrator directly — moving the wrapped-token-vault beacon-set deployer
+    /// too (the other two already move with the facet cascade).
     /// Every 0.1.3 twin below must equal its 0.1.2 counterpart, and every 0.1.3
     /// mover must NOT equal it. The 0.1.2 trios/twins above already prove each
     /// 0.1.2 value against its generated pointer / 0.1.1 twin, so proving the
@@ -487,7 +496,7 @@ contract LibProdDeployV4Test is Test {
     /// mover not-equal assertions fail the moment a mover is reverted to a twin
     /// (or a twin drifts).
     function testRelease013TwinsEqualRelease012() external pure {
-        // --- The six byte-identical 0.1.2 twins. ---
+        // --- The five byte-identical 0.1.2 twins. ---
         assertEq(LibProdDeployV4.STOX_RECEIPT_0_1_3, LibProdDeployV4.STOX_RECEIPT_0_1_2);
         assertEq(LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_3, LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_2);
         assertEq(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_3, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_2);
@@ -501,14 +510,6 @@ contract LibProdDeployV4Test is Test {
         assertEq(
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_3,
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_2
-        );
-        assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_2
-        );
-        assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_2
         );
         assertEq(
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_3,
@@ -527,8 +528,16 @@ contract LibProdDeployV4Test is Test {
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_2
         );
 
-        // --- The six 0.1.3 movers: each MUST differ from its 0.1.2 pin. A
+        // --- The seven 0.1.3 movers: each MUST differ from its 0.1.2 pin. A
         // mover reverted to its 0.1.2 twin (or a rebuild dropped) trips this. ---
+        assertTrue(
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
+                != LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_2
+        );
+        assertTrue(
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3
+                != LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_2
+        );
         assertTrue(
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_3 != LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_2
         );
@@ -886,15 +895,29 @@ contract LibProdDeployV4Test is Test {
         );
     }
 
-    // --- 0.1.3 movers' frozen redeploys (six contracts are rebuilt in 0.1.3:
+    // --- 0.1.3 movers' frozen redeploys (seven contracts are rebuilt in 0.1.3:
     // the corporate-actions facet plus the receipt vault, OARV beacon-set
     // deployer, unified deployer, orchestrator, and orchestrator beacon-set
-    // deployer that cascade from it; the other six are byte-identical 0.1.2
-    // twins that Zoltu-derive the already-occupied 0.1.2 addresses, so only
-    // these six have a distinct (creation code, address) pair to redeploy).
-    // Deployer/beacon dependency ordering mirrors the `testDeployAddress*` tests
-    // exactly: an impl a constructor bakes is deployed (frozen, at its 0.1.3
-    // address) first. ---
+    // deployer that cascade from it, and the wrapped-token-vault beacon-set
+    // deployer moved by the ERC-165 `supportsInterface` fix; the other five are
+    // byte-identical 0.1.2 twins that Zoltu-derive the already-occupied 0.1.2
+    // addresses, so only these seven have a distinct (creation code, address)
+    // pair to redeploy). Deployer/beacon dependency ordering mirrors the
+    // `testDeployAddress*` tests exactly: an impl a constructor bakes is deployed
+    // (frozen, at its 0.1.3 address) first. ---
+
+    /// Standalone (its constructor is empty — the beacon is referenced only at
+    /// call time), so no impl predeploy is needed. It moves in 0.1.3 for the
+    /// ERC-165 `supportsInterface` change, not the facet cascade.
+    function testFrozenRedeployStoxWrappedTokenVaultBeaconSetDeployer_0_1_3() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_3,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_3,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3
+        );
+    }
 
     function testFrozenRedeployStoxCorporateActionsFacet_0_1_3() external {
         LibRainDeploy.etchZoltuFactory(vm);

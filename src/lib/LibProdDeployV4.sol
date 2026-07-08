@@ -160,15 +160,19 @@ import {
 /// NOT the rain.vats dependency version. A deployed address is a function of
 /// the contract's own source AND its dependency tree, so an st0x-only source
 /// change moves addresses with no rain.vats bump — keying the suffix on the
-/// dependency alone was both incomplete and misleading. `0_1_1` and `0_1_2`
-/// are prior frozen releases; `0_1_3` is this release — the `0_1_2` set with
-/// six contracts rebuilt (new address + codehash) and six byte-identical 0.1.2
-/// twins. The corporate-actions facet changed at the source for the
-/// cumulative-multiplier change; the receipt vault hardcodes that facet and
-/// each downstream deployer/orchestrator embeds a rebuilt address, so the
-/// change cascades to the receipt vault, the OARV beacon-set deployer, the
-/// unified deployer, the orchestrator, and the orchestrator beacon-set
-/// deployer. Each tag's
+/// dependency alone was both incomplete and misleading. Each release is a
+/// suffixed constant set that `DEPLOY_TAG` selects; `0_1_3` is the `0_1_2` set
+/// with seven contracts rebuilt (new address + codehash) and five byte-identical
+/// 0.1.2 twins. Two source changes drive the rebuilds. The corporate-actions
+/// facet changed at the source for the cumulative-multiplier change; the receipt
+/// vault hardcodes that facet and each downstream deployer/orchestrator embeds a
+/// rebuilt address, so the change cascades to the receipt vault, the OARV
+/// beacon-set deployer, the unified deployer, the orchestrator, and the
+/// orchestrator beacon-set deployer. An ERC-165 fix changed the
+/// `supportsInterface` bytecode of the unified deployer, the wrapped-token-vault
+/// beacon-set deployer, and the orchestrator directly — additionally moving the
+/// wrapped-token-vault beacon-set deployer, which the facet cascade does not
+/// reach. Each tag's
 /// creation and runtime bytecode is frozen in a per-tag snapshot under
 /// `src/generated/<tag>/` (imported at the top of this file), so a future
 /// `BuildPointers` run — which rewrites only the top-level `src/generated/`
@@ -195,7 +199,7 @@ library LibProdDeployV4 {
     address constant BEACON_INITIAL_OWNER = address(0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b);
 
     // =========================================================================
-    // st0x-deploy release 0.1.1 — the current published release (frozen).
+    // st0x-deploy release 0.1.1.
     //
     // Each `_0_1_1` pair is the deterministic Zoltu address + runtime codehash
     // for an ST0x contract, built against the audited `rain-vats = "0.1.6"`
@@ -259,7 +263,7 @@ library LibProdDeployV4 {
         0x2a67c52129dff74d956bb7dcde1aac598c28dd29685237aca56dccb1d49bd6f8;
 
     // =========================================================================
-    // st0x-deploy release 0.1.2 — this release (= 0.1.1 + orchestrator).
+    // st0x-deploy release 0.1.2 (= 0.1.1 + orchestrator).
     //
     // The ten contracts above are unchanged, so each `_0_1_2` pin below holds
     // the SAME address + codehash as its `_0_1_1` twin; the release adds the
@@ -338,18 +342,22 @@ library LibProdDeployV4 {
         0x61d4098eb564665d48f4ca6fefa6396b6ecd3ff9cb72df7760f06e80ca56292b;
 
     // =========================================================================
-    // st0x-deploy release 0.1.3 — this release (= 0.1.2 with a rebuilt
-    // corporate-actions facet and the five contracts that cascade from it).
+    // st0x-deploy release 0.1.3 (= 0.1.2 with a rebuilt corporate-actions
+    // facet and the contracts that cascade from it, plus an ERC-165 fix).
     //
-    // Six of the twelve 0.1.2 contracts are unchanged, so each of those `_0_1_3`
-    // pins holds the SAME address + codehash as its `_0_1_2` twin. The other six
-    // are rebuilt: `StoxCorporateActionsFacet` changed at the source (the
+    // Five of the twelve 0.1.2 contracts are unchanged, so each of those `_0_1_3`
+    // pins holds the SAME address + codehash as its `_0_1_2` twin. The other
+    // seven are rebuilt: `StoxCorporateActionsFacet` changed at the source (the
     // cumulative-multiplier change); the receipt vault hardcodes that facet in
     // its `fallback()` and each downstream deployer/orchestrator embeds a
     // rebuilt address, so the change cascades to the receipt vault, the OARV
     // beacon-set deployer, the unified deployer, the orchestrator, and the
     // orchestrator beacon-set deployer — each getting a new Zoltu address +
-    // codehash. As with the earlier tags, creation + runtime bytecode is frozen
+    // codehash. An ERC-165 fix changed the `supportsInterface` bytecode of the
+    // unified deployer, the wrapped-token-vault beacon-set deployer, and the
+    // orchestrator directly — additionally moving the wrapped-token-vault
+    // beacon-set deployer, which the facet cascade does not reach. As with the
+    // earlier tags, creation + runtime bytecode is frozen
     // in the per-tag snapshot under `src/generated/0_1_3/` (imported above), so
     // the pinned records cannot drift when `BuildPointers` regenerates the
     // top-level `src/generated/` pointers.
@@ -366,9 +374,9 @@ library LibProdDeployV4 {
     bytes32 constant STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_3 =
         0x6de4c556c1811293da4ad2e509ee476f3eb635f019845087e1d2777a1b272034;
 
-    address constant STOX_UNIFIED_DEPLOYER_0_1_3 = address(0x66f8435Ea24deb7E9b4138c2303E1693DC1875f4);
+    address constant STOX_UNIFIED_DEPLOYER_0_1_3 = address(0x48E1A9091E89f5500AfC9d42FBB85bE8b4f70203);
     bytes32 constant STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_3 =
-        0xd3a33fc7bf6717f736653abf8de146b784208d33bfaaafd04297d8f26d81cef7;
+        0x76b90443c401cb2071b31fbf0596f931e01315c358b9db4e4db998107dc2e62c;
 
     address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_3 = address(0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2);
     bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_3 =
@@ -380,9 +388,9 @@ library LibProdDeployV4 {
         0x4637b099fe9279a8d4d88d9176ccadf92b20970eaf0b57b51997756d479ef43b;
 
     address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3 =
-        address(0xbe5f05C4576e6D3e7bCCb4E64f08fc4F46Adf0cA);
+        address(0x6B4232f1046F1f1bb99a1184D886bBaF3Cd7e15A);
     bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3 =
-        0xa2c4bd29f36bc6636938f3ad66e6de5d126ce41ed3134bed166cde259d5775ad;
+        0x940e3ab4278cf7ae44026596f4f32dc5c7f3facd99ef8070c63b5cfefd49a47c;
 
     /// @dev The corporate-action-aware authoriser impl. The clone deployed
     /// for the issuer (see `STOX_PROD_AUTHORISER_V4_CLONE` below) points
@@ -413,20 +421,20 @@ library LibProdDeployV4 {
     /// (Initializable) — deployed once via Zoltu and pointed at by the beacon
     /// inside `ST0xOrchestratorBeaconSetDeployer`. Per-token orchestrators are
     /// `BeaconProxy` clones minted by that beacon deployer.
-    address constant ST0X_ORCHESTRATOR_0_1_3 = address(0x1BAbc865B0EA299CB6Ca910802799b4698885565);
+    address constant ST0X_ORCHESTRATOR_0_1_3 = address(0x0099FcB947Cc31E21C631478A2a9E2E591cd4010);
     bytes32 constant ST0X_ORCHESTRATOR_CODEHASH_0_1_3 =
-        0x48a234b4272fe079782a9322eff0b1356e75c04cb9c2592fe9bdc568d16a533b;
+        0x7537448e8cbb200d25651a941a39e465e2ef7a549fe8245d83774bef485629e6;
 
     /// @dev `ST0xOrchestratorBeaconSetDeployer` — the Zoltu-deployable concrete
     /// deployer with `BEACON_INITIAL_OWNER` and the impl above baked in (no
     /// subclass; its logic is local to this repo). Anyone can call
     /// `deploy(owner)` to mint a `BeaconProxy`-cloned singleton orchestrator.
-    address constant ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_3 = address(0x5F24b0A4a09037156Ce71f1df83B6A62529e60d4);
+    address constant ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_3 = address(0xBff92564aeffe44C85A9153B9f2dB13e47A22435);
     bytes32 constant ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_3 =
-        0x5d7d31dcceccc5488beafe15ccb8bfaac21df80847f581a000bf2df5b9a1977e;
+        0x2149474f3f4539b44296101ca3ffafb1ebd7f212b90b5fc9d8d28a4d010ca4eb;
 
     /// @notice The V4 production authoriser clone — an EIP-1167 minimal
-    /// proxy of `STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1`
+    /// proxy of the offchain-asset-receipt-vault authoriser implementation
     /// that the upgrade script `setAuthorizer`s every production receipt
     /// vault onto, replacing the current pre-V3 clone pinned in
     /// `LibAuthoriserInvariants.STOX_PROD_AUTHORISER`.

@@ -37,7 +37,7 @@ contract StoxWrappedTokenVaultTest is Test {
     function testInitializeZeroAssetViaDeployer() external {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         vm.expectRevert(abi.encodeWithSelector(ZeroVaultAsset.selector));
-        StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1)
+        StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3)
             .newStoxWrappedTokenVault(address(0));
     }
 
@@ -46,7 +46,7 @@ contract StoxWrappedTokenVaultTest is Test {
     function testInitializeZeroAssetDirect() external {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         StoxWrappedTokenVault vault =
-            StoxWrappedTokenVault(address(new BeaconProxy(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1, "")));
+            StoxWrappedTokenVault(address(new BeaconProxy(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_3, "")));
         vm.expectRevert(abi.encodeWithSelector(ZeroAsset.selector));
         vault.initialize(abi.encode(address(0)));
     }
@@ -56,7 +56,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
             ).newStoxWrappedTokenVault(address(asset));
         assertEq(vault.asset(), address(asset));
     }
@@ -66,7 +66,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault =
-            StoxWrappedTokenVault(address(new BeaconProxy(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1, "")));
+            StoxWrappedTokenVault(address(new BeaconProxy(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_3, "")));
         bytes32 result = vault.initialize(abi.encode(address(asset)));
         assertEq(result, ICLONEABLE_V2_SUCCESS);
     }
@@ -76,7 +76,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault =
-            StoxWrappedTokenVault(address(new BeaconProxy(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1, "")));
+            StoxWrappedTokenVault(address(new BeaconProxy(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_3, "")));
         vm.expectEmit(true, true, false, false, address(vault));
         emit StoxWrappedTokenVault.StoxWrappedTokenVaultInitialized(address(this), address(asset));
         vault.initialize(abi.encode(address(asset)));
@@ -87,7 +87,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault =
-            StoxWrappedTokenVault(address(new BeaconProxy(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1, "")));
+            StoxWrappedTokenVault(address(new BeaconProxy(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_3, "")));
         vault.initialize(abi.encode(address(asset)));
         vm.expectRevert(Initializable.InvalidInitialization.selector);
         vault.initialize(abi.encode(address(asset)));
@@ -98,7 +98,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
             ).newStoxWrappedTokenVault(address(asset));
         assertEq(vault.name(), "Wrapped Test Token");
     }
@@ -108,7 +108,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
             ).newStoxWrappedTokenVault(address(asset));
         assertEq(vault.symbol(), "wTT");
     }
@@ -118,7 +118,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
             ).newStoxWrappedTokenVault(address(asset));
         assertEq(vault.totalAssets(), 0);
     }
@@ -129,7 +129,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
             ).newStoxWrappedTokenVault(address(asset));
 
         address alice = address(0xA11CE);
@@ -151,7 +151,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
             ).newStoxWrappedTokenVault(address(asset));
 
         address alice = address(0xA11CE);
@@ -176,7 +176,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
             ).newStoxWrappedTokenVault(address(asset));
 
         uint256 shares = vault.convertToShares(amount);
@@ -190,7 +190,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
             ).newStoxWrappedTokenVault(address(asset));
 
         uint256 expectedShares = vault.previewDeposit(amount);
@@ -212,7 +212,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
             ).newStoxWrappedTokenVault(address(asset));
 
         address alice = address(0xA11CE);
@@ -236,7 +236,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
             ).newStoxWrappedTokenVault(address(asset));
         assertEq(vault.maxDeposit(receiver), type(uint256).max);
     }
@@ -246,7 +246,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
             ).newStoxWrappedTokenVault(address(asset));
         assertEq(vault.maxMint(receiver), type(uint256).max);
     }
@@ -257,7 +257,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
             ).newStoxWrappedTokenVault(address(asset));
 
         address alice = address(0xA11CE);
@@ -278,7 +278,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
             ).newStoxWrappedTokenVault(address(asset));
 
         address alice = address(0xA11CE);
@@ -299,7 +299,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
             ).newStoxWrappedTokenVault(address(asset));
 
         address alice = address(0xA11CE);
@@ -321,7 +321,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
             ).newStoxWrappedTokenVault(address(asset));
 
         address alice = address(0xA11CE);
@@ -346,7 +346,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
             ).newStoxWrappedTokenVault(address(asset));
 
         address alice = address(0xA11CE);
@@ -376,7 +376,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
             ).newStoxWrappedTokenVault(address(asset));
 
         address alice = address(0xA11CE);
