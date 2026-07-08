@@ -34,7 +34,6 @@ on:
           # JSON path argument this dispatcher can't supply and runs off-chain
           # on the signer's machine, not in CI.
           - 'run()'
-          - 'mirrorGrants()'
 # Manually dispatches an operational script from `script/` and uploads any
 # JSON it writes to `out/` as a build artifact.
 #
