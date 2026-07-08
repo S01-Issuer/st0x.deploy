@@ -5,9 +5,15 @@ upgrade. Each numbered step is a single discrete operator action — a workflow
 dispatch, a PR merge, an on-device hardware signature, etc.
 
 For the underlying mechanics (invariant libs, script-authoring lifecycle,
-generic post-run process, naming + status conventions, forcing-function
-pattern), see [`OPERATIONAL_SCRIPTS.md`](OPERATIONAL_SCRIPTS.md). This file is
-the V4-specific runbook only.
+generic post-run process, naming + status conventions, migration-window
+invariant pattern), see [`OPERATIONAL_SCRIPTS.md`](OPERATIONAL_SCRIPTS.md). This
+file is the V4-specific runbook only.
+
+The V4 impls (all 10, including both authorizer impls and the corp-actions
+facet) are **already Zoltu-deployed on Base** and pinned + live-asserted by
+`StoxProdV4.t.sol` on main, so there is no impl-deploy phase here. Only the
+authoriser _clone_ (non-deterministic address) and the Safe-signed upgrade
+bundle remain.
 
 ---
 
@@ -15,204 +21,168 @@ the V4-specific runbook only.
 
 - GitHub access with `workflow_dispatch` permission on the repo.
 - Hardware wallet provisioned with one of the 6 ST0x token-owner Safe signer
-  keys (need 3 signers per Safe-routed bundle).
-- The `rainlang.eth` wallet, used once in Phase 1 only.
+  keys (need 3 signers for the single Safe-routed bundle in step 5).
+- The `rainlang.eth` wallet, used once in step 2 only.
+
+There is exactly **one Safe signing ceremony** in this runbook (step 5). The
+clone deploy + grant wiring (step 3) broadcasts from the CI deploy key, and the
+beacon-ownership migration (step 2) broadcasts from `rainlang.eth`.
 
 ---
 
-## Phase 0 — Land the lower V4 stack
+## 1 — Merge the migration stack
 
 Merge in stack order:
-[#199](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/199) →
-[#201](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/201) →
-[#196](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/196) →
-[#202](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/202) →
-[#208](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/208) →
-[#209](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/209).
+[#233](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/233)
+(migration-invariant lib + beacon-owner pin) →
+[#242](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/242)
+(CI-broadcast authoriser clone deploy) →
+[#197](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/197) (V4
+upgrade + swap script + post-swap state pin).
 
-After this main contains the refactored invariant libs, the V4 deploy pointer
-hydration, and `run-script.yaml` with the V4 authoriser-clone script registered.
+All three merge **before** anything runs on-chain — the migration-window
+invariants they carry accept both pre- and post-execution live state until their
+deadlines, so nothing sits red waiting for ops.
 
-[#211](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/211),
-[#197](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/197),
-[#198](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/198) stay open
-with forcing-function reds until later phases hydrate them.
-[#210](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/210) (this docs
-PR) can merge anytime — it's independent of the stack.
+[#211](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/211) (clone
+address pin) stays open until step 4 — it's a one-line diff that cannot be
+written until the clone address exists. Its `V4AuthoriserCloneNotPinned`
+pre-flight revert on the
+[#197](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/197) script is
+what blocks step 5 from being dispatched too early; merging
+[#197](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/197) ahead of
+it is safe.
 
 ---
 
-## Phase 1 — Migrate beacon ownership to the Safe
+## 2 — Migrate beacon ownership to the Safe
 
 `script/MigrateBeaconOwners.s.sol` transfers ownership of the three production
-beacons from `rainlang.eth` to `STOX_TOKEN_OWNER_SAFE`. It's a direct EOA
-broadcast (single signer, not a Safe bundle), so it runs **locally** with the
-rainlang.eth wallet — not via a dispatched workflow.
+beacons from `rainlang.eth` to `STOX_TOKEN_OWNER_SAFE`. Direct EOA broadcast
+(single signer, not a Safe bundle), run **locally** with the rainlang.eth
+wallet:
 
-1. Pull main locally.
-2. Connect the rainlang.eth wallet via Frame (or use `--ledger`).
-3. Run:
-   ```shell
-   BASE_RPC_URL=https://base-rpc.publicnode.com \
-     forge script script/MigrateBeaconOwners.s.sol --rpc-url base --broadcast --slow
-   ```
-4. The script broadcasts 3 `transferOwnership(Safe)` calls (receipt beacon,
-   receipt-vault beacon, wrapped-token-vault beacon) and re-asserts each
-   beacon's `owner() == Safe` post-broadcast.
-5. Verify on Basescan: each beacon's `owner` is now `0xe70d821f…`.
+```shell
+BASE_RPC_URL=<base rpc> \
+  forge script script/MigrateBeaconOwners.s.sol \
+  --rpc-url base --broadcast --slow --ledger
+```
 
----
+The script pre-flights every beacon's current EOA-owned state, broadcasts 3
+`transferOwnership(Safe)` calls, re-asserts `owner() == Safe` post-broadcast,
+and proves n+1 reversibility (the Safe can act on each beacon) via simulated
+`execTransaction`s.
 
-## Phase 2 — Deploy the 10 V4 impls
+Verify on Basescan: each beacon's `owner` is now `0xe70d821f…`.
 
-GitHub UI → **Actions** → **Manual sol artifacts** → **Run workflow**. Dispatch
-each suite in order, waiting for each run to complete before starting the next:
-
-1. `stox-receipt-v4`
-2. `stox-receipt-vault-v4`
-3. `stox-wrapped-token-vault-v4`
-4. `stox-wrapped-token-vault-beacon-v4`
-5. `stox-wrapped-token-vault-beacon-set-deployer-v4`
-6. `stox-offchain-asset-receipt-vault-beacon-set-deployer-v4`
-7. `stox-unified-deployer-v4`
-8. `stox-offchain-asset-receipt-vault-authorizer-v1-v4`
-9. `stox-offchain-asset-receipt-vault-payment-mint-authorizer-v1-v4`
-10. `stox-corporate-actions-facet-v4`
-
-Each dispatches `Deploy.sol` via the Zoltu deterministic deployer (CI-controlled
-key from secrets), broadcasts to Base, verifies on Basescan, asserts the
-freshly-deployed bytecode matches the codehash pinned in `LibProdDeployV4`. ~5
-min per run. Order matters — each suite's deploy checks earlier-suite addresses
-as deps.
+The `BeaconOwnerMigrationPinTest` cron invariant (from
+[#233](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/233)) flips
+from accepting either owner to enforcing the Safe automatically — no code change
+needed. If this step is skipped past the migration deadline in that test, cron
+goes red until someone runs it, extends the deadline, or deletes the invariant.
 
 ---
 
-## Phase 3 — Deploy the V4 authoriser clone (Bundle 1)
+## 3 — Deploy + wire the V4 authoriser clone (CI broadcast)
 
-GitHub UI → **Actions** → **run-script** → **Run workflow**.
+GitHub UI → **Actions** → **manual-broadcast** → **Run workflow**.
 
 - `script`: `20260619-deploy-v4-authoriser-clone`
-- `sig`: `run()`
 
-Wait ~5 min for the run to complete. Then:
+One workflow dispatch, one broadcast from the CI deploy key
+(`secrets.PRIVATE_KEY` — same key as the impl deploys). The script:
 
-1. Open the run → **Summary** → download artifact
-   `20260619-deploy-v4-authoriser-clone-run()-out`. Unzip → 1 JSON.
-2. In the **Run script** step log, find and copy:
-   - The `SafeTxHash: 0x…` line.
-   - The `PredictedClone: 0x…` line.
-3. Open the Safe UI on Base → switch to the ST0x token-owner Safe.
-4. **Apps** → **Tx Builder** → drop the unzipped JSON.
-5. Review the bundle (1 tx: `CloneFactory.clone(impl, initData)`).
-6. **Send Batch** → the UI displays its canonical SafeTxHash. **Verify it
-   matches step 2 byte-for-byte.** If not, abort and re-dispatch (nonce moved).
-7. 3 signers each:
-   - Open the queued tx in **Transactions**.
-   - Click **Confirm**, approve on hardware device.
-   - **Verify the on-device SafeTxHash matches step 2.**
-8. Any signer clicks **Execute**.
-9. From the executed receipt, capture the **clone address** from the
-   `NewClone(sender, implementation, child)` event — the `child` field.
-   Cross-check it matches `PredictedClone` from step 2.
+1. Deploys the clone via `CloneFactory.clone` with the deploy key as transient
+   `initialAdmin`.
+2. Grants the 6 operational roles (`DEPOSIT` / `WITHDRAW` / `CERTIFY` × service
+   EOA + Safe) per `LibAuthoriserInvariants.expectedGrants()`.
+3. Grants all 7 auto-granted `_ADMIN` roles (5 base + 2 corporate-action) to the
+   ST0x token-owner Safe.
+4. Renounces all 7 from the deploy key, then asserts post-state: every expected
+   grant held, Safe holds every admin role, deploy key holds none.
+
+From the **Broadcast script** step log, copy the `Clone: 0x…` line in the
+`==== V4 AUTHORISER CLONE DEPLOYED ====` block.
+
+Cross-check on Basescan: `extcodehash` of the clone equals
+`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH` (already pinned — the
+codehash is deterministic from the impl address; only the clone address awaits
+this broadcast).
 
 ---
 
-## Phase 4 — Hydrate the clone pin ([#211](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/211))
+## 4 — Pin the clone address ([#211](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/211))
+
+One-line diff:
 
 1. Check out
    [#211](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/211)'s
-   branch locally.
-2. Edit `src/lib/LibProdDeployV4.sol`:
-   - Replace `STOX_PROD_AUTHORISER_V4_CLONE = address(0)` with
-     `address(<clone from Phase 3>)`.
-   - Replace `STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH = bytes32(0)` with the
-     EIP-1167 runtime codehash. Easiest:
-     `cast keccak $(cast code <clone> --rpc-url base)`.
-3. `git commit -am "feat(deploy): pin V4 authoriser clone address + codehash"`,
-   push.
-4. PR review — reviewer cross-checks the literal clone address against the
-   `NewClone` event from Phase 3 + verifies the codehash via `cast keccak`
-   against the live clone.
-5. Merge [#211](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/211).
+   branch.
+2. In `src/lib/LibProdDeployV4.sol`, replace
+   `STOX_PROD_AUTHORISER_V4_CLONE = address(0)` with the clone address from
+   step 3. (The codehash constant is already hydrated — no change needed.)
+3. Also flip `testAuthoriserV4ClonePlaceholder` in
+   `test/src/lib/LibProdDeployV4.t.sol` from the placeholder guard to a
+   real-address assertion.
+4. Push. Reviewer cross-checks the literal against the broadcast receipt and
+   `cast keccak $(cast code <clone> --rpc-url base)` against the pinned
+   codehash.
+5. Merge.
 
-After merge:
-[#209](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/209)'s
-`mirrorGrants()` test passes;
-[#197](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/197)'s
-`V4AuthoriserCloneNotPinned` forcing function clears.
+This clears the `V4AuthoriserCloneNotPinned` pre-flight on the
+[#197](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/197) script —
+step 5 is now dispatchable.
 
 ---
 
-## Phase 5 — Extend `expectedGrants()` to 13 (small follow-up PR)
-
-The V4 override auto-grants 2 extra admin roles
-(`SCHEDULE_CORPORATE_ACTION_ADMIN`, `CANCEL_CORPORATE_ACTION_ADMIN`) to the Safe
-during `_initialize`. The invariant lib must enumerate them so post-V4 fork
-tests assert the complete grant set.
-
-1. Branch off main.
-2. Edit `src/lib/LibAuthoriserInvariants.sol`:
-   - Bump `new RoleGrant[](11)` → `new RoleGrant[](13)`.
-   - Append:
-     ```solidity
-     grants[11] = RoleGrant(SCHEDULE_CORPORATE_ACTION_ADMIN, GRANTEE_TOKEN_OWNER_SAFE);
-     grants[12] = RoleGrant(CANCEL_CORPORATE_ACTION_ADMIN, GRANTEE_TOKEN_OWNER_SAFE);
-     ```
-3. Commit, push, review, merge.
-
----
-
-## Phase 6 — Mirror role grants onto the clone (Bundle 2)
+## 5 — Execute the V4 upgrade (the one Safe ceremony)
 
 GitHub UI → **Actions** → **run-script** → **Run workflow**.
 
-- `script`: `20260619-deploy-v4-authoriser-clone`
-- `sig`: `mirrorGrants()`
+- `script`: `20260623-upgrade-receipt-vaults-to-v4`
+- `sig`: `run()`
 
-1. Download artifact `20260619-deploy-v4-authoriser-clone-mirrorGrants()-out`.
-2. Capture `SafeTxHash` from the **Run script** log.
-3. Safe UI → **Apps** → **Tx Builder** → drop JSON → **Send Batch**.
-4. Cross-check SafeTxHash. 3 signers sign (verify on-device). Execute.
-
-Bundle shape: 6 `grantRole(role, grantee)` calls on the clone. Clone now holds
-all 13 grants (7 auto-granted in Phase 3 + 6 mirrored here).
-[#197](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/197)'s
-`ExpectedGrantMissing` forcing function clears.
-
----
-
-## Phase 7 — Execute the V4 upgrade ([#197](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/197))
-
-1. Merge [#197](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/197)
-   (forcing function cleared in Phases 4 + 6; tests now pass).
-2. GitHub UI → **Actions** → **run-script** → **Run workflow**.
-   - `script`: `20260623-upgrade-receipt-vaults-to-v4`
-   - `sig`: `run()`
-3. Download artifact `20260623-upgrade-receipt-vaults-to-v4-run()-out`.
-4. Capture `SafeTxHash`. Safe UI → **Tx Builder** → cross-check → 3 signers sign
-   → Execute.
+1. Download artifact `20260623-upgrade-receipt-vaults-to-v4-run()-out`.
+2. Capture `SafeTxHash` from the **Run script** step log.
+3. Safe UI on Base → ST0x token-owner Safe → **Apps** → **Tx Builder** → drop
+   the JSON → **Send Batch**.
+4. **Verify the UI's SafeTxHash matches step 2 byte-for-byte.** If not, abort
+   and re-dispatch (the Safe nonce moved between authoring and import).
+5. 3 signers each: open the queued tx → **Confirm** → approve on hardware device
+   → **verify the on-device SafeTxHash matches step 2**.
+6. Any signer clicks **Execute**.
 
 Bundle shape: 1 `upgradeTo(V4 impl)` on the receipt-vault beacon + N
 `setAuthorizer(<clone>)` calls (one per production receipt vault). After
 execution, every vault routes corp-action selectors via fallback delegatecall
 and is gated by the V4 clone.
 
+The migration-window pins from
+[#197](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/197)
+(`StoxProdV4PostSwap.t.sol`, `20260623-upgrade-receipt-vaults-to-v4.t.sol`) flip
+from accepting either authoriser to enforcing the V4 clone automatically.
+
 ---
 
-## Phase 8 — Post-execution pin ([#198](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/198))
+## 6 — Post-execution tidy (non-blocking)
 
-1. Check out
-   [#198](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/198)'s
-   branch.
-2. Edit `src/lib/LibAuthoriserInvariants.sol`:
-   ```diff
-   -    address internal constant STOX_PROD_AUTHORISER = 0x35f9fA9d80aAF2B0fB27f0FF015641B3408d7456;
-   +    address internal constant STOX_PROD_AUTHORISER = address(<clone from Phase 3>);
-   ```
-3. Update each impacted script's NatSpec status banner from `**PENDING.**` to
-   `**EXECUTED YYYY-MM-DD.** SafeTxHash 0x… at nonce N`.
-4. Commit, push, review (cross-check every literal against on-chain), merge.
+Rolled-up follow-ups; none block the upgrade itself:
 
-V4 upgrade workstream complete. From this PR onward, every script's
-`assertAll(safe)` pre-flight on main validates against the new V4 live state;
-any future drift trips a typed error.
+- Update `LibAuthoriserInvariants.STOX_PROD_AUTHORISER` to the V4 clone (+ impl
+  pin) so the no-arg `assertAll` validates the new live state, and extend
+  `expectedGrants()` from 11 to 13 with the two corporate-action admin grants
+  (`SCHEDULE_CORPORATE_ACTION_ADMIN` / `CANCEL_CORPORATE_ACTION_ADMIN` → Safe)
+  that the V4 clone now carries.
+- Update the executed scripts' NatSpec status banners from `**PENDING.**` to
+  `**EXECUTED YYYY-MM-DD.**` (+ SafeTxHash for the Safe bundle).
+- Collapse the migration-window invariants whose migrations have landed (per
+  [`OPERATIONAL_SCRIPTS.md`](OPERATIONAL_SCRIPTS.md) § removal options): the
+  beacon-owner pin and the authoriser-swap pins become plain post-state equality
+  checks.
+- Add the exhaustive-grants check to `LibAuthoriserInvariants` (assert no grants
+  exist OUTSIDE `expectedGrants()`, via `RoleGranted`/`RoleRevoked` event-scan
+  tooling) — closes the directional-assertion gap for good.
+
+V4 upgrade workstream complete. From here, every script's `assertAll(safe)`
+pre-flight on main validates against the new V4 live state; any future drift
+trips a typed error on cron.
