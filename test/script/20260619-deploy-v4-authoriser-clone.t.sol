@@ -85,6 +85,7 @@ contract DeployV4AuthoriserCloneTest is Test {
 
         IAccessControl acl = IAccessControl(clone);
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
+        bytes32[7] memory adminRoles = _autoGrantedAdminRoles();
 
         // Step 2: mirror the six non-admin operational grants under
         // the deployer (who holds every `_ADMIN` role from init).
@@ -93,16 +94,17 @@ contract DeployV4AuthoriserCloneTest is Test {
             acl.grantRole(allGrants[i].role, allGrants[i].grantee);
         }
 
-        // Step 3: grant each `_ADMIN` role to the Safe.
-        for (uint256 i = 0; i < 5; i++) {
+        // Step 3: grant each of the SEVEN auto-granted `_ADMIN` roles
+        // (five V3-era + two corporate-action admins) to the Safe.
+        for (uint256 i = 0; i < adminRoles.length; i++) {
             vm.prank(deployer, deployer);
-            acl.grantRole(allGrants[i].role, safe);
+            acl.grantRole(adminRoles[i], safe);
         }
 
         // Step 4: renounce each `_ADMIN` role from the deployer.
-        for (uint256 i = 0; i < 5; i++) {
+        for (uint256 i = 0; i < adminRoles.length; i++) {
             vm.prank(deployer, deployer);
-            acl.renounceRole(allGrants[i].role, deployer);
+            acl.renounceRole(adminRoles[i], deployer);
         }
 
         // Post-state check via the harness — same code path the script's
@@ -114,9 +116,23 @@ contract DeployV4AuthoriserCloneTest is Test {
         for (uint256 i = 0; i < allGrants.length; i++) {
             assertTrue(acl.hasRole(allGrants[i].role, allGrants[i].grantee), "expected grant missing on live clone");
         }
-        for (uint256 i = 0; i < 5; i++) {
-            assertFalse(acl.hasRole(allGrants[i].role, deployer), "deployer retained an admin role");
+        for (uint256 i = 0; i < adminRoles.length; i++) {
+            assertTrue(acl.hasRole(adminRoles[i], safe), "Safe missing an auto-granted admin role");
+            assertFalse(acl.hasRole(adminRoles[i], deployer), "deployer retained an admin role");
         }
+    }
+
+    /// @notice The seven `_ADMIN` roles the base + ST0x-override
+    /// `initialize` auto-grant. Mirrors the script's
+    /// `autoGrantedAdminRoles()` (internal there, re-listed here).
+    function _autoGrantedAdminRoles() internal pure returns (bytes32[7] memory roles) {
+        roles[0] = keccak256("CERTIFY_ADMIN");
+        roles[1] = keccak256("CONFISCATE_RECEIPT_ADMIN");
+        roles[2] = keccak256("CONFISCATE_SHARES_ADMIN");
+        roles[3] = keccak256("DEPOSIT_ADMIN");
+        roles[4] = keccak256("WITHDRAW_ADMIN");
+        roles[5] = keccak256("SCHEDULE_CORPORATE_ACTION_ADMIN");
+        roles[6] = keccak256("CANCEL_CORPORATE_ACTION_ADMIN");
     }
 
     /// @notice Pre-flight rejects a missing V4 impl. `vm.etch` with empty

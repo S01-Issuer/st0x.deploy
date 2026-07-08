@@ -337,21 +337,36 @@ contract LibProdDeployV4Test is Test {
         assertEq(LibProdDeployV4.RAIN_VATS_TAG, "RAIN_VATS_0_1_6");
     }
 
-    /// The V4 authoriser clone is a non-deterministic deploy target and is
-    /// still a placeholder. Asserting the placeholder explicitly prevents it
-    /// from being silently shipped as a real pin, and makes this test fail
-    /// (prompting a real address + codehash assertion) the moment the clone is
-    /// hydrated with its deployed literal.
+    /// The V4 authoriser clone ADDRESS is a non-deterministic deploy target
+    /// and is still a placeholder. Asserting the placeholder explicitly
+    /// prevents it from being silently shipped as a real pin, and makes
+    /// this test fail (prompting a real address assertion) the moment the
+    /// clone is hydrated with its deployed literal.
     function testAuthoriserV4ClonePlaceholder() external pure {
         assertEq(
             LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE,
             address(0),
-            "clone hydrated: replace this placeholder guard with a real address + codehash assertion"
+            "clone hydrated: replace this placeholder guard with a real address assertion"
+        );
+    }
+
+    /// The V4 authoriser clone CODEHASH is deterministic ahead of the deploy
+    /// — the EIP-1167 runtime with the pinned V4 impl address embedded — so
+    /// unlike the address it is hydrated before the broadcast. Re-derive it
+    /// from the impl pin and assert the literal matches, so an impl-address
+    /// change can't leave a stale codehash behind.
+    function testAuthoriserV4CloneCodehashMatchesImplDerivation() external pure {
+        bytes32 derived = keccak256(
+            abi.encodePacked(
+                hex"363d3d373d3d3d363d73",
+                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6,
+                hex"5af43d82803e903d91602b57fd5bf3"
+            )
         );
         assertEq(
             LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH,
-            bytes32(0),
-            "clone codehash hydrated: replace this placeholder guard with a real assertion"
+            derived,
+            "clone codehash literal drifted from the EIP-1167(impl) derivation"
         );
     }
 }

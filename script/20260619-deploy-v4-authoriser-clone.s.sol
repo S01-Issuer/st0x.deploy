@@ -73,15 +73,21 @@ error GrantsSliceOutOfRange(uint256 startIndex, uint256 sliceLength, uint256 gra
 /// @notice Broadcast script that:
 ///
 ///   1. Deploys a fresh V4 authoriser clone via `CloneFactory.clone`,
-///      initialised with the deployer as `initialAdmin`. The five
-///      `_ADMIN` roles the base `initialize` auto-grants therefore land
-///      on the deployer, not the Safe.
+///      initialised with the deployer as `initialAdmin`. The SEVEN
+///      `_ADMIN` roles the base + ST0x-override `initialize` auto-grant
+///      (five base: CERTIFY / CONFISCATE_RECEIPT / CONFISCATE_SHARES /
+///      DEPOSIT / WITHDRAW; two override: SCHEDULE_CORPORATE_ACTION /
+///      CANCEL_CORPORATE_ACTION) therefore land on the deployer, not the
+///      Safe.
 ///   2. Grants the six non-admin roles enumerated in
 ///      `LibAuthoriserInvariants.expectedGrants()` (indices
 ///      `MIRROR_START_INDEX ..`) to their pinned grantees. These are the
 ///      operational `DEPOSIT` / `WITHDRAW` / `CERTIFY` provisions.
-///   3. Grants every auto-granted `_ADMIN` role to the ST0x token-owner
-///      Safe.
+///   3. Grants every auto-granted `_ADMIN` role (all seven) to the ST0x
+///      token-owner Safe. This matches the shape the previous Safe-signed
+///      flow produced (`initialAdmin = Safe` auto-granted all seven
+///      directly), and keeps the corporate-action admin-holder question
+///      (RAI-731) open rather than deciding it here by omission.
 ///   4. Renounces every auto-granted `_ADMIN` role from the deployer.
 ///      Post-loop the Safe is sole admin; the deployer has no residual
 ///      power over the clone.
@@ -123,6 +129,11 @@ contract DeployV4AuthoriserClone is Script {
 
     /// @notice The number of non-admin grants this script mirrors in.
     uint256 internal constant MIRROR_COUNT = 6;
+
+    /// @notice The number of `_ADMIN` roles the base + ST0x-override
+    /// `initialize` auto-grant to `initialAdmin` (five base + two
+    /// corporate-action admins from the override).
+    uint256 internal constant AUTO_GRANTED_ADMIN_COUNT = 7;
 
     /// @notice Deploy + configure + admin-transfer the V4 authoriser clone
     /// in a single broadcast. Steps 1-4 in the contract-level NatSpec.
@@ -176,7 +187,7 @@ contract DeployV4AuthoriserClone is Script {
 
         // Step 1: deploy the clone.
         //
-        // `initialAdmin = deployer` means the five `_ADMIN` auto-grants
+        // `initialAdmin = deployer` means the seven `_ADMIN` auto-grants
         // land on `deployer` in this window. Steps 3-4 swap them onto
         // the Safe.
         bytes memory initData = abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: deployer}));
@@ -191,18 +202,22 @@ contract DeployV4AuthoriserClone is Script {
             acl.grantRole(grant.role, grant.grantee);
         }
 
-        // Step 3: grant each auto-granted `_ADMIN` role to the Safe.
-        // After this loop both `deployer` and `safe` hold every
-        // `_ADMIN` role; step 4 revokes the deployer's copy.
-        for (uint256 i = 0; i < MIRROR_START_INDEX; i++) {
-            acl.grantRole(allGrants[i].role, address(safe));
+        // Step 3: grant each auto-granted `_ADMIN` role to the Safe —
+        // all SEVEN (the five V3-era admins in `expectedGrants()[0..4]`
+        // plus the two corporate-action admins only the V4 override
+        // grants; the lib map doesn't carry those two yet). After this
+        // loop both `deployer` and `safe` hold every `_ADMIN` role;
+        // step 4 revokes the deployer's copy.
+        bytes32[AUTO_GRANTED_ADMIN_COUNT] memory adminRoles = autoGrantedAdminRoles();
+        for (uint256 i = 0; i < adminRoles.length; i++) {
+            acl.grantRole(adminRoles[i], address(safe));
         }
 
         // Step 4: renounce each auto-granted `_ADMIN` role from the
         // deployer. `renounceRole` requires `msg.sender == account`,
         // which holds because we are broadcasting as `deployer`.
-        for (uint256 i = 0; i < MIRROR_START_INDEX; i++) {
-            acl.renounceRole(allGrants[i].role, deployer);
+        for (uint256 i = 0; i < adminRoles.length; i++) {
+            acl.renounceRole(adminRoles[i], deployer);
         }
 
         vm.stopBroadcast();
@@ -242,12 +257,24 @@ contract DeployV4AuthoriserClone is Script {
         IAccessControl acl = IAccessControl(clone);
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
 
-        // Every `(role, grantee)` in `expectedGrants()` holds. Covers
-        // auto-grants (swapped onto the Safe in step 3) AND the six
-        // operational grants from step 2 in one sweep.
+        // Every `(role, grantee)` in `expectedGrants()` holds. Covers the
+        // five V3-era admin grants (swapped onto the Safe in step 3) AND
+        // the six operational grants from step 2 in one sweep.
         for (uint256 i = 0; i < allGrants.length; i++) {
             if (!acl.hasRole(allGrants[i].role, allGrants[i].grantee)) {
                 revert ExpectedGrantMissing(allGrants[i].role, allGrants[i].grantee);
+            }
+        }
+
+        bytes32[AUTO_GRANTED_ADMIN_COUNT] memory adminRoles = autoGrantedAdminRoles();
+
+        // The Safe holds every auto-granted `_ADMIN` role — including the
+        // two corporate-action admins that `expectedGrants()` doesn't
+        // carry (V4-only roles the override's `initialize` adds).
+        address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
+        for (uint256 i = 0; i < adminRoles.length; i++) {
+            if (!acl.hasRole(adminRoles[i], safe)) {
+                revert ExpectedGrantMissing(adminRoles[i], safe);
             }
         }
 
@@ -255,11 +282,29 @@ contract DeployV4AuthoriserClone is Script {
         // If any survived step 4, the deployer key still has root
         // privileges over that role's grant map — closes the
         // "transitional trust window" for those specific roles.
-        for (uint256 i = 0; i < MIRROR_START_INDEX; i++) {
-            if (acl.hasRole(allGrants[i].role, deployer)) {
-                revert DeployerStillHoldsAdminRole(allGrants[i].role, deployer);
+        for (uint256 i = 0; i < adminRoles.length; i++) {
+            if (acl.hasRole(adminRoles[i], deployer)) {
+                revert DeployerStillHoldsAdminRole(adminRoles[i], deployer);
             }
         }
+    }
+
+    /// @notice The seven `_ADMIN` roles the base + ST0x-override
+    /// `initialize` grant to the supplied `initialAdmin` config.
+    /// Hand-listed (in source-order of the `_grantRole` calls in the
+    /// impl) rather than derived from `expectedGrants()` because the
+    /// auto-grants overlap with — but are not identical to — the lib
+    /// map's indices 0..4: the V3-era map is missing the two
+    /// corporate-action admins the V4 override adds.
+    /// @return roles The seven role hashes, in `_grantRole` order.
+    function autoGrantedAdminRoles() internal pure returns (bytes32[AUTO_GRANTED_ADMIN_COUNT] memory roles) {
+        roles[0] = keccak256("CERTIFY_ADMIN");
+        roles[1] = keccak256("CONFISCATE_RECEIPT_ADMIN");
+        roles[2] = keccak256("CONFISCATE_SHARES_ADMIN");
+        roles[3] = keccak256("DEPOSIT_ADMIN");
+        roles[4] = keccak256("WITHDRAW_ADMIN");
+        roles[5] = keccak256("SCHEDULE_CORPORATE_ACTION_ADMIN");
+        roles[6] = keccak256("CANCEL_CORPORATE_ACTION_ADMIN");
     }
 
     /// @notice Assert the V4 impl is deployed at the pinned address with

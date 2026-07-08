@@ -136,11 +136,17 @@ library LibProdDeployV4 {
     /// @notice The pinned EIP-1167 runtime codehash for
     /// `STOX_PROD_AUTHORISER_V4_CLONE`. Deterministic from the V4 impl
     /// address embedded in the minimal-proxy runtime
-    /// (`363d3d373d3d3d363d73<impl>5af43d82803e903d91602b57fd5bf3`); the
-    /// invariant uses it to prove the clone hasn't been etched over.
+    /// (`363d3d373d3d3d363d73<impl>5af43d82803e903d91602b57fd5bf3`) — so
+    /// unlike the clone ADDRESS above (non-deterministic, awaits the
+    /// broadcast), this is knowable as soon as the impl address is pinned
+    /// and is hydrated ahead of the deploy. The invariant uses it to prove
+    /// whatever lands at the pinned clone address is exactly the EIP-1167
+    /// proxy of the audited V4 impl and hasn't been etched over.
     ///
-    /// **PLACEHOLDER** — fill in once the V4 impl address is known and the
-    /// clone is deployed. Easiest path: compute via
-    /// `keccak256(abi.encodePacked(hex"363d3d373d3d3d363d73", v4Impl, hex"5af43d82803e903d91602b57fd5bf3"))`.
-    bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH = bytes32(0);
+    /// Computed as `keccak256(abi.encodePacked(hex"363d3d373d3d3d363d73",
+    /// STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6,
+    /// hex"5af43d82803e903d91602b57fd5bf3"))`; cross-checked by
+    /// `LibProdDeployV4Test`.
+    bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH =
+        0x2089950d3cc1112dd66a58adcfadeadc490b50053ac67be8bc676b4a2dcd1717;
 }
