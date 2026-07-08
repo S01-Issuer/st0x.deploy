@@ -1998,6 +1998,38 @@ contract StoxCorporateActionsFacetTest is Test {
         );
     }
 
+    /// Boundary: a split whose `effectiveTime` equals `block.timestamp`
+    /// exactly is COMPLETED (the walk's `<=` completion check is inclusive)
+    /// and therefore contributes to the cumulative product. Every other
+    /// cumulative test warps strictly PAST the effective time; this pins the
+    /// inclusive boundary at this function's own API surface rather than
+    /// relying on it being covered transitively by the `LibCorporateActionNode`
+    /// COMPLETED-walk tests. A regression flipping that walk's `<=` to `<`
+    /// (so an exactly-due split reads as still pending) drops the split and
+    /// collapses the product back to identity — this test catches it from
+    /// both sides.
+    function testCumulativeMultiplierBoundaryAtExactEffectiveTime() external {
+        scheduleFloatSplitViaFacet(LibDecimalFloat.packLossless(3, 0), 1500);
+
+        // One second before the effective time: the split is still pending
+        // and excluded — only the bootstrap (identity) is completed.
+        vm.warp(1499);
+        assertFloatEq(
+            facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
+            LibDecimalFloat.FLOAT_ONE,
+            "split one tick before its effective time is pending and excluded"
+        );
+
+        // At exactly the effective time: inclusive `<=` completion means the
+        // split counts and the product jumps to exactly 3.
+        vm.warp(1500);
+        assertFloatEq(
+            facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
+            LibDecimalFloat.packLossless(3, 0),
+            "split at exactly block.timestamp is completed (inclusive) and included"
+        );
+    }
+
     /// Direct call to `cumulativeBalanceMultiplierSinceGenesis` on the
     /// standalone facet reverts with `FacetMustBeDelegatecalled`, like
     /// every other entry point.
