@@ -5,15 +5,22 @@ on:
       - main
 jobs:
   release:
+    # rainix-autopublish's job requests contents: write (to push the version-
+    # bump commit + tag) and id-token: write. This repo's default workflow-token
+    # permission is read-only, so without granting these here the reusable's
+    # request exceeds the caller and the run fails at startup. Grant exactly the
+    # scopes the reusable needs, per workflow, rather than flipping the whole
+    # repo default to write.
+    permissions:
+      contents: write
+      id-token: write
     uses: rainlanguage/rainix/.github/workflows/rainix-autopublish.yaml@main
     with:
       soldeer-package: st0x-deploy
-    # Pass secrets EXPLICITLY, not `inherit`: GitHub disallows `secrets: inherit`
-    # when the reusable is owned by a different org (rainlanguage vs S01-Issuer),
-    # which fails the run at startup. Mirror this repo's other cross-org rainix
-    # callers (e.g. rainix-sol.yaml). Only SOLDEER_API_TOKEN is required for the
-    # publish; the rest are optional (empty -> the reusable's fallbacks: bot git
-    # identity, GITHUB_TOKEN push since main is unprotected).
+    # Secrets are passed explicitly (not `inherit`), mirroring this repo's other
+    # cross-org rainix callers (e.g. rainix-sol.yaml). Only SOLDEER_API_TOKEN is
+    # required for the publish; the rest are optional and fall back cleanly when
+    # empty (bot git identity; GITHUB_TOKEN push, since main is unprotected).
     secrets:
       SOLDEER_API_TOKEN: ${{ secrets.SOLDEER_API_TOKEN }}
       PUBLISH_PRIVATE_KEY: ${{ secrets.PUBLISH_PRIVATE_KEY }}
