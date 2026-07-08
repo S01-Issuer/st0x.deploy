@@ -289,6 +289,12 @@ drift detector). Required test cases:
   forges a JSON with that field perturbed and asserts the matching
   `VerifyMismatch` typed error.
 
+- **The migration-window pin for whatever the script mutates.** Every value the
+  script transitions from `pre` to `post` gets a live-fork `assertMigration`
+  invariant — in the same PR — with its deadline. See § "Migration-window
+  invariants". This is what lets the PR merge before the script has run on-chain
+  without leaving the transition unwatched.
+
 The test suite is the script's safety net: if a new invariant lands in a domain
 lib later, the script picks it up automatically (because it calls the
 orchestrator), and the new inverted test in the lib's test suite covers it.
@@ -367,32 +373,25 @@ script itself is not moved — it stays at its original path forever.
 
 ---
 
-## Post-execution pin
+## Migration-window invariants — the default for state-changing scripts
 
-After the bundle has executed on-chain, a follow-up PR records the new canonical
-state in the relevant invariant lib's constants. For the threshold migration
-this means bumping `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD` from `1`
-to `3`; for a roster swap it means updating the owner address constants. The
-post-execution pin PR is typically a one-line lib change plus the NatSpec status
-banner update on the script itself.
+**Principle: a state-changing script and the invariant that watches its
+transition merge together, up-front, in the same stack.** Post-execution PRs
+exist only for values that are genuinely unknowable before the script runs
+on-chain (e.g. a non-deterministic clone address) — and those PRs must be
+reduced to the smallest possible diff, usually one line.
 
-The pattern: **the lib's pinned constants are the source-of-truth for the live
-chain state at the point a script runs**. If a script deliberately changes that
-state, the script's pre-flight pins the pre-execution state, and a follow-up pin
-PR records the post-execution state. From that PR onward, every other script's
-pre-flight uses the new pin and would trip if the chain drifted away from it.
+The old flow deferred a "post-execution pin PR" after every script run: bump the
+lib constant to the new state, re-green the tests, update banners. That
+serialised every migration behind operational execution, left draft PRs idling
+for weeks, and created windows where no invariant watched the transitioning
+value at all. `LibMigrationInvariant` replaces it.
 
-### Merging the invariant with the script — the migration-window pattern
+### The pattern
 
-For a value the script deliberately mutates from `pre` to `post`, the post-
-execution pin above lands in a **separate** PR after the script has actually run
-on-chain. That leaves a window in which live-chain drift on that value would go
-undetected by cron — no invariant is watching it, because no invariant can pin
-both states at once.
-
-`LibMigrationInvariant` closes that window. It asserts a live value matches
-either `pre` OR `post` up until an operator-SLA `deadline`, then enforces `post`
-only:
+For a value the script deliberately mutates from `pre` to `post`,
+`assertMigration` accepts either state up until an operator-SLA `deadline`, then
+enforces `post` only:
 
 ```solidity
 LibMigrationInvariant.assertMigration(
@@ -413,11 +412,10 @@ LibMigrationInvariant.assertMigration(
   script**, **extend the deadline**, or **delete the invariant** (accepting
   `pre` as the new canonical if the migration is being abandoned).
 
-This lets the invariant test PR merge **alongside** the script PR — the
-migration itself is covered by cron enforcement even while pending, rather than
-being invisible to CI until the follow-up pin PR lands. It also gives the
-operational SLA teeth: a script left un-run isn't just a stale PR, it's a red
-cron.
+This lets the invariant merge **alongside** the script — the migration itself is
+covered by cron enforcement even while pending, rather than being invisible to
+CI until a follow-up pin lands. It also gives the operational SLA teeth: a
+script left un-run isn't just a stale PR, it's a red cron.
 
 Overloads on `assertMigration` cover `bytes32`, `address`, and `uint256`
 directly so the caller does not have to hand-cast.
@@ -428,17 +426,55 @@ identifies the exact slot being asserted — a good format is
 `"STOX_RECEIPT_VAULT_BEACON_V1.owner()"`) so a failing check tells you both what
 value drifted and which one it was.
 
+### Where the window lives
+
+Put the migration acceptance in the **orchestrated invariant path**, not only in
+a standalone test. The V4 authoriser swap is the template: the authoriser leg of
+`LibInvariants.assertAll` calls
+`LibTokenInvariants.assertUniformAuthoriserMigration(V3, V4 clone,
+LibProdDeployV4.V4_SWAP_DEADLINE)`,
+so **every** consumer — cron fork tests, every script's pre-flight — rides
+through the swap with zero post-execution code change, and the "old" lib
+constant is never repointed. The old constant stays as the historical pin for
+properties of the old contract that remain true after the migration (the swap
+revokes nothing on the old clone, so its impl + grant checks keep passing
+forever).
+
+A script's **own post-state** assertion is the exception: after simulating its
+change it asserts the strict `post` value directly (not the window) — that's the
+deliberate outcome of the run, so `pre` is not acceptable there regardless of
+the deadline.
+
+### Pin everything derivable at author time — target: zero PRs in any runbook
+
+The end-state this repo is converging on: **a runbook contains no PRs at all** —
+only workflow dispatches and signatures. Every script PR merges carrying its own
+pins, its own migration-window tests, and its own deadlines; reviewing the PR is
+reviewing the complete lifecycle of the change, and operations is pure
+execution.
+
+Getting there means every placeholder must answer: "can this literal be computed
+from something already pinned?" If yes, pin it now. The V4 clone's _codehash_ is
+deterministic before the deploy (EIP-1167 runtime with the pinned impl embedded)
+so it is hydrated at author time with a test re-deriving it from the impl pin.
+The clone's _address_ is the one remaining exception — Rain's `CloneFactory`
+uses non-deterministic `Clones.clone`, so a one-line address-pin PR survives in
+the V4 runbook. Once deterministic (salted `cloneDeterministic`) clone deploys
+land, that exception disappears: the address becomes derivable at author time
+like everything else, and no future runbook should contain a PR.
+
 **Picking the deadline.** Rule of thumb: the operator SLA on running the script,
 floored by a comfortable buffer for review + scheduling — for the beacon-owner
-migration a 6-8 week window from PR merge is typical. Store the deadline as a
-`uint256 constant` in the test file that consumes it, not in a central registry
-— the deadline is a property of that specific invariant, not of the migration
-script, and lives closest to the assertion that reads it.
+migration a 6-8 week window from PR merge is typical. If the window is consumed
+by the orchestrator (`LibInvariants`), the deadline lives next to the deploy
+pins it spans (e.g. `LibProdDeployV4.V4_SWAP_DEADLINE`); a window consumed by a
+single test file keeps its deadline as a `uint256 constant` in that file. Either
+way there is exactly one declaration per migration.
 
-**Removing the invariant after the migration lands.** Once the script has
-executed on-chain and the follow-up pin PR has bumped the lib constant to
-`post`, the dual-state block becomes redundant — the pin now guards `post`
-directly. Two clean options:
+**Removing the invariant after the migration lands.** Optional, never a task of
+its own. After the deadline passes the window enforces post-state-only forever,
+which is behaviourally identical to a collapsed plain-equality check — collapse
+it whenever the file is next touched:
 
 1. **Collapse into the standard pin.** Delete the `assertMigration` call; the
    lib constant + whatever `assertBeaconInvariants` / `assertAll` bundle already
@@ -453,10 +489,13 @@ better than defensive residue.
 
 ---
 
-## Operator runbook: dispatch → sign → execute → pin
+## Operator runbook: dispatch → sign → execute
 
-This is the canonical step-by-step from the operator's perspective. Everything
-from clicking "Run workflow" through the post-execution lib pin.
+This is the canonical step-by-step from the operator's perspective for a
+**Safe-bundle** script (`run-script.yaml`): everything from clicking "Run
+workflow" through on-chain execution. CI-broadcast scripts
+(`manual-broadcast.yaml`) need only step 1 — the broadcast is the execution, and
+the script's own post-state assertions replace the sign/verify choreography.
 
 ### 1. Dispatch the workflow
 
@@ -467,16 +506,25 @@ The dispatch form has two inputs:
 
 - **`script`** — dropdown of every registered operational script. Pick the
   date-prefixed name of the script you want to dispatch (e.g.
-  `20260619-deploy-v4-authoriser-clone`).
-- **`sig`** — dropdown of the entrypoint to call. Defaults to `run()`. Some
-  scripts ship multiple entrypoints (e.g. the V4 authoriser deploy has `run()`
-  for the clone-deploy bundle and `mirrorGrants()` for the grants bundle); pick
-  the one you want.
+  `20260623-upgrade-receipt-vaults-to-v4`).
+- **`sig`** — dropdown of the entrypoint to call. Defaults to `run()`.
 
 Click **Run workflow**. The runner takes ~5 min: nix install, soldeer install,
 `forge script script/<name>.s.sol --sig '<sig>' --rpc-url base
 --no-storage-caching`,
 upload artifact.
+
+> **Two dispatchers.** `run-script.yaml` (this flow) is for scripts that emit a
+> Safe Tx Builder bundle for the multisig to sign — it never broadcasts.
+> `manual-broadcast.yaml` is for scripts that broadcast directly from the CI
+> deploy key (`secrets.PRIVATE_KEY`, the same key as the impl deploys) — one
+> dispatch, no Safe ceremony, `--broadcast --slow`. Prefer a CI broadcast
+> whenever the action can be performed by a fresh key and handed over at the end
+> (deploy + configure + grant-to-Safe + renounce, with hard post-state
+> assertions); reserve Safe bundles for actions only the Safe can perform —
+> owner-gated calls on contracts the Safe already owns. The V4 authoriser clone
+> deploy is the template for the former; the V4 upgrade + swap bundle for the
+> latter.
 
 ### 2. Download the Tx Builder JSON artifact
 
@@ -565,56 +613,43 @@ From the executed tx's receipt (Basescan or your wallet's tx detail):
 - The new **on-chain nonce** of the Safe (for cross-reference if you'll
   immediately author another bundle).
 
-### 9. Open the post-execution pin PR (the lib hydration)
+### 9. Post-execution pin PR — legacy escape hatch, target zero
 
-The post-execution pin PR is the **last** step in every script's workstream. It
-converts the just-landed on-chain state into a new lib-pinned current-truth that
-every subsequent script's `assertAll` pre-flight will validate against.
+Under the migration-window pattern there is normally **nothing to do here**: the
+invariants that span the transition merged with the script, the deadline
+enforces the post-state, and no lib constant needs repointing. See § "Pin
+everything derivable at author time" — the goal is that no runbook contains a PR
+at all.
 
-What to update:
+The escape hatch survives only for a value that was genuinely unknowable at
+author time (today: a non-deterministic clone address; none once deterministic
+clone deploys land). For that case:
 
-1. **The script's NatSpec status banner.** Replace `**PENDING.**` with
-   `**EXECUTED YYYY-MM-DD.** SafeTxHash 0x… at nonce N. Retained verbatim
-   for retrospective re-verification.`
-2. **The invariant lib's current-truth constant(s).** Depending on what the
-   bundle changed, edit one of:
-   - `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD` (threshold migration) —
-     change the literal from the old value to the new.
-   - `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_OWNER_N` (roster swap) — update
-     each owner address constant.
-   - `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE` (clone deploy) — replace
-     `address(0)` with the literal clone address from step 8, and replace
-     `STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH` with the EIP-1167 runtime codehash
-     computed via
-     `keccak256(abi.encodePacked(hex"363d3d373d3d3d363d73", v4Impl,
-     hex"5af43d82803e903d91602b57fd5bf3"))`.
-   - `LibAuthoriserInvariants.STOX_PROD_AUTHORISER` (authoriser swap) — point to
-     the new clone.
-3. **Push to the pin PR's branch.** CI runs — the script's tests now pass (the
-   lib pin matches the new live state) and dependent PRs' forcing functions
-   clear if applicable.
-4. **Review the diff against on-chain.** Every literal that lands in the lib
-   MUST match the value captured in step 8. Cross-check by hand or via
-   `cast call` for an extra layer of safety.
-5. **Merge.** From this PR onward, every other script's `assertAll` pre-flight
-   uses the new pin; any future drift trips a typed error.
+1. **One-line lib edit.** Replace the `address(0)` placeholder with the literal
+   captured in step 8. Nothing else — the codehash and every other derivable pin
+   were hydrated at author time.
+2. **Review the diff against on-chain.** The literal MUST match the value
+   captured in step 8. Cross-check via `cast call` /
+   `cast keccak $(cast code <addr>)`.
+3. **Merge.** Any dispatch-time forcing functions keyed on the pin (e.g.
+   `V4AuthoriserCloneNotPinned`) clear, unblocking the next operational step.
+
+NatSpec status banners (`**PENDING.**` → `**EXECUTED YYYY-MM-DD.**`) are
+documentation, not enforcement — batch them into whatever PR next touches the
+file rather than opening one for the purpose.
 
 ---
 
 ## V4 upgrade runbook
 
 See [`V4_UPGRADE_RUNBOOK.md`](V4_UPGRADE_RUNBOOK.md) — the V4-specific operator
-runbook lives in its own file. Eight phases, each with the exact workflow +
-dropdown + signature + lib-edit steps to execute:
+runbook lives in its own file. Five steps, one Safe ceremony:
 
-1. Land the lower V4 code stack.
+1. Merge the migration stack (invariants merge alongside the scripts).
 2. Migrate beacon ownership to the Safe (rainlang.eth EOA broadcast).
-3. Deploy the 10 V4 impls via `Manual sol artifacts`.
-4. Deploy the V4 authoriser clone via `run-script` (`run()`).
-5. Hydrate the clone pin in `LibProdDeployV4`.
-6. Extend `LibAuthoriserInvariants.expectedGrants()` to 13.
-7. Mirror role grants via `run-script` (`mirrorGrants()`).
-8. Execute the V4 upgrade + post-execution pin.
+3. Deploy + wire the V4 authoriser clone (one `manual-broadcast` dispatch).
+4. Pin the clone address (one-line PR).
+5. Execute the V4 upgrade bundle (`run-script` → 3-of-6 sign → execute).
 
 Future workstreams (a new threshold migration, a fresh issuer rotation, an
 authoriser re-clone) get their own `<TOPIC>_RUNBOOK.md` siblings; this main doc
@@ -650,23 +685,31 @@ re-verifiable as long as the libs and the script are preserved.
 
 ## Forcing-function pattern
 
-Multiple scripts deliberately ship in a "PENDING" state where their pre-flight
-reverts until a sibling state change happens. Examples:
+Two kinds of forcing function, applied at different layers:
 
-- The V4 upgrade script (`UpgradeReceiptVaultsToV4.s.sol`) trips
-  `V4ImplNotDeployed` until the V4 implementations are deployed via
-  `manual-sol-artifacts.yaml`.
-- The V4 authoriser-deploy script (`20260619-deploy-v4-authoriser-clone.s.sol`)
-  trips `CloneFactoryNotDeployed` if the canonical CloneFactory at
-  `0x444acC…dCb39` lacks code on the active fork (e.g. on a fresh testnet).
-- The post-rotation threshold migration trips `SafeOwnerCountMismatch` until the
-  manual roster swap has completed on Base.
+**Dispatch-time (runtime) forcing functions** — a script's pre-flight reverts
+with a typed error until a sibling state change has settled, so the bundle
+**cannot** be authored against wrong state no matter who dispatches the
+workflow. Examples:
 
-The red CI on these PRs is the explicit forcing function: the bundle **cannot**
-be signed until the upstream state has settled, and the script's own test suite
-reminds reviewers of that fact every time CI runs. Don't paper over a red CI
-with `vm.mockCall` shortcuts inside the script's tests — the red is
-load-bearing.
+- The V4 upgrade script trips `V4AuthoriserCloneNotPinned` until the
+  clone-address pin has merged — the "pin before modify" gate that stops the
+  swap bundle being routed at an arbitrary address.
+- Any script trips `CloneFactoryNotDeployed` if the canonical CloneFactory at
+  `0x444acC…dCb39` lacks code on the active fork (e.g. a fresh testnet).
+
+These gate **operations**, not merges: a PR whose script would currently revert
+at dispatch is still mergeable if its tests are green.
+
+**Deadline (cron) forcing functions** — the migration-window pattern. An
+operational step left un-run past its `deadline` turns cron red via
+`MigrationDeadlinePassed`, forcing an explicit choice: run it, extend the
+deadline, or delete the invariant. This replaced the older "placeholder-posture
+guard" style (tests asserting a constant is still `address(0)`, going red the
+moment it hydrates) — those made red CI load-bearing and blocked merges on
+operational sequencing, which is exactly what the migration window avoids. Don't
+add new placeholder-posture guards; give the transition a window and a deadline
+instead.
 
 ---
 
@@ -676,11 +719,12 @@ load-bearing.
   a static array of `(to, value, data, operation)` quadruples; there's no
   facility to use the return value or emitted event of tx N in tx N+1. If a
   script's intent requires this (e.g. deploy a clone via `CloneFactory.clone()`
-  then grant roles on the new clone), split into two bundles authored by two
-  script entrypoints: one that deploys, one that takes the new address as an
-  input parameter and emits the grants. See
-  `20260619-deploy-v4-authoriser-clone.s.sol`'s `run()` +
-  `mirrorGrants(address clone)` pattern.
+  then grant roles on the new clone), that's a strong signal the action belongs
+  in a **CI broadcast** (`manual-broadcast.yaml`), not a Safe bundle — a
+  broadcast script chains dependent txs naturally and hands ownership to the
+  Safe at the end. The V4 authoriser clone deploy
+  (`20260619-deploy-v4-authoriser-clone.s.sol`) started life as two Safe bundles
+  for exactly this reason and collapsed into one broadcast.
 
 - **The Safe nonce is captured at authoring time.** If another bundle executes
   between authoring and signing, the captured nonce is stale and the SafeTxHash
@@ -696,6 +740,13 @@ load-bearing.
 ---
 
 ## When to write a script vs. a manual Safe UI tx
+
+Before choosing the Safe at all, ask whether the Safe is needed: **if the action
+can be performed by a fresh key and handed over at the end** (deploy +
+configure + grant-to-Safe + renounce, with post-state assertions proving the key
+retains nothing), it's a CI broadcast via `manual-broadcast.yaml` — no ceremony.
+Safe bundles are for actions only the Safe can perform: owner-gated calls on
+contracts the Safe already owns.
 
 Use a script when:
 
