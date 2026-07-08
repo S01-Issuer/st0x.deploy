@@ -141,6 +141,70 @@ contract StoxProdV4Test is Test {
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_1
         );
 
+        // st0x-deploy 0.1.3 rebuilds six contracts at new Zoltu addresses: the
+        // corporate-actions facet (the cumulative-multiplier change) plus the
+        // receipt vault, OARV beacon-set deployer, unified deployer, orchestrator,
+        // and orchestrator beacon-set deployer that cascade from it. The other
+        // six 0.1.3 contracts are byte-identical 0.1.2 twins already checked
+        // above at the same addresses, so only the six movers are checked
+        // on-chain here.
+        assertTrue(
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_3.code.length > 0,
+            "0.1.3 StoxCorporateActionsFacet not deployed"
+        );
+        assertEq(
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_3.codehash,
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_3
+        );
+        assertEq(
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_3.code,
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_3
+        );
+
+        assertTrue(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_3.code.length > 0, "0.1.3 StoxReceiptVault not deployed");
+        assertEq(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_3.codehash, LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_3);
+        assertEq(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_3.code, LibProdDeployV4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_3);
+
+        assertTrue(
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3.code.length > 0,
+            "0.1.3 StoxOffchainAssetReceiptVaultBeaconSetDeployer not deployed"
+        );
+        assertEq(
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3.codehash,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3
+        );
+        assertEq(
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3.code,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_3
+        );
+
+        assertTrue(
+            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_3.code.length > 0, "0.1.3 StoxUnifiedDeployer not deployed"
+        );
+        assertEq(
+            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_3.codehash, LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_3
+        );
+        assertEq(
+            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_3.code, LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RUNTIME_CODE_0_1_3
+        );
+
+        assertTrue(LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_3.code.length > 0, "0.1.3 ST0xOrchestrator not deployed");
+        assertEq(LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_3.codehash, LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_0_1_3);
+        assertEq(LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_3.code, LibProdDeployV4.ST0X_ORCHESTRATOR_RUNTIME_CODE_0_1_3);
+
+        assertTrue(
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_3.code.length > 0,
+            "0.1.3 ST0xOrchestratorBeaconSetDeployer not deployed"
+        );
+        assertEq(
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_3.codehash,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_3
+        );
+        assertEq(
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_3.code,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_3
+        );
+
         // ST0x orchestrator release 0.1.2 — the singleton orchestrator impl and
         // its Zoltu beacon-set deployer, deployed on Base after the 0.1.1 set.
         assertTrue(LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_2.code.length > 0, "V4 ST0xOrchestrator not deployed");
@@ -223,6 +287,54 @@ contract StoxProdV4Test is Test {
             Ownable(address(orchestratorBeacon)).owner(),
             LibProdDeployV4.BEACON_INITIAL_OWNER,
             "V4 orchestrator beacon owner mismatch"
+        );
+
+        // The 0.1.3 offchain-asset-receipt-vault beacon-set deployer creates two
+        // beacons: the receipt beacon points at the (twin) 0.1.3 receipt impl
+        // and the offchain-asset-receipt-vault beacon points at the rebuilt
+        // 0.1.3 receipt vault impl, both held by the beacon initial owner.
+        IOffchainAssetReceiptVaultBeaconSetDeployerV2 oarvDeployer013 = IOffchainAssetReceiptVaultBeaconSetDeployerV2(
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3
+        );
+
+        IBeacon receiptBeacon013 = oarvDeployer013.iReceiptBeacon();
+        assertEq(
+            receiptBeacon013.implementation(),
+            LibProdDeployV4.STOX_RECEIPT_0_1_3,
+            "0.1.3 OARV receipt beacon implementation mismatch"
+        );
+        assertEq(
+            Ownable(address(receiptBeacon013)).owner(),
+            LibProdDeployV4.BEACON_INITIAL_OWNER,
+            "0.1.3 OARV receipt beacon owner mismatch"
+        );
+
+        IBeacon vaultBeacon013 = oarvDeployer013.iOffchainAssetReceiptVaultBeacon();
+        assertEq(
+            vaultBeacon013.implementation(),
+            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_3,
+            "0.1.3 OARV vault beacon implementation mismatch"
+        );
+        assertEq(
+            Ownable(address(vaultBeacon013)).owner(),
+            LibProdDeployV4.BEACON_INITIAL_OWNER,
+            "0.1.3 OARV vault beacon owner mismatch"
+        );
+
+        // The 0.1.3 ST0x orchestrator beacon-set deployer's beacon points at the
+        // rebuilt 0.1.3 orchestrator impl, held by the beacon initial owner.
+        IBeacon orchestratorBeacon013 = ST0xOrchestratorBeaconSetDeployer(
+                LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_3
+            ).iOrchestratorBeacon();
+        assertEq(
+            orchestratorBeacon013.implementation(),
+            LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_3,
+            "0.1.3 orchestrator beacon implementation mismatch"
+        );
+        assertEq(
+            Ownable(address(orchestratorBeacon013)).owner(),
+            LibProdDeployV4.BEACON_INITIAL_OWNER,
+            "0.1.3 orchestrator beacon owner mismatch"
         );
     }
 

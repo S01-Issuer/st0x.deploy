@@ -58,6 +58,23 @@ bytes32 constant DEPLOYMENT_SUITE_ST0X_ORCHESTRATOR_V4 = keccak256("st0x-orchest
 bytes32 constant DEPLOYMENT_SUITE_ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_V4 =
     keccak256("st0x-orchestrator-beacon-set-deployer-v4");
 
+// 0.1.3 rebuilds six contracts (cumulative-multiplier change): the
+// corporate-actions facet plus the receipt vault, OARV beacon-set deployer,
+// unified deployer, orchestrator, and orchestrator beacon-set deployer that
+// cascade from it. The current source compiles each to its new 0.1.3 Zoltu
+// address, so these suites deploy them (in dependency order) and assert the
+// `_0_1_3` pins. The other six 0.1.3 contracts are byte-identical 0.1.2 twins
+// already covered by the suites above at the same addresses.
+bytes32 constant DEPLOYMENT_SUITE_STOX_CORPORATE_ACTIONS_FACET_V4_0_1_3 =
+    keccak256("stox-corporate-actions-facet-v4-0-1-3");
+bytes32 constant DEPLOYMENT_SUITE_STOX_RECEIPT_VAULT_V4_0_1_3 = keccak256("stox-receipt-vault-v4-0-1-3");
+bytes32 constant DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_V4_0_1_3 =
+    keccak256("stox-offchain-asset-receipt-vault-beacon-set-deployer-v4-0-1-3");
+bytes32 constant DEPLOYMENT_SUITE_STOX_UNIFIED_DEPLOYER_V4_0_1_3 = keccak256("stox-unified-deployer-v4-0-1-3");
+bytes32 constant DEPLOYMENT_SUITE_ST0X_ORCHESTRATOR_V4_0_1_3 = keccak256("st0x-orchestrator-v4-0-1-3");
+bytes32 constant DEPLOYMENT_SUITE_ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_V4_0_1_3 =
+    keccak256("st0x-orchestrator-beacon-set-deployer-v4-0-1-3");
+
 contract Deploy is Script {
     /// @dev Deploys a single contract via the Zoltu deterministic deployer on
     /// Base. Reads `DEPLOYMENT_KEY` from the environment, logs diagnostic
@@ -206,6 +223,81 @@ contract Deploy is Script {
                 LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_2,
                 LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_2,
                 noDeps
+            );
+        } else if (suite == DEPLOYMENT_SUITE_STOX_CORPORATE_ACTIONS_FACET_V4_0_1_3) {
+            // 0.1.3 corporate-actions facet — the leaf of the 0.1.3 change. No
+            // on-chain dependencies (the receipt-vault impl doesn't link to it
+            // at deploy time). Deploy this first; the five contracts below
+            // cascade from its new address.
+            deploySuite(
+                type(StoxCorporateActionsFacet).creationCode,
+                "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
+                LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_3,
+                LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_3,
+                noDeps
+            );
+        } else if (suite == DEPLOYMENT_SUITE_STOX_RECEIPT_VAULT_V4_0_1_3) {
+            // 0.1.3 receipt vault — its `fallback()` hardcodes the rebuilt 0.1.3
+            // facet, so the current source compiles to the new 0.1.3 address.
+            deploySuite(
+                type(StoxReceiptVault).creationCode,
+                "src/concrete/StoxReceiptVault.sol:StoxReceiptVault",
+                LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_3,
+                LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_3,
+                noDeps
+            );
+        } else if (suite == DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_V4_0_1_3) {
+            // 0.1.3 OARV beacon-set deployer — its constructor bakes beacons over
+            // the (twin) 0.1.3 receipt impl and the rebuilt 0.1.3 receipt-vault
+            // impl, both of which must already have code.
+            address[] memory deps = new address[](2);
+            deps[0] = LibProdDeployV4.STOX_RECEIPT_0_1_3;
+            deps[1] = LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_3;
+            deploySuite(
+                type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode,
+                "src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer",
+                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3,
+                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3,
+                deps
+            );
+        } else if (suite == DEPLOYMENT_SUITE_STOX_UNIFIED_DEPLOYER_V4_0_1_3) {
+            // 0.1.3 unified deployer — embeds the rebuilt 0.1.3 OARV beacon-set
+            // deployer and the (twin) 0.1.3 wrapped-token-vault beacon-set
+            // deployer it drives.
+            address[] memory deps = new address[](2);
+            deps[0] = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3;
+            deps[1] = LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3;
+            deploySuite(
+                type(StoxUnifiedDeployer).creationCode,
+                "src/concrete/deploy/StoxUnifiedDeployer.sol:StoxUnifiedDeployer",
+                LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_3,
+                LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_3,
+                deps
+            );
+        } else if (suite == DEPLOYMENT_SUITE_ST0X_ORCHESTRATOR_V4_0_1_3) {
+            // 0.1.3 ST0xOrchestrator impl — parameterless (Initializable),
+            // depends on nothing at deploy time. Embeds the rebuilt 0.1.3 OARV
+            // beacon-set deployer and receipt-vault addresses (checked at
+            // runtime), so the current source compiles to the new 0.1.3 address.
+            deploySuite(
+                type(ST0xOrchestrator).creationCode,
+                "src/concrete/ST0xOrchestrator.sol:ST0xOrchestrator",
+                LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_3,
+                LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_0_1_3,
+                noDeps
+            );
+        } else if (suite == DEPLOYMENT_SUITE_ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_V4_0_1_3) {
+            // 0.1.3 orchestrator beacon-set deployer — its constructor bakes a
+            // beacon over the rebuilt 0.1.3 orchestrator impl, which must
+            // already have code.
+            address[] memory deps = new address[](1);
+            deps[0] = LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_3;
+            deploySuite(
+                type(ST0xOrchestratorBeaconSetDeployer).creationCode,
+                "src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol:ST0xOrchestratorBeaconSetDeployer",
+                LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_3,
+                LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_3,
+                deps
             );
         } else if (suite == DEPLOYMENT_SUITE_ST0X_ORCHESTRATOR_V4) {
             // ST0xOrchestrator impl — parameterless (Initializable). Depends

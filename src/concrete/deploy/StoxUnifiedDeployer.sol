@@ -41,10 +41,10 @@ contract StoxUnifiedDeployer is IERC165, IStoxUnifiedDeployerV1 {
     // slither-disable-next-line reentrancy-events
     function newTokenAndWrapperVault(OffchainAssetReceiptVaultConfigV2 memory config) external {
         OffchainAssetReceiptVault asset = OffchainAssetReceiptVaultBeaconSetDeployer(
-                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_2
+                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3
             ).newOffchainAssetReceiptVault(config);
         StoxWrappedTokenVault wrappedTokenVault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_2
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
             ).newStoxWrappedTokenVault(address(asset));
 
         emit Deployment(msg.sender, address(asset), address(wrappedTokenVault));

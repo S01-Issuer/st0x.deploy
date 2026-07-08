@@ -178,7 +178,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// per-function comments for the per-method argument that the
     /// linked-list and cursor writes remain consistent under re-entry.
     fallback() external payable virtual override {
-        address facet = LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_2;
+        address facet = LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_3;
         assembly ("memory-safe") {
             calldatacopy(0, 0, calldatasize())
             let success := delegatecall(gas(), facet, 0, calldatasize(), 0, 0)

@@ -32,6 +32,19 @@ on:
           #    receipt-vault impl hardcodes its address but doesn't link to it
           #    at deploy time).
           - stox-corporate-actions-facet-v4
+          # 7. st0x-deploy 0.1.3 rebuilds six contracts (cumulative-multiplier
+          #    change): the corporate-actions facet plus the receipt vault, OARV
+          #    beacon-set deployer, unified deployer, orchestrator, and
+          #    orchestrator beacon-set deployer that cascade from it. Deploy in
+          #    this listed order; later entries reference earlier 0.1.3 addresses
+          #    via dependency pointers. Every other 0.1.3 contract is an
+          #    unchanged 0.1.2 twin.
+          - stox-corporate-actions-facet-v4-0-1-3
+          - stox-receipt-vault-v4-0-1-3
+          - stox-offchain-asset-receipt-vault-beacon-set-deployer-v4-0-1-3
+          - st0x-orchestrator-v4-0-1-3
+          - stox-unified-deployer-v4-0-1-3
+          - st0x-orchestrator-beacon-set-deployer-v4-0-1-3
 jobs:
   deploy:
     uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-artifacts.yaml@main
