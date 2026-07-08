@@ -61,12 +61,14 @@ contract ST0xOrchestratorTest is Test {
     /// Default admin passed to `initialize`.
     address internal constant OWNER = address(0x0FFCE);
 
-    /// The vault-version guard reads these fixed production addresses.
-    address internal constant DEPLOYER = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1;
+    /// The vault-version guard reads these fixed production addresses. The
+    /// orchestrator's `_checkVaultLogic` reads the current-release (0.1.3) pins,
+    /// so the mocks target the 0.1.3 deployer and impls.
+    address internal constant DEPLOYER = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3;
     address internal constant VAULT_BEACON = address(0xBEAC04);
     address internal constant RECEIPT_BEACON = address(0xBEAC12);
-    address internal constant EXPECTED_VAULT_IMPL = LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1;
-    address internal constant EXPECTED_RECEIPT_IMPL = LibProdDeployV4.STOX_RECEIPT_0_1_1;
+    address internal constant EXPECTED_VAULT_IMPL = LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_3;
+    address internal constant EXPECTED_RECEIPT_IMPL = LibProdDeployV4.STOX_RECEIPT_0_1_3;
 
     /// Storage-slot pre-image constant kept for cross-checking against source.
     bytes32 internal constant EXPECTED_MAIN_STORAGE_LOCATION =
@@ -1254,12 +1256,15 @@ contract ST0xOrchestratorTest is Test {
 
     function testSupportsInterface() external view {
         assertTrue(orchestrator.supportsInterface(type(IERC1155Receiver).interfaceId));
+        assertTrue(orchestrator.supportsInterface(type(IST0xOrchestratorV1).interfaceId));
         assertTrue(orchestrator.supportsInterface(type(IERC165).interfaceId));
         assertTrue(orchestrator.supportsInterface(type(IAccessControl).interfaceId));
+        assertFalse(orchestrator.supportsInterface(0xffffffff), "erc165 sentinel");
     }
 
     function testFuzzSupportsInterfaceFalse(bytes4 interfaceId) external view {
         vm.assume(interfaceId != type(IERC1155Receiver).interfaceId);
+        vm.assume(interfaceId != type(IST0xOrchestratorV1).interfaceId);
         vm.assume(interfaceId != type(IERC165).interfaceId);
         vm.assume(interfaceId != type(IAccessControl).interfaceId);
         vm.assume(interfaceId != 0xffffffff);

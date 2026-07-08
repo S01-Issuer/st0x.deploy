@@ -22,8 +22,8 @@ contract StoxWrappedTokenVaultBeaconTest is Test {
     function testBeaconConstructsWithExpectedConstants() external {
         address beacon = deployBeacon();
 
-        assertEq(beacon, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1);
-        assertEq(StoxWrappedTokenVaultBeacon(beacon).implementation(), LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1);
+        assertEq(beacon, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_3);
+        assertEq(StoxWrappedTokenVaultBeacon(beacon).implementation(), LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_3);
         assertEq(Ownable(beacon).owner(), LibProdDeployV4.BEACON_INITIAL_OWNER);
     }
 

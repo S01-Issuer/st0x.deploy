@@ -15,7 +15,7 @@ import {LibProdDeployV4} from "../../lib/LibProdDeployV4.sol";
 contract StoxOffchainAssetReceiptVaultBeaconSetDeployer is
     OffchainAssetReceiptVaultBeaconSetDeployer(OffchainAssetReceiptVaultBeaconSetDeployerConfig({
             initialOwner: LibProdDeployV4.BEACON_INITIAL_OWNER,
-            initialReceiptImplementation: LibProdDeployV4.STOX_RECEIPT_0_1_2,
-            initialOffchainAssetReceiptVaultImplementation: LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_2
+            initialReceiptImplementation: LibProdDeployV4.STOX_RECEIPT_0_1_3,
+            initialOffchainAssetReceiptVaultImplementation: LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_3
         }))
 {}
