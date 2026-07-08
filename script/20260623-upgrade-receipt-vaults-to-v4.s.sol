@@ -229,12 +229,13 @@ contract UpgradeReceiptVaultsToV4 is Script {
                 revert VaultAuthoriserMismatchPostUpgrade(vaults[i], V4_AUTHORISER_CLONE, actual);
             }
         }
-        // Safe identity + threshold unchanged. (We don't run `assertAll`
-        // here because its `assertUniformAuthoriser` leg pins the *old*
-        // authoriser via `LibTokenInvariants.PROD_RECEIPT_VAULT_AUTHORISER`,
-        // which the swap legitimately invalidates; the post-swap uniform
-        // authoriser pin against the V4 clone is the job of the V4 prod-
-        // state pin in the next PR up the stack.)
+        // Safe identity + threshold unchanged. (The explicit per-vault
+        // V4-clone loop above is deliberately STRICTER than the
+        // migration-window authoriser leg in `LibInvariants.assertAll` —
+        // this is the post-state of the swap itself, so only the V4 clone
+        // is acceptable regardless of the window. The Safe-side legs are
+        // asserted piecemeal to avoid re-running the token-side legs the
+        // loop above already covers.)
         LibSafeInvariants.assertImmutableInvariants(safe);
         LibSafeInvariants.assertThreshold(safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
 

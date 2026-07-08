@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 
 import {IOwnable} from "../interface/IOwnable.sol";
 import {IAuthorisable} from "../interface/IAuthorisable.sol";
+import {LibMigrationInvariant} from "./LibMigrationInvariant.sol";
 
 /// @notice A production receipt vault's `owner()` does not match the owner
 /// the uniform-ownership invariant expected every vault to share. Surfaces
@@ -271,6 +272,30 @@ library LibTokenInvariants {
             if (actual != expected) {
                 revert ReceiptVaultAuthoriserMismatch(vaults[i], expected, actual);
             }
+        }
+    }
+
+    /// @notice Migration-window variant of `assertUniformAuthoriser`:
+    /// every production receipt vault's `authorizer()` must be `pre` OR
+    /// `post` before `deadline`, and exactly `post` at/after it. Lets the
+    /// authoriser-swap invariant merge alongside the swap script instead
+    /// of waiting for on-chain execution — both sides of the transition
+    /// are cron-covered, and a swap left un-run past the deadline
+    /// red-lines via `MigrationDeadlinePassed`.
+    /// @dev Each vault is asserted independently, so a half-landed swap
+    /// (some vaults on `pre`, some on `post`) passes before the deadline
+    /// — the bundle is atomic per Safe execution, but this leg does not
+    /// assume that. Any third value trips `MigrationStateDrift`
+    /// immediately regardless of the deadline.
+    /// @param pre The accepted authoriser before the swap runs.
+    /// @param post The accepted authoriser after the swap runs.
+    /// @param deadline Unix timestamp past which only `post` is accepted.
+    function assertUniformAuthoriserMigration(address pre, address post, uint256 deadline) internal view {
+        address[] memory vaults = productionReceiptVaults();
+        for (uint256 i = 0; i < vaults.length; i++) {
+            LibMigrationInvariant.assertMigration(
+                "receiptVault.authorizer()", IAuthorisable(vaults[i]).authorizer(), pre, post, deadline
+            );
         }
     }
 
