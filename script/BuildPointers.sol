@@ -9,8 +9,6 @@ import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
-import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
-import {StoxST0xOrchestratorBeaconSetDeployer} from "../src/concrete/deploy/StoxST0xOrchestratorBeaconSetDeployer.sol";
 import {StoxWrappedTokenVault} from "../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxUnifiedDeployer} from "../src/concrete/deploy/StoxUnifiedDeployer.sol";
 import {StoxWrappedTokenVaultBeacon} from "../src/concrete/StoxWrappedTokenVaultBeacon.sol";
@@ -26,6 +24,8 @@ import {
 import {
     StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 } from "../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
+import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
+import {ST0xOrchestratorBeaconSetDeployer} from "../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
 
 contract BuildPointers is Script {
     function addressConstantString(address addr) internal pure returns (string memory) {
@@ -70,15 +70,6 @@ contract BuildPointers is Script {
         LibRainDeploy.etchZoltuFactory(vm);
 
         buildContractPointers("StoxCorporateActionsFacet", type(StoxCorporateActionsFacet).creationCode);
-        // ST0xOrchestrator impl has a parameterless constructor (Initializable
-        // pattern) — Zoltu-deployable as a singleton implementation. Per-token
-        // clones are minted via `StoxST0xOrchestratorBeaconSetDeployer`.
-        buildContractPointers("ST0xOrchestrator", type(ST0xOrchestrator).creationCode);
-        // Depends on ST0xOrchestrator pointers (impl address baked into
-        // constructor via LibProdDeployV4).
-        buildContractPointers(
-            "StoxST0xOrchestratorBeaconSetDeployer", type(StoxST0xOrchestratorBeaconSetDeployer).creationCode
-        );
         buildContractPointers("StoxReceipt", type(StoxReceipt).creationCode);
         buildContractPointers("StoxReceiptVault", type(StoxReceiptVault).creationCode);
         buildContractPointers("StoxWrappedTokenVault", type(StoxWrappedTokenVault).creationCode);
@@ -102,5 +93,11 @@ contract BuildPointers is Script {
             "StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1",
             type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode
         );
+        // ST0x orchestrator (0.1.7 codebase). The beacon-set deployer's
+        // constructor bakes the orchestrator impl via
+        // `LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_2`, so the impl must
+        // be built (and thus Zoltu-deployed at that address) before the deployer.
+        buildContractPointers("ST0xOrchestrator", type(ST0xOrchestrator).creationCode);
+        buildContractPointers("ST0xOrchestratorBeaconSetDeployer", type(ST0xOrchestratorBeaconSetDeployer).creationCode);
     }
 }

@@ -22,7 +22,7 @@ on:
           # 3. Deployers (depend on their beacons/implementations)
           - stox-wrapped-token-vault-beacon-set-deployer-v4
           - stox-offchain-asset-receipt-vault-beacon-set-deployer-v4
-          - stox-st0x-orchestrator-beacon-set-deployer-v4
+          - st0x-orchestrator-beacon-set-deployer-v4
           # 4. Unified deployer (depends on the two set-deployers above)
           - stox-unified-deployer-v4
           # 5. Authorizers (no on-chain dependencies)

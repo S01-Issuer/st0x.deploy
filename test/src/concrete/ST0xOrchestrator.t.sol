@@ -62,12 +62,11 @@ contract ST0xOrchestratorTest is Test {
     address internal constant OWNER = address(0x0FFCE);
 
     /// The vault-version guard reads these fixed production addresses.
-    address internal constant DEPLOYER =
-        LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6;
+    address internal constant DEPLOYER = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1;
     address internal constant VAULT_BEACON = address(0xBEAC04);
     address internal constant RECEIPT_BEACON = address(0xBEAC12);
-    address internal constant EXPECTED_VAULT_IMPL = LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6;
-    address internal constant EXPECTED_RECEIPT_IMPL = LibProdDeployV4.STOX_RECEIPT_RAIN_VATS_0_1_6;
+    address internal constant EXPECTED_VAULT_IMPL = LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1;
+    address internal constant EXPECTED_RECEIPT_IMPL = LibProdDeployV4.STOX_RECEIPT_0_1_1;
 
     /// Storage-slot pre-image constant kept for cross-checking against source.
     bytes32 internal constant EXPECTED_MAIN_STORAGE_LOCATION =
@@ -1384,5 +1383,41 @@ contract ST0xOrchestratorTest is Test {
         assertEq(ret, IERC1155Receiver.onERC1155Received.selector);
         assertEq(orchestrator.nextBurnReceiptId(fakeVault), 10, "reverting receipt() probe must not move the pointer");
         assertEq(vm.getRecordedLogs().length, 0, "no BurnIndexLowered may be emitted for a reverting receipt() probe");
+    }
+
+    /// A sender whose `manager()` probe succeeds but names a CODE-LESS claimed
+    /// vault is treated as foreign: the `vault.receipt()` staticcall to an
+    /// address with no code succeeds with EMPTY returndata, so the
+    /// `ret.length != 32` half of the second-probe guard bails. Accepted, no
+    /// pointer move, no `BurnIndexLowered`.
+    function testOnERC1155ReceivedCodelessClaimedVaultNoOp() external {
+        address codelessVault = address(0xC0DE1E55);
+        _mockManager(FOREIGN_1155, codelessVault);
+        _seedPointer(codelessVault, 10);
+
+        vm.recordLogs();
+        vm.prank(FOREIGN_1155);
+        bytes4 ret = orchestrator.onERC1155Received(address(this), BOB, 5, 1, "");
+        assertEq(ret, IERC1155Receiver.onERC1155Received.selector);
+        assertEq(orchestrator.nextBurnReceiptId(codelessVault), 10, "code-less claimed vault must not move the pointer");
+        assertEq(vm.getRecordedLogs().length, 0, "no BurnIndexLowered for a code-less claimed vault");
+    }
+
+    /// A sender whose `manager()` probe succeeds but whose claimed vault
+    /// REVERTS on `receipt()` is treated as foreign: the `!ok` half of the
+    /// second-probe guard bails. Accepted, no pointer move, no
+    /// `BurnIndexLowered`.
+    function testOnERC1155ReceivedRevertingClaimedVaultNoOp() external {
+        address claimedVault = address(0xDEAD5EA7);
+        _mockManager(FOREIGN_1155, claimedVault);
+        vm.mockCallRevert(claimedVault, abi.encodeWithSelector(ReceiptVault.receipt.selector), "");
+        _seedPointer(claimedVault, 10);
+
+        vm.recordLogs();
+        vm.prank(FOREIGN_1155);
+        bytes4 ret = orchestrator.onERC1155Received(address(this), BOB, 5, 1, "");
+        assertEq(ret, IERC1155Receiver.onERC1155Received.selector);
+        assertEq(orchestrator.nextBurnReceiptId(claimedVault), 10, "reverting claimed vault must not move the pointer");
+        assertEq(vm.getRecordedLogs().length, 0, "no BurnIndexLowered for a reverting claimed vault");
     }
 }

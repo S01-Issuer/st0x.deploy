@@ -49,9 +49,8 @@ contract StoxWrappedTokenVaultBeaconSetDeployer is IERC165, IStoxWrappedTokenVau
             revert ZeroVaultAsset();
         }
 
-        StoxWrappedTokenVault stoxWrappedTokenVault = StoxWrappedTokenVault(
-            address(new BeaconProxy(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RAIN_VATS_0_1_6, ""))
-        );
+        StoxWrappedTokenVault stoxWrappedTokenVault =
+            StoxWrappedTokenVault(address(new BeaconProxy(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_2, "")));
 
         emit Deployment(msg.sender, address(stoxWrappedTokenVault));
 
