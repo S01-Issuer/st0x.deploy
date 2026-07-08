@@ -164,25 +164,31 @@ from accepting either authoriser to enforcing the V4 clone automatically.
 
 ---
 
-## 6 — Post-execution tidy (non-blocking)
+## Done — no post-execution steps
 
-Rolled-up follow-ups; none block the upgrade itself:
+There is deliberately nothing to do after step 5. Everything the old flow
+deferred to post-execution PRs is already merged up-front via the
+migration-window pattern:
 
-- Update `LibAuthoriserInvariants.STOX_PROD_AUTHORISER` to the V4 clone (+ impl
-  pin) so the no-arg `assertAll` validates the new live state, and extend
-  `expectedGrants()` from 11 to 13 with the two corporate-action admin grants
-  (`SCHEDULE_CORPORATE_ACTION_ADMIN` / `CANCEL_CORPORATE_ACTION_ADMIN` → Safe)
-  that the V4 clone now carries.
-- Update the executed scripts' NatSpec status banners from `**PENDING.**` to
-  `**EXECUTED YYYY-MM-DD.**` (+ SafeTxHash for the Safe bundle).
-- Collapse the migration-window invariants whose migrations have landed (per
-  [`OPERATIONAL_SCRIPTS.md`](OPERATIONAL_SCRIPTS.md) § removal options): the
-  beacon-owner pin and the authoriser-swap pins become plain post-state equality
-  checks.
-- Add the exhaustive-grants check to `LibAuthoriserInvariants` (assert no grants
-  exist OUTSIDE `expectedGrants()`, via `RoleGranted`/`RoleRevoked` event-scan
-  tooling) — closes the directional-assertion gap for good.
+- **No `STOX_PROD_AUTHORISER` repoint.** The authoriser leg inside
+  `LibInvariants.assertAll` is migration-window gated (V3 authoriser OR
+  `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE` until
+  `LibProdDeployV4.V4_SWAP_DEADLINE`, V4-only after), so cron and every script
+  pre-flight stay green through the swap and hard-enforce the V4 clone after the
+  deadline with zero code change. The V3 constant remains as the historical pin
+  for the old clone's own impl + grant checks — properties that stay true
+  post-swap, since the swap revokes nothing on the old clone.
+- **No `expectedGrants()` extension.** The V4 clone's full grant map — the 11
+  lib-pinned pairs plus all 7 auto-granted `_ADMIN` roles on the Safe (including
+  the two corporate-action admins) — is asserted by `StoxProdV4PostSwap.t.sol`'s
+  hydrated-clone block, merged with
+  [#197](https://app.graphite.com/github/pr/S01-Issuer/st0x.deploy/197).
+- **Migration-window collapse is optional.** After a deadline passes the window
+  enforces post-state-only forever, which is behaviourally identical to a
+  collapsed equality check — collapse whenever touching the file anyway, never
+  as its own task.
 
-V4 upgrade workstream complete. From here, every script's `assertAll(safe)`
-pre-flight on main validates against the new V4 live state; any future drift
-trips a typed error on cron.
+The exhaustive-grants check on `LibAuthoriserInvariants` (assert no grants exist
+OUTSIDE the expected map) is an independent hardening feature at the top of the
+migration stack — it tightens the trust model for every future deploy, but is
+not coupled to this upgrade.
