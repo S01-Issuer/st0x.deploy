@@ -85,7 +85,7 @@ contract DeployV4AuthoriserCloneTest is Test {
         safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
         StoxOffchainAssetReceiptVaultAuthorizerV1 impl = new StoxOffchainAssetReceiptVaultAuthorizerV1();
         v4ImplRuntime = address(impl).code;
-        vm.etch(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6, v4ImplRuntime);
+        vm.etch(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1, v4ImplRuntime);
     }
 
     /// @notice `run()` dry-run completes against the live pre-state, writes
@@ -192,7 +192,7 @@ contract DeployV4AuthoriserCloneTest is Test {
         // the fork's state slot and the revert may or may not preserve
         // it depending on whether the snapshot captured it; etching
         // again is idempotent).
-        vm.etch(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6, v4ImplRuntime);
+        vm.etch(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1, v4ImplRuntime);
         script.verify(artifactPath);
     }
 
@@ -226,7 +226,7 @@ contract DeployV4AuthoriserCloneTest is Test {
     /// code at the pin so `impl.code.length == 0` trips first.
     function testRunRejectsMissingV4Impl() external {
         selectBaseFork();
-        address implAddr = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6;
+        address implAddr = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1;
         vm.etch(implAddr, new bytes(0));
         vm.expectRevert(abi.encodeWithSelector(V4ImplNotDeployed.selector, implAddr));
         script.run();
@@ -238,10 +238,10 @@ contract DeployV4AuthoriserCloneTest is Test {
     /// not the canonical bytecode.
     function testRunRejectsV4ImplCodehashDrift() external {
         selectBaseFork();
-        address implAddr = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6;
+        address implAddr = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1;
         bytes memory stub = hex"60005260206000F3";
         vm.etch(implAddr, stub);
-        bytes32 expectedHash = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_RAIN_VATS_0_1_6;
+        bytes32 expectedHash = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_1;
         bytes32 actualHash = keccak256(stub);
         vm.expectRevert(abi.encodeWithSelector(V4ImplCodehashMismatch.selector, implAddr, expectedHash, actualHash));
         script.run();
@@ -564,7 +564,7 @@ contract DeployV4AuthoriserCloneTest is Test {
     /// @notice The canonical deploy-bundle calldata:
     /// `clone(v4Impl, abi.encode(Config(Safe)))` against the CloneFactory.
     function _expectedDeployData() internal view returns (bytes memory) {
-        address v4Impl = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6;
+        address v4Impl = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1;
         bytes memory initData = abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: address(safe)}));
         return abi.encodeCall(ICloneableFactoryV2.clone, (v4Impl, initData));
     }
