@@ -8,43 +8,36 @@ on:
         type: choice
         options:
           # ===================================================================
-          # V4 (rain.vats 0.1.6 — audited build). Deploy these in the listed
-          # order; later entries reference earlier ones via dependency pointers
-          # so an out-of-order run trips the dep-codehash check.
+          # One suite per contract. Suite ids carry no version — the deploy
+          # script handles versioning and always deploys the current source,
+          # asserting the current release's pins. Deploy in the listed order;
+          # later entries reference earlier ones via dependency pointers so an
+          # out-of-order run trips the dep-codehash check.
           # ===================================================================
-          # 1. Implementations (no dependencies, deploy first)
-          - stox-receipt-v4
-          - stox-receipt-vault-v4
-          - stox-wrapped-token-vault-v4
-          - st0x-orchestrator-v4
-          # 2. Beacon (depends on stox-wrapped-token-vault-v4)
-          - stox-wrapped-token-vault-beacon-v4
-          # 3. Deployers (depend on their beacons/implementations)
-          - stox-wrapped-token-vault-beacon-set-deployer-v4
-          - stox-offchain-asset-receipt-vault-beacon-set-deployer-v4
-          - st0x-orchestrator-beacon-set-deployer-v4
-          # 4. Unified deployer (depends on the two set-deployers above)
-          - stox-unified-deployer-v4
-          # 5. Authorizers (no on-chain dependencies)
-          - stox-offchain-asset-receipt-vault-authorizer-v1-v4
-          - stox-offchain-asset-receipt-vault-payment-mint-authorizer-v1-v4
-          # 6. Corporate-actions facet (no on-chain dependencies — the
+          # 1. Implementations and beacons with no on-chain dependencies, plus
+          #    the wrapped-token-vault chain (vault -> beacon -> beacon-set
+          #    deployer) and the two authorizers.
+          - stox-receipt
+          - stox-wrapped-token-vault
+          - stox-wrapped-token-vault-beacon
+          - stox-wrapped-token-vault-beacon-set-deployer
+          - stox-offchain-asset-receipt-vault-authorizer-v1
+          - stox-offchain-asset-receipt-vault-payment-mint-authorizer-v1
+          # 2. Corporate-actions facet (no on-chain dependencies — the
           #    receipt-vault impl hardcodes its address but doesn't link to it
           #    at deploy time).
-          - stox-corporate-actions-facet-v4
-          # 7. st0x-deploy 0.1.3 rebuilds six contracts (cumulative-multiplier
-          #    change): the corporate-actions facet plus the receipt vault, OARV
-          #    beacon-set deployer, unified deployer, orchestrator, and
-          #    orchestrator beacon-set deployer that cascade from it. Deploy in
-          #    this listed order; later entries reference earlier 0.1.3 addresses
-          #    via dependency pointers. Every other 0.1.3 contract is an
-          #    unchanged 0.1.2 twin.
-          - stox-corporate-actions-facet-v4-0-1-3
-          - stox-receipt-vault-v4-0-1-3
-          - stox-offchain-asset-receipt-vault-beacon-set-deployer-v4-0-1-3
-          - st0x-orchestrator-v4-0-1-3
-          - stox-unified-deployer-v4-0-1-3
-          - st0x-orchestrator-beacon-set-deployer-v4-0-1-3
+          - stox-corporate-actions-facet
+          # 3. Receipt vault (no on-chain dependencies).
+          - stox-receipt-vault
+          # 4. OARV beacon-set deployer (depends on the receipt and
+          #    receipt-vault impls above).
+          - stox-offchain-asset-receipt-vault-beacon-set-deployer
+          # 5. Unified deployer (depends on the two set-deployers above).
+          - stox-unified-deployer
+          # 6. Orchestrator (no on-chain dependencies) and its beacon-set
+          #    deployer (depends on the orchestrator impl).
+          - st0x-orchestrator
+          - st0x-orchestrator-beacon-set-deployer
 jobs:
   deploy:
     uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-artifacts.yaml@main
