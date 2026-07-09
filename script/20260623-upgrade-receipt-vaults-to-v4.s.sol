@@ -195,6 +195,30 @@ contract UpgradeReceiptVaultsToV4 is Script {
             }
         }
 
+        // Verify all seven auto-granted `_ADMIN` roles hold on the Safe —
+        // including the two V4-only corporate-action admins
+        // (`SCHEDULE_/CANCEL_CORPORATE_ACTION_ADMIN`) that `expectedGrants()`
+        // doesn't carry. Without them the swapped clone can't admin corporate
+        // actions, so this is the enforcement point that must reject a clone
+        // deployed missing them. (The five base admins overlap the
+        // `expectedGrants()` sweep above; re-checking them keeps the admin-set
+        // assertion self-contained and matches the V4 post-swap pin.)
+        bytes32[7] memory adminRoles = [
+            keccak256("CERTIFY_ADMIN"),
+            keccak256("CONFISCATE_RECEIPT_ADMIN"),
+            keccak256("CONFISCATE_SHARES_ADMIN"),
+            keccak256("DEPOSIT_ADMIN"),
+            keccak256("WITHDRAW_ADMIN"),
+            keccak256("SCHEDULE_CORPORATE_ACTION_ADMIN"),
+            keccak256("CANCEL_CORPORATE_ACTION_ADMIN")
+        ];
+        address ownerSafe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
+        for (uint256 i = 0; i < adminRoles.length; i++) {
+            if (!cloneAcl.hasRole(adminRoles[i], ownerSafe)) {
+                revert V4AuthoriserCloneExpectedGrantMissing(V4_AUTHORISER_CLONE, adminRoles[i], ownerSafe);
+            }
+        }
+
         // --- Build the bundle --------------------------------------------
 
         // One beacon upgrade + one setAuthorizer per production receipt vault.
