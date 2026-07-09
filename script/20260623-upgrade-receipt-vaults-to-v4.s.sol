@@ -98,9 +98,11 @@ error VaultAuthoriserMismatchPostUpgrade(address vault, address expected, addres
 ///    - the V4 authoriser clone is pinned (non-zero), deployed, has the pinned
 ///      EIP-1167 codehash, and holds every `LibAuthoriserInvariants.expectedGrants()`
 ///      pair.
-///    Every check fails red today because the V4 pointers and the clone
-///    address are deliberate placeholders — the forcing function blocking the
-///    upgrade until the patched rain.vats tag + clone deploy land.
+///    The V4 impl at `STOX_RECEIPT_VAULT_0_1_1` is deployed on Base with the
+///    pinned codehash, so the impl-side pre-flight passes; the clone-pin check
+///    fails red today because `STOX_PROD_AUTHORISER_V4_CLONE` is still
+///    `address(0)` — the forcing function blocking the upgrade until the clone
+///    is deployed and pinned.
 /// 2. **Build** — a multi-tx bundle: one `upgradeTo(V4 impl)` call on the
 ///    beacon, plus one `setAuthorizer(V4 clone)` call per production receipt
 ///    vault (count = `LibTokenInvariants.productionReceiptVaults().length`,
@@ -129,8 +131,8 @@ contract UpgradeReceiptVaultsToV4 is Script {
     /// and the rollback target for the n+1 reversibility inverse op.
     address internal constant V1_IMPL = LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION;
 
-    /// @notice The V4 implementation the beacon is upgraded to. Placeholder
-    /// until the patched rain.vats tag is propagated.
+    /// @notice The V4 implementation the beacon is upgraded to — the audited
+    /// `0.1.1` receipt-vault build, deployed on Base at this pinned address.
     address internal constant V4_IMPL = LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1;
 
     /// @notice The V4 authoriser clone that every production receipt vault is
@@ -220,24 +222,7 @@ contract UpgradeReceiptVaultsToV4 is Script {
 
         // --- Post-state ---------------------------------------------------
 
-        // Beacon now at V4, still Safe-owned.
-        LibBeaconInvariants.assertBeaconInvariants(BEACON, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, V4_IMPL);
-        // Every production receipt vault now authorised by the V4 clone.
-        for (uint256 i = 0; i < vaults.length; i++) {
-            address actual = address(IAuthorizableV1(vaults[i]).authorizer());
-            if (actual != V4_AUTHORISER_CLONE) {
-                revert VaultAuthoriserMismatchPostUpgrade(vaults[i], V4_AUTHORISER_CLONE, actual);
-            }
-        }
-        // Safe identity + threshold unchanged. (The explicit per-vault
-        // V4-clone loop above is deliberately STRICTER than the
-        // migration-window authoriser leg in `LibInvariants.assertAll` —
-        // this is the post-state of the swap itself, so only the V4 clone
-        // is acceptable regardless of the window. The Safe-side legs are
-        // asserted piecemeal to avoid re-running the token-side legs the
-        // loop above already covers.)
-        LibSafeInvariants.assertImmutableInvariants(safe);
-        LibSafeInvariants.assertThreshold(safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
+        _assertPostState(safe, vaults);
 
         // --- Artifact -----------------------------------------------------
 
@@ -260,6 +245,35 @@ contract UpgradeReceiptVaultsToV4 is Script {
             "UpgradeReceiptVaultsToV4: n+1 did not roll beacon back to V1 impl"
         );
         console2.log("n+1 reversibility check passed: beacon rolled back to V1 impl");
+    }
+
+    /// @notice Post-state assertions after the upgrade + swap simulate: the
+    /// beacon is at V4 and Safe-owned, every production receipt vault reports
+    /// the V4 clone as its authoriser, and the Safe identity + threshold are
+    /// unchanged. Split from `run()` so tests can drive it against a
+    /// deliberately-malformed post-state (e.g. an un-swapped vault) and assert
+    /// the `VaultAuthoriserMismatchPostUpgrade` guard fires.
+    /// @param safe The ST0x token-owner Safe.
+    /// @param vaults The production receipt vaults the swap targets.
+    function _assertPostState(IGnosisSafe safe, address[] memory vaults) internal view {
+        // Beacon now at V4, still Safe-owned.
+        LibBeaconInvariants.assertBeaconInvariants(BEACON, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, V4_IMPL);
+        // Every production receipt vault now authorised by the V4 clone.
+        for (uint256 i = 0; i < vaults.length; i++) {
+            address actual = address(IAuthorizableV1(vaults[i]).authorizer());
+            if (actual != V4_AUTHORISER_CLONE) {
+                revert VaultAuthoriserMismatchPostUpgrade(vaults[i], V4_AUTHORISER_CLONE, actual);
+            }
+        }
+        // Safe identity + threshold unchanged. (The explicit per-vault
+        // V4-clone loop above is deliberately STRICTER than the
+        // migration-window authoriser leg in `LibInvariants.assertAll` —
+        // this is the post-state of the swap itself, so only the V4 clone
+        // is acceptable regardless of the window. The Safe-side legs are
+        // asserted piecemeal to avoid re-running the token-side legs the
+        // loop above already covers.)
+        LibSafeInvariants.assertImmutableInvariants(safe);
+        LibSafeInvariants.assertThreshold(safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
     }
 }
 
