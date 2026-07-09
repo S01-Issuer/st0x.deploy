@@ -440,13 +440,16 @@ library LibProdDeployV4 {
     /// `LibAuthoriserInvariants.STOX_PROD_AUTHORISER`.
     ///
     /// **PLACEHOLDER** (`address(0)` literal) until the clone is deployed
-    /// against the V4 impl as a one-off ops step (initialised with the
-    /// ST0x token-owner Safe as `initialAdmin`, then the non-admin grants
-    /// from `LibAuthoriserInvariants.expectedGrants()` are mirrored onto
-    /// it). The clone's address is not deterministic ahead of time (Rain
-    /// `CloneFactory` uses non-deterministic `Clones.clone`); the
-    /// post-deploy edit hand-writes the real literal in place of
-    /// `address(0)` here.
+    /// against the V4 impl as a one-off ops step. The broadcast script
+    /// `20260619-deploy-v4-authoriser-clone.s.sol` initialises the clone
+    /// with the deploy key as `initialAdmin` (so the auto-granted `_ADMIN`
+    /// roles land on the deploy key), mirrors the non-admin grants from
+    /// `LibAuthoriserInvariants.expectedGrants()`, grants every auto-granted
+    /// `_ADMIN` role to the ST0x token-owner Safe, then renounces them from
+    /// the deploy key — leaving the Safe as sole admin. The clone's address
+    /// is not deterministic ahead of time (Rain `CloneFactory` uses
+    /// non-deterministic `Clones.clone`); the post-deploy edit hand-writes
+    /// the real literal in place of `address(0)` here.
     ///
     /// Lives in this lib (the deploy artifacts pin) rather than in
     /// `LibAuthoriserInvariants` because it's a deploy target, not a
@@ -458,13 +461,19 @@ library LibProdDeployV4 {
     /// @notice The pinned EIP-1167 runtime codehash for
     /// `STOX_PROD_AUTHORISER_V4_CLONE`. Deterministic from the V4 impl
     /// address embedded in the minimal-proxy runtime
-    /// (`363d3d373d3d3d363d73<impl>5af43d82803e903d91602b57fd5bf3`); the
-    /// invariant uses it to prove the clone hasn't been etched over.
+    /// (`ERC1167_PREFIX <impl> ERC1167_SUFFIX`) — so unlike the clone ADDRESS
+    /// above (non-deterministic, awaits the broadcast), this is knowable as
+    /// soon as the impl address is pinned and is hydrated ahead of the deploy.
+    /// The invariant uses it to prove whatever lands at the pinned clone
+    /// address is exactly the EIP-1167 proxy of the audited V4 impl and hasn't
+    /// been etched over.
     ///
-    /// **PLACEHOLDER** — fill in once the V4 impl address is known and the
-    /// clone is deployed. Easiest path: compute via
-    /// `keccak256(abi.encodePacked(hex"363d3d373d3d3d363d73", v4Impl, hex"5af43d82803e903d91602b57fd5bf3"))`.
-    bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH = bytes32(0);
+    /// Computed as `keccak256(abi.encodePacked(ERC1167_PREFIX,
+    /// STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1, ERC1167_SUFFIX))`
+    /// — the template constants from `rain-extrospection`'s
+    /// `LibExtrospectERC1167Proxy`; cross-checked by `LibProdDeployV4Test`.
+    bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH =
+        0x2089950d3cc1112dd66a58adcfadeadc490b50053ac67be8bc676b4a2dcd1717;
 
     // =========================================================================
     // Per-release creation + runtime bytecode (frozen historicals).
