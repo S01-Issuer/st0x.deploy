@@ -2,7 +2,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
+import {
+    ICorporateActionsV1,
+    ACTION_TYPE_STOCK_SPLIT_V1,
+    BALANCE_MIGRATION_TYPES_MASK
+} from "../interface/ICorporateActionsV1.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
 import {ActionDoesNotExist} from "../error/ErrCorporateAction.sol";
 import {
@@ -11,6 +15,8 @@ import {
     LibCorporateActionNode,
     NODE_NONE
 } from "../lib/LibCorporateActionNode.sol";
+import {LibStockSplit} from "../lib/LibStockSplit.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
 import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVault} from "rain-vats-0.1.6/src/concrete/vault/OffchainAssetReceiptVault.sol";
 
@@ -167,6 +173,30 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         // facet's view of the schedule matches what list walks see.
         if (s.nodes[actionId].effectiveTime == 0) revert ActionDoesNotExist(actionId);
         return s.nodes[actionId].parameters;
+    }
+
+    /// @inheritdoc ICorporateActionsV1
+    function cumulativeBalanceMultiplierSinceGenesis() external view override onlyDelegatecalled returns (Float) {
+        LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
+        // Identity: the canonical one exported by rain-math-float.
+        Float cumulative = LibDecimalFloat.FLOAT_ONE;
+        // Same selection as `LibRebase.migratedBalance`: completed
+        // balance-migration nodes only, in chronological order from the
+        // head of the list (`NODE_NONE` start is head-inclusive, so the
+        // bootstrap node is visited — it is identity and skipped below).
+        uint256 nodeIndex =
+            LibCorporateActionNode.nextOfType(NODE_NONE, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
+        while (nodeIndex != NODE_NONE) {
+            // Init nodes are identity for balance migration; only stock
+            // splits carry a multiplier payload.
+            if (s.nodes[nodeIndex].actionType == ACTION_TYPE_STOCK_SPLIT_V1) {
+                cumulative =
+                    LibDecimalFloat.mul(cumulative, LibStockSplit.decodeParametersV1(s.nodes[nodeIndex].parameters));
+            }
+            nodeIndex =
+                LibCorporateActionNode.nextOfType(nodeIndex, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
+        }
+        return cumulative;
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is

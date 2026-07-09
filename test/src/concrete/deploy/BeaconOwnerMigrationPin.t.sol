@@ -32,9 +32,10 @@ import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 /// run the script, extend the deadline, or delete the invariant.
 contract BeaconOwnerMigrationPinTest is Test {
     /// @notice Unix timestamp past which only the Safe-owned post-state is
-    /// accepted. `2026-09-01T00:00:00Z`.
-    /// @dev PLACEHOLDER — set to the operator SLA for the beacon-owner
-    /// migration. Adjust before merge if the intended cut-off is different.
+    /// accepted — the operator-SLA cut-off for the beacon-owner migration.
+    /// `2026-09-01T00:00:00Z`. Past this instant the invariant demands the
+    /// migration has landed on-chain; a later PR can move it earlier to
+    /// tighten the forcing function or later to loosen it if the SLA shifts.
     uint256 internal constant BEACON_OWNER_MIGRATION_DEADLINE = 1_788_220_800;
 
     /// @notice Assert the migration-window invariant on a single beacon.

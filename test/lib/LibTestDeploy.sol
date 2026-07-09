@@ -26,19 +26,17 @@ library LibTestDeploy {
         LibRainDeploy.etchZoltuFactory(vm);
 
         address vault = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
-        require(
-            vault == LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_RAIN_VATS_0_1_6, "StoxWrappedTokenVault address mismatch"
-        );
+        require(vault == LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_3, "StoxWrappedTokenVault address mismatch");
 
         address beacon = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeacon).creationCode);
         require(
-            beacon == LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RAIN_VATS_0_1_6,
+            beacon == LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_3,
             "StoxWrappedTokenVaultBeacon address mismatch"
         );
 
         address deployer = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeaconSetDeployer).creationCode);
         require(
-            deployer == LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6,
+            deployer == LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3,
             "StoxWrappedTokenVaultBeaconSetDeployer address mismatch"
         );
     }
@@ -47,14 +45,14 @@ library LibTestDeploy {
         LibRainDeploy.etchZoltuFactory(vm);
 
         address receipt = LibRainDeploy.deployZoltu(type(StoxReceipt).creationCode);
-        require(receipt == LibProdDeployV4.STOX_RECEIPT_RAIN_VATS_0_1_6, "StoxReceipt address mismatch");
+        require(receipt == LibProdDeployV4.STOX_RECEIPT_0_1_3, "StoxReceipt address mismatch");
 
         address receiptVault = LibRainDeploy.deployZoltu(type(StoxReceiptVault).creationCode);
-        require(receiptVault == LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6, "StoxReceiptVault address mismatch");
+        require(receiptVault == LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_3, "StoxReceiptVault address mismatch");
 
         address deployer = LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode);
         require(
-            deployer == LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6,
+            deployer == LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3,
             "StoxOffchainAssetReceiptVaultBeaconSetDeployer address mismatch"
         );
     }
@@ -64,8 +62,6 @@ library LibTestDeploy {
         deployOffchainAssetReceiptVaultBeaconSet(vm);
 
         address unified = LibRainDeploy.deployZoltu(type(StoxUnifiedDeployer).creationCode);
-        require(
-            unified == LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RAIN_VATS_0_1_6, "StoxUnifiedDeployer address mismatch"
-        );
+        require(unified == LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_3, "StoxUnifiedDeployer address mismatch");
     }
 }

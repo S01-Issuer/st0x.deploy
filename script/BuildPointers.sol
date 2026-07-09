@@ -24,6 +24,8 @@ import {
 import {
     StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 } from "../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
+import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
+import {ST0xOrchestratorBeaconSetDeployer} from "../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
 
 contract BuildPointers is Script {
     function addressConstantString(address addr) internal pure returns (string memory) {
@@ -91,5 +93,10 @@ contract BuildPointers is Script {
             "StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1",
             type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode
         );
+        // ST0x orchestrator. The beacon-set deployer's constructor bakes the
+        // orchestrator impl constant, so the impl must be built (and thus
+        // Zoltu-deployed at that address) before the deployer.
+        buildContractPointers("ST0xOrchestrator", type(ST0xOrchestrator).creationCode);
+        buildContractPointers("ST0xOrchestratorBeaconSetDeployer", type(ST0xOrchestratorBeaconSetDeployer).creationCode);
     }
 }

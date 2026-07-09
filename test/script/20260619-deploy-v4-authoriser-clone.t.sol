@@ -60,7 +60,7 @@ contract DeployV4AuthoriserCloneTest is Test {
         deployer = makeAddr("deployer");
         vm.deal(deployer, 100 ether);
         safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
-        v4Impl = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6;
+        v4Impl = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1;
         cloneFactory = LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS;
 
         StoxOffchainAssetReceiptVaultAuthorizerV1 impl = new StoxOffchainAssetReceiptVaultAuthorizerV1();
@@ -153,7 +153,7 @@ contract DeployV4AuthoriserCloneTest is Test {
         selectBaseFork();
         bytes memory bogusCode = hex"60016000526001601ff3";
         vm.etch(v4Impl, bogusCode);
-        bytes32 expected = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_RAIN_VATS_0_1_6;
+        bytes32 expected = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_1;
         bytes32 actual = keccak256(bogusCode);
         vm.expectRevert(abi.encodeWithSelector(V4ImplCodehashMismatch.selector, v4Impl, expected, actual));
         vm.prank(deployer, deployer);

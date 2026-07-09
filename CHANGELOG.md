@@ -1,5 +1,34 @@
 # Changelog
 
+## V4 (rain.vats 0.1.6)
+
+### New contracts
+
+- **ST0xOrchestrator**: Singleton mint/burn proxy for the whole ST0x
+  receipt-vault set (Initializable, one instance behind a `BeaconProxy`; all
+  per-token state keyed by the token's vault address). Holds the vault's
+  `DEPOSIT` + `WITHDRAW` roles and owns every ERC-1155 receipt; callers never
+  touch one. Roles are split: `MINT_ROLE` mints, `BURN_ROLE` burns, and
+  `EMERGENCY_ROLE` handles recovery (`setBurnIndex`, `withdrawReceipt`,
+  `withdrawShares`, `sweepERC1155`) — deliberately separate so the key that can
+  reposition pointers or sweep assets can never also mint. Every mint carries
+  the recipient's own `MintAuthV1` authorisation of `(token, to, amount, nonce)`
+  — an EIP-712 signature (ECDSA or EIP-1271) or, absent one, an
+  `IMintRecipient.authorizeMint` callback on `to` — with replay protection
+  namespaced by recipient: `(to, nonce)` is single-use. Burn walks a per-token
+  sequential receipt-id pointer and reverts `InsufficientReceipts` on a
+  shortfall — it NEVER mints to cover an overrun; recovery is manual (transfer
+  receipts in, which auto-lower the pointer via the ERC-1155 receiver hook, or
+  `EMERGENCY_ROLE` `setBurnIndex`). A vault-logic version lock makes
+  `initialize` and `mint`/`burn` refuse to run unless the production vault +
+  receipt beacons still point at the implementations pinned in
+  `LibProdDeployV4`, halting the orchestrator until it is upgraded in lockstep
+  with any vault-logic upgrade.
+- **ST0xOrchestratorBeaconSetDeployer**: Deploys the `ST0xOrchestrator`
+  singleton as a `BeaconProxy` behind a shared `UpgradeableBeacon` owned by the
+  owner multisig. Config-in-constructor base; the Zoltu-deployable concrete
+  subclass with hardcoded `LibProdDeploy*` config lands with the deploy wiring.
+
 ## V3 (corporate actions)
 
 V3 introduces the corporate-actions diamond facet and wires it into the receipt
