@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {IST0xVaultBeaconSet} from "../../../../src/interface/IST0xVaultBeaconSet.sol";
 import {MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV1.sol";
-import {LibProdDeployV4} from "../../../../src/lib/LibProdDeployV4.sol";
+import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 
 /// @title GuardPassesAgainstRealV4BeaconsTest

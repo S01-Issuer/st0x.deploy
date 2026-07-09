@@ -17,12 +17,14 @@ jobs:
     uses: rainlanguage/rainix/.github/workflows/rainix-autopublish.yaml@main
     with:
       soldeer-package: st0x-deploy
-      # The soldeer version IS the deploy-release identity, set at the deploy that
-      # git-clean forces (a bytecode change leaves the current `<tag>/` snapshot !=
-      # HEAD, forcing a version bump in the same commit). So do NOT auto-bump on
-      # arbitrary content — just publish the committed version when it is new.
-      # Needs the rainix `soldeer-auto-bump` input (paired rainix PR; merge first).
-      soldeer-auto-bump: false
+      # `foundry.toml` version is the NEXT (in-development) release (see #244). On
+      # merge, publish that version, bump to the next, and regenerate the deploy
+      # libs so the bump commit is born clean. The regenerate command re-runs
+      # BuildPointers (the `<tag>/` snapshot) then the lib generator.
+      # Needs the rainix next-version mode (paired rainix PR; merge that first).
+      soldeer-next-version: true
+      soldeer-generate-cmd: >-
+        nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildPointers.sol && python3 script/gen_prod_libs.py
     # Secrets are passed explicitly (not `inherit`), mirroring this repo's other
     # cross-org rainix callers (e.g. rainix-sol.yaml). Only SOLDEER_API_TOKEN is
     # required for the publish; the rest are optional and fall back cleanly when

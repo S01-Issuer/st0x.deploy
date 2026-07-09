@@ -25,7 +25,7 @@ import {TestableDeployV4AuthoriserClone} from "./TestableDeployV4AuthoriserClone
 import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
 import {LibSafeInvariants, SafeOwnerCountMismatch} from "../../src/lib/LibSafeInvariants.sol";
 import {LibSafeOps, SafeTx} from "../../src/lib/LibSafeOps.sol";
-import {LibProdDeployV4} from "../../src/lib/LibProdDeployV4.sol";
+import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1

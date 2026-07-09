@@ -23,6 +23,8 @@ jobs:
         run: nix develop github:rainlanguage/rainix#sol-shell -c forge soldeer install
       - name: Regenerate pointer artifacts
         run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildPointers.sol
+      - name: Regenerate deploy libs from the snapshots
+        run: python3 script/gen_prod_libs.py
       - name: Format
         run: nix develop github:rainlanguage/rainix#sol-shell -c forge fmt
       - name: Assert committed artifacts match freshly built
