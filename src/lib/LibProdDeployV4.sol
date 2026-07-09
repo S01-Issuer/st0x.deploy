@@ -475,6 +475,20 @@ library LibProdDeployV4 {
     bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH =
         0x2089950d3cc1112dd66a58adcfadeadc490b50053ac67be8bc676b4a2dcd1717;
 
+    /// @notice Unix timestamp past which the V4 authoriser swap must have
+    /// landed on Base: every production receipt vault's `authorizer()`
+    /// must report `STOX_PROD_AUTHORISER_V4_CLONE` (not the V3 authoriser)
+    /// from this moment on. `2026-11-01T00:00:00Z`.
+    ///
+    /// Consumed by the `LibMigrationInvariant`-gated authoriser leg in
+    /// `LibInvariants.assertAll` and by the V4 prod-state pins: before the
+    /// deadline both the V3 authoriser and the V4 clone are accepted, so
+    /// the invariant merges alongside the swap script instead of waiting
+    /// for execution; after the deadline only the V4 clone passes and cron
+    /// red-lines until the swap runs, the deadline is extended, or the
+    /// migration is explicitly abandoned.
+    uint256 constant V4_SWAP_DEADLINE = 1_793_491_200;
+
     // =========================================================================
     // Per-release creation + runtime bytecode (frozen historicals).
     //

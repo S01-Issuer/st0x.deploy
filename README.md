@@ -149,6 +149,52 @@ The `multisig-artifact` GitHub workflow runs the dry-run on `workflow_dispatch`
 dependencies, uploading `out/*.json` as a build artifact so reviewers can
 download the bundle directly from the run.
 
+### Beacon ownership migration
+
+`script/MigrateBeaconOwners.s.sol` transfers ownership of the three production
+V1 beacons that live tokens use — the receipt beacon, the receipt vault beacon,
+and the wrapped token vault beacon — from the rainlang.eth EOA to the
+`STOX_TOKEN_OWNER_SAFE`, so beacon upgrades route through the multisig. Unlike
+the threshold migration this is a direct EOA broadcast (an `Ownable` beacon
+transfers ownership by the current owner calling `transferOwnership`), so the
+script emits no Tx Builder JSON — the output is the on-chain `transferOwnership`
+transactions. It still runs the full operational treatment: a pre-flight
+`assertBeaconInvariants` against the expected EOA-owned state, the broadcast
+transfers, a post-state `assertBeaconInvariants` against the Safe-owned state,
+and an n+1 reversibility check per beacon (an idempotent
+`upgradeTo(currentImpl)` routed through the Safe's `execTransaction`, proving
+the Safe can act on each beacon after the migration).
+
+```shell
+forge script script/MigrateBeaconOwners.s.sol \
+  --rpc-url base --broadcast --private-key <EOA key>
+```
+
+### Receipt vault V3 upgrade
+
+`script/UpgradeReceiptVaultToV3.s.sol` authors the Safe transaction that points
+`STOX_RECEIPT_VAULT_BEACON_V1` at the V3 receipt vault implementation (corporate
+actions). After execution every live receipt vault routes corporate-action
+selectors into the V3 facet via fallback delegatecall. The beacon must already
+be Safe-owned (run the beacon ownership migration first) and the V3
+implementation must already be deployed at its deterministic Zoltu address with
+the audited codehash. The script runs `assertAll(safe)` +
+`assertBeaconInvariants(beacon, safe, V1 impl)` as pre-flight, simulates the
+`upgradeTo`, asserts the post-state (`beacon -> V3 impl`, Safe unchanged), emits
+the Tx Builder JSON to `out/v3-upgrade.json`, prints the `SafeTxHash`, and
+proves n+1 reversibility back to the V1 implementation.
+
+```shell
+BASE_RPC_URL=https://base-rpc.publicnode.com \
+  forge script script/UpgradeReceiptVaultToV3.s.sol --rpc-url base
+```
+
+The post-upgrade behaviour of live tokens is verified by the shadow-fork suite
+`test/src/concrete/upgrade/V3UpgradeShadowFork.t.sol`, which applies the upgrade
+to a Base head fork and exercises corporate-action fallback routing,
+backwards-compatible reads, authoriser and receipt wiring, and certification
+against a real on-chain receipt vault.
+
 ## License
 
 LicenseRef-DCL-1.0 (DecentraLicense). REUSE-compliant.
