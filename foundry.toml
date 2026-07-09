@@ -4,7 +4,7 @@
 # published version, not a hand-edited target.
 [package]
 name = "st0x-deploy"
-version = "0.1.3"
+version = "0.1.4"
 
 [profile.default]
 libs = ['dependencies']
