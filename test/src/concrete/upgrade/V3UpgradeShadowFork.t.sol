@@ -78,11 +78,11 @@ contract V3UpgradeShadowForkTest is Test {
         //    constructors there so the facet's `_SELF` and the vault's pinned
         //    facet target line up.
         deployCodeTo(
-            "src/concrete/StoxReceiptVault.sol:StoxReceiptVault", LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6
+            "src/concrete/StoxReceiptVault.sol:StoxReceiptVault", LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1
         );
         deployCodeTo(
             "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1
         );
 
         // 2. Simulate PR-A: transfer the beacon from the EOA to the Safe.
@@ -91,7 +91,7 @@ contract V3UpgradeShadowForkTest is Test {
 
         // 3. Apply the upgrade: the Safe points the beacon at the V3 impl.
         vm.prank(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
-        IUpgradeableBeacon(BEACON).upgradeTo(LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6);
+        IUpgradeableBeacon(BEACON).upgradeTo(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1);
     }
 
     /// @notice Read the EIP-1967 beacon address from a proxy contract. Mirrors
@@ -106,7 +106,7 @@ contract V3UpgradeShadowForkTest is Test {
     function testForkIsInUpgradedState() external view {
         assertEq(Ownable(BEACON).owner(), LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, "beacon Safe-owned");
         assertEq(
-            IBeacon(BEACON).implementation(), LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6, "beacon at V3 impl"
+            IBeacon(BEACON).implementation(), LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1, "beacon at V3 impl"
         );
         assertEq(beaconOf(LIVE_RECEIPT_VAULT), BEACON, "live vault behind the upgraded beacon");
     }

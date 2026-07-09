@@ -27,13 +27,13 @@ contract StoxUnifiedDeployerTest is Test {
         StoxUnifiedDeployer unifiedDeployer = new StoxUnifiedDeployer();
 
         vm.etch(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3,
             vm.getCode(
                 "StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer"
             )
         );
         vm.mockCall(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3,
             abi.encodeWithSelector(
                 OffchainAssetReceiptVaultBeaconSetDeployer.newOffchainAssetReceiptVault.selector, config
             ),
@@ -41,11 +41,11 @@ contract StoxUnifiedDeployerTest is Test {
         );
 
         vm.etch(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3,
             vm.getCode("StoxWrappedTokenVaultBeaconSetDeployer.sol:StoxWrappedTokenVaultBeaconSetDeployer")
         );
         vm.mockCall(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3,
             abi.encodeWithSelector(StoxWrappedTokenVaultBeaconSetDeployer.newStoxWrappedTokenVault.selector, asset),
             abi.encode(address(vault))
         );
@@ -60,13 +60,13 @@ contract StoxUnifiedDeployerTest is Test {
         StoxUnifiedDeployer unifiedDeployer = new StoxUnifiedDeployer();
 
         vm.etch(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3,
             vm.getCode(
                 "StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer"
             )
         );
         vm.mockCallRevert(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3,
             abi.encodeWithSelector(
                 OffchainAssetReceiptVaultBeaconSetDeployer.newOffchainAssetReceiptVault.selector, config
             ),
@@ -86,13 +86,13 @@ contract StoxUnifiedDeployerTest is Test {
         StoxUnifiedDeployer unifiedDeployer = new StoxUnifiedDeployer();
 
         vm.etch(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3,
             vm.getCode(
                 "StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer"
             )
         );
         vm.mockCall(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3,
             abi.encodeWithSelector(
                 OffchainAssetReceiptVaultBeaconSetDeployer.newOffchainAssetReceiptVault.selector, config
             ),
@@ -100,11 +100,11 @@ contract StoxUnifiedDeployerTest is Test {
         );
 
         vm.etch(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3,
             vm.getCode("StoxWrappedTokenVaultBeaconSetDeployer.sol:StoxWrappedTokenVaultBeaconSetDeployer")
         );
         vm.mockCallRevert(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RAIN_VATS_0_1_6,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3,
             abi.encodeWithSelector(StoxWrappedTokenVaultBeaconSetDeployer.newStoxWrappedTokenVault.selector, asset),
             abi.encodeWithSignature("ZeroVaultAsset()")
         );

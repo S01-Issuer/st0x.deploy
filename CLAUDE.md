@@ -122,8 +122,14 @@ overloads — `initialize(address)` always reverts (documents signature),
 
 **Zoltu deterministic deployment**: All contracts have parameterless
 constructors enabling deployment via the Zoltu factory for identical addresses
-across all EVM networks. Pointer files in `src/generated/` contain deterministic
-addresses and bytecodes.
+across all EVM networks. `script/BuildPointers.sol` regenerates the top-level
+`src/generated/*.pointers.sol` (deterministic address + creation/runtime
+bytecode). Each release also FREEZES its exact bytecode in a per-tag snapshot
+under `src/generated/<tag>/*.pointers.sol` (`0_1_1/`, `0_1_2/`, `0_1_3/`, …);
+`LibProdDeployV4` imports and aliases those frozen constants rather than
+inlining bytecode. BuildPointers rewrites ONLY the top-level pointers, so a
+frozen historical snapshot must never be regenerated or mutated — that keeps a
+past release reproducible and verifiable after the current build diverges.
 
 **Production constants** are split by version — each version is fully
 self-contained:
@@ -131,6 +137,10 @@ self-contained:
 - `LibProdDeployV1` — V1 Base deployment addresses, codehashes, creation
   bytecodes
 - `LibProdDeployV2` — V2 Zoltu addresses and codehashes from generated pointers
+- `LibProdDeployV4` — the current production set. Within V4, each release is
+  suffixed by st0x's own release tag (`_0_1_1`, `_0_1_2`, `_0_1_3`, …), and
+  `DEPLOY_TAG` names the tag the current source compiles and deploys against.
+  (There is no V3 — the never-deployed phantom lib was removed.)
 
 Address constants in `LibProdDeploy*` libraries serve as an audit trail of
 deployed contracts — do not remove them even if they appear unreferenced in
@@ -260,13 +270,16 @@ etc.). Each version has its own constants file and may have a separate deploy
 library. When making changes to contract source:
 
 - Update `CHANGELOG.md` with the change under the current version heading
-- Regenerate pointer files if creation bytecodes change
-  (`forge script script/BuildPointers.sol`)
-- Bump to a new version heading (`V3`, `V4`, ...) only when a deployed
-  contract's address or codehash changes. Additive changes that produce no new
-  contracts and do not alter any deployed bytecode should be appended under the
-  existing version heading. New `LibProdDeploy*` libraries are introduced
-  together with new version headings.
+- Regenerate the top-level pointer files if creation bytecodes change
+  (`forge script script/BuildPointers.sol`), and freeze a new
+  `src/generated/<tag>/` snapshot for the new release tag — never regenerate a
+  historical tag's snapshot.
+- Within a `LibProdDeploy*` library, a release that moves any deployed
+  contract's address or codehash adds a new release-tag suffix (`_0_1_N`) plus
+  its frozen snapshot, keeping prior tags as historicals. Additive changes that
+  produce no new contracts and alter no deployed bytecode append under the
+  existing tag. A new `LibProdDeploy*` library (a new V-generation) is a rarer,
+  larger change for a wholesale deployment regeneration.
 
 ## Deployment
 

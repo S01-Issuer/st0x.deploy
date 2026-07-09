@@ -27,7 +27,7 @@ bytes32 constant OFFCHAIN_ASSET_RECEIPT_VAULT_STORAGE_LOCATION =
 
 /// Fallback routing tests for `StoxReceiptVault`. The vault's `fallback()`
 /// override delegatecalls into `StoxCorporateActionsFacet` at the deterministic
-/// `LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6` address.
+/// `LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_3` address.
 ///
 /// The facet's `onlyDelegatecalled` modifier relies on an immutable `_SELF`
 /// captured in the constructor. `vm.etch` would leave `_SELF` pointing at the
@@ -50,7 +50,7 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         // constructor there so `_SELF` resolves to `STOX_CORPORATE_ACTIONS_FACET`.
         deployCodeTo(
             "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_3
         );
 
         vault = new StoxReceiptVault();
@@ -141,8 +141,7 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
     /// facet's `_SELF` immutable is the `LibProdDeployV4` constant and
     /// `address(this) == _SELF` on a direct call, firing the guard.
     function testDirectCallToFacetRevertsWithFacetMustBeDelegatecalled() external {
-        ICorporateActionsV1 facetDirect =
-            ICorporateActionsV1(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6);
+        ICorporateActionsV1 facetDirect = ICorporateActionsV1(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_3);
         vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
         facetDirect.completedActionCount();
     }

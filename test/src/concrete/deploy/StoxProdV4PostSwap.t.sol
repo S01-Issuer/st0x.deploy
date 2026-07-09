@@ -61,18 +61,18 @@ contract StoxProdV4PostSwapTest is Test {
     /// pass; after the deadline only the pinned codehash is accepted.
     function checkAllV4OnChain() internal view {
         LibMigrationInvariant.assertMigration(
-            "STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6.codehash",
-            LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6.codehash,
+            "STOX_RECEIPT_VAULT_0_1_1.codehash",
+            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1.codehash,
             bytes32(0),
-            LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_RAIN_VATS_0_1_6,
+            LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_1,
             V4_CROSS_NETWORK_DEPLOY_DEADLINE
         );
 
         LibMigrationInvariant.assertMigration(
-            "STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6.codehash",
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RAIN_VATS_0_1_6.codehash,
+            "STOX_CORPORATE_ACTIONS_FACET_0_1_1.codehash",
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1.codehash,
             bytes32(0),
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_RAIN_VATS_0_1_6,
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_1,
             V4_CROSS_NETWORK_DEPLOY_DEADLINE
         );
     }

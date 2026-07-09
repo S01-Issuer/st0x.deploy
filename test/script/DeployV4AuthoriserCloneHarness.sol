@@ -16,4 +16,29 @@ contract DeployV4AuthoriserCloneHarness is DeployV4AuthoriserClone {
     function callAssertPostState(address clone, address deployer, address v4Impl) external view {
         _assertPostState(clone, deployer, v4Impl);
     }
+
+    /// @notice Exposes the script's non-admin grant slice start so tests
+    /// can pin the hand-replicated happy-path sequence to the constant the
+    /// script actually slices with.
+    function mirrorStartIndex() external pure returns (uint256) {
+        return MIRROR_START_INDEX;
+    }
+
+    /// @notice Exposes the script's non-admin grant slice length.
+    function mirrorCount() external pure returns (uint256) {
+        return MIRROR_COUNT;
+    }
+
+    /// @notice Exposes the script's hand-listed auto-granted admin roles so
+    /// tests can assert the replica list they drive the sequence with has
+    /// not drifted from the script's own list.
+    function autoGrantedAdminRolesExternal() external pure returns (bytes32[7] memory) {
+        return autoGrantedAdminRoles();
+    }
+
+    /// @notice Exposes the slice-invariant guard so tests can assert it
+    /// passes against the live invariant map.
+    function callAssertGrantsSliceInvariant() external pure {
+        assertGrantsSliceInvariant();
+    }
 }

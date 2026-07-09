@@ -100,6 +100,21 @@ contract LibMigrationInvariantTest is Test {
         harness.callAssertMigrationBytes32(LABEL, OTHER, PRE, POST, DEADLINE);
     }
 
+    /// @notice An unset (`deadline == 0`) deadline resolves to the
+    /// restrictive outcome: it reads as already-passed, so only `post` is
+    /// accepted and `pre` trips `MigrationDeadlinePassed`. Pins the fail-safe
+    /// reading of an uninitialized SLA — guards against a future "0 means no
+    /// deadline / accept `pre` forever" misinterpretation, which would flip
+    /// the sentinel from fail-closed to fail-open.
+    function testZeroDeadlineIsStrict() external {
+        // A realistic non-zero chain time; the zero deadline must still
+        // enforce strictly rather than open an unbounded grace window.
+        vm.warp(DEADLINE);
+        harness.callAssertMigrationBytes32(LABEL, POST, PRE, POST, 0);
+        vm.expectRevert(abi.encodeWithSelector(MigrationDeadlinePassed.selector, LABEL, POST, PRE, 0));
+        harness.callAssertMigrationBytes32(LABEL, PRE, PRE, POST, 0);
+    }
+
     /// @notice The `address` overload round-trips through the same
     /// decision — one before-deadline pre acceptance is enough to prove the
     /// `bytes32(uint256(uint160(...)))` cast lands where it should.

@@ -1885,4 +1885,156 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(actionType, ACTION_TYPE_INIT_V1, "bootstrap actionType is INIT_V1");
         assertEq(uint256(effectiveTime), block.timestamp, "bootstrap effectiveTime is block.timestamp at schedule");
     }
+
+    // -----------------------------------------------------------------------
+    // cumulativeBalanceMultiplierSinceGenesis — collapsed Float product of
+    // every COMPLETED balance-migration multiplier, for external consumers
+    // (e.g. the atomic bridge) converting genesis-denominated units. NOT a
+    // balance-migration primitive: `LibRebase` never collapses multipliers.
+
+    /// Helper: schedule a stock split with an arbitrary Float multiplier via
+    /// the facet delegatecall path so the node lands in the harness's
+    /// storage namespace (the one the facet's views read from).
+    function scheduleFloatSplitViaFacet(Float multiplier, uint64 effectiveTime) internal returns (uint256) {
+        bytes memory parameters = LibStockSplit.encodeParametersV1(multiplier);
+        vm.prank(ALICE);
+        return facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, effectiveTime, parameters);
+    }
+
+    /// Helper: assert two Floats are numerically equal with a readable
+    /// failure message showing the packed representations.
+    function assertFloatEq(Float actual, Float expected, string memory message) internal pure {
+        assertTrue(LibDecimalFloat.eq(actual, expected), message);
+    }
+
+    /// The identity seed is the canonical `FLOAT_ONE` constant exported by
+    /// rain-math-float, and it is numerically the same value as the
+    /// `packLossless(1, 0)` construction it replaced — locking in that the
+    /// swap changed no behaviour.
+    function testCumulativeMultiplierIdentityIsFloatOneConstant() external pure {
+        assertTrue(
+            LibDecimalFloat.eq(LibDecimalFloat.FLOAT_ONE, LibDecimalFloat.packLossless(1, 0)),
+            "FLOAT_ONE must equal packLossless(1, 0)"
+        );
+    }
+
+    /// Identity when no corporate action was ever scheduled — the list is
+    /// empty (not even a bootstrap node) and the walk finds nothing.
+    function testCumulativeMultiplierIdentityWhenNoActions() external view {
+        assertFloatEq(
+            facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
+            LibDecimalFloat.FLOAT_ONE,
+            "empty list must yield the identity multiplier"
+        );
+    }
+
+    /// Identity when only the bootstrap node is completed: the bootstrap
+    /// (ACTION_TYPE_INIT_V1) is walked but contributes nothing, and the
+    /// user-scheduled split is still pending so it is excluded.
+    function testCumulativeMultiplierIdentityWhenOnlyBootstrapCompleted() external {
+        scheduleFloatSplitViaFacet(LibDecimalFloat.packLossless(3, 0), 1500);
+        // No warp: block.timestamp = 1000 < 1500, so the split is pending;
+        // only the bootstrap (effectiveTime = 1000) is completed.
+        assertFloatEq(
+            facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
+            LibDecimalFloat.FLOAT_ONE,
+            "bootstrap-only completion must yield the identity multiplier"
+        );
+    }
+
+    /// A single completed 3:1 split yields exactly Float 3.
+    function testCumulativeMultiplierSingleSplit() external {
+        scheduleFloatSplitViaFacet(LibDecimalFloat.packLossless(3, 0), 1500);
+        vm.warp(2000);
+        assertFloatEq(
+            facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
+            LibDecimalFloat.packLossless(3, 0),
+            "single completed 3:1 split must yield 3"
+        );
+    }
+
+    /// A sequence of completed splits multiplies in chronological order:
+    /// 3:1 (x3) then 1:2 reverse (x0.5) collapses to 1.5.
+    function testCumulativeMultiplierSequenceOfSplits() external {
+        scheduleFloatSplitViaFacet(LibDecimalFloat.packLossless(3, 0), 1500);
+        scheduleFloatSplitViaFacet(LibDecimalFloat.packLossless(5, -1), 2000);
+        vm.warp(2500);
+        assertFloatEq(
+            facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
+            LibDecimalFloat.packLossless(15, -1),
+            "3:1 then 1:2 must collapse to 1.5"
+        );
+    }
+
+    /// Pending (future) splits are excluded: only the completed prefix of
+    /// the list contributes to the product.
+    function testCumulativeMultiplierExcludesPending() external {
+        scheduleFloatSplitViaFacet(LibDecimalFloat.packLossless(2, 0), 1500); // completes
+        scheduleFloatSplitViaFacet(LibDecimalFloat.packLossless(3, 0), 9000); // stays pending
+        vm.warp(2000);
+        assertFloatEq(
+            facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
+            LibDecimalFloat.packLossless(2, 0),
+            "pending split must not contribute to the product"
+        );
+    }
+
+    /// Cancelled splits are excluded: cancellation unlinks the node before
+    /// its effectiveTime, so it never completes and never contributes.
+    function testCumulativeMultiplierExcludesCancelled() external {
+        scheduleFloatSplitViaFacet(LibDecimalFloat.packLossless(2, 0), 1500);
+        uint256 cancelledId = scheduleFloatSplitViaFacet(LibDecimalFloat.packLossless(3, 0), 2000);
+
+        vm.prank(ALICE);
+        facetViaHarness.cancelCorporateAction(cancelledId);
+
+        // Warp past BOTH effective times — the cancelled node must stay
+        // invisible even after its original effectiveTime passes.
+        vm.warp(3000);
+        assertFloatEq(
+            facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
+            LibDecimalFloat.packLossless(2, 0),
+            "cancelled split must not contribute to the product"
+        );
+    }
+
+    /// Boundary: a split whose `effectiveTime` equals `block.timestamp`
+    /// exactly is COMPLETED (the walk's `<=` completion check is inclusive)
+    /// and therefore contributes to the cumulative product. Every other
+    /// cumulative test warps strictly PAST the effective time; this pins the
+    /// inclusive boundary at this function's own API surface rather than
+    /// relying on it being covered transitively by the `LibCorporateActionNode`
+    /// COMPLETED-walk tests. A regression flipping that walk's `<=` to `<`
+    /// (so an exactly-due split reads as still pending) drops the split and
+    /// collapses the product back to identity — this test catches it from
+    /// both sides.
+    function testCumulativeMultiplierBoundaryAtExactEffectiveTime() external {
+        scheduleFloatSplitViaFacet(LibDecimalFloat.packLossless(3, 0), 1500);
+
+        // One second before the effective time: the split is still pending
+        // and excluded — only the bootstrap (identity) is completed.
+        vm.warp(1499);
+        assertFloatEq(
+            facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
+            LibDecimalFloat.FLOAT_ONE,
+            "split one tick before its effective time is pending and excluded"
+        );
+
+        // At exactly the effective time: inclusive `<=` completion means the
+        // split counts and the product jumps to exactly 3.
+        vm.warp(1500);
+        assertFloatEq(
+            facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
+            LibDecimalFloat.packLossless(3, 0),
+            "split at exactly block.timestamp is completed (inclusive) and included"
+        );
+    }
+
+    /// Direct call to `cumulativeBalanceMultiplierSinceGenesis` on the
+    /// standalone facet reverts with `FacetMustBeDelegatecalled`, like
+    /// every other entry point.
+    function testCumulativeMultiplierDirectCallReverts() external {
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facetImpl.cumulativeBalanceMultiplierSinceGenesis();
+    }
 }

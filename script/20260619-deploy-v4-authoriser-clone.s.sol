@@ -18,7 +18,7 @@ import {LibProdDeployV4} from "../src/lib/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 
 /// @notice The V4 authoriser impl at
-/// `LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6`
+/// `LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1`
 /// has no runtime code. Either the pin is stale or the impl has been
 /// selfdestructed since the pin was written; either way the clone would
 /// initialise against zero code.
@@ -59,10 +59,6 @@ error ExpectedGrantMissing(bytes32 role, address grantee);
 /// over that role's grant map — the exact escalation this transfer is
 /// designed to close.
 error DeployerStillHoldsAdminRole(bytes32 role, address deployer);
-
-/// @notice The `NewClone` event was not emitted by the CloneFactory during
-/// the deploy. Cannot recover the clone address from the receipt.
-error NewCloneEventMissing();
 
 /// @notice `MIRROR_START_INDEX` is out of range for the
 /// `LibAuthoriserInvariants.expectedGrants()` array. The hand-maintained
@@ -158,7 +154,7 @@ contract DeployV4AuthoriserClone is Script {
         // pinned codehash. The clone will EIP-1167-proxy this address;
         // if it isn't there or has the wrong code, the clone would
         // either fail to initialise or initialise against attacker code.
-        address v4Impl = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6;
+        address v4Impl = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1;
         assertV4ImplDeployed(v4Impl);
 
         // Pre-flight: the canonical `CloneFactory` is deployed with the
@@ -313,7 +309,7 @@ contract DeployV4AuthoriserClone is Script {
     function assertV4ImplDeployed(address impl) internal view {
         if (impl.code.length == 0) revert V4ImplNotDeployed(impl);
         bytes32 actual = impl.codehash;
-        bytes32 expected = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_RAIN_VATS_0_1_6;
+        bytes32 expected = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_1;
         if (actual != expected) revert V4ImplCodehashMismatch(impl, expected, actual);
     }
 

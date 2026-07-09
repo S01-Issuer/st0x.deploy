@@ -26,7 +26,7 @@ import {LibSafeOps, SafeTx, IUpgradeableBeacon} from "../src/lib/LibSafeOps.sol"
 error V4ImplementationNotDeployed(address implementation);
 
 /// @notice The V4 receipt vault implementation's runtime codehash does not
-/// match the pinned `LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_RAIN_VATS_0_1_6`.
+/// match the pinned `LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_1`.
 /// Signals the on-chain bytecode is not the audited V4 build.
 /// @param implementation The implementation address inspected.
 /// @param expected The pinned V4 codehash.
@@ -78,7 +78,7 @@ error VaultAuthoriserMismatchPostUpgrade(address vault, address expected, addres
 /// that:
 ///
 ///   1. Points the receipt-vault beacon at the V4 implementation
-///      (`LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6`).
+///      (`LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1`).
 ///   2. Calls `setAuthorizer(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE)`
 ///      on every production receipt vault.
 ///
@@ -131,7 +131,7 @@ contract UpgradeReceiptVaultsToV4 is Script {
 
     /// @notice The V4 implementation the beacon is upgraded to. Placeholder
     /// until the patched rain.vats tag is propagated.
-    address internal constant V4_IMPL = LibProdDeployV4.STOX_RECEIPT_VAULT_RAIN_VATS_0_1_6;
+    address internal constant V4_IMPL = LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1;
 
     /// @notice The V4 authoriser clone that every production receipt vault is
     /// rewired onto. Placeholder until the clone is deployed.
@@ -167,8 +167,8 @@ contract UpgradeReceiptVaultsToV4 is Script {
             revert V4ImplementationNotDeployed(V4_IMPL);
         }
         bytes32 v4Codehash = V4_IMPL.codehash;
-        if (v4Codehash != LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_RAIN_VATS_0_1_6) {
-            revert V4CodehashMismatch(V4_IMPL, LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_RAIN_VATS_0_1_6, v4Codehash);
+        if (v4Codehash != LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_1) {
+            revert V4CodehashMismatch(V4_IMPL, LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_1, v4Codehash);
         }
 
         // V4 authoriser clone pinned, deployed, codehash matches EIP-1167
