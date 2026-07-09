@@ -73,6 +73,12 @@ library LibMigrationInvariant {
 
     /// @notice `address` overload. Casts each address to `bytes32` under the
     /// hood via `uint160`.
+    /// @param label Human-readable identifier for the invariant surfaced in
+    /// revert data.
+    /// @param actual The value read from the live chain.
+    /// @param pre The accepted state before the migration runs.
+    /// @param post The accepted state after the migration runs.
+    /// @param deadline Unix timestamp past which only `post` is accepted.
     function assertMigration(string memory label, address actual, address pre, address post, uint256 deadline)
         internal
         view
@@ -88,6 +94,12 @@ library LibMigrationInvariant {
 
     /// @notice `uint256` overload. Casts each value to `bytes32` under the
     /// hood.
+    /// @param label Human-readable identifier for the invariant surfaced in
+    /// revert data.
+    /// @param actual The value read from the live chain.
+    /// @param pre The accepted state before the migration runs.
+    /// @param post The accepted state after the migration runs.
+    /// @param deadline Unix timestamp past which only `post` is accepted.
     function assertMigration(string memory label, uint256 actual, uint256 pre, uint256 post, uint256 deadline)
         internal
         view
