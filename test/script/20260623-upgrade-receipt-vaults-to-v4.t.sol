@@ -108,18 +108,20 @@ contract UpgradeReceiptVaultsToV4Test is Test {
         upgradeScript.run();
     }
 
-    /// @notice With the real V4 impl planted (codehash matches the pin) the
-    /// impl pre-flight passes and `run()` reaches the next forcing function:
-    /// `V4AuthoriserCloneNotPinned` (the clone pin is still `address(0)`).
-    /// The sanity assert also proves the pinned codehash still matches what the
-    /// current source compiles to.
+    /// @notice The audited V4 impl is already deployed on Base at `V4_IMPL`
+    /// with the pinned codehash, so the impl-side pre-flight passes against the
+    /// live fork (no planting needed — planting the current source would carry
+    /// a later release's bytecode, not the pinned `0.1.1` build) and `run()`
+    /// reaches the next forcing function: `V4AuthoriserCloneNotPinned` (the
+    /// clone pin is still `address(0)`). The codehash assert doubles as a
+    /// prod-state pin: the on-chain V4 impl must match the lib's pinned
+    /// codehash.
     function testRunRevertsWhenV4AuthoriserCloneNotPinned() external {
         _forkAndMigrateBeaconOwnership();
-        deployCodeTo("src/concrete/StoxReceiptVault.sol:StoxReceiptVault", V4_IMPL);
         assertEq(
             V4_IMPL.codehash,
             LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_1,
-            "planted V4 impl codehash != pinned codehash"
+            "live V4 impl codehash != pinned codehash"
         );
         UpgradeReceiptVaultsToV4 upgradeScript = new UpgradeReceiptVaultsToV4();
         vm.expectRevert(V4AuthoriserCloneNotPinned.selector);
