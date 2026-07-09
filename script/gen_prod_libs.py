@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: LicenseRef-DCL-1.0
+# SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 """Generate the prod deploy libs from the frozen per-release snapshots.
 
 - `src/generated/LibProdDeployV4.sol`: one versioned constant set per release tag
