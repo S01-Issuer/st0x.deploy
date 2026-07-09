@@ -308,8 +308,7 @@ contract DeployV4AuthoriserCloneTest is Test {
     function testInitAutoGrantsExactlyTheSevenAdminRolesToInitialAdmin() external {
         selectBaseFork();
         address initialAdmin = makeAddr("someInitialAdmin");
-        bytes memory initData =
-            abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: initialAdmin}));
+        bytes memory initData = abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: initialAdmin}));
         vm.prank(deployer, deployer);
         address clone = ICloneableFactoryV2(cloneFactory).clone(v4Impl, initData);
 

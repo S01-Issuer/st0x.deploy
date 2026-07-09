@@ -415,9 +415,7 @@ contract LibProdDeployV4Test is Test {
     function testAuthoriserV4CloneCodehashMatchesImplDerivation() external pure {
         bytes32 derived = keccak256(
             abi.encodePacked(
-                ERC1167_PREFIX,
-                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1,
-                ERC1167_SUFFIX
+                ERC1167_PREFIX, LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1, ERC1167_SUFFIX
             )
         );
         assertEq(
