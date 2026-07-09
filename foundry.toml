@@ -2,6 +2,13 @@
 # gates it against the latest published `st0x-deploy` revision on every push to
 # main, and auto-bumps + publishes on a real change — so this holds the LAST
 # published version, not a hand-edited target.
+#
+# This soldeer package version is a SEPARATE counter from the deploy-release tag
+# (`LibProdDeployV4.DEPLOY_TAG`): the soldeer version bumps on any published
+# content change; the deploy tag only when an on-chain redeploy moves addresses.
+# They are independent even where the numbers currently coincide — do not
+# conflate them (keying the deploy pins on this version would rename them on
+# every publish and loop the autopublish).
 [package]
 name = "st0x-deploy"
 version = "0.1.3"

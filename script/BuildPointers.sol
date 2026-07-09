@@ -6,6 +6,7 @@ import {Script} from "forge-std-1.16.1/src/Script.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.0/src/lib/LibCodeGen.sol";
 import {LibFs} from "rain-sol-codegen-0.1.0/src/lib/LibFs.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {LibProdDeployV4} from "../src/lib/LibProdDeployV4.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
@@ -44,7 +45,9 @@ contract BuildPointers is Script {
     /// `RUNTIME_CODE` constants.
     /// @param name Must exactly match the contract's Solidity filename (without
     /// `.sol`), as it determines the generated pointer file path under
-    /// `src/generated/`.
+    /// `src/generated/<DEPLOY_TAG>/` — the frozen per-release snapshot selected
+    /// by the current `LibProdDeployV4.DEPLOY_TAG`. Historical tags are never
+    /// regenerated; a release bump writes a new `<tag>/` snapshot beside them.
     /// @param creationCode The creation bytecode of the contract, typically
     /// obtained via `type(ContractName).creationCode`.
     function buildContractPointers(string memory name, bytes memory creationCode) internal {
@@ -53,7 +56,7 @@ contract BuildPointers is Script {
         LibFs.buildFileForContract(
             vm,
             deployed,
-            name,
+            string.concat(LibProdDeployV4.DEPLOY_TAG, "/", name),
             string.concat(
                 addressConstantString(deployed),
                 LibCodeGen.bytesConstantString(

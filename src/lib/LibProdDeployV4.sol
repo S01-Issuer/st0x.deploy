@@ -2,138 +2,206 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 import {
+    DEPLOYED_ADDRESS as STOX_RECEIPT_ADDRESS_0_1_1_GEN,
+    BYTECODE_HASH as STOX_RECEIPT_CODEHASH_0_1_1_GEN,
     CREATION_CODE as STOX_RECEIPT_CREATION_0_1_1_GEN,
     RUNTIME_CODE as STOX_RECEIPT_RUNTIME_0_1_1_GEN
 } from "../generated/0_1_1/StoxReceipt.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_RECEIPT_VAULT_ADDRESS_0_1_1_GEN,
+    BYTECODE_HASH as STOX_RECEIPT_VAULT_CODEHASH_0_1_1_GEN,
     CREATION_CODE as STOX_RECEIPT_VAULT_CREATION_0_1_1_GEN,
     RUNTIME_CODE as STOX_RECEIPT_VAULT_RUNTIME_0_1_1_GEN
 } from "../generated/0_1_1/StoxReceiptVault.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_WRAPPED_TOKEN_VAULT_ADDRESS_0_1_1_GEN,
+    BYTECODE_HASH as STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_1_GEN,
     CREATION_CODE as STOX_WRAPPED_TOKEN_VAULT_CREATION_0_1_1_GEN,
     RUNTIME_CODE as STOX_WRAPPED_TOKEN_VAULT_RUNTIME_0_1_1_GEN
 } from "../generated/0_1_1/StoxWrappedTokenVault.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_UNIFIED_DEPLOYER_ADDRESS_0_1_1_GEN,
+    BYTECODE_HASH as STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_1_GEN,
     CREATION_CODE as STOX_UNIFIED_DEPLOYER_CREATION_0_1_1_GEN,
     RUNTIME_CODE as STOX_UNIFIED_DEPLOYER_RUNTIME_0_1_1_GEN
 } from "../generated/0_1_1/StoxUnifiedDeployer.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_WRAPPED_TOKEN_VAULT_BEACON_ADDRESS_0_1_1_GEN,
+    BYTECODE_HASH as STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_1_GEN,
     CREATION_CODE as STOX_WRAPPED_TOKEN_VAULT_BEACON_CREATION_0_1_1_GEN,
     RUNTIME_CODE as STOX_WRAPPED_TOKEN_VAULT_BEACON_RUNTIME_0_1_1_GEN
 } from "../generated/0_1_1/StoxWrappedTokenVaultBeacon.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_ADDRESS_0_1_1_GEN,
+    BYTECODE_HASH as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1_GEN,
     CREATION_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_0_1_1_GEN,
     RUNTIME_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_0_1_1_GEN
 } from "../generated/0_1_1/StoxOffchainAssetReceiptVaultBeaconSetDeployer.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_ADDRESS_0_1_1_GEN,
+    BYTECODE_HASH as STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1_GEN,
     CREATION_CODE as STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CREATION_0_1_1_GEN,
     RUNTIME_CODE as STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RUNTIME_0_1_1_GEN
 } from "../generated/0_1_1/StoxWrappedTokenVaultBeaconSetDeployer.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_ADDRESS_0_1_1_GEN,
+    BYTECODE_HASH as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_1_GEN,
     CREATION_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CREATION_0_1_1_GEN,
     RUNTIME_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_0_1_1_GEN
 } from "../generated/0_1_1/StoxOffchainAssetReceiptVaultAuthorizerV1.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_ADDRESS_0_1_1_GEN,
+    BYTECODE_HASH as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_1_GEN,
     CREATION_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CREATION_0_1_1_GEN,
     RUNTIME_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_RUNTIME_0_1_1_GEN
 } from "../generated/0_1_1/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_CORPORATE_ACTIONS_FACET_ADDRESS_0_1_1_GEN,
+    BYTECODE_HASH as STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_1_GEN,
     CREATION_CODE as STOX_CORPORATE_ACTIONS_FACET_CREATION_0_1_1_GEN,
     RUNTIME_CODE as STOX_CORPORATE_ACTIONS_FACET_RUNTIME_0_1_1_GEN
 } from "../generated/0_1_1/StoxCorporateActionsFacet.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_RECEIPT_ADDRESS_0_1_2_GEN,
+    BYTECODE_HASH as STOX_RECEIPT_CODEHASH_0_1_2_GEN,
     CREATION_CODE as STOX_RECEIPT_CREATION_0_1_2_GEN,
     RUNTIME_CODE as STOX_RECEIPT_RUNTIME_0_1_2_GEN
 } from "../generated/0_1_2/StoxReceipt.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_RECEIPT_VAULT_ADDRESS_0_1_2_GEN,
+    BYTECODE_HASH as STOX_RECEIPT_VAULT_CODEHASH_0_1_2_GEN,
     CREATION_CODE as STOX_RECEIPT_VAULT_CREATION_0_1_2_GEN,
     RUNTIME_CODE as STOX_RECEIPT_VAULT_RUNTIME_0_1_2_GEN
 } from "../generated/0_1_2/StoxReceiptVault.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_WRAPPED_TOKEN_VAULT_ADDRESS_0_1_2_GEN,
+    BYTECODE_HASH as STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_2_GEN,
     CREATION_CODE as STOX_WRAPPED_TOKEN_VAULT_CREATION_0_1_2_GEN,
     RUNTIME_CODE as STOX_WRAPPED_TOKEN_VAULT_RUNTIME_0_1_2_GEN
 } from "../generated/0_1_2/StoxWrappedTokenVault.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_UNIFIED_DEPLOYER_ADDRESS_0_1_2_GEN,
+    BYTECODE_HASH as STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_2_GEN,
     CREATION_CODE as STOX_UNIFIED_DEPLOYER_CREATION_0_1_2_GEN,
     RUNTIME_CODE as STOX_UNIFIED_DEPLOYER_RUNTIME_0_1_2_GEN
 } from "../generated/0_1_2/StoxUnifiedDeployer.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_WRAPPED_TOKEN_VAULT_BEACON_ADDRESS_0_1_2_GEN,
+    BYTECODE_HASH as STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_2_GEN,
     CREATION_CODE as STOX_WRAPPED_TOKEN_VAULT_BEACON_CREATION_0_1_2_GEN,
     RUNTIME_CODE as STOX_WRAPPED_TOKEN_VAULT_BEACON_RUNTIME_0_1_2_GEN
 } from "../generated/0_1_2/StoxWrappedTokenVaultBeacon.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_ADDRESS_0_1_2_GEN,
+    BYTECODE_HASH as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_2_GEN,
     CREATION_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_0_1_2_GEN,
     RUNTIME_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_0_1_2_GEN
 } from "../generated/0_1_2/StoxOffchainAssetReceiptVaultBeaconSetDeployer.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_ADDRESS_0_1_2_GEN,
+    BYTECODE_HASH as STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_2_GEN,
     CREATION_CODE as STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CREATION_0_1_2_GEN,
     RUNTIME_CODE as STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RUNTIME_0_1_2_GEN
 } from "../generated/0_1_2/StoxWrappedTokenVaultBeaconSetDeployer.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_ADDRESS_0_1_2_GEN,
+    BYTECODE_HASH as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_2_GEN,
     CREATION_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CREATION_0_1_2_GEN,
     RUNTIME_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_0_1_2_GEN
 } from "../generated/0_1_2/StoxOffchainAssetReceiptVaultAuthorizerV1.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_ADDRESS_0_1_2_GEN,
+    BYTECODE_HASH as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_2_GEN,
     CREATION_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CREATION_0_1_2_GEN,
     RUNTIME_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_RUNTIME_0_1_2_GEN
 } from "../generated/0_1_2/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_CORPORATE_ACTIONS_FACET_ADDRESS_0_1_2_GEN,
+    BYTECODE_HASH as STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_2_GEN,
     CREATION_CODE as STOX_CORPORATE_ACTIONS_FACET_CREATION_0_1_2_GEN,
     RUNTIME_CODE as STOX_CORPORATE_ACTIONS_FACET_RUNTIME_0_1_2_GEN
 } from "../generated/0_1_2/StoxCorporateActionsFacet.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as ST0X_ORCHESTRATOR_ADDRESS_0_1_2_GEN,
+    BYTECODE_HASH as ST0X_ORCHESTRATOR_CODEHASH_0_1_2_GEN,
     CREATION_CODE as ST0X_ORCHESTRATOR_CREATION_0_1_2_GEN,
     RUNTIME_CODE as ST0X_ORCHESTRATOR_RUNTIME_0_1_2_GEN
 } from "../generated/0_1_2/ST0xOrchestrator.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_ADDRESS_0_1_2_GEN,
+    BYTECODE_HASH as ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_2_GEN,
     CREATION_CODE as ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_0_1_2_GEN,
     RUNTIME_CODE as ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_0_1_2_GEN
 } from "../generated/0_1_2/ST0xOrchestratorBeaconSetDeployer.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_RECEIPT_ADDRESS_0_1_3_GEN,
+    BYTECODE_HASH as STOX_RECEIPT_CODEHASH_0_1_3_GEN,
     CREATION_CODE as STOX_RECEIPT_CREATION_0_1_3_GEN,
     RUNTIME_CODE as STOX_RECEIPT_RUNTIME_0_1_3_GEN
 } from "../generated/0_1_3/StoxReceipt.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_RECEIPT_VAULT_ADDRESS_0_1_3_GEN,
+    BYTECODE_HASH as STOX_RECEIPT_VAULT_CODEHASH_0_1_3_GEN,
     CREATION_CODE as STOX_RECEIPT_VAULT_CREATION_0_1_3_GEN,
     RUNTIME_CODE as STOX_RECEIPT_VAULT_RUNTIME_0_1_3_GEN
 } from "../generated/0_1_3/StoxReceiptVault.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_WRAPPED_TOKEN_VAULT_ADDRESS_0_1_3_GEN,
+    BYTECODE_HASH as STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_3_GEN,
     CREATION_CODE as STOX_WRAPPED_TOKEN_VAULT_CREATION_0_1_3_GEN,
     RUNTIME_CODE as STOX_WRAPPED_TOKEN_VAULT_RUNTIME_0_1_3_GEN
 } from "../generated/0_1_3/StoxWrappedTokenVault.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_UNIFIED_DEPLOYER_ADDRESS_0_1_3_GEN,
+    BYTECODE_HASH as STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_3_GEN,
     CREATION_CODE as STOX_UNIFIED_DEPLOYER_CREATION_0_1_3_GEN,
     RUNTIME_CODE as STOX_UNIFIED_DEPLOYER_RUNTIME_0_1_3_GEN
 } from "../generated/0_1_3/StoxUnifiedDeployer.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_WRAPPED_TOKEN_VAULT_BEACON_ADDRESS_0_1_3_GEN,
+    BYTECODE_HASH as STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_3_GEN,
     CREATION_CODE as STOX_WRAPPED_TOKEN_VAULT_BEACON_CREATION_0_1_3_GEN,
     RUNTIME_CODE as STOX_WRAPPED_TOKEN_VAULT_BEACON_RUNTIME_0_1_3_GEN
 } from "../generated/0_1_3/StoxWrappedTokenVaultBeacon.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_ADDRESS_0_1_3_GEN,
+    BYTECODE_HASH as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3_GEN,
     CREATION_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_0_1_3_GEN,
     RUNTIME_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_0_1_3_GEN
 } from "../generated/0_1_3/StoxOffchainAssetReceiptVaultBeaconSetDeployer.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_ADDRESS_0_1_3_GEN,
+    BYTECODE_HASH as STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3_GEN,
     CREATION_CODE as STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CREATION_0_1_3_GEN,
     RUNTIME_CODE as STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RUNTIME_0_1_3_GEN
 } from "../generated/0_1_3/StoxWrappedTokenVaultBeaconSetDeployer.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_ADDRESS_0_1_3_GEN,
+    BYTECODE_HASH as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_3_GEN,
     CREATION_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CREATION_0_1_3_GEN,
     RUNTIME_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_0_1_3_GEN
 } from "../generated/0_1_3/StoxOffchainAssetReceiptVaultAuthorizerV1.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_ADDRESS_0_1_3_GEN,
+    BYTECODE_HASH as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_3_GEN,
     CREATION_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CREATION_0_1_3_GEN,
     RUNTIME_CODE as STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_RUNTIME_0_1_3_GEN
 } from "../generated/0_1_3/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as STOX_CORPORATE_ACTIONS_FACET_ADDRESS_0_1_3_GEN,
+    BYTECODE_HASH as STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_3_GEN,
     CREATION_CODE as STOX_CORPORATE_ACTIONS_FACET_CREATION_0_1_3_GEN,
     RUNTIME_CODE as STOX_CORPORATE_ACTIONS_FACET_RUNTIME_0_1_3_GEN
 } from "../generated/0_1_3/StoxCorporateActionsFacet.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as ST0X_ORCHESTRATOR_ADDRESS_0_1_3_GEN,
+    BYTECODE_HASH as ST0X_ORCHESTRATOR_CODEHASH_0_1_3_GEN,
     CREATION_CODE as ST0X_ORCHESTRATOR_CREATION_0_1_3_GEN,
     RUNTIME_CODE as ST0X_ORCHESTRATOR_RUNTIME_0_1_3_GEN
 } from "../generated/0_1_3/ST0xOrchestrator.pointers.sol";
 import {
+    DEPLOYED_ADDRESS as ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_ADDRESS_0_1_3_GEN,
+    BYTECODE_HASH as ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_3_GEN,
     CREATION_CODE as ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_0_1_3_GEN,
     RUNTIME_CODE as ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_0_1_3_GEN
 } from "../generated/0_1_3/ST0xOrchestratorBeaconSetDeployer.pointers.sol";
@@ -151,9 +219,12 @@ import {
 /// **The clone (`STOX_PROD_AUTHORISER_V4_CLONE`) is still `address(0)`** —
 /// it gets hydrated by the V4 authoriser deploy script (sibling PR), which
 /// is the only entry that isn't deterministic at lib-author time. Every
-/// other address + codehash pair is the Zoltu-deterministic value generated
-/// by `script/BuildPointers.sol` against rain.vats 0.1.6 and mirrors the
-/// `DEPLOYED_ADDRESS` constants in `src/generated/*.pointers.sol`.
+/// other address + codehash pair is imported directly from the frozen
+/// per-release snapshot under `src/generated/<tag>/` (its `DEPLOYED_ADDRESS`
+/// and `BYTECODE_HASH`) — the Zoltu-deterministic values generated by
+/// `script/BuildPointers.sol` against rain.vats 0.1.6. The snapshot is the
+/// single source of truth; these constants alias it, never a hand-copied
+/// literal.
 ///
 /// Naming convention: each deployed-contract constant is suffixed with the
 /// **st0x-deploy release tag** it belongs to (`_0_1_1`, `_0_1_2`, `_0_1_3`),
@@ -172,13 +243,15 @@ import {
 /// `supportsInterface` bytecode of the unified deployer, the wrapped-token-vault
 /// beacon-set deployer, and the orchestrator directly — additionally moving the
 /// wrapped-token-vault beacon-set deployer, which the facet cascade does not
-/// reach. Each tag's
-/// creation and runtime bytecode is frozen in a per-tag snapshot under
-/// `src/generated/<tag>/` (imported at the top of this file), so a future
-/// `BuildPointers` run — which rewrites only the top-level `src/generated/`
-/// pointers — cannot drift a released tag's records. A future release adds a
-/// new suffixed set + snapshot rather than overwriting a frozen one. The lib
-/// name itself is generic (`LibProdDeployV4`).
+/// reach. Each tag's address, codehash, creation and runtime bytecode is
+/// frozen in a per-tag snapshot under `src/generated/<tag>/` (imported at the
+/// top of this file), and every constant here aliases those imports — the
+/// snapshot is the sole source of truth. `BuildPointers` regenerates only the
+/// CURRENT `DEPLOY_TAG` snapshot; historical tags are never rewritten. A future
+/// release bumps `DEPLOY_TAG` and adds a new suffixed set + snapshot beside the
+/// frozen ones; a bytecode change with no tag bump leaves the current snapshot
+/// != HEAD, so the `git-clean` regenerate + `git diff` check forces the bump.
+/// The lib name itself is generic (`LibProdDeployV4`).
 ///
 /// The frozen pre-V4 deployments are pinned in `LibProdDeployV1` and
 /// `LibProdDeployV2` as audit trails; active source and scripts reference this
@@ -203,64 +276,59 @@ library LibProdDeployV4 {
     //
     // Each `_0_1_1` pair is the deterministic Zoltu address + runtime codehash
     // for an ST0x contract, built against the audited `rain-vats = "0.1.6"`
-    // dependency (see `foundry.toml`). The addresses match the
-    // `DEPLOYED_ADDRESS` constants in `src/generated/*.pointers.sol` — the
-    // authoritative source generated by `script/BuildPointers.sol`. The
-    // codehashes are `keccak256(RUNTIME_CODE)` from the same pointer files; a
-    // future `BuildPointers` run regenerates them in lockstep with any change
-    // to the source or the rain.vats dependency.
+    // dependency (see `foundry.toml`). Each address aliases the
+    // `DEPLOYED_ADDRESS` and each codehash the `BYTECODE_HASH`
+    // (= `keccak256(RUNTIME_CODE)`) imported from
+    // `src/generated/0_1_1/<Contract>.pointers.sol` — the frozen snapshot
+    // generated by `script/BuildPointers.sol`, the single source of truth.
     // =========================================================================
 
-    address constant STOX_RECEIPT_0_1_1 = address(0x2dF5cFE6d688EF9fF1B7c59A499D254b1527b286);
-    bytes32 constant STOX_RECEIPT_CODEHASH_0_1_1 = 0x06fffbad12ea80897d55aab5d4f1cd3f34f674237db44a148cc133334a0cca54;
+    address constant STOX_RECEIPT_0_1_1 = STOX_RECEIPT_ADDRESS_0_1_1_GEN;
+    bytes32 constant STOX_RECEIPT_CODEHASH_0_1_1 = STOX_RECEIPT_CODEHASH_0_1_1_GEN;
 
-    address constant STOX_RECEIPT_VAULT_0_1_1 = address(0x2BCcEd626566Ef1e65F922DD03748C5C7aa2d748);
-    bytes32 constant STOX_RECEIPT_VAULT_CODEHASH_0_1_1 =
-        0x11da975b8024dd98441bfdf42a68462fa5db9bd4e3af348f05928ef359924671;
+    address constant STOX_RECEIPT_VAULT_0_1_1 = STOX_RECEIPT_VAULT_ADDRESS_0_1_1_GEN;
+    bytes32 constant STOX_RECEIPT_VAULT_CODEHASH_0_1_1 = STOX_RECEIPT_VAULT_CODEHASH_0_1_1_GEN;
 
-    address constant STOX_WRAPPED_TOKEN_VAULT_0_1_1 = address(0x0D99e0174DbF885ceD6AE8dEb939b0F890450099);
-    bytes32 constant STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_1 =
-        0x6de4c556c1811293da4ad2e509ee476f3eb635f019845087e1d2777a1b272034;
+    address constant STOX_WRAPPED_TOKEN_VAULT_0_1_1 = STOX_WRAPPED_TOKEN_VAULT_ADDRESS_0_1_1_GEN;
+    bytes32 constant STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_1 = STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_1_GEN;
 
-    address constant STOX_UNIFIED_DEPLOYER_0_1_1 = address(0x81D0ecD58346bf2d484E7774f55EABc1AA3F4bcc);
-    bytes32 constant STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_1 =
-        0x91035080d8e610cc0657d7f44efa8fbf57ce5800e6a35694d107c05987d24e3f;
+    address constant STOX_UNIFIED_DEPLOYER_0_1_1 = STOX_UNIFIED_DEPLOYER_ADDRESS_0_1_1_GEN;
+    bytes32 constant STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_1 = STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_1_GEN;
 
-    address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1 = address(0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2);
+    address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1 = STOX_WRAPPED_TOKEN_VAULT_BEACON_ADDRESS_0_1_1_GEN;
     bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_1 =
-        0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630;
+        STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_1_GEN;
 
     address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1 =
-        address(0xd64246e6b25F745f005E6233e050C9B879E660Dc);
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_ADDRESS_0_1_1_GEN;
     bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1 =
-        0x621c1edbd850939acba8bcd999812a83999b5680d4ca6804e1995b95f138b9e5;
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1_GEN;
 
     address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1 =
-        address(0xbe5f05C4576e6D3e7bCCb4E64f08fc4F46Adf0cA);
+        STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_ADDRESS_0_1_1_GEN;
     bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1 =
-        0xa2c4bd29f36bc6636938f3ad66e6de5d126ce41ed3134bed166cde259d5775ad;
+        STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1_GEN;
 
     /// @dev The corporate-action-aware authoriser impl. The clone deployed
     /// for the issuer (see `STOX_PROD_AUTHORISER_V4_CLONE` below) points
     /// at this impl via EIP-1167.
     address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1 =
-        address(0x2EA0d35d0B1F57C42e6130f298930228bCbFDe9b);
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_ADDRESS_0_1_1_GEN;
     bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_1 =
-        0xf8a1d9b2fa068bae3c1a607434db48364a5cdab3020bd7e315ed2662a3b35b5f;
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_1_GEN;
 
     address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_0_1_1 =
-        address(0xeaD68E489Cb19453b294dc46a3A5710b0d46d17F);
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_ADDRESS_0_1_1_GEN;
     bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_1 =
-        0x4d94318cde48f1bc20f97e00aefad84bfb7c9db15c81b882862e127b05e06e15;
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_1_GEN;
 
     /// @dev The corporate-actions facet. The receipt vault's `fallback()`
     /// hardcodes this address and delegatecalls every non-matching selector
     /// here, so a facet bytecode change forces a vault impl redeploy too. With
     /// the new rain.vats tag the receipt vault impl is rebuilt, so this facet
     /// is rebuilt in lock-step.
-    address constant STOX_CORPORATE_ACTIONS_FACET_0_1_1 = address(0x51f78B77EdffDB62b8AeB753066C318a46D05D74);
-    bytes32 constant STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_1 =
-        0x2a67c52129dff74d956bb7dcde1aac598c28dd29685237aca56dccb1d49bd6f8;
+    address constant STOX_CORPORATE_ACTIONS_FACET_0_1_1 = STOX_CORPORATE_ACTIONS_FACET_ADDRESS_0_1_1_GEN;
+    bytes32 constant STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_1 = STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_1_GEN;
 
     // =========================================================================
     // st0x-deploy release 0.1.2 (= 0.1.1 + orchestrator).
@@ -270,76 +338,72 @@ library LibProdDeployV4 {
     // ST0x orchestrator and its Zoltu deployer, deployed on Base at the pinned
     // addresses. As with 0.1.1, creation + runtime bytecode is frozen in the
     // per-tag snapshot under `src/generated/0_1_2/` (imported above), so the
-    // pinned records cannot drift when `BuildPointers` regenerates the
-    // top-level `src/generated/` pointers.
+    // pinned records are a frozen historical snapshot; `BuildPointers`
+    // only ever regenerates the current `DEPLOY_TAG` snapshot, never this one.
     // =========================================================================
 
-    address constant STOX_RECEIPT_0_1_2 = address(0x2dF5cFE6d688EF9fF1B7c59A499D254b1527b286);
-    bytes32 constant STOX_RECEIPT_CODEHASH_0_1_2 = 0x06fffbad12ea80897d55aab5d4f1cd3f34f674237db44a148cc133334a0cca54;
+    address constant STOX_RECEIPT_0_1_2 = STOX_RECEIPT_ADDRESS_0_1_2_GEN;
+    bytes32 constant STOX_RECEIPT_CODEHASH_0_1_2 = STOX_RECEIPT_CODEHASH_0_1_2_GEN;
 
-    address constant STOX_RECEIPT_VAULT_0_1_2 = address(0x2BCcEd626566Ef1e65F922DD03748C5C7aa2d748);
-    bytes32 constant STOX_RECEIPT_VAULT_CODEHASH_0_1_2 =
-        0x11da975b8024dd98441bfdf42a68462fa5db9bd4e3af348f05928ef359924671;
+    address constant STOX_RECEIPT_VAULT_0_1_2 = STOX_RECEIPT_VAULT_ADDRESS_0_1_2_GEN;
+    bytes32 constant STOX_RECEIPT_VAULT_CODEHASH_0_1_2 = STOX_RECEIPT_VAULT_CODEHASH_0_1_2_GEN;
 
-    address constant STOX_WRAPPED_TOKEN_VAULT_0_1_2 = address(0x0D99e0174DbF885ceD6AE8dEb939b0F890450099);
-    bytes32 constant STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_2 =
-        0x6de4c556c1811293da4ad2e509ee476f3eb635f019845087e1d2777a1b272034;
+    address constant STOX_WRAPPED_TOKEN_VAULT_0_1_2 = STOX_WRAPPED_TOKEN_VAULT_ADDRESS_0_1_2_GEN;
+    bytes32 constant STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_2 = STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_2_GEN;
 
-    address constant STOX_UNIFIED_DEPLOYER_0_1_2 = address(0x81D0ecD58346bf2d484E7774f55EABc1AA3F4bcc);
-    bytes32 constant STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_2 =
-        0x91035080d8e610cc0657d7f44efa8fbf57ce5800e6a35694d107c05987d24e3f;
+    address constant STOX_UNIFIED_DEPLOYER_0_1_2 = STOX_UNIFIED_DEPLOYER_ADDRESS_0_1_2_GEN;
+    bytes32 constant STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_2 = STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_2_GEN;
 
-    address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_2 = address(0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2);
+    address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_2 = STOX_WRAPPED_TOKEN_VAULT_BEACON_ADDRESS_0_1_2_GEN;
     bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_2 =
-        0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630;
+        STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_2_GEN;
 
     address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_2 =
-        address(0xd64246e6b25F745f005E6233e050C9B879E660Dc);
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_ADDRESS_0_1_2_GEN;
     bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_2 =
-        0x621c1edbd850939acba8bcd999812a83999b5680d4ca6804e1995b95f138b9e5;
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_2_GEN;
 
     address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_2 =
-        address(0xbe5f05C4576e6D3e7bCCb4E64f08fc4F46Adf0cA);
+        STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_ADDRESS_0_1_2_GEN;
     bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_2 =
-        0xa2c4bd29f36bc6636938f3ad66e6de5d126ce41ed3134bed166cde259d5775ad;
+        STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_2_GEN;
 
     /// @dev The corporate-action-aware authoriser impl. The clone deployed
     /// for the issuer (see `STOX_PROD_AUTHORISER_V4_CLONE` below) points
     /// at this impl via EIP-1167.
     address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_2 =
-        address(0x2EA0d35d0B1F57C42e6130f298930228bCbFDe9b);
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_ADDRESS_0_1_2_GEN;
     bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_2 =
-        0xf8a1d9b2fa068bae3c1a607434db48364a5cdab3020bd7e315ed2662a3b35b5f;
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_2_GEN;
 
     address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_0_1_2 =
-        address(0xeaD68E489Cb19453b294dc46a3A5710b0d46d17F);
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_ADDRESS_0_1_2_GEN;
     bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_2 =
-        0x4d94318cde48f1bc20f97e00aefad84bfb7c9db15c81b882862e127b05e06e15;
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_2_GEN;
 
     /// @dev The corporate-actions facet. The receipt vault's `fallback()`
     /// hardcodes this address and delegatecalls every non-matching selector
     /// here, so a facet bytecode change forces a vault impl redeploy too. With
     /// the new rain.vats tag the receipt vault impl is rebuilt, so this facet
     /// is rebuilt in lock-step.
-    address constant STOX_CORPORATE_ACTIONS_FACET_0_1_2 = address(0x51f78B77EdffDB62b8AeB753066C318a46D05D74);
-    bytes32 constant STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_2 =
-        0x2a67c52129dff74d956bb7dcde1aac598c28dd29685237aca56dccb1d49bd6f8;
+    address constant STOX_CORPORATE_ACTIONS_FACET_0_1_2 = STOX_CORPORATE_ACTIONS_FACET_ADDRESS_0_1_2_GEN;
+    bytes32 constant STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_2 = STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_2_GEN;
 
     /// @dev The `ST0xOrchestrator` implementation contract. Parameterless
     /// (Initializable) — deployed once via Zoltu and pointed at by the beacon
     /// inside `ST0xOrchestratorBeaconSetDeployer`. Per-token orchestrators are
     /// `BeaconProxy` clones minted by that beacon deployer.
-    address constant ST0X_ORCHESTRATOR_0_1_2 = address(0x77ab9b240caC5F37a5D4d51651936ea1d61DF1A2);
-    bytes32 constant ST0X_ORCHESTRATOR_CODEHASH_0_1_2 =
-        0xf05134e6b0ac1a88a8ba69eba472e651ee204c60914782543bcf339bcf273b7a;
+    address constant ST0X_ORCHESTRATOR_0_1_2 = ST0X_ORCHESTRATOR_ADDRESS_0_1_2_GEN;
+    bytes32 constant ST0X_ORCHESTRATOR_CODEHASH_0_1_2 = ST0X_ORCHESTRATOR_CODEHASH_0_1_2_GEN;
 
     /// @dev `ST0xOrchestratorBeaconSetDeployer` — the Zoltu-deployable concrete
     /// deployer with `BEACON_INITIAL_OWNER` and the impl above baked in (no
     /// subclass; its logic is local to this repo). Anyone can call
     /// `deploy(owner)` to mint a `BeaconProxy`-cloned singleton orchestrator.
-    address constant ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_2 = address(0xBd81E4B0992E6fA49812e341f917c05f5c97728d);
+    address constant ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_2 =
+        ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_ADDRESS_0_1_2_GEN;
     bytes32 constant ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_2 =
-        0x61d4098eb564665d48f4ca6fefa6396b6ecd3ff9cb72df7760f06e80ca56292b;
+        ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_2_GEN;
 
     // =========================================================================
     // st0x-deploy release 0.1.3 (= 0.1.2 with a rebuilt corporate-actions
@@ -359,51 +423,48 @@ library LibProdDeployV4 {
     // beacon-set deployer, which the facet cascade does not reach. As with the
     // earlier tags, creation + runtime bytecode is frozen
     // in the per-tag snapshot under `src/generated/0_1_3/` (imported above), so
-    // the pinned records cannot drift when `BuildPointers` regenerates the
-    // top-level `src/generated/` pointers.
+    // the pinned records are a frozen historical snapshot; `BuildPointers`
+    // only ever regenerates the current `DEPLOY_TAG` snapshot, never this one.
     // =========================================================================
 
-    address constant STOX_RECEIPT_0_1_3 = address(0x2dF5cFE6d688EF9fF1B7c59A499D254b1527b286);
-    bytes32 constant STOX_RECEIPT_CODEHASH_0_1_3 = 0x06fffbad12ea80897d55aab5d4f1cd3f34f674237db44a148cc133334a0cca54;
+    address constant STOX_RECEIPT_0_1_3 = STOX_RECEIPT_ADDRESS_0_1_3_GEN;
+    bytes32 constant STOX_RECEIPT_CODEHASH_0_1_3 = STOX_RECEIPT_CODEHASH_0_1_3_GEN;
 
-    address constant STOX_RECEIPT_VAULT_0_1_3 = address(0xD7f91c1C6e6e651Ec3F1Fd707aF7CbB7526206e1);
-    bytes32 constant STOX_RECEIPT_VAULT_CODEHASH_0_1_3 =
-        0x22aa77aa9ffec4d290a8cacbcd8444b85761b6a1fb77c3f1b1a73490a7d9f972;
+    address constant STOX_RECEIPT_VAULT_0_1_3 = STOX_RECEIPT_VAULT_ADDRESS_0_1_3_GEN;
+    bytes32 constant STOX_RECEIPT_VAULT_CODEHASH_0_1_3 = STOX_RECEIPT_VAULT_CODEHASH_0_1_3_GEN;
 
-    address constant STOX_WRAPPED_TOKEN_VAULT_0_1_3 = address(0x0D99e0174DbF885ceD6AE8dEb939b0F890450099);
-    bytes32 constant STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_3 =
-        0x6de4c556c1811293da4ad2e509ee476f3eb635f019845087e1d2777a1b272034;
+    address constant STOX_WRAPPED_TOKEN_VAULT_0_1_3 = STOX_WRAPPED_TOKEN_VAULT_ADDRESS_0_1_3_GEN;
+    bytes32 constant STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_3 = STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_3_GEN;
 
-    address constant STOX_UNIFIED_DEPLOYER_0_1_3 = address(0x48E1A9091E89f5500AfC9d42FBB85bE8b4f70203);
-    bytes32 constant STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_3 =
-        0x76b90443c401cb2071b31fbf0596f931e01315c358b9db4e4db998107dc2e62c;
+    address constant STOX_UNIFIED_DEPLOYER_0_1_3 = STOX_UNIFIED_DEPLOYER_ADDRESS_0_1_3_GEN;
+    bytes32 constant STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_3 = STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_3_GEN;
 
-    address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_3 = address(0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2);
+    address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_3 = STOX_WRAPPED_TOKEN_VAULT_BEACON_ADDRESS_0_1_3_GEN;
     bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_3 =
-        0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630;
+        STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_3_GEN;
 
     address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3 =
-        address(0x679ab223dAb158Ea93e1a4F49104DE436C58eAb8);
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_ADDRESS_0_1_3_GEN;
     bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3 =
-        0x4637b099fe9279a8d4d88d9176ccadf92b20970eaf0b57b51997756d479ef43b;
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3_GEN;
 
     address constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3 =
-        address(0x6B4232f1046F1f1bb99a1184D886bBaF3Cd7e15A);
+        STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_ADDRESS_0_1_3_GEN;
     bytes32 constant STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3 =
-        0x940e3ab4278cf7ae44026596f4f32dc5c7f3facd99ef8070c63b5cfefd49a47c;
+        STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3_GEN;
 
     /// @dev The corporate-action-aware authoriser impl. The clone deployed
     /// for the issuer (see `STOX_PROD_AUTHORISER_V4_CLONE` below) points
     /// at this impl via EIP-1167.
     address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_3 =
-        address(0x2EA0d35d0B1F57C42e6130f298930228bCbFDe9b);
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_ADDRESS_0_1_3_GEN;
     bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_3 =
-        0xf8a1d9b2fa068bae3c1a607434db48364a5cdab3020bd7e315ed2662a3b35b5f;
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_3_GEN;
 
     address constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_0_1_3 =
-        address(0xeaD68E489Cb19453b294dc46a3A5710b0d46d17F);
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_ADDRESS_0_1_3_GEN;
     bytes32 constant STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_3 =
-        0x4d94318cde48f1bc20f97e00aefad84bfb7c9db15c81b882862e127b05e06e15;
+        STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_3_GEN;
 
     /// @dev The corporate-actions facet, rebuilt for the 0.1.3 release with the
     /// cumulative-multiplier corporate-actions change. Its source changed, so
@@ -413,25 +474,24 @@ library LibProdDeployV4 {
     /// downstream address, so five more contracts move with it (the receipt
     /// vault, the OARV beacon-set deployer, the unified deployer, the
     /// orchestrator, and the orchestrator beacon-set deployer).
-    address constant STOX_CORPORATE_ACTIONS_FACET_0_1_3 = address(0xB7e24412126ad6A2Ce19cbd79FD11B68e7F30cf6);
-    bytes32 constant STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_3 =
-        0xd91520075de1eb2e8fdf042fde3475ee89feb3942306e5d6d5c710273fefc080;
+    address constant STOX_CORPORATE_ACTIONS_FACET_0_1_3 = STOX_CORPORATE_ACTIONS_FACET_ADDRESS_0_1_3_GEN;
+    bytes32 constant STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_3 = STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_3_GEN;
 
     /// @dev The `ST0xOrchestrator` implementation contract. Parameterless
     /// (Initializable) — deployed once via Zoltu and pointed at by the beacon
     /// inside `ST0xOrchestratorBeaconSetDeployer`. Per-token orchestrators are
     /// `BeaconProxy` clones minted by that beacon deployer.
-    address constant ST0X_ORCHESTRATOR_0_1_3 = address(0x0099FcB947Cc31E21C631478A2a9E2E591cd4010);
-    bytes32 constant ST0X_ORCHESTRATOR_CODEHASH_0_1_3 =
-        0x7537448e8cbb200d25651a941a39e465e2ef7a549fe8245d83774bef485629e6;
+    address constant ST0X_ORCHESTRATOR_0_1_3 = ST0X_ORCHESTRATOR_ADDRESS_0_1_3_GEN;
+    bytes32 constant ST0X_ORCHESTRATOR_CODEHASH_0_1_3 = ST0X_ORCHESTRATOR_CODEHASH_0_1_3_GEN;
 
     /// @dev `ST0xOrchestratorBeaconSetDeployer` — the Zoltu-deployable concrete
     /// deployer with `BEACON_INITIAL_OWNER` and the impl above baked in (no
     /// subclass; its logic is local to this repo). Anyone can call
     /// `deploy(owner)` to mint a `BeaconProxy`-cloned singleton orchestrator.
-    address constant ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_3 = address(0xBff92564aeffe44C85A9153B9f2dB13e47A22435);
+    address constant ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_3 =
+        ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_ADDRESS_0_1_3_GEN;
     bytes32 constant ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_3 =
-        0x2149474f3f4539b44296101ca3ffafb1ebd7f212b90b5fc9d8d28a4d010ca4eb;
+        ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_3_GEN;
 
     /// @notice The V4 production authoriser clone — an EIP-1167 minimal
     /// proxy of the offchain-asset-receipt-vault authoriser implementation
