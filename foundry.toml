@@ -30,6 +30,9 @@ cbor_metadata = false
 
 fs_permissions = [
   { access = "read-write", path = "src/generated" },
+  # `BuildPointers` reads the canonical release version from `[package].version`
+  # here to name the `src/generated/<tag>/` snapshot and generate the deploy tag.
+  { access = "read", path = "foundry.toml" },
   # `out` is needed by the RAI-296 multisig migration script and its tests:
   # the script writes the Safe Tx Builder JSON artifact under `out/`, and
   # the LibSafeOps round-trip tests round-trip the JSON through disk.

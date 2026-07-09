@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {LibProdDeployV4} from "../../../src/lib/LibProdDeployV4.sol";
+import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
 import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../../src/concrete/StoxWrappedTokenVault.sol";
@@ -210,7 +211,7 @@ contract LibProdDeployV4Test is Test {
     /// The deploy tag string is encoded into every current-release
     /// deployed-contract constant name, so it must match the `_0_1_3` suffix.
     function testDeployTag() external pure {
-        assertEq(LibProdDeployV4.DEPLOY_TAG, "0_1_3");
+        assertEq(LibProdDeployCurrent.DEPLOY_TAG, "0_1_3");
     }
 
     /// The V4 authoriser clone is a non-deterministic deploy target and is

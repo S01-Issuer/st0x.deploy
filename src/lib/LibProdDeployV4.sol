@@ -232,7 +232,7 @@ import {
 /// the contract's own source AND its dependency tree, so an st0x-only source
 /// change moves addresses with no rain.vats bump — keying the suffix on the
 /// dependency alone was both incomplete and misleading. Each release is a
-/// suffixed constant set that `DEPLOY_TAG` selects; `0_1_3` is the `0_1_2` set
+/// suffixed constant set per release; `0_1_3` is the `0_1_2` set
 /// with seven contracts rebuilt (new address + codehash) and five byte-identical
 /// 0.1.2 twins. Two source changes drive the rebuilds. The corporate-actions
 /// facet changed at the source for the cumulative-multiplier change; the receipt
@@ -247,8 +247,9 @@ import {
 /// frozen in a per-tag snapshot under `src/generated/<tag>/` (imported at the
 /// top of this file), and every constant here aliases those imports — the
 /// snapshot is the sole source of truth. `BuildPointers` regenerates only the
-/// CURRENT `DEPLOY_TAG` snapshot; historical tags are never rewritten. A future
-/// release bumps `DEPLOY_TAG` and adds a new suffixed set + snapshot beside the
+/// current release's snapshot (the canonical `foundry.toml` version); historical
+/// tags are never rewritten. A future release bumps that version and adds a new
+/// suffixed set + snapshot beside the
 /// frozen ones; a bytecode change with no tag bump leaves the current snapshot
 /// != HEAD, so the `git-clean` regenerate + `git diff` check forces the bump.
 /// The lib name itself is generic (`LibProdDeployV4`).
@@ -257,14 +258,6 @@ import {
 /// `LibProdDeployV2` as audit trails; active source and scripts reference this
 /// (latest) lib.
 library LibProdDeployV4 {
-    /// @notice The current st0x-deploy release tag these constants pin.
-    /// Encoded in every deployed-contract constant name (e.g.
-    /// `STOX_RECEIPT_0_1_3`) so a future release produces a new constant set
-    /// alongside this one rather than silently overwriting it.
-    /// @dev String constant, present only as a written reminder — Solidity has
-    /// no preprocessor so future renames must be done by hand in the source.
-    string constant DEPLOY_TAG = "0_1_3";
-
     /// @notice The beacon initial owner. Resolves to rainlang.eth. Unchanged
     /// across V1 / V2 / V3 / V4; this is the EOA that receives ownership at
     /// deploy time and is migrated to the ST0x token-owner Safe by
@@ -339,7 +332,7 @@ library LibProdDeployV4 {
     // addresses. As with 0.1.1, creation + runtime bytecode is frozen in the
     // per-tag snapshot under `src/generated/0_1_2/` (imported above), so the
     // pinned records are a frozen historical snapshot; `BuildPointers`
-    // only ever regenerates the current `DEPLOY_TAG` snapshot, never this one.
+    // only ever regenerates the current release's snapshot, never this one.
     // =========================================================================
 
     address constant STOX_RECEIPT_0_1_2 = STOX_RECEIPT_ADDRESS_0_1_2_GEN;
@@ -424,7 +417,7 @@ library LibProdDeployV4 {
     // earlier tags, creation + runtime bytecode is frozen
     // in the per-tag snapshot under `src/generated/0_1_3/` (imported above), so
     // the pinned records are a frozen historical snapshot; `BuildPointers`
-    // only ever regenerates the current `DEPLOY_TAG` snapshot, never this one.
+    // only ever regenerates the current release's snapshot, never this one.
     // =========================================================================
 
     address constant STOX_RECEIPT_0_1_3 = STOX_RECEIPT_ADDRESS_0_1_3_GEN;
