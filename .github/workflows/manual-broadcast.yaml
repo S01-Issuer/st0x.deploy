@@ -38,6 +38,11 @@ jobs:
   broadcast:
     name: Broadcast operational script
     runs-on: ubuntu-latest
+    # Least-privilege: the job only checks out the repo and runs forge; the
+    # on-chain broadcast authenticates via `secrets.PRIVATE_KEY`, so the
+    # ambient GITHUB_TOKEN needs nothing beyond read.
+    permissions:
+      contents: read
     # Serialise dispatches of the same script so overlapping runs don't
     # race on the same nonce / pre-flight state.
     concurrency:
