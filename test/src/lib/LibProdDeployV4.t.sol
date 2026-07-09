@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1167Proxy.sol";
 import {LibProdDeployV4} from "../../../src/lib/LibProdDeployV4.sol";
 import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
@@ -358,9 +359,9 @@ contract LibProdDeployV4Test is Test {
     function testAuthoriserV4CloneCodehashMatchesImplDerivation() external pure {
         bytes32 derived = keccak256(
             abi.encodePacked(
-                hex"363d3d373d3d3d363d73",
+                ERC1167_PREFIX,
                 LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RAIN_VATS_0_1_6,
-                hex"5af43d82803e903d91602b57fd5bf3"
+                ERC1167_SUFFIX
             )
         );
         assertEq(
