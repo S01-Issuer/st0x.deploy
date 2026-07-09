@@ -7,6 +7,7 @@ import {VmSafe} from "forge-std-1.16.1/src/Vm.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {LibCloneFactoryDeploy} from "rain-factory-0.1.1/src/lib/LibCloneFactoryDeploy.sol";
+import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1167Proxy.sol";
 
 import {ICloneableFactoryV2} from "rain-factory-0.1.1/src/interface/ICloneableFactoryV2.sol";
 import {
@@ -20,7 +21,8 @@ import {
     CloneFactoryNotDeployed,
     CloneFactoryCodehashMismatch,
     DeployerStillHoldsAdminRole,
-    ExpectedGrantMissing
+    ExpectedGrantMissing,
+    CloneCodehashMismatch
 } from "../../script/20260619-deploy-v4-authoriser-clone.s.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
@@ -182,5 +184,167 @@ contract DeployV4AuthoriserCloneTest is Test {
         vm.expectRevert(abi.encodeWithSelector(CloneFactoryCodehashMismatch.selector, cloneFactory, expected, actual));
         vm.prank(deployer, deployer);
         script.run();
+    }
+
+    /// @notice Deploy + configure a clone under `deployer`, optionally
+    /// perturbing exactly one step so a specific `_assertPostState`
+    /// guard is the one that trips. With all skips disabled this
+    /// produces the same correct clone the happy path builds.
+    /// @param skipRenounce When true, step 4 is skipped so `deployer`
+    /// retains every auto-granted admin role.
+    /// @param skipMirrorIndex An `expectedGrants()` index (in
+    /// `[MIRROR_START..]`) whose operational grant is skipped, or
+    /// `type(uint256).max` to mirror all six.
+    /// @param skipAdminIndex An `autoGrantedAdminRoles()` index whose
+    /// grant-to-Safe is skipped, or `type(uint256).max` to grant all
+    /// seven.
+    /// @return clone The freshly-configured (possibly perturbed) clone.
+    function _deployAndConfigure(bool skipRenounce, uint256 skipMirrorIndex, uint256 skipAdminIndex)
+        internal
+        returns (address clone)
+    {
+        bytes memory initData = abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: deployer}));
+        vm.prank(deployer, deployer);
+        clone = ICloneableFactoryV2(cloneFactory).clone(v4Impl, initData);
+
+        IAccessControl acl = IAccessControl(clone);
+        RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
+        bytes32[7] memory adminRoles = _autoGrantedAdminRoles();
+
+        // Step 2: mirror the operational grants (indices 5..).
+        for (uint256 i = 5; i < allGrants.length; i++) {
+            if (i == skipMirrorIndex) continue;
+            vm.prank(deployer, deployer);
+            acl.grantRole(allGrants[i].role, allGrants[i].grantee);
+        }
+
+        // Step 3: grant each auto-granted admin role to the Safe.
+        for (uint256 i = 0; i < adminRoles.length; i++) {
+            if (i == skipAdminIndex) continue;
+            vm.prank(deployer, deployer);
+            acl.grantRole(adminRoles[i], safe);
+        }
+
+        // Step 4: renounce each auto-granted admin role from the deployer.
+        if (!skipRenounce) {
+            for (uint256 i = 0; i < adminRoles.length; i++) {
+                vm.prank(deployer, deployer);
+                acl.renounceRole(adminRoles[i], deployer);
+            }
+        }
+    }
+
+    /// @notice `_assertPostState` reverts `DeployerStillHoldsAdminRole`
+    /// when step 4's renounce is skipped and the deployer keeps its
+    /// auto-granted admin roles. Proves the de-privilege guard fires.
+    function testAssertPostStateRejectsDeployerRetainingAdmin() external {
+        selectBaseFork();
+        address clone = _deployAndConfigure(true, type(uint256).max, type(uint256).max);
+        bytes32 certifyAdmin = _autoGrantedAdminRoles()[0];
+        vm.expectRevert(abi.encodeWithSelector(DeployerStillHoldsAdminRole.selector, certifyAdmin, deployer));
+        harness.callAssertPostState(clone, deployer, v4Impl);
+    }
+
+    /// @notice `_assertPostState` reverts `ExpectedGrantMissing` when an
+    /// operational grant from `expectedGrants()` is absent. Proves the
+    /// expected-grants sweep fires.
+    function testAssertPostStateRejectsMissingOperationalGrant() external {
+        selectBaseFork();
+        RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
+        uint256 skipped = 5;
+        address clone = _deployAndConfigure(false, skipped, type(uint256).max);
+        vm.expectRevert(
+            abi.encodeWithSelector(ExpectedGrantMissing.selector, allGrants[skipped].role, allGrants[skipped].grantee)
+        );
+        harness.callAssertPostState(clone, deployer, v4Impl);
+    }
+
+    /// @notice `_assertPostState` reverts `ExpectedGrantMissing` when the
+    /// Safe is missing an auto-granted admin role. Skips a corporate-
+    /// action admin specifically — those two are NOT in `expectedGrants()`,
+    /// so only the dedicated "Safe holds every admin role" sweep can catch
+    /// this. Proves that sweep fires.
+    function testAssertPostStateRejectsSafeMissingAdminRole() external {
+        selectBaseFork();
+        bytes32[7] memory adminRoles = _autoGrantedAdminRoles();
+        // Index 5 = SCHEDULE_CORPORATE_ACTION_ADMIN (V4-override only).
+        uint256 skippedAdmin = 5;
+        address clone = _deployAndConfigure(false, type(uint256).max, skippedAdmin);
+        vm.expectRevert(abi.encodeWithSelector(ExpectedGrantMissing.selector, adminRoles[skippedAdmin], safe));
+        harness.callAssertPostState(clone, deployer, v4Impl);
+    }
+
+    /// @notice `_assertPostState` reverts `CloneCodehashMismatch` when the
+    /// clone is an EIP-1167 proxy of an impl OTHER than the pinned V4 impl.
+    /// Proves the codehash guard fires — the check that whatever lands at
+    /// the clone address is exactly the audited V4 impl's proxy.
+    function testAssertPostStateRejectsNonMatchingCloneCodehash() external {
+        selectBaseFork();
+        // A second address carrying the same runtime but at a different
+        // location; a clone of it embeds that address, so its EIP-1167
+        // codehash differs from the one derived from the pinned V4 impl.
+        address wrongImpl = makeAddr("wrongImpl");
+        vm.etch(wrongImpl, v4ImplRuntime);
+        bytes memory initData = abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: deployer}));
+        vm.prank(deployer, deployer);
+        address badClone = ICloneableFactoryV2(cloneFactory).clone(wrongImpl, initData);
+
+        bytes32 expected = keccak256(abi.encodePacked(ERC1167_PREFIX, v4Impl, ERC1167_SUFFIX));
+        bytes32 actual = badClone.codehash;
+        assertTrue(actual != expected, "test setup: wrong-impl clone codehash unexpectedly matched");
+
+        vm.expectRevert(abi.encodeWithSelector(CloneCodehashMismatch.selector, badClone, expected, actual));
+        harness.callAssertPostState(badClone, deployer, v4Impl);
+    }
+
+    /// @notice The impl's `initialize` auto-grants EXACTLY the seven
+    /// `_ADMIN` roles the script's `autoGrantedAdminRoles()` hand-list
+    /// enumerates to `initialAdmin`, and — critically — does NOT grant
+    /// `DEFAULT_ADMIN_ROLE`. If the impl granted an admin role outside the
+    /// hand-list (or the OZ root), the script's step-3 transfer + step-4
+    /// renounce would silently miss it and the deployer would keep
+    /// privilege the post-state check never inspects. Pins the hand-list
+    /// to the real impl rather than to itself.
+    function testInitAutoGrantsExactlyTheSevenAdminRolesToInitialAdmin() external {
+        selectBaseFork();
+        address initialAdmin = makeAddr("someInitialAdmin");
+        bytes memory initData =
+            abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: initialAdmin}));
+        vm.prank(deployer, deployer);
+        address clone = ICloneableFactoryV2(cloneFactory).clone(v4Impl, initData);
+
+        IAccessControl acl = IAccessControl(clone);
+        bytes32[7] memory adminRoles = _autoGrantedAdminRoles();
+        for (uint256 i = 0; i < adminRoles.length; i++) {
+            assertTrue(acl.hasRole(adminRoles[i], initialAdmin), "impl did not auto-grant an expected admin role");
+        }
+        // `bytes32(0)` is OZ's DEFAULT_ADMIN_ROLE — the root that admins
+        // every other role. `initialAdmin` must NOT hold it, else the
+        // seven-role renounce leaves the deployer with root regardless.
+        assertFalse(acl.hasRole(bytes32(0), initialAdmin), "initialAdmin unexpectedly holds DEFAULT_ADMIN_ROLE");
+    }
+
+    /// @notice The script's own slice constants and admin-role list agree
+    /// with (a) the invariant map length and (b) the replica list the
+    /// happy path drives the sequence with — so a drift in either the
+    /// script's constants or the invariant map is caught here rather than
+    /// silently diverging from the hand-replicated happy path.
+    function testScriptConstantsMatchInvariantMapAndReplica() external {
+        selectBaseFork();
+        RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
+        assertEq(harness.mirrorStartIndex(), 5, "MIRROR_START_INDEX drifted from the happy-path replica");
+        assertEq(harness.mirrorCount(), 6, "MIRROR_COUNT drifted from the happy-path replica");
+        assertEq(
+            harness.mirrorStartIndex() + harness.mirrorCount(),
+            allGrants.length,
+            "slice constants do not cover the invariant map exactly"
+        );
+        bytes32[7] memory scriptRoles = harness.autoGrantedAdminRolesExternal();
+        bytes32[7] memory replicaRoles = _autoGrantedAdminRoles();
+        for (uint256 i = 0; i < scriptRoles.length; i++) {
+            assertEq(scriptRoles[i], replicaRoles[i], "script admin-role list drifted from the test replica");
+        }
+        // The live invariant map satisfies the script's own slice guard.
+        harness.callAssertGrantsSliceInvariant();
     }
 }

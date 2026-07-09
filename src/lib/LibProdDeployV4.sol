@@ -440,13 +440,16 @@ library LibProdDeployV4 {
     /// `LibAuthoriserInvariants.STOX_PROD_AUTHORISER`.
     ///
     /// **PLACEHOLDER** (`address(0)` literal) until the clone is deployed
-    /// against the V4 impl as a one-off ops step (initialised with the
-    /// ST0x token-owner Safe as `initialAdmin`, then the non-admin grants
-    /// from `LibAuthoriserInvariants.expectedGrants()` are mirrored onto
-    /// it). The clone's address is not deterministic ahead of time (Rain
-    /// `CloneFactory` uses non-deterministic `Clones.clone`); the
-    /// post-deploy edit hand-writes the real literal in place of
-    /// `address(0)` here.
+    /// against the V4 impl as a one-off ops step. The broadcast script
+    /// `20260619-deploy-v4-authoriser-clone.s.sol` initialises the clone
+    /// with the deploy key as `initialAdmin` (so the auto-granted `_ADMIN`
+    /// roles land on the deploy key), mirrors the non-admin grants from
+    /// `LibAuthoriserInvariants.expectedGrants()`, grants every auto-granted
+    /// `_ADMIN` role to the ST0x token-owner Safe, then renounces them from
+    /// the deploy key — leaving the Safe as sole admin. The clone's address
+    /// is not deterministic ahead of time (Rain `CloneFactory` uses
+    /// non-deterministic `Clones.clone`); the post-deploy edit hand-writes
+    /// the real literal in place of `address(0)` here.
     ///
     /// Lives in this lib (the deploy artifacts pin) rather than in
     /// `LibAuthoriserInvariants` because it's a deploy target, not a

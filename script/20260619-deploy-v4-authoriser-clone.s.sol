@@ -60,10 +60,6 @@ error ExpectedGrantMissing(bytes32 role, address grantee);
 /// designed to close.
 error DeployerStillHoldsAdminRole(bytes32 role, address deployer);
 
-/// @notice The `NewClone` event was not emitted by the CloneFactory during
-/// the deploy. Cannot recover the clone address from the receipt.
-error NewCloneEventMissing();
-
 /// @notice `MIRROR_START_INDEX` is out of range for the
 /// `LibAuthoriserInvariants.expectedGrants()` array. The hand-maintained
 /// slice constants have drifted from the invariant lib.
