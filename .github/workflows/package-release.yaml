@@ -23,8 +23,11 @@ jobs:
       # snapshot and regenerates the deploy libs from all snapshots in one run.
       # The reusable runs this inside its own pinned rainix sol-shell, so the
       # command is bare (no nested `nix develop`, which would also reintroduce a
-      # rate-limited unpinned `github:rainlanguage/rainix#` flake ref).
-      soldeer-generate-cmd: forge script ./script/BuildPointers.sol
+      # rate-limited unpinned `github:rainlanguage/rainix#` flake ref). BuildPointers
+      # emits unindented Solidity, so `forge fmt` normalizes it — matching the
+      # `git-clean` workflow's regenerate-then-format check, so the born-green bump
+      # commit stays clean.
+      soldeer-generate-cmd: forge script ./script/BuildPointers.sol && forge fmt
     # Secrets are passed explicitly (not `inherit`), mirroring this repo's other
     # cross-org rainix callers (e.g. rainix-sol.yaml). Only SOLDEER_API_TOKEN is
     # required for the publish; the rest are optional and fall back cleanly when
