@@ -13,12 +13,20 @@ on:
           # bundle to verify what landed on-chain.
           #
           # Each entry is the date-prefixed filename (without `.s.sol`) of a
-          # script under `script/`. Convention: `YYYYMMDD-<kebab-name>`,
-          # where the date is the day the script was added to this dropdown.
-          # Execution status (PENDING / EXECUTED + SafeTxHash) lives in the
-          # script's file-level NatSpec — this dropdown is a registry of
-          # *which* scripts exist, not *whether* they've run.
+          # Safe Tx Builder JSON emitting script under `script/`. Convention:
+          # `YYYYMMDD-<kebab-name>`, where the date is the day the script was
+          # added to this dropdown. Execution status (PENDING / EXECUTED +
+          # SafeTxHash) lives in the script's file-level NatSpec — this
+          # dropdown is a registry of *which* scripts exist, not *whether*
+          # they've run.
+          #
+          # Broadcast scripts (dispatched with `--broadcast` from the CI
+          # deploy key) live in `manual-broadcast.yaml` instead. The
+          # `20260619-deploy-v4-authoriser-clone` entry stays listed here
+          # too, but dispatching via run-script.yaml is DRY-RUN ONLY (no
+          # `--broadcast`) — useful as a pre-flight smoke test.
           - 20260619-deploy-v4-authoriser-clone
+          - 20260623-upgrade-receipt-vaults-to-v4
       sig:
         description: 'Entrypoint to dispatch (default: run())'
         required: true
@@ -34,7 +42,6 @@ on:
           # JSON path argument this dispatcher can't supply and runs off-chain
           # on the signer's machine, not in CI.
           - 'run()'
-          - 'mirrorGrants()'
 # Manually dispatches an operational script from `script/` and uploads any
 # JSON it writes to `out/` as a build artifact.
 #

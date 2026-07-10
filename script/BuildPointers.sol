@@ -323,7 +323,12 @@ contract BuildPointers is Script {
         vm.writeLine(GEN_V4_PATH, "library LibProdDeployV4 {");
         vm.writeLine(GEN_V4_PATH, string.concat("address constant BEACON_INITIAL_OWNER = address(", GEN_OWNER, ");"));
         vm.writeLine(GEN_V4_PATH, "address constant STOX_PROD_AUTHORISER_V4_CLONE = address(0);");
-        vm.writeLine(GEN_V4_PATH, "bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH = bytes32(0);");
+        vm.writeLine(
+            GEN_V4_PATH,
+            "bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH ="
+            " 0x2089950d3cc1112dd66a58adcfadeadc490b50053ac67be8bc676b4a2dcd1717;"
+        );
+        vm.writeLine(GEN_V4_PATH, "uint256 constant V4_SWAP_DEADLINE = 1_793_491_200;");
         for (uint256 t = 0; t < tags.length; t++) {
             for (uint256 c = 0; c < 12; c++) {
                 if (pointerExists(tags[t], names[c])) {

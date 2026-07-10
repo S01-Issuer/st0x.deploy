@@ -1,0 +1,76 @@
+name: manual-broadcast
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: 'Broadcast script to dispatch (broadcasts as the CI deploy key)'
+        required: true
+        type: choice
+        options:
+          # Append-only registry: add new entries at the bottom; never reorder
+          # or delete. Re-dispatching a historical (executed) script must
+          # remain possible — a signer/auditor may want to re-run its
+          # pre-flight against on-chain reality to confirm what landed.
+          #
+          # Each entry is the date-prefixed filename (without `.s.sol`) of a
+          # broadcast script under `script/`. Convention:
+          # `YYYYMMDD-<kebab-name>`, where the date is the day the script was
+          # added to this dropdown. Execution status (PENDING / EXECUTED)
+          # lives in the script's file-level NatSpec — this dropdown is a
+          # registry of *which* scripts exist, not *whether* they've run.
+          - 20260619-deploy-v4-authoriser-clone
+# Dispatches an operational broadcast script from `script/` and sends the
+# resulting transactions from the CI deploy key (`secrets.PRIVATE_KEY`,
+# the same secret `manual-sol-artifacts.yaml` uses for Zoltu impl deploys).
+#
+# When to use this dispatcher vs. run-script.yaml:
+# - `run-script.yaml` is for scripts that emit off-chain artifacts
+#   (Safe Tx Builder JSON) for a Safe multisig to sign later. Runs
+#   without `--broadcast`.
+# - THIS workflow is for scripts that broadcast on-chain directly from
+#   the deploy key — same key that runs `manual-sol-artifacts.yaml` for
+#   impl deploys. Runs with `--broadcast`.
+#
+# The `slow` flag makes forge wait for each tx to confirm before sending
+# the next; without it a script that lands a sequence of dependent txs
+# (e.g. deploy → grantRole using the deploy) can race the nonce.
+jobs:
+  broadcast:
+    name: Broadcast operational script
+    runs-on: ubuntu-latest
+    # Least-privilege: the job only checks out the repo and runs forge; the
+    # on-chain broadcast authenticates via `secrets.PRIVATE_KEY`, so the
+    # ambient GITHUB_TOKEN needs nothing beyond read.
+    permissions:
+      contents: read
+    # Serialise dispatches of the same script so overlapping runs don't
+    # race on the same nonce / pre-flight state.
+    concurrency:
+      group: manual-broadcast-${{ inputs.script }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@21a544727d0c62386e78b4befe52d19ad12692e3 # v17
+      - name: Install Soldeer dependencies
+        run: nix develop --command forge soldeer install
+      - name: Broadcast script
+        env:
+          BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
+          # Pass the choice input via env rather than template-expanding it
+          # into the command, so the dispatched script name is used as a
+          # literal argument and cannot inject shell.
+          SCRIPT: ${{ inputs.script }}
+          # PRIVATE_KEY is only available inside this step — matching
+          # `manual-sol-artifacts.yaml`. The workflow file itself does not
+          # persist it anywhere else.
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+        run: |
+          nix develop --command forge script "script/${SCRIPT}.s.sol" \
+            --sig 'run()' \
+            --rpc-url base \
+            --no-storage-caching \
+            --slow \
+            --broadcast \
+            --private-key "${PRIVATE_KEY}"
