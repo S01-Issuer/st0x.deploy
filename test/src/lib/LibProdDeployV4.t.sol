@@ -36,11 +36,13 @@ import {ST0xOrchestratorBeaconSetDeployer} from "../../../src/concrete/deploy/ST
 /// `BuildPointers.sol` against rain.vats 0.1.6, so the coverage checks that
 /// snapshot is real and self-consistent:
 ///
-/// 1. **Zoltu deploy** (`testDeployAddress*`, `testFrozenRedeploy*`) — deploy
-///    the fresh-compiled creation code through the Zoltu factory and assert the
+/// 1. **Zoltu deploy** — deploy through the Zoltu factory and assert the
 ///    deterministic address + runtime codehash equal the pins. Self-contained
-///    (no live fork): proves the pins match what the current source compiles +
-///    deploys to.
+///    (no live fork). `testDeployAddress*` deploys the fresh-compiled creation
+///    code (proving the pins match what the current source compiles to);
+///    `testFrozenRedeploy*` redeploys the tag's frozen snapshot `CREATION_CODE`
+///    (proving a released tag's record stays reproducible after the current
+///    build diverges).
 /// 2. **Tagged codehash consistency** (`testTaggedRuntimeHashesToCodehash`) —
 ///    per tag, `keccak256(RUNTIME_CODE_<tag>) == CODEHASH_<tag>`.
 /// 3. **Twin equality** (`testRelease*TwinsEqual*`) — a contract unchanged
@@ -210,7 +212,8 @@ contract LibProdDeployV4Test is Test {
     }
 
     /// The deploy tag string is encoded into every current-release
-    /// deployed-contract constant name, so it must match the `_0_1_3` suffix.
+    /// deployed-contract constant name, so it must match the canonical
+    /// `foundry.toml` version (read dynamically below, not hardcoded).
     function testDeployTag() external {
         // The generated tag must equal the canonical `foundry.toml` version
         // (the next-version slot), with dots as underscores. Read it rather than
