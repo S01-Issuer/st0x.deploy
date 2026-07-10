@@ -10,7 +10,7 @@ import {IAuthorizableV1} from "rain-vats-0.1.6/src/interface/IAuthorizableV1.sol
 
 import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
-import {LibProdDeployV4} from "../../src/lib/LibProdDeployV4.sol";
+import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";

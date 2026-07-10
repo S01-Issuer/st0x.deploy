@@ -9,7 +9,7 @@ import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensio
 
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {LibProdDeployV1} from "../../../../src/lib/LibProdDeployV1.sol";
-import {LibProdDeployV4} from "../../../../src/lib/LibProdDeployV4.sol";
+import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibTokenInvariants} from "../../../../src/lib/LibTokenInvariants.sol";

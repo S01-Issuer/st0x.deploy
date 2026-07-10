@@ -14,7 +14,7 @@ import {
 
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
-import {LibProdDeployV4} from "../src/lib/LibProdDeployV4.sol";
+import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 
 /// @notice The V4 authoriser impl at

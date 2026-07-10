@@ -17,7 +17,7 @@ import {OffchainAssetReceiptVault} from "rain-vats-0.1.6/src/concrete/vault/Offc
 import {IReceiptV3} from "rain-vats-0.1.6/src/interface/IReceiptV3.sol";
 import {ReceiptVault} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
 
-import {LibProdDeployV4} from "../lib/LibProdDeployV4.sol";
+import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
 import {IST0xVaultBeaconSet} from "../interface/IST0xVaultBeaconSet.sol";
 import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../interface/IST0xOrchestratorV1.sol";
@@ -54,7 +54,7 @@ import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../interface/IST0xOrchest
 /// the exact behaviour of the current receipt-vault implementation that
 /// `initialize` and `mint`/`burn` refuse to run unless the production vault +
 /// receipt beacons still point at the implementations this orchestrator was
-/// built against (`LibProdDeployV4`). If the vault is upgraded, the
+/// built against (`LibProdDeployCurrent`). If the vault is upgraded, the
 /// orchestrator halts until its own implementation is upgraded in lockstep.
 /// This mirrors the vault baking the corporate-actions facet address into its
 /// own bytecode.
@@ -132,7 +132,7 @@ contract ST0xOrchestrator is
     // ------------------------------------------------------------------ //
 
     /// @dev Revert unless the shared production vault + receipt beacons still
-    /// point at the implementations pinned in `LibProdDeployV4`. Every
+    /// point at the implementations pinned in `LibProdDeployCurrent`. Every
     /// production token is a `BeaconProxy` of these two beacons, so this one
     /// check version-locks the orchestrator against every production token at
     /// once. NOTE: it checks the shared beacons, not the specific `token`
@@ -149,23 +149,23 @@ contract ST0xOrchestrator is
 
     function _checkVaultLogic() internal view {
         IST0xVaultBeaconSet beaconSet =
-            IST0xVaultBeaconSet(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3);
+            IST0xVaultBeaconSet(LibProdDeployCurrent.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
         address vaultImpl = beaconSet.iOffchainAssetReceiptVaultBeacon().implementation();
-        if (vaultImpl != LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_3) {
-            revert VaultLogicMismatch(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_3, vaultImpl);
+        if (vaultImpl != LibProdDeployCurrent.STOX_RECEIPT_VAULT) {
+            revert VaultLogicMismatch(LibProdDeployCurrent.STOX_RECEIPT_VAULT, vaultImpl);
         }
         address receiptImpl = beaconSet.iReceiptBeacon().implementation();
-        if (receiptImpl != LibProdDeployV4.STOX_RECEIPT_0_1_3) {
-            revert ReceiptLogicMismatch(LibProdDeployV4.STOX_RECEIPT_0_1_3, receiptImpl);
+        if (receiptImpl != LibProdDeployCurrent.STOX_RECEIPT) {
+            revert ReceiptLogicMismatch(LibProdDeployCurrent.STOX_RECEIPT, receiptImpl);
         }
     }
 
     /// @inheritdoc IST0xOrchestratorV1
     function vaultLogicIsExpected() external view returns (bool) {
         IST0xVaultBeaconSet beaconSet =
-            IST0xVaultBeaconSet(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3);
-        return beaconSet.iOffchainAssetReceiptVaultBeacon().implementation() == LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_3
-            && beaconSet.iReceiptBeacon().implementation() == LibProdDeployV4.STOX_RECEIPT_0_1_3;
+            IST0xVaultBeaconSet(LibProdDeployCurrent.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
+        return beaconSet.iOffchainAssetReceiptVaultBeacon().implementation() == LibProdDeployCurrent.STOX_RECEIPT_VAULT
+            && beaconSet.iReceiptBeacon().implementation() == LibProdDeployCurrent.STOX_RECEIPT;
     }
 
     // ------------------------------------------------------------------ //

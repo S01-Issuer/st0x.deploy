@@ -7,7 +7,7 @@ import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {StoxWrappedTokenVault} from "../../../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxWrappedTokenVaultBeacon} from "../../../src/concrete/StoxWrappedTokenVaultBeacon.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
-import {LibProdDeployV4} from "../../../src/lib/LibProdDeployV4.sol";
+import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
 

@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 
 import {IGnosisSafe} from "../interface/IGnosisSafe.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
-import {LibProdDeployV4} from "./LibProdDeployV4.sol";
+import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibTokenInvariants} from "./LibTokenInvariants.sol";
 

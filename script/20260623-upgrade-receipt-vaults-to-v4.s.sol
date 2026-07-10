@@ -12,7 +12,7 @@ import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
-import {LibProdDeployV4} from "../src/lib/LibProdDeployV4.sol";
+import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTokenInvariants} from "../src/lib/LibTokenInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
