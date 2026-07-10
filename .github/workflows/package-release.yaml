@@ -19,12 +19,12 @@ jobs:
       soldeer-package: st0x-deploy
       # `foundry.toml` version is the NEXT (in-development) release (see #244). On
       # merge, publish that version, bump to the next, and regenerate the deploy
-      # libs so the bump commit is born clean. The regenerate command re-runs
-      # BuildPointers (the `<tag>/` snapshot) then the lib generator.
+      # libs so the bump commit is born clean. BuildPointers writes the `<tag>/`
+      # snapshot and regenerates the deploy libs from all snapshots in one run.
       # Needs the rainix next-version mode (paired rainix PR; merge that first).
       soldeer-next-version: true
       soldeer-generate-cmd: >-
-        nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildPointers.sol && python3 script/gen_prod_libs.py
+        nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildPointers.sol
     # Secrets are passed explicitly (not `inherit`), mirroring this repo's other
     # cross-org rainix callers (e.g. rainix-sol.yaml). Only SOLDEER_API_TOKEN is
     # required for the publish; the rest are optional and fall back cleanly when
