@@ -20,8 +20,8 @@ import {
 } from "../../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
-import {ICloneableFactoryV2} from "rain-factory-0.1.5/src/interface/ICloneableFactoryV2.sol";
+} from "rain-vats-0.1.7/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+import {ICloneableFactoryV3} from "rain-factory-0.1.5/src/interface/ICloneableFactoryV3.sol";
 import {LibCloneFactoryDeploy} from "rain-factory-0.1.5/src/lib/LibCloneFactoryDeploy.sol";
 import {
     ICorporateActionsV1,
@@ -30,11 +30,11 @@ import {
 } from "../../../../src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "../../../../src/lib/LibCorporateActionNode.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
-import {IReceiptVaultV3} from "rain-vats-0.1.6/src/interface/IReceiptVaultV3.sol";
-import {IReceiptV3} from "rain-vats-0.1.6/src/interface/IReceiptV3.sol";
-import {IAuthorizableV1} from "rain-vats-0.1.6/src/interface/IAuthorizableV1.sol";
-import {IAuthorizeV1, Unauthorized} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
-import {ICertifiableV1} from "rain-vats-0.1.6/src/interface/ICertifiableV1.sol";
+import {IReceiptVaultV3} from "rain-vats-0.1.7/src/interface/IReceiptVaultV3.sol";
+import {IReceiptV3} from "rain-vats-0.1.7/src/interface/IReceiptV3.sol";
+import {IAuthorizableV1} from "rain-vats-0.1.7/src/interface/IAuthorizableV1.sol";
+import {IAuthorizeV1, Unauthorized} from "rain-vats-0.1.7/src/interface/IAuthorizeV1.sol";
+import {ICertifiableV1} from "rain-vats-0.1.7/src/interface/ICertifiableV1.sol";
 import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1967BeaconProxy.sol";
 
 /// @title V3UpgradeShadowForkTest
@@ -245,8 +245,12 @@ contract V3UpgradeShadowForkTest is Test {
         // uses.
         address cloneAdmin = makeAddr("cloneAdmin");
         StoxOffchainAssetReceiptVaultAuthorizerV1 impl = new StoxOffchainAssetReceiptVaultAuthorizerV1();
-        address clone = ICloneableFactoryV2(LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS)
-            .clone(address(impl), abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: cloneAdmin})));
+        address clone = ICloneableFactoryV3(LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS)
+            .cloneDeterministic(
+                address(impl),
+                abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: cloneAdmin})),
+                bytes32(0)
+            );
 
         // Grant the corporate-action scheduling role to one user. `cloneAdmin`
         // holds `SCHEDULE_CORPORATE_ACTION_ADMIN` from init (the V4 extension),

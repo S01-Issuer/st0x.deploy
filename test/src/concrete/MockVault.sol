@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {MockCorporateActionsReadBase} from "../lib/MockCorporateActionsReadBase.sol";
-import {IReceiptManagerV2} from "rain-vats-0.1.6/src/interface/IReceiptManagerV2.sol";
+import {IReceiptManagerV2} from "rain-vats-0.1.7/src/interface/IReceiptManagerV2.sol";
 
 /// @dev Mock vault combining `ICorporateActionsV1` (corporate-action read
 /// surface, inherited from `MockCorporateActionsReadBase`) and

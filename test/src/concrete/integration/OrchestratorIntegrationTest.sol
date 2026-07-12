@@ -15,12 +15,12 @@ import {
     DEPOSIT,
     WITHDRAW,
     CERTIFY
-} from "rain-vats-0.1.6/src/concrete/vault/OffchainAssetReceiptVault.sol";
+} from "rain-vats-0.1.7/src/concrete/vault/OffchainAssetReceiptVault.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
-import {ReceiptVaultConfigV2} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
-import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
+} from "rain-vats-0.1.7/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+import {ReceiptVaultConfigV2} from "rain-vats-0.1.7/src/abstract/ReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.1.7/src/interface/IAuthorizeV1.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";
@@ -148,8 +148,10 @@ abstract contract OrchestratorIntegrationTest is Test {
         StoxOffchainAssetReceiptVaultAuthorizerV1 authorizerImpl = new StoxOffchainAssetReceiptVaultAuthorizerV1();
         CloneFactory factory = new CloneFactory();
         return StoxOffchainAssetReceiptVaultAuthorizerV1(
-            factory.clone(
-                address(authorizerImpl), abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: ADMIN}))
+            factory.cloneDeterministic(
+                address(authorizerImpl),
+                abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: ADMIN})),
+                bytes32(0)
             )
         );
     }

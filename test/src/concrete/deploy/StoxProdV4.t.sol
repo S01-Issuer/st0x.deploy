@@ -10,7 +10,7 @@ import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {ST0xOrchestratorBeaconSetDeployer} from "../../../../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV2
-} from "rain-vats-0.1.6/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV2.sol";
+} from "rain-vats-0.1.7/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV2.sol";
 
 /// @title StoxProdV4Test
 /// @notice Fork test verifying every V4 Zoltu deployment exists on Base with
