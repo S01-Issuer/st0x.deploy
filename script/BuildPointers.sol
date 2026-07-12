@@ -7,6 +7,8 @@ import {VmSafe} from "forge-std-1.16.1/src/Vm.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.0/src/lib/LibCodeGen.sol";
 import {LibFs} from "rain-sol-codegen-0.1.0/src/lib/LibFs.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {Clones} from "@openzeppelin-contracts-5.6.1/proxy/Clones.sol";
+import {LibCloneFactoryDeploy} from "rain-factory-0.1.5/src/lib/LibCloneFactoryDeploy.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
@@ -140,6 +142,21 @@ contract BuildPointers is Script {
     string constant GEN_V4_PATH = "src/generated/LibProdDeployV4.sol";
     string constant GEN_CURRENT_PATH = "src/generated/LibProdDeployCurrent.sol";
     string constant GEN_OWNER = "0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b";
+
+    // ---- V4 authoriser clone: deterministic pin (see #248) ----------------
+    // The V4 authoriser clone is deployed via `CloneFactory.cloneDeterministic`
+    // (rain-factory 0.1.5), so its address is a pure function of
+    // (factory, impl, caller-salt, deployer) and can be pinned UP-FRONT here —
+    // no post-deploy backfill (#211 retired). The deploy script asserts the
+    // freshly-cloned address equals this pin.
+    //
+    // The clone proxies the frozen 0_1_1 authoriser impl. Distinct salts give
+    // distinct clones of one impl, so future authorisers get their own salt.
+    // The deployer namespaces the CREATE2 salt (anti-squat), so the prod deploy
+    // MUST broadcast from `V4_AUTHORISER_CLONE_DEPLOYER`.
+    address constant V4_AUTHORISER_CLONE_IMPL = 0x2EA0d35d0B1F57C42e6130f298930228bCbFDe9b;
+    bytes32 constant V4_AUTHORISER_CLONE_SALT = bytes32(0);
+    address constant V4_AUTHORISER_CLONE_DEPLOYER = 0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b;
 
     // REUSE-IgnoreStart  (the two SPDX lines below are the header EMITTED into
     // the generated files, not this script's own license — hide from reuse lint)
@@ -322,7 +339,19 @@ contract BuildPointers is Script {
         vm.writeLine(GEN_V4_PATH, "");
         vm.writeLine(GEN_V4_PATH, "library LibProdDeployV4 {");
         vm.writeLine(GEN_V4_PATH, string.concat("address constant BEACON_INITIAL_OWNER = address(", GEN_OWNER, ");"));
-        vm.writeLine(GEN_V4_PATH, "address constant STOX_PROD_AUTHORISER_V4_CLONE = address(0);");
+        // Deterministic clone address, pinned up-front (no post-deploy backfill).
+        // Mirrors `CloneFactory._effectiveSalt` (keccak of deployer++salt) then the
+        // OZ CREATE2 clone prediction against the (Zoltu-anchored) factory.
+        bytes32 effSalt = keccak256(abi.encode(V4_AUTHORISER_CLONE_DEPLOYER, V4_AUTHORISER_CLONE_SALT));
+        address v4AuthoriserClone = Clones.predictDeterministicAddress(
+            V4_AUTHORISER_CLONE_IMPL, effSalt, LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS
+        );
+        vm.writeLine(
+            GEN_V4_PATH,
+            string.concat(
+                "address constant STOX_PROD_AUTHORISER_V4_CLONE = address(", vm.toString(v4AuthoriserClone), ");"
+            )
+        );
         vm.writeLine(
             GEN_V4_PATH,
             "bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH ="

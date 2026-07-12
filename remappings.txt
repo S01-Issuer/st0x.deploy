@@ -4,6 +4,7 @@ forge-std-1.16.1/=dependencies/forge-std-1.16.1/
 rain-deploy-0.1.4/=dependencies/rain-deploy-0.1.4/
 rain-extrospection-0.1.1/=dependencies/rain-extrospection-0.1.1/
 rain-factory-0.1.1/=dependencies/rain-factory-0.1.1/
+rain-factory-0.1.5/=dependencies/rain-factory-0.1.5/
 rain-math-fixedpoint-0.2.0/=dependencies/rain-math-fixedpoint-0.2.0/
 rain-math-float-0.1.1/=dependencies/rain-math-float-0.1.1/
 rain-sol-codegen-0.1.0/=dependencies/rain-sol-codegen-0.1.0/

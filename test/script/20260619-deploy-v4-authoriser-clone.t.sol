@@ -6,10 +6,10 @@ import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {VmSafe} from "forge-std-1.16.1/src/Vm.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
-import {LibCloneFactoryDeploy} from "rain-factory-0.1.1/src/lib/LibCloneFactoryDeploy.sol";
+import {LibCloneFactoryDeploy} from "rain-factory-0.1.5/src/lib/LibCloneFactoryDeploy.sol";
 import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1167Proxy.sol";
 
-import {ICloneableFactoryV2} from "rain-factory-0.1.1/src/interface/ICloneableFactoryV2.sol";
+import {ICloneableFactoryV3} from "rain-factory-0.1.5/src/interface/ICloneableFactoryV3.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
 } from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
@@ -55,11 +55,17 @@ contract DeployV4AuthoriserCloneTest is Test {
     bytes internal v4ImplRuntime;
     address internal cloneFactory;
 
+    /// @dev The deterministic clone address pinned in `LibProdDeployV4` is
+    /// `predict(impl, salt, deployer)`, so the deploy must broadcast from this
+    /// pinned deployer (matches `BuildPointers.V4_AUTHORISER_CLONE_DEPLOYER`).
+    address internal constant V4_AUTHORISER_CLONE_DEPLOYER = 0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b;
+    bytes32 internal constant V4_AUTHORISER_CLONE_SALT = bytes32(0);
+
     function selectBaseFork() internal {
         vm.createSelectFork(LibRainDeploy.BASE);
         script = new DeployV4AuthoriserClone();
         harness = new DeployV4AuthoriserCloneHarness();
-        deployer = makeAddr("deployer");
+        deployer = V4_AUTHORISER_CLONE_DEPLOYER;
         vm.deal(deployer, 100 ether);
         safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         v4Impl = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1;
@@ -83,7 +89,7 @@ contract DeployV4AuthoriserCloneTest is Test {
         // Step 1: deploy the clone under the deployer.
         bytes memory initData = abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: deployer}));
         vm.prank(deployer, deployer);
-        address clone = ICloneableFactoryV2(cloneFactory).clone(v4Impl, initData);
+        address clone = ICloneableFactoryV3(cloneFactory).cloneDeterministic(v4Impl, initData, V4_AUTHORISER_CLONE_SALT);
 
         IAccessControl acl = IAccessControl(clone);
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
@@ -205,7 +211,7 @@ contract DeployV4AuthoriserCloneTest is Test {
     {
         bytes memory initData = abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: deployer}));
         vm.prank(deployer, deployer);
-        clone = ICloneableFactoryV2(cloneFactory).clone(v4Impl, initData);
+        clone = ICloneableFactoryV3(cloneFactory).cloneDeterministic(v4Impl, initData, V4_AUTHORISER_CLONE_SALT);
 
         IAccessControl acl = IAccessControl(clone);
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
@@ -287,7 +293,8 @@ contract DeployV4AuthoriserCloneTest is Test {
         vm.etch(wrongImpl, v4ImplRuntime);
         bytes memory initData = abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: deployer}));
         vm.prank(deployer, deployer);
-        address badClone = ICloneableFactoryV2(cloneFactory).clone(wrongImpl, initData);
+        address badClone =
+            ICloneableFactoryV3(cloneFactory).cloneDeterministic(wrongImpl, initData, V4_AUTHORISER_CLONE_SALT);
 
         bytes32 expected = keccak256(abi.encodePacked(ERC1167_PREFIX, v4Impl, ERC1167_SUFFIX));
         bytes32 actual = badClone.codehash;
@@ -310,7 +317,7 @@ contract DeployV4AuthoriserCloneTest is Test {
         address initialAdmin = makeAddr("someInitialAdmin");
         bytes memory initData = abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: initialAdmin}));
         vm.prank(deployer, deployer);
-        address clone = ICloneableFactoryV2(cloneFactory).clone(v4Impl, initData);
+        address clone = ICloneableFactoryV3(cloneFactory).cloneDeterministic(v4Impl, initData, V4_AUTHORISER_CLONE_SALT);
 
         IAccessControl acl = IAccessControl(clone);
         bytes32[7] memory adminRoles = _autoGrantedAdminRoles();
