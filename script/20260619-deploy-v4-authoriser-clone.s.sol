@@ -28,7 +28,7 @@ error V4ImplNotDeployed(address impl);
 /// value in `LibProdDeployV4`. Impl has been replaced with different code.
 error V4ImplCodehashMismatch(address impl, bytes32 expected, bytes32 actual);
 
-/// @notice The canonical `CloneFactory` from `rain-factory-0.1.1` is not
+/// @notice The canonical `CloneFactory` from `rain-factory-0.1.5` is not
 /// deployed at its pinned address. Zoltu deploy is missing on this network.
 error CloneFactoryNotDeployed(address factory);
 
@@ -238,10 +238,9 @@ contract DeployV4AuthoriserClone is Script {
 
         _assertPostState(clone, deployer, v4Impl);
 
-        // Log the clone address prominently so the operator can copy it
-        // into the post-execution pin PR
-        // (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE` +
-        // `..._CODEHASH` hydration).
+        // Log the clone address (already asserted equal to the up-front pin
+        // `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`) for operator
+        // confirmation.
         console2.log("==== V4 AUTHORISER CLONE DEPLOYED ====");
         console2.log("Clone:", vm.toString(clone));
         console2.log("CloneCodehash:", vm.toString(clone.codehash));
@@ -258,7 +257,7 @@ contract DeployV4AuthoriserClone is Script {
     /// hold no `_ADMIN` role post-renounce.
     /// @param v4Impl The pinned V4 impl the clone proxies; the expected
     /// codehash is re-derived from this address so the check does not
-    /// depend on the (still-placeholder) codehash pin.
+    /// depend on the codehash pin.
     function _assertPostState(address clone, address deployer, address v4Impl) internal view {
         // EIP-1167 shape + embedded impl match what the pinned V4 impl
         // produces.
