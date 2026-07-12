@@ -6,7 +6,7 @@ import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
-import {IAuthorizableV1} from "rain-vats-0.1.6/src/interface/IAuthorizableV1.sol";
+import {IAuthorizableV1} from "rain-vats-0.1.7/src/interface/IAuthorizableV1.sol";
 
 import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";

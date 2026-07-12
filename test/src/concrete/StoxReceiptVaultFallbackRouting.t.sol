@@ -13,7 +13,7 @@ import {
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {STOCK_SPLIT_V1_TYPE_HASH, UnknownActionType} from "../../../src/lib/LibCorporateAction.sol";
 import {CompletionFilter, NODE_NONE} from "../../../src/lib/LibCorporateActionNode.sol";
-import {IAuthorizeV1, Unauthorized} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
+import {IAuthorizeV1, Unauthorized} from "rain-vats-0.1.7/src/interface/IAuthorizeV1.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
 import {LibTestTofu} from "../../lib/LibTestTofu.sol";
 import {PermissiveAuthorizer} from "./PermissiveAuthorizer.sol";

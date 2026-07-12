@@ -6,11 +6,11 @@ import {Script} from "forge-std-1.16.1/src/Script.sol";
 import {console2} from "forge-std-1.16.1/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1167Proxy.sol";
-import {ICloneableFactoryV2} from "rain-factory-0.1.1/src/interface/ICloneableFactoryV2.sol";
-import {LibCloneFactoryDeploy} from "rain-factory-0.1.1/src/lib/LibCloneFactoryDeploy.sol";
+import {ICloneableFactoryV3} from "rain-factory-0.1.5/src/interface/ICloneableFactoryV3.sol";
+import {LibCloneFactoryDeploy} from "rain-factory-0.1.5/src/lib/LibCloneFactoryDeploy.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.1.7/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
@@ -28,7 +28,7 @@ error V4ImplNotDeployed(address impl);
 /// value in `LibProdDeployV4`. Impl has been replaced with different code.
 error V4ImplCodehashMismatch(address impl, bytes32 expected, bytes32 actual);
 
-/// @notice The canonical `CloneFactory` from `rain-factory-0.1.1` is not
+/// @notice The canonical `CloneFactory` from `rain-factory-0.1.5` is not
 /// deployed at its pinned address. Zoltu deploy is missing on this network.
 error CloneFactoryNotDeployed(address factory);
 
@@ -36,11 +36,14 @@ error CloneFactoryNotDeployed(address factory);
 /// pin. The address at the pinned location is not the audited factory.
 error CloneFactoryCodehashMismatch(address factory, bytes32 expected, bytes32 actual);
 
-/// @notice The `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE` pin is already
-/// hydrated. This script deploys a NEW clone — running it a second time would
-/// produce a second clone the lib pin does not know about. Once hydrated, the
-/// script is done for that chain.
-error V4AuthoriserClonePinAlreadyHydrated(address pinned);
+/// @notice The predicted clone address for this deployer + salt does not match
+/// the up-front pin in `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`. Either
+/// the pin is stale, or the broadcast key is not the pinned deployer the address
+/// was computed for.
+error V4AuthoriserClonePinMismatch(address predicted, address pinned);
+
+/// @notice The deployed clone did not land at the predicted (pinned) address.
+error V4AuthoriserCloneAddressMismatch(address clone, address predicted);
 
 /// @notice The freshly-deployed clone's runtime codehash does not match the
 /// EIP-1167 minimal-proxy shape computed from the V4 impl. Either the factory
@@ -131,13 +134,20 @@ contract DeployV4AuthoriserClone is Script {
     /// corporate-action admins from the override).
     uint256 internal constant AUTO_GRANTED_ADMIN_COUNT = 7;
 
+    /// @notice Caller-supplied salt for the V4 authoriser's deterministic clone.
+    /// Distinct salts yield distinct clones of one impl, so future authorisers
+    /// get their own salt. MUST match `BuildPointers.V4_AUTHORISER_CLONE_SALT`,
+    /// from which `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE` is pinned.
+    bytes32 internal constant V4_AUTHORISER_CLONE_SALT = bytes32(0);
+
     /// @notice Deploy + configure + admin-transfer the V4 authoriser clone
     /// in a single broadcast. Steps 1-4 in the contract-level NatSpec.
     /// Pre-flight covers the invariants the whole flow relies on: the
     /// Safe is intact, the V4 impl exists at the pin with the pinned
-    /// codehash, the CloneFactory is deployed with its pinned codehash,
-    /// and the clone pin is not already hydrated (this would be a
-    /// second deploy on the same network).
+    /// codehash, and the CloneFactory is deployed with its pinned
+    /// codehash. The deterministic clone address is pinned up-front and
+    /// asserted against `predictDeterministicAddress` in-script (no
+    /// post-deploy backfill).
     function run() external {
         IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
 
@@ -163,13 +173,6 @@ contract DeployV4AuthoriserClone is Script {
         address factoryAddr = LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS;
         assertCloneFactoryDeployed(factoryAddr);
 
-        // Pre-flight: the clone pin is not already hydrated. If it is,
-        // running this script would deploy a SECOND clone the lib
-        // doesn't know about — same behaviour as re-running any
-        // deterministic deploy after it has already landed.
-        address pinned = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
-        if (pinned != address(0)) revert V4AuthoriserClonePinAlreadyHydrated(pinned);
-
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
 
         vm.startBroadcast();
@@ -181,13 +184,28 @@ contract DeployV4AuthoriserClone is Script {
         // baked into the clone's initialize call.
         address deployer = msg.sender;
 
-        // Step 1: deploy the clone.
+        // Step 1: deterministically clone the impl, verifying the address
+        // against the UP-FRONT pin — no post-deploy backfill (#211 retired).
         //
         // `initialAdmin = deployer` means the seven `_ADMIN` auto-grants
         // land on `deployer` in this window. Steps 3-4 swap them onto
         // the Safe.
         bytes memory initData = abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: deployer}));
-        address clone = ICloneableFactoryV2(factoryAddr).clone(v4Impl, initData);
+
+        ICloneableFactoryV3 factory = ICloneableFactoryV3(factoryAddr);
+
+        // Assert the pin BEFORE deploying: the address this (deployer, salt)
+        // produces must equal the pinned constant. A mismatch means the pin is
+        // stale or the broadcast key is not the pinned deployer.
+        address predicted = factory.predictDeterministicAddress(v4Impl, V4_AUTHORISER_CLONE_SALT, deployer);
+        if (predicted != LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE) {
+            revert V4AuthoriserClonePinMismatch(predicted, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE);
+        }
+
+        address clone = factory.cloneDeterministic(v4Impl, initData, V4_AUTHORISER_CLONE_SALT);
+
+        // And that the clone landed exactly at the predicted (pinned) address.
+        if (clone != predicted) revert V4AuthoriserCloneAddressMismatch(clone, predicted);
 
         IAccessControl acl = IAccessControl(clone);
 
@@ -220,10 +238,9 @@ contract DeployV4AuthoriserClone is Script {
 
         _assertPostState(clone, deployer, v4Impl);
 
-        // Log the clone address prominently so the operator can copy it
-        // into the post-execution pin PR
-        // (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE` +
-        // `..._CODEHASH` hydration).
+        // Log the clone address (already asserted equal to the up-front pin
+        // `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`) for operator
+        // confirmation.
         console2.log("==== V4 AUTHORISER CLONE DEPLOYED ====");
         console2.log("Clone:", vm.toString(clone));
         console2.log("CloneCodehash:", vm.toString(clone.codehash));
@@ -240,7 +257,7 @@ contract DeployV4AuthoriserClone is Script {
     /// hold no `_ADMIN` role post-renounce.
     /// @param v4Impl The pinned V4 impl the clone proxies; the expected
     /// codehash is re-derived from this address so the check does not
-    /// depend on the (still-placeholder) codehash pin.
+    /// depend on the codehash pin.
     function _assertPostState(address clone, address deployer, address v4Impl) internal view {
         // EIP-1167 shape + embedded impl match what the pinned V4 impl
         // produces.

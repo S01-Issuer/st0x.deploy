@@ -7,7 +7,7 @@ import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibTestProd} from "../../lib/LibTestProd.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {BeaconProxy} from "@openzeppelin-contracts-5.6.1/proxy/beacon/BeaconProxy.sol";
-import {ICLONEABLE_V2_SUCCESS} from "rain-factory-0.1.1/src/interface/ICloneableV2.sol";
+import {ICLONEABLE_V2_SUCCESS} from "rain-factory-0.1.5/src/interface/ICloneableV2.sol";
 
 /// @title StoxWrappedTokenVaultV1ProdBaseTest
 /// @notice Fork tests demonstrating V1 on-chain behaviour that differs from
