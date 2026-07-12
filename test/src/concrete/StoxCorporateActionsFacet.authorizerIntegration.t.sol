@@ -16,7 +16,7 @@ import {
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
 import {Unauthorized} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
-import {CloneFactory} from "rain-factory-0.1.1/src/concrete/CloneFactory.sol";
+import {CloneFactory} from "rain-factory-0.1.5/src/concrete/CloneFactory.sol";
 
 /// @title StoxCorporateActionsFacetAuthorizerIntegrationTest
 /// @notice Tests that the real OffchainAssetReceiptVaultAuthorizerV1 handles
