@@ -3,6 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
+import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 
 /// @notice Minimal `Ownable`-like surface used to read a beacon's owner.
 /// Every OpenZeppelin `UpgradeableBeacon` exposes `owner()`; this library
@@ -74,6 +75,21 @@ error BeaconImplNotDeployed(address beacon, address implementation);
 /// migration and the receipt vault upgrade reach into a library named for
 /// what it actually validates.
 library LibBeaconInvariants {
+    /// @notice The CURRENT owner of the three V1 production beacons on Base
+    /// — the single source of truth for "who owns the prod beacons today".
+    /// Every consumer that means "the current beacon owner" (post-state
+    /// asserts, upgrade pre-flights, `vm.prank` targets in fork tests)
+    /// reads this constant, so an ownership change is a one-line edit here
+    /// rather than a sweep of hardcoded call sites.
+    ///
+    /// The ST0x token-owner Safe since the `MigrateBeaconOwners` broadcast
+    /// executed on Base (2026-07); the deploy-time EOA before that. Sites
+    /// that deliberately mean the deploy-time initial owner (un-migrated
+    /// V4-generation beacons, the migration's reconstructed pre-state) use
+    /// `LibProdDeployV1.BEACON_INITIAL_OWNER` / the V4 lib's
+    /// `BEACON_INITIAL_OWNER` instead — do not conflate the two.
+    address internal constant PROD_BEACON_OWNER = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
+
     /// @notice Runtime codehash shared by every OpenZeppelin
     /// `UpgradeableBeacon` instance on Base. An `UpgradeableBeacon` keeps its
     /// implementation pointer and owner in storage rather than in code, so the
