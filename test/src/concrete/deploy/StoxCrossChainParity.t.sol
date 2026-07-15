@@ -8,11 +8,13 @@ import {IERC4626} from "@openzeppelin-contracts-5.6.1/interfaces/IERC4626.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {ERC1967Utils} from "@openzeppelin-contracts-5.6.1/proxy/ERC1967/ERC1967Utils.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {IGnosisSafe} from "../../../../src/interface/IGnosisSafe.sol";
 import {IOwnable} from "../../../../src/interface/IOwnable.sol";
 import {LibInvariants} from "../../../../src/lib/LibInvariants.sol";
 import {LibProdDeployV2BaseOverrides} from "../../../../src/lib/LibProdDeployV2BaseOverrides.sol";
 import {LibProdDeployCurrent} from "../../../../src/generated/LibProdDeployCurrent.sol";
 import {LibProdAuthoriserClones} from "../../../../src/lib/LibProdAuthoriserClones.sol";
+import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTokenInvariants, TokenInstance} from "../../../../src/lib/LibTokenInvariants.sol";
 
@@ -68,15 +70,20 @@ struct TokenConfigSnapshot {
 /// 3. **Beacon lineage** — each chain's receipt-vault proxies resolve
 ///    (via the ERC-1967 beacon slot) to a single beacon whose
 ///    `implementation()` is the deterministic V4 receipt vault impl —
-///    the SAME address on every chain — and whose `owner()` is the shared
-///    token-owner Safe (the same address on every chain). Cross-chain impl
-///    codehash parity is asserted explicitly for both the authoriser clone
-///    (EIP-1167 over the shared impl) and the receipt-vault beacon impl.
-/// 4. **Role parity** — `LibAuthoriserInvariants.assertExpectedGrants`
-///    runs against each chain's clone with the SHARED grant map: identical
-///    structure AND identical holder addresses on every chain (the token-
-///    owner Safe and service signer are shared). Only the clone ADDRESS is
-///    per-chain; its grants are not.
+///    the SAME address on every chain — and whose `owner()` is the
+///    chain-agnostic deployer (`BEACON_INITIAL_OWNER`), the same address on
+///    every chain (the beacon is deployer-owned; the token-owner Safe owns
+///    the vaults, not the beacon). Cross-chain impl codehash parity is
+///    asserted explicitly for both the authoriser clone (EIP-1167 over the
+///    shared impl) and the receipt-vault beacon impl.
+/// 4. **Role parity** — `LibAuthoriserInvariants.assertExpectedGrants` runs
+///    against each chain's clone with that chain's token-owner Safe: the
+///    identical grant STRUCTURE on every chain, the service-signer holder
+///    shared, the Safe holder the chain's own per-chain Safe. The Safe policy
+///    (owner set, threshold, v1.4.1 identity) is asserted equal to Base's, and
+///    the Ethereum Safe's live owner set + threshold are compared directly to
+///    Base's. Per-chain: the Safe address, the clone address, the token
+///    addresses.
 ///
 /// **Known-divergence carve-out (Base V2 beacon corruption).** Base's V2
 /// OARV beacon set was corrupted post-deploy (impl downgrade + ownership
@@ -89,12 +96,13 @@ struct TokenConfigSnapshot {
 /// leak into expectations for chains that deploy clean.
 ///
 /// **Pending-bootstrap chains.** Until a chain's bootstrap executes, its
-/// deploy-artifact pins are placeholders (the token-owner Safe + grant map
-/// are shared and always concrete — same matched-address Safe + shared
-/// signer on every chain; only the clone + token addresses are per-chain).
-/// The suite accepts exactly two states per chain: fully PENDING (the
-/// authoriser clone pin AND every token entry all placeholder — logged
-/// loudly, parity assertions skipped) or fully LIVE (every artifact
+/// per-chain deploy-artifact pins are placeholders: the token-owner Safe
+/// address, the authoriser clone address, and the token addresses (the Safe
+/// POLICY and the service signer are shared, but each chain's Safe is a
+/// distinct address deployed and pinned per chain). The suite accepts exactly
+/// two states per chain: fully PENDING (the Safe pin, the authoriser clone pin
+/// AND every token entry all placeholder — logged loudly, parity assertions
+/// skipped) or fully LIVE (every artifact
 /// hydrated — all layers asserted, including each chain independently
 /// satisfying `LibInvariants.assertProductionState`). Partial hydration
 /// fails the suite.
@@ -218,19 +226,23 @@ contract StoxCrossChainParityTest is Test {
         );
     }
 
-    /// @notice True when the chain is cleanly pre-bootstrap: its authoriser
-    /// clone pin AND every token-table entry are still `address(0)`
-    /// placeholders. The principals are not part of this check — they are
-    /// concrete pins on every chain (the matched-address Safe + shared
-    /// signer); "bootstrapped or not" is a property of the DEPLOY ARTIFACTS
-    /// (clone + token addresses), which is exactly what this reads. Any mixed
-    /// state returns false on both this and the fully-hydrated check, which
-    /// the test treats as failure.
+    /// @notice True when the chain is cleanly pre-bootstrap: its token-owner
+    /// Safe pin, its authoriser clone pin AND every token-table entry are still
+    /// `address(0)` placeholders. "Bootstrapped or not" is a property of the
+    /// per-chain DEPLOY ARTIFACTS (Safe + clone + token addresses), which is
+    /// exactly what this reads; the Safe POLICY and the service signer are
+    /// shared and always concrete. Any mixed state returns false on both this
+    /// and the fully-hydrated check, which the test treats as failure.
+    /// @param safe The chain's token-owner Safe pin.
     /// @param clone The chain's authoriser clone pin.
     /// @param tokens The chain's token table.
     /// @return pending Whether the chain is cleanly pre-bootstrap.
-    function isFullyPending(address clone, TokenInstance[] memory tokens) internal pure returns (bool pending) {
-        pending = clone == address(0);
+    function isFullyPending(address safe, address clone, TokenInstance[] memory tokens)
+        internal
+        pure
+        returns (bool pending)
+    {
+        pending = safe == address(0) && clone == address(0);
         for (uint256 i = 0; i < tokens.length; i++) {
             pending = pending && tokens[i].receipt == address(0) && tokens[i].receiptVault == address(0)
                 && tokens[i].wrappedTokenVault == address(0);
@@ -238,12 +250,18 @@ contract StoxCrossChainParityTest is Test {
     }
 
     /// @notice True when every deploy-artifact pin for the chain is
-    /// hydrated: the authoriser clone AND every token-table entry.
+    /// hydrated: the token-owner Safe, the authoriser clone AND every
+    /// token-table entry.
+    /// @param safe The chain's token-owner Safe pin.
     /// @param clone The chain's authoriser clone pin.
     /// @param tokens The chain's token table.
     /// @return hydrated Whether the chain is fully live.
-    function isFullyHydrated(address clone, TokenInstance[] memory tokens) internal pure returns (bool hydrated) {
-        hydrated = clone != address(0);
+    function isFullyHydrated(address safe, address clone, TokenInstance[] memory tokens)
+        internal
+        pure
+        returns (bool hydrated)
+    {
+        hydrated = safe != address(0) && clone != address(0);
         for (uint256 i = 0; i < tokens.length; i++) {
             hydrated = hydrated && tokens[i].receipt != address(0) && tokens[i].receiptVault != address(0)
                 && tokens[i].wrappedTokenVault != address(0);
@@ -261,11 +279,16 @@ contract StoxCrossChainParityTest is Test {
         assertTrue(baseClone != address(0), "Base V4 clone pin still placeholder (stack not yet executed)");
         TokenInstance[] memory baseTokens = LibTokenInvariants.productionTokensBase();
         // Shared multichain framework: Base satisfies the full production-state
-        // invariant (shared Safe identity/config, token owner + authoriser
-        // uniformity, shared authoriser grant map) — the same call the Ethereum
-        // branch makes below. Only the token table + clone address are passed;
-        // the Safe and grant map are shared across chains.
+        // invariant (per-chain Safe policy-matched to Base, token owner +
+        // authoriser uniformity, grant map for its Safe) — the same call the
+        // Ethereum branch makes below. Only the token table + clone address are
+        // passed; the Safe is resolved per chain by chain id inside the bundle.
         LibInvariants.assertProductionState(baseTokens, baseClone);
+        // Capture Base's LIVE Safe policy (owner set + threshold) for the direct
+        // cross-chain comparison below — the Ethereum Safe is a distinct
+        // per-chain address that must still carry this exact policy.
+        address[] memory baseSafeOwners = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE).getOwners();
+        uint256 baseSafeThreshold = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE).getThreshold();
         assertCloneParity(baseClone);
         (TokenConfigSnapshot[] memory baseline, address baseBeacon) = assertChainAndSnapshot(baseTokens);
         // Base's beacon lineage: the receipt-vault beacon must serve the
@@ -281,29 +304,36 @@ contract StoxCrossChainParityTest is Test {
         address baseBeaconOwner = IOwnable(baseBeacon).owner();
 
         // ---- Ethereum ----
+        address ethSafe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM;
         address ethClone = LibProdAuthoriserClones.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
         TokenInstance[] memory ethTokens = LibTokenInvariants.productionTokensEthereum();
 
-        if (isFullyPending(ethClone, ethTokens)) {
+        if (isFullyPending(ethSafe, ethClone, ethTokens)) {
             // Cleanly pre-bootstrap: nothing to check on-chain yet. Logged
             // loudly (not a silent skip) so a green run cannot be misread
             // as "Ethereum verified".
-            emit log("PARITY: Ethereum PENDING bootstrap - clone + token pins placeholder, parity assertions skipped");
+            emit log("PARITY: Ethereum PENDING bootstrap - Safe + clone + token pins placeholder, parity assertions skipped");
             return;
         }
         // Not fully pending => must be fully hydrated. Partial hydration
         // is the dangerous middle state this assertion exists to reject.
         assertTrue(
-            isFullyHydrated(ethClone, ethTokens),
-            "Ethereum pins partially hydrated - hydrate the clone pin and the full token table in one pin PR"
+            isFullyHydrated(ethSafe, ethClone, ethTokens),
+            "Ethereum pins partially hydrated - hydrate the Safe, the clone pin and the full token table in one pin PR"
         );
 
         vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
         // Same shared framework call as Base: Ethereum must independently
-        // satisfy the full production-state invariant (its matched-address
-        // Safe policy-aligned to Base, its vaults uniform, its clone grants
-        // in place) before any cross-chain comparison is meaningful.
+        // satisfy the full production-state invariant (its per-chain Safe
+        // policy-matched to Base, its vaults uniform, its clone grants in
+        // place) before any cross-chain comparison is meaningful.
         LibInvariants.assertProductionState(ethTokens, ethClone);
+        // Direct cross-chain Safe policy: the Ethereum Safe is a DISTINCT
+        // per-chain address, but its live owner SET and threshold must equal
+        // Base's LIVE Safe (order-insensitive) — matching Base in every way
+        // that matters, against Base's actual current state, not only the pins.
+        LibSafeInvariants.assertThreshold(IGnosisSafe(ethSafe), baseSafeThreshold);
+        LibSafeInvariants.assertOwnerSetUnordered(IGnosisSafe(ethSafe), baseSafeOwners);
         assertCloneParity(ethClone);
         (TokenConfigSnapshot[] memory observed, address ethBeacon) = assertChainAndSnapshot(ethTokens);
 
@@ -315,12 +345,14 @@ contract StoxCrossChainParityTest is Test {
             "Ethereum receipt-vault beacon does not serve the V4 impl"
         );
         assertCleanV4Lineage(ethBeacon);
-        // The beacon owner is the shared token-owner Safe (same address on
-        // every chain), so it must be byte-for-byte Base's beacon owner.
+        // The receipt-vault beacon owner is the chain-agnostic deployer
+        // (`BEACON_INITIAL_OWNER`), the same address on every chain — NOT the
+        // token-owner Safe (which owns the vaults, and is now per-chain). So it
+        // must be byte-for-byte Base's beacon owner.
         assertEq(
             IOwnable(ethBeacon).owner(),
             baseBeaconOwner,
-            "Ethereum receipt-vault beacon owner diverges from Base's shared owner"
+            "Ethereum receipt-vault beacon owner diverges from the shared deployer"
         );
 
         // Cross-chain IMPL CODEHASH parity — the per-chain-unique artifacts
