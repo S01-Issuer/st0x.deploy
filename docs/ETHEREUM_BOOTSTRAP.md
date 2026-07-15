@@ -58,26 +58,27 @@ blocks step 5 until this lands.
 
 ## 3. Ethereum principals (Safe + service signer)
 
-The service signer is already decided: Ethereum reuses the Base signer for now
-(Josh, 2026-07-07), pinned in `LibChainPrincipals.SERVICE_SIGNER_ETHEREUM` as
-its own constant so it can diverge later without touching call sites. The Safe
-is the remaining bootstrap gate — a Safe proxy must be deployed on Ethereum (see
-§ 3a); the same address as Base is achievable but is a separate per-chain
-deployment (RAI-1109).
+The principals are **shared across chains, not per-chain.** The token-owner Safe
+is reproduced at its **exact Base address** on Ethereum (§ 3a) and the issuance
+service signer is the Base signer (Josh, 2026-07-07), so there is no per-chain
+principal pin to hydrate: `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE` (the Safe)
+and `LibAuthoriserInvariants.GRANTEE_SERVICE_1C66` (the signer) are the same
+pins on every chain, and `LibInvariants.assertProductionState` validates every
+chain against them. The one remaining bootstrap gate is standing up the Safe
+proxy on Ethereum at that shared address (RAI-1109, § 3a).
 
 - [x] **Safe address decision (RAI-1109):** (A) reproduce Base's address —
       chosen (Josh, 2026-07-07). Automated in § 3a: deploy the genesis proxy
       (Base's Safe was created as v1.3.0, whose factory + singleton are live on
       Ethereum), then replay to the current policy. Option B (fresh v1.4.1 Safe,
       different address, current policy in one tx) was the alternative.
-- [ ] Ethereum token-owner Safe created — Safe v1.4.1, same owner set and
-      threshold policy as Base's (`LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_*`
-      pins), whichever address option is chosen.
-- [ ] **[pin PR]** Hydrate `LibChainPrincipals.TOKEN_OWNER_SAFE_ETHEREUM` (the
-      signer is already pinned) and add the Ethereum Safe owner-set + threshold
-      pins to `LibSafeInvariants` so `LibInvariants.assertProductionState`
-      validates the Ethereum Safe against the same v1.4.1 + owner + threshold
-      pins as Base.
+- [ ] Ethereum token-owner Safe created and policy-aligned — Safe v1.4.1, same
+      owner set and threshold as Base (the shared
+      `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE` + owner/threshold pins),
+      reproduced at the shared Base address (§ 3a). No pin PR: the pins are
+      already Base's; the forcing-function test
+      `DeploySafeEthereumTest.testEthereumSafeMatchesBasePolicy` is red until
+      the live Ethereum Safe satisfies them.
 
 ### 3a. Deploy the matched-address Safe (Option A)
 
@@ -149,17 +150,15 @@ DEPLOYMENT_KEY=<hex> ETHEREUM_RPC_URL=<url> forge script \
 - [ ] **[pin PR]** Hydrate
       `LibProdAuthoriserClones.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM`
       (hand-maintained — the clone address is non-deterministic, so it is
-      provided post-deploy, not generated) with the real clone address. The
-      codehash is shared with Base (the EIP-1167 runtime embeds the impl
-      address, identical cross-chain).
+      provided post-deploy, not generated) with the real clone address. Both
+      chains' clone addresses live in `LibProdAuthoriserClones`; the codehash is
+      shared with Base (the EIP-1167 runtime embeds the impl address, identical
+      cross-chain) and stays generated in `LibProdDeployV4`.
 
-> **Follow-up (small):** the clone script's "already hydrated" guard currently
-> reads the single Base pin (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`).
-> Before Base's clone pin is hydrated this is harmless on Ethereum (Base pin is
-> still `address(0)`), but once Base is hydrated the guard must select the pin
-> **by network** (Base pin on Base, `LibProdAuthoriserClones` Ethereum pin on
-> Ethereum) or it will wrongly refuse the Ethereum run. Add that network-aware
-> pin selection when Base's clone is hydrated.
+> The clone script's "already hydrated" guard is network-aware: it reads
+> `LibProdAuthoriserClones.cloneForChainId(block.chainid)`, so it checks the
+> Base pin on Base and the Ethereum pin on Ethereum. Hydrating Base's clone
+> therefore does not wrongly refuse the Ethereum run.
 
 ## 7. Token deployment (matched names / symbols / policies)
 
