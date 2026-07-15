@@ -97,6 +97,22 @@ error SafeOwnerMismatch(address safe, uint256 index, address expectedOwner, addr
 /// @param actual The threshold returned by `getThreshold()`.
 error SafeThresholdMismatch(address safe, uint256 expected, uint256 actual);
 
+/// @notice An expected owner is absent from the Safe's `getOwners()` set. Used
+/// by the ORDER-INSENSITIVE owner-set check (`assertOwnerSetUnordered`), where
+/// only set membership is asserted — the caller supplies the expected roster
+/// but not an order, so a missing member is reported by address rather than by
+/// index.
+/// @param safe The Safe address whose owner set was queried.
+/// @param missingOwner The expected owner that was not found in `getOwners()`.
+error SafeOwnerSetMismatch(address safe, address missingOwner);
+
+/// @notice No ST0x token-owner Safe address is pinned for the active chain.
+/// Deliberately a typed revert rather than a silent fallback to another
+/// chain's Safe: authoring or asserting against the wrong chain's Safe is the
+/// catastrophic failure this selector exists to prevent.
+/// @param chainId The chain id with no pinned token-owner Safe.
+error UnsupportedChainForTokenOwnerSafe(uint256 chainId);
+
 /// @title LibSafeInvariants
 /// @notice Reusable invariant assertions for a Safe v1.4.1 L2 multisig
 /// pinned to the ST0x token-owner deployment. Each public assertion either
@@ -152,7 +168,29 @@ library LibSafeInvariants {
     // =========================================================================
     // ST0x token-owner Safe current-state pins.
     // =========================================================================
+
+    /// @notice Base mainnet chain id.
+    uint256 internal constant BASE_CHAIN_ID = 8453;
+
+    /// @notice Ethereum mainnet chain id.
+    uint256 internal constant ETHEREUM_CHAIN_ID = 1;
+
+    /// @notice The ST0x token-owner Safe on **Base** (the reference chain).
     address internal constant STOX_TOKEN_OWNER_SAFE = 0xe70d821f3462a074e63b42d0AaC6523faAe1d611;
+
+    /// @notice The ST0x token-owner Safe on **Ethereum mainnet**.
+    ///
+    /// **PLACEHOLDER** (`address(0)`) until the Ethereum Safe is deployed and
+    /// its address pinned here. The matched-address approach was ABANDONED: the
+    /// Ethereum Safe is a **distinct per-chain address**, deployed out-of-band
+    /// (Safe UI / custody) as a clean v1.4.1 Safe with the SAME owner set +
+    /// threshold + v1.4.1 policy as Base. Only the address differs per chain —
+    /// it is a per-chain deploy artifact, NOT a principal. The whole POLICY
+    /// (owners, threshold, v1.4.1 singleton/proxy codehash, fallback handler,
+    /// no modules/guard) is the shared pin set below, and the Ethereum Safe is
+    /// asserted against it — in every way that matters, now and into the future
+    /// — by `assertPolicyMatchesBase` (order-insensitive on the owner set).
+    address internal constant STOX_TOKEN_OWNER_SAFE_ETHEREUM = address(0);
 
     /// @notice The current expected threshold for `STOX_TOKEN_OWNER_SAFE`:
     /// 3-of-6 against the post-rotation owner roster. Scripts and the
@@ -384,5 +422,79 @@ library LibSafeInvariants {
         owners[4] = STOX_TOKEN_OWNER_SAFE_OWNER_5;
         owners[5] = STOX_TOKEN_OWNER_SAFE_OWNER_6;
         return owners;
+    }
+
+    /// @notice The ST0x token-owner Safe address for the active chain, selected
+    /// by chain id. The Safe address is a per-chain deploy artifact (the
+    /// matched-address approach was abandoned), so consumers that must resolve
+    /// "this chain's Safe" — the multichain production-state bundle, the
+    /// cross-chain parity pin, the Ethereum token-authorise script — read it
+    /// here. Reverts `UnsupportedChainForTokenOwnerSafe` for any chain without
+    /// a pinned Safe rather than falling back to another chain's address.
+    /// @param chainId The active chain id (`block.chainid`).
+    /// @return safe The chain's token-owner Safe (`address(0)` on Ethereum
+    /// until the deployed Safe is pinned).
+    function safeForChainId(uint256 chainId) internal pure returns (address safe) {
+        if (chainId == BASE_CHAIN_ID) {
+            return STOX_TOKEN_OWNER_SAFE;
+        }
+        if (chainId == ETHEREUM_CHAIN_ID) {
+            return STOX_TOKEN_OWNER_SAFE_ETHEREUM;
+        }
+        revert UnsupportedChainForTokenOwnerSafe(chainId);
+    }
+
+    /// @notice Assert the Safe's owner set equals `expected` as a SET — same
+    /// length and same members — WITHOUT requiring the same `getOwners()`
+    /// order. Unlike `assertOwnerSet` (order-sensitive, for Base's pinned
+    /// roster), this is the right check across chains: `getOwners()` returns
+    /// owners in Safe-internal linked-list order, which is an incidental
+    /// artifact of the order owners were added at setup / rotation and differs
+    /// between two Safes that carry the identical roster. Owner order is not a
+    /// policy property, so cross-chain parity asserts membership, not order.
+    /// @dev Safe forbids duplicate owners, so with equal lengths "every
+    /// expected owner is present" implies "no unexpected owners" — a one-way
+    /// membership scan is sufficient.
+    /// @param safe The Safe to query.
+    /// @param expected The expected owner addresses, in any order.
+    function assertOwnerSetUnordered(IGnosisSafe safe, address[] memory expected) internal view {
+        address[] memory actual = safe.getOwners();
+        if (actual.length != expected.length) {
+            revert SafeOwnerCountMismatch(address(safe), expected.length, actual.length);
+        }
+        for (uint256 i = 0; i < expected.length; i++) {
+            bool found = false;
+            for (uint256 j = 0; j < actual.length; j++) {
+                if (actual[j] == expected[i]) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                revert SafeOwnerSetMismatch(address(safe), expected[i]);
+            }
+        }
+    }
+
+    /// @notice Assert a chain's Safe carries the SAME policy as Base — in every
+    /// way that matters: the v1.4.1 immutable identity (proxy codehash,
+    /// singleton pointer + bytecode, version, no modules, no guard, pinned
+    /// fallback handler), the same owner SET, and the same threshold — as
+    /// pinned in this library (which is Base's current truth). The owner check
+    /// is order-INSENSITIVE (`assertOwnerSetUnordered`), because the only thing
+    /// that legitimately differs across chains is the Safe ADDRESS (and, as a
+    /// consequence of a fresh deploy, the incidental `getOwners()` order).
+    /// @dev This is the cross-chain / non-baseline-chain bundle. Base's own
+    /// pin test uses the order-SENSITIVE `assertAll` against its pinned roster.
+    /// Because the pins are the single source of truth for the policy and Base
+    /// is asserted against them too, asserting a chain's Safe here transitively
+    /// proves it matches Base — now, and on every scheduled CI run into the
+    /// future (if Base's policy changes, the pins move and this goes red until
+    /// the chain's Safe is realigned).
+    /// @param safe The chain's Safe to validate against Base's shared policy.
+    function assertPolicyMatchesBase(IGnosisSafe safe) internal view {
+        assertImmutableInvariants(safe);
+        assertOwnerSetUnordered(safe, expectedOwners());
+        assertThreshold(safe, STOX_TOKEN_OWNER_SAFE_THRESHOLD);
     }
 }
