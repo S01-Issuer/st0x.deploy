@@ -17,7 +17,6 @@ import {IOwnable} from "../src/interface/IOwnable.sol";
 import {IStoxUnifiedDeployerV1} from "../src/interface/IStoxUnifiedDeployerV1.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
-import {LibChainPrincipals, ChainPrincipals} from "../src/lib/LibChainPrincipals.sol";
 import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
 import {LibProdAuthoriserClones} from "../src/lib/LibProdAuthoriserClones.sol";
 import {LibProdTokenConfig, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
@@ -107,15 +106,6 @@ contract DeployTokensEthereum is Script {
     /// @notice Output path for the authorise-bundle JSON artifact.
     string internal constant AUTHORIZE_ARTIFACT_PATH = "out/tokens-ethereum-authorize.json";
 
-    /// @notice The Ethereum principals — concrete pins (matched-address
-    /// Safe + shared signer). The Safe's on-chain existence + policy
-    /// alignment is the real gate, asserted by the full Safe invariant in
-    /// `authorizeTokens()` / `verify()`, not by the principals.
-    /// @return principals The Ethereum principals.
-    function _principals() internal pure returns (ChainPrincipals memory principals) {
-        principals = LibChainPrincipals.ethereum();
-    }
-
     /// @notice Assert a deployer contract is present at its pinned address.
     /// @param deployer The pinned deployer address.
     function _assertDeployer(address deployer) internal view {
@@ -126,8 +116,9 @@ contract DeployTokensEthereum is Script {
     /// deployer, Safe-owned, matched to Base. EOA broadcast: reads
     /// `DEPLOYMENT_KEY`. Logs each deployed pair for the pin PR.
     function run() external {
-        ChainPrincipals memory principals = _principals();
-        address safe = principals.tokenOwnerSafe;
+        // The token-owner Safe is shared across chains (matched-address
+        // deploy), so it is the same pin Base uses.
+        address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
 
         // Pre-flight: the unified deployer and both beacon-set deployers it
         // delegates to must be live at their pinned V4 addresses (bootstrap
@@ -232,8 +223,7 @@ contract DeployTokensEthereum is Script {
     /// vault onto the Ethereum V4 authoriser clone. Simulates each call and
     /// asserts the post-state, then emits the Tx Builder JSON + SafeTxHash.
     function authorizeTokens() external {
-        ChainPrincipals memory principals = _principals();
-        IGnosisSafe safe = IGnosisSafe(principals.tokenOwnerSafe);
+        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
         LibSafeInvariants.assertAll(safe);
 
         address clone = _assertCloneReady();
@@ -268,8 +258,7 @@ contract DeployTokensEthereum is Script {
     /// Used by signers to confirm the artifact wasn't tampered with.
     /// @param jsonPath Filesystem path to the Tx Builder JSON to verify.
     function verify(string calldata jsonPath) external view {
-        ChainPrincipals memory principals = _principals();
-        IGnosisSafe safe = IGnosisSafe(principals.tokenOwnerSafe);
+        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
         LibSafeInvariants.assertAll(safe);
 
         address clone = _assertCloneReady();
