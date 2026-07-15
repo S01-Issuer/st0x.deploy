@@ -15,6 +15,7 @@ import {
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
+import {LibProdAuthoriserClones} from "../src/lib/LibProdAuthoriserClones.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 
 /// @notice The V4 authoriser impl at
@@ -36,7 +37,7 @@ error CloneFactoryNotDeployed(address factory);
 /// pin. The address at the pinned location is not the audited factory.
 error CloneFactoryCodehashMismatch(address factory, bytes32 expected, bytes32 actual);
 
-/// @notice The `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE` pin is already
+/// @notice The active chain's `LibProdAuthoriserClones` clone pin is already
 /// hydrated. This script deploys a NEW clone — running it a second time would
 /// produce a second clone the lib pin does not know about. Once hydrated, the
 /// script is done for that chain.
@@ -167,7 +168,7 @@ contract DeployV4AuthoriserClone is Script {
         // running this script would deploy a SECOND clone the lib
         // doesn't know about — same behaviour as re-running any
         // deterministic deploy after it has already landed.
-        address pinned = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        address pinned = LibProdAuthoriserClones.cloneForChainId(block.chainid);
         if (pinned != address(0)) revert V4AuthoriserClonePinAlreadyHydrated(pinned);
 
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
@@ -221,9 +222,9 @@ contract DeployV4AuthoriserClone is Script {
         _assertPostState(clone, deployer, v4Impl);
 
         // Log the clone address prominently so the operator can copy it
-        // into the post-execution pin PR
-        // (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE` +
-        // `..._CODEHASH` hydration).
+        // into the post-execution pin PR (hydrate the active chain's
+        // `LibProdAuthoriserClones` clone pin; the `..._CODEHASH` is already
+        // pinned in `LibProdDeployV4`).
         console2.log("==== V4 AUTHORISER CLONE DEPLOYED ====");
         console2.log("Clone:", vm.toString(clone));
         console2.log("CloneCodehash:", vm.toString(clone.codehash));

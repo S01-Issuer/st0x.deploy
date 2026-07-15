@@ -12,6 +12,7 @@ import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
+import {LibProdAuthoriserClones} from "../../src/lib/LibProdAuthoriserClones.sol";
 import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
 import {
     UpgradeReceiptVaultsToV4,
@@ -47,7 +48,7 @@ contract UpgradeReceiptVaultsToV4Test is Test {
         vm.createSelectFork(LibRainDeploy.BASE);
         LibTokenInvariants.assertUniformAuthoriserMigration(
             LibAuthoriserInvariants.STOX_PROD_AUTHORISER,
-            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE,
+            LibProdAuthoriserClones.STOX_PROD_AUTHORISER_V4_CLONE_BASE,
             LibProdDeployV4.V4_SWAP_DEADLINE
         );
     }

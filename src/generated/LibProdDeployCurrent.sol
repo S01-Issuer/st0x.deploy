@@ -8,7 +8,6 @@ import {LibProdDeployV4} from "./LibProdDeployV4.sol";
 library LibProdDeployCurrent {
     string constant DEPLOY_TAG = "0_1_8";
     address constant BEACON_INITIAL_OWNER = LibProdDeployV4.BEACON_INITIAL_OWNER;
-    address constant STOX_PROD_AUTHORISER_V4_CLONE = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
     bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH;
     address constant STOX_RECEIPT = LibProdDeployV4.STOX_RECEIPT_0_1_8;
     bytes32 constant STOX_RECEIPT_CODEHASH = LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_8;
