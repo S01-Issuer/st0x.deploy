@@ -132,14 +132,14 @@ contract UpgradeReceiptVaultsToV4Test is Test {
         upgradeScript.run();
 
         // The artifact landed with the pinned bundle name and the expected
-        // shape: 1 beacon upgrade + one setAuthorizer per production vault.
+        // shape: 3 beacon upgrades + one setAuthorizer per production vault.
         string memory json = vm.readFile("out/v4-upgrade.json");
         assertEq(
             vm.parseJsonString(json, ".meta.name"),
             "ST0x receipt vault V4 upgrade + authoriser swap",
             "artifact bundle name"
         );
-        uint256 expectedTxCount = 1 + LibTokenInvariants.productionReceiptVaults().length;
+        uint256 expectedTxCount = 3 + LibTokenInvariants.productionReceiptVaults().length;
         assertTrue(
             vm.keyExistsJson(json, string.concat(".transactions[", vm.toString(expectedTxCount - 1), "].to")),
             "last expected tx present"
@@ -152,10 +152,10 @@ contract UpgradeReceiptVaultsToV4Test is Test {
 
     /// @notice `_assertPostState` reverts `VaultAuthoriserMismatchPostUpgrade`
     /// when a production vault still reports a non-V4-clone authoriser after
-    /// the beacon leg. Drives the beacon to V4 (so the beacon post-state
-    /// passes) but leaves authorisers un-swapped, so the per-vault loop trips
-    /// on vault 0. Exercises the post-state guard the placeholder clone pin
-    /// otherwise keeps `run()` from ever reaching.
+    /// the beacon leg. Drives all three beacons to their V4 impls (so the
+    /// beacon post-state passes) but leaves authorisers un-swapped, so the
+    /// per-vault loop trips on vault 0. Exercises the post-state guard the
+    /// placeholder clone pin otherwise keeps `run()` from ever reaching.
     function testAssertPostStateRevertsWhenVaultNotSwapped() external {
         _forkAndMigrateBeaconOwnership();
         deployCodeTo("src/concrete/StoxReceiptVault.sol:StoxReceiptVault", V4_IMPL);
@@ -163,8 +163,16 @@ contract UpgradeReceiptVaultsToV4Test is Test {
             "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1
         );
+        // All three V1 beacons to their V4 impls (receipt + wrapped impls
+        // are live on Base already; the receipt-vault impl was planted
+        // above).
+        vm.prank(LibBeaconInvariants.PROD_BEACON_OWNER);
+        IUpgradeableBeacon(LibProdDeployV1.STOX_RECEIPT_BEACON_V1).upgradeTo(LibProdDeployV4.STOX_RECEIPT_0_1_1);
         vm.prank(LibBeaconInvariants.PROD_BEACON_OWNER);
         IUpgradeableBeacon(BEACON).upgradeTo(V4_IMPL);
+        vm.prank(LibBeaconInvariants.PROD_BEACON_OWNER);
+        IUpgradeableBeacon(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1)
+            .upgradeTo(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1);
 
         UpgradeReceiptVaultsToV4Harness harness = new UpgradeReceiptVaultsToV4Harness();
         IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
