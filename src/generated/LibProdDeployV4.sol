@@ -498,7 +498,6 @@ import {
 
 library LibProdDeployV4 {
     address constant BEACON_INITIAL_OWNER = address(0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b);
-    address constant STOX_PROD_AUTHORISER_V4_CLONE = address(0);
     bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH =
         0x2089950d3cc1112dd66a58adcfadeadc490b50053ac67be8bc676b4a2dcd1717;
     uint256 constant V4_SWAP_DEADLINE = 1_793_491_200;

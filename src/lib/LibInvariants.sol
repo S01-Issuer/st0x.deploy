@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 
 import {IGnosisSafe} from "../interface/IGnosisSafe.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
+import {LibProdAuthoriserClones} from "./LibProdAuthoriserClones.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "./LibTokenInvariants.sol";
@@ -31,7 +32,7 @@ library LibInvariants {
     /// The authoriser leg is migration-window gated for the V4 swap: every
     /// vault's `authorizer()` may be the V3 authoriser
     /// (`LibAuthoriserInvariants.STOX_PROD_AUTHORISER`) or the V4 clone
-    /// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`) until
+    /// (`LibProdAuthoriserClones.STOX_PROD_AUTHORISER_V4_CLONE_BASE`) until
     /// `LibProdDeployV4.V4_SWAP_DEADLINE`; only the V4 clone after. This keeps
     /// the bundle green across the swap with no post-execution lib repoint:
     /// before the swap the pre-state matches, after the swap the post-state
@@ -49,7 +50,7 @@ library LibInvariants {
         LibTokenInvariants.assertUniformOwnership(address(safe));
         LibTokenInvariants.assertUniformAuthoriserMigration(
             LibAuthoriserInvariants.STOX_PROD_AUTHORISER,
-            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE,
+            LibProdAuthoriserClones.STOX_PROD_AUTHORISER_V4_CLONE_BASE,
             LibProdDeployV4.V4_SWAP_DEADLINE
         );
         LibAuthoriserInvariants.assertAll();
@@ -107,7 +108,7 @@ library LibInvariants {
         LibTokenInvariants.assertUniformOwnership(address(safe));
         LibTokenInvariants.assertUniformAuthoriserMigration(
             LibAuthoriserInvariants.STOX_PROD_AUTHORISER,
-            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE,
+            LibProdAuthoriserClones.STOX_PROD_AUTHORISER_V4_CLONE_BASE,
             LibProdDeployV4.V4_SWAP_DEADLINE
         );
         LibAuthoriserInvariants.assertAll();

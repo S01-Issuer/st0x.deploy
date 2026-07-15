@@ -225,21 +225,13 @@ contract LibProdDeployV4Test is Test {
         assertEq(LibProdDeployCurrent.DEPLOY_TAG, string(v));
     }
 
-    /// The V4 authoriser clone is a non-deterministic deploy target and is
-    /// still a placeholder. Asserting the placeholder explicitly prevents it
-    /// from being silently shipped as a real pin, and makes this test fail
-    /// (prompting a real address + codehash assertion) the moment the clone is
-    /// hydrated with its deployed literal.
-    function testAuthoriserV4ClonePlaceholder() external pure {
-        assertEq(
-            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE,
-            address(0),
-            "clone hydrated: replace this placeholder guard with a real address + codehash assertion"
-        );
-        // The clone CODEHASH is deterministic from the pinned V4 impl (the
-        // EIP-1167 runtime embeds the impl address), so unlike the address it
-        // is hydrated ahead of the deploy. Re-derive it and assert the pinned
-        // literal matches, so an impl-address change can't leave it stale.
+    /// The clone CODEHASH is deterministic from the pinned V4 impl (the
+    /// EIP-1167 runtime embeds the impl address), so unlike the clone ADDRESS
+    /// (hand-maintained per chain in `LibProdAuthoriserClones`) it is
+    /// generated here and hydrated ahead of the deploy. Re-derive it and
+    /// assert the pinned literal matches, so an impl-address change can't
+    /// leave it stale.
+    function testAuthoriserV4CloneCodehash() external pure {
         assertEq(
             LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH,
             keccak256(
