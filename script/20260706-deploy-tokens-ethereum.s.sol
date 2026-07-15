@@ -56,6 +56,14 @@ error VaultNotOwnedBySafe(address vault, address expectedOwner, address actualOw
 /// @param clone The clone address inspected.
 error EthereumCloneNotReady(address clone);
 
+/// @notice Pre-flight failed: the Ethereum token-owner Safe address is not
+/// yet pinned (`address(0)`). The Safe is a distinct per-chain address,
+/// deployed out-of-band and pinned in
+/// `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM`; nothing can be
+/// authored against it until that address lands.
+/// @param safe The Safe address inspected (`address(0)` when unpinned).
+error EthereumSafeNotReady(address safe);
+
 /// @notice `verify()` found the pre-emitted authorise bundle does not
 /// match what the live pre-flight would author. Surfaces the first field
 /// that drifted.
@@ -116,10 +124,6 @@ contract DeployTokensEthereum is Script {
     /// deployer, Safe-owned, matched to Base. EOA broadcast: reads
     /// `DEPLOYMENT_KEY`. Logs each deployed pair for the pin PR.
     function run() external {
-        // The token-owner Safe is shared across chains (matched-address
-        // deploy), so it is the same pin Base uses.
-        address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
-
         // Pre-flight: the unified deployer and both beacon-set deployers it
         // delegates to must be live at their pinned V4 addresses (bootstrap
         // step 1 broadcast the core suites here).
@@ -127,6 +131,12 @@ contract DeployTokensEthereum is Script {
         _assertDeployer(unifiedDeployer);
         _assertDeployer(LibProdDeployCurrent.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
         _assertDeployer(LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER);
+
+        // The Ethereum token-owner Safe (a distinct per-chain address) must be
+        // pinned + policy-aligned to Base before it becomes the admin of all 20
+        // tokens. Asserted after the core pre-flight so a missing core surfaces
+        // first.
+        address safe = address(_assertSafeReady());
 
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
         uint256 deployerKey = vm.envUint("DEPLOYMENT_KEY");
@@ -172,6 +182,22 @@ contract DeployTokensEthereum is Script {
         console2.log(
             "All tokens deployed. Hydrate LibTokenInvariants.productionTokensEthereum() from the logged pairs."
         );
+    }
+
+    /// @notice The Ethereum token-owner Safe, asserted pinned + policy-aligned
+    /// to Base. Reverts `EthereumSafeNotReady` until the address is hydrated,
+    /// then asserts the live Safe matches Base's shared policy with
+    /// `assertPolicyMatchesBase` — order-INSENSITIVE on the owner set, because
+    /// this is a distinct per-chain Safe whose `getOwners()` order is
+    /// incidental (the matched-address approach was abandoned).
+    /// @return safe The validated Ethereum token-owner Safe.
+    function _assertSafeReady() internal view returns (IGnosisSafe safe) {
+        address safeAddr = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM;
+        if (safeAddr == address(0)) {
+            revert EthereumSafeNotReady(safeAddr);
+        }
+        safe = IGnosisSafe(safeAddr);
+        LibSafeInvariants.assertPolicyMatchesBase(safe);
     }
 
     /// @notice Assert the Ethereum V4 authoriser clone is deployed at its
@@ -223,8 +249,7 @@ contract DeployTokensEthereum is Script {
     /// vault onto the Ethereum V4 authoriser clone. Simulates each call and
     /// asserts the post-state, then emits the Tx Builder JSON + SafeTxHash.
     function authorizeTokens() external {
-        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
-        LibSafeInvariants.assertAll(safe);
+        IGnosisSafe safe = _assertSafeReady();
 
         address clone = _assertCloneReady();
         address[] memory vaults = _hydratedReceiptVaults(address(safe));
@@ -258,8 +283,7 @@ contract DeployTokensEthereum is Script {
     /// Used by signers to confirm the artifact wasn't tampered with.
     /// @param jsonPath Filesystem path to the Tx Builder JSON to verify.
     function verify(string calldata jsonPath) external view {
-        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
-        LibSafeInvariants.assertAll(safe);
+        IGnosisSafe safe = _assertSafeReady();
 
         address clone = _assertCloneReady();
         address[] memory vaults = _hydratedReceiptVaults(address(safe));
