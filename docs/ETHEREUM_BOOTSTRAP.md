@@ -56,69 +56,36 @@ blocks step 5 until this lands.
 - [ ] CloneFactory deployed on Ethereum at the canonical address with the pinned
       codehash.
 
-## 3. Ethereum principals (Safe + service signer)
+## 3. Ethereum token-owner Safe (distinct per-chain address)
 
-The principals are **shared across chains, not per-chain.** The token-owner Safe
-is reproduced at its **exact Base address** on Ethereum (§ 3a) and the issuance
-service signer is the Base signer (Josh, 2026-07-07), so there is no per-chain
-principal pin to hydrate: `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE` (the Safe)
-and `LibAuthoriserInvariants.GRANTEE_SERVICE_1C66` (the signer) are the same
-pins on every chain, and `LibInvariants.assertProductionState` validates every
-chain against them. The one remaining bootstrap gate is standing up the Safe
-proxy on Ethereum at that shared address (RAI-1109, § 3a).
+The Ethereum token-owner Safe is a **distinct per-chain address** — the
+matched/deterministic address approach was **abandoned** (Josh, 2026-07-15).
+Each chain gets its own Safe; the address is just a per-chain deploy artifact
+(like the authoriser clone + token addresses), **not** a principal. The service
+signer stays shared (`LibAuthoriserInvariants.GRANTEE_SERVICE_1C66`), and the
+whole Safe **policy** — owner set, threshold, v1.4.1 singleton/proxy codehash,
+fallback handler, no modules/guard — is the shared pin set in
+`LibSafeInvariants`, which is Base's current truth.
 
-- [x] **Safe address decision (RAI-1109):** (A) reproduce Base's address —
-      chosen (Josh, 2026-07-07). Automated in § 3a: deploy the genesis proxy
-      (Base's Safe was created as v1.3.0, whose factory + singleton are live on
-      Ethereum), then replay to the current policy. Option B (fresh v1.4.1 Safe,
-      different address, current policy in one tx) was the alternative.
-- [ ] Ethereum token-owner Safe created and policy-aligned — Safe v1.4.1, same
-      owner set and threshold as Base (the shared
-      `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE` + owner/threshold pins),
-      reproduced at the shared Base address (§ 3a). No pin PR: the pins are
-      already Base's; the forcing-function test
-      `DeploySafeEthereumTest.testEthereumSafeMatchesBasePolicy` is red until
-      the live Ethereum Safe satisfies them.
+Deploy the Safe **out-of-band** (Safe UI / custody) as a clean v1.4.1 Safe with
+Base's current owner set and threshold, then pin its address. No in-repo deploy
+script: we create the Safe ourselves and only add the address.
 
-### 3a. Deploy the matched-address Safe (Option A)
+- [ ] Deploy the Ethereum token-owner Safe out-of-band: a fresh **v1.4.1** Safe
+      with Base's current owner set (`LibSafeInvariants.expectedOwners()`) and
+      threshold (`STOX_TOKEN_OWNER_SAFE_THRESHOLD` = 3), default
+      `CompatibilityFallbackHandler`, no modules, no guard. Owner _order_ need
+      not match Base — the parity check is order-insensitive.
+- [ ] **[pin PR]** Hydrate `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM`
+      with the deployed Safe address. `EthereumTokenOwnerSafeParityTest` is
+      PENDING until this is set; once pinned it forks Ethereum and asserts the
+      live Safe matches Base's shared policy in every way that matters (v1.4.1
+      identity, owner SET, threshold) — and stays red into the future (scheduled
+      CI) on any drift.
 
-`script/20260707-deploy-safe-ethereum.s.sol` reproduces the Base token-owner
-Safe at its **exact Base address** on Ethereum by replaying the genesis creation
-call pinned in `LibStoxSafeGenesis` (recovered from the Base creation tx). The
-Safe address is `CREATE2(factory, keccak(keccak(initializer) ++ saltNonce), …)`,
-so the same inputs reproduce the same address. The canonical Safe **v1.3.0**
-factory + singleton (the versions the Base Safe was created with — it was later
-upgraded to v1.4.1) are already live at their usual addresses on Ethereum.
-
-```bash
-DEPLOYMENT_KEY=<hex> ETHEREUM_RPC_URL=<url> forge script \
-  script/20260707-deploy-safe-ethereum.s.sol \
-  --rpc-url ethereum --sig 'run()' --broadcast
-```
-
-The script asserts the produced proxy equals
-`LibSafeInvariants.STOX_TOKEN_OWNER_SAFE` before returning; the fork test
-`DeploySafeEthereumTest` proves the reproduction against a live Ethereum fork.
-
-- [ ] Matched-address Safe deployed on Ethereum.
-
-**Then align policy to Base (genesis → current).** The reproduced Safe lands in
-its GENESIS state — **3 owners, threshold 2, on v1.3.0**. Base has since moved
-to **6 owners, threshold 3, on v1.4.1**. Reaching parity is a replay authored as
-Safe bundles and signed by the **genesis** owners
-(`LibStoxSafeGenesis.GENESIS_OWNER_1..3`):
-
-- [ ] Upgrade the singleton v1.3.0 → v1.4.1 (and swap the fallback handler to
-      the v1.4.1 `CompatibilityFallbackHandler`).
-- [ ] Add the 3 later owners and raise the threshold to 3, matching Base's
-      current `getOwners()` / `getThreshold()`.
-- [ ] Re-run `LibSafeInvariants.assertAll` against the Ethereum Safe — it must
-      satisfy the same v1.4.1 singleton/proxy codehash + owner-set + threshold
-      pins as Base.
-
-> Trade-off vs Option B (fresh v1.4.1 Safe, current policy, one tx): Option A
-> gives the identical address on every chain but requires this genesis replay
-> through the original signers. Chosen per Josh 2026-07-07.
+> The address is `address(0)` until pinned, so every per-chain consumer
+> (`safeForChainId`, the parity pin, the token-authorise script) treats Ethereum
+> as pending-bootstrap until the real Safe address lands.
 
 ## 4. Fireblocks / custody
 
