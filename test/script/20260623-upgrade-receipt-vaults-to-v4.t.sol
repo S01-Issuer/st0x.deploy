@@ -20,7 +20,6 @@ import {
     UpgradeReceiptVaultsToV4,
     V4ImplementationNotDeployed,
     V4CodehashMismatch,
-    V4AuthoriserCloneNotPinned,
     VaultAuthoriserMismatchPostUpgrade
 } from "../../script/20260623-upgrade-receipt-vaults-to-v4.s.sol";
 import {UpgradeReceiptVaultsToV4Harness} from "./UpgradeReceiptVaultsToV4Harness.sol";
@@ -114,15 +113,15 @@ contract UpgradeReceiptVaultsToV4Test is Test {
         upgradeScript.run();
     }
 
-    /// @notice The audited V4 impl is already deployed on Base at `V4_IMPL`
-    /// with the pinned codehash, so the impl-side pre-flight passes against the
-    /// live fork (no planting needed — planting the current source would carry
-    /// a later release's bytecode, not the pinned `0.1.1` build) and `run()`
-    /// reaches the next forcing function: `V4AuthoriserCloneNotPinned` (the
-    /// clone pin is still `address(0)`). The codehash assert doubles as a
-    /// prod-state pin: the on-chain V4 impl must match the lib's pinned
-    /// codehash.
-    function testRunRevertsWhenV4AuthoriserCloneNotPinned() external {
+    /// @notice Happy path against unmodified live Base state: every
+    /// pre-flight input is now real (beacon Safe-owned since the 2026-07
+    /// migration, audited V4 impl live at `V4_IMPL` with the pinned
+    /// codehash, V4 authoriser clone deployed + pinned + grant-configured),
+    /// so `run()` completes end-to-end — pre-flight, bundle build,
+    /// simulation, post-state, n+1 reversibility — and writes the Safe Tx
+    /// Builder artifact. This is the exact dry-run the `run-script`
+    /// dispatch executes to author the signable bundle.
+    function testRunCompletesAndWritesArtifact() external {
         _forkAndMigrateBeaconOwnership();
         assertEq(
             V4_IMPL.codehash,
@@ -130,8 +129,25 @@ contract UpgradeReceiptVaultsToV4Test is Test {
             "live V4 impl codehash != pinned codehash"
         );
         UpgradeReceiptVaultsToV4 upgradeScript = new UpgradeReceiptVaultsToV4();
-        vm.expectRevert(V4AuthoriserCloneNotPinned.selector);
         upgradeScript.run();
+
+        // The artifact landed with the pinned bundle name and the expected
+        // shape: 1 beacon upgrade + one setAuthorizer per production vault.
+        string memory json = vm.readFile("out/v4-upgrade.json");
+        assertEq(
+            vm.parseJsonString(json, ".meta.name"),
+            "ST0x receipt vault V4 upgrade + authoriser swap",
+            "artifact bundle name"
+        );
+        uint256 expectedTxCount = 1 + LibTokenInvariants.productionReceiptVaults().length;
+        assertTrue(
+            vm.keyExistsJson(json, string.concat(".transactions[", vm.toString(expectedTxCount - 1), "].to")),
+            "last expected tx present"
+        );
+        assertFalse(
+            vm.keyExistsJson(json, string.concat(".transactions[", vm.toString(expectedTxCount), "].to")),
+            "no extra txs"
+        );
     }
 
     /// @notice `_assertPostState` reverts `VaultAuthoriserMismatchPostUpgrade`

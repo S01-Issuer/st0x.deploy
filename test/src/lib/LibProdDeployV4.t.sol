@@ -48,11 +48,10 @@ import {ST0xOrchestratorBeaconSetDeployer} from "../../../src/concrete/deploy/ST
 /// 3. **Twin equality** (`testRelease*TwinsEqual*`) — a contract unchanged
 ///    across a release has byte-identical pins in both tags.
 ///
-/// The `STOX_PROD_AUTHORISER_V4_CLONE` pin is a non-deterministic deploy target
-/// and is still an `address(0)` placeholder; `testAuthoriserV4ClonePlaceholder`
-/// asserts that explicitly so the placeholder can't be silently shipped as a
-/// real pin and so the test fails (prompting a real assertion) once the clone
-/// is hydrated.
+/// The `STOX_PROD_AUTHORISER_V4_CLONE` pin is a non-deterministic deploy
+/// target hydrated from the 2026-07 broadcast on Base;
+/// `testAuthoriserV4ClonePin` asserts the literal + the codehash derivation
+/// so a drifted generator value fails a test.
 contract LibProdDeployV4Test is Test {
     // --- StoxReceipt ---
 
@@ -225,21 +224,23 @@ contract LibProdDeployV4Test is Test {
         assertEq(LibProdDeployCurrent.DEPLOY_TAG, string(v));
     }
 
-    /// The V4 authoriser clone is a non-deterministic deploy target and is
-    /// still a placeholder. Asserting the placeholder explicitly prevents it
-    /// from being silently shipped as a real pin, and makes this test fail
-    /// (prompting a real address + codehash assertion) the moment the clone is
-    /// hydrated with its deployed literal.
-    function testAuthoriserV4ClonePlaceholder() external pure {
+    /// The V4 authoriser clone pin. The address was hydrated from the
+    /// 2026-07 broadcast of `20260619-deploy-v4-authoriser-clone.s.sol` on
+    /// Base (see the `NewClone` event in the broadcast receipt); asserting
+    /// the literal here means an accidental edit to the generator's
+    /// hardcoded value fails a test rather than silently re-routing every
+    /// consumer of the pin. The live-chain codehash cross-check runs in
+    /// `StoxProdV4PostSwap.t.sol`'s hydrated-clone block.
+    function testAuthoriserV4ClonePin() external pure {
         assertEq(
             LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE,
-            address(0),
-            "clone hydrated: replace this placeholder guard with a real address + codehash assertion"
+            address(0x315b16faa6eE413faBCa877d3851B3818369f0cD),
+            "clone address pin drifted from the deployed literal"
         );
         // The clone CODEHASH is deterministic from the pinned V4 impl (the
-        // EIP-1167 runtime embeds the impl address), so unlike the address it
-        // is hydrated ahead of the deploy. Re-derive it and assert the pinned
-        // literal matches, so an impl-address change can't leave it stale.
+        // EIP-1167 runtime embeds the impl address). Re-derive it and assert
+        // the pinned literal matches, so an impl-address change can't leave
+        // it stale.
         assertEq(
             LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH,
             keccak256(
