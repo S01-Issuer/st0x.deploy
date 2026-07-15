@@ -8,10 +8,8 @@ import {IERC4626} from "@openzeppelin-contracts-5.6.1/interfaces/IERC4626.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {ERC1967Utils} from "@openzeppelin-contracts-5.6.1/proxy/ERC1967/ERC1967Utils.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
-import {IGnosisSafe} from "../../../../src/interface/IGnosisSafe.sol";
 import {IOwnable} from "../../../../src/interface/IOwnable.sol";
 import {LibInvariants} from "../../../../src/lib/LibInvariants.sol";
-import {LibChainPrincipals, ChainPrincipals} from "../../../../src/lib/LibChainPrincipals.sol";
 import {LibProdDeployV2BaseOverrides} from "../../../../src/lib/LibProdDeployV2BaseOverrides.sol";
 import {LibProdDeployCurrent} from "../../../../src/generated/LibProdDeployCurrent.sol";
 import {LibProdAuthoriserClones} from "../../../../src/lib/LibProdAuthoriserClones.sol";
@@ -70,13 +68,15 @@ struct TokenConfigSnapshot {
 /// 3. **Beacon lineage** — each chain's receipt-vault proxies resolve
 ///    (via the ERC-1967 beacon slot) to a single beacon whose
 ///    `implementation()` is the deterministic V4 receipt vault impl —
-///    the SAME address on every chain — and whose `owner()` maps to the
-///    same principal-kind per chain (`mapPrincipal`).
+///    the SAME address on every chain — and whose `owner()` is the shared
+///    token-owner Safe (the same address on every chain). Cross-chain impl
+///    codehash parity is asserted explicitly for both the authoriser clone
+///    (EIP-1167 over the shared impl) and the receipt-vault beacon impl.
 /// 4. **Role parity** — `LibAuthoriserInvariants.assertExpectedGrants`
-///    runs against each chain's clone with that chain's principals: the
-///    identical grant STRUCTURE, per-chain addresses. Holder addresses
-///    legitimately differ per chain; an address outside the principal
-///    table fails the mapping.
+///    runs against each chain's clone with the SHARED grant map: identical
+///    structure AND identical holder addresses on every chain (the token-
+///    owner Safe and service signer are shared). Only the clone ADDRESS is
+///    per-chain; its grants are not.
 ///
 /// **Known-divergence carve-out (Base V2 beacon corruption).** Base's V2
 /// OARV beacon set was corrupted post-deploy (impl downgrade + ownership
@@ -89,8 +89,9 @@ struct TokenConfigSnapshot {
 /// leak into expectations for chains that deploy clean.
 ///
 /// **Pending-bootstrap chains.** Until a chain's bootstrap executes, its
-/// deploy-artifact pins are placeholders (the principals are always
-/// concrete — same matched-address Safe + shared signer on every chain).
+/// deploy-artifact pins are placeholders (the token-owner Safe + grant map
+/// are shared and always concrete — same matched-address Safe + shared
+/// signer on every chain; only the clone + token addresses are per-chain).
 /// The suite accepts exactly two states per chain: fully PENDING (the
 /// authoriser clone pin AND every token entry all placeholder — logged
 /// loudly, parity assertions skipped) or fully LIVE (every artifact
@@ -103,27 +104,6 @@ contract StoxCrossChainParityTest is Test {
     /// @return beacon The beacon address backing the proxy.
     function readBeacon(address proxy) internal view returns (address beacon) {
         beacon = address(uint160(uint256(vm.load(proxy, ERC1967Utils.BEACON_SLOT))));
-    }
-
-    /// @notice Map a principal address observed on the baseline chain to
-    /// the address expected to fill the same slot on another chain. The
-    /// token-owner Safe and service signer map through the principal
-    /// tables; any other address (e.g. the chain-agnostic
-    /// `BEACON_INITIAL_OWNER` EOA) is expected to be IDENTICAL across
-    /// chains — an unmapped chain-local address on either side fails
-    /// parity rather than being guessed at.
-    /// @param observed The address read on the baseline chain.
-    /// @param baseline The baseline chain's principals.
-    /// @param target The target chain's principals.
-    /// @return expected The address expected on the target chain.
-    function mapPrincipal(address observed, ChainPrincipals memory baseline, ChainPrincipals memory target)
-        internal
-        pure
-        returns (address expected)
-    {
-        if (observed == baseline.tokenOwnerSafe) return target.tokenOwnerSafe;
-        if (observed == baseline.serviceSigner) return target.serviceSigner;
-        return observed;
     }
 
     /// @notice Capture one chain's per-token config snapshot on the ACTIVE
@@ -277,16 +257,15 @@ contract StoxCrossChainParityTest is Test {
     function testCrossChainParity() external {
         // ---- Reference chain: Base ----
         vm.createSelectFork(LibRainDeploy.BASE);
-        ChainPrincipals memory basePrincipals = LibChainPrincipals.base();
-        address baseClone = LibProdDeployCurrent.STOX_PROD_AUTHORISER_V4_CLONE;
+        address baseClone = LibProdAuthoriserClones.STOX_PROD_AUTHORISER_V4_CLONE_BASE;
         assertTrue(baseClone != address(0), "Base V4 clone pin still placeholder (stack not yet executed)");
         TokenInstance[] memory baseTokens = LibTokenInvariants.productionTokensBase();
         // Shared multichain framework: Base satisfies the full production-state
-        // invariant (Safe identity/config, token owner + authoriser uniformity,
-        // authoriser grant map) — the same call the Ethereum branch makes below.
-        LibInvariants.assertProductionState(
-            IGnosisSafe(basePrincipals.tokenOwnerSafe), baseTokens, baseClone, basePrincipals
-        );
+        // invariant (shared Safe identity/config, token owner + authoriser
+        // uniformity, shared authoriser grant map) — the same call the Ethereum
+        // branch makes below. Only the token table + clone address are passed;
+        // the Safe and grant map are shared across chains.
+        LibInvariants.assertProductionState(baseTokens, baseClone);
         assertCloneParity(baseClone);
         (TokenConfigSnapshot[] memory baseline, address baseBeacon) = assertChainAndSnapshot(baseTokens);
         // Base's beacon lineage: the receipt-vault beacon must serve the
@@ -302,7 +281,6 @@ contract StoxCrossChainParityTest is Test {
         address baseBeaconOwner = IOwnable(baseBeacon).owner();
 
         // ---- Ethereum ----
-        ChainPrincipals memory ethPrincipals = LibChainPrincipals.ethereum();
         address ethClone = LibProdAuthoriserClones.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
         TokenInstance[] memory ethTokens = LibTokenInvariants.productionTokensEthereum();
 
@@ -325,24 +303,40 @@ contract StoxCrossChainParityTest is Test {
         // satisfy the full production-state invariant (its matched-address
         // Safe policy-aligned to Base, its vaults uniform, its clone grants
         // in place) before any cross-chain comparison is meaningful.
-        LibInvariants.assertProductionState(
-            IGnosisSafe(ethPrincipals.tokenOwnerSafe), ethTokens, ethClone, ethPrincipals
-        );
+        LibInvariants.assertProductionState(ethTokens, ethClone);
         assertCloneParity(ethClone);
         (TokenConfigSnapshot[] memory observed, address ethBeacon) = assertChainAndSnapshot(ethTokens);
 
         // Layer 3: identical implementation through the beacon, clean V4
-        // lineage, principal-mapped beacon owner.
+        // lineage, shared beacon owner.
         assertEq(
             IBeacon(ethBeacon).implementation(),
             LibProdDeployCurrent.STOX_RECEIPT_VAULT,
             "Ethereum receipt-vault beacon does not serve the V4 impl"
         );
         assertCleanV4Lineage(ethBeacon);
+        // The beacon owner is the shared token-owner Safe (same address on
+        // every chain), so it must be byte-for-byte Base's beacon owner.
         assertEq(
             IOwnable(ethBeacon).owner(),
-            mapPrincipal(baseBeaconOwner, basePrincipals, ethPrincipals),
-            "Ethereum receipt-vault beacon owner does not map from Base's"
+            baseBeaconOwner,
+            "Ethereum receipt-vault beacon owner diverges from Base's shared owner"
+        );
+
+        // Cross-chain IMPL CODEHASH parity — the per-chain-unique artifacts
+        // (authoriser clone address, token addresses) must still resolve to
+        // the SAME implementations on every chain:
+        //   - the authoriser clone is an EIP-1167 proxy whose runtime embeds
+        //     the impl address, so equal clone codehashes prove equal impls;
+        //   - the receipt-vault beacon serves the deterministic V4 impl (its
+        //     address already asserted equal above), so its codehash matches.
+        // Both are asserted against Base explicitly here, on top of each
+        // chain's clone being checked against the shared codehash pin.
+        assertEq(ethClone.codehash, baseClone.codehash, "authoriser clone impl codehash diverges cross-chain");
+        assertEq(
+            IBeacon(ethBeacon).implementation().codehash,
+            IBeacon(baseBeacon).implementation().codehash,
+            "receipt-vault beacon impl codehash diverges cross-chain"
         );
 
         // Layer 2 cross-chain: identical config per underlying, in
