@@ -4,7 +4,6 @@ pragma solidity ^0.8.25;
 
 import {IGnosisSafe} from "../interface/IGnosisSafe.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
-import {LibChainPrincipals, ChainPrincipals} from "./LibChainPrincipals.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "./LibTokenInvariants.sol";
@@ -56,40 +55,40 @@ library LibInvariants {
         LibAuthoriserInvariants.assertAll();
     }
 
-    /// @notice Chain-parametric full-production-state pre-flight — the
-    /// multichain generalisation of `assertAll(safe)`. Asserts, for the
+    /// @notice Multichain full-production-state pre-flight — the
+    /// chain-agnostic generalisation of `assertAll(safe)`. Asserts, for the
     /// supplied chain: the Safe-side invariants (identity + config + owner
     /// set + threshold), the token-side uniformity (every vault in `tokens`
-    /// owned by `safe` and gated by the single `authoriser`), and the
-    /// authoriser's role-grant map for that chain's `principals`. Every
-    /// chain-specific input is a parameter, so the same call pre-flights
-    /// Ethereum OR any future chain.
+    /// owned by the shared token-owner Safe and gated by the single
+    /// `authoriser`), and the authoriser's shared role-grant map. Only the
+    /// deploy artifacts differ per chain — the token table and the authoriser
+    /// clone address — so those are the only parameters; the same call
+    /// pre-flights Ethereum OR any future chain.
     ///
-    /// @dev Unlike Base's `assertAll(safe)` this asserts a SINGLE uniform
+    /// @dev The token-owner Safe and the role-grant map are SHARED across
+    /// every chain, not per-chain: the Safe is reproduced at the same address
+    /// with the same owner set + threshold on every chain (matched-address
+    /// deploy — see `LibStoxSafeGenesis` / `docs/ETHEREUM_BOOTSTRAP.md`), and
+    /// the service signer is shared, so the grant map's grantees are identical
+    /// everywhere. This is why there is no `ChainPrincipals` parameter — the
+    /// only per-chain inputs are the token addresses and the authoriser clone
+    /// address (whose impl codehash is asserted equal across chains by the
+    /// cross-chain parity pin).
+    ///
+    /// Unlike Base's `assertAll(safe)` this asserts a SINGLE uniform
     /// authoriser rather than the V4 swap-window pair: a bootstrap chain is
     /// deployed directly at V4 with its vaults wired onto one clone from the
-    /// start, so there is no V3→V4 migration window to tolerate. The ST0x
-    /// token-owner Safe is reproduced at the same address with the same owner
-    /// set + threshold on every chain (see `LibChainPrincipals`), so the
-    /// Safe-side leg uses the shared no-arg `LibSafeInvariants.assertAll(safe)`
-    /// pins on every chain. The authoriser CODEHASH is not asserted here (a
-    /// deploy-artifact property the clone-deploy script + cross-chain parity
-    /// pin check against `LibProdDeployV4`); this bundle asserts live ROLE
-    /// state + ownership.
-    /// @param safe The chain's token-owner Safe.
+    /// start, so there is no V3→V4 migration window to tolerate. The
+    /// authoriser CODEHASH is not asserted here (a deploy-artifact property
+    /// the clone-deploy script + cross-chain parity pin check); this bundle
+    /// asserts live ROLE state + ownership.
     /// @param tokens The chain's production token table.
     /// @param authoriser The chain's live authoriser the vaults point at.
-    /// @param principals The chain's principals, supplying the expected
-    /// role-grant grantees.
-    function assertProductionState(
-        IGnosisSafe safe,
-        TokenInstance[] memory tokens,
-        address authoriser,
-        ChainPrincipals memory principals
-    ) internal view {
+    function assertProductionState(TokenInstance[] memory tokens, address authoriser) internal view {
+        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
         LibSafeInvariants.assertAll(safe);
         LibTokenInvariants.assertAll(tokens, address(safe), authoriser);
-        LibAuthoriserInvariants.assertExpectedGrants(authoriser, principals);
+        LibAuthoriserInvariants.assertExpectedGrants(authoriser);
     }
 
     /// @notice Full-args Base bundle. Use when overriding the Safe-side
