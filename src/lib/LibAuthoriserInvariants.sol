@@ -4,7 +4,6 @@ pragma solidity ^0.8.25;
 
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
-import {LibChainPrincipals, ChainPrincipals} from "./LibChainPrincipals.sol";
 import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1167Proxy.sol";
 
 /// @notice A pinned `(role, grantee)` pair on the live authoriser.
@@ -38,14 +37,12 @@ error UnexpectedDefaultAdmin(address authoriser, address holder);
 error AuthoriserImplCodehashMismatch(address authoriser, bytes32 expected, bytes32 actual);
 
 /// @title LibAuthoriserInvariants
-/// @notice Reusable invariants for the ST0x production authorisers: the
-/// pinned current-state Base authoriser address, the expected impl behind
-/// it, the grantee constants, and the `(role, grantee)` map — defined once
-/// as a chain-parametric structure over `ChainPrincipals` and pinned
-/// concretely for Base from the `RoleGranted` / `RoleRevoked` event history.
-/// Each assertion either returns silently when the invariant holds against
-/// the live chain state or reverts with a typed error that pinpoints the
-/// drift.
+/// @notice Reusable invariants for the ST0x production authoriser on Base:
+/// the pinned current-state authoriser address, the expected impl behind
+/// it, the grantee constants, and the full `(role, grantee)` map enumerated
+/// from `RoleGranted` / `RoleRevoked` events on-chain. Each assertion
+/// either returns silently when the invariant holds against the live chain
+/// state or reverts with a typed error that pinpoints the drift.
 /// @dev Owns both the current-state pins and the assert functions. When the
 /// authoriser-swap script lands and the live authoriser changes, the pins
 /// here are updated (current → new clone address + new impl) so future
@@ -96,101 +93,69 @@ library LibAuthoriserInvariants {
     /// @notice External service EOA granted `DEPOSIT` (block 41797262),
     /// `WITHDRAW` (block 41797281) and `CERTIFY` (block 41797297) shortly
     /// after the first service was provisioned. EOA, active service signer.
-    /// Identical to `LibChainPrincipals.SERVICE_SIGNER_BASE` (where the
-    /// per-chain principal tables own the address); re-exported here for
-    /// call-site clarity, mirroring `GRANTEE_TOKEN_OWNER_SAFE`.
     /// @dev TODO: confirm identity and rename.
     /// https://basescan.org/address/0x1c66d6708914c40239d54919320b4c48cae3d1a9
-    address internal constant GRANTEE_SERVICE_1C66 = LibChainPrincipals.SERVICE_SIGNER_BASE;
+    address internal constant GRANTEE_SERVICE_1C66 = 0x1c66D6708914C40239D54919320b4C48cAE3D1A9;
 
-    /// @notice The `(role, grantee)` map every ST0x authoriser carries,
-    /// parameterised on the chain's principals. The STRUCTURE — 5 `_ADMIN`
-    /// roles held by the token-owner Safe, 3 action roles for the service
-    /// signer, 3 action roles held by the Safe directly — is identical on
-    /// every chain; the supplied `ChainPrincipals` fills the address slots.
-    /// On Base the structure is the folded `RoleGranted` / `RoleRevoked`
-    /// event history (see `expectedGrants()`); on a bootstrap chain it is
-    /// established in one shot by the grants-mirror bundle, which authors
-    /// exactly this map.
-    /// @param principals The chain's principal set to fill the grantee slots.
-    /// @return grants The expected `(role, grantee)` pairs for that chain.
-    function expectedGrants(ChainPrincipals memory principals) internal pure returns (RoleGrant[] memory grants) {
-        grants = new RoleGrant[](11);
-
-        // The token-owner Safe holds every `_ADMIN` role (set at authoriser
-        // init on every chain).
-        grants[0] = RoleGrant(keccak256("DEPOSIT_ADMIN"), principals.tokenOwnerSafe);
-        grants[1] = RoleGrant(keccak256("WITHDRAW_ADMIN"), principals.tokenOwnerSafe);
-        grants[2] = RoleGrant(keccak256("CERTIFY_ADMIN"), principals.tokenOwnerSafe);
-        grants[3] = RoleGrant(keccak256("CONFISCATE_SHARES_ADMIN"), principals.tokenOwnerSafe);
-        grants[4] = RoleGrant(keccak256("CONFISCATE_RECEIPT_ADMIN"), principals.tokenOwnerSafe);
-
-        // The service signer holds the operational action roles.
-        grants[5] = RoleGrant(keccak256("DEPOSIT"), principals.serviceSigner);
-        grants[6] = RoleGrant(keccak256("WITHDRAW"), principals.serviceSigner);
-        grants[7] = RoleGrant(keccak256("CERTIFY"), principals.serviceSigner);
-
-        // The Safe holds the corresponding action roles for direct
-        // operational use.
-        grants[8] = RoleGrant(keccak256("DEPOSIT"), principals.tokenOwnerSafe);
-        grants[9] = RoleGrant(keccak256("WITHDRAW"), principals.tokenOwnerSafe);
-        grants[10] = RoleGrant(keccak256("CERTIFY"), principals.tokenOwnerSafe);
-    }
-
-    /// @notice The full `(role, grantee)` map in effect on the live Base
+    /// @notice The full `(role, grantee)` map in effect on the live
     /// authoriser. Source of truth folded from `RoleGranted` /
-    /// `RoleRevoked` event scan on Base: the 5 `_ADMIN` grants landed at
-    /// init (block 41715184), the service EOA's 3 action roles at blocks
-    /// 41797262 / 41797281 / 41797297, and the Safe granted itself the 3
-    /// action roles at blocks 42704120 / 42704140 / 44076075.
-    /// @dev Delegates to the chain-parametric overload with Base's
-    /// principals so the structure is defined exactly once.
+    /// `RoleRevoked` event scan on Base. The 11 entries split into: 5
+    /// `_ADMIN` roles held by the token-owner Safe (set at init), 3 action
+    /// roles for the service EOA, 3 action roles the Safe later granted
+    /// itself for direct operational use.
     /// @return grants The pinned `(role, grantee)` pairs.
     function expectedGrants() internal pure returns (RoleGrant[] memory grants) {
-        grants = expectedGrants(LibChainPrincipals.base());
+        grants = new RoleGrant[](11);
+
+        // Init grants (block 41715184) — Safe receives every `_ADMIN` role.
+        grants[0] = RoleGrant(keccak256("DEPOSIT_ADMIN"), GRANTEE_TOKEN_OWNER_SAFE);
+        grants[1] = RoleGrant(keccak256("WITHDRAW_ADMIN"), GRANTEE_TOKEN_OWNER_SAFE);
+        grants[2] = RoleGrant(keccak256("CERTIFY_ADMIN"), GRANTEE_TOKEN_OWNER_SAFE);
+        grants[3] = RoleGrant(keccak256("CONFISCATE_SHARES_ADMIN"), GRANTEE_TOKEN_OWNER_SAFE);
+        grants[4] = RoleGrant(keccak256("CONFISCATE_RECEIPT_ADMIN"), GRANTEE_TOKEN_OWNER_SAFE);
+
+        // Service EOA provisioned at blocks 41797262, 41797281, 41797297.
+        grants[5] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_1C66);
+        grants[6] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_1C66);
+        grants[7] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_1C66);
+
+        // Safe later granted itself the corresponding action roles (blocks
+        // 42704120, 42704140, 44076075) for direct operational use.
+        grants[8] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_TOKEN_OWNER_SAFE);
+        grants[9] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_TOKEN_OWNER_SAFE);
+        grants[10] = RoleGrant(keccak256("CERTIFY"), GRANTEE_TOKEN_OWNER_SAFE);
     }
 
-    /// @notice Assert every `(role, grantee)` pair from
-    /// `expectedGrants(principals)` is held on the supplied authoriser, and
-    /// that no principal holds `DEFAULT_ADMIN_ROLE`. Reverts with
-    /// `UnexpectedDefaultAdmin` if a principal holds the root admin role,
+    /// @notice Assert every pinned `(role, grantee)` pair in
+    /// `expectedGrants()` is held on the supplied authoriser, and that no
+    /// pinned grantee holds `DEFAULT_ADMIN_ROLE`. Reverts with
+    /// `UnexpectedDefaultAdmin` if a pinned grantee holds the root admin role,
     /// or `ExpectedGrantMissing` on the first missing pair, surfacing the exact
     /// role + grantee that broke the invariant.
     /// @dev Parameterised on the authoriser address so the same assertion
     /// can run against the live current clone (pre-swap) AND against a
     /// freshly-deployed clone (the script's pre-flight on the swap target)
-    /// without duplicating the iteration; parameterised on the principals so
-    /// the identical structural assertion runs against every chain's
-    /// authoriser with that chain's principal table. The `DEFAULT_ADMIN_ROLE`
-    /// check is a negative assertion over the supplied principals, not an
-    /// exhaustive scan (a plain `AccessControl` cannot enumerate members).
+    /// without duplicating the iteration. The `DEFAULT_ADMIN_ROLE` check is a
+    /// negative assertion over the pinned grantees, not an exhaustive scan (a
+    /// plain `AccessControl` cannot enumerate members).
     /// @param authoriser The authoriser to validate.
-    /// @param principals The chain principals whose grant map is expected.
-    function assertExpectedGrants(address authoriser, ChainPrincipals memory principals) internal view {
+    function assertExpectedGrants(address authoriser) internal view {
         IAccessControl acl = IAccessControl(authoriser);
-        // No principal holds DEFAULT_ADMIN_ROLE: the hierarchy admins each
+        // No pinned grantee holds DEFAULT_ADMIN_ROLE: the hierarchy admins each
         // action role by its own `<ROLE>_ADMIN`, so a root-admin holder would
-        // be an escalation path the expected map does not sanction.
-        if (acl.hasRole(DEFAULT_ADMIN_ROLE, principals.tokenOwnerSafe)) {
-            revert UnexpectedDefaultAdmin(authoriser, principals.tokenOwnerSafe);
+        // be an escalation path the pinned map does not sanction.
+        if (acl.hasRole(DEFAULT_ADMIN_ROLE, GRANTEE_TOKEN_OWNER_SAFE)) {
+            revert UnexpectedDefaultAdmin(authoriser, GRANTEE_TOKEN_OWNER_SAFE);
         }
-        if (acl.hasRole(DEFAULT_ADMIN_ROLE, principals.serviceSigner)) {
-            revert UnexpectedDefaultAdmin(authoriser, principals.serviceSigner);
+        if (acl.hasRole(DEFAULT_ADMIN_ROLE, GRANTEE_SERVICE_1C66)) {
+            revert UnexpectedDefaultAdmin(authoriser, GRANTEE_SERVICE_1C66);
         }
-        RoleGrant[] memory grants = expectedGrants(principals);
+        RoleGrant[] memory grants = expectedGrants();
         for (uint256 i = 0; i < grants.length; i++) {
             if (!acl.hasRole(grants[i].role, grants[i].grantee)) {
                 revert ExpectedGrantMissing(authoriser, grants[i].role, grants[i].grantee);
             }
         }
-    }
-
-    /// @notice Assert the pinned Base grant map (`expectedGrants()`) against
-    /// the supplied authoriser. Delegates to the chain-parametric overload
-    /// with Base's principals; existing Base-side scripts and pins call this.
-    /// @param authoriser The authoriser to validate.
-    function assertExpectedGrants(address authoriser) internal view {
-        assertExpectedGrants(authoriser, LibChainPrincipals.base());
     }
 
     /// @notice Assert the authoriser's runtime codehash is the EIP-1167
