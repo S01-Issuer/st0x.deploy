@@ -10,6 +10,7 @@ import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensio
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {LibProdDeployV1} from "../../../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
+import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibTokenInvariants} from "../../../../src/lib/LibTokenInvariants.sol";
@@ -94,12 +95,16 @@ contract V3UpgradeShadowForkTest is Test {
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1
         );
 
-        // 2. Simulate PR-A: transfer the beacon from the EOA to the Safe.
-        vm.prank(LibProdDeployV1.BEACON_INITIAL_OWNER);
-        Ownable(BEACON).transferOwnership(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+        // 2. The beacon-ownership migration EXECUTED on Base (2026-07):
+        //    the live beacon is already Safe-owned, no simulation needed.
+        assertEq(
+            Ownable(BEACON).owner(),
+            LibBeaconInvariants.PROD_BEACON_OWNER,
+            "live beacon not Safe-owned - migration state regressed?"
+        );
 
         // 3. Apply the upgrade: the Safe points the beacon at the V3 impl.
-        vm.prank(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+        vm.prank(LibBeaconInvariants.PROD_BEACON_OWNER);
         IUpgradeableBeacon(BEACON).upgradeTo(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1);
     }
 
@@ -113,7 +118,7 @@ contract V3UpgradeShadowForkTest is Test {
     /// Safe-owned, points at the V3 implementation, and the live receipt vault
     /// is still behind this beacon.
     function testForkIsInUpgradedState() external view {
-        assertEq(Ownable(BEACON).owner(), LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, "beacon Safe-owned");
+        assertEq(Ownable(BEACON).owner(), LibBeaconInvariants.PROD_BEACON_OWNER, "beacon Safe-owned");
         assertEq(IBeacon(BEACON).implementation(), LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1, "beacon at V3 impl");
         assertEq(beaconOf(LIVE_RECEIPT_VAULT), BEACON, "live vault behind the upgraded beacon");
     }

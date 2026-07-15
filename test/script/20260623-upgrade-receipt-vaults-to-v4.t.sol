@@ -8,6 +8,7 @@ import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {IAuthorizableV1} from "rain-vats-0.1.6/src/interface/IAuthorizableV1.sol";
 
+import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
@@ -65,14 +66,19 @@ contract UpgradeReceiptVaultsToV4Test is Test {
     /// beacon to (placeholder Zoltu address until the patched build lands).
     address internal constant V4_IMPL = LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1;
 
-    /// @notice Fork Base and simulate PR #196 (transfer the receipt-vault
-    /// beacon from the deploy EOA to the Safe) so the script's beacon
-    /// pre-flight (`assertBeaconInvariants`, Safe-owned + at V1) passes and
-    /// `run()` reaches the V4 impl + clone checks.
+    /// @notice Fork Base at head. The beacon-ownership migration
+    /// (`MigrateBeaconOwners.s.sol`) EXECUTED on Base in 2026-07, so the
+    /// live receipt-vault beacon is already Safe-owned — the script's
+    /// beacon pre-flight (`assertBeaconInvariants`, Safe-owned + at V1)
+    /// passes against real chain state with no simulation, and `run()`
+    /// reaches the V4 impl + clone checks.
     function _forkAndMigrateBeaconOwnership() internal {
         vm.createSelectFork(LibRainDeploy.BASE);
-        vm.prank(LibProdDeployV1.BEACON_INITIAL_OWNER);
-        Ownable(BEACON).transferOwnership(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+        assertEq(
+            Ownable(BEACON).owner(),
+            LibBeaconInvariants.PROD_BEACON_OWNER,
+            "live beacon not Safe-owned - migration state regressed?"
+        );
     }
 
     /// @notice `run()` pre-flight reverts `V4ImplementationNotDeployed` when
@@ -141,7 +147,7 @@ contract UpgradeReceiptVaultsToV4Test is Test {
             "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1
         );
-        vm.prank(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+        vm.prank(LibBeaconInvariants.PROD_BEACON_OWNER);
         IUpgradeableBeacon(BEACON).upgradeTo(V4_IMPL);
 
         UpgradeReceiptVaultsToV4Harness harness = new UpgradeReceiptVaultsToV4Harness();
