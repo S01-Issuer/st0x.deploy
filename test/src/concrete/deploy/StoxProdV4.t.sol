@@ -23,10 +23,10 @@ import {
 /// address matches those pins, proving the production deploy landed the audited
 /// bytecode at the address the source expects.
 ///
-/// `STOX_PROD_AUTHORISER_V4_CLONE` is a non-deterministic deploy target still
-/// pinned as `address(0)` in `LibProdDeployV4`, so it is not checked here;
-/// `LibProdDeployV4Test.testAuthoriserV4ClonePlaceholder` guards that
-/// placeholder until the clone is hydrated.
+/// `STOX_PROD_AUTHORISER_V4_CLONE` (hydrated from the 2026-07 broadcast) is
+/// not checked here; `LibProdDeployV4Test.testAuthoriserV4ClonePin` asserts
+/// the literal + codehash derivation, and `StoxProdV4PostSwap.t.sol` checks
+/// the live on-chain clone.
 contract StoxProdV4Test is Test {
     /// Asserts every V4 deployed contract is present at its pinned address with
     /// the pinned codehash; that the wrapped-token-vault beacon points at the V4

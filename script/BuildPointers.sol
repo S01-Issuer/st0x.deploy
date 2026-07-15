@@ -322,7 +322,10 @@ contract BuildPointers is Script {
         vm.writeLine(GEN_V4_PATH, "");
         vm.writeLine(GEN_V4_PATH, "library LibProdDeployV4 {");
         vm.writeLine(GEN_V4_PATH, string.concat("address constant BEACON_INITIAL_OWNER = address(", GEN_OWNER, ");"));
-        vm.writeLine(GEN_V4_PATH, "address constant STOX_PROD_AUTHORISER_V4_CLONE = address(0);");
+        vm.writeLine(
+            GEN_V4_PATH,
+            "address constant STOX_PROD_AUTHORISER_V4_CLONE =" " address(0x315b16faa6eE413faBCa877d3851B3818369f0cD);"
+        );
         vm.writeLine(
             GEN_V4_PATH,
             "bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH ="
