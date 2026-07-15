@@ -3,11 +3,9 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
-import {LibAuthoriserInvariants, RoleGrant} from "../../../../src/lib/LibAuthoriserInvariants.sol";
+import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibMigrationInvariant} from "../../../../src/lib/LibMigrationInvariant.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
-import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibTokenInvariants} from "../../../../src/lib/LibTokenInvariants.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
@@ -77,67 +75,18 @@ contract StoxProdV4PostSwapTest is Test {
         );
     }
 
-    /// @notice Assert the vault-authoriser transition on Base: every prod
-    /// receipt vault reports V3 authoriser or V4 clone up to
-    /// `LibProdDeployV4.V4_SWAP_DEADLINE`, only V4 clone after. Once the
-    /// clone pin is hydrated (address non-zero), additionally assert the
-    /// clone's codehash pin + full grant map (the 11 `expectedGrants()`
-    /// pairs plus all 7 auto-granted `_ADMIN` roles on the Safe, covering
-    /// the two corporate-action admins the lib map doesn't carry).
+    /// @notice Assert the post-swap authoriser state on Base: every prod
+    /// receipt vault's `authorizer()` is the current production authoriser
+    /// (`LibAuthoriserInvariants.STOX_PROD_AUTHORISER` — the V4 clone), and
+    /// the clone itself validates via the shared invariant (codehash bound
+    /// to the audited 0.1.1 impl + the master `expectedGrants()` map).
     /// Base-only.
-    function checkAuthoriserSwapWindowOnBase() internal view {
-        address v4Clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
-
-        // Every prod receipt vault reports V3 authoriser (pre) or V4 clone
-        // (post) — the same migration-window leg `LibInvariants.assertAll`
-        // composes.
-        LibTokenInvariants.assertUniformAuthoriserMigration(
-            LibAuthoriserInvariants.STOX_PROD_AUTHORISER, v4Clone, LibProdDeployV4.V4_SWAP_DEADLINE
-        );
-
-        // Once the clone pin is hydrated, the clone must be deployed at
-        // that address with the pinned codehash and carry the expected
-        // grant map exactly. Before hydration `v4Clone` is `address(0)`,
-        // there is no clone to assert on, and these checks are skipped —
-        // the migration invariant above still enforces the swap by the
-        // deadline (via the `pre != post` branch), so the checks are not
-        // load-bearing while the pin is a placeholder.
-        if (v4Clone != address(0)) {
-            assertTrue(v4Clone.code.length > 0, "V4 authoriser clone not deployed");
-            assertEq(
-                v4Clone.codehash,
-                LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH,
-                "V4 authoriser clone codehash mismatch"
-            );
-
-            IAccessControl cloneAcl = IAccessControl(v4Clone);
-
-            // The 11 pairs the invariant lib pins (5 V3-era admins + 6
-            // operational grants).
-            RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants();
-            for (uint256 i = 0; i < grants.length; i++) {
-                assertTrue(cloneAcl.hasRole(grants[i].role, grants[i].grantee), "V4 clone missing expected grant");
-            }
-
-            // All 7 auto-granted `_ADMIN` roles held by the Safe — covers
-            // the two corporate-action admins (`SCHEDULE_...` /
-            // `CANCEL_CORPORATE_ACTION_ADMIN`) that `expectedGrants()`
-            // doesn't carry (V4-only roles granted to the Safe by the
-            // clone-deploy broadcast, per the RAI-731 decision).
-            bytes32[7] memory adminRoles = [
-                keccak256("CERTIFY_ADMIN"),
-                keccak256("CONFISCATE_RECEIPT_ADMIN"),
-                keccak256("CONFISCATE_SHARES_ADMIN"),
-                keccak256("DEPOSIT_ADMIN"),
-                keccak256("WITHDRAW_ADMIN"),
-                keccak256("SCHEDULE_CORPORATE_ACTION_ADMIN"),
-                keccak256("CANCEL_CORPORATE_ACTION_ADMIN")
-            ];
-            address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
-            for (uint256 i = 0; i < adminRoles.length; i++) {
-                assertTrue(cloneAcl.hasRole(adminRoles[i], safe), "Safe missing auto-granted admin role on V4 clone");
-            }
-        }
+    /// @dev RED until the `20260623` swap bundle executes on Base — every
+    /// vault still reports the retired V3 authoriser until then. This PR
+    /// merges after the swap; the red is the pre-authored post-state pin.
+    function checkPostSwapAuthoriserStateOnBase() internal view {
+        LibTokenInvariants.assertUniformAuthoriser(LibAuthoriserInvariants.STOX_PROD_AUTHORISER);
+        LibAuthoriserInvariants.assertAll();
     }
 
     /// V4 implementations MUST be deployed on Arbitrum.
@@ -147,11 +96,11 @@ contract StoxProdV4PostSwapTest is Test {
     }
 
     /// V4 implementations MUST be deployed on Base + every live prod vault
-    /// reports V3 or V4 clone as authoriser, gated by `V4_SWAP_DEADLINE`.
+    /// reports the current (V4) production authoriser.
     function testProdDeployBaseV4() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         checkAllV4OnChain();
-        checkAuthoriserSwapWindowOnBase();
+        checkPostSwapAuthoriserStateOnBase();
     }
 
     /// V4 implementations MUST be deployed on Base Sepolia.

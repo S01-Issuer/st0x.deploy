@@ -303,33 +303,17 @@ contract UpgradeReceiptVaultsToV4 is Script {
                 V4_AUTHORISER_CLONE, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH, cloneCodehash
             );
         }
+        // The master `expectedGrants()` map holds on the clone — 13 entries
+        // covering all seven `_ADMIN` roles on the Safe (including the two
+        // V4-only corporate-action admins; without them the swapped clone
+        // can't admin corporate actions, so this is the enforcement point
+        // that must reject a mis-configured clone) plus the six operational
+        // action roles.
         IAccessControl cloneAcl = IAccessControl(V4_AUTHORISER_CLONE);
         RoleGrant[] memory expected = LibAuthoriserInvariants.expectedGrants();
         for (uint256 i = 0; i < expected.length; i++) {
             if (!cloneAcl.hasRole(expected[i].role, expected[i].grantee)) {
                 revert V4AuthoriserCloneExpectedGrantMissing(V4_AUTHORISER_CLONE, expected[i].role, expected[i].grantee);
-            }
-        }
-
-        // Verify all seven auto-granted `_ADMIN` roles hold on the Safe —
-        // including the two V4-only corporate-action admins
-        // (`SCHEDULE_/CANCEL_CORPORATE_ACTION_ADMIN`) that `expectedGrants()`
-        // doesn't carry. Without them the swapped clone can't admin corporate
-        // actions, so this is the enforcement point that must reject a clone
-        // deployed missing them.
-        bytes32[7] memory adminRoles = [
-            keccak256("CERTIFY_ADMIN"),
-            keccak256("CONFISCATE_RECEIPT_ADMIN"),
-            keccak256("CONFISCATE_SHARES_ADMIN"),
-            keccak256("DEPOSIT_ADMIN"),
-            keccak256("WITHDRAW_ADMIN"),
-            keccak256("SCHEDULE_CORPORATE_ACTION_ADMIN"),
-            keccak256("CANCEL_CORPORATE_ACTION_ADMIN")
-        ];
-        address ownerSafe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
-        for (uint256 i = 0; i < adminRoles.length; i++) {
-            if (!cloneAcl.hasRole(adminRoles[i], ownerSafe)) {
-                revert V4AuthoriserCloneExpectedGrantMissing(V4_AUTHORISER_CLONE, adminRoles[i], ownerSafe);
             }
         }
     }
