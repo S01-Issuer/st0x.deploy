@@ -57,23 +57,25 @@ library LibInvariants {
 
     /// @notice Multichain full-production-state pre-flight — the
     /// chain-agnostic generalisation of `assertAll(safe)`. Asserts, for the
-    /// supplied chain: the Safe-side invariants (identity + config + owner
-    /// set + threshold), the token-side uniformity (every vault in `tokens`
-    /// owned by the shared token-owner Safe and gated by the single
-    /// `authoriser`), and the authoriser's shared role-grant map. Only the
-    /// deploy artifacts differ per chain — the token table and the authoriser
-    /// clone address — so those are the only parameters; the same call
-    /// pre-flights Ethereum OR any future chain.
+    /// ACTIVE chain (`block.chainid`): the Safe carries Base's shared policy
+    /// (`assertPolicyMatchesBase` — v1.4.1 identity, owner SET, threshold), the
+    /// token-side uniformity (every vault in `tokens` owned by that chain's
+    /// Safe and gated by the single `authoriser`), and the authoriser's role-
+    /// grant map for that chain's Safe. The Safe is resolved from the pinned
+    /// per-chain address via `LibSafeInvariants.safeForChainId(block.chainid)`,
+    /// so the deploy artifacts that differ per chain — the Safe address, the
+    /// token addresses, the authoriser clone address — are the only variation.
     ///
-    /// @dev The token-owner Safe and the role-grant map are SHARED across
-    /// every chain, not per-chain: the Safe is reproduced at the same address
-    /// with the same owner set + threshold on every chain (matched-address
-    /// deploy — see `LibStoxSafeGenesis` / `docs/ETHEREUM_BOOTSTRAP.md`), and
-    /// the service signer is shared, so the grant map's grantees are identical
-    /// everywhere. This is why there is no `ChainPrincipals` parameter — the
-    /// only per-chain inputs are the token addresses and the authoriser clone
-    /// address (whose impl codehash is asserted equal across chains by the
-    /// cross-chain parity pin).
+    /// @dev The Safe POLICY (owner set, threshold, v1.4.1 identity) and the
+    /// service signer are SHARED across chains; only the ADDRESSES differ. The
+    /// Safe address is therefore a per-chain deploy artifact (not a principal):
+    /// resolved by chain id, and its policy asserted against the shared pins.
+    /// The owner check is order-INSENSITIVE (`assertPolicyMatchesBase`) because
+    /// a fresh per-chain Safe's `getOwners()` order is incidental. There is no
+    /// `ChainPrincipals` parameter — the per-chain inputs are the token
+    /// addresses and the authoriser clone address (whose impl codehash is
+    /// asserted equal across chains by the cross-chain parity pin); the Safe
+    /// address is read from the per-chain pin here.
     ///
     /// Unlike Base's `assertAll(safe)` this asserts a SINGLE uniform
     /// authoriser rather than the V4 swap-window pair: a bootstrap chain is
@@ -85,10 +87,10 @@ library LibInvariants {
     /// @param tokens The chain's production token table.
     /// @param authoriser The chain's live authoriser the vaults point at.
     function assertProductionState(TokenInstance[] memory tokens, address authoriser) internal view {
-        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
-        LibSafeInvariants.assertAll(safe);
-        LibTokenInvariants.assertAll(tokens, address(safe), authoriser);
-        LibAuthoriserInvariants.assertExpectedGrants(authoriser);
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        LibSafeInvariants.assertPolicyMatchesBase(IGnosisSafe(safe));
+        LibTokenInvariants.assertAll(tokens, safe, authoriser);
+        LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe);
     }
 
     /// @notice Full-args Base bundle. Use when overriding the Safe-side
