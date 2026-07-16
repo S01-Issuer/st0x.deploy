@@ -14,9 +14,16 @@ import {
 } from "rain-vats-0.1.6/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV2.sol";
 
 /// @title StoxProdV4Test
-/// @notice Fork test verifying every V4 Zoltu deployment exists on Base with
-/// the expected runtime codehash. V4 ships to Base only (the deploy CI targets
-/// Base), so unlike `StoxProdV2Test` there is a single network fork here.
+/// @notice Fork test verifying every V4 Zoltu deployment exists on-chain at its
+/// pinned address with the expected runtime codehash.
+///
+/// The two production networks carry different sets:
+/// - Base carries the full accumulated V4 set — the audited 0.1.1 contracts plus
+///   the 0.1.2 orchestrator and the 0.1.3 rebuilds — deployed incrementally over
+///   those releases by `script/Deploy.sol` (current source).
+/// - Ethereum mainnet carries only the audited 0.1.1 production set, shipped by
+///   `script/DeployProdV4_0_1_1.sol` from the stored 0.1.1 creation code. The
+///   orchestrator (0.1.2) and the 0.1.3 rebuilds are Base-only.
 ///
 /// The codehash pins are the same literals `LibProdDeployV4Test` checks against
 /// the generated pointer files and against a fresh Zoltu redeploy. This test
@@ -29,13 +36,14 @@ import {
 /// `LibProdDeployV4Test.testAuthoriserV4ClonePlaceholder` guards that
 /// placeholder until the clone is hydrated.
 contract StoxProdV4Test is Test {
-    /// Asserts every V4 deployed contract is present at its pinned address with
-    /// the pinned codehash; that the wrapped-token-vault beacon points at the V4
-    /// vault implementation; and that the offchain-asset-receipt-vault
-    /// beacon-set deployer's two beacons point at the V4 receipt and receipt
-    /// vault implementations. All three beacons are still held by the beacon
-    /// initial owner (pre-migration deploy state).
-    function checkAllV4OnChain() internal view {
+    /// Asserts the audited 0.1.1 production set is present at its pinned
+    /// addresses with the pinned codehashes; that the wrapped-token-vault beacon
+    /// points at the 0.1.1 vault implementation; and that the
+    /// offchain-asset-receipt-vault beacon-set deployer's two beacons point at
+    /// the 0.1.1 receipt and receipt vault implementations. All three beacons are
+    /// still held by the beacon initial owner (pre-migration deploy state). This
+    /// is the exact set shipped to Ethereum mainnet, and a subset of Base.
+    function checkProd_0_1_1OnChain() internal view {
         assertTrue(LibProdDeployV4.STOX_RECEIPT_0_1_1.code.length > 0, "V4 StoxReceipt not deployed");
         assertEq(LibProdDeployV4.STOX_RECEIPT_0_1_1.codehash, LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_1);
         assertEq(LibProdDeployV4.STOX_RECEIPT_0_1_1.code, LibProdDeployV4.STOX_RECEIPT_RUNTIME_CODE_0_1_1);
@@ -142,6 +150,61 @@ contract StoxProdV4Test is Test {
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_1
         );
 
+        // The wrapped-token-vault beacon points at the 0.1.1 vault implementation
+        // and is still held by the beacon initial owner (rainlang.eth), which is
+        // the deploy-time state before ownership migration to the ST0x
+        // token-owner Safe.
+        assertEq(
+            IBeacon(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1).implementation(),
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1,
+            "V4 beacon implementation mismatch"
+        );
+        assertEq(
+            Ownable(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1).owner(),
+            LibProdDeployV4.BEACON_INITIAL_OWNER,
+            "V4 beacon owner mismatch"
+        );
+
+        // The offchain-asset-receipt-vault beacon-set deployer creates two
+        // beacons in its constructor: the receipt beacon points at the 0.1.1
+        // receipt implementation and the offchain-asset-receipt-vault beacon
+        // points at the 0.1.1 receipt vault implementation, both held by the
+        // beacon initial owner.
+        IOffchainAssetReceiptVaultBeaconSetDeployerV2 oarvDeployer = IOffchainAssetReceiptVaultBeaconSetDeployerV2(
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1
+        );
+
+        IBeacon receiptBeacon = oarvDeployer.iReceiptBeacon();
+        assertEq(
+            receiptBeacon.implementation(),
+            LibProdDeployV4.STOX_RECEIPT_0_1_1,
+            "V4 OARV receipt beacon implementation mismatch"
+        );
+        assertEq(
+            Ownable(address(receiptBeacon)).owner(),
+            LibProdDeployV4.BEACON_INITIAL_OWNER,
+            "V4 OARV receipt beacon owner mismatch"
+        );
+
+        IBeacon vaultBeacon = oarvDeployer.iOffchainAssetReceiptVaultBeacon();
+        assertEq(
+            vaultBeacon.implementation(),
+            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1,
+            "V4 OARV vault beacon implementation mismatch"
+        );
+        assertEq(
+            Ownable(address(vaultBeacon)).owner(),
+            LibProdDeployV4.BEACON_INITIAL_OWNER,
+            "V4 OARV vault beacon owner mismatch"
+        );
+    }
+
+    /// Asserts the full accumulated V4 set carried by Base: the audited 0.1.1 set
+    /// (via `checkProd_0_1_1OnChain`) plus the 0.1.2 orchestrator and the 0.1.3
+    /// rebuilds, including their beacon wiring.
+    function checkAllV4OnChain() internal view {
+        checkProd_0_1_1OnChain();
+
         // st0x-deploy 0.1.3 rebuilds seven contracts at new Zoltu addresses: the
         // corporate-actions facet (the cumulative-multiplier change) plus the
         // receipt vault, OARV beacon-set deployer, unified deployer, orchestrator,
@@ -239,56 +302,8 @@ contract StoxProdV4Test is Test {
             LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_2
         );
 
-        // The wrapped-token-vault beacon points at the V4 vault implementation
-        // and is still held by the beacon initial owner (rainlang.eth), which
-        // is the deploy-time state before ownership migration to the ST0x
-        // token-owner Safe.
-        assertEq(
-            IBeacon(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1).implementation(),
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1,
-            "V4 beacon implementation mismatch"
-        );
-        assertEq(
-            Ownable(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1).owner(),
-            LibProdDeployV4.BEACON_INITIAL_OWNER,
-            "V4 beacon owner mismatch"
-        );
-
-        // The offchain-asset-receipt-vault beacon-set deployer creates two
-        // beacons in its constructor: the receipt beacon points at the V4
-        // receipt implementation and the offchain-asset-receipt-vault beacon
-        // points at the V4 receipt vault implementation, both held by the
-        // beacon initial owner.
-        IOffchainAssetReceiptVaultBeaconSetDeployerV2 oarvDeployer = IOffchainAssetReceiptVaultBeaconSetDeployerV2(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1
-        );
-
-        IBeacon receiptBeacon = oarvDeployer.iReceiptBeacon();
-        assertEq(
-            receiptBeacon.implementation(),
-            LibProdDeployV4.STOX_RECEIPT_0_1_1,
-            "V4 OARV receipt beacon implementation mismatch"
-        );
-        assertEq(
-            Ownable(address(receiptBeacon)).owner(),
-            LibProdDeployV4.BEACON_INITIAL_OWNER,
-            "V4 OARV receipt beacon owner mismatch"
-        );
-
-        IBeacon vaultBeacon = oarvDeployer.iOffchainAssetReceiptVaultBeacon();
-        assertEq(
-            vaultBeacon.implementation(),
-            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1,
-            "V4 OARV vault beacon implementation mismatch"
-        );
-        assertEq(
-            Ownable(address(vaultBeacon)).owner(),
-            LibProdDeployV4.BEACON_INITIAL_OWNER,
-            "V4 OARV vault beacon owner mismatch"
-        );
-
         // The ST0x orchestrator beacon-set deployer creates one beacon in its
-        // constructor: the orchestrator beacon points at the V4 orchestrator
+        // constructor: the orchestrator beacon points at the 0.1.2 orchestrator
         // implementation, held by the beacon initial owner.
         IBeacon orchestratorBeacon = ST0xOrchestratorBeaconSetDeployer(
                 LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_2
@@ -353,17 +368,18 @@ contract StoxProdV4Test is Test {
         );
     }
 
-    /// All V4 contracts MUST be deployed on Base with the expected codehashes.
+    /// The full accumulated V4 set MUST be deployed on Base with the expected
+    /// codehashes.
     function testProdDeployBaseV4() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         checkAllV4OnChain();
     }
 
-    /// The V4 contracts are deployed on Ethereum mainnet at the same
-    /// deterministic Zoltu addresses and codehashes as every other network,
-    /// identical to Base by construction.
+    /// Only the audited 0.1.1 production set is shipped to Ethereum mainnet (the
+    /// orchestrator and 0.1.3 rebuilds are Base-only), so the Ethereum fork is
+    /// checked against the 0.1.1 set alone.
     function testProdDeployEthereumV4() external {
         vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
-        checkAllV4OnChain();
+        checkProd_0_1_1OnChain();
     }
 }
