@@ -190,7 +190,7 @@ library LibSafeInvariants {
     /// no modules/guard) is the shared pin set below, and the Ethereum Safe is
     /// asserted against it — in every way that matters, now and into the future
     /// — by `assertPolicyMatchesBase` (order-insensitive on the owner set).
-    address internal constant STOX_TOKEN_OWNER_SAFE_ETHEREUM = address(0);
+    address internal constant STOX_TOKEN_OWNER_SAFE_ETHEREUM = address(1);
 
     /// @notice The current expected threshold for `STOX_TOKEN_OWNER_SAFE`:
     /// 3-of-6 against the post-rotation owner roster. Scripts and the
