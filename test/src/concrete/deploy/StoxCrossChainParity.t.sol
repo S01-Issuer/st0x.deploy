@@ -12,15 +12,33 @@ import {IGnosisSafe} from "../../../../src/interface/IGnosisSafe.sol";
 import {IOwnable} from "../../../../src/interface/IOwnable.sol";
 import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV2BaseOverrides} from "../../../../src/lib/LibProdDeployV2BaseOverrides.sol";
-import {LibProdDeployCurrent} from "../../../../src/generated/LibProdDeployCurrent.sol";
-import {LibProdAuthoriserClones} from "../../../../src/lib/LibProdAuthoriserClones.sol";
+import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTokenInvariants, TokenInstance} from "../../../../src/lib/LibTokenInvariants.sol";
+import {LibProdTokenConfig, TokenConfig} from "../../../../src/lib/LibProdTokenConfig.sol";
+
+/// @notice Minimal surface for the receipt vault's ERC-1155 receipt getter,
+/// used to assert the vault points at this token's pinned receipt.
+interface IReceiptVaultReceipt {
+    function receipt() external view returns (address);
+}
+
+/// @notice Minimal surface for the ERC-1155 receipt's manager getter. The
+/// receipt has no owner or authoriser of its own — its only access control is
+/// `manager` (the receipt vault, which alone can mint/burn), so the wiring
+/// check is `receipt.manager() == receiptVault`.
+interface IReceiptManager {
+    function manager() external view returns (address);
+}
 
 /// @notice Everything the parity suite reads per token instance on one
-/// chain. Captured on the baseline chain (Base) fork, then compared
-/// field-by-field on every other chain's fork.
+/// chain, captured on each chain's own fork (Base included). The vault
+/// `name`/`symbol` are asserted against the canonical `LibProdTokenConfig`
+/// baseline — itself pinned to live Base by `LibProdTokenConfigTest` — so
+/// every chain is checked against the pinned table, not merely against Base's
+/// live values. The remaining fields (decimals + the wrapped legs) are then
+/// compared field-by-field across chains, with Base as the reference.
 /// @param underlying The chain-agnostic join key from the token table.
 /// @param vaultName The receipt vault's ERC-20 `name()`.
 /// @param vaultSymbol The receipt vault's ERC-20 `symbol()`.
@@ -53,6 +71,10 @@ struct TokenConfigSnapshot {
 /// `tokenLegLive`).
 /// @param beaconImplCodehash The beacon implementation's codehash (valid iff
 /// `tokenLegLive`).
+/// @param receiptBeaconImpl The ERC-1155 receipt beacon implementation (valid
+/// iff `tokenLegLive`).
+/// @param receiptBeaconImplCodehash The receipt beacon implementation's
+/// codehash (valid iff `tokenLegLive`).
 struct ChainLegs {
     bool safeLive;
     address[] owners;
@@ -63,11 +85,12 @@ struct ChainLegs {
     TokenConfigSnapshot[] tokenConfigs;
     address beaconImpl;
     bytes32 beaconImplCodehash;
-    address beaconOwner;
+    address receiptBeaconImpl;
+    bytes32 receiptBeaconImplCodehash;
 }
 
 /// @title StoxCrossChainParityTest
-/// @notice The cross-chain deployment-parity pin (RAI-1097): an automated
+/// @notice The cross-chain deployment-parity pin: an automated
 /// invariant asserting every ST0x chain carries an IDENTICAL deployment —
 /// identical core artifacts, identically-configured token instances,
 /// identical permission structure — so parity cannot silently drift once
@@ -85,8 +108,9 @@ struct ChainLegs {
 ///    per-chain authoriser clones (the one non-deterministic core
 ///    artifact): pinned address, shared EIP-1167 codehash.
 /// 2. **Token instances** — for every underlying in the per-chain token
-///    tables: `name` / `symbol` / `decimals` of both vault legs equal the
-///    Base baseline values (matched names / symbols by construction);
+///    tables: `name` / `symbol` of both vault legs equal the canonical
+///    `LibProdTokenConfig` baseline (asserted on every chain, Base included,
+///    against the pinned table) and `decimals` equals the Base baseline;
 ///    receipt + wrapped wiring is internally consistent
 ///    (`wrapped.asset() == receiptVault`); every receipt vault's
 ///    `authorizer()` is the chain's pinned V4 clone and its `owner()` is
@@ -95,15 +119,15 @@ struct ChainLegs {
 ///    beacon address, so it is uniform WITHIN a chain but legitimately
 ///    differs ACROSS chains; cross-chain implementation parity is asserted
 ///    through the beacon instead).
-/// 3. **Beacon lineage** — each chain's receipt-vault proxies resolve
-///    (via the ERC-1967 beacon slot) to a single beacon whose
-///    `implementation()` is the deterministic V4 receipt vault impl —
-///    the SAME address on every chain — and whose `owner()` is the
-///    chain-agnostic deployer (`BEACON_INITIAL_OWNER`), the same address on
-///    every chain (the beacon is deployer-owned; the token-owner Safe owns
-///    the vaults, not the beacon). Cross-chain impl codehash parity is
-///    asserted explicitly for both the authoriser clone (EIP-1167 over the
-///    shared impl) and the receipt-vault beacon impl.
+/// 3. **Beacon lineage** — each chain's receipt + receipt-vault proxies
+///    resolve (via the ERC-1967 beacon slot) to a single beacon per leg
+///    serving the V4 impl. The beacon ADDRESSES are per-chain (they never get
+///    upgraded — only the impl they point at does — so which deployer version
+///    created them is irrelevant), and each is owned by THAT chain's
+///    token-owner Safe (a per-chain check; the addresses and Safe owners both
+///    differ by chain). Cross-chain parity is on where the beacons POINT:
+///    the receipt + receipt-vault beacon impls (address + codehash) are
+///    asserted identical across chains, as is the authoriser clone impl.
 /// 4. **Role parity** — `LibAuthoriserInvariants.assertExpectedGrants` runs
 ///    against each chain's clone with that chain's token-owner Safe: the
 ///    identical grant STRUCTURE on every chain, the service-signer holder
@@ -159,23 +183,35 @@ contract StoxCrossChainParityTest is Test {
     /// @return snapshots Per-token config snapshots, table order.
     /// @return receiptVaultBeacon The single beacon backing every receipt
     /// vault proxy on this chain.
+    /// @return receiptBeacon The single beacon backing every ERC-1155 receipt
+    /// proxy on this chain.
     function assertChainAndSnapshot(TokenInstance[] memory tokens)
         internal
         view
-        returns (TokenConfigSnapshot[] memory snapshots, address receiptVaultBeacon)
+        returns (TokenConfigSnapshot[] memory snapshots, address receiptVaultBeacon, address receiptBeacon)
     {
         snapshots = new TokenConfigSnapshot[](tokens.length);
+
+        // The canonical name/symbol baseline every chain is asserted against
+        // (Base included). `LibProdTokenConfigTest` pins this table to live
+        // Base, so parity is against a validated source of truth, not merely
+        // chain-vs-chain.
+        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
 
         // Per-leg proxy-codehash uniformity within the chain.
         bytes32 receiptVaultProxyCodehash = tokens[0].receiptVault.codehash;
         bytes32 wrappedProxyCodehash = tokens[0].wrappedTokenVault.codehash;
+        bytes32 receiptProxyCodehash = tokens[0].receipt.codehash;
         receiptVaultBeacon = readBeacon(tokens[0].receiptVault);
+        receiptBeacon = readBeacon(tokens[0].receipt);
 
         for (uint256 i = 0; i < tokens.length; i++) {
             TokenInstance memory token = tokens[i];
 
-            // Config via view calls — covers matched names / symbols /
-            // decimals once compared against the baseline snapshot.
+            // Read the receipt vault + wrapped vault metadata from chain:
+            // name/symbol are asserted against the canonical config baseline
+            // below; decimals + the wrapped-vault fields feed the cross-chain
+            // snapshot comparison.
             snapshots[i] = TokenConfigSnapshot({
                 underlying: token.underlying,
                 vaultName: IERC20Metadata(token.receiptVault).name(),
@@ -185,6 +221,20 @@ contract StoxCrossChainParityTest is Test {
                 wrappedSymbol: IERC20Metadata(token.wrappedTokenVault).symbol(),
                 wrappedDecimals: IERC20Metadata(token.wrappedTokenVault).decimals()
             });
+
+            // Baseline: the receipt vault's live name/symbol equal the
+            // canonical config — asserted on every chain, so parity is against
+            // the pinned table, not merely Base-vs-others.
+            assertEq(
+                snapshots[i].vaultName,
+                configs[i].name,
+                string.concat(token.underlying, ": vault name != canonical config baseline")
+            );
+            assertEq(
+                snapshots[i].vaultSymbol,
+                configs[i].symbol,
+                string.concat(token.underlying, ": vault symbol != canonical config baseline")
+            );
 
             // Wiring: the wrapped vault wraps this token's receipt vault.
             assertEq(
@@ -211,6 +261,32 @@ contract StoxCrossChainParityTest is Test {
                 receiptVaultBeacon,
                 string.concat(token.underlying, ": receipt vault proxies do not share one beacon")
             );
+
+            // ERC-1155 receipt leg: the vault points at this token's pinned
+            // receipt, the receipt points back at the vault as its manager (the
+            // receipt has no owner/authoriser — `manager` is its only access
+            // control), and the receipt proxies are uniform bytecode + share one
+            // beacon within the chain — the same guarantees as the vault legs.
+            assertEq(
+                IReceiptVaultReceipt(token.receiptVault).receipt(),
+                token.receipt,
+                string.concat(token.underlying, ": receiptVault.receipt() != pinned receipt")
+            );
+            assertEq(
+                IReceiptManager(token.receipt).manager(),
+                token.receiptVault,
+                string.concat(token.underlying, ": receipt.manager() != receiptVault")
+            );
+            assertEq(
+                token.receipt.codehash,
+                receiptProxyCodehash,
+                string.concat(token.underlying, ": receipt proxy codehash not uniform on-chain")
+            );
+            assertEq(
+                readBeacon(token.receipt),
+                receiptBeacon,
+                string.concat(token.underlying, ": receipt proxies do not share one beacon")
+            );
         }
     }
 
@@ -226,7 +302,7 @@ contract StoxCrossChainParityTest is Test {
         assertTrue(clone.code.length > 0, "V4 authoriser clone not deployed");
         assertEq(
             clone.codehash,
-            LibProdAuthoriserClones.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH,
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH,
             "V4 authoriser clone codehash mismatch (shared EIP-1167 pin)"
         );
     }
@@ -320,7 +396,7 @@ contract StoxCrossChainParityTest is Test {
         // --- Safe leg (needs: Safe) ---
         legs.safeLive = safe != address(0);
         if (legs.safeLive) {
-            LibSafeInvariants.assertPolicyMatchesBase(IGnosisSafe(safe));
+            LibSafeInvariants.assertTokenOwnerSafePolicy(IGnosisSafe(safe));
             legs.owners = IGnosisSafe(safe).getOwners();
             legs.threshold = IGnosisSafe(safe).getThreshold();
         } else {
@@ -351,16 +427,46 @@ contract StoxCrossChainParityTest is Test {
             // Ownership (Safe) + sole authoriser (clone) across every vault.
             LibTokenInvariants.assertAll(tokens, safe, clone);
             address beacon;
-            (legs.tokenConfigs, beacon) = assertChainAndSnapshot(tokens);
+            address receiptBeacon;
+            (legs.tokenConfigs, beacon, receiptBeacon) = assertChainAndSnapshot(tokens);
+            // The audited 0.1.1 impls, NOT `LibProdDeployCurrent`: the
+            // current tag tracks the latest BUILD, but production on every
+            // chain serves the audited 0.1.1 deployment (Base's V1-address
+            // beacons were upgraded to it; Ethereum bootstrapped at it) —
+            // the same pins `LibProdBeaconsBase/Ethereum.implementations()`
+            // resolve. When a beacon upgrade migration moves production,
+            // these pins move with it.
             assertEq(
                 IBeacon(beacon).implementation(),
-                LibProdDeployCurrent.STOX_RECEIPT_VAULT,
-                string.concat(label, " receipt-vault beacon does not serve the V4 impl")
+                LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1,
+                string.concat(label, " receipt-vault beacon does not serve the audited production impl")
+            );
+            assertEq(
+                IBeacon(receiptBeacon).implementation(),
+                LibProdDeployV4.STOX_RECEIPT_0_1_1,
+                string.concat(label, " receipt beacon does not serve the audited production impl")
             );
             assertCleanV4Lineage(beacon);
+            assertCleanV4Lineage(receiptBeacon);
+            // Each chain's beacons are owned by that chain's OWN token-owner
+            // Safe (migrated from the deploy key) — a per-chain check, not a
+            // cross-chain equality: the beacon addresses and their Safe owners
+            // both differ by chain. Cross-chain parity is on the impl the
+            // beacons point at, asserted below.
+            assertEq(
+                IOwnable(beacon).owner(),
+                safe,
+                string.concat(label, " receipt-vault beacon not owned by the chain's Safe")
+            );
+            assertEq(
+                IOwnable(receiptBeacon).owner(),
+                safe,
+                string.concat(label, " receipt beacon not owned by the chain's Safe")
+            );
             legs.beaconImpl = IBeacon(beacon).implementation();
             legs.beaconImplCodehash = legs.beaconImpl.codehash;
-            legs.beaconOwner = IOwnable(beacon).owner();
+            legs.receiptBeaconImpl = IBeacon(receiptBeacon).implementation();
+            legs.receiptBeaconImplCodehash = legs.receiptBeaconImpl.codehash;
         } else if (legs.safeLive && legs.cloneLive) {
             emit log(string.concat("PARITY PENDING: ", label, " token table placeholder - token leg skipped"));
         }
@@ -376,7 +482,7 @@ contract StoxCrossChainParityTest is Test {
         ChainLegs memory base = assertChainLegs(
             "Base",
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE,
-            LibProdAuthoriserClones.STOX_PROD_AUTHORISER_V4_CLONE_BASE,
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE,
             LibTokenInvariants.productionTokensBase()
         );
 
@@ -384,7 +490,7 @@ contract StoxCrossChainParityTest is Test {
         ChainLegs memory eth = assertChainLegs(
             "Ethereum",
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM,
-            LibProdAuthoriserClones.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM,
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM,
             LibTokenInvariants.productionTokensEthereum()
         );
 
@@ -414,7 +520,12 @@ contract StoxCrossChainParityTest is Test {
                 base.beaconImplCodehash,
                 "receipt-vault beacon impl codehash diverges cross-chain"
             );
-            assertEq(eth.beaconOwner, base.beaconOwner, "receipt-vault beacon owner diverges cross-chain");
+            assertEq(eth.receiptBeaconImpl, base.receiptBeaconImpl, "receipt beacon impl diverges cross-chain");
+            assertEq(
+                eth.receiptBeaconImplCodehash,
+                base.receiptBeaconImplCodehash,
+                "receipt beacon impl codehash diverges cross-chain"
+            );
 
             assertEq(base.tokenConfigs.length, eth.tokenConfigs.length, "token table lengths diverge");
             for (uint256 i = 0; i < base.tokenConfigs.length; i++) {
