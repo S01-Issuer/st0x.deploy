@@ -285,9 +285,12 @@ library. When making changes to contract source:
 
 `script/Deploy.sol` dispatches based on `DEPLOYMENT_SUITE` env var. One contract
 per suite to avoid Zoltu factory nonce issues. Every suite targets the
-`LibProdDeployV4` (rain.vats 0.1.6) pins and deploys to Base; the frozen pre-V4
-deployments live in `LibProdDeployV1` / `LibProdDeployV2` as an audit trail and
-are not redeployable from the current source.
+`LibProdDeployV4` (rain.vats 0.1.6) pins and broadcasts to every network in
+`LibStoxDeployNetworks.supportedNetworks()` (Base + Ethereum mainnet) — the
+Zoltu deploy is idempotent per network, so a suite run skips networks that
+already carry the artifact and deploys the identical bytecode to the ones that
+don't. The frozen V1/V2 deployments in `LibProdDeployV1` / `LibProdDeployV2` are
+an audit trail and are not redeployable from the current source.
 
 - `stox-receipt-v4` — deploys StoxReceipt
 - `stox-receipt-vault-v4` — deploys StoxReceiptVault
@@ -308,7 +311,8 @@ are not redeployable from the current source.
 - `stox-corporate-actions-facet-v4` — deploys StoxCorporateActionsFacet
 
 Manual deployment runs via the GitHub Actions workflow
-(`manual-sol-artifacts.yaml`), which deploys to Base.
+(`manual-sol-artifacts.yaml`), which broadcasts each suite to every supported
+network in one run.
 
 ## Naming Conventions
 
