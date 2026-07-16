@@ -78,6 +78,9 @@ polygon = "${POLYGON_RPC_URL}"
 arbitrum = { key = "${CI_DEPLOY_ARBITRUM_ETHERSCAN_API_KEY}" }
 base = { key = "${CI_DEPLOY_BASE_ETHERSCAN_API_KEY}" }
 base_sepolia = { key = "${CI_DEPLOY_BASE_SEPOLIA_ETHERSCAN_API_KEY}" }
-ethereum = { key = "${CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY}" }
+# `ethereum` is not a built-in foundry chain alias (foundry's canonical name for
+# chain 1 is `mainnet`), so the chain id is pinned explicitly. Without it,
+# verification fails with "unknown alias `ethereum`".
+ethereum = { key = "${CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY}", chain = 1 }
 flare = { key = "${CI_DEPLOY_FLARE_ETHERSCAN_API_KEY}" }
 polygon = { key = "${CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY}" }
