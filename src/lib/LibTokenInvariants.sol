@@ -343,34 +343,34 @@ library LibTokenInvariants {
         // underlyings MUST match Base row-for-row (the cross-chain parity pin
         // asserts this).
         tokens = new TokenInstance[](28);
-        tokens[0] = TokenInstance("MSTR", address(0), address(0), address(0));
-        tokens[1] = TokenInstance("TSLA", address(0), address(0), address(0));
-        tokens[2] = TokenInstance("COIN", address(0), address(0), address(0));
-        tokens[3] = TokenInstance("SPYM", address(0), address(0), address(0));
-        tokens[4] = TokenInstance("SIVR", address(0), address(0), address(0));
-        tokens[5] = TokenInstance("CRCL", address(0), address(0), address(0));
-        tokens[6] = TokenInstance("NVDA", address(0), address(0), address(0));
-        tokens[7] = TokenInstance("IAU", address(0), address(0), address(0));
-        tokens[8] = TokenInstance("PPLT", address(0), address(0), address(0));
-        tokens[9] = TokenInstance("AMZN", address(0), address(0), address(0));
-        tokens[10] = TokenInstance("BMNR", address(0), address(0), address(0));
-        tokens[11] = TokenInstance("IBHG", address(0), address(0), address(0));
-        tokens[12] = TokenInstance("SGOV", address(0), address(0), address(0));
-        tokens[13] = TokenInstance("QQQM", address(0), address(0), address(0));
-        tokens[14] = TokenInstance("VWO", address(0), address(0), address(0));
-        tokens[15] = TokenInstance("ARKK", address(0), address(0), address(0));
-        tokens[16] = TokenInstance("SPCX", address(0), address(0), address(0));
-        tokens[17] = TokenInstance("CEG", address(0), address(0), address(0));
-        tokens[18] = TokenInstance("DRAM", address(0), address(0), address(0));
-        tokens[19] = TokenInstance("TSM", address(0), address(0), address(0));
-        tokens[20] = TokenInstance("SKHY", address(0), address(0), address(0));
-        tokens[21] = TokenInstance("ASML", address(0), address(0), address(0));
-        tokens[22] = TokenInstance("MU", address(0), address(0), address(0));
-        tokens[23] = TokenInstance("AMD", address(0), address(0), address(0));
-        tokens[24] = TokenInstance("AVGO", address(0), address(0), address(0));
-        tokens[25] = TokenInstance("AMAT", address(0), address(0), address(0));
-        tokens[26] = TokenInstance("LRCX", address(0), address(0), address(0));
-        tokens[27] = TokenInstance("TTWO", address(0), address(0), address(0));
+        tokens[0] = TokenInstance("MSTR", address(1), address(1), address(1));
+        tokens[1] = TokenInstance("TSLA", address(1), address(1), address(1));
+        tokens[2] = TokenInstance("COIN", address(1), address(1), address(1));
+        tokens[3] = TokenInstance("SPYM", address(1), address(1), address(1));
+        tokens[4] = TokenInstance("SIVR", address(1), address(1), address(1));
+        tokens[5] = TokenInstance("CRCL", address(1), address(1), address(1));
+        tokens[6] = TokenInstance("NVDA", address(1), address(1), address(1));
+        tokens[7] = TokenInstance("IAU", address(1), address(1), address(1));
+        tokens[8] = TokenInstance("PPLT", address(1), address(1), address(1));
+        tokens[9] = TokenInstance("AMZN", address(1), address(1), address(1));
+        tokens[10] = TokenInstance("BMNR", address(1), address(1), address(1));
+        tokens[11] = TokenInstance("IBHG", address(1), address(1), address(1));
+        tokens[12] = TokenInstance("SGOV", address(1), address(1), address(1));
+        tokens[13] = TokenInstance("QQQM", address(1), address(1), address(1));
+        tokens[14] = TokenInstance("VWO", address(1), address(1), address(1));
+        tokens[15] = TokenInstance("ARKK", address(1), address(1), address(1));
+        tokens[16] = TokenInstance("SPCX", address(1), address(1), address(1));
+        tokens[17] = TokenInstance("CEG", address(1), address(1), address(1));
+        tokens[18] = TokenInstance("DRAM", address(1), address(1), address(1));
+        tokens[19] = TokenInstance("TSM", address(1), address(1), address(1));
+        tokens[20] = TokenInstance("SKHY", address(1), address(1), address(1));
+        tokens[21] = TokenInstance("ASML", address(1), address(1), address(1));
+        tokens[22] = TokenInstance("MU", address(1), address(1), address(1));
+        tokens[23] = TokenInstance("AMD", address(1), address(1), address(1));
+        tokens[24] = TokenInstance("AVGO", address(1), address(1), address(1));
+        tokens[25] = TokenInstance("AMAT", address(1), address(1), address(1));
+        tokens[26] = TokenInstance("LRCX", address(1), address(1), address(1));
+        tokens[27] = TokenInstance("TTWO", address(1), address(1), address(1));
     }
 
     /// @notice Returns the 28 production receipt vault addresses on Base, in
