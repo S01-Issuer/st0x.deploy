@@ -1,5 +1,5 @@
 # Scheduled re-run of the full sol suite (including every fork test and the
-# cross-chain parity pin, RAI-1097). Push-triggered CI only catches drift
+# cross-chain parity pin). Push-triggered CI only catches drift
 # that arrives WITH a code change; state drift introduced directly on-chain
 # between pushes — a role grant, a beacon upgrade, an authoriser swap — is
 # invisible to it. This schedule closes that gap: the prod-state pins and

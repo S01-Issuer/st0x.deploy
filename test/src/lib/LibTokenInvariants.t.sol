@@ -4,7 +4,12 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
-import {LibTokenInvariants, IOwnable, ReceiptVaultOwnerMismatch} from "../../../src/lib/LibTokenInvariants.sol";
+import {
+    LibTokenInvariants,
+    TokenInstance,
+    IOwnable,
+    ReceiptVaultOwnerMismatch
+} from "../../../src/lib/LibTokenInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTokenInvariantsHarness} from "./LibTokenInvariantsHarness.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
@@ -69,5 +74,19 @@ contract LibTokenInvariantsTest is Test {
         vm.mockCall(victim, abi.encodeWithSelector(IOwnable.owner.selector), abi.encode(rogueOwner));
         vm.expectRevert(abi.encodeWithSelector(ReceiptVaultOwnerMismatch.selector, victim, expectedOwner, rogueOwner));
         harness.callAssertUniformOwnership(expectedOwner);
+    }
+
+    /// The Ethereum token table mirrors Base row-for-row on the `underlying`
+    /// key — same length, same order — so the two per-chain tables cannot
+    /// drift now that the Ethereum table is written out explicitly rather than
+    /// derived from Base. (The addresses are still per-chain placeholders,
+    /// hydrated by the token pin PR; this guards only the shared shape.)
+    function testEthereumTokenTableMirrorsBaseUnderlyings() external pure {
+        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
+        TokenInstance[] memory eth = LibTokenInvariants.productionTokensEthereum();
+        assertEq(eth.length, base.length, "Ethereum token table length diverges from Base");
+        for (uint256 i = 0; i < base.length; i++) {
+            assertEq(eth[i].underlying, base[i].underlying, "Ethereum token underlying diverges from Base");
+        }
     }
 }
