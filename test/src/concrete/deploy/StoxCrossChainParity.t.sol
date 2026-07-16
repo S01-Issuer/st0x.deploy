@@ -10,7 +10,7 @@ import {ERC1967Utils} from "@openzeppelin-contracts-5.6.1/proxy/ERC1967/ERC1967U
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {IGnosisSafe} from "../../../../src/interface/IGnosisSafe.sol";
 import {IOwnable} from "../../../../src/interface/IOwnable.sol";
-import {LibInvariants} from "../../../../src/lib/LibInvariants.sol";
+import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV2BaseOverrides} from "../../../../src/lib/LibProdDeployV2BaseOverrides.sol";
 import {LibProdDeployCurrent} from "../../../../src/generated/LibProdDeployCurrent.sol";
 import {LibProdAuthoriserClones} from "../../../../src/lib/LibProdAuthoriserClones.sol";
@@ -36,6 +36,34 @@ struct TokenConfigSnapshot {
     string wrappedName;
     string wrappedSymbol;
     uint8 wrappedDecimals;
+}
+
+/// @notice What one chain's live legs asserted, captured for the cross-chain
+/// comparison. Each leg's fields are only meaningful when its `*Live` flag is
+/// true; a pending (placeholder) leg is skipped, leaving its flag false.
+/// @param safeLive The Safe pin is set and its policy was asserted.
+/// @param owners The Safe's live owner set (valid iff `safeLive`).
+/// @param threshold The Safe's live threshold (valid iff `safeLive`).
+/// @param cloneLive The authoriser clone pin is set and its codehash asserted.
+/// @param cloneCodehash The clone's runtime codehash (valid iff `cloneLive`).
+/// @param tokenLegLive Safe + clone + full token table all live; token
+/// ownership / sole-authoriser / config asserted.
+/// @param tokenConfigs Per-token config snapshots (valid iff `tokenLegLive`).
+/// @param beaconImpl The receipt-vault beacon implementation (valid iff
+/// `tokenLegLive`).
+/// @param beaconImplCodehash The beacon implementation's codehash (valid iff
+/// `tokenLegLive`).
+struct ChainLegs {
+    bool safeLive;
+    address[] owners;
+    uint256 threshold;
+    bool cloneLive;
+    bytes32 cloneCodehash;
+    bool tokenLegLive;
+    TokenConfigSnapshot[] tokenConfigs;
+    address beaconImpl;
+    bytes32 beaconImplCodehash;
+    address beaconOwner;
 }
 
 /// @title StoxCrossChainParityTest
@@ -95,17 +123,21 @@ struct TokenConfigSnapshot {
 /// address, so the corrupted artifacts can neither mask drift on Base nor
 /// leak into expectations for chains that deploy clean.
 ///
-/// **Pending-bootstrap chains.** Until a chain's bootstrap executes, its
-/// per-chain deploy-artifact pins are placeholders: the token-owner Safe
-/// address, the authoriser clone address, and the token addresses (the Safe
-/// POLICY and the service signer are shared, but each chain's Safe is a
-/// distinct address deployed and pinned per chain). The suite accepts exactly
-/// two states per chain: fully PENDING (the Safe pin, the authoriser clone pin
-/// AND every token entry all placeholder — logged loudly, parity assertions
-/// skipped) or fully LIVE (every artifact
-/// hydrated — all layers asserted, including each chain independently
-/// satisfying `LibInvariants.assertProductionState`). Partial hydration
-/// fails the suite.
+/// **Per-leg placeholder gating.** Each chain's per-chain deploy artifacts —
+/// the token-owner Safe address, the authoriser clone address, the token
+/// addresses — start as `address(0)` placeholders and are hydrated by pin PRs
+/// as each is deployed. The suite asserts each leg only when its pins are set,
+/// skipping placeholder legs with a loud `PARITY PENDING` log (never a silent
+/// skip), and the cross-chain comparisons gate on both chains carrying the
+/// leg. The legs nest by dependency: the **Safe leg** needs the Safe; the
+/// **authoriser leg** needs the clone (its grant map also needs the Safe) and
+/// is assertable as soon as the clone is up, independent of the tokens; the
+/// **token leg** needs the Safe + clone + full token table. This is what lets
+/// the whole multichain stack merge green before any chain is bootstrapped:
+/// every leg skips, and each pin PR turns its leg (and its cross-chain
+/// comparison) on. The one hard failure is a PARTIALLY-hydrated token table
+/// (some triples set, some placeholder) — an operator error the token pin PR
+/// must avoid by setting all triples together.
 contract StoxCrossChainParityTest is Test {
     /// @notice Read the address stored in `proxy`'s ERC-1967 beacon slot.
     /// @param proxy The beacon-proxy address on the active fork.
@@ -118,11 +150,11 @@ contract StoxCrossChainParityTest is Test {
     /// fork and assert the parity-specific per-token properties the shared
     /// framework does not cover: receipt/wrapped wiring, per-leg proxy
     /// codehash uniformity within the chain, and the single shared beacon.
-    /// @dev The uniform owner + authoriser checks are NOT here — they are
-    /// asserted through `LibInvariants.assertProductionState` (the shared
-    /// multichain framework) in `testCrossChainParity`, so each chain first
-    /// satisfies the same production-state invariant Base does, and this
-    /// function adds only the cross-chain-comparison scaffolding on top.
+    /// @dev The uniform owner + sole-authoriser checks are NOT here — the token
+    /// leg in `assertChainLegs` asserts them via
+    /// `LibTokenInvariants.assertAll(tokens, safe, clone)`; this function adds
+    /// only the per-token config snapshot + within-chain uniformity that the
+    /// cross-chain comparison builds on.
     /// @param tokens The chain's token table.
     /// @return snapshots Per-token config snapshots, table order.
     /// @return receiptVaultBeacon The single beacon backing every receipt
@@ -226,171 +258,178 @@ contract StoxCrossChainParityTest is Test {
         );
     }
 
-    /// @notice True when the chain is cleanly pre-bootstrap: its token-owner
-    /// Safe pin, its authoriser clone pin AND every token-table entry are still
-    /// `address(0)` placeholders. "Bootstrapped or not" is a property of the
-    /// per-chain DEPLOY ARTIFACTS (Safe + clone + token addresses), which is
-    /// exactly what this reads; the Safe POLICY and the service signer are
-    /// shared and always concrete. Any mixed state returns false on both this
-    /// and the fully-hydrated check, which the test treats as failure.
-    /// @param safe The chain's token-owner Safe pin.
-    /// @param clone The chain's authoriser clone pin.
+    /// @notice Token-table hydration state: whether ANY entry and whether ALL
+    /// entries are fully set (all three addresses non-zero). A partially-set
+    /// table (some entries set, some placeholder) is neither — the caller
+    /// rejects that as an operator error.
     /// @param tokens The chain's token table.
-    /// @return pending Whether the chain is cleanly pre-bootstrap.
-    function isFullyPending(address safe, address clone, TokenInstance[] memory tokens)
-        internal
-        pure
-        returns (bool pending)
-    {
-        pending = safe == address(0) && clone == address(0);
+    /// @return anySet At least one entry has a non-placeholder address.
+    /// @return allSet Every entry is fully hydrated.
+    function _tokenTableState(TokenInstance[] memory tokens) internal pure returns (bool anySet, bool allSet) {
+        allSet = true;
         for (uint256 i = 0; i < tokens.length; i++) {
-            pending = pending && tokens[i].receipt == address(0) && tokens[i].receiptVault == address(0)
-                && tokens[i].wrappedTokenVault == address(0);
-        }
-    }
-
-    /// @notice True when every deploy-artifact pin for the chain is
-    /// hydrated: the token-owner Safe, the authoriser clone AND every
-    /// token-table entry.
-    /// @param safe The chain's token-owner Safe pin.
-    /// @param clone The chain's authoriser clone pin.
-    /// @param tokens The chain's token table.
-    /// @return hydrated Whether the chain is fully live.
-    function isFullyHydrated(address safe, address clone, TokenInstance[] memory tokens)
-        internal
-        pure
-        returns (bool hydrated)
-    {
-        hydrated = safe != address(0) && clone != address(0);
-        for (uint256 i = 0; i < tokens.length; i++) {
-            hydrated = hydrated && tokens[i].receipt != address(0) && tokens[i].receiptVault != address(0)
+            bool entrySet = tokens[i].receipt != address(0) && tokens[i].receiptVault != address(0)
                 && tokens[i].wrappedTokenVault != address(0);
+            bool entryClear = tokens[i].receipt == address(0) && tokens[i].receiptVault == address(0)
+                && tokens[i].wrappedTokenVault == address(0);
+            anySet = anySet || !entryClear;
+            allSet = allSet && entrySet;
         }
     }
 
-    /// @notice The full cross-chain parity pin: snapshot Base (asserting
-    /// its own uniformity + policy state as it goes), then assert every
-    /// other supported chain against the snapshot, or assert it is cleanly
-    /// pending bootstrap.
-    function testCrossChainParity() external {
-        // ---- Reference chain: Base ----
-        vm.createSelectFork(LibRainDeploy.BASE);
-        address baseClone = LibProdAuthoriserClones.STOX_PROD_AUTHORISER_V4_CLONE_BASE;
-        assertTrue(baseClone != address(0), "Base V4 clone pin still placeholder (stack not yet executed)");
-        TokenInstance[] memory baseTokens = LibTokenInvariants.productionTokensBase();
-        // Shared multichain framework: Base satisfies the full production-state
-        // invariant (per-chain Safe policy-matched to Base, token owner +
-        // authoriser uniformity, grant map for its Safe) — the same call the
-        // Ethereum branch makes below. Only the token table + clone address are
-        // passed; the Safe is resolved per chain by chain id inside the bundle.
-        LibInvariants.assertProductionState(baseTokens, baseClone);
-        // Capture Base's LIVE Safe policy (owner set + threshold) for the direct
-        // cross-chain comparison below — the Ethereum Safe is a distinct
-        // per-chain address that must still carry this exact policy.
-        address[] memory baseSafeOwners = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE).getOwners();
-        uint256 baseSafeThreshold = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE).getThreshold();
-        assertCloneParity(baseClone);
-        (TokenConfigSnapshot[] memory baseline, address baseBeacon) = assertChainAndSnapshot(baseTokens);
-        // Base's beacon lineage: the receipt-vault beacon must serve the
-        // deterministic V4 impl post-upgrade. (Base's beacon ADDRESS is the
-        // healthy V1-era beacon — upgraded in place — which is exactly why
-        // implementation parity is asserted through the beacon rather than
-        // by comparing proxy codehashes across chains.)
-        assertEq(
-            IBeacon(baseBeacon).implementation(),
-            LibProdDeployCurrent.STOX_RECEIPT_VAULT,
-            "Base receipt-vault beacon does not serve the V4 impl"
-        );
-        address baseBeaconOwner = IOwnable(baseBeacon).owner();
-
-        // ---- Ethereum ----
-        address ethSafe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM;
-        address ethClone = LibProdAuthoriserClones.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
-        TokenInstance[] memory ethTokens = LibTokenInvariants.productionTokensEthereum();
-
-        if (isFullyPending(ethSafe, ethClone, ethTokens)) {
-            // Cleanly pre-bootstrap: nothing to check on-chain yet. Logged
-            // loudly (not a silent skip) so a green run cannot be misread
-            // as "Ethereum verified".
-            emit log("PARITY: Ethereum PENDING bootstrap - Safe + clone + token pins placeholder, parity assertions skipped");
-            return;
+    /// @notice Assert two owner rosters are equal as SETS (same length, same
+    /// members) — order-insensitive. Safe forbids duplicate owners, so equal
+    /// lengths plus one-way membership is full set equality.
+    /// @param a One roster.
+    /// @param b The other roster.
+    function assertSameOwnerSet(address[] memory a, address[] memory b) internal pure {
+        assertEq(a.length, b.length, "Safe owner count diverges cross-chain");
+        for (uint256 i = 0; i < a.length; i++) {
+            bool found = false;
+            for (uint256 j = 0; j < b.length; j++) {
+                if (a[i] == b[j]) {
+                    found = true;
+                    break;
+                }
+            }
+            assertTrue(found, "Safe owner set diverges cross-chain");
         }
-        // Not fully pending => must be fully hydrated. Partial hydration
-        // is the dangerous middle state this assertion exists to reject.
+    }
+
+    /// @notice Assert every LIVE leg of a chain on the ACTIVE fork, skipping
+    /// (with a loud PENDING log) any leg whose pins are still placeholders, and
+    /// capture what it read for the cross-chain comparison. The legs are nested
+    /// by dependency:
+    ///  - **Safe leg** (needs the Safe): the Safe matches Base's policy.
+    ///  - **Authoriser leg** (needs the clone; the grant map also needs the
+    ///    Safe): the clone codehash + the role-grant map. Assertable as soon as
+    ///    the clone is up — it does NOT wait on the tokens.
+    ///  - **Token leg** (needs Safe + clone + the full token table): ownership
+    ///    by the Safe, the clone as sole authoriser, config + beacon.
+    /// Skipping placeholder legs is what lets the whole stack merge green: an
+    /// un-bootstrapped chain skips every leg, and each pin PR turns its leg on.
+    /// @param label Human chain name, used in the PENDING logs.
+    /// @param safe The chain's token-owner Safe pin.
+    /// @param clone The chain's authoriser clone pin.
+    /// @param tokens The chain's token table.
+    /// @return legs What the live legs asserted + captured, for cross-chain use.
+    function assertChainLegs(string memory label, address safe, address clone, TokenInstance[] memory tokens)
+        internal
+        returns (ChainLegs memory legs)
+    {
+        // --- Safe leg (needs: Safe) ---
+        legs.safeLive = safe != address(0);
+        if (legs.safeLive) {
+            LibSafeInvariants.assertPolicyMatchesBase(IGnosisSafe(safe));
+            legs.owners = IGnosisSafe(safe).getOwners();
+            legs.threshold = IGnosisSafe(safe).getThreshold();
+        } else {
+            emit log(string.concat("PARITY PENDING: ", label, " Safe pin placeholder - Safe leg skipped"));
+        }
+
+        // --- Authoriser leg (needs: clone; grant map also needs the Safe) ---
+        legs.cloneLive = clone != address(0);
+        if (legs.cloneLive) {
+            assertCloneParity(clone);
+            legs.cloneCodehash = clone.codehash;
+            if (legs.safeLive) {
+                // The grant map is assertable as soon as the clone is up — its
+                // only blocker is the Safe, independent of the tokens.
+                LibAuthoriserInvariants.assertExpectedGrants(clone, safe);
+            }
+        } else {
+            emit log(string.concat("PARITY PENDING: ", label, " clone pin placeholder - authoriser leg skipped"));
+        }
+
+        // --- Token leg (needs: Safe + clone + full token table) ---
+        (bool anyToken, bool allTokens) = _tokenTableState(tokens);
         assertTrue(
-            isFullyHydrated(ethSafe, ethClone, ethTokens),
-            "Ethereum pins partially hydrated - hydrate the Safe, the clone pin and the full token table in one pin PR"
+            !anyToken || allTokens, string.concat(label, " token table partially hydrated - pin all triples together")
+        );
+        legs.tokenLegLive = legs.safeLive && legs.cloneLive && allTokens;
+        if (legs.tokenLegLive) {
+            // Ownership (Safe) + sole authoriser (clone) across every vault.
+            LibTokenInvariants.assertAll(tokens, safe, clone);
+            address beacon;
+            (legs.tokenConfigs, beacon) = assertChainAndSnapshot(tokens);
+            assertEq(
+                IBeacon(beacon).implementation(),
+                LibProdDeployCurrent.STOX_RECEIPT_VAULT,
+                string.concat(label, " receipt-vault beacon does not serve the V4 impl")
+            );
+            assertCleanV4Lineage(beacon);
+            legs.beaconImpl = IBeacon(beacon).implementation();
+            legs.beaconImplCodehash = legs.beaconImpl.codehash;
+            legs.beaconOwner = IOwnable(beacon).owner();
+        } else if (legs.safeLive && legs.cloneLive) {
+            emit log(string.concat("PARITY PENDING: ", label, " token table placeholder - token leg skipped"));
+        }
+    }
+
+    /// @notice The cross-chain parity pin. Asserts each chain's LIVE legs on
+    /// its own fork (pending legs skipped + logged), then compares whatever is
+    /// live on BOTH chains. Every comparison is gated on both sides carrying
+    /// the relevant leg, so an un-bootstrapped chain leaves the suite green and
+    /// each pin PR turns its comparisons on.
+    function testCrossChainParity() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        ChainLegs memory base = assertChainLegs(
+            "Base",
+            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE,
+            LibProdAuthoriserClones.STOX_PROD_AUTHORISER_V4_CLONE_BASE,
+            LibTokenInvariants.productionTokensBase()
         );
 
         vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
-        // Same shared framework call as Base: Ethereum must independently
-        // satisfy the full production-state invariant (its per-chain Safe
-        // policy-matched to Base, its vaults uniform, its clone grants in
-        // place) before any cross-chain comparison is meaningful.
-        LibInvariants.assertProductionState(ethTokens, ethClone);
-        // Direct cross-chain Safe policy: the Ethereum Safe is a DISTINCT
-        // per-chain address, but its live owner SET and threshold must equal
-        // Base's LIVE Safe (order-insensitive) — matching Base in every way
-        // that matters, against Base's actual current state, not only the pins.
-        LibSafeInvariants.assertThreshold(IGnosisSafe(ethSafe), baseSafeThreshold);
-        LibSafeInvariants.assertOwnerSetUnordered(IGnosisSafe(ethSafe), baseSafeOwners);
-        assertCloneParity(ethClone);
-        (TokenConfigSnapshot[] memory observed, address ethBeacon) = assertChainAndSnapshot(ethTokens);
-
-        // Layer 3: identical implementation through the beacon, clean V4
-        // lineage, shared beacon owner.
-        assertEq(
-            IBeacon(ethBeacon).implementation(),
-            LibProdDeployCurrent.STOX_RECEIPT_VAULT,
-            "Ethereum receipt-vault beacon does not serve the V4 impl"
-        );
-        assertCleanV4Lineage(ethBeacon);
-        // The receipt-vault beacon owner is the chain-agnostic deployer
-        // (`BEACON_INITIAL_OWNER`), the same address on every chain — NOT the
-        // token-owner Safe (which owns the vaults, and is now per-chain). So it
-        // must be byte-for-byte Base's beacon owner.
-        assertEq(
-            IOwnable(ethBeacon).owner(),
-            baseBeaconOwner,
-            "Ethereum receipt-vault beacon owner diverges from the shared deployer"
+        ChainLegs memory eth = assertChainLegs(
+            "Ethereum",
+            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM,
+            LibProdAuthoriserClones.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM,
+            LibTokenInvariants.productionTokensEthereum()
         );
 
-        // Cross-chain IMPL CODEHASH parity — the per-chain-unique artifacts
-        // (authoriser clone address, token addresses) must still resolve to
-        // the SAME implementations on every chain:
-        //   - the authoriser clone is an EIP-1167 proxy whose runtime embeds
-        //     the impl address, so equal clone codehashes prove equal impls;
-        //   - the receipt-vault beacon serves the deterministic V4 impl (its
-        //     address already asserted equal above), so its codehash matches.
-        // Both are asserted against Base explicitly here, on top of each
-        // chain's clone being checked against the shared codehash pin.
-        assertEq(ethClone.codehash, baseClone.codehash, "authoriser clone impl codehash diverges cross-chain");
-        assertEq(
-            IBeacon(ethBeacon).implementation().codehash,
-            IBeacon(baseBeacon).implementation().codehash,
-            "receipt-vault beacon impl codehash diverges cross-chain"
-        );
+        // ---- Cross-chain comparisons, each gated on both sides being live ----
 
-        // Layer 2 cross-chain: identical config per underlying, in
-        // identical table order.
-        assertEq(baseline.length, observed.length, "token table lengths diverge");
-        for (uint256 i = 0; i < baseline.length; i++) {
-            assertEq(observed[i].underlying, baseline[i].underlying, "token table underlying order diverges");
-            string memory key = baseline[i].underlying;
-            assertEq(observed[i].vaultName, baseline[i].vaultName, string.concat(key, ": vault name diverges"));
-            assertEq(observed[i].vaultSymbol, baseline[i].vaultSymbol, string.concat(key, ": vault symbol diverges"));
+        // Safe policy: same owner SET (order-insensitive) + threshold, compared
+        // against Base's LIVE Safe (the Ethereum Safe is a distinct per-chain
+        // address that must still carry Base's exact policy).
+        if (base.safeLive && eth.safeLive) {
+            assertEq(eth.threshold, base.threshold, "Safe threshold diverges cross-chain");
+            assertSameOwnerSet(base.owners, eth.owners);
+        }
+
+        // Authoriser clone: EIP-1167 over the same impl on every chain, so the
+        // clone codehashes match.
+        if (base.cloneLive && eth.cloneLive) {
+            assertEq(eth.cloneCodehash, base.cloneCodehash, "authoriser clone impl codehash diverges cross-chain");
+        }
+
+        // Token leg: identical receipt-vault implementation (address + codehash)
+        // through the beacon, the shared beacon deployer, and identical per-token
+        // config in identical table order.
+        if (base.tokenLegLive && eth.tokenLegLive) {
+            assertEq(eth.beaconImpl, base.beaconImpl, "receipt-vault beacon impl diverges cross-chain");
             assertEq(
-                observed[i].vaultDecimals, baseline[i].vaultDecimals, string.concat(key, ": vault decimals diverge")
+                eth.beaconImplCodehash,
+                base.beaconImplCodehash,
+                "receipt-vault beacon impl codehash diverges cross-chain"
             );
-            assertEq(observed[i].wrappedName, baseline[i].wrappedName, string.concat(key, ": wrapped name diverges"));
-            assertEq(
-                observed[i].wrappedSymbol, baseline[i].wrappedSymbol, string.concat(key, ": wrapped symbol diverges")
-            );
-            assertEq(
-                observed[i].wrappedDecimals,
-                baseline[i].wrappedDecimals,
-                string.concat(key, ": wrapped decimals diverge")
-            );
+            assertEq(eth.beaconOwner, base.beaconOwner, "receipt-vault beacon owner diverges cross-chain");
+
+            assertEq(base.tokenConfigs.length, eth.tokenConfigs.length, "token table lengths diverge");
+            for (uint256 i = 0; i < base.tokenConfigs.length; i++) {
+                TokenConfigSnapshot memory b = base.tokenConfigs[i];
+                TokenConfigSnapshot memory o = eth.tokenConfigs[i];
+                assertEq(o.underlying, b.underlying, "token table underlying order diverges");
+                assertEq(o.vaultName, b.vaultName, string.concat(b.underlying, ": vault name diverges"));
+                assertEq(o.vaultSymbol, b.vaultSymbol, string.concat(b.underlying, ": vault symbol diverges"));
+                assertEq(o.vaultDecimals, b.vaultDecimals, string.concat(b.underlying, ": vault decimals diverge"));
+                assertEq(o.wrappedName, b.wrappedName, string.concat(b.underlying, ": wrapped name diverges"));
+                assertEq(o.wrappedSymbol, b.wrappedSymbol, string.concat(b.underlying, ": wrapped symbol diverges"));
+                assertEq(
+                    o.wrappedDecimals, b.wrappedDecimals, string.concat(b.underlying, ": wrapped decimals diverge")
+                );
+            }
         }
     }
 }
