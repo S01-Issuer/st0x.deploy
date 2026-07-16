@@ -289,9 +289,8 @@ per suite to avoid Zoltu factory nonce issues. Every suite targets the
 `LibStoxDeployNetworks.supportedNetworks()` (Base + Ethereum mainnet) — the
 Zoltu deploy is idempotent per network, so a suite run skips networks that
 already carry the artifact and deploys the identical bytecode to the ones that
-don't. The frozen pre-V4 deployments live in `LibProdDeployV1` /
-`LibProdDeployV2` as an audit trail and are not redeployable from the current
-source; Ethereum bootstraps directly at V4 with no pre-V4 history.
+don't. The frozen V1/V2 deployments in `LibProdDeployV1` / `LibProdDeployV2` are
+an audit trail and are not redeployable from the current source.
 
 - `stox-receipt-v4` — deploys StoxReceipt
 - `stox-receipt-vault-v4` — deploys StoxReceiptVault

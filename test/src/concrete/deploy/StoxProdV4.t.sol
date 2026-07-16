@@ -359,11 +359,9 @@ contract StoxProdV4Test is Test {
         checkAllV4OnChain();
     }
 
-    /// All V4 contracts MUST be deployed on Ethereum mainnet with the same
-    /// deterministic Zoltu addresses + codehashes as every other network
-    /// (RAI-1095). Ethereum bootstraps directly at V4 — there is no pre-V4
-    /// history there. Red until the V4 suites are broadcast to Ethereum; the
-    /// addresses/codehashes are identical to Base by construction.
+    /// The V4 contracts are deployed on Ethereum mainnet at the same
+    /// deterministic Zoltu addresses and codehashes as every other network,
+    /// identical to Base by construction.
     function testProdDeployEthereumV4() external {
         vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
         checkAllV4OnChain();

@@ -10,23 +10,18 @@ import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 /// inline, so the supported-network set lives in one place. ST0x deploys to
 /// Base and Ethereum mainnet.
 ///
-/// `LibRainDeploy.deployToNetworks` is idempotent per network (an
-/// already-deployed contract is skipped, its codehash still verified), so
-/// re-running a suite after adding a network here is a no-op on the networks
-/// that already carry the artifact and a fresh Zoltu deploy on the ones that
-/// don't. That per-network idempotence is what keeps every chain in this list
-/// bytecode-identical by construction: one suite run covers all of them.
+/// `LibRainDeploy.deployToNetworks` is idempotent per network — an
+/// already-deployed contract is skipped and its codehash re-verified — so a
+/// single suite run keeps every network in this list bytecode-identical by
+/// construction.
 library LibStoxDeployNetworks {
-    /// @notice Ethereum mainnet network name. Matches the `[rpc_endpoints]`
+    /// @notice Ethereum mainnet network name, matching the `[rpc_endpoints]`
     /// alias in `foundry.toml` (resolved from `ETHEREUM_RPC_URL`), the same
     /// pattern as every `LibRainDeploy` network constant.
-    /// @dev Declared here because `rain-deploy-0.1.4`'s `LibRainDeploy`
-    /// predates Rain deployments on Ethereum mainnet and has no `ETHEREUM`
-    /// constant. The Zoltu factory IS deployed on Ethereum mainnet at the
-    /// canonical `LibRainDeploy.ZOLTU_FACTORY` address (verified 2026-07-06,
-    /// RAI-1211), so deterministic deploys work unchanged. When a future
-    /// rain-deploy release ships its own `ETHEREUM` constant this one should
-    /// be replaced with a re-export.
+    /// @dev Declared here because `rain-deploy-0.1.4`'s `LibRainDeploy` has no
+    /// `ETHEREUM` constant. The Zoltu factory is deployed on Ethereum mainnet at
+    /// the canonical `LibRainDeploy.ZOLTU_FACTORY` address, so deterministic
+    /// deploys work unchanged.
     string internal constant ETHEREUM = "ethereum";
 
     /// @notice The networks each suite in `script/Deploy.sol` is broadcast to.
