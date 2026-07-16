@@ -573,7 +573,7 @@ library LibProdDeployV4 {
     address constant STOX_PROD_AUTHORISER_V4_CLONE = address(0x315b16faa6eE413faBCa877d3851B3818369f0cD);
     bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH =
         0x2089950d3cc1112dd66a58adcfadeadc490b50053ac67be8bc676b4a2dcd1717;
-    address constant STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM = address(0);
+    address constant STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM = address(1);
     uint256 constant V4_SWAP_DEADLINE = 1_793_491_200;
     address constant STOX_RECEIPT_0_1_1 = STOX_RECEIPT_ADDRESS_0_1_1_GEN;
     bytes32 constant STOX_RECEIPT_CODEHASH_0_1_1 = STOX_RECEIPT_CODEHASH_0_1_1_GEN;

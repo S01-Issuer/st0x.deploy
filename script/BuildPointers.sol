@@ -336,7 +336,7 @@ contract BuildPointers is Script {
         // here (placeholder `address(0)` until the Ethereum bootstrap deploys it
         // and the hydrate PR replaces this literal). Shares the deterministic
         // EIP-1167 codehash above (same impl on every chain).
-        vm.writeLine(GEN_V4_PATH, "address constant STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM = address(0);");
+        vm.writeLine(GEN_V4_PATH, "address constant STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM = address(1);");
         vm.writeLine(GEN_V4_PATH, "uint256 constant V4_SWAP_DEADLINE = 1_793_491_200;");
         for (uint256 t = 0; t < tags.length; t++) {
             for (uint256 c = 0; c < 12; c++) {
