@@ -204,13 +204,21 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x71C66449d2528E23514A9c197BFD55Ae9DB3B714
     address internal constant TSM_WRAPPED_TOKEN_VAULT = address(0x71C66449d2528E23514A9c197BFD55Ae9DB3B714);
 
-    /// @notice Returns the 20 production receipt vault addresses on Base, in
+    // ---- tSKHY / wtSKHY — SK hynix Inc. ADR ST0x ----
+    /// https://basescan.org/address/0xE26105d49e57cEd5Ce83d20Ca5f04C3B0dCC876C
+    address internal constant SKHY_RECEIPT = address(0xE26105d49e57cEd5Ce83d20Ca5f04C3B0dCC876C);
+    /// https://basescan.org/address/0x4DBA41f0feb390F208a85e96168fF5d8aC2b6F5c
+    address internal constant SKHY_RECEIPT_VAULT = address(0x4DBA41f0feb390F208a85e96168fF5d8aC2b6F5c);
+    /// https://basescan.org/address/0xFcD17aC4c4BF6a72c93018096F3fC09e66573Ff9
+    address internal constant SKHY_WRAPPED_TOKEN_VAULT = address(0xFcD17aC4c4BF6a72c93018096F3fC09e66573Ff9);
+
+    /// @notice Returns the 21 production receipt vault addresses on Base, in
     /// the order they were deployed. Provided so consumers (e.g. invariant
     /// assertions, migration scripts) can iterate without hardcoding the
     /// list inline.
-    /// @return vaults The 20 production receipt vault addresses on Base.
+    /// @return vaults The 21 production receipt vault addresses on Base.
     function productionReceiptVaults() internal pure returns (address[] memory vaults) {
-        vaults = new address[](20);
+        vaults = new address[](21);
         vaults[0] = MSTR_RECEIPT_VAULT;
         vaults[1] = TSLA_RECEIPT_VAULT;
         vaults[2] = COIN_RECEIPT_VAULT;
@@ -231,6 +239,7 @@ library LibTokenInvariants {
         vaults[17] = CEG_RECEIPT_VAULT;
         vaults[18] = DRAM_RECEIPT_VAULT;
         vaults[19] = TSM_RECEIPT_VAULT;
+        vaults[20] = SKHY_RECEIPT_VAULT;
     }
 
     /// @notice Assert that every production receipt vault reports the same
