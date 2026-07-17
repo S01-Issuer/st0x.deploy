@@ -7,7 +7,6 @@ import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessContro
 import {LibAuthoriserInvariants, RoleGrant} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibMigrationInvariant} from "../../../../src/lib/LibMigrationInvariant.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
-import {LibProdAuthoriserClones} from "../../../../src/lib/LibProdAuthoriserClones.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibTokenInvariants} from "../../../../src/lib/LibTokenInvariants.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
@@ -30,7 +29,7 @@ import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 /// **Layer 2 — Authoriser swap window (Base only).** Every production
 /// receipt vault reports either the V3 authoriser (`LibAuthoriserInvariants.
 /// STOX_PROD_AUTHORISER`) or the pinned V4 clone
-/// (`LibProdAuthoriserClones.STOX_PROD_AUTHORISER_V4_CLONE_BASE`), gated by
+/// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`), gated by
 /// `LibMigrationInvariant` against `V4_SWAP_DEADLINE`. Before the deadline
 /// both states pass; after the deadline only the V4 clone is accepted. Base-
 /// only because no other network carries live production receipt vaults.
@@ -87,7 +86,7 @@ contract StoxProdV4PostSwapTest is Test {
     /// the two corporate-action admins the lib map doesn't carry).
     /// Base-only.
     function checkAuthoriserSwapWindowOnBase() internal view {
-        address v4Clone = LibProdAuthoriserClones.STOX_PROD_AUTHORISER_V4_CLONE_BASE;
+        address v4Clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
 
         // Every prod receipt vault reports V3 authoriser (pre) or V4 clone
         // (post) — the same migration-window leg `LibInvariants.assertAll`
@@ -124,7 +123,7 @@ contract StoxProdV4PostSwapTest is Test {
             // the two corporate-action admins (`SCHEDULE_...` /
             // `CANCEL_CORPORATE_ACTION_ADMIN`) that `expectedGrants()`
             // doesn't carry (V4-only roles granted to the Safe by the
-            // clone-deploy broadcast, per the RAI-731 decision).
+            // clone-deploy broadcast).
             bytes32[7] memory adminRoles = [
                 keccak256("CERTIFY_ADMIN"),
                 keccak256("CONFISCATE_RECEIPT_ADMIN"),

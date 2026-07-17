@@ -224,13 +224,23 @@ contract LibProdDeployV4Test is Test {
         assertEq(LibProdDeployCurrent.DEPLOY_TAG, string(v));
     }
 
-    /// The clone CODEHASH is deterministic from the pinned V4 impl (the
-    /// EIP-1167 runtime embeds the impl address), so unlike the clone ADDRESS
-    /// (hand-maintained per chain in `LibProdAuthoriserClones`) it is
-    /// generated here and hydrated ahead of the deploy. Re-derive it and
-    /// assert the pinned literal matches, so an impl-address change can't
-    /// leave it stale.
-    function testAuthoriserV4CloneCodehash() external pure {
+    /// The V4 authoriser clone pin. The address was hydrated from the
+    /// 2026-07 broadcast of `20260619-deploy-v4-authoriser-clone.s.sol` on
+    /// Base (see the `NewClone` event in the broadcast receipt); asserting
+    /// the literal here means an accidental edit to the generator's
+    /// hardcoded value fails a test rather than silently re-routing every
+    /// consumer of the pin. The live-chain codehash cross-check runs in
+    /// `StoxProdV4PostSwap.t.sol`'s hydrated-clone block.
+    function testAuthoriserV4ClonePin() external pure {
+        assertEq(
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE,
+            address(0x315b16faa6eE413faBCa877d3851B3818369f0cD),
+            "clone address pin drifted from the deployed literal"
+        );
+        // The clone CODEHASH is deterministic from the pinned V4 impl (the
+        // EIP-1167 runtime embeds the impl address). Re-derive it and assert
+        // the pinned literal matches, so an impl-address change can't leave
+        // it stale.
         assertEq(
             LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH,
             keccak256(

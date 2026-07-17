@@ -322,15 +322,21 @@ contract BuildPointers is Script {
         vm.writeLine(GEN_V4_PATH, "");
         vm.writeLine(GEN_V4_PATH, "library LibProdDeployV4 {");
         vm.writeLine(GEN_V4_PATH, string.concat("address constant BEACON_INITIAL_OWNER = address(", GEN_OWNER, ");"));
-        // NB: the clone ADDRESS is NOT generated — it is non-deterministic and
-        // hand-maintained per chain in `src/lib/LibProdAuthoriserClones.sol`.
-        // Only the deterministic clone CODEHASH (derived from the pinned V4
-        // impl) is generated here.
+        vm.writeLine(
+            GEN_V4_PATH,
+            "address constant STOX_PROD_AUTHORISER_V4_CLONE =" " address(0x315b16faa6eE413faBCa877d3851B3818369f0cD);"
+        );
         vm.writeLine(
             GEN_V4_PATH,
             "bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH ="
             " 0x2089950d3cc1112dd66a58adcfadeadc490b50053ac67be8bc676b4a2dcd1717;"
         );
+        // Ethereum V4 authoriser clone — same nonce-based `CloneFactory.clone`
+        // deploy as Base, so its address is non-deterministic and hand-provided
+        // here (placeholder `address(0)` until the Ethereum bootstrap deploys it
+        // and the hydrate PR replaces this literal). Shares the deterministic
+        // EIP-1167 codehash above (same impl on every chain).
+        vm.writeLine(GEN_V4_PATH, "address constant STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM = address(0);");
         vm.writeLine(GEN_V4_PATH, "uint256 constant V4_SWAP_DEADLINE = 1_793_491_200;");
         for (uint256 t = 0; t < tags.length; t++) {
             for (uint256 c = 0; c < 12; c++) {
@@ -356,9 +362,10 @@ contract BuildPointers is Script {
         vm.writeLine(GEN_CURRENT_PATH, "library LibProdDeployCurrent {");
         vm.writeLine(GEN_CURRENT_PATH, string.concat('string constant DEPLOY_TAG = "', tag, '";'));
         vm.writeLine(GEN_CURRENT_PATH, "address constant BEACON_INITIAL_OWNER = LibProdDeployV4.BEACON_INITIAL_OWNER;");
-        // The clone ADDRESS is hand-maintained per chain in
-        // `LibProdAuthoriserClones`, not aliased here. Only the deterministic
-        // codehash is re-exported as a current alias.
+        vm.writeLine(
+            GEN_CURRENT_PATH,
+            "address constant STOX_PROD_AUTHORISER_V4_CLONE = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;"
+        );
         vm.writeLine(
             GEN_CURRENT_PATH,
             "bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH;"

@@ -11,7 +11,6 @@ import {IAuthorizableV1} from "rain-vats-0.1.6/src/interface/IAuthorizableV1.sol
 import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
-import {LibProdAuthoriserClones} from "../src/lib/LibProdAuthoriserClones.sol";
 import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
@@ -83,7 +82,7 @@ error VaultAuthoriserMismatchPostUpgrade(address vault, address expected, addres
 ///      (`LibProdDeployV4.STOX_RECEIPT_0_1_1` /
 ///      `STOX_RECEIPT_VAULT_0_1_1` / `STOX_WRAPPED_TOKEN_VAULT_0_1_1`).
 ///   2. Calls
-///      `setAuthorizer(LibProdAuthoriserClones.STOX_PROD_AUTHORISER_V4_CLONE_BASE)`
+///      `setAuthorizer(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE)`
 ///      on every production receipt vault.
 ///
 /// After execution every live receipt vault routes corporate-action selectors
@@ -180,7 +179,7 @@ contract UpgradeReceiptVaultsToV4 is Script {
 
     /// @notice The V4 authoriser clone that every production receipt vault is
     /// rewired onto. Placeholder until the clone is deployed.
-    address internal constant V4_AUTHORISER_CLONE = LibProdAuthoriserClones.STOX_PROD_AUTHORISER_V4_CLONE_BASE;
+    address internal constant V4_AUTHORISER_CLONE = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
 
     /// @notice Human-readable name embedded in the emitted Tx Builder JSON's
     /// `meta.name`. Visible to signers in the Safe Tx Builder UI.

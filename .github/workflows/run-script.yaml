@@ -20,29 +20,13 @@ on:
           # dropdown is a registry of *which* scripts exist, not *whether*
           # they've run.
           #
-          # This dispatcher runs ONLY Safe Tx Builder JSON emitting scripts —
-          # a signer/multisig reviews and signs the resulting artifact. It
-          # never `--broadcast`s. Broadcast scripts (dispatched with
-          # `--broadcast` from the CI deploy key) live in
-          # `manual-broadcast.yaml` instead. The V4 authoriser clone deploy
-          # (`20260619-deploy-v4-authoriser-clone`) is a deploy-key broadcast,
-          # not a Safe artifact — it deploys the clone and self-revokes the
-          # deployer's roles, nothing for the Safe to sign — so it is NOT
-          # listed here; it lives only in `manual-broadcast.yaml`.
+          # Broadcast scripts (dispatched with `--broadcast` from the CI
+          # deploy key) live in `manual-broadcast.yaml` instead. The
+          # `20260619-deploy-v4-authoriser-clone` entry stays listed here
+          # too, but dispatching via run-script.yaml is DRY-RUN ONLY (no
+          # `--broadcast`) — useful as a pre-flight smoke test.
+          - 20260619-deploy-v4-authoriser-clone
           - 20260623-upgrade-receipt-vaults-to-v4
-      network:
-        description: 'Network to dry-run against (default: base)'
-        required: true
-        type: choice
-        default: 'base'
-        options:
-          # The chain the pre-flight forks and the bundle targets. Base is
-          # the original single-chain default; multichain scripts (e.g. the
-          # Ethereum authoriser bootstrap) dry-run against their own chain.
-          # The value is both the foundry.toml rpc alias (`--rpc-url <network>`)
-          # and the key selecting which fork RPC secret to expose.
-          - 'base'
-          - 'ethereum'
       sig:
         description: 'Entrypoint to dispatch (default: run())'
         required: true
@@ -86,7 +70,7 @@ jobs:
     # Serialise dispatches of the same script+sig so overlapping runs don't
     # race on the shared out/ artifacts; distinct entrypoints run in parallel.
     concurrency:
-      group: run-script-${{ inputs.script }}-${{ inputs.sig }}-${{ inputs.network }}
+      group: run-script-${{ inputs.script }}-${{ inputs.sig }}
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -97,20 +81,16 @@ jobs:
         run: nix develop --command forge soldeer install
       - name: Run script
         env:
-          # Expose every network's fork RPC; `--rpc-url ${NETWORK}` selects
-          # which one foundry.toml resolves via its `[rpc_endpoints]` aliases.
           BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
-          ETHEREUM_RPC_URL: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
           # Pass the choice inputs via env rather than template-expanding them
           # into the command, so a dispatch (even one crafted via the API) is
           # used as a literal argument and cannot inject shell.
           SCRIPT: ${{ inputs.script }}
           SIG: ${{ inputs.sig }}
-          NETWORK: ${{ inputs.network }}
         run: |
           nix develop --command forge script "script/${SCRIPT}.s.sol" \
             --sig "${SIG}" \
-            --rpc-url "${NETWORK}" \
+            --rpc-url base \
             --no-storage-caching
       - name: Upload script output
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

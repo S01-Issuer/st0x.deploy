@@ -15,7 +15,6 @@ import {
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
-import {LibProdAuthoriserClones} from "../src/lib/LibProdAuthoriserClones.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 
 /// @notice The V4 authoriser impl at
@@ -37,11 +36,17 @@ error CloneFactoryNotDeployed(address factory);
 /// pin. The address at the pinned location is not the audited factory.
 error CloneFactoryCodehashMismatch(address factory, bytes32 expected, bytes32 actual);
 
-/// @notice The active chain's `LibProdAuthoriserClones` clone pin is already
+/// @notice The active chain's `LibProdDeployV4` clone pin is already
 /// hydrated. This script deploys a NEW clone — running it a second time would
-/// produce a second clone the lib pin does not know about. Once hydrated, the
+/// produce a second clone the pin does not know about. Once hydrated, the
 /// script is done for that chain.
 error V4AuthoriserClonePinAlreadyHydrated(address pinned);
+
+/// @notice This chain has no V4 authoriser clone pin in `LibProdDeployV4`, so
+/// the script has no per-chain target to guard against. A typed revert rather
+/// than a silent fallback to another chain's clone.
+/// @param chainId The active chain id with no defined clone pin.
+error V4AuthoriserCloneUnsupportedChain(uint256 chainId);
 
 /// @notice The freshly-deployed clone's runtime codehash does not match the
 /// EIP-1167 minimal-proxy shape computed from the V4 impl. Either the factory
@@ -84,7 +89,7 @@ error GrantsSliceOutOfRange(uint256 startIndex, uint256 sliceLength, uint256 gra
 ///      token-owner Safe. This matches the shape the previous Safe-signed
 ///      flow produced (`initialAdmin = Safe` auto-granted all seven
 ///      directly), and keeps the corporate-action admin-holder question
-///      (RAI-731) open rather than deciding it here by omission.
+///      open rather than deciding it here by omission.
 ///   4. Renounces every auto-granted `_ADMIN` role from the deployer.
 ///      Post-loop the Safe is sole admin; the deployer has no residual
 ///      power over the clone.
@@ -132,6 +137,22 @@ contract DeployV4AuthoriserClone is Script {
     /// corporate-action admins from the override).
     uint256 internal constant AUTO_GRANTED_ADMIN_COUNT = 7;
 
+    /// @notice The V4 authoriser clone pin for the active chain, selected by
+    /// `block.chainid` from `LibProdDeployV4` — `address(0)` until that chain's
+    /// clone is deployed and the pin hydrated. Reverts for any chain without a
+    /// pin rather than falling back to another chain's clone (reading the wrong
+    /// chain's clone is the catastrophic failure this guard exists to prevent).
+    /// @return The active chain's clone pin.
+    function activeChainClonePin() internal view returns (address) {
+        if (block.chainid == 1) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
+        }
+        if (block.chainid == 8453) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        }
+        revert V4AuthoriserCloneUnsupportedChain(block.chainid);
+    }
+
     /// @notice Deploy + configure + admin-transfer the V4 authoriser clone
     /// in a single broadcast. Steps 1-4 in the contract-level NatSpec.
     /// Pre-flight covers the invariants the whole flow relies on: the
@@ -168,7 +189,7 @@ contract DeployV4AuthoriserClone is Script {
         // running this script would deploy a SECOND clone the lib
         // doesn't know about — same behaviour as re-running any
         // deterministic deploy after it has already landed.
-        address pinned = LibProdAuthoriserClones.cloneForChainId(block.chainid);
+        address pinned = activeChainClonePin();
         if (pinned != address(0)) revert V4AuthoriserClonePinAlreadyHydrated(pinned);
 
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
@@ -223,8 +244,8 @@ contract DeployV4AuthoriserClone is Script {
 
         // Log the clone address prominently so the operator can copy it
         // into the post-execution pin PR (hydrate the active chain's
-        // `LibProdAuthoriserClones` clone pin; the `..._CODEHASH` is already
-        // pinned in `LibProdDeployV4`).
+        // `LibProdDeployV4` clone pin — e.g. `STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM`;
+        // the `..._CODEHASH` is already pinned in `LibProdDeployV4`).
         console2.log("==== V4 AUTHORISER CLONE DEPLOYED ====");
         console2.log("Clone:", vm.toString(clone));
         console2.log("CloneCodehash:", vm.toString(clone.codehash));
