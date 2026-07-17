@@ -212,13 +212,21 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0xFcD17aC4c4BF6a72c93018096F3fC09e66573Ff9
     address internal constant SKHY_WRAPPED_TOKEN_VAULT = address(0xFcD17aC4c4BF6a72c93018096F3fC09e66573Ff9);
 
-    /// @notice Returns the 21 production receipt vault addresses on Base, in
+    // ---- tASML / wtASML — ASML Holding N.V. New York Registry Shares ST0x ----
+    /// https://basescan.org/address/0x17021e305D28c4CfA8ec02817ad22B2ef432dC85
+    address internal constant ASML_RECEIPT = address(0x17021e305D28c4CfA8ec02817ad22B2ef432dC85);
+    /// https://basescan.org/address/0x722Cb373f1871A176fb5DC3953046f2EAE22F619
+    address internal constant ASML_RECEIPT_VAULT = address(0x722Cb373f1871A176fb5DC3953046f2EAE22F619);
+    /// https://basescan.org/address/0x8200c6d9AB9E02A25D7F2099244C476d99a085ef
+    address internal constant ASML_WRAPPED_TOKEN_VAULT = address(0x8200c6d9AB9E02A25D7F2099244C476d99a085ef);
+
+    /// @notice Returns the 22 production receipt vault addresses on Base, in
     /// the order they were deployed. Provided so consumers (e.g. invariant
     /// assertions, migration scripts) can iterate without hardcoding the
     /// list inline.
-    /// @return vaults The 21 production receipt vault addresses on Base.
+    /// @return vaults The 22 production receipt vault addresses on Base.
     function productionReceiptVaults() internal pure returns (address[] memory vaults) {
-        vaults = new address[](21);
+        vaults = new address[](22);
         vaults[0] = MSTR_RECEIPT_VAULT;
         vaults[1] = TSLA_RECEIPT_VAULT;
         vaults[2] = COIN_RECEIPT_VAULT;
@@ -240,6 +248,7 @@ library LibTokenInvariants {
         vaults[18] = DRAM_RECEIPT_VAULT;
         vaults[19] = TSM_RECEIPT_VAULT;
         vaults[20] = SKHY_RECEIPT_VAULT;
+        vaults[21] = ASML_RECEIPT_VAULT;
     }
 
     /// @notice Assert that every production receipt vault reports the same
