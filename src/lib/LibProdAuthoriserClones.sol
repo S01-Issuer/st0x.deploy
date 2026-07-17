@@ -34,12 +34,15 @@ error UnsupportedChainForAuthoriserClone(uint256 chainId);
 library LibProdAuthoriserClones {
     /// @notice The V4 production authoriser clone on Base.
     ///
-    /// **PLACEHOLDER** (`address(0)`) until the Base V4 swap deploys the
-    /// clone (chain-agnostic script `20260619-deploy-v4-authoriser-clone`)
-    /// and the post-deploy hydrate PR replaces this `address(0)` with the
-    /// real literal. The clone address is not deterministic ahead of the
-    /// deploy — this is the pin-before-modify gate.
-    address internal constant STOX_PROD_AUTHORISER_V4_CLONE_BASE = address(0);
+    /// Deployed by the chain-agnostic `20260619-deploy-v4-authoriser-clone`.
+    /// https://basescan.org/address/0x315b16faa6eE413faBCa877d3851B3818369f0cD
+    /// @dev The Base vaults are swapped ONTO this clone by the separate V4
+    /// receipt-vault upgrade; until that swap runs they still report the V3
+    /// authoriser, so any strict "vault authoriser == this clone" assertion
+    /// (e.g. the cross-chain parity token leg) is RED by design until the Base
+    /// migration completes. `LibInvariants.assertAll` tolerates the window
+    /// (V3 or clone until `V4_SWAP_DEADLINE`).
+    address internal constant STOX_PROD_AUTHORISER_V4_CLONE_BASE = address(0x315b16faa6eE413faBCa877d3851B3818369f0cD);
 
     /// @notice The V4 production authoriser clone on Ethereum mainnet — the
     /// Ethereum sibling of `STOX_PROD_AUTHORISER_V4_CLONE_BASE`.

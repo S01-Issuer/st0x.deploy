@@ -18,13 +18,13 @@ import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 /// assertion) the moment a chain's clone is hydrated. The codehash is
 /// deterministic and re-exported from the generated `LibProdDeployV4`.
 contract LibProdAuthoriserClonesTest is Test {
-    /// The Base clone pin is still a placeholder. Replace this guard with a
-    /// real address assertion when Base's V4 swap clone is hydrated.
-    function testBaseClonePlaceholder() external pure {
+    /// The Base clone pin is the deployed V4 authoriser clone (hydrated);
+    /// guards the literal against accidental drift.
+    function testBaseClonePinned() external pure {
         assertEq(
             LibProdAuthoriserClones.STOX_PROD_AUTHORISER_V4_CLONE_BASE,
-            address(0),
-            "Base clone hydrated: replace this placeholder guard with a real address assertion"
+            address(0x315b16faa6eE413faBCa877d3851B3818369f0cD),
+            "Base clone pin drifted from the deployed clone"
         );
     }
 
