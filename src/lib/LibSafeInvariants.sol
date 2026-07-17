@@ -156,14 +156,33 @@ error UnsupportedChainForTokenOwnerSafe(uint256 chainId);
 library LibSafeInvariants {
     // =========================================================================
     // Safe v1.4.1 deployment manifest constants.
+    //
+    // ST0x runs the SAME Safe policy on every chain but uses whichever
+    // canonical v1.4.1 SINGLETON is standard for that chain. Base (an L2) runs
+    // the `SafeL2` singleton (extra events for indexers); Ethereum mainnet (L1)
+    // runs the `Safe` singleton — the default the Safe UI picks on mainnet.
+    // The two are the same audited v1.4.1 contracts differing only in event
+    // emission, so `assertImmutableInvariants` accepts EITHER: it reads the
+    // proxy's singleton (slot 0), requires it to be one of the two, and pins
+    // that variant's proxy + singleton codehash. Owners / threshold / version /
+    // modules / guard / fallback are identical across both variants.
     // =========================================================================
+    string internal constant SAFE_V1_4_1_VERSION = "1.4.1";
+    address internal constant SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER = 0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99;
+
+    // ---- L2 variant (`SafeL2` singleton) — Base's Safe ----
     address internal constant SAFE_V1_4_1_L2_SINGLETON = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
     bytes32 internal constant SAFE_V1_4_1_L2_PROXY_CODEHASH =
         0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000;
-    string internal constant SAFE_V1_4_1_VERSION = "1.4.1";
     bytes32 internal constant SAFE_V1_4_1_L2_SINGLETON_CODEHASH =
         0xb1f926978a0f44a2c0ec8fe822418ae969bd8c3f18d61e5103100339894f81ff;
-    address internal constant SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER = 0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99;
+
+    // ---- L1 variant (`Safe` singleton) — Ethereum mainnet's Safe ----
+    address internal constant SAFE_V1_4_1_L1_SINGLETON = 0x41675C099F32341bf84BFc5382aF534df5C7461a;
+    bytes32 internal constant SAFE_V1_4_1_L1_PROXY_CODEHASH =
+        0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c;
+    bytes32 internal constant SAFE_V1_4_1_L1_SINGLETON_CODEHASH =
+        0x1fe2df852ba3299d6534ef416eefa406e56ced995bca886ab7a553e6d0c5e1c4;
 
     // =========================================================================
     // ST0x token-owner Safe current-state pins.
@@ -180,17 +199,16 @@ library LibSafeInvariants {
 
     /// @notice The ST0x token-owner Safe on **Ethereum mainnet**.
     ///
-    /// **PLACEHOLDER** (`address(0)`) until the Ethereum Safe is deployed and
-    /// its address pinned here. The matched-address approach was ABANDONED: the
-    /// Ethereum Safe is a **distinct per-chain address**, deployed out-of-band
-    /// (Safe UI / custody) as a clean v1.4.1 Safe with the SAME owner set +
-    /// threshold + v1.4.1 policy as Base. Only the address differs per chain —
-    /// it is a per-chain deploy artifact, NOT a principal. The whole POLICY
-    /// (owners, threshold, v1.4.1 singleton/proxy codehash, fallback handler,
-    /// no modules/guard) is the shared pin set below, and the Ethereum Safe is
-    /// asserted against it — in every way that matters, now and into the future
-    /// — by `assertPolicyMatchesBase` (order-insensitive on the owner set).
-    address internal constant STOX_TOKEN_OWNER_SAFE_ETHEREUM = address(0);
+    /// A **distinct per-chain address** (the matched-address approach was
+    /// abandoned): deployed out-of-band as a v1.4.1 Safe with the SAME owner
+    /// set + threshold + policy as Base. The address is a per-chain deploy
+    /// artifact, NOT a principal; the whole POLICY (owners, threshold, v1.4.1
+    /// identity, fallback handler, no modules/guard) is the shared pin set, and
+    /// this Safe is asserted against it — in every way that matters, now and
+    /// into the future — by `assertPolicyMatchesBase` (order-insensitive on the
+    /// owner set; L1/L2-tolerant on the singleton, since a mainnet Safe runs
+    /// the L1 `Safe` singleton while Base runs the L2 `SafeL2`).
+    address internal constant STOX_TOKEN_OWNER_SAFE_ETHEREUM = 0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329;
 
     /// @notice The current expected threshold for `STOX_TOKEN_OWNER_SAFE`:
     /// 3-of-6 against the post-rotation owner roster. Scripts and the
@@ -253,46 +271,61 @@ library LibSafeInvariants {
     /// rather than here, because it is a property of the token deployment
     /// rather than of the Safe.
     ///
-    /// The check ordering is deliberate. Codehash first (cheapest, and
-    /// catches an EOA at the address or a fake proxy). Singleton slot next
-    /// (catches a swap of the implementation pointer). Singleton bytecode
-    /// third (catches a swap behind the singleton address). VERSION()
-    /// fourth (catches an unexpected implementation that happens to have
-    /// the same bytecode hash). Modules/guard/fallback handler last, after
-    /// the proxy has been proven to be the singleton we expect.
+    /// The check ordering is deliberate. Proxy codehash first (cheapest, a raw
+    /// `extcodehash`, and catches an EOA / fake proxy before any call into it) —
+    /// accepting either known SafeProxy codehash. Singleton slot next (must be
+    /// one of the two canonical v1.4.1 singletons, L1 / L2). Singleton bytecode
+    /// third (catches a swap behind the singleton address). VERSION() fourth
+    /// (catches an unexpected implementation that happens to have the same
+    /// bytecode hash). Modules/guard/fallback handler last, after the proxy has
+    /// been proven to be a singleton we expect.
     /// @param safe The Safe to assert immutable invariants on.
     function assertImmutableInvariants(IGnosisSafe safe) internal view {
         address safeAddr = address(safe);
 
+        // Proxy codehash first — a raw `extcodehash`, no call into the proxy —
+        // so an EOA / non-Safe is rejected before we trust it enough to read
+        // its storage. Accept either known SafeProxy codehash: Base's is a
+        // v1.3.0-created proxy (later upgraded to the v1.4.1 L2 singleton),
+        // Ethereum's is a v1.4.1-created proxy; both are minimal delegating
+        // SafeProxies. The two proxy-origin and L1/L2-singleton dimensions are
+        // independent — any known SafeProxy over any known v1.4.1 singleton is
+        // a genuine Safe.
         bytes32 actualCodehash;
         assembly ("memory-safe") {
             actualCodehash := extcodehash(safeAddr)
         }
-        if (actualCodehash != SAFE_V1_4_1_L2_PROXY_CODEHASH) {
+        if (actualCodehash != SAFE_V1_4_1_L2_PROXY_CODEHASH && actualCodehash != SAFE_V1_4_1_L1_PROXY_CODEHASH) {
             revert SafeProxyCodehashMismatch(safeAddr, SAFE_V1_4_1_L2_PROXY_CODEHASH, actualCodehash);
         }
 
-        // Slot 0 of a Safe proxy holds the singleton (master copy) address.
-        // Read it raw via `getStorageAt` rather than going through any
-        // accessor so a malicious fallback can't shadow the result.
+        // Singleton (slot 0) must be one of the two canonical v1.4.1 singletons
+        // — L2 `SafeL2` (Base) or L1 `Safe` (Ethereum mainnet). Read raw via
+        // `getStorageAt` so a malicious fallback can't shadow the result; the
+        // variant selects which singleton codehash to pin.
         address actualSingleton = readSafeStorageAddress(safe, 0);
-        if (actualSingleton != SAFE_V1_4_1_L2_SINGLETON) {
+        bytes32 expectedSingletonCodehash;
+        if (actualSingleton == SAFE_V1_4_1_L2_SINGLETON) {
+            expectedSingletonCodehash = SAFE_V1_4_1_L2_SINGLETON_CODEHASH;
+        } else if (actualSingleton == SAFE_V1_4_1_L1_SINGLETON) {
+            expectedSingletonCodehash = SAFE_V1_4_1_L1_SINGLETON_CODEHASH;
+        } else {
             revert SafeSingletonMismatch(safeAddr, SAFE_V1_4_1_L2_SINGLETON, actualSingleton);
         }
 
-        // Address pin alone trusts whatever code lives at the singleton
-        // address. Pin the singleton's bytecode too so a swap there
-        // (preserving the proxy codehash and superficial view returns)
-        // cannot route every implementation-backed call through attacker
-        // code. Asserted before `VERSION()` and any other read that
-        // delegate-routes through the singleton.
+        // Singleton bytecode for the selected variant. Address pin alone trusts
+        // whatever code lives at the singleton; pinning its codehash too means a
+        // swap there (preserving the pointer + superficial view returns) cannot
+        // route every implementation-backed call through attacker code.
+        // Asserted before `VERSION()` and any other read that delegate-routes
+        // through the singleton.
         bytes32 actualSingletonCodehash;
         assembly ("memory-safe") {
             actualSingletonCodehash := extcodehash(actualSingleton)
         }
-        if (actualSingletonCodehash != SAFE_V1_4_1_L2_SINGLETON_CODEHASH) {
+        if (actualSingletonCodehash != expectedSingletonCodehash) {
             revert SafeSingletonBytecodeMismatch(
-                safeAddr, actualSingleton, SAFE_V1_4_1_L2_SINGLETON_CODEHASH, actualSingletonCodehash
+                safeAddr, actualSingleton, expectedSingletonCodehash, actualSingletonCodehash
             );
         }
 
