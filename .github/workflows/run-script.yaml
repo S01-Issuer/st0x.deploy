@@ -20,12 +20,15 @@ on:
           # dropdown is a registry of *which* scripts exist, not *whether*
           # they've run.
           #
-          # Broadcast scripts (dispatched with `--broadcast` from the CI
-          # deploy key) live in `manual-broadcast.yaml` instead. The
-          # `20260619-deploy-v4-authoriser-clone` entry stays listed here
-          # too, but dispatching via run-script.yaml is DRY-RUN ONLY (no
-          # `--broadcast`) — useful as a pre-flight smoke test.
-          - 20260619-deploy-v4-authoriser-clone
+          # This dispatcher runs ONLY Safe Tx Builder JSON emitting scripts —
+          # a signer/multisig reviews and signs the resulting artifact. It
+          # never `--broadcast`s. Broadcast scripts (dispatched with
+          # `--broadcast` from the CI deploy key) live in
+          # `manual-broadcast.yaml` instead. The V4 authoriser clone deploy
+          # (`20260619-deploy-v4-authoriser-clone`) is a deploy-key broadcast,
+          # not a Safe artifact — it deploys the clone and self-revokes the
+          # deployer's roles, nothing for the Safe to sign — so it is NOT
+          # listed here; it lives only in `manual-broadcast.yaml`.
           - 20260623-upgrade-receipt-vaults-to-v4
       network:
         description: 'Network to dry-run against (default: base)'
