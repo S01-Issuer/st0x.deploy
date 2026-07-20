@@ -6,7 +6,7 @@ import {IGnosisSafe} from "../interface/IGnosisSafe.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
-import {LibTokenInvariants} from "./LibTokenInvariants.sol";
+import {LibTokenInvariants, TokenInstance} from "./LibTokenInvariants.sol";
 
 /// @title LibInvariants
 /// @notice Orchestrator that composes every per-facet `assertAll` into a
@@ -21,30 +21,28 @@ import {LibTokenInvariants} from "./LibTokenInvariants.sol";
 /// subject and reachable standalone for scripts / fork tests that don't
 /// need the full bundle.
 library LibInvariants {
-    /// @notice Full production-state invariant bundle. Composes every
-    /// per-facet `assertAll`: Safe identity / config + token-side
+    /// @notice Full production-state invariant bundle for **Base**. Composes
+    /// every per-facet `assertAll`: Safe identity / config + token-side
     /// owner/authoriser uniformity. Pre-flight at the start of every
     /// migration script and prod-state fork test; if this passes silently
     /// the live system is in its current expected state across every
     /// pinned facet.
-    /// @dev The full-args overload is the right call site only when a
-    /// caller is *deliberately* asserting a state that diverges from the
-    /// pinned current truth (e.g. a migration script's post-state re-check
-    /// after it has simulated `changeThreshold`); the no-arg overload
-    /// fills in the `LibSafeInvariants`-pinned defaults.
     ///
-    /// The authoriser leg is migration-window gated for the V4 swap:
-    /// every vault's `authorizer()` may be the V3 authoriser
+    /// The authoriser leg is migration-window gated for the V4 swap: every
+    /// vault's `authorizer()` may be the V3 authoriser
     /// (`LibAuthoriserInvariants.STOX_PROD_AUTHORISER`) or the V4 clone
     /// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`) until
-    /// `LibProdDeployV4.V4_SWAP_DEADLINE`; only the V4 clone after. This
-    /// keeps the bundle green across the swap with no post-execution lib
-    /// repoint: before the swap the pre-state matches, after the swap the
-    /// post-state matches, and past the deadline an un-run swap red-lines
-    /// cron. `LibAuthoriserInvariants.assertAll()` continues to validate
-    /// the V3 clone's own impl pin + grant map — properties of that
-    /// contract which stay true after the swap (the swap does not revoke
-    /// anything on the old clone).
+    /// `LibProdDeployV4.V4_SWAP_DEADLINE`; only the V4 clone after. This keeps
+    /// the bundle green across the swap with no post-execution lib repoint:
+    /// before the swap the pre-state matches, after the swap the post-state
+    /// matches, and past the deadline an un-run swap red-lines cron.
+    /// `LibAuthoriserInvariants.assertAll()` continues to validate the V3
+    /// clone's own impl pin + grant map.
+    ///
+    /// @dev The chain-agnostic generalisation used for other chains is
+    /// `assertProductionState`. Base keeps this dedicated overload because
+    /// the V4 swap window is a Base-only transitional concern — a bootstrap
+    /// chain deploys directly at V4 with a single authoriser and no window.
     /// @param safe The Safe to validate against the pinned current truth.
     function assertAll(IGnosisSafe safe) internal view {
         LibSafeInvariants.assertAll(safe);
@@ -57,12 +55,50 @@ library LibInvariants {
         LibAuthoriserInvariants.assertAll();
     }
 
-    /// @notice Full-args bundle. Use when overriding the Safe-side
+    /// @notice Multichain full-production-state pre-flight — the
+    /// chain-agnostic generalisation of `assertAll(safe)`. Asserts, for the
+    /// ACTIVE chain (`block.chainid`): the Safe carries Base's shared policy
+    /// (`assertPolicyMatchesBase` — v1.4.1 identity, owner SET, threshold), the
+    /// token-side uniformity (every vault in `tokens` owned by that chain's
+    /// Safe and gated by the single `authoriser`), and the authoriser's role-
+    /// grant map for that chain's Safe. The Safe is resolved from the pinned
+    /// per-chain address via `LibSafeInvariants.safeForChainId(block.chainid)`,
+    /// so the deploy artifacts that differ per chain — the Safe address, the
+    /// token addresses, the authoriser clone address — are the only variation.
+    ///
+    /// @dev The Safe POLICY (owner set, threshold, v1.4.1 identity) and the
+    /// service signer are SHARED across chains; only the ADDRESSES differ. The
+    /// Safe address is therefore a per-chain deploy artifact (not a principal):
+    /// resolved by chain id, and its policy asserted against the shared pins.
+    /// The owner check is order-INSENSITIVE (`assertPolicyMatchesBase`) because
+    /// a fresh per-chain Safe's `getOwners()` order is incidental. There is no
+    /// `ChainPrincipals` parameter — the per-chain inputs are the token
+    /// addresses and the authoriser clone address (whose impl codehash is
+    /// asserted equal across chains by the cross-chain parity pin); the Safe
+    /// address is read from the per-chain pin here.
+    ///
+    /// Unlike Base's `assertAll(safe)` this asserts a SINGLE uniform
+    /// authoriser rather than the V4 swap-window pair: a bootstrap chain is
+    /// deployed directly at V4 with its vaults wired onto one clone from the
+    /// start, so there is no V3→V4 migration window to tolerate. The
+    /// authoriser CODEHASH is not asserted here (a deploy-artifact property
+    /// the clone-deploy script + cross-chain parity pin check); this bundle
+    /// asserts live ROLE state + ownership.
+    /// @param tokens The chain's production token table.
+    /// @param authoriser The chain's live authoriser the vaults point at.
+    function assertProductionState(TokenInstance[] memory tokens, address authoriser) internal view {
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        LibSafeInvariants.assertPolicyMatchesBase(IGnosisSafe(safe));
+        LibTokenInvariants.assertAll(tokens, safe, authoriser);
+        LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe);
+    }
+
+    /// @notice Full-args Base bundle. Use when overriding the Safe-side
     /// threshold or owner set from `LibSafeInvariants`' current-truth pins —
-    /// typically only when running a script that intentionally changes
-    /// one of those (post-state assertion). The token-side and authoriser-
-    /// side legs match the no-arg overload, including the V4 swap
-    /// migration window on the authoriser leg.
+    /// typically only when running a script that intentionally changes one of
+    /// those (post-state assertion). The token-side and authoriser-side legs
+    /// match the no-arg overload, including the V4 swap migration window on
+    /// the authoriser leg.
     /// @param safe The Safe to validate.
     /// @param expectedThreshold The expected signature threshold.
     /// @param expectedOwners The expected owner set in `getOwners()` order.
