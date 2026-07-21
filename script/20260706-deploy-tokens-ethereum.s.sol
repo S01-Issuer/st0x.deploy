@@ -10,10 +10,9 @@ import {
 } from "rain-vats-0.1.6/src/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
 import {ReceiptVaultConfigV2} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
 
-import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
+import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {IStoxUnifiedDeployerV1} from "../src/interface/IStoxUnifiedDeployerV1.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
-import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibProdTokenConfig, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 
@@ -41,12 +40,12 @@ error DeployerNotDeployed(address deployer);
 /// @param clone The clone address inspected.
 error EthereumCloneNotReady(address clone);
 
-/// @notice Pre-flight failed: the Ethereum token-owner Safe address is not
-/// yet pinned (`address(0)`). The Safe is a distinct per-chain address,
-/// deployed out-of-band and pinned in
-/// `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM`; ownership cannot be
-/// handed to it until that address lands.
-/// @param safe The Safe address inspected (`address(0)` when unpinned).
+/// @notice Pre-flight failed: the active chain's resolved token-owner Safe is
+/// not the pinned ETHEREUM Safe. Either the script was dispatched against a
+/// network other than Ethereum mainnet (this script deploys the Ethereum
+/// token set only), or the Ethereum pin
+/// (`LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM`) has not landed.
+/// @param safe The Safe address the active chain resolved to.
 error EthereumSafeNotReady(address safe);
 
 /// @title DeployTokensEthereum
@@ -91,15 +90,18 @@ contract DeployTokensEthereum is Script {
         if (deployer.code.length == 0) revert DeployerNotDeployed(deployer);
     }
 
-    /// @notice The Ethereum token-owner Safe, asserted pinned + policy-aligned
-    /// to Base. Reverts `EthereumSafeNotReady` until the address is hydrated,
-    /// then asserts the live Safe matches Base's shared policy with
-    /// `assertTokenOwnerSafePolicy` (order-insensitive owner set).
+    /// @notice The active chain's token-owner Safe, resolved + policy-asserted
+    /// through the shared entry point (`assertActiveChainTokenOwnerSafe` — the
+    /// identical assertion the scheduled CI pin runs per chain), then guarded
+    /// to be ETHEREUM's Safe: this script deploys the Ethereum token set, so
+    /// a dispatch against any other network's RPC must revert rather than
+    /// deploy duplicate tokens onto that chain.
     /// @return safe The validated Ethereum token-owner Safe address.
     function _assertSafeReady() internal view returns (address safe) {
-        safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM;
-        if (safe == address(0)) revert EthereumSafeNotReady(safe);
-        LibSafeInvariants.assertTokenOwnerSafePolicy(IGnosisSafe(safe));
+        safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+        if (safe != LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM) {
+            revert EthereumSafeNotReady(safe);
+        }
     }
 
     /// @notice Assert the Ethereum V4 authoriser clone is deployed at its pin
@@ -117,16 +119,31 @@ contract DeployTokensEthereum is Script {
 
     /// @notice Deploy every production token on the active chain via the
     /// unified deployer, wire each onto the V4 authoriser clone, and hand
-    /// ownership to the Safe — one deploy-key broadcast, matched to Base. Reads
-    /// `DEPLOYMENT_KEY`. Logs each deployed pair for the pin PR.
+    /// ownership to the Safe — one deploy-key broadcast, matched to Base.
+    /// Broadcasts as the key `manual-broadcast.yaml` supplies via
+    /// `--private-key` (the same CI deploy key every operational broadcast
+    /// uses). Logs each deployed pair for the pin PR.
     function run() external {
         // Pre-flight: the unified deployer + both beacon-set deployers it
-        // delegates to must be live at their pinned V4 addresses (bootstrap
-        // step 1 broadcast the core suites here).
-        address unifiedDeployer = LibProdDeployCurrent.STOX_UNIFIED_DEPLOYER;
+        // delegates to must be live at their pinned addresses. The 0.1.1
+        // pins, NOT `LibProdDeployCurrent`: Ethereum's bootstrap shipped the
+        // audited 0.1.1 set, and the 0.1.1 unified deployer is what wires
+        // new vault proxies onto the chain's IN-USE production beacons (the
+        // 0.1.1 set pinned via `LibProdBeaconsEthereum` /
+        // `LibBeaconInvariants`). The current tag's deployer is a different
+        // Zoltu address that (a) is not deployed on Ethereum and (b) would
+        // wire tokens onto a different, unadopted beacon set even if it were.
+        address unifiedDeployer = LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1;
         _assertDeployer(unifiedDeployer);
-        _assertDeployer(LibProdDeployCurrent.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
-        _assertDeployer(LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER);
+        _assertDeployer(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1);
+        _assertDeployer(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1);
+
+        // Pre-flight: the chain's IN-USE production beacons — the beacons
+        // every vault proxy created below will delegate through — are owned
+        // by this chain's token-owner Safe. A beacon owned by anything else
+        // could be repointed under the new tokens. The same assertion the
+        // per-chain prod pin (`StoxProdV4`) runs on every CI commit.
+        LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
 
         // The clone (setAuthorizer target) and the Safe (ownership-handoff
         // target) must both be live before we deploy, since each token is fully
@@ -135,10 +152,17 @@ contract DeployTokensEthereum is Script {
         address safe = _assertSafeReady();
 
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        uint256 deployerKey = vm.envUint("DEPLOYMENT_KEY");
-        address deployer = vm.addr(deployerKey);
 
         bytes32 deploymentTopic = keccak256("Deployment(address,address,address)");
+
+        vm.startBroadcast();
+
+        // Deployer identity — inside `vm.startBroadcast()` msg.sender
+        // resolves to the broadcast address (`--private-key` in production,
+        // supplied by `manual-broadcast.yaml`). Captured so the
+        // `initialAdmin` baked into each vault's config lines up with the
+        // key that then calls `setAuthorizer` + `transferOwnership`.
+        address deployer = msg.sender;
 
         console2.log("Deploying", configs.length, "tokens on chain id", block.chainid);
         console2.log("initialAdmin (deploy key, handed to Safe):", deployer);
@@ -157,7 +181,6 @@ contract DeployTokensEthereum is Script {
             });
 
             vm.recordLogs();
-            vm.broadcast(deployerKey);
             IStoxUnifiedDeployerV1(unifiedDeployer).newTokenAndWrapperVault(vaultConfig);
 
             // Fish the deployed pair out of the unified deployer's
@@ -182,9 +205,7 @@ contract DeployTokensEthereum is Script {
             // `onlyOwner`, so it must precede the handoff. Only the receipt
             // vault is ownable — the receipt and wrapped vault have no owner,
             // so nothing to hand off for those.
-            vm.broadcast(deployerKey);
             IReceiptVaultAdmin(receiptVault).setAuthorizer(clone);
-            vm.broadcast(deployerKey);
             IReceiptVaultAdmin(receiptVault).transferOwnership(safe);
 
             console2.log("==== TOKEN DEPLOYED ====");
@@ -193,6 +214,8 @@ contract DeployTokensEthereum is Script {
             console2.log("receiptVault:", vm.toString(receiptVault));
             console2.log("wrappedTokenVault:", vm.toString(wrapped));
         }
+
+        vm.stopBroadcast();
 
         console2.log(
             "All tokens deployed, authorised, and handed to the Safe. Hydrate"
