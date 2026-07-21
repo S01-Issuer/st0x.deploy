@@ -205,7 +205,7 @@ library LibSafeInvariants {
     /// artifact, NOT a principal; the whole POLICY (owners, threshold, v1.4.1
     /// identity, fallback handler, no modules/guard) is the shared pin set, and
     /// this Safe is asserted against it — in every way that matters, now and
-    /// into the future — by `assertPolicyMatchesBase` (order-insensitive on the
+    /// into the future — by `assertTokenOwnerSafePolicy` (order-insensitive on the
     /// owner set; L1/L2-tolerant on the singleton, since a mainnet Safe runs
     /// the L1 `Safe` singleton while Base runs the L2 `SafeL2`).
     address internal constant STOX_TOKEN_OWNER_SAFE_ETHEREUM = 0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329;
@@ -509,42 +509,38 @@ library LibSafeInvariants {
         }
     }
 
-    /// @notice Assert a chain's Safe carries the SAME policy as Base — in every
-    /// way that matters: the v1.4.1 immutable identity (proxy codehash,
-    /// singleton pointer + bytecode, version, no modules, no guard, pinned
-    /// fallback handler), the same owner SET, and the same threshold — as
-    /// pinned in this library (which is Base's current truth). The owner check
-    /// is order-INSENSITIVE (`assertOwnerSetUnordered`), because the only thing
-    /// that legitimately differs across chains is the Safe ADDRESS (and, as a
-    /// consequence of a fresh deploy, the incidental `getOwners()` order).
-    /// @dev This is the cross-chain / non-baseline-chain bundle. Base's own
-    /// pin test uses the order-SENSITIVE `assertAll` against its pinned roster.
-    /// Because the pins are the single source of truth for the policy and Base
-    /// is asserted against them too, asserting a chain's Safe here transitively
-    /// proves it matches Base — now, and on every scheduled CI run into the
-    /// future (if Base's policy changes, the pins move and this goes red until
-    /// the chain's Safe is realigned).
-    /// @param safe The chain's Safe to validate against Base's shared policy.
-    function assertPolicyMatchesBase(IGnosisSafe safe) internal view {
+    /// @notice Assert a Safe carries the ST0x token-owner POLICY — the
+    /// chain-agnostic truths pinned in this library: the v1.4.1 immutable
+    /// identity (proxy codehash, singleton pointer + bytecode, version, no
+    /// modules, no guard, pinned fallback handler), the pinned owner SET, and
+    /// the pinned threshold. The policy is a property of the ORGANISATION,
+    /// not of any chain: every chain's token-owner Safe — Base included — is
+    /// asserted against the same pins. Only the Safe ADDRESS is per-chain (a
+    /// deploy artifact, resolved by `safeForChainId`).
+    /// @dev The owner check is order-INSENSITIVE (`assertOwnerSetUnordered`):
+    /// `getOwners()` order is a Safe-internal linked-list artifact of the
+    /// order owners were added on that chain's deploy/rotation, so order is
+    /// not a policy property. (Base's own historical pin test additionally
+    /// asserts its exact roster order via the order-sensitive `assertAll`.)
+    /// If the policy ever changes, the pins move and every chain's Safe goes
+    /// red until realigned — one source of truth, asserted everywhere, on
+    /// every scheduled CI run.
+    /// @param safe The Safe to validate against the pinned policy.
+    function assertTokenOwnerSafePolicy(IGnosisSafe safe) internal view {
         assertImmutableInvariants(safe);
         assertOwnerSetUnordered(safe, expectedOwners());
         assertThreshold(safe, STOX_TOKEN_OWNER_SAFE_THRESHOLD);
     }
 
-    /// @notice Resolve the active chain's token-owner Safe AND assert it is in
-    /// its expected state, choosing the chain-appropriate assertion. This is
-    /// the single entry point a broadcast script's pre-flight and the scheduled
-    /// CI pin both call, so the assertion that gates a manual broadcast is the
-    /// identical one CI runs every commit — a broadcast can never revert on a
-    /// Safe check CI has not already exercised on that chain.
-    ///
-    /// The reference chain (Base) is pinned EXACTLY: the order-sensitive
-    /// `assertAll` against the canonical `expectedOwners()` roster + pinned
-    /// threshold. Every other chain is asserted for the SAME POLICY as Base via
-    /// the order-insensitive `assertPolicyMatchesBase` — a fresh per-chain Safe
-    /// carries the identical owner SET + threshold + v1.4.1 identity, but its
-    /// `getOwners()` linked-list order is an incidental deploy artifact, so
-    /// order is not asserted off-baseline.
+    /// @notice Resolve the active chain's token-owner Safe AND assert it
+    /// carries the pinned chain-agnostic policy
+    /// (`assertTokenOwnerSafePolicy`). No chain is special-cased: the policy
+    /// is the shared truth and every chain's Safe is asserted against it
+    /// identically. This is the single entry point a broadcast script's
+    /// pre-flight and the scheduled CI pin both call, so the assertion that
+    /// gates a manual broadcast is the identical one CI runs every commit — a
+    /// broadcast can never revert on a Safe check CI has not already
+    /// exercised on that chain.
     ///
     /// Reverts `UnsupportedChainForTokenOwnerSafe` (via `safeForChainId`) for a
     /// chain without a pinned Safe rather than silently asserting the wrong
@@ -553,10 +549,6 @@ library LibSafeInvariants {
     /// @return safe The chain's token-owner Safe, proven in-policy.
     function assertActiveChainTokenOwnerSafe(uint256 chainId) internal view returns (address safe) {
         safe = safeForChainId(chainId);
-        if (chainId == BASE_CHAIN_ID) {
-            assertAll(IGnosisSafe(safe));
-        } else {
-            assertPolicyMatchesBase(IGnosisSafe(safe));
-        }
+        assertTokenOwnerSafePolicy(IGnosisSafe(safe));
     }
 }

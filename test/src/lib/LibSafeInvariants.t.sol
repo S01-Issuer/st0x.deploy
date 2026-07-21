@@ -278,9 +278,8 @@ contract LibSafeInvariantsTest is Test {
     }
 
     /// @notice `assertActiveChainTokenOwnerSafe` passes against the LIVE Base
-    /// token-owner Safe and resolves Base's Safe address. Base is the
-    /// reference chain, so it takes the order-SENSITIVE `assertAll` path
-    /// against the canonical pinned roster.
+    /// token-owner Safe and resolves Base's Safe address — the same
+    /// chain-agnostic policy assertion every chain gets.
     function testAssertActiveChainTokenOwnerSafeOnBase() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         address resolved = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
@@ -288,14 +287,15 @@ contract LibSafeInvariantsTest is Test {
     }
 
     /// @notice The SAME entry point passes against the LIVE Ethereum token-
-    /// owner Safe and resolves Ethereum's Safe address. Off-baseline it takes
-    /// the order-INSENSITIVE `assertPolicyMatchesBase` path: the Ethereum Safe
-    /// carries the identical owner set + threshold + v1.4.1 identity as Base,
-    /// but its `getOwners()` linked-list order is an incidental artifact of
-    /// its own deploy. This per-chain fork coverage is what keeps a broadcast
-    /// script's Safe pre-flight from ever reverting on a chain CI has not
-    /// exercised: any consumer of this entry point is proven against every
-    /// pinned chain's live Safe on every CI run.
+    /// owner Safe and resolves Ethereum's Safe address. The policy pins
+    /// (owner SET, threshold, v1.4.1 identity) are chain-agnostic truths;
+    /// only the Safe address is per-chain, and `getOwners()` order is an
+    /// incidental linked-list artifact of each chain's own deploy — which is
+    /// why the policy's owner check is order-insensitive. This per-chain fork
+    /// coverage is what keeps a broadcast script's Safe pre-flight from ever
+    /// reverting on a chain CI has not exercised: any consumer of this entry
+    /// point is proven against every pinned chain's live Safe on every CI
+    /// run.
     function testAssertActiveChainTokenOwnerSafeOnEthereum() external {
         vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
         address resolved = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
