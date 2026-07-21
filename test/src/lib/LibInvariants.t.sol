@@ -8,7 +8,7 @@ import {IGnosisSafe} from "../../../src/interface/IGnosisSafe.sol";
 import {LibInvariants} from "../../../src/lib/LibInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTokenInvariants} from "../../../src/lib/LibTokenInvariants.sol";
-import {LibAuthoriserInvariants} from "../../../src/lib/LibAuthoriserInvariants.sol";
+import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 
 /// @title LibInvariantsTest
 /// @notice Exercises the multichain production-state orchestrator. The Base
@@ -28,10 +28,11 @@ contract LibInvariantsTest is Test {
 
         // Both forms must return silently. `assertProductionState` asserts the
         // shared token-owner Safe + shared grant map, so only the token table
-        // and the live authoriser are passed.
+        // and the live authoriser are passed. The live authoriser is the V4
+        // clone since the swap batch executed on Base (2026-07).
         LibInvariants.assertAll(safe);
         LibInvariants.assertProductionState(
-            LibTokenInvariants.productionTokensBase(), LibAuthoriserInvariants.STOX_PROD_AUTHORISER
+            LibTokenInvariants.productionTokensBase(), LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE
         );
     }
 }
