@@ -530,4 +530,33 @@ library LibSafeInvariants {
         assertOwnerSetUnordered(safe, expectedOwners());
         assertThreshold(safe, STOX_TOKEN_OWNER_SAFE_THRESHOLD);
     }
+
+    /// @notice Resolve the active chain's token-owner Safe AND assert it is in
+    /// its expected state, choosing the chain-appropriate assertion. This is
+    /// the single entry point a broadcast script's pre-flight and the scheduled
+    /// CI pin both call, so the assertion that gates a manual broadcast is the
+    /// identical one CI runs every commit — a broadcast can never revert on a
+    /// Safe check CI has not already exercised on that chain.
+    ///
+    /// The reference chain (Base) is pinned EXACTLY: the order-sensitive
+    /// `assertAll` against the canonical `expectedOwners()` roster + pinned
+    /// threshold. Every other chain is asserted for the SAME POLICY as Base via
+    /// the order-insensitive `assertPolicyMatchesBase` — a fresh per-chain Safe
+    /// carries the identical owner SET + threshold + v1.4.1 identity, but its
+    /// `getOwners()` linked-list order is an incidental deploy artifact, so
+    /// order is not asserted off-baseline.
+    ///
+    /// Reverts `UnsupportedChainForTokenOwnerSafe` (via `safeForChainId`) for a
+    /// chain without a pinned Safe rather than silently asserting the wrong
+    /// chain's Safe.
+    /// @param chainId The active chain id (`block.chainid`).
+    /// @return safe The chain's token-owner Safe, proven in-policy.
+    function assertActiveChainTokenOwnerSafe(uint256 chainId) internal view returns (address safe) {
+        safe = safeForChainId(chainId);
+        if (chainId == BASE_CHAIN_ID) {
+            assertAll(IGnosisSafe(safe));
+        } else {
+            assertPolicyMatchesBase(IGnosisSafe(safe));
+        }
+    }
 }
