@@ -237,14 +237,62 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x8200c6d9AB9E02A25D7F2099244C476d99a085ef
     address internal constant ASML_WRAPPED_TOKEN_VAULT = address(0x8200c6d9AB9E02A25D7F2099244C476d99a085ef);
 
-    /// @notice Returns the 22 production token instance triples on Base, in
+    // ---- tMU / wtMU — Micron Technology, Inc. ST0x ----
+    /// https://basescan.org/address/0x0CC8b07E5bb99Ef8C227a6C995c907b8448ED9A8
+    address internal constant MU_RECEIPT = address(0x0CC8b07E5bb99Ef8C227a6C995c907b8448ED9A8);
+    /// https://basescan.org/address/0x7d89a2DFfDaF9f48A64337C725D925381b431aE2
+    address internal constant MU_RECEIPT_VAULT = address(0x7d89a2DFfDaF9f48A64337C725D925381b431aE2);
+    /// https://basescan.org/address/0x89EcfE9E0728D6b3c5eb0EE7236f8C6F806C7B56
+    address internal constant MU_WRAPPED_TOKEN_VAULT = address(0x89EcfE9E0728D6b3c5eb0EE7236f8C6F806C7B56);
+
+    // ---- tAMD / wtAMD — Advanced Micro Devices, Inc. ST0x ----
+    /// https://basescan.org/address/0x9A06e971B71334f1003bF7E601E3e1E398fa82A6
+    address internal constant AMD_RECEIPT = address(0x9A06e971B71334f1003bF7E601E3e1E398fa82A6);
+    /// https://basescan.org/address/0x50b5225409A55B873fD6C2Fd5880AF5a11acE9b1
+    address internal constant AMD_RECEIPT_VAULT = address(0x50b5225409A55B873fD6C2Fd5880AF5a11acE9b1);
+    /// https://basescan.org/address/0x648042Acd8638E12fEfd51C2b25A9f993f21a612
+    address internal constant AMD_WRAPPED_TOKEN_VAULT = address(0x648042Acd8638E12fEfd51C2b25A9f993f21a612);
+
+    // ---- tAVGO / wtAVGO — Broadcom Inc. ST0x ----
+    /// https://basescan.org/address/0x36e3612554857751c78FC70A31a9a40B130168c4
+    address internal constant AVGO_RECEIPT = address(0x36e3612554857751c78FC70A31a9a40B130168c4);
+    /// https://basescan.org/address/0x6088F8ef741AE1f5A61882866f130631b41617E2
+    address internal constant AVGO_RECEIPT_VAULT = address(0x6088F8ef741AE1f5A61882866f130631b41617E2);
+    /// https://basescan.org/address/0x70A182f481AEF05836666B6CfDbe84dCBCE8AC19
+    address internal constant AVGO_WRAPPED_TOKEN_VAULT = address(0x70A182f481AEF05836666B6CfDbe84dCBCE8AC19);
+
+    // ---- tAMAT / wtAMAT — Applied Materials, Inc. ST0x ----
+    /// https://basescan.org/address/0xB50Cf64462C87545e89Eeb6Da020ebf5dC971612
+    address internal constant AMAT_RECEIPT = address(0xB50Cf64462C87545e89Eeb6Da020ebf5dC971612);
+    /// https://basescan.org/address/0x98C02B58b7E65EF5a4262d9536162949e3B2E141
+    address internal constant AMAT_RECEIPT_VAULT = address(0x98C02B58b7E65EF5a4262d9536162949e3B2E141);
+    /// https://basescan.org/address/0x522DC65c89C9Af4f410BAe01bbf53aF75854a9f9
+    address internal constant AMAT_WRAPPED_TOKEN_VAULT = address(0x522DC65c89C9Af4f410BAe01bbf53aF75854a9f9);
+
+    // ---- tLRCX / wtLRCX — Lam Research Corporation ST0x ----
+    /// https://basescan.org/address/0xDa588aceE0E45F29dfF1E48988D5108122491388
+    address internal constant LRCX_RECEIPT = address(0xDa588aceE0E45F29dfF1E48988D5108122491388);
+    /// https://basescan.org/address/0xDdE9346107609A05439A0B59Ab6eD4f7F81a1FBF
+    address internal constant LRCX_RECEIPT_VAULT = address(0xDdE9346107609A05439A0B59Ab6eD4f7F81a1FBF);
+    /// https://basescan.org/address/0x328B9aFFa511fE26673edBb4fEa37eDaF908A3bc
+    address internal constant LRCX_WRAPPED_TOKEN_VAULT = address(0x328B9aFFa511fE26673edBb4fEa37eDaF908A3bc);
+
+    // ---- tTTWO / wtTTWO — Take-Two Interactive Software, Inc. ST0x ----
+    /// https://basescan.org/address/0x0162Bd328D45fae647FdA01C33Be54709b314c48
+    address internal constant TTWO_RECEIPT = address(0x0162Bd328D45fae647FdA01C33Be54709b314c48);
+    /// https://basescan.org/address/0x1a29eD11DF8295D5F3B5F59849FD94caD615E024
+    address internal constant TTWO_RECEIPT_VAULT = address(0x1a29eD11DF8295D5F3B5F59849FD94caD615E024);
+    /// https://basescan.org/address/0x045Fb493D970f94a54FeaF931033622fC82192e6
+    address internal constant TTWO_WRAPPED_TOKEN_VAULT = address(0x045Fb493D970f94a54FeaF931033622fC82192e6);
+
+    /// @notice Returns the 28 production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
     /// that need the receipt / wrapped-vault legs or the underlying join key
     /// (cross-chain parity, per-token config checks) iterate this instead.
-    /// @return tokens The 22 production token instances on Base.
+    /// @return tokens The 28 production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](22);
+        tokens = new TokenInstance[](28);
         tokens[0] = TokenInstance("MSTR", MSTR_RECEIPT, MSTR_RECEIPT_VAULT, MSTR_WRAPPED_TOKEN_VAULT);
         tokens[1] = TokenInstance("TSLA", TSLA_RECEIPT, TSLA_RECEIPT_VAULT, TSLA_WRAPPED_TOKEN_VAULT);
         tokens[2] = TokenInstance("COIN", COIN_RECEIPT, COIN_RECEIPT_VAULT, COIN_WRAPPED_TOKEN_VAULT);
@@ -267,15 +315,21 @@ library LibTokenInvariants {
         tokens[19] = TokenInstance("TSM", TSM_RECEIPT, TSM_RECEIPT_VAULT, TSM_WRAPPED_TOKEN_VAULT);
         tokens[20] = TokenInstance("SKHY", SKHY_RECEIPT, SKHY_RECEIPT_VAULT, SKHY_WRAPPED_TOKEN_VAULT);
         tokens[21] = TokenInstance("ASML", ASML_RECEIPT, ASML_RECEIPT_VAULT, ASML_WRAPPED_TOKEN_VAULT);
+        tokens[22] = TokenInstance("MU", MU_RECEIPT, MU_RECEIPT_VAULT, MU_WRAPPED_TOKEN_VAULT);
+        tokens[23] = TokenInstance("AMD", AMD_RECEIPT, AMD_RECEIPT_VAULT, AMD_WRAPPED_TOKEN_VAULT);
+        tokens[24] = TokenInstance("AVGO", AVGO_RECEIPT, AVGO_RECEIPT_VAULT, AVGO_WRAPPED_TOKEN_VAULT);
+        tokens[25] = TokenInstance("AMAT", AMAT_RECEIPT, AMAT_RECEIPT_VAULT, AMAT_WRAPPED_TOKEN_VAULT);
+        tokens[26] = TokenInstance("LRCX", LRCX_RECEIPT, LRCX_RECEIPT_VAULT, LRCX_WRAPPED_TOKEN_VAULT);
+        tokens[27] = TokenInstance("TTWO", TTWO_RECEIPT, TTWO_RECEIPT_VAULT, TTWO_WRAPPED_TOKEN_VAULT);
     }
 
-    /// @notice Returns the 22 production receipt vault addresses on Base, in
+    /// @notice Returns the 28 production receipt vault addresses on Base, in
     /// the order they were deployed. Provided so consumers (e.g. invariant
     /// assertions, migration scripts) can iterate without hardcoding the
     /// list inline.
     /// @dev Derived from `productionTokensBase()` so the token table is the
     /// single source of truth and the two accessors cannot drift.
-    /// @return vaults The 22 production receipt vault addresses on Base.
+    /// @return vaults The 28 production receipt vault addresses on Base.
     function productionReceiptVaults() internal pure returns (address[] memory vaults) {
         TokenInstance[] memory tokens = productionTokensBase();
         vaults = new address[](tokens.length);
@@ -379,9 +433,9 @@ library LibTokenInvariants {
     /// asserting the full production state (Safe + token + authoriser)
     /// compose this alongside `LibSafeInvariants.assertAll` and
     /// `LibAuthoriserInvariants.assertAll` via `LibInvariants.assertAll`.
-    /// @dev Both legs run last in the composed bundle because each is
-    /// `O(13)` external calls and only meaningful once the Safe itself
-    /// has been validated. The authoriser is parameterised rather than
+    /// @dev Both legs run last in the composed bundle because each performs
+    /// one external call per production token instance and is only
+    /// meaningful once the Safe itself has been validated. The authoriser is parameterised rather than
     /// hardcoded so this lib stays free of cross-facet dependencies; the
     /// orchestrator supplies the pinned address.
     /// @param safe The Safe address every production receipt vault is
