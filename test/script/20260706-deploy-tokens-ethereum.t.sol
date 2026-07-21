@@ -4,34 +4,61 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {DeployTokensEthereum, DeployerNotDeployed} from "../../script/20260706-deploy-tokens-ethereum.s.sol";
-import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
+import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInvariants.sol";
+import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
+import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
+import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 
 /// @title DeployTokensEthereumTest
-/// @notice Inverted pre-flight coverage for the Ethereum token-deploy script.
-/// The happy path needs the full V4 core + a live, policy-aligned Ethereum
-/// Safe + a hydrated clone pin, none of which exist until the bootstrap
-/// executes — so the value here is proving the first forcing function fires,
-/// keeping the script red until its upstream state settles
-/// (OPERATIONAL_SCRIPTS.md § forcing-function pattern). `run()` is now a single
-/// deploy-key broadcast (deploy → setAuthorizer → transferOwnership to the
-/// Safe), so there is one entrypoint and one pre-flight chain: core deployers,
-/// then the clone (setAuthorizer target), then the Safe (handoff target).
+/// @notice Pre-flight coverage for the Ethereum token-deploy script, on the
+/// forcing-function pattern (OPERATIONAL_SCRIPTS.md): the happy path cannot
+/// complete until every upstream dependency has landed, so the tests prove
+/// each gate fires in order — and, critically, prove the gates that SHOULD
+/// pass against live Ethereum actually do, on every CI run. `run()` is a
+/// single deploy-key broadcast (deploy → setAuthorizer → transferOwnership to
+/// the Safe), so there is one entrypoint and one pre-flight chain: core
+/// 0.1.1 deployers, in-use beacon ownership, then the clone (setAuthorizer
+/// target), then the Safe (handoff target).
 contract DeployTokensEthereumTest is Test {
-    DeployTokensEthereum internal script;
-
-    function setUp() external {
-        script = new DeployTokensEthereum();
-    }
-
-    /// `run()` reverts `DeployerNotDeployed` when the V4 core has not been
+    /// `run()` reverts `DeployerNotDeployed` when the 0.1.1 core has not been
     /// broadcast to the active chain — the unified deployer's pinned address
     /// has no code, so no token can be deployed. (No fork: the deployer is
-    /// absent, which is the pre-bootstrap Ethereum state, and is the first
-    /// guard in the pre-flight chain.)
+    /// absent, which is the pre-bootstrap state, and is the first guard in
+    /// the pre-flight chain.)
     function testRunRevertsWhenCoreNotDeployed() external {
+        DeployTokensEthereum script = new DeployTokensEthereum();
         vm.expectRevert(
-            abi.encodeWithSelector(DeployerNotDeployed.selector, LibProdDeployCurrent.STOX_UNIFIED_DEPLOYER)
+            abi.encodeWithSelector(DeployerNotDeployed.selector, LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1)
         );
         script.run();
+    }
+
+    /// The hydrated clone pin matches LIVE Ethereum: the V4 authoriser
+    /// clone (deployed 2026-07-22) is at the pinned address with the shared
+    /// EIP-1167 codehash and carries the full grant map parameterised on
+    /// ETHEREUM's Safe. With this green the script's `_assertCloneReady` +
+    /// grant expectations are proven against real chain state on every CI
+    /// run. `run()` itself is not driven here: under `forge test`,
+    /// `vm.startBroadcast` cannot emulate the broadcast sender the way
+    /// `forge script` does (the same limitation the 20260619 suite
+    /// documents), so the end-to-end simulation lives in the
+    /// `manual-broadcast` dry-run instead.
+    function testEthereumClonePinMatchesLive() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
+        address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
+        assertTrue(clone.code.length > 0, "Ethereum V4 authoriser clone not deployed at pin");
+        assertEq(
+            clone.codehash, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH, "Ethereum clone codehash mismatch"
+        );
+
+        RoleGrant[] memory grants =
+            LibAuthoriserInvariants.expectedGrants(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM);
+        for (uint256 i = 0; i < grants.length; i++) {
+            assertTrue(
+                IAccessControl(clone).hasRole(grants[i].role, grants[i].grantee),
+                "Ethereum clone missing expected grant"
+            );
+        }
     }
 }
