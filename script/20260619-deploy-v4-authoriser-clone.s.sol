@@ -161,12 +161,15 @@ contract DeployV4AuthoriserClone is Script {
     /// and the clone pin is not already hydrated (this would be a
     /// second deploy on the same network).
     function run() external {
-        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
-
-        // Pre-flight: Safe still matches the pinned owners + threshold +
-        // immutables. If the Safe has drifted, admin transfer would
-        // move power to a shape we no longer recognise.
-        LibSafeInvariants.assertAll(safe);
+        // Pre-flight: resolve THIS chain's token-owner Safe and assert it is
+        // in its expected state. Chain-aware (Base + Ethereum carry distinct
+        // Safe addresses) — hardcoding Base's Safe would revert on Ethereum,
+        // where that address has no code. Base is pinned exactly; other chains
+        // are asserted for the same policy (order-insensitive owner set), the
+        // identical assertion the scheduled CI pin runs per chain. If the Safe
+        // has drifted, admin transfer would move power to a shape we no longer
+        // recognise.
+        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid));
 
         // Pre-flight: the invariant map still lines up with the hand-
         // maintained slice constants.
@@ -288,8 +291,10 @@ contract DeployV4AuthoriserClone is Script {
 
         // The Safe holds every auto-granted `_ADMIN` role — including the
         // two corporate-action admins that `expectedGrants()` doesn't
-        // carry (V4-only roles the override's `initialize` adds).
-        address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
+        // carry (V4-only roles the override's `initialize` adds). Resolve the
+        // active chain's Safe (Base + Ethereum differ) so the post-state check
+        // asserts admin landed on the chain we actually broadcast against.
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
         for (uint256 i = 0; i < adminRoles.length; i++) {
             if (!acl.hasRole(adminRoles[i], safe)) {
                 revert ExpectedGrantMissing(adminRoles[i], safe);
