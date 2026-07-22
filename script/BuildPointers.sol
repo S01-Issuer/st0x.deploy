@@ -331,11 +331,13 @@ contract BuildPointers is Script {
             "bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH ="
             " 0x2089950d3cc1112dd66a58adcfadeadc490b50053ac67be8bc676b4a2dcd1717;"
         );
-        // Ethereum V4 authoriser clone — same nonce-based `CloneFactory.clone`
-        // deploy as Base, so its address is non-deterministic and hand-provided
-        // here (placeholder `address(0)` until the Ethereum bootstrap deploys it
-        // and the hydrate PR replaces this literal). Shares the deterministic
-        // EIP-1167 codehash above (same impl on every chain).
+        // Ethereum V4 authoriser clone — a nonce-based `CloneFactory.clone`
+        // deploy like Base's, so its address is not derivable and is carried
+        // here as a literal. Shares the EIP-1167 codehash above: both chains'
+        // clones embed the same authoriser impl, so both hash identically.
+        //
+        // The address is NOT chain-unique — a different clone occupies it on
+        // Base — so a consumer must match the codehash, not merely find code.
         vm.writeLine(
             GEN_V4_PATH,
             "address constant STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);"
