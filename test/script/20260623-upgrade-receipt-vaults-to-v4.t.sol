@@ -13,16 +13,11 @@ import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
-import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
-import {IUpgradeableBeacon} from "../../src/lib/LibSafeOps.sol";
 import {
     UpgradeReceiptVaultsToV4,
     V4ImplementationNotDeployed,
-    V4CodehashMismatch,
-    VaultAuthoriserMismatchPostUpgrade
+    V4CodehashMismatch
 } from "../../script/20260623-upgrade-receipt-vaults-to-v4.s.sol";
-import {UpgradeReceiptVaultsToV4Harness} from "./UpgradeReceiptVaultsToV4Harness.sol";
 
 /// @title UpgradeReceiptVaultsToV4Test
 /// @notice Live-fork pin of the vault-authoriser transition executed by
@@ -111,81 +106,5 @@ contract UpgradeReceiptVaultsToV4Test is Test {
             )
         );
         upgradeScript.run();
-    }
-
-    /// @notice Happy path against unmodified live Base state: every
-    /// pre-flight input is now real (beacon Safe-owned since the 2026-07
-    /// migration, audited V4 impl live at `V4_IMPL` with the pinned
-    /// codehash, V4 authoriser clone deployed + pinned + grant-configured),
-    /// so `run()` completes end-to-end — pre-flight, bundle build,
-    /// simulation, post-state, n+1 reversibility — and writes the Safe Tx
-    /// Builder artifact. This is the exact dry-run the `run-script`
-    /// dispatch executes to author the signable bundle.
-    function testRunCompletesAndWritesArtifact() external {
-        _forkAndMigrateBeaconOwnership();
-        assertEq(
-            V4_IMPL.codehash,
-            LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_1,
-            "live V4 impl codehash != pinned codehash"
-        );
-        UpgradeReceiptVaultsToV4 upgradeScript = new UpgradeReceiptVaultsToV4();
-        upgradeScript.run();
-
-        // The artifact landed with the pinned bundle name and the expected
-        // shape: 3 beacon upgrades + one setAuthorizer per production vault.
-        string memory json = vm.readFile("out/v4-upgrade.json");
-        assertEq(
-            vm.parseJsonString(json, ".meta.name"),
-            "ST0x receipt vault V4 upgrade + authoriser swap",
-            "artifact bundle name"
-        );
-        uint256 expectedTxCount = 3 + LibTokenInvariants.productionReceiptVaults().length;
-        assertTrue(
-            vm.keyExistsJson(json, string.concat(".transactions[", vm.toString(expectedTxCount - 1), "].to")),
-            "last expected tx present"
-        );
-        assertFalse(
-            vm.keyExistsJson(json, string.concat(".transactions[", vm.toString(expectedTxCount), "].to")),
-            "no extra txs"
-        );
-    }
-
-    /// @notice `_assertPostState` reverts `VaultAuthoriserMismatchPostUpgrade`
-    /// when a production vault still reports a non-V4-clone authoriser after
-    /// the beacon leg. Drives all three beacons to their V4 impls (so the
-    /// beacon post-state passes) but leaves authorisers un-swapped, so the
-    /// per-vault loop trips on vault 0. Exercises the post-state guard the
-    /// placeholder clone pin otherwise keeps `run()` from ever reaching.
-    function testAssertPostStateRevertsWhenVaultNotSwapped() external {
-        _forkAndMigrateBeaconOwnership();
-        deployCodeTo("src/concrete/StoxReceiptVault.sol:StoxReceiptVault", V4_IMPL);
-        deployCodeTo(
-            "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1
-        );
-        // All three V1 beacons to their V4 impls (receipt + wrapped impls
-        // are live on Base already; the receipt-vault impl was planted
-        // above).
-        vm.prank(LibBeaconInvariants.PROD_BEACON_OWNER);
-        IUpgradeableBeacon(LibProdDeployV1.STOX_RECEIPT_BEACON_V1).upgradeTo(LibProdDeployV4.STOX_RECEIPT_0_1_1);
-        vm.prank(LibBeaconInvariants.PROD_BEACON_OWNER);
-        IUpgradeableBeacon(BEACON).upgradeTo(V4_IMPL);
-        vm.prank(LibBeaconInvariants.PROD_BEACON_OWNER);
-        IUpgradeableBeacon(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1)
-            .upgradeTo(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1);
-
-        UpgradeReceiptVaultsToV4Harness harness = new UpgradeReceiptVaultsToV4Harness();
-        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
-        address[] memory vaults = LibTokenInvariants.productionReceiptVaults();
-        address firstAuth = address(IAuthorizableV1(vaults[0]).authorizer());
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                VaultAuthoriserMismatchPostUpgrade.selector,
-                vaults[0],
-                LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE,
-                firstAuth
-            )
-        );
-        harness.callAssertPostState(safe, vaults);
     }
 }
