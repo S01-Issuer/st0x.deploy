@@ -194,6 +194,9 @@ library LibSafeInvariants {
     /// @notice Ethereum mainnet chain id.
     uint256 internal constant ETHEREUM_CHAIN_ID = 1;
 
+    /// @notice HyperEVM mainnet chain id.
+    uint256 internal constant HYPEREVM_CHAIN_ID = 999;
+
     /// @notice The ST0x token-owner Safe on **Base** (the reference chain).
     address internal constant STOX_TOKEN_OWNER_SAFE = 0xe70d821f3462a074e63b42d0AaC6523faAe1d611;
 
