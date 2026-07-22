@@ -380,6 +380,15 @@ contract StoxCrossChainParityTest is Test {
     /// point is that the choice is made deliberately rather than by silence.
     uint256 internal constant ETHEREUM_PARITY_DEADLINE = 1_790_812_800;
 
+    /// @notice Unix timestamp past which the HyperEVM legs (and the RPC
+    /// availability needed to assert them) must have armed —
+    /// `2026-11-01T00:00:00Z`, tracking the RAI-1511 bootstrap. PLACEHOLDER
+    /// in the same sense as the Ethereum deadline: move it deliberately if
+    /// the bootstrap slips. Note this deadline also forces the CI RPC gap
+    /// closed: past it, a missing `HYPEREVM_RPC_URL` is a failure, not a
+    /// pending log.
+    uint256 internal constant HYPEREVM_PARITY_DEADLINE = 1_793_491_200;
+
     /// @notice Assert every LIVE leg of a chain on the ACTIVE fork, skipping
     /// (with a loud PENDING log) any leg whose pins are still placeholders, and
     /// capture what it read for the cross-chain comparison. The legs are nested
@@ -502,6 +511,26 @@ contract StoxCrossChainParityTest is Test {
             LibTokenInvariants.productionTokensEthereum()
         );
 
+        // HyperEVM's leg is additionally gated on RPC availability: the
+        // shared rainix test workflow has no HyperEVM secret slot yet
+        // (RAI-1511), so in CI the fork cannot even be created. Loudly
+        // pending until then; the parity deadline below turns a still-
+        // missing RPC into a failure rather than letting the gap live
+        // forever.
+        bool hyperRpcAvailable = bytes(vm.envOr("HYPEREVM_RPC_URL", string(""))).length != 0;
+        ChainLegs memory hyper;
+        if (hyperRpcAvailable) {
+            vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
+            hyper = assertChainLegs(
+                "HyperEVM",
+                LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM,
+                LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM,
+                LibTokenInvariants.productionTokensHyperEvm()
+            );
+        } else {
+            emit log("PENDING: HYPEREVM_RPC_URL not available - HyperEVM parity legs not asserted (RAI-1511)");
+        }
+
         // ---- Cross-chain comparisons, each gated on both sides being live ----
 
         // Safe policy: same owner SET (order-insensitive) + threshold, compared
@@ -551,6 +580,68 @@ contract StoxCrossChainParityTest is Test {
             }
         }
 
+        // HyperEVM vs Base — the same comparisons as Ethereum's, gated on
+        // each leg being live on both sides.
+        if (hyperRpcAvailable) {
+            if (base.safeLive && hyper.safeLive) {
+                assertEq(hyper.threshold, base.threshold, "Safe threshold diverges cross-chain (HyperEVM)");
+                assertSameOwnerSet(base.owners, hyper.owners);
+            }
+            if (base.cloneLive && hyper.cloneLive) {
+                assertEq(
+                    hyper.cloneCodehash,
+                    base.cloneCodehash,
+                    "authoriser clone impl codehash diverges cross-chain (HyperEVM)"
+                );
+            }
+            if (base.tokenLegLive && hyper.tokenLegLive) {
+                assertEq(hyper.beaconImpl, base.beaconImpl, "receipt-vault beacon impl diverges cross-chain (HyperEVM)");
+                assertEq(
+                    hyper.beaconImplCodehash,
+                    base.beaconImplCodehash,
+                    "receipt-vault beacon impl codehash diverges cross-chain (HyperEVM)"
+                );
+                assertEq(
+                    hyper.receiptBeaconImpl,
+                    base.receiptBeaconImpl,
+                    "receipt beacon impl diverges cross-chain (HyperEVM)"
+                );
+                assertEq(
+                    hyper.receiptBeaconImplCodehash,
+                    base.receiptBeaconImplCodehash,
+                    "receipt beacon impl codehash diverges cross-chain (HyperEVM)"
+                );
+                assertEq(base.tokenConfigs.length, hyper.tokenConfigs.length, "token table lengths diverge (HyperEVM)");
+                for (uint256 i = 0; i < base.tokenConfigs.length; i++) {
+                    TokenConfigSnapshot memory b = base.tokenConfigs[i];
+                    TokenConfigSnapshot memory h = hyper.tokenConfigs[i];
+                    assertEq(h.underlying, b.underlying, "token table underlying order diverges (HyperEVM)");
+                    assertEq(h.vaultName, b.vaultName, string.concat(b.underlying, ": vault name diverges (HyperEVM)"));
+                    assertEq(
+                        h.vaultSymbol, b.vaultSymbol, string.concat(b.underlying, ": vault symbol diverges (HyperEVM)")
+                    );
+                    assertEq(
+                        h.vaultDecimals,
+                        b.vaultDecimals,
+                        string.concat(b.underlying, ": vault decimals diverge (HyperEVM)")
+                    );
+                    assertEq(
+                        h.wrappedName, b.wrappedName, string.concat(b.underlying, ": wrapped name diverges (HyperEVM)")
+                    );
+                    assertEq(
+                        h.wrappedSymbol,
+                        b.wrappedSymbol,
+                        string.concat(b.underlying, ": wrapped symbol diverges (HyperEVM)")
+                    );
+                    assertEq(
+                        h.wrappedDecimals,
+                        b.wrappedDecimals,
+                        string.concat(b.underlying, ": wrapped decimals diverge (HyperEVM)")
+                    );
+                }
+            }
+        }
+
         // ---- The suite must prove it actually ran ----
 
         // Every comparison above is gated on both chains carrying the leg, so a
@@ -575,6 +666,16 @@ contract StoxCrossChainParityTest is Test {
             assertTrue(eth.safeLive, "Ethereum Safe leg still pending past the parity deadline");
             assertTrue(eth.cloneLive, "Ethereum authoriser leg still pending past the parity deadline");
             assertTrue(eth.tokenLegLive, "Ethereum token leg still pending past the parity deadline");
+        }
+
+        // HyperEVM's legs arm as the RAI-1511 bootstrap lands. Same forcing
+        // function as Ethereum's, plus the RPC-availability gate itself: a
+        // chain CI cannot even fork is an unasserted chain.
+        if (block.timestamp >= HYPEREVM_PARITY_DEADLINE) {
+            assertTrue(hyperRpcAvailable, "HYPEREVM_RPC_URL still unavailable past the parity deadline");
+            assertTrue(hyper.safeLive, "HyperEVM Safe leg still pending past the parity deadline");
+            assertTrue(hyper.cloneLive, "HyperEVM authoriser leg still pending past the parity deadline");
+            assertTrue(hyper.tokenLegLive, "HyperEVM token leg still pending past the parity deadline");
         }
     }
 }
