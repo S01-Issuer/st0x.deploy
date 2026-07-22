@@ -144,10 +144,10 @@ contract DeployV4AuthoriserClone is Script {
     /// chain's clone is the catastrophic failure this guard exists to prevent).
     /// @return The active chain's clone pin.
     function activeChainClonePin() internal view returns (address) {
-        if (block.chainid == 1) {
+        if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
             return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
         }
-        if (block.chainid == 8453) {
+        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
             return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
         }
         revert V4AuthoriserCloneUnsupportedChain(block.chainid);
