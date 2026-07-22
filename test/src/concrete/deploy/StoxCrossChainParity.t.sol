@@ -372,6 +372,14 @@ contract StoxCrossChainParityTest is Test {
         }
     }
 
+    /// @notice Unix timestamp past which Ethereum's legs must have armed.
+    /// `2026-10-01T00:00:00Z`. Before it, a pending Ethereum leg is the
+    /// expected mid-bootstrap state; after it, a leg that has never armed is a
+    /// chain nothing asserts anything about. A later PR can move this earlier
+    /// to tighten the forcing function or later if the bootstrap slips — the
+    /// point is that the choice is made deliberately rather than by silence.
+    uint256 internal constant ETHEREUM_PARITY_DEADLINE = 1_790_812_800;
+
     /// @notice Assert every LIVE leg of a chain on the ACTIVE fork, skipping
     /// (with a loud PENDING log) any leg whose pins are still placeholders, and
     /// capture what it read for the cross-chain comparison. The legs are nested
@@ -541,6 +549,32 @@ contract StoxCrossChainParityTest is Test {
                     o.wrappedDecimals, b.wrappedDecimals, string.concat(b.underlying, ": wrapped decimals diverge")
                 );
             }
+        }
+
+        // ---- The suite must prove it actually ran ----
+
+        // Every comparison above is gated on both chains carrying the leg, so a
+        // suite that skipped all of them is green in precisely the same way as
+        // one that checked all of them. These assertions are what separate the
+        // two signals.
+
+        // Base is fully bootstrapped. A pending leg here is not a pending
+        // bootstrap — it is the placeholder detection reading a live pin as a
+        // placeholder, which silently disables every comparison in this test.
+        assertTrue(base.safeLive, "Base Safe leg reported pending - parity comparisons are disabled");
+        assertTrue(base.cloneLive, "Base authoriser leg reported pending - parity comparisons are disabled");
+        assertTrue(base.tokenLegLive, "Base token leg reported pending - parity comparisons are disabled");
+
+        // Ethereum's legs arm as its pins hydrate. Past the deadline a still-
+        // pending leg stops being "not yet" and becomes an unasserted chain, so
+        // the invariant forces the same operator choice as the beacon-owner
+        // migration pin: land the pins, move the deadline, or delete the
+        // invariant deliberately. Without it, a leg that never arms is
+        // indistinguishable from one that passes, forever.
+        if (block.timestamp >= ETHEREUM_PARITY_DEADLINE) {
+            assertTrue(eth.safeLive, "Ethereum Safe leg still pending past the parity deadline");
+            assertTrue(eth.cloneLive, "Ethereum authoriser leg still pending past the parity deadline");
+            assertTrue(eth.tokenLegLive, "Ethereum token leg still pending past the parity deadline");
         }
     }
 }
