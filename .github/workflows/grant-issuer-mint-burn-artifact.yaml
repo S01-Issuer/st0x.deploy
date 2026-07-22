@@ -1,0 +1,59 @@
+name: grant-issuer-mint-burn-artifact
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'script/20260630-grant-issuer-mint-burn.s.sol'
+      - 'src/lib/LibSafeOps.sol'
+      - 'src/lib/LibInvariants.sol'
+      - 'src/lib/LibSafeInvariants.sol'
+      - 'src/lib/LibAuthoriserInvariants.sol'
+      - 'src/lib/LibTokenInvariants.sol'
+      - 'src/interface/IGnosisSafe.sol'
+      - 'src/interface/IAuthorisable.sol'
+      - '.github/workflows/grant-issuer-mint-burn-artifact.yaml'
+# Builds the two Safe Tx Builder JSON bundles (DEPOSIT/mint + WITHDRAW/burn)
+# that grant the new issuer EOA mint/burn authority on the shared authoriser.
+# Each grant is authored in its OWN `forge script` invocation: the script's
+# n+1 reversibility check advances the Safe nonce, so chaining both sigs in
+# one process would compute the second bundle's hash at the wrong nonce.
+# `workflow_dispatch` lets a maintainer produce the bundles for live
+# submission; the paths-filtered `pull_request` trigger runs the dry-run as a
+# sanity check whenever the script or its invariant dependencies change. Both
+# use the same unpinned Base head fork as the script's tests, so any drift in
+# the Safe config, vault ownership/authoriser uniformity, or pinned authoriser
+# grants trips the pre-flight here before a signer ever sees a bundle.
+jobs:
+  build-artifact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v17
+      - name: Install Soldeer dependencies
+        run: nix develop --command forge soldeer install
+      - name: Build DEPOSIT (mint) grant bundle (dry-run)
+        env:
+          BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
+        run: |
+          nix develop --command bash -c '
+            forge script script/20260630-grant-issuer-mint-burn.s.sol \
+              --sig "grantDeposit()" \
+              --rpc-url base \
+              --no-storage-caching
+          '
+      - name: Build WITHDRAW (burn) grant bundle (dry-run)
+        env:
+          BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
+        run: |
+          nix develop --command bash -c '
+            forge script script/20260630-grant-issuer-mint-burn.s.sol \
+              --sig "grantWithdraw()" \
+              --rpc-url base \
+              --no-storage-caching
+          '
+      - name: Upload Tx Builder JSON bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: grant-issuer-mint-burn-tx-builder-json
+          path: out/*.json
+          if-no-files-found: error
