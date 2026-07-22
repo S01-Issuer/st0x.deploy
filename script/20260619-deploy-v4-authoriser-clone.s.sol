@@ -195,7 +195,11 @@ contract DeployV4AuthoriserClone is Script {
         address pinned = activeChainClonePin();
         if (pinned != address(0)) revert V4AuthoriserClonePinAlreadyHydrated(pinned);
 
-        RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
+        // The grant map parameterised on THIS chain's Safe: the map's
+        // STRUCTURE is chain-agnostic, but the Safe grantee slots must be the
+        // active chain's Safe — the no-arg overload pins Base's Safe and
+        // would provision the wrong Safe with the direct action roles here.
+        RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants(address(safe));
 
         vm.startBroadcast();
 
@@ -276,9 +280,14 @@ contract DeployV4AuthoriserClone is Script {
         }
 
         IAccessControl acl = IAccessControl(clone);
-        RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
 
-        // Every `(role, grantee)` in `expectedGrants()` holds. Covers the
+        // Resolve the active chain's Safe (Base + Ethereum differ) so the
+        // post-state check asserts against the chain we actually broadcast
+        // on, with the grant map parameterised on that Safe.
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants(safe);
+
+        // Every `(role, grantee)` in the chain's grant map holds. Covers the
         // five V3-era admin grants (swapped onto the Safe in step 3) AND
         // the six operational grants from step 2 in one sweep.
         for (uint256 i = 0; i < allGrants.length; i++) {
@@ -291,10 +300,7 @@ contract DeployV4AuthoriserClone is Script {
 
         // The Safe holds every auto-granted `_ADMIN` role — including the
         // two corporate-action admins that `expectedGrants()` doesn't
-        // carry (V4-only roles the override's `initialize` adds). Resolve the
-        // active chain's Safe (Base + Ethereum differ) so the post-state check
-        // asserts admin landed on the chain we actually broadcast against.
-        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        // carry (V4-only roles the override's `initialize` adds).
         for (uint256 i = 0; i < adminRoles.length; i++) {
             if (!acl.hasRole(adminRoles[i], safe)) {
                 revert ExpectedGrantMissing(adminRoles[i], safe);
