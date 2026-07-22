@@ -19,6 +19,19 @@ on:
           # lives in the script's file-level NatSpec — this dropdown is a
           # registry of *which* scripts exist, not *whether* they've run.
           - 20260619-deploy-v4-authoriser-clone
+      network:
+        description: 'Network to broadcast against (default: base)'
+        required: true
+        type: choice
+        default: 'base'
+        options:
+          # The chain to broadcast against — the foundry.toml `[rpc_endpoints]`
+          # alias (`--rpc-url <network>`) and the key selecting which RPC
+          # secret to expose. The Ethereum bootstrap broadcasts (authoriser
+          # clone, token deploy) use `ethereum`; the original Base deploys use
+          # `base`.
+          - 'base'
+          - 'ethereum'
 # Dispatches an operational broadcast script from `script/` and sends the
 # resulting transactions from the CI deploy key (`secrets.PRIVATE_KEY`,
 # the same secret `manual-sol-artifacts.yaml` uses for Zoltu impl deploys).
@@ -46,7 +59,7 @@ jobs:
     # Serialise dispatches of the same script so overlapping runs don't
     # race on the same nonce / pre-flight state.
     concurrency:
-      group: manual-broadcast-${{ inputs.script }}
+      group: manual-broadcast-${{ inputs.script }}-${{ inputs.network }}
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -57,11 +70,15 @@ jobs:
         run: nix develop --command forge soldeer install
       - name: Broadcast script
         env:
+          # Expose every network's RPC; `--rpc-url ${NETWORK}` selects which
+          # one foundry.toml resolves via its `[rpc_endpoints]` aliases.
           BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
-          # Pass the choice input via env rather than template-expanding it
-          # into the command, so the dispatched script name is used as a
-          # literal argument and cannot inject shell.
+          ETHEREUM_RPC_URL: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
+          # Pass the choice inputs via env rather than template-expanding them
+          # into the command, so the dispatched values are used as literal
+          # arguments and cannot inject shell.
           SCRIPT: ${{ inputs.script }}
+          NETWORK: ${{ inputs.network }}
           # PRIVATE_KEY is only available inside this step — matching
           # `manual-sol-artifacts.yaml`. The workflow file itself does not
           # persist it anywhere else.
@@ -69,7 +86,7 @@ jobs:
         run: |
           nix develop --command forge script "script/${SCRIPT}.s.sol" \
             --sig 'run()' \
-            --rpc-url base \
+            --rpc-url "${NETWORK}" \
             --no-storage-caching \
             --slow \
             --broadcast \

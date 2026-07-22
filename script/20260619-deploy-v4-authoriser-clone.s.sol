@@ -36,11 +36,17 @@ error CloneFactoryNotDeployed(address factory);
 /// pin. The address at the pinned location is not the audited factory.
 error CloneFactoryCodehashMismatch(address factory, bytes32 expected, bytes32 actual);
 
-/// @notice The `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE` pin is already
+/// @notice The active chain's `LibProdDeployV4` clone pin is already
 /// hydrated. This script deploys a NEW clone — running it a second time would
-/// produce a second clone the lib pin does not know about. Once hydrated, the
+/// produce a second clone the pin does not know about. Once hydrated, the
 /// script is done for that chain.
 error V4AuthoriserClonePinAlreadyHydrated(address pinned);
+
+/// @notice This chain has no V4 authoriser clone pin in `LibProdDeployV4`, so
+/// the script has no per-chain target to guard against. A typed revert rather
+/// than a silent fallback to another chain's clone.
+/// @param chainId The active chain id with no defined clone pin.
+error V4AuthoriserCloneUnsupportedChain(uint256 chainId);
 
 /// @notice The freshly-deployed clone's runtime codehash does not match the
 /// EIP-1167 minimal-proxy shape computed from the V4 impl. Either the factory
@@ -83,7 +89,7 @@ error GrantsSliceOutOfRange(uint256 startIndex, uint256 sliceLength, uint256 gra
 ///      token-owner Safe. This matches the shape the previous Safe-signed
 ///      flow produced (`initialAdmin = Safe` auto-granted all seven
 ///      directly), and keeps the corporate-action admin-holder question
-///      (RAI-731) open rather than deciding it here by omission.
+///      open rather than deciding it here by omission.
 ///   4. Renounces every auto-granted `_ADMIN` role from the deployer.
 ///      Post-loop the Safe is sole admin; the deployer has no residual
 ///      power over the clone.
@@ -131,6 +137,22 @@ contract DeployV4AuthoriserClone is Script {
     /// corporate-action admins from the override).
     uint256 internal constant AUTO_GRANTED_ADMIN_COUNT = 7;
 
+    /// @notice The V4 authoriser clone pin for the active chain, selected by
+    /// `block.chainid` from `LibProdDeployV4` — `address(0)` until that chain's
+    /// clone is deployed and the pin hydrated. Reverts for any chain without a
+    /// pin rather than falling back to another chain's clone (reading the wrong
+    /// chain's clone is the catastrophic failure this guard exists to prevent).
+    /// @return The active chain's clone pin.
+    function activeChainClonePin() internal view returns (address) {
+        if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
+        }
+        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        }
+        revert V4AuthoriserCloneUnsupportedChain(block.chainid);
+    }
+
     /// @notice Deploy + configure + admin-transfer the V4 authoriser clone
     /// in a single broadcast. Steps 1-4 in the contract-level NatSpec.
     /// Pre-flight covers the invariants the whole flow relies on: the
@@ -139,12 +161,15 @@ contract DeployV4AuthoriserClone is Script {
     /// and the clone pin is not already hydrated (this would be a
     /// second deploy on the same network).
     function run() external {
-        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
-
-        // Pre-flight: Safe still matches the pinned owners + threshold +
-        // immutables. If the Safe has drifted, admin transfer would
-        // move power to a shape we no longer recognise.
-        LibSafeInvariants.assertAll(safe);
+        // Pre-flight: resolve THIS chain's token-owner Safe and assert it is
+        // in its expected state. Chain-aware (Base + Ethereum carry distinct
+        // Safe addresses) — hardcoding Base's Safe would revert on Ethereum,
+        // where that address has no code. Base is pinned exactly; other chains
+        // are asserted for the same policy (order-insensitive owner set), the
+        // identical assertion the scheduled CI pin runs per chain. If the Safe
+        // has drifted, admin transfer would move power to a shape we no longer
+        // recognise.
+        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid));
 
         // Pre-flight: the invariant map still lines up with the hand-
         // maintained slice constants.
@@ -167,10 +192,14 @@ contract DeployV4AuthoriserClone is Script {
         // running this script would deploy a SECOND clone the lib
         // doesn't know about — same behaviour as re-running any
         // deterministic deploy after it has already landed.
-        address pinned = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        address pinned = activeChainClonePin();
         if (pinned != address(0)) revert V4AuthoriserClonePinAlreadyHydrated(pinned);
 
-        RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
+        // The grant map parameterised on THIS chain's Safe: the map's
+        // STRUCTURE is chain-agnostic, but the Safe grantee slots must be the
+        // active chain's Safe — the no-arg overload pins Base's Safe and
+        // would provision the wrong Safe with the direct action roles here.
+        RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants(address(safe));
 
         vm.startBroadcast();
 
@@ -221,9 +250,9 @@ contract DeployV4AuthoriserClone is Script {
         _assertPostState(clone, deployer, v4Impl);
 
         // Log the clone address prominently so the operator can copy it
-        // into the post-execution pin PR
-        // (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE` +
-        // `..._CODEHASH` hydration).
+        // into the post-execution pin PR (hydrate the active chain's
+        // `LibProdDeployV4` clone pin — e.g. `STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM`;
+        // the `..._CODEHASH` is already pinned in `LibProdDeployV4`).
         console2.log("==== V4 AUTHORISER CLONE DEPLOYED ====");
         console2.log("Clone:", vm.toString(clone));
         console2.log("CloneCodehash:", vm.toString(clone.codehash));
@@ -251,9 +280,14 @@ contract DeployV4AuthoriserClone is Script {
         }
 
         IAccessControl acl = IAccessControl(clone);
-        RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
 
-        // Every `(role, grantee)` in `expectedGrants()` holds. Covers the
+        // Resolve the active chain's Safe (Base + Ethereum differ) so the
+        // post-state check asserts against the chain we actually broadcast
+        // on, with the grant map parameterised on that Safe.
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants(safe);
+
+        // Every `(role, grantee)` in the chain's grant map holds. Covers the
         // five V3-era admin grants (swapped onto the Safe in step 3) AND
         // the six operational grants from step 2 in one sweep.
         for (uint256 i = 0; i < allGrants.length; i++) {
@@ -267,7 +301,6 @@ contract DeployV4AuthoriserClone is Script {
         // The Safe holds every auto-granted `_ADMIN` role — including the
         // two corporate-action admins that `expectedGrants()` doesn't
         // carry (V4-only roles the override's `initialize` adds).
-        address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         for (uint256 i = 0; i < adminRoles.length; i++) {
             if (!acl.hasRole(adminRoles[i], safe)) {
                 revert ExpectedGrantMissing(adminRoles[i], safe);

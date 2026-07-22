@@ -123,7 +123,7 @@ contract StoxProdV4PostSwapTest is Test {
             // the two corporate-action admins (`SCHEDULE_...` /
             // `CANCEL_CORPORATE_ACTION_ADMIN`) that `expectedGrants()`
             // doesn't carry (V4-only roles granted to the Safe by the
-            // clone-deploy broadcast, per the RAI-731 decision).
+            // clone-deploy broadcast).
             bytes32[7] memory adminRoles = [
                 keccak256("CERTIFY_ADMIN"),
                 keccak256("CONFISCATE_RECEIPT_ADMIN"),

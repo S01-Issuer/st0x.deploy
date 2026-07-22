@@ -81,7 +81,8 @@ error VaultAuthoriserMismatchPostUpgrade(address vault, address expected, addres
 ///      wrapped token vault) at their V4 implementations
 ///      (`LibProdDeployV4.STOX_RECEIPT_0_1_1` /
 ///      `STOX_RECEIPT_VAULT_0_1_1` / `STOX_WRAPPED_TOKEN_VAULT_0_1_1`).
-///   2. Calls `setAuthorizer(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE)`
+///   2. Calls
+///      `setAuthorizer(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE)`
 ///      on every production receipt vault.
 ///
 /// After execution every live receipt vault routes corporate-action selectors
