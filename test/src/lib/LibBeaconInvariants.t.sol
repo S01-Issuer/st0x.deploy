@@ -7,11 +7,16 @@ import {
     LibBeaconInvariants,
     IOwnable,
     BeaconCodehashMismatch,
+    BeaconNotDeployed,
     BeaconOwnerMismatch,
-    BeaconImplementationMismatch
+    BeaconImplementationMismatch,
+    UnsupportedChainForProdBeacons
 } from "../../../src/lib/LibBeaconInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {LibProdBeaconsBase} from "../../../src/lib/LibProdBeaconsBase.sol";
+import {LibProdBeaconsEthereum} from "../../../src/lib/LibProdBeaconsEthereum.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
+import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibBeaconInvariantsHarness} from "./LibBeaconInvariantsHarness.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
@@ -108,5 +113,77 @@ contract LibBeaconInvariantsTest is Test {
         harness.callAssertBeaconInvariants(
             beacon, LibBeaconInvariants.PROD_BEACON_OWNER, LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION
         );
+    }
+
+    /// @notice Base's IN-USE beacons are the V1-generation addresses. The
+    /// later 0.1.1-address beacons exist on Base but production never adopted
+    /// them, so returning those would assert ownership of a deploy artifact
+    /// nothing runs on while leaving the live beacons unpinned.
+    function testProdBeaconsForChainIdBaseIsTheV1Generation() external {
+        selectBaseFork();
+        address[3] memory beacons = harness.callProdBeaconsForChainId(LibSafeInvariants.BASE_CHAIN_ID);
+        assertEq(beacons[0], LibProdDeployV1.STOX_RECEIPT_BEACON_V1, "receipt beacon");
+        assertEq(beacons[1], LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1, "receipt vault beacon");
+        assertEq(beacons[2], LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1, "wrapped vault beacon");
+    }
+
+    /// @notice Ethereum bootstrapped at 0.1.1, so its in-use beacons are that
+    /// generation — the two read live from the 0.1.1 beacon-set deployer plus
+    /// the wrapped beacon's own pin. Pinned against the source lib so the
+    /// chain-id dispatch cannot silently answer with Base's set.
+    function testProdBeaconsForChainIdEthereumIsThe011Set() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
+        harness = new LibBeaconInvariantsHarness();
+        address[3] memory beacons = harness.callProdBeaconsForChainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
+        address[3] memory expected = LibProdBeaconsEthereum.beacons();
+        assertEq(beacons[0], expected[0], "receipt beacon");
+        assertEq(beacons[1], expected[1], "receipt vault beacon");
+        assertEq(beacons[2], expected[2], "wrapped vault beacon");
+        assertTrue(beacons[0] != LibProdDeployV1.STOX_RECEIPT_BEACON_V1, "answered with Base's set");
+    }
+
+    /// @notice A chain with no pinned in-use set reverts rather than falling
+    /// back to another chain's beacons. A fallback would assert ownership of
+    /// contracts that do not exist on the active chain, and `code.length == 0`
+    /// would report that as a missing beacon rather than as an unsupported
+    /// chain.
+    function testProdBeaconsForChainIdRevertsForUnpinnedChain() external {
+        selectBaseFork();
+        uint256 arbitrum = 42161;
+        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForProdBeacons.selector, arbitrum));
+        harness.callProdBeaconsForChainId(arbitrum);
+    }
+
+    /// @notice `assertProdBeaconsOwnedByChainSafe` trips `BeaconOwnerMismatch`
+    /// when an in-use beacon is held by anything other than the active chain's
+    /// token-owner Safe. Whoever owns an in-use beacon can repoint every
+    /// production vault proxy on the chain, so the rogue owner here stands in
+    /// for the whole class of compromise this assert exists to catch.
+    function testInvertedProdBeaconOwnerMismatch() external {
+        selectBaseFork();
+        address beacon = LibProdBeaconsBase.beacons()[1];
+        address rogueOwner = address(0xBADC0DE);
+        vm.mockCall(beacon, abi.encodeWithSelector(IOwnable.owner.selector), abi.encode(rogueOwner));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BeaconOwnerMismatch.selector,
+                beacon,
+                LibSafeInvariants.safeForChainId(LibSafeInvariants.BASE_CHAIN_ID),
+                rogueOwner
+            )
+        );
+        harness.callAssertProdBeaconsOwnedByChainSafe(LibSafeInvariants.BASE_CHAIN_ID);
+    }
+
+    /// @notice An in-use beacon with no code trips `BeaconNotDeployed` rather
+    /// than reaching `owner()`. A staticcall to a codeless address succeeds
+    /// returning nothing, so without this guard the failure would surface as a
+    /// decode revert that names neither the beacon nor the reason.
+    function testInvertedProdBeaconNotDeployed() external {
+        selectBaseFork();
+        address beacon = LibProdBeaconsBase.beacons()[0];
+        vm.etch(beacon, "");
+        vm.expectRevert(abi.encodeWithSelector(BeaconNotDeployed.selector, beacon));
+        harness.callAssertProdBeaconsOwnedByChainSafe(LibSafeInvariants.BASE_CHAIN_ID);
     }
 }
