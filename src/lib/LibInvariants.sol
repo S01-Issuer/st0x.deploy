@@ -57,12 +57,13 @@ library LibInvariants {
 
     /// @notice Multichain full-production-state pre-flight — the
     /// chain-agnostic generalisation of `assertAll(safe)`. Asserts, for the
-    /// ACTIVE chain (`block.chainid`): the Safe carries Base's shared policy
-    /// (`assertPolicyMatchesBase` — v1.4.1 identity, owner SET, threshold), the
-    /// token-side uniformity (every vault in `tokens` owned by that chain's
-    /// Safe and gated by the single `authoriser`), and the authoriser's role-
-    /// grant map for that chain's Safe. The Safe is resolved from the pinned
-    /// per-chain address via `LibSafeInvariants.safeForChainId(block.chainid)`,
+    /// ACTIVE chain (`block.chainid`): the Safe carries the chain-agnostic
+    /// token-owner policy (`assertTokenOwnerSafePolicy` — v1.4.1 identity,
+    /// owner SET, threshold), the token-side uniformity (every vault in
+    /// `tokens` owned by that chain's Safe and gated by the single
+    /// `authoriser`), and the authoriser's role-grant map for that chain's
+    /// Safe. The Safe is resolved AND policy-asserted in one call via
+    /// `LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid)`,
     /// so the deploy artifacts that differ per chain — the Safe address, the
     /// token addresses, the authoriser clone address — are the only variation.
     ///
@@ -70,12 +71,12 @@ library LibInvariants {
     /// service signer are SHARED across chains; only the ADDRESSES differ. The
     /// Safe address is therefore a per-chain deploy artifact (not a principal):
     /// resolved by chain id, and its policy asserted against the shared pins.
-    /// The owner check is order-INSENSITIVE (`assertPolicyMatchesBase`) because
-    /// a fresh per-chain Safe's `getOwners()` order is incidental. There is no
-    /// `ChainPrincipals` parameter — the per-chain inputs are the token
-    /// addresses and the authoriser clone address (whose impl codehash is
-    /// asserted equal across chains by the cross-chain parity pin); the Safe
-    /// address is read from the per-chain pin here.
+    /// The owner check is order-INSENSITIVE because a per-chain Safe's
+    /// `getOwners()` order is incidental. There is no `ChainPrincipals`
+    /// parameter — the per-chain inputs are the token addresses and the
+    /// authoriser clone address (whose impl codehash is asserted equal across
+    /// chains by the cross-chain parity pin); the Safe address is read from
+    /// the per-chain pin here.
     ///
     /// Unlike Base's `assertAll(safe)` this asserts a SINGLE uniform
     /// authoriser rather than the V4 swap-window pair: a bootstrap chain is
@@ -87,8 +88,7 @@ library LibInvariants {
     /// @param tokens The chain's production token table.
     /// @param authoriser The chain's live authoriser the vaults point at.
     function assertProductionState(TokenInstance[] memory tokens, address authoriser) internal view {
-        address safe = LibSafeInvariants.safeForChainId(block.chainid);
-        LibSafeInvariants.assertPolicyMatchesBase(IGnosisSafe(safe));
+        address safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTokenInvariants.assertAll(tokens, safe, authoriser);
         LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe);
     }

@@ -7,6 +7,7 @@ import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibSafeInvariantsHarness} from "./LibSafeInvariantsHarness.sol";
 import {IGnosisSafe} from "../../../src/interface/IGnosisSafe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {
     SafeProxyCodehashMismatch,
     SafeSingletonMismatch,
@@ -274,5 +275,30 @@ contract LibSafeInvariantsTest is Test {
         selectBaseFork();
         vm.expectRevert(abi.encodeWithSelector(SafeThresholdMismatch.selector, address(safe), uint256(4), uint256(3)));
         harness.callAssertAll(safe, 4, LibSafeInvariants.expectedOwners());
+    }
+
+    /// @notice `assertActiveChainTokenOwnerSafe` passes against the LIVE Base
+    /// token-owner Safe and resolves Base's Safe address — the same
+    /// chain-agnostic policy assertion every chain gets.
+    function testAssertActiveChainTokenOwnerSafeOnBase() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        address resolved = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+        assertEq(resolved, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, "Base resolved the wrong Safe");
+    }
+
+    /// @notice The SAME entry point passes against the LIVE Ethereum token-
+    /// owner Safe and resolves Ethereum's Safe address. The policy pins
+    /// (owner SET, threshold, v1.4.1 identity) are chain-agnostic truths;
+    /// only the Safe address is per-chain, and `getOwners()` order is an
+    /// incidental linked-list artifact of each chain's own deploy — which is
+    /// why the policy's owner check is order-insensitive. This per-chain fork
+    /// coverage is what keeps a broadcast script's Safe pre-flight from ever
+    /// reverting on a chain CI has not exercised: any consumer of this entry
+    /// point is proven against every pinned chain's live Safe on every CI
+    /// run.
+    function testAssertActiveChainTokenOwnerSafeOnEthereum() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
+        address resolved = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+        assertEq(resolved, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM, "Ethereum resolved the wrong Safe");
     }
 }

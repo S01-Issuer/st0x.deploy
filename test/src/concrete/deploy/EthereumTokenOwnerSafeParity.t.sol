@@ -45,8 +45,10 @@ contract EthereumTokenOwnerSafeParityTest is Test {
 
         vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
 
-        // Matches Base's policy in every way that matters: v1.4.1 identity,
-        // owner set (order-insensitive), threshold.
-        LibSafeInvariants.assertPolicyMatchesBase(IGnosisSafe(ethSafe));
+        // Carries the chain-agnostic token-owner policy in every way that
+        // matters: v1.4.1 identity, owner set (order-insensitive), threshold.
+        // Base is asserted against the same pins, so this transitively proves
+        // parity with Base.
+        LibSafeInvariants.assertTokenOwnerSafePolicy(IGnosisSafe(ethSafe));
     }
 }
