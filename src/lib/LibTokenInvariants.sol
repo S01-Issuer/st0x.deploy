@@ -435,9 +435,9 @@ library LibTokenInvariants {
     /// `LibAuthoriserInvariants.assertAll` via `LibInvariants.assertAll`.
     /// @dev Both legs run last in the composed bundle because each performs
     /// one external call per production token instance and is only
-    /// meaningful once the Safe itself has been validated. The authoriser is parameterised rather than
-    /// hardcoded so this lib stays free of cross-facet dependencies; the
-    /// orchestrator supplies the pinned address.
+    /// meaningful once the Safe itself has been validated. The authoriser is
+    /// parameterised rather than hardcoded so this lib stays free of
+    /// cross-facet dependencies; the orchestrator supplies the pinned address.
     /// @param safe The Safe address every production receipt vault is
     /// expected to report as `owner()`.
     /// @param expectedAuthoriser The authoriser address every production
