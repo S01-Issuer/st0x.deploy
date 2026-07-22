@@ -50,7 +50,9 @@ error NoMissingTokens();
 error TokenTableMisaligned(uint256 index, string configUnderlying, string tableUnderlying);
 
 /// @title DeployMissingTokensEthereum
-/// @notice **PENDING.** Gap-filling counterpart of
+/// @notice **EXECUTED 2026-07-22** (manual-broadcast run 29924926246: RKLB
+/// deployed, wired, and handed to the Safe; tuple pinned in
+/// `LibTokenInvariants.productionTokensEthereum()`). Gap-filling counterpart of
 /// `20260706-deploy-tokens-ethereum` (EXECUTED 2026-07-22): deploys, on
 /// Ethereum mainnet, exactly the canonical config rows whose
 /// `LibTokenInvariants.productionTokensEthereum()` entry is still all-zero —

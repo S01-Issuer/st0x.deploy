@@ -24,17 +24,16 @@ contract DeployMissingTokensEthereumTest is Test {
         script = new DeployMissingTokensEthereum();
     }
 
-    /// @notice The selection is exactly the all-zero Ethereum table rows —
-    /// RKLB at the time of authoring. When the deploy executes and the row
-    /// is hydrated, the selection empties, `run()` flips to
-    /// `NoMissingTokens`, and the post-execution pin PR retires/updates
-    /// this expectation.
-    function testSelectsExactlyTheMissingTokens() external {
-        TokenConfig[] memory missing = new DeployMissingTokensEthereumHarness().selectMissing();
-        assertEq(missing.length, 1, "expected exactly one missing token (RKLB)");
-        assertEq(missing[0].underlying, "RKLB", "missing token is RKLB");
-        assertEq(missing[0].name, "Rocket Lab USA Inc ST0x", "RKLB canonical name");
-        assertEq(missing[0].symbol, "tRKLB", "RKLB canonical symbol");
+    /// @notice The Ethereum table is fully hydrated (the RKLB gap-fill
+    /// EXECUTED 2026-07-22 and its row is pinned), so the selection refuses
+    /// to author anything: `NoMissingTokens`. This is the guard that keeps a
+    /// re-dispatch of the EXECUTED script from minting duplicates. When a
+    /// future token lands in the canonical config with an all-zero Ethereum
+    /// row, this flips back to a positive selection expectation.
+    function testSelectionRevertsWhenTableFullyHydrated() external {
+        DeployMissingTokensEthereumHarness harness = new DeployMissingTokensEthereumHarness();
+        vm.expectRevert(NoMissingTokens.selector);
+        harness.selectMissing();
     }
 
     /// @notice `run()` reverts `DeployerNotDeployed` when the 0.1.1 core has
