@@ -285,14 +285,22 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x045Fb493D970f94a54FeaF931033622fC82192e6
     address internal constant TTWO_WRAPPED_TOKEN_VAULT = address(0x045Fb493D970f94a54FeaF931033622fC82192e6);
 
-    /// @notice Returns the 28 production token instance triples on Base, in
+    // ---- tRKLB / wtRKLB — Rocket Lab USA Inc ST0x ----
+    /// https://basescan.org/address/0x34Bf3d8DFaa92e554FBCf48135E5d814210DA1dd
+    address internal constant RKLB_RECEIPT = address(0x34Bf3d8DFaa92e554FBCf48135E5d814210DA1dd);
+    /// https://basescan.org/address/0xf6744Fd94e27c2f58F6110aa9fDC77A87e41766B
+    address internal constant RKLB_RECEIPT_VAULT = address(0xf6744Fd94e27c2f58F6110aa9fDC77A87e41766B);
+    /// https://basescan.org/address/0xF4f8c66085910d583c01f3b4e44Bf731D4e2c565
+    address internal constant RKLB_WRAPPED_TOKEN_VAULT = address(0xF4f8c66085910d583c01f3b4e44Bf731D4e2c565);
+
+    /// @notice Returns the 29 production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
     /// that need the receipt / wrapped-vault legs or the underlying join key
     /// (cross-chain parity, per-token config checks) iterate this instead.
     /// @return tokens The 28 production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](28);
+        tokens = new TokenInstance[](29);
         tokens[0] = TokenInstance("MSTR", MSTR_RECEIPT, MSTR_RECEIPT_VAULT, MSTR_WRAPPED_TOKEN_VAULT);
         tokens[1] = TokenInstance("TSLA", TSLA_RECEIPT, TSLA_RECEIPT_VAULT, TSLA_WRAPPED_TOKEN_VAULT);
         tokens[2] = TokenInstance("COIN", COIN_RECEIPT, COIN_RECEIPT_VAULT, COIN_WRAPPED_TOKEN_VAULT);
@@ -321,6 +329,7 @@ library LibTokenInvariants {
         tokens[25] = TokenInstance("AMAT", AMAT_RECEIPT, AMAT_RECEIPT_VAULT, AMAT_WRAPPED_TOKEN_VAULT);
         tokens[26] = TokenInstance("LRCX", LRCX_RECEIPT, LRCX_RECEIPT_VAULT, LRCX_WRAPPED_TOKEN_VAULT);
         tokens[27] = TokenInstance("TTWO", TTWO_RECEIPT, TTWO_RECEIPT_VAULT, TTWO_WRAPPED_TOKEN_VAULT);
+        tokens[28] = TokenInstance("RKLB", RKLB_RECEIPT, RKLB_RECEIPT_VAULT, RKLB_WRAPPED_TOKEN_VAULT);
     }
 
     /// @notice Returns the production token instance triples on Ethereum
@@ -343,7 +352,7 @@ library LibTokenInvariants {
         // run's logged (underlying, receipt, receiptVault, wrapped) tuples.
         // Order and underlyings match Base row-for-row (the cross-chain
         // parity pin asserts this).
-        tokens = new TokenInstance[](28);
+        tokens = new TokenInstance[](29);
         tokens[0] = TokenInstance(
             "MSTR",
             address(0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763),
@@ -512,6 +521,14 @@ library LibTokenInvariants {
             address(0xb62E913f0cC881862527Fa7e41e1C98eEf09cedD),
             address(0x1D6F0763e58FA6d472d470Eaaef0a4C08080d208)
         );
+        // RKLB is live on Base but NOT yet deployed on Ethereum (it was
+        // accidentally omitted from the table when the 28-token Ethereum
+        // broadcast ran, 2026-07-22). All-zero row = the explicit
+        // "missing on this chain" state: the gap-filling deploy script
+        // targets exactly the all-zero rows, and the parity pin flags the
+        // partially-hydrated table until the deploy lands and this row is
+        // pinned.
+        tokens[28] = TokenInstance("RKLB", address(0), address(0), address(0));
     }
 
     /// @notice Returns the 28 production receipt vault addresses on Base, in
