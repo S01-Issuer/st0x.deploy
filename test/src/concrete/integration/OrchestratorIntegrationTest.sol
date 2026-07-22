@@ -36,7 +36,7 @@ import {
 import {ICorporateActionsV1} from "../../../../src/interface/ICorporateActionsV1.sol";
 import {SCHEDULE_CORPORATE_ACTION, STOCK_SPLIT_V1_TYPE_HASH} from "../../../../src/lib/LibCorporateAction.sol";
 import {LibStockSplit} from "../../../../src/lib/LibStockSplit.sol";
-import {LibProdDeployV4} from "../../../../src/lib/LibProdDeployV4.sol";
+import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 import {LibTestTofu} from "../../../lib/LibTestTofu.sol";
 

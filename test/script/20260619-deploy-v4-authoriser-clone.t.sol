@@ -28,7 +28,7 @@ import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInvariants.sol";
-import {LibProdDeployV4} from "../../src/lib/LibProdDeployV4.sol";
+import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {DeployV4AuthoriserCloneHarness} from "./DeployV4AuthoriserCloneHarness.sol";
 

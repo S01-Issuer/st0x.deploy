@@ -21,10 +21,8 @@ jobs:
       - name: Install soldeer dependencies
         if: hashFiles('soldeer.lock') != ''
         run: nix develop github:rainlanguage/rainix#sol-shell -c forge soldeer install
-      - name: Regenerate pointer artifacts
+      - name: Regenerate pointer artifacts + deploy libs
         run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildPointers.sol
-      - name: Assert LibProdDeployV4 pins every generated deploy address
-        run: bash script/check-published-deploy-constants.sh
       - name: Format
         run: nix develop github:rainlanguage/rainix#sol-shell -c forge fmt
       - name: Assert committed artifacts match freshly built

@@ -7,22 +7,12 @@ import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensions/IERC20Metadata.sol";
 
-import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {LibProdDeployV1} from "../../../../src/lib/LibProdDeployV1.sol";
-import {LibProdDeployV4} from "../../../../src/lib/LibProdDeployV4.sol";
+import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
+import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
-import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibTokenInvariants} from "../../../../src/lib/LibTokenInvariants.sol";
 import {LibSafeOps, IUpgradeableBeacon} from "../../../../src/lib/LibSafeOps.sol";
-import {SCHEDULE_CORPORATE_ACTION} from "../../../../src/lib/LibCorporateAction.sol";
-import {
-    StoxOffchainAssetReceiptVaultAuthorizerV1
-} from "../../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
-import {
-    OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
-import {ICloneableFactoryV2} from "rain-factory-0.1.1/src/interface/ICloneableFactoryV2.sol";
-import {LibCloneFactoryDeploy} from "rain-factory-0.1.1/src/lib/LibCloneFactoryDeploy.sol";
 import {
     ICorporateActionsV1,
     ACTION_TYPE_STOCK_SPLIT_V1,
@@ -33,7 +23,7 @@ import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {IReceiptVaultV3} from "rain-vats-0.1.6/src/interface/IReceiptVaultV3.sol";
 import {IReceiptV3} from "rain-vats-0.1.6/src/interface/IReceiptV3.sol";
 import {IAuthorizableV1} from "rain-vats-0.1.6/src/interface/IAuthorizableV1.sol";
-import {IAuthorizeV1, Unauthorized} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
 import {ICertifiableV1} from "rain-vats-0.1.6/src/interface/ICertifiableV1.sol";
 import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1967BeaconProxy.sol";
 
@@ -94,12 +84,16 @@ contract V3UpgradeShadowForkTest is Test {
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1
         );
 
-        // 2. Simulate PR-A: transfer the beacon from the EOA to the Safe.
-        vm.prank(LibProdDeployV1.BEACON_INITIAL_OWNER);
-        Ownable(BEACON).transferOwnership(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+        // 2. The beacon-ownership migration EXECUTED on Base (2026-07):
+        //    the live beacon is already Safe-owned, no simulation needed.
+        assertEq(
+            Ownable(BEACON).owner(),
+            LibBeaconInvariants.PROD_BEACON_OWNER,
+            "live beacon not Safe-owned - migration state regressed?"
+        );
 
         // 3. Apply the upgrade: the Safe points the beacon at the V3 impl.
-        vm.prank(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+        vm.prank(LibBeaconInvariants.PROD_BEACON_OWNER);
         IUpgradeableBeacon(BEACON).upgradeTo(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1);
     }
 
@@ -113,7 +107,7 @@ contract V3UpgradeShadowForkTest is Test {
     /// Safe-owned, points at the V3 implementation, and the live receipt vault
     /// is still behind this beacon.
     function testForkIsInUpgradedState() external view {
-        assertEq(Ownable(BEACON).owner(), LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, "beacon Safe-owned");
+        assertEq(Ownable(BEACON).owner(), LibBeaconInvariants.PROD_BEACON_OWNER, "beacon Safe-owned");
         assertEq(IBeacon(BEACON).implementation(), LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1, "beacon at V3 impl");
         assertEq(beaconOf(LIVE_RECEIPT_VAULT), BEACON, "live vault behind the upgraded beacon");
     }
@@ -221,57 +215,6 @@ contract V3UpgradeShadowForkTest is Test {
         );
     }
 
-    /// @notice The OTHER half of the migration bundle — the `setAuthorizer`
-    /// swap — actually re-wires authorisation on a LIVE receipt vault. The
-    /// tests above cover the beacon (impl) leg; this covers the authoriser
-    /// leg: deploy a fresh V4 corporate-action-aware authoriser clone,
-    /// `setAuthorizer` the live vault onto it as the Safe owner, and prove the
-    /// vault now gates through the new clone — a granted `SCHEDULE_CORPORATE_
-    /// ACTION` caller is permitted, an ungranted caller is rejected with the
-    /// exact `Unauthorized` error. The corporate-action permission is the V4
-    /// delta: the pre-swap production authoriser configures no role admin for
-    /// it, so only the swapped V4 clone can gate it.
-    function testAuthoriserSwapReWiresGatingOnLiveVault() external {
-        // Pre-swap: the live vault reports the current production authoriser.
-        assertEq(
-            address(IAuthorizableV1(LIVE_RECEIPT_VAULT).authorizer()),
-            LibAuthoriserInvariants.STOX_PROD_AUTHORISER,
-            "pre-swap authoriser is the live production authoriser"
-        );
-
-        // Deploy a fresh V4 authoriser clone. The impl `_disableInitializers`
-        // in its constructor, so it must be cloned + initialised via the
-        // CloneFactory — the same path the production clone-deploy broadcast
-        // uses.
-        address cloneAdmin = makeAddr("cloneAdmin");
-        StoxOffchainAssetReceiptVaultAuthorizerV1 impl = new StoxOffchainAssetReceiptVaultAuthorizerV1();
-        address clone = ICloneableFactoryV2(LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS)
-            .clone(address(impl), abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: cloneAdmin})));
-
-        // Grant the corporate-action scheduling role to one user. `cloneAdmin`
-        // holds `SCHEDULE_CORPORATE_ACTION_ADMIN` from init (the V4 extension),
-        // so it is the role admin able to grant `SCHEDULE_CORPORATE_ACTION`.
-        address scheduler = makeAddr("scheduler");
-        address outsider = makeAddr("outsider");
-        vm.prank(cloneAdmin);
-        IAccessControl(clone).grantRole(SCHEDULE_CORPORATE_ACTION, scheduler);
-
-        // Swap: the Safe (vault owner) rewires the live vault onto the clone.
-        vm.prank(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
-        ISetAuthorizer(LIVE_RECEIPT_VAULT).setAuthorizer(IAuthorizeV1(clone));
-
-        // The swap landed: the vault now routes authorisation through the clone.
-        IAuthorizeV1 wired = IAuthorizableV1(LIVE_RECEIPT_VAULT).authorizer();
-        assertEq(address(wired), clone, "post-swap authoriser is the new V4 clone");
-
-        // The swapped authoriser gates corporate actions: the granted
-        // scheduler is permitted (no revert)...
-        wired.authorize(scheduler, SCHEDULE_CORPORATE_ACTION, "");
-        // ...and an ungranted caller is rejected with the exact typed error.
-        vm.expectRevert(abi.encodeWithSelector(Unauthorized.selector, outsider, SCHEDULE_CORPORATE_ACTION, bytes("")));
-        wired.authorize(outsider, SCHEDULE_CORPORATE_ACTION, "");
-    }
-
     // -------------------------------------------------------------------------
     // TODO(audit): enumerate v0.1.1 findings — pending report from Josh/DM.
     //
@@ -284,11 +227,4 @@ contract V3UpgradeShadowForkTest is Test {
     // does NOT yet assert finding-by-finding remediation. Do not treat the
     // absence of this section's tests as evidence the findings are fixed.
     // -------------------------------------------------------------------------
-}
-
-/// @dev Local mirror of the receipt-vault `setAuthorizer(IAuthorizeV1)`
-/// owner-gated selector. Avoids dragging the full `OffchainAssetReceiptVault`
-/// storage inheritance into this test just to encode one call.
-interface ISetAuthorizer {
-    function setAuthorizer(IAuthorizeV1 newAuthorizer) external;
 }

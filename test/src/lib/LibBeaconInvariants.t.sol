@@ -88,7 +88,10 @@ contract LibBeaconInvariantsTest is Test {
     /// @notice `assertBeaconInvariants` trips `BeaconImplementationMismatch`
     /// when the beacon's `implementation()` differs from the expected
     /// implementation. Simulated by mocking `implementation()` on the live
-    /// receipt vault beacon to a rogue address.
+    /// receipt vault beacon to a rogue address. The expected owner is the
+    /// Safe — the live owner since the beacon-ownership migration executed
+    /// (2026-07) — so the owner check passes and the revert is specifically
+    /// the implementation gate.
     function testInvertedBeaconImplementationMismatch() external {
         selectBaseFork();
         address beacon = LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1;
@@ -103,7 +106,7 @@ contract LibBeaconInvariantsTest is Test {
             )
         );
         harness.callAssertBeaconInvariants(
-            beacon, LibProdDeployV1.BEACON_INITIAL_OWNER, LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION
+            beacon, LibBeaconInvariants.PROD_BEACON_OWNER, LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION
         );
     }
 }

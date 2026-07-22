@@ -10,7 +10,7 @@ import {
     ACTION_TYPE_INIT_V1,
     ACTION_TYPE_STOCK_SPLIT_V1
 } from "../../../src/interface/ICorporateActionsV1.sol";
-import {LibProdDeployV4} from "../../../src/lib/LibProdDeployV4.sol";
+import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {STOCK_SPLIT_V1_TYPE_HASH, UnknownActionType} from "../../../src/lib/LibCorporateAction.sol";
 import {CompletionFilter, NODE_NONE} from "../../../src/lib/LibCorporateActionNode.sol";
 import {IAuthorizeV1, Unauthorized} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";

@@ -6,6 +6,23 @@ import {IOwnable} from "../interface/IOwnable.sol";
 import {IAuthorisable} from "../interface/IAuthorisable.sol";
 import {LibMigrationInvariant} from "./LibMigrationInvariant.sol";
 
+/// @notice One production token's contract triple on a single chain, keyed
+/// by the underlying ticker. The underlying symbol (e.g. "MSTR", not
+/// "tMSTR" / "wtMSTR") is the chain-agnostic join key: it matches the
+/// issuer-side asset identity, so cross-chain checks pair instances by
+/// `underlying` and then compare the on-chain `name()` / `symbol()` /
+/// `decimals()` read from each chain's contracts.
+/// @param underlying The underlying ticker the token set wraps.
+/// @param receipt The ERC-1155 receipt contract.
+/// @param receiptVault The ERC-20 receipt vault (tStock).
+/// @param wrappedTokenVault The ERC-4626 wrapped token vault (wtStock).
+struct TokenInstance {
+    string underlying;
+    address receipt;
+    address receiptVault;
+    address wrappedTokenVault;
+}
+
 /// @notice A production receipt vault's `owner()` does not match the owner
 /// the uniform-ownership invariant expected every vault to share. Surfaces
 /// the exact vault address that breaks the invariant rather than a generic
@@ -213,33 +230,67 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x71C66449d2528E23514A9c197BFD55Ae9DB3B714
     address internal constant TSM_WRAPPED_TOKEN_VAULT = address(0x71C66449d2528E23514A9c197BFD55Ae9DB3B714);
 
-    /// @notice Returns the 20 production receipt vault addresses on Base, in
+    // ---- tSKHY / wtSKHY — SK hynix Inc. ADR ST0x ----
+    /// https://basescan.org/address/0xE26105d49e57cEd5Ce83d20Ca5f04C3B0dCC876C
+    address internal constant SKHY_RECEIPT = address(0xE26105d49e57cEd5Ce83d20Ca5f04C3B0dCC876C);
+    /// https://basescan.org/address/0x4DBA41f0feb390F208a85e96168fF5d8aC2b6F5c
+    address internal constant SKHY_RECEIPT_VAULT = address(0x4DBA41f0feb390F208a85e96168fF5d8aC2b6F5c);
+    /// https://basescan.org/address/0xFcD17aC4c4BF6a72c93018096F3fC09e66573Ff9
+    address internal constant SKHY_WRAPPED_TOKEN_VAULT = address(0xFcD17aC4c4BF6a72c93018096F3fC09e66573Ff9);
+
+    // ---- tASML / wtASML — ASML Holding N.V. New York Registry Shares ST0x ----
+    /// https://basescan.org/address/0x17021e305D28c4CfA8ec02817ad22B2ef432dC85
+    address internal constant ASML_RECEIPT = address(0x17021e305D28c4CfA8ec02817ad22B2ef432dC85);
+    /// https://basescan.org/address/0x722Cb373f1871A176fb5DC3953046f2EAE22F619
+    address internal constant ASML_RECEIPT_VAULT = address(0x722Cb373f1871A176fb5DC3953046f2EAE22F619);
+    /// https://basescan.org/address/0x8200c6d9AB9E02A25D7F2099244C476d99a085ef
+    address internal constant ASML_WRAPPED_TOKEN_VAULT = address(0x8200c6d9AB9E02A25D7F2099244C476d99a085ef);
+
+    /// @notice Returns the 22 production token instance triples on Base, in
+    /// the order they were deployed. This is the structured source of truth
+    /// the flat `productionReceiptVaults()` accessor derives from; consumers
+    /// that need the receipt / wrapped-vault legs or the underlying join key
+    /// (cross-chain parity, per-token config checks) iterate this instead.
+    /// @return tokens The 22 production token instances on Base.
+    function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
+        tokens = new TokenInstance[](22);
+        tokens[0] = TokenInstance("MSTR", MSTR_RECEIPT, MSTR_RECEIPT_VAULT, MSTR_WRAPPED_TOKEN_VAULT);
+        tokens[1] = TokenInstance("TSLA", TSLA_RECEIPT, TSLA_RECEIPT_VAULT, TSLA_WRAPPED_TOKEN_VAULT);
+        tokens[2] = TokenInstance("COIN", COIN_RECEIPT, COIN_RECEIPT_VAULT, COIN_WRAPPED_TOKEN_VAULT);
+        tokens[3] = TokenInstance("SPYM", SPYM_RECEIPT, SPYM_RECEIPT_VAULT, SPYM_WRAPPED_TOKEN_VAULT);
+        tokens[4] = TokenInstance("SIVR", SIVR_RECEIPT, SIVR_RECEIPT_VAULT, SIVR_WRAPPED_TOKEN_VAULT);
+        tokens[5] = TokenInstance("CRCL", CRCL_RECEIPT, CRCL_RECEIPT_VAULT, CRCL_WRAPPED_TOKEN_VAULT);
+        tokens[6] = TokenInstance("NVDA", NVDA_RECEIPT, NVDA_RECEIPT_VAULT, NVDA_WRAPPED_TOKEN_VAULT);
+        tokens[7] = TokenInstance("IAU", IAU_RECEIPT, IAU_RECEIPT_VAULT, IAU_WRAPPED_TOKEN_VAULT);
+        tokens[8] = TokenInstance("PPLT", PPLT_RECEIPT, PPLT_RECEIPT_VAULT, PPLT_WRAPPED_TOKEN_VAULT);
+        tokens[9] = TokenInstance("AMZN", AMZN_RECEIPT, AMZN_RECEIPT_VAULT, AMZN_WRAPPED_TOKEN_VAULT);
+        tokens[10] = TokenInstance("BMNR", BMNR_RECEIPT, BMNR_RECEIPT_VAULT, BMNR_WRAPPED_TOKEN_VAULT);
+        tokens[11] = TokenInstance("IBHG", IBHG_RECEIPT, IBHG_RECEIPT_VAULT, IBHG_WRAPPED_TOKEN_VAULT);
+        tokens[12] = TokenInstance("SGOV", SGOV_RECEIPT, SGOV_RECEIPT_VAULT, SGOV_WRAPPED_TOKEN_VAULT);
+        tokens[13] = TokenInstance("QQQM", QQQM_RECEIPT, QQQM_RECEIPT_VAULT, QQQM_WRAPPED_TOKEN_VAULT);
+        tokens[14] = TokenInstance("VWO", VWO_RECEIPT, VWO_RECEIPT_VAULT, VWO_WRAPPED_TOKEN_VAULT);
+        tokens[15] = TokenInstance("ARKK", ARKK_RECEIPT, ARKK_RECEIPT_VAULT, ARKK_WRAPPED_TOKEN_VAULT);
+        tokens[16] = TokenInstance("SPCX", SPCX_RECEIPT, SPCX_RECEIPT_VAULT, SPCX_WRAPPED_TOKEN_VAULT);
+        tokens[17] = TokenInstance("CEG", CEG_RECEIPT, CEG_RECEIPT_VAULT, CEG_WRAPPED_TOKEN_VAULT);
+        tokens[18] = TokenInstance("DRAM", DRAM_RECEIPT, DRAM_RECEIPT_VAULT, DRAM_WRAPPED_TOKEN_VAULT);
+        tokens[19] = TokenInstance("TSM", TSM_RECEIPT, TSM_RECEIPT_VAULT, TSM_WRAPPED_TOKEN_VAULT);
+        tokens[20] = TokenInstance("SKHY", SKHY_RECEIPT, SKHY_RECEIPT_VAULT, SKHY_WRAPPED_TOKEN_VAULT);
+        tokens[21] = TokenInstance("ASML", ASML_RECEIPT, ASML_RECEIPT_VAULT, ASML_WRAPPED_TOKEN_VAULT);
+    }
+
+    /// @notice Returns the 22 production receipt vault addresses on Base, in
     /// the order they were deployed. Provided so consumers (e.g. invariant
     /// assertions, migration scripts) can iterate without hardcoding the
     /// list inline.
-    /// @return vaults The 20 production receipt vault addresses on Base.
+    /// @dev Derived from `productionTokensBase()` so the token table is the
+    /// single source of truth and the two accessors cannot drift.
+    /// @return vaults The 22 production receipt vault addresses on Base.
     function productionReceiptVaults() internal pure returns (address[] memory vaults) {
-        vaults = new address[](20);
-        vaults[0] = MSTR_RECEIPT_VAULT;
-        vaults[1] = TSLA_RECEIPT_VAULT;
-        vaults[2] = COIN_RECEIPT_VAULT;
-        vaults[3] = SPYM_RECEIPT_VAULT;
-        vaults[4] = SIVR_RECEIPT_VAULT;
-        vaults[5] = CRCL_RECEIPT_VAULT;
-        vaults[6] = NVDA_RECEIPT_VAULT;
-        vaults[7] = IAU_RECEIPT_VAULT;
-        vaults[8] = PPLT_RECEIPT_VAULT;
-        vaults[9] = AMZN_RECEIPT_VAULT;
-        vaults[10] = BMNR_RECEIPT_VAULT;
-        vaults[11] = IBHG_RECEIPT_VAULT;
-        vaults[12] = SGOV_RECEIPT_VAULT;
-        vaults[13] = QQQM_RECEIPT_VAULT;
-        vaults[14] = VWO_RECEIPT_VAULT;
-        vaults[15] = ARKK_RECEIPT_VAULT;
-        vaults[16] = SPCX_RECEIPT_VAULT;
-        vaults[17] = CEG_RECEIPT_VAULT;
-        vaults[18] = DRAM_RECEIPT_VAULT;
-        vaults[19] = TSM_RECEIPT_VAULT;
+        TokenInstance[] memory tokens = productionTokensBase();
+        vaults = new address[](tokens.length);
+        for (uint256 i = 0; i < tokens.length; i++) {
+            vaults[i] = tokens[i].receiptVault;
+        }
     }
 
     /// @notice Assert that every production receipt vault reports the same
@@ -255,11 +306,23 @@ library LibTokenInvariants {
     /// @param expectedOwner The address every production receipt vault is
     /// expected to report as `owner()`.
     function assertUniformOwnership(address expectedOwner) internal view {
-        address[] memory vaults = productionReceiptVaults();
-        for (uint256 i = 0; i < vaults.length; i++) {
-            address actualOwner = IOwnable(vaults[i]).owner();
+        assertUniformOwnership(productionTokensBase(), expectedOwner);
+    }
+
+    /// @notice Chain-parametric `assertUniformOwnership`: assert every
+    /// receipt vault in the supplied token table reports `expectedOwner`.
+    /// The Base no-arg-table overload delegates here with
+    /// `productionTokensBase()`; a multichain caller passes another chain's
+    /// table so the same uniform-ownership invariant runs against every
+    /// chain with that chain's vaults and Safe.
+    /// @param tokens The token table whose receipt vaults are checked.
+    /// @param expectedOwner The address every receipt vault must report as
+    /// `owner()`.
+    function assertUniformOwnership(TokenInstance[] memory tokens, address expectedOwner) internal view {
+        for (uint256 i = 0; i < tokens.length; i++) {
+            address actualOwner = IOwnable(tokens[i].receiptVault).owner();
             if (actualOwner != expectedOwner) {
-                revert ReceiptVaultOwnerMismatch(vaults[i], expectedOwner, actualOwner);
+                revert ReceiptVaultOwnerMismatch(tokens[i].receiptVault, expectedOwner, actualOwner);
             }
         }
     }
@@ -275,11 +338,21 @@ library LibTokenInvariants {
     /// @param expected The authoriser address every production receipt vault
     /// is expected to share.
     function assertUniformAuthoriser(address expected) internal view {
-        address[] memory vaults = productionReceiptVaults();
-        for (uint256 i = 0; i < vaults.length; i++) {
-            address actual = IAuthorisable(vaults[i]).authorizer();
+        assertUniformAuthoriser(productionTokensBase(), expected);
+    }
+
+    /// @notice Chain-parametric `assertUniformAuthoriser`: assert every
+    /// receipt vault in the supplied token table reports `expected` as its
+    /// authoriser. The Base overload delegates here with
+    /// `productionTokensBase()`; a multichain caller passes another chain's
+    /// table + that chain's authoriser clone.
+    /// @param tokens The token table whose receipt vaults are checked.
+    /// @param expected The authoriser every receipt vault must share.
+    function assertUniformAuthoriser(TokenInstance[] memory tokens, address expected) internal view {
+        for (uint256 i = 0; i < tokens.length; i++) {
+            address actual = IAuthorisable(tokens[i].receiptVault).authorizer();
             if (actual != expected) {
-                revert ReceiptVaultAuthoriserMismatch(vaults[i], expected, actual);
+                revert ReceiptVaultAuthoriserMismatch(tokens[i].receiptVault, expected, actual);
             }
         }
     }
@@ -334,7 +407,21 @@ library LibTokenInvariants {
     /// @param expectedAuthoriser The authoriser address every production
     /// receipt vault is expected to report as `authorizer()`.
     function assertAll(address safe, address expectedAuthoriser) internal view {
-        assertUniformOwnership(safe);
-        assertUniformAuthoriser(expectedAuthoriser);
+        assertAll(productionTokensBase(), safe, expectedAuthoriser);
+    }
+
+    /// @notice Chain-parametric token-side bundle: every receipt vault in
+    /// the supplied table reports `safe` as `owner()` and
+    /// `expectedAuthoriser` as `authorizer()`. The Base overload delegates
+    /// here with `productionTokensBase()`; `LibInvariants.assertProductionState`
+    /// calls this with each chain's own table so the full-production-state
+    /// pre-flight works on every chain.
+    /// @param tokens The chain's token table.
+    /// @param safe The Safe every receipt vault must report as `owner()`.
+    /// @param expectedAuthoriser The authoriser every receipt vault must
+    /// report as `authorizer()`.
+    function assertAll(TokenInstance[] memory tokens, address safe, address expectedAuthoriser) internal view {
+        assertUniformOwnership(tokens, safe);
+        assertUniformAuthoriser(tokens, expectedAuthoriser);
     }
 }
