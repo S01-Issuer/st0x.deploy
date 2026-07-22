@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {MigrationDeadlinePassed} from "../../../src/lib/LibMigrationInvariant.sol";
 import {LibAuthoriserInvariants} from "../../../src/lib/LibAuthoriserInvariants.sol";
-import {LibProdDeployV4} from "../../../src/lib/LibProdDeployV4.sol";
+import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibTokenInvariants, IAuthorisable, ReceiptVaultNullAuthoriser} from "../../../src/lib/LibTokenInvariants.sol";
 import {LibTokenInvariantsHarness} from "./LibTokenInvariantsHarness.sol";
 
@@ -14,15 +14,20 @@ import {LibTokenInvariantsHarness} from "./LibTokenInvariantsHarness.sol";
 /// `LibTokenInvariants.assertUniformAuthoriserMigration`: the unconditional
 /// null-authoriser rejection and the migration-window acceptance it wraps.
 ///
-/// The null cases use the production pins the bundle passes today —
-/// `pre = LibAuthoriserInvariants.STOX_PROD_AUTHORISER` (the live V3
-/// authoriser), `post = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`
-/// (unhydrated, `address(0)`), `deadline = LibProdDeployV4.V4_SWAP_DEADLINE`
-/// — because that is exactly the configuration where a null `authorizer()`
-/// would collide with the zero `post` pin and read as "already migrated"
-/// if the window check were consulted first. The window-preservation cases
-/// use non-zero sentinels so legitimate pre/post acceptance is pinned
-/// independently of the null rejection.
+/// The null cases use the production pins the bundle passes —
+/// `pre = LibAuthoriserInvariants.STOX_PROD_AUTHORISER`,
+/// `post = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`,
+/// `deadline = LibProdDeployV4.V4_SWAP_DEADLINE`.
+///
+/// The rejection is asserted with the LIVE pins rather than a zero `post`
+/// on purpose. A zero `post` is what made the original fail-open reachable:
+/// a null `authorizer()` collided with the zero pin and read as "already
+/// migrated". That pin is hydrated now, so the collision is gone and a null
+/// would already revert — but with `MigrationStateDrift`, which names the
+/// wrong fault. Rejecting null unconditionally keeps the specific error
+/// correct whatever `post` holds, including if a future chain's pin is
+/// added unhydrated. The window-preservation cases use non-zero sentinels
+/// so legitimate pre/post acceptance is pinned independently.
 ///
 /// @dev Every vault's `authorizer()` is mocked per test, so no fork is
 /// needed: the decision surface under test is pure
