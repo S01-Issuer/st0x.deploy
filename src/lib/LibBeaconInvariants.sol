@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {LibProdBeaconsBase} from "./LibProdBeaconsBase.sol";
-import {LibProdBeaconsEthereum} from "./LibProdBeaconsEthereum.sol";
+import {LibProdBeacons0_1_1} from "./LibProdBeacons0_1_1.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 
 /// @notice Minimal `Ownable`-like surface used to read a beacon's owner.
@@ -184,7 +184,7 @@ library LibBeaconInvariants {
     /// chain's production tokens point at them — only the implementations they
     /// serve are upgraded — so "which beacons is production running on" is
     /// per-chain pinned state. Each chain's set lives in its own lib
-    /// (`LibProdBeaconsBase` / `LibProdBeaconsEthereum`, same shape and index
+    /// (`LibProdBeaconsBase` / `LibProdBeacons0_1_1`, same shape and index
     /// order); this map only dispatches by chain id.
     /// @param chainId The active chain id (`block.chainid`).
     /// @return The chain's three in-use beacon addresses.
@@ -193,7 +193,12 @@ library LibBeaconInvariants {
             return LibProdBeaconsBase.beacons();
         }
         if (chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
-            return LibProdBeaconsEthereum.beacons();
+            return LibProdBeacons0_1_1.beacons();
+        }
+        if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
+            // HyperEVM bootstraps at 0.1.1 too — the deterministic beacon
+            // set resolves to the SAME addresses as Ethereum's.
+            return LibProdBeacons0_1_1.beacons();
         }
         revert UnsupportedChainForProdBeacons(chainId);
     }

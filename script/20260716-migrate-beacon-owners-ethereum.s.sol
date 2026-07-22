@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {Script} from "forge-std-1.16.1/src/Script.sol";
 import {console2} from "forge-std-1.16.1/src/console2.sol";
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
-import {LibProdBeaconsEthereum} from "../src/lib/LibProdBeaconsEthereum.sol";
+import {LibProdBeacons0_1_1} from "../src/lib/LibProdBeacons0_1_1.sol";
 import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
@@ -39,8 +39,8 @@ contract MigrateBeaconOwnersEthereum is Script {
     function run() external {
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM;
         require(safe != address(0), "Ethereum token-owner Safe not pinned");
-        address[3] memory beaconList = LibProdBeaconsEthereum.beacons();
-        address[3] memory implList = LibProdBeaconsEthereum.implementations();
+        address[3] memory beaconList = LibProdBeacons0_1_1.beacons();
+        address[3] memory implList = LibProdBeacons0_1_1.implementations();
 
         // Pre-flight: every beacon is deployed, is the OZ UpgradeableBeacon,
         // is still owned by the deploy EOA, and points at its pinned impl.
