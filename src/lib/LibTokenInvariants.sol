@@ -521,14 +521,17 @@ library LibTokenInvariants {
             address(0xb62E913f0cC881862527Fa7e41e1C98eEf09cedD),
             address(0x1D6F0763e58FA6d472d470Eaaef0a4C08080d208)
         );
-        // RKLB is live on Base but NOT yet deployed on Ethereum (it was
-        // accidentally omitted from the table when the 28-token Ethereum
-        // broadcast ran, 2026-07-22). All-zero row = the explicit
-        // "missing on this chain" state: the gap-filling deploy script
-        // targets exactly the all-zero rows, and the parity pin flags the
-        // partially-hydrated table until the deploy lands and this row is
-        // pinned.
-        tokens[28] = TokenInstance("RKLB", address(0), address(0), address(0));
+        // RKLB was accidentally omitted from the table when the 28-token
+        // Ethereum broadcast ran; the gap-filling
+        // `20260722-deploy-missing-tokens-ethereum` broadcast (EXECUTED
+        // 2026-07-22, manual-broadcast run 29924926246) deployed it and this
+        // row pins the logged tuple.
+        tokens[28] = TokenInstance(
+            "RKLB",
+            address(0xFf5b15a4f478F296893b0b244D9b118Be87bCda2),
+            address(0xED0c085d92C262FB46937CB0B3C9763Af7fCCf30),
+            address(0x8FC87Be766C0cB6f254F1FDc9351D4B85B560FB3)
+        );
     }
 
     /// @notice Returns the 28 production receipt vault addresses on Base, in
