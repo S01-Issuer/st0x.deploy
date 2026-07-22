@@ -14,7 +14,7 @@ import {
 } from "../../../src/lib/LibBeaconInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibProdBeaconsBase} from "../../../src/lib/LibProdBeaconsBase.sol";
-import {LibProdBeaconsEthereum} from "../../../src/lib/LibProdBeaconsEthereum.sol";
+import {LibProdBeacons0_1_1} from "../../../src/lib/LibProdBeacons0_1_1.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibBeaconInvariantsHarness} from "./LibBeaconInvariantsHarness.sol";
@@ -135,7 +135,7 @@ contract LibBeaconInvariantsTest is Test {
         vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
         harness = new LibBeaconInvariantsHarness();
         address[3] memory beacons = harness.callProdBeaconsForChainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
-        address[3] memory expected = LibProdBeaconsEthereum.beacons();
+        address[3] memory expected = LibProdBeacons0_1_1.beacons();
         assertEq(beacons[0], expected[0], "receipt beacon");
         assertEq(beacons[1], expected[1], "receipt vault beacon");
         assertEq(beacons[2], expected[2], "wrapped vault beacon");
