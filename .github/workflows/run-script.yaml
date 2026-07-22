@@ -28,6 +28,7 @@ on:
           - 20260619-deploy-v4-authoriser-clone
           - 20260623-upgrade-receipt-vaults-to-v4
           - 20260722-swap-rklb-authoriser
+          - 20260722-swap-remaining-vault-authorisers
       sig:
         description: 'Entrypoint to dispatch (default: run())'
         required: true
