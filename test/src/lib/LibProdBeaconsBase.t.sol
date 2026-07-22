@@ -40,7 +40,9 @@ contract LibProdBeaconsBaseTest is Test {
         for (uint256 i = 0; i < tokens.length; i++) {
             assertEq(beaconOf(tokens[i].receipt), beacons[0], string.concat(tokens[i].underlying, " receipt beacon"));
             assertEq(
-                beaconOf(tokens[i].receiptVault), beacons[1], string.concat(tokens[i].underlying, " receipt vault beacon")
+                beaconOf(tokens[i].receiptVault),
+                beacons[1],
+                string.concat(tokens[i].underlying, " receipt vault beacon")
             );
             assertEq(
                 beaconOf(tokens[i].wrappedTokenVault),
