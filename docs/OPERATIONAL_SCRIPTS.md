@@ -1,0 +1,769 @@
+# Operational scripts
+
+This document is the how-to for everything under `script/` that authors a Safe
+Tx Builder bundle (or any on-chain action) for the ST0x token-owner Safe to
+sign. It covers the invariant libraries that scripts pre-flight against, the
+lifecycle of writing + testing + dispatching a new script, and the
+post-execution process for getting a bundle from a workflow artifact onto Base.
+
+If you only need the canonical answer to "how do I add another one?", jump to
+[§ Adding a new script](#adding-a-new-script).
+
+> **Naming convention reminder**: every operational script lives flat in
+> `script/` and is named `YYYYMMDD-<kebab-name>.s.sol`, where the date is when
+> the script is added to the `run-script.yaml` dropdown. See [§ Naming](#naming)
+> for the full rationale.
+
+---
+
+## Why invariants
+
+Every state change the ST0x token-owner Safe authors is preceded by an
+exhaustive on-chain pre-flight that asserts a bundle of properties. The script
+and the Safe Tx Builder bundle the script emits both **trust those properties to
+hold** — if the live chain disagrees with the lib's pinned expectation, the
+script reverts before broadcasting, and signers never see a bundle that targets
+the wrong state.
+
+The pre-flight bundle is shared across every script via the `LibInvariants`
+orchestrator and the four domain libs underneath it. New scripts pre-flight via
+`LibInvariants.assertAll(safe)`; they don't re-derive invariants. New invariants
+get added to a domain lib and become available to every existing script
+automatically.
+
+---
+
+## Invariant library structure
+
+The four domain libs each return silently when the pinned expectation holds and
+revert with a **typed error** that pinpoints the drift otherwise. The typed
+errors carry the expected + actual values so a debugger can see exactly which
+value moved without re-running the script.
+
+### `LibSafeInvariants` — Safe v1.4.1 invariants
+
+Asserts properties of the production Safe at `STOX_TOKEN_OWNER_SAFE`:
+
+- Proxy runtime codehash matches the pinned v1.4.1 L2 proxy codehash.
+- Singleton (slot 0) matches the pinned v1.4.1 singleton address.
+- Singleton's runtime bytecode codehash matches the pinned v1.4.1 singleton
+  codehash (defends against `SELFDESTRUCT`-and-recreate).
+- `VERSION()` returns `"1.4.1"`.
+- Module list is empty (`SafeUnexpectedModules` otherwise).
+- Guard slot is `address(0)` (`SafeUnexpectedGuard` otherwise).
+- Fallback handler points at the pinned `CompatibilityFallbackHandler`.
+- `getOwners()` returns the pinned owner set in linked-list order (newest-added
+  at index 0).
+- `getThreshold()` matches the pinned threshold.
+
+The current-truth pins (owner set + threshold) update via PR when the Safe state
+changes on-chain; the pin update lands in the same PR that records the
+post-execution state. See the post-execution pin PR pattern at
+[§ Post-execution pin](#post-execution-pin).
+
+### `LibTokenInvariants` — vault ownership invariants
+
+Asserts that every production receipt vault returned by
+`LibTokenOwnership.productionReceiptVaults()` (currently 13 vaults) has its
+`owner()` set to `STOX_TOKEN_OWNER_SAFE`. A vault whose owner diverges trips
+`ReceiptVaultOwnerMismatch` with the vault address + expected vs actual owner —
+a strong signal that a vault has been detached from the Safe between authoring
+and execution.
+
+### `LibBeaconInvariants` — beacon ownership + impl invariants
+
+Asserts properties of the production `UpgradeableBeacon`s:
+
+- Beacon has runtime code (`BeaconNotDeployed` otherwise).
+- Beacon's runtime codehash matches the pinned OZ `UpgradeableBeacon` codehash.
+- Beacon's `owner()` matches the expected owner (the EOA pre-migration, the Safe
+  post-migration — the caller supplies which one).
+- Beacon's `implementation()` matches the expected impl.
+
+Used by `MigrateBeaconOwners` (pre + post ownership swap) and by the V4 upgrade
+script (asserts the impl hasn't moved before broadcasting the `setAuthorizer`
+bundle).
+
+### `LibAuthoriserInvariants` — authoriser role grants
+
+Asserts properties of the live authoriser clone at `STOX_PROD_AUTHORISER`:
+
+- Codehash matches the EIP-1167 minimal-proxy runtime computed from the pinned
+  authoriser impl address (`CloneCodehashMismatch` otherwise — the clone has
+  been etched over or doesn't point at the expected impl).
+- For every `(role, grantee)` pair in `expectedGrants()`, the clone's
+  `hasRole(role, grantee)` returns `true` (`ExpectedGrantMissing` otherwise).
+- `DEFAULT_ADMIN_ROLE` (`bytes32(0)`) is held by nobody — the contract uses
+  per-role `_ADMIN` self-admin pattern instead.
+
+### `LibInvariants` — orchestrator
+
+`LibInvariants.assertAll(safe)` bundles the Safe-side
+(`LibSafeInvariants.assertAll(safe)`) and token-side
+(`LibTokenInvariants.assertAll()`) invariants in one call. Scripts that only
+need Safe checks call `LibSafeInvariants.assertAll(safe)` directly; scripts that
+touch token state (vault upgrades, owner migrations) use the orchestrator.
+
+---
+
+## Two overloads on every `assertAll`
+
+Every `assertAll` family function (on every domain lib) ships in **two shapes**:
+
+```solidity
+// (a) No-arg overload — fills in every expected value from the lib's
+// pinned current-truth constants. This is the canonical pre-flight: it
+// asserts the live chain still matches what the lib says is true.
+function assertAll(IGnosisSafe safe) internal view;
+
+// (b) Full-args overload — caller supplies every expected value
+// explicitly. This is the canonical post-state assertion: it asserts a
+// deliberately-changed value (e.g. the new threshold post-bundle) while
+// every other value still matches the pinned current-truth defaults.
+function assertAll(
+    IGnosisSafe safe,
+    uint256 expectedThreshold,
+    address[] memory expectedOwnerSet
+) internal view;
+```
+
+### How the overloads are used together
+
+Every script follows the same shape:
+
+```solidity
+function run() external {
+    IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+
+    // (1) Pre-flight against current-truth pins.
+    LibInvariants.assertAll(safe);
+
+    // (2) Build the inner-tx data.
+    SafeTx memory txn = SafeTx({
+        to: address(safe),
+        value: 0,
+        data: abi.encodeCall(IGnosisSafe.changeThreshold, (TARGET_THRESHOLD)),
+        operation: 0
+    });
+
+    // (3) Compute the canonical SafeTxHash at the pre-execution nonce.
+    uint256 nonce = safe.nonce();
+    bytes32 safeTxHash = LibSafeOps.computeSafeTxHashViaSafe(safe, txn, nonce);
+
+    // (4) Simulate the inner call locally.
+    LibSafeOps.simulateSelfCall(safe, txn.data);
+
+    // (5) Post-state assertion — use the full-args overload to override
+    //     ONLY the value the bundle deliberately changes; everything else
+    //     still asserts against the pinned current truth.
+    LibSafeInvariants.assertAll(safe, TARGET_THRESHOLD, LibSafeInvariants.expectedOwners());
+
+    // (6) Emit the Tx Builder JSON + log the canonical SafeTxHash.
+    SafeTx[] memory txs = new SafeTx[](1);
+    txs[0] = txn;
+    string memory json = LibSafeOps.emitTxBuilderJson(
+        address(safe), block.chainid, BUNDLE_NAME, txs
+    );
+    vm.writeFile(ARTIFACT_PATH, json);
+
+    console2.log("==== TX BUILDER JSON BEGIN ====");
+    console2.log(json);
+    console2.log("==== TX BUILDER JSON END ====");
+    console2.log("SafeTxHash:", vm.toString(safeTxHash));
+    console2.log("Nonce:", nonce);
+}
+```
+
+The pattern guarantees: **the bundle the signer sees would produce a Safe state
+that still passes every invariant except the one the bundle deliberately
+changes**. If anything else moves (a new module shows up between authoring and
+execution, a vault loses ownership, etc.) the post-state assertion trips before
+the JSON is even written.
+
+---
+
+## Adding a new script
+
+### 1. Branch off main
+
+```shell
+gt checkout main && git pull
+gt create -m "feat(deploy): YYYYMMDD <description>"
+```
+
+### 2. Create the script file
+
+`script/YYYYMMDD-<kebab-name>.s.sol`, where the date is **today** (the day
+you're adding the script to the dropdown). The script declares one top-level
+`contract`. File-level NatSpec leads with a `**PENDING.**` status banner:
+
+```solidity
+/// @title <ContractName>
+/// @notice **PENDING.** <one-liner explaining what state the bundle changes>.
+/// @dev Two entrypoints:
+/// - `run()`: dry-run + emit Safe Tx Builder JSON + log canonical SafeTxHash.
+/// - `verify(string jsonPath)`: re-run pre-flight + assert an existing artifact
+///   matches what the live pre-flight would emit.
+```
+
+### 3. Implement `run()`
+
+Follow the shape above. Specifically:
+
+1. **Pre-flight.** Call the broadest no-arg `assertAll` that covers the state
+   the bundle touches. For Safe-only state changes use
+   `LibSafeInvariants.assertAll(safe)`. For state changes that also depend on
+   the receipt vaults (e.g. confirming uniform ownership) use
+   `LibInvariants.assertAll(safe)`. Authoriser-touching scripts add
+   `LibAuthoriserInvariants.assertAll(IAccessControl(authoriser))`.
+
+2. **Build the inner-tx data.** Encode the inner call via
+   `abi.encodeCall(IInterface.fn, args)` — avoid raw `abi.encodeWithSignature`
+   so the type system catches signature drift.
+
+3. **Compute the canonical SafeTxHash.**
+   `LibSafeOps.computeSafeTxHashViaSafe(safe, txn, safe.nonce())`. The hash is
+   what signers see in the Safe UI.
+
+4. **Simulate the inner call.** `LibSafeOps.simulateSelfCall(safe, txn.data)`
+   `vm.prank(safe)`s the Safe and calls into itself, mutating the fork's state
+   to the post-execution Safe state. This is what makes the post-state assertion
+   meaningful.
+
+5. **Re-assert post-state.** Use the full-args `assertAll` overload. Override
+   only the value the bundle deliberately changes; pull every other expected
+   value from the lib's pinned current-truth.
+
+6. **Emit Tx Builder JSON.**
+   `LibSafeOps.emitTxBuilderJson(safeAddr, chainId, bundleName, txs)`. Write the
+   JSON to `out/<descriptive-name>.json` with `vm.writeFile`. The path goes into
+   `foundry.toml`'s `fs_permissions` list if it isn't already covered.
+
+7. **Log the SafeTxHash + nonce** between explicit
+   `==== TX BUILDER JSON BEGIN ====` / `==== TX BUILDER JSON END ====` markers
+   so CI logs are greppable.
+
+8. **n+1 reversibility check** (where applicable). For threshold / ownership /
+   authoriser changes, prove the new state is not a dead end by simulating the
+   inverse tx and asserting it succeeds. See `LibSafeOps.simulateNPlus1Reversal`
+   for the canonical helper.
+
+### 4. Implement `verify(string memory jsonPath)`
+
+Mirrors `run()`'s pre-flight, parses the existing JSON via
+`LibSafeOps.parseTxBuilderJson(jsonPath)`, asserts every field matches what the
+live pre-flight would emit. Used by signers and auditors to re-derive the bundle
+hash post-execution. Typed `VerifyMismatch(string field)` on first divergence.
+
+### 5. Write tests
+
+`test/script/YYYYMMDD-<kebab-name>.t.sol` — same file naming convention. Use
+`vm.createSelectFork(LibRainDeploy.BASE)` against an unpinned head fork (live
+drift detector). Required test cases:
+
+- **`testRunCompletesAndWritesArtifact`** — happy path. Asserts the artifact is
+  written, has the expected `meta.name`, and exactly the expected number of txs.
+
+- **`testVerifyAcceptsRunArtifact`** — round-trip property. `run()` emits →
+  `revertToState` snapshot back to pre-run → `verify()` against the artifact
+  succeeds silently.
+
+- **Inverted: every invariant the script asserts.** For each typed error the
+  pre-flight can raise (Safe codehash, owner set, threshold, vault ownership,
+  etc.), write an inverted test that mocks the live state to trip that specific
+  error. Pattern:
+
+  ```solidity
+  function testRunRejectsThresholdDrift() external {
+      selectBaseFork();
+      vm.mockCall(address(safe), abi.encodeWithSelector(IGnosisSafe.getThreshold.selector), abi.encode(uint256(7)));
+      vm.expectRevert(abi.encodeWithSelector(
+          SafeThresholdMismatch.selector, address(safe), uint256(1), uint256(7)
+      ));
+      script.run();
+  }
+  ```
+
+- **Inverted: `verify` rejects forged artifacts.** For each field the artifact
+  pins (chainId, safeAddress, tx data, tx count), write an inverted test that
+  forges a JSON with that field perturbed and asserts the matching
+  `VerifyMismatch` typed error.
+
+- **The migration-window pin for whatever the script mutates.** Every value the
+  script transitions from `pre` to `post` gets a live-fork `assertMigration`
+  invariant — in the same PR — with its deadline. See § "Migration-window
+  invariants". This is what lets the PR merge before the script has run on-chain
+  without leaving the transition unwatched.
+
+The test suite is the script's safety net: if a new invariant lands in a domain
+lib later, the script picks it up automatically (because it calls the
+orchestrator), and the new inverted test in the lib's test suite covers it.
+Don't duplicate domain-lib tests in the script's test suite — only test the
+script's own bundle-emitting + assertion logic.
+
+### 6. Register the script in the workflow dropdown
+
+Edit `.github/workflows/run-script.yaml`. Append your script's date-prefixed
+name (without extension) to the `inputs.script.options` list, **at the bottom**:
+
+```yaml
+options:
+  # Append-only registry. Re-dispatching a historical script must remain
+  # possible — never reorder or delete entries.
+  - 20260619-migrate-multisig-threshold
+  - 20260619-deploy-v4-authoriser-clone
+  - 20260720-rotate-corp-action-grantees # <-- new entry here
+```
+
+The dropdown is **append-only**. Re-running a historical script (e.g. to
+retrospectively re-derive its bundle for audit) must remain possible, so entries
+are never reordered or deleted even after the script has executed.
+
+### 7. Open the PR
+
+Open the PR like any other change. CI runs `forge build`, `forge fmt
+--check`,
+`slither`, `rainix-sol-single-contract`, the full test suite (including your
+inverted tests), and a separate **`build-artifact` workflow** that dispatches
+your script's `run()` against the Base head fork and uploads `out/*.json` so
+reviewers can download the bundle directly from the run.
+
+If your script's pre-flight depends on a state that hasn't happened yet (e.g. a
+clone address that will only be hydrated post-deployment), the forcing-function
+pattern is deliberate — the test trips a typed error and stays red on CI until
+the upstream literal is filled in. Mention this explicitly in the PR description
+so reviewers know the red CI is load-bearing.
+
+---
+
+## Naming
+
+- **File**: `script/YYYYMMDD-<kebab-name>.s.sol`. The date is the day the script
+  is added to the dropdown. Chronological order drops out from `ls script/`.
+- **Test file**: `test/script/YYYYMMDD-<kebab-name>.t.sol`. Mirrors the script.
+- **Contract**: `contract <PascalName>` inside the script. The contract name is
+  NOT date-prefixed — the file name carries the date.
+- **Bundle name** (`meta.name` in the Tx Builder JSON): a human-readable string
+  visible to signers in the Safe UI. Convention: `"ST0x <subsystem> - <action>"`
+  (e.g. `"ST0x Safe threshold 1->3 (post-rotation roster)"`,
+  `"ST0x V4 authoriser - deploy clone"`).
+- **Artifact path**: `out/<descriptive-name>.json`. Listed in `foundry.toml`
+  `fs_permissions` (the `out/` entry is repo-wide read-write, so no per-script
+  changes needed).
+
+---
+
+## Status lifecycle in NatSpec
+
+The script's file-level NatSpec leads with a status banner that reflects whether
+the bundle has been executed:
+
+```solidity
+// Before execution:
+/// @notice **PENDING.** <…>
+
+// After execution:
+/// @notice **EXECUTED YYYY-MM-DD.** The bundle was signed by the
+/// post-rotation roster and landed on Base at nonce N with `SafeTxHash`
+/// `0x…`. Retained verbatim for retrospective re-verification.
+```
+
+The status banner update lands in the post-execution pin PR (see below). The
+script itself is not moved — it stays at its original path forever.
+
+---
+
+## Migration-window invariants — the default for state-changing scripts
+
+**Principle: a state-changing script and the invariant that watches its
+transition merge together, up-front, in the same stack.** Post-execution PRs
+exist only for values that are genuinely unknowable before the script runs
+on-chain (e.g. a non-deterministic clone address) — and those PRs must be
+reduced to the smallest possible diff, usually one line.
+
+The old flow deferred a "post-execution pin PR" after every script run: bump the
+lib constant to the new state, re-green the tests, update banners. That
+serialised every migration behind operational execution, left draft PRs idling
+for weeks, and created windows where no invariant watched the transitioning
+value at all. `LibMigrationInvariant` replaces it.
+
+### The pattern
+
+For a value the script deliberately mutates from `pre` to `post`,
+`assertMigration` accepts either state up until an operator-SLA `deadline`, then
+enforces `post` only:
+
+```solidity
+LibMigrationInvariant.assertMigration(
+    "STOX_RECEIPT_VAULT_BEACON_V1.owner()",   // label (surfaced in revert data)
+    Ownable(beacon).owner(),                   // live-chain read
+    LibProdDeployV1.BEACON_INITIAL_OWNER,      // pre  — script has not run yet
+    LibSafeInvariants.STOX_TOKEN_OWNER_SAFE,   // post — script has run
+    1_788_220_800                              // deadline — unix ts, 2026-09-01 UTC
+);
+```
+
+- **Before `deadline`**: `actual == pre` OR `actual == post` passes; any other
+  value trips `MigrationStateDrift`. Both sides of the transition are covered by
+  cron, so drift into a third value surfaces immediately.
+- **At/after `deadline`**: only `actual == post` passes; anything else trips
+  `MigrationDeadlinePassed`. If the script has not landed on-chain by then, cron
+  red-lines and forces the operator to make an explicit choice: **run the
+  script**, **extend the deadline**, or **delete the invariant** (accepting
+  `pre` as the new canonical if the migration is being abandoned).
+
+This lets the invariant merge **alongside** the script — the migration itself is
+covered by cron enforcement even while pending, rather than being invisible to
+CI until a follow-up pin lands. It also gives the operational SLA teeth: a
+script left un-run isn't just a stale PR, it's a red cron.
+
+Overloads on `assertMigration` cover `bytes32`, `address`, and `uint256`
+directly so the caller does not have to hand-cast.
+
+The `label` string is echoed verbatim in every revert. Pick something that
+identifies the exact slot being asserted — a good format is
+`"<ContractOrConstant>.<selector>()"` (e.g.
+`"STOX_RECEIPT_VAULT_BEACON_V1.owner()"`) so a failing check tells you both what
+value drifted and which one it was.
+
+### Where the window lives
+
+Put the migration acceptance in the **orchestrated invariant path**, not only in
+a standalone test. The V4 authoriser swap is the template: the authoriser leg of
+`LibInvariants.assertAll` calls
+`LibTokenInvariants.assertUniformAuthoriserMigration(V3, V4 clone,
+LibProdDeployV4.V4_SWAP_DEADLINE)`,
+so **every** consumer — cron fork tests, every script's pre-flight — rides
+through the swap with zero post-execution code change, and the "old" lib
+constant is never repointed. The old constant stays as the historical pin for
+properties of the old contract that remain true after the migration (the swap
+revokes nothing on the old clone, so its impl + grant checks keep passing
+forever).
+
+A script's **own post-state** assertion is the exception: after simulating its
+change it asserts the strict `post` value directly (not the window) — that's the
+deliberate outcome of the run, so `pre` is not acceptable there regardless of
+the deadline.
+
+### Pin everything derivable at author time — target: zero PRs in any runbook
+
+The end-state this repo is converging on: **a runbook contains no PRs at all** —
+only workflow dispatches and signatures. Every script PR merges carrying its own
+pins, its own migration-window tests, and its own deadlines; reviewing the PR is
+reviewing the complete lifecycle of the change, and operations is pure
+execution.
+
+Getting there means every placeholder must answer: "can this literal be computed
+from something already pinned?" If yes, pin it now. The V4 clone's _codehash_ is
+deterministic before the deploy (EIP-1167 runtime with the pinned impl embedded)
+so it is hydrated at author time with a test re-deriving it from the impl pin.
+The clone's _address_ is the one remaining exception — Rain's `CloneFactory`
+uses non-deterministic `Clones.clone`, so a one-line address-pin PR survives in
+the V4 runbook. Once deterministic (salted `cloneDeterministic`) clone deploys
+land, that exception disappears: the address becomes derivable at author time
+like everything else, and no future runbook should contain a PR.
+
+**Picking the deadline.** Rule of thumb: the operator SLA on running the script,
+floored by a comfortable buffer for review + scheduling — for the beacon-owner
+migration a 6-8 week window from PR merge is typical. If the window is consumed
+by the orchestrator (`LibInvariants`), the deadline lives next to the deploy
+pins it spans (e.g. `LibProdDeployV4.V4_SWAP_DEADLINE`); a window consumed by a
+single test file keeps its deadline as a `uint256 constant` in that file. Either
+way there is exactly one declaration per migration.
+
+**Removing the invariant after the migration lands.** Optional, never a task of
+its own. After the deadline passes the window enforces post-state-only forever,
+which is behaviourally identical to a collapsed plain-equality check — collapse
+it whenever the file is next touched:
+
+1. **Collapse into the standard pin.** Delete the `assertMigration` call; the
+   lib constant + whatever `assertBeaconInvariants` / `assertAll` bundle already
+   covers that slot enforces `post` from then on.
+2. **Leave it as `pre == post`.** If you want the file to keep documenting the
+   migration history, replace `pre` with `post` — the check becomes a plain
+   equality and the deadline branch is dead code, but the file still records
+   what changed.
+
+Prefer option 1 unless the historical note is genuinely useful; less code is
+better than defensive residue.
+
+---
+
+## Operator runbook: dispatch → sign → execute
+
+This is the canonical step-by-step from the operator's perspective for a
+**Safe-bundle** script (`run-script.yaml`): everything from clicking "Run
+workflow" through on-chain execution. CI-broadcast scripts
+(`manual-broadcast.yaml`) need only step 1 — the broadcast is the execution, and
+the script's own post-state assertions replace the sign/verify choreography.
+
+### 1. Dispatch the workflow
+
+GitHub UI → **Actions** tab → **run-script** workflow (left sidebar) → **Run
+workflow** button (top right of the workflow runs list).
+
+The dispatch form has two inputs:
+
+- **`script`** — dropdown of every registered operational script. Pick the
+  date-prefixed name of the script you want to dispatch (e.g.
+  `20260623-upgrade-receipt-vaults-to-v4`).
+- **`sig`** — dropdown of the entrypoint to call. Defaults to `run()`.
+
+Click **Run workflow**. The runner takes ~5 min: nix install, soldeer install,
+`forge script script/<name>.s.sol --sig '<sig>' --rpc-url base
+--no-storage-caching`,
+upload artifact.
+
+> **Two dispatchers.** `run-script.yaml` (this flow) is for scripts that emit a
+> Safe Tx Builder bundle for the multisig to sign — it never broadcasts.
+> `manual-broadcast.yaml` is for scripts that broadcast directly from the CI
+> deploy key (`secrets.PRIVATE_KEY`, the same key as the impl deploys) — one
+> dispatch, no Safe ceremony, `--broadcast --slow`. Prefer a CI broadcast
+> whenever the action can be performed by a fresh key and handed over at the end
+> (deploy + configure + grant-to-Safe + renounce, with hard post-state
+> assertions); reserve Safe bundles for actions only the Safe can perform —
+> owner-gated calls on contracts the Safe already owns. The V4 authoriser clone
+> deploy is the template for the former; the V4 upgrade + swap bundle for the
+> latter.
+
+### 2. Download the Tx Builder JSON artifact
+
+Once the workflow turns green, open the run → **Summary** tab → scroll to the
+**Artifacts** section at the bottom → download `<script>-<sig>-out.zip` (e.g.
+`20260619-deploy-v4-authoriser-clone-run()-out.zip`).
+
+Unzip → you have a single `.json` file (the Safe Tx Builder bundle).
+
+### 3. Capture the canonical SafeTxHash from the workflow log
+
+In the same workflow run, open the **Jobs** tab → **run** job → **Run script**
+step. Scroll to find the block:
+
+```
+==== TX BUILDER JSON BEGIN ====
+{"version":"1.0","chainId":"8453",…}
+==== TX BUILDER JSON END ====
+SafeTxHash: 0x…
+Nonce: …
+```
+
+Copy the `SafeTxHash` value to a scratch note — you'll cross-check it in the
+Safe UI in the next step. If the script also prints a `PredictedClone:
+0x…` line
+(or any other script-specific predicted value), copy that too.
+
+### 4. Upload the JSON to Safe Tx Builder
+
+Open the [Safe UI](https://app.safe.global) → switch to the ST0x token-owner
+Safe (Base chain) → left sidebar **Apps** → **Tx Builder** (by Safe). Drop the
+downloaded JSON into the upload zone.
+
+The UI parses the bundle and displays each tx in the batch (target address,
+value, calldata, decoded function call). Eyeball-verify the displayed targets
+match your expectations.
+
+### 5. Verify the SafeTxHash matches — abort if it doesn't
+
+Click **Send Batch** → the UI displays the canonical `SafeTxHash` it would sign
+at the **current Safe nonce**. **Cross-check this against the value from step 3
+byte-for-byte.**
+
+If the values match: continue.
+
+If they don't: another Safe tx must have executed between authoring and this
+dispatch, advancing the nonce. **Stop, abort the Safe UI flow.** Re-dispatch the
+workflow (step 1) to refresh the artifact at the new nonce, and start over from
+step 2. Do **not** sign anything until the hashes match.
+
+### 6. Three signers sign (3-of-6)
+
+Each signer (3 of the 6) does the following independently:
+
+1. Open the Safe UI, switch to the ST0x Safe.
+2. **Transactions** tab → **Queued** sub-tab → find the queued tx (it appears
+   here after the first signer initiates Send Batch in step 5).
+3. Click the tx → review the calldata + SafeTxHash shown on screen.
+4. Connect their hardware wallet → click **Confirm**.
+5. The hardware wallet displays the calldata + the canonical SafeTxHash on its
+   own screen. **Verify the on-device SafeTxHash matches the workflow log value
+   from step 3.** The on-device hash is the authoritative artifact the key
+   signs; the Safe UI is helpful but not security-load-bearing.
+6. Approve on-device.
+
+Repeat across three signers. The Safe UI's tx page shows a running count of
+collected signatures.
+
+### 7. Execute
+
+Once 3 signatures are collected, the **Execute** button activates in the Safe
+UI. Any signer (or any EOA — the gas payer doesn't need to be a signer) clicks
+**Execute** and broadcasts the tx. Watch for the **Successful** state and
+capture the on-chain tx hash.
+
+### 8. Capture the on-chain artifacts
+
+From the executed tx's receipt (Basescan or your wallet's tx detail):
+
+- The **on-chain SafeTxHash** (emitted in the Safe's `ExecutionSuccess` event).
+  Used to retroactively prove which bundle landed.
+- Any **deployed contract addresses** the bundle produced. For EIP-1167
+  `CloneFactory.clone(impl, initData)` bundles, read the
+  `NewClone(sender, implementation, child)` event — `child` is the new clone
+  address. For Zoltu deploys, the address is in the `ContractCreation` event.
+- The new **on-chain nonce** of the Safe (for cross-reference if you'll
+  immediately author another bundle).
+
+### 9. Post-execution pin PR — legacy escape hatch, target zero
+
+Under the migration-window pattern there is normally **nothing to do here**: the
+invariants that span the transition merged with the script, the deadline
+enforces the post-state, and no lib constant needs repointing. See § "Pin
+everything derivable at author time" — the goal is that no runbook contains a PR
+at all.
+
+The escape hatch survives only for a value that was genuinely unknowable at
+author time (today: a non-deterministic clone address; none once deterministic
+clone deploys land). For that case:
+
+1. **One-line lib edit.** Replace the `address(0)` placeholder with the literal
+   captured in step 8. Nothing else — the codehash and every other derivable pin
+   were hydrated at author time.
+2. **Review the diff against on-chain.** The literal MUST match the value
+   captured in step 8. Cross-check via `cast call` /
+   `cast keccak $(cast code <addr>)`.
+3. **Merge.** Any dispatch-time forcing functions keyed on the pin (e.g.
+   `V4AuthoriserCloneNotPinned`) clear, unblocking the next operational step.
+
+NatSpec status banners (`**PENDING.**` → `**EXECUTED YYYY-MM-DD.**`) are
+documentation, not enforcement — batch them into whatever PR next touches the
+file rather than opening one for the purpose.
+
+---
+
+## V4 upgrade runbook
+
+See [`V4_UPGRADE_RUNBOOK.md`](V4_UPGRADE_RUNBOOK.md) — the V4-specific operator
+runbook lives in its own file. Five steps, one Safe ceremony:
+
+1. Merge the migration stack (invariants merge alongside the scripts).
+2. Migrate beacon ownership to the Safe (rainlang.eth EOA broadcast).
+3. Deploy + wire the V4 authoriser clone (one `manual-broadcast` dispatch).
+4. Pin the clone address (one-line PR).
+5. Execute the V4 upgrade bundle (`run-script` → 3-of-6 sign → execute).
+
+Future workstreams (a new threshold migration, a fresh issuer rotation, an
+authoriser re-clone) get their own `<TOPIC>_RUNBOOK.md` siblings; this main doc
+stays scoped to the cross-cutting mechanics.
+
+---
+
+## Re-verification (auditors / signers later)
+
+Any signer or auditor can re-derive any historical bundle's SafeTxHash by
+re-running its script against current chain state:
+
+```shell
+BASE_RPC_URL=https://base-rpc.publicnode.com \
+  forge script script/<YYYYMMDD-name>.s.sol \
+  --rpc-url base \
+  --sig 'verify(string)' \
+  out/<descriptive-name>.json
+```
+
+A silent exit means the artifact matches what the current pre-flight would emit.
+A typed `VerifyMismatch(string field)` revert pinpoints the first field that
+drifted.
+
+**Why this works after the bundle has executed**: the pre-flight in `verify()`
+runs against current live state. If the lib's pinned constants reflect the
+post-execution state (i.e. the post-execution pin PR has merged), then the
+pre-flight passes, the parsed artifact's `SafeTxHash` still matches what the
+live pre-flight would emit, and `verify()` succeeds. The historical bundle stays
+re-verifiable as long as the libs and the script are preserved.
+
+---
+
+## Forcing-function pattern
+
+Two kinds of forcing function, applied at different layers:
+
+**Dispatch-time (runtime) forcing functions** — a script's pre-flight reverts
+with a typed error until a sibling state change has settled, so the bundle
+**cannot** be authored against wrong state no matter who dispatches the
+workflow. Examples:
+
+- The V4 upgrade script trips `V4AuthoriserCloneNotPinned` until the
+  clone-address pin has merged — the "pin before modify" gate that stops the
+  swap bundle being routed at an arbitrary address.
+- Any script trips `CloneFactoryNotDeployed` if the canonical CloneFactory at
+  `0x444acC…dCb39` lacks code on the active fork (e.g. a fresh testnet).
+
+These gate **operations**, not merges: a PR whose script would currently revert
+at dispatch is still mergeable if its tests are green.
+
+**Deadline (cron) forcing functions** — the migration-window pattern. An
+operational step left un-run past its `deadline` turns cron red via
+`MigrationDeadlinePassed`, forcing an explicit choice: run it, extend the
+deadline, or delete the invariant. This replaced the older "placeholder-posture
+guard" style (tests asserting a constant is still `address(0)`, going red the
+moment it hydrates) — those made red CI load-bearing and blocked merges on
+operational sequencing, which is exactly what the migration window avoids. Don't
+add new placeholder-posture guards; give the transition a window and a deadline
+instead.
+
+---
+
+## Tx Builder caveats
+
+- **Bundles can't reference earlier txs' outputs.** A Safe Tx Builder bundle is
+  a static array of `(to, value, data, operation)` quadruples; there's no
+  facility to use the return value or emitted event of tx N in tx N+1. If a
+  script's intent requires this (e.g. deploy a clone via `CloneFactory.clone()`
+  then grant roles on the new clone), that's a strong signal the action belongs
+  in a **CI broadcast** (`manual-broadcast.yaml`), not a Safe bundle — a
+  broadcast script chains dependent txs naturally and hands ownership to the
+  Safe at the end. The V4 authoriser clone deploy
+  (`20260619-deploy-v4-authoriser-clone.s.sol`) started life as two Safe bundles
+  for exactly this reason and collapsed into one broadcast.
+
+- **The Safe nonce is captured at authoring time.** If another bundle executes
+  between authoring and signing, the captured nonce is stale and the SafeTxHash
+  will mismatch when signers verify in the UI. Re-run the workflow to surface
+  the fresh hash.
+
+- **`delegatecall` operations (operation = 1) require explicit signer
+  awareness.** ST0x scripts default to `operation: 0` (standard call). Any
+  script that needs `delegatecall` must clearly document why in the script
+  NatSpec + PR description, and signers must double-check the target is one of
+  the expected delegate targets (MultiSendCallOnly, etc.).
+
+---
+
+## When to write a script vs. a manual Safe UI tx
+
+Before choosing the Safe at all, ask whether the Safe is needed: **if the action
+can be performed by a fresh key and handed over at the end** (deploy +
+configure + grant-to-Safe + renounce, with post-state assertions proving the key
+retains nothing), it's a CI broadcast via `manual-broadcast.yaml` — no ceremony.
+Safe bundles are for actions only the Safe can perform: owner-gated calls on
+contracts the Safe already owns.
+
+Use a script when:
+
+- The action depends on invariants that the script can pre-flight against (any
+  cross-cutting state — vault ownership, beacon impl, authoriser grants, etc.).
+- The bundle has more than one inner tx and you want atomic authoring.
+- The action will be re-derivable for audit later (most production state changes
+  qualify).
+- The action is non-trivial calldata that benefits from type-checked encoding
+  (`abi.encodeCall(IInterface.fn, args)` over hand-encoded hex).
+
+A manual Safe UI tx is fine when:
+
+- The action is a single one-off with no invariant dependencies (e.g. adding a
+  new signer to the Safe under a 1-of-N threshold).
+- The calldata is trivially auditable by a signer reading the UI.
+- No future audit / re-verification will need the bundle.
+
+When in doubt, write a script. The cost is ~half a day of authoring and one PR
+review; the benefit is the bundle stays auditable and re-verifiable forever.
