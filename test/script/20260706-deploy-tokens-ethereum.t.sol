@@ -37,7 +37,7 @@ contract DeployTokensEthereumTest is Test {
     /// The hydrated clone pin matches LIVE Ethereum: the V4 authoriser
     /// clone (deployed 2026-07-22) is at the pinned address with the shared
     /// EIP-1167 codehash and carries the full grant map parameterised on
-    /// ETHEREUM's Safe. With this green the script's `_assertCloneReady` +
+    /// ETHEREUM's Safe. With this green the script's `_assertAuthoriserReady` +
     /// grant expectations are proven against real chain state on every CI
     /// run. `run()` itself is not driven here: under `forge test`,
     /// `vm.startBroadcast` cannot emulate the broadcast sender the way

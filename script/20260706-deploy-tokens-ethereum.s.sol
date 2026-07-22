@@ -36,11 +36,11 @@ interface ISetAuthorizer {
 /// @param deployer The pinned deployer address that is missing.
 error DeployerNotDeployed(address deployer);
 
-/// @notice Pre-flight failed: the pinned Ethereum V4 authoriser clone is
-/// still `address(0)` / has no code / has the wrong codehash. A token cannot
-/// be wired onto a clone that isn't the pinned, deployed one.
-/// @param clone The clone address inspected.
-error EthereumCloneNotReady(address clone);
+/// @notice Pre-flight failed: the pinned Ethereum V4 authoriser is still
+/// `address(0)` / has no code / has the wrong codehash. A token cannot be
+/// wired onto an authoriser that isn't the pinned, deployed one.
+/// @param authoriser The authoriser address inspected.
+error EthereumAuthoriserNotReady(address authoriser);
 
 /// @notice Pre-flight failed: the active chain's resolved token-owner Safe is
 /// not the pinned ETHEREUM Safe. Either the script was dispatched against a
@@ -53,11 +53,11 @@ error EthereumSafeNotReady(address safe);
 /// @title DeployTokensEthereum
 /// @notice **PENDING.** Deploys the full ST0x production token set on Ethereum
 /// mainnet, matched to Base, wires each vault onto the V4 authoriser
-/// clone, and hands ownership to the token-owner Safe — all in a single
+/// authoriser, and hands ownership to the token-owner Safe — all in a single
 /// deploy-key broadcast, no Safe signature. Flips to `**EXECUTED YYYY-MM-DD.**`
 /// in the post-execution pin PR.
 /// @dev Single operation (`run()`), broadcast from the CI deploy key via
-/// `manual-broadcast.yaml`. Mirrors the authoriser-clone deploy pattern: the
+/// `manual-broadcast.yaml`. Mirrors the authoriser deploy pattern (20260619): the
 /// deploy key deploys, configures, then self-relinquishes — the Safe signs
 /// nothing. Per token, in order:
 ///
@@ -67,7 +67,7 @@ error EthereumSafeNotReady(address safe);
 ///      (ERC-1155) + receipt vault + wrapped vault beacon-proxy triple; the
 ///      deploy key owns the receipt vault at this point. (The receipt and the
 ///      wrapped vault have no owner.)
-///   2. `setAuthorizer(clone)` on the receipt vault — allowed because the
+///   2. `setAuthorizer(authoriser)` on the receipt vault — allowed because the
 ///      deploy key is (transiently) the owner. Until this lands a fresh vault
 ///      is self-authorised and every op reverts, exactly as on Base.
 ///   3. `transferOwnership(safe)` on the receipt vault — single-step OZ
@@ -79,12 +79,12 @@ error EthereumSafeNotReady(address safe);
 /// deployed `(underlying, receipt, receiptVault, wrapped)` for the
 /// post-execution pin PR to hydrate
 /// `LibTokenInvariants.productionTokensEthereum()`. Pre-flight
-/// requires the clone (step 2 target) and the Safe (step 3 target) both live,
-/// so the ordering — Safe out-of-band, then clone, then tokens — is enforced.
+/// requires the authoriser (step 2 target) and the Safe (step 3 target) both live,
+/// so the ordering — Safe out-of-band, then authoriser, then tokens — is enforced.
 ///
 /// After execution the cross-chain parity pin (`StoxCrossChainParity.t.sol`)
 /// is the acceptance test: name/symbol equal to the canonical config
-/// per underlying, uniform authoriser (this clone) and owner (this Safe).
+/// per underlying, uniform authoriser (this V4 authoriser) and owner (this Safe).
 contract DeployTokensEthereum is Script {
     /// @notice Assert a deployer contract is present at its pinned address.
     /// @param deployer The pinned deployer address.
@@ -106,21 +106,22 @@ contract DeployTokensEthereum is Script {
         }
     }
 
-    /// @notice Assert the Ethereum V4 authoriser clone is deployed at its pin
-    /// with the shared EIP-1167 codehash.
-    /// @return clone The validated clone address.
-    function _assertCloneReady() internal view returns (address clone) {
-        clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
+    /// @notice Assert the Ethereum V4 authoriser is deployed at its pin with
+    /// the shared EIP-1167 codehash (the authoriser is deployed as a clone of
+    /// the deterministic V4 impl, hence the `_CLONE` pin names).
+    /// @return authoriser The validated authoriser address.
+    function _assertAuthoriserReady() internal view returns (address authoriser) {
+        authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
         if (
-            clone == address(0) || clone.code.length == 0
-                || clone.codehash != LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH
+            authoriser == address(0) || authoriser.code.length == 0
+                || authoriser.codehash != LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH
         ) {
-            revert EthereumCloneNotReady(clone);
+            revert EthereumAuthoriserNotReady(authoriser);
         }
     }
 
     /// @notice Deploy every production token on the active chain via the
-    /// unified deployer, wire each onto the V4 authoriser clone, and hand
+    /// unified deployer, wire each onto the V4 authoriser, and hand
     /// ownership to the Safe — one deploy-key broadcast, matched to Base.
     /// Broadcasts as the key `manual-broadcast.yaml` supplies via
     /// `--private-key` (the same CI deploy key every operational broadcast
@@ -147,10 +148,10 @@ contract DeployTokensEthereum is Script {
         // per-chain prod pin (`StoxProdV4`) runs on every CI commit.
         LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
 
-        // The clone (setAuthorizer target) and the Safe (ownership-handoff
-        // target) must both be live before we deploy, since each token is fully
-        // wired in this same broadcast.
-        address clone = _assertCloneReady();
+        // The authoriser (setAuthorizer target) and the Safe (ownership-
+        // handoff target) must both be live before we deploy, since each
+        // token is fully wired in this same broadcast.
+        address authoriser = _assertAuthoriserReady();
         address safe = _assertSafeReady();
 
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
@@ -169,7 +170,7 @@ contract DeployTokensEthereum is Script {
         console2.log("Deploying", configs.length, "tokens on chain id", block.chainid);
         console2.log("initialAdmin (deploy key, handed to Safe):", deployer);
         console2.log("token-owner Safe:", safe);
-        console2.log("V4 authoriser clone:", clone);
+        console2.log("V4 authoriser:", authoriser);
 
         for (uint256 i = 0; i < configs.length; i++) {
             TokenConfig memory cfg = configs[i];
@@ -202,12 +203,12 @@ contract DeployTokensEthereum is Script {
             // it back off the vault for the pin PR to hydrate.
             address receipt = address(IReceiptVaultV3(payable(receiptVault)).receipt());
 
-            // Wire onto the clone (deploy key is still owner), then relinquish
+            // Wire onto the authoriser (deploy key is still owner), then relinquish
             // ownership to the Safe. Order matters: `setAuthorizer` is
             // `onlyOwner`, so it must precede the handoff. Only the receipt
             // vault is ownable — the receipt and wrapped vault have no owner,
             // so nothing to hand off for those.
-            ISetAuthorizer(receiptVault).setAuthorizer(IAuthorizeV1(clone));
+            ISetAuthorizer(receiptVault).setAuthorizer(IAuthorizeV1(authoriser));
             Ownable(receiptVault).transferOwnership(safe);
 
             console2.log("==== TOKEN DEPLOYED ====");
