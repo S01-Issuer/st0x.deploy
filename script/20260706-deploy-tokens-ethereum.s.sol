@@ -9,6 +9,9 @@ import {
     OffchainAssetReceiptVaultConfigV2
 } from "rain-vats-0.1.6/src/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
 import {ReceiptVaultConfigV2} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
+import {IReceiptVaultV3} from "rain-vats-0.1.6/src/interface/IReceiptVaultV3.sol";
+import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
+import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {IStoxUnifiedDeployerV1} from "../src/interface/IStoxUnifiedDeployerV1.sol";
@@ -16,16 +19,15 @@ import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibProdTokenConfig, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 
-/// @notice The receipt vault surface this script drives from the deploy key
-/// while it is (transiently) the vault owner: point the vault at the V4
-/// authoriser clone, hand ownership to the Safe, and read the vault's ERC-1155
-/// receipt (which the unified deployer's `Deployment` event does not surface,
-/// so it is read back here for the pin). Encoded via the interface so the
-/// calldata is the canonical selector.
-interface IReceiptVaultAdmin {
-    function setAuthorizer(address newAuthorizer) external;
-    function transferOwnership(address newOwner) external;
-    function receipt() external view returns (address);
+/// @dev Local mirror of the receipt-vault `setAuthorizer(IAuthorizeV1)`
+/// owner-gated selector. rain-vats ships no interface carrying it (it lives
+/// only on the concrete `OffchainAssetReceiptVault`), and importing the
+/// concrete would drag its full storage inheritance into this script just to
+/// encode one selector — the same trade the 20260623 swap script makes. The
+/// vault's other two admin surfaces come from canonical homes: `receipt()`
+/// via rain-vats `IReceiptVaultV3`, `transferOwnership` via OZ `Ownable`.
+interface ISetAuthorizer {
+    function setAuthorizer(IAuthorizeV1 newAuthorizer) external;
 }
 
 /// @notice Pre-flight failed: a required deployer contract has no runtime
@@ -198,15 +200,15 @@ contract DeployTokensEthereum is Script {
 
             // The unified deployer's event drops the ERC-1155 receipt, so read
             // it back off the vault for the pin PR to hydrate.
-            address receipt = IReceiptVaultAdmin(receiptVault).receipt();
+            address receipt = address(IReceiptVaultV3(payable(receiptVault)).receipt());
 
             // Wire onto the clone (deploy key is still owner), then relinquish
             // ownership to the Safe. Order matters: `setAuthorizer` is
             // `onlyOwner`, so it must precede the handoff. Only the receipt
             // vault is ownable — the receipt and wrapped vault have no owner,
             // so nothing to hand off for those.
-            IReceiptVaultAdmin(receiptVault).setAuthorizer(clone);
-            IReceiptVaultAdmin(receiptVault).transferOwnership(safe);
+            ISetAuthorizer(receiptVault).setAuthorizer(IAuthorizeV1(clone));
+            Ownable(receiptVault).transferOwnership(safe);
 
             console2.log("==== TOKEN DEPLOYED ====");
             console2.log("underlying:", cfg.underlying);
