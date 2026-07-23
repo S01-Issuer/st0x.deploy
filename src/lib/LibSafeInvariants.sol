@@ -213,6 +213,15 @@ library LibSafeInvariants {
     /// the L1 `Safe` singleton while Base runs the L2 `SafeL2`).
     address internal constant STOX_TOKEN_OWNER_SAFE_ETHEREUM = 0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329;
 
+    /// @notice The ST0x token-owner Safe on **HyperEVM** (chain id 999).
+    ///
+    /// Deliberately the SAME address as Ethereum's Safe: created through the
+    /// canonical Safe proxy factory with the same initializer, so the CREATE2
+    /// address matches across chains. Still a per-chain deployment (its own
+    /// proxy, its own state), asserted against the shared policy by
+    /// `assertTokenOwnerSafePolicy` exactly like every other chain's Safe.
+    address internal constant STOX_TOKEN_OWNER_SAFE_HYPEREVM = 0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329;
+
     /// @notice The current expected threshold for `STOX_TOKEN_OWNER_SAFE`:
     /// 3-of-6 against the post-rotation owner roster. Scripts and the
     /// prod-state invariant pin treat this as the canonical current truth
@@ -476,6 +485,9 @@ library LibSafeInvariants {
         }
         if (chainId == ETHEREUM_CHAIN_ID) {
             return STOX_TOKEN_OWNER_SAFE_ETHEREUM;
+        }
+        if (chainId == HYPEREVM_CHAIN_ID) {
+            return STOX_TOKEN_OWNER_SAFE_HYPEREVM;
         }
         revert UnsupportedChainForTokenOwnerSafe(chainId);
     }
