@@ -10,6 +10,7 @@ import {
 } from "../../script/20260722-deploy-missing-tokens-ethereum.s.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
+import {DeployMissingTokensEthereumHarness} from "./DeployMissingTokensEthereumHarness.sol";
 
 /// @title DeployMissingTokensEthereumTest
 /// @notice Coverage for the gap-filling Ethereum token deploy. The script is
@@ -44,12 +45,5 @@ contract DeployMissingTokensEthereumTest is Test {
             abi.encodeWithSelector(DeployerNotDeployed.selector, LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1)
         );
         script.run();
-    }
-}
-
-/// @dev Exposes the internal selection for the pure selection test.
-contract DeployMissingTokensEthereumHarness is DeployMissingTokensEthereum {
-    function selectMissing() external pure returns (TokenConfig[] memory) {
-        return _selectMissing();
     }
 }

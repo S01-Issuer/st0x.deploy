@@ -18,6 +18,7 @@ import {IStoxUnifiedDeployerV1} from "../src/interface/IStoxUnifiedDeployerV1.so
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibProdTokenConfig, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
+import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 
 /// @dev Local mirror of the receipt-vault `setAuthorizer(IAuthorizeV1)`
 /// owner-gated selector. rain-vats ships no interface carrying it (it lives
@@ -28,6 +29,7 @@ import {LibProdTokenConfig, TokenConfig} from "../src/lib/LibProdTokenConfig.sol
 /// via rain-vats `IReceiptVaultV3`, `transferOwnership` via OZ `Ownable`.
 interface ISetAuthorizer {
     function setAuthorizer(IAuthorizeV1 newAuthorizer) external;
+    function authorizer() external view returns (address);
 }
 
 /// @notice Pre-flight failed: a required deployer contract has no runtime
@@ -41,6 +43,35 @@ error DeployerNotDeployed(address deployer);
 /// wired onto an authoriser that isn't the pinned, deployed one.
 /// @param authoriser The authoriser address inspected.
 error EthereumAuthoriserNotReady(address authoriser);
+
+/// @notice Pre-flight failed: this chain's token table is already hydrated, so
+/// the tokens have been deployed. Re-running would deploy a SECOND full set —
+/// nonce-based clones, so fresh addresses indistinguishable from the real ones
+/// except by deploy order — and hand them to the Safe as though they were
+/// production. Once hydrated, the script is done for that chain.
+/// @param firstPinned The first non-zero address found in the table.
+error EthereumTokensAlreadyDeployed(address firstPinned);
+
+/// @notice The unified deployer emitted no `Deployment` event this iteration,
+/// so there is no address to wire or hand over. Named rather than left to
+/// fault on a zero address, because it happens MID-BROADCAST with earlier
+/// tokens already live.
+/// @param underlying The token whose deployment could not be resolved.
+error DeploymentEventMissing(string underlying);
+
+/// @notice A freshly deployed vault did not end up owned by the Safe. A vault
+/// still owned by the deploy key is a production contract under a CI key.
+/// @param receiptVault The vault whose ownership did not land.
+/// @param expected The Safe ownership should have transferred to.
+/// @param actual The owner actually recorded.
+error OwnershipHandoffFailed(address receiptVault, address expected, address actual);
+
+/// @notice A freshly deployed vault is not wired to the pinned authoriser.
+/// Until it is, every operation on the vault reverts.
+/// @param receiptVault The vault inspected.
+/// @param expected The authoriser it should route to.
+/// @param actual The authoriser actually set.
+error AuthoriserNotWired(address receiptVault, address expected, address actual);
 
 /// @notice Pre-flight failed: the active chain's resolved token-owner Safe is
 /// not the pinned ETHEREUM Safe. Either the script was dispatched against a
@@ -106,6 +137,55 @@ contract DeployTokensEthereum is Script {
         }
     }
 
+    /// @notice Refuse to run once this chain's token table carries any pinned
+    /// address. The table records what a previous run produced, so a hydrated
+    /// entry means the deploy already happened. Without this the only thing
+    /// between a re-dispatch and 28 duplicate production tokens is a human
+    /// reading a dropdown that says outright it lists which scripts exist, not
+    /// which have run.
+    function _assertNotAlreadyDeployed() internal pure {
+        assertTableVirgin(LibTokenInvariants.productionTokensEthereum());
+    }
+
+    /// @notice The run-once check itself, over a supplied table so it can be
+    /// exercised against a HYDRATED one. A guard that can only ever be called
+    /// with the shipped placeholders can be shown not to fire and never shown
+    /// to fire, which is the half that matters.
+    /// @param pinned The token table to inspect.
+    function assertTableVirgin(TokenInstance[] memory pinned) public pure {
+        for (uint256 i = 0; i < pinned.length; i++) {
+            if (pinned[i].receiptVault != address(0)) {
+                revert EthereumTokensAlreadyDeployed(pinned[i].receiptVault);
+            }
+            if (pinned[i].receipt != address(0)) {
+                revert EthereumTokensAlreadyDeployed(pinned[i].receipt);
+            }
+            if (pinned[i].wrappedTokenVault != address(0)) {
+                revert EthereumTokensAlreadyDeployed(pinned[i].wrappedTokenVault);
+            }
+        }
+    }
+
+    /// @notice Read back both writes made to a freshly deployed vault. Each
+    /// token is wired and handed over in the same broadcast, so a silent miss
+    /// leaves a live production vault either inoperable or owned by a CI key —
+    /// and the acceptance test that would catch it does not run until the pin
+    /// PR lands. Public so it can be driven directly: an assertion reachable
+    /// only from inside a broadcast loop cannot be shown to fire.
+    /// @param receiptVault The vault just deployed.
+    /// @param expectedAuthoriser The authoriser it must route to.
+    /// @param expectedSafe The Safe ownership must have landed on.
+    function assertHandoffLanded(address receiptVault, address expectedAuthoriser, address expectedSafe) public view {
+        address wiredAuthoriser = ISetAuthorizer(receiptVault).authorizer();
+        if (wiredAuthoriser != expectedAuthoriser) {
+            revert AuthoriserNotWired(receiptVault, expectedAuthoriser, wiredAuthoriser);
+        }
+        address landedOwner = Ownable(receiptVault).owner();
+        if (landedOwner != expectedSafe) {
+            revert OwnershipHandoffFailed(receiptVault, expectedSafe, landedOwner);
+        }
+    }
+
     /// @notice Assert the Ethereum V4 authoriser is deployed at its pin with
     /// the shared EIP-1167 codehash (the authoriser is deployed as a clone of
     /// the deterministic V4 impl, hence the `_CLONE` pin names).
@@ -136,6 +216,10 @@ contract DeployTokensEthereum is Script {
         // `LibBeaconInvariants`). The current tag's deployer is a different
         // Zoltu address that (a) is not deployed on Ethereum and (b) would
         // wire tokens onto a different, unadopted beacon set even if it were.
+        // Run-once, before anything else: the cheapest gate, and the only one
+        // whose failure mode is duplicate production tokens rather than a revert.
+        _assertNotAlreadyDeployed();
+
         address unifiedDeployer = LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1;
         _assertDeployer(unifiedDeployer);
         _assertDeployer(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1);
@@ -199,6 +283,8 @@ contract DeployTokensEthereum is Script {
                 }
             }
 
+            if (receiptVault == address(0)) revert DeploymentEventMissing(cfg.underlying);
+
             // The unified deployer's event drops the ERC-1155 receipt, so read
             // it back off the vault for the pin PR to hydrate.
             address receipt = address(IReceiptVaultV3(payable(receiptVault)).receipt());
@@ -210,6 +296,7 @@ contract DeployTokensEthereum is Script {
             // so nothing to hand off for those.
             ISetAuthorizer(receiptVault).setAuthorizer(IAuthorizeV1(authoriser));
             Ownable(receiptVault).transferOwnership(safe);
+            assertHandoffLanded(receiptVault, authoriser, safe);
 
             console2.log("==== TOKEN DEPLOYED ====");
             console2.log("underlying:", cfg.underlying);

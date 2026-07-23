@@ -3,7 +3,15 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {DeployTokensEthereum, DeployerNotDeployed} from "../../script/20260706-deploy-tokens-ethereum.s.sol";
+import {
+    DeployTokensEthereum,
+    DeployerNotDeployed,
+    EthereumTokensAlreadyDeployed,
+    AuthoriserNotWired,
+    OwnershipHandoffFailed
+} from "../../script/20260706-deploy-tokens-ethereum.s.sol";
+import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
+import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
@@ -32,6 +40,83 @@ contract DeployTokensEthereumTest is Test {
             abi.encodeWithSelector(DeployerNotDeployed.selector, LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1)
         );
         script.run();
+    }
+
+    /// The guard fires on a hydrated table — the half that matters. A
+    /// re-dispatch after a successful deploy has every dependency satisfied,
+    /// so nothing else would stop it minting a second full production set.
+    function testRunOnceGateFiresOnAHydratedTable() external {
+        DeployTokensEthereum script = new DeployTokensEthereum();
+        TokenInstance[] memory table = LibTokenInvariants.productionTokensEthereum();
+        table[7] = TokenInstance("SPYM", address(0), address(0xBEEF), address(0));
+        vm.expectRevert(abi.encodeWithSelector(EthereumTokensAlreadyDeployed.selector, address(0xBEEF)));
+        script.assertTableVirgin(table);
+    }
+
+    /// Each leg trips it independently. A guard reading only `receiptVault`
+    /// would miss a table hydrated receipt-first — which is what a broadcast
+    /// that failed midway leaves behind.
+    function testRunOnceGateInspectsEveryLeg() external {
+        DeployTokensEthereum script = new DeployTokensEthereum();
+        for (uint256 leg = 0; leg < 3; leg++) {
+            TokenInstance[] memory table = LibTokenInvariants.productionTokensEthereum();
+            address hydrated = address(uint160(0xC0DE + leg));
+            table[27] = TokenInstance(
+                "TTWO",
+                leg == 0 ? hydrated : address(0),
+                leg == 1 ? hydrated : address(0),
+                leg == 2 ? hydrated : address(0)
+            );
+            vm.expectRevert(abi.encodeWithSelector(EthereumTokensAlreadyDeployed.selector, hydrated));
+            script.assertTableVirgin(table);
+        }
+    }
+
+    /// It does NOT fire on the shipped placeholders, or the deploy could never
+    /// run and the two tests above would be vacuous.
+    function testRunOnceGatePassesOnTheShippedTable() external {
+        DeployTokensEthereum script = new DeployTokensEthereum();
+        script.assertTableVirgin(LibTokenInvariants.productionTokensEthereum());
+    }
+
+    /// Ownership that did not land on the Safe is caught: otherwise the
+    /// broadcast finishes "successfully" leaving a production vault owned by
+    /// the CI deploy key.
+    function testHandoffCaughtWhenOwnershipDidNotLand() external {
+        DeployTokensEthereum script = new DeployTokensEthereum();
+        address vault = address(0x1A17);
+        address safe = address(0x5AFE);
+        address auth = address(0xA077);
+        address stray = address(0xDEADBEEF);
+        vm.mockCall(vault, abi.encodeWithSignature("authorizer()"), abi.encode(auth));
+        vm.mockCall(vault, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(stray));
+        vm.expectRevert(abi.encodeWithSelector(OwnershipHandoffFailed.selector, vault, safe, stray));
+        script.assertHandoffLanded(vault, auth, safe);
+    }
+
+    /// A vault left on the wrong authoriser is caught — until setAuthorizer
+    /// lands, every operation on the vault reverts.
+    function testHandoffCaughtWhenAuthoriserNotWired() external {
+        DeployTokensEthereum script = new DeployTokensEthereum();
+        address vault = address(0x1A17);
+        address safe = address(0x5AFE);
+        address auth = address(0xA077);
+        address wrong = address(0xBAD);
+        vm.mockCall(vault, abi.encodeWithSignature("authorizer()"), abi.encode(wrong));
+        vm.mockCall(vault, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(safe));
+        vm.expectRevert(abi.encodeWithSelector(AuthoriserNotWired.selector, vault, auth, wrong));
+        script.assertHandoffLanded(vault, auth, safe);
+    }
+
+    /// Both landed passes, so the two above are not vacuous.
+    function testHandoffPassesWhenBothLanded() external {
+        DeployTokensEthereum script = new DeployTokensEthereum();
+        address vault = address(0x1A17);
+        address safe = address(0x5AFE);
+        address auth = address(0xA077);
+        vm.mockCall(vault, abi.encodeWithSignature("authorizer()"), abi.encode(auth));
+        vm.mockCall(vault, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(safe));
+        script.assertHandoffLanded(vault, auth, safe);
     }
 
     /// The hydrated clone pin matches LIVE Ethereum: the V4 authoriser
