@@ -29,17 +29,31 @@ import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 /// 0.1.1 deployers, in-use beacon ownership, then the clone (setAuthorizer
 /// target), then the Safe (handoff target).
 contract DeployTokensEthereumTest is Test {
-    /// `run()` reverts `DeployerNotDeployed` when the 0.1.1 core has not been
-    /// broadcast to the active chain — the unified deployer's pinned address
-    /// has no code, so no token can be deployed. (No fork: the deployer is
-    /// absent, which is the pre-bootstrap state, and is the first guard in
-    /// the pre-flight chain.)
-    function testRunRevertsWhenCoreNotDeployed() external {
-        DeployTokensEthereum script = new DeployTokensEthereum();
-        vm.expectRevert(
-            abi.encodeWithSelector(DeployerNotDeployed.selector, LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1)
-        );
-        script.run();
+    /// A virgin table, built here rather than read from the shipped one. The
+    /// guard's behaviour is a property of the guard, not of whatever the
+    /// production table happens to hold today — reading the real table made
+    /// these tests assert a moment in time, and they broke the moment the
+    /// Ethereum pin PR hydrated it.
+    /// @param hydratedIndex Row to hydrate, or `type(uint256).max` for none.
+    /// @param leg 0 receipt, 1 receipt vault, 2 wrapped vault.
+    /// @param at Address to hydrate that leg with.
+    function virginTable(uint256 hydratedIndex, uint256 leg, address at)
+        internal
+        pure
+        returns (TokenInstance[] memory table)
+    {
+        table = new TokenInstance[](3);
+        table[0] = TokenInstance("AAA", address(0), address(0), address(0));
+        table[1] = TokenInstance("BBB", address(0), address(0), address(0));
+        table[2] = TokenInstance("CCC", address(0), address(0), address(0));
+        if (hydratedIndex < table.length) {
+            table[hydratedIndex] = TokenInstance(
+                table[hydratedIndex].underlying,
+                leg == 0 ? at : address(0),
+                leg == 1 ? at : address(0),
+                leg == 2 ? at : address(0)
+            );
+        }
     }
 
     /// The guard fires on a hydrated table — the half that matters. A
@@ -47,10 +61,8 @@ contract DeployTokensEthereumTest is Test {
     /// so nothing else would stop it minting a second full production set.
     function testRunOnceGateFiresOnAHydratedTable() external {
         DeployTokensEthereum script = new DeployTokensEthereum();
-        TokenInstance[] memory table = LibTokenInvariants.productionTokensEthereum();
-        table[7] = TokenInstance("SPYM", address(0), address(0xBEEF), address(0));
         vm.expectRevert(abi.encodeWithSelector(EthereumTokensAlreadyDeployed.selector, address(0xBEEF)));
-        script.assertTableVirgin(table);
+        script.assertTableVirgin(virginTable(1, 1, address(0xBEEF)));
     }
 
     /// Each leg trips it independently. A guard reading only `receiptVault`
@@ -59,24 +71,31 @@ contract DeployTokensEthereumTest is Test {
     function testRunOnceGateInspectsEveryLeg() external {
         DeployTokensEthereum script = new DeployTokensEthereum();
         for (uint256 leg = 0; leg < 3; leg++) {
-            TokenInstance[] memory table = LibTokenInvariants.productionTokensEthereum();
             address hydrated = address(uint160(0xC0DE + leg));
-            table[27] = TokenInstance(
-                "TTWO",
-                leg == 0 ? hydrated : address(0),
-                leg == 1 ? hydrated : address(0),
-                leg == 2 ? hydrated : address(0)
-            );
             vm.expectRevert(abi.encodeWithSelector(EthereumTokensAlreadyDeployed.selector, hydrated));
-            script.assertTableVirgin(table);
+            script.assertTableVirgin(virginTable(2, leg, hydrated));
         }
     }
 
-    /// It does NOT fire on the shipped placeholders, or the deploy could never
-    /// run and the two tests above would be vacuous.
-    function testRunOnceGatePassesOnTheShippedTable() external {
+    /// It does NOT fire on an all-placeholder table, or the two tests above
+    /// would pass vacuously.
+    function testRunOnceGatePassesOnAVirginTable() external {
         DeployTokensEthereum script = new DeployTokensEthereum();
-        script.assertTableVirgin(LibTokenInvariants.productionTokensEthereum());
+        script.assertTableVirgin(virginTable(type(uint256).max, 0, address(0)));
+    }
+
+    /// The SHIPPED table is hydrated — the Ethereum tokens are deployed — so
+    /// the guard refuses it, and `run()` can no longer proceed on any chain.
+    /// This is the live safety property, not an accident: the script is spent
+    /// and permanently self-disarmed.
+    function testShippedTableIsHydratedSoTheScriptIsSpent() external {
+        DeployTokensEthereum script = new DeployTokensEthereum();
+        TokenInstance[] memory shipped = LibTokenInvariants.productionTokensEthereum();
+        vm.expectRevert(abi.encodeWithSelector(EthereumTokensAlreadyDeployed.selector, shipped[0].receiptVault));
+        script.assertTableVirgin(shipped);
+
+        vm.expectRevert(abi.encodeWithSelector(EthereumTokensAlreadyDeployed.selector, shipped[0].receiptVault));
+        script.run();
     }
 
     /// Ownership that did not land on the Safe is caught: otherwise the
