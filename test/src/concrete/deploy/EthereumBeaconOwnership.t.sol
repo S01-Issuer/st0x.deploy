@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {LibProdBeaconsEthereum} from "../../../../src/lib/LibProdBeaconsEthereum.sol";
+import {LibProdBeacons0_1_1} from "../../../../src/lib/LibProdBeacons0_1_1.sol";
 import {LibProdDeployV1} from "../../../../src/lib/LibProdDeployV1.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
@@ -31,8 +31,8 @@ contract EthereumBeaconOwnershipTest is Test {
         }
 
         vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
-        address[3] memory beacons = LibProdBeaconsEthereum.beacons();
-        address[3] memory impls = LibProdBeaconsEthereum.implementations();
+        address[3] memory beacons = LibProdBeacons0_1_1.beacons();
+        address[3] memory impls = LibProdBeacons0_1_1.implementations();
         for (uint256 i = 0; i < beacons.length; i++) {
             LibBeaconInvariants.assertBeaconInvariants(beacons[i], safe, impls[i]);
         }

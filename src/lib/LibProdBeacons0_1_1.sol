@@ -5,12 +5,16 @@ pragma solidity ^0.8.25;
 import {IST0xVaultBeaconSet} from "../interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 
-/// @title LibProdBeaconsEthereum
-/// @notice The three ST0x production beacons on **Ethereum mainnet** and the
-/// implementations they point at — every address traced to the generated
-/// `0_1_1` pins rather than re-pasted as fresh literals.
-/// @dev Ethereum bootstrapped fresh at the **0.1.1** release, so its beacons
-/// and impls are the `0_1_1` deployment. Two principles keep this lib free of
+/// @title LibProdBeacons0_1_1
+/// @notice The three ST0x production beacons of the deterministic **0.1.1**
+/// deployment and the implementations they point at — every address traced
+/// to the generated `0_1_1` pins rather than re-pasted as fresh literals.
+/// The whole set is Zoltu-deterministic, so these are the SAME addresses on
+/// every chain that bootstraps at 0.1.1 (Ethereum mainnet; HyperEVM per
+/// RAI-1511). Renamed from `LibProdBeaconsEthereum` when HyperEVM became the
+/// second 0.1.1-bootstrap chain.
+/// @dev A 0.1.1-bootstrap chain's beacons and impls are the `0_1_1`
+/// deployment. Two principles keep this lib free of
 /// pasted addresses:
 ///
 /// 1. **Implementations are chain-agnostic.** They are deployed
@@ -36,7 +40,7 @@ import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 /// Ethereum migration (`20260716-migrate-beacon-owners-ethereum`) transfers
 /// them to `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM`, mirroring what
 /// `MigrateBeaconOwners` already did for Base's beacons.
-library LibProdBeaconsEthereum {
+library LibProdBeacons0_1_1 {
     /// @notice The three production beacons, in a fixed order (receipt,
     /// receipt vault, wrapped token vault) — index-aligned with
     /// `implementations()`. The receipt / receipt-vault beacons are read from
