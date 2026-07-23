@@ -21,6 +21,7 @@ on:
           - 20260619-deploy-v4-authoriser-clone
           - 20260706-deploy-tokens-ethereum
           - 20260722-deploy-missing-tokens-ethereum
+          - 20260722-deploy-missing-tokens-hyperevm
       network:
         description: 'Network to broadcast against (default: base)'
         required: true
