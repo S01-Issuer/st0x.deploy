@@ -19,38 +19,18 @@ import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
 /// dedicated single-tx bundle because the six-vault bundle from the general
 /// swap script was already partially signed when RKLB entered the table —
 /// regenerating a combined bundle would void those signatures.
-/// @dev Unpinned Base head fork: while RKLB is still on V3 the happy path
-/// authors the single tx; once the swap EXECUTES on-chain it flips red on
-/// `RklbAlreadySwapped` and the post-execution pin PR retires it (the
-/// inverted guards keep covering the error paths).
+/// @dev Unpinned Base head fork. The swap EXECUTED 2026-07-23, so the happy
+/// path is gone: `run()` now reverts `RklbAlreadySwapped` against live Base,
+/// which is the state `testRunRevertsWhenAlreadySwapped` asserts directly.
+/// What remains is the inverted coverage — already-swapped, unknown
+/// authoriser — which is the coverage that keeps meaning something after
+/// execution.
 contract SwapRklbAuthoriserTest is Test {
     SwapRklbAuthoriser internal script;
 
     function selectBaseFork() internal {
         vm.createSelectFork(LibRainDeploy.BASE);
         script = new SwapRklbAuthoriser();
-    }
-
-    /// @notice Happy path against live Base state: `run()` completes and the
-    /// artifact carries exactly one tx targeting the RKLB receipt vault.
-    /// Red once the swap executes on-chain (`RklbAlreadySwapped`); retire in
-    /// the post-execution pin PR.
-    function testRunCompletesAndWritesArtifact() external {
-        selectBaseFork();
-        script.run();
-
-        string memory json = vm.readFile("out/20260722-rklb-authoriser-swap.json");
-        assertEq(
-            vm.parseJsonString(json, ".meta.name"),
-            "ST0x authoriser swap: RKLB onto the V4 authoriser",
-            "artifact bundle name"
-        );
-        assertEq(
-            vm.parseJsonAddress(json, ".transactions[0].to"),
-            LibTokenInvariants.RKLB_RECEIPT_VAULT,
-            "single tx targets the RKLB receipt vault"
-        );
-        assertFalse(vm.keyExistsJson(json, ".transactions[1].to"), "no extra txs");
     }
 
     /// @notice `run()` reverts `RklbAlreadySwapped` once the vault reports

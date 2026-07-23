@@ -44,12 +44,17 @@ error RklbSwapAuthoriserCodehashMismatch(address authoriser, bytes32 expected, b
 error RklbSwapAuthoriserGrantMissing(address authoriser, bytes32 role, address grantee);
 
 /// @title SwapRklbAuthoriser
-/// @notice **PENDING.** Authors the SINGLE-tx Safe bundle that swaps the
-/// RKLB receipt vault onto the V4 authoriser
-/// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`). Dispatch via
-/// `Actions → run-script` with `script = 20260722-swap-rklb-authoriser` and
-/// `sig = run()`. Flips to `**EXECUTED YYYY-MM-DD.**` in the post-execution
-/// pin PR.
+/// @notice **EXECUTED 2026-07-23.** Authored the SINGLE-tx Safe bundle that
+/// swapped the RKLB receipt vault onto the V4 authoriser
+/// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`), and the Safe executed
+/// it. `0xf6744Fd94e27c2f58F6110aa9fDC77A87e41766B` now reports
+/// `authorizer() == 0x315b16faa6eE413faBCa877d3851B3818369f0cD`, read from
+/// three independent Base RPCs. Dispatched via `Actions → run-script` with
+/// `script = 20260722-swap-rklb-authoriser` and `sig = run()`.
+///
+/// Re-running is refused rather than repeated: the pre-flight reverts
+/// `RklbAlreadySwapped` now that the vault is on the V4 authoriser, so this
+/// script is self-disarming.
 ///
 /// Deliberately scoped to RKLB ALONE: the six other still-V3 vaults are
 /// covered by a bundle authored from
