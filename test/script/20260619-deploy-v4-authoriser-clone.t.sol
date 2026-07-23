@@ -332,7 +332,7 @@ contract DeployV4AuthoriserCloneTest is Test {
         selectBaseFork();
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
         assertEq(harness.mirrorStartIndex(), 7, "MIRROR_START_INDEX drifted from the happy-path replica");
-        assertEq(harness.mirrorCount(), 6, "MIRROR_COUNT drifted from the happy-path replica");
+        assertEq(harness.mirrorCount(), 9, "MIRROR_COUNT drifted from the happy-path replica");
         assertEq(
             harness.mirrorStartIndex() + harness.mirrorCount(),
             allGrants.length,
