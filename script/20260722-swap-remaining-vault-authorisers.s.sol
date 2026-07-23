@@ -47,12 +47,23 @@ error SwapCloneCodehashMismatch(address clone, bytes32 expected, bytes32 actual)
 error SwapCloneExpectedGrantMissing(address clone, bytes32 role, address grantee);
 
 /// @title SwapRemainingVaultAuthorisers
-/// @notice **PENDING.** Authors the Safe bundle that swaps every production
-/// receipt vault still gated by the V3 authoriser onto the V4 authoriser
-/// clone (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`). Dispatch via
-/// `Actions → run-script` with
+/// @notice **EXECUTED — verified 2026-07-23.** Authors the Safe bundle that
+/// swaps every production receipt vault still gated by the V3 authoriser onto
+/// the V4 authoriser clone (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`).
+/// Dispatch via `Actions → run-script` with
 /// `script = 20260722-swap-remaining-vault-authorisers` and `sig = run()`.
-/// Flips to `**EXECUTED YYYY-MM-DD.**` in the post-execution pin PR.
+///
+/// The bundle it authored has been executed: MU, AMD, AVGO, AMAT, LRCX and
+/// TTWO all report `authorizer() == STOX_PROD_AUTHORISER_V4_CLONE` on Base as
+/// of 2026-07-23, so no production vault remains on V3. (Dated by
+/// verification, not by the Safe tx — the execution block was not recorded
+/// here.)
+///
+/// The script is KEPT rather than retired, because it is self-scoping: it
+/// reads every vault's live `authorizer()` and targets whatever is still on
+/// V3. Re-dispatch is how a future vault that comes up on the wrong
+/// authoriser gets swapped, and `NoVaultsLeftToSwap` makes a no-op dispatch
+/// refuse rather than author an empty bundle.
 ///
 /// The original V4 swap bundle (`20260623-upgrade-receipt-vaults-to-v4`,
 /// executed 2026-07) covered every vault in the table at the time it was

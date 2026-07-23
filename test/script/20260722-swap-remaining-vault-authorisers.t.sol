@@ -21,11 +21,13 @@ import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
 /// V3 authoriser, read live), so these tests derive the same target set from
 /// the fork before driving `run()` and assert the authored bundle matches it
 /// exactly — the same assertion a signer makes when reviewing the artifact.
-/// @dev Uses an unpinned Base head fork so the tests track live state: while
-/// un-swapped vaults exist the happy path authors a bundle covering exactly
-/// them; once the batch EXECUTES on-chain the target set is empty, the happy
-/// path flips red on `NoVaultsLeftToSwap`, and the post-execution pin PR
-/// retires it (the inverted guards keep covering the error paths).
+/// @dev Unpinned Base head fork, so the tests track live state. The batch has
+/// EXECUTED — no production vault is on V3 as of 2026-07-23 — so the target
+/// set is empty and the happy path is gone: authoring now reverts
+/// `NoVaultsLeftToSwap`, which `testRunRevertsWhenNothingLeftToSwap` asserts
+/// directly. What remains is the coverage that still means something for a
+/// script kept for re-dispatch: the empty-set refusal, and the abort on an
+/// authoriser neither V3 nor V4.
 contract SwapRemainingVaultAuthorisersTest is Test {
     SwapRemainingVaultAuthorisers internal script;
 
@@ -51,37 +53,6 @@ contract SwapRemainingVaultAuthorisersTest is Test {
         for (uint256 i = 0; i < count; i++) {
             targets[i] = candidates[i];
         }
-    }
-
-    /// @notice Happy path against live Base state: `run()` completes —
-    /// pre-flight, bundle build, simulation, strict uniform post-state,
-    /// artifact, n+1 — and the artifact carries exactly one tx per still-V3
-    /// vault, each targeting that vault. Red once the batch executes
-    /// on-chain (`NoVaultsLeftToSwap`); retire in the post-execution pin PR.
-    function testRunCompletesAndWritesArtifact() external {
-        selectBaseFork();
-        address[] memory expectedTargets = liveV3Vaults();
-        assertTrue(expectedTargets.length > 0, "no un-swapped vaults left - retire this test (batch executed)");
-
-        script.run();
-
-        string memory json = vm.readFile("out/20260722-authoriser-swap.json");
-        assertEq(
-            vm.parseJsonString(json, ".meta.name"),
-            "ST0x authoriser swap: remaining vaults onto the V4 clone",
-            "artifact bundle name"
-        );
-        for (uint256 i = 0; i < expectedTargets.length; i++) {
-            assertEq(
-                vm.parseJsonAddress(json, string.concat(".transactions[", vm.toString(i), "].to")),
-                expectedTargets[i],
-                "bundle tx target mismatch"
-            );
-        }
-        assertFalse(
-            vm.keyExistsJson(json, string.concat(".transactions[", vm.toString(expectedTargets.length), "].to")),
-            "no extra txs"
-        );
     }
 
     /// @notice `run()` reverts `NoVaultsLeftToSwap` when the whole table is
