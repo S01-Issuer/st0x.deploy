@@ -1,0 +1,116 @@
+name: manual-hyperevm-big-blocks
+on:
+  workflow_dispatch:
+    inputs:
+      enable:
+        description: 'Use big blocks for the CI deploy key on HyperEVM'
+        required: true
+        type: choice
+        default: 'true'
+        options:
+          - 'true'
+          - 'false'
+# Toggles HyperEVM big blocks for the CI deploy key (`secrets.PRIVATE_KEY`).
+#
+# HyperEVM's default ("small") blocks cap at 2M gas, below what contract
+# deployments need; an account opts into big blocks by signing the HyperCore
+# `evmUserModify` action with its own key. The key exists only as a repo
+# secret, so the signing runs here.
+#
+# The action requires the account to EXIST on HyperCore. If it doesn't yet,
+# this workflow establishes it automatically: it sends a dust HYPE transfer
+# from the key to the HYPE system address
+# (0x2222222222222222222222222222222222222222), which credits the SAME
+# address on HyperCore, then retries the toggle. This needs the key to hold
+# a little HYPE on HyperEVM first.
+jobs:
+  toggle:
+    name: Toggle big blocks
+    runs-on: ubuntu-latest
+    # No checkout: the job needs no repo code, only the signing key.
+    permissions: {}
+    concurrency:
+      group: manual-hyperevm-big-blocks
+      cancel-in-progress: false
+    steps:
+      - name: Sign and submit evmUserModify
+        env:
+          # PRIVATE_KEY is only available inside this step, matching the
+          # other operational workflows.
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          ENABLE: ${{ inputs.enable }}
+          HYPEREVM_RPC: ${{ secrets.RPC_URL_HYPEREVM_FORK || 'https://rpc.hyperliquid.xyz/evm' }}
+        run: |
+          pip install --quiet hyperliquid-python-sdk==0.24.0
+          python3 - <<'PYEOF'
+          import json, os, sys, time, urllib.request
+
+          import eth_account
+          from hyperliquid.exchange import Exchange
+
+          RPC = os.environ["HYPEREVM_RPC"]
+          ENABLE = os.environ["ENABLE"] == "true"
+          # HYPE system address: an EVM transfer here credits the sender's
+          # own HyperCore spot balance, creating the Core account if needed.
+          CORE_BRIDGE = "0x2222222222222222222222222222222222222222"
+          DUST_WEI = 10**17  # 0.1 HYPE
+
+          def rpc(method, params):
+              req = urllib.request.Request(
+                  RPC,
+                  data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode(),
+                  headers={"Content-Type": "application/json"},
+              )
+              body = json.loads(urllib.request.urlopen(req).read())
+              if "error" in body:
+                  raise RuntimeError(f"{method}: {body['error']}")
+              return body["result"]
+
+          acct = eth_account.Account.from_key(os.environ["PRIVATE_KEY"])
+          print(f"deploy key: {acct.address}")
+          ex = Exchange(acct, base_url="https://api.hyperliquid.xyz")
+
+          def toggle():
+              r = ex.use_big_blocks(ENABLE)
+              print("evmUserModify response:", json.dumps(r))
+              return r
+
+          r = toggle()
+          if r.get("status") == "err" and "does not exist" in str(r.get("response", "")):
+              print("Core account missing - establishing via dust HYPE transfer to the system address")
+              balance = int(rpc("eth_getBalance", [acct.address, "latest"]), 16)
+              if balance < DUST_WEI * 2:
+                  sys.exit(f"deploy key holds {balance / 1e18} HYPE on HyperEVM - fund it first")
+              tx = {
+                  "to": CORE_BRIDGE,
+                  "value": DUST_WEI,
+                  "gas": 100_000,
+                  # Legacy pricing: HyperEVM's RPC rejects the fee-history
+                  # ranges EIP-1559 estimation uses.
+                  "gasPrice": int(rpc("eth_gasPrice", []), 16),
+                  "nonce": int(rpc("eth_getTransactionCount", [acct.address, "latest"]), 16),
+                  "chainId": 999,
+              }
+              signed = acct.sign_transaction(tx)
+              tx_hash = rpc("eth_sendRawTransaction", [signed.raw_transaction.to_0x_hex()])
+              print("bridge tx:", tx_hash)
+              for _ in range(30):
+                  time.sleep(4)
+                  receipt = rpc("eth_getTransactionReceipt", [tx_hash])
+                  if receipt:
+                      assert int(receipt["status"], 16) == 1, f"bridge tx reverted: {tx_hash}"
+                      print("bridge tx mined")
+                      break
+              else:
+                  sys.exit("bridge tx not mined in time")
+              # Core credit follows the EVM tx shortly; retry the toggle.
+              for attempt in range(10):
+                  time.sleep(6)
+                  r = toggle()
+                  if r.get("status") == "ok":
+                      break
+
+          if r.get("status") != "ok":
+              sys.exit(f"evmUserModify failed: {r}")
+          print(f"big blocks {'ENABLED' if ENABLE else 'DISABLED'} for {acct.address}")
+          PYEOF
