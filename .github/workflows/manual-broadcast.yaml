@@ -34,6 +34,7 @@ on:
           # `base`.
           - 'base'
           - 'ethereum'
+          - 'hyperevm'
 # Dispatches an operational broadcast script from `script/` and sends the
 # resulting transactions from the CI deploy key (`secrets.PRIVATE_KEY`,
 # the same secret `manual-sol-artifacts.yaml` uses for Zoltu impl deploys).
@@ -76,6 +77,7 @@ jobs:
           # one foundry.toml resolves via its `[rpc_endpoints]` aliases.
           BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
           ETHEREUM_RPC_URL: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
+          HYPEREVM_RPC_URL: ${{ secrets.RPC_URL_HYPEREVM_FORK }}
           # Pass the choice inputs via env rather than template-expanding them
           # into the command, so the dispatched values are used as literal
           # arguments and cannot inject shell.

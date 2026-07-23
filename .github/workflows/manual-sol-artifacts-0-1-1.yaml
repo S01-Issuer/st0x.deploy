@@ -1,4 +1,4 @@
-name: Manual sol artifacts (Ethereum 0.1.1)
+name: Manual sol artifacts (0.1.1 bootstrap)
 on:
   workflow_dispatch:
     inputs:
@@ -8,8 +8,9 @@ on:
         type: choice
         options:
           # ===================================================================
-          # The audited 0.1.1 production set, shipped to Ethereum mainnet only
-          # via script/DeployProdV4_0_1_1.sol (stored 0.1.1 creation bytecode).
+          # The audited 0.1.1 production set, shipped to the selected bootstrap
+          # network via script/DeployProdV4_0_1_1.sol (stored 0.1.1 creation
+          # bytecode).
           # The orchestrator (introduced at 0.1.2) is not part of this set.
           #
           # Deploy in the listed order; later entries reference earlier ones via
@@ -33,20 +34,35 @@ on:
           - stox-offchain-asset-receipt-vault-beacon-set-deployer
           # 5. Unified deployer (depends on the two set-deployers above).
           - stox-unified-deployer
+      network:
+        description: 'Bootstrap network to ship the 0.1.1 set to'
+        required: true
+        type: choice
+        default: 'ethereum'
+        options:
+          # Closed set of vetted bootstrap networks — mirrored by the deploy
+          # script's `bootstrapNetwork()` guard.
+          - 'ethereum'
+          - 'hyperevm'
 jobs:
   deploy:
     uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-artifacts.yaml@main
     with:
       suite: ${{ inputs.suite }}
+      network: ${{ inputs.network }}
+      # HyperEVM's RPC rejects forge's EIP-1559 fee-history estimation;
+      # type-0 transactions work on every bootstrap network.
+      legacy: ${{ inputs.network == 'hyperevm' }}
       # Ship the stored 0.1.1 creation bytecode, not current source.
       script: script/DeployProdV4_0_1_1.sol:Deploy
       # The 0.1.1 bytecode of the contracts that changed by 0.1.3 does not match
       # current source, so Etherscan verification against current source would
       # fail the run. Deploy unverified; verify manually from the 0.1.1 tag.
       verify: false
-    # This script targets Ethereum only and runs unverified, so it needs only the
-    # deployer key and the Ethereum RPC. The reusable declares every other secret
-    # as optional and falls back to `|| vars.* || ''` for any it isn't given.
+    # Runs unverified, so it needs only the deployer key and the bootstrap
+    # networks' RPCs. The reusable declares every other secret as optional and
+    # falls back to `|| vars.* || ''` for any it isn't given.
     secrets:
       PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
       RPC_URL_ETHEREUM_FORK: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
+      RPC_URL_HYPEREVM_FORK: ${{ secrets.RPC_URL_HYPEREVM_FORK }}

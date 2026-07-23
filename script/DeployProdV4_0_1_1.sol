@@ -12,10 +12,15 @@ import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 /// suite.
 error UnknownDeploymentSuite(bytes32 suite);
 
+/// @dev Error thrown when the DEPLOYMENT_NETWORK env var does not match any
+/// supported bootstrap network.
+error UnknownDeploymentNetwork(string network);
+
 // One suite per contract to avoid Zoltu factory nonce issues.
 //
-// This script ships the audited 0.1.1 production set to Ethereum mainnet only.
-// Unlike `script/Deploy.sol`, which deploys the CURRENT source (the 0.1.3 pins)
+// This script ships the audited 0.1.1 production set to one bootstrap network
+// per dispatch, selected by `DEPLOYMENT_NETWORK`. Unlike
+// `script/Deploy.sol`, which deploys the CURRENT source (the 0.1.3 pins)
 // to `LibStoxDeployNetworks.supportedNetworks()`, each suite here deploys the
 // stored `LibProdDeployV4.*_CREATION_CODE_0_1_1` bytecode — the exact bytes the
 // 0.1.1 audit covers — and asserts against the `_0_1_1` address/codehash pins.
@@ -63,7 +68,7 @@ contract Deploy is Script {
         address[] memory dependencies
     ) internal {
         string[] memory networks = new string[](1);
-        networks[0] = LibStoxDeployNetworks.ETHEREUM;
+        networks[0] = bootstrapNetwork();
         uint256 deployerPrivateKey = vm.envUint("DEPLOYMENT_KEY");
 
         console2.log("Suite deploying (0.1.1):", contractPath);
@@ -92,11 +97,28 @@ contract Deploy is Script {
         );
     }
 
-    /// @notice Entry point for the 0.1.1 Ethereum deployment script.
+    /// @notice The bootstrap network the suite broadcasts to, from the
+    /// `DEPLOYMENT_NETWORK` env var (default: ethereum), validated against
+    /// the supported set.
+    /// @return network The validated `foundry.toml` rpc alias.
+    function bootstrapNetwork() internal view returns (string memory network) {
+        network = vm.envOr("DEPLOYMENT_NETWORK", LibStoxDeployNetworks.ETHEREUM);
+        bytes32 networkHash = keccak256(bytes(network));
+        if (
+            networkHash != keccak256(bytes(LibStoxDeployNetworks.ETHEREUM))
+                && networkHash != keccak256(bytes(LibStoxDeployNetworks.HYPEREVM))
+        ) {
+            revert UnknownDeploymentNetwork(network);
+        }
+    }
+
+    /// @notice Entry point for the 0.1.1 bootstrap deployment script.
     /// @dev Requires env vars:
     /// - `DEPLOYMENT_KEY`: private key for the deployer account.
     /// - `DEPLOYMENT_SUITE`: which contract to deploy (e.g. "stox-receipt").
     ///   One contract per run.
+    /// - `DEPLOYMENT_NETWORK` (optional): bootstrap network to ship to —
+    ///   `ethereum` (default) or `hyperevm`.
     function run() public {
         bytes32 suite = keccak256(bytes(vm.envString("DEPLOYMENT_SUITE")));
         address[] memory noDeps = new address[](0);
