@@ -19,6 +19,7 @@ on:
           # lives in the script's file-level NatSpec — this dropdown is a
           # registry of *which* scripts exist, not *whether* they've run.
           - 20260619-deploy-v4-authoriser-clone
+          - 20260706-deploy-tokens-ethereum
       network:
         description: 'Network to broadcast against (default: base)'
         required: true
