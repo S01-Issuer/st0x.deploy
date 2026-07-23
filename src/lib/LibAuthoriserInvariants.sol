@@ -4,9 +4,9 @@ pragma solidity ^0.8.25;
 
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
-import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1167Proxy.sol";
+import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 
-/// @notice A pinned `(role, grantee)` pair on the live authoriser.
+/// @notice A pinned `(role, grantee)` pair on the production authoriser.
 struct RoleGrant {
     bytes32 role;
     address grantee;
@@ -28,64 +28,53 @@ error ExpectedGrantMissing(address authoriser, bytes32 role, address grantee);
 /// @param holder The grantee found to hold `DEFAULT_ADMIN_ROLE`.
 error UnexpectedDefaultAdmin(address authoriser, address holder);
 
-/// @notice The authoriser's runtime codehash is not the EIP-1167 minimal-proxy
-/// codehash of the pinned `STOX_PROD_AUTHORISER_IMPL`, i.e. the clone does not
-/// proxy the pinned implementation.
+/// @notice The authoriser's runtime codehash does not match the pinned
+/// EIP-1167 minimal-proxy codehash, i.e. the clone does not proxy the
+/// audited implementation.
 /// @param authoriser The authoriser inspected.
-/// @param expected The EIP-1167(`STOX_PROD_AUTHORISER_IMPL`) codehash.
+/// @param expected The pinned EIP-1167 codehash.
 /// @param actual The codehash observed on-chain.
 error AuthoriserImplCodehashMismatch(address authoriser, bytes32 expected, bytes32 actual);
 
 /// @title LibAuthoriserInvariants
 /// @notice Reusable invariants for the ST0x production authoriser on Base:
-/// the pinned current-state authoriser address, the expected impl behind
-/// it, the grantee constants, and the full `(role, grantee)` map enumerated
-/// from `RoleGranted` / `RoleRevoked` events on-chain. Each assertion
-/// either returns silently when the invariant holds against the live chain
-/// state or reverts with a typed error that pinpoints the drift.
-/// @dev Owns both the current-state pins and the assert functions. When the
-/// authoriser-swap script lands and the live authoriser changes, the pins
-/// here are updated (current → new clone address + new impl) so future
-/// `assertAll` runs validate the new live state. The role-grant map
-/// (`expectedGrants`) does not change pre / post swap because the swap
-/// mirrors the same grants forward.
+/// the grantee constants and the single master `(role, grantee)` map every
+/// consumer asserts. Each assertion either returns silently when the
+/// invariant holds against the live chain state or reverts with a typed
+/// error that pinpoints the drift.
+/// @dev The authoriser-of-record is the V4 clone, whose ADDRESS and
+/// CODEHASH pins live in `LibProdDeployV4` (the generated deploy lib) —
+/// this lib consumes them rather than carrying copies. `assertAll()`
+/// validates the V4 clone: codehash equals
+/// `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH` (the EIP-1167
+/// runtime embedding the audited 0.1.1 authoriser impl, so a matching hash
+/// proves which implementation the clone proxies) and the full
+/// `expectedGrants()` map holds.
 ///
 /// Composed into `LibInvariants.assertAll` alongside `LibSafeInvariants`
 /// and `LibTokenInvariants`; individually callable via `assertAll()` for
 /// the focused authoriser drift detector.
-///
-/// The V4 clone deploy target (the address the upcoming swap script
-/// `setAuthorizer`s every receipt vault onto) does **not** live here —
-/// that's a deploy artifact, pinned in `LibProdDeployV4`. This lib only
-/// holds what the live authoriser **should** look like today.
 library LibAuthoriserInvariants {
-    /// @notice The current live ST0x authoriser clone on Base. Every
-    /// production receipt vault's `authorizer()` returns this address.
-    /// Pinned as the current-state invariant; updated post-swap when the
-    /// receipt vaults are rewired onto a new authoriser clone, so future
-    /// runs of `assertAll` validate the new live state.
-    /// https://basescan.org/address/0x35f9fa9d80aaf2b0fb27f0ff015641b3408d7456
-    address internal constant STOX_PROD_AUTHORISER = 0x35f9fA9d80aAF2B0fB27f0FF015641B3408d7456;
+    /// @notice THE current production authoriser — the single entrypoint
+    /// every invariant and script reads. Aliases the V4 clone pinned in
+    /// `LibProdDeployV4` (the generated deploy lib is the single source
+    /// for the address; this constant is the semantic name "current
+    /// authoriser"). Every production receipt vault's `authorizer()` must
+    /// return this address — an expectation that goes green when the
+    /// `20260623` swap bundle executes on Base.
+    /// https://basescan.org/address/0x315b16faa6ee413fabca877d3851b3818369f0cd
+    address internal constant STOX_PROD_AUTHORISER = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
 
-    /// @notice The implementation behind the live clone. A base
-    /// `OffchainAssetReceiptVaultAuthorizerV1` from rain-vats that predates
-    /// the corporate-action role-admin extension. Pinned as the
-    /// current-state invariant; updated alongside `STOX_PROD_AUTHORISER`
-    /// when the live clone changes.
-    /// https://basescan.org/address/0x2b4a510c3619d5e888095bfe9f95902d32da5556
-    address internal constant STOX_PROD_AUTHORISER_IMPL = 0x2B4A510c3619d5E888095BFE9f95902D32dA5556;
-
-    /// @notice The base role-admin hierarchy used by the live authoriser
-    /// sets `<ROLE>_ADMIN` as the admin of each action role rather than
-    /// `DEFAULT_ADMIN_ROLE`. Consequently no `DEFAULT_ADMIN_ROLE` grant was
-    /// emitted at init and no address holds it. Pinned as the explicit
-    /// expectation so `assertExpectedGrants` reverts `UnexpectedDefaultAdmin`
-    /// if any pinned grantee holds it.
+    /// @notice The role-admin hierarchy sets `<ROLE>_ADMIN` as the admin of
+    /// each action role rather than `DEFAULT_ADMIN_ROLE`. Consequently no
+    /// `DEFAULT_ADMIN_ROLE` grant was emitted at init and no address holds
+    /// it. Pinned as the explicit expectation so `assertExpectedGrants`
+    /// reverts `UnexpectedDefaultAdmin` if any pinned grantee holds it.
     bytes32 internal constant DEFAULT_ADMIN_ROLE = bytes32(0);
 
     /// @notice The ST0x token-owner Safe — holds every `_ADMIN` role on the
-    /// live authoriser (set at init) and was later granted DEPOSIT, WITHDRAW
-    /// and CERTIFY as a privileged operator. Identical to
+    /// production authoriser and was later granted DEPOSIT, WITHDRAW and
+    /// CERTIFY as a privileged operator. Identical to
     /// `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE`; re-exported as a grantee
     /// constant for call-site clarity.
     address internal constant GRANTEE_TOKEN_OWNER_SAFE = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
@@ -97,9 +86,8 @@ library LibAuthoriserInvariants {
     /// https://basescan.org/address/0x1c66d6708914c40239d54919320b4c48cae3d1a9
     address internal constant GRANTEE_SERVICE_1C66 = 0x1c66D6708914C40239D54919320b4C48cAE3D1A9;
 
-    /// @notice The full `(role, grantee)` map in effect on the live Base
-    /// authoriser. Source of truth folded from `RoleGranted` / `RoleRevoked`
-    /// event scan on Base. Delegates to the Safe-parametric overload with
+    /// @notice The full `(role, grantee)` map in effect on the Base
+    /// production authoriser. Delegates to the Safe-parametric overload with
     /// Base's token-owner Safe.
     /// @return grants The pinned `(role, grantee)` pairs for Base.
     function expectedGrants() internal pure returns (RoleGrant[] memory grants) {
@@ -107,19 +95,22 @@ library LibAuthoriserInvariants {
     }
 
     /// @notice The `(role, grantee)` map every ST0x authoriser carries,
-    /// parameterised on the chain's token-owner Safe. The STRUCTURE — 5
+    /// parameterised on the chain's token-owner Safe. The STRUCTURE — 7
     /// `_ADMIN` roles + 3 direct action roles held by the Safe, 3 action roles
     /// held by the shared service signer — is identical on every chain; the
     /// only per-chain input is the Safe ADDRESS (the service signer is shared),
-    /// because the Safe address is now a per-chain deploy artifact. The 11
-    /// entries split into: 5 `_ADMIN` roles held by the Safe (set at init), 3
-    /// action roles for the service EOA, 3 action roles the Safe holds for
-    /// direct operational use.
+    /// because the Safe address is a per-chain deploy artifact. Every chain
+    /// targets the 0.1.1 authoriser impl, so every chain carries the two
+    /// corporate-action admins. The 13 entries split into: 7 `_ADMIN` roles
+    /// held by the Safe (5 from the base `initialize`, 2 added by the 0.1.1
+    /// ST0x override and granted to the Safe per RAI-731), 3 action roles for
+    /// the service EOA, 3 action roles the Safe holds for direct operational
+    /// use.
     /// @param tokenOwnerSafe The chain's token-owner Safe filling the Safe
     /// grantee slots.
     /// @return grants The `(role, grantee)` pairs for that chain.
     function expectedGrants(address tokenOwnerSafe) internal pure returns (RoleGrant[] memory grants) {
-        grants = new RoleGrant[](11);
+        grants = new RoleGrant[](13);
 
         // Init grants (block 41715184 on Base) — Safe receives every `_ADMIN`.
         grants[0] = RoleGrant(keccak256("DEPOSIT_ADMIN"), tokenOwnerSafe);
@@ -128,30 +119,36 @@ library LibAuthoriserInvariants {
         grants[3] = RoleGrant(keccak256("CONFISCATE_SHARES_ADMIN"), tokenOwnerSafe);
         grants[4] = RoleGrant(keccak256("CONFISCATE_RECEIPT_ADMIN"), tokenOwnerSafe);
 
+        // The two corporate-action admins the 0.1.1 impl adds. On Base the
+        // clone-deploy broadcast transferred them to the Safe alongside the
+        // other five and renounced them from the deploy key.
+        grants[5] = RoleGrant(keccak256("SCHEDULE_CORPORATE_ACTION_ADMIN"), tokenOwnerSafe);
+        grants[6] = RoleGrant(keccak256("CANCEL_CORPORATE_ACTION_ADMIN"), tokenOwnerSafe);
+
         // Service EOA provisioned at blocks 41797262, 41797281, 41797297 (Base).
-        grants[5] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_1C66);
-        grants[6] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_1C66);
-        grants[7] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_1C66);
+        grants[7] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_1C66);
+        grants[8] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_1C66);
+        grants[9] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_1C66);
 
         // Safe holds the corresponding action roles (Base blocks 42704120,
         // 42704140, 44076075) for direct operational use.
-        grants[8] = RoleGrant(keccak256("DEPOSIT"), tokenOwnerSafe);
-        grants[9] = RoleGrant(keccak256("WITHDRAW"), tokenOwnerSafe);
-        grants[10] = RoleGrant(keccak256("CERTIFY"), tokenOwnerSafe);
+        grants[10] = RoleGrant(keccak256("DEPOSIT"), tokenOwnerSafe);
+        grants[11] = RoleGrant(keccak256("WITHDRAW"), tokenOwnerSafe);
+        grants[12] = RoleGrant(keccak256("CERTIFY"), tokenOwnerSafe);
     }
 
     /// @notice Assert every pinned `(role, grantee)` pair in
     /// `expectedGrants()` is held on the supplied authoriser, and that no
     /// pinned grantee holds `DEFAULT_ADMIN_ROLE`. Reverts with
-    /// `UnexpectedDefaultAdmin` if a pinned grantee holds the root admin role,
-    /// or `ExpectedGrantMissing` on the first missing pair, surfacing the exact
-    /// role + grantee that broke the invariant.
+    /// `UnexpectedDefaultAdmin` if a pinned grantee holds the root admin
+    /// role, or `ExpectedGrantMissing` on the first missing pair, surfacing
+    /// the exact role + grantee that broke the invariant.
     /// @dev Parameterised on the authoriser address so the same assertion
-    /// can run against the live current clone (pre-swap) AND against a
-    /// freshly-deployed clone (the script's pre-flight on the swap target)
-    /// without duplicating the iteration. The `DEFAULT_ADMIN_ROLE` check is a
-    /// negative assertion over the pinned grantees, not an exhaustive scan (a
-    /// plain `AccessControl` cannot enumerate members).
+    /// can run against the pinned production clone AND against a
+    /// freshly-deployed clone (a script's pre-flight on a swap target)
+    /// without duplicating the iteration. The `DEFAULT_ADMIN_ROLE` check is
+    /// a negative assertion over the pinned grantees, not an exhaustive
+    /// scan (a plain `AccessControl` cannot enumerate members).
     /// @param authoriser The authoriser to validate.
     function assertExpectedGrants(address authoriser) internal view {
         assertExpectedGrants(authoriser, GRANTEE_TOKEN_OWNER_SAFE);
@@ -185,30 +182,21 @@ library LibAuthoriserInvariants {
         }
     }
 
-    /// @notice Assert the authoriser's runtime codehash is the EIP-1167
-    /// minimal-proxy codehash of the pinned `STOX_PROD_AUTHORISER_IMPL`, so the
-    /// clone actually proxies the pinned implementation before any
-    /// implementation-backed read (`hasRole`) is trusted. Mirrors the
-    /// singleton-bytecode pin `LibSafeInvariants` applies to the Safe.
-    /// @param authoriser The authoriser clone to validate.
-    function assertImplPinned(address authoriser) internal view {
-        bytes32 expected = keccak256(abi.encodePacked(ERC1167_PREFIX, STOX_PROD_AUTHORISER_IMPL, ERC1167_SUFFIX));
-        bytes32 actual = authoriser.codehash;
-        if (actual != expected) {
-            revert AuthoriserImplCodehashMismatch(authoriser, expected, actual);
-        }
-    }
-
-    /// @notice Full authoriser-side invariant bundle against the live pinned
-    /// `STOX_PROD_AUTHORISER`: the clone proxies the pinned impl
-    /// (`assertImplPinned`) and holds exactly the pinned grant map with no
-    /// root admin (`assertExpectedGrants`). Pre-flight at the start of every
-    /// migration script and prod-state fork test; if this passes silently the
-    /// live authoriser is in its current expected state.
-    /// @dev No-arg overload uses the lib's `STOX_PROD_AUTHORISER` constant.
-    /// Composed into `LibInvariants.assertAll`.
+    /// @notice Full authoriser-side invariant bundle against the current
+    /// production authoriser (`STOX_PROD_AUTHORISER`): its codehash equals
+    /// the pinned EIP-1167 runtime embedding the audited 0.1.1 authoriser
+    /// impl (proving which implementation the clone proxies), and the full
+    /// `expectedGrants()` map holds. Pre-flight at the start of every
+    /// migration script and prod-state fork test; if this passes silently
+    /// the production authoriser is in its expected state.
+    /// @dev No-arg; composed into `LibInvariants.assertAll`. The retired
+    /// V3 clone is deliberately NOT asserted — nothing references it.
     function assertAll() internal view {
-        assertImplPinned(STOX_PROD_AUTHORISER);
+        bytes32 expected = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH;
+        bytes32 actual = STOX_PROD_AUTHORISER.codehash;
+        if (actual != expected) {
+            revert AuthoriserImplCodehashMismatch(STOX_PROD_AUTHORISER, expected, actual);
+        }
         assertExpectedGrants(STOX_PROD_AUTHORISER);
     }
 }

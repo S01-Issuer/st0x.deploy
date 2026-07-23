@@ -122,12 +122,13 @@ error GrantsSliceOutOfRange(uint256 startIndex, uint256 sliceLength, uint256 gra
 /// dispatch mechanism.
 contract DeployV4AuthoriserClone is Script {
     /// @notice The starting index of the non-admin grant slice inside
-    /// `LibAuthoriserInvariants.expectedGrants()`. Indices 0..4 are the
-    /// V3-era `_ADMIN` grants which the base `initialize` auto-grants on
-    /// the freshly-cloned V4 authoriser. Indices 5..10 are the
-    /// operational grants (`DEPOSIT` / `WITHDRAW` / `CERTIFY` × service +
-    /// Safe) this script mirrors in.
-    uint256 internal constant MIRROR_START_INDEX = 5;
+    /// `LibAuthoriserInvariants.expectedGrants()`. Indices 0..6 are the
+    /// seven `_ADMIN` grants (five auto-granted by the base `initialize`
+    /// on the freshly-cloned V4 authoriser, plus the two corporate-action
+    /// admins the ST0x override adds — all transferred to the Safe by
+    /// steps 3-4). Indices 7..12 are the operational grants (`DEPOSIT` /
+    /// `WITHDRAW` / `CERTIFY` × service + Safe) this script mirrors in.
+    uint256 internal constant MIRROR_START_INDEX = 7;
 
     /// @notice The number of non-admin grants this script mirrors in.
     uint256 internal constant MIRROR_COUNT = 6;
@@ -287,23 +288,12 @@ contract DeployV4AuthoriserClone is Script {
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants(safe);
 
-        // Every `(role, grantee)` in the chain's grant map holds. Covers the
-        // five V3-era admin grants (swapped onto the Safe in step 3) AND
-        // the six operational grants from step 2 in one sweep.
+        // Every `(role, grantee)` in the chain's 13-entry grant map holds:
+        // all seven `_ADMIN` roles on the Safe (swapped there in step 3) AND
+        // the six operational grants from step 2, in one sweep.
         for (uint256 i = 0; i < allGrants.length; i++) {
             if (!acl.hasRole(allGrants[i].role, allGrants[i].grantee)) {
                 revert ExpectedGrantMissing(allGrants[i].role, allGrants[i].grantee);
-            }
-        }
-
-        bytes32[AUTO_GRANTED_ADMIN_COUNT] memory adminRoles = autoGrantedAdminRoles();
-
-        // The Safe holds every auto-granted `_ADMIN` role — including the
-        // two corporate-action admins that `expectedGrants()` doesn't
-        // carry (V4-only roles the override's `initialize` adds).
-        for (uint256 i = 0; i < adminRoles.length; i++) {
-            if (!acl.hasRole(adminRoles[i], safe)) {
-                revert ExpectedGrantMissing(adminRoles[i], safe);
             }
         }
 
@@ -311,6 +301,7 @@ contract DeployV4AuthoriserClone is Script {
         // If any survived step 4, the deployer key still has root
         // privileges over that role's grant map — closes the
         // "transitional trust window" for those specific roles.
+        bytes32[AUTO_GRANTED_ADMIN_COUNT] memory adminRoles = autoGrantedAdminRoles();
         for (uint256 i = 0; i < adminRoles.length; i++) {
             if (acl.hasRole(adminRoles[i], deployer)) {
                 revert DeployerStillHoldsAdminRole(adminRoles[i], deployer);
@@ -321,10 +312,9 @@ contract DeployV4AuthoriserClone is Script {
     /// @notice The seven `_ADMIN` roles the base + ST0x-override
     /// `initialize` grant to the supplied `initialAdmin` config.
     /// Hand-listed (in source-order of the `_grantRole` calls in the
-    /// impl) rather than derived from `expectedGrants()` because the
-    /// auto-grants overlap with — but are not identical to — the lib
-    /// map's indices 0..4: the V3-era map is missing the two
-    /// corporate-action admins the V4 override adds.
+    /// impl) because the grant/renounce sequence operates on the
+    /// TRANSIENT deployer-held roles, not the master map's Safe-held
+    /// entries.
     /// @return roles The seven role hashes, in `_grantRole` order.
     function autoGrantedAdminRoles() internal pure returns (bytes32[AUTO_GRANTED_ADMIN_COUNT] memory roles) {
         roles[0] = keccak256("CERTIFY_ADMIN");

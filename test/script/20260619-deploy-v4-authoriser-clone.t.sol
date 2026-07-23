@@ -89,9 +89,10 @@ contract DeployV4AuthoriserCloneTest is Test {
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
         bytes32[7] memory adminRoles = _autoGrantedAdminRoles();
 
-        // Step 2: mirror the six non-admin operational grants under
-        // the deployer (who holds every `_ADMIN` role from init).
-        for (uint256 i = 5; i < allGrants.length; i++) {
+        // Step 2: mirror the six operational grants (indices 7..12 of the
+        // master map) under the deployer (who holds every `_ADMIN` role
+        // from init).
+        for (uint256 i = 7; i < allGrants.length; i++) {
             vm.prank(deployer, deployer);
             acl.grantRole(allGrants[i].role, allGrants[i].grantee);
         }
@@ -211,8 +212,8 @@ contract DeployV4AuthoriserCloneTest is Test {
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
         bytes32[7] memory adminRoles = _autoGrantedAdminRoles();
 
-        // Step 2: mirror the operational grants (indices 5..).
-        for (uint256 i = 5; i < allGrants.length; i++) {
+        // Step 2: mirror the operational grants (indices 7..12).
+        for (uint256 i = 7; i < allGrants.length; i++) {
             if (i == skipMirrorIndex) continue;
             vm.prank(deployer, deployer);
             acl.grantRole(allGrants[i].role, allGrants[i].grantee);
@@ -251,7 +252,7 @@ contract DeployV4AuthoriserCloneTest is Test {
     function testAssertPostStateRejectsMissingOperationalGrant() external {
         selectBaseFork();
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
-        uint256 skipped = 5;
+        uint256 skipped = 7;
         address clone = _deployAndConfigure(false, skipped, type(uint256).max);
         vm.expectRevert(
             abi.encodeWithSelector(ExpectedGrantMissing.selector, allGrants[skipped].role, allGrants[skipped].grantee)
@@ -261,9 +262,8 @@ contract DeployV4AuthoriserCloneTest is Test {
 
     /// @notice `_assertPostState` reverts `ExpectedGrantMissing` when the
     /// Safe is missing an auto-granted admin role. Skips a corporate-
-    /// action admin specifically — those two are NOT in `expectedGrants()`,
-    /// so only the dedicated "Safe holds every admin role" sweep can catch
-    /// this. Proves that sweep fires.
+    /// action admin — caught by the master `expectedGrants()` sweep, which
+    /// carries all seven admin entries.
     function testAssertPostStateRejectsSafeMissingAdminRole() external {
         selectBaseFork();
         bytes32[7] memory adminRoles = _autoGrantedAdminRoles();
@@ -331,7 +331,7 @@ contract DeployV4AuthoriserCloneTest is Test {
     function testScriptConstantsMatchInvariantMapAndReplica() external {
         selectBaseFork();
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
-        assertEq(harness.mirrorStartIndex(), 5, "MIRROR_START_INDEX drifted from the happy-path replica");
+        assertEq(harness.mirrorStartIndex(), 7, "MIRROR_START_INDEX drifted from the happy-path replica");
         assertEq(harness.mirrorCount(), 6, "MIRROR_COUNT drifted from the happy-path replica");
         assertEq(
             harness.mirrorStartIndex() + harness.mirrorCount(),
