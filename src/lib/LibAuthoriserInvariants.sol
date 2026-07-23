@@ -86,38 +86,55 @@ library LibAuthoriserInvariants {
     /// https://basescan.org/address/0x1c66d6708914c40239d54919320b4c48cae3d1a9
     address internal constant GRANTEE_SERVICE_1C66 = 0x1c66D6708914C40239D54919320b4C48cAE3D1A9;
 
-    /// @notice The single master `(role, grantee)` map: the full expected
-    /// grant state of the production (V4) authoriser clone. 13 entries:
-    /// 7 `_ADMIN` roles held by the token-owner Safe (5 base + the 2
-    /// corporate-action admins the V4 impl adds, granted to the Safe per
-    /// the RAI-731 decision), 3 action roles for the service EOA, 3 action
-    /// roles the Safe holds for direct operational use.
-    /// @return grants The pinned `(role, grantee)` pairs.
+    /// @notice The full `(role, grantee)` map in effect on the Base
+    /// production authoriser. Delegates to the Safe-parametric overload with
+    /// Base's token-owner Safe.
+    /// @return grants The pinned `(role, grantee)` pairs for Base.
     function expectedGrants() internal pure returns (RoleGrant[] memory grants) {
+        grants = expectedGrants(GRANTEE_TOKEN_OWNER_SAFE);
+    }
+
+    /// @notice The `(role, grantee)` map every ST0x authoriser carries,
+    /// parameterised on the chain's token-owner Safe. The STRUCTURE — 7
+    /// `_ADMIN` roles + 3 direct action roles held by the Safe, 3 action roles
+    /// held by the shared service signer — is identical on every chain; the
+    /// only per-chain input is the Safe ADDRESS (the service signer is shared),
+    /// because the Safe address is a per-chain deploy artifact. Every chain
+    /// targets the 0.1.1 authoriser impl, so every chain carries the two
+    /// corporate-action admins. The 13 entries split into: 7 `_ADMIN` roles
+    /// held by the Safe (5 from the base `initialize`, 2 added by the 0.1.1
+    /// ST0x override and granted to the Safe per RAI-731), 3 action roles for
+    /// the service EOA, 3 action roles the Safe holds for direct operational
+    /// use.
+    /// @param tokenOwnerSafe The chain's token-owner Safe filling the Safe
+    /// grantee slots.
+    /// @return grants The `(role, grantee)` pairs for that chain.
+    function expectedGrants(address tokenOwnerSafe) internal pure returns (RoleGrant[] memory grants) {
         grants = new RoleGrant[](13);
 
-        // The seven `_ADMIN` roles, all held by the Safe. Five are granted
-        // by the base `initialize`; the two corporate-action admins are
-        // V4-only (the ST0x override adds them). The clone-deploy
-        // broadcast transferred all seven to the Safe and renounced them
-        // from the deploy key.
-        grants[0] = RoleGrant(keccak256("DEPOSIT_ADMIN"), GRANTEE_TOKEN_OWNER_SAFE);
-        grants[1] = RoleGrant(keccak256("WITHDRAW_ADMIN"), GRANTEE_TOKEN_OWNER_SAFE);
-        grants[2] = RoleGrant(keccak256("CERTIFY_ADMIN"), GRANTEE_TOKEN_OWNER_SAFE);
-        grants[3] = RoleGrant(keccak256("CONFISCATE_SHARES_ADMIN"), GRANTEE_TOKEN_OWNER_SAFE);
-        grants[4] = RoleGrant(keccak256("CONFISCATE_RECEIPT_ADMIN"), GRANTEE_TOKEN_OWNER_SAFE);
-        grants[5] = RoleGrant(keccak256("SCHEDULE_CORPORATE_ACTION_ADMIN"), GRANTEE_TOKEN_OWNER_SAFE);
-        grants[6] = RoleGrant(keccak256("CANCEL_CORPORATE_ACTION_ADMIN"), GRANTEE_TOKEN_OWNER_SAFE);
+        // Init grants (block 41715184 on Base) — Safe receives every `_ADMIN`.
+        grants[0] = RoleGrant(keccak256("DEPOSIT_ADMIN"), tokenOwnerSafe);
+        grants[1] = RoleGrant(keccak256("WITHDRAW_ADMIN"), tokenOwnerSafe);
+        grants[2] = RoleGrant(keccak256("CERTIFY_ADMIN"), tokenOwnerSafe);
+        grants[3] = RoleGrant(keccak256("CONFISCATE_SHARES_ADMIN"), tokenOwnerSafe);
+        grants[4] = RoleGrant(keccak256("CONFISCATE_RECEIPT_ADMIN"), tokenOwnerSafe);
 
-        // Operational action roles for the service EOA.
+        // The two corporate-action admins the 0.1.1 impl adds. On Base the
+        // clone-deploy broadcast transferred them to the Safe alongside the
+        // other five and renounced them from the deploy key.
+        grants[5] = RoleGrant(keccak256("SCHEDULE_CORPORATE_ACTION_ADMIN"), tokenOwnerSafe);
+        grants[6] = RoleGrant(keccak256("CANCEL_CORPORATE_ACTION_ADMIN"), tokenOwnerSafe);
+
+        // Service EOA provisioned at blocks 41797262, 41797281, 41797297 (Base).
         grants[7] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_1C66);
         grants[8] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_1C66);
         grants[9] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_1C66);
 
-        // Operational action roles the Safe holds directly.
-        grants[10] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_TOKEN_OWNER_SAFE);
-        grants[11] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_TOKEN_OWNER_SAFE);
-        grants[12] = RoleGrant(keccak256("CERTIFY"), GRANTEE_TOKEN_OWNER_SAFE);
+        // Safe holds the corresponding action roles (Base blocks 42704120,
+        // 42704140, 44076075) for direct operational use.
+        grants[10] = RoleGrant(keccak256("DEPOSIT"), tokenOwnerSafe);
+        grants[11] = RoleGrant(keccak256("WITHDRAW"), tokenOwnerSafe);
+        grants[12] = RoleGrant(keccak256("CERTIFY"), tokenOwnerSafe);
     }
 
     /// @notice Assert every pinned `(role, grantee)` pair in
@@ -134,17 +151,30 @@ library LibAuthoriserInvariants {
     /// scan (a plain `AccessControl` cannot enumerate members).
     /// @param authoriser The authoriser to validate.
     function assertExpectedGrants(address authoriser) internal view {
+        assertExpectedGrants(authoriser, GRANTEE_TOKEN_OWNER_SAFE);
+    }
+
+    /// @notice Assert every `(role, grantee)` pair from
+    /// `expectedGrants(tokenOwnerSafe)` is held on the supplied authoriser, and
+    /// that neither the Safe nor the service signer holds `DEFAULT_ADMIN_ROLE`.
+    /// Parameterised on the chain's token-owner Safe so the identical grant
+    /// STRUCTURE is asserted against each chain's authoriser with that chain's
+    /// Safe address (the service signer is shared).
+    /// @param authoriser The authoriser to validate.
+    /// @param tokenOwnerSafe The chain's token-owner Safe filling the Safe
+    /// grantee slots.
+    function assertExpectedGrants(address authoriser, address tokenOwnerSafe) internal view {
         IAccessControl acl = IAccessControl(authoriser);
         // No pinned grantee holds DEFAULT_ADMIN_ROLE: the hierarchy admins each
         // action role by its own `<ROLE>_ADMIN`, so a root-admin holder would
         // be an escalation path the pinned map does not sanction.
-        if (acl.hasRole(DEFAULT_ADMIN_ROLE, GRANTEE_TOKEN_OWNER_SAFE)) {
-            revert UnexpectedDefaultAdmin(authoriser, GRANTEE_TOKEN_OWNER_SAFE);
+        if (acl.hasRole(DEFAULT_ADMIN_ROLE, tokenOwnerSafe)) {
+            revert UnexpectedDefaultAdmin(authoriser, tokenOwnerSafe);
         }
         if (acl.hasRole(DEFAULT_ADMIN_ROLE, GRANTEE_SERVICE_1C66)) {
             revert UnexpectedDefaultAdmin(authoriser, GRANTEE_SERVICE_1C66);
         }
-        RoleGrant[] memory grants = expectedGrants();
+        RoleGrant[] memory grants = expectedGrants(tokenOwnerSafe);
         for (uint256 i = 0; i < grants.length; i++) {
             if (!acl.hasRole(grants[i].role, grants[i].grantee)) {
                 revert ExpectedGrantMissing(authoriser, grants[i].role, grants[i].grantee);

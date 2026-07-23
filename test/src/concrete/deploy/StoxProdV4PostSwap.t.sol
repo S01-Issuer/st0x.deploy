@@ -25,12 +25,10 @@ import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 /// deadline, cron red-lines against that network.
 ///
 /// **Layer 2 — Authoriser swap window (Base only).** Every production
-/// receipt vault reports either the V3 authoriser (`LibAuthoriserInvariants.
-/// STOX_PROD_AUTHORISER`) or the pinned V4 clone
-/// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`), gated by
-/// `LibMigrationInvariant` against `V4_SWAP_DEADLINE`. Before the deadline
-/// both states pass; after the deadline only the V4 clone is accepted. Base-
-/// only because no other network carries live production receipt vaults.
+/// receipt vault reports the V4 authoriser clone
+/// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`), which
+/// `LibAuthoriserInvariants.STOX_PROD_AUTHORISER` aliases. Base-only
+/// because no other network carries live production receipt vaults.
 ///
 /// When (and only when) the clone pin is hydrated the additional invariants
 /// on the clone itself — deployed codehash matches the pin, grant map
@@ -48,8 +46,9 @@ contract StoxProdV4PostSwapTest is Test {
     /// @dev PLACEHOLDER — set to the operator SLA for the cross-network V4
     /// Zoltu redeploy. Adjust before merge if the intended cut-off is
     /// different. The Base-side swap deadline lives in
-    /// `LibProdDeployV4.V4_SWAP_DEADLINE` (shared with
-    /// `LibInvariants.assertAll`'s authoriser leg).
+    /// `LibProdDeployV4.V4_SWAP_DEADLINE`, which no longer gates any
+    /// assertion now that the swap has executed and the authoriser leg
+    /// asserts the V4 clone outright.
     uint256 internal constant V4_CROSS_NETWORK_DEPLOY_DEADLINE = 1_793_491_200;
 
     /// @notice Assert both V4 artifacts (receipt vault impl + corporate-
@@ -81,9 +80,10 @@ contract StoxProdV4PostSwapTest is Test {
     /// the clone itself validates via the shared invariant (codehash bound
     /// to the audited 0.1.1 impl + the master `expectedGrants()` map).
     /// Base-only.
-    /// @dev RED until the `20260623` swap bundle executes on Base — every
-    /// vault still reports the retired V3 authoriser until then. This PR
-    /// merges after the swap; the red is the pre-authored post-state pin.
+    /// @dev The swap has executed: every production receipt vault reports
+    /// the V4 clone. `LibAuthoriserInvariants.assertAll()` asserts the
+    /// clone's pinned codehash and its full 13-entry grant map, so no
+    /// separate hydration guard or hand-listed admin sweep is needed here.
     function checkPostSwapAuthoriserStateOnBase() internal view {
         LibTokenInvariants.assertUniformAuthoriser(LibAuthoriserInvariants.STOX_PROD_AUTHORISER);
         LibAuthoriserInvariants.assertAll();

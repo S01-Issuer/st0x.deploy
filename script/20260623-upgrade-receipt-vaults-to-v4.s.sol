@@ -81,7 +81,8 @@ error VaultAuthoriserMismatchPostUpgrade(address vault, address expected, addres
 ///      wrapped token vault) at their V4 implementations
 ///      (`LibProdDeployV4.STOX_RECEIPT_0_1_1` /
 ///      `STOX_RECEIPT_VAULT_0_1_1` / `STOX_WRAPPED_TOKEN_VAULT_0_1_1`).
-///   2. Calls `setAuthorizer(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE)`
+///   2. Calls
+///      `setAuthorizer(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE)`
 ///      on every production receipt vault.
 ///
 /// After execution every live receipt vault routes corporate-action selectors
@@ -344,9 +345,8 @@ contract UpgradeReceiptVaultsToV4 is Script {
     /// @notice Post-state assertions after the upgrade + swap simulate: all
     /// three beacons are at V4 and Safe-owned, every production receipt vault
     /// reports the V4 clone as its authoriser, and the Safe identity +
-    /// threshold are unchanged. Split from `run()` so tests can drive it
-    /// against a deliberately-malformed post-state (e.g. an un-swapped vault)
-    /// and assert the `VaultAuthoriserMismatchPostUpgrade` guard fires.
+    /// threshold are unchanged. Split from `run()` to keep the post-state
+    /// assertions separately readable from the bundle construction.
     /// @param safe The ST0x token-owner Safe.
     /// @param vaults The production receipt vaults the swap targets.
     function _assertPostState(IGnosisSafe safe, address[] memory vaults) internal view {
@@ -367,10 +367,9 @@ contract UpgradeReceiptVaultsToV4 is Script {
             }
         }
         // Safe identity + threshold unchanged. (The explicit per-vault
-        // V4-clone loop above is deliberately STRICTER than the
-        // migration-window authoriser leg in `LibInvariants.assertAll` —
-        // this is the post-state of the swap itself, so only the V4 clone
-        // is acceptable regardless of the window. The Safe-side legs are
+        // V4-clone loop above mirrors the authoriser leg in
+        // `LibInvariants.assertAll`, which also accepts only the V4 clone.
+        // The Safe-side legs are
         // asserted piecemeal to avoid re-running the token-side legs the
         // loop above already covers.)
         LibSafeInvariants.assertImmutableInvariants(safe);
