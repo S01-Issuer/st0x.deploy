@@ -41,6 +41,15 @@ error ReceiptVaultOwnerMismatch(address vault, address expected, address actual)
 /// @param actual The authoriser address returned by `vault.authorizer()`.
 error ReceiptVaultAuthoriserMismatch(address vault, address expected, address actual);
 
+/// @notice A production receipt vault's `authorizer()` is `address(0)` — the
+/// vault is ungated. A null authoriser is never a legitimate production
+/// state on either side of a migration, so it is rejected unconditionally,
+/// independent of any migration window: a not-yet-hydrated `address(0)`
+/// migration pin must never read a bricked vault's null authoriser as
+/// "already migrated".
+/// @param vault The receipt vault whose `authorizer()` returned zero.
+error ReceiptVaultNullAuthoriser(address vault);
+
 /// @title LibTokenInvariants
 /// @notice Reusable token-side uniformity invariants for the ST0x
 /// production receipt vaults on Base. Each assertion iterates the vault
@@ -459,7 +468,14 @@ library LibTokenInvariants {
     /// of waiting for on-chain execution — both sides of the transition
     /// are cron-covered, and a swap left un-run past the deadline
     /// red-lines via `MigrationDeadlinePassed`.
-    /// @dev Each vault is asserted independently, so a half-landed swap
+    /// @dev A null (`address(0)`) `authorizer()` trips
+    /// `ReceiptVaultNullAuthoriser` unconditionally, before the migration
+    /// window is consulted and independent of `deadline`: no production
+    /// vault is ever legitimately ungated, and a not-yet-hydrated
+    /// `address(0)` `post` pin would otherwise collide with a bricked
+    /// vault's null authoriser and accept it as already migrated.
+    ///
+    /// Each vault is asserted independently, so a half-landed swap
     /// (some vaults on `pre`, some on `post`) passes before the deadline
     /// — the bundle is atomic per Safe execution, but this leg does not
     /// assume that. Any third value trips `MigrationStateDrift`
@@ -470,9 +486,11 @@ library LibTokenInvariants {
     function assertUniformAuthoriserMigration(address pre, address post, uint256 deadline) internal view {
         address[] memory vaults = productionReceiptVaults();
         for (uint256 i = 0; i < vaults.length; i++) {
-            LibMigrationInvariant.assertMigration(
-                "receiptVault.authorizer()", IAuthorisable(vaults[i]).authorizer(), pre, post, deadline
-            );
+            address actual = IAuthorisable(vaults[i]).authorizer();
+            if (actual == address(0)) {
+                revert ReceiptVaultNullAuthoriser(vaults[i]);
+            }
+            LibMigrationInvariant.assertMigration("receiptVault.authorizer()", actual, pre, post, deadline);
         }
     }
 

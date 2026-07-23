@@ -17,4 +17,8 @@ contract LibTokenInvariantsHarness {
     function callAssertUniformAuthoriser(address expected) external view {
         LibTokenInvariants.assertUniformAuthoriser(expected);
     }
+
+    function callAssertUniformAuthoriserMigration(address pre, address post, uint256 deadline) external view {
+        LibTokenInvariants.assertUniformAuthoriserMigration(pre, post, deadline);
+    }
 }
