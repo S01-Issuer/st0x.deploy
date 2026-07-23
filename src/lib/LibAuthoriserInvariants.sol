@@ -86,6 +86,14 @@ library LibAuthoriserInvariants {
     /// https://basescan.org/address/0x1c66d6708914c40239d54919320b4c48cae3d1a9
     address internal constant GRANTEE_SERVICE_1C66 = 0x1c66D6708914C40239D54919320b4C48cAE3D1A9;
 
+    /// @notice ADDITIONAL service EOA, holding the same three action roles
+    /// as `GRANTEE_SERVICE_1C66` — both signers are active side by side.
+    /// Provisioned on each live chain's authoriser by the
+    /// `20260723-provision-additional-service-signer` Safe bundle; the
+    /// ADDRESS is shared across chains while the grants are per-chain
+    /// state.
+    address internal constant GRANTEE_SERVICE_3D0C = 0x3d0CD66EFA66c05d86c3d4316B03eAE87ab9E8aE;
+
     /// @notice The full `(role, grantee)` map in effect on the Base
     /// production authoriser. Delegates to the Safe-parametric overload with
     /// Base's token-owner Safe.
@@ -94,23 +102,18 @@ library LibAuthoriserInvariants {
         grants = expectedGrants(GRANTEE_TOKEN_OWNER_SAFE);
     }
 
-    /// @notice The `(role, grantee)` map every ST0x authoriser carries,
-    /// parameterised on the chain's token-owner Safe. The STRUCTURE — 7
-    /// `_ADMIN` roles + 3 direct action roles held by the Safe, 3 action roles
-    /// held by the shared service signer — is identical on every chain; the
-    /// only per-chain input is the Safe ADDRESS (the service signer is shared),
-    /// because the Safe address is a per-chain deploy artifact. Every chain
-    /// targets the 0.1.1 authoriser impl, so every chain carries the two
-    /// corporate-action admins. The 13 entries split into: 7 `_ADMIN` roles
-    /// held by the Safe (5 from the base `initialize`, 2 added by the 0.1.1
-    /// ST0x override and granted to the Safe per RAI-731), 3 action roles for
-    /// the service EOA, 3 action roles the Safe holds for direct operational
-    /// use.
+    /// @notice The canonical `(role, grantee)` map the current production
+    /// authoriser must carry, parameterised on the chain's token-owner Safe
+    /// (the STRUCTURE is chain-agnostic; service signers are shared across
+    /// chains, the Safe address is per-chain). The single source of truth
+    /// every live-state invariant asserts: a chain is red on any pair until
+    /// the operation that grants it executes there, and drift-guarded
+    /// thereafter.
     /// @param tokenOwnerSafe The chain's token-owner Safe filling the Safe
     /// grantee slots.
     /// @return grants The `(role, grantee)` pairs for that chain.
     function expectedGrants(address tokenOwnerSafe) internal pure returns (RoleGrant[] memory grants) {
-        grants = new RoleGrant[](13);
+        grants = new RoleGrant[](16);
 
         // Init grants (block 41715184 on Base) — Safe receives every `_ADMIN`.
         grants[0] = RoleGrant(keccak256("DEPOSIT_ADMIN"), tokenOwnerSafe);
@@ -135,6 +138,12 @@ library LibAuthoriserInvariants {
         grants[10] = RoleGrant(keccak256("DEPOSIT"), tokenOwnerSafe);
         grants[11] = RoleGrant(keccak256("WITHDRAW"), tokenOwnerSafe);
         grants[12] = RoleGrant(keccak256("CERTIFY"), tokenOwnerSafe);
+
+        // Additional service signer, provisioned by the 20260723 bundle
+        // per chain.
+        grants[13] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_3D0C);
+        grants[14] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_3D0C);
+        grants[15] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_3D0C);
     }
 
     /// @notice Assert every pinned `(role, grantee)` pair in
@@ -173,6 +182,9 @@ library LibAuthoriserInvariants {
         }
         if (acl.hasRole(DEFAULT_ADMIN_ROLE, GRANTEE_SERVICE_1C66)) {
             revert UnexpectedDefaultAdmin(authoriser, GRANTEE_SERVICE_1C66);
+        }
+        if (acl.hasRole(DEFAULT_ADMIN_ROLE, GRANTEE_SERVICE_3D0C)) {
+            revert UnexpectedDefaultAdmin(authoriser, GRANTEE_SERVICE_3D0C);
         }
         RoleGrant[] memory grants = expectedGrants(tokenOwnerSafe);
         for (uint256 i = 0; i < grants.length; i++) {
