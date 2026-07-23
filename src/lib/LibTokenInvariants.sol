@@ -323,6 +323,56 @@ library LibTokenInvariants {
         tokens[27] = TokenInstance("TTWO", TTWO_RECEIPT, TTWO_RECEIPT_VAULT, TTWO_WRAPPED_TOKEN_VAULT);
     }
 
+    /// @notice Returns the production token instance triples on Ethereum
+    /// mainnet — the same 28 underlyings as Base, in the same order, so the
+    /// two tables pair by index as well as by key.
+    ///
+    /// **ALL PLACEHOLDERS** (`address(0)`) until the Ethereum token
+    /// deployments execute and the post-execution pin PR hydrates every entry
+    /// in one reviewed change. Hydration is all-or-nothing across the table:
+    /// the multichain issuance cutover is lockstep over the full token set, so
+    /// a partially hydrated table is an error state, which the cross-chain
+    /// parity suite rejects rather than half-checks.
+    /// @return tokens The 28 production token instances on Ethereum.
+    function productionTokensEthereum() internal pure returns (TokenInstance[] memory tokens) {
+        // PLACEHOLDER TABLE. Every address is `address(0)` until the 28 tokens
+        // are deployed on Ethereum and their addresses pinned here (the token
+        // pin PR — a per-row literal swap). Laid out as explicit rows mirroring
+        // `productionTokensBase()` so the two tables are formatted consistently
+        // across chains and the pin diff is a clean per-token change. Order and
+        // underlyings MUST match Base row-for-row (the cross-chain parity pin
+        // asserts this).
+        tokens = new TokenInstance[](28);
+        tokens[0] = TokenInstance("MSTR", address(0), address(0), address(0));
+        tokens[1] = TokenInstance("TSLA", address(0), address(0), address(0));
+        tokens[2] = TokenInstance("COIN", address(0), address(0), address(0));
+        tokens[3] = TokenInstance("SPYM", address(0), address(0), address(0));
+        tokens[4] = TokenInstance("SIVR", address(0), address(0), address(0));
+        tokens[5] = TokenInstance("CRCL", address(0), address(0), address(0));
+        tokens[6] = TokenInstance("NVDA", address(0), address(0), address(0));
+        tokens[7] = TokenInstance("IAU", address(0), address(0), address(0));
+        tokens[8] = TokenInstance("PPLT", address(0), address(0), address(0));
+        tokens[9] = TokenInstance("AMZN", address(0), address(0), address(0));
+        tokens[10] = TokenInstance("BMNR", address(0), address(0), address(0));
+        tokens[11] = TokenInstance("IBHG", address(0), address(0), address(0));
+        tokens[12] = TokenInstance("SGOV", address(0), address(0), address(0));
+        tokens[13] = TokenInstance("QQQM", address(0), address(0), address(0));
+        tokens[14] = TokenInstance("VWO", address(0), address(0), address(0));
+        tokens[15] = TokenInstance("ARKK", address(0), address(0), address(0));
+        tokens[16] = TokenInstance("SPCX", address(0), address(0), address(0));
+        tokens[17] = TokenInstance("CEG", address(0), address(0), address(0));
+        tokens[18] = TokenInstance("DRAM", address(0), address(0), address(0));
+        tokens[19] = TokenInstance("TSM", address(0), address(0), address(0));
+        tokens[20] = TokenInstance("SKHY", address(0), address(0), address(0));
+        tokens[21] = TokenInstance("ASML", address(0), address(0), address(0));
+        tokens[22] = TokenInstance("MU", address(0), address(0), address(0));
+        tokens[23] = TokenInstance("AMD", address(0), address(0), address(0));
+        tokens[24] = TokenInstance("AVGO", address(0), address(0), address(0));
+        tokens[25] = TokenInstance("AMAT", address(0), address(0), address(0));
+        tokens[26] = TokenInstance("LRCX", address(0), address(0), address(0));
+        tokens[27] = TokenInstance("TTWO", address(0), address(0), address(0));
+    }
+
     /// @notice Returns the 28 production receipt vault addresses on Base, in
     /// the order they were deployed. Provided so consumers (e.g. invariant
     /// assertions, migration scripts) can iterate without hardcoding the

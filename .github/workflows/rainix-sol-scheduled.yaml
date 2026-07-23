@@ -1,0 +1,24 @@
+# Scheduled re-run of the full sol suite (including every fork test and the
+# cross-chain parity pin). Push-triggered CI only catches drift
+# that arrives WITH a code change; state drift introduced directly on-chain
+# between pushes — a role grant, a beacon upgrade, an authoriser swap — is
+# invisible to it. This schedule closes that gap: the prod-state pins and
+# the parity suite run against live chain state daily regardless of repo
+# activity.
+name: rainix-sol-scheduled
+on:
+  schedule:
+    # Daily, 06:17 UTC (off the hour to dodge the GitHub cron thundering
+    # herd, which can delay or drop on-the-hour scheduled runs).
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+jobs:
+  rainix-sol:
+    uses: rainlanguage/rainix/.github/workflows/rainix-sol.yaml@main
+    secrets:
+      RPC_URL_ARBITRUM_FORK: ${{ secrets.RPC_URL_ARBITRUM_FORK }}
+      RPC_URL_BASE_FORK: ${{ secrets.RPC_URL_BASE_FORK }}
+      RPC_URL_BASE_SEPOLIA_FORK: ${{ secrets.RPC_URL_BASE_SEPOLIA_FORK }}
+      RPC_URL_ETHEREUM_FORK: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
+      RPC_URL_FLARE_FORK: ${{ secrets.RPC_URL_FLARE_FORK }}
+      RPC_URL_POLYGON_FORK: ${{ secrets.RPC_URL_POLYGON_FORK }}
