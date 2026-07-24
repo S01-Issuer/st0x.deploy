@@ -34,6 +34,7 @@ on:
           # `base`.
           - 'base'
           - 'ethereum'
+          - 'hyperevm'
 # Dispatches an operational broadcast script from `script/` and sends the
 # resulting transactions from the CI deploy key (`secrets.PRIVATE_KEY`,
 # the same secret `manual-sol-artifacts.yaml` uses for Zoltu impl deploys).
@@ -76,6 +77,7 @@ jobs:
           # one foundry.toml resolves via its `[rpc_endpoints]` aliases.
           BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
           ETHEREUM_RPC_URL: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
+          HYPEREVM_RPC_URL: ${{ secrets.RPC_URL_HYPEREVM_FORK }}
           # Pass the choice inputs via env rather than template-expanding them
           # into the command, so the dispatched values are used as literal
           # arguments and cannot inject shell.
@@ -86,7 +88,14 @@ jobs:
           # persist it anywhere else.
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
         run: |
+          # HyperEVM's RPC rejects forge's EIP-1559 fee-history estimation;
+          # type-0 transactions work on every network.
+          LEGACY_ARGS=()
+          if [[ "${NETWORK}" == "hyperevm" ]]; then
+            LEGACY_ARGS+=(--legacy)
+          fi
           nix develop --command forge script "script/${SCRIPT}.s.sol" \
+            "${LEGACY_ARGS[@]}" \
             --sig 'run()' \
             --rpc-url "${NETWORK}" \
             --no-storage-caching \

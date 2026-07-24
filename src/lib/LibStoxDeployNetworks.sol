@@ -24,6 +24,14 @@ library LibStoxDeployNetworks {
     /// deploys work unchanged.
     string internal constant ETHEREUM = "ethereum";
 
+    /// @notice HyperEVM mainnet network name, matching the `[rpc_endpoints]`
+    /// alias in `foundry.toml` (resolved from `HYPEREVM_RPC_URL`).
+    /// @dev The Zoltu factory is deployed on HyperEVM at the canonical
+    /// `LibRainDeploy.ZOLTU_FACTORY` address, so deterministic deploys work
+    /// unchanged. Not in `supportedNetworks()`: HyperEVM carries the audited
+    /// 0.1.1 set, not the current source `script/Deploy.sol` ships.
+    string internal constant HYPEREVM = "hyperevm";
+
     /// @notice The networks each suite in `script/Deploy.sol` is broadcast to.
     /// @return networks The list of network names (Base + Ethereum mainnet).
     function supportedNetworks() internal pure returns (string[] memory networks) {

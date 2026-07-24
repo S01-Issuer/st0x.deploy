@@ -12,10 +12,15 @@ import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 /// suite.
 error UnknownDeploymentSuite(bytes32 suite);
 
+/// @dev Error thrown when the DEPLOYMENT_NETWORK env var does not match any
+/// supported bootstrap network.
+error UnknownDeploymentNetwork(string network);
+
 // One suite per contract to avoid Zoltu factory nonce issues.
 //
-// This script ships the audited 0.1.1 production set to Ethereum mainnet only.
-// Unlike `script/Deploy.sol`, which deploys the CURRENT source (the 0.1.3 pins)
+// This script ships the audited 0.1.1 production set to one bootstrap network
+// per dispatch, selected by `DEPLOYMENT_NETWORK`. Unlike
+// `script/Deploy.sol`, which deploys the CURRENT source (the 0.1.3 pins)
 // to `LibStoxDeployNetworks.supportedNetworks()`, each suite here deploys the
 // stored `LibProdDeployV4.*_CREATION_CODE_0_1_1` bytecode — the exact bytes the
 // 0.1.1 audit covers — and asserts against the `_0_1_1` address/codehash pins.
@@ -42,8 +47,9 @@ bytes32 constant DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT
 bytes32 constant DEPLOYMENT_SUITE_STOX_CORPORATE_ACTIONS_FACET = keccak256("stox-corporate-actions-facet");
 
 contract Deploy is Script {
-    /// @dev Broadcasts a single contract via the Zoltu deterministic deployer on
-    /// Ethereum mainnet. Reads `DEPLOYMENT_KEY` from the environment, logs
+    /// @dev Broadcasts a single contract via the Zoltu deterministic deployer
+    /// on the selected bootstrap network. Reads `DEPLOYMENT_KEY` from the
+    /// environment, logs
     /// diagnostic information (expected address, codehash, dependency state),
     /// then delegates to `LibRainDeploy.deployAndBroadcast`.
     /// @param creationCode The creation bytecode of the contract to deploy.
@@ -53,8 +59,8 @@ contract Deploy is Script {
     /// to.
     /// @param expectedCodeHash The expected codehash of the deployed runtime
     /// bytecode.
-    /// @param dependencies Addresses of contracts that must already be deployed
-    /// on Ethereum before this contract is deployed.
+    /// @param dependencies Addresses of contracts that must already be
+    /// deployed on the selected network before this contract is deployed.
     function deploySuite(
         bytes memory creationCode,
         string memory contractPath,
@@ -63,7 +69,7 @@ contract Deploy is Script {
         address[] memory dependencies
     ) internal {
         string[] memory networks = new string[](1);
-        networks[0] = LibStoxDeployNetworks.ETHEREUM;
+        networks[0] = bootstrapNetwork();
         uint256 deployerPrivateKey = vm.envUint("DEPLOYMENT_KEY");
 
         console2.log("Suite deploying (0.1.1):", contractPath);
@@ -92,11 +98,29 @@ contract Deploy is Script {
         );
     }
 
-    /// @notice Entry point for the 0.1.1 Ethereum deployment script.
+    /// @notice The bootstrap network the suite broadcasts to, from the
+    /// `DEPLOYMENT_NETWORK` env var, validated against the supported set.
+    /// No default: an unset network reverts rather than silently picking a
+    /// chain.
+    /// @return network The validated `foundry.toml` rpc alias.
+    function bootstrapNetwork() internal view returns (string memory network) {
+        network = vm.envOr("DEPLOYMENT_NETWORK", string(""));
+        bytes32 networkHash = keccak256(bytes(network));
+        if (
+            networkHash != keccak256(bytes(LibStoxDeployNetworks.ETHEREUM))
+                && networkHash != keccak256(bytes(LibStoxDeployNetworks.HYPEREVM))
+        ) {
+            revert UnknownDeploymentNetwork(network);
+        }
+    }
+
+    /// @notice Entry point for the 0.1.1 bootstrap deployment script.
     /// @dev Requires env vars:
     /// - `DEPLOYMENT_KEY`: private key for the deployer account.
     /// - `DEPLOYMENT_SUITE`: which contract to deploy (e.g. "stox-receipt").
     ///   One contract per run.
+    /// - `DEPLOYMENT_NETWORK`: bootstrap network to ship to — `ethereum` or
+    ///   `hyperevm`.
     function run() public {
         bytes32 suite = keccak256(bytes(vm.envString("DEPLOYMENT_SUITE")));
         address[] memory noDeps = new address[](0);
@@ -114,7 +138,7 @@ contract Deploy is Script {
             // hardcoded corporate-actions facet, and a delegatecall to a
             // code-less address silently no-ops — so the facet must already be
             // on-chain. Declared as a dependency so LibRainDeploy reverts
-            // MissingDependency if the facet is not yet deployed on Ethereum.
+            // MissingDependency if the facet is not yet deployed on the network.
             address[] memory deps = new address[](1);
             deps[0] = LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1;
             deploySuite(
