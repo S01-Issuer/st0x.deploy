@@ -50,15 +50,14 @@ error NoMissingTokens();
 error TokenTableMisaligned(uint256 index, string configUnderlying, string tableUnderlying);
 
 /// @title DeployMissingTokensHyperEvm
-/// @notice **PENDING.** The HyperEVM token deploy (RAI-1511): deploys, on
-/// HyperEVM, exactly the canonical config rows whose
-/// `LibTokenInvariants.productionTokensHyperEvm()` entry is still all-zero —
-/// which at authoring time is the ENTIRE 29-token canonical set (the initial
-/// bootstrap is just a gap-fill of everything). Dispatch via
-/// `Actions → manual-broadcast` with
+/// @notice **EXECUTED 2026-07-24** (manual-broadcast run 30114307165: all 29
+/// tokens deployed, wired, and handed to the Safe; tuples pinned in
+/// `LibTokenInvariants.productionTokensHyperEvm()`). The HyperEVM token
+/// deploy (RAI-1511): deploys, on HyperEVM, exactly the canonical config
+/// rows whose `LibTokenInvariants.productionTokensHyperEvm()` entry is
+/// still all-zero. Dispatch via `Actions → manual-broadcast` with
 /// `script = 20260722-deploy-missing-tokens-hyperevm` and
-/// `network = hyperevm`. Flips to `**EXECUTED YYYY-MM-DD.**` in the
-/// post-execution pin PR that hydrates the table from the logged tuples.
+/// `network = hyperevm`.
 ///
 /// Deliberately SELF-SCOPING, the same shape as the Ethereum gap-fill
 /// (`20260722-deploy-missing-tokens-ethereum`): joins the canonical config
