@@ -11,15 +11,16 @@ import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 
 /// @title MigrateBeaconOwnersHyperEvm
-/// @notice **PENDING.** Transfers ownership of the three ST0x production
+/// @notice **EXECUTED 2026-07-24** (broadcast from the deploy EOA's CLI;
+/// all three beacons verified Safe-owned with implementations unchanged).
+/// Transfers ownership of the three ST0x production
 /// beacons on **HyperEVM** (chain id 999) from the deploy EOA
 /// (`LibProdDeployV1.BEACON_INITIAL_OWNER`, rainlang.eth) to the HyperEVM
 /// token-owner Safe (`LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM`).
 /// The HyperEVM leg of the same migration executed for Base (#253) and
 /// Ethereum (`20260716-migrate-beacon-owners-ethereum`) — HyperEVM
 /// bootstraps at 0.1.1, so its beacons are the SAME deterministic addresses
-/// as Ethereum's (`LibProdBeacons0_1_1`). Flips to `**EXECUTED
-/// YYYY-MM-DD.**` in the post-execution pin PR.
+/// as Ethereum's (`LibProdBeacons0_1_1`).
 ///
 /// @dev This is a **deploy-EOA broadcast**, not a Safe artifact: the beacons
 /// come up EOA-owned from the beacon-set deployer constructors, so the
