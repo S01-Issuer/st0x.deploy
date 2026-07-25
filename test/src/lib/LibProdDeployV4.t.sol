@@ -546,9 +546,10 @@ contract LibProdDeployV4Test is Test {
     // `testDeployAddress*` tests exactly: an impl a constructor bakes is deployed
     // (frozen, at its candidate address) first. ---
 
-    /// Standalone (its constructor is empty — the beacon is referenced only at
-    /// call time), so no impl predeploy is needed. It differs from 0.1.1 for the
-    /// ERC-165 `supportsInterface` change, not the facet cascade.
+    /// Standalone: no beacon bytecode is baked into the deployer artifact, so no
+    /// impl predeploy is needed to redeploy it — the deployed proxy checks the
+    /// beacon at proxy construction time. It differs from 0.1.1 for the ERC-165
+    /// `supportsInterface` change, not the facet cascade.
     function testFrozenRedeployStoxWrappedTokenVaultBeaconSetDeployer_CANDIDATE() external {
         LibRainDeploy.etchZoltuFactory(vm);
         _assertFrozenRedeploy(

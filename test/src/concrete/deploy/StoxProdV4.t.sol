@@ -8,8 +8,6 @@ import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
-import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
-import {ST0xOrchestratorBeaconSetDeployer} from "../../../../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV2
 } from "rain-vats-0.1.6/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV2.sol";
@@ -189,164 +187,15 @@ contract StoxProdV4Test is Test {
         );
     }
 
-    /// Asserts the full accumulated set carried by Base: the audited 0.1.1 set
-    /// (via `checkProd_0_1_1OnChain`) plus the candidate contracts that differ
-    /// from it — the orchestrator and the rebuilt movers — including their beacon
-    /// wiring.
-    function checkAllV4OnChain() internal view {
-        checkProd_0_1_1OnChain();
-
-        // The candidate snapshot carries seven contracts at Zoltu addresses that
-        // differ from the audited 0.1.1 set: the corporate-actions facet (the
-        // cumulative-multiplier change) plus the receipt vault, OARV beacon-set
-        // deployer, unified deployer, orchestrator, and orchestrator beacon-set
-        // deployer that cascade from it, and the wrapped-token-vault beacon-set
-        // deployer moved by the ERC-165 `supportsInterface` fix. The other
-        // candidate contracts are byte-identical to their 0.1.1 counterparts
-        // already checked above at the same addresses, so only the seven movers
-        // are checked on-chain here.
-        assertTrue(
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE.code.length > 0,
-            "candidate StoxCorporateActionsFacet not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE.codehash,
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_CANDIDATE
-        );
-        assertEq(
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE.code,
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_CANDIDATE
-        );
-
-        assertTrue(
-            LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE.code.length > 0, "candidate StoxReceiptVault not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE.codehash, LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_CANDIDATE
-        );
-        assertEq(
-            LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE.code, LibProdDeployV4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE
-        );
-
-        assertTrue(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE.code.length > 0,
-            "candidate StoxOffchainAssetReceiptVaultBeaconSetDeployer not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE.codehash,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE
-        );
-        assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE.code,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_CANDIDATE
-        );
-
-        assertTrue(
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CANDIDATE.code.length > 0,
-            "candidate StoxUnifiedDeployer not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CANDIDATE.codehash,
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_CANDIDATE
-        );
-        assertEq(
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CANDIDATE.code,
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RUNTIME_CODE_CANDIDATE
-        );
-
-        assertTrue(
-            LibProdDeployV4.ST0X_ORCHESTRATOR_CANDIDATE.code.length > 0, "candidate ST0xOrchestrator not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.ST0X_ORCHESTRATOR_CANDIDATE.codehash, LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_CANDIDATE
-        );
-        assertEq(
-            LibProdDeployV4.ST0X_ORCHESTRATOR_CANDIDATE.code, LibProdDeployV4.ST0X_ORCHESTRATOR_RUNTIME_CODE_CANDIDATE
-        );
-
-        assertTrue(
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CANDIDATE.code.length > 0,
-            "candidate ST0xOrchestratorBeaconSetDeployer not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CANDIDATE.codehash,
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE
-        );
-        assertEq(
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CANDIDATE.code,
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_CANDIDATE
-        );
-
-        assertTrue(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CANDIDATE.code.length > 0,
-            "candidate StoxWrappedTokenVaultBeaconSetDeployer not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CANDIDATE.codehash,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE
-        );
-        assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CANDIDATE.code,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_CANDIDATE
-        );
-
-        // The offchain-asset-receipt-vault beacon-set deployer creates two
-        // beacons: the receipt beacon points at the (0.1.1-identical) candidate
-        // receipt impl and the offchain-asset-receipt-vault beacon points at the
-        // rebuilt
-        // candidate receipt vault impl, both held by the beacon initial owner.
-        IOffchainAssetReceiptVaultBeaconSetDeployerV2 oarvDeployer013 = IOffchainAssetReceiptVaultBeaconSetDeployerV2(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE
-        );
-
-        IBeacon receiptBeacon013 = oarvDeployer013.iReceiptBeacon();
-        assertEq(
-            receiptBeacon013.implementation(),
-            LibProdDeployV4.STOX_RECEIPT_CANDIDATE,
-            "candidate OARV receipt beacon implementation mismatch"
-        );
-        assertEq(
-            Ownable(address(receiptBeacon013)).owner(),
-            LibProdDeployV4.BEACON_INITIAL_OWNER,
-            "candidate OARV receipt beacon owner mismatch"
-        );
-
-        IBeacon vaultBeacon013 = oarvDeployer013.iOffchainAssetReceiptVaultBeacon();
-        assertEq(
-            vaultBeacon013.implementation(),
-            LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE,
-            "candidate OARV vault beacon implementation mismatch"
-        );
-        assertEq(
-            Ownable(address(vaultBeacon013)).owner(),
-            LibProdDeployV4.BEACON_INITIAL_OWNER,
-            "candidate OARV vault beacon owner mismatch"
-        );
-
-        // The candidate ST0x orchestrator beacon-set deployer's beacon points at the
-        // rebuilt candidate orchestrator impl, held by the beacon initial owner.
-        IBeacon orchestratorBeacon013 = ST0xOrchestratorBeaconSetDeployer(
-                LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CANDIDATE
-            ).iOrchestratorBeacon();
-        assertEq(
-            orchestratorBeacon013.implementation(),
-            LibProdDeployV4.ST0X_ORCHESTRATOR_CANDIDATE,
-            "candidate orchestrator beacon implementation mismatch"
-        );
-        assertEq(
-            Ownable(address(orchestratorBeacon013)).owner(),
-            LibProdDeployV4.BEACON_INITIAL_OWNER,
-            "candidate orchestrator beacon owner mismatch"
-        );
-    }
-
-    /// The full accumulated V4 set MUST be deployed on Base with the expected
-    /// codehashes, and Base's IN-USE production beacons (the V1-generation
-    /// addresses — NOT the unadopted 0.1.1-address deploy) MUST be owned by
-    /// Base's token-owner Safe.
+    /// The Base fork verifies only the frozen audited 0.1.1 set — that is what
+    /// the in-use Base production beacons (the V1-generation addresses) actually
+    /// adopt on-chain. The rolling `candidate` snapshot regenerates from source
+    /// and is NEVER a deploy target, so its addresses are not checked on any fork;
+    /// `testCandidateSelfConsistent` verifies candidate == current source locally
+    /// instead. The in-use beacons MUST be owned by Base's token-owner Safe.
     function testProdDeployBaseV4() external {
         vm.createSelectFork(LibRainDeploy.BASE);
-        checkAllV4OnChain();
+        checkProd_0_1_1OnChain();
         LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
     }
 
