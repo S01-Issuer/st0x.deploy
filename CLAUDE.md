@@ -283,36 +283,28 @@ library. When making changes to contract source:
 
 ## Deployment
 
-`script/Deploy.sol` dispatches based on `DEPLOYMENT_SUITE` env var. One contract
-per suite to avoid Zoltu factory nonce issues. Every suite targets the
-`LibProdDeployV4` (rain.vats 0.1.6) pins and broadcasts to every network in
-`LibStoxDeployNetworks.supportedNetworks()` (Base + Ethereum mainnet) — the
-Zoltu deploy is idempotent per network, so a suite run skips networks that
-already carry the artifact and deploys the identical bytecode to the ones that
-don't. The frozen V1/V2 deployments in `LibProdDeployV1` / `LibProdDeployV2` are
-an audit trail and are not redeployable from the current source.
+Production deploys run the audited, version-specific script
+`script/DeployProdV4_0_1_1.sol` — never the current source. It ships the stored
+audited-0.1.1 creation bytecode (`LibProdDeployV4.*_CREATION_CODE_0_1_1`, the
+exact bytes the 0.1.1 audit covers) and asserts each contract against its
+`_0_1_1` address/codehash pin, so the on-chain result is the audited deployment
+regardless of what the current source compiles to. Each dispatch deploys one
+contract suite (`DEPLOYMENT_SUITE`, one contract per suite to avoid Zoltu
+factory nonce issues) to a single bootstrap network (`DEPLOYMENT_NETWORK` —
+Ethereum or HyperEVM), via the `manual-sol-artifacts-0-1-1.yaml` GitHub Actions
+workflow; the Zoltu deploy is idempotent per network. Suites are deployed in the
+workflow's listed order — later suites reference earlier ones via dependency
+pointers, so an out-of-order run trips the dep-codehash check. The orchestrator
+(introduced at 0.1.2) is not part of the audited 0.1.1 set.
 
-- `stox-receipt-v4` — deploys StoxReceipt
-- `stox-receipt-vault-v4` — deploys StoxReceiptVault
-- `stox-wrapped-token-vault-v4` — deploys StoxWrappedTokenVault
-- `stox-wrapped-token-vault-beacon-v4` — deploys StoxWrappedTokenVaultBeacon
-  (depends on StoxWrappedTokenVault)
-- `stox-wrapped-token-vault-beacon-set-deployer-v4` — deploys
-  StoxWrappedTokenVaultBeaconSetDeployer (depends on beacon)
-- `stox-offchain-asset-receipt-vault-beacon-set-deployer-v4` — deploys
-  StoxOffchainAssetReceiptVaultBeaconSetDeployer (depends on StoxReceipt,
-  StoxReceiptVault)
-- `stox-unified-deployer-v4` — deploys StoxUnifiedDeployer (depends on both
-  beacon-set deployers)
-- `stox-offchain-asset-receipt-vault-authorizer-v1-v4` — deploys
-  StoxOffchainAssetReceiptVaultAuthorizerV1
-- `stox-offchain-asset-receipt-vault-payment-mint-authorizer-v1-v4` — deploys
-  StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
-- `stox-corporate-actions-facet-v4` — deploys StoxCorporateActionsFacet
-
-Manual deployment runs via the GitHub Actions workflow
-(`manual-sol-artifacts.yaml`), which broadcasts each suite to every supported
-network in one run.
+The rolling `candidate` snapshot (`src/generated/candidate/`) is NEVER a deploy
+target — it exists only so tests exercise the current source and
+`testCandidateSelfConsistent` pins source↔snapshot integrity. When a later
+version is audited it gets its own frozen numbered snapshot (cut from
+`candidate` by a `sol-vX.Y.Z` release tag; see `script/cut-release.sh`) and its
+own `script/DeployProdV4_0_1_N.sol`. The frozen V1/V2 deployments in
+`LibProdDeployV1` / `LibProdDeployV2` are an audit trail and are not
+redeployable from the current source.
 
 ## Naming Conventions
 

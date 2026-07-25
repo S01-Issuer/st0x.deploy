@@ -2,22 +2,15 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
-
 /// @title LibStoxDeployNetworks
-/// @notice Single source of truth for the networks the ST0x production deploy
-/// broadcasts to. `script/Deploy.sol` reads this instead of hardcoding the list
-/// inline, so the supported-network set lives in one place. ST0x deploys to
-/// Base and Ethereum mainnet.
-///
-/// `LibRainDeploy.deployToNetworks` is idempotent per network — an
-/// already-deployed contract is skipped and its codehash re-verified — so a
-/// single suite run keeps every network in this list bytecode-identical by
-/// construction.
+/// @notice The ST0x-specific deploy network-name constants that
+/// `rain-deploy`'s `LibRainDeploy` does not provide. Each matches its
+/// `[rpc_endpoints]` alias in `foundry.toml`, the same convention as every
+/// `LibRainDeploy` network constant. Consumed by the audited deploy script
+/// `script/DeployProdV4_0_1_1.sol` and the cross-chain fork tests.
 library LibStoxDeployNetworks {
     /// @notice Ethereum mainnet network name, matching the `[rpc_endpoints]`
-    /// alias in `foundry.toml` (resolved from `ETHEREUM_RPC_URL`), the same
-    /// pattern as every `LibRainDeploy` network constant.
+    /// alias in `foundry.toml` (resolved from `ETHEREUM_RPC_URL`).
     /// @dev Declared here because `rain-deploy-0.1.4`'s `LibRainDeploy` has no
     /// `ETHEREUM` constant. The Zoltu factory is deployed on Ethereum mainnet at
     /// the canonical `LibRainDeploy.ZOLTU_FACTORY` address, so deterministic
@@ -28,15 +21,6 @@ library LibStoxDeployNetworks {
     /// alias in `foundry.toml` (resolved from `HYPEREVM_RPC_URL`).
     /// @dev The Zoltu factory is deployed on HyperEVM at the canonical
     /// `LibRainDeploy.ZOLTU_FACTORY` address, so deterministic deploys work
-    /// unchanged. Not in `supportedNetworks()`: HyperEVM carries the audited
-    /// 0.1.1 set, not the current source `script/Deploy.sol` ships.
+    /// unchanged.
     string internal constant HYPEREVM = "hyperevm";
-
-    /// @notice The networks each suite in `script/Deploy.sol` is broadcast to.
-    /// @return networks The list of network names (Base + Ethereum mainnet).
-    function supportedNetworks() internal pure returns (string[] memory networks) {
-        networks = new string[](2);
-        networks[0] = LibRainDeploy.BASE;
-        networks[1] = ETHEREUM;
-    }
 }

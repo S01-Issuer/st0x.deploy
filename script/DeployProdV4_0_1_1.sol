@@ -19,11 +19,9 @@ error UnknownDeploymentNetwork(string network);
 // One suite per contract to avoid Zoltu factory nonce issues.
 //
 // This script ships the audited 0.1.1 production set to one bootstrap network
-// per dispatch, selected by `DEPLOYMENT_NETWORK`. Unlike
-// `script/Deploy.sol`, which deploys the CURRENT source (the 0.1.3 pins)
-// to `LibStoxDeployNetworks.supportedNetworks()`, each suite here deploys the
-// stored `LibProdDeployV4.*_CREATION_CODE_0_1_1` bytecode — the exact bytes the
-// 0.1.1 audit covers — and asserts against the `_0_1_1` address/codehash pins.
+// per dispatch, selected by `DEPLOYMENT_NETWORK`. Each suite deploys the stored
+// `LibProdDeployV4.*_CREATION_CODE_0_1_1` bytecode — the exact bytes the 0.1.1
+// audit covers — and asserts against the `_0_1_1` address/codehash pins.
 // Deploying stored creation code (not `type(T).creationCode`) reproduces the
 // audited 0.1.1 deployment regardless of what the current source compiles to.
 //
