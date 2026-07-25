@@ -63,8 +63,8 @@ contract LibProdDeployV4Test is Test {
         assertEq(deployed.codehash, LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_1);
     }
 
-    // --- StoxReceiptVault (0.1.3 — rebuilt: its `fallback()` hardcodes the
-    // rebuilt 0.1.3 corporate-actions facet, so the current source compiles to the 0.1.3 vault). ---
+    // --- StoxReceiptVault (candidate — rebuilt: its `fallback()` hardcodes the
+    // rebuilt candidate corporate-actions facet, so the current source compiles to the candidate vault). ---
 
     function testDeployAddressStoxReceiptVault() external {
         LibRainDeploy.etchZoltuFactory(vm);
@@ -84,8 +84,8 @@ contract LibProdDeployV4Test is Test {
         assertEq(deployed.codehash, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_1);
     }
 
-    // --- StoxUnifiedDeployer (0.1.3 — rebuilt: it embeds the rebuilt 0.1.3
-    // OARV beacon-set deployer address, so the current source compiles to the 0.1.3 unified deployer). ---
+    // --- StoxUnifiedDeployer (candidate — rebuilt: it embeds the rebuilt candidate
+    // OARV beacon-set deployer address, so the current source compiles to the candidate unified deployer). ---
 
     function testDeployAddressStoxUnifiedDeployer() external {
         LibRainDeploy.etchZoltuFactory(vm);
@@ -106,10 +106,10 @@ contract LibProdDeployV4Test is Test {
         assertEq(deployed.codehash, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_1);
     }
 
-    // --- StoxWrappedTokenVaultBeaconSetDeployer (0.1.3 — a mover: its
+    // --- StoxWrappedTokenVaultBeaconSetDeployer (candidate — a mover: its
     // `supportsInterface` inherits OpenZeppelin `ERC165` and chains `super`, so
-    // its bytecode differs from the byte-identical 0.1.2 twin and the current
-    // source compiles to the 0.1.3 deployer.
+    // its bytecode differs from the audited 0.1.1 deployer and the current
+    // source compiles to the candidate deployer.
     // Needs vault + beacon first). ---
 
     function testDeployAddressStoxWrappedTokenVaultBeaconSetDeployer() external {
@@ -122,10 +122,10 @@ contract LibProdDeployV4Test is Test {
         assertEq(deployed.codehash, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE);
     }
 
-    // --- StoxOffchainAssetReceiptVaultBeaconSetDeployer (0.1.3 — rebuilt: its
-    // constructor bakes a beacon over the rebuilt 0.1.3 receipt-vault impl, so
+    // --- StoxOffchainAssetReceiptVaultBeaconSetDeployer (candidate — rebuilt: its
+    // constructor bakes a beacon over the rebuilt candidate receipt-vault impl, so
     // the current source compiles to the
-    // 0.1.3 deployer. Needs receipt + the 0.1.3 receipt vault deployed first so
+    // candidate deployer. Needs receipt + the candidate receipt vault deployed first so
     // the beacon's impl-has-code check passes). ---
 
     function testDeployAddressStoxOffchainAssetReceiptVaultBeaconSetDeployer() external {
@@ -164,8 +164,8 @@ contract LibProdDeployV4Test is Test {
         );
     }
 
-    // --- StoxCorporateActionsFacet (0.1.3 — rebuilt for the
-    // cumulative-multiplier change; the current source now compile to the 0.1.3 facet, so these current-source
+    // --- StoxCorporateActionsFacet (candidate — rebuilt for the
+    // cumulative-multiplier change; the current source now compile to the candidate facet, so these current-source
     // trios pin the `_CANDIDATE` facet). ---
 
     function testDeployAddressStoxCorporateActionsFacet() external {
@@ -176,9 +176,9 @@ contract LibProdDeployV4Test is Test {
         assertEq(deployed.codehash, LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_CANDIDATE);
     }
 
-    // --- ST0xOrchestrator (0.1.3 — rebuilt: it embeds the rebuilt 0.1.3 OARV
+    // --- ST0xOrchestrator (candidate — rebuilt: it embeds the rebuilt candidate OARV
     // beacon-set deployer and receipt-vault addresses, so the current source
-    // compiles to the 0.1.3 orchestrator). ---
+    // compiles to the candidate orchestrator). ---
 
     function testDeployAddressST0xOrchestrator() external {
         LibRainDeploy.etchZoltuFactory(vm);
@@ -188,10 +188,10 @@ contract LibProdDeployV4Test is Test {
         assertEq(deployed.codehash, LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_CANDIDATE);
     }
 
-    // --- ST0xOrchestratorBeaconSetDeployer (0.1.3 — rebuilt: its constructor
-    // bakes a beacon over the rebuilt 0.1.3 orchestrator impl, so the current
-    // source compiles to the 0.1.3 deployer.
-    // Needs the 0.1.3 orchestrator impl deployed first so the beacon's
+    // --- ST0xOrchestratorBeaconSetDeployer (candidate — rebuilt: its constructor
+    // bakes a beacon over the rebuilt candidate orchestrator impl, so the current
+    // source compiles to the candidate deployer.
+    // Needs the candidate orchestrator impl deployed first so the beacon's
     // impl-has-code check passes). ---
 
     function testDeployAddressST0xOrchestratorBeaconSetDeployer() external {
@@ -392,12 +392,12 @@ contract LibProdDeployV4Test is Test {
     // deploy the CURRENT source and are what break when the source drifts; these
     // pin the frozen bytecode itself.
     //
-    // Only DISTINCT (creation code, address) pairs are covered: the ten 0.1.1
-    // contracts plus the two 0.1.2-only contracts (the orchestrator and its
-    // deployer). The 0.1.2 twins of the ten are byte-identical creation code, so
-    // they Zoltu-derive the SAME address (already proven equal by
-    // `testRelease012TwinsEqualRelease011`) and redeploying them would collide
-    // on the already-occupied address.
+    // Only DISTINCT (creation code, address) pairs are covered: the ten audited
+    // 0.1.1 contracts plus the candidate-only contracts (the orchestrator and
+    // its deployer, which 0.1.1 predates). The candidate contracts byte-identical
+    // to their 0.1.1 counterparts share the same creation code, so they
+    // Zoltu-derive the SAME address and redeploying them would collide on the
+    // already-occupied address.
     //
     // Deployer dependency ordering mirrors the `testDeployAddress*` tests
     // exactly: a deployer/beacon whose constructor bakes an impl address needs
@@ -534,19 +534,20 @@ contract LibProdDeployV4Test is Test {
         );
     }
 
-    // --- 0.1.3 movers' frozen redeploys (seven contracts are rebuilt in 0.1.3:
-    // the corporate-actions facet plus the receipt vault, OARV beacon-set
-    // deployer, unified deployer, orchestrator, and orchestrator beacon-set
-    // deployer that cascade from it, and the wrapped-token-vault beacon-set
-    // deployer moved by the ERC-165 `supportsInterface` fix; the other five are
-    // byte-identical 0.1.2 twins that Zoltu-derive the already-occupied 0.1.2
+    // --- candidate movers' frozen redeploys (seven candidate contracts differ
+    // from the audited 0.1.1 set: the corporate-actions facet plus the receipt
+    // vault, OARV beacon-set deployer, unified deployer, orchestrator, and
+    // orchestrator beacon-set deployer that cascade from it, and the
+    // wrapped-token-vault beacon-set deployer moved by the ERC-165
+    // `supportsInterface` fix; the other candidate contracts are byte-identical
+    // to their 0.1.1 counterparts and Zoltu-derive the same already-occupied
     // addresses, so only these seven have a distinct (creation code, address)
     // pair to redeploy). Deployer/beacon dependency ordering mirrors the
     // `testDeployAddress*` tests exactly: an impl a constructor bakes is deployed
-    // (frozen, at its 0.1.3 address) first. ---
+    // (frozen, at its candidate address) first. ---
 
     /// Standalone (its constructor is empty — the beacon is referenced only at
-    /// call time), so no impl predeploy is needed. It moves in 0.1.3 for the
+    /// call time), so no impl predeploy is needed. It differs from 0.1.1 for the
     /// ERC-165 `supportsInterface` change, not the facet cascade.
     function testFrozenRedeployStoxWrappedTokenVaultBeaconSetDeployer_CANDIDATE() external {
         LibRainDeploy.etchZoltuFactory(vm);
@@ -579,7 +580,7 @@ contract LibProdDeployV4Test is Test {
     }
 
     /// Its constructor builds two beacons over the receipt and receipt-vault
-    /// impls, so both are deployed (frozen, at their 0.1.3 addresses) first.
+    /// impls, so both are deployed (frozen, at their candidate addresses) first.
     function testFrozenRedeployStoxOffchainAssetReceiptVaultBeaconSetDeployer_CANDIDATE() external {
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(LibProdDeployV4.STOX_RECEIPT_CREATION_CODE_CANDIDATE);
@@ -613,7 +614,7 @@ contract LibProdDeployV4Test is Test {
     }
 
     /// Its constructor builds an `UpgradeableBeacon` over the orchestrator impl,
-    /// so the impl is deployed (frozen, at its 0.1.3 address) first.
+    /// so the impl is deployed (frozen, at its candidate address) first.
     function testFrozenRedeployST0xOrchestratorBeaconSetDeployer_CANDIDATE() external {
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_CANDIDATE);

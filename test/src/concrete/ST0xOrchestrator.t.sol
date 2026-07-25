@@ -62,8 +62,8 @@ contract ST0xOrchestratorTest is Test {
     address internal constant OWNER = address(0x0FFCE);
 
     /// The vault-version guard reads these fixed production addresses. The
-    /// orchestrator's `_checkVaultLogic` reads the current-release (0.1.3) pins,
-    /// so the mocks target the 0.1.3 deployer and impls.
+    /// orchestrator's `_checkVaultLogic` reads the current-release (candidate) pins,
+    /// so the mocks target the candidate deployer and impls.
     address internal constant DEPLOYER =
         LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE;
     address internal constant VAULT_BEACON = address(0xBEAC04);

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: LicenseRef-DCL-1.0
+# SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 # Freeze the rolling `candidate` snapshot as a numbered release snapshot, then
 # regenerate the deploy pointer libs.
 #
@@ -27,8 +29,14 @@ if [ ! -d src/generated/candidate ]; then
   exit 1
 fi
 
+# Frozen releases are append-only: re-cutting an existing version must fail
+# loudly rather than clobber a frozen (audited) snapshot with candidate.
+if [ -d "src/generated/${TAG}" ]; then
+  echo "cut-release: src/generated/${TAG} already exists — refusing to overwrite a frozen release snapshot" >&2
+  exit 1
+fi
+
 echo "cut-release: freezing candidate -> src/generated/${TAG}"
-rm -rf "src/generated/${TAG}"
 cp -r src/generated/candidate "src/generated/${TAG}"
 
 # Regenerate candidate (idempotent — source unchanged) and the pointer libs,
