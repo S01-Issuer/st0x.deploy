@@ -19,12 +19,12 @@ import {
 /// pinned address with the expected runtime codehash.
 ///
 /// The two production networks carry different sets:
-/// - Base carries the full accumulated V4 set — the audited 0.1.1 contracts plus
-///   the 0.1.2 orchestrator and the 0.1.3 rebuilds — deployed incrementally over
-///   those releases by `script/Deploy.sol` (current source).
+/// - Base carries the full accumulated set — the audited 0.1.1 contracts plus
+///   the later orchestrator and rebuilds that the rolling `candidate` snapshot
+///   tracks — deployed incrementally over those releases.
 /// - Ethereum mainnet carries only the audited 0.1.1 production set, shipped by
 ///   `script/DeployProdV4_0_1_1.sol` from the stored 0.1.1 creation code. The
-///   orchestrator (0.1.2) and the 0.1.3 rebuilds are Base-only.
+///   orchestrator and the later rebuilds are Base-only.
 ///
 /// The codehash pins are the same literals `LibProdDeployV4Test` checks against
 /// the generated pointer files and against a fresh Zoltu redeploy. This test
