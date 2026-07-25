@@ -1,0 +1,1923 @@
+Warning: This is a nightly build of Foundry. It is recommended to use the latest stable version. To mute this warning set `FOUNDRY_DISABLE_NIGHTLY_WARNING` in your environment. 
+
+Warning: Found unknown config section in foundry.toml: [package]
+This notation for profiles has been deprecated and may result in the profile not being registered in future versions.
+Please use [profile.package] instead or run `forge config --fix`.
+No files changed, compilation skipped
+
+Ran 2 tests for test/script/20260722-deploy-missing-tokens-ethereum.t.sol:DeployMissingTokensEthereumTest
+[PASS] testRunRevertsWhenCoreNotDeployed() (gas: 11244)
+[PASS] testSelectionRevertsWhenTableFullyHydrated() (gas: 4518671)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 921.38µs (370.47µs CPU time)
+
+Ran 16 tests for test/src/lib/LibConstantsStructure.t.sol:LibConstantsStructureTest
+[PASS] testActionTypesArePowerOfTwo() (gas: 1843)
+[PASS] testActionTypesPairwiseDisjoint() (gas: 1898)
+[PASS] testBalanceMigrationMaskSubsetOfValidMask() (gas: 474)
+[PASS] testCorporateActionReceiptStorageLocationMatchesNamespace() (gas: 725)
+[PASS] testCorporateActionStorageLocationMatchesNamespace() (gas: 703)
+[PASS] testErc1155StorageLocationMatchesNamespace() (gas: 747)
+[PASS] testErc20StorageLocationMatchesNamespace() (gas: 746)
+[PASS] testInitV1TypeHashFollowsNamespaceConvention() (gas: 1169)
+[PASS] testNodeNoneSentinelValue() (gas: 339)
+[PASS] testPermissionHashesMatchConstantNames() (gas: 691)
+[PASS] testStablesDividendV1TypeHashFollowsNamespaceConvention() (gas: 1131)
+[PASS] testStockSplitV1CodecRoundTrip() (gas: 875)
+[PASS] testStockSplitV1TypeHashFollowsNamespaceConvention() (gas: 1108)
+[PASS] testStorageLocationsPairwiseDistinct() (gas: 3378)
+[PASS] testTypeHashesPairwiseDistinct() (gas: 1869)
+[PASS] testValidActionTypesMaskMatchesUnion() (gas: 337)
+Suite result: ok. 16 passed; 0 failed; 0 skipped; finished in 317.30µs (193.08µs CPU time)
+
+Ran 1 test for test/src/concrete/deploy/StoxUnifiedDeployer.newTokenAndWrapperVault.t.sol:StoxUnifiedDeployerIntegrationTest
+[PASS] testNewTokenAndWrapperVaultV2Integration() (gas: 12531366)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 2.56ms (1.77ms CPU time)
+
+Ran 1 test for test/src/concrete/integration/GuardHaltsAfterVaultBeaconUpgrade.t.sol:GuardHaltsAfterVaultBeaconUpgradeTest
+[PASS] testGuardHaltsAfterVaultBeaconUpgrade() (gas: 2678450)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 3.59ms (526.43µs CPU time)
+
+Ran 1 test for test/src/concrete/integration/GuardPassesAgainstRealV4Beacons.t.sol:GuardPassesAgainstRealV4BeaconsTest
+[PASS] testGuardPassesAgainstRealV4Beacons() (gas: 308268)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 2.51ms (594.55µs CPU time)
+
+Ran 1 test for test/src/concrete/integration/BurnInfoAuditTrail.t.sol:BurnInfoAuditTrailTest
+[PASS] testBurnInfoForwardedToVaultRedeem() (gas: 458812)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 8.36ms (5.24ms CPU time)
+
+Ran 1 test for test/src/concrete/InvariantReceipt.sol:InvariantReceipt
+[PASS] testInit(address) (runs: 256, μ: 22374, ~: 22452)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 5.32ms (5.19ms CPU time)
+
+Ran 1 test for test/src/concrete/integration/CertificationLapse.t.sol:CertificationLapseTest
+[PASS] testCertificationLapseHaltsMintAndBurn() (gas: 531441)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 4.95ms (2.02ms CPU time)
+
+Ran 2 tests for test/script/Deploy.t.sol:DeployTest
+[PASS] testDeploymentSuiteConstants() (gas: 849)
+[PASS] testUnknownDeploymentSuiteReverts() (gas: 22131901)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 2.09ms (989.74µs CPU time)
+
+Ran 3 tests for test/src/lib/LibStockSplitValidationFuzzDecimalsTest.t.sol:LibStockSplitValidationFuzzDecimalsTest
+[PASS] testFuzzCeilingBoundary(uint8) (runs: 256, μ: 520747, ~: 520696)
+[PASS] testFuzzFloorBoundary(uint8) (runs: 256, μ: 519298, ~: 519247)
+[PASS] testFuzzRealisticMultiplierPasses(uint8) (runs: 256, μ: 511457, ~: 511406)
+Suite result: ok. 3 passed; 0 failed; 0 skipped; finished in 73.85ms (73.53ms CPU time)
+
+Ran 2 tests for test/src/lib/LibStoxDeployNetworks.t.sol:LibStoxDeployNetworksTest
+[PASS] testEthereumNetworkName() (gas: 3800)
+[PASS] testSupportedNetworksIsBaseAndEthereum() (gas: 5386)
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 108.63µs (37.10µs CPU time)
+
+Ran 1 test for test/src/concrete/deploy/EthereumBeaconOwnership.t.sol:EthereumBeaconOwnershipTest
+[FAIL: vm.createSelectFork: could not instantiate forked environment with provider eth.llamarpc.com; HTTP error 521 with body: <!DOCTYPE html>
+<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en-US"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en-US"> <!--<![endif]-->
+<head>
+
+<title>llamarpc.com | 521: Web server is down</title>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="stylesheet" id="cf_styles-css" href="/cdn-cgi/styles/main.css" />
+</head>
+<body>
+<div id="cf-wrapper">
+    <div id="cf-error-details" class="p-0">
+        <header class="mx-auto pt-10 lg:pt-6 lg:px-8 w-240 lg:w-full mb-8">
+            <h1 class="inline-block sm:block sm:mb-2 font-light text-60 lg:text-4xl text-black-dark leading-tight mr-2">
+                <span class="inline-block">Web server is down</span>
+                <span class="code-label">Error code 521</span>
+            </h1>
+            <div>
+                Visit <a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_521&utm_campaign=eth.llamarpc.com" target="_blank" rel="noopener noreferrer">cloudflare.com</a> for more information.
+            </div>
+            <div class="mt-3">2026-07-25 13:19:29 UTC</div>
+        </header>
+        <div class="my-8 bg-gradient-gray">
+            <div class="w-240 lg:w-full mx-auto">
+                <div class="clearfix md:px-8">
+                    <div id="cf-browser-status" class=" relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center">
+  <div class="relative mb-10 md:m-0">
+    
+    <span class="cf-icon-browser block md:hidden h-20 bg-center bg-no-repeat"></span>
+    <span class="cf-icon-ok w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"></span>
+    
+  </div>
+  <span class="md:block w-full truncate">You</span>
+  <h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3">
+  
+    Browser
+  
+  </h3>
+  
+  <span class="leading-1.3 text-2xl text-green-success">Working</span>
+  
+</div>
+                    <div id="cf-cloudflare-status" class=" relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center">
+  <div class="relative mb-10 md:m-0">
+    <a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_521&#38;utm_campaign=eth.llamarpc.com" target="_blank" rel="noopener noreferrer">
+    <span class="cf-icon-cloud block md:hidden h-20 bg-center bg-no-repeat"></span>
+    <span class="cf-icon-ok w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"></span>
+    </a>
+  </div>
+  <span class="md:block w-full truncate">Tbilisi</span>
+  <h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3">
+  <a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_521&utm_campaign=eth.llamarpc.com" target="_blank" rel="noopener noreferrer">
+    Cloudflare
+  </a>
+  </h3>
+  
+  <span class="leading-1.3 text-2xl text-green-success">Working</span>
+  
+</div>
+                    <div id="cf-host-status" class="cf-error-source relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center">
+  <div class="relative mb-10 md:m-0">
+    
+    <span class="cf-icon-server block md:hidden h-20 bg-center bg-no-repeat"></span>
+    <span class="cf-icon-error w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"></span>
+    
+  </div>
+  <span class="md:block w-full truncate">eth.llamarpc.com</span>
+  <h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3">
+  
+    Host
+  
+  </h3>
+  
+  <span class="leading-1.3 text-2xl text-red-error">Error</span>
+  
+</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="w-240 lg:w-full mx-auto mb-8 lg:px-8">
+            <div class="clearfix">
+                <div class="w-1/2 md:w-full float-left pr-6 md:pb-10 md:pr-0 leading-relaxed">
+                    <h2 class="text-3xl font-normal leading-1.3 mb-4">What happened?</h2>
+                    <p>The web server is not returning a connection. As a result, the web page is not displaying.</p>
+                </div>
+                <div class="w-1/2 md:w-full float-left leading-relaxed">
+                    <h2 class="text-3xl font-normal leading-1.3 mb-4">What can I do?</h2>
+                    
+                <h3 class="text-15 font-semibold mb-2">If you are a visitor of this website:</h3>
+                <p class="mb-6">Please try again in a few minutes.</p>
+
+                <h3 class="text-15 font-semibold mb-2">If you are the owner of this website:</h3>
+                <p><span>Contact your hosting provider letting them know your web server is not responding.</span> <a rel="noopener noreferrer" href="https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-521/">Additional troubleshooting information</a>.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="cf-error-footer cf-wrapper w-240 lg:w-full py-10 sm:py-4 sm:px-8 mx-auto text-center sm:text-left border-solid border-0 border-t border-gray-300">
+    <p class="text-13">
+      <span class="cf-footer-item sm:block sm:mb-1">Cloudflare Ray ID: <strong class="font-semibold">a20b74e26938da09</strong></span>
+      <span class="cf-footer-separator sm:hidden">&bull;</span>
+      <span id="cf-footer-item-ip" class="cf-footer-item hidden sm:block sm:mb-1">
+        Your IP:
+        <button type="button" id="cf-footer-ip-reveal" class="cf-footer-ip-reveal-btn">Click to reveal</button>
+        <span class="hidden" id="cf-footer-ip">213.131.47.170</span>
+        <span class="cf-footer-separator sm:hidden">&bull;</span>
+      </span>
+      <span class="cf-footer-item sm:block sm:mb-1"><span>Performance &amp; security by</span> <a rel="noopener noreferrer" href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_521&#38;utm_campaign=eth.llamarpc.com" id="brand_link" target="_blank">Cloudflare</a></span>
+      
+    </p>
+    <script>(function(){function d(){var b=a.getElementById("cf-footer-item-ip"),c=a.getElementById("cf-footer-ip-reveal");b&&"classList"in b&&(b.classList.remove("hidden"),c.addEventListener("click",function(){c.classList.add("hidden");a.getElementById("cf-footer-ip").classList.remove("hidden")}))}var a=document;document.addEventListener&&a.addEventListener("DOMContentLoaded",d)})();</script>
+  </div><!-- /.error-footer -->
+
+    </div>
+</div>
+</body>
+</html>
+
+HTTP diagnostics:
+cf-ray: a20b74e26938da09-TBS
+server: cloudflare] testEthereumBeaconsAreSafeOwned() (gas: 4584)
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 86.57ms (86.48ms CPU time)
+
+Ran 8 tests for test/script/20260706-deploy-tokens-ethereum.t.sol:DeployTokensEthereumTest
+[FAIL: vm.createSelectFork: could not instantiate forked environment with provider eth.llamarpc.com; HTTP error 521 with body: <!DOCTYPE html>
+<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en-US"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en-US"> <!--<![endif]-->
+<head>
+
+<title>llamarpc.com | 521: Web server is down</title>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="stylesheet" id="cf_styles-css" href="/cdn-cgi/styles/main.css" />
+</head>
+<body>
+<div id="cf-wrapper">
+    <div id="cf-error-details" class="p-0">
+        <header class="mx-auto pt-10 lg:pt-6 lg:px-8 w-240 lg:w-full mb-8">
+            <h1 class="inline-block sm:block sm:mb-2 font-light text-60 lg:text-4xl text-black-dark leading-tight mr-2">
+                <span class="inline-block">Web server is down</span>
+                <span class="code-label">Error code 521</span>
+            </h1>
+            <div>
+                Visit <a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_521&utm_campaign=eth.llamarpc.com" target="_blank" rel="noopener noreferrer">cloudflare.com</a> for more information.
+            </div>
+            <div class="mt-3">2026-07-25 13:19:29 UTC</div>
+        </header>
+        <div class="my-8 bg-gradient-gray">
+            <div class="w-240 lg:w-full mx-auto">
+                <div class="clearfix md:px-8">
+                    <div id="cf-browser-status" class=" relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center">
+  <div class="relative mb-10 md:m-0">
+    
+    <span class="cf-icon-browser block md:hidden h-20 bg-center bg-no-repeat"></span>
+    <span class="cf-icon-ok w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"></span>
+    
+  </div>
+  <span class="md:block w-full truncate">You</span>
+  <h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3">
+  
+    Browser
+  
+  </h3>
+  
+  <span class="leading-1.3 text-2xl text-green-success">Working</span>
+  
+</div>
+                    <div id="cf-cloudflare-status" class=" relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center">
+  <div class="relative mb-10 md:m-0">
+    <a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_521&#38;utm_campaign=eth.llamarpc.com" target="_blank" rel="noopener noreferrer">
+    <span class="cf-icon-cloud block md:hidden h-20 bg-center bg-no-repeat"></span>
+    <span class="cf-icon-ok w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"></span>
+    </a>
+  </div>
+  <span class="md:block w-full truncate">Tbilisi</span>
+  <h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3">
+  <a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_521&utm_campaign=eth.llamarpc.com" target="_blank" rel="noopener noreferrer">
+    Cloudflare
+  </a>
+  </h3>
+  
+  <span class="leading-1.3 text-2xl text-green-success">Working</span>
+  
+</div>
+                    <div id="cf-host-status" class="cf-error-source relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center">
+  <div class="relative mb-10 md:m-0">
+    
+    <span class="cf-icon-server block md:hidden h-20 bg-center bg-no-repeat"></span>
+    <span class="cf-icon-error w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"></span>
+    
+  </div>
+  <span class="md:block w-full truncate">eth.llamarpc.com</span>
+  <h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3">
+  
+    Host
+  
+  </h3>
+  
+  <span class="leading-1.3 text-2xl text-red-error">Error</span>
+  
+</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="w-240 lg:w-full mx-auto mb-8 lg:px-8">
+            <div class="clearfix">
+                <div class="w-1/2 md:w-full float-left pr-6 md:pb-10 md:pr-0 leading-relaxed">
+                    <h2 class="text-3xl font-normal leading-1.3 mb-4">What happened?</h2>
+                    <p>The web server is not returning a connection. As a result, the web page is not displaying.</p>
+                </div>
+                <div class="w-1/2 md:w-full float-left leading-relaxed">
+                    <h2 class="text-3xl font-normal leading-1.3 mb-4">What can I do?</h2>
+                    
+                <h3 class="text-15 font-semibold mb-2">If you are a visitor of this website:</h3>
+                <p class="mb-6">Please try again in a few minutes.</p>
+
+                <h3 class="text-15 font-semibold mb-2">If you are the owner of this website:</h3>
+                <p><span>Contact your hosting provider letting them know your web server is not responding.</span> <a rel="noopener noreferrer" href="https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-521/">Additional troubleshooting information</a>.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="cf-error-footer cf-wrapper w-240 lg:w-full py-10 sm:py-4 sm:px-8 mx-auto text-center sm:text-left border-solid border-0 border-t border-gray-300">
+    <p class="text-13">
+      <span class="cf-footer-item sm:block sm:mb-1">Cloudflare Ray ID: <strong class="font-semibold">a20b74e26938da09</strong></span>
+      <span class="cf-footer-separator sm:hidden">&bull;</span>
+      <span id="cf-footer-item-ip" class="cf-footer-item hidden sm:block sm:mb-1">
+        Your IP:
+        <button type="button" id="cf-footer-ip-reveal" class="cf-footer-ip-reveal-btn">Click to reveal</button>
+        <span class="hidden" id="cf-footer-ip">213.131.47.170</span>
+        <span class="cf-footer-separator sm:hidden">&bull;</span>
+      </span>
+      <span class="cf-footer-item sm:block sm:mb-1"><span>Performance &amp; security by</span> <a rel="noopener noreferrer" href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_521&#38;utm_campaign=eth.llamarpc.com" id="brand_link" target="_blank">Cloudflare</a></span>
+      
+    </p>
+    <script>(function(){function d(){var b=a.getElementById("cf-footer-item-ip"),c=a.getElementById("cf-footer-ip-reveal");b&&"classList"in b&&(b.classList.remove("hidden"),c.addEventListener("click",function(){c.classList.add("hidden");a.getElementById("cf-footer-ip").classList.remove("hidden")}))}var a=document;document.addEventListener&&a.addEventListener("DOMContentLoaded",d)})();</script>
+  </div><!-- /.error-footer -->
+
+    </div>
+</div>
+</body>
+</html>
+
+HTTP diagnostics:
+cf-ray: a20b74e26938da09-TBS
+server: cloudflare] testEthereumClonePinMatchesLive() (gas: 4607)
+[PASS] testHandoffCaughtWhenAuthoriserNotWired() (gas: 4499947)
+[PASS] testHandoffCaughtWhenOwnershipDidNotLand() (gas: 4500454)
+[PASS] testHandoffPassesWhenBothLanded() (gas: 4499638)
+[PASS] testRunOnceGateFiresOnAHydratedTable() (gas: 4504193)
+[PASS] testRunOnceGateInspectsEveryLeg() (gas: 4522676)
+[PASS] testRunOnceGatePassesOnAVirginTable() (gas: 4501282)
+[PASS] testShippedTableIsHydratedSoTheScriptIsSpent() (gas: 4561412)
+Suite result: FAILED. 7 passed; 1 failed; 0 skipped; finished in 103.62ms (103.18ms CPU time)
+
+Ran 16 tests for test/src/concrete/StoxReceiptVaultFallbackRouting.t.sol:StoxReceiptVaultFallbackRoutingTest
+[PASS] testAllTraversalGettersRouteThroughFallback() (gas: 698012)
+[PASS] testAuthorizerDeniedScheduleRoutesAndReverts() (gas: 245587)
+[PASS] testCancelCorporateActionRoutesAndUnlinks() (gas: 467732)
+[PASS] testCompletedActionCountRoutesThroughFallback() (gas: 10888)
+[PASS] testCompletionFilterAcrossRoutedTraversal() (gas: 698042)
+[PASS] testDirectCallToFacetRevertsWithFacetMustBeDelegatecalled() (gas: 6164)
+[PASS] testGetActionParametersRoutesThroughFallback() (gas: 535358)
+[PASS] testLatestActionOfTypeRoutesThroughFallback() (gas: 11693)
+[PASS] testMultipleRoutedCallsPreserveListCoherence() (gas: 697476)
+[PASS] testNextOfTypeHeadInclusiveReturnsBootstrap() (gas: 537197)
+[PASS] testPlainEthTransferHitsReceiveNotFallback() (gas: 22978)
+[PASS] testRevertInFacetPropagatesThroughFallback() (gas: 179101)
+[PASS] testRoutedCallWithTruncatedCalldataReverts() (gas: 18429)
+[PASS] testRoutedCallWithUnknownSelectorReverts() (gas: 18820)
+[PASS] testRoutedMutatingCallWithValueReverts() (gas: 19025)
+[PASS] testScheduleCorporateActionRoutesAndPersists() (gas: 539026)
+Suite result: ok. 16 passed; 0 failed; 0 skipped; finished in 2.33ms (1.52ms CPU time)
+
+Ran 1 test for test/src/concrete/deploy/EthereumTokenOwnerSafeParity.t.sol:EthereumTokenOwnerSafeParityTest
+[FAIL: vm.createSelectFork: could not instantiate forked environment with provider eth.llamarpc.com; HTTP error 521 with body: <!DOCTYPE html>
+<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en-US"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en-US"> <!--<![endif]-->
+<head>
+
+<title>llamarpc.com | 521: Web server is down</title>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="stylesheet" id="cf_styles-css" href="/cdn-cgi/styles/main.css" />
+</head>
+<body>
+<div id="cf-wrapper">
+    <div id="cf-error-details" class="p-0">
+        <header class="mx-auto pt-10 lg:pt-6 lg:px-8 w-240 lg:w-full mb-8">
+            <h1 class="inline-block sm:block sm:mb-2 font-light text-60 lg:text-4xl text-black-dark leading-tight mr-2">
+                <span class="inline-block">Web server is down</span>
+                <span class="code-label">Error code 521</span>
+            </h1>
+            <div>
+                Visit <a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_521&utm_campaign=eth.llamarpc.com" target="_blank" rel="noopener noreferrer">cloudflare.com</a> for more information.
+            </div>
+            <div class="mt-3">2026-07-25 13:19:29 UTC</div>
+        </header>
+        <div class="my-8 bg-gradient-gray">
+            <div class="w-240 lg:w-full mx-auto">
+                <div class="clearfix md:px-8">
+                    <div id="cf-browser-status" class=" relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center">
+  <div class="relative mb-10 md:m-0">
+    
+    <span class="cf-icon-browser block md:hidden h-20 bg-center bg-no-repeat"></span>
+    <span class="cf-icon-ok w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"></span>
+    
+  </div>
+  <span class="md:block w-full truncate">You</span>
+  <h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3">
+  
+    Browser
+  
+  </h3>
+  
+  <span class="leading-1.3 text-2xl text-green-success">Working</span>
+  
+</div>
+                    <div id="cf-cloudflare-status" class=" relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center">
+  <div class="relative mb-10 md:m-0">
+    <a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_521&#38;utm_campaign=eth.llamarpc.com" target="_blank" rel="noopener noreferrer">
+    <span class="cf-icon-cloud block md:hidden h-20 bg-center bg-no-repeat"></span>
+    <span class="cf-icon-ok w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"></span>
+    </a>
+  </div>
+  <span class="md:block w-full truncate">Tbilisi</span>
+  <h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3">
+  <a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_521&utm_campaign=eth.llamarpc.com" target="_blank" rel="noopener noreferrer">
+    Cloudflare
+  </a>
+  </h3>
+  
+  <span class="leading-1.3 text-2xl text-green-success">Working</span>
+  
+</div>
+                    <div id="cf-host-status" class="cf-error-source relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center">
+  <div class="relative mb-10 md:m-0">
+    
+    <span class="cf-icon-server block md:hidden h-20 bg-center bg-no-repeat"></span>
+    <span class="cf-icon-error w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"></span>
+    
+  </div>
+  <span class="md:block w-full truncate">eth.llamarpc.com</span>
+  <h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3">
+  
+    Host
+  
+  </h3>
+  
+  <span class="leading-1.3 text-2xl text-red-error">Error</span>
+  
+</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="w-240 lg:w-full mx-auto mb-8 lg:px-8">
+            <div class="clearfix">
+                <div class="w-1/2 md:w-full float-left pr-6 md:pb-10 md:pr-0 leading-relaxed">
+                    <h2 class="text-3xl font-normal leading-1.3 mb-4">What happened?</h2>
+                    <p>The web server is not returning a connection. As a result, the web page is not displaying.</p>
+                </div>
+                <div class="w-1/2 md:w-full float-left leading-relaxed">
+                    <h2 class="text-3xl font-normal leading-1.3 mb-4">What can I do?</h2>
+                    
+                <h3 class="text-15 font-semibold mb-2">If you are a visitor of this website:</h3>
+                <p class="mb-6">Please try again in a few minutes.</p>
+
+                <h3 class="text-15 font-semibold mb-2">If you are the owner of this website:</h3>
+                <p><span>Contact your hosting provider letting them know your web server is not responding.</span> <a rel="noopener noreferrer" href="https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-521/">Additional troubleshooting information</a>.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="cf-error-footer cf-wrapper w-240 lg:w-full py-10 sm:py-4 sm:px-8 mx-auto text-center sm:text-left border-solid border-0 border-t border-gray-300">
+    <p class="text-13">
+      <span class="cf-footer-item sm:block sm:mb-1">Cloudflare Ray ID: <strong class="font-semibold">a20b74e2ee62e90c</strong></span>
+      <span class="cf-footer-separator sm:hidden">&bull;</span>
+      <span id="cf-footer-item-ip" class="cf-footer-item hidden sm:block sm:mb-1">
+        Your IP:
+        <button type="button" id="cf-footer-ip-reveal" class="cf-footer-ip-reveal-btn">Click to reveal</button>
+        <span class="hidden" id="cf-footer-ip">213.131.47.170</span>
+        <span class="cf-footer-separator sm:hidden">&bull;</span>
+      </span>
+      <span class="cf-footer-item sm:block sm:mb-1"><span>Performance &amp; security by</span> <a rel="noopener noreferrer" href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_521&#38;utm_campaign=eth.llamarpc.com" id="brand_link" target="_blank">Cloudflare</a></span>
+      
+    </p>
+    <script>(function(){function d(){var b=a.getElementById("cf-footer-item-ip"),c=a.getElementById("cf-footer-ip-reveal");b&&"classList"in b&&(b.classList.remove("hidden"),c.addEventListener("click",function(){c.classList.add("hidden");a.getElementById("cf-footer-ip").classList.remove("hidden")}))}var a=document;document.addEventListener&&a.addEventListener("DOMContentLoaded",d)})();</script>
+  </div><!-- /.error-footer -->
+
+    </div>
+</div>
+</body>
+</html>
+
+HTTP diagnostics:
+cf-ray: a20b74e2ee62e90c-TBS
+server: cloudflare] testEthereumSafeMatchesBasePolicy() (gas: 4689)
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 85.94ms (85.84ms CPU time)
+
+Ran 1 test for test/src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.ierc165.t.sol:StoxWrappedTokenVaultBeaconSetDeployerIERC165Test
+[PASS] testStoxWrappedTokenVaultBeaconSetDeployerIERC165(bytes4) (runs: 256, μ: 513880, ~: 513880)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 10.69ms (10.58ms CPU time)
+
+Ran 3 tests for test/src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.t.sol:StoxWrappedTokenVaultBeaconSetDeployerTest
+[PASS] testNewVaultInitializeVaultFailed() (gas: 2545556)
+[PASS] testNewVaultSuccess() (gas: 3096591)
+[PASS] testNewVaultZeroAsset() (gas: 2360143)
+Suite result: ok. 3 passed; 0 failed; 0 skipped; finished in 860.67µs (657.63µs CPU time)
+
+Ran 1 test for test/src/concrete/deploy/StoxUnifiedDeployer.prod.base.t.sol:StoxProdBaseTest
+[PASS] testProdDeployBase() (gas: 49143)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 212.52ms (212.40ms CPU time)
+
+Ran 19 tests for test/src/concrete/StoxReceiptVault.setAuthorizerGuard.t.sol:StoxReceiptVaultSetAuthorizerGuardTest
+[PASS] testGuardIsInstallTimeOnlyNotPerCall() (gas: 7129089)
+[PASS] testGuardRoleConstantsAreDistinctAndNonZero() (gas: 348)
+[PASS] testInitialAuthorizerIsZeroBeforeSetAuthorizer() (gas: 5032141)
+[PASS] testSetAuthorizerAcceptsAnyNonZeroRoleAdmin(bytes32,bytes32) (runs: 256, μ: 5063693, ~: 5063693)
+[PASS] testSetAuthorizerAcceptsCorporateActionsAuthorizer() (gas: 7125332)
+[PASS] testSetAuthorizerBubblesUpRevertFromAuthorizer() (gas: 5035983)
+[PASS] testSetAuthorizerCallsGetRoleAdminForBothRoles() (gas: 7126703)
+[PASS] testSetAuthorizerEmitsAuthorizerSet() (gas: 7127117)
+[PASS] testSetAuthorizerInstallsAuthorizerOnSuccess() (gas: 7126287)
+[PASS] testSetAuthorizerKeepsPriorAuthorizerOnGuardRevert() (gas: 10524869)
+[PASS] testSetAuthorizerReinstallReplacesPriorAuthorizer() (gas: 9199069)
+[PASS] testSetAuthorizerRejectsAuthorizerWithOnlyScheduleAdminConfigured() (gas: 5037577)
+[PASS] testSetAuthorizerRejectsNonOwnerCaller(address) (runs: 256, μ: 7102079, ~: 7102079)
+[PASS] testSetAuthorizerRejectsPaymentMintAuthorizer() (gas: 8429368)
+[PASS] testSetAuthorizerRejectsZeroAddressAuthorizer() (gas: 5033511)
+[PASS] testSetAuthorizerRevertsOnNonContractAuthorizer(address) (runs: 256, μ: 5036604, ~: 5036614)
+[PASS] testSetAuthorizerSameAuthorizerTwiceIsAllowed() (gas: 7132299)
+[PASS] testSetAuthorizerSelectorMatchesParent() (gas: 297)
+[PASS] testSetAuthorizerStillEnforcesSuperInterfaceCheck() (gas: 5038777)
+Suite result: ok. 19 passed; 0 failed; 0 skipped; finished in 237.22ms (236.58ms CPU time)
+
+Ran 1 test for test/src/concrete/StoxReceiptVault.t.sol:StoxReceiptVaultTest
+[PASS] testConstructorDisablesInitializers() (gas: 5009657)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 431.46µs (177.97µs CPU time)
+
+Ran 3 tests for test/src/concrete/deploy/StoxUnifiedDeployer.t.sol:StoxUnifiedDeployerTest
+[PASS] testStoxUnifiedDeployer(address,address,(address,(address,string,string,address))) (runs: 256, μ: 377238, ~: 377276)
+[PASS] testStoxUnifiedDeployerRevertsFirstDeployer((address,(address,string,string,address))) (runs: 256, μ: 364119, ~: 364119)
+[PASS] testStoxUnifiedDeployerRevertsSecondDeployer(address,(address,(address,string,string,address))) (runs: 256, μ: 371052, ~: 371060)
+Suite result: ok. 3 passed; 0 failed; 0 skipped; finished in 158.80ms (158.65ms CPU time)
+
+Ran 3 tests for test/src/concrete/StoxWrappedTokenVaultV1.prod.base.t.sol:StoxWrappedTokenVaultV1ProdBaseTest
+[PASS] testProdV1DeploymentEventAfterInitialize() (gas: 194594)
+[PASS] testProdV1OldBeaconSelectorWorks() (gas: 7105)
+[PASS] testProdV1ZeroAssetDoesNotRevert() (gas: 182015)
+Suite result: ok. 3 passed; 0 failed; 0 skipped; finished in 386.17ms (386.06ms CPU time)
+
+Ran 3 tests for test/src/concrete/StoxWrappedTokenVaultV2.t.sol:StoxWrappedTokenVaultV2Test
+[PASS] testV2DeploymentEventBeforeInitialize() (gas: 3095221)
+[PASS] testV2NewVaultSuccess() (gas: 3098642)
+[PASS] testV2ZeroAssetReverts() (gas: 2360122)
+Suite result: ok. 3 passed; 0 failed; 0 skipped; finished in 1.33ms (1.12ms CPU time)
+
+Ran 1 test for test/src/concrete/TestStoxReceipt.sol:TestStoxReceipt
+[PASS] testInit(address) (runs: 256, μ: 22297, ~: 22453)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 5.15ms (4.98ms CPU time)
+
+Ran 36 tests for test/src/lib/LibCorporateActionNode.t.sol:LibCorporateActionNodeTest
+[PASS] testAllCompletedListReturnsZeroForPendingFilter() (gas: 442064)
+[PASS] testAllPendingListReturnsZeroForCompletedFilter() (gas: 439936)
+[PASS] testBackwardAllVisitsEveryNodeRespectingMask() (gas: 1158350)
+[PASS] testBackwardCompletedSkipsPendingSuffixRespectingMask() (gas: 1145290)
+[PASS] testBackwardPendingStopsAtFirstCompletedRespectingMask() (gas: 1118790)
+[PASS] testCancelHeadAdvancesEarliest() (gas: 306899)
+[PASS] testCancelMiddleNodeRelinksTraversal() (gas: 409440)
+[PASS] testCancelMiddleNodeSkippedUnderCompletedAndPendingFilters() (gas: 692372)
+[PASS] testCancelTailRetreatsLatest() (gas: 303770)
+[PASS] testEmptyListReturnsZeros() (gas: 15055)
+[PASS] testFilterTracksEffectiveTimeTransitions() (gas: 366086)
+[PASS] testForwardAllVisitsEveryNodeRespectingMask() (gas: 1161226)
+[PASS] testForwardCompletedStopsAtFirstPendingRespectingMask() (gas: 1140497)
+[PASS] testForwardPendingSkipsCompletedPrefixRespectingMask() (gas: 1134085)
+[PASS] testFromIndexExcludesSelf() (gas: 1109357)
+[PASS] testFuzzBackwardWalkFromLatestReachesEarliest(uint8,uint64,uint256) (runs: 256, μ: 774702, ~: 650369)
+[PASS] testFuzzEarliestCompletenessVsBruteForce(uint8,uint64,uint256) (runs: 256, μ: 760406, ~: 657457)
+[PASS] testFuzzForwardWalkFromEarliestReachesLatest(uint8,uint64,uint256) (runs: 256, μ: 775098, ~: 650401)
+[PASS] testFuzzInvariantsHoldUnderCancellations(uint8,uint64,uint256) (runs: 256, μ: 767383, ~: 676856)
+[PASS] testFuzzMaskWithAtLeastOneValidBitPasses(uint256) (runs: 256, μ: 253595, ~: 253595)
+[PASS] testFuzzMaskWithNoValidBitsAlwaysReverts(uint256) (runs: 256, μ: 251492, ~: 251492)
+[PASS] testFuzzReturnedCursorSatisfiesFilterAndMask(uint8,uint64,uint256) (runs: 256, μ: 743815, ~: 637881)
+[PASS] testInvalidMaskOnEmptyListStillReverts() (gas: 16864)
+[PASS] testMaskSelectsBetweenDefinedTypes() (gas: 358809)
+[PASS] testMaskWithMixedBitsPasses() (gas: 245912)
+[PASS] testMaskWithOnlyUndefinedBitsReverts() (gas: 245676)
+[PASS] testMaskZeroReverts() (gas: 251422)
+[PASS] testMultiBitMaskMatchesAnyBit() (gas: 356932)
+[PASS] testNextAndPrevFromSpecificCursor() (gas: 441908)
+[PASS] testNodeAtExactTimestampIsCompleted() (gas: 356395)
+[PASS] testNonMatchingMaskInSegmentReturnsZero() (gas: 1066943)
+[PASS] testSingleNodeResolution() (gas: 255800)
+[PASS] testTraversalAtBoundariesReturnsZero() (gas: 1102419)
+[PASS] testTraversalFromCancelledCursorReturnsZero() (gas: 405039)
+[PASS] testTraversalRespectsTiedEffectiveTimeOrdering() (gas: 493321)
+[PASS] testTupleReturnsActionTypeAndEffectiveTime() (gas: 1115343)
+Suite result: ok. 36 passed; 0 failed; 0 skipped; finished in 885.11ms (884.61ms CPU time)
+
+Ran 12 tests for test/src/lib/LibERC1155Storage.t.sol:LibERC1155StorageTest
+[PASS] testBurnObservedByLib() (gas: 40113)
+[PASS] testErc1155SlotConstantMatchesDerivation() (gas: 803)
+[PASS] testFuzzMultipleIdsMultipleAccounts(uint8,uint64) (runs: 256, μ: 75335, ~: 76113)
+[PASS] testFuzzRandomAccountIdBalance(address,uint256,uint128) (runs: 256, μ: 41062, ~: 41539)
+[PASS] testFuzzRandomSetBalance(address,uint256,uint128,uint256) (runs: 256, μ: 41421, ~: 41600)
+[PASS] testFuzzRoundTripSingleId(uint128,uint128) (runs: 256, μ: 40949, ~: 41096)
+[PASS] testFuzzSameAccountDifferentIdIsolation(address,uint256,uint256,uint64,uint64,uint256) (runs: 256, μ: 68985, ~: 69738)
+[PASS] testFuzzTwoPairSlotIsolation(address,address,uint256,uint256,uint64,uint64,uint256) (runs: 256, μ: 70898, ~: 71692)
+[PASS] testGetBalanceMatchesOzBalanceOf() (gas: 105972)
+[PASS] testLargeIdValues() (gas: 39176)
+[PASS] testPerIdAndPerAccountSlotIsolation() (gas: 123061)
+[PASS] testSetBalanceVisibleToOzBalanceOf() (gas: 36620)
+Suite result: ok. 12 passed; 0 failed; 0 skipped; finished in 116.27ms (115.99ms CPU time)
+
+Ran 10 tests for test/src/lib/LibERC20Storage.t.sol:LibERC20StorageTest
+[PASS] testBurnObservedByLib() (gas: 58150)
+[PASS] testFuzzRandomAccountBalance(address,uint128) (runs: 256, μ: 58106, ~: 59039)
+[PASS] testFuzzRandomSetBalance(address,uint128,uint256) (runs: 256, μ: 58736, ~: 59081)
+[PASS] testFuzzRoundTrip(uint128,uint128) (runs: 256, μ: 57949, ~: 58510)
+[PASS] testFuzzTotalSupplyMultipleAccounts(address,address,uint64,uint64) (runs: 256, μ: 83601, ~: 84301)
+[PASS] testFuzzTwoAccountSlotIsolation(address,address,uint128,uint128,uint256) (runs: 256, μ: 85083, ~: 85939)
+[PASS] testGetBalanceMatchesOzBalanceOf() (gas: 58916)
+[PASS] testGetTotalSupplyMatchesOzTotalSupply() (gas: 80765)
+[PASS] testMultipleAccountsIndependentSlots() (gas: 83769)
+[PASS] testSetBalanceVisibleToOzBalanceOf() (gas: 54439)
+Suite result: ok. 10 passed; 0 failed; 0 skipped; finished in 86.24ms (86.04ms CPU time)
+
+Ran 24 tests for test/src/concrete/StoxWrappedTokenVault.t.sol:StoxWrappedTokenVaultTest
+[PASS] testConstructorDisablesInitializers() (gas: 1594261)
+[PASS] testConvertRoundTrip(uint256) (runs: 256, μ: 3099135, ~: 3098881)
+[PASS] testDepositMintSharesOneToOne(uint256) (runs: 256, μ: 3204328, ~: 3204074)
+[PASS] testDoubleInitializeReverts() (gas: 3087538)
+[PASS] testInitializeAddressAlwaysReverts(address) (runs: 256, μ: 1593962, ~: 1593962)
+[PASS] testInitializeEmitsEvent() (gas: 3086664)
+[PASS] testInitializeReturnsCloneableV2Success() (gas: 3084757)
+[PASS] testInitializeSuccess() (gas: 3088754)
+[PASS] testInitializeZeroAssetDirect() (gas: 2495514)
+[PASS] testInitializeZeroAssetViaDeployer() (gas: 2360149)
+[PASS] testMaxDepositUnbounded(address) (runs: 256, μ: 3088803, ~: 3088803)
+[PASS] testMaxMintUnbounded(address) (runs: 256, μ: 3088838, ~: 3088838)
+[PASS] testMaxRedeemMatchesShares(uint256) (runs: 256, μ: 3205632, ~: 3205378)
+[PASS] testMaxWithdrawMatchesDeposit(uint256) (runs: 256, μ: 3209923, ~: 3209669)
+[PASS] testMintShares(uint256) (runs: 256, μ: 3205464, ~: 3205210)
+[PASS] testNameDelegation() (gas: 3091806)
+[PASS] testPreviewDepositMatchesActual(uint256) (runs: 256, μ: 3203502, ~: 3203248)
+[PASS] testPreviewRedeemMatchesActual(uint256) (runs: 256, μ: 3177341, ~: 3177087)
+[PASS] testPreviewWithdrawMatchesActual(uint256) (runs: 256, μ: 3179578, ~: 3179324)
+[PASS] testRedeemShares(uint256) (runs: 256, μ: 3177229, ~: 3176975)
+[PASS] testSharePriceIncreasesAfterDirectTransfer(uint256,uint256) (runs: 256, μ: 3214751, ~: 3214941)
+[PASS] testSymbolDelegation() (gas: 3091885)
+[PASS] testTotalAssetsInitiallyZero() (gas: 3091551)
+[PASS] testWithdrawRoundTrip(uint256) (runs: 256, μ: 3182013, ~: 3181759)
+Suite result: ok. 24 passed; 0 failed; 0 skipped; finished in 1.14s (1.14s CPU time)
+
+Ran 7 tests for test/src/concrete/StoxWrappedTokenVaultBeacon.t.sol:StoxWrappedTokenVaultBeaconTest
+[PASS] testBeaconConstructsWithExpectedConstants() (gas: 1850882)
+[PASS] testBeaconInitialOwnerConsistentAcrossVersions() (gas: 281)
+[PASS] testRenounceOwnershipDisablesUpgrades() (gas: 3424305)
+[PASS] testTransferOwnership(address) (runs: 256, μ: 1853433, ~: 1853433)
+[PASS] testTransferOwnershipByNonOwnerReverts(address,address) (runs: 256, μ: 1851638, ~: 1851638)
+[PASS] testUpgradeToByNonOwnerReverts(address) (runs: 256, μ: 3441474, ~: 3441474)
+[PASS] testUpgradeToByOwner() (gas: 3442554)
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 124.45ms (124.28ms CPU time)
+
+Ran 1 test for test/src/concrete/integration/BurnAfterForwardSplit.t.sol:BurnAfterForwardSplitTest
+[PASS] testBurnAfterForwardSplitConsumesRebasedReceiptExactly() (gas: 923515)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 3.37ms (1.51ms CPU time)
+
+Ran 1 test for test/src/concrete/integration/BurnFractionalSplitTruncationDust.t.sol:BurnFractionalSplitTruncationDustTest
+[PASS] testBurnAfterFractionalSplitRevertsOnTruncationDust() (gas: 1603473)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 5.15ms (3.29ms CPU time)
+
+Ran 1 test for test/src/concrete/integration/BurnHappyPath.t.sol:BurnHappyPathTest
+[PASS] testBurnHappyPathAndPointer() (gas: 463723)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 4.92ms (3.14ms CPU time)
+
+Ran 48 tests for test/src/concrete/StoxReceiptVaultMigrationIntegrationTest.t.sol:StoxReceiptVaultMigrationIntegrationTest
+[PASS] testAccountMigratedDoesNotReEmitWhenAlreadyAtLatest() (gas: 416975)
+[PASS] testAccountMigratedEventAggregatesAcrossMultipleSplits() (gas: 552845)
+[PASS] testAccountMigratedEventEmitted() (gas: 404960)
+[PASS] testAccountMigratedFiresForBothEndsOfTransfer() (gas: 470068)
+[PASS] testAccountMigratedFiresOnBalanceSpecificIdentity() (gas: 411849)
+[PASS] testAccountMigratedFiresOnMultiStepRoundTrip() (gas: 557077)
+[PASS] testAccountMigratedFiresOnTruncationCollision() (gas: 412041)
+[PASS] testAccountMigratedFiresOnZeroBalanceCursorAdvance() (gas: 404576)
+[PASS] testAccountMigratedOrderedBeforeTransfer() (gas: 457903)
+[PASS] testBalanceOfRebaseOnExistingHolder() (gas: 364067)
+[PASS] testBurnAfterSplit() (gas: 412625)
+[PASS] testBurnToZeroPostSplitInvariants() (gas: 381300)
+[PASS] testCursorEqualsTotalSupplyLatestSplitAcrossBurnPath() (gas: 593609)
+[PASS] testDormantHolderMigratesCorrectly() (gas: 553591)
+[PASS] testEffectiveTimeBoundaryExactlyAtCompletesSplit() (gas: 424412)
+[PASS] testEffectiveTotalSupplyAcrossGapWithZeroIntermediatePots() (gas: 780005)
+[PASS] testFreshAccountCursorAdvancesAfterMigration() (gas: 401775)
+[PASS] testFuzzAccountMigratedFiresOnEveryCursorAdvance(uint64,uint8,uint8) (runs: 256, μ: 675132, ~: 706394)
+[PASS] testFuzzConvergenceViewMatchesStoredAfterMigration(uint64,uint8,uint8) (runs: 256, μ: 694364, ~: 574112)
+[PASS] testFuzzCursorEqualsLatestAfterEveryMigration(uint8,uint8,uint128,uint128,uint128,uint128) (runs: 256, μ: 702015, ~: 702438)
+[PASS] testFuzzInterleavedTransfersAndSplits(uint32,uint32,uint64,uint64,uint64) (runs: 256, μ: 902561, ~: 902538)
+[PASS] testFuzzMigrationIdempotentAcrossRepeatedTouches(uint32,uint8,uint8,uint8) (runs: 256, μ: 752585, ~: 725417)
+[PASS] testFuzzMultiAccountConvergenceAfterFullMigration(uint32,uint32,uint32,uint8,uint8) (runs: 256, μ: 752728, ~: 731541)
+[PASS] testFuzzNoSplitSupplyEqualsNetMinted(uint64[8],uint8[8]) (runs: 256, μ: 241467, ~: 244597)
+[PASS] testFuzzPotInvariantAcrossRandomActivity(uint8,uint8,uint64,uint64,uint64,uint64,uint64) (runs: 256, μ: 802785, ~: 804334)
+[PASS] testFuzzTwoAccountDifferentMigrationPathsConverge(uint32,uint32) (runs: 256, μ: 681162, ~: 681157)
+[PASS] testFuzzZeroAddressInvariantsHold(uint8,uint256) (runs: 256, μ: 272107, ~: 221322)
+[PASS] testInterleavedTransfersAndSplits() (gas: 833105)
+[PASS] testMigrateAccountNoOpWhenAtLatest() (gas: 287793)
+[PASS] testMigrationCursorDefaultsToBootstrapForFreshAccount() (gas: 8318)
+[PASS] testMintBeforeAnySplit() (gas: 61970)
+[PASS] testMintFreshAccountAfterTwoCompletedSplits() (gas: 584579)
+[PASS] testMintToFreshAccountAfterCompletedSplitDoesNotInflate() (gas: 443434)
+[PASS] testNoAccountMigratedEventForZeroAddress() (gas: 658523)
+[PASS] testNonStockSplitNodeAdvancesNeitherCursor() (gas: 550127)
+[PASS] testOverBurnSurfacesOzInsufficientBalanceNotPanic() (gas: 398041)
+[PASS] testPotInvariantDirectAfterMixedActivity() (gas: 590550)
+[PASS] testPreBootstrapIsNoOpUntilCompletedSplit() (gas: 376713)
+[PASS] testTotalSupplyConsistentWithBalanceOfAfterMintFreshPostSplit() (gas: 462011)
+[PASS] testTotalSupplyDuringBootstrapDeferredWindow() (gas: 371843)
+[PASS] testTotalSupplyFractionalDustConvergesAfterMigration() (gas: 469237)
+[PASS] testTotalSupplyMatchesSumOfBalanceOfAfterMixedActivity() (gas: 599656)
+[PASS] testTotalSupplyMultiSplitPreBootstrap() (gas: 661779)
+[PASS] testTransferRevertsWhenMigrationTruncatesBalanceToZero() (gas: 403100)
+[PASS] testTransferSucceedsUpToMigratedBalanceAfterPartialTruncation() (gas: 451705)
+[PASS] testTransferToFreshRecipientAfterCompletedSplitDoesNotInflate() (gas: 446831)
+[PASS] testZeroAddressBalanceSlotStaysZero() (gas: 644612)
+[PASS] testZeroAddressCursorStaysZero() (gas: 644534)
+Suite result: ok. 48 passed; 0 failed; 0 skipped; finished in 1.58s (1.58s CPU time)
+
+Ran 1 test for test/src/concrete/deploy/StoxUnifiedDeployer.ierc165.t.sol:StoxUnifiedDeployerIERC165Test
+[PASS] testStoxUnifiedDeployerIERC165(bytes4) (runs: 256, μ: 355470, ~: 355470)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 8.84ms (8.72ms CPU time)
+
+Ran 1 test for test/src/concrete/StoxReceipt.t.sol:StoxReceiptTest
+[PASS] testConstructorDisablesInitializers() (gas: 2877575)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 323.23µs (136.30µs CPU time)
+
+Ran 40 tests for test/src/concrete/StoxReceiptRebaseIntegrationTest.t.sol:StoxReceiptRebaseIntegrationTest
+[PASS] testAuthorizerDeniedTransferRollsBackMigration() (gas: 217917)
+[PASS] testBalanceOfAfterSplitPreMigration() (gas: 136188)
+[PASS] testBalanceOfBatchEmptyInputsReturnsEmpty() (gas: 10438)
+[PASS] testBalanceOfBatchMismatchedLengthsReverts() (gas: 12503)
+[PASS] testBalanceOfBatchRebaseConsistency() (gas: 225842)
+[PASS] testBalanceOfNoSplits() (gas: 61973)
+[PASS] testBatchReceiveHookObservesPostMigrationState() (gas: 641164)
+[PASS] testBatchUpdateEmptyArraysIsNoOp() (gas: 139789)
+[PASS] testBatchUpdateEventOrderingAcrossIds() (gas: 360546)
+[PASS] testBatchUpdateMigratesEachIdIndependently() (gas: 254568)
+[PASS] testBurnAfterSplitSubtractsFromRebasedBalance() (gas: 174767)
+[PASS] testBurnToZeroAfterSplitLeavesCursorAtLatest() (gas: 167436)
+[PASS] testFuzzApprovedOperatorTransfersPostRebaseBalance(uint64,uint128,uint8) (runs: 256, μ: 254048, ~: 254432)
+[PASS] testFuzzBatchUpdateWithDuplicateIdTransfersFullSum(uint32,uint64,uint64) (runs: 256, μ: 244987, ~: 245855)
+[PASS] testFuzzFractionalSplitTruncatingToZeroDoesNotReInflate(uint8,uint8,uint8) (runs: 256, μ: 232588, ~: 232542)
+[PASS] testFuzzHolderDirectTransferUsesPostRebaseBalance(uint64,uint128,uint8) (runs: 256, μ: 230820, ~: 231204)
+[PASS] testFuzzReceiptAccountMigratedFiresOnEveryCursorAdvance(uint64,uint8,uint8) (runs: 256, μ: 281690, ~: 247691)
+[PASS] testMigrateHolderIdZeroAddressIsNoOp() (gas: 132473)
+[PASS] testMigrationOnTransferRasterizesStoredBalance() (gas: 178276)
+[PASS] testMintToExistingHolderAfterSplitRasterizesFirst() (gas: 174852)
+[PASS] testMintToFreshRecipientAfterSplitDoesNotInflate() (gas: 192565)
+[PASS] testOverBurnAfterSplitReverts() (gas: 164502)
+[PASS] testPerHolderIdCursorIndependence() (gas: 283281)
+[PASS] testReceiptAccountMigratedAggregatesAcrossMultipleSplits() (gas: 229309)
+[PASS] testReceiptAccountMigratedDoesNotReEmitWhenAlreadyAtLatest() (gas: 197314)
+[PASS] testReceiptAccountMigratedEventEmitted() (gas: 173656)
+[PASS] testReceiptAccountMigratedFiresOnBalanceSpecificIdentity() (gas: 180704)
+[PASS] testReceiptAccountMigratedFiresOnMultiStepRoundTrip() (gas: 233599)
+[PASS] testReceiptAccountMigratedFiresOnTruncationCollision() (gas: 180909)
+[PASS] testReceiptAccountMigratedFiresOnZeroBalanceCursorAdvance() (gas: 204538)
+[PASS] testReceiptAccountMigratedOrderedBeforeTransferSingle() (gas: 228220)
+[PASS] testReceiptCorporateActionSlotMatchesDerivation() (gas: 837)
+[PASS] testReceiptCursorDefaultsToBootstrapForFreshPair() (gas: 8366)
+[PASS] testReceiptStorageLayoutPin() (gas: 7464)
+[PASS] testReceiveHookObservesPostMigrationState() (gas: 505076)
+[PASS] testSequentialPrecisionMatchesShareSide() (gas: 345618)
+[PASS] testTransferInAfterBurnToZeroCreditsExact() (gas: 279192)
+[PASS] testTransferToFreshRecipientAfterSplitDoesNotInflate() (gas: 212032)
+[PASS] testUnauthorizedTransferRevertsMissingApproval() (gas: 128497)
+[PASS] testZeroBalanceCursorAdvancesOnFreshRecipient() (gas: 213838)
+Suite result: ok. 40 passed; 0 failed; 0 skipped; finished in 417.84ms (417.26ms CPU time)
+[2m2026-07-25T13:19:49.561850Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `basic` [3merr[0m[2m=[0mfailed to get account for 0x2BCcEd626566Ef1e65F922DD03748C5C7aa2d748: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":19}
+
+
+HTTP diagnostics:
+cf-ray: a20b755ddbdd18a4-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=0WJD8UFyre%2BI8f4EPBpvzYAmB%2FsX6DXCx%2Fmz10sIv1wjpaqPVY9BXTrLyjyi950zQBpjccwx5mZu1F3zd7Bw%2FFgwzmdTfe5h%2BYLlRU3PnyW7tCjZ4lgAvREO7VLUJmwxvjY%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0x2BCcEd626566Ef1e65F922DD03748C5C7aa2d748
+[2m2026-07-25T13:19:49.596390Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `basic` [3merr[0m[2m=[0mfailed to get account for 0x1f17523b147CcC2A2328c0F014f6d49c479ea063: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":186}
+
+
+HTTP diagnostics:
+cf-ray: a20b755e0d792928-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=2SbYW67XV4o8b7fDeyrsWqSQ3ETm9%2F6GMm%2BwPJhzH2%2F4KlDlv092SV8hEpYxe1B5YXAN2cYJwA9crjDAAmrjGbmm14PbYNlyPL9toUsvW95LXfNBYfk45xUnZyEgbJBQnu0%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0x1f17523b147CcC2A2328c0F014f6d49c479ea063
+[2m2026-07-25T13:19:49.596447Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `basic` [3merr[0m[2m=[0mfailed to get account for 0x1f17523b147CcC2A2328c0F014f6d49c479ea063: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":186}
+
+
+HTTP diagnostics:
+cf-ray: a20b755e0d792928-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=2SbYW67XV4o8b7fDeyrsWqSQ3ETm9%2F6GMm%2BwPJhzH2%2F4KlDlv092SV8hEpYxe1B5YXAN2cYJwA9crjDAAmrjGbmm14PbYNlyPL9toUsvW95LXfNBYfk45xUnZyEgbJBQnu0%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0x1f17523b147CcC2A2328c0F014f6d49c479ea063
+[2m2026-07-25T13:19:49.602700Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `storage` [3merr[0m[2m=[0mfailed to get storage for 0x013b782F402d61aa1004CCA95b9f5Bb402c9d5FE at 98678239454420456161137491854123973459894655111375471108936537681808515318100: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":187}
+
+
+HTTP diagnostics:
+cf-ray: a20b755e0d852928-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=nr16%2FP9y3oKy9ByLF7DaKtjIKQIbQlUbpX%2BqLo7aFfsvzMgBiZYvbyXU0LWurDSEVLmWQVoFoqSbtmz5T1tBtXJpA%2FmtvFOu9aoJzZv6kMEo%2BnNqqJ8HgwMFerGdvtJA3yI%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0x013b782F402d61aa1004CCA95b9f5Bb402c9d5FE [3mindex[0m[2m=[0m98678239454420456161137491854123973459894655111375471108936537681808515318100
+[2m2026-07-25T13:19:49.609459Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `basic` [3merr[0m[2m=[0mfailed to get account for 0x4200000000000000000000000000000000000011: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":25}
+
+
+HTTP diagnostics:
+cf-ray: a20b755e1c2f18a4-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=M6ZNhIo4vHBX5lcaDHcCOMlVt1d1p7IuDL%2FeV02GL4hC9cpeANmh%2FVqQKvn%2FgCxx8f7KhZPgOzsGVAunr5CzuEYpm42Qo0WS5BF%2BjO7qPs1UUvYZJ8xn8%2FdOnFHxpUj0KfE%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0x4200000000000000000000000000000000000011
+[2m2026-07-25T13:19:49.609488Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `basic` [3merr[0m[2m=[0mfailed to get account for 0x4200000000000000000000000000000000000011: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":25}
+
+
+HTTP diagnostics:
+cf-ray: a20b755e1c2f18a4-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=M6ZNhIo4vHBX5lcaDHcCOMlVt1d1p7IuDL%2FeV02GL4hC9cpeANmh%2FVqQKvn%2FgCxx8f7KhZPgOzsGVAunr5CzuEYpm42Qo0WS5BF%2BjO7qPs1UUvYZJ8xn8%2FdOnFHxpUj0KfE%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0x4200000000000000000000000000000000000011
+[2m2026-07-25T13:19:49.609488Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `basic` [3merr[0m[2m=[0mfailed to get account for 0x4200000000000000000000000000000000000011: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":25}
+
+
+HTTP diagnostics:
+cf-ray: a20b755e1c2f18a4-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=M6ZNhIo4vHBX5lcaDHcCOMlVt1d1p7IuDL%2FeV02GL4hC9cpeANmh%2FVqQKvn%2FgCxx8f7KhZPgOzsGVAunr5CzuEYpm42Qo0WS5BF%2BjO7qPs1UUvYZJ8xn8%2FdOnFHxpUj0KfE%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0x4200000000000000000000000000000000000011
+[2m2026-07-25T13:19:49.618766Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `basic` [3merr[0m[2m=[0mfailed to get account for 0xe70d821f3462a074e63b42d0AaC6523faAe1d611: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":23}
+
+
+HTTP diagnostics:
+cf-ray: a20b755e2c3b18a4-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=pX1txR9E%2BUw3sZ0xM6YeE2G%2BobpsHQFEjZ2%2Bi0qco3N3u3a9%2FViTpHZ%2FOppM1471PiSUfql1uyTYwP2gBkZOT9dmYbL0YNuaxGigzFvGiGiAtes1b1Wse6vcfMK4fznqJH4%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0xe70d821f3462a074e63b42d0AaC6523faAe1d611
+
+Ran 2 tests for test/script/20260722-swap-rklb-authoriser.t.sol:SwapRklbAuthoriserTest
+[PASS] testRunRejectsUnknownAuthoriser() (gas: 3271713)
+[FAIL: EVM error; database error: failed to get account for 0xe70d821f3462a074e63b42d0AaC6523faAe1d611: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":23}
+
+
+HTTP diagnostics:
+cf-ray: a20b755e2c3b18a4-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=pX1txR9E%2BUw3sZ0xM6YeE2G%2BobpsHQFEjZ2%2Bi0qco3N3u3a9%2FViTpHZ%2FOppM1471PiSUfql1uyTYwP2gBkZOT9dmYbL0YNuaxGigzFvGiGiAtes1b1Wse6vcfMK4fznqJH4%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800}] testRunRevertsWhenAlreadySwapped() (gas: 0)
+Suite result: FAILED. 1 passed; 1 failed; 0 skipped; finished in 19.99s (19.99s CPU time)
+[2m2026-07-25T13:19:49.643056Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `storage` [3merr[0m[2m=[0mfailed to get storage for 0x58cE5024B89B4f73C27814C0f0aBbEa331C99Be8 at 65173360639460082030725920392146925864023520599682862633725751242436743107328: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":188}
+
+
+HTTP diagnostics:
+cf-ray: a20b755e4dca2928-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=NG7JYTKOOtqF6WzqovD7Lw6THbzuxa5JeTQc7hkraarRq1RixM%2BVvZbK%2FxbH26VchxlqeyvfA8h6gx851nCcCwyCuGIO4ClWxzSLuBxWuNRYxlEhy%2BZV1W6Y5mCkc%2BanQ6U%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0x58cE5024B89B4f73C27814C0f0aBbEa331C99Be8 [3mindex[0m[2m=[0m65173360639460082030725920392146925864023520599682862633725751242436743107328
+[2m2026-07-25T13:19:49.643081Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `storage` [3merr[0m[2m=[0mfailed to get storage for 0x58cE5024B89B4f73C27814C0f0aBbEa331C99Be8 at 65173360639460082030725920392146925864023520599682862633725751242436743107328: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":188}
+
+
+HTTP diagnostics:
+cf-ray: a20b755e4dca2928-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=NG7JYTKOOtqF6WzqovD7Lw6THbzuxa5JeTQc7hkraarRq1RixM%2BVvZbK%2FxbH26VchxlqeyvfA8h6gx851nCcCwyCuGIO4ClWxzSLuBxWuNRYxlEhy%2BZV1W6Y5mCkc%2BanQ6U%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0x58cE5024B89B4f73C27814C0f0aBbEa331C99Be8 [3mindex[0m[2m=[0m65173360639460082030725920392146925864023520599682862633725751242436743107328
+
+Ran 1 test for test/src/lib/LibInvariants.t.sol:LibInvariantsTest
+[FAIL: EVM error; database error: failed to get storage for 0x58cE5024B89B4f73C27814C0f0aBbEa331C99Be8 at 65173360639460082030725920392146925864023520599682862633725751242436743107328: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":188}
+
+
+HTTP diagnostics:
+cf-ray: a20b755e4dca2928-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=NG7JYTKOOtqF6WzqovD7Lw6THbzuxa5JeTQc7hkraarRq1RixM%2BVvZbK%2FxbH26VchxlqeyvfA8h6gx851nCcCwyCuGIO4ClWxzSLuBxWuNRYxlEhy%2BZV1W6Y5mCkc%2BanQ6U%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800}] testAssertProductionStateBasePassesLive() (gas: 0)
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 18.93s (18.93s CPU time)
+
+Ran 5 tests for test/src/concrete/deploy/StoxProdV2.t.sol:StoxProdV2Test
+[FAIL: vm.createSelectFork: environment variable `ARBITRUM_RPC_URL` not found] testProdDeployArbitrumV2() (gas: 3163)
+[FAIL: vm.createSelectFork: environment variable `BASE_SEPOLIA_RPC_URL` not found] testProdDeployBaseSepoliaV2() (gas: 3207)
+[FAIL: EVM error; database error: failed to get storage for 0x58cE5024B89B4f73C27814C0f0aBbEa331C99Be8 at 65173360639460082030725920392146925864023520599682862633725751242436743107328: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":188}
+
+
+HTTP diagnostics:
+cf-ray: a20b755e4dca2928-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=NG7JYTKOOtqF6WzqovD7Lw6THbzuxa5JeTQc7hkraarRq1RixM%2BVvZbK%2FxbH26VchxlqeyvfA8h6gx851nCcCwyCuGIO4ClWxzSLuBxWuNRYxlEhy%2BZV1W6Y5mCkc%2BanQ6U%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800}] testProdDeployBaseV2() (gas: 0)
+[FAIL: vm.createSelectFork: environment variable `FLARE_RPC_URL` not found] testProdDeployFlareV2() (gas: 3185)
+[FAIL: vm.createSelectFork: environment variable `POLYGON_RPC_URL` not found] testProdDeployPolygonV2() (gas: 3207)
+Suite result: FAILED. 0 passed; 5 failed; 0 skipped; finished in 20.02s (20.02s CPU time)
+
+Ran 13 tests for test/src/lib/LibMigrationInvariant.t.sol:LibMigrationInvariantTest
+[PASS] testAddressOverloadDriftSurfacesSelector() (gas: 10846)
+[PASS] testAddressOverloadRoundTripsPre() (gas: 9570)
+[PASS] testAfterDeadlineAcceptsPost() (gas: 9179)
+[PASS] testAfterDeadlineRejectsOtherWithDeadlinePassed() (gas: 10484)
+[PASS] testAfterDeadlineRejectsPreWithDeadlinePassed() (gas: 10503)
+[PASS] testAtDeadlineAcceptsPost() (gas: 9116)
+[PASS] testAtDeadlineRejectsPreWithDeadlinePassed() (gas: 10364)
+[PASS] testBeforeDeadlineAcceptsPost() (gas: 9207)
+[PASS] testBeforeDeadlineAcceptsPre() (gas: 9237)
+[PASS] testBeforeDeadlineRejectsOtherWithDrift() (gas: 10502)
+[PASS] testUint256OverloadDeadlinePassedSurfacesSelector() (gas: 10579)
+[PASS] testUint256OverloadRoundTripsPre() (gas: 9352)
+[PASS] testZeroDeadlineIsStrict() (gas: 11923)
+Suite result: ok. 13 passed; 0 failed; 0 skipped; finished in 485.63µs (322.62µs CPU time)
+[2m2026-07-25T13:19:49.670865Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `basic` [3merr[0m[2m=[0mfailed to get account for 0x444acC29d63fa643E8adCC35FD9aa6DE111dCb39: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":28}
+
+
+HTTP diagnostics:
+cf-ray: a20b755e8a511f4f-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=6xCId3MbMKMqPkwiSMSxx1ZNrcscORpKKhbeOR8MGRc67nCpE83Whui9NJ0SaWWCM1BD%2FnKmZVbTzyHtp2bz7AfcccD9ntQ6Xkb87vXHNrXK1Ha%2F6xows9AD4D87v5ncEt8%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0x444acC29d63fa643E8adCC35FD9aa6DE111dCb39
+[2m2026-07-25T13:19:49.722306Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `basic` [3merr[0m[2m=[0mfailed to get account for 0xFF05E1bD696900dc6A52CA35Ca61Bb1024eDa8e2: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":189}
+
+
+HTTP diagnostics:
+cf-ray: a20b755ece312928-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=bfW%2F7WNJRP%2B03Kjn9fg%2B6JqRThUNpkhiwpg7pL3PCnKVSdA%2FlPSCw4QhmDozp%2BZI5GGuX%2FPbDplScNUrx5BpEGwXfIEPCXM2A%2FsfnGrhQqrpfkCjE71Jl4BmW0a2HYA%2FIfY%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0xFF05E1bD696900dc6A52CA35Ca61Bb1024eDa8e2
+
+Ran 2 tests for test/script/20260722-swap-remaining-vault-authorisers.t.sol:SwapRemainingVaultAuthorisersTest
+[PASS] testRunRejectsUnknownAuthoriser() (gas: 4569077)
+[FAIL: EVM error; database error: failed to get account for 0x1f17523b147CcC2A2328c0F014f6d49c479ea063: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":186}
+
+
+HTTP diagnostics:
+cf-ray: a20b755e0d792928-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=2SbYW67XV4o8b7fDeyrsWqSQ3ETm9%2F6GMm%2BwPJhzH2%2F4KlDlv092SV8hEpYxe1B5YXAN2cYJwA9crjDAAmrjGbmm14PbYNlyPL9toUsvW95LXfNBYfk45xUnZyEgbJBQnu0%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800}] testRunRevertsWhenNothingLeftToSwap() (gas: 0)
+Suite result: FAILED. 1 passed; 1 failed; 0 skipped; finished in 21.50s (31.56s CPU time)
+
+Ran 1 test for test/src/concrete/deploy/BeaconOwnerMigrationPin.t.sol:BeaconOwnerMigrationPinTest
+[PASS] testV1BeaconOwnersInMigrationWindow() (gas: 19712)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 2.05s (2.05s CPU time)
+
+Ran 3 tests for test/src/lib/LibAuthoriserInvariants.t.sol:LibAuthoriserInvariantsTest
+[PASS] testAssertAllPasses() (gas: 62987)
+[FAIL: EVM error; database error: failed to get account for 0x4200000000000000000000000000000000000011: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":25}
+
+
+HTTP diagnostics:
+cf-ray: a20b755e1c2f18a4-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=M6ZNhIo4vHBX5lcaDHcCOMlVt1d1p7IuDL%2FeV02GL4hC9cpeANmh%2FVqQKvn%2FgCxx8f7KhZPgOzsGVAunr5CzuEYpm42Qo0WS5BF%2BjO7qPs1UUvYZJ8xn8%2FdOnFHxpUj0KfE%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800}] testAssertAllRejectsWrongCodehash() (gas: 0)
+[PASS] testAssertExpectedGrantsRejectsDefaultAdmin() (gas: 613145)
+Suite result: FAILED. 2 passed; 1 failed; 0 skipped; finished in 22.03s (21.49s CPU time)
+
+Ran 3 tests for test/src/lib/LibStockSplitResolveTest.t.sol:LibStockSplitResolveTest
+[PASS] testResolveStockSplit() (gas: 36293)
+[PASS] testResolveStockSplitZeroMultiplierReverts() (gas: 9760)
+[PASS] testResolveUnknownTypeReverts() (gas: 8972)
+Suite result: ok. 3 passed; 0 failed; 0 skipped; finished in 319.06µs (94.57µs CPU time)
+
+Ran 6 tests for test/src/lib/LibStockSplitValidation6DecimalsTest.t.sol:LibStockSplitValidation6DecimalsTest
+[PASS] testAboveCeilingReverts() (gas: 38658)
+[PASS] testBelowFloorReverts() (gas: 37277)
+[PASS] testCeilingBoundaryPasses() (gas: 35421)
+[PASS] testEighteenDecimalFloorRejectedForSixDecimals() (gas: 37256)
+[PASS] testFloorBoundaryPasses() (gas: 35229)
+[PASS] testRealisticSplitPasses() (gas: 35208)
+Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 376.25µs (216.56µs CPU time)
+
+Ran 4 tests for test/src/lib/LibStockSplitLifecycleTest.t.sol:LibStockSplitLifecycleTest
+[PASS] testMultipleStockSplitsFiltered() (gas: 638294)
+[PASS] testStockSplitLifecycle() (gas: 331337)
+[PASS] testStoredNodeDataAfterSchedule() (gas: 316326)
+[PASS] testTwoSplitsDifferentMultipliersStoreIndependently() (gas: 467648)
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 1.55ms (1.14ms CPU time)
+[2m2026-07-25T13:19:59.859456Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `basic` [3merr[0m[2m=[0mfailed to get account for 0x2EA0d35d0B1F57C42e6130f298930228bCbFDe9b: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":35}
+
+
+HTTP diagnostics:
+cf-ray: a20b759e2f29acf5-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=o1%2FtI3Y80lspG8LraGC4kiiCf0MucYi7m8ZwkqKi3pyuebRO1m9QCdfYXV%2BUMj%2F1%2FI3refR43oqs5mtzmpbKVoickccNAk1N%2Bu7KbGYTpejjdq6dYMz5ENOb3T2ro1N7oZA%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0x2EA0d35d0B1F57C42e6130f298930228bCbFDe9b
+[2m2026-07-25T13:19:59.859456Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `basic` [3merr[0m[2m=[0mfailed to get account for 0x2EA0d35d0B1F57C42e6130f298930228bCbFDe9b: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":35}
+
+
+HTTP diagnostics:
+cf-ray: a20b759e2f29acf5-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=o1%2FtI3Y80lspG8LraGC4kiiCf0MucYi7m8ZwkqKi3pyuebRO1m9QCdfYXV%2BUMj%2F1%2FI3refR43oqs5mtzmpbKVoickccNAk1N%2Bu7KbGYTpejjdq6dYMz5ENOb3T2ro1N7oZA%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0x2EA0d35d0B1F57C42e6130f298930228bCbFDe9b
+
+Ran 4 tests for test/src/lib/LibProdDeployV1V2.t.sol:LibProdDeployV1V2Test
+[PASS] testStoxReceiptCodehashV1EqualsV2() (gas: 224)
+[PASS] testStoxReceiptVaultCodehashV1EqualsV2() (gas: 244)
+[PASS] testStoxUnifiedDeployerCodehashV1DiffersV2() (gas: 235)
+[PASS] testStoxWrappedTokenVaultCodehashV1DiffersV2() (gas: 256)
+Suite result: ok. 4 passed; 0 failed; 0 skipped; finished in 120.14µs (44.88µs CPU time)
+
+Ran 9 tests for test/src/lib/LibProdDeployV2.t.sol:LibProdDeployV2Test
+[PASS] testV2CreationCodeStoxOffchainAssetReceiptVaultAuthorizerV1() (gas: 1192440)
+[PASS] testV2CreationCodeStoxOffchainAssetReceiptVaultBeaconSetDeployer() (gas: 7891832)
+[PASS] testV2CreationCodeStoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1() (gas: 2224625)
+[PASS] testV2CreationCodeStoxReceipt() (gas: 2326997)
+[PASS] testV2CreationCodeStoxReceiptVault() (gas: 4333404)
+[PASS] testV2CreationCodeStoxUnifiedDeployer() (gas: 301297)
+[PASS] testV2CreationCodeStoxWrappedTokenVault() (gas: 1804568)
+[PASS] testV2CreationCodeStoxWrappedTokenVaultBeacon() (gas: 2056985)
+[PASS] testV2CreationCodeStoxWrappedTokenVaultBeaconSetDeployer() (gas: 2515042)
+Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 2.06ms (1.52ms CPU time)
+
+Ran 33 tests for test/src/lib/LibProdDeployV4.t.sol:LibProdDeployV4Test
+[PASS] testAuthoriserV4ClonePin() (gas: 1017)
+[PASS] testBeaconInitialOwner() (gas: 324)
+[PASS] testCandidateSelfConsistent() (gas: 164217)
+[PASS] testDeployAddressST0xOrchestrator() (gas: 2618653)
+[PASS] testDeployAddressST0xOrchestratorBeaconSetDeployer() (gas: 3373811)
+[PASS] testDeployAddressStoxCorporateActionsFacet() (gas: 2019094)
+[PASS] testDeployAddressStoxOffchainAssetReceiptVaultAuthorizerV1() (gas: 1256826)
+[PASS] testDeployAddressStoxOffchainAssetReceiptVaultBeaconSetDeployer() (gas: 9187529)
+[PASS] testDeployAddressStoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1() (gas: 2030636)
+[PASS] testDeployAddressStoxReceipt() (gas: 2882952)
+[PASS] testDeployAddressStoxReceiptVault() (gas: 5019743)
+[PASS] testDeployAddressStoxUnifiedDeployer() (gas: 354616)
+[PASS] testDeployAddressStoxWrappedTokenVault() (gas: 1597097)
+[PASS] testDeployAddressStoxWrappedTokenVaultBeacon() (gas: 1849568)
+[PASS] testDeployAddressStoxWrappedTokenVaultBeaconSetDeployer() (gas: 2359101)
+[PASS] testFrozenRedeployST0xOrchestratorBeaconSetDeployer_CANDIDATE() (gas: 3377169)
+[PASS] testFrozenRedeployST0xOrchestrator_CANDIDATE() (gas: 2636667)
+[PASS] testFrozenRedeployStoxCorporateActionsFacet() (gas: 1728764)
+[PASS] testFrozenRedeployStoxCorporateActionsFacet_CANDIDATE() (gas: 2031974)
+[PASS] testFrozenRedeployStoxOffchainAssetReceiptVaultAuthorizerV1() (gas: 1263873)
+[PASS] testFrozenRedeployStoxOffchainAssetReceiptVaultBeaconSetDeployer() (gas: 9194181)
+[PASS] testFrozenRedeployStoxOffchainAssetReceiptVaultBeaconSetDeployer_CANDIDATE() (gas: 9194180)
+[PASS] testFrozenRedeployStoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1() (gas: 2043414)
+[PASS] testFrozenRedeployStoxReceipt() (gas: 2903610)
+[PASS] testFrozenRedeployStoxReceiptVault() (gas: 5066991)
+[PASS] testFrozenRedeployStoxReceiptVault_CANDIDATE() (gas: 5067013)
+[PASS] testFrozenRedeployStoxUnifiedDeployer() (gas: 356808)
+[PASS] testFrozenRedeployStoxUnifiedDeployer_CANDIDATE() (gas: 356831)
+[PASS] testFrozenRedeployStoxWrappedTokenVault() (gas: 1606516)
+[PASS] testFrozenRedeployStoxWrappedTokenVaultBeacon() (gas: 1851177)
+[PASS] testFrozenRedeployStoxWrappedTokenVaultBeaconSetDeployer() (gas: 2362244)
+[PASS] testFrozenRedeployStoxWrappedTokenVaultBeaconSetDeployer_CANDIDATE() (gas: 516226)
+[PASS] testTaggedRuntimeHashesToCodehash() (gas: 128137)
+Suite result: ok. 33 passed; 0 failed; 0 skipped; finished in 9.05ms (6.07ms CPU time)
+[2m2026-07-25T13:19:59.875570Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `basic` [3merr[0m[2m=[0mfailed to get account for 0xeaD68E489Cb19453b294dc46a3A5710b0d46d17F: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":102}
+
+
+HTTP diagnostics:
+cf-ray: a20b759e4e43a893-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=ooaSnMiQ7g7zcmDdPzGuDMYUd1JEcLjsFtFe0MlqX1ltLAXwHsnTn2afb4yQ0YKzBLXuDH9rnhi6zpEW7SLw%2FXwRIQvEJNYd9ztyJAUCQyoQi1%2FVRDcDSlxsiehGpJzj5%2BE%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0xeaD68E489Cb19453b294dc46a3A5710b0d46d17F
+
+Ran 2 tests for test/src/concrete/deploy/StoxProdV4.t.sol:StoxProdV4Test
+[FAIL: EVM error; database error: failed to get account for 0xeaD68E489Cb19453b294dc46a3A5710b0d46d17F: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":102}
+
+
+HTTP diagnostics:
+cf-ray: a20b759e4e43a893-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=ooaSnMiQ7g7zcmDdPzGuDMYUd1JEcLjsFtFe0MlqX1ltLAXwHsnTn2afb4yQ0YKzBLXuDH9rnhi6zpEW7SLw%2FXwRIQvEJNYd9ztyJAUCQyoQi1%2FVRDcDSlxsiehGpJzj5%2BE%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800}] testProdDeployBaseV4() (gas: 0)
+[FAIL: vm.createSelectFork: could not instantiate forked environment with provider eth.llamarpc.com; HTTP error 521 with body: <!DOCTYPE html>
+<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en-US"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en-US"> <!--<![endif]-->
+<head>
+
+<title>llamarpc.com | 521: Web server is down</title>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="stylesheet" id="cf_styles-css" href="/cdn-cgi/styles/main.css" />
+</head>
+<body>
+<div id="cf-wrapper">
+    <div id="cf-error-details" class="p-0">
+        <header class="mx-auto pt-10 lg:pt-6 lg:px-8 w-240 lg:w-full mb-8">
+            <h1 class="inline-block sm:block sm:mb-2 font-light text-60 lg:text-4xl text-black-dark leading-tight mr-2">
+                <span class="inline-block">Web server is down</span>
+                <span class="code-label">Error code 521</span>
+            </h1>
+            <div>
+                Visit <a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_521&utm_campaign=eth.llamarpc.com" target="_blank" rel="noopener noreferrer">cloudflare.com</a> for more information.
+            </div>
+            <div class="mt-3">2026-07-25 13:19:51 UTC</div>
+        </header>
+        <div class="my-8 bg-gradient-gray">
+            <div class="w-240 lg:w-full mx-auto">
+                <div class="clearfix md:px-8">
+                    <div id="cf-browser-status" class=" relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center">
+  <div class="relative mb-10 md:m-0">
+    
+    <span class="cf-icon-browser block md:hidden h-20 bg-center bg-no-repeat"></span>
+    <span class="cf-icon-ok w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"></span>
+    
+  </div>
+  <span class="md:block w-full truncate">You</span>
+  <h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3">
+  
+    Browser
+  
+  </h3>
+  
+  <span class="leading-1.3 text-2xl text-green-success">Working</span>
+  
+</div>
+                    <div id="cf-cloudflare-status" class=" relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center">
+  <div class="relative mb-10 md:m-0">
+    <a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_521&#38;utm_campaign=eth.llamarpc.com" target="_blank" rel="noopener noreferrer">
+    <span class="cf-icon-cloud block md:hidden h-20 bg-center bg-no-repeat"></span>
+    <span class="cf-icon-ok w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"></span>
+    </a>
+  </div>
+  <span class="md:block w-full truncate">Tbilisi</span>
+  <h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3">
+  <a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_521&utm_campaign=eth.llamarpc.com" target="_blank" rel="noopener noreferrer">
+    Cloudflare
+  </a>
+  </h3>
+  
+  <span class="leading-1.3 text-2xl text-green-success">Working</span>
+  
+</div>
+                    <div id="cf-host-status" class="cf-error-source relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center">
+  <div class="relative mb-10 md:m-0">
+    
+    <span class="cf-icon-server block md:hidden h-20 bg-center bg-no-repeat"></span>
+    <span class="cf-icon-error w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"></span>
+    
+  </div>
+  <span class="md:block w-full truncate">eth.llamarpc.com</span>
+  <h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3">
+  
+    Host
+  
+  </h3>
+  
+  <span class="leading-1.3 text-2xl text-red-error">Error</span>
+  
+</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="w-240 lg:w-full mx-auto mb-8 lg:px-8">
+            <div class="clearfix">
+                <div class="w-1/2 md:w-full float-left pr-6 md:pb-10 md:pr-0 leading-relaxed">
+                    <h2 class="text-3xl font-normal leading-1.3 mb-4">What happened?</h2>
+                    <p>The web server is not returning a connection. As a result, the web page is not displaying.</p>
+                </div>
+                <div class="w-1/2 md:w-full float-left leading-relaxed">
+                    <h2 class="text-3xl font-normal leading-1.3 mb-4">What can I do?</h2>
+                    
+                <h3 class="text-15 font-semibold mb-2">If you are a visitor of this website:</h3>
+                <p class="mb-6">Please try again in a few minutes.</p>
+
+                <h3 class="text-15 font-semibold mb-2">If you are the owner of this website:</h3>
+                <p><span>Contact your hosting provider letting them know your web server is not responding.</span> <a rel="noopener noreferrer" href="https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-521/">Additional troubleshooting information</a>.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="cf-error-footer cf-wrapper w-240 lg:w-full py-10 sm:py-4 sm:px-8 mx-auto text-center sm:text-left border-solid border-0 border-t border-gray-300">
+    <p class="text-13">
+      <span class="cf-footer-item sm:block sm:mb-1">Cloudflare Ray ID: <strong class="font-semibold">a20b7568ae6bab93</strong></span>
+      <span class="cf-footer-separator sm:hidden">&bull;</span>
+      <span id="cf-footer-item-ip" class="cf-footer-item hidden sm:block sm:mb-1">
+        Your IP:
+        <button type="button" id="cf-footer-ip-reveal" class="cf-footer-ip-reveal-btn">Click to reveal</button>
+        <span class="hidden" id="cf-footer-ip">213.131.47.170</span>
+        <span class="cf-footer-separator sm:hidden">&bull;</span>
+      </span>
+      <span class="cf-footer-item sm:block sm:mb-1"><span>Performance &amp; security by</span> <a rel="noopener noreferrer" href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_521&#38;utm_campaign=eth.llamarpc.com" id="brand_link" target="_blank">Cloudflare</a></span>
+      
+    </p>
+    <script>(function(){function d(){var b=a.getElementById("cf-footer-item-ip"),c=a.getElementById("cf-footer-ip-reveal");b&&"classList"in b&&(b.classList.remove("hidden"),c.addEventListener("click",function(){c.classList.add("hidden");a.getElementById("cf-footer-ip").classList.remove("hidden")}))}var a=document;document.addEventListener&&a.addEventListener("DOMContentLoaded",d)})();</script>
+  </div><!-- /.error-footer -->
+
+    </div>
+</div>
+</body>
+</html>
+
+HTTP diagnostics:
+cf-ray: a20b7568ae6bab93-TBS
+server: cloudflare] testProdDeployEthereumV4() (gas: 4625)
+Suite result: FAILED. 0 passed; 2 failed; 0 skipped; finished in 10.28s (10.37s CPU time)
+
+Ran 5 tests for test/src/concrete/deploy/StoxProdV4PostSwap.t.sol:StoxProdV4PostSwapTest
+[FAIL: vm.createSelectFork: environment variable `ARBITRUM_RPC_URL` not found] testProdDeployArbitrumV4() (gas: 3182)
+[FAIL: vm.createSelectFork: environment variable `BASE_SEPOLIA_RPC_URL` not found] testProdDeployBaseSepoliaV4() (gas: 3181)
+[FAIL: EVM error; database error: failed to get account for 0x1f17523b147CcC2A2328c0F014f6d49c479ea063: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":186}
+
+
+HTTP diagnostics:
+cf-ray: a20b755e0d792928-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=2SbYW67XV4o8b7fDeyrsWqSQ3ETm9%2F6GMm%2BwPJhzH2%2F4KlDlv092SV8hEpYxe1B5YXAN2cYJwA9crjDAAmrjGbmm14PbYNlyPL9toUsvW95LXfNBYfk45xUnZyEgbJBQnu0%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800}] testProdDeployBaseV4() (gas: 0)
+[FAIL: vm.createSelectFork: environment variable `FLARE_RPC_URL` not found] testProdDeployFlareV4() (gas: 3161)
+[FAIL: vm.createSelectFork: environment variable `POLYGON_RPC_URL` not found] testProdDeployPolygonV4() (gas: 3160)
+Suite result: FAILED. 0 passed; 5 failed; 0 skipped; finished in 28.56s (18.28s CPU time)
+
+Ran 1 test for test/src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.t.sol:StoxOffchainAssetReceiptVaultAuthorizerV1Test
+[PASS] testConstructorDisablesInitializers() (gas: 1254706)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 252.63µs (102.74µs CPU time)
+
+Ran 5 tests for test/src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.corporateActionPairingGap.t.sol:StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1CorporateActionPairingGapTest
+[PASS] testCancelCorporateActionRoleAdminFallsBackToDefaultAdmin() (gas: 3397004)
+[PASS] testDefaultAdminRoleIsUnassigned() (gas: 3400599)
+[PASS] testOwnerCannotGrantCancelCorporateAction() (gas: 3402950)
+[PASS] testOwnerCannotGrantScheduleCorporateAction() (gas: 3402895)
+[PASS] testScheduleCorporateActionRoleAdminFallsBackToDefaultAdmin() (gas: 3396971)
+Suite result: ok. 5 passed; 0 failed; 0 skipped; finished in 2.02ms (1.75ms CPU time)
+
+Ran 1 test for test/src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.t.sol:StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1Test
+[PASS] testConstructorDisablesInitializers() (gas: 2027144)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 301.73µs (117.84µs CPU time)
+
+Ran 6 tests for test/src/lib/LibRebaseMath.t.sol:LibRebaseMathTest
+[PASS] testApplyAboveInt256MaxReverts() (gas: 9019)
+[PASS] testApplyMaxUint256Reverts() (gas: 8941)
+[PASS] testApplyOneThirdTruncates() (gas: 12821)
+[PASS] testApplyToZero() (gas: 6801)
+[PASS] testApplyTwoXSplit() (gas: 8047)
+[PASS] testFuzzIdentityMultiplier(uint256) (runs: 256, μ: 8431, ~: 8355)
+Suite result: ok. 6 passed; 0 failed; 0 skipped; finished in 14.05ms (13.84ms CPU time)
+[2m2026-07-25T13:19:59.928408Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `basic` [3merr[0m[2m=[0mfailed to get account for 0x8Fdf41116F755771Bfe0747D5F8C3711D5DEbfBb: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":104}
+
+
+HTTP diagnostics:
+cf-ray: a20b759e9eb8a893-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=Bl014QEF0xb7mJqDq0w1KL8FG%2B5vClG3%2BdNLs1LhVCFJl5XO6UbEGFnJSlmLbNMKicCHX9c9xBEwv%2FDqOjL4DeIDcx9XHk1rrBHlWPra1UbrcxO7mH0tTm9OxUY7hM0WflE%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0x8Fdf41116F755771Bfe0747D5F8C3711D5DEbfBb
+
+Ran 3 tests for test/script/20260623-upgrade-receipt-vaults-to-v4.t.sol:UpgradeReceiptVaultsToV4Test
+[PASS] testRunRevertsWhenV4CodehashMismatches() (gas: 4546365)
+[FAIL: EVM error; database error: failed to get account for 0x4200000000000000000000000000000000000011: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":25}
+
+
+HTTP diagnostics:
+cf-ray: a20b755e1c2f18a4-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=M6ZNhIo4vHBX5lcaDHcCOMlVt1d1p7IuDL%2FeV02GL4hC9cpeANmh%2FVqQKvn%2FgCxx8f7KhZPgOzsGVAunr5CzuEYpm42Qo0WS5BF%2BjO7qPs1UUvYZJ8xn8%2FdOnFHxpUj0KfE%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800}] testRunRevertsWhenV4ImplNotDeployed() (gas: 0)
+[FAIL: EVM error; database error: failed to get account for 0x8Fdf41116F755771Bfe0747D5F8C3711D5DEbfBb: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":104}
+
+
+HTTP diagnostics:
+cf-ray: a20b759e9eb8a893-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=Bl014QEF0xb7mJqDq0w1KL8FG%2B5vClG3%2BdNLs1LhVCFJl5XO6UbEGFnJSlmLbNMKicCHX9c9xBEwv%2FDqOjL4DeIDcx9XHk1rrBHlWPra1UbrcxO7mH0tTm9OxUY7hM0WflE%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800}] testVaultsReportCurrentAuthoriser() (gas: 0)
+Suite result: FAILED. 1 passed; 2 failed; 0 skipped; finished in 30.30s (30.30s CPU time)
+
+Ran 1 test for test/src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.initializeGuard.t.sol:StoxOffchainAssetReceiptVaultAuthorizerV1InitializeGuardTest
+[PASS] testInitializeReturnsEarlyOnSuperFailure() (gas: 1014536)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 313.46µs (149.12µs CPU time)
+
+Ran 10 tests for test/src/lib/LibReceiptRebase.t.sol:LibReceiptRebaseTest
+[PASS] testAlreadyAtCursorIsNoOp() (gas: 74665)
+[PASS] testFuzzIntegerMultipliersMatchDirectProduct(uint64,uint8) (runs: 256, μ: 137299, ~: 137299)
+[PASS] testMultipleSplitsSequential() (gas: 133549)
+[PASS] testNoSplitsReturnsUnchanged() (gas: 8665)
+[PASS] testPartialMigration() (gas: 127188)
+[PASS] testSequentialPrecision() (gas: 248052)
+[PASS] testSimpleTwoXSplit() (gas: 81068)
+[PASS] testZeroBalanceAdvancesCursor() (gas: 76228)
+[PASS] testZeroBalanceAdvancesCursorAcrossMultipleCompletedSplits() (gas: 171552)
+[PASS] testZeroBalanceNoSplits() (gas: 8676)
+Suite result: ok. 10 passed; 0 failed; 0 skipped; finished in 36.53ms (36.28ms CPU time)
+
+Ran 14 tests for test/src/concrete/StoxCorporateActionsFacet.authorizerIntegration.t.sol:StoxCorporateActionsFacetAuthorizerIntegrationTest
+[PASS] testAdminCanDelegateScheduleAdmin() (gas: 2124479)
+[PASS] testCancelAdminIsSelfAdministered() (gas: 2067540)
+[PASS] testCancelRoleAdminIsCorrect() (gas: 2067552)
+[PASS] testCancelRoleAuthorized() (gas: 2096904)
+[PASS] testCancelRoleUnauthorized() (gas: 2073582)
+[PASS] testInitialAdminHasCancelAdmin() (gas: 2067768)
+[PASS] testInitialAdminHasScheduleAdmin() (gas: 2067757)
+[PASS] testNonAdminCannotGrantScheduleRole() (gas: 2073430)
+[PASS] testParentRoleAdminsInitialized() (gas: 2068823)
+[PASS] testRevokeScheduleRole() (gas: 2082313)
+[PASS] testScheduleAdminIsSelfAdministered() (gas: 2067530)
+[PASS] testScheduleRoleAdminIsCorrect() (gas: 2067561)
+[PASS] testScheduleRoleAuthorized() (gas: 2096949)
+[PASS] testScheduleRoleUnauthorized() (gas: 2073648)
+Suite result: ok. 14 passed; 0 failed; 0 skipped; finished in 2.11ms (1.95ms CPU time)
+
+Ran 8 tests for test/src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.t.sol:ST0xOrchestratorBeaconSetDeployerTest
+[PASS] testBeaconUpgradeRedirectsSingleton() (gas: 1028291)
+[PASS] testConstructorSuccess() (gas: 758127)
+[PASS] testDeployMultipleDistinct() (gas: 1187286)
+[PASS] testDeployRevertsZeroOwner() (gas: 759375)
+[PASS] testFuzzBeaconUpgradeUnauthorised(address) (runs: 256, μ: 807076, ~: 807076)
+[PASS] testFuzzDeploySuccess(address,address) (runs: 256, μ: 995719, ~: 995719)
+[PASS] testFuzzSupportsInterfaceRejectsOthers(bytes4) (runs: 256, μ: 759907, ~: 759907)
+[PASS] testSupportsInterface() (gas: 758256)
+Suite result: ok. 8 passed; 0 failed; 0 skipped; finished in 93.51ms (93.10ms CPU time)
+
+Ran 1 test for test/src/lib/StorageSlotDistinctness.t.sol:StorageSlotDistinctnessTest
+[PASS] testPairwiseDistinct() (gas: 3189)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 88.42µs (24.26µs CPU time)
+[2m2026-07-25T13:19:59.965524Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `basic` [3merr[0m[2m=[0mfailed to get account for 0x219A8d384a10BF19b9f24cB5cC53F79Dd0e5A03D: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":108}
+
+
+HTTP diagnostics:
+cf-ray: a20b759eeef9a893-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=axcOqN84RYfFytllW14v4UTQkJanPzTs5JZrKBv%2BpYS7qAVdlG1wCu9n2bdkK2qCkeuvpWgk2RnqqG65ptV8p0hE61JAlePrG1Dh03ADaGhCr03v8sAkqNg%2FLofugcxmW4w%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0x219A8d384a10BF19b9f24cB5cC53F79Dd0e5A03D
+
+Ran 2 tests for test/src/lib/LibProdBeaconsBase.t.sol:LibProdBeaconsBaseTest
+[FAIL: vm.load: failed to get account for 0x219A8d384a10BF19b9f24cB5cC53F79Dd0e5A03D: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":108}
+
+
+HTTP diagnostics:
+cf-ray: a20b759eeef9a893-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=axcOqN84RYfFytllW14v4UTQkJanPzTs5JZrKBv%2BpYS7qAVdlG1wCu9n2bdkK2qCkeuvpWgk2RnqqG65ptV8p0hE61JAlePrG1Dh03ADaGhCr03v8sAkqNg%2FLofugcxmW4w%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800}] testProductionTokensRunOnTheseBeacons() (gas: 19484)
+[PASS] testTheThreeBeaconsAreDistinct() (gas: 894)
+Suite result: FAILED. 1 passed; 1 failed; 0 skipped; finished in 10.32s (10.32s CPU time)
+[2m2026-07-25T13:19:59.984069Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `storage` [3merr[0m[2m=[0mfailed to get storage for 0x013b782F402d61aa1004CCA95b9f5Bb402c9d5FE at 37439836327923360225337895871394760624280537466773280374265222508165906222596: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":36}
+
+
+HTTP diagnostics:
+cf-ray: a20b759ee833acf5-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=ORs32d7K4mGbY3zsUOsIcaC7bP9U%2BYgHfttusrAnkD4Z9NMkUj%2FzALmmaXzOMdD7e4kCc2JtmvG0PqR6umSJYsnxbqMFZdqYYLxSj1DtoIyuooE%2B6PRhfJQSdeB5PpVnRyw%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0x013b782F402d61aa1004CCA95b9f5Bb402c9d5FE [3mindex[0m[2m=[0m37439836327923360225337895871394760624280537466773280374265222508165906222596
+[2m2026-07-25T13:20:00.022294Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `basic` [3merr[0m[2m=[0mfailed to get account for 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":39}
+
+
+HTTP diagnostics:
+cf-ray: a20b759f28a0acf5-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=7aobOGQo%2BzeM%2FlqOdlAXXh37m7UrmpjNfgm7ws8oy1otK4vadUEKg65zzMpBK9xSiVGC5rRruPISLxASsHakks8684cL75ieKn4MBFJBqzADdeIntmVRm%2BXerHyJ56brPJ4%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0x29fcB43b46531BcA003ddC8FCB67FFE91900C762
+[2m2026-07-25T13:20:00.033644Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `storage` [3merr[0m[2m=[0mfailed to get storage for 0xe70d821f3462a074e63b42d0AaC6523faAe1d611 at 92458281274488595289803937127152923398167637295201432141969818930235769911599: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":109}
+
+
+HTTP diagnostics:
+cf-ray: a20b759f3f66a893-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=D3AE6ErR6NGTVvtJoc3LwhWw5DqxUJOiTh5m3YoakKnhsXvYSLVhzGSpd7r8oGv74X%2Bl7da2YjTjbLTYmtuqb%2FO0oqz8yagW76VIJ50ZusahVMDqv2fIM5RItOLKll0vC84%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0xe70d821f3462a074e63b42d0AaC6523faAe1d611 [3mindex[0m[2m=[0m92458281274488595289803937127152923398167637295201432141969818930235769911599
+[2m2026-07-25T13:20:00.033647Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `storage` [3merr[0m[2m=[0mfailed to get storage for 0xe70d821f3462a074e63b42d0AaC6523faAe1d611 at 92458281274488595289803937127152923398167637295201432141969818930235769911599: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":109}
+
+
+HTTP diagnostics:
+cf-ray: a20b759f3f66a893-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=D3AE6ErR6NGTVvtJoc3LwhWw5DqxUJOiTh5m3YoakKnhsXvYSLVhzGSpd7r8oGv74X%2Bl7da2YjTjbLTYmtuqb%2FO0oqz8yagW76VIJ50ZusahVMDqv2fIM5RItOLKll0vC84%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0xe70d821f3462a074e63b42d0AaC6523faAe1d611 [3mindex[0m[2m=[0m92458281274488595289803937127152923398167637295201432141969818930235769911599
+
+Ran 9 tests for test/src/concrete/upgrade/V3UpgradeShadowFork.t.sol:V3UpgradeShadowForkTest
+[PASS] testAuthorizerStillWiredOnLiveVault() (gas: 16389)
+[PASS] testBackwardsCompatReadsOnLiveVault() (gas: 28178)
+[PASS] testCertificationUnchangedOnLiveVault() (gas: 13522)
+[PASS] testCorporateActionTraversalRoutesOnLiveVault() (gas: 17604)
+[PASS] testCorporateActionsFacetWiredOnLiveVault() (gas: 16673)
+[PASS] testForkIsInUpgradedState() (gas: 11627)
+[PASS] testReceiptWiringPreservedOnLiveVault() (gas: 26977)
+[FAIL: EVM error; database error: failed to get storage for 0x013b782F402d61aa1004CCA95b9f5Bb402c9d5FE at 98678239454420456161137491854123973459894655111375471108936537681808515318100: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":187}
+
+
+HTTP diagnostics:
+cf-ray: a20b755e0d852928-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=nr16%2FP9y3oKy9ByLF7DaKtjIKQIbQlUbpX%2BqLo7aFfsvzMgBiZYvbyXU0LWurDSEVLmWQVoFoqSbtmz5T1tBtXJpA%2FmtvFOu9aoJzZv6kMEo%2BnNqqJ8HgwMFerGdvtJA3yI%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800}] testSupplyReadsPreservedOnLiveVault() (gas: 0)
+[FAIL: EVM error; database error: failed to get account for 0xFF05E1bD696900dc6A52CA35Ca61Bb1024eDa8e2: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":189}
+
+
+HTTP diagnostics:
+cf-ray: a20b755ece312928-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=bfW%2F7WNJRP%2B03Kjn9fg%2B6JqRThUNpkhiwpg7pL3PCnKVSdA%2FlPSCw4QhmDozp%2BZI5GGuX%2FPbDplScNUrx5BpEGwXfIEPCXM2A%2FsfnGrhQqrpfkCjE71Jl4BmW0a2HYA%2FIfY%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800}] testWrappedVaultStillReferencesReceiptVault() (gas: 0)
+Suite result: FAILED. 7 passed; 2 failed; 0 skipped; finished in 29.82s (26.08s CPU time)
+
+Ran 15 tests for test/src/lib/LibRebase.t.sol:LibRebaseTest
+[PASS] testAlreadyMigrated() (gas: 287254)
+[PASS] testFuzzFractionalMultiplier(uint64,uint8,uint8) (runs: 256, μ: 306733, ~: 306742)
+[PASS] testFuzzSequentialFractionalNoCumulativeProduct(uint64,uint8,uint8,uint8,uint8) (runs: 256, μ: 463847, ~: 463865)
+[PASS] testFuzzSequentialTwoX(uint64,uint8) (runs: 256, μ: 553358, ~: 580901)
+[PASS] testFuzzTwoXSplit(uint128) (runs: 256, μ: 293121, ~: 293121)
+[PASS] testMultipleSplitsSequential() (gas: 435692)
+[PASS] testNoCompletedSplits() (gas: 284752)
+[PASS] testOneThirdReverseSplit() (gas: 297342)
+[PASS] testPartialMigration() (gas: 430379)
+[PASS] testSequentialPrecision() (gas: 731326)
+[PASS] testSimpleTwoXSplit() (gas: 292560)
+[PASS] testZeroBalanceAdvancesCursor() (gas: 288839)
+[PASS] testZeroBalanceAdvancesCursorAcrossMultipleCompletedSplits() (gas: 428271)
+[PASS] testZeroBalanceNoSplits() (gas: 8598)
+[PASS] testZeroBalancePendingSplitDoesNotAdvanceCursor() (gas: 284756)
+Suite result: ok. 15 passed; 0 failed; 0 skipped; finished in 213.03ms (213.31ms CPU time)
+
+Ran 106 tests for test/src/concrete/StoxCorporateActionsFacet.t.sol:StoxCorporateActionsFacetTest
+[PASS] testActionTypeInitV1BitPosition() (gas: 1308)
+[PASS] testAuthPermissionConstants() (gas: 411)
+[PASS] testBootstrapEffectiveTimeStrictlyLessThanUserActions() (gas: 347757)
+[PASS] testBootstrapIsIdempotentAcrossMultipleSchedules() (gas: 437030)
+[PASS] testBootstrapIsVisibleViaInitMaskInvisibleViaSplitMask() (gas: 254765)
+[PASS] testBootstrapNodePropertiesAfterFirstSchedule() (gas: 265681)
+[PASS] testCancelAlreadyCancelledReverts() (gas: 309698)
+[PASS] testCancelAtNodesLengthReverts() (gas: 243779)
+[PASS] testCancelBootstrapIndexZeroReverts() (gas: 244285)
+[PASS] testCancelBootstrapNodeRevertsAlreadyComplete() (gas: 244243)
+[PASS] testCancelBoundaryAtExactEffectiveTimeReverts() (gas: 303578)
+[PASS] testCancelCompleteReverts() (gas: 244614)
+[PASS] testCancelCompletedRevertsViaFacet() (gas: 534439)
+[PASS] testCancelCorporateActionDirectCallReverts() (gas: 8472)
+[PASS] testCancelCorporateActionEmitsEvent() (gas: 458762)
+[PASS] testCancelCorporateActionForwardsContextToAuthorizer() (gas: 134992)
+[PASS] testCancelCorporateActionRevertsWhenAuthorizerDenies() (gas: 133390)
+[PASS] testCancelHeadWithTail() (gas: 401436)
+[PASS] testCancelMiddleMaintainsIntegrity() (gas: 405070)
+[PASS] testCancelNonExistentReverts() (gas: 11194)
+[PASS] testCancelNonExistentRevertsViaFacet() (gas: 132235)
+[PASS] testCancelOnlyNodeLeavesEmptyList() (gas: 230033)
+[PASS] testCancelTailWithHead() (gas: 404835)
+[PASS] testCancelUnlinks() (gas: 305105)
+[PASS] testCancelZeroesActionTypeAndParameters() (gas: 277040)
+[PASS] testCompletedActionCountDirectCallReverts() (gas: 8433)
+[PASS] testCompletedActionCountInitiallyZero() (gas: 10747)
+[PASS] testCompletedActionCountViaFacet() (gas: 537067)
+[PASS] testCountCompletedAfterComplete() (gas: 353350)
+[PASS] testCountCompletedExcludesBootstrap() (gas: 252901)
+[PASS] testCountCompletedIgnoresCancelled() (gas: 404144)
+[PASS] testCountCompletedReturnsZero() (gas: 7921)
+[PASS] testCrossFieldIsolationHeadTail() (gas: 402533)
+[PASS] testCumulativeMultiplierBoundaryAtExactEffectiveTime() (gas: 543754)
+[PASS] testCumulativeMultiplierDirectCallReverts() (gas: 8346)
+[PASS] testCumulativeMultiplierExcludesCancelled() (gas: 571162)
+[PASS] testCumulativeMultiplierExcludesPending() (gas: 689458)
+[PASS] testCumulativeMultiplierIdentityIsFloatOneConstant() (gas: 1012)
+[PASS] testCumulativeMultiplierIdentityWhenNoActions() (gas: 11594)
+[PASS] testCumulativeMultiplierIdentityWhenOnlyBootstrapCompleted() (gas: 533598)
+[PASS] testCumulativeMultiplierSequenceOfSplits() (gas: 694024)
+[PASS] testCumulativeMultiplierSingleSplit() (gas: 538484)
+[PASS] testEarliestActionOfTypeDirectCallReverts() (gas: 8793)
+[PASS] testEnsureBootstrapDoesNotEmitScheduledEvent() (gas: 529725)
+[PASS] testEnsureBootstrapInitsTotalSupplyLatestCursorToNodeNone() (gas: 241672)
+[PASS] testEnsureBootstrapPrecedesUserActionInArrayOrder() (gas: 243641)
+[PASS] testEnsureBootstrapSnapshotsOnlyOnFirstSchedule() (gas: 356326)
+[PASS] testEnsureBootstrapWritesNodeNoneOnBootstrapPrevAndNext() (gas: 149269)
+[PASS] testFacetNextOfTypeReturnsBootstrapForInitMaskFromNodeNone() (gas: 532690)
+[PASS] testFacetRoutingViaDelegatecall() (gas: 10767)
+[PASS] testFacetTraversalGettersEmpty() (gas: 11645)
+[PASS] testFacetTraversalGettersFilterParameter() (gas: 731272)
+[PASS] testFacetTraversalGettersRevertOnInvalidMask() (gas: 537816)
+[PASS] testForwardBackwardConsistency() (gas: 555590)
+[PASS] testFullLifecycleViaFacet() (gas: 578083)
+[PASS] testFuzzCancelRandomSubset(uint8) (runs: 256, μ: 547277, ~: 482782)
+[PASS] testFuzzGetActionParametersRoundTripArbitraryBytes(bytes) (runs: 256, μ: 541106, ~: 293657)
+[PASS] testFuzzHeadStaysAtBootstrapAcrossScheduleCancelMix(uint8,uint8) (runs: 256, μ: 525409, ~: 482722)
+[PASS] testFuzzInsertionOrdering(uint8) (runs: 256, μ: 935833, ~: 750921)
+[PASS] testFuzzScheduleRandomTimes(uint64[10]) (runs: 256, μ: 1168011, ~: 1167956)
+[PASS] testFuzzScheduleStockSplitsSequentialIndex(uint8) (runs: 256, μ: 1378244, ~: 1280220)
+[PASS] testGetActionParametersBootstrapReturnsEmpty() (gas: 532050)
+[PASS] testGetActionParametersDirectCallReverts() (gas: 10504)
+[PASS] testGetActionParametersExactBoundaryReverts() (gas: 530964)
+[PASS] testGetActionParametersNodeNoneReverts() (gas: 16061)
+[PASS] testGetActionParametersOutOfBoundsReverts() (gas: 16124)
+[PASS] testGetActionParametersReturnsEmptyBytesForBootstrap() (gas: 532052)
+[PASS] testGetActionParametersRevertsForCancelledAction() (gas: 464466)
+[PASS] testGetActionParametersRoundTrip() (gas: 531223)
+[PASS] testLatestActionOfTypeDirectCallReverts() (gas: 8702)
+[PASS] testNextOfTypeAll() (gas: 346604)
+[PASS] testNextOfTypeCompletedEmpty() (gas: 225443)
+[PASS] testNextOfTypeCompletedFilters() (gas: 446422)
+[PASS] testNextOfTypeDirectCallReverts() (gas: 8758)
+[PASS] testNextOfTypeFromCancelledNode() (gas: 395330)
+[PASS] testNextOfTypePending() (gas: 345429)
+[PASS] testNodeStructFieldLayoutPin() (gas: 382538)
+[PASS] testPrevOfType() (gas: 442932)
+[PASS] testPrevOfTypeCompleted() (gas: 441686)
+[PASS] testPrevOfTypeDirectCallReverts() (gas: 8845)
+[PASS] testPrevOfTypeEffectiveTimeBoundary() (gas: 343766)
+[PASS] testPrevOfTypeFromCancelledNode() (gas: 395372)
+[PASS] testPrevOfTypePending() (gas: 440096)
+[PASS] testPrevOfTypeWithMask() (gas: 438273)
+[PASS] testResolveActionTypeRevertsUnknown() (gas: 9044)
+[PASS] testScheduleAtCurrentTimestampReverts() (gas: 9265)
+[PASS] testScheduleCancelAllThenReschedule() (gas: 508984)
+[PASS] testScheduleCorporateActionDirectCallReverts() (gas: 8837)
+[PASS] testScheduleCorporateActionEmitsEvent() (gas: 529401)
+[PASS] testScheduleCorporateActionForwardsContextToAuthorizer() (gas: 222940)
+[PASS] testScheduleCorporateActionRevertsWhenAuthorizerDenies() (gas: 223325)
+[PASS] testScheduleInvalidMultiplierRevertsViaFacet() (gas: 200026)
+[PASS] testScheduleParametersRoundTrip() (gas: 333737)
+[PASS] testSchedulePastReverts() (gas: 9307)
+[PASS] testSchedulePastTimeRevertsViaFacet() (gas: 249894)
+[PASS] testScheduleReturnsOneBased() (gas: 334564)
+[PASS] testScheduleSingleAction() (gas: 243816)
+[PASS] testScheduleStockSplitAuthorizerDenied() (gas: 223637)
+[PASS] testScheduleStockSplitForwardsCorrectContext() (gas: 532088)
+[PASS] testScheduleTiedEffectiveTimeInMiddleStableOrdering() (gas: 643214)
+[PASS] testScheduleTiedEffectiveTimeStableOrdering() (gas: 522473)
+[PASS] testScheduleTimeOrdering() (gas: 445959)
+[PASS] testScheduleViaFacetReturnsActionIndex() (gas: 676934)
+[PASS] testStorageIsolationBetweenHarnesses() (gas: 2002684)
+[PASS] testStorageLayoutPin() (gas: 344650)
+[PASS] testStorageSlotCalculation() (gas: 745)
+Suite result: ok. 106 passed; 0 failed; 0 skipped; finished in 534.77ms (537.82ms CPU time)
+
+Ran 49 tests for test/src/lib/LibTokenInvariants.addresses.t.sol:LibTokenInvariantsAddressesTest
+[PASS] testAmznTokenSetOnBase() (gas: 111867)
+[PASS] testArkkTokenSetOnBase() (gas: 111889)
+[PASS] testBmnrTokenSetOnBase() (gas: 111823)
+[PASS] testCegTokenSetOnBase() (gas: 111845)
+[PASS] testCheckNoSolidityCBORMetadataDetectsCBORTrailer() (gas: 8520)
+[PASS] testCoinTokenSetOnBase() (gas: 111887)
+[PASS] testCrclTokenSetOnBase() (gas: 111844)
+[PASS] testDramTokenSetOnBase() (gas: 111823)
+[PASS] testIauTokenSetOnBase() (gas: 111823)
+[PASS] testIbhgTokenSetOnBase() (gas: 111846)
+[PASS] testMstrTokenSetOnBase() (gas: 111868)
+[PASS] testNvdaTokenSetOnBase() (gas: 111844)
+[PASS] testPpltTokenSetOnBase() (gas: 111890)
+[PASS] testProdBeaconAddressesMatchConstants() (gas: 8104)
+[PASS] testProdOffchainAssetReceiptVaultBeaconSetDeployerCodehash() (gas: 7667)
+[PASS] testProdOffchainAssetReceiptVaultBeaconSetDeployerHasNoCBOR() (gas: 7315)
+[PASS] testProdOffchainAssetReceiptVaultBeaconSetDeployerMetamorphicRiskPinned() (gas: 353100)
+[FAIL: vm.createSelectFork: could not instantiate forked environment with provider mainnet.base.org; Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":1}
+
+
+HTTP diagnostics:
+cf-ray: a20b755debffa893-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=jnwasThEIDbk85dZnaiXzIjbgQhWoZpCJYRHh6BUnSnwSZtj1tQoiAsnXrs8Mf9n%2FuVK0i98E1t9rxG1p3r4f%2F12tyHjeDUxItdq0%2FqSZYSvKkox2IpKnZMu6oOzMJs4ihw%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800}] testProdReceiptBeaconHasNoCBOR() (gas: 3334)
+[PASS] testProdReceiptBeaconImplementationAddress() (gas: 8776)
+[PASS] testProdReceiptBeaconMetamorphicRiskPinned() (gas: 62161)
+[PASS] testProdReceiptBeaconRuntimeCodehash() (gas: 6082)
+[PASS] testProdReceiptImplementationHasNoCBOR() (gas: 9008)
+[PASS] testProdReceiptImplementationMetamorphicRiskPinned() (gas: 910363)
+[PASS] testProdReceiptVaultBeaconHasNoCBOR() (gas: 6776)
+[PASS] testProdReceiptVaultBeaconImplementationAddress() (gas: 8777)
+[PASS] testProdReceiptVaultBeaconMetamorphicRiskPinned() (gas: 62165)
+[PASS] testProdReceiptVaultBeaconRuntimeCodehash() (gas: 6104)
+[PASS] testProdReceiptVaultImplementationHasNoCBOR() (gas: 11504)
+[PASS] testProdReceiptVaultImplementationMetamorphicRiskPinned() (gas: 1735260)
+[PASS] testProdUnifiedDeployerCodehash() (gas: 7714)
+[PASS] testProdUnifiedDeployerHasNoCBOR() (gas: 6935)
+[PASS] testProdUnifiedDeployerMetamorphicRiskPinned() (gas: 138395)
+[PASS] testProdWrappedTokenVaultBeaconHasNoCBOR() (gas: 6798)
+[PASS] testProdWrappedTokenVaultBeaconImplementationAddress() (gas: 8777)
+[PASS] testProdWrappedTokenVaultBeaconMetamorphicRiskPinned() (gas: 62208)
+[PASS] testProdWrappedTokenVaultBeaconRuntimeCodehash() (gas: 6040)
+[PASS] testProdWrappedTokenVaultBeaconSetDeployerCodehash() (gas: 7155)
+[PASS] testProdWrappedTokenVaultBeaconSetDeployerHasNoCBOR() (gas: 7032)
+[PASS] testProdWrappedTokenVaultBeaconSetDeployerMetamorphicRiskPinned() (gas: 233668)
+[PASS] testProdWrappedTokenVaultImplementationHasNoCBOR() (gas: 8376)
+[PASS] testProdWrappedTokenVaultImplementationMetamorphicRiskPinned() (gas: 691858)
+[PASS] testQqqmTokenSetOnBase() (gas: 111889)
+[PASS] testSgovTokenSetOnBase() (gas: 111868)
+[PASS] testSivrTokenSetOnBase() (gas: 111824)
+[PASS] testSpcxTokenSetOnBase() (gas: 111888)
+[PASS] testSpymTokenSetOnBase() (gas: 111890)
+[PASS] testTslaTokenSetOnBase() (gas: 111888)
+[PASS] testTsmTokenSetOnBase() (gas: 111865)
+[PASS] testVwoTokenSetOnBase() (gas: 111846)
+Suite result: FAILED. 48 passed; 1 failed; 0 skipped; finished in 41.38s (41.38s CPU time)
+
+Ran 3 tests for test/src/concrete/integration/MintWithEcdsaSignature.t.sol:MintWithEcdsaSignatureTest
+[PASS] testMintNonceReplayAcrossAmountsReverts() (gas: 476151)
+[PASS] testMintRevertsWithoutVaultRoles() (gas: 776648)
+[PASS] testMintWithEcdsaSignatureDeliversShares() (gas: 325380)
+Suite result: ok. 3 passed; 0 failed; 0 skipped; finished in 9.40ms (5.54ms CPU time)
+
+Ran 1 test for test/src/concrete/integration/ReceiptTransferInLowersPointer.t.sol:ReceiptTransferInLowersPointerTest
+[PASS] testReceiptTransferInLowersPointerAndEnablesBurn() (gas: 855726)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 12.90ms (9.26ms CPU time)
+
+Ran 74 tests for test/src/concrete/ST0xOrchestrator.t.sol:ST0xOrchestratorTest
+[PASS] testAdminCanGrantAndRevokeEachRole() (gas: 107050)
+[PASS] testBurnForwardsBurnInfoToRedeem() (gas: 134891)
+[PASS] testBurnMultiReceiptSequential() (gas: 139383)
+[PASS] testBurnOvershootReverts() (gas: 124420)
+[PASS] testBurnPartialDrainParksPointer() (gas: 113495)
+[PASS] testBurnPartialThenInsufficientReverts() (gas: 110322)
+[PASS] testBurnPerTokenIndependentPointers() (gas: 159031)
+[PASS] testBurnReentrantCallReverts() (gas: 526853)
+[PASS] testBurnSingleReceiptExactDrain() (gas: 135241)
+[PASS] testBurnVaultAmountMismatchReverts() (gas: 106528)
+[PASS] testBurnVaultGuardFailReverts() (gas: 54809)
+[PASS] testBurnZeroAmountReverts() (gas: 59672)
+[PASS] testBurnZeroBalanceSkip() (gas: 136710)
+[PASS] testConstructorDisablesInitializers() (gas: 2613362)
+[PASS] testDoubleInitializeReverts() (gas: 18883)
+[PASS] testEip712DomainFields() (gas: 26805)
+[PASS] testEmergencyHolderCannotMintOrBurn() (gas: 62663)
+[PASS] testFuzzBurnSingleReceipt(uint256,uint256) (runs: 256, μ: 134212, ~: 134205)
+[PASS] testFuzzBurnUnauthorized(address) (runs: 256, μ: 25748, ~: 25748)
+[PASS] testFuzzInitializeGrantsAdmin(address) (runs: 256, μ: 480371, ~: 480371)
+[PASS] testFuzzMintAuthDigestMatchesEip712Reference(address,address,uint256,bytes32) (runs: 256, μ: 21814, ~: 21814)
+[PASS] testFuzzMintUnauthorized(address) (runs: 256, μ: 26690, ~: 26690)
+[PASS] testFuzzOnERC1155BatchReceivedForeign(address,address,uint256[],uint256[],bytes) (runs: 256, μ: 142794, ~: 139131)
+[PASS] testFuzzOnERC1155ReceivedForeign(address,address,uint256,uint256,bytes) (runs: 256, μ: 87785, ~: 87715)
+[PASS] testFuzzSetBurnIndex(uint256,uint256) (runs: 256, μ: 87086, ~: 87164)
+[PASS] testFuzzSetBurnIndexUnauthorized(address,uint256) (runs: 256, μ: 25646, ~: 25646)
+[PASS] testFuzzSupportsInterfaceFalse(bytes4) (runs: 256, μ: 18513, ~: 18513)
+[PASS] testFuzzSweepERC1155(address,uint256,uint256,address) (runs: 256, μ: 61170, ~: 61180)
+[PASS] testFuzzSweepERC1155Unauthorized(address) (runs: 256, μ: 25768, ~: 25768)
+[PASS] testFuzzWithdrawReceipt(uint256,uint256,address) (runs: 256, μ: 60995, ~: 60995)
+[PASS] testFuzzWithdrawReceiptUnauthorized(address) (runs: 256, μ: 25737, ~: 25737)
+[PASS] testFuzzWithdrawShares(uint256,address) (runs: 256, μ: 56925, ~: 56925)
+[PASS] testFuzzWithdrawSharesUnauthorized(address) (runs: 256, μ: 25774, ~: 25774)
+[PASS] testInitializeGrantsAdmin() (gas: 17575)
+[PASS] testInitializeReceiptGuardFailReverts() (gas: 349864)
+[PASS] testInitializeVaultGuardFailReverts() (gas: 346467)
+[PASS] testInitializeZeroOwnerReverts() (gas: 341658)
+[PASS] testMint1271RejectReverts() (gas: 225235)
+[PASS] testMintAuthDigestMatchesEip712Reference() (gas: 21598)
+[PASS] testMintAuthDigestMatchesIndependentComputation(address,address,uint256,bytes32) (runs: 256, μ: 21657, ~: 21657)
+[PASS] testMintAuthTypehashPinned() (gas: 13652)
+[PASS] testMintBadSignatureReverts() (gas: 107983)
+[PASS] testMintCallbackWrongValueReverts() (gas: 176304)
+[PASS] testMintHolderCannotEmergency() (gas: 61492)
+[PASS] testMintLeavesBurnPointerUntouched() (gas: 113996)
+[PASS] testMintReceiptGuardFailReverts() (gas: 59118)
+[PASS] testMintReenteredFromCallbackReverts() (gas: 340921)
+[PASS] testMintReplayReverts() (gas: 118658)
+[PASS] testMintSameNonceDifferentAmountReverts() (gas: 121166)
+[PASS] testMintSameNonceDifferentRecipientSucceeds() (gas: 163699)
+[PASS] testMintSameNonceDifferentTokenReverts() (gas: 121165)
+[PASS] testMintVaultAmountMismatchReverts() (gas: 107808)
+[PASS] testMintVaultGuardFailReverts() (gas: 55741)
+[PASS] testMintWith1271() (gas: 231724)
+[PASS] testMintWithCallback() (gas: 187793)
+[PASS] testMintWithEcdsaSignature() (gas: 115111)
+[PASS] testMintWithSignatureOverReferenceDigest() (gas: 109660)
+[PASS] testMintZeroAmountReverts() (gas: 60551)
+[PASS] testOnERC1155BatchReceivedLowersToMin() (gas: 99795)
+[PASS] testOnERC1155BatchReceivedZeroValueEntriesIgnored() (gas: 90063)
+[PASS] testOnERC1155ReceivedCodelessClaimedVaultNoOp() (gas: 84739)
+[PASS] testOnERC1155ReceivedGenuineLowersPointer() (gas: 88063)
+[PASS] testOnERC1155ReceivedIdAtOrAbovePointerNoOp() (gas: 90240)
+[PASS] testOnERC1155ReceivedManagerRevert32BytesNoOp() (gas: 140701)
+[PASS] testOnERC1155ReceivedReceiptRevert32BytesNoOp() (gas: 83240)
+[PASS] testOnERC1155ReceivedRevertingClaimedVaultNoOp() (gas: 82957)
+[PASS] testOnERC1155ReceivedRoundTripMismatchNoOp() (gas: 83696)
+[PASS] testOnERC1155ReceivedZeroValueDoesNotLowerPointer() (gas: 81164)
+[PASS] testReceiveEth() (gas: 22997)
+[PASS] testRolesAreDistinct() (gas: 26963)
+[PASS] testStorageLocationConstant() (gas: 593)
+[PASS] testSupportsInterface() (gas: 21746)
+[PASS] testVaultLogicIsExpectedFalse() (gas: 20417)
+[PASS] testVaultLogicIsExpectedTrue() (gas: 22773)
+Suite result: ok. 74 passed; 0 failed; 0 skipped; finished in 990.96ms (989.45ms CPU time)
+
+Ran 1 test for test/src/concrete/integration/MintWithCallbackRecipient.t.sol:MintWithCallbackRecipientTest
+[PASS] testMintWithCallbackRecipient() (gas: 370636)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 4.88ms (902.27µs CPU time)
+[2m2026-07-25T13:21:29.816191Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `basic` [3merr[0m[2m=[0mfailed to get account for 0x722Cb373f1871A176fb5DC3953046f2EAE22F619: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":114}
+
+
+HTTP diagnostics:
+cf-ray: a20b77d06d074123-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=vEHFhQGm0qj5auG%2FtrQdDQsTtAiyZ6g4eZjBSj9LknDpkdlFKpgQa73EAbZGPHluDcV6Uq1eDIgnKV08jPYMhzWRbzrjQiLLGS%2BO7%2FhApFXdd5flQtCpVtDcLg2OgWQxyS4%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0x722Cb373f1871A176fb5DC3953046f2EAE22F619
+[2m2026-07-25T13:21:29.833469Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `basic` [3merr[0m[2m=[0mfailed to get account for 0x61b5a0424cD3adcd3b312619fC58B6fCeFA1ECb6: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":502}
+
+
+HTTP diagnostics:
+cf-ray: a20b77d08caeab93-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=gjB%2FysoogfqXaB941E6w%2FICGhL1GPExcYYXr0Zhwms%2FYZqsaZzLNBXMA1u9FTlWPgGgfzF2nKbW70mxcX0cIIdjlUPykV8D%2BpHwg%2FDXePFKSUDHRdwEqRhKIDbzMyt6gkR4%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0x61b5a0424cD3adcd3b312619fC58B6fCeFA1ECb6
+
+Ran 1 test for test/src/concrete/deploy/StoxCrossChainParity.t.sol:StoxCrossChainParityTest
+[FAIL: EVM error; database error: failed to get account for 0x61b5a0424cD3adcd3b312619fC58B6fCeFA1ECb6: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":502}
+
+
+HTTP diagnostics:
+cf-ray: a20b77d08caeab93-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=gjB%2FysoogfqXaB941E6w%2FICGhL1GPExcYYXr0Zhwms%2FYZqsaZzLNBXMA1u9FTlWPgGgfzF2nKbW70mxcX0cIIdjlUPykV8D%2BpHwg%2FDXePFKSUDHRdwEqRhKIDbzMyt6gkR4%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800}] testCrossChainParity() (gas: 0)
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 89.99s (89.99s CPU time)
+[2m2026-07-25T13:21:29.884101Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `storage` [3merr[0m[2m=[0mfailed to get storage for 0xe70d821f3462a074e63b42d0AaC6523faAe1d611 at 36251605330754830215850736468706336968957826334461022644403707807323998324322: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":19}
+
+
+HTTP diagnostics:
+cf-ray: a20b77d0d838e90c-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=JWWcb3NUFnzHnAAWEXNFIGPbXdcUto96MEIiunLLxcKGa8KxOn%2FAN0rW4UXBtcevwLE1OPGR4ud2aDv%2FUth%2BMutu%2BtE9z1Oww1M%2BS%2B2qIUO36aRPylfSimLVwXqVLCFtK%2F8%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0xe70d821f3462a074e63b42d0AaC6523faAe1d611 [3mindex[0m[2m=[0m36251605330754830215850736468706336968957826334461022644403707807323998324322
+[2m2026-07-25T13:21:29.951757Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `storage` [3merr[0m[2m=[0mfailed to get storage for 0xfBde45dF60249203b12148452fC77C3B5F811eB2 at 65173360639460082030725920392146925864023520599682862633725751242436743107328: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":73}
+
+
+HTTP diagnostics:
+cf-ray: a20b77d13abf2dc7-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=JgRSdIgVvhyOza25RwcNaACqsrNNFrHspAC81PYbMJkNq2vWGWpWVMjs5X7gCNIR8aS6HIpmoSjAMI7Rv4tOo8Ujz%2B7nVWURbuU8vjfWvirR1sZRO3VdgZNmQoj674Npjss%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0xfBde45dF60249203b12148452fC77C3B5F811eB2 [3mindex[0m[2m=[0m65173360639460082030725920392146925864023520599682862633725751242436743107328
+[2m2026-07-25T13:21:30.035748Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `storage` [3merr[0m[2m=[0mfailed to get storage for 0xe70d821f3462a074e63b42d0AaC6523faAe1d611 at 36251605330754830215850736468706336968957826334461022644403707807323998324322: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":22}
+
+
+HTTP diagnostics:
+cf-ray: a20b77d1cab60a9b-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=SZdJry%2BD9vF55XzJJNRk%2BO4EX2ndruZ6LvJxbrAxXcgD181i1kedy%2B429b9d6vBqLXSrdg3v2UXQzRjWnfLnwv2nm0kSY0m5TL7tnEFv5BKGpmtXQgwTGfjR6t5TnOSSuQY%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0xe70d821f3462a074e63b42d0AaC6523faAe1d611 [3mindex[0m[2m=[0m36251605330754830215850736468706336968957826334461022644403707807323998324322
+[2m2026-07-25T13:21:30.035754Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `storage` [3merr[0m[2m=[0mfailed to get storage for 0xe70d821f3462a074e63b42d0AaC6523faAe1d611 at 36251605330754830215850736468706336968957826334461022644403707807323998324322: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":22}
+
+
+HTTP diagnostics:
+cf-ray: a20b77d1cab60a9b-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=SZdJry%2BD9vF55XzJJNRk%2BO4EX2ndruZ6LvJxbrAxXcgD181i1kedy%2B429b9d6vBqLXSrdg3v2UXQzRjWnfLnwv2nm0kSY0m5TL7tnEFv5BKGpmtXQgwTGfjR6t5TnOSSuQY%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0xe70d821f3462a074e63b42d0AaC6523faAe1d611 [3mindex[0m[2m=[0m36251605330754830215850736468706336968957826334461022644403707807323998324322
+[2m2026-07-25T13:21:30.035745Z[0m [31mERROR[0m [2msharedbackend[0m[2m:[0m Failed to send/recv `storage` [3merr[0m[2m=[0mfailed to get storage for 0xe70d821f3462a074e63b42d0AaC6523faAe1d611 at 36251605330754830215850736468706336968957826334461022644403707807323998324322: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":22}
+
+
+HTTP diagnostics:
+cf-ray: a20b77d1cab60a9b-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=SZdJry%2BD9vF55XzJJNRk%2BO4EX2ndruZ6LvJxbrAxXcgD181i1kedy%2B429b9d6vBqLXSrdg3v2UXQzRjWnfLnwv2nm0kSY0m5TL7tnEFv5BKGpmtXQgwTGfjR6t5TnOSSuQY%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800} [3maddress[0m[2m=[0m0xe70d821f3462a074e63b42d0AaC6523faAe1d611 [3mindex[0m[2m=[0m36251605330754830215850736468706336968957826334461022644403707807323998324322
+
+Ran 7 tests for test/script/MigrateMultisigThresholdTest.t.sol:MigrateMultisigThresholdTest
+[PASS] testRunCompletesAndWritesArtifact() (gas: 5591794)
+[FAIL: EVM error; database error: failed to get storage for 0xe70d821f3462a074e63b42d0AaC6523faAe1d611 at 36251605330754830215850736468706336968957826334461022644403707807323998324322: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":22}
+
+
+HTTP diagnostics:
+cf-ray: a20b77d1cab60a9b-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=SZdJry%2BD9vF55XzJJNRk%2BO4EX2ndruZ6LvJxbrAxXcgD181i1kedy%2B429b9d6vBqLXSrdg3v2UXQzRjWnfLnwv2nm0kSY0m5TL7tnEFv5BKGpmtXQgwTGfjR6t5TnOSSuQY%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800}] testRunRejectsThresholdDrift() (gas: 0)
+[FAIL: EVM error; database error: failed to get storage for 0xe70d821f3462a074e63b42d0AaC6523faAe1d611 at 36251605330754830215850736468706336968957826334461022644403707807323998324322: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":22}
+
+
+HTTP diagnostics:
+cf-ray: a20b77d1cab60a9b-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=SZdJry%2BD9vF55XzJJNRk%2BO4EX2ndruZ6LvJxbrAxXcgD181i1kedy%2B429b9d6vBqLXSrdg3v2UXQzRjWnfLnwv2nm0kSY0m5TL7tnEFv5BKGpmtXQgwTGfjR6t5TnOSSuQY%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800}] testRunRejectsVaultOwnershipDrift() (gas: 0)
+[FAIL: EVM error; database error: failed to get account for 0x722Cb373f1871A176fb5DC3953046f2EAE22F619: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":114}
+
+
+HTTP diagnostics:
+cf-ray: a20b77d06d074123-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=vEHFhQGm0qj5auG%2FtrQdDQsTtAiyZ6g4eZjBSj9LknDpkdlFKpgQa73EAbZGPHluDcV6Uq1eDIgnKV08jPYMhzWRbzrjQiLLGS%2BO7%2FhApFXdd5flQtCpVtDcLg2OgWQxyS4%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800}] testVerifyAcceptsRunArtifact() (gas: 0)
+[FAIL: EVM error; database error: failed to get storage for 0xe70d821f3462a074e63b42d0AaC6523faAe1d611 at 36251605330754830215850736468706336968957826334461022644403707807323998324322: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":22}
+
+
+HTTP diagnostics:
+cf-ray: a20b77d1cab60a9b-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=SZdJry%2BD9vF55XzJJNRk%2BO4EX2ndruZ6LvJxbrAxXcgD181i1kedy%2B429b9d6vBqLXSrdg3v2UXQzRjWnfLnwv2nm0kSY0m5TL7tnEFv5BKGpmtXQgwTGfjR6t5TnOSSuQY%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800}] testVerifyRejectsWrongChainId() (gas: 0)
+[FAIL: EVM error; database error: failed to get storage for 0xfBde45dF60249203b12148452fC77C3B5F811eB2 at 65173360639460082030725920392146925864023520599682862633725751242436743107328: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":73}
+
+
+HTTP diagnostics:
+cf-ray: a20b77d13abf2dc7-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=JgRSdIgVvhyOza25RwcNaACqsrNNFrHspAC81PYbMJkNq2vWGWpWVMjs5X7gCNIR8aS6HIpmoSjAMI7Rv4tOo8Ujz%2B7nVWURbuU8vjfWvirR1sZRO3VdgZNmQoj674Npjss%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800}] testVerifyRejectsWrongSafeAddress() (gas: 0)
+[FAIL: EVM error; database error: failed to get storage for 0xe70d821f3462a074e63b42d0AaC6523faAe1d611 at 36251605330754830215850736468706336968957826334461022644403707807323998324322: Max retries exceeded HTTP error 429 with body: {"jsonrpc":"2.0","error":{"code":-32016,"message":"over rate limit"},"id":19}
+
+
+HTTP diagnostics:
+cf-ray: a20b77d0d838e90c-TBS
+server: cloudflare
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=JWWcb3NUFnzHnAAWEXNFIGPbXdcUto96MEIiunLLxcKGa8KxOn%2FAN0rW4UXBtcevwLE1OPGR4ud2aDv%2FUth%2BMutu%2BtE9z1Oww1M%2BS%2B2qIUO36aRPylfSimLVwXqVLCFtK%2F8%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.01,"max_age":604800}] testVerifyRejectsWrongThresholdData() (gas: 0)
+Suite result: FAILED. 1 passed; 6 failed; 0 skipped; finished in 68.24s (184.51s CPU time)
+
+Ran 14 tests for test/src/lib/LibSafeInvariants.t.sol:LibSafeInvariantsTest
+[PASS] testAssertActiveChainTokenOwnerSafeOnBase() (gas: 58943)
+[FAIL: vm.createSelectFork: could not instantiate forked environment with provider eth.llamarpc.com; HTTP error 521 with body: <!DOCTYPE html>
+<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en-US"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en-US"> <!--<![endif]-->
+<head>
+
+<title>llamarpc.com | 521: Web server is down</title>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="stylesheet" id="cf_styles-css" href="/cdn-cgi/styles/main.css" />
+</head>
+<body>
+<div id="cf-wrapper">
+    <div id="cf-error-details" class="p-0">
+        <header class="mx-auto pt-10 lg:pt-6 lg:px-8 w-240 lg:w-full mb-8">
+            <h1 class="inline-block sm:block sm:mb-2 font-light text-60 lg:text-4xl text-black-dark leading-tight mr-2">
+                <span class="inline-block">Web server is down</span>
+                <span class="code-label">Error code 521</span>
+            </h1>
+            <div>
+                Visit <a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_521&utm_campaign=eth.llamarpc.com" target="_blank" rel="noopener noreferrer">cloudflare.com</a> for more information.
+            </div>
+            <div class="mt-3">2026-07-25 13:20:03 UTC</div>
+        </header>
+        <div class="my-8 bg-gradient-gray">
+            <div class="w-240 lg:w-full mx-auto">
+                <div class="clearfix md:px-8">
+                    <div id="cf-browser-status" class=" relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center">
+  <div class="relative mb-10 md:m-0">
+    
+    <span class="cf-icon-browser block md:hidden h-20 bg-center bg-no-repeat"></span>
+    <span class="cf-icon-ok w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"></span>
+    
+  </div>
+  <span class="md:block w-full truncate">You</span>
+  <h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3">
+  
+    Browser
+  
+  </h3>
+  
+  <span class="leading-1.3 text-2xl text-green-success">Working</span>
+  
+</div>
+                    <div id="cf-cloudflare-status" class=" relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center">
+  <div class="relative mb-10 md:m-0">
+    <a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_521&#38;utm_campaign=eth.llamarpc.com" target="_blank" rel="noopener noreferrer">
+    <span class="cf-icon-cloud block md:hidden h-20 bg-center bg-no-repeat"></span>
+    <span class="cf-icon-ok w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"></span>
+    </a>
+  </div>
+  <span class="md:block w-full truncate">Tbilisi</span>
+  <h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3">
+  <a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_521&utm_campaign=eth.llamarpc.com" target="_blank" rel="noopener noreferrer">
+    Cloudflare
+  </a>
+  </h3>
+  
+  <span class="leading-1.3 text-2xl text-green-success">Working</span>
+  
+</div>
+                    <div id="cf-host-status" class="cf-error-source relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center">
+  <div class="relative mb-10 md:m-0">
+    
+    <span class="cf-icon-server block md:hidden h-20 bg-center bg-no-repeat"></span>
+    <span class="cf-icon-error w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"></span>
+    
+  </div>
+  <span class="md:block w-full truncate">eth.llamarpc.com</span>
+  <h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3">
+  
+    Host
+  
+  </h3>
+  
+  <span class="leading-1.3 text-2xl text-red-error">Error</span>
+  
+</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="w-240 lg:w-full mx-auto mb-8 lg:px-8">
+            <div class="clearfix">
+                <div class="w-1/2 md:w-full float-left pr-6 md:pb-10 md:pr-0 leading-relaxed">
+                    <h2 class="text-3xl font-normal leading-1.3 mb-4">What happened?</h2>
+                    <p>The web server is not returning a connection. As a result, the web page is not displaying.</p>
+                </div>
+                <div class="w-1/2 md:w-full float-left leading-relaxed">
+                    <h2 class="text-3xl font-normal leading-1.3 mb-4">What can I do?</h2>
+                    
+                <h3 class="text-15 font-semibold mb-2">If you are a visitor of this website:</h3>
+                <p class="mb-6">Please try again in a few minutes.</p>
+
+                <h3 class="text-15 font-semibold mb-2">If you are the owner of this website:</h3>
+                <p><span>Contact your hosting provider letting them know your web server is not responding.</span> <a rel="noopener noreferrer" href="https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-521/">Additional troubleshooting information</a>.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="cf-error-footer cf-wrapper w-240 lg:w-full py-10 sm:py-4 sm:px-8 mx-auto text-center sm:text-left border-solid border-0 border-t border-gray-300">
+    <p class="text-13">
+      <span class="cf-footer-item sm:block sm:mb-1">Cloudflare Ray ID: <strong class="font-semibold">a20b75b2b8cb18a4</strong></span>
+      <span class="cf-footer-separator sm:hidden">&bull;</span>
+      <span id="cf-footer-item-ip" class="cf-footer-item hidden sm:block sm:mb-1">
+        Your IP:
+        <button type="button" id="cf-footer-ip-reveal" class="cf-footer-ip-reveal-btn">Click to reveal</button>
+        <span class="hidden" id="cf-footer-ip">213.131.47.170</span>
+        <span class="cf-footer-separator sm:hidden">&bull;</span>
+      </span>
+      <span class="cf-footer-item sm:block sm:mb-1"><span>Performance &amp; security by</span> <a rel="noopener noreferrer" href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_521&#38;utm_campaign=eth.llamarpc.com" id="brand_link" target="_blank">Cloudflare</a></span>
+      
+    </p>
+    <script>(function(){function d(){var b=a.getElementById("cf-footer-item-ip"),c=a.getElementById("cf-footer-ip-reveal");b&&"classList"in b&&(b.classList.remove("hidden"),c.addEventListener("click",function(){c.classList.add("hidden");a.getElementById("cf-footer-ip").classList.remove("hidden")}))}var a=document;document.addEventListener&&a.addEventListener("DOMContentLoaded",d)})();</script>
+  </div><!-- /.error-footer -->
+
+    </div>
+</div>
+</body>
+</html>
+
+HTTP diagnostics:
+cf-ray: a20b75b2b8cb18a4-TBS
+server: cloudflare] testAssertActiveChainTokenOwnerSafeOnEthereum() (gas: 4585)
+[PASS] testInvertedAssertAllDefaultsThresholdDrift() (gas: 1111698)
+[PASS] testInvertedAssertAllFullArgsThresholdMismatch() (gas: 1117931)
+[PASS] testInvertedCodehashMismatch() (gas: 1065052)
+[PASS] testInvertedFallbackHandlerMismatch() (gas: 1084274)
+[PASS] testInvertedOwnerCountMismatch() (gas: 1094631)
+[PASS] testInvertedOwnerMismatch() (gas: 1096433)
+[PASS] testInvertedSingletonBytecodeMismatch() (gas: 1067396)
+[PASS] testInvertedSingletonMismatch() (gas: 1066569)
+[PASS] testInvertedThresholdMismatch() (gas: 1074097)
+[PASS] testInvertedUnexpectedGuard() (gas: 1079909)
+[PASS] testInvertedUnexpectedModules() (gas: 1075829)
+[PASS] testInvertedVersionMismatch() (gas: 1074107)
+Suite result: FAILED. 13 passed; 1 failed; 0 skipped; finished in 90.11s (45.40s CPU time)

@@ -29,19 +29,26 @@ import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {ST0xOrchestratorBeaconSetDeployer} from "../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
 
 contract BuildPointers is Script {
-    /// @notice The canonical release tag. Read from `foundry.toml`
-    /// `[package].version` — the single source of truth — with dots converted
-    /// to underscores for the Solidity constant/dir form (`0.1.3` -> `0_1_3`).
-    /// Everything version-dependent (the `<tag>/` snapshot dir, `DEPLOY_TAG`,
-    /// the current-release aliases) derives from this.
-    function deployTag() internal view returns (string memory) {
-        string memory version = vm.parseTomlString(vm.readFile("foundry.toml"), ".package.version");
-        bytes memory b = bytes(version);
-        bytes memory out = new bytes(b.length);
-        for (uint256 i = 0; i < b.length; i++) {
-            out[i] = b[i] == "." ? bytes1("_") : b[i];
-        }
-        return string(out);
+    /// @notice The rolling "current source" snapshot tag — always `candidate`,
+    /// never a version number. `src/generated/candidate/` is regenerated from
+    /// the current source on every run; a numbered snapshot is frozen only when
+    /// a release tag promotes `candidate` (see `script/cut-release.sh`). Source
+    /// self-references (`LibProdDeployCurrent`) always resolve to `candidate`,
+    /// so they track whatever the source currently compiles to, while numbered
+    /// snapshots (`0_1_1`, …) stay frozen and are never regenerated here.
+    string constant CANDIDATE_TAG = "candidate";
+
+    function deployTag() internal pure returns (string memory) {
+        return CANDIDATE_TAG;
+    }
+
+    /// @notice The constant-name suffix for a tag dir. Numbered tags use the tag
+    /// verbatim (`0_1_1`); the rolling `candidate` dir uses `CANDIDATE`, so its
+    /// generated constants read `STOX_RECEIPT_CANDIDATE` rather than the
+    /// lowercase dir name.
+    function tagSuffix(string memory tag) internal pure returns (string memory) {
+        if (keccak256(bytes(tag)) == keccak256(bytes(CANDIDATE_TAG))) return "CANDIDATE";
+        return tag;
     }
 
     function addressConstantString(address addr) internal pure returns (string memory) {
@@ -88,8 +95,8 @@ contract BuildPointers is Script {
     function run() external {
         LibRainDeploy.etchZoltuFactory(vm);
 
-        // A fresh next-version slot has no `<tag>/` dir yet, and `vm.writeFile`
-        // won't create one.
+        // Regenerate the rolling `candidate/` snapshot from current source.
+        // `vm.writeFile` won't create the dir, so ensure it exists first.
         vm.createDir(string.concat("src/generated/", deployTag()), true);
 
         buildContractPointers("StoxCorporateActionsFacet", type(StoxCorporateActionsFacet).creationCode);
@@ -215,7 +222,10 @@ contract BuildPointers is Script {
     }
 
     /// @notice A monotonic sort key for an `a_b_c` tag (each component < 1e6).
+    /// The non-numeric `candidate` tag sorts last (the rolling head after every
+    /// frozen numbered release).
     function tagKey(string memory name) internal pure returns (uint256 key) {
+        if (keccak256(bytes(name)) == keccak256(bytes(CANDIDATE_TAG))) return type(uint256).max;
         bytes memory b = bytes(name);
         uint256 num = 0;
         for (uint256 i = 0; i < b.length; i++) {
@@ -239,7 +249,7 @@ contract BuildPointers is Script {
         for (uint256 i = 0; i < entries.length; i++) {
             if (!entries[i].isDir) continue;
             string memory name = baseName(entries[i].path);
-            if (isTagName(name)) {
+            if (isTagName(name) || keccak256(bytes(name)) == keccak256(bytes(CANDIDATE_TAG))) {
                 tmp[n] = name;
                 n++;
             }
@@ -278,31 +288,36 @@ contract BuildPointers is Script {
         pure
         returns (string memory)
     {
+        string memory suffix = tagSuffix(tag);
         string memory head =
-            string.concat("import {DEPLOYED_ADDRESS as ", base, "_ADDRESS_", tag, "_GEN, BYTECODE_HASH as ", base);
+            string.concat("import {DEPLOYED_ADDRESS as ", base, "_ADDRESS_", suffix, "_GEN, BYTECODE_HASH as ", base);
         string memory mid = string.concat(
-            "_CODEHASH_", tag, "_GEN, CREATION_CODE as ", base, "_CREATION_", tag, "_GEN, RUNTIME_CODE as ", base
+            "_CODEHASH_", suffix, "_GEN, CREATION_CODE as ", base, "_CREATION_", suffix, "_GEN, RUNTIME_CODE as ", base
         );
-        string memory tail = string.concat("_RUNTIME_", tag, '_GEN} from "./', tag, "/", name, '.pointers.sol";');
+        string memory tail = string.concat("_RUNTIME_", suffix, '_GEN} from "./', tag, "/", name, '.pointers.sol";');
         return string.concat(head, mid, tail);
     }
 
     /// @notice Emit the four aliased constants for one (tag, contract).
     function emitV4Constants(string memory tag, string memory base) internal {
+        string memory suffix = tagSuffix(tag);
         vm.writeLine(
-            GEN_V4_PATH, string.concat("address constant ", base, "_", tag, " = ", base, "_ADDRESS_", tag, "_GEN;")
+            GEN_V4_PATH,
+            string.concat("address constant ", base, "_", suffix, " = ", base, "_ADDRESS_", suffix, "_GEN;")
         );
         vm.writeLine(
             GEN_V4_PATH,
-            string.concat("bytes32 constant ", base, "_CODEHASH_", tag, " = ", base, "_CODEHASH_", tag, "_GEN;")
+            string.concat("bytes32 constant ", base, "_CODEHASH_", suffix, " = ", base, "_CODEHASH_", suffix, "_GEN;")
         );
         vm.writeLine(
             GEN_V4_PATH,
-            string.concat("bytes constant ", base, "_CREATION_CODE_", tag, " = ", base, "_CREATION_", tag, "_GEN;")
+            string.concat(
+                "bytes constant ", base, "_CREATION_CODE_", suffix, " = ", base, "_CREATION_", suffix, "_GEN;"
+            )
         );
         vm.writeLine(
             GEN_V4_PATH,
-            string.concat("bytes constant ", base, "_RUNTIME_CODE_", tag, " = ", base, "_RUNTIME_", tag, "_GEN;")
+            string.concat("bytes constant ", base, "_RUNTIME_CODE_", suffix, " = ", base, "_RUNTIME_", suffix, "_GEN;")
         );
     }
 
@@ -357,6 +372,7 @@ contract BuildPointers is Script {
     /// current release tag.
     function genCurrent() internal {
         string memory tag = deployTag();
+        string memory suffix = tagSuffix(tag);
         require(vm.exists(string.concat("src/generated/", tag)), "BuildPointers: current tag dir missing");
         string[12] memory names = contractNames();
         string[12] memory bases = contractBases();
@@ -379,11 +395,14 @@ contract BuildPointers is Script {
             if (!pointerExists(tag, names[c])) continue;
             string memory base = bases[c];
             vm.writeLine(
-                GEN_CURRENT_PATH, string.concat("address constant ", base, " = LibProdDeployV4.", base, "_", tag, ";")
+                GEN_CURRENT_PATH,
+                string.concat("address constant ", base, " = LibProdDeployV4.", base, "_", suffix, ";")
             );
             vm.writeLine(
                 GEN_CURRENT_PATH,
-                string.concat("bytes32 constant ", base, "_CODEHASH = LibProdDeployV4.", base, "_CODEHASH_", tag, ";")
+                string.concat(
+                    "bytes32 constant ", base, "_CODEHASH = LibProdDeployV4.", base, "_CODEHASH_", suffix, ";"
+                )
             );
         }
         vm.writeLine(GEN_CURRENT_PATH, "}");

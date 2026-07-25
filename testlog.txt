@@ -1,0 +1,44 @@
+Warning: This is a nightly build of Foundry. It is recommended to use the latest stable version. To mute this warning set `FOUNDRY_DISABLE_NIGHTLY_WARNING` in your environment. 
+
+Warning: Found unknown config section in foundry.toml: [package]
+This notation for profiles has been deprecated and may result in the profile not being registered in future versions.
+Please use [profile.package] instead or run `forge config --fix`.
+No files changed, compilation skipped
+
+Ran 33 tests for test/src/lib/LibProdDeployV4.t.sol:LibProdDeployV4Test
+[PASS] testAuthoriserV4ClonePin() (gas: 1017)
+[PASS] testBeaconInitialOwner() (gas: 324)
+[PASS] testCandidateSelfConsistent() (gas: 164217)
+[PASS] testDeployAddressST0xOrchestrator() (gas: 2618653)
+[PASS] testDeployAddressST0xOrchestratorBeaconSetDeployer() (gas: 3373811)
+[PASS] testDeployAddressStoxCorporateActionsFacet() (gas: 2019094)
+[PASS] testDeployAddressStoxOffchainAssetReceiptVaultAuthorizerV1() (gas: 1256826)
+[PASS] testDeployAddressStoxOffchainAssetReceiptVaultBeaconSetDeployer() (gas: 9187529)
+[PASS] testDeployAddressStoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1() (gas: 2030636)
+[PASS] testDeployAddressStoxReceipt() (gas: 2882952)
+[PASS] testDeployAddressStoxReceiptVault() (gas: 5019743)
+[PASS] testDeployAddressStoxUnifiedDeployer() (gas: 354616)
+[PASS] testDeployAddressStoxWrappedTokenVault() (gas: 1597097)
+[PASS] testDeployAddressStoxWrappedTokenVaultBeacon() (gas: 1849568)
+[PASS] testDeployAddressStoxWrappedTokenVaultBeaconSetDeployer() (gas: 2359101)
+[PASS] testFrozenRedeployST0xOrchestratorBeaconSetDeployer_CANDIDATE() (gas: 3377169)
+[PASS] testFrozenRedeployST0xOrchestrator_CANDIDATE() (gas: 2636667)
+[PASS] testFrozenRedeployStoxCorporateActionsFacet() (gas: 1728764)
+[PASS] testFrozenRedeployStoxCorporateActionsFacet_CANDIDATE() (gas: 2031974)
+[PASS] testFrozenRedeployStoxOffchainAssetReceiptVaultAuthorizerV1() (gas: 1263873)
+[PASS] testFrozenRedeployStoxOffchainAssetReceiptVaultBeaconSetDeployer() (gas: 9194181)
+[PASS] testFrozenRedeployStoxOffchainAssetReceiptVaultBeaconSetDeployer_CANDIDATE() (gas: 9194180)
+[PASS] testFrozenRedeployStoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1() (gas: 2043414)
+[PASS] testFrozenRedeployStoxReceipt() (gas: 2903610)
+[PASS] testFrozenRedeployStoxReceiptVault() (gas: 5066991)
+[PASS] testFrozenRedeployStoxReceiptVault_CANDIDATE() (gas: 5067013)
+[PASS] testFrozenRedeployStoxUnifiedDeployer() (gas: 356808)
+[PASS] testFrozenRedeployStoxUnifiedDeployer_CANDIDATE() (gas: 356831)
+[PASS] testFrozenRedeployStoxWrappedTokenVault() (gas: 1606516)
+[PASS] testFrozenRedeployStoxWrappedTokenVaultBeacon() (gas: 1851177)
+[PASS] testFrozenRedeployStoxWrappedTokenVaultBeaconSetDeployer() (gas: 2362244)
+[PASS] testFrozenRedeployStoxWrappedTokenVaultBeaconSetDeployer_CANDIDATE() (gas: 516226)
+[PASS] testTaggedRuntimeHashesToCodehash() (gas: 128137)
+Suite result: ok. 33 passed; 0 failed; 0 skipped; finished in 4.65ms (10.12ms CPU time)
+
+Ran 1 test suite in 15.60ms (4.65ms CPU time): 33 tests passed, 0 failed, 0 skipped (33 total tests)

@@ -124,8 +124,8 @@ contract Deploy is Script {
             deploySuite(
                 type(StoxReceipt).creationCode,
                 "src/concrete/StoxReceipt.sol:StoxReceipt",
-                LibProdDeployV4.STOX_RECEIPT_0_1_3,
-                LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_3,
+                LibProdDeployV4.STOX_RECEIPT_CANDIDATE,
+                LibProdDeployV4.STOX_RECEIPT_CODEHASH_CANDIDATE,
                 noDeps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_RECEIPT_VAULT) {
@@ -136,82 +136,82 @@ contract Deploy is Script {
             // MissingDependency if the facet is not yet deployed on the target
             // network, enforcing the order structurally rather than by runbook.
             address[] memory deps = new address[](1);
-            deps[0] = LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_3;
+            deps[0] = LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE;
             deploySuite(
                 type(StoxReceiptVault).creationCode,
                 "src/concrete/StoxReceiptVault.sol:StoxReceiptVault",
-                LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_3,
-                LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_3,
+                LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE,
+                LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_CANDIDATE,
                 deps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_WRAPPED_TOKEN_VAULT) {
             deploySuite(
                 type(StoxWrappedTokenVault).creationCode,
                 "src/concrete/StoxWrappedTokenVault.sol:StoxWrappedTokenVault",
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_3,
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_3,
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CANDIDATE,
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_CANDIDATE,
                 noDeps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_WRAPPED_TOKEN_VAULT_BEACON) {
             address[] memory deps = new address[](1);
-            deps[0] = LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_3;
+            deps[0] = LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CANDIDATE;
             deploySuite(
                 type(StoxWrappedTokenVaultBeacon).creationCode,
                 "src/concrete/StoxWrappedTokenVaultBeacon.sol:StoxWrappedTokenVaultBeacon",
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_3,
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_3,
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CANDIDATE,
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_CANDIDATE,
                 deps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER) {
             address[] memory deps = new address[](1);
-            deps[0] = LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_3;
+            deps[0] = LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CANDIDATE;
             deploySuite(
                 type(StoxWrappedTokenVaultBeaconSetDeployer).creationCode,
                 "src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol:StoxWrappedTokenVaultBeaconSetDeployer",
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3,
-                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3,
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE,
                 deps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER) {
             // Its constructor bakes beacons over the StoxReceipt and
             // StoxReceiptVault impls, both of which must already have code.
             address[] memory deps = new address[](2);
-            deps[0] = LibProdDeployV4.STOX_RECEIPT_0_1_3;
-            deps[1] = LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_3;
+            deps[0] = LibProdDeployV4.STOX_RECEIPT_CANDIDATE;
+            deps[1] = LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE;
             deploySuite(
                 type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode,
                 "src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer",
-                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3,
-                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3,
+                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,
+                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE,
                 deps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_UNIFIED_DEPLOYER) {
             // Embeds the OARV beacon-set deployer and the wrapped-token-vault
             // beacon-set deployer it drives; both must already have code.
             address[] memory deps = new address[](2);
-            deps[0] = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3;
-            deps[1] = LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3;
+            deps[0] = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE;
+            deps[1] = LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CANDIDATE;
             deploySuite(
                 type(StoxUnifiedDeployer).creationCode,
                 "src/concrete/deploy/StoxUnifiedDeployer.sol:StoxUnifiedDeployer",
-                LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_3,
-                LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_3,
+                LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CANDIDATE,
+                LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_CANDIDATE,
                 deps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1) {
             deploySuite(
                 type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode,
                 "src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol:StoxOffchainAssetReceiptVaultAuthorizerV1",
-                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_3,
-                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_3,
+                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CANDIDATE,
+                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_CANDIDATE,
                 noDeps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1) {
             deploySuite(
                 type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode,
                 "src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol:StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1",
-                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_0_1_3,
-                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_3,
+                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CANDIDATE,
+                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_CANDIDATE,
                 noDeps
             );
         } else if (suite == DEPLOYMENT_SUITE_STOX_CORPORATE_ACTIONS_FACET) {
@@ -221,8 +221,8 @@ contract Deploy is Script {
             deploySuite(
                 type(StoxCorporateActionsFacet).creationCode,
                 "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
-                LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_3,
-                LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_3,
+                LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE,
+                LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_CANDIDATE,
                 noDeps
             );
         } else if (suite == DEPLOYMENT_SUITE_ST0X_ORCHESTRATOR) {
@@ -232,20 +232,20 @@ contract Deploy is Script {
             deploySuite(
                 type(ST0xOrchestrator).creationCode,
                 "src/concrete/ST0xOrchestrator.sol:ST0xOrchestrator",
-                LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_3,
-                LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_0_1_3,
+                LibProdDeployV4.ST0X_ORCHESTRATOR_CANDIDATE,
+                LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_CANDIDATE,
                 noDeps
             );
         } else if (suite == DEPLOYMENT_SUITE_ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER) {
             // Its constructor bakes a beacon over the ST0xOrchestrator impl,
             // which must already have code.
             address[] memory deps = new address[](1);
-            deps[0] = LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_3;
+            deps[0] = LibProdDeployV4.ST0X_ORCHESTRATOR_CANDIDATE;
             deploySuite(
                 type(ST0xOrchestratorBeaconSetDeployer).creationCode,
                 "src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol:ST0xOrchestratorBeaconSetDeployer",
-                LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_3,
-                LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_3,
+                LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CANDIDATE,
+                LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE,
                 deps
             );
         } else {
