@@ -67,10 +67,10 @@ contract BuildPointers is Script {
     /// `RUNTIME_CODE` constants.
     /// @param name Must exactly match the contract's Solidity filename (without
     /// `.sol`), as it determines the generated pointer file path under
-    /// `src/generated/<tag>/` — the frozen per-release snapshot for the current
-    /// `deployTag()` (read from the canonical `foundry.toml` version). Historical
-    /// tags are never regenerated; a release bump writes a new `<tag>/` snapshot
-    /// beside them.
+    /// `src/generated/<tag>/` — the rolling `candidate` snapshot for the
+    /// current `deployTag()`. Numbered release snapshots are frozen and never
+    /// regenerated here; a release freezes a copy of `candidate` beside them
+    /// (see `script/cut-release.sh`).
     /// @param creationCode The creation bytecode of the contract, typically
     /// obtained via `type(ContractName).creationCode`.
     function buildContractPointers(string memory name, bytes memory creationCode) internal {

@@ -22,6 +22,13 @@ if [ -z "$VERSION" ]; then
   echo "cut-release: could not read [package].version from foundry.toml" >&2
   exit 1
 fi
+# Strict X.Y.Z only: anything else (rc/pre-release suffixes, extra components)
+# would freeze a dir like `0_1_30-rc1` that the generator's numeric tag filter
+# ignores forever — an orphan snapshot. Refuse instead.
+if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "cut-release: version '${VERSION}' is not strict X.Y.Z — refusing to cut a snapshot the generator would ignore" >&2
+  exit 1
+fi
 TAG="${VERSION//./_}"
 
 if [ ! -d src/generated/candidate ]; then
