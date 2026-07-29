@@ -37,14 +37,14 @@ on:
           - 'hyperevm'
 # Dispatches an operational broadcast script from `script/` and sends the
 # resulting transactions from the CI deploy key (`secrets.PRIVATE_KEY`,
-# the same secret `manual-sol-artifacts.yaml` uses for Zoltu impl deploys).
+# the same secret `manual-sol-artifacts-0-1-1.yaml` uses for Zoltu impl deploys).
 #
 # When to use this dispatcher vs. run-script.yaml:
 # - `run-script.yaml` is for scripts that emit off-chain artifacts
 #   (Safe Tx Builder JSON) for a Safe multisig to sign later. Runs
 #   without `--broadcast`.
 # - THIS workflow is for scripts that broadcast on-chain directly from
-#   the deploy key — same key that runs `manual-sol-artifacts.yaml` for
+#   the deploy key — same key that runs `manual-sol-artifacts-0-1-1.yaml` for
 #   impl deploys. Runs with `--broadcast`.
 #
 # The `slow` flag makes forge wait for each tx to confirm before sending
@@ -84,7 +84,7 @@ jobs:
           SCRIPT: ${{ inputs.script }}
           NETWORK: ${{ inputs.network }}
           # PRIVATE_KEY is only available inside this step — matching
-          # `manual-sol-artifacts.yaml`. The workflow file itself does not
+          # `manual-sol-artifacts-0-1-1.yaml`. The workflow file itself does not
           # persist it anywhere else.
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
         run: |

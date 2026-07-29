@@ -1,37 +1,45 @@
 name: Package Release
 on:
   push:
-    branches:
-      - main
+    tags:
+      - sol-v*
 jobs:
   release:
-    # rainix-autopublish's job requests contents: write (to push the version-
-    # bump commit + tag) and id-token: write. This repo's default workflow-token
-    # permission is read-only, so without granting these here the reusable's
-    # request exceeds the caller and the run fails at startup. Grant exactly the
-    # scopes the reusable needs, per workflow, rather than flipping the whole
-    # repo default to write.
+    # rainix-tag-release verifies the tag, publishes to soldeer, freezes the
+    # candidate snapshot into a numbered release dir, and commits it back — so it
+    # needs contents: write (push the release commit). This repo's default
+    # workflow-token permission is read-only, so grant that scope here or the
+    # reusable's request exceeds the caller and the run fails at startup. No
+    # id-token: nothing in the reusable uses OIDC (Soldeer publishes via
+    # SOLDEER_API_TOKEN).
     permissions:
       contents: write
-      id-token: write
-    uses: rainlanguage/rainix/.github/workflows/rainix-autopublish.yaml@main
+    # A DEPLOY repo is on the tag-release lifecycle, not autopublish. A release
+    # is cut by pushing a `sol-vX.Y.Z` tag (never on merge); deployment is a
+    # separate manual step. `[package].version` is the LAST released version and
+    # moves only at release, in lockstep with the frozen snapshot the tag cuts.
+    # This is the counterpart to library repos, which use rainix-autopublish and
+    # bump a next-version slot on every merge. Mirrors the rain.factory.deploy
+    # caller. `cut-release.sh` freezes `src/generated/candidate/` into
+    # `src/generated/<version>/` (see the script) then regenerates the libs.
+    uses: rainlanguage/rainix/.github/workflows/rainix-tag-release.yaml@main
     with:
-      # `foundry.toml` version is the NEXT (in-development) release (see #244). On
-      # merge, publish that version and bump to the next — the bump no longer
-      # generates artifacts (rainix#267). A version's deploy-pin snapshot is built
-      # by the PR that changes the bytecode: run
-      # `forge script ./script/BuildPointers.sol` (after `forge soldeer install`)
-      # and commit the new `src/generated/<tag>/` snapshot + regenerated deploy
-      # libs. The LibProdDeploy fork/deploy tests fail if a snapshot is stale, and
-      # the rainix append-only check (rainix#268) rejects any change to a snapshot
-      # already on main, so snapshots stay frozen once merged.
       soldeer-package: st0x-deploy
-    # Secrets are passed explicitly (not `inherit`), mirroring this repo's other
-    # cross-org rainix callers (e.g. rainix-sol.yaml). Only SOLDEER_API_TOKEN is
-    # required for the publish; the rest are optional and fall back cleanly when
-    # empty (bot git identity; GITHUB_TOKEN push, since main is unprotected).
+      tag-prefix: sol-v
+      snapshot-generate-cmd: bash script/cut-release.sh
+    # Secrets passed explicitly (not `inherit`), mirroring this repo's other
+    # cross-org rainix callers — exactly the set rainix-tag-release declares. The
+    # RPC_URL_*_FORK secrets are what its verify step forks with; omitting them
+    # reintroduces the "env var not found" verify failure.
     secrets:
       SOLDEER_API_TOKEN: ${{ secrets.SOLDEER_API_TOKEN }}
       PUBLISH_PRIVATE_KEY: ${{ secrets.PUBLISH_PRIVATE_KEY }}
       CI_GIT_EMAIL: ${{ secrets.CI_GIT_EMAIL }}
       CI_GIT_USER: ${{ secrets.CI_GIT_USER }}
+      RPC_URL_ARBITRUM_FORK: ${{ secrets.RPC_URL_ARBITRUM_FORK }}
+      RPC_URL_BASE_FORK: ${{ secrets.RPC_URL_BASE_FORK }}
+      RPC_URL_BASE_SEPOLIA_FORK: ${{ secrets.RPC_URL_BASE_SEPOLIA_FORK }}
+      RPC_URL_ETHEREUM_FORK: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
+      RPC_URL_FLARE_FORK: ${{ secrets.RPC_URL_FLARE_FORK }}
+      RPC_URL_POLYGON_FORK: ${{ secrets.RPC_URL_POLYGON_FORK }}
+      CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}

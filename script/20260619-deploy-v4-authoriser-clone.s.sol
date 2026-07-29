@@ -98,7 +98,7 @@ error GrantsSliceOutOfRange(uint256 startIndex, uint256 sliceLength, uint256 gra
 /// key executes them in sequence in one `forge script --broadcast`
 /// invocation. Dispatched via `.github/workflows/manual-broadcast.yaml`,
 /// which broadcasts as `secrets.PRIVATE_KEY` — the same CI-held deploy
-/// key `manual-sol-artifacts.yaml` uses for Zoltu impl deploys. The Safe
+/// key `manual-sol-artifacts-0-1-1.yaml` uses for Zoltu impl deploys. The Safe
 /// never signs anything for this deploy: the whole clone-configuration
 /// ceremony collapses into a workflow-dispatch broadcast matching the
 /// impl-deploy pattern the ops flow already uses.
