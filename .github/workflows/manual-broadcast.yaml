@@ -22,6 +22,7 @@ on:
           - 20260706-deploy-tokens-ethereum
           - 20260722-deploy-missing-tokens-ethereum
           - 20260722-deploy-missing-tokens-hyperevm
+          - 20260729-deploy-governance-timelock
       network:
         description: 'Network to broadcast against (default: base)'
         required: true
