@@ -6,6 +6,8 @@ import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {
     LibAuthoriserInvariants,
+    RoleGrant,
+    ExpectedGrantMissing,
     UnexpectedDefaultAdmin,
     AuthoriserImplCodehashMismatch
 } from "../../../src/lib/LibAuthoriserInvariants.sol";
@@ -78,5 +80,65 @@ contract LibAuthoriserInvariantsTest is Test {
             )
         );
         harness.callAssertExpectedGrants(clone);
+    }
+
+    /// @notice The admin-holder parameterisation: the seven `_ADMIN` entries
+    /// track `adminHolder`, the six operational entries stay split between
+    /// the service signer and the Safe, and the narrower overloads are exact
+    /// collapses of the widest one (so no consumer can drift from the single
+    /// map).
+    function testExpectedGrantsAdminHolderParameterisation() external pure {
+        address safe = address(0x5AFE);
+        address timelock = address(0x7135);
+        RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
+        assertEq(grants.length, 13);
+        for (uint256 i = 0; i < 7; i++) {
+            assertEq(grants[i].grantee, timelock, "admin entries must track adminHolder");
+        }
+        for (uint256 i = 7; i < 10; i++) {
+            assertEq(grants[i].grantee, LibAuthoriserInvariants.GRANTEE_SERVICE_1C66);
+        }
+        for (uint256 i = 10; i < 13; i++) {
+            assertEq(grants[i].grantee, safe, "operational Safe entries must track the Safe");
+        }
+
+        // The two-arg overload is the adminHolder == Safe collapse.
+        RoleGrant[] memory collapsed = LibAuthoriserInvariants.expectedGrants(safe);
+        RoleGrant[] memory widened = LibAuthoriserInvariants.expectedGrants(safe, safe);
+        assertEq(collapsed.length, widened.length);
+        for (uint256 i = 0; i < collapsed.length; i++) {
+            assertEq(collapsed[i].role, widened[i].role);
+            assertEq(collapsed[i].grantee, widened[i].grantee);
+        }
+    }
+
+    /// @notice `assertExpectedGrants(authoriser, safe, adminHolder)` passes
+    /// once the live clone's seven `_ADMIN` roles are mocked onto the admin
+    /// holder — the exact post-timelock-migration shape — and pinpoints the
+    /// first missing `_ADMIN` grant when the mock is absent.
+    function testAssertExpectedGrantsWithDistinctAdminHolder() external {
+        selectBaseFork();
+        address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        address safe = LibAuthoriserInvariants.GRANTEE_TOKEN_OWNER_SAFE;
+        address timelock = address(0x7135);
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+
+        // Without the timelock holding anything, the first `_ADMIN` entry is
+        // reported missing for the timelock.
+        RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
+        vm.expectRevert(abi.encodeWithSelector(ExpectedGrantMissing.selector, clone, grants[0].role, timelock));
+        harness.callAssertExpectedGrants(clone, safe, timelock);
+
+        // Mock the seven `_ADMIN` grants onto the timelock — the operational
+        // entries are already live on the fork — and the full assertion
+        // passes.
+        for (uint256 i = 0; i < 7; i++) {
+            vm.mockCall(
+                clone,
+                abi.encodeWithSelector(IAccessControl.hasRole.selector, grants[i].role, timelock),
+                abi.encode(true)
+            );
+        }
+        harness.callAssertExpectedGrants(clone, safe, timelock);
     }
 }
