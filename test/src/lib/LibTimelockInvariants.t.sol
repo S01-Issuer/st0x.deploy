@@ -1,0 +1,218 @@
+// SPDX-License-Identifier: LicenseRef-DCL-1.0
+// SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
+pragma solidity =0.8.25;
+
+import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/TimelockController.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {
+    LibTimelockInvariants,
+    UnsupportedChainForGovernanceTimelock,
+    TimelockNotDeployed,
+    TimelockCodehashMismatch,
+    TimelockMinDelayMismatch,
+    TimelockMissingRole,
+    TimelockUnexpectedRole
+} from "../../../src/lib/LibTimelockInvariants.sol";
+import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {LibTimelockInvariantsHarness} from "./LibTimelockInvariantsHarness.sol";
+
+/// @title LibTimelockInvariantsTest
+/// @notice Local (non-fork) coverage for `LibTimelockInvariants`: the Zoltu
+/// address derivation is validated against the REAL factory bytecode (etched
+/// locally), the state assertion is exercised green against a
+/// pinned-configuration deploy and red against every deviation class —
+/// missing code, alien code, wrong delay, missing role, open role, and a
+/// root-admin escalation path.
+contract LibTimelockInvariantsTest is Test {
+    /// @notice Stand-in for a chain's token-owner Safe. The invariants only
+    /// read role membership for this address, so a plain EOA-style address
+    /// is sufficient locally.
+    address internal constant SAFE = address(0x5aFe00000000000000000000000000000000aAaa);
+
+    LibTimelockInvariantsHarness internal harness;
+
+    function setUp() external {
+        harness = new LibTimelockInvariantsHarness();
+    }
+
+    /// @notice Deploy a timelock through the real (etched) Zoltu factory
+    /// from the pinned init code, exactly as the deploy broadcast does.
+    function deployPinnedTimelock() internal returns (address) {
+        LibRainDeploy.etchZoltuFactory(vm);
+        return LibRainDeploy.deployZoltu(LibTimelockInvariants.timelockInitCode(SAFE));
+    }
+
+    /// @notice The in-source CREATE2 derivation must land exactly where the
+    /// real Zoltu factory deploys the same init code — this is the equality
+    /// the deploy script's address assertion and the future pin PR both
+    /// stand on.
+    function testExpectedAddressMatchesRealZoltuFactory() external {
+        address deployed = deployPinnedTimelock();
+        assertEq(deployed, LibTimelockInvariants.expectedTimelockAddress(SAFE));
+    }
+
+    /// @notice Distinct Safes must derive distinct timelock addresses — the
+    /// constructor arguments are part of the init code, so per-chain Safes
+    /// produce per-chain timelocks by construction.
+    function testExpectedAddressVariesWithSafe() external pure {
+        assertNotEq(
+            LibTimelockInvariants.expectedTimelockAddress(SAFE),
+            LibTimelockInvariants.expectedTimelockAddress(address(0xBEEF))
+        );
+    }
+
+    /// @notice The full state assertion passes against a fresh
+    /// pinned-configuration deploy.
+    function testAssertTimelockStatePasses() external {
+        address timelock = deployPinnedTimelock();
+        LibTimelockInvariants.assertTimelockState(timelock, SAFE);
+    }
+
+    /// @notice The role-hash mirrors match the live OZ getters, so invariant
+    /// call sites can name roles without a deployed instance.
+    function testRoleMirrorsMatchLiveGetters() external {
+        TimelockController timelock = TimelockController(payable(deployPinnedTimelock()));
+        assertEq(LibTimelockInvariants.TIMELOCK_PROPOSER_ROLE, timelock.PROPOSER_ROLE());
+        assertEq(LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE, timelock.EXECUTOR_ROLE());
+        assertEq(LibTimelockInvariants.TIMELOCK_CANCELLER_ROLE, timelock.CANCELLER_ROLE());
+        assertEq(LibTimelockInvariants.TIMELOCK_DEFAULT_ADMIN_ROLE, timelock.DEFAULT_ADMIN_ROLE());
+    }
+
+    /// @notice The pinned delay is 48 hours and the pinned deploy carries it.
+    function testMinDelayPin() external {
+        TimelockController timelock = TimelockController(payable(deployPinnedTimelock()));
+        assertEq(LibTimelockInvariants.TIMELOCK_MIN_DELAY, 48 hours);
+        assertEq(timelock.getMinDelay(), LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+    }
+
+    /// @notice An address without code is rejected before any call into it.
+    function testAssertRejectsUndeployed() external {
+        address missing = LibTimelockInvariants.expectedTimelockAddress(SAFE);
+        vm.expectRevert(abi.encodeWithSelector(TimelockNotDeployed.selector, missing));
+        harness.callAssertTimelockState(missing, SAFE);
+    }
+
+    /// @notice Alien bytecode at the timelock address is rejected by the
+    /// codehash pin before any role read is trusted.
+    function testAssertRejectsWrongCodehash() external {
+        address timelock = deployPinnedTimelock();
+        vm.etch(timelock, hex"600160005260206000f3");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TimelockCodehashMismatch.selector,
+                timelock,
+                LibTimelockInvariants.timelockRuntimeCodehash(),
+                timelock.codehash
+            )
+        );
+        harness.callAssertTimelockState(timelock, SAFE);
+    }
+
+    /// @notice A timelock deployed with a different delay is rejected: the
+    /// runtime bytecode is identical (delay is storage, not code), so only
+    /// the `getMinDelay` pin catches it.
+    function testAssertRejectsWrongMinDelay() external {
+        address[] memory principals = new address[](1);
+        principals[0] = SAFE;
+        TimelockController wrongDelay = new TimelockController(1 hours, principals, principals, address(0));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TimelockMinDelayMismatch.selector,
+                address(wrongDelay),
+                LibTimelockInvariants.TIMELOCK_MIN_DELAY,
+                1 hours
+            )
+        );
+        harness.callAssertTimelockState(address(wrongDelay), SAFE);
+    }
+
+    /// @notice A timelock whose proposer is not the Safe is rejected with
+    /// the exact missing `(role, account)` pair.
+    function testAssertRejectsMissingProposerRole() external {
+        address[] memory otherProposer = new address[](1);
+        otherProposer[0] = address(0xBEEF);
+        address[] memory executors = new address[](1);
+        executors[0] = SAFE;
+        TimelockController wrongProposer =
+            new TimelockController(LibTimelockInvariants.TIMELOCK_MIN_DELAY, otherProposer, executors, address(0));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TimelockMissingRole.selector, address(wrongProposer), LibTimelockInvariants.TIMELOCK_PROPOSER_ROLE, SAFE
+            )
+        );
+        harness.callAssertTimelockState(address(wrongProposer), SAFE);
+    }
+
+    /// @notice A zero-address executor grant — OZ's "execution open to
+    /// everyone" switch — is rejected. Simulated through the timelock's own
+    /// self-administration path, proving the pinned deploy COULD drift here
+    /// only via a (timelocked) governance action that this invariant would
+    /// then flag.
+    function testAssertRejectsOpenExecutorRole() external {
+        address timelock = deployPinnedTimelock();
+        vm.prank(timelock);
+        IAccessControl(timelock).grantRole(LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE, address(0));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TimelockUnexpectedRole.selector, timelock, LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE, address(0)
+            )
+        );
+        harness.callAssertTimelockState(timelock, SAFE);
+    }
+
+    /// @notice A Safe holding `DEFAULT_ADMIN_ROLE` is rejected — root admin
+    /// on the proposer would let it re-grant roles instantly, bypassing the
+    /// delay entirely. Simulated by deploying with the optional constructor
+    /// admin set to the Safe.
+    function testAssertRejectsSafeAsRootAdmin() external {
+        address[] memory principals = new address[](1);
+        principals[0] = SAFE;
+        TimelockController adminned =
+            new TimelockController(LibTimelockInvariants.TIMELOCK_MIN_DELAY, principals, principals, SAFE);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TimelockUnexpectedRole.selector,
+                address(adminned),
+                LibTimelockInvariants.TIMELOCK_DEFAULT_ADMIN_ROLE,
+                SAFE
+            )
+        );
+        harness.callAssertTimelockState(address(adminned), SAFE);
+    }
+
+    /// @notice Chain selection returns the per-chain pin for the supported
+    /// chains and reverts (never falls back) for anything else.
+    function testTimelockForChainId() external {
+        assertEq(
+            LibTimelockInvariants.timelockForChainId(LibSafeInvariants.BASE_CHAIN_ID),
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK
+        );
+        assertEq(
+            LibTimelockInvariants.timelockForChainId(LibSafeInvariants.ETHEREUM_CHAIN_ID),
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ETHEREUM
+        );
+        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForGovernanceTimelock.selector, uint256(31337)));
+        harness.callTimelockForChainId(31337);
+    }
+
+    /// @notice The hydration contract for the per-chain pins: while a pin is
+    /// a placeholder it must be zero; once hydrated it must equal the
+    /// derived Zoltu address for that chain's Safe. Both directions are
+    /// asserted here so the post-deploy pin PR turns this from the
+    /// placeholder branch to the equality branch with no test change.
+    function testPinsMatchDerivedAddressesOnceHydrated() external pure {
+        address basePin = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
+        if (basePin != address(0)) {
+            assertEq(basePin, LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE));
+        }
+        address ethereumPin = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ETHEREUM;
+        if (ethereumPin != address(0)) {
+            assertEq(
+                ethereumPin,
+                LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM)
+            );
+        }
+    }
+}
