@@ -12,6 +12,14 @@ import {IGnosisSafe} from "../../../src/interface/IGnosisSafe.sol";
 /// catches reverts from external calls; library `internal` functions inline
 /// and would fail the depth check otherwise.
 contract LibSafeInvariantsHarness {
+    /// @notice Resolve a chain's pinned token-owner Safe through an external
+    /// call, so callers can `try`/`catch` the
+    /// `UnsupportedChainForTokenOwnerSafe` revert and treat "is this chain
+    /// governed yet?" as a question rather than a failure.
+    function callSafeForChainId(uint256 chainId) external pure returns (address) {
+        return LibSafeInvariants.safeForChainId(chainId);
+    }
+
     function callAssertImmutableInvariants(IGnosisSafe safe) external view {
         LibSafeInvariants.assertImmutableInvariants(safe);
     }

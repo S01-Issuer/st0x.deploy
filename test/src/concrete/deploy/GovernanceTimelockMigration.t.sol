@@ -8,6 +8,8 @@ import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
 import {LibAuthoriserInvariants, RoleGrant} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibMigrationInvariant, MigrationStateDrift} from "../../../../src/lib/LibMigrationInvariant.sol";
+import {LibSafeInvariantsHarness} from "../../lib/LibSafeInvariantsHarness.sol";
+import {LibTimelockInvariantsHarness} from "../../lib/LibTimelockInvariantsHarness.sol";
 import {LibTokenInvariantsHarness} from "../../lib/LibTokenInvariantsHarness.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
@@ -140,6 +142,81 @@ contract GovernanceTimelockMigrationTest is Test {
             LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ETHEREUM,
             LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM
         );
+    }
+
+    /// @notice HyperEVM's chain id, declared locally rather than imported:
+    /// `LibSafeInvariants` on this branch has no HyperEVM pin yet — it
+    /// arrives with the multichain stack (RAI-1511), which adds
+    /// `HYPEREVM_CHAIN_ID` and a `safeForChainId` arm for it. Declaring the
+    /// id here is what lets the coverage guard below be armed BEFORE that
+    /// stack lands: today the entry is inert, and the moment HyperEVM gains
+    /// a pinned Safe the guard starts demanding timelock coverage for it.
+    /// Swap this for the library constant once the multichain stack merges.
+    uint256 internal constant HYPEREVM_CHAIN_ID_CANDIDATE = 999;
+
+    /// @notice Chain ids ST0x governs today or is expected to govern.
+    ///
+    /// NOT a list of supported chains: an entry is INERT until that chain
+    /// gains a pinned token-owner Safe. Listing a chain early costs nothing
+    /// and is the whole point — a new chain cannot be onboarded past this
+    /// guard without someone either adding its timelock arm or consciously
+    /// deleting it from this list.
+    /// @return ids The candidate chain ids.
+    function governedChainCandidates() internal pure returns (uint256[] memory ids) {
+        ids = new uint256[](3);
+        ids[0] = LibSafeInvariants.BASE_CHAIN_ID;
+        ids[1] = LibSafeInvariants.ETHEREUM_CHAIN_ID;
+        ids[2] = HYPEREVM_CHAIN_ID_CANDIDATE;
+    }
+
+    /// @notice Every chain ST0x governs must be known to the governance
+    /// timelock library. A chain is "governed" once it has a pinned
+    /// token-owner Safe; from that point `timelockForChainId` must resolve
+    /// it (even to an unhydrated `address(0)` pin) rather than reverting
+    /// `UnsupportedChainForGovernanceTimelock`.
+    ///
+    /// This closes the gap left by keeping the governance-timelock rollout
+    /// and the multichain (HyperEVM) rollout as independent stacks. Whichever
+    /// merges second, the chain tables and the timelock's chain map must
+    /// agree. Without this guard, a multichain stack landing first would put
+    /// production tokens on a chain that `assertChainMigrationWindow` never
+    /// walks — no vault ownership assertion, no beacon assertion, no
+    /// deadline — and nothing would go red. The gap would be invisible
+    /// precisely because the forcing function is enumerated per chain.
+    ///
+    /// @dev Deliberately triggers on the SAFE pin rather than on a populated
+    /// token table, so it fires at chain bootstrap rather than at first
+    /// token deploy. Eager is the right bias for a forcing function: the fix
+    /// is to add a placeholder pin slot, exactly what Base and Ethereum
+    /// carry today. Needs no fork — both resolvers are `pure`.
+    function testEveryGovernedChainHasTimelockCoverage() external {
+        LibSafeInvariantsHarness safeHarness = new LibSafeInvariantsHarness();
+        LibTimelockInvariantsHarness timelockHarness = new LibTimelockInvariantsHarness();
+
+        uint256[] memory ids = governedChainCandidates();
+        for (uint256 i = 0; i < ids.length; i++) {
+            // Not governed yet — nothing to cover, so the entry is inert.
+            try safeHarness.callSafeForChainId(ids[i]) returns (address) {}
+            catch {
+                continue;
+            }
+
+            bool covered = true;
+            try timelockHarness.callTimelockForChainId(ids[i]) returns (address) {}
+            catch {
+                covered = false;
+            }
+            assertTrue(
+                covered,
+                string.concat(
+                    "chain ",
+                    vm.toString(ids[i]),
+                    " has a pinned token-owner Safe but no governance timelock arm: add it to",
+                    " LibTimelockInvariants.timelockForChainId and to assertChainMigrationWindow's",
+                    " per-chain tests, or the chain runs ungoverned by the timelock"
+                )
+            );
+        }
     }
 
     /// @notice A vault owned by neither side of the migration trips
