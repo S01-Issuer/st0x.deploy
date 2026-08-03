@@ -10,18 +10,10 @@ import {
     TimelockAlreadyDeployed,
     DeployerHoldsTimelockRole
 } from "../../script/20260729-deploy-governance-timelock.s.sol";
+import {DeployGovernanceTimelockHarness} from "./DeployGovernanceTimelockHarness.sol";
 import {LibSafeInvariants, UnsupportedChainForTokenOwnerSafe} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
-
-/// @title DeployGovernanceTimelockHarness
-/// @notice Exposes the script's internal post-state assertion so
-/// `vm.expectRevert` can intercept its typed errors.
-contract DeployGovernanceTimelockHarness is DeployGovernanceTimelock {
-    function callAssertPostState(address timelock, address safe, address deployer) external view {
-        _assertPostState(timelock, safe, deployer);
-    }
-}
 
 /// @title DeployGovernanceTimelockTest
 /// @notice Live-fork coverage for the governance-timelock deploy broadcast.
