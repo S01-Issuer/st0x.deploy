@@ -22,7 +22,7 @@ optimizer = true
 # changes and dependency-tree bytecode shifts — re-check StoxReceiptVault's
 # `forge build --sizes` runtime margin on any such change. via_ir is OFF (tried
 # in #144, made the vault larger for this inheritance shape).
-optimizer_runs = 5000
+optimizer_runs = 2000
 
 evm_version = "cancun"
 
