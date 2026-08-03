@@ -9,12 +9,22 @@ After the migration executes, the timelock is:
 
 - the `owner()` of **every production receipt vault** — so `transferOwnership`,
   `setAuthorizer`, and every `onlyOwner` surface (including owner freezes) is
-  delay-gated; and
+  delay-gated;
+- the `owner()` of the chain's **three in-use upgrade beacons** (receipt,
+  receipt vault, wrapped token vault) — so `upgradeTo` is delay-gated; and
 - the **sole holder of the authoriser's seven `_ADMIN` roles** (`DEPOSIT_ADMIN`,
   `WITHDRAW_ADMIN`, `CERTIFY_ADMIN`, `CONFISCATE_SHARES_ADMIN`,
   `CONFISCATE_RECEIPT_ADMIN`, `SCHEDULE_CORPORATE_ACTION_ADMIN`,
   `CANCEL_CORPORATE_ACTION_ADMIN`) — so adding or removing grants on the
   authoriser is delay-gated.
+
+**Why the beacons are in scope.** Every production token proxies through those
+three beacons, and a beacon owner can `upgradeTo` a new implementation for all
+of them in a single transaction — a hostile implementation could re-take vault
+ownership and rewrite the authoriser wiring outright. Timelocking
+`setAuthorizer` and vault ownership while leaving the beacons on the Safe would
+make the delay bypassable by design, so both surfaces move in the same atomic
+bundle and are forced by the same deadline.
 
 The Safe **keeps its three direct action roles** (`DEPOSIT`, `WITHDRAW`,
 `CERTIFY`) and the service signer keeps its operational grants: day-to-day
@@ -98,8 +108,8 @@ timelocks live.
    signer cross-check.
 4. **Sign + execute** — import the CI-authored artifact into the Safe UI (never
    a locally generated JSON), verify the hash, execute. The bundle is atomic: 7
-   `_ADMIN` grants to the timelock → N vault `transferOwnership` → 7 Safe
-   renounces.
+   `_ADMIN` grants to the timelock → N vault `transferOwnership` → 3 beacon
+   `transferOwnership` → 7 Safe renounces.
 5. **Post-execution flip PR** — mark the migration script
    `**EXECUTED YYYY-MM-DD.**`, repoint the strict uniform-ownership invariants
    (`LibInvariants.assertAll`, `LibTokenInvariants` consumers,
@@ -149,13 +159,10 @@ way to resolve it.
   the single master grant map, parameterised on the admin holder; post-migration
   consumers pass the timelock.
 - `LibTokenInvariants.assertUniformOwnershipMigration` /
+  `LibBeaconInvariants.assertProdBeaconsOwnershipMigration` /
   `GovernanceTimelockMigration.t.sol` — the migration window + deadline (see
-  above).
+  above), over vault ownership, beacon ownership and `_ADMIN` holding.
 
 ## Explicitly out of scope (follow-ups)
 
-- **Beacon ownership.** The upgrade beacons remain Safe-owned. Moving them under
-  the timelock is the same one-call-per-beacon `transferOwnership` pattern and
-  can reuse this machinery wholesale, but it gates contract UPGRADES (not token
-  admin) and deserves its own decision + rollout.
 - **Dedicated canceller** — see the role model above.

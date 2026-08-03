@@ -8,8 +8,11 @@ import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessContro
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/TimelockController.sol";
 
+import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
+
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
+import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
@@ -63,11 +66,53 @@ error UnexpectedVaultOwner(address vault, address actual);
 /// @param role The `_ADMIN` role in the unexpected state.
 error UnexpectedAdminRoleState(bytes32 role);
 
-/// @notice Every production vault is already timelock-owned and every
-/// `_ADMIN` role already sits (exclusively) on the timelock — the migration
-/// has fully landed. Dispatching again authors an empty bundle, which is
-/// never meaningful.
+/// @notice A production upgrade beacon reports an owner that is neither the
+/// Safe (the only acceptable pre-migration state) nor the timelock (already
+/// migrated). Same rule as `UnexpectedVaultOwner`, on the surface that can
+/// repoint every proxy on the chain.
+/// @param beacon The beacon inspected.
+/// @param actual The unexpected address returned by `owner()`.
+error UnexpectedBeaconOwner(address beacon, address actual);
+
+/// @notice A production beacon's runtime codehash is not the pinned OZ
+/// `UpgradeableBeacon` bytecode, so its `owner()` / `upgradeTo` access
+/// control is not the audited implementation and ownership must not be
+/// transferred to it or away from it on the strength of that read.
+/// @param beacon The beacon inspected.
+/// @param expected The pinned `UpgradeableBeacon` runtime codehash.
+/// @param actual The codehash observed on-chain.
+error MigrationBeaconCodehashMismatch(address beacon, bytes32 expected, bytes32 actual);
+
+/// @notice A production beacon's `implementation()` changed across the
+/// migration bundle. The migration moves the beacon's OWNER and must never
+/// alter what the beacon serves — every production proxy would follow.
+/// @param beacon The beacon whose implementation moved.
+/// @param expected The implementation captured before the bundle.
+/// @param actual The implementation observed after simulating the bundle.
+error BeaconImplementationMoved(address beacon, address expected, address actual);
+
+/// @notice Every production vault and beacon is already timelock-owned and
+/// every `_ADMIN` role already sits (exclusively) on the timelock — the
+/// migration has fully landed. Dispatching again authors an empty bundle,
+/// which is never meaningful.
 error NothingToMigrate();
+
+/// @notice The migration work selected from live chain state, grouped so
+/// `run()` carries one local for the whole selection rather than four.
+/// @dev Grouping is load-bearing, not cosmetic: `via_ir` is off for this
+/// repo (see CLAUDE.md) and `run()` runs up against the legacy codegen's
+/// stack limit, so each collapsed local buys headroom the authoring flow
+/// needs.
+/// @param vaults Production receipt vaults still owned by the Safe.
+/// @param beacons In-use upgrade beacons still owned by the Safe.
+/// @param grantRoles `_ADMIN` roles to grant to the timelock.
+/// @param renounceRoles `_ADMIN` roles the Safe must renounce.
+struct MigrationTargets {
+    address[] vaults;
+    address[] beacons;
+    bytes32[] grantRoles;
+    bytes32[] renounceRoles;
+}
 
 /// @notice The end-to-end governance-loop proof did not leave the scheduled
 /// operation in the `Done` state — the schedule → delay → execute path a
@@ -86,12 +131,24 @@ error GovernanceLoopNotProven(bytes32 id);
 ///   2. Transfers ownership of every production receipt vault from the
 ///      Safe to the timelock (`transferOwnership` — single-step
 ///      `OwnableUpgradeable`).
-///   3. Renounces the Safe's own copy of each `_ADMIN` role
+///   3. Transfers ownership of the chain's three in-use upgrade beacons
+///      (receipt, receipt vault, wrapped token vault) from the Safe to the
+///      timelock (`transferOwnership` — single-step `Ownable`).
+///   4. Renounces the Safe's own copy of each `_ADMIN` role
 ///      (`renounceRole` — last, so the Safe stays fully empowered until
 ///      every grant and transfer has landed inside the same atomic batch).
 ///
+/// The beacon leg is what makes the delay real rather than cosmetic. A
+/// beacon owner can `upgradeTo` a new implementation for EVERY production
+/// proxy on the chain in one transaction, and a hostile implementation can
+/// re-take vault ownership and rewrite the authoriser wiring outright — so
+/// a timelock over `setAuthorizer` and vault ownership with the beacons
+/// left on the Safe would be bypassable by design. Both surfaces move in
+/// the same atomic bundle.
+///
 /// After execution the timelock is the only path to `setAuthorizer`,
-/// `transferOwnership`, owner freezes, and authoriser grant-map changes:
+/// `transferOwnership`, owner freezes, beacon upgrades, and authoriser
+/// grant-map changes:
 /// the Safe schedules an operation on the timelock, waits out
 /// `TIMELOCK_MIN_DELAY` (48h), then executes it. The Safe KEEPS its three
 /// direct action roles (`DEPOSIT` / `WITHDRAW` / `CERTIFY`) — day-to-day
@@ -120,17 +177,18 @@ error GovernanceLoopNotProven(bytes32 id);
 ///    self-administration, no open roles); the chain's V4 authoriser clone
 ///    carries the pinned codehash and its six operational grants (service
 ///    signer + Safe action roles) are intact.
-/// 2. **Select** — still-Safe-owned vaults and still-Safe-held `_ADMIN`
-///    roles, from live chain state.
-/// 3. **Build** — grants, then transfers, then renounces, in one bundle.
-///    Compute the canonical MultiSend `SafeTxHash` against the live nonce
-///    for signer cross-check.
+/// 2. **Select** — still-Safe-owned vaults, still-Safe-owned beacons and
+///    still-Safe-held `_ADMIN` roles, from live chain state.
+/// 3. **Build** — grants, then vault transfers, then beacon transfers,
+///    then renounces, in one bundle. Compute the canonical MultiSend
+///    `SafeTxHash` against the live nonce for signer cross-check.
 /// 4. **Simulate** — prank-route each bundle item as the Safe.
 /// 5. **Post-state** — every production vault reports the timelock as
-///    `owner()` and the chain's authoriser as `authorizer()`; the full
-///    grant map holds with the timelock as admin holder; the Safe holds no
-///    `_ADMIN` role; Safe identity + threshold unchanged; timelock state
-///    unchanged.
+///    `owner()` and the chain's authoriser as `authorizer()`; every in-use
+///    beacon reports the timelock as `owner()` and still points at the
+///    implementation it pointed at before the bundle; the full grant map
+///    holds with the timelock as admin holder; the Safe holds no `_ADMIN`
+///    role; Safe identity + threshold unchanged; timelock state unchanged.
 /// 6. **Artifact** — emit the Tx Builder JSON to
 ///    `out/20260729-governance-timelock-migration-<chainid>.json`.
 /// 7. **Governance-loop proof** — schedule an idempotent admin operation
@@ -230,17 +288,30 @@ contract MigrateGovernanceToTimelock is Script {
 
         // --- Select from live state ---------------------------------------
 
-        address[] memory vaultTargets = _selectVaultTargets(tokens, address(safe), timelock);
-        (bytes32[] memory grantRoles, bytes32[] memory renounceRoles) =
-            _selectRoleTargets(authoriser, address(safe), timelock);
+        MigrationTargets memory targets;
+        targets.vaults = _selectVaultTargets(tokens, address(safe), timelock);
+        targets.beacons = _selectBeaconTargets(address(safe), timelock);
+        (targets.grantRoles, targets.renounceRoles) = _selectRoleTargets(authoriser, address(safe), timelock);
 
-        if (vaultTargets.length == 0 && grantRoles.length == 0 && renounceRoles.length == 0) {
+        if (
+            targets.vaults.length == 0 && targets.beacons.length == 0 && targets.grantRoles.length == 0
+                && targets.renounceRoles.length == 0
+        ) {
             revert NothingToMigrate();
         }
 
+        console2.log("Vault transfers:", targets.vaults.length);
+        console2.log("Beacon transfers:", targets.beacons.length);
+        console2.log("Admin role grants:", targets.grantRoles.length);
+        console2.log("Admin role renounces:", targets.renounceRoles.length);
+
+        // What the beacons serve, captured before the bundle so the
+        // post-state can prove the migration moved ownership only.
+        address[3] memory beaconImplsBefore = _beaconImplementations();
+
         // --- Build the bundle ---------------------------------------------
 
-        SafeTx[] memory txs = _buildBundle(authoriser, timelock, address(safe), vaultTargets, grantRoles, renounceRoles);
+        SafeTx[] memory txs = _buildBundle(authoriser, timelock, address(safe), targets);
 
         // Capture the nonce before any simulation; the artifact executes as
         // a single MultiSend at this nonce, so this is the hash signers
@@ -256,33 +327,35 @@ contract MigrateGovernanceToTimelock is Script {
 
         // --- Post-state ---------------------------------------------------
 
-        // Every production vault is timelock-owned and still gated by the
-        // chain's authoriser.
-        LibTokenInvariants.assertUniformOwnership(tokens, timelock);
-        LibTokenInvariants.assertUniformAuthoriser(tokens, authoriser);
-
-        // The full grant map holds with the timelock as admin holder, and
-        // the Safe's admin copies are gone — admin power moves, operational
-        // power stays.
-        LibAuthoriserInvariants.assertExpectedGrants(authoriser, address(safe), timelock);
-        bytes32[] memory roles = adminRoles();
-        for (uint256 i = 0; i < roles.length; i++) {
-            if (IAccessControl(authoriser).hasRole(roles[i], address(safe))) {
-                revert UnexpectedAdminRoleState(roles[i]);
-            }
-        }
-
-        // Safe identity + threshold unchanged; timelock configuration
-        // unchanged.
-        LibSafeInvariants.assertImmutableInvariants(safe);
-        LibSafeInvariants.assertThreshold(safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
-        LibTimelockInvariants.assertTimelockState(timelock, address(safe));
+        _assertPostState(safe, timelock, authoriser, tokens, beaconImplsBefore);
 
         // --- Artifact -----------------------------------------------------
 
+        _emitArtifact(address(safe), txs, bundleSafeTxHash, nonce, timelock);
+
+        // --- Governance-loop proof ----------------------------------------
+
+        _proveGovernanceLoop(safe, timelock, authoriser);
+    }
+
+    /// @notice Write the Safe Tx Builder JSON for the bundle and log it
+    /// alongside the values a signer cross-checks in the Safe UI: the
+    /// canonical MultiSend `SafeTxHash`, the nonce it was computed against,
+    /// and the timelock the bundle hands governance to. The per-leg counts
+    /// are logged at selection time, before the bundle is built.
+    /// @dev Split out of `run()` for the same stack-limit reason as
+    /// `_assertPostState` — `via_ir` is off for this repo.
+    /// @param safe The chain's token-owner Safe.
+    /// @param txs The bundle transactions in execution order.
+    /// @param bundleSafeTxHash The canonical MultiSend `SafeTxHash`.
+    /// @param nonce The Safe nonce the hash was computed against.
+    /// @param timelock The chain's governance timelock.
+    function _emitArtifact(address safe, SafeTx[] memory txs, bytes32 bundleSafeTxHash, uint256 nonce, address timelock)
+        internal
+    {
         string memory artifactPath =
             string.concat("out/20260729-governance-timelock-migration-", vm.toString(block.chainid), ".json");
-        string memory json = LibSafeOps.emitTxBuilderJson(address(safe), block.chainid, BUNDLE_NAME, txs);
+        string memory json = LibSafeOps.emitTxBuilderJson(safe, block.chainid, BUNDLE_NAME, txs);
         vm.writeFile(artifactPath, json);
 
         console2.log("==== TX BUILDER JSON BEGIN ====");
@@ -292,13 +365,57 @@ contract MigrateGovernanceToTimelock is Script {
         console2.log("Bundle MultiSend SafeTxHash:", vm.toString(bundleSafeTxHash));
         console2.log("Nonce:", nonce);
         console2.log("Timelock:", vm.toString(timelock));
-        console2.log("Vault transfers:", vaultTargets.length);
-        console2.log("Admin role grants:", grantRoles.length);
-        console2.log("Admin role renounces:", renounceRoles.length);
+    }
 
-        // --- Governance-loop proof ----------------------------------------
+    /// @notice Assert the state the simulated bundle must have produced:
+    /// every production vault timelock-owned and still gated by the chain's
+    /// authoriser; every in-use beacon timelock-owned and still serving the
+    /// implementation it served before the bundle (the migration moves the
+    /// upgrade AUTHORITY, never the upgrade); the full grant map holding
+    /// with the timelock as admin holder and no `_ADMIN` copy left on the
+    /// Safe; Safe identity, threshold and timelock configuration unchanged.
+    /// @dev Split out of `run()` rather than inlined: `run()` already
+    /// carries the selection, bundle, nonce and artifact locals, and
+    /// `via_ir` is off for this repo (see CLAUDE.md — IR was measured and
+    /// made the vault bigger), so the post-state block's locals push the
+    /// function over the stack limit when inlined.
+    /// @param safe The chain's token-owner Safe.
+    /// @param timelock The chain's governance timelock.
+    /// @param authoriser The chain's authoriser clone.
+    /// @param tokens The chain's token table.
+    /// @param beaconImplsBefore The beacon implementations captured before
+    /// the bundle, index-aligned with `prodBeaconsForChainId`.
+    function _assertPostState(
+        IGnosisSafe safe,
+        address timelock,
+        address authoriser,
+        TokenInstance[] memory tokens,
+        address[3] memory beaconImplsBefore
+    ) internal view {
+        LibTokenInvariants.assertUniformOwnership(tokens, timelock);
+        LibTokenInvariants.assertUniformAuthoriser(tokens, authoriser);
 
-        _proveGovernanceLoop(safe, timelock, authoriser);
+        LibBeaconInvariants.assertProdBeaconsOwnedBy(block.chainid, timelock);
+        address[3] memory beaconsAfter = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        address[3] memory beaconImplsAfter = _beaconImplementations();
+        for (uint256 i = 0; i < beaconsAfter.length; i++) {
+            if (beaconImplsAfter[i] != beaconImplsBefore[i]) {
+                revert BeaconImplementationMoved(beaconsAfter[i], beaconImplsBefore[i], beaconImplsAfter[i]);
+            }
+        }
+
+        // Admin power moves, operational power stays.
+        LibAuthoriserInvariants.assertExpectedGrants(authoriser, address(safe), timelock);
+        bytes32[] memory roles = adminRoles();
+        for (uint256 i = 0; i < roles.length; i++) {
+            if (IAccessControl(authoriser).hasRole(roles[i], address(safe))) {
+                revert UnexpectedAdminRoleState(roles[i]);
+            }
+        }
+
+        LibSafeInvariants.assertImmutableInvariants(safe);
+        LibSafeInvariants.assertThreshold(safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
+        LibTimelockInvariants.assertTimelockState(timelock, address(safe));
     }
 
     /// @notice Pre-flight the chain's authoriser: deployed with the pinned
@@ -359,6 +476,63 @@ contract MigrateGovernanceToTimelock is Script {
         }
     }
 
+    /// @notice Select the beacon migration targets from live chain state:
+    /// every in-use production beacon still owned by the Safe. A beacon
+    /// already owned by the timelock is skipped; any other owner aborts the
+    /// authoring.
+    ///
+    /// Each candidate's runtime codehash is pinned to the OZ
+    /// `UpgradeableBeacon` bytecode FIRST, before its `owner()` is trusted:
+    /// the whole point of the codehash pin is that a matching beacon's
+    /// ownership and `upgradeTo` semantics are guaranteed by OZ's audit, so
+    /// transferring ownership on the strength of a `owner()` read from
+    /// unpinned bytecode would be reading a selector a look-alike could
+    /// shadow.
+    /// @param safe The chain's token-owner Safe.
+    /// @param timelock The chain's governance timelock.
+    /// @return targets The still-Safe-owned in-use beacons, in fixed
+    /// (receipt, receipt vault, wrapped token vault) order.
+    function _selectBeaconTargets(address safe, address timelock) internal view returns (address[] memory targets) {
+        address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        address[] memory candidates = new address[](beacons.length);
+        uint256 count = 0;
+        for (uint256 i = 0; i < beacons.length; i++) {
+            bytes32 codehash = beacons[i].codehash;
+            if (codehash != LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH) {
+                revert MigrationBeaconCodehashMismatch(
+                    beacons[i], LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH, codehash
+                );
+            }
+            address actual = Ownable(beacons[i]).owner();
+            if (actual == timelock) {
+                continue;
+            }
+            if (actual != safe) {
+                revert UnexpectedBeaconOwner(beacons[i], actual);
+            }
+            candidates[count] = beacons[i];
+            count++;
+        }
+        targets = new address[](count);
+        for (uint256 i = 0; i < count; i++) {
+            targets[i] = candidates[i];
+        }
+    }
+
+    /// @notice The implementation each in-use beacon currently serves, in
+    /// `prodBeaconsForChainId` order. Captured before the bundle and
+    /// re-read after so the migration can prove it moved ownership without
+    /// touching what the beacons point at — a beacon implementation change
+    /// would propagate to every production proxy on the chain.
+    /// @return impls The three current implementations, index-aligned with
+    /// `prodBeaconsForChainId`.
+    function _beaconImplementations() internal view returns (address[3] memory impls) {
+        address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        for (uint256 i = 0; i < beacons.length; i++) {
+            impls[i] = IBeacon(beacons[i]).implementation();
+        }
+    }
+
     /// @notice Select the role migration work from live chain state. Per
     /// `_ADMIN` role: Safe-only → grant + renounce; both (partial prior
     /// run) → renounce only; timelock-only → done, skip; neither → abort.
@@ -404,46 +578,56 @@ contract MigrateGovernanceToTimelock is Script {
     }
 
     /// @notice Build the bundle in the safety-critical order: every grant
-    /// first, then every vault transfer, then every renounce — the Safe
-    /// gives nothing up until everything it is handing over has landed, and
-    /// the whole sequence executes atomically in one MultiSend.
+    /// first, then every vault transfer, then every beacon transfer, then
+    /// every renounce — the Safe gives nothing up until everything it is
+    /// handing over has landed, and the whole sequence executes atomically
+    /// in one MultiSend.
     /// @param authoriser The chain's authoriser clone.
     /// @param timelock The chain's governance timelock.
     /// @param safe The chain's token-owner Safe.
-    /// @param vaultTargets The still-Safe-owned receipt vaults.
-    /// @param grantRoles Roles to grant to the timelock.
-    /// @param renounceRoles Roles the Safe renounces.
+    /// @param targets The migration work selected from live chain state.
     /// @return txs The bundle transactions in execution order.
-    function _buildBundle(
-        address authoriser,
-        address timelock,
-        address safe,
-        address[] memory vaultTargets,
-        bytes32[] memory grantRoles,
-        bytes32[] memory renounceRoles
-    ) internal pure returns (SafeTx[] memory txs) {
-        txs = new SafeTx[](grantRoles.length + vaultTargets.length + renounceRoles.length);
+    function _buildBundle(address authoriser, address timelock, address safe, MigrationTargets memory targets)
+        internal
+        pure
+        returns (SafeTx[] memory txs)
+    {
+        txs = new SafeTx[](
+            targets.grantRoles.length + targets.vaults.length + targets.beacons.length + targets.renounceRoles.length
+        );
         uint256 t = 0;
-        for (uint256 i = 0; i < grantRoles.length; i++) {
+        for (uint256 i = 0; i < targets.grantRoles.length; i++) {
             txs[t] = SafeTx({
                 to: authoriser,
                 value: 0,
-                data: abi.encodeCall(IAccessControl.grantRole, (grantRoles[i], timelock)),
+                data: abi.encodeCall(IAccessControl.grantRole, (targets.grantRoles[i], timelock)),
                 operation: 0
             });
             t++;
         }
-        for (uint256 i = 0; i < vaultTargets.length; i++) {
+        for (uint256 i = 0; i < targets.vaults.length; i++) {
             txs[t] = SafeTx({
-                to: vaultTargets[i], value: 0, data: abi.encodeCall(Ownable.transferOwnership, (timelock)), operation: 0
+                to: targets.vaults[i],
+                value: 0,
+                data: abi.encodeCall(Ownable.transferOwnership, (timelock)),
+                operation: 0
             });
             t++;
         }
-        for (uint256 i = 0; i < renounceRoles.length; i++) {
+        for (uint256 i = 0; i < targets.beacons.length; i++) {
+            txs[t] = SafeTx({
+                to: targets.beacons[i],
+                value: 0,
+                data: abi.encodeCall(Ownable.transferOwnership, (timelock)),
+                operation: 0
+            });
+            t++;
+        }
+        for (uint256 i = 0; i < targets.renounceRoles.length; i++) {
             txs[t] = SafeTx({
                 to: authoriser,
                 value: 0,
-                data: abi.encodeCall(IAccessControl.renounceRole, (renounceRoles[i], safe)),
+                data: abi.encodeCall(IAccessControl.renounceRole, (targets.renounceRoles[i], safe)),
                 operation: 0
             });
             t++;
