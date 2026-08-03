@@ -76,4 +76,48 @@ library LibERC20Storage {
         }
         return supply;
     }
+
+    /// @notice Write the raw underlying `_totalSupply` at OZ's ERC-7201 slot.
+    /// Bypasses OZ's `_update` entirely — no `Transfer` event, no balance
+    /// adjustment.
+    ///
+    /// @dev This slot is NOT the reported supply: `StoxReceiptVault.totalSupply()`
+    /// is the rebase-aware `LibTotalSupply.effectiveTotalSupply()`. Writing
+    /// here keeps OZ's internals self-consistent and does not change what the
+    /// token reports.
+    ///
+    /// @param newTotalSupply The new value to write to `_totalSupply`.
+    function setUnderlyingTotalSupply(uint256 newTotalSupply) internal {
+        bytes32 slot = ERC20_STORAGE_LOCATION;
+        assembly ("memory-safe") {
+            sstore(add(slot, 2), newTotalSupply)
+        }
+    }
+
+    /// @notice Shift OZ's raw `_totalSupply` by the delta a rebase applied to
+    /// one account's balance, preserving OZ's own `_totalSupply == Σ _balances`
+    /// invariant.
+    ///
+    /// @dev The lazy rebase migration rewrites `_balances` behind OZ's back.
+    /// OZ's `_update` still subtracts from the raw slot **unchecked** on burn
+    /// and adds to it **checked** on mint, so a slot left stale by a rebase
+    /// drifts below the true balance sum, wraps to ~`2**256` on the first burn
+    /// that exceeds it, and from then on reverts every mint with `Panic(0x11)`
+    /// — silently, because `totalSupply()`, `balanceOf()` and all events keep
+    /// agreeing with each other. The slot has no write path other than
+    /// mint/burn, so recovery would need a beacon implementation upgrade.
+    /// See `StoxReceiptVaultRawTotalSupplyTest` (Protofire H01).
+    ///
+    /// Arithmetic is checked. `supply >= oldBalance` always holds (the account's
+    /// balance is one of the summands of the supply), so the only reachable
+    /// revert is an overflow on `supply + newBalance`, which means the split
+    /// multiplier has pushed supply past `uint256` — `LibRebaseMath` would
+    /// already have hit that on the individual balance, and failing closed is
+    /// the correct outcome.
+    ///
+    /// @param oldBalance The account's stored balance before rasterization.
+    /// @param newBalance The account's stored balance after rasterization.
+    function applyBalanceDeltaToTotalSupply(uint256 oldBalance, uint256 newBalance) internal {
+        setUnderlyingTotalSupply(underlyingTotalSupply() + newBalance - oldBalance);
+    }
 }

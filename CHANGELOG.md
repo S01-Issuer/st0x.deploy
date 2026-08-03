@@ -2,6 +2,35 @@
 
 ## V4 (rain.vats 0.1.6)
 
+### StoxReceiptVault
+
+- **Fix (audit H01): keep OZ's `_totalSupply` in step with rebased balances.**
+  `migrateAccount` rewrites `_balances` directly via `LibERC20Storage`, so
+  before this change OZ's own `_totalSupply` accumulator was never adjusted for
+  a stock split and drifted below the true balance sum. OZ subtracts from that
+  accumulator **unchecked** on burn and adds to it **checked** on mint, so the
+  first burn exceeding the stale value wrapped the slot to ~`2**256` and every
+  subsequent mint reverted with `Panic(0x11)` — permanently capping issuance,
+  with no external symptom because `totalSupply()`, `balanceOf()` and all events
+  stayed mutually consistent. The slot has no write path other than mint/burn,
+  so recovery would have required a beacon implementation upgrade.
+  `migrateAccount` now applies the balance delta to the raw slot as well, via
+  the new `LibERC20Storage.setUnderlyingTotalSupply`. Reported supply is
+  unchanged: `totalSupply()` remains `LibTotalSupply.effectiveTotalSupply()` and
+  the per-cursor pot accounting is untouched. Reported by Protofire as H01 in
+  the `st0x.deploy 5.0` report (July 2026, audited at `ed767bf2`).
+
+  ⚠️ **NOT YET DEPLOYABLE — EIP-170.** `StoxReceiptVault` had a 6-byte runtime
+  margin before this change (24,570 of 24,576 at `optimizer_runs = 5000`); the
+  smallest correct form of the fix costs ~148 bytes, putting the vault 142 bytes
+  over the limit. Measured runtime sizes with the fix applied: `runs=5000` →
+  24,718 (over by 142); `runs=3000` → 24,456; `runs=2000` → 24,037; `runs=1000`
+  → 22,936. Lowering `optimizer_runs` trades runtime gas for bytecode and
+  changes every codehash in the repo, so the lever is deliberately NOT pulled
+  here — it needs a release decision. Until it is, the generated pointer
+  snapshots are intentionally left un-regenerated, because the chosen lever
+  determines the final bytecode.
+
 ### New contracts
 
 - **ST0xOrchestrator**: Singleton mint/burn proxy for the whole ST0x

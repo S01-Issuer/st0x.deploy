@@ -63,6 +63,14 @@ contract TestStoxReceiptVault is StoxReceiptVault {
         return LibERC20Storage.underlyingBalance(account);
     }
 
+    /// Expose OZ's raw `_totalSupply` slot. `totalSupply()` is overridden to
+    /// the rebase-aware `LibTotalSupply.effectiveTotalSupply()`, so this is the
+    /// only way a test can observe the underlying OZ accumulator that
+    /// `ERC20Upgradeable._update` mutates.
+    function rawTotalSupply() external view returns (uint256) {
+        return LibERC20Storage.underlyingTotalSupply();
+    }
+
     function migrationCursor(address account) external view returns (uint256) {
         return LibCorporateAction.getStorage().accountMigrationCursor[account];
     }

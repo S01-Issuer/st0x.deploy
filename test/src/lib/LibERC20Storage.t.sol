@@ -106,6 +106,37 @@ contract LibERC20StorageTest is Test {
         assertEq(token.libBalanceOf(b), uint256(amountB), "Lib read of b untouched");
     }
 
+    /// LibERC20Storage.setUnderlyingTotalSupply writes a value that
+    /// ERC20Upgradeable.totalSupply observes. Pins the `+2` offset in the write
+    /// direction — `underlyingTotalSupply` alone only pins it for reads.
+    function testSetTotalSupplyVisibleToOzTotalSupply() external {
+        token.mint(ALICE, 100);
+        token.libSetTotalSupply(999);
+        assertEq(token.totalSupply(), 999, "OZ totalSupply must reflect the direct write");
+        assertEq(token.libTotalSupply(), 999, "Lib read must match Lib write");
+    }
+
+    /// Writing `_totalSupply` must not disturb any `_balances` slot — i.e. the
+    /// `+2` offset really is a distinct slot from the balances mapping base.
+    function testSetTotalSupplyLeavesBalancesUntouched() external {
+        token.mint(ALICE, 100);
+        token.mint(BOB, 200);
+        token.libSetTotalSupply(12345);
+        assertEq(token.balanceOf(ALICE), 100, "Alice's balance untouched");
+        assertEq(token.balanceOf(BOB), 200, "Bob's balance untouched");
+        assertEq(token.totalSupply(), 12345, "only totalSupply moved");
+    }
+
+    /// Round trip: write via OZ, read via Lib, write via Lib, read via OZ.
+    function testFuzzTotalSupplyRoundTrip(uint128 mintAmount, uint256 directWrite) external {
+        token.mint(ALICE, uint256(mintAmount));
+        assertEq(token.libTotalSupply(), token.totalSupply());
+
+        token.libSetTotalSupply(directWrite);
+        assertEq(token.totalSupply(), directWrite, "OZ must reflect Lib write");
+        assertEq(token.libTotalSupply(), directWrite, "Lib read must match Lib write");
+    }
+
     /// Fuzz: totalSupply reflects multiple mints across randomized accounts.
     function testFuzzTotalSupplyMultipleAccounts(address a, address b, uint64 amountA, uint64 amountB) external {
         vm.assume(a != address(0) && b != address(0));

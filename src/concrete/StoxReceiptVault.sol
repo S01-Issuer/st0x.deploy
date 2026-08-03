@@ -149,6 +149,24 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         // Skip the SSTORE when the rasterized balance is unchanged.
         if (newBalance != storedBalance) {
             LibERC20Storage.setUnderlyingBalance(account, newBalance);
+
+            // Rebasing rewrites `_balances` behind OZ's back, so apply the same
+            // delta to OZ's own `_totalSupply` accumulator and preserve its
+            // `_totalSupply == Σ _balances` invariant.
+            //
+            // The raw slot is not the reported supply — `totalSupply()` above
+            // is the rebase-aware `LibTotalSupply.effectiveTotalSupply()`, and
+            // the pot accounting in `onAccountMigrated` below is untouched by
+            // this write. But OZ's `_update` still subtracts from the raw slot
+            // **unchecked** on burn and adds to it **checked** on mint. Left
+            // stale, it drifts below the true balance sum, wraps to ~2**256 on
+            // the first burn that exceeds it, and from then on every mint
+            // reverts with `Panic(0x11)` — silently, because `totalSupply()`,
+            // `balanceOf()` and all events keep agreeing with each other. The
+            // slot has no write path other than mint/burn, so recovering from
+            // that state would need a beacon implementation upgrade.
+            //
+            LibERC20Storage.applyBalanceDeltaToTotalSupply(storedBalance, newBalance);
         }
         emit AccountMigrated(account, currentCursor, newCursor, storedBalance, newBalance);
 

@@ -34,4 +34,8 @@ contract TestERC20 is ERC20Upgradeable {
     function libSetBalance(address account, uint256 newBalance) external {
         LibERC20Storage.setUnderlyingBalance(account, newBalance);
     }
+
+    function libSetTotalSupply(uint256 newTotalSupply) external {
+        LibERC20Storage.setUnderlyingTotalSupply(newTotalSupply);
+    }
 }
