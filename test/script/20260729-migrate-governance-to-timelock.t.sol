@@ -14,31 +14,13 @@ import {
     UnexpectedVaultOwner,
     NothingToMigrate
 } from "../../script/20260729-migrate-governance-to-timelock.s.sol";
+import {MigrateGovernanceToTimelockHarness} from "./MigrateGovernanceToTimelockHarness.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibSafeOps, SafeTx} from "../../src/lib/LibSafeOps.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
-
-/// @title MigrateGovernanceToTimelockHarness
-/// @notice Overrides the script's timelock resolution so the full authoring
-/// can be exercised on a fork BEFORE the production pins are hydrated: the
-/// tests deploy the real timelock at its derived address via the deploy
-/// script, then point the migration at it. Production dispatch always reads
-/// the `LibTimelockInvariants` pin (the base contract's behaviour, covered
-/// by `testRunRefusesUnpinnedTimelock`).
-contract MigrateGovernanceToTimelockHarness is MigrateGovernanceToTimelock {
-    address internal immutable I_TIMELOCK;
-
-    constructor(address timelock) {
-        I_TIMELOCK = timelock;
-    }
-
-    function activeChainTimelock() internal view override returns (address) {
-        return I_TIMELOCK;
-    }
-}
 
 /// @title MigrateGovernanceToTimelockTest
 /// @notice Live Base head fork coverage for the governance migration
