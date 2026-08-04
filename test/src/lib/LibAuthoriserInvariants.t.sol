@@ -7,7 +7,8 @@ import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessContro
 import {
     LibAuthoriserInvariants,
     UnexpectedDefaultAdmin,
-    AuthoriserImplCodehashMismatch
+    AuthoriserImplCodehashMismatch,
+    DeployKeyHoldsRole
 } from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
@@ -78,5 +79,40 @@ contract LibAuthoriserInvariantsTest is Test {
             )
         );
         harness.callAssertExpectedGrants(clone);
+    }
+
+    /// @notice Neither the hot deploy key nor the retired deploy EOA holds
+    /// any role on the live production clone. Passes against live Base
+    /// state; also runs implicitly inside every `assertExpectedGrants`.
+    function testAssertKeysHoldNoRolesPassesLive() external {
+        selectBaseFork();
+        LibAuthoriserInvariants.assertKeysHoldNoRoles(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE);
+    }
+
+    /// @notice `assertKeysHoldNoRoles` reverts `DeployKeyHoldsRole` when the
+    /// hot deploy key holds a role from the pinned universe.
+    function testAssertKeysHoldNoRolesRejectsHotKeyRole() external {
+        selectBaseFork();
+        address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        address hotKey = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC_DEPLOYER;
+        bytes32 role = keccak256("DEPOSIT_ADMIN");
+        vm.mockCall(clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, role, hotKey), abi.encode(true));
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        vm.expectRevert(abi.encodeWithSelector(DeployKeyHoldsRole.selector, clone, role, hotKey));
+        harness.callAssertKeysHoldNoRoles(clone);
+    }
+
+    /// @notice `assertKeysHoldNoRoles` reverts `DeployKeyHoldsRole` when the
+    /// retired deploy EOA holds `DEFAULT_ADMIN_ROLE`.
+    function testAssertKeysHoldNoRolesRejectsRetiredKeyDefaultAdmin() external {
+        selectBaseFork();
+        address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        address retiredKey = LibProdDeployV4.BEACON_INITIAL_OWNER;
+        vm.mockCall(
+            clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, bytes32(0), retiredKey), abi.encode(true)
+        );
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        vm.expectRevert(abi.encodeWithSelector(DeployKeyHoldsRole.selector, clone, bytes32(0), retiredKey));
+        harness.callAssertKeysHoldNoRoles(clone);
     }
 }

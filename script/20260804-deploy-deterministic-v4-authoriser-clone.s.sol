@@ -13,6 +13,7 @@ import {
 } from "rain-vats-0.1.7/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
+import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 
 /// @notice The deterministic `CloneFactory` (rain-factory 0.1.5) has no code
@@ -180,6 +181,11 @@ contract DeployDeterministicV4AuthoriserClone is Script {
                 revert SafeMissingAdminRole(adminRoles[i], safe);
             }
         }
+
+        // The deploy key deploys and holds NOTHING: neither the hot deploy
+        // key nor the retired deploy EOA may appear anywhere in the clone's
+        // role graph, enforced at broadcast time.
+        LibAuthoriserInvariants.assertKeysHoldNoRoles(clone);
     }
 
     /// @notice The seven `_ADMIN` roles the base + ST0x-override `initialize`
