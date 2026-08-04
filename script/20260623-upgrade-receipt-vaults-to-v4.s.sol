@@ -34,9 +34,9 @@ error V4ImplementationNotDeployed(address implementation);
 error V4CodehashMismatch(address implementation, bytes32 expected, bytes32 actual);
 
 /// @notice The V4 authoriser clone pin
-/// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`) is `address(0)`. It is
-/// computed up-front by `BuildPointers`, so a zero here means the pin failed to
-/// generate.
+/// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`) is `address(0)` — no
+/// deployed clone has been pinned for this chain, so the upgrade cannot be
+/// authored.
 error V4AuthoriserCloneNotPinned();
 
 /// @notice The V4 authoriser clone address is pinned but has no runtime code.
@@ -179,7 +179,7 @@ contract UpgradeReceiptVaultsToV4 is Script {
     }
 
     /// @notice The V4 authoriser clone that every production receipt vault is
-    /// rewired onto. Pinned deterministically up-front (see `BuildPointers`).
+    /// rewired onto. Pinned in `LibProdDeployV4` from the deployed clone.
     address internal constant V4_AUTHORISER_CLONE = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
 
     /// @notice Human-readable name embedded in the emitted Tx Builder JSON's
