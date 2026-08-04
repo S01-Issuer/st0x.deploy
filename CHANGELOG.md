@@ -2,6 +2,28 @@
 
 ## V4 (rain.vats 0.1.6)
 
+### Deploy scripts
+
+- **The per-chain "deploy missing tokens" scripts are merged into one.**
+  `20260722-deploy-missing-tokens-ethereum` and `-hyperevm` were byte-identical
+  apart from the chain each hardcoded; both are replaced by
+  `20260807-deploy-missing-tokens`, which resolves the target chain's token
+  table, authoriser and Safe from `block.chainid`. Adding a target chain is now
+  a table plus an authoriser pin rather than a new copy of the script.
+- **"Missing" is now defined against Base, not against the canonical config.** A
+  token is missing when its `underlying` appears in `productionTokensBase()` and
+  not in the target chain's table, matched by key rather than by index. Base is
+  the source of truth for what the token set is — a ticker is deployed there
+  first, pinned, then copied outward — so the target chain's table simply lags
+  Base until the script runs. Matching by key is what lets the two tables carry
+  different lengths in that window; the previous index-join required every table
+  to be the same length at all times. Cross-chain parity is red between the Base
+  pin and the copy, which is accurate: the chains genuinely differ until the
+  copy lands.
+- Dispatching the script against Base, or any chain without a token table,
+  reverts `UnsupportedTargetChain` rather than resolving to an empty table and
+  reading as "copy everything".
+
 ### New contracts
 
 - **ST0xOrchestrator**: Singleton mint/burn proxy for the whole ST0x

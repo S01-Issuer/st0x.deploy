@@ -515,10 +515,10 @@ library LibTokenInvariants {
             address(0x1D6F0763e58FA6d472d470Eaaef0a4C08080d208)
         );
         // RKLB was accidentally omitted from the table when the 28-token
-        // Ethereum broadcast ran; the gap-filling
-        // `20260722-deploy-missing-tokens-ethereum` broadcast (EXECUTED
+        // Ethereum broadcast ran; a gap-filling broadcast (EXECUTED
         // 2026-07-22, manual-broadcast run 29924926246) deployed it and this
-        // row pins the logged tuple.
+        // row pins the logged tuple. That per-chain script has since been
+        // superseded by `20260807-deploy-missing-tokens`.
         tokens[28] = TokenInstance(
             "RKLB",
             address(0xFf5b15a4f478F296893b0b244D9b118Be87bCda2),
