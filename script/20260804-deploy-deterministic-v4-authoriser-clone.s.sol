@@ -116,14 +116,18 @@ contract DeployDeterministicV4AuthoriserClone is Script {
             );
         if (predicted != target) revert PredictedCloneMismatch(predicted, target);
 
-        // Idempotency: the pinned clone already occupies the target — done.
-        // Any OTHER code at the target is unrecoverable by rerunning.
+        // Idempotency: the pinned clone already occupies the target — done,
+        // provided its initialized state also holds (the codehash cannot see
+        // initialization, and a same-address clone could have been initialized
+        // with different admin data). Any OTHER code at the target is
+        // unrecoverable by rerunning.
         if (target.code.length != 0) {
             if (target.codehash != LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC_CODEHASH) {
                 revert TargetOccupiedByForeignCode(
                     target, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC_CODEHASH, target.codehash
                 );
             }
+            assertPostState(target, safe);
             console2.log("Deterministic V4 authoriser clone already at target; nothing to do.");
             console2.log("Target:", vm.toString(target));
             return;

@@ -17,6 +17,7 @@ import {
     DeterministicFactoryNotDeployed,
     DeterministicFactoryCodehashMismatch,
     DeterministicV4ImplCodehashMismatch,
+    SafeMissingAdminRole,
     TargetOccupiedByForeignCode
 } from "../../script/20260804-deploy-deterministic-v4-authoriser-clone.s.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
@@ -107,35 +108,68 @@ contract DeployDeterministicV4AuthoriserCloneTest is Test {
         }
     }
 
-    /// @notice Happy path against the REAL factory on the Base fork: a
-    /// deterministic clone deployed from the pinned deployer/salt lands
-    /// exactly on the pin, and the script's post-state assertions hold.
+    /// @notice Against the REAL factory on the Base fork: a deterministic
+    /// clone deployed from the pinned deployer/salt lands exactly on the pin
+    /// and the script's post-state assertions hold. Once the broadcast has
+    /// happened for real, the live clone at the target must satisfy the same
+    /// post-state instead — the property is asserted either way.
     function testCloneFromPinnedDeployerLandsOnPin() external {
         selectBaseFork();
         address target = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC;
-        vm.skip(target.code.length != 0);
-
-        address deployer = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC_DEPLOYER;
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
-        vm.deal(deployer, 1 ether);
-        vm.prank(deployer, deployer);
-        address clone = ICloneableFactoryV3(LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS)
-            .cloneDeterministic(
-                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1,
-                abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: safe})),
-                LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC_SALT
-            );
-        assertEq(clone, target, "clone did not land on the pinned target");
-        script.assertPostState(clone, safe);
+
+        if (target.code.length == 0) {
+            address deployer = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC_DEPLOYER;
+            vm.deal(deployer, 1 ether);
+            vm.prank(deployer, deployer);
+            address clone = ICloneableFactoryV3(LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS)
+                .cloneDeterministic(
+                    LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1,
+                    abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: safe})),
+                    LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC_SALT
+                );
+            assertEq(clone, target, "clone did not land on the pinned target");
+            script.assertPostState(clone, safe);
+        } else {
+            script.assertPostState(target, safe);
+        }
     }
 
-    /// @notice `run()` no-ops (no revert, no broadcast) when the pinned clone
-    /// already occupies the target.
+    /// @notice `run()` no-ops (no revert, no broadcast) when a properly
+    /// initialized pinned clone already occupies the target — a real factory
+    /// deploy from the pinned deployer, not an etch, so the idempotent path
+    /// sees genuine initialized state.
     function testRunNoOpsWhenTargetAlreadyHydrated() external {
         selectBaseFork();
-        vm.etch(
-            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC,
-            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC_CODE
+        address target = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC;
+        if (target.code.length == 0) {
+            address deployer = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC_DEPLOYER;
+            address safe = LibSafeInvariants.safeForChainId(block.chainid);
+            vm.deal(deployer, 1 ether);
+            vm.prank(deployer, deployer);
+            ICloneableFactoryV3(LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS)
+                .cloneDeterministic(
+                    LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1,
+                    abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: safe})),
+                    LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC_SALT
+                );
+        }
+        script.run();
+    }
+
+    /// @notice `run()` rejects a shape-matching clone at the target whose
+    /// initialized state is missing the Safe's admin grants — the codehash
+    /// alone is not proof of correct initialization.
+    function testRunRejectsUninitializedCloneAtTarget() external {
+        selectBaseFork();
+        address target = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC;
+        vm.etch(target, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC_CODE);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                SafeMissingAdminRole.selector,
+                script.autoGrantedAdminRoles()[0],
+                LibSafeInvariants.safeForChainId(LibSafeInvariants.BASE_CHAIN_ID)
+            )
         );
         script.run();
     }
