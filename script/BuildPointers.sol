@@ -27,6 +27,12 @@ import {
 } from "../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {ST0xOrchestratorBeaconSetDeployer} from "../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
+import {Clones} from "@openzeppelin-contracts-5.6.1/proxy/Clones.sol";
+import {LibCloneFactoryDeploy} from "rain-factory-0.1.5/src/lib/LibCloneFactoryDeploy.sol";
+import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1167Proxy.sol";
+import {
+    DEPLOYED_ADDRESS as V4_AUTHORISER_IMPL_0_1_1
+} from "../src/generated/0_1_1/StoxOffchainAssetReceiptVaultAuthorizerV1.pointers.sol";
 
 contract BuildPointers is Script {
     /// @notice The rolling "current source" snapshot tag — always `candidate`,
@@ -147,6 +153,27 @@ contract BuildPointers is Script {
     string constant GEN_V4_PATH = "src/generated/LibProdDeployV4.sol";
     string constant GEN_CURRENT_PATH = "src/generated/LibProdDeployCurrent.sol";
     string constant GEN_OWNER = "0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b";
+
+    /// @notice Salt for the deterministic V4 authoriser clone migration target
+    /// (#292). The 0.1.5 `CloneFactory` namespaces it by the broadcasting
+    /// account, so the target address holds only when broadcast from
+    /// `V4_AUTHORISER_CLONE_DEPLOYER`.
+    bytes32 constant V4_AUTHORISER_CLONE_SALT = bytes32(0);
+
+    /// @notice The account the deterministic clone deploy must broadcast from —
+    /// the CI-held deploy key, the same account as `BEACON_INITIAL_OWNER`.
+    address constant V4_AUTHORISER_CLONE_DEPLOYER = 0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b;
+
+    /// @notice Hex body of `data` without the `0x` prefix, for `hex"..."`
+    /// constant emission.
+    function hexBody(bytes memory data) internal pure returns (string memory) {
+        bytes memory prefixed = bytes(vm.toString(data));
+        bytes memory body = new bytes(prefixed.length - 2);
+        for (uint256 i = 2; i < prefixed.length; i++) {
+            body[i - 2] = prefixed[i];
+        }
+        return string(body);
+    }
 
     // REUSE-IgnoreStart  (the two SPDX lines below are the header EMITTED into
     // the generated files, not this script's own license — hide from reuse lint)
@@ -358,6 +385,57 @@ contract BuildPointers is Script {
             "address constant STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);"
         );
         vm.writeLine(GEN_V4_PATH, "uint256 constant V4_SWAP_DEADLINE = 1_793_491_200;");
+        // Deterministic V4 authoriser clone MIGRATION TARGET (#292): the
+        // CREATE2 prediction against the 0.1.5 deterministic `CloneFactory`,
+        // identical on every chain (Zoltu factory + Zoltu impl + fixed
+        // deployer/salt). NOT the live clone — the live pins above stay
+        // authoritative until the migration re-points them. The runtime
+        // bytecode is embedded beside the codehash per #293.
+        bytes32 effSalt = keccak256(abi.encode(V4_AUTHORISER_CLONE_DEPLOYER, V4_AUTHORISER_CLONE_SALT));
+        address deterministicClone = Clones.predictDeterministicAddress(
+            V4_AUTHORISER_IMPL_0_1_1, effSalt, LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS
+        );
+        bytes memory deterministicCloneCode = abi.encodePacked(ERC1167_PREFIX, V4_AUTHORISER_IMPL_0_1_1, ERC1167_SUFFIX);
+        vm.writeLine(
+            GEN_V4_PATH,
+            string.concat(
+                "address constant STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC = address(",
+                vm.toString(deterministicClone),
+                ");"
+            )
+        );
+        vm.writeLine(
+            GEN_V4_PATH,
+            string.concat(
+                "bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC_SALT = ",
+                vm.toString(V4_AUTHORISER_CLONE_SALT),
+                ";"
+            )
+        );
+        vm.writeLine(
+            GEN_V4_PATH,
+            string.concat(
+                "address constant STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC_DEPLOYER = address(",
+                vm.toString(V4_AUTHORISER_CLONE_DEPLOYER),
+                ");"
+            )
+        );
+        vm.writeLine(
+            GEN_V4_PATH,
+            string.concat(
+                "bytes constant STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC_CODE = hex\"",
+                hexBody(deterministicCloneCode),
+                "\";"
+            )
+        );
+        vm.writeLine(
+            GEN_V4_PATH,
+            string.concat(
+                "bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC_CODEHASH = ",
+                vm.toString(keccak256(deterministicCloneCode)),
+                ";"
+            )
+        );
         for (uint256 t = 0; t < tags.length; t++) {
             for (uint256 c = 0; c < 12; c++) {
                 if (pointerExists(tags[t], names[c])) {
