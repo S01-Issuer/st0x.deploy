@@ -15,7 +15,7 @@
   stayed mutually consistent. The slot has no write path other than mint/burn,
   so recovery would have required a beacon implementation upgrade.
   `migrateAccount` now applies the balance delta to the raw slot as well, via
-  the new `LibERC20Storage.setUnderlyingTotalSupply`. Reported supply is
+  the new `LibERC20Storage.applyBalanceDeltaToTotalSupply`. Reported supply is
   unchanged: `totalSupply()` remains `LibTotalSupply.effectiveTotalSupply()` and
   the per-cursor pot accounting is untouched. Reported by Protofire as H01 in
   the `st0x.deploy 5.0` report (July 2026, audited at `ed767bf2`).
@@ -32,10 +32,26 @@
   This changes the compiled bytecode — and therefore the deterministic Zoltu
   address — of **every** contract, not just the vault. Consequences:
 
-  - Nothing deployed moves. Every per-token contract is a `BeaconProxy`, so
-    token addresses, beacon addresses and roles are all unaffected. Shipping H01
-    means deploying a new `StoxReceiptVault` implementation and pointing the
-    beacon at it — which the fix requires regardless of this change.
+  - No user-facing address moves. Every per-token contract is a `BeaconProxy`,
+    so token addresses, beacon addresses and roles are all unaffected.
+  - ⚠️ **This is a coordinated multi-contract release, not a single vault
+    upgrade.** Three singletons must be deployed and pointed at in lockstep:
+    - `StoxReceiptVault` — the H01 fix itself; requires the vault beacon to be
+      repointed.
+    - `StoxCorporateActionsFacet` — the vault bakes
+      `LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET` into its `fallback()`.
+      That address moved, so a vault built from this source delegatecalls into
+      empty code until the facet is deployed at its new address. This coupling
+      was previously invisible because the facet's bytecode had been unchanged
+      since 0.1.1, making the candidate and 0.1.1 addresses coincide.
+    - `StoxReceipt` — `ST0xOrchestrator`'s vault-logic version lock compares the
+      live vault and receipt beacon implementations against
+      `LibProdDeployCurrent`. The receipt's address moved even though its source
+      did not, so the orchestrator halts mint/burn until a new receipt
+      implementation is deployed and its beacon repointed.
+
+    Only the first of these is required by the H01 fix; the other two are
+    consequences of the optimizer change.
   - The `testDeployAddress*` assertions for `StoxReceipt`,
     `StoxWrappedTokenVault`, `StoxWrappedTokenVaultBeacon` and both authorizers
     are re-pointed from the frozen `_0_1_1` pins to `_CANDIDATE`, matching what
