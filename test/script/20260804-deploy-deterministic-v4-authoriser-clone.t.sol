@@ -71,6 +71,24 @@ contract DeployDeterministicV4AuthoriserCloneTest is Test {
         );
     }
 
+    /// @notice The pinned deployer is the EOA that created the live Base
+    /// clone via the nonce factory (Base tx
+    /// `0x26519d1c9090e6236cbd6e9c7f5d6eee7cf633da3a6653742914b3c17fe7d236`)
+    /// — the account the CI deploy key resolves to — and NOT the retired
+    /// `0x8E4bdeec…` EOA that `BEACON_INITIAL_OWNER` records.
+    function testDeployerPinIsTheLiveCloneCreator() external pure {
+        assertEq(
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC_DEPLOYER,
+            0xE8c6eDE25f0E7fAfE8fBc34770FaBa27d56c0E76,
+            "deterministic deployer pin drifted from the live clone's creation-tx sender"
+        );
+        assertTrue(
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC_DEPLOYER
+                != LibProdDeployV4.BEACON_INITIAL_OWNER,
+            "deterministic deployer pin must not be the retired beacon-owner EOA"
+        );
+    }
+
     /// @notice The pinned codehash is the keccak of the pinned bytecode.
     function testTargetPinCodehashMatchesCode() external pure {
         assertEq(

@@ -161,8 +161,10 @@ contract BuildPointers is Script {
     bytes32 constant V4_AUTHORISER_CLONE_SALT = bytes32(0);
 
     /// @notice The account the deterministic clone deploy must broadcast from —
-    /// the CI-held deploy key, the same account as `BEACON_INITIAL_OWNER`.
-    address constant V4_AUTHORISER_CLONE_DEPLOYER = 0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b;
+    /// the EOA the CI deploy key resolves to: the creator of the live Base
+    /// clone `0x315b16fa…` via the nonce factory (Base tx
+    /// `0x26519d1c9090e6236cbd6e9c7f5d6eee7cf633da3a6653742914b3c17fe7d236`).
+    address constant V4_AUTHORISER_CLONE_DEPLOYER = 0xE8c6eDE25f0E7fAfE8fBc34770FaBa27d56c0E76;
 
     /// @notice Hex body of `data` without the `0x` prefix, for `hex"..."`
     /// constant emission.
