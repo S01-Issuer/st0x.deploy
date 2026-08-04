@@ -346,4 +346,15 @@ contract DeployV4AuthoriserCloneTest is Test {
         // The live invariant map satisfies the script's own slice guard.
         harness.callAssertGrantsSliceInvariant();
     }
+
+    /// @notice The nonce-factory codehash pin is the keccak of the embedded
+    /// runtime bytecode — the same shape the prod pins assert, so the hash
+    /// can never drift from the code that reproduces it.
+    function testNonceCloneFactoryCodehashMatchesEmbeddedCode() external pure {
+        assertEq(
+            keccak256(LibNonceCloneFactory.CLONE_FACTORY_DEPLOYED_CODE),
+            LibNonceCloneFactory.CLONE_FACTORY_DEPLOYED_CODEHASH,
+            "CLONE_FACTORY_DEPLOYED_CODEHASH is not keccak256(CLONE_FACTORY_DEPLOYED_CODE)"
+        );
+    }
 }
