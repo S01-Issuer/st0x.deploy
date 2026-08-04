@@ -6,8 +6,8 @@ import {Script} from "forge-std-1.16.1/src/Script.sol";
 import {console2} from "forge-std-1.16.1/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1167Proxy.sol";
-import {ICloneableFactoryV3} from "rain-factory-0.1.5/src/interface/ICloneableFactoryV3.sol";
-import {LibCloneFactoryDeploy} from "rain-factory-0.1.5/src/lib/LibCloneFactoryDeploy.sol";
+import {ICloneableFactoryV2} from "rain-factory-0.1.5/src/interface/ICloneableFactoryV2.sol";
+import {LibNonceCloneFactory} from "../src/lib/LibNonceCloneFactory.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
 } from "rain-vats-0.1.7/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
@@ -28,7 +28,7 @@ error V4ImplNotDeployed(address impl);
 /// value in `LibProdDeployV4`. Impl has been replaced with different code.
 error V4ImplCodehashMismatch(address impl, bytes32 expected, bytes32 actual);
 
-/// @notice The canonical `CloneFactory` from `rain-factory-0.1.5` is not
+/// @notice The nonce-based `CloneFactory` pinned in `LibNonceCloneFactory` is not
 /// deployed at its pinned address. Zoltu deploy is missing on this network.
 error CloneFactoryNotDeployed(address factory);
 
@@ -36,14 +36,17 @@ error CloneFactoryNotDeployed(address factory);
 /// pin. The address at the pinned location is not the audited factory.
 error CloneFactoryCodehashMismatch(address factory, bytes32 expected, bytes32 actual);
 
-/// @notice The predicted clone address for this deployer + salt does not match
-/// the up-front pin in `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`. Either
-/// the pin is stale, or the broadcast key is not the pinned deployer the address
-/// was computed for.
-error V4AuthoriserClonePinMismatch(address predicted, address pinned);
+/// @notice The active chain's `LibProdDeployV4` clone pin is already
+/// hydrated. This script deploys a NEW clone — running it a second time would
+/// produce a second clone the pin does not know about. Once hydrated, the
+/// script is done for that chain.
+error V4AuthoriserClonePinAlreadyHydrated(address pinned);
 
-/// @notice The deployed clone did not land at the predicted (pinned) address.
-error V4AuthoriserCloneAddressMismatch(address clone, address predicted);
+/// @notice This chain has no V4 authoriser clone pin in `LibProdDeployV4`, so
+/// the script has no per-chain target to guard against. A typed revert rather
+/// than a silent fallback to another chain's clone.
+/// @param chainId The active chain id with no defined clone pin.
+error V4AuthoriserCloneUnsupportedChain(uint256 chainId);
 
 /// @notice The freshly-deployed clone's runtime codehash does not match the
 /// EIP-1167 minimal-proxy shape computed from the V4 impl. Either the factory
@@ -86,7 +89,7 @@ error GrantsSliceOutOfRange(uint256 startIndex, uint256 sliceLength, uint256 gra
 ///      token-owner Safe. This matches the shape the previous Safe-signed
 ///      flow produced (`initialAdmin = Safe` auto-granted all seven
 ///      directly), and keeps the corporate-action admin-holder question
-///      (RAI-731) open rather than deciding it here by omission.
+///      open rather than deciding it here by omission.
 ///   4. Renounces every auto-granted `_ADMIN` role from the deployer.
 ///      Post-loop the Safe is sole admin; the deployer has no residual
 ///      power over the clone.
@@ -95,7 +98,7 @@ error GrantsSliceOutOfRange(uint256 startIndex, uint256 sliceLength, uint256 gra
 /// key executes them in sequence in one `forge script --broadcast`
 /// invocation. Dispatched via `.github/workflows/manual-broadcast.yaml`,
 /// which broadcasts as `secrets.PRIVATE_KEY` — the same CI-held deploy
-/// key `manual-sol-artifacts.yaml` uses for Zoltu impl deploys. The Safe
+/// key `manual-sol-artifacts-0-1-1.yaml` uses for Zoltu impl deploys. The Safe
 /// never signs anything for this deploy: the whole clone-configuration
 /// ceremony collapses into a workflow-dispatch broadcast matching the
 /// impl-deploy pattern the ops flow already uses.
@@ -119,12 +122,13 @@ error GrantsSliceOutOfRange(uint256 startIndex, uint256 sliceLength, uint256 gra
 /// dispatch mechanism.
 contract DeployV4AuthoriserClone is Script {
     /// @notice The starting index of the non-admin grant slice inside
-    /// `LibAuthoriserInvariants.expectedGrants()`. Indices 0..4 are the
-    /// V3-era `_ADMIN` grants which the base `initialize` auto-grants on
-    /// the freshly-cloned V4 authoriser. Indices 5..10 are the
-    /// operational grants (`DEPOSIT` / `WITHDRAW` / `CERTIFY` × service +
-    /// Safe) this script mirrors in.
-    uint256 internal constant MIRROR_START_INDEX = 5;
+    /// `LibAuthoriserInvariants.expectedGrants()`. Indices 0..6 are the
+    /// seven `_ADMIN` grants (five auto-granted by the base `initialize`
+    /// on the freshly-cloned V4 authoriser, plus the two corporate-action
+    /// admins the ST0x override adds — all transferred to the Safe by
+    /// steps 3-4). Indices 7..12 are the operational grants (`DEPOSIT` /
+    /// `WITHDRAW` / `CERTIFY` × service + Safe) this script mirrors in.
+    uint256 internal constant MIRROR_START_INDEX = 7;
 
     /// @notice The number of non-admin grants this script mirrors in.
     uint256 internal constant MIRROR_COUNT = 6;
@@ -134,27 +138,39 @@ contract DeployV4AuthoriserClone is Script {
     /// corporate-action admins from the override).
     uint256 internal constant AUTO_GRANTED_ADMIN_COUNT = 7;
 
-    /// @notice Caller-supplied salt for the V4 authoriser's deterministic clone.
-    /// Distinct salts yield distinct clones of one impl, so future authorisers
-    /// get their own salt. MUST match `BuildPointers.V4_AUTHORISER_CLONE_SALT`,
-    /// from which `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE` is pinned.
-    bytes32 internal constant V4_AUTHORISER_CLONE_SALT = bytes32(0);
+    /// @notice The V4 authoriser clone pin for the active chain, selected by
+    /// `block.chainid` from `LibProdDeployV4` — `address(0)` until that chain's
+    /// clone is deployed and the pin hydrated. Reverts for any chain without a
+    /// pin rather than falling back to another chain's clone (reading the wrong
+    /// chain's clone is the catastrophic failure this guard exists to prevent).
+    /// @return The active chain's clone pin.
+    function activeChainClonePin() internal view returns (address) {
+        if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
+        }
+        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        }
+        revert V4AuthoriserCloneUnsupportedChain(block.chainid);
+    }
 
     /// @notice Deploy + configure + admin-transfer the V4 authoriser clone
     /// in a single broadcast. Steps 1-4 in the contract-level NatSpec.
     /// Pre-flight covers the invariants the whole flow relies on: the
     /// Safe is intact, the V4 impl exists at the pin with the pinned
-    /// codehash, and the CloneFactory is deployed with its pinned
-    /// codehash. The deterministic clone address is pinned up-front and
-    /// asserted against `predictDeterministicAddress` in-script (no
-    /// post-deploy backfill).
+    /// codehash, the CloneFactory is deployed with its pinned codehash,
+    /// and the clone pin is not already hydrated (this would be a
+    /// second deploy on the same network).
     function run() external {
-        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
-
-        // Pre-flight: Safe still matches the pinned owners + threshold +
-        // immutables. If the Safe has drifted, admin transfer would
-        // move power to a shape we no longer recognise.
-        LibSafeInvariants.assertAll(safe);
+        // Pre-flight: resolve THIS chain's token-owner Safe and assert it is
+        // in its expected state. Chain-aware (Base + Ethereum carry distinct
+        // Safe addresses) — hardcoding Base's Safe would revert on Ethereum,
+        // where that address has no code. Base is pinned exactly; other chains
+        // are asserted for the same policy (order-insensitive owner set), the
+        // identical assertion the scheduled CI pin runs per chain. If the Safe
+        // has drifted, admin transfer would move power to a shape we no longer
+        // recognise.
+        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid));
 
         // Pre-flight: the invariant map still lines up with the hand-
         // maintained slice constants.
@@ -170,10 +186,21 @@ contract DeployV4AuthoriserClone is Script {
         // Pre-flight: the canonical `CloneFactory` is deployed with the
         // pinned codehash. A missing/replaced factory would either
         // revert or hand back a clone under attacker-supplied bytecode.
-        address factoryAddr = LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS;
+        address factoryAddr = LibNonceCloneFactory.CLONE_FACTORY_DEPLOYED_ADDRESS;
         assertCloneFactoryDeployed(factoryAddr);
 
-        RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
+        // Pre-flight: the clone pin is not already hydrated. If it is,
+        // running this script would deploy a SECOND clone the lib
+        // doesn't know about — same behaviour as re-running any
+        // deterministic deploy after it has already landed.
+        address pinned = activeChainClonePin();
+        if (pinned != address(0)) revert V4AuthoriserClonePinAlreadyHydrated(pinned);
+
+        // The grant map parameterised on THIS chain's Safe: the map's
+        // STRUCTURE is chain-agnostic, but the Safe grantee slots must be the
+        // active chain's Safe — the no-arg overload pins Base's Safe and
+        // would provision the wrong Safe with the direct action roles here.
+        RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants(address(safe));
 
         vm.startBroadcast();
 
@@ -184,28 +211,13 @@ contract DeployV4AuthoriserClone is Script {
         // baked into the clone's initialize call.
         address deployer = msg.sender;
 
-        // Step 1: deterministically clone the impl, verifying the address
-        // against the UP-FRONT pin — no post-deploy backfill (#211 retired).
+        // Step 1: deploy the clone.
         //
         // `initialAdmin = deployer` means the seven `_ADMIN` auto-grants
         // land on `deployer` in this window. Steps 3-4 swap them onto
         // the Safe.
         bytes memory initData = abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: deployer}));
-
-        ICloneableFactoryV3 factory = ICloneableFactoryV3(factoryAddr);
-
-        // Assert the pin BEFORE deploying: the address this (deployer, salt)
-        // produces must equal the pinned constant. A mismatch means the pin is
-        // stale or the broadcast key is not the pinned deployer.
-        address predicted = factory.predictDeterministicAddress(v4Impl, V4_AUTHORISER_CLONE_SALT, deployer);
-        if (predicted != LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE) {
-            revert V4AuthoriserClonePinMismatch(predicted, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE);
-        }
-
-        address clone = factory.cloneDeterministic(v4Impl, initData, V4_AUTHORISER_CLONE_SALT);
-
-        // And that the clone landed exactly at the predicted (pinned) address.
-        if (clone != predicted) revert V4AuthoriserCloneAddressMismatch(clone, predicted);
+        address clone = ICloneableFactoryV2(factoryAddr).clone(v4Impl, initData);
 
         IAccessControl acl = IAccessControl(clone);
 
@@ -238,9 +250,10 @@ contract DeployV4AuthoriserClone is Script {
 
         _assertPostState(clone, deployer, v4Impl);
 
-        // Log the clone address (already asserted equal to the up-front pin
-        // `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`) for operator
-        // confirmation.
+        // Log the clone address prominently so the operator can copy it
+        // into the post-execution pin PR (hydrate the active chain's
+        // `LibProdDeployV4` clone pin — e.g. `STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM`;
+        // the `..._CODEHASH` is already pinned in `LibProdDeployV4`).
         console2.log("==== V4 AUTHORISER CLONE DEPLOYED ====");
         console2.log("Clone:", vm.toString(clone));
         console2.log("CloneCodehash:", vm.toString(clone.codehash));
@@ -257,7 +270,7 @@ contract DeployV4AuthoriserClone is Script {
     /// hold no `_ADMIN` role post-renounce.
     /// @param v4Impl The pinned V4 impl the clone proxies; the expected
     /// codehash is re-derived from this address so the check does not
-    /// depend on the codehash pin.
+    /// depend on the (still-placeholder) codehash pin.
     function _assertPostState(address clone, address deployer, address v4Impl) internal view {
         // EIP-1167 shape + embedded impl match what the pinned V4 impl
         // produces.
@@ -268,26 +281,19 @@ contract DeployV4AuthoriserClone is Script {
         }
 
         IAccessControl acl = IAccessControl(clone);
-        RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
 
-        // Every `(role, grantee)` in `expectedGrants()` holds. Covers the
-        // five V3-era admin grants (swapped onto the Safe in step 3) AND
-        // the six operational grants from step 2 in one sweep.
+        // Resolve the active chain's Safe (Base + Ethereum differ) so the
+        // post-state check asserts against the chain we actually broadcast
+        // on, with the grant map parameterised on that Safe.
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants(safe);
+
+        // Every `(role, grantee)` in the chain's 13-entry grant map holds:
+        // all seven `_ADMIN` roles on the Safe (swapped there in step 3) AND
+        // the six operational grants from step 2, in one sweep.
         for (uint256 i = 0; i < allGrants.length; i++) {
             if (!acl.hasRole(allGrants[i].role, allGrants[i].grantee)) {
                 revert ExpectedGrantMissing(allGrants[i].role, allGrants[i].grantee);
-            }
-        }
-
-        bytes32[AUTO_GRANTED_ADMIN_COUNT] memory adminRoles = autoGrantedAdminRoles();
-
-        // The Safe holds every auto-granted `_ADMIN` role — including the
-        // two corporate-action admins that `expectedGrants()` doesn't
-        // carry (V4-only roles the override's `initialize` adds).
-        address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
-        for (uint256 i = 0; i < adminRoles.length; i++) {
-            if (!acl.hasRole(adminRoles[i], safe)) {
-                revert ExpectedGrantMissing(adminRoles[i], safe);
             }
         }
 
@@ -295,6 +301,7 @@ contract DeployV4AuthoriserClone is Script {
         // If any survived step 4, the deployer key still has root
         // privileges over that role's grant map — closes the
         // "transitional trust window" for those specific roles.
+        bytes32[AUTO_GRANTED_ADMIN_COUNT] memory adminRoles = autoGrantedAdminRoles();
         for (uint256 i = 0; i < adminRoles.length; i++) {
             if (acl.hasRole(adminRoles[i], deployer)) {
                 revert DeployerStillHoldsAdminRole(adminRoles[i], deployer);
@@ -305,10 +312,9 @@ contract DeployV4AuthoriserClone is Script {
     /// @notice The seven `_ADMIN` roles the base + ST0x-override
     /// `initialize` grant to the supplied `initialAdmin` config.
     /// Hand-listed (in source-order of the `_grantRole` calls in the
-    /// impl) rather than derived from `expectedGrants()` because the
-    /// auto-grants overlap with — but are not identical to — the lib
-    /// map's indices 0..4: the V3-era map is missing the two
-    /// corporate-action admins the V4 override adds.
+    /// impl) because the grant/renounce sequence operates on the
+    /// TRANSIENT deployer-held roles, not the master map's Safe-held
+    /// entries.
     /// @return roles The seven role hashes, in `_grantRole` order.
     function autoGrantedAdminRoles() internal pure returns (bytes32[AUTO_GRANTED_ADMIN_COUNT] memory roles) {
         roles[0] = keccak256("CERTIFY_ADMIN");
@@ -336,7 +342,7 @@ contract DeployV4AuthoriserClone is Script {
     function assertCloneFactoryDeployed(address factory) internal view {
         if (factory.code.length == 0) revert CloneFactoryNotDeployed(factory);
         bytes32 actual = factory.codehash;
-        bytes32 expected = LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_CODEHASH;
+        bytes32 expected = LibNonceCloneFactory.CLONE_FACTORY_DEPLOYED_CODEHASH;
         if (actual != expected) revert CloneFactoryCodehashMismatch(factory, expected, actual);
     }
 

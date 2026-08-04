@@ -9,8 +9,8 @@ import {LibAuthoriserInvariants} from "../../../src/lib/LibAuthoriserInvariants.
 /// reverts inline, and `expectRevert` only sees reverts from a lower call depth
 /// than the cheatcode itself.
 contract LibAuthoriserInvariantsHarness {
-    function callAssertImplPinned(address authoriser) external view {
-        LibAuthoriserInvariants.assertImplPinned(authoriser);
+    function callAssertAll() external view {
+        LibAuthoriserInvariants.assertAll();
     }
 
     function callAssertExpectedGrants(address authoriser) external view {

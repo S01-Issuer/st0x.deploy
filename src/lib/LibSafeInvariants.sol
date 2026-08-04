@@ -97,6 +97,22 @@ error SafeOwnerMismatch(address safe, uint256 index, address expectedOwner, addr
 /// @param actual The threshold returned by `getThreshold()`.
 error SafeThresholdMismatch(address safe, uint256 expected, uint256 actual);
 
+/// @notice An expected owner is absent from the Safe's `getOwners()` set. Used
+/// by the ORDER-INSENSITIVE owner-set check (`assertOwnerSetUnordered`), where
+/// only set membership is asserted — the caller supplies the expected roster
+/// but not an order, so a missing member is reported by address rather than by
+/// index.
+/// @param safe The Safe address whose owner set was queried.
+/// @param missingOwner The expected owner that was not found in `getOwners()`.
+error SafeOwnerSetMismatch(address safe, address missingOwner);
+
+/// @notice No ST0x token-owner Safe address is pinned for the active chain.
+/// Deliberately a typed revert rather than a silent fallback to another
+/// chain's Safe: authoring or asserting against the wrong chain's Safe is the
+/// catastrophic failure this selector exists to prevent.
+/// @param chainId The chain id with no pinned token-owner Safe.
+error UnsupportedChainForTokenOwnerSafe(uint256 chainId);
+
 /// @title LibSafeInvariants
 /// @notice Reusable invariant assertions for a Safe v1.4.1 L2 multisig
 /// pinned to the ST0x token-owner deployment. Each public assertion either
@@ -140,19 +156,59 @@ error SafeThresholdMismatch(address safe, uint256 expected, uint256 actual);
 library LibSafeInvariants {
     // =========================================================================
     // Safe v1.4.1 deployment manifest constants.
+    //
+    // ST0x runs the SAME Safe policy on every chain but uses whichever
+    // canonical v1.4.1 SINGLETON is standard for that chain. Base (an L2) runs
+    // the `SafeL2` singleton (extra events for indexers); Ethereum mainnet (L1)
+    // runs the `Safe` singleton — the default the Safe UI picks on mainnet.
+    // The two are the same audited v1.4.1 contracts differing only in event
+    // emission, so `assertImmutableInvariants` accepts EITHER: it reads the
+    // proxy's singleton (slot 0), requires it to be one of the two, and pins
+    // that variant's proxy + singleton codehash. Owners / threshold / version /
+    // modules / guard / fallback are identical across both variants.
     // =========================================================================
+    string internal constant SAFE_V1_4_1_VERSION = "1.4.1";
+    address internal constant SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER = 0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99;
+
+    // ---- L2 variant (`SafeL2` singleton) — Base's Safe ----
     address internal constant SAFE_V1_4_1_L2_SINGLETON = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
     bytes32 internal constant SAFE_V1_4_1_L2_PROXY_CODEHASH =
         0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000;
-    string internal constant SAFE_V1_4_1_VERSION = "1.4.1";
     bytes32 internal constant SAFE_V1_4_1_L2_SINGLETON_CODEHASH =
         0xb1f926978a0f44a2c0ec8fe822418ae969bd8c3f18d61e5103100339894f81ff;
-    address internal constant SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER = 0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99;
+
+    // ---- L1 variant (`Safe` singleton) — Ethereum mainnet's Safe ----
+    address internal constant SAFE_V1_4_1_L1_SINGLETON = 0x41675C099F32341bf84BFc5382aF534df5C7461a;
+    bytes32 internal constant SAFE_V1_4_1_L1_PROXY_CODEHASH =
+        0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c;
+    bytes32 internal constant SAFE_V1_4_1_L1_SINGLETON_CODEHASH =
+        0x1fe2df852ba3299d6534ef416eefa406e56ced995bca886ab7a553e6d0c5e1c4;
 
     // =========================================================================
     // ST0x token-owner Safe current-state pins.
     // =========================================================================
+
+    /// @notice Base mainnet chain id.
+    uint256 internal constant BASE_CHAIN_ID = 8453;
+
+    /// @notice Ethereum mainnet chain id.
+    uint256 internal constant ETHEREUM_CHAIN_ID = 1;
+
+    /// @notice The ST0x token-owner Safe on **Base** (the reference chain).
     address internal constant STOX_TOKEN_OWNER_SAFE = 0xe70d821f3462a074e63b42d0AaC6523faAe1d611;
+
+    /// @notice The ST0x token-owner Safe on **Ethereum mainnet**.
+    ///
+    /// A **distinct per-chain address** (the matched-address approach was
+    /// abandoned): deployed out-of-band as a v1.4.1 Safe with the SAME owner
+    /// set + threshold + policy as Base. The address is a per-chain deploy
+    /// artifact, NOT a principal; the whole POLICY (owners, threshold, v1.4.1
+    /// identity, fallback handler, no modules/guard) is the shared pin set, and
+    /// this Safe is asserted against it — in every way that matters, now and
+    /// into the future — by `assertTokenOwnerSafePolicy` (order-insensitive on the
+    /// owner set; L1/L2-tolerant on the singleton, since a mainnet Safe runs
+    /// the L1 `Safe` singleton while Base runs the L2 `SafeL2`).
+    address internal constant STOX_TOKEN_OWNER_SAFE_ETHEREUM = 0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329;
 
     /// @notice The current expected threshold for `STOX_TOKEN_OWNER_SAFE`:
     /// 3-of-6 against the post-rotation owner roster. Scripts and the
@@ -215,46 +271,61 @@ library LibSafeInvariants {
     /// rather than here, because it is a property of the token deployment
     /// rather than of the Safe.
     ///
-    /// The check ordering is deliberate. Codehash first (cheapest, and
-    /// catches an EOA at the address or a fake proxy). Singleton slot next
-    /// (catches a swap of the implementation pointer). Singleton bytecode
-    /// third (catches a swap behind the singleton address). VERSION()
-    /// fourth (catches an unexpected implementation that happens to have
-    /// the same bytecode hash). Modules/guard/fallback handler last, after
-    /// the proxy has been proven to be the singleton we expect.
+    /// The check ordering is deliberate. Proxy codehash first (cheapest, a raw
+    /// `extcodehash`, and catches an EOA / fake proxy before any call into it) —
+    /// accepting either known SafeProxy codehash. Singleton slot next (must be
+    /// one of the two canonical v1.4.1 singletons, L1 / L2). Singleton bytecode
+    /// third (catches a swap behind the singleton address). VERSION() fourth
+    /// (catches an unexpected implementation that happens to have the same
+    /// bytecode hash). Modules/guard/fallback handler last, after the proxy has
+    /// been proven to be a singleton we expect.
     /// @param safe The Safe to assert immutable invariants on.
     function assertImmutableInvariants(IGnosisSafe safe) internal view {
         address safeAddr = address(safe);
 
+        // Proxy codehash first — a raw `extcodehash`, no call into the proxy —
+        // so an EOA / non-Safe is rejected before we trust it enough to read
+        // its storage. Accept either known SafeProxy codehash: Base's is a
+        // v1.3.0-created proxy (later upgraded to the v1.4.1 L2 singleton),
+        // Ethereum's is a v1.4.1-created proxy; both are minimal delegating
+        // SafeProxies. The two proxy-origin and L1/L2-singleton dimensions are
+        // independent — any known SafeProxy over any known v1.4.1 singleton is
+        // a genuine Safe.
         bytes32 actualCodehash;
         assembly ("memory-safe") {
             actualCodehash := extcodehash(safeAddr)
         }
-        if (actualCodehash != SAFE_V1_4_1_L2_PROXY_CODEHASH) {
+        if (actualCodehash != SAFE_V1_4_1_L2_PROXY_CODEHASH && actualCodehash != SAFE_V1_4_1_L1_PROXY_CODEHASH) {
             revert SafeProxyCodehashMismatch(safeAddr, SAFE_V1_4_1_L2_PROXY_CODEHASH, actualCodehash);
         }
 
-        // Slot 0 of a Safe proxy holds the singleton (master copy) address.
-        // Read it raw via `getStorageAt` rather than going through any
-        // accessor so a malicious fallback can't shadow the result.
+        // Singleton (slot 0) must be one of the two canonical v1.4.1 singletons
+        // — L2 `SafeL2` (Base) or L1 `Safe` (Ethereum mainnet). Read raw via
+        // `getStorageAt` so a malicious fallback can't shadow the result; the
+        // variant selects which singleton codehash to pin.
         address actualSingleton = readSafeStorageAddress(safe, 0);
-        if (actualSingleton != SAFE_V1_4_1_L2_SINGLETON) {
+        bytes32 expectedSingletonCodehash;
+        if (actualSingleton == SAFE_V1_4_1_L2_SINGLETON) {
+            expectedSingletonCodehash = SAFE_V1_4_1_L2_SINGLETON_CODEHASH;
+        } else if (actualSingleton == SAFE_V1_4_1_L1_SINGLETON) {
+            expectedSingletonCodehash = SAFE_V1_4_1_L1_SINGLETON_CODEHASH;
+        } else {
             revert SafeSingletonMismatch(safeAddr, SAFE_V1_4_1_L2_SINGLETON, actualSingleton);
         }
 
-        // Address pin alone trusts whatever code lives at the singleton
-        // address. Pin the singleton's bytecode too so a swap there
-        // (preserving the proxy codehash and superficial view returns)
-        // cannot route every implementation-backed call through attacker
-        // code. Asserted before `VERSION()` and any other read that
-        // delegate-routes through the singleton.
+        // Singleton bytecode for the selected variant. Address pin alone trusts
+        // whatever code lives at the singleton; pinning its codehash too means a
+        // swap there (preserving the pointer + superficial view returns) cannot
+        // route every implementation-backed call through attacker code.
+        // Asserted before `VERSION()` and any other read that delegate-routes
+        // through the singleton.
         bytes32 actualSingletonCodehash;
         assembly ("memory-safe") {
             actualSingletonCodehash := extcodehash(actualSingleton)
         }
-        if (actualSingletonCodehash != SAFE_V1_4_1_L2_SINGLETON_CODEHASH) {
+        if (actualSingletonCodehash != expectedSingletonCodehash) {
             revert SafeSingletonBytecodeMismatch(
-                safeAddr, actualSingleton, SAFE_V1_4_1_L2_SINGLETON_CODEHASH, actualSingletonCodehash
+                safeAddr, actualSingleton, expectedSingletonCodehash, actualSingletonCodehash
             );
         }
 
@@ -384,5 +455,100 @@ library LibSafeInvariants {
         owners[4] = STOX_TOKEN_OWNER_SAFE_OWNER_5;
         owners[5] = STOX_TOKEN_OWNER_SAFE_OWNER_6;
         return owners;
+    }
+
+    /// @notice The ST0x token-owner Safe address for the active chain, selected
+    /// by chain id. The Safe address is a per-chain deploy artifact (the
+    /// matched-address approach was abandoned), so consumers that must resolve
+    /// "this chain's Safe" — the multichain production-state bundle, the
+    /// cross-chain parity pin, the Ethereum token-authorise script — read it
+    /// here. Reverts `UnsupportedChainForTokenOwnerSafe` for any chain without
+    /// a pinned Safe rather than falling back to another chain's address.
+    /// @param chainId The active chain id (`block.chainid`).
+    /// @return safe The chain's token-owner Safe (`address(0)` on Ethereum
+    /// until the deployed Safe is pinned).
+    function safeForChainId(uint256 chainId) internal pure returns (address safe) {
+        if (chainId == BASE_CHAIN_ID) {
+            return STOX_TOKEN_OWNER_SAFE;
+        }
+        if (chainId == ETHEREUM_CHAIN_ID) {
+            return STOX_TOKEN_OWNER_SAFE_ETHEREUM;
+        }
+        revert UnsupportedChainForTokenOwnerSafe(chainId);
+    }
+
+    /// @notice Assert the Safe's owner set equals `expected` as a SET — same
+    /// length and same members — WITHOUT requiring the same `getOwners()`
+    /// order. Unlike `assertOwnerSet` (order-sensitive, for Base's pinned
+    /// roster), this is the right check across chains: `getOwners()` returns
+    /// owners in Safe-internal linked-list order, which is an incidental
+    /// artifact of the order owners were added at setup / rotation and differs
+    /// between two Safes that carry the identical roster. Owner order is not a
+    /// policy property, so cross-chain parity asserts membership, not order.
+    /// @dev Safe forbids duplicate owners, so with equal lengths "every
+    /// expected owner is present" implies "no unexpected owners" — a one-way
+    /// membership scan is sufficient.
+    /// @param safe The Safe to query.
+    /// @param expected The expected owner addresses, in any order.
+    function assertOwnerSetUnordered(IGnosisSafe safe, address[] memory expected) internal view {
+        address[] memory actual = safe.getOwners();
+        if (actual.length != expected.length) {
+            revert SafeOwnerCountMismatch(address(safe), expected.length, actual.length);
+        }
+        for (uint256 i = 0; i < expected.length; i++) {
+            bool found = false;
+            for (uint256 j = 0; j < actual.length; j++) {
+                if (actual[j] == expected[i]) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                revert SafeOwnerSetMismatch(address(safe), expected[i]);
+            }
+        }
+    }
+
+    /// @notice Assert a Safe carries the ST0x token-owner POLICY — the
+    /// chain-agnostic truths pinned in this library: the v1.4.1 immutable
+    /// identity (proxy codehash, singleton pointer + bytecode, version, no
+    /// modules, no guard, pinned fallback handler), the pinned owner SET, and
+    /// the pinned threshold. The policy is a property of the ORGANISATION,
+    /// not of any chain: every chain's token-owner Safe — Base included — is
+    /// asserted against the same pins. Only the Safe ADDRESS is per-chain (a
+    /// deploy artifact, resolved by `safeForChainId`).
+    /// @dev The owner check is order-INSENSITIVE (`assertOwnerSetUnordered`):
+    /// `getOwners()` order is a Safe-internal linked-list artifact of the
+    /// order owners were added on that chain's deploy/rotation, so order is
+    /// not a policy property. (Base's own historical pin test additionally
+    /// asserts its exact roster order via the order-sensitive `assertAll`.)
+    /// If the policy ever changes, the pins move and every chain's Safe goes
+    /// red until realigned — one source of truth, asserted everywhere, on
+    /// every scheduled CI run.
+    /// @param safe The Safe to validate against the pinned policy.
+    function assertTokenOwnerSafePolicy(IGnosisSafe safe) internal view {
+        assertImmutableInvariants(safe);
+        assertOwnerSetUnordered(safe, expectedOwners());
+        assertThreshold(safe, STOX_TOKEN_OWNER_SAFE_THRESHOLD);
+    }
+
+    /// @notice Resolve the active chain's token-owner Safe AND assert it
+    /// carries the pinned chain-agnostic policy
+    /// (`assertTokenOwnerSafePolicy`). No chain is special-cased: the policy
+    /// is the shared truth and every chain's Safe is asserted against it
+    /// identically. This is the single entry point a broadcast script's
+    /// pre-flight and the scheduled CI pin both call, so the assertion that
+    /// gates a manual broadcast is the identical one CI runs every commit — a
+    /// broadcast can never revert on a Safe check CI has not already
+    /// exercised on that chain.
+    ///
+    /// Reverts `UnsupportedChainForTokenOwnerSafe` (via `safeForChainId`) for a
+    /// chain without a pinned Safe rather than silently asserting the wrong
+    /// chain's Safe.
+    /// @param chainId The active chain id (`block.chainid`).
+    /// @return safe The chain's token-owner Safe, proven in-policy.
+    function assertActiveChainTokenOwnerSafe(uint256 chainId) internal view returns (address safe) {
+        safe = safeForChainId(chainId);
+        assertTokenOwnerSafePolicy(IGnosisSafe(safe));
     }
 }

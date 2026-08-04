@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {LibMigrationInvariant} from "../../../../src/lib/LibMigrationInvariant.sol";
 import {LibProdDeployV1} from "../../../../src/lib/LibProdDeployV1.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
@@ -44,7 +45,7 @@ contract BeaconOwnerMigrationPinTest is Test {
             label,
             Ownable(beacon).owner(),
             LibProdDeployV1.BEACON_INITIAL_OWNER,
-            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE,
+            LibBeaconInvariants.PROD_BEACON_OWNER,
             BEACON_OWNER_MIGRATION_DEADLINE
         );
     }

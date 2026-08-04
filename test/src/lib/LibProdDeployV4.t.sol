@@ -48,11 +48,10 @@ import {ST0xOrchestratorBeaconSetDeployer} from "../../../src/concrete/deploy/ST
 /// 3. **Twin equality** (`testRelease*TwinsEqual*`) — a contract unchanged
 ///    across a release has byte-identical pins in both tags.
 ///
-/// The `STOX_PROD_AUTHORISER_V4_CLONE` pin is a non-deterministic deploy target
-/// and is still an `address(0)` placeholder; `testAuthoriserV4ClonePlaceholder`
-/// asserts that explicitly so the placeholder can't be silently shipped as a
-/// real pin and so the test fails (prompting a real assertion) once the clone
-/// is hydrated.
+/// The `STOX_PROD_AUTHORISER_V4_CLONE` pin is a non-deterministic deploy
+/// target hydrated from the 2026-07 broadcast on Base;
+/// `testAuthoriserV4ClonePin` asserts the literal + the codehash derivation
+/// so a drifted generator value fails a test.
 contract LibProdDeployV4Test is Test {
     // --- StoxReceipt ---
 
@@ -64,15 +63,15 @@ contract LibProdDeployV4Test is Test {
         assertEq(deployed.codehash, LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_1);
     }
 
-    // --- StoxReceiptVault (0.1.3 — rebuilt: its `fallback()` hardcodes the
-    // rebuilt 0.1.3 corporate-actions facet, so the current source compiles to the 0.1.3 vault). ---
+    // --- StoxReceiptVault (candidate — rebuilt: its `fallback()` hardcodes the
+    // rebuilt candidate corporate-actions facet, so the current source compiles to the candidate vault). ---
 
     function testDeployAddressStoxReceiptVault() external {
         LibRainDeploy.etchZoltuFactory(vm);
         address deployed = LibRainDeploy.deployZoltu(type(StoxReceiptVault).creationCode);
-        assertEq(deployed, LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_3);
+        assertEq(deployed, LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_3);
+        assertEq(deployed.codehash, LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_CANDIDATE);
     }
 
     // --- StoxWrappedTokenVault ---
@@ -85,15 +84,15 @@ contract LibProdDeployV4Test is Test {
         assertEq(deployed.codehash, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_1);
     }
 
-    // --- StoxUnifiedDeployer (0.1.3 — rebuilt: it embeds the rebuilt 0.1.3
-    // OARV beacon-set deployer address, so the current source compiles to the 0.1.3 unified deployer). ---
+    // --- StoxUnifiedDeployer (candidate — rebuilt: it embeds the rebuilt candidate
+    // OARV beacon-set deployer address, so the current source compiles to the candidate unified deployer). ---
 
     function testDeployAddressStoxUnifiedDeployer() external {
         LibRainDeploy.etchZoltuFactory(vm);
         address deployed = LibRainDeploy.deployZoltu(type(StoxUnifiedDeployer).creationCode);
-        assertEq(deployed, LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_3);
+        assertEq(deployed, LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CANDIDATE);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_3);
+        assertEq(deployed.codehash, LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_CANDIDATE);
     }
 
     // --- StoxWrappedTokenVaultBeacon (needs the wrapped token vault deployed first) ---
@@ -107,10 +106,10 @@ contract LibProdDeployV4Test is Test {
         assertEq(deployed.codehash, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_1);
     }
 
-    // --- StoxWrappedTokenVaultBeaconSetDeployer (0.1.3 — a mover: its
+    // --- StoxWrappedTokenVaultBeaconSetDeployer (candidate — a mover: its
     // `supportsInterface` inherits OpenZeppelin `ERC165` and chains `super`, so
-    // its bytecode differs from the byte-identical 0.1.2 twin and the current
-    // source compiles to the 0.1.3 deployer.
+    // its bytecode differs from the audited 0.1.1 deployer and the current
+    // source compiles to the candidate deployer.
     // Needs vault + beacon first). ---
 
     function testDeployAddressStoxWrappedTokenVaultBeaconSetDeployer() external {
@@ -118,15 +117,15 @@ contract LibProdDeployV4Test is Test {
         LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
         LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeacon).creationCode);
         address deployed = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeaconSetDeployer).creationCode);
-        assertEq(deployed, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3);
+        assertEq(deployed, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CANDIDATE);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3);
+        assertEq(deployed.codehash, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE);
     }
 
-    // --- StoxOffchainAssetReceiptVaultBeaconSetDeployer (0.1.3 — rebuilt: its
-    // constructor bakes a beacon over the rebuilt 0.1.3 receipt-vault impl, so
+    // --- StoxOffchainAssetReceiptVaultBeaconSetDeployer (candidate — rebuilt: its
+    // constructor bakes a beacon over the rebuilt candidate receipt-vault impl, so
     // the current source compiles to the
-    // 0.1.3 deployer. Needs receipt + the 0.1.3 receipt vault deployed first so
+    // candidate deployer. Needs receipt + the candidate receipt vault deployed first so
     // the beacon's impl-has-code check passes). ---
 
     function testDeployAddressStoxOffchainAssetReceiptVaultBeaconSetDeployer() external {
@@ -134,10 +133,10 @@ contract LibProdDeployV4Test is Test {
         LibRainDeploy.deployZoltu(type(StoxReceipt).creationCode);
         LibRainDeploy.deployZoltu(type(StoxReceiptVault).creationCode);
         address deployed = LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode);
-        assertEq(deployed, LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3);
+        assertEq(deployed, LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE);
         assertTrue(deployed.code.length > 0);
         assertEq(
-            deployed.codehash, LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3
+            deployed.codehash, LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE
         );
     }
 
@@ -165,43 +164,43 @@ contract LibProdDeployV4Test is Test {
         );
     }
 
-    // --- StoxCorporateActionsFacet (0.1.3 — rebuilt for the
-    // cumulative-multiplier change; the current source now compile to the 0.1.3 facet, so these current-source
-    // trios pin the `_0_1_3` facet). ---
+    // --- StoxCorporateActionsFacet (candidate — rebuilt for the
+    // cumulative-multiplier change; the current source now compile to the candidate facet, so these current-source
+    // trios pin the `_CANDIDATE` facet). ---
 
     function testDeployAddressStoxCorporateActionsFacet() external {
         LibRainDeploy.etchZoltuFactory(vm);
         address deployed = LibRainDeploy.deployZoltu(type(StoxCorporateActionsFacet).creationCode);
-        assertEq(deployed, LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_3);
+        assertEq(deployed, LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_3);
+        assertEq(deployed.codehash, LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_CANDIDATE);
     }
 
-    // --- ST0xOrchestrator (0.1.3 — rebuilt: it embeds the rebuilt 0.1.3 OARV
+    // --- ST0xOrchestrator (candidate — rebuilt: it embeds the rebuilt candidate OARV
     // beacon-set deployer and receipt-vault addresses, so the current source
-    // compiles to the 0.1.3 orchestrator). ---
+    // compiles to the candidate orchestrator). ---
 
     function testDeployAddressST0xOrchestrator() external {
         LibRainDeploy.etchZoltuFactory(vm);
         address deployed = LibRainDeploy.deployZoltu(type(ST0xOrchestrator).creationCode);
-        assertEq(deployed, LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_3);
+        assertEq(deployed, LibProdDeployV4.ST0X_ORCHESTRATOR_CANDIDATE);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_0_1_3);
+        assertEq(deployed.codehash, LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_CANDIDATE);
     }
 
-    // --- ST0xOrchestratorBeaconSetDeployer (0.1.3 — rebuilt: its constructor
-    // bakes a beacon over the rebuilt 0.1.3 orchestrator impl, so the current
-    // source compiles to the 0.1.3 deployer.
-    // Needs the 0.1.3 orchestrator impl deployed first so the beacon's
+    // --- ST0xOrchestratorBeaconSetDeployer (candidate — rebuilt: its constructor
+    // bakes a beacon over the rebuilt candidate orchestrator impl, so the current
+    // source compiles to the candidate deployer.
+    // Needs the candidate orchestrator impl deployed first so the beacon's
     // impl-has-code check passes). ---
 
     function testDeployAddressST0xOrchestratorBeaconSetDeployer() external {
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(type(ST0xOrchestrator).creationCode);
         address deployed = LibRainDeploy.deployZoltu(type(ST0xOrchestratorBeaconSetDeployer).creationCode);
-        assertEq(deployed, LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_3);
+        assertEq(deployed, LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CANDIDATE);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_3);
+        assertEq(deployed.codehash, LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE);
     }
 
     // --- Non-deployed-contract constants ---
@@ -211,35 +210,65 @@ contract LibProdDeployV4Test is Test {
         assertEq(LibProdDeployV4.BEACON_INITIAL_OWNER, address(0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b));
     }
 
-    /// The deploy tag string is encoded into every current-release
-    /// deployed-contract constant name, so it must match the canonical
-    /// `foundry.toml` version (read dynamically below, not hardcoded).
-    function testDeployTag() external {
-        // The generated tag must equal the canonical `foundry.toml` version
-        // (the next-version slot), with dots as underscores. Read it rather than
-        // hardcode, so this passes across releases without hand-editing.
-        bytes memory v = bytes(vm.parseTomlString(vm.readFile("foundry.toml"), ".package.version"));
-        for (uint256 i = 0; i < v.length; i++) {
-            if (v[i] == ".") v[i] = "_";
-        }
-        assertEq(LibProdDeployCurrent.DEPLOY_TAG, string(v));
+    /// The committed `candidate` snapshot MUST match the current source: the
+    /// stored per-contract CREATION_CODE constant equals `type(C).creationCode`.
+    /// Fails if the source changes without regenerating `candidate` via
+    /// `forge script ./script/BuildPointers.sol`. Pure-forge; no git/shell.
+    function testCandidateSelfConsistent() external {
+        assertEq(LibProdDeployV4.STOX_RECEIPT_CREATION_CODE_CANDIDATE, type(StoxReceipt).creationCode);
+        assertEq(LibProdDeployV4.STOX_RECEIPT_VAULT_CREATION_CODE_CANDIDATE, type(StoxReceiptVault).creationCode);
+        assertEq(
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CREATION_CODE_CANDIDATE, type(StoxWrappedTokenVault).creationCode
+        );
+        assertEq(LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CREATION_CODE_CANDIDATE, type(StoxUnifiedDeployer).creationCode);
+        assertEq(
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CREATION_CODE_CANDIDATE,
+            type(StoxWrappedTokenVaultBeacon).creationCode
+        );
+        assertEq(
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CREATION_CODE_CANDIDATE,
+            type(StoxWrappedTokenVaultBeaconSetDeployer).creationCode
+        );
+        assertEq(
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_CODE_CANDIDATE,
+            type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode
+        );
+        assertEq(
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CREATION_CODE_CANDIDATE,
+            type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode
+        );
+        assertEq(
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CREATION_CODE_CANDIDATE,
+            type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode
+        );
+        assertEq(
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CREATION_CODE_CANDIDATE,
+            type(StoxCorporateActionsFacet).creationCode
+        );
+        assertEq(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_CANDIDATE, type(ST0xOrchestrator).creationCode);
+        assertEq(
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_CODE_CANDIDATE,
+            type(ST0xOrchestratorBeaconSetDeployer).creationCode
+        );
     }
 
-    /// The V4 authoriser clone is a non-deterministic deploy target and is
-    /// still a placeholder. Asserting the placeholder explicitly prevents it
-    /// from being silently shipped as a real pin, and makes this test fail
-    /// (prompting a real address + codehash assertion) the moment the clone is
-    /// hydrated with its deployed literal.
-    function testAuthoriserV4ClonePlaceholder() external pure {
+    /// The V4 authoriser clone pin. The address was hydrated from the
+    /// 2026-07 broadcast of `20260619-deploy-v4-authoriser-clone.s.sol` on
+    /// Base (see the `NewClone` event in the broadcast receipt); asserting
+    /// the literal here means an accidental edit to the generator's
+    /// hardcoded value fails a test rather than silently re-routing every
+    /// consumer of the pin. The live-chain codehash cross-check runs in
+    /// `StoxProdV4PostSwap.t.sol`'s hydrated-clone block.
+    function testAuthoriserV4ClonePin() external pure {
         assertEq(
             LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE,
-            address(0),
-            "clone hydrated: replace this placeholder guard with a real address + codehash assertion"
+            address(0x315b16faa6eE413faBCa877d3851B3818369f0cD),
+            "clone address pin drifted from the deployed literal"
         );
         // The clone CODEHASH is deterministic from the pinned V4 impl (the
-        // EIP-1167 runtime embeds the impl address), so unlike the address it
-        // is hydrated ahead of the deploy. Re-derive it and assert the pinned
-        // literal matches, so an impl-address change can't leave it stale.
+        // EIP-1167 runtime embeds the impl address). Re-derive it and assert
+        // the pinned literal matches, so an impl-address change can't leave
+        // it stale.
         assertEq(
             LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH,
             keccak256(
@@ -250,168 +279,6 @@ contract LibProdDeployV4Test is Test {
                 )
             ),
             "clone codehash literal drifted from the EIP-1167(impl) derivation"
-        );
-    }
-
-    /// st0x-deploy 0.1.2 re-pins the ten 0.1.1 contracts at IDENTICAL values
-    /// (only the orchestrator + its deployer are new to 0.1.2), so every 0.1.2
-    /// twin must equal its 0.1.1 counterpart. The 0.1.1 trios above already
-    /// prove each 0.1.1 value against its generated pointer, so proving the
-    /// twins equal 0.1.1 carries that pointer-consistency over to 0.1.2 — and
-    /// fails the moment a twin is edited to drift.
-    function testRelease012TwinsEqualRelease011() external pure {
-        assertEq(LibProdDeployV4.STOX_RECEIPT_0_1_2, LibProdDeployV4.STOX_RECEIPT_0_1_1);
-        assertEq(LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_2, LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_1);
-        assertEq(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_2, LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1);
-        assertEq(LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_2, LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_1);
-        assertEq(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_2, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1);
-        assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_2,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_1
-        );
-        assertEq(LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_2, LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1);
-        assertEq(
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_2, LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_1
-        );
-        assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_2, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1
-        );
-        assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_2,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_1
-        );
-        assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_2,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1
-        );
-        assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_2,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1
-        );
-        assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_2,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1
-        );
-        assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_2,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1
-        );
-        assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_2,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1
-        );
-        assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_2,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_1
-        );
-        assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_0_1_2,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_0_1_1
-        );
-        assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_2,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_1
-        );
-        assertEq(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_2, LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1);
-        assertEq(
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_2,
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_1
-        );
-    }
-
-    /// st0x-deploy 0.1.3 re-pins FIVE of the twelve 0.1.2 contracts at IDENTICAL
-    /// values and rebuilds the other SEVEN. Two source changes drive the
-    /// rebuilds. `StoxCorporateActionsFacet` changed at the source (the
-    /// cumulative-multiplier change); the receipt vault hardcodes that facet in
-    /// its `fallback()` and each downstream deployer/orchestrator embeds a
-    /// rebuilt address, so the change cascades — the receipt vault, the OARV
-    /// beacon-set deployer, the unified deployer, the orchestrator, and the
-    /// orchestrator beacon-set deployer each get a new Zoltu address + codehash.
-    /// An ERC-165 fix changed the `supportsInterface` bytecode of the unified
-    /// deployer, the wrapped-token-vault beacon-set deployer, and the
-    /// orchestrator directly — moving the wrapped-token-vault beacon-set deployer
-    /// too (the other two already move with the facet cascade).
-    /// Every 0.1.3 twin below must equal its 0.1.2 counterpart, and every 0.1.3
-    /// mover must NOT equal it. The 0.1.2 trios/twins above already prove each
-    /// 0.1.2 value against its generated pointer / 0.1.1 twin, so proving the
-    /// 0.1.3 twins equal 0.1.2 carries that consistency over to 0.1.3 — and the
-    /// mover not-equal assertions fail the moment a mover is reverted to a twin
-    /// (or a twin drifts).
-    function testRelease013TwinsEqualRelease012() external pure {
-        // --- The five byte-identical 0.1.2 twins. ---
-        assertEq(LibProdDeployV4.STOX_RECEIPT_0_1_3, LibProdDeployV4.STOX_RECEIPT_0_1_2);
-        assertEq(LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_3, LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_2);
-        assertEq(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_3, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_2);
-        assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_3,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_2
-        );
-        assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_3, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_2
-        );
-        assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_3,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_2
-        );
-        assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_3,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_2
-        );
-        assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_3,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_2
-        );
-        assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_0_1_3,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_0_1_2
-        );
-        assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_3,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_2
-        );
-
-        // --- The seven 0.1.3 movers: each MUST differ from its 0.1.2 pin. A
-        // mover reverted to its 0.1.2 twin (or a rebuild dropped) trips this. ---
-        assertTrue(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3
-                != LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_2
-        );
-        assertTrue(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3
-                != LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_2
-        );
-        assertTrue(
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_3 != LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_2
-        );
-        assertTrue(
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_3
-                != LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_2
-        );
-        assertTrue(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_3 != LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_2);
-        assertTrue(
-            LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_3 != LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_2
-        );
-        assertTrue(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3
-                != LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_2
-        );
-        assertTrue(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3
-                != LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_2
-        );
-        assertTrue(LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_3 != LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_2);
-        assertTrue(
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_3 != LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_2
-        );
-        assertTrue(LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_3 != LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_2);
-        assertTrue(LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_0_1_3 != LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_0_1_2);
-        assertTrue(
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_3
-                != LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_2
-        );
-        assertTrue(
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_3
-                != LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_2
         );
     }
 
@@ -460,98 +327,54 @@ contract LibProdDeployV4Test is Test {
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_1
         );
         assertEq(
-            keccak256(LibProdDeployV4.STOX_RECEIPT_RUNTIME_CODE_0_1_2), LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_2
+            keccak256(LibProdDeployV4.STOX_RECEIPT_RUNTIME_CODE_CANDIDATE),
+            LibProdDeployV4.STOX_RECEIPT_CODEHASH_CANDIDATE
         );
         assertEq(
-            keccak256(LibProdDeployV4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_2),
-            LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_2
+            keccak256(LibProdDeployV4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE),
+            LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_CANDIDATE
         );
         assertEq(
-            keccak256(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_0_1_2),
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_2
+            keccak256(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_CANDIDATE),
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_CANDIDATE
         );
         assertEq(
-            keccak256(LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RUNTIME_CODE_0_1_2),
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_2
+            keccak256(LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RUNTIME_CODE_CANDIDATE),
+            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_CANDIDATE
         );
         assertEq(
-            keccak256(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RUNTIME_CODE_0_1_2),
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_2
+            keccak256(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RUNTIME_CODE_CANDIDATE),
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_CANDIDATE
         );
         assertEq(
-            keccak256(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_2),
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_2
+            keccak256(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_CANDIDATE),
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE
         );
         assertEq(
-            keccak256(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_2),
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_2
+            keccak256(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_CANDIDATE),
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE
         );
         assertEq(
-            keccak256(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_CODE_0_1_2),
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_2
+            keccak256(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_CODE_CANDIDATE),
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_CANDIDATE
         );
         assertEq(
-            keccak256(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_RUNTIME_CODE_0_1_2),
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_2
+            keccak256(
+                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_RUNTIME_CODE_CANDIDATE
+            ),
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_CANDIDATE
         );
         assertEq(
-            keccak256(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_2),
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_2
+            keccak256(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_CANDIDATE),
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_CANDIDATE
         );
         assertEq(
-            keccak256(LibProdDeployV4.ST0X_ORCHESTRATOR_RUNTIME_CODE_0_1_2),
-            LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_0_1_2
+            keccak256(LibProdDeployV4.ST0X_ORCHESTRATOR_RUNTIME_CODE_CANDIDATE),
+            LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_CANDIDATE
         );
         assertEq(
-            keccak256(LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_2),
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_2
-        );
-        assertEq(
-            keccak256(LibProdDeployV4.STOX_RECEIPT_RUNTIME_CODE_0_1_3), LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_3
-        );
-        assertEq(
-            keccak256(LibProdDeployV4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_3),
-            LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_3
-        );
-        assertEq(
-            keccak256(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_0_1_3),
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_3
-        );
-        assertEq(
-            keccak256(LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RUNTIME_CODE_0_1_3),
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_3
-        );
-        assertEq(
-            keccak256(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RUNTIME_CODE_0_1_3),
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_3
-        );
-        assertEq(
-            keccak256(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_3),
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3
-        );
-        assertEq(
-            keccak256(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_3),
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3
-        );
-        assertEq(
-            keccak256(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_CODE_0_1_3),
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_3
-        );
-        assertEq(
-            keccak256(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_RUNTIME_CODE_0_1_3),
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_3
-        );
-        assertEq(
-            keccak256(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_3),
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_3
-        );
-        assertEq(
-            keccak256(LibProdDeployV4.ST0X_ORCHESTRATOR_RUNTIME_CODE_0_1_3),
-            LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_0_1_3
-        );
-        assertEq(
-            keccak256(LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_3),
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_3
+            keccak256(LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_CANDIDATE),
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE
         );
     }
 
@@ -569,12 +392,12 @@ contract LibProdDeployV4Test is Test {
     // deploy the CURRENT source and are what break when the source drifts; these
     // pin the frozen bytecode itself.
     //
-    // Only DISTINCT (creation code, address) pairs are covered: the ten 0.1.1
-    // contracts plus the two 0.1.2-only contracts (the orchestrator and its
-    // deployer). The 0.1.2 twins of the ten are byte-identical creation code, so
-    // they Zoltu-derive the SAME address (already proven equal by
-    // `testRelease012TwinsEqualRelease011`) and redeploying them would collide
-    // on the already-occupied address.
+    // Only DISTINCT (creation code, address) pairs are covered: the ten audited
+    // 0.1.1 contracts plus the candidate-only contracts (the orchestrator and
+    // its deployer, which 0.1.1 predates). The candidate contracts byte-identical
+    // to their 0.1.1 counterparts share the same creation code, so they
+    // Zoltu-derive the SAME address and redeploying them would collide on the
+    // already-occupied address.
     //
     // Deployer dependency ordering mirrors the `testDeployAddress*` tests
     // exactly: a deployer/beacon whose constructor bakes an impl address needs
@@ -711,120 +534,96 @@ contract LibProdDeployV4Test is Test {
         );
     }
 
-    // --- 0.1.2-only frozen redeploys (new to the 0.1.2 release) ---
-
-    function testFrozenRedeployST0xOrchestrator() external {
-        LibRainDeploy.etchZoltuFactory(vm);
-        _assertFrozenRedeploy(
-            LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_0_1_2,
-            LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_2,
-            LibProdDeployV4.ST0X_ORCHESTRATOR_RUNTIME_CODE_0_1_2,
-            LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_0_1_2
-        );
-    }
-
-    /// Its constructor builds an `UpgradeableBeacon` over the orchestrator impl,
-    /// so the impl is deployed (frozen) first, matching
-    /// `testDeployAddressST0xOrchestratorBeaconSetDeployer`.
-    function testFrozenRedeployST0xOrchestratorBeaconSetDeployer() external {
-        LibRainDeploy.etchZoltuFactory(vm);
-        LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_0_1_2);
-        _assertFrozenRedeploy(
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_2,
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_2,
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_2,
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_2
-        );
-    }
-
-    // --- 0.1.3 movers' frozen redeploys (seven contracts are rebuilt in 0.1.3:
-    // the corporate-actions facet plus the receipt vault, OARV beacon-set
-    // deployer, unified deployer, orchestrator, and orchestrator beacon-set
-    // deployer that cascade from it, and the wrapped-token-vault beacon-set
-    // deployer moved by the ERC-165 `supportsInterface` fix; the other five are
-    // byte-identical 0.1.2 twins that Zoltu-derive the already-occupied 0.1.2
+    // --- candidate movers' frozen redeploys (seven candidate contracts differ
+    // from the audited 0.1.1 set: the corporate-actions facet plus the receipt
+    // vault, OARV beacon-set deployer, unified deployer, orchestrator, and
+    // orchestrator beacon-set deployer that cascade from it, and the
+    // wrapped-token-vault beacon-set deployer moved by the ERC-165
+    // `supportsInterface` fix; the other candidate contracts are byte-identical
+    // to their 0.1.1 counterparts and Zoltu-derive the same already-occupied
     // addresses, so only these seven have a distinct (creation code, address)
     // pair to redeploy). Deployer/beacon dependency ordering mirrors the
     // `testDeployAddress*` tests exactly: an impl a constructor bakes is deployed
-    // (frozen, at its 0.1.3 address) first. ---
+    // (frozen, at its candidate address) first. ---
 
-    /// Standalone (its constructor is empty — the beacon is referenced only at
-    /// call time), so no impl predeploy is needed. It moves in 0.1.3 for the
-    /// ERC-165 `supportsInterface` change, not the facet cascade.
-    function testFrozenRedeployStoxWrappedTokenVaultBeaconSetDeployer_0_1_3() external {
+    /// Standalone: no beacon bytecode is baked into the deployer artifact, so no
+    /// impl predeploy is needed to redeploy it — the deployed proxy checks the
+    /// beacon at proxy construction time. It differs from 0.1.1 for the ERC-165
+    /// `supportsInterface` change, not the facet cascade.
+    function testFrozenRedeployStoxWrappedTokenVaultBeaconSetDeployer_CANDIDATE() external {
         LibRainDeploy.etchZoltuFactory(vm);
         _assertFrozenRedeploy(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_3,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_3,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_3,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CREATION_CODE_CANDIDATE,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_CANDIDATE,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE
         );
     }
 
-    function testFrozenRedeployStoxCorporateActionsFacet_0_1_3() external {
+    function testFrozenRedeployStoxCorporateActionsFacet_CANDIDATE() external {
         LibRainDeploy.etchZoltuFactory(vm);
         _assertFrozenRedeploy(
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CREATION_CODE_0_1_3,
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_3,
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_3,
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_3
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CREATION_CODE_CANDIDATE,
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE,
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_CANDIDATE,
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_CANDIDATE
         );
     }
 
-    function testFrozenRedeployStoxReceiptVault_0_1_3() external {
+    function testFrozenRedeployStoxReceiptVault_CANDIDATE() external {
         LibRainDeploy.etchZoltuFactory(vm);
         _assertFrozenRedeploy(
-            LibProdDeployV4.STOX_RECEIPT_VAULT_CREATION_CODE_0_1_3,
-            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_3,
-            LibProdDeployV4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_3,
-            LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_3
+            LibProdDeployV4.STOX_RECEIPT_VAULT_CREATION_CODE_CANDIDATE,
+            LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE,
+            LibProdDeployV4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE,
+            LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_CANDIDATE
         );
     }
 
     /// Its constructor builds two beacons over the receipt and receipt-vault
-    /// impls, so both are deployed (frozen, at their 0.1.3 addresses) first.
-    function testFrozenRedeployStoxOffchainAssetReceiptVaultBeaconSetDeployer_0_1_3() external {
+    /// impls, so both are deployed (frozen, at their candidate addresses) first.
+    function testFrozenRedeployStoxOffchainAssetReceiptVaultBeaconSetDeployer_CANDIDATE() external {
         LibRainDeploy.etchZoltuFactory(vm);
-        LibRainDeploy.deployZoltu(LibProdDeployV4.STOX_RECEIPT_CREATION_CODE_0_1_3);
-        LibRainDeploy.deployZoltu(LibProdDeployV4.STOX_RECEIPT_VAULT_CREATION_CODE_0_1_3);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.STOX_RECEIPT_CREATION_CODE_CANDIDATE);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.STOX_RECEIPT_VAULT_CREATION_CODE_CANDIDATE);
         _assertFrozenRedeploy(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_3,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_3,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_3,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_3
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_CODE_CANDIDATE,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_CANDIDATE,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE
         );
     }
 
-    function testFrozenRedeployStoxUnifiedDeployer_0_1_3() external {
+    function testFrozenRedeployStoxUnifiedDeployer_CANDIDATE() external {
         LibRainDeploy.etchZoltuFactory(vm);
         _assertFrozenRedeploy(
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CREATION_CODE_0_1_3,
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_3,
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RUNTIME_CODE_0_1_3,
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_3
+            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CREATION_CODE_CANDIDATE,
+            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CANDIDATE,
+            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RUNTIME_CODE_CANDIDATE,
+            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_CANDIDATE
         );
     }
 
-    function testFrozenRedeployST0xOrchestrator_0_1_3() external {
+    function testFrozenRedeployST0xOrchestrator_CANDIDATE() external {
         LibRainDeploy.etchZoltuFactory(vm);
         _assertFrozenRedeploy(
-            LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_0_1_3,
-            LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_3,
-            LibProdDeployV4.ST0X_ORCHESTRATOR_RUNTIME_CODE_0_1_3,
-            LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_0_1_3
+            LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_CANDIDATE,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_CANDIDATE,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_RUNTIME_CODE_CANDIDATE,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_CANDIDATE
         );
     }
 
     /// Its constructor builds an `UpgradeableBeacon` over the orchestrator impl,
-    /// so the impl is deployed (frozen, at its 0.1.3 address) first.
-    function testFrozenRedeployST0xOrchestratorBeaconSetDeployer_0_1_3() external {
+    /// so the impl is deployed (frozen, at its candidate address) first.
+    function testFrozenRedeployST0xOrchestratorBeaconSetDeployer_CANDIDATE() external {
         LibRainDeploy.etchZoltuFactory(vm);
-        LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_0_1_3);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_CANDIDATE);
         _assertFrozenRedeploy(
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_3,
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_3,
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_3,
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_3
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_CODE_CANDIDATE,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CANDIDATE,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_CANDIDATE,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE
         );
     }
 }

@@ -6,10 +6,10 @@ import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {VmSafe} from "forge-std-1.16.1/src/Vm.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
-import {LibCloneFactoryDeploy} from "rain-factory-0.1.5/src/lib/LibCloneFactoryDeploy.sol";
+import {LibNonceCloneFactory} from "../../src/lib/LibNonceCloneFactory.sol";
 import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1167Proxy.sol";
 
-import {ICloneableFactoryV3} from "rain-factory-0.1.5/src/interface/ICloneableFactoryV3.sol";
+import {ICloneableFactoryV2} from "rain-factory-0.1.5/src/interface/ICloneableFactoryV2.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
 } from "rain-vats-0.1.7/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
@@ -55,21 +55,15 @@ contract DeployV4AuthoriserCloneTest is Test {
     bytes internal v4ImplRuntime;
     address internal cloneFactory;
 
-    /// @dev The deterministic clone address pinned in `LibProdDeployV4` is
-    /// `predict(impl, salt, deployer)`, so the deploy must broadcast from this
-    /// pinned deployer (matches `BuildPointers.V4_AUTHORISER_CLONE_DEPLOYER`).
-    address internal constant V4_AUTHORISER_CLONE_DEPLOYER = 0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b;
-    bytes32 internal constant V4_AUTHORISER_CLONE_SALT = bytes32(0);
-
     function selectBaseFork() internal {
         vm.createSelectFork(LibRainDeploy.BASE);
         script = new DeployV4AuthoriserClone();
         harness = new DeployV4AuthoriserCloneHarness();
-        deployer = V4_AUTHORISER_CLONE_DEPLOYER;
+        deployer = makeAddr("deployer");
         vm.deal(deployer, 100 ether);
         safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         v4Impl = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1;
-        cloneFactory = LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS;
+        cloneFactory = LibNonceCloneFactory.CLONE_FACTORY_DEPLOYED_ADDRESS;
 
         StoxOffchainAssetReceiptVaultAuthorizerV1 impl = new StoxOffchainAssetReceiptVaultAuthorizerV1();
         v4ImplRuntime = address(impl).code;
@@ -89,15 +83,16 @@ contract DeployV4AuthoriserCloneTest is Test {
         // Step 1: deploy the clone under the deployer.
         bytes memory initData = abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: deployer}));
         vm.prank(deployer, deployer);
-        address clone = ICloneableFactoryV3(cloneFactory).cloneDeterministic(v4Impl, initData, V4_AUTHORISER_CLONE_SALT);
+        address clone = ICloneableFactoryV2(cloneFactory).clone(v4Impl, initData);
 
         IAccessControl acl = IAccessControl(clone);
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
         bytes32[7] memory adminRoles = _autoGrantedAdminRoles();
 
-        // Step 2: mirror the six non-admin operational grants under
-        // the deployer (who holds every `_ADMIN` role from init).
-        for (uint256 i = 5; i < allGrants.length; i++) {
+        // Step 2: mirror the six operational grants (indices 7..12 of the
+        // master map) under the deployer (who holds every `_ADMIN` role
+        // from init).
+        for (uint256 i = 7; i < allGrants.length; i++) {
             vm.prank(deployer, deployer);
             acl.grantRole(allGrants[i].role, allGrants[i].grantee);
         }
@@ -185,7 +180,7 @@ contract DeployV4AuthoriserCloneTest is Test {
         selectBaseFork();
         bytes memory bogusCode = hex"60016000526001601ff3";
         vm.etch(cloneFactory, bogusCode);
-        bytes32 expected = LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_CODEHASH;
+        bytes32 expected = LibNonceCloneFactory.CLONE_FACTORY_DEPLOYED_CODEHASH;
         bytes32 actual = keccak256(bogusCode);
         vm.expectRevert(abi.encodeWithSelector(CloneFactoryCodehashMismatch.selector, cloneFactory, expected, actual));
         vm.prank(deployer, deployer);
@@ -211,14 +206,14 @@ contract DeployV4AuthoriserCloneTest is Test {
     {
         bytes memory initData = abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: deployer}));
         vm.prank(deployer, deployer);
-        clone = ICloneableFactoryV3(cloneFactory).cloneDeterministic(v4Impl, initData, V4_AUTHORISER_CLONE_SALT);
+        clone = ICloneableFactoryV2(cloneFactory).clone(v4Impl, initData);
 
         IAccessControl acl = IAccessControl(clone);
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
         bytes32[7] memory adminRoles = _autoGrantedAdminRoles();
 
-        // Step 2: mirror the operational grants (indices 5..).
-        for (uint256 i = 5; i < allGrants.length; i++) {
+        // Step 2: mirror the operational grants (indices 7..12).
+        for (uint256 i = 7; i < allGrants.length; i++) {
             if (i == skipMirrorIndex) continue;
             vm.prank(deployer, deployer);
             acl.grantRole(allGrants[i].role, allGrants[i].grantee);
@@ -257,7 +252,7 @@ contract DeployV4AuthoriserCloneTest is Test {
     function testAssertPostStateRejectsMissingOperationalGrant() external {
         selectBaseFork();
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
-        uint256 skipped = 5;
+        uint256 skipped = 7;
         address clone = _deployAndConfigure(false, skipped, type(uint256).max);
         vm.expectRevert(
             abi.encodeWithSelector(ExpectedGrantMissing.selector, allGrants[skipped].role, allGrants[skipped].grantee)
@@ -267,9 +262,8 @@ contract DeployV4AuthoriserCloneTest is Test {
 
     /// @notice `_assertPostState` reverts `ExpectedGrantMissing` when the
     /// Safe is missing an auto-granted admin role. Skips a corporate-
-    /// action admin specifically — those two are NOT in `expectedGrants()`,
-    /// so only the dedicated "Safe holds every admin role" sweep can catch
-    /// this. Proves that sweep fires.
+    /// action admin — caught by the master `expectedGrants()` sweep, which
+    /// carries all seven admin entries.
     function testAssertPostStateRejectsSafeMissingAdminRole() external {
         selectBaseFork();
         bytes32[7] memory adminRoles = _autoGrantedAdminRoles();
@@ -293,8 +287,7 @@ contract DeployV4AuthoriserCloneTest is Test {
         vm.etch(wrongImpl, v4ImplRuntime);
         bytes memory initData = abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: deployer}));
         vm.prank(deployer, deployer);
-        address badClone =
-            ICloneableFactoryV3(cloneFactory).cloneDeterministic(wrongImpl, initData, V4_AUTHORISER_CLONE_SALT);
+        address badClone = ICloneableFactoryV2(cloneFactory).clone(wrongImpl, initData);
 
         bytes32 expected = keccak256(abi.encodePacked(ERC1167_PREFIX, v4Impl, ERC1167_SUFFIX));
         bytes32 actual = badClone.codehash;
@@ -317,7 +310,7 @@ contract DeployV4AuthoriserCloneTest is Test {
         address initialAdmin = makeAddr("someInitialAdmin");
         bytes memory initData = abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: initialAdmin}));
         vm.prank(deployer, deployer);
-        address clone = ICloneableFactoryV3(cloneFactory).cloneDeterministic(v4Impl, initData, V4_AUTHORISER_CLONE_SALT);
+        address clone = ICloneableFactoryV2(cloneFactory).clone(v4Impl, initData);
 
         IAccessControl acl = IAccessControl(clone);
         bytes32[7] memory adminRoles = _autoGrantedAdminRoles();
@@ -338,7 +331,7 @@ contract DeployV4AuthoriserCloneTest is Test {
     function testScriptConstantsMatchInvariantMapAndReplica() external {
         selectBaseFork();
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
-        assertEq(harness.mirrorStartIndex(), 5, "MIRROR_START_INDEX drifted from the happy-path replica");
+        assertEq(harness.mirrorStartIndex(), 7, "MIRROR_START_INDEX drifted from the happy-path replica");
         assertEq(harness.mirrorCount(), 6, "MIRROR_COUNT drifted from the happy-path replica");
         assertEq(
             harness.mirrorStartIndex() + harness.mirrorCount(),

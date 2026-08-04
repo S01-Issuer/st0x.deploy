@@ -3,6 +3,9 @@
 pragma solidity ^0.8.25;
 
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
+import {LibProdBeaconsBase} from "./LibProdBeaconsBase.sol";
+import {LibProdBeaconsEthereum} from "./LibProdBeaconsEthereum.sol";
+import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 
 /// @notice Minimal `Ownable`-like surface used to read a beacon's owner.
 /// Every OpenZeppelin `UpgradeableBeacon` exposes `owner()`; this library
@@ -62,6 +65,13 @@ error BeaconImplementationMismatch(address beacon, address expected, address act
 /// @param implementation The implementation address that has no code.
 error BeaconImplNotDeployed(address beacon, address implementation);
 
+/// @notice No in-use production beacon set is pinned for the active chain.
+/// Deliberately a typed revert rather than a silent fallback to another
+/// chain's beacons: asserting against beacons production doesn't run on is
+/// exactly the dead-state pinning this map exists to prevent.
+/// @param chainId The chain id with no pinned in-use beacon set.
+error UnsupportedChainForProdBeacons(uint256 chainId);
+
 /// @title LibBeaconInvariants
 /// @notice Reusable invariant assertions for an OpenZeppelin
 /// `UpgradeableBeacon`. The single public assertion either returns silently
@@ -74,6 +84,21 @@ error BeaconImplNotDeployed(address beacon, address implementation);
 /// migration and the receipt vault upgrade reach into a library named for
 /// what it actually validates.
 library LibBeaconInvariants {
+    /// @notice The CURRENT owner of the three V1 production beacons on Base
+    /// — the single source of truth for "who owns the prod beacons today".
+    /// Every consumer that means "the current beacon owner" (post-state
+    /// asserts, upgrade pre-flights, `vm.prank` targets in fork tests)
+    /// reads this constant, so an ownership change is a one-line edit here
+    /// rather than a sweep of hardcoded call sites.
+    ///
+    /// The ST0x token-owner Safe since the `MigrateBeaconOwners` broadcast
+    /// executed on Base (2026-07); the deploy-time EOA before that. Sites
+    /// that deliberately mean the deploy-time initial owner (un-migrated
+    /// V4-generation beacons, the migration's reconstructed pre-state) use
+    /// `LibProdDeployV1.BEACON_INITIAL_OWNER` / the V4 lib's
+    /// `BEACON_INITIAL_OWNER` instead — do not conflate the two.
+    address internal constant PROD_BEACON_OWNER = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
+
     /// @notice Runtime codehash shared by every OpenZeppelin
     /// `UpgradeableBeacon` instance on Base. An `UpgradeableBeacon` keeps its
     /// implementation pointer and owner in storage rather than in code, so the
@@ -150,6 +175,49 @@ library LibBeaconInvariants {
 
         if (actualImpl.code.length == 0) {
             revert BeaconImplNotDeployed(beacon, actualImpl);
+        }
+    }
+
+    /// @notice The three production beacons IN USE on the active chain, in a
+    /// fixed order (receipt, receipt vault, wrapped token vault). Beacon
+    /// addresses are per-chain deploy artifacts that never change once a
+    /// chain's production tokens point at them — only the implementations they
+    /// serve are upgraded — so "which beacons is production running on" is
+    /// per-chain pinned state. Each chain's set lives in its own lib
+    /// (`LibProdBeaconsBase` / `LibProdBeaconsEthereum`, same shape and index
+    /// order); this map only dispatches by chain id.
+    /// @param chainId The active chain id (`block.chainid`).
+    /// @return The chain's three in-use beacon addresses.
+    function prodBeaconsForChainId(uint256 chainId) internal view returns (address[3] memory) {
+        if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
+            return LibProdBeaconsBase.beacons();
+        }
+        if (chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
+            return LibProdBeaconsEthereum.beacons();
+        }
+        revert UnsupportedChainForProdBeacons(chainId);
+    }
+
+    /// @notice Assert the active chain's three IN-USE production beacons are
+    /// deployed and owned by THAT chain's token-owner Safe. This is the
+    /// ownership invariant that matters operationally: whoever owns an in-use
+    /// beacon can repoint every production vault proxy on the chain, so each
+    /// chain's live beacons must be held by its Safe — no EOA, no other
+    /// chain's Safe. Where the beacons POINT is deliberately not asserted
+    /// here; implementation parity across chains is the cross-chain parity
+    /// pin's concern.
+    /// @param chainId The active chain id (`block.chainid`).
+    function assertProdBeaconsOwnedByChainSafe(uint256 chainId) internal view {
+        address[3] memory beacons = prodBeaconsForChainId(chainId);
+        address expectedOwner = LibSafeInvariants.safeForChainId(chainId);
+        for (uint256 i = 0; i < beacons.length; i++) {
+            if (beacons[i].code.length == 0) {
+                revert BeaconNotDeployed(beacons[i]);
+            }
+            address actualOwner = IOwnable(beacons[i]).owner();
+            if (actualOwner != expectedOwner) {
+                revert BeaconOwnerMismatch(beacons[i], expectedOwner, actualOwner);
+            }
         }
     }
 }
