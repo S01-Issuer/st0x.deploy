@@ -88,6 +88,22 @@ contract ProvisionAdditionalServiceSignerTest is Test {
         IAccessControl(authoriser).grantRole(role, SIGNER);
     }
 
+    /// @notice Assert the returned canonical pairs are exactly the signer's
+    /// three rows, in map order. Role, grantee AND order all matter: order
+    /// decides which pair drives the reversal walk in `run()`, and the
+    /// grantee is what makes these the signer's rows rather than another
+    /// grantee's. Invariant across every state, because what the signer
+    /// already holds changes the BUNDLE, never the map.
+    /// @param additional The pairs returned alongside the bundle.
+    function assertCanonicalPairs(RoleGrant[] memory additional) internal pure {
+        assertEq(additional.length, 3, "the canonical map carries the signer's three rows");
+        bytes32[3] memory roles = [DEPOSIT, WITHDRAW, CERTIFY];
+        for (uint256 i = 0; i < roles.length; i++) {
+            assertEq(additional[i].role, roles[i], "canonical pair role");
+            assertEq(additional[i].grantee, SIGNER, "canonical pair grantee");
+        }
+    }
+
     /// @notice Assert `txn` is the `grantRole(role, SIGNER)` call on
     /// `authoriser` — a plain value-free CALL, the only shape the Safe Tx
     /// Builder artifact can carry.
@@ -109,7 +125,7 @@ contract ProvisionAdditionalServiceSignerTest is Test {
 
         (RoleGrant[] memory additional, SafeTx[] memory txs) = harness.callAuthorBundle(authoriser, SAFE);
 
-        assertEq(additional.length, 3, "the canonical map carries the signer's three rows");
+        assertCanonicalPairs(additional);
         assertEq(txs.length, 3, "every pair is missing, so every pair is authored");
         assertGrantsRole(txs[0], authoriser, DEPOSIT);
         assertGrantsRole(txs[1], authoriser, WITHDRAW);
@@ -125,7 +141,7 @@ contract ProvisionAdditionalServiceSignerTest is Test {
 
         (RoleGrant[] memory additional, SafeTx[] memory txs) = harness.callAuthorBundle(authoriser, SAFE);
 
-        assertEq(additional.length, 3, "the canonical map is unchanged by what is already held");
+        assertCanonicalPairs(additional);
         assertEq(txs.length, 2, "the held pair is not re-authored");
         assertGrantsRole(txs[0], authoriser, DEPOSIT);
         assertGrantsRole(txs[1], authoriser, WITHDRAW);
@@ -139,8 +155,9 @@ contract ProvisionAdditionalServiceSignerTest is Test {
         grantToSigner(authoriser, DEPOSIT);
         ProvisionAdditionalServiceSignerHarness harness = new ProvisionAdditionalServiceSignerHarness();
 
-        (, SafeTx[] memory txs) = harness.callAuthorBundle(authoriser, SAFE);
+        (RoleGrant[] memory additional, SafeTx[] memory txs) = harness.callAuthorBundle(authoriser, SAFE);
 
+        assertCanonicalPairs(additional);
         assertEq(txs.length, 2, "the held pair is not re-authored");
         assertGrantsRole(txs[0], authoriser, WITHDRAW);
         assertGrantsRole(txs[1], authoriser, CERTIFY);

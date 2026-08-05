@@ -43,10 +43,14 @@ error SafeMissingRoleAdmin(bytes32 adminRole);
 /// `Actions → run-script` with
 /// `script = 20260723-provision-additional-service-signer`, `sig = run()`,
 /// and the target `network`; one dispatch + Safe signing per chain carrying
-/// a live authoriser. Base and Ethereum both hold every canonical pair —
-/// re-dispatching there reverts `AdditionalSignerAlreadyProvisioned`, the
-/// state `20260723-provision-additional-service-signer.prod.t.sol` pins per
-/// chain. HyperEVM is dispatchable once its authoriser bootstraps.
+/// a live authoriser. Base and Ethereum are the only chains this script
+/// dispatches against — `activeChainAuthoriser()` reverts
+/// `UnsupportedChainForProvisioning` for every other chain id, HyperEVM
+/// included, which needs a branch here once its authoriser bootstraps.
+/// Both supported chains hold every canonical pair, so re-dispatching
+/// reverts `AdditionalSignerAlreadyProvisioned` — the state
+/// `20260723-provision-additional-service-signer.prod.t.sol` pins per
+/// chain.
 ///
 /// The canonical pairs are the `GRANTEE_SERVICE_3D0C` rows of
 /// `LibAuthoriserInvariants.expectedGrants()` — the single current-state
@@ -84,7 +88,17 @@ contract ProvisionAdditionalServiceSigner is Script {
     string internal constant ARTIFACT_PATH = "out/20260723-additional-service-signer.json";
 
     /// @notice The `_ADMIN` role that admins `role` under the authoriser's
-    /// hierarchy (`<ROLE>` is admined by `<ROLE>_ADMIN`; verified live).
+    /// hierarchy: `<ROLE>` is admined by `<ROLE>_ADMIN`.
+    /// @dev Hardcoding the mapping is safe rather than lucky. The hierarchy
+    /// is written by `_setRoleAdmin` inside the authoriser's `initialize`
+    /// and nowhere else — OpenZeppelin's `_setRoleAdmin` is `internal` and
+    /// `AccessControlUpgradeable` exposes no external setter — so a given
+    /// implementation's mapping is fixed at initialisation and immutable
+    /// thereafter. `activeChainAuthoriser()` asserts the clone's runtime
+    /// codehash equals the pinned EIP-1167 runtime embedding the audited
+    /// 0.1.1 implementation, which is therefore proof of WHICH mapping the
+    /// clone carries. A live `getRoleAdmin` read would be re-deriving what
+    /// the codehash pin already establishes.
     /// @param role The action role.
     /// @return adminRole The role's admin role.
     function roleAdminOf(bytes32 role) internal pure returns (bytes32 adminRole) {
