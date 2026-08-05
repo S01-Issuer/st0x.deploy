@@ -102,11 +102,10 @@ error VaultAuthoriserMismatchPostUpgrade(address vault, address expected, addres
 ///    - the V4 authoriser clone is pinned (non-zero), deployed, has the pinned
 ///      EIP-1167 codehash, and holds every `LibAuthoriserInvariants.expectedGrants()`
 ///      pair.
-///    The V4 impl at `STOX_RECEIPT_VAULT_0_1_1` is deployed on Base with the
-///    pinned codehash, so the impl-side pre-flight passes; the clone-pin check
-///    fails red today because `STOX_PROD_AUTHORISER_V4_CLONE` is still
-///    `address(0)` — the forcing function blocking the upgrade until the clone
-///    is deployed and pinned.
+///    The impl- and clone-side pre-flights both pass against live Base state:
+///    the V4 impl at `STOX_RECEIPT_VAULT_0_1_1` is deployed with the pinned
+///    codehash, and `STOX_PROD_AUTHORISER_V4_CLONE` names the deployed clone,
+///    which carries the pinned EIP-1167 codehash and the full grant map.
 /// 2. **Build** — a multi-tx bundle: one `upgradeTo(V4 impl)` call per V1
 ///    production beacon (receipt, receipt vault, wrapped token vault), plus
 ///    one `setAuthorizer(V4 clone)` call per production receipt vault
