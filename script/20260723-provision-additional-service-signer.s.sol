@@ -112,16 +112,31 @@ contract ProvisionAdditionalServiceSigner is Script {
         }
     }
 
-    /// @notice Author the provisioning bundle for the active chain: see the
-    /// contract-level flow. Does not broadcast — execution happens via the
-    /// Safe UI using the emitted artifact.
-    function run() external {
-        // --- Pre-flight ---------------------------------------------------
-
-        address safeAddr = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
-        IGnosisSafe safe = IGnosisSafe(safeAddr);
-
-        address authoriser = activeChainAuthoriser();
+    /// @notice Pre-flight the authoriser's grant map and self-scope the
+    /// bundle: the signer's canonical pairs, plus one `grantRole`
+    /// transaction per pair the signer does not yet hold.
+    ///
+    /// Reverts when the map has drifted (any non-signer row missing), when
+    /// the Safe does not admin a provisioned role, or when every pair
+    /// already holds (`AdditionalSignerAlreadyProvisioned` — nothing left
+    /// to author).
+    ///
+    /// @dev Every chain-specific input arrives as an argument rather than
+    /// being read from `block.chainid`, so the selection is exercisable
+    /// against ANY authoriser carrying the canonical map — a locally
+    /// cloned one in the unit suite as readily as a pinned production
+    /// clone on a fork.
+    /// @param authoriser The authoriser whose live role state is read.
+    /// @param safeAddr The chain's token-owner Safe: fills the Safe
+    /// grantee slots of the canonical map and holds every `_ADMIN` role.
+    /// @return additional The signer's canonical pairs, in map order.
+    /// @return txs One `grantRole` tx per pair the signer does not hold,
+    /// in map order.
+    function authorBundle(address authoriser, address safeAddr)
+        internal
+        view
+        returns (RoleGrant[] memory additional, SafeTx[] memory txs)
+    {
         IAccessControl acl = IAccessControl(authoriser);
 
         // Split the canonical map: the additional signer's rows are the
@@ -140,7 +155,7 @@ contract ProvisionAdditionalServiceSigner is Script {
                 "ProvisionAdditionalServiceSigner: authoriser grant map has drifted"
             );
         }
-        RoleGrant[] memory additional = new RoleGrant[](pairCount);
+        additional = new RoleGrant[](pairCount);
         uint256 p = 0;
         for (uint256 i = 0; i < all.length; i++) {
             if (all[i].grantee == ADDITIONAL_SIGNER) {
@@ -170,9 +185,7 @@ contract ProvisionAdditionalServiceSigner is Script {
             revert AdditionalSignerAlreadyProvisioned();
         }
 
-        // --- Build the bundle ----------------------------------------------
-
-        SafeTx[] memory txs = new SafeTx[](count);
+        txs = new SafeTx[](count);
         uint256 t = 0;
         for (uint256 i = 0; i < additional.length; i++) {
             if (!missing[i]) continue;
@@ -184,6 +197,23 @@ contract ProvisionAdditionalServiceSigner is Script {
             });
             t++;
         }
+    }
+
+    /// @notice Author the provisioning bundle for the active chain: see the
+    /// contract-level flow. Does not broadcast — execution happens via the
+    /// Safe UI using the emitted artifact.
+    function run() external {
+        // --- Pre-flight ---------------------------------------------------
+
+        address safeAddr = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+        IGnosisSafe safe = IGnosisSafe(safeAddr);
+
+        address authoriser = activeChainAuthoriser();
+        IAccessControl acl = IAccessControl(authoriser);
+
+        // --- Build the bundle ----------------------------------------------
+
+        (RoleGrant[] memory additional, SafeTx[] memory txs) = authorBundle(authoriser, safeAddr);
 
         uint256 nonce = safe.nonce();
         bytes32 firstSafeTxHash = LibSafeOps.computeSafeTxHashViaSafe(safe, txs[0], nonce);
