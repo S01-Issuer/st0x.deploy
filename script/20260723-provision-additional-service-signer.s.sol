@@ -33,8 +33,8 @@ error UnsupportedChainForProvisioning(uint256 chainId);
 error SafeMissingRoleAdmin(bytes32 adminRole);
 
 /// @title ProvisionAdditionalServiceSigner
-/// @notice **PENDING.** Authors the Safe bundle that provisions the
-/// ADDITIONAL service signer
+/// @notice **EXECUTED — verified 2026-08-05 (Base and Ethereum).** Authors
+/// the Safe bundle that provisions the ADDITIONAL service signer
 /// (`LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C`) on the ACTIVE chain's
 /// V4 authoriser with the canonical post-ceremony grants
 /// (`additionalServiceGrants()`: `DEPOSIT` / `WITHDRAW` / `CERTIFY` — the
@@ -43,9 +43,10 @@ error SafeMissingRoleAdmin(bytes32 adminRole);
 /// `Actions → run-script` with
 /// `script = 20260723-provision-additional-service-signer`, `sig = run()`,
 /// and the target `network`; one dispatch + Safe signing per chain carrying
-/// a live authoriser (Base and Ethereum today; HyperEVM after its
-/// authoriser bootstraps). Flips to `**EXECUTED YYYY-MM-DD (<chain>).**`
-/// per chain in the post-execution pin PR.
+/// a live authoriser. Base and Ethereum both hold every canonical pair —
+/// re-dispatching there reverts `AdditionalSignerAlreadyProvisioned`, the
+/// state `20260723-provision-additional-service-signer.prod.t.sol` pins per
+/// chain. HyperEVM is dispatchable once its authoriser bootstraps.
 ///
 /// The canonical pairs are the `GRANTEE_SERVICE_3D0C` rows of
 /// `LibAuthoriserInvariants.expectedGrants()` — the single current-state
