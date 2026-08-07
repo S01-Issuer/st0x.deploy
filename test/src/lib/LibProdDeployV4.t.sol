@@ -58,9 +58,9 @@ contract LibProdDeployV4Test is Test {
     function testDeployAddressStoxReceipt() external {
         LibRainDeploy.etchZoltuFactory(vm);
         address deployed = LibRainDeploy.deployZoltu(type(StoxReceipt).creationCode);
-        assertEq(deployed, LibProdDeployV4.STOX_RECEIPT_0_1_1);
+        assertEq(deployed, LibProdDeployV4.STOX_RECEIPT_CANDIDATE);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_1);
+        assertEq(deployed.codehash, LibProdDeployV4.STOX_RECEIPT_CODEHASH_CANDIDATE);
     }
 
     // --- StoxReceiptVault (candidate — rebuilt: its `fallback()` hardcodes the
@@ -79,9 +79,9 @@ contract LibProdDeployV4Test is Test {
     function testDeployAddressStoxWrappedTokenVault() external {
         LibRainDeploy.etchZoltuFactory(vm);
         address deployed = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
-        assertEq(deployed, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1);
+        assertEq(deployed, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CANDIDATE);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_1);
+        assertEq(deployed.codehash, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_CANDIDATE);
     }
 
     // --- StoxUnifiedDeployer (candidate — rebuilt: it embeds the rebuilt candidate
@@ -101,9 +101,9 @@ contract LibProdDeployV4Test is Test {
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
         address deployed = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeacon).creationCode);
-        assertEq(deployed, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1);
+        assertEq(deployed, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CANDIDATE);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_1);
+        assertEq(deployed.codehash, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_CANDIDATE);
     }
 
     // --- StoxWrappedTokenVaultBeaconSetDeployer (candidate — a mover: its
@@ -145,9 +145,9 @@ contract LibProdDeployV4Test is Test {
     function testDeployAddressStoxOffchainAssetReceiptVaultAuthorizerV1() external {
         LibRainDeploy.etchZoltuFactory(vm);
         address deployed = LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode);
-        assertEq(deployed, LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1);
+        assertEq(deployed, LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CANDIDATE);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_1);
+        assertEq(deployed.codehash, LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_CANDIDATE);
     }
 
     // --- StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1 ---
@@ -156,11 +156,11 @@ contract LibProdDeployV4Test is Test {
         LibRainDeploy.etchZoltuFactory(vm);
         address deployed =
             LibRainDeploy.deployZoltu(type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode);
-        assertEq(deployed, LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_0_1_1);
+        assertEq(deployed, LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CANDIDATE);
         assertTrue(deployed.code.length > 0);
         assertEq(
             deployed.codehash,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_1
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_CANDIDATE
         );
     }
 

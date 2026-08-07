@@ -24,9 +24,6 @@ import {
     ExpectedGrantMissing,
     CloneCodehashMismatch
 } from "../../script/20260619-deploy-v4-authoriser-clone.s.sol";
-import {
-    StoxOffchainAssetReceiptVaultAuthorizerV1
-} from "../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
@@ -43,9 +40,16 @@ import {DeployV4AuthoriserCloneHarness} from "./DeployV4AuthoriserCloneHarness.s
 ///
 /// @dev The V4 impl has not yet been Zoltu-deployed on Base at the time this
 /// script lands. Each test etches the V4 impl runtime bytecode at the pinned
-/// address so the impl pre-flight passes; the runtime is captured from a
-/// freshly-compiled `StoxOffchainAssetReceiptVaultAuthorizerV1`, whose
-/// codehash matches the `LibProdDeployV4` pin by construction.
+/// address so the impl pre-flight passes; the runtime is the FROZEN
+/// `RUNTIME_CODE_0_1_1` snapshot, which is what the script's
+/// `assertV4ImplDeployed` codehash guard checks against.
+///
+/// It deliberately does NOT compile the contract fresh. That worked only while
+/// current source happened to reproduce the 0.1.1 bytecode byte-for-byte; the
+/// moment anything shifts the compiled output — a dependency bump, or the
+/// `optimizer_runs` change in this release — a fresh compile stops matching the
+/// frozen pin and these tests fail on the impl guard instead of the behaviour
+/// they are actually asserting.
 contract DeployV4AuthoriserCloneTest is Test {
     DeployV4AuthoriserClone internal script;
     DeployV4AuthoriserCloneHarness internal harness;
@@ -65,8 +69,7 @@ contract DeployV4AuthoriserCloneTest is Test {
         v4Impl = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1;
         cloneFactory = LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS;
 
-        StoxOffchainAssetReceiptVaultAuthorizerV1 impl = new StoxOffchainAssetReceiptVaultAuthorizerV1();
-        v4ImplRuntime = address(impl).code;
+        v4ImplRuntime = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_CODE_0_1_1;
         vm.etch(v4Impl, v4ImplRuntime);
     }
 
