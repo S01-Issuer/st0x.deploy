@@ -28,6 +28,15 @@ error ExpectedGrantMissing(address authoriser, bytes32 role, address grantee);
 /// @param holder The grantee found to hold `DEFAULT_ADMIN_ROLE`.
 error UnexpectedDefaultAdmin(address authoriser, address holder);
 
+/// @notice A deploy key holds a role on the authoriser. The hot deploy key
+/// deploys and holds NOTHING, and the retired deploy EOA must never reappear
+/// in the role graph — a role on either is an escalation path outside the
+/// pinned grant map.
+/// @param authoriser The authoriser carrying the unexpected grant.
+/// @param role The role id found on the key.
+/// @param holder The key holding it.
+error DeployKeyHoldsRole(address authoriser, bytes32 role, address holder);
+
 /// @notice The authoriser's runtime codehash does not match the pinned
 /// EIP-1167 minimal-proxy codehash, i.e. the clone does not proxy the
 /// audited implementation.
@@ -179,6 +188,42 @@ library LibAuthoriserInvariants {
             if (!acl.hasRole(grants[i].role, grants[i].grantee)) {
                 revert ExpectedGrantMissing(authoriser, grants[i].role, grants[i].grantee);
             }
+        }
+        assertKeysHoldNoRoles(authoriser);
+    }
+
+    /// @notice Assert neither the hot deploy key (the pinned deterministic
+    /// deployer) nor the retired deploy EOA (`BEACON_INITIAL_OWNER`) holds
+    /// ANY role in the known role universe on the supplied authoriser — the
+    /// 13 pinned role ids from `expectedGrants` plus `DEFAULT_ADMIN_ROLE`.
+    /// The hot key deploys and holds nothing; the retired key must never
+    /// reappear in the role graph. Reverts `DeployKeyHoldsRole` naming the
+    /// exact role and key on violation.
+    /// @dev Role IDS are chain-invariant (only grantee SLOTS vary per chain),
+    /// so the universe is built from the Base map. Both key pins come from
+    /// the generated `LibProdDeployV4` — no address literals here. Composed
+    /// into `assertExpectedGrants(address,address)`, so every per-chain prod
+    /// fork assertion enforces it; also called directly by the deterministic
+    /// clone deploy's post-state.
+    /// @param authoriser The authoriser to validate.
+    function assertKeysHoldNoRoles(address authoriser) internal view {
+        IAccessControl acl = IAccessControl(authoriser);
+        address hotKey = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC_DEPLOYER;
+        address retiredKey = LibProdDeployV4.BEACON_INITIAL_OWNER;
+        RoleGrant[] memory grants = expectedGrants(GRANTEE_TOKEN_OWNER_SAFE);
+        for (uint256 i = 0; i < grants.length; i++) {
+            if (acl.hasRole(grants[i].role, hotKey)) {
+                revert DeployKeyHoldsRole(authoriser, grants[i].role, hotKey);
+            }
+            if (acl.hasRole(grants[i].role, retiredKey)) {
+                revert DeployKeyHoldsRole(authoriser, grants[i].role, retiredKey);
+            }
+        }
+        if (acl.hasRole(DEFAULT_ADMIN_ROLE, hotKey)) {
+            revert DeployKeyHoldsRole(authoriser, DEFAULT_ADMIN_ROLE, hotKey);
+        }
+        if (acl.hasRole(DEFAULT_ADMIN_ROLE, retiredKey)) {
+            revert DeployKeyHoldsRole(authoriser, DEFAULT_ADMIN_ROLE, retiredKey);
         }
     }
 

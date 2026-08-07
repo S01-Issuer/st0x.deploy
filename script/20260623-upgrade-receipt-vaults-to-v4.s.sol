@@ -7,8 +7,8 @@ import {console2} from "forge-std-1.16.1/src/console2.sol";
 
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
-import {IAuthorizableV1} from "rain-vats-0.1.6/src/interface/IAuthorizableV1.sol";
-import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
+import {IAuthorizableV1} from "rain-vats-0.1.7/src/interface/IAuthorizableV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.1.7/src/interface/IAuthorizeV1.sol";
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
@@ -33,9 +33,10 @@ error V4ImplementationNotDeployed(address implementation);
 /// @param actual The codehash observed on-chain.
 error V4CodehashMismatch(address implementation, bytes32 expected, bytes32 actual);
 
-/// @notice The V4 authoriser clone constant in `LibAuthoriserInvariants` is still
-/// the `address(0)` placeholder. The clone must be deployed (and its address
-/// dropped into the lib) before the upgrade can be authored.
+/// @notice The V4 authoriser clone pin
+/// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`) is `address(0)` — no
+/// deployed clone has been pinned for this chain, so the upgrade cannot be
+/// authored.
 error V4AuthoriserCloneNotPinned();
 
 /// @notice The V4 authoriser clone address is pinned but has no runtime code.
@@ -101,11 +102,10 @@ error VaultAuthoriserMismatchPostUpgrade(address vault, address expected, addres
 ///    - the V4 authoriser clone is pinned (non-zero), deployed, has the pinned
 ///      EIP-1167 codehash, and holds every `LibAuthoriserInvariants.expectedGrants()`
 ///      pair.
-///    The V4 impl at `STOX_RECEIPT_VAULT_0_1_1` is deployed on Base with the
-///    pinned codehash, so the impl-side pre-flight passes; the clone-pin check
-///    fails red today because `STOX_PROD_AUTHORISER_V4_CLONE` is still
-///    `address(0)` — the forcing function blocking the upgrade until the clone
-///    is deployed and pinned.
+///    The impl- and clone-side pre-flights both pass against live Base state:
+///    the V4 impl at `STOX_RECEIPT_VAULT_0_1_1` is deployed with the pinned
+///    codehash, and `STOX_PROD_AUTHORISER_V4_CLONE` names the deployed clone,
+///    which carries the pinned EIP-1167 codehash and the full grant map.
 /// 2. **Build** — a multi-tx bundle: one `upgradeTo(V4 impl)` call per V1
 ///    production beacon (receipt, receipt vault, wrapped token vault), plus
 ///    one `setAuthorizer(V4 clone)` call per production receipt vault
@@ -178,7 +178,7 @@ contract UpgradeReceiptVaultsToV4 is Script {
     }
 
     /// @notice The V4 authoriser clone that every production receipt vault is
-    /// rewired onto. Placeholder until the clone is deployed.
+    /// rewired onto. Pinned in `LibProdDeployV4` from the deployed clone.
     address internal constant V4_AUTHORISER_CLONE = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
 
     /// @notice Human-readable name embedded in the emitted Tx Builder JSON's

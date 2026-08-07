@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {IAuthorizeV1, Unauthorized} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
+import {IAuthorizeV1, Unauthorized} from "rain-vats-0.1.7/src/interface/IAuthorizeV1.sol";
 
 /// @dev Permissive authorizer used by the fallback routing tests. Records the
 /// most recent call and allows every permission by default so we can exercise

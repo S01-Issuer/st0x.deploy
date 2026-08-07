@@ -6,13 +6,13 @@ import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {VmSafe} from "forge-std-1.16.1/src/Vm.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
-import {LibCloneFactoryDeploy} from "rain-factory-0.1.1/src/lib/LibCloneFactoryDeploy.sol";
+import {LibNonceCloneFactory} from "../../src/lib/LibNonceCloneFactory.sol";
 import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1167Proxy.sol";
 
-import {ICloneableFactoryV2} from "rain-factory-0.1.1/src/interface/ICloneableFactoryV2.sol";
+import {ICloneableFactoryV2} from "rain-factory-0.1.5/src/interface/ICloneableFactoryV2.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.1.7/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 
 import {
     DeployV4AuthoriserClone,
@@ -67,7 +67,7 @@ contract DeployV4AuthoriserCloneTest is Test {
         vm.deal(deployer, 100 ether);
         safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         v4Impl = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1;
-        cloneFactory = LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS;
+        cloneFactory = LibNonceCloneFactory.CLONE_FACTORY_DEPLOYED_ADDRESS;
 
         v4ImplRuntime = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_CODE_0_1_1;
         vm.etch(v4Impl, v4ImplRuntime);
@@ -183,7 +183,7 @@ contract DeployV4AuthoriserCloneTest is Test {
         selectBaseFork();
         bytes memory bogusCode = hex"60016000526001601ff3";
         vm.etch(cloneFactory, bogusCode);
-        bytes32 expected = LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_CODEHASH;
+        bytes32 expected = LibNonceCloneFactory.CLONE_FACTORY_DEPLOYED_CODEHASH;
         bytes32 actual = keccak256(bogusCode);
         vm.expectRevert(abi.encodeWithSelector(CloneFactoryCodehashMismatch.selector, cloneFactory, expected, actual));
         vm.prank(deployer, deployer);
@@ -348,5 +348,16 @@ contract DeployV4AuthoriserCloneTest is Test {
         }
         // The live invariant map satisfies the script's own slice guard.
         harness.callAssertGrantsSliceInvariant();
+    }
+
+    /// @notice The nonce-factory codehash pin is the keccak of the embedded
+    /// runtime bytecode — the same shape the prod pins assert, so the hash
+    /// can never drift from the code that reproduces it.
+    function testNonceCloneFactoryCodehashMatchesEmbeddedCode() external pure {
+        assertEq(
+            keccak256(LibNonceCloneFactory.CLONE_FACTORY_DEPLOYED_CODE),
+            LibNonceCloneFactory.CLONE_FACTORY_DEPLOYED_CODEHASH,
+            "CLONE_FACTORY_DEPLOYED_CODEHASH is not keccak256(CLONE_FACTORY_DEPLOYED_CODE)"
+        );
     }
 }

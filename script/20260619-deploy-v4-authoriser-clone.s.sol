@@ -6,11 +6,11 @@ import {Script} from "forge-std-1.16.1/src/Script.sol";
 import {console2} from "forge-std-1.16.1/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1167Proxy.sol";
-import {ICloneableFactoryV2} from "rain-factory-0.1.1/src/interface/ICloneableFactoryV2.sol";
-import {LibCloneFactoryDeploy} from "rain-factory-0.1.1/src/lib/LibCloneFactoryDeploy.sol";
+import {ICloneableFactoryV2} from "rain-factory-0.1.5/src/interface/ICloneableFactoryV2.sol";
+import {LibNonceCloneFactory} from "../src/lib/LibNonceCloneFactory.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.1.7/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
@@ -28,7 +28,7 @@ error V4ImplNotDeployed(address impl);
 /// value in `LibProdDeployV4`. Impl has been replaced with different code.
 error V4ImplCodehashMismatch(address impl, bytes32 expected, bytes32 actual);
 
-/// @notice The canonical `CloneFactory` from `rain-factory-0.1.1` is not
+/// @notice The nonce-based `CloneFactory` pinned in `LibNonceCloneFactory` is not
 /// deployed at its pinned address. Zoltu deploy is missing on this network.
 error CloneFactoryNotDeployed(address factory);
 
@@ -139,8 +139,7 @@ contract DeployV4AuthoriserClone is Script {
     uint256 internal constant AUTO_GRANTED_ADMIN_COUNT = 7;
 
     /// @notice The V4 authoriser clone pin for the active chain, selected by
-    /// `block.chainid` from `LibProdDeployV4` — `address(0)` until that chain's
-    /// clone is deployed and the pin hydrated. Reverts for any chain without a
+    /// `block.chainid` from `LibProdDeployV4`. Reverts for any chain without a
     /// pin rather than falling back to another chain's clone (reading the wrong
     /// chain's clone is the catastrophic failure this guard exists to prevent).
     /// @return The active chain's clone pin.
@@ -186,7 +185,7 @@ contract DeployV4AuthoriserClone is Script {
         // Pre-flight: the canonical `CloneFactory` is deployed with the
         // pinned codehash. A missing/replaced factory would either
         // revert or hand back a clone under attacker-supplied bytecode.
-        address factoryAddr = LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS;
+        address factoryAddr = LibNonceCloneFactory.CLONE_FACTORY_DEPLOYED_ADDRESS;
         assertCloneFactoryDeployed(factoryAddr);
 
         // Pre-flight: the clone pin is not already hydrated. If it is,
@@ -270,7 +269,7 @@ contract DeployV4AuthoriserClone is Script {
     /// hold no `_ADMIN` role post-renounce.
     /// @param v4Impl The pinned V4 impl the clone proxies; the expected
     /// codehash is re-derived from this address so the check does not
-    /// depend on the (still-placeholder) codehash pin.
+    /// depend on the codehash pin.
     function _assertPostState(address clone, address deployer, address v4Impl) internal view {
         // EIP-1167 shape + embedded impl match what the pinned V4 impl
         // produces.
@@ -342,7 +341,7 @@ contract DeployV4AuthoriserClone is Script {
     function assertCloneFactoryDeployed(address factory) internal view {
         if (factory.code.length == 0) revert CloneFactoryNotDeployed(factory);
         bytes32 actual = factory.codehash;
-        bytes32 expected = LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_CODEHASH;
+        bytes32 expected = LibNonceCloneFactory.CLONE_FACTORY_DEPLOYED_CODEHASH;
         if (actual != expected) revert CloneFactoryCodehashMismatch(factory, expected, actual);
     }
 

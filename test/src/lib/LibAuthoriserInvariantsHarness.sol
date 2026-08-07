@@ -16,4 +16,8 @@ contract LibAuthoriserInvariantsHarness {
     function callAssertExpectedGrants(address authoriser) external view {
         LibAuthoriserInvariants.assertExpectedGrants(authoriser);
     }
+
+    function callAssertKeysHoldNoRoles(address authoriser) external view {
+        LibAuthoriserInvariants.assertKeysHoldNoRoles(authoriser);
+    }
 }

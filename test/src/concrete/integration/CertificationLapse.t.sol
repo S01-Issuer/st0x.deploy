@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {IERC20} from "@openzeppelin-contracts-5.6.1/token/ERC20/IERC20.sol";
-import {CertificationExpired} from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+import {CertificationExpired} from "rain-vats-0.1.7/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 
 import {MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV1.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";

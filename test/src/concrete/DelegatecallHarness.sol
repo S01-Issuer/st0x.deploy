@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {LibCorporateAction} from "../../../src/lib/LibCorporateAction.sol";
-import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.1.7/src/interface/IAuthorizeV1.sol";
 
 /// @dev Minimal harness that delegates calls to a facet. Also exposes an
 /// `authorizer()` function so the facet's `OffchainAssetReceiptVault(address
