@@ -293,14 +293,54 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0xF4f8c66085910d583c01f3b4e44Bf731D4e2c565
     address internal constant RKLB_WRAPPED_TOKEN_VAULT = address(0xF4f8c66085910d583c01f3b4e44Bf731D4e2c565);
 
-    /// @notice Returns the 29 production token instance triples on Base, in
+    // ---- tHOOD / wtHOOD — Robinhood Markets, Inc. ST0x ----
+    /// https://basescan.org/address/0x942639370E1c095ECCe2BdffebFB295d0B3e384e
+    address internal constant HOOD_RECEIPT = address(0x942639370E1c095ECCe2BdffebFB295d0B3e384e);
+    /// https://basescan.org/address/0x5cEfd886dD05001c2Fc32c313E05360D07f37d8f
+    address internal constant HOOD_RECEIPT_VAULT = address(0x5cEfd886dD05001c2Fc32c313E05360D07f37d8f);
+    /// https://basescan.org/address/0xd50f561322fe3235DBc9Ec8b3aB7693383d8A425
+    address internal constant HOOD_WRAPPED_TOKEN_VAULT = address(0xd50f561322fe3235DBc9Ec8b3aB7693383d8A425);
+
+    // ---- tORCL / wtORCL — Oracle Corporation ST0x ----
+    /// https://basescan.org/address/0xBaf83f5D1dbC8CF4D5F5BCb93EfE23d0E333223f
+    address internal constant ORCL_RECEIPT = address(0xBaf83f5D1dbC8CF4D5F5BCb93EfE23d0E333223f);
+    /// https://basescan.org/address/0x57573351f3fdD20a57dEE4a7f836de1cE9900d4B
+    address internal constant ORCL_RECEIPT_VAULT = address(0x57573351f3fdD20a57dEE4a7f836de1cE9900d4B);
+    /// https://basescan.org/address/0xCB9571aB96aA47374eF30D8E9ACCC1cD51064726
+    address internal constant ORCL_WRAPPED_TOKEN_VAULT = address(0xCB9571aB96aA47374eF30D8E9ACCC1cD51064726);
+
+    // ---- tSMCI / wtSMCI — Super Micro Computer, Inc. ST0x ----
+    /// https://basescan.org/address/0xC23aC719988d2ABeffEE8AC75C790E328c44Fe79
+    address internal constant SMCI_RECEIPT = address(0xC23aC719988d2ABeffEE8AC75C790E328c44Fe79);
+    /// https://basescan.org/address/0x8518931497d2A8f07Bc607D1D3295b398D065A65
+    address internal constant SMCI_RECEIPT_VAULT = address(0x8518931497d2A8f07Bc607D1D3295b398D065A65);
+    /// https://basescan.org/address/0xA759FAbbD866e6DB8bF76613C35825dC2e380bf0
+    address internal constant SMCI_WRAPPED_TOKEN_VAULT = address(0xA759FAbbD866e6DB8bF76613C35825dC2e380bf0);
+
+    // ---- tBABA / wtBABA — Alibaba Group Holding Limited ADR ST0x ----
+    /// https://basescan.org/address/0x635983387673B0Da01f70a94985c6F88BfAf78c2
+    address internal constant BABA_RECEIPT = address(0x635983387673B0Da01f70a94985c6F88BfAf78c2);
+    /// https://basescan.org/address/0x6B8fa7288dBEc7C1c62BfE59Cbd7Bec7EBF846C5
+    address internal constant BABA_RECEIPT_VAULT = address(0x6B8fa7288dBEc7C1c62BfE59Cbd7Bec7EBF846C5);
+    /// https://basescan.org/address/0x7e5cc7eAe0455A07Ab4abf354E0f5657BA2888BD
+    address internal constant BABA_WRAPPED_TOKEN_VAULT = address(0x7e5cc7eAe0455A07Ab4abf354E0f5657BA2888BD);
+
+    // ---- tTQQQ / wtTQQQ — ProShares UltraPro QQQ ST0x ----
+    /// https://basescan.org/address/0x81eFD642eBb942D725C4B035e7C3Cad154a37FAF
+    address internal constant TQQQ_RECEIPT = address(0x81eFD642eBb942D725C4B035e7C3Cad154a37FAF);
+    /// https://basescan.org/address/0xcA1A378F9a250131A2fE51c10f120FeF7EDCa56E
+    address internal constant TQQQ_RECEIPT_VAULT = address(0xcA1A378F9a250131A2fE51c10f120FeF7EDCa56E);
+    /// https://basescan.org/address/0x295e9eCAb319006900a53b3f8D6Fcb0C131F4ada
+    address internal constant TQQQ_WRAPPED_TOKEN_VAULT = address(0x295e9eCAb319006900a53b3f8D6Fcb0C131F4ada);
+
+    /// @notice Returns the production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
     /// that need the receipt / wrapped-vault legs or the underlying join key
     /// (cross-chain parity, per-token config checks) iterate this instead.
-    /// @return tokens The 29 production token instances on Base.
+    /// @return tokens The production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](29);
+        tokens = new TokenInstance[](34);
         tokens[0] = TokenInstance("MSTR", MSTR_RECEIPT, MSTR_RECEIPT_VAULT, MSTR_WRAPPED_TOKEN_VAULT);
         tokens[1] = TokenInstance("TSLA", TSLA_RECEIPT, TSLA_RECEIPT_VAULT, TSLA_WRAPPED_TOKEN_VAULT);
         tokens[2] = TokenInstance("COIN", COIN_RECEIPT, COIN_RECEIPT_VAULT, COIN_WRAPPED_TOKEN_VAULT);
@@ -330,6 +370,11 @@ library LibTokenInvariants {
         tokens[26] = TokenInstance("LRCX", LRCX_RECEIPT, LRCX_RECEIPT_VAULT, LRCX_WRAPPED_TOKEN_VAULT);
         tokens[27] = TokenInstance("TTWO", TTWO_RECEIPT, TTWO_RECEIPT_VAULT, TTWO_WRAPPED_TOKEN_VAULT);
         tokens[28] = TokenInstance("RKLB", RKLB_RECEIPT, RKLB_RECEIPT_VAULT, RKLB_WRAPPED_TOKEN_VAULT);
+        tokens[29] = TokenInstance("HOOD", HOOD_RECEIPT, HOOD_RECEIPT_VAULT, HOOD_WRAPPED_TOKEN_VAULT);
+        tokens[30] = TokenInstance("ORCL", ORCL_RECEIPT, ORCL_RECEIPT_VAULT, ORCL_WRAPPED_TOKEN_VAULT);
+        tokens[31] = TokenInstance("SMCI", SMCI_RECEIPT, SMCI_RECEIPT_VAULT, SMCI_WRAPPED_TOKEN_VAULT);
+        tokens[32] = TokenInstance("BABA", BABA_RECEIPT, BABA_RECEIPT_VAULT, BABA_WRAPPED_TOKEN_VAULT);
+        tokens[33] = TokenInstance("TQQQ", TQQQ_RECEIPT, TQQQ_RECEIPT_VAULT, TQQQ_WRAPPED_TOKEN_VAULT);
     }
 
     /// @notice Returns the production token instance triples on Ethereum

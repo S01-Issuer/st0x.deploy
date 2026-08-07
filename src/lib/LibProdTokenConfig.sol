@@ -41,11 +41,17 @@ struct TokenConfig {
 /// Base — notably `SGOV`'s name has a leading space. Matching Base "exactly"
 /// means carrying that space forward; the parity pin would flag it as a
 /// divergence otherwise.
+///
+/// @dev A ticker deployed on Base after this table was first captured has no
+/// live Base vault to capture strings from at the time it is authored, so its
+/// `name` / `symbol` originate here and the Base deploy uses them. The
+/// convention such a row follows is `"<issuer's legal name> ST0x"`, with
+/// `" ADR"` before the suffix for depositary receipts (see TSM, SKHY).
 library LibProdTokenConfig {
     /// @notice The 28 production token deploy configs, Base table order.
     /// @return configs The name/symbol table.
     function productionTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
-        configs = new TokenConfig[](29);
+        configs = new TokenConfig[](34);
         configs[0] = TokenConfig("MSTR", "MicroStrategy Incorporated ST0x", "tMSTR");
         configs[1] = TokenConfig("TSLA", "Tesla Inc ST0x", "tTSLA");
         configs[2] = TokenConfig("COIN", "Coinbase Global Inc ST0x", "tCOIN");
@@ -76,5 +82,14 @@ library LibProdTokenConfig {
         configs[26] = TokenConfig("LRCX", "Lam Research Corporation ST0x", "tLRCX");
         configs[27] = TokenConfig("TTWO", "Take-Two Interactive Software, Inc. ST0x", "tTTWO");
         configs[28] = TokenConfig("RKLB", "Rocket Lab USA Inc ST0x", "tRKLB");
+        configs[29] = TokenConfig("HOOD", "Robinhood Markets, Inc. ST0x", "tHOOD");
+        configs[30] = TokenConfig("ORCL", "Oracle Corporation ST0x", "tORCL");
+        configs[31] = TokenConfig("SMCI", "Super Micro Computer, Inc. ST0x", "tSMCI");
+        // BABA trades in the US as a depositary receipt, hence the " ADR"
+        // suffix, matching TSM and SKHY.
+        configs[32] = TokenConfig("BABA", "Alibaba Group Holding Limited ADR ST0x", "tBABA");
+        // TQQQ is a leveraged ETF rather than a plain equity; the name follows
+        // the fund's own product name.
+        configs[33] = TokenConfig("TQQQ", "ProShares UltraPro QQQ ST0x", "tTQQQ");
     }
 }

@@ -36,7 +36,12 @@ contract LibProdTokenConfigTest is Test {
         vm.createSelectFork(LibRainDeploy.BASE);
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensBase();
-        for (uint256 i = 0; i < configs.length; i++) {
+        // Bounded by the DEPLOYED table, not the config table: a config row
+        // authored ahead of its Base deploy has no live vault to compare
+        // against. Any length divergence is `testConfigAlignsWithBaseTokenTable`'s
+        // to report — bounding here keeps that one clear failure instead of an
+        // out-of-bounds panic on top of it.
+        for (uint256 i = 0; i < tokens.length; i++) {
             IERC20Metadata vault = IERC20Metadata(tokens[i].receiptVault);
             assertEq(
                 configs[i].name, vault.name(), string.concat(configs[i].underlying, ": config name != live Base name")
@@ -58,7 +63,8 @@ contract LibProdTokenConfigTest is Test {
         vm.createSelectFork(LibRainDeploy.BASE);
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensBase();
-        for (uint256 i = 0; i < configs.length; i++) {
+        // Bounded by the deployed table — see `testConfigMatchesLiveBase`.
+        for (uint256 i = 0; i < tokens.length; i++) {
             IERC20Metadata wrapped = IERC20Metadata(tokens[i].wrappedTokenVault);
             assertEq(
                 wrapped.name(),
