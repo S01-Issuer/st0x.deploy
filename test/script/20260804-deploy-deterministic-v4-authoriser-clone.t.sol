@@ -178,9 +178,20 @@ contract DeployDeterministicV4AuthoriserCloneTest is Test {
     /// @notice `run()` rejects a shape-matching clone at the target whose
     /// initialized state is missing the Safe's admin grants — the codehash
     /// alone is not proof of correct initialization.
+    ///
+    /// Only testable while the target is empty: `vm.etch` replaces code but
+    /// keeps storage, so once the broadcast has hydrated the target for real
+    /// the etched clone inherits the live grants and `run()` correctly
+    /// no-ops — the uninitialized shape this test fabricates no longer
+    /// exists at this address. The hydrated target's post-state is asserted
+    /// by `testRunNoOpsWhenTargetAlreadyHydrated` and
+    /// `testCloneFromPinnedDeployerLandsOnPin` instead.
     function testRunRejectsUninitializedCloneAtTarget() external {
         selectBaseFork();
         address target = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC;
+        if (target.code.length != 0) {
+            return;
+        }
         vm.etch(target, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_DETERMINISTIC_CODE);
         vm.expectRevert(
             abi.encodeWithSelector(
