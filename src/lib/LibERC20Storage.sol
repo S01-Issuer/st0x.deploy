@@ -9,6 +9,12 @@ pragma solidity ^0.8.25;
 bytes32 constant ERC20_STORAGE_LOCATION =
     keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.ERC20")) - 1)) & ~bytes32(uint256(0xff));
 
+/// @dev The slot holding OZ's raw `_totalSupply`: offset 2 from the ERC-7201
+/// root, per the `ERC20Upgradeable` struct layout documented on
+/// `LibERC20Storage`. Every read and write of the accumulator goes through
+/// this constant.
+bytes32 constant ERC20_TOTAL_SUPPLY_SLOT = bytes32(uint256(ERC20_STORAGE_LOCATION) + 2);
+
 /// @title LibERC20Storage
 /// @notice Direct storage access to OpenZeppelin ERC20Upgradeable internals.
 /// Used by the rebase migration system to write balances and totalSupply
@@ -69,10 +75,10 @@ library LibERC20Storage {
     /// otherwise-derived supply figure must compute it themselves.
     /// @return The raw value of OZ's `_totalSupply`.
     function underlyingTotalSupply() internal view returns (uint256) {
-        bytes32 slot = ERC20_STORAGE_LOCATION;
+        bytes32 slot = ERC20_TOTAL_SUPPLY_SLOT;
         uint256 supply;
         assembly ("memory-safe") {
-            supply := sload(add(slot, 2))
+            supply := sload(slot)
         }
         return supply;
     }
@@ -88,9 +94,9 @@ library LibERC20Storage {
     ///
     /// @param newTotalSupply The new value to write to `_totalSupply`.
     function setUnderlyingTotalSupply(uint256 newTotalSupply) internal {
-        bytes32 slot = ERC20_STORAGE_LOCATION;
+        bytes32 slot = ERC20_TOTAL_SUPPLY_SLOT;
         assembly ("memory-safe") {
-            sstore(add(slot, 2), newTotalSupply)
+            sstore(slot, newTotalSupply)
         }
     }
 

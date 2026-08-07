@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {LibTotalSupply} from "src/lib/LibTotalSupply.sol";
 import {LibCorporateAction} from "src/lib/LibCorporateAction.sol";
-import {ERC20_STORAGE_LOCATION} from "src/lib/LibERC20Storage.sol";
+import {LibERC20Storage} from "src/lib/LibERC20Storage.sol";
 
 contract LibTotalSupplyHarness {
     function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters) external returns (uint256) {
@@ -37,18 +37,10 @@ contract LibTotalSupplyHarness {
         LibTotalSupply.onBurn(amount);
     }
 
-    /// @dev Test-only helper: write directly to OZ's `_totalSupply` slot to
-    /// seed the harness with a starting totalSupply. `LibERC20Storage` no
-    /// longer exposes a setter (production code must not write this slot —
-    /// `LibTotalSupply` per-cursor pots own the effective supply), so we do
-    /// the slot write inline here.
+    /// @dev Test-only helper: seed the harness with a starting totalSupply by
+    /// writing OZ's `_totalSupply` slot through the library setter.
     function setOzTotalSupply(uint256 supply) external {
-        // Bind to a local — inline assembly only accepts literal number
-        // constants, and `ERC20_STORAGE_LOCATION` is now derived in-source.
-        bytes32 slot = ERC20_STORAGE_LOCATION;
-        assembly ("memory-safe") {
-            sstore(add(slot, 2), supply)
-        }
+        LibERC20Storage.setUnderlyingTotalSupply(supply);
     }
 
     function unmigrated(uint256 cursor) external view returns (uint256) {
