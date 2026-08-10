@@ -7,7 +7,7 @@ import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessContro
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
-import {DeployGovernanceTimelock} from "../../script/20260729-deploy-governance-timelock.s.sol";
+import {DeployGovernanceTimelockHarness} from "./DeployGovernanceTimelockHarness.sol";
 import {
     MigrateGovernanceToTimelock,
     TimelockNotPinned,
@@ -41,7 +41,10 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// @notice Deploy the real timelock on the fork at its derived address
     /// via the deploy broadcast script, exactly as production will.
     function deployTimelock() internal returns (address) {
-        new DeployGovernanceTimelock().run();
+        // Deploy ONLY on the fork this test selected. The script's `run()`
+        // iterates every network and leaves the last one selected, which would
+        // silently move these assertions onto another chain.
+        new DeployGovernanceTimelockHarness().callDeployOnActiveChain();
         return LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.safeForChainId(block.chainid));
     }
 
