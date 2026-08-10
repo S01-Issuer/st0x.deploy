@@ -91,7 +91,7 @@ contract LibAuthoriserInvariantsTest is Test {
         address safe = address(0x5AFE);
         address timelock = address(0x7135);
         RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
-        assertEq(grants.length, 13);
+        assertEq(grants.length, 16);
         for (uint256 i = 0; i < 7; i++) {
             assertEq(grants[i].grantee, timelock, "admin entries must track adminHolder");
         }
@@ -100,6 +100,16 @@ contract LibAuthoriserInvariantsTest is Test {
         }
         for (uint256 i = 10; i < 13; i++) {
             assertEq(grants[i].grantee, safe, "operational Safe entries must track the Safe");
+        }
+        // The additional service signer's three action roles are operational,
+        // not admin: they must track the signer regardless of who holds the
+        // `_ADMIN` slice, so the timelock migration never moves them.
+        for (uint256 i = 13; i < 16; i++) {
+            assertEq(
+                grants[i].grantee,
+                LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C,
+                "additional service signer entries must be independent of adminHolder"
+            );
         }
 
         // The two-arg overload is the adminHolder == Safe collapse.
