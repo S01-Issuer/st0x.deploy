@@ -16,4 +16,17 @@ contract DeployGovernanceTimelockHarness is DeployGovernanceTimelock {
     function callAssertPostState(address timelock, address safe, address deployer) external view {
         _assertPostState(timelock, safe, deployer);
     }
+
+    /// @notice Deploy on whichever fork the TEST has selected. `run()` creates
+    /// its own fork per network, and state written inside those forks is not
+    /// visible to a fork the test creates afterwards — so per-chain tests
+    /// drive this step directly on their own fork instead.
+    function callDeployOnActiveChain() external {
+        _deployOnActiveChain();
+    }
+
+    /// @notice The network list `run()` iterates.
+    function callNetworks() external pure returns (string[] memory) {
+        return networks();
+    }
 }
