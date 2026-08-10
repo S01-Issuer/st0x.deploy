@@ -92,4 +92,9 @@ base_sepolia = { key = "${CI_DEPLOY_BASE_SEPOLIA_ETHERSCAN_API_KEY}" }
 # verification fails with "unknown alias `ethereum`".
 ethereum = { key = "${CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY}", chain = 1 }
 flare = { key = "${CI_DEPLOY_FLARE_ETHERSCAN_API_KEY}" }
+# HyperEVM has no dedicated *scan deployment; it is served by Etherscan's
+# multichain (v2) API, so the api url pins the chainid explicitly. `hyperevm`
+# is not a built-in foundry chain alias either, so the chain id is pinned for
+# the same reason `ethereum` is above.
+hyperevm = { key = "${CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY}", chain = 999, url = "https://api.etherscan.io/v2/api?chainid=999" }
 polygon = { key = "${CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY}" }
