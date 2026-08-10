@@ -212,7 +212,7 @@ contract DeployTokensEthereum is Script {
         // pins, NOT `LibProdDeployCurrent`: Ethereum's bootstrap shipped the
         // audited 0.1.1 set, and the 0.1.1 unified deployer is what wires
         // new vault proxies onto the chain's IN-USE production beacons (the
-        // 0.1.1 set pinned via `LibProdBeaconsEthereum` /
+        // 0.1.1 set pinned via `LibProdBeacons0_1_1` /
         // `LibBeaconInvariants`). The current tag's deployer is a different
         // Zoltu address that (a) is not deployed on Ethereum and (b) would
         // wire tokens onto a different, unadopted beacon set even if it were.

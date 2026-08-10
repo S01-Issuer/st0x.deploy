@@ -8,7 +8,7 @@ import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 /// @title LibProdBeaconsBase
 /// @notice The three ST0x production beacons on **Base** and the
 /// implementations they point at — the Base counterpart of
-/// `LibProdBeaconsEthereum`, same shape and index order so per-chain
+/// `LibProdBeacons0_1_1`, same shape and index order so per-chain
 /// consumers dispatch to one lib per chain instead of hand-assembling
 /// either side.
 /// @dev Base's production tokens run on the **V1-generation** beacon
@@ -27,7 +27,7 @@ import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 library LibProdBeaconsBase {
     /// @notice The three production beacons, in a fixed order (receipt,
     /// receipt vault, wrapped token vault) — index-aligned with
-    /// `implementations()` and with `LibProdBeaconsEthereum.beacons()`.
+    /// `implementations()` and with `LibProdBeacons0_1_1.beacons()`.
     /// @return The three Base beacon addresses.
     function beacons() internal pure returns (address[3] memory) {
         return [
@@ -39,7 +39,7 @@ library LibProdBeaconsBase {
 
     /// @notice The implementation each beacon points at, index-aligned with
     /// `beacons()`. Referenced from the generated `0_1_1` impl pins — the
-    /// same deterministic addresses `LibProdBeaconsEthereum.implementations()`
+    /// same deterministic addresses `LibProdBeacons0_1_1.implementations()`
     /// resolves, because implementation parity across chains is the goal.
     /// @return The three implementation addresses.
     function implementations() internal pure returns (address[3] memory) {
