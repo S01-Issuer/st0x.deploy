@@ -132,6 +132,23 @@ library LibTimelockInvariants {
     /// Zoltu-derived address differs per chain by construction.
     address internal constant STOX_GOVERNANCE_TIMELOCK_ETHEREUM = address(0);
 
+    /// @notice The ST0x governance timelock on **HyperEVM**.
+    ///
+    /// **PLACEHOLDER** (`address(0)`) until the
+    /// `20260729-deploy-governance-timelock` broadcast executes on HyperEVM
+    /// and the post-execution pin PR hydrates this constant. HyperEVM
+    /// carries 29 live production tokens, so it is governed on exactly the
+    /// same terms as Base and Ethereum — not a follow-up.
+    /// @dev HyperEVM's token-owner Safe shares Ethereum's ADDRESS
+    /// (`STOX_TOKEN_OWNER_SAFE_HYPEREVM == STOX_TOKEN_OWNER_SAFE_ETHEREUM`),
+    /// and the timelock's constructor embeds only that Safe — so the
+    /// Zoltu-derived address is IDENTICAL on the two chains. That is
+    /// correct and expected (same policy, same init code, same CREATE2
+    /// address), but it means the two pins will read the same value once
+    /// hydrated; they are kept as separate constants because the DEPLOY is
+    /// per-chain and either could diverge if a chain's Safe ever moves.
+    address internal constant STOX_GOVERNANCE_TIMELOCK_HYPEREVM = address(0);
+
     /// @notice **PLACEHOLDER** for a dedicated canceller principal (a
     /// separate key or Safe that can veto a scheduled operation during the
     /// delay window without being able to propose or execute). Undecided:
@@ -155,6 +172,9 @@ library LibTimelockInvariants {
         }
         if (chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
             return STOX_GOVERNANCE_TIMELOCK_ETHEREUM;
+        }
+        if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
+            return STOX_GOVERNANCE_TIMELOCK_HYPEREVM;
         }
         revert UnsupportedChainForGovernanceTimelock(chainId);
     }
