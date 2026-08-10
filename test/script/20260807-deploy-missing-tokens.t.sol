@@ -3,10 +3,16 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {Vm} from "forge-std-1.16.1/src/Vm.sol";
+import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {
+    AuthoriserNotReady,
+    AuthoriserNotWired,
     DeployMissingTokens,
     DeployerNotDeployed,
+    DeploymentEventMissing,
     NoMissingTokens,
+    OwnershipHandoffFailed,
     TokenTableMisaligned,
     TokenTableTooShort,
     UnsupportedTargetChain
@@ -23,6 +29,23 @@ import {DeployMissingTokensHarness} from "./DeployMissingTokensHarness.sol";
 /// without a fork — and the deploy pre-flight reuses the gate chain the
 /// per-chain prod pins already exercise against live state.
 contract DeployMissingTokensTest is Test {
+    /// @dev The 0.1.1 authoriser implementation the production V4 authoriser
+    /// clones. Written out rather than imported so this test states the
+    /// implementation it expects the clone to proxy, independently of the
+    /// generated pointers it would otherwise be checking against themselves.
+    address constant AUTHORISER_IMPL_0_1_1 = address(0x2EA0d35d0B1F57C42e6130f298930228bCbFDe9b);
+
+    /// @dev Arbitrary non-empty runtime, for standing something at an address
+    /// that the code-presence checks accept and the codehash checks reject.
+    bytes constant STUB_CODE = hex"600160005260206000f3";
+
+    address constant DEPLOYER = address(0xDEB01);
+    address constant RECEIPT_VAULT = address(0x1A17);
+    address constant WRAPPED = address(0x1A18);
+    address constant AUTHORISER = address(0xA077);
+    address constant SAFE = address(0x5AFE);
+    address constant STRAY = address(0xDEADBEEF);
+
     DeployMissingTokens internal script;
     DeployMissingTokensHarness internal harness;
 
@@ -167,5 +190,188 @@ contract DeployMissingTokensTest is Test {
             abi.encodeWithSelector(DeployerNotDeployed.selector, LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1)
         );
         script.run();
+    }
+
+    /// @notice The core gate is three checks, not one: with the unified
+    /// deployer present the next two are still enforced, each naming the
+    /// deployer it found missing. Without this, a partial 0.1.1 bootstrap —
+    /// the deployer landed, a beacon-set deployer did not — passes the gate
+    /// and faults later, inside the broadcast.
+    function testRunChecksEveryDeployerInTheCore() external {
+        vm.etch(LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1, STUB_CODE);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DeployerNotDeployed.selector,
+                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1
+            )
+        );
+        script.run();
+
+        vm.etch(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1, STUB_CODE);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DeployerNotDeployed.selector, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1
+            )
+        );
+        script.run();
+    }
+
+    /// @notice The chain's authoriser pin is rejected when nothing is deployed
+    /// at it. Base and unknown chains never reach the readiness check at all —
+    /// they have no authoriser to resolve, so they are a dispatch error.
+    function testAuthoriserReadyRejectsChainsWithNoPin() external {
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
+        vm.expectRevert(abi.encodeWithSelector(UnsupportedTargetChain.selector, LibSafeInvariants.BASE_CHAIN_ID));
+        harness.assertAuthoriserReady();
+
+        vm.chainId(123456);
+        vm.expectRevert(abi.encodeWithSelector(UnsupportedTargetChain.selector, 123456));
+        harness.assertAuthoriserReady();
+    }
+
+    /// @notice An unpinned or undeployed authoriser is caught before any
+    /// broadcast — dispatching ahead of the authoriser clone landing on the
+    /// target chain would otherwise deploy tokens with nothing to wire them to.
+    function testAuthoriserNotReadyWhenNothingIsDeployedAtThePin() external {
+        vm.chainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
+        vm.expectRevert(
+            abi.encodeWithSelector(AuthoriserNotReady.selector, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM)
+        );
+        harness.assertAuthoriserReady();
+    }
+
+    /// @notice Code at the pin is not enough: a contract that is not the
+    /// audited clone is rejected on codehash. This is the check that makes the
+    /// pin mean "the V4 authoriser" rather than "some contract".
+    function testAuthoriserNotReadyWhenTheCodehashIsWrong() external {
+        vm.chainId(LibSafeInvariants.HYPEREVM_CHAIN_ID);
+        vm.etch(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM, STUB_CODE);
+        vm.expectRevert(
+            abi.encodeWithSelector(AuthoriserNotReady.selector, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM)
+        );
+        harness.assertAuthoriserReady();
+    }
+
+    /// @notice The audited clone passes on every supported target chain, so
+    /// the rejections above are not vacuous.
+    ///
+    /// The runtime is rebuilt here rather than fetched, which also pins what
+    /// the codehash MEANS: `STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH` is the
+    /// EIP-1167 runtime embedding the 0.1.1 authoriser implementation, and
+    /// nothing else asserted that derivation — the invariants lib states it in
+    /// prose and compares hashes. A clone of a different implementation would
+    /// fail here rather than silently satisfy every codehash check in the repo.
+    function testAuthoriserReadyAcceptsTheAuditedClone() external {
+        bytes memory cloneRuntime =
+            abi.encodePacked(hex"363d3d373d3d3d363d73", AUTHORISER_IMPL_0_1_1, hex"5af43d82803e903d91602b57fd5bf3");
+        assertEq(
+            keccak256(cloneRuntime),
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH,
+            "the pinned codehash is not an EIP-1167 clone of the 0.1.1 authoriser"
+        );
+
+        vm.chainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
+        vm.etch(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM, cloneRuntime);
+        assertEq(
+            harness.assertAuthoriserReady(),
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM,
+            "Ethereum authoriser rejected"
+        );
+
+        vm.chainId(LibSafeInvariants.HYPEREVM_CHAIN_ID);
+        vm.etch(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM, cloneRuntime);
+        assertEq(
+            harness.assertAuthoriserReady(),
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM,
+            "HyperEVM authoriser rejected"
+        );
+    }
+
+    /// @notice A deploy call that emitted no `Deployment` event reverts named,
+    /// rather than carrying a zero address into the receipt readback and
+    /// faulting as a raw call to an empty account — mid-broadcast, with the
+    /// tokens before it already live.
+    function testReadDeploymentRevertsWhenTheEventIsMissing() external {
+        vm.expectRevert(abi.encodeWithSelector(DeploymentEventMissing.selector, "RKLB"));
+        harness.readDeployment(new Vm.Log[](0), DEPLOYER, "RKLB");
+    }
+
+    /// @notice A `Deployment` from anything other than the unified deployer is
+    /// not this script's deployment. Nothing stops an unrelated contract in
+    /// the same transaction emitting the same signature.
+    function testReadDeploymentIgnoresOtherEmitters() external {
+        Vm.Log[] memory logs = new Vm.Log[](1);
+        logs[0] = _deploymentLog(address(0xBAD), RECEIPT_VAULT, WRAPPED);
+
+        vm.expectRevert(abi.encodeWithSelector(DeploymentEventMissing.selector, "RKLB"));
+        harness.readDeployment(logs, DEPLOYER, "RKLB");
+    }
+
+    /// @notice Other events from the unified deployer are not deployments
+    /// either — the topic is matched, not just the emitter.
+    function testReadDeploymentIgnoresOtherEventsFromTheDeployer() external {
+        Vm.Log[] memory logs = new Vm.Log[](1);
+        logs[0] = _deploymentLog(DEPLOYER, RECEIPT_VAULT, WRAPPED);
+        logs[0].topics[0] = keccak256("SomethingElse(address,address,address)");
+
+        vm.expectRevert(abi.encodeWithSelector(DeploymentEventMissing.selector, "RKLB"));
+        harness.readDeployment(logs, DEPLOYER, "RKLB");
+    }
+
+    /// @notice The matching event's pair is decoded, picked out from among
+    /// logs that do not match — so the rejections above are not vacuous.
+    function testReadDeploymentDecodesTheDeployedPair() external view {
+        Vm.Log[] memory logs = new Vm.Log[](3);
+        logs[0] = _deploymentLog(address(0xBAD), address(0xDEAD), address(0xDEAD));
+        logs[1] = _deploymentLog(DEPLOYER, RECEIPT_VAULT, WRAPPED);
+        logs[2] = _deploymentLog(DEPLOYER, RECEIPT_VAULT, WRAPPED);
+        logs[2].topics[0] = keccak256("SomethingElse(address,address,address)");
+
+        (address receiptVault, address wrapped) = harness.readDeployment(logs, DEPLOYER, "RKLB");
+        assertEq(receiptVault, RECEIPT_VAULT, "wrong receipt vault decoded");
+        assertEq(wrapped, WRAPPED, "wrong wrapped vault decoded");
+    }
+
+    /// @notice Ownership that did not land on the Safe is caught: otherwise
+    /// the broadcast finishes "successfully" leaving a production vault owned
+    /// by the CI deploy key.
+    function testHandoffCaughtWhenOwnershipDidNotLand() external {
+        vm.mockCall(RECEIPT_VAULT, abi.encodeWithSignature("authorizer()"), abi.encode(AUTHORISER));
+        vm.mockCall(RECEIPT_VAULT, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(STRAY));
+        vm.expectRevert(abi.encodeWithSelector(OwnershipHandoffFailed.selector, RECEIPT_VAULT, SAFE, STRAY));
+        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, SAFE);
+    }
+
+    /// @notice A vault left on the wrong authoriser is caught — until
+    /// `setAuthorizer` lands, every operation on the vault reverts.
+    function testHandoffCaughtWhenAuthoriserNotWired() external {
+        vm.mockCall(RECEIPT_VAULT, abi.encodeWithSignature("authorizer()"), abi.encode(STRAY));
+        vm.mockCall(RECEIPT_VAULT, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(SAFE));
+        vm.expectRevert(abi.encodeWithSelector(AuthoriserNotWired.selector, RECEIPT_VAULT, AUTHORISER, STRAY));
+        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, SAFE);
+    }
+
+    /// @notice Both landed passes, so the two above are not vacuous.
+    function testHandoffPassesWhenBothLanded() external {
+        vm.mockCall(RECEIPT_VAULT, abi.encodeWithSignature("authorizer()"), abi.encode(AUTHORISER));
+        vm.mockCall(RECEIPT_VAULT, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(SAFE));
+        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, SAFE);
+    }
+
+    /// @notice A `Deployment(sender, asset, wrapper)` log as the unified
+    /// deployer emits it.
+    /// @param emitter The contract the log is attributed to.
+    /// @param receiptVault The deployed receipt vault.
+    /// @param wrapped The deployed wrapped token vault.
+    /// @return log The synthesised log.
+    function _deploymentLog(address emitter, address receiptVault, address wrapped)
+        internal
+        pure
+        returns (Vm.Log memory log)
+    {
+        log.topics = new bytes32[](1);
+        log.topics[0] = keccak256("Deployment(address,address,address)");
+        log.data = abi.encode(address(0x5E11E4), receiptVault, wrapped);
+        log.emitter = emitter;
     }
 }

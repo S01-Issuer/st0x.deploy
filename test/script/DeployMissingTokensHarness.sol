@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
+import {Vm} from "forge-std-1.16.1/src/Vm.sol";
 import {DeployMissingTokens} from "../../script/20260807-deploy-missing-tokens.s.sol";
 import {TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 import {TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
@@ -28,5 +29,25 @@ contract DeployMissingTokensHarness is DeployMissingTokens {
     /// @return The active chain's token table.
     function targetTokens() external view returns (TokenInstance[] memory) {
         return _targetTokens();
+    }
+
+    /// @notice The script's `_assertAuthoriserReady()`, externally callable.
+    /// @return The validated authoriser for the active chain.
+    function assertAuthoriserReady() external view returns (address) {
+        return _assertAuthoriserReady();
+    }
+
+    /// @notice The script's `_readDeployment()`, externally callable.
+    /// @param logs The logs to resolve the deployed pair from.
+    /// @param unifiedDeployer The deployer whose event is authoritative.
+    /// @param underlying The token being deployed, for the revert.
+    /// @return receiptVault The deployed receipt vault.
+    /// @return wrapped The deployed wrapped token vault.
+    function readDeployment(Vm.Log[] memory logs, address unifiedDeployer, string memory underlying)
+        external
+        pure
+        returns (address receiptVault, address wrapped)
+    {
+        return _readDeployment(logs, unifiedDeployer, underlying);
     }
 }

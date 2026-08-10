@@ -58,6 +58,27 @@ error TokenTableTooShort(uint256 configsLength, uint256 baseLength);
 /// duplicates of tokens that already landed.
 error NoMissingTokens();
 
+/// @notice The unified deployer emitted no `Deployment` event this iteration,
+/// so there is no address to wire or hand over. Named rather than left to
+/// fault on a zero address, because it happens MID-BROADCAST with earlier
+/// tokens already live.
+/// @param underlying The token whose deployment could not be resolved.
+error DeploymentEventMissing(string underlying);
+
+/// @notice A freshly deployed vault did not end up owned by the Safe. A vault
+/// left on the deploy key is a production asset held by a CI secret.
+/// @param receiptVault The vault whose handoff did not land.
+/// @param expected The Safe ownership was meant to land on.
+/// @param actual The owner actually read back.
+error OwnershipHandoffFailed(address receiptVault, address expected, address actual);
+
+/// @notice A freshly deployed vault is not routed to the chain's authoriser.
+/// Until `setAuthorizer` lands, every operation on the vault reverts.
+/// @param receiptVault The vault whose authoriser did not land.
+/// @param expected The authoriser it must route to.
+/// @param actual The authoriser actually read back.
+error AuthoriserNotWired(address receiptVault, address expected, address actual);
+
 /// @title DeployMissingTokens
 /// @notice Copies Base's production token set onto whichever chain this is
 /// dispatched against, deploying only the tokens that chain does not already
@@ -195,6 +216,58 @@ contract DeployMissingTokens is Script {
         }
     }
 
+    /// @notice Resolve the deployed pair out of the unified deployer's
+    /// `Deployment(sender, asset, wrapper)` event.
+    /// @dev Its own function, taking the logs rather than calling
+    /// `vm.getRecordedLogs()` itself, so the miss can be shown to revert: the
+    /// alternative is a zero address flowing into the receipt readback and
+    /// faulting as a raw call to an empty account, mid-broadcast, with earlier
+    /// tokens already live. Logs from other emitters and other events from the
+    /// deployer are both ignored rather than mistaken for a deployment.
+    /// @param logs The logs recorded across the deploy call.
+    /// @param unifiedDeployer The deployer whose event is authoritative.
+    /// @param underlying The token being deployed, for the revert.
+    /// @return receiptVault The deployed receipt vault.
+    /// @return wrapped The deployed wrapped token vault.
+    function _readDeployment(Vm.Log[] memory logs, address unifiedDeployer, string memory underlying)
+        internal
+        pure
+        returns (address receiptVault, address wrapped)
+    {
+        bytes32 deploymentTopic = keccak256("Deployment(address,address,address)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].emitter == unifiedDeployer && logs[i].topics.length > 0 && logs[i].topics[0] == deploymentTopic)
+            {
+                (, receiptVault, wrapped) = abi.decode(logs[i].data, (address, address, address));
+            }
+        }
+        if (receiptVault == address(0)) {
+            revert DeploymentEventMissing(underlying);
+        }
+    }
+
+    /// @notice Assert a freshly deployed vault ended up wired to the chain's
+    /// authoriser and owned by its Safe.
+    /// @dev Each token is wired and handed over inside the same broadcast, so
+    /// a silent miss leaves a live production vault either inoperable or owned
+    /// by the CI deploy key, and nothing catches it until the pin PR's
+    /// acceptance tests run. Public so it can be driven directly: an assertion
+    /// reachable only from inside a broadcast loop cannot be shown to fire.
+    /// Mirrors `20260706-deploy-tokens-ethereum`'s check of the same name.
+    /// @param receiptVault The vault just deployed.
+    /// @param expectedAuthoriser The authoriser it must route to.
+    /// @param expectedSafe The Safe ownership must have landed on.
+    function assertHandoffLanded(address receiptVault, address expectedAuthoriser, address expectedSafe) public view {
+        address wiredAuthoriser = ISetAuthorizer(receiptVault).authorizer();
+        if (wiredAuthoriser != expectedAuthoriser) {
+            revert AuthoriserNotWired(receiptVault, expectedAuthoriser, wiredAuthoriser);
+        }
+        address landedOwner = Ownable(receiptVault).owner();
+        if (landedOwner != expectedSafe) {
+            revert OwnershipHandoffFailed(receiptVault, expectedSafe, landedOwner);
+        }
+    }
+
     /// @notice Whether `tokens` already carries an entry for `underlying`.
     /// @param tokens The table to search.
     /// @param underlying The ticker to look for.
@@ -226,8 +299,6 @@ contract DeployMissingTokens is Script {
             LibProdTokenConfig.productionTokenConfigs(), LibTokenInvariants.productionTokensBase(), _targetTokens()
         );
 
-        bytes32 deploymentTopic = keccak256("Deployment(address,address,address)");
-
         vm.startBroadcast();
 
         // Deployer identity — inside `vm.startBroadcast()` msg.sender
@@ -253,18 +324,8 @@ contract DeployMissingTokens is Script {
             vm.recordLogs();
             IStoxUnifiedDeployerV1(unifiedDeployer).newTokenAndWrapperVault(vaultConfig);
 
-            // Fish the deployed pair out of the unified deployer's
-            // `Deployment(sender, asset, wrapper)` event.
-            Vm.Log[] memory logs = vm.getRecordedLogs();
-            (address receiptVault, address wrapped) = (address(0), address(0));
-            for (uint256 j = 0; j < logs.length; j++) {
-                if (
-                    logs[j].emitter == unifiedDeployer && logs[j].topics.length > 0
-                        && logs[j].topics[0] == deploymentTopic
-                ) {
-                    (, receiptVault, wrapped) = abi.decode(logs[j].data, (address, address, address));
-                }
-            }
+            (address receiptVault, address wrapped) =
+                _readDeployment(vm.getRecordedLogs(), unifiedDeployer, cfg.underlying);
 
             // The unified deployer's event drops the ERC-1155 receipt, so read
             // it back off the vault for the pin to hydrate.
@@ -275,6 +336,7 @@ contract DeployMissingTokens is Script {
             // is `onlyOwner`, so it must precede the handoff.
             ISetAuthorizer(receiptVault).setAuthorizer(IAuthorizeV1(authoriser));
             Ownable(receiptVault).transferOwnership(safe);
+            assertHandoffLanded(receiptVault, authoriser, safe);
 
             console2.log("==== TOKEN DEPLOYED ====");
             console2.log("underlying:", cfg.underlying);
@@ -297,4 +359,5 @@ contract DeployMissingTokens is Script {
 /// 20260706 script for the full rationale.
 interface ISetAuthorizer {
     function setAuthorizer(IAuthorizeV1 newAuthorizer) external;
+    function authorizer() external view returns (address);
 }

@@ -98,6 +98,14 @@
   Base — a deployed Base row with no name/symbol to deploy under — which
   reverts `TokenTableTooShort(configsLength, baseLength)`. Row-for-row key
   drift between the two tables still reverts `TokenTableMisaligned`.
+- **Three checks the gap-fill scripts had dropped are back, matching
+  `20260706-deploy-tokens-ethereum`.** Each deployed vault is now read back
+  before the loop moves on — `AuthoriserNotWired` if it is not routed to the
+  chain's authoriser, `OwnershipHandoffFailed` if ownership did not land on the
+  Safe — so a silent miss cannot finish the broadcast leaving a production vault
+  inoperable or owned by the CI deploy key. A deploy call that emitted no
+  `Deployment` event reverts `DeploymentEventMissing(underlying)` rather than
+  carrying a zero address into the receipt readback.
 - The two per-chain scripts' broadcast run ids are pinned into the token tables
   their runs produced, so deleting the scripts does not delete the record of
   what deployed each chain's set. `manual-broadcast.yaml`'s append-only rule now
