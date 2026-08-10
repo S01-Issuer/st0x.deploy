@@ -30,6 +30,7 @@ on:
           - 20260722-swap-rklb-authoriser
           - 20260722-swap-remaining-vault-authorisers
           - 20260723-provision-additional-service-signer
+          - 20260810-revoke-fireblocks-service-signer
       sig:
         description: 'Entrypoint to dispatch (default: run())'
         required: true
@@ -57,6 +58,7 @@ on:
           # revert on the wrong network.
           - 'base'
           - 'ethereum'
+          - 'hyperevm'
 # Manually dispatches an operational script from `script/` and uploads any
 # JSON it writes to `out/` as a build artifact.
 #
@@ -98,6 +100,7 @@ jobs:
         env:
           BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
           ETHEREUM_RPC_URL: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
+          HYPEREVM_RPC_URL: ${{ secrets.RPC_URL_HYPEREVM_FORK }}
           # Pass the choice inputs via env rather than template-expanding them
           # into the command, so a dispatch (even one crafted via the API) is
           # used as a literal argument and cannot inject shell.
