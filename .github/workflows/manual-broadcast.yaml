@@ -7,10 +7,22 @@ on:
         required: true
         type: choice
         options:
-          # Append-only registry: add new entries at the bottom; never reorder
-          # or delete. Re-dispatching a historical (executed) script must
-          # remain possible — a signer/auditor may want to re-run its
-          # pre-flight against on-chain reality to confirm what landed.
+          # Append-only registry: add new entries at the bottom; never reorder.
+          # Re-dispatching a historical (executed) script must remain possible
+          # — a signer/auditor may want to re-run its pre-flight against
+          # on-chain reality to confirm what landed.
+          #
+          # An entry may be DELETED only when a named successor listed here
+          # covers its pre-flight at least as strongly, and the deleted
+          # script's broadcast run id has been carried into the pin its run
+          # produced. `20260722-deploy-missing-tokens-ethereum` and
+          # `-hyperevm` were removed under that rule: dispatching
+          # `20260807-deploy-missing-tokens` at the same `network` re-runs the
+          # same gates and answers `NoMissingTokens` when everything landed,
+          # checked against Base's CURRENT token set rather than the config
+          # table the deleted scripts joined against. Their run ids are pinned
+          # in `LibTokenInvariants.productionTokensEthereum()` and
+          # `productionTokensHyperEvm()`.
           #
           # Each entry is the date-prefixed filename (without `.s.sol`) of a
           # broadcast script under `script/`. Convention:
@@ -20,8 +32,7 @@ on:
           # registry of *which* scripts exist, not *whether* they've run.
           - 20260619-deploy-v4-authoriser-clone
           - 20260706-deploy-tokens-ethereum
-          - 20260722-deploy-missing-tokens-ethereum
-          - 20260722-deploy-missing-tokens-hyperevm
+          - 20260807-deploy-missing-tokens
       network:
         description: 'Network to broadcast against (default: base)'
         required: true

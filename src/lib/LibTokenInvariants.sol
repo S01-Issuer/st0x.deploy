@@ -298,7 +298,7 @@ library LibTokenInvariants {
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
     /// that need the receipt / wrapped-vault legs or the underlying join key
     /// (cross-chain parity, per-token config checks) iterate this instead.
-    /// @return tokens The 28 production token instances on Base.
+    /// @return tokens The 29 production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](29);
         tokens[0] = TokenInstance("MSTR", MSTR_RECEIPT, MSTR_RECEIPT_VAULT, MSTR_WRAPPED_TOKEN_VAULT);
@@ -333,9 +333,9 @@ library LibTokenInvariants {
     }
 
     /// @notice Returns the production token instance triples on Ethereum
-    /// mainnet — the same 28 underlyings as Base, in the same order, so the
+    /// mainnet — the same 29 underlyings as Base, in the same order, so the
     /// two tables pair by index as well as by key.
-    /// @return tokens The 28 production token instances on Ethereum.
+    /// @return tokens The 29 production token instances on Ethereum.
     function productionTokensEthereum() internal pure returns (TokenInstance[] memory tokens) {
         // Deployed on Ethereum mainnet 2026-07-22 by
         // `20260706-deploy-tokens-ethereum` (manual-broadcast run
@@ -515,10 +515,10 @@ library LibTokenInvariants {
             address(0x1D6F0763e58FA6d472d470Eaaef0a4C08080d208)
         );
         // RKLB was accidentally omitted from the table when the 28-token
-        // Ethereum broadcast ran; the gap-filling
-        // `20260722-deploy-missing-tokens-ethereum` broadcast (EXECUTED
+        // Ethereum broadcast ran; a gap-filling broadcast (EXECUTED
         // 2026-07-22, manual-broadcast run 29924926246) deployed it and this
-        // row pins the logged tuple.
+        // row pins the logged tuple. That per-chain script has since been
+        // superseded by `20260807-deploy-missing-tokens`.
         tokens[28] = TokenInstance(
             "RKLB",
             address(0xFf5b15a4f478F296893b0b244D9b118Be87bCda2),
@@ -532,6 +532,13 @@ library LibTokenInvariants {
     /// parity pin asserts the alignment).
     /// @return tokens The 29 production token instances on HyperEVM.
     function productionTokensHyperEvm() internal pure returns (TokenInstance[] memory tokens) {
+        // Deployed on HyperEVM 2026-07-24 (manual-broadcast run 30114307165):
+        // all 29 tokens via the 0.1.1 unified deployer, each wired onto the
+        // HyperEVM V4 authoriser and handed to the HyperEVM token-owner Safe
+        // in the same broadcast. Addresses pinned from the run's logged
+        // (underlying, receipt, receiptVault, wrapped) tuples. The script that
+        // ran it was per-chain and has since been superseded by
+        // `20260807-deploy-missing-tokens`, so this is the record of the run.
         tokens = new TokenInstance[](29);
         tokens[0] = TokenInstance(
             "MSTR",
@@ -709,13 +716,13 @@ library LibTokenInvariants {
         );
     }
 
-    /// @notice Returns the 28 production receipt vault addresses on Base, in
+    /// @notice Returns the 29 production receipt vault addresses on Base, in
     /// the order they were deployed. Provided so consumers (e.g. invariant
     /// assertions, migration scripts) can iterate without hardcoding the
     /// list inline.
     /// @dev Derived from `productionTokensBase()` so the token table is the
     /// single source of truth and the two accessors cannot drift.
-    /// @return vaults The 28 production receipt vault addresses on Base.
+    /// @return vaults The 29 production receipt vault addresses on Base.
     function productionReceiptVaults() internal pure returns (address[] memory vaults) {
         TokenInstance[] memory tokens = productionTokensBase();
         vaults = new address[](tokens.length);

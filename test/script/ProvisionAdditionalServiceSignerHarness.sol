@@ -14,7 +14,7 @@ import {SafeTx} from "../../src/lib/LibSafeOps.sol";
 /// from a lower call depth than the cheatcode itself). Its own file because
 /// Rain convention is one contract per .sol and
 /// `rainix-sol-single-contract` enforces it. Mirrors
-/// `test/script/DeployMissingTokensEthereumHarness.sol`.
+/// `test/script/DeployMissingTokensHarness.sol`.
 contract ProvisionAdditionalServiceSignerHarness is ProvisionAdditionalServiceSigner {
     /// @notice The script's `authorBundle()`, externally callable.
     /// @param authoriser The authoriser whose live role state is read.
