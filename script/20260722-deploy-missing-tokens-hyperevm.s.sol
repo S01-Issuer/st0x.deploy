@@ -35,18 +35,18 @@ error HyperEvmSafeNotReady(address safe);
 /// @param authoriser The authoriser address inspected.
 error HyperEvmAuthoriserNotReady(address authoriser);
 
-/// @notice Every canonical config row already has a fully-hydrated Ethereum
+/// @notice Every canonical config row already has a fully-hydrated HyperEVM
 /// table entry — there is nothing left to deploy. Re-dispatching would mint
 /// duplicate tokens, which is never meaningful.
 error NoMissingTokens();
 
-/// @notice The canonical config table and the Ethereum token table have
+/// @notice The canonical config table and the HyperEVM token table have
 /// drifted out of row alignment. The gap-filling join is by index, so a
 /// misaligned row must abort the deploy rather than deploy under the wrong
 /// underlying.
 /// @param index The misaligned row.
 /// @param configUnderlying The config table's underlying at that row.
-/// @param tableUnderlying The Ethereum table's underlying at that row.
+/// @param tableUnderlying The HyperEVM table's underlying at that row.
 error TokenTableMisaligned(uint256 index, string configUnderlying, string tableUnderlying);
 
 /// @title DeployMissingTokensHyperEvm
@@ -93,7 +93,7 @@ contract DeployMissingTokensHyperEvm is Script {
         }
     }
 
-    /// @notice Assert the Ethereum V4 authoriser is deployed at its pin with
+    /// @notice Assert the HyperEVM V4 authoriser is deployed at its pin with
     /// the shared EIP-1167 codehash.
     /// @return authoriser The validated authoriser address.
     function _assertAuthoriserReady() internal view returns (address authoriser) {
@@ -107,7 +107,7 @@ contract DeployMissingTokensHyperEvm is Script {
     }
 
     /// @notice Select the configs to deploy: canonical config rows whose
-    /// Ethereum table entry is all-zero. Joined by index with the underlying
+    /// HyperEVM table entry is all-zero. Joined by index with the underlying
     /// asserted equal row-for-row (the same alignment the cross-chain parity
     /// pin enforces); any drift aborts (`TokenTableMisaligned`). Reverts
     /// `NoMissingTokens` when the table is fully hydrated.
@@ -143,7 +143,7 @@ contract DeployMissingTokensHyperEvm is Script {
         }
     }
 
-    /// @notice Deploy every canonical token still missing from the Ethereum
+    /// @notice Deploy every canonical token still missing from the HyperEVM
     /// table via the 0.1.1 unified deployer, wire each onto the V4
     /// authoriser, and hand ownership to the Safe — one deploy-key
     /// broadcast, matched to the executed 20260706 flow. Broadcasts as the
