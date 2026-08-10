@@ -8,11 +8,20 @@ import {TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 
 /// @dev Exposes the script's internals for the pure selection tests.
 contract DeployMissingTokensHarness is DeployMissingTokens {
-    /// @notice The script's `_selectMissing()`, externally callable.
-    /// @param targetTokens The target chain's existing token table.
-    /// @return The Base tokens absent from `targetTokens`.
-    function selectMissing(TokenInstance[] memory targetTokens) external pure returns (TokenConfig[] memory) {
-        return _selectMissing(targetTokens);
+    /// @notice The script's `_selectMissing()`, externally callable. Takes the
+    /// config and Base tables so a test can drive the alignment guards with a
+    /// deliberately drifted pair, which the canonical tables cannot express.
+    /// @param configs The canonical name/symbol table, Base row order.
+    /// @param base The Base token table.
+    /// @param target The target chain's existing token table. Named `target`
+    /// rather than `targetTokens` so it does not shadow `targetTokens()` below.
+    /// @return The Base tokens absent from `target`.
+    function selectMissing(TokenConfig[] memory configs, TokenInstance[] memory base, TokenInstance[] memory target)
+        external
+        pure
+        returns (TokenConfig[] memory)
+    {
+        return _selectMissing(configs, base, target);
     }
 
     /// @notice The script's `_targetTokens()`, externally callable.

@@ -91,6 +91,19 @@
 - Dispatching the script against Base, or any chain without a token table,
   reverts `UnsupportedTargetChain` rather than resolving to an empty table and
   reading as "copy everything".
+- **The canonical config table is allowed to run ahead of Base.** A row is
+  authored when a ticker is chosen and Base is pinned when it is deployed, so
+  the config table leads in that window; only the rows Base carries are read,
+  so the excess is inert. The genuine error is a config table SHORTER than
+  Base — a deployed Base row with no name/symbol to deploy under — which
+  reverts `TokenTableTooShort(configsLength, baseLength)`. Row-for-row key
+  drift between the two tables still reverts `TokenTableMisaligned`.
+- The two per-chain scripts' broadcast run ids are pinned into the token tables
+  their runs produced, so deleting the scripts does not delete the record of
+  what deployed each chain's set. `manual-broadcast.yaml`'s append-only rule now
+  states the exception the deletion was made under: an entry may be dropped only
+  when a named successor listed there covers its pre-flight at least as
+  strongly, and the run id has been carried into the pin.
 
 ### New contracts
 

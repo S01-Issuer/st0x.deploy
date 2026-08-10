@@ -44,6 +44,15 @@ error AuthoriserNotReady(address authoriser);
 /// @param baseUnderlying The Base table's underlying at that row.
 error TokenTableMisaligned(uint256 index, string configUnderlying, string baseUnderlying);
 
+/// @notice The canonical name/symbol table has fewer rows than the Base token
+/// table, so a deployed Base token has no config row to read its name and
+/// symbol from. The reverse — a config table running AHEAD of Base — is a
+/// normal state: rows are authored when a ticker is chosen and Base is pinned
+/// when it is deployed, so the config table leads until the Base deploy lands.
+/// @param configsLength The canonical config table's row count.
+/// @param baseLength The Base token table's row count.
+error TokenTableTooShort(uint256 configsLength, uint256 baseLength);
+
 /// @notice Every token on Base already exists on the target chain, so there
 /// is nothing to copy. This is also what stops a re-dispatch from minting
 /// duplicates of tokens that already landed.
@@ -138,15 +147,30 @@ contract DeployMissingTokens is Script {
     /// checked row-for-row here; the target chain is matched by `underlying`
     /// rather than index, which is what allows its table to be shorter than
     /// Base's while a copy is outstanding.
+    ///
+    /// The config table is allowed to run LONGER than Base — a row is authored
+    /// when a ticker is chosen and Base is pinned when it is deployed, so the
+    /// config table leads in that window. Only the trailing rows Base actually
+    /// carries are read, so the excess is inert; a config table SHORTER than
+    /// Base is the genuine error, because a Base row would then have no
+    /// name/symbol to deploy under.
+    ///
+    /// Both tables are taken as parameters rather than read from the libraries
+    /// so that the misalignment guards below can be driven from a test — they
+    /// are the only thing standing between a drifted table and deploying a
+    /// token under the wrong underlying's strings, so they are worth being
+    /// able to exercise directly. `run()` passes the canonical tables.
+    /// @param configs The canonical name/symbol table, Base row order.
+    /// @param base The Base token table — the source of truth for the set.
     /// @param targetTokens The target chain's existing token table.
     /// @return missing The deploy configs for the tokens to copy.
-    function _selectMissing(TokenInstance[] memory targetTokens) internal pure returns (TokenConfig[] memory missing) {
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
-        if (configs.length != base.length) {
-            revert TokenTableMisaligned(
-                configs.length < base.length ? configs.length : base.length, "<length>", "<length>"
-            );
+    function _selectMissing(
+        TokenConfig[] memory configs,
+        TokenInstance[] memory base,
+        TokenInstance[] memory targetTokens
+    ) internal pure returns (TokenConfig[] memory missing) {
+        if (configs.length < base.length) {
+            revert TokenTableTooShort(configs.length, base.length);
         }
 
         TokenConfig[] memory candidates = new TokenConfig[](base.length);
@@ -198,7 +222,9 @@ contract DeployMissingTokens is Script {
         address authoriser = _assertAuthoriserReady();
         address safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
 
-        TokenConfig[] memory configs = _selectMissing(_targetTokens());
+        TokenConfig[] memory configs = _selectMissing(
+            LibProdTokenConfig.productionTokenConfigs(), LibTokenInvariants.productionTokensBase(), _targetTokens()
+        );
 
         bytes32 deploymentTopic = keccak256("Deployment(address,address,address)");
 

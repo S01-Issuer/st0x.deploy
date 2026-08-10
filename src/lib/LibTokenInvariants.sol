@@ -532,6 +532,13 @@ library LibTokenInvariants {
     /// parity pin asserts the alignment).
     /// @return tokens The 29 production token instances on HyperEVM.
     function productionTokensHyperEvm() internal pure returns (TokenInstance[] memory tokens) {
+        // Deployed on HyperEVM 2026-07-24 (manual-broadcast run 30114307165):
+        // all 29 tokens via the 0.1.1 unified deployer, each wired onto the
+        // HyperEVM V4 authoriser and handed to the HyperEVM token-owner Safe
+        // in the same broadcast. Addresses pinned from the run's logged
+        // (underlying, receipt, receiptVault, wrapped) tuples. The script that
+        // ran it was per-chain and has since been superseded by
+        // `20260807-deploy-missing-tokens`, so this is the record of the run.
         tokens = new TokenInstance[](29);
         tokens[0] = TokenInstance(
             "MSTR",
