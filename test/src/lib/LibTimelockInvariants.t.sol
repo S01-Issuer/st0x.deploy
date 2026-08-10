@@ -214,5 +214,32 @@ contract LibTimelockInvariantsTest is Test {
                 LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM)
             );
         }
+        address hyperevmPin = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_HYPEREVM;
+        if (hyperevmPin != address(0)) {
+            assertEq(
+                hyperevmPin,
+                LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM)
+            );
+        }
+    }
+
+    /// @notice Every chain with a pinned token-owner Safe resolves through
+    /// `timelockForChainId` rather than reverting. The chain-coverage guard
+    /// in `GovernanceTimelockMigration.t.sol` enforces this against the
+    /// live Safe map; this pins the three chains explicitly so a dropped
+    /// arm fails here too, next to the constants it would have dropped.
+    function testEveryPinnedChainResolves() external pure {
+        assertEq(
+            LibTimelockInvariants.timelockForChainId(LibSafeInvariants.BASE_CHAIN_ID),
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK
+        );
+        assertEq(
+            LibTimelockInvariants.timelockForChainId(LibSafeInvariants.ETHEREUM_CHAIN_ID),
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ETHEREUM
+        );
+        assertEq(
+            LibTimelockInvariants.timelockForChainId(LibSafeInvariants.HYPEREVM_CHAIN_ID),
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_HYPEREVM
+        );
     }
 }
