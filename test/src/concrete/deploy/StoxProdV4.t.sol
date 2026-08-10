@@ -210,4 +210,17 @@ contract StoxProdV4Test is Test {
         checkProd_0_1_1OnChain();
         LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
     }
+
+    /// Only the audited 0.1.1 production set ships to HyperEVM (the RAI-1511
+    /// bootstrap), mirroring Ethereum. The fork runs unconditionally: CI
+    /// supplies `HYPEREVM_RPC_URL` to the shared rainix test workflow from the
+    /// `RPC_URL_HYPEREVM_FORK` secret, so a missing RPC fails at fork time
+    /// rather than passing having asserted nothing. RED if the audited 0.1.1
+    /// suite is absent from HyperEVM or its in-use beacons are not owned by
+    /// the HyperEVM token-owner Safe; green otherwise, catching later drift.
+    function testProdDeployHyperEvmV4() external {
+        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
+        checkProd_0_1_1OnChain();
+        LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
+    }
 }
