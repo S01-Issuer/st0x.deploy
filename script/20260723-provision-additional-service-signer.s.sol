@@ -33,8 +33,8 @@ error UnsupportedChainForProvisioning(uint256 chainId);
 error SafeMissingRoleAdmin(bytes32 adminRole);
 
 /// @title ProvisionAdditionalServiceSigner
-/// @notice **PENDING.** Authors the Safe bundle that provisions the
-/// ADDITIONAL service signer
+/// @notice **EXECUTED — verified 2026-08-05 (Base and Ethereum).** Authors
+/// the Safe bundle that provisions the ADDITIONAL service signer
 /// (`LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C`) on the ACTIVE chain's
 /// V4 authoriser with the canonical post-ceremony grants
 /// (`additionalServiceGrants()`: `DEPOSIT` / `WITHDRAW` / `CERTIFY` — the
@@ -43,9 +43,14 @@ error SafeMissingRoleAdmin(bytes32 adminRole);
 /// `Actions → run-script` with
 /// `script = 20260723-provision-additional-service-signer`, `sig = run()`,
 /// and the target `network`; one dispatch + Safe signing per chain carrying
-/// a live authoriser (Base and Ethereum today; HyperEVM after its
-/// authoriser bootstraps). Flips to `**EXECUTED YYYY-MM-DD (<chain>).**`
-/// per chain in the post-execution pin PR.
+/// a live authoriser. Base and Ethereum are the only chains this script
+/// dispatches against — `activeChainAuthoriser()` reverts
+/// `UnsupportedChainForProvisioning` for every other chain id, HyperEVM
+/// included, which needs a branch here once its authoriser bootstraps.
+/// Both supported chains hold every canonical pair, so re-dispatching
+/// reverts `AdditionalSignerAlreadyProvisioned` — the state
+/// `20260723-provision-additional-service-signer.prod.t.sol` pins per
+/// chain.
 ///
 /// The canonical pairs are the `GRANTEE_SERVICE_3D0C` rows of
 /// `LibAuthoriserInvariants.expectedGrants()` — the single current-state
@@ -83,7 +88,17 @@ contract ProvisionAdditionalServiceSigner is Script {
     string internal constant ARTIFACT_PATH = "out/20260723-additional-service-signer.json";
 
     /// @notice The `_ADMIN` role that admins `role` under the authoriser's
-    /// hierarchy (`<ROLE>` is admined by `<ROLE>_ADMIN`; verified live).
+    /// hierarchy: `<ROLE>` is admined by `<ROLE>_ADMIN`.
+    /// @dev Hardcoding the mapping is safe rather than lucky. The hierarchy
+    /// is written by `_setRoleAdmin` inside the authoriser's `initialize`
+    /// and nowhere else — OpenZeppelin's `_setRoleAdmin` is `internal` and
+    /// `AccessControlUpgradeable` exposes no external setter — so a given
+    /// implementation's mapping is fixed at initialisation and immutable
+    /// thereafter. `activeChainAuthoriser()` asserts the clone's runtime
+    /// codehash equals the pinned EIP-1167 runtime embedding the audited
+    /// 0.1.1 implementation, which is therefore proof of WHICH mapping the
+    /// clone carries. A live `getRoleAdmin` read would be re-deriving what
+    /// the codehash pin already establishes.
     /// @param role The action role.
     /// @return adminRole The role's admin role.
     function roleAdminOf(bytes32 role) internal pure returns (bytes32 adminRole) {
@@ -112,16 +127,31 @@ contract ProvisionAdditionalServiceSigner is Script {
         }
     }
 
-    /// @notice Author the provisioning bundle for the active chain: see the
-    /// contract-level flow. Does not broadcast — execution happens via the
-    /// Safe UI using the emitted artifact.
-    function run() external {
-        // --- Pre-flight ---------------------------------------------------
-
-        address safeAddr = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
-        IGnosisSafe safe = IGnosisSafe(safeAddr);
-
-        address authoriser = activeChainAuthoriser();
+    /// @notice Pre-flight the authoriser's grant map and self-scope the
+    /// bundle: the signer's canonical pairs, plus one `grantRole`
+    /// transaction per pair the signer does not yet hold.
+    ///
+    /// Reverts when the map has drifted (any non-signer row missing), when
+    /// the Safe does not admin a provisioned role, or when every pair
+    /// already holds (`AdditionalSignerAlreadyProvisioned` — nothing left
+    /// to author).
+    ///
+    /// @dev Every chain-specific input arrives as an argument rather than
+    /// being read from `block.chainid`, so the selection is exercisable
+    /// against ANY authoriser carrying the canonical map — a locally
+    /// cloned one in the unit suite as readily as a pinned production
+    /// clone on a fork.
+    /// @param authoriser The authoriser whose live role state is read.
+    /// @param safeAddr The chain's token-owner Safe: fills the Safe
+    /// grantee slots of the canonical map and holds every `_ADMIN` role.
+    /// @return additional The signer's canonical pairs, in map order.
+    /// @return txs One `grantRole` tx per pair the signer does not hold,
+    /// in map order.
+    function authorBundle(address authoriser, address safeAddr)
+        internal
+        view
+        returns (RoleGrant[] memory additional, SafeTx[] memory txs)
+    {
         IAccessControl acl = IAccessControl(authoriser);
 
         // Split the canonical map: the additional signer's rows are the
@@ -140,7 +170,7 @@ contract ProvisionAdditionalServiceSigner is Script {
                 "ProvisionAdditionalServiceSigner: authoriser grant map has drifted"
             );
         }
-        RoleGrant[] memory additional = new RoleGrant[](pairCount);
+        additional = new RoleGrant[](pairCount);
         uint256 p = 0;
         for (uint256 i = 0; i < all.length; i++) {
             if (all[i].grantee == ADDITIONAL_SIGNER) {
@@ -170,9 +200,7 @@ contract ProvisionAdditionalServiceSigner is Script {
             revert AdditionalSignerAlreadyProvisioned();
         }
 
-        // --- Build the bundle ----------------------------------------------
-
-        SafeTx[] memory txs = new SafeTx[](count);
+        txs = new SafeTx[](count);
         uint256 t = 0;
         for (uint256 i = 0; i < additional.length; i++) {
             if (!missing[i]) continue;
@@ -184,6 +212,23 @@ contract ProvisionAdditionalServiceSigner is Script {
             });
             t++;
         }
+    }
+
+    /// @notice Author the provisioning bundle for the active chain: see the
+    /// contract-level flow. Does not broadcast — execution happens via the
+    /// Safe UI using the emitted artifact.
+    function run() external {
+        // --- Pre-flight ---------------------------------------------------
+
+        address safeAddr = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+        IGnosisSafe safe = IGnosisSafe(safeAddr);
+
+        address authoriser = activeChainAuthoriser();
+        IAccessControl acl = IAccessControl(authoriser);
+
+        // --- Build the bundle ----------------------------------------------
+
+        (RoleGrant[] memory additional, SafeTx[] memory txs) = authorBundle(authoriser, safeAddr);
 
         uint256 nonce = safe.nonce();
         bytes32 firstSafeTxHash = LibSafeOps.computeSafeTxHashViaSafe(safe, txs[0], nonce);

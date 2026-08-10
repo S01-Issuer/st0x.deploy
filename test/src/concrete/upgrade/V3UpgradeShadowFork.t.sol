@@ -9,6 +9,7 @@ import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensio
 
 import {LibProdDeployV1} from "../../../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
+import {LibProdDeployCurrent} from "../../../../src/generated/LibProdDeployCurrent.sol";
 import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibTokenInvariants} from "../../../../src/lib/LibTokenInvariants.sol";
@@ -79,9 +80,17 @@ contract V3UpgradeShadowForkTest is Test {
         //    constructors there so the facet's `_SELF` and the vault's pinned
         //    facet target line up.
         deployCodeTo("src/concrete/StoxReceiptVault.sol:StoxReceiptVault", LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1);
+        // Plant the facet at the address the freshly-compiled vault actually
+        // pins, not at a hardcoded tag constant. The vault bakes
+        // `LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET` into its
+        // `fallback()`, so the two only line up if this address is read from
+        // the same source. They coincided while the facet's bytecode was
+        // unchanged since 0.1.1; lowering `optimizer_runs` moved the candidate
+        // facet address and the mismatch surfaced as a bare delegatecall
+        // revert into empty code.
         deployCodeTo(
             "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1
+            LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET
         );
 
         // 2. The beacon-ownership migration EXECUTED on Base (2026-07):

@@ -16,24 +16,16 @@ import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.s
 /// impl suites land on HyperEVM (beacons come up EOA-owned) until the
 /// migration runs; green thereafter, catching later ownership drift.
 ///
-/// @dev Two loud PENDING gates while upstream state lands (RAI-1511): the
-/// HyperEVM Safe pin, and the HyperEVM RPC env (the shared rainix test
-/// workflow has no HyperEVM secret slot yet). Remove the env gate once CI
-/// carries the secret.
+/// @dev The invariant runs unconditionally: the HyperEVM token-owner Safe is
+/// pinned in `LibSafeInvariants`, and CI supplies `HYPEREVM_RPC_URL` to the
+/// shared rainix test workflow from the `RPC_URL_HYPEREVM_FORK` secret, so the
+/// fork always resolves.
 contract HyperEvmBeaconOwnershipTest is Test {
     /// Every HyperEVM beacon is owned by the HyperEVM token-owner Safe (with
     /// the OZ beacon codehash + its pinned impl unchanged). RED until the
     /// migration transfers ownership from the deploy EOA to the Safe.
     function testHyperEvmBeaconsAreSafeOwned() external {
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM;
-        if (safe == address(0)) {
-            emit log("PENDING: HyperEVM token-owner Safe not yet pinned - beacon-owner invariant cannot run (RAI-1511)");
-            return;
-        }
-        if (bytes(vm.envOr("HYPEREVM_RPC_URL", string(""))).length == 0) {
-            emit log("PENDING: HYPEREVM_RPC_URL not available in this environment (RAI-1511)");
-            return;
-        }
 
         vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
         address[3] memory beacons = LibProdBeacons0_1_1.beacons();

@@ -2,6 +2,74 @@
 
 ## V4 (rain.vats 0.1.6)
 
+### StoxReceiptVault
+
+- **Fix (audit H01): keep OZ's `_totalSupply` in step with rebased balances.**
+  `migrateAccount` rewrites `_balances` directly via `LibERC20Storage`, so
+  before this change OZ's own `_totalSupply` accumulator was never adjusted for
+  a stock split and drifted below the true balance sum. OZ subtracts from that
+  accumulator **unchecked** on burn and adds to it **checked** on mint, so the
+  first burn exceeding the stale value wrapped the slot to ~`2**256` and every
+  subsequent mint reverted with `Panic(0x11)` — permanently capping issuance,
+  with no external symptom because `totalSupply()`, `balanceOf()` and all events
+  stayed mutually consistent. The slot has no write path other than mint/burn,
+  so recovery would have required a beacon implementation upgrade.
+  `migrateAccount` now applies the balance delta to the raw slot as well, via
+  the new `LibERC20Storage.applyBalanceDeltaToTotalSupply`. Reported supply is
+  unchanged: `totalSupply()` remains `LibTotalSupply.effectiveTotalSupply()` and
+  the per-cursor pot accounting is untouched. Reported by Protofire as H01 in
+  the `st0x.deploy 5.0` report (July 2026, audited at `ed767bf2`).
+
+- **`optimizer_runs` lowered 5000 → 2000 to fit the H01 fix under EIP-170.**
+  `StoxReceiptVault` had only a 6-byte runtime margin (24,570 of 24,576) at 5000
+  runs, and the smallest correct form of the H01 fix costs ~148 bytes. Measured
+  with the fix applied: `runs=5000` → 24,718 (over by 142); `runs=3000` →
+  24,456; `runs=2000` → 24,037 (**539 spare**); `runs=1000` → 22,936. Two
+  in-vault alternatives were measured and rejected: hoisting the supply sync to
+  a single call site in `_update` costs _more_ than the duplicated inline
+  (24,809), and `unchecked` arithmetic recovers only 18 bytes (24,700).
+
+  This changes the compiled bytecode — and therefore the deterministic Zoltu
+  address — of **every** contract, not just the vault. Consequences:
+
+  - No user-facing address moves. Every per-token contract is a `BeaconProxy`,
+    so token addresses, beacon addresses and roles are all unaffected.
+  - ⚠️ **This is a coordinated multi-contract release, not a single vault
+    upgrade.** Three singletons must be deployed and pointed at in lockstep:
+    - `StoxReceiptVault` — the H01 fix itself; requires the vault beacon to be
+      repointed.
+    - `StoxCorporateActionsFacet` — the vault bakes
+      `LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET` into its `fallback()`.
+      That address moved, so a vault built from this source delegatecalls into
+      empty code until the facet is deployed at its new address. This coupling
+      was previously invisible because the facet's bytecode had been unchanged
+      since 0.1.1, making the candidate and 0.1.1 addresses coincide.
+    - `StoxReceipt` — `ST0xOrchestrator`'s vault-logic version lock compares the
+      live vault and receipt beacon implementations against
+      `LibProdDeployCurrent`. The receipt's address moved even though its source
+      did not, so the orchestrator halts mint/burn until a new receipt
+      implementation is deployed and its beacon repointed.
+
+    Only the first of these is required by the H01 fix; the other two are
+    consequences of the optimizer change.
+  - The `testDeployAddress*` assertions for `StoxReceipt`,
+    `StoxWrappedTokenVault`, `StoxWrappedTokenVaultBeacon` and both authorizers
+    are re-pointed from the frozen `_0_1_1` pins to `_CANDIDATE`, matching what
+    `StoxReceiptVault` already did. `0_1_1` stays as the frozen historical
+    record of what is live on Base; `testFrozenRedeploy*` keeps proving those
+    snapshots redeploy reproducibly, independent of the current optimizer
+    setting, and the on-chain fork codehash tests still compare live code to the
+    unchanged `0_1_1` pins.
+  - The property given up is "a fresh build of current source reproduces the
+    _previously released_ artifacts". Verifying those against the repo now means
+    using the frozen snapshot rather than a fresh build. Deploying the stack to
+    a **new chain** must likewise use the frozen creation code to keep addresses
+    identical to Base.
+  - Runtime gas rises across all contracts. `.gas-snapshot` is stale as a
+    result; it is not gate-checked by CI (`rainix-sol-test` is just
+    `forge test -vvv`) and should be regenerated in CI, where the fork-test RPC
+    secrets are available.
+
 ### Deploy scripts
 
 - **The per-chain "deploy missing tokens" scripts are merged into one.**
