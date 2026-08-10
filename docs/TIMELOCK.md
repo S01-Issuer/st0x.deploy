@@ -65,22 +65,23 @@ invariants target:
 | ----------------------------------- | -------- | ------------------------------------------------ |
 | `STOX_GOVERNANCE_TIMELOCK`          | Base     | placeholder — hydrate after the deploy broadcast |
 | `STOX_GOVERNANCE_TIMELOCK_ETHEREUM` | Ethereum | placeholder — hydrate after the deploy broadcast |
+| `STOX_GOVERNANCE_TIMELOCK_HYPEREVM` | HyperEVM | placeholder — hydrate after the deploy broadcast |
 | `TIMELOCK_CANCELLER`                | all      | placeholder — dedicated canceller undecided      |
 
 `testPinsMatchDerivedAddressesOnceHydrated` pins every hydrated address to the
 derivation, so a pin PR cannot record a wrong address.
 
-## Rollout (per chain)
+## Rollout (per chain: Base, Ethereum, HyperEVM)
 
 1. **Deploy** — Actions → `manual-broadcast` →
-   `20260729-deploy-governance-timelock`, network `base` / `ethereum`. CI deploy
-   key broadcasts; the timelock lands at the derived address, fully configured
-   by its constructor.
+   `20260729-deploy-governance-timelock`, network `base` / `ethereum` /
+   `hyperevm`. CI deploy key broadcasts; the timelock lands at the derived
+   address, fully configured by its constructor.
 2. **Pin PR** — hydrate that chain's
    `LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK*` with the logged address.
 3. **Author the migration bundle** — Actions → `run-script` →
-   `20260729-migrate-governance-to-timelock`, network `base` / `ethereum`. Emits
-   the Safe Tx Builder JSON
+   `20260729-migrate-governance-to-timelock`, network `base` / `ethereum` /
+   `hyperevm`. Emits the Safe Tx Builder JSON
    (`out/20260729-governance-timelock-migration-<chainid>.json`) after a full
    pre-flight, simulation, post-state assertion, and an end-to-end schedule →
    48h → execute proof on the fork. The logged MultiSend `SafeTxHash` is the
@@ -139,6 +140,25 @@ way to resolve it.
   `GovernanceTimelockMigration.t.sol` — the migration window + deadline (see
   above).
 
+### HyperEVM caveat
+
+HyperEVM is in scope on the same terms as Base and Ethereum — 29 live production
+tokens, same Safe / authoriser / beacon shape — but `HYPEREVM_RPC_URL` is **not
+yet provisioned in CI** (rainix is adding the `RPC_URL_HYPEREVM_FORK` slot,
+RAI-1511). Until it lands, HyperEVM's live-fork assertions
+(`testHyperevmGovernanceInMigrationWindow`, the deploy fork test) soft-skip with
+a `PENDING` log, matching the multichain stack's own HyperEVM suites — the
+repo's static job bans `vm.skip`, so a logged early return is the sanctioned
+form.
+
+What still holds HyperEVM unconditionally is the **fork-free** half:
+`testEveryGovernedChainHasTimelockCoverage` (a chain with a pinned token-owner
+Safe must resolve through `timelockForChainId`) and
+`testEveryPinnedChainResolves`. Dropping HyperEVM's arm fails both regardless of
+RPC availability. Before executing the HyperEVM bundle, dispatch the migration
+authoring against a HyperEVM fork locally with `HYPEREVM_RPC_URL` set — CI
+cannot yet prove that leg for you.
+
 ## Explicitly out of scope (follow-ups)
 
 - **Beacon ownership.** The upgrade beacons remain Safe-owned. Moving them under
@@ -146,7 +166,3 @@ way to resolve it.
   can reuse this machinery wholesale, but it gates contract UPGRADES (not token
   admin) and deserves its own decision + rollout.
 - **Dedicated canceller** — see the placeholder above.
-- **HyperEVM** — the chain tables and Safe pins for HyperEVM land with the
-  multichain stack; extending the timelock there is: add the chain to
-  `timelockForChainId`, dispatch the deploy broadcast, pin, migrate — the
-  scripts are already chain-aware.
