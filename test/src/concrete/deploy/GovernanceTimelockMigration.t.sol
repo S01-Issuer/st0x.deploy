@@ -19,8 +19,8 @@ import {LibTokenInvariants, TokenInstance} from "../../../../src/lib/LibTokenInv
 
 /// @title GovernanceTimelockMigrationTest
 /// @notice Live-fork forcing function for the governance-timelock rollout,
-/// per chain (Base + Ethereum). Two surfaces are asserted through the
-/// migration window:
+/// per chain (Base + Ethereum + HyperEVM — every chain carrying production
+/// tokens). Two surfaces are asserted through the migration window:
 ///
 /// - **Vault ownership** — every production receipt vault's `owner()` is
 ///   either the chain's Safe (migration pending) or the chain's governance
@@ -144,15 +144,30 @@ contract GovernanceTimelockMigrationTest is Test {
         );
     }
 
-    /// @notice HyperEVM's chain id, declared locally rather than imported:
-    /// `LibSafeInvariants` on this branch has no HyperEVM pin yet — it
-    /// arrives with the multichain stack (RAI-1511), which adds
-    /// `HYPEREVM_CHAIN_ID` and a `safeForChainId` arm for it. Declaring the
-    /// id here is what lets the coverage guard below be armed BEFORE that
-    /// stack lands: today the entry is inert, and the moment HyperEVM gains
-    /// a pinned Safe the guard starts demanding timelock coverage for it.
-    /// Swap this for the library constant once the multichain stack merges.
-    uint256 internal constant HYPEREVM_CHAIN_ID_CANDIDATE = 999;
+    /// @notice HyperEVM's vaults, beacons and authoriser `_ADMIN` roles are
+    /// inside the same migration window. HyperEVM carries 29 live production
+    /// tokens, so leaving it outside the deadline would let the chain with
+    /// the newest deployment be the one chain still Safe-governed.
+    /// @dev Soft-skips while `HYPEREVM_RPC_URL` is unprovisioned in CI
+    /// (rainix is adding the `RPC_URL_HYPEREVM_FORK` slot, RAI-1511) — the
+    /// same PENDING-log-and-return the multichain stack's HyperEVM suites
+    /// use, since the static job bans `vm.skip`. The chain-map half of
+    /// HyperEVM's coverage is asserted fork-free by
+    /// `testEveryGovernedChainHasTimelockCoverage` below, so a missing RPC
+    /// does not leave the chain wholly unasserted.
+    function testHyperevmGovernanceInMigrationWindow() external {
+        if (bytes(vm.envOr("HYPEREVM_RPC_URL", string(""))).length == 0) {
+            emit log("PENDING: HYPEREVM_RPC_URL not available in this environment (RAI-1511)");
+            return;
+        }
+        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
+        assertChainMigrationWindow(
+            LibTokenInvariants.productionTokensHyperEvm(),
+            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM,
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_HYPEREVM,
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM
+        );
+    }
 
     /// @notice Chain ids ST0x governs today or is expected to govern.
     ///
@@ -166,7 +181,7 @@ contract GovernanceTimelockMigrationTest is Test {
         ids = new uint256[](3);
         ids[0] = LibSafeInvariants.BASE_CHAIN_ID;
         ids[1] = LibSafeInvariants.ETHEREUM_CHAIN_ID;
-        ids[2] = HYPEREVM_CHAIN_ID_CANDIDATE;
+        ids[2] = LibSafeInvariants.HYPEREVM_CHAIN_ID;
     }
 
     /// @notice Every chain ST0x governs must be known to the governance
