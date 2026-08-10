@@ -131,7 +131,7 @@ contract DeployV4AuthoriserClone is Script {
     uint256 internal constant MIRROR_START_INDEX = 7;
 
     /// @notice The number of non-admin grants this script mirrors in.
-    uint256 internal constant MIRROR_COUNT = 6;
+    uint256 internal constant MIRROR_COUNT = 9;
 
     /// @notice The number of `_ADMIN` roles the base + ST0x-override
     /// `initialize` auto-grant to `initialAdmin` (five base + two
