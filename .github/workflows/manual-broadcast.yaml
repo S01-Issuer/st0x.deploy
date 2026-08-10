@@ -112,5 +112,33 @@ jobs:
             --no-storage-caching \
             --slow \
             --broadcast \
-            --verify \
             --private-key "${PRIVATE_KEY}"
+      # `forge script --verify` cannot serve a multi-chain broadcast: it
+      # resolves one explorer from `--rpc-url` and then fails to locate the
+      # contracts that landed on the other chains. Verifying from the script's
+      # own per-chain manifest instead targets each explorer correctly, and
+      # keeps working on a re-dispatch where every chain is skipped and no
+      # broadcast artifact is produced.
+      - name: Verify deployments
+        if: ${{ inputs.script == '20260729-deploy-governance-timelock' }}
+        env:
+          CI_DEPLOY_BASE_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_BASE_ETHERSCAN_API_KEY }}
+          CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY }}
+          CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY }}
+        run: |
+          MANIFEST=out/20260729-governance-timelock-deployments.json
+          CONTRACT=dependencies/@openzeppelin-contracts-5.6.1/governance/TimelockController.sol:TimelockController
+          jq -c '.[]' "${MANIFEST}" | while read -r entry; do
+            NET=$(echo "${entry}" | jq -r '.network')
+            ADDR=$(echo "${entry}" | jq -r '.address')
+            echo "Verifying ${ADDR} on ${NET}"
+            # --guess-constructor-args reads the creation tx from the explorer,
+            # so the per-chain Safe baked into the constructor does not have to
+            # be duplicated here.
+            nix develop --command forge verify-contract \
+              --chain "${NET}" \
+              --watch \
+              --guess-constructor-args \
+              "${ADDR}" \
+              "${CONTRACT}"
+          done

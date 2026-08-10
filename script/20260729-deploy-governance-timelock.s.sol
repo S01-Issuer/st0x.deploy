@@ -86,6 +86,10 @@ error DeployerHoldsTimelockRole(bytes32 role, address deployer);
 /// logged address (`testPinsMatchDerivedAddressesOnceHydrated` pins the
 /// hydrated value to the derivation).
 contract DeployGovernanceTimelock is Script {
+    /// @notice Where `run()` writes the per-chain deployed addresses, so a
+    /// verification step can target every chain without re-deriving them.
+    string internal constant DEPLOYMENTS_PATH = "out/20260729-governance-timelock-deployments.json";
+
     /// @notice Every chain the governance timelock is deployed to, in a
     /// fixed order. One dispatch covers all of them: the deploy is
     /// deterministic and idempotent per chain, so a chain that already
@@ -112,14 +116,32 @@ contract DeployGovernanceTimelock is Script {
     /// rather than needing a separate dispatch per chain.
     function run() external {
         string[] memory nets = networks();
+        string memory manifest = "";
         for (uint256 i = 0; i < nets.length; i++) {
             // The fork id is unused; bind it so the unused-return lint stays
             // satisfied, matching `LibRainDeploy.deployToNetworks`.
             uint256 forkId = vm.createSelectFork(nets[i]);
             (forkId);
             console2.log("==== NETWORK:", nets[i]);
-            _deployOnActiveChain();
+            address timelock = _deployOnActiveChain();
+            manifest = string.concat(
+                manifest,
+                i == 0 ? "" : ",",
+                "{\"network\":\"",
+                nets[i],
+                "\",\"chainId\":",
+                vm.toString(block.chainid),
+                ",\"address\":\"",
+                vm.toString(timelock),
+                "\"}"
+            );
         }
+
+        // Emit the per-chain addresses so verification can run against every
+        // chain — including on a re-dispatch, where every chain is skipped and
+        // no broadcast artifact exists to read them from.
+        vm.writeFile(DEPLOYMENTS_PATH, string.concat("[", manifest, "]"));
+        console2.log("Deployments manifest:", DEPLOYMENTS_PATH);
     }
 
     /// @notice Deploy (or verify-and-skip) the timelock on whichever chain is
@@ -128,7 +150,7 @@ contract DeployGovernanceTimelock is Script {
     /// with the derivation, and the Zoltu factory is canonical. Post-state
     /// proves the landed timelock carries the full pinned configuration and
     /// that the deployer holds nothing.
-    function _deployOnActiveChain() internal {
+    function _deployOnActiveChain() internal returns (address) {
         // Resolve THIS chain's token-owner Safe and assert it is in its
         // expected state — the Safe is baked into the timelock's constructor
         // as sole proposer + executor, so a drifted Safe would bake
@@ -153,7 +175,7 @@ contract DeployGovernanceTimelock is Script {
             if (pinned == address(0)) {
                 console2.log(" - PIN OUTSTANDING: hydrate this chain's LibTimelockInvariants pin with the above");
             }
-            return;
+            return expected;
         }
 
         // The canonical Zoltu factory is deployed with the pinned codehash. A
@@ -191,6 +213,8 @@ contract DeployGovernanceTimelock is Script {
         console2.log("MinDelay (seconds):", LibTimelockInvariants.TIMELOCK_MIN_DELAY);
         console2.log("Proposer/Canceller/Executor Safe:", vm.toString(safe));
         console2.log("======================================");
+
+        return timelock;
     }
 
     /// @notice Post-state assertion invoked after the deploy: the timelock
