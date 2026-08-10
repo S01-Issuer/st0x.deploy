@@ -14,32 +14,13 @@ import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.s
 /// chain-agnostic token-owner policy: the same owner SET
 /// (order-insensitive), threshold, and v1.4.1 identity as every other
 /// chain's Safe. Mirrors `EthereumTokenOwnerSafeParityTest`.
-///
-/// Until the address is pinned the check is PENDING (logged loudly, not a
-/// silent skip): there is no live Safe to assert against yet.
-///
-/// @dev SECOND pending gate: the shared rainix test workflow declares a
-/// fixed RPC secret set with no HyperEVM slot, so `HYPEREVM_RPC_URL` is
-/// absent in CI until rainix grows one (or this repo runs a local test
-/// job). The env guard logs loudly rather than failing the fork setup;
-/// remove it once CI carries the secret so a missing RPC becomes a hard
-/// failure instead of a skip.
 contract HyperEvmTokenOwnerSafeParityTest is Test {
     /// The pinned HyperEVM Safe carries the shared token-owner policy in
-    /// every way that matters, and is a distinct address from the other
-    /// chains' Safes.
+    /// every way that matters, at the same address as Ethereum's Safe —
+    /// the canonical Safe proxy factory with the same initializer yields
+    /// the same CREATE2 address on both chains.
     function testHyperEvmSafeMatchesSharedPolicy() external {
         address hyperevmSafe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM;
-
-        if (hyperevmSafe == address(0)) {
-            emit log("PENDING: HyperEVM token-owner Safe address not yet pinned - hydrate STOX_TOKEN_OWNER_SAFE_HYPEREVM (RAI-1511)");
-            return;
-        }
-
-        if (bytes(vm.envOr("HYPEREVM_RPC_URL", string(""))).length == 0) {
-            emit log("PENDING: HYPEREVM_RPC_URL not available in this environment - the shared rainix test workflow has no HyperEVM RPC secret slot yet (RAI-1511)");
-            return;
-        }
 
         vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
         LibSafeInvariants.assertTokenOwnerSafePolicy(IGnosisSafe(hyperevmSafe));
