@@ -102,7 +102,9 @@ error GovernanceLoopNotProven(bytes32 id);
 /// artifact for signer review + execution via the Safe UI. It never
 /// broadcasts. Dispatch via `Actions → run-script` with
 /// `script = 20260729-migrate-governance-to-timelock`, `sig = run()` and
-/// the target network; execute the emitted bundle per chain.
+/// the target network; execute the emitted bundle per chain. Every chain
+/// carrying production tokens is in scope — Base, Ethereum and HyperEVM —
+/// one dispatch and one Safe execution each.
 ///
 /// The script is SELF-SCOPING: it reads every vault's live `owner()` and
 /// every `_ADMIN` role's live holders and targets exactly what is still on
@@ -172,6 +174,9 @@ contract MigrateGovernanceToTimelock is Script {
         if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
             return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
         }
+        if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM;
+        }
         revert UnsupportedChainForTokenTable(block.chainid);
     }
 
@@ -183,6 +188,9 @@ contract MigrateGovernanceToTimelock is Script {
         }
         if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
             return LibTokenInvariants.productionTokensEthereum();
+        }
+        if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
+            return LibTokenInvariants.productionTokensHyperEvm();
         }
         revert UnsupportedChainForTokenTable(block.chainid);
     }
