@@ -117,17 +117,17 @@ jobs:
         env:
           # Etherscan-family keys, per chain. Absent or free-tier keys simply
           # skip that chain's Etherscan leg; Sourcify still runs.
-          CI_DEPLOY_BASE_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_BASE_ETHERSCAN_API_KEY }}
-          CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY }}
-          CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY }}
+          CI_DEPLOY_BASE_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_BASE_ETHERSCAN_API_KEY || vars.CI_DEPLOY_BASE_ETHERSCAN_API_KEY || '' }}
+          CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY || vars.CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY || '' }}
+          CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY || vars.CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY || '' }}
           # foundry resolves EVERY `[etherscan]` entry's env var up front, even
           # when `--verifier sourcify` is used, and errors on any that is
           # undefined. Declaring the rest (empty when the secret is unset) keeps
           # config resolution from failing on a chain this deploy never touches.
-          CI_DEPLOY_ARBITRUM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_ARBITRUM_ETHERSCAN_API_KEY }}
-          CI_DEPLOY_BASE_SEPOLIA_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_BASE_SEPOLIA_ETHERSCAN_API_KEY }}
-          CI_DEPLOY_FLARE_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_FLARE_ETHERSCAN_API_KEY }}
-          CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY }}
+          CI_DEPLOY_ARBITRUM_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_ARBITRUM_ETHERSCAN_API_KEY || vars.CI_DEPLOY_ARBITRUM_ETHERSCAN_API_KEY || '' }}
+          CI_DEPLOY_BASE_SEPOLIA_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_BASE_SEPOLIA_ETHERSCAN_API_KEY || vars.CI_DEPLOY_BASE_SEPOLIA_ETHERSCAN_API_KEY || '' }}
+          CI_DEPLOY_FLARE_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_FLARE_ETHERSCAN_API_KEY || vars.CI_DEPLOY_FLARE_ETHERSCAN_API_KEY || '' }}
+          CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY || vars.CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY || '' }}
           # `--guess-constructor-args` reads the creation transaction over RPC.
           BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
           ETHEREUM_RPC_URL: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
