@@ -8,6 +8,7 @@ import {
     DeployerNotDeployed,
     NoMissingTokens
 } from "../../script/20260722-deploy-missing-tokens-hyperevm.s.sol";
+import {DeployMissingTokensHyperEvmHarness} from "./DeployMissingTokensHyperEvmHarness.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 
@@ -44,12 +45,5 @@ contract DeployMissingTokensHyperEvmTest is Test {
             abi.encodeWithSelector(DeployerNotDeployed.selector, LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1)
         );
         script.run();
-    }
-}
-
-/// @dev Exposes the internal selection for the pure selection test.
-contract DeployMissingTokensHyperEvmHarness is DeployMissingTokensHyperEvm {
-    function selectMissing() external pure returns (TokenConfig[] memory) {
-        return _selectMissing();
     }
 }
