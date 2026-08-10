@@ -114,21 +114,50 @@ jobs:
       # broadcast artifact is produced.
       - name: Verify deployments
         if: ${{ inputs.script == '20260729-deploy-governance-timelock' }}
+        env:
+          # Etherscan-family keys, per chain. Absent or free-tier keys simply
+          # skip that chain's Etherscan leg; Sourcify still runs.
+          CI_DEPLOY_BASE_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_BASE_ETHERSCAN_API_KEY }}
+          CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY }}
+          CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY }}
+          # `--guess-constructor-args` reads the creation transaction over RPC.
+          BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
+          ETHEREUM_RPC_URL: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
+          HYPEREVM_RPC_URL: ${{ secrets.RPC_URL_HYPEREVM_FORK }}
         run: |
           MANIFEST=out/20260729-governance-timelock-deployments.json
           CONTRACT=dependencies/@openzeppelin-contracts-5.6.1/governance/TimelockController.sol:TimelockController
           jq -c '.[]' "${MANIFEST}" | while read -r entry; do
             CHAIN=$(echo "${entry}" | jq -r '.chainId')
+            NET=$(echo "${entry}" | jq -r '.network')
             ADDR=$(echo "${entry}" | jq -r '.address')
-            echo "Verifying ${ADDR} on chain ${CHAIN}"
-            # Sourcify rather than Etherscan: it covers all three chains
-            # (including HyperEVM) with no API key, whereas Etherscan's v2
-            # multichain API needs a paid plan for anything beyond mainnet.
-            # It matches on bytecode, so no constructor args or RPC are needed.
+
+            # Sourcify: no API key, and the only verifier that covers all three
+            # chains including HyperEVM. Matches on bytecode, so it needs
+            # neither constructor args nor an RPC endpoint.
+            echo "Sourcify: verifying ${ADDR} on chain ${CHAIN}"
             nix develop --command forge verify-contract \
               --verifier sourcify \
               --chain "${CHAIN}" \
               --watch \
               "${ADDR}" \
               "${CONTRACT}"
+
+            # Etherscan: what actually surfaces on Basescan/Etherscan, since
+            # they do NOT ingest Sourcify. Needs a paid v2 key for any chain
+            # beyond mainnet, so run it only where a key is configured rather
+            # than failing the whole deploy on a missing or free-tier key.
+            KEY_VAR="CI_DEPLOY_$(echo "${NET}" | tr '[:lower:]' '[:upper:]')_ETHERSCAN_API_KEY"
+            if [[ -n "${!KEY_VAR:-}" ]]; then
+              echo "Etherscan: verifying ${ADDR} on ${NET}"
+              nix develop --command forge verify-contract \
+                --chain "${NET}" \
+                --rpc-url "${NET}" \
+                --watch \
+                --guess-constructor-args \
+                "${ADDR}" \
+                "${CONTRACT}"
+            else
+              echo "Etherscan: no ${KEY_VAR} configured, skipping ${NET}"
+            fi
           done
