@@ -115,13 +115,12 @@ library LibTimelockInvariants {
     /// itself (self-administration) and nobody else.
     bytes32 internal constant TIMELOCK_DEFAULT_ADMIN_ROLE = bytes32(0);
 
-    /// @notice The ST0x governance timelock on **Base**.
-    ///
-    /// **PLACEHOLDER** (`address(0)`) until the
-    /// `20260729-deploy-governance-timelock` broadcast executes on Base and
-    /// the post-execution pin PR hydrates this constant with the logged
-    /// address (which must equal `expectedTimelockAddress(Base Safe)`).
-    address internal constant STOX_GOVERNANCE_TIMELOCK = address(0);
+    /// @notice The ST0x governance timelock on **Base**. Deployed by the
+    /// `20260729-deploy-governance-timelock` broadcast; equals
+    /// `expectedTimelockAddress(STOX_TOKEN_OWNER_SAFE)`, which
+    /// `testPinsMatchDerivedAddressesOnceHydrated` asserts.
+    /// https://basescan.org/address/0xa34b2968a8b480440b218b6768ad700fc81379b3
+    address internal constant STOX_GOVERNANCE_TIMELOCK = address(0xA34b2968A8B480440B218B6768Ad700FC81379b3);
 
     /// @notice The ST0x governance timelock on **Ethereum mainnet**.
     ///
