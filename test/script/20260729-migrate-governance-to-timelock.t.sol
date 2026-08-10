@@ -21,9 +21,10 @@ import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInv
 import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
+import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibSafeOps, SafeTx} from "../../src/lib/LibSafeOps.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
-import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
+import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 
 /// @title MigrateGovernanceToTimelockTest
 /// @notice Live Base head fork coverage for the governance migration
@@ -36,6 +37,45 @@ import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
 contract MigrateGovernanceToTimelockTest is Test {
     /// @notice Number of authoriser `_ADMIN` roles the migration moves.
     uint256 internal constant ADMIN_ROLE_COUNT = 7;
+
+    /// @notice The active fork's production authoriser clone, so the
+    /// post-state and artifact assertions run against whichever chain the
+    /// test selected rather than assuming Base.
+    function _activeChainAuthoriser() internal view returns (address) {
+        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        }
+        if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
+        }
+        if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM;
+        }
+        revert("unsupported chain in migration test");
+    }
+
+    /// @notice The active fork's production token table.
+    function _activeChainTokens() internal view returns (TokenInstance[] memory) {
+        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
+            return LibTokenInvariants.productionTokensBase();
+        }
+        if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
+            return LibTokenInvariants.productionTokensEthereum();
+        }
+        if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
+            return LibTokenInvariants.productionTokensHyperEvm();
+        }
+        revert("unsupported chain in migration test");
+    }
+
+    /// @notice The active fork's production receipt vaults, in table order.
+    function _activeChainVaults() internal view returns (address[] memory vaults) {
+        TokenInstance[] memory tokens = _activeChainTokens();
+        vaults = new address[](tokens.length);
+        for (uint256 i = 0; i < tokens.length; i++) {
+            vaults[i] = tokens[i].receiptVault;
+        }
+    }
 
     function selectBaseFork() internal {
         vm.createSelectFork(LibRainDeploy.BASE);
@@ -73,7 +113,32 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// then 7 renounces, in order.
     function testRunAuthorsFullMigration() external {
         selectBaseFork();
-        address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
+        _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+    }
+
+    /// @notice The same full authoring against live HyperEVM state. HyperEVM
+    /// carries 29 production tokens behind the same Safe / authoriser /
+    /// beacon shape, so the chain-generic script must author there on
+    /// identical terms — this is the assertion that proves HyperEVM is
+    /// actually covered rather than merely reachable through the chain map.
+    /// @dev Soft-skips while `HYPEREVM_RPC_URL` is unprovisioned in CI
+    /// (RAI-1511); run locally with the RPC set before executing the
+    /// HyperEVM bundle, since CI cannot prove this leg yet.
+    function testRunAuthorsFullMigrationOnHyperevm() external {
+        if (bytes(vm.envOr("HYPEREVM_RPC_URL", string(""))).length == 0) {
+            emit log("PENDING: HYPEREVM_RPC_URL not available in this environment (RAI-1511)");
+            return;
+        }
+        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
+        _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM);
+    }
+
+    /// @notice Drive the full authoring on whichever fork is selected and
+    /// assert both the post-state and that the emitted artifact matches an
+    /// independently derived bundle. Shared so every chain is proven by the
+    /// same assertions rather than a per-chain copy that could drift.
+    /// @param safe The active chain's token-owner Safe.
+    function _assertAuthorsFullMigration(address safe) internal {
         address timelock = deployTimelock();
 
         // Derive the expected target set from the PRE-run fork state — the
@@ -95,7 +160,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// @param safe The chain's token-owner Safe.
     /// @return count The Safe-owned vault count.
     function _safeOwnedVaultCount(address safe) internal view returns (uint256 count) {
-        address[] memory vaults = LibTokenInvariants.productionReceiptVaults();
+        address[] memory vaults = _activeChainVaults();
         for (uint256 i = 0; i < vaults.length; i++) {
             if (Ownable(vaults[i]).owner() == safe) {
                 count++;
@@ -137,9 +202,9 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// @param timelock The chain's governance timelock.
     /// @param implsBefore Beacon implementations captured pre-run.
     function _assertPostState(address safe, address timelock, address[3] memory implsBefore) internal view {
-        address authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        address authoriser = _activeChainAuthoriser();
 
-        LibTokenInvariants.assertUniformOwnership(timelock);
+        LibTokenInvariants.assertUniformOwnership(_activeChainTokens(), timelock);
         LibBeaconInvariants.assertProdBeaconsOwnedBy(block.chainid, timelock);
 
         address[3] memory implsAfter = _beaconImplementations();
@@ -175,13 +240,13 @@ contract MigrateGovernanceToTimelockTest is Test {
         uint256 expectedTransfers,
         uint256 expectedBeaconTransfers
     ) internal {
-        address authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        address authoriser = _activeChainAuthoriser();
         RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
 
         (uint256 chainId, address firstTarget, SafeTx[] memory txs) = LibSafeOps.parseTxBuilderJson(
             string.concat("out/20260729-governance-timelock-migration-", vm.toString(block.chainid), ".json")
         );
-        assertEq(chainId, LibSafeInvariants.BASE_CHAIN_ID);
+        assertEq(chainId, block.chainid, "artifact must be authored for the active chain");
         assertEq(firstTarget, authoriser, "bundle must open with the authoriser grants");
         assertEq(txs.length, ADMIN_ROLE_COUNT + expectedTransfers + expectedBeaconTransfers + ADMIN_ROLE_COUNT);
 
@@ -190,7 +255,7 @@ contract MigrateGovernanceToTimelockTest is Test {
             assertEq(txs[i].data, abi.encodeCall(IAccessControl.grantRole, (grants[i].role, timelock)));
         }
 
-        address[] memory vaults = LibTokenInvariants.productionReceiptVaults();
+        address[] memory vaults = _activeChainVaults();
         for (uint256 i = 0; i < expectedTransfers; i++) {
             // Pre-run every vault was Safe-owned (asserted via the count),
             // so each appears as a transfer in table order.
