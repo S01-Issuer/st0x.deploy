@@ -7,99 +7,80 @@ import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
 import {
     DeployGovernanceTimelock,
-    TimelockAlreadyDeployed,
     DeployerHoldsTimelockRole
 } from "../../script/20260729-deploy-governance-timelock.s.sol";
 import {DeployGovernanceTimelockHarness} from "./DeployGovernanceTimelockHarness.sol";
-import {LibSafeInvariants, UnsupportedChainForTokenOwnerSafe} from "../../src/lib/LibSafeInvariants.sol";
+import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
 /// @title DeployGovernanceTimelockTest
 /// @notice Live-fork coverage for the governance-timelock deploy broadcast.
-/// The script is deterministic (Zoltu CREATE2 over pinned init code), so the
-/// tests drive the full `run()` against Base and Ethereum head forks and
-/// assert the landed timelock at the derived address carries the pinned
-/// configuration — the same assertion the production broadcast makes.
+/// The script forks every supported chain itself and is deterministic (Zoltu
+/// CREATE2 over pinned init code), so a single `run()` covers the whole
+/// rollout: these tests drive that one call and then assert each chain
+/// independently, the same assertion the production broadcast makes.
 /// @dev Unpinned head forks: the pre-flight asserts live Safe policy, so any
 /// production drift trips here before a real dispatch would hit it.
 contract DeployGovernanceTimelockTest is Test {
-    /// @notice Drive the full deploy on the active fork and return the
-    /// landed timelock address.
-    function runDeploy() internal returns (address) {
-        DeployGovernanceTimelock script = new DeployGovernanceTimelock();
-        script.run();
-        return LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.safeForChainId(block.chainid));
+    /// @notice Every chain `run()` covers, paired with the Safe whose
+    /// address derives that chain's timelock.
+    /// @return nets The network aliases.
+    /// @return safes The token-owner Safe per network, index-aligned.
+    function chains() internal pure returns (string[] memory nets, address[] memory safes) {
+        nets = new string[](3);
+        safes = new address[](3);
+        nets[0] = LibRainDeploy.BASE;
+        safes[0] = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
+        nets[1] = LibStoxDeployNetworks.ETHEREUM;
+        safes[1] = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM;
+        nets[2] = LibStoxDeployNetworks.HYPEREVM;
+        safes[2] = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM;
     }
 
-    /// @notice The deploy lands at the derived address on Base and the
-    /// timelock carries the full pinned configuration.
-    function testRunDeploysOnBaseFork() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
-        address timelock = runDeploy();
-        assertGt(timelock.code.length, 0);
-        LibTimelockInvariants.assertTimelockState(timelock, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
-    }
-
-    /// @notice The deploy lands at the derived address on Ethereum. The
-    /// address differs from Base's by construction (the constructor embeds
-    /// the chain's Safe).
-    function testRunDeploysOnEthereumFork() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
-        address timelock = runDeploy();
-        assertGt(timelock.code.length, 0);
-        LibTimelockInvariants.assertTimelockState(timelock, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM);
-        assertNotEq(timelock, LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE));
-    }
-
-    /// @notice The deploy lands at the derived address on HyperEVM, which
-    /// carries 29 live production tokens and is governed on the same terms
-    /// as Base and Ethereum.
-    /// @dev HyperEVM's token-owner Safe shares Ethereum's address, and the
-    /// constructor embeds only that Safe, so the derived timelock address is
-    /// deliberately IDENTICAL to Ethereum's — asserted here so the equality
-    /// is a recorded expectation rather than a surprise at pin time.
-    function testRunDeploysOnHyperevmFork() external {
-        // Same soft-skip the multichain stack's HyperEVM suites use:
-        // `HYPEREVM_RPC_URL` is not yet provisioned in CI (rainix is adding
-        // the `RPC_URL_HYPEREVM_FORK` slot, RAI-1511), and the repo's static
-        // job bans `vm.skip` outright. Logging PENDING and returning keeps
-        // the assertion in the tree so it starts running the moment the
-        // secret lands, rather than being written later from memory.
-        if (bytes(vm.envOr("HYPEREVM_RPC_URL", string(""))).length == 0) {
-            emit log("PENDING: HYPEREVM_RPC_URL not available in this environment (RAI-1511)");
-            return;
+    /// @notice Assert every chain carries its derived timelock in the pinned
+    /// configuration.
+    function assertAllChainsDeployed() internal {
+        (string[] memory nets, address[] memory safes) = chains();
+        for (uint256 i = 0; i < nets.length; i++) {
+            vm.createSelectFork(nets[i]);
+            address timelock = LibTimelockInvariants.expectedTimelockAddress(safes[i]);
+            assertGt(timelock.code.length, 0, "timelock must be deployed on every chain");
+            LibTimelockInvariants.assertTimelockState(timelock, safes[i]);
         }
+    }
 
-        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
-        address timelock = runDeploy();
-        assertGt(timelock.code.length, 0);
-        LibTimelockInvariants.assertTimelockState(timelock, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM);
+    /// @notice One dispatch deploys (or verifies) the timelock on every
+    /// supported chain. This is the whole rollout in a single run — the
+    /// property that lets a partial rollout finish without a per-chain
+    /// dispatch.
+    function testRunDeploysOnAllChains() external {
+        new DeployGovernanceTimelock().run();
+        assertAllChainsDeployed();
+    }
+
+    /// @notice The deploy is idempotent per chain: a second dispatch skips
+    /// every already-deployed chain instead of reverting or redeploying, so
+    /// re-running is always safe.
+    function testRunIsIdempotentAcrossChains() external {
+        new DeployGovernanceTimelock().run();
+        new DeployGovernanceTimelock().run();
+        assertAllChainsDeployed();
+    }
+
+    /// @notice HyperEVM shares Ethereum's token-owner Safe, and the
+    /// constructor embeds only that Safe, so the two chains derive the SAME
+    /// timelock address. Asserted so the equality is a recorded expectation
+    /// rather than a surprise at pin time.
+    function testEthereumAndHyperevmShareADerivedAddress() external pure {
         assertEq(
-            timelock,
-            LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM),
-            "HyperEVM shares Ethereum's Safe, so the derived timelock address must match"
+            LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM),
+            LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM)
         );
-    }
-
-    /// @notice A second dispatch on the same chain refuses at pre-flight:
-    /// the derived address already has code (deploy landed, pin PR
-    /// outstanding).
-    function testRunRefusesSecondDispatch() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
-        address timelock = runDeploy();
-        DeployGovernanceTimelock second = new DeployGovernanceTimelock();
-        vm.expectRevert(abi.encodeWithSelector(TimelockAlreadyDeployed.selector, timelock));
-        second.run();
-    }
-
-    /// @notice The script refuses to run on a chain without a pinned
-    /// token-owner Safe rather than falling back to another chain's Safe.
-    function testRunRefusesUnsupportedChain() external {
-        // Local test chain id (31337) — no Safe pin exists.
-        DeployGovernanceTimelock script = new DeployGovernanceTimelock();
-        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForTokenOwnerSafe.selector, uint256(31337)));
-        script.run();
+        assertNotEq(
+            LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE),
+            LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM)
+        );
     }
 
     /// @notice The holds-nothing post-state check trips on any principal
@@ -109,7 +90,7 @@ contract DeployGovernanceTimelockTest is Test {
     function testAssertPostStateRejectsRoleHolder() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
-        address timelock = runDeploy();
+        address timelock = LibTimelockInvariants.expectedTimelockAddress(safe);
         DeployGovernanceTimelockHarness harness = new DeployGovernanceTimelockHarness();
 
         // The actual broadcast sender holds nothing.

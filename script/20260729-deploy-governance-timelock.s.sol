@@ -8,21 +8,17 @@ import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessContro
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
+import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
-/// @notice The active chain's governance-timelock pin in
-/// `LibTimelockInvariants` is already hydrated. The timelock exists and is
-/// known to the repo — there is nothing left for this script to do on this
-/// chain.
-/// @param pinned The hydrated timelock pin.
-error TimelockPinAlreadyHydrated(address pinned);
-
-/// @notice The derived timelock address already has code but the pin is not
-/// hydrated yet: the deploy has landed on-chain and only the post-execution
-/// pin PR is outstanding. Refuses to re-deploy (the Zoltu deploy would
-/// revert anyway) and names the address so the operator can hydrate the pin.
-/// @param expected The derived timelock address that already has code.
-error TimelockAlreadyDeployed(address expected);
+/// @notice A chain's hydrated governance-timelock pin does not equal the
+/// address its own Safe derives. Either the pin records a different chain's
+/// timelock or the Safe behind it has moved — deploying or asserting against
+/// it would target the wrong contract.
+/// @param chainId The chain whose pin disagrees with the derivation.
+/// @param pinned The hydrated pin.
+/// @param derived The address derived from that chain's Safe.
+error TimelockPinMismatch(uint256 chainId, address pinned, address derived);
 
 /// @notice The canonical Zoltu deterministic-deployment factory is not
 /// deployed on this network. Without it the derived address is unreachable.
@@ -90,29 +86,79 @@ error DeployerHoldsTimelockRole(bytes32 role, address deployer);
 /// logged address (`testPinsMatchDerivedAddressesOnceHydrated` pins the
 /// hydrated value to the derivation).
 contract DeployGovernanceTimelock is Script {
-    /// @notice Deploy + verify the governance timelock in a single
-    /// broadcast. Pre-flight covers everything the deploy relies on: the
-    /// chain's Safe carries the pinned policy, the chain's timelock pin is
-    /// not already hydrated, the Zoltu factory is canonical, and the derived
-    /// address is still empty. Post-state proves the landed timelock carries
-    /// the full pinned configuration and the deployer holds nothing.
+    /// @notice Every chain the governance timelock is deployed to, in a
+    /// fixed order. One dispatch covers all of them: the deploy is
+    /// deterministic and idempotent per chain, so a chain that already
+    /// carries the timelock is verified and skipped rather than redeployed.
+    /// @return nets The network names, matching `foundry.toml`'s
+    /// `[rpc_endpoints]` aliases.
+    function networks() internal pure returns (string[] memory nets) {
+        nets = new string[](3);
+        nets[0] = LibRainDeploy.BASE;
+        nets[1] = LibStoxDeployNetworks.ETHEREUM;
+        nets[2] = LibStoxDeployNetworks.HYPEREVM;
+    }
+
+    /// @notice Deploy the governance timelock across every chain in
+    /// `networks()` in a single dispatch, skipping any chain that already
+    /// carries it.
+    ///
+    /// The address is a pure function of the chain's Safe (the only
+    /// constructor input that varies), so each chain has its own derived
+    /// address and the deploy is idempotent per chain: an already-deployed
+    /// chain is asserted into its pinned configuration and skipped, never
+    /// redeployed. That makes a re-dispatch a safe no-op, and lets a partial
+    /// rollout (one chain broadcast, another not) finish in a single run
+    /// rather than needing a separate dispatch per chain.
     function run() external {
-        // Pre-flight: resolve THIS chain's token-owner Safe and assert it is
-        // in its expected state — the Safe is baked into the timelock's
-        // constructor as sole proposer + executor, so a drifted Safe would
-        // bake governance onto a shape we no longer recognise.
+        string[] memory nets = networks();
+        for (uint256 i = 0; i < nets.length; i++) {
+            // The fork id is unused; bind it so the unused-return lint stays
+            // satisfied, matching `LibRainDeploy.deployToNetworks`.
+            uint256 forkId = vm.createSelectFork(nets[i]);
+            (forkId);
+            console2.log("==== NETWORK:", nets[i]);
+            _deployOnActiveChain();
+        }
+    }
+
+    /// @notice Deploy (or verify-and-skip) the timelock on whichever chain is
+    /// currently selected. Pre-flight covers everything the deploy relies on:
+    /// the chain's Safe carries the pinned policy, any hydrated pin agrees
+    /// with the derivation, and the Zoltu factory is canonical. Post-state
+    /// proves the landed timelock carries the full pinned configuration and
+    /// that the deployer holds nothing.
+    function _deployOnActiveChain() internal {
+        // Resolve THIS chain's token-owner Safe and assert it is in its
+        // expected state — the Safe is baked into the timelock's constructor
+        // as sole proposer + executor, so a drifted Safe would bake
+        // governance onto a shape we no longer recognise.
         address safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+        address expected = LibTimelockInvariants.expectedTimelockAddress(safe);
 
-        // Pre-flight: the chain's pin is still a placeholder. A hydrated pin
-        // means the timelock is already deployed AND recorded; re-running
-        // would be a no-op at best. Also reverts (typed, no fallback) on any
-        // chain without a pin slot.
+        // A hydrated pin must agree with what this chain's Safe derives.
+        // Disagreement means the pin records another chain's timelock, or the
+        // Safe behind it moved — either way the wrong contract.
         address pinned = LibTimelockInvariants.timelockForChainId(block.chainid);
-        if (pinned != address(0)) revert TimelockPinAlreadyHydrated(pinned);
+        if (pinned != address(0) && pinned != expected) {
+            revert TimelockPinMismatch(block.chainid, pinned, expected);
+        }
 
-        // Pre-flight: the canonical Zoltu factory is deployed with the
-        // pinned codehash. A missing or replaced factory would either revert
-        // or deploy through attacker-controlled machinery.
+        // Already deployed: assert it is the timelock we expect, then skip.
+        // The Zoltu deploy is idempotent, so this keeps a re-dispatch a clean
+        // no-op while still proving the live contract's configuration.
+        if (expected.code.length != 0) {
+            LibTimelockInvariants.assertTimelockState(expected, safe);
+            console2.log(" - Timelock already deployed, skipping:", vm.toString(expected));
+            if (pinned == address(0)) {
+                console2.log(" - PIN OUTSTANDING: hydrate this chain's LibTimelockInvariants pin with the above");
+            }
+            return;
+        }
+
+        // The canonical Zoltu factory is deployed with the pinned codehash. A
+        // missing or replaced factory would either revert or deploy through
+        // attacker-controlled machinery.
         address factory = LibRainDeploy.ZOLTU_FACTORY;
         if (factory.code.length == 0) revert ZoltuFactoryNotDeployed(factory);
         bytes32 factoryCodehash = factory.codehash;
@@ -120,17 +166,11 @@ contract DeployGovernanceTimelock is Script {
             revert ZoltuFactoryCodehashMismatch(factory, LibRainDeploy.ZOLTU_FACTORY_CODEHASH, factoryCodehash);
         }
 
-        // Pre-flight: the derived address is still empty. Code here with an
-        // unhydrated pin means the broadcast already ran and only the pin PR
-        // is outstanding — surface that state by name.
-        address expected = LibTimelockInvariants.expectedTimelockAddress(safe);
-        if (expected.code.length != 0) revert TimelockAlreadyDeployed(expected);
-
         vm.startBroadcast();
 
-        // Deployer identity — inside `vm.startBroadcast()` msg.sender
-        // resolves to the broadcast address (the CI deploy key in
-        // production). Captured for the holds-nothing post-state check.
+        // Deployer identity — inside `vm.startBroadcast()` msg.sender resolves
+        // to the broadcast address (the CI deploy key in production).
+        // Captured for the holds-nothing post-state check.
         address deployer = msg.sender;
 
         address timelock = LibRainDeploy.deployZoltu(LibTimelockInvariants.timelockInitCode(safe));
@@ -142,7 +182,7 @@ contract DeployGovernanceTimelock is Script {
         _assertPostState(timelock, safe, deployer);
 
         // Log the timelock address prominently so the operator can copy it
-        // into the post-execution pin PR (hydrate the active chain's
+        // into the post-execution pin PR (hydrate this chain's
         // `LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK*` pin).
         console2.log("==== GOVERNANCE TIMELOCK DEPLOYED ====");
         console2.log("Chain:", block.chainid);
