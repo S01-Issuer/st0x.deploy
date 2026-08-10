@@ -52,6 +52,25 @@ contract DeployGovernanceTimelockTest is Test {
         assertNotEq(timelock, LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE));
     }
 
+    /// @notice The deploy lands at the derived address on HyperEVM, which
+    /// carries 29 live production tokens and is governed on the same terms
+    /// as Base and Ethereum.
+    /// @dev HyperEVM's token-owner Safe shares Ethereum's address, and the
+    /// constructor embeds only that Safe, so the derived timelock address is
+    /// deliberately IDENTICAL to Ethereum's — asserted here so the equality
+    /// is a recorded expectation rather than a surprise at pin time.
+    function testRunDeploysOnHyperevmFork() external {
+        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
+        address timelock = runDeploy();
+        assertGt(timelock.code.length, 0);
+        LibTimelockInvariants.assertTimelockState(timelock, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM);
+        assertEq(
+            timelock,
+            LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM),
+            "HyperEVM shares Ethereum's Safe, so the derived timelock address must match"
+        );
+    }
+
     /// @notice A second dispatch on the same chain refuses at pre-flight:
     /// the derived address already has code (deploy landed, pin PR
     /// outstanding).
