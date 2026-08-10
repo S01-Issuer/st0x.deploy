@@ -42,13 +42,14 @@ timelock). That keeps the audited contract set untouched.
   post-state proves it.
 - **No open roles.** OZ treats a zero-address grantee as "role open to
   everyone"; `assertTimelockState` rejects that on every lifecycle role.
-- **Canceller placeholder.** `LibTimelockInvariants.TIMELOCK_CANCELLER` is
-  `address(0)` until a dedicated canceller key/Safe is decided. Until then the
-  Safe cancels (the OZ constructor grants cancellership to proposers).
-  Provisioning the canceller later = schedule
-  `grantRole(CANCELLER_ROLE, canceller)` on the timelock + hydrate the constant
-  in the same window; `assertTimelockState` starts asserting the grant once the
-  pin is non-zero.
+- **Dedicated canceller.** The OZ constructor grants cancellership to proposers,
+  so the Safe can always cancel. A separate canceller principal is optional and
+  lives in `LibTimelockInvariants.TIMELOCK_CANCELLER`: while that pin is
+  `address(0)` no extra canceller is expected, and once it is non-zero
+  `assertTimelockState` asserts the grant. Provisioning one is itself a
+  timelocked operation — schedule `grantRole(CANCELLER_ROLE, canceller)` on the
+  timelock and hydrate the constant in the same operational window. It cannot be
+  set in the constructor, which takes no canceller argument.
 
 ## Addresses
 
@@ -61,14 +62,18 @@ precomputable address —
 Constants (in `src/lib/LibTimelockInvariants.sol`) that future scripts and
 invariants target:
 
-| Constant                            | Chain    | Status                                           |
-| ----------------------------------- | -------- | ------------------------------------------------ |
-| `STOX_GOVERNANCE_TIMELOCK`          | Base     | placeholder — hydrate after the deploy broadcast |
-| `STOX_GOVERNANCE_TIMELOCK_ETHEREUM` | Ethereum | placeholder — hydrate after the deploy broadcast |
-| `STOX_GOVERNANCE_TIMELOCK_HYPEREVM` | HyperEVM | placeholder — hydrate after the deploy broadcast |
-| `TIMELOCK_CANCELLER`                | all      | placeholder — dedicated canceller undecided      |
+| Constant                            | Holds                                     |
+| ----------------------------------- | ----------------------------------------- |
+| `STOX_GOVERNANCE_TIMELOCK`          | the Base timelock                         |
+| `STOX_GOVERNANCE_TIMELOCK_ETHEREUM` | the Ethereum timelock                     |
+| `STOX_GOVERNANCE_TIMELOCK_HYPEREVM` | the HyperEVM timelock                     |
+| `TIMELOCK_CANCELLER`                | the dedicated canceller, once provisioned |
 
-`testPinsMatchDerivedAddressesOnceHydrated` pins every hydrated address to the
+Each pin is `address(0)` until that chain's deploy broadcast has run and the pin
+PR has recorded the address. `timelockForChainId` returns the pin, so an
+unhydrated chain reads as `address(0)` and every consumer that requires a
+timelock refuses rather than proceeding against a wrong address.
+`testPinsMatchDerivedAddressesOnceHydrated` ties every hydrated pin to the
 derivation, so a pin PR cannot record a wrong address.
 
 ## Rollout (per chain: Base, Ethereum, HyperEVM)
@@ -140,29 +145,10 @@ way to resolve it.
   `GovernanceTimelockMigration.t.sol` — the migration window + deadline (see
   above).
 
-### HyperEVM caveat
-
-HyperEVM is in scope on the same terms as Base and Ethereum — 29 live production
-tokens, same Safe / authoriser / beacon shape — but `HYPEREVM_RPC_URL` is **not
-yet provisioned in CI** (rainix is adding the `RPC_URL_HYPEREVM_FORK` slot,
-RAI-1511). Until it lands, HyperEVM's live-fork assertions
-(`testHyperevmGovernanceInMigrationWindow`, the deploy fork test) soft-skip with
-a `PENDING` log, matching the multichain stack's own HyperEVM suites — the
-repo's static job bans `vm.skip`, so a logged early return is the sanctioned
-form.
-
-What still holds HyperEVM unconditionally is the **fork-free** half:
-`testEveryGovernedChainHasTimelockCoverage` (a chain with a pinned token-owner
-Safe must resolve through `timelockForChainId`) and
-`testEveryPinnedChainResolves`. Dropping HyperEVM's arm fails both regardless of
-RPC availability. Before executing the HyperEVM bundle, dispatch the migration
-authoring against a HyperEVM fork locally with `HYPEREVM_RPC_URL` set — CI
-cannot yet prove that leg for you.
-
 ## Explicitly out of scope (follow-ups)
 
 - **Beacon ownership.** The upgrade beacons remain Safe-owned. Moving them under
   the timelock is the same one-call-per-beacon `transferOwnership` pattern and
   can reuse this machinery wholesale, but it gates contract UPGRADES (not token
   admin) and deserves its own decision + rollout.
-- **Dedicated canceller** — see the placeholder above.
+- **Dedicated canceller** — see the role model above.
