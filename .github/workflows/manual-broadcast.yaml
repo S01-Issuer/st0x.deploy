@@ -158,13 +158,18 @@ jobs:
             KEY_VAR="CI_DEPLOY_$(echo "${NET}" | tr '[:lower:]' '[:upper:]')_ETHERSCAN_API_KEY"
             if [[ -n "${!KEY_VAR:-}" ]]; then
               echo "Etherscan: verifying ${ADDR} on ${NET}"
+              # Best-effort: a free-tier key is accepted by the config but
+              # rejected per-chain at request time, and that must not abort the
+              # loop before the remaining chains reach Sourcify. Sourcify above
+              # is the leg that gates this step's success.
               nix develop --command forge verify-contract \
                 --chain "${NET}" \
                 --rpc-url "${NET}" \
                 --watch \
                 --guess-constructor-args \
                 "${ADDR}" \
-                "${CONTRACT}"
+                "${CONTRACT}" \
+                || echo "Etherscan: verification failed for ${NET} (paid v2 plan required); Sourcify stands"
             else
               echo "Etherscan: no ${KEY_VAR} configured, skipping ${NET}"
             fi
