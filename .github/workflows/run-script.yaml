@@ -105,6 +105,7 @@ jobs:
           # `[rpc_endpoints]` aliases.
           BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
           ETHEREUM_RPC_URL: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
+          HYPEREVM_RPC_URL: ${{ secrets.RPC_URL_HYPEREVM_FORK }}
           # Pass the choice inputs via env rather than template-expanding them
           # into the command, so a dispatch (even one crafted via the API) is
           # used as a literal argument and cannot inject shell.
