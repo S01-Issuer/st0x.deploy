@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
+import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/TimelockController.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
@@ -22,6 +23,7 @@ import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
+import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
 import {LibSafeOps, SafeTx} from "../../src/lib/LibSafeOps.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
@@ -131,6 +133,16 @@ contract MigrateGovernanceToTimelockTest is Test {
         }
         vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
         _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM);
+    }
+
+    /// @notice The same full authoring against live Ethereum state, so all
+    /// three governed chains carry the same proof — Ethereum shares
+    /// HyperEVM's Safe and timelock but has its own token table and
+    /// authoriser clone, and chain-generic code is only proven generic by
+    /// running it on every chain it claims.
+    function testRunAuthorsFullMigrationOnEthereum() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
+        _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM);
     }
 
     /// @notice Drive the full authoring on whichever fork is selected and
@@ -320,5 +332,87 @@ contract MigrateGovernanceToTimelockTest is Test {
         MigrateGovernanceToTimelockHarness script = new MigrateGovernanceToTimelockHarness(timelock);
         vm.expectRevert(abi.encodeWithSelector(UnexpectedBeaconOwner.selector, beacons[1], stranger));
         script.run();
+    }
+
+    /// @notice The timelock is not a one-way door: every surface class the
+    /// migration hands to it can be handed onward to a successor governance
+    /// principal through the same schedule -> 48h -> execute loop, each leg
+    /// driven through the Safe's threshold-gated `execTransaction` (the n+1
+    /// walk, so undersigned attempts are proven rejected). Walks a vault
+    /// ownership transfer, a beacon ownership transfer, an authoriser
+    /// `_ADMIN` handover (grant to successor, then the timelock renounces
+    /// its own copy), and a role change on the timelock itself (successor
+    /// granted proposer through self-administration).
+    function testGovernanceCanMigrateAwayToSuccessor() external {
+        selectBaseFork();
+        address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
+        address authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        address timelock = deployTimelock();
+        new MigrateGovernanceToTimelockHarness(timelock).run();
+
+        address successor = address(0x5000000000000000000000000000000000000001);
+        address vault = _activeChainVaults()[0];
+        address beacon = LibBeaconInvariants.prodBeaconsForChainId(block.chainid)[0];
+        bytes32 adminRole = LibAuthoriserInvariants.expectedGrants(safe, timelock)[0].role;
+
+        scheduleAndExecuteViaTimelock(safe, timelock, vault, abi.encodeCall(Ownable.transferOwnership, (successor)));
+        scheduleAndExecuteViaTimelock(safe, timelock, beacon, abi.encodeCall(Ownable.transferOwnership, (successor)));
+        scheduleAndExecuteViaTimelock(
+            safe, timelock, authoriser, abi.encodeCall(IAccessControl.grantRole, (adminRole, successor))
+        );
+        scheduleAndExecuteViaTimelock(
+            safe, timelock, authoriser, abi.encodeCall(IAccessControl.renounceRole, (adminRole, timelock))
+        );
+        scheduleAndExecuteViaTimelock(
+            safe,
+            timelock,
+            timelock,
+            abi.encodeCall(IAccessControl.grantRole, (LibTimelockInvariants.TIMELOCK_PROPOSER_ROLE, successor))
+        );
+
+        assertEq(Ownable(vault).owner(), successor, "vault ownership must be transferable onward");
+        assertEq(Ownable(beacon).owner(), successor, "beacon ownership must be transferable onward");
+        assertTrue(
+            IAccessControl(authoriser).hasRole(adminRole, successor), "successor must hold the handed-over _ADMIN"
+        );
+        assertFalse(
+            IAccessControl(authoriser).hasRole(adminRole, timelock), "timelock must be able to renounce its _ADMIN"
+        );
+        assertTrue(
+            IAccessControl(timelock).hasRole(LibTimelockInvariants.TIMELOCK_PROPOSER_ROLE, successor),
+            "self-administration must provision a successor proposer"
+        );
+    }
+
+    /// @notice One governance-loop leg: schedule the call on the timelock
+    /// through the Safe's threshold-gated exec path, prove it pending but
+    /// not ready inside the window, warp out the delay, execute the same
+    /// way, and prove the operation Done. Salted by the payload so
+    /// consecutive legs never collide.
+    function scheduleAndExecuteViaTimelock(address safe, address timelock, address target, bytes memory data) internal {
+        TimelockController controller = TimelockController(payable(timelock));
+        bytes32 salt = keccak256(abi.encode("migrate-away-proof", target, data));
+        bytes32 id = controller.hashOperation(target, 0, data, bytes32(0), salt);
+
+        LibSafeOps.simulateNPlus1(
+            IGnosisSafe(safe),
+            timelock,
+            abi.encodeCall(
+                TimelockController.schedule,
+                (target, 0, data, bytes32(0), salt, LibTimelockInvariants.TIMELOCK_MIN_DELAY)
+            ),
+            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD
+        );
+        assertTrue(controller.isOperationPending(id), "leg must be pending after schedule");
+        assertFalse(controller.isOperationReady(id), "leg must not be executable inside the delay");
+
+        vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        LibSafeOps.simulateNPlus1(
+            IGnosisSafe(safe),
+            timelock,
+            abi.encodeCall(TimelockController.execute, (target, 0, data, bytes32(0), salt)),
+            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD
+        );
+        assertTrue(controller.isOperationDone(id), "leg must complete after the delay");
     }
 }
