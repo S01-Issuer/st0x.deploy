@@ -9,6 +9,7 @@ import {
     RoleGrant,
     ExpectedGrantMissing,
     UnexpectedDefaultAdmin,
+    UnexpectedRetainedAdminGrant,
     AuthoriserImplCodehashMismatch
 } from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
@@ -122,10 +123,12 @@ contract LibAuthoriserInvariantsTest is Test {
         }
     }
 
-    /// @notice `assertExpectedGrants(authoriser, safe, adminHolder)` passes
-    /// once the live clone's seven `_ADMIN` roles are mocked onto the admin
-    /// holder — the exact post-timelock-migration shape — and pinpoints the
-    /// first missing `_ADMIN` grant when the mock is absent.
+    /// @notice `assertExpectedGrants(authoriser, safe, adminHolder)` demands
+    /// the exact post-timelock-migration shape: it pinpoints the first
+    /// missing `_ADMIN` grant while the admin holder holds nothing, rejects
+    /// the dual-holder state where the Safe retains an `_ADMIN` copy
+    /// alongside the admin holder (an instant delay bypass), and passes only
+    /// once the seven `_ADMIN` roles sit exclusively on the admin holder.
     function testAssertExpectedGrantsWithDistinctAdminHolder() external {
         selectBaseFork();
         address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
@@ -139,14 +142,26 @@ contract LibAuthoriserInvariantsTest is Test {
         vm.expectRevert(abi.encodeWithSelector(ExpectedGrantMissing.selector, clone, grants[0].role, timelock));
         harness.callAssertExpectedGrants(clone, safe, timelock);
 
-        // Mock the seven `_ADMIN` grants onto the timelock — the operational
-        // entries are already live on the fork — and the full assertion
-        // passes.
+        // Mock the seven `_ADMIN` grants onto the timelock. The live fork's
+        // Safe still holds its `_ADMIN` copies, so this is the dual-holder
+        // state — the Safe could still mutate the grant map without the
+        // timelock's delay — and the assertion must reject it.
         for (uint256 i = 0; i < 7; i++) {
             vm.mockCall(
                 clone,
                 abi.encodeWithSelector(IAccessControl.hasRole.selector, grants[i].role, timelock),
                 abi.encode(true)
+            );
+        }
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedRetainedAdminGrant.selector, clone, grants[0].role, safe));
+        harness.callAssertExpectedGrants(clone, safe, timelock);
+
+        // Mock the Safe's seven `_ADMIN` copies away — the renounces landing
+        // — and the full assertion passes: exclusive admin holding, with the
+        // operational entries already live on the fork.
+        for (uint256 i = 0; i < 7; i++) {
+            vm.mockCall(
+                clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, grants[i].role, safe), abi.encode(false)
             );
         }
         harness.callAssertExpectedGrants(clone, safe, timelock);
