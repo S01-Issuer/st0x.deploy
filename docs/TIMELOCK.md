@@ -69,21 +69,26 @@ invariants target:
 | `STOX_GOVERNANCE_TIMELOCK_HYPEREVM` | the HyperEVM timelock                     |
 | `TIMELOCK_CANCELLER`                | the dedicated canceller, once provisioned |
 
-Each pin is `address(0)` until that chain's deploy broadcast has run and the pin
-PR has recorded the address. `timelockForChainId` returns the pin, so an
-unhydrated chain reads as `address(0)` and every consumer that requires a
-timelock refuses rather than proceeding against a wrong address.
-`testPinsMatchDerivedAddressesOnceHydrated` ties every hydrated pin to the
-derivation, so a pin PR cannot record a wrong address.
+Every pin is written with its chain arm, derived from the frozen creation
+bytecode and that chain's Safe pin before any deploy —
+`testPinsMatchDerivedAddresses` asserts each equality unconditionally, so a
+wrong or zeroed pin cannot survive CI. A zero pin is never a legitimate phase:
+every consumer (the deploy pre-flight, the migration authoring, the
+migration-window suite) refuses it as a reverted or never-hydrated arm rather
+than proceeding against a wrong address. All three pins are hydrated and their
+timelocks live.
 
 ## Rollout (per chain: Base, Ethereum, HyperEVM)
 
-1. **Deploy** — Actions → `manual-broadcast` →
-   `20260729-deploy-governance-timelock`, network `base` / `ethereum` /
-   `hyperevm`. CI deploy key broadcasts; the timelock lands at the derived
-   address, fully configured by its constructor.
-2. **Pin PR** — hydrate that chain's
-   `LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK*` with the logged address.
+1. **Chain arm + pin** — a governed chain's `LibTimelockInvariants` arm is added
+   WITH its pin, derived from the frozen creation bytecode and the chain's Safe
+   pin (`expectedTimelockAddress`). The deploy refuses a zero pin, so the arm
+   always precedes the broadcast.
+2. **Deploy** — Actions → `manual-broadcast` →
+   `20260729-deploy-governance-timelock`. One dispatch covers every governed
+   chain: the script iterates `networks()`, skips-with-assert any chain already
+   carrying its timelock, and the CI deploy key broadcasts the rest — each
+   landing at its derived address, fully configured by its constructor.
 3. **Author the migration bundle** — Actions → `run-script` →
    `20260729-migrate-governance-to-timelock`, network `base` / `ethereum` /
    `hyperevm`. Emits the Safe Tx Builder JSON
