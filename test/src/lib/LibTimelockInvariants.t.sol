@@ -94,6 +94,20 @@ contract LibTimelockInvariantsTest is Test {
         harness.callAssertTimelockState(missing, SAFE);
     }
 
+    /// @notice The frozen creation-code and runtime-codehash pins match the
+    /// version-locked OZ dependency as the current profile compiles it. Red
+    /// here means the compiler settings or the dependency moved past the
+    /// pinned generation: regenerate the pins only while no chain has
+    /// deployed or migrated onto them; once production carries the pinned
+    /// generation the pins stand (they describe prod, not source) and the
+    /// divergence is a deliberate new-generation decision.
+    function testTimelockPinsMatchCompiledDependency() external pure {
+        assertEq(
+            keccak256(LibTimelockInvariants.TIMELOCK_CREATION_CODE), keccak256(type(TimelockController).creationCode)
+        );
+        assertEq(LibTimelockInvariants.TIMELOCK_RUNTIME_CODEHASH, keccak256(type(TimelockController).runtimeCode));
+    }
+
     /// @notice Alien bytecode at the timelock address is rejected by the
     /// codehash pin before any role read is trusted.
     function testAssertRejectsWrongCodehash() external {
@@ -103,7 +117,7 @@ contract LibTimelockInvariantsTest is Test {
             abi.encodeWithSelector(
                 TimelockCodehashMismatch.selector,
                 timelock,
-                LibTimelockInvariants.timelockRuntimeCodehash(),
+                LibTimelockInvariants.TIMELOCK_RUNTIME_CODEHASH,
                 timelock.codehash
             )
         );
