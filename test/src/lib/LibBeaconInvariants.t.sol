@@ -115,6 +115,17 @@ contract LibBeaconInvariantsTest is Test {
         );
     }
 
+    /// @notice `UPGRADEABLE_BEACON_CODEHASH` is a re-declaration of
+    /// `LibProdDeployV1.PROD_BEACON_BASE_RUNTIME_CODEHASH_V1` (kept local so
+    /// the beacon invariant does not reach into the V1 deploy lib). Pin the
+    /// equality structurally: without this the two copies are tied only
+    /// transitively, through separate fork suites asserting each against the
+    /// same live beacons, and a drifted copy would surface as an on-chain
+    /// "mismatch" instead of the source defect it is.
+    function testUpgradeableBeaconCodehashMatchesV1DeployPin() external pure {
+        assertEq(LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH, LibProdDeployV1.PROD_BEACON_BASE_RUNTIME_CODEHASH_V1);
+    }
+
     /// @notice Base's IN-USE beacons are the V1-generation addresses. The
     /// later 0.1.1-address beacons exist on Base but production never adopted
     /// them, so returning those would assert ownership of a deploy artifact
