@@ -36,6 +36,16 @@ error UnexpectedDefaultAdmin(address authoriser, address holder);
 /// @param actual The codehash observed on-chain.
 error AuthoriserImplCodehashMismatch(address authoriser, bytes32 expected, bytes32 actual);
 
+/// @notice The token-owner Safe still holds an `_ADMIN` role that the map
+/// assigns to a distinct admin holder. The `_ADMIN` slice must be held
+/// EXCLUSIVELY: a Safe that keeps a copy can grant or revoke action roles
+/// directly, bypassing the delay the admin holder (the governance timelock)
+/// exists to impose.
+/// @param authoriser The authoriser inspected.
+/// @param role The `_ADMIN` role the Safe unexpectedly retains.
+/// @param holder The Safe retaining it.
+error UnexpectedRetainedAdminGrant(address authoriser, bytes32 role, address holder);
+
 /// @title LibAuthoriserInvariants
 /// @notice Reusable invariants for the ST0x production authoriser on Base:
 /// the grantee constants and the single master `(role, grantee)` map every
@@ -202,8 +212,11 @@ library LibAuthoriserInvariants {
 
     /// @notice Assert every `(role, grantee)` pair from
     /// `expectedGrants(tokenOwnerSafe, adminHolder)` is held on the supplied
-    /// authoriser, and that no named principal — the Safe, the admin holder,
-    /// the service signer — holds `DEFAULT_ADMIN_ROLE`. This is the
+    /// authoriser, that no named principal — the Safe, the admin holder,
+    /// the service signer — holds `DEFAULT_ADMIN_ROLE`, and that when the
+    /// admin holder is distinct from the Safe, the Safe retains NO `_ADMIN`
+    /// entry (exclusive holding — a retained copy would let the Safe mutate
+    /// the grant map without the admin holder's delay). This is the
     /// post-timelock-migration assertion surface: the migration script's
     /// post-state and the migration-window invariants call it with the
     /// governance timelock as `adminHolder`.
@@ -232,6 +245,18 @@ library LibAuthoriserInvariants {
         for (uint256 i = 0; i < grants.length; i++) {
             if (!acl.hasRole(grants[i].role, grants[i].grantee)) {
                 revert ExpectedGrantMissing(authoriser, grants[i].role, grants[i].grantee);
+            }
+        }
+        // Exclusive `_ADMIN` holding: with a distinct admin holder, a Safe
+        // that retains any admin entry can grant or revoke action roles
+        // directly, bypassing the delay the admin holder exists to impose.
+        // The admin slice is identified structurally (the entries the map
+        // assigns to the admin holder) rather than by a hardcoded count.
+        if (adminHolder != tokenOwnerSafe) {
+            for (uint256 i = 0; i < grants.length; i++) {
+                if (grants[i].grantee == adminHolder && acl.hasRole(grants[i].role, tokenOwnerSafe)) {
+                    revert UnexpectedRetainedAdminGrant(authoriser, grants[i].role, tokenOwnerSafe);
+                }
             }
         }
     }
