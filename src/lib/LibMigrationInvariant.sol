@@ -73,6 +73,15 @@ library LibMigrationInvariant {
 
     /// @notice `address` overload. Casts each address to `bytes32` under the
     /// hood via `uint160`.
+    ///
+    /// The zero address is rejected as `actual` UNCONDITIONALLY — on either
+    /// side of the deadline, even when a migration side equals zero. Every
+    /// address-valued surface this lib asserts (owners, role holders) has
+    /// zero as its default/renounced/unset value, making it the single most
+    /// likely drift reading — so it is its own checked case, never an
+    /// accepted side. In particular an unhydrated `post` pin of zero means
+    /// "post-state unreachable", and a renounced-to-zero owner must trip
+    /// drift rather than read as "already migrated".
     /// @param label Human-readable identifier for the invariant surfaced in
     /// revert data.
     /// @param actual The value read from the live chain.
@@ -83,6 +92,11 @@ library LibMigrationInvariant {
         internal
         view
     {
+        if (actual == address(0)) {
+            revert MigrationStateDrift(
+                label, bytes32(uint256(uint160(pre))), bytes32(uint256(uint160(post))), bytes32(0)
+            );
+        }
         assertMigration(
             label,
             bytes32(uint256(uint160(actual))),

@@ -83,9 +83,10 @@ error TimelockUnexpectedRole(address timelock, bytes32 role, address account);
 /// @dev The timelock is deployed via the Zoltu deterministic factory, so its
 /// address is a pure function of its creation code — computable in-source by
 /// `expectedTimelockAddress`. The per-chain ADDRESS pins below are the
-/// audit-trail constants scripts and invariants target; each is hydrated by
-/// a post-deploy pin PR and must equal the derived address (a structure test
-/// pins that equality once hydrated). Constructor arguments embed the
+/// audit-trail constants scripts and invariants target; each is written
+/// with its chain arm, derived from the FROZEN creation bytecode before
+/// any deploy, and must equal the derivation unconditionally
+/// (`testPinsMatchDerivedAddresses`). Constructor arguments embed the
 /// chain's Safe, so the timelock address is a per-chain deploy artifact —
 /// same policy, different address per chain, exactly like the Safe itself.
 library LibTimelockInvariants {
@@ -117,7 +118,7 @@ library LibTimelockInvariants {
 
     /// @notice The ST0x governance timelock on **Base**. Equals
     /// `expectedTimelockAddress(STOX_TOKEN_OWNER_SAFE)`, which
-    /// `testPinsMatchDerivedAddressesOnceHydrated` asserts.
+    /// `testPinsMatchDerivedAddresses` asserts.
     /// https://basescan.org/address/0xdb4b2187a685310e6b64170c97b80e90dd4a9b71
     address internal constant STOX_GOVERNANCE_TIMELOCK = address(0xdb4b2187A685310E6b64170c97B80E90DD4a9B71);
 
@@ -176,9 +177,13 @@ library LibTimelockInvariants {
         0xb6234401d5b271d66957815831adcde1e66f80a4c7a9d01881c7eecb70e96993;
 
     /// @notice The ST0x governance timelock address for the active chain,
-    /// selected by chain id — `address(0)` until that chain's timelock is
-    /// deployed and the pin hydrated. Reverts for any chain without a pin
-    /// rather than falling back to another chain's timelock.
+    /// selected by chain id. Zero is never a legitimate reading: every pin
+    /// is a pure function of the frozen creation bytecode and its chain's
+    /// Safe pin, written with the chain arm before any deploy
+    /// (`testPinsMatchDerivedAddresses` pins the equality), so consumers
+    /// refuse a zero pin as a reverted or never-hydrated arm. Reverts for
+    /// any chain without an arm rather than falling back to another
+    /// chain's timelock.
     /// @param chainId The active chain id (`block.chainid`).
     /// @return timelock The chain's governance timelock pin.
     function timelockForChainId(uint256 chainId) internal pure returns (address timelock) {

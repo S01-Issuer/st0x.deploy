@@ -240,30 +240,27 @@ contract LibTimelockInvariantsTest is Test {
         harness.callTimelockForChainId(31337);
     }
 
-    /// @notice The hydration contract for the per-chain pins: while a pin is
-    /// a placeholder it must be zero; once hydrated it must equal the
-    /// derived Zoltu address for that chain's Safe. Both directions are
-    /// asserted here so the post-deploy pin PR turns this from the
-    /// placeholder branch to the equality branch with no test change.
-    function testPinsMatchDerivedAddressesOnceHydrated() external pure {
-        address basePin = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
-        if (basePin != address(0)) {
-            assertEq(basePin, LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE));
-        }
-        address ethereumPin = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ETHEREUM;
-        if (ethereumPin != address(0)) {
-            assertEq(
-                ethereumPin,
-                LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM)
-            );
-        }
-        address hyperevmPin = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_HYPEREVM;
-        if (hyperevmPin != address(0)) {
-            assertEq(
-                hyperevmPin,
-                LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM)
-            );
-        }
+    /// @notice Every per-chain pin equals the Zoltu address derived from the
+    /// frozen creation code and that chain's Safe — UNCONDITIONALLY. The
+    /// not-zero guards that let this test ride through the hydration window
+    /// are retired with it: all three deploys have executed and the pins are
+    /// deploy history, so a zeroed or drifted pin must fail loudly here
+    /// rather than silently skip. A future chain's placeholder phase gets
+    /// its own guarded branch when its arm is added; these three never go
+    /// back.
+    function testPinsMatchDerivedAddresses() external pure {
+        assertEq(
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK,
+            LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE)
+        );
+        assertEq(
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ETHEREUM,
+            LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM)
+        );
+        assertEq(
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_HYPEREVM,
+            LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM)
+        );
     }
 
     /// @notice Every chain with a pinned token-owner Safe resolves through
