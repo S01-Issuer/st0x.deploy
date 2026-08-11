@@ -208,5 +208,15 @@ contract LibMigrationInvariantTest is Test {
             )
         );
         harness.callAssertMigrationAddress(LABEL, address(0), pre, address(0), DEADLINE);
+
+        // And the inverse configuration: a zero PRE side must not bless a
+        // zero actual either.
+        vm.warp(DEADLINE - 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MigrationStateDrift.selector, LABEL, bytes32(0), bytes32(uint256(uint160(post))), bytes32(0)
+            )
+        );
+        harness.callAssertMigrationAddress(LABEL, address(0), address(0), post, DEADLINE);
     }
 }
