@@ -5,8 +5,8 @@ pragma solidity =0.8.25;
 import {Test, Vm} from "forge-std-1.16.1/src/Test.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
-import {ERC20Upgradeable} from "@openzeppelin-contracts-upgradeable-5.6.1/token/ERC20/ERC20Upgradeable.sol";
-import {IERC20Errors} from "@openzeppelin-contracts-5.6.1/interfaces/draft-IERC6093.sol";
+import {ERC20Upgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/token/ERC20/ERC20Upgradeable.sol";
+import {IERC20Errors} from "@openzeppelin-contracts-5.7.0/interfaces/draft-IERC6093.sol";
 import {NODE_NONE} from "../../../src/lib/LibCorporateActionNode.sol";
 import {
     ACTION_TYPE_STOCK_SPLIT_V1,

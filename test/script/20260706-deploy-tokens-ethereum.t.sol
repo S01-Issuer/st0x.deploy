@@ -11,8 +11,8 @@ import {
     OwnershipHandoffFailed
 } from "../../script/20260706-deploy-tokens-ethereum.s.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
-import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
-import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";

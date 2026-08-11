@@ -16,8 +16,8 @@ import {ReceiptVaultConfigV2} from "rain-vats-0.1.6/src/abstract/ReceiptVault.so
 import {
     StoxWrappedTokenVaultBeaconSetDeployer
 } from "../../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
-import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
-import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {MockERC20} from "../../../concrete/MockERC20.sol";
 
 contract StoxProdBaseTest is Test {

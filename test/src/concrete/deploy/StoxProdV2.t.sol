@@ -9,8 +9,8 @@ import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibInvariants} from "../../../../src/lib/LibInvariants.sol";
 import {IGnosisSafe} from "../../../../src/interface/IGnosisSafe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
-import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
-import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
 } from "rain-vats-0.1.6/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";

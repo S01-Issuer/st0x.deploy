@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {BeaconProxy} from "@openzeppelin-contracts-5.6.1/proxy/beacon/BeaconProxy.sol";
-import {ERC165} from "@openzeppelin-contracts-5.6.1/utils/introspection/ERC165.sol";
+import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
+import {ERC165} from "@openzeppelin-contracts-5.7.0/utils/introspection/ERC165.sol";
 import {StoxWrappedTokenVault} from "../StoxWrappedTokenVault.sol";
 import {ICLONEABLE_V2_SUCCESS} from "rain-factory-0.1.1/src/interface/ICloneableV2.sol";
 import {LibProdDeployCurrent} from "../../generated/LibProdDeployCurrent.sol";

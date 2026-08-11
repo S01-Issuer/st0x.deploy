@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.16.1/src/Vm.sol";
 import {IGnosisSafe} from "../interface/IGnosisSafe.sol";
-import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 
 /// @notice Minimal `UpgradeableBeacon` surface used by the beacon n+1
 /// helper: the privileged `upgradeTo` mutator. Declared inline so

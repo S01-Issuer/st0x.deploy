@@ -3,9 +3,9 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
-import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
-import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensions/IERC20Metadata.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
+import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 
 import {LibProdDeployV1} from "../../../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";

@@ -11,7 +11,7 @@ import {
 import {ReceiptVaultConfigV2} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
 import {IReceiptVaultV3} from "rain-vats-0.1.6/src/interface/IReceiptVaultV3.sol";
 import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
-import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {IStoxUnifiedDeployerV1} from "../src/interface/IStoxUnifiedDeployerV1.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
