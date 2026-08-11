@@ -161,9 +161,7 @@ contract LibAuthoriserInvariantsTest is Test {
         // operational entries already live on the fork.
         for (uint256 i = 0; i < 7; i++) {
             vm.mockCall(
-                clone,
-                abi.encodeWithSelector(IAccessControl.hasRole.selector, grants[i].role, safe),
-                abi.encode(false)
+                clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, grants[i].role, safe), abi.encode(false)
             );
         }
         harness.callAssertExpectedGrants(clone, safe, timelock);
