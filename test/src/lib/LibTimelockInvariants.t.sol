@@ -159,20 +159,32 @@ contract LibTimelockInvariantsTest is Test {
         harness.callAssertTimelockState(address(wrongProposer), SAFE);
     }
 
-    /// @notice A zero-address executor grant — OZ's "execution open to
-    /// everyone" switch — is rejected. Simulated through the timelock's own
-    /// self-administration path, proving the pinned deploy COULD drift here
-    /// only via a (timelocked) governance action that this invariant would
-    /// then flag.
-    function testAssertRejectsOpenExecutorRole() external {
+    /// @notice A zero-address grant on ANY lifecycle role — OZ's
+    /// `onlyRoleOrOpenRole` treats `hasRole(role, address(0))` as "open to
+    /// everyone" — is rejected, walked per role: proposer, canceller,
+    /// executor, and root admin each trip their own typed revert, and the
+    /// closed state passes again after each revoke. Simulated through the
+    /// timelock's own self-administration path, proving the pinned deploy
+    /// COULD drift here only via a (timelocked) governance action that this
+    /// invariant would then flag.
+    function testAssertRejectsEveryOpenRole() external {
         address timelock = deployPinnedTimelock();
-        vm.prank(timelock);
-        IAccessControl(timelock).grantRole(LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE, address(0));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                TimelockUnexpectedRole.selector, timelock, LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE, address(0)
-            )
-        );
+        bytes32[4] memory roles = [
+            LibTimelockInvariants.TIMELOCK_PROPOSER_ROLE,
+            LibTimelockInvariants.TIMELOCK_CANCELLER_ROLE,
+            LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE,
+            LibTimelockInvariants.TIMELOCK_DEFAULT_ADMIN_ROLE
+        ];
+        for (uint256 i = 0; i < roles.length; i++) {
+            vm.prank(timelock);
+            IAccessControl(timelock).grantRole(roles[i], address(0));
+            vm.expectRevert(abi.encodeWithSelector(TimelockUnexpectedRole.selector, timelock, roles[i], address(0)));
+            harness.callAssertTimelockState(timelock, SAFE);
+            vm.prank(timelock);
+            IAccessControl(timelock).revokeRole(roles[i], address(0));
+        }
+        // Every zero-grant revoked: the closed state passes again, proving
+        // each rejection above was the zero-grant and nothing else.
         harness.callAssertTimelockState(timelock, SAFE);
     }
 
