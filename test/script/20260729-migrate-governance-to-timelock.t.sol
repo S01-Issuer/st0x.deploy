@@ -24,6 +24,10 @@ import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.1.6/src/concrete/vault/OffchainAssetReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
+
+import {IAuthorisable} from "../../src/interface/IAuthorisable.sol";
 import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
 import {LibSafeOps, SafeTx} from "../../src/lib/LibSafeOps.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
@@ -408,6 +412,34 @@ contract MigrateGovernanceToTimelockTest is Test {
         // The sanctioned path works end-to-end.
         scheduleAndExecuteViaTimelock(safe, timelock, beacon, abi.encodeWithSignature("upgradeTo(address)", impl));
         assertEq(IBeacon(beacon).implementation(), impl, "idempotent upgrade must leave the implementation in place");
+    }
+
+    /// @notice `setAuthorizer` — the vault surface that rewires which
+    /// contract gates every deposit, withdrawal and transfer — runs through
+    /// the timelock, and only through it: post-migration a direct Safe call
+    /// reverts `OwnableUnauthorizedAccount`, and the sanctioned schedule ->
+    /// 48h -> execute path (each leg n+1 threshold-gated) completes, proven
+    /// with an idempotent re-set of the current authoriser so the wiring is
+    /// asserted unchanged.
+    function testSetAuthorizerRunsThroughTimelock() external {
+        selectBaseFork();
+        address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
+        address authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        address timelock = deployTimelock();
+        new MigrateGovernanceToTimelockHarness(timelock).run();
+
+        address vault = _activeChainVaults()[0];
+
+        // The instant path is closed: the Safe no longer owns the vault.
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, safe));
+        vm.prank(safe);
+        OffchainAssetReceiptVault(payable(vault)).setAuthorizer(IAuthorizeV1(authoriser));
+
+        // The sanctioned path works end-to-end and leaves the wiring intact.
+        scheduleAndExecuteViaTimelock(
+            safe, timelock, vault, abi.encodeCall(OffchainAssetReceiptVault.setAuthorizer, (IAuthorizeV1(authoriser)))
+        );
+        assertEq(IAuthorisable(vault).authorizer(), authoriser, "idempotent re-set must leave the authoriser in place");
     }
 
     /// @notice One governance-loop leg: schedule the call on the timelock
