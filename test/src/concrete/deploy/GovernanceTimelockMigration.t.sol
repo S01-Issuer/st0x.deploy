@@ -250,7 +250,7 @@ contract GovernanceTimelockMigrationTest is Test {
                 MigrationStateDrift.selector,
                 "receiptVault.owner()",
                 bytes32(uint256(uint160(safe))),
-                bytes32(uint256(uint160(address(0)))),
+                bytes32(uint256(uint160(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK))),
                 bytes32(uint256(uint160(stranger)))
             )
         );
