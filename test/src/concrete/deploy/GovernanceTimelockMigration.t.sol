@@ -188,8 +188,11 @@ contract GovernanceTimelockMigrationTest is Test {
     /// @notice Every chain ST0x governs must be known to the governance
     /// timelock library. A chain is "governed" once it has a pinned
     /// token-owner Safe; from that point `timelockForChainId` must resolve
-    /// it (even to an unhydrated `address(0)` pin) rather than reverting
-    /// `UnsupportedChainForGovernanceTimelock`.
+    /// it rather than reverting `UnsupportedChainForGovernanceTimelock`.
+    /// (The pin's VALUE is asserted elsewhere: non-zero by
+    /// `assertChainMigrationWindow`, derivation-equal by
+    /// `testPinsMatchDerivedAddresses` — this guard is only about the arm
+    /// existing.)
     ///
     /// This closes the gap left by keeping the governance-timelock rollout
     /// and the multichain (HyperEVM) rollout as independent stacks. Whichever
