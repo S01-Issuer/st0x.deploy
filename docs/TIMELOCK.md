@@ -134,9 +134,11 @@ way to resolve it.
 ## Invariants
 
 - `LibTimelockInvariants.assertTimelockState(timelock, safe)` — codehash
-  (derived from the compiled OZ dependency, so a dependency bump surfaces as
-  drift against the live deployment), 48h min delay, the full role model above,
-  no open roles, no root admin outside the timelock itself.
+  (against the pinned `TIMELOCK_RUNTIME_CODEHASH` literal of the frozen
+  `TIMELOCK_CREATION_CODE` generation, so a compiler-settings or dependency
+  change cannot drift the expectation away from the live deployment), 48h min
+  delay, the full role model above, no open roles, no root admin outside the
+  timelock itself.
 - `LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe,
   timelock)` —
   the single master grant map, parameterised on the admin holder; post-migration
