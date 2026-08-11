@@ -20,6 +20,14 @@ import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 /// @param derived The address derived from that chain's Safe.
 error TimelockPinMismatch(uint256 chainId, address pinned, address derived);
 
+/// @notice The active chain's governance-timelock pin is zero. Never a
+/// legitimate phase: with the creation bytecode frozen, a chain's pin is a
+/// pure function of its Safe pin and is written with the chain arm, before
+/// any deploy — so zero can only mean a reverted or never-hydrated arm,
+/// and the deploy refuses rather than skipping the pin cross-check.
+/// @param chainId The active chain id whose pin reads zero.
+error TimelockNotPinned(uint256 chainId);
+
 /// @notice The canonical Zoltu deterministic-deployment factory is not
 /// deployed on this network. Without it the derived address is unreachable.
 /// @param factory The pinned factory address with no code.
@@ -103,6 +111,14 @@ contract DeployGovernanceTimelock is Script {
         nets[2] = LibStoxDeployNetworks.HYPEREVM;
     }
 
+    /// @notice The active chain's governance-timelock pin. Virtual so the
+    /// test harness can simulate a reverted/never-hydrated arm; production
+    /// dispatch always reads the `LibTimelockInvariants` pin.
+    /// @return The active chain's pinned timelock.
+    function pinnedTimelock() internal view virtual returns (address) {
+        return LibTimelockInvariants.timelockForChainId(block.chainid);
+    }
+
     /// @notice Deploy the governance timelock across every chain in
     /// `networks()` in a single dispatch, skipping any chain that already
     /// carries it.
@@ -158,11 +174,17 @@ contract DeployGovernanceTimelock is Script {
         address safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         address expected = LibTimelockInvariants.expectedTimelockAddress(safe);
 
-        // A hydrated pin must agree with what this chain's Safe derives.
-        // Disagreement means the pin records another chain's timelock, or the
-        // Safe behind it moved — either way the wrong contract.
-        address pinned = LibTimelockInvariants.timelockForChainId(block.chainid);
-        if (pinned != address(0) && pinned != expected) {
+        // The pin must exist and agree with what this chain's Safe derives.
+        // Zero is its own checked case — a reverted or never-hydrated arm —
+        // never a phase to route around: frozen creation bytecode makes the
+        // pin derivable before any deploy. Disagreement means the pin
+        // records another chain's timelock, or the Safe behind it moved —
+        // either way the wrong contract.
+        address pinned = pinnedTimelock();
+        if (pinned == address(0)) {
+            revert TimelockNotPinned(block.chainid);
+        }
+        if (pinned != expected) {
             revert TimelockPinMismatch(block.chainid, pinned, expected);
         }
 
@@ -172,9 +194,6 @@ contract DeployGovernanceTimelock is Script {
         if (expected.code.length != 0) {
             LibTimelockInvariants.assertTimelockState(expected, safe);
             console2.log(" - Timelock already deployed, skipping:", vm.toString(expected));
-            if (pinned == address(0)) {
-                console2.log(" - PIN OUTSTANDING: hydrate this chain's LibTimelockInvariants pin with the above");
-            }
             return expected;
         }
 

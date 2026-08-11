@@ -5,7 +5,8 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
-import {DeployerHoldsTimelockRole} from "../../script/20260729-deploy-governance-timelock.s.sol";
+import {DeployerHoldsTimelockRole, TimelockNotPinned} from "../../script/20260729-deploy-governance-timelock.s.sol";
+import {UnpinnedDeployGovernanceTimelockHarness} from "./UnpinnedDeployGovernanceTimelockHarness.sol";
 import {DeployGovernanceTimelockHarness} from "./DeployGovernanceTimelockHarness.sol";
 import {LibSafeInvariants, UnsupportedChainForTokenOwnerSafe} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
@@ -53,6 +54,18 @@ contract DeployGovernanceTimelockTest is Test {
     function testDeployRefusesUnsupportedChain() external {
         DeployGovernanceTimelockHarness harness = new DeployGovernanceTimelockHarness();
         vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForTokenOwnerSafe.selector, uint256(31337)));
+        harness.callDeployOnActiveChain();
+    }
+
+    /// @notice A zero pin refuses at pre-flight, on the ruling that zero is
+    /// its own checked case: a reverted or never-hydrated arm must never
+    /// skip the pin cross-check and fall through to the idempotent-skip
+    /// branch (on the pre-fix code this exact scenario returned success and
+    /// logged "PIN OUTSTANDING" against the live Base deployment).
+    function testDeployRefusesZeroPin() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        UnpinnedDeployGovernanceTimelockHarness harness = new UnpinnedDeployGovernanceTimelockHarness();
+        vm.expectRevert(abi.encodeWithSelector(TimelockNotPinned.selector, uint256(LibSafeInvariants.BASE_CHAIN_ID)));
         harness.callDeployOnActiveChain();
     }
 
