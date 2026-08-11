@@ -36,6 +36,16 @@ error UnexpectedDefaultAdmin(address authoriser, address holder);
 /// @param actual The codehash observed on-chain.
 error AuthoriserImplCodehashMismatch(address authoriser, bytes32 expected, bytes32 actual);
 
+/// @notice The token-owner Safe still holds an `_ADMIN` role that the map
+/// assigns to a distinct admin holder. The `_ADMIN` slice must be held
+/// EXCLUSIVELY: a Safe that keeps a copy can grant or revoke action roles
+/// directly, bypassing the delay the admin holder (the governance timelock)
+/// exists to impose.
+/// @param authoriser The authoriser inspected.
+/// @param role The `_ADMIN` role the Safe unexpectedly retains.
+/// @param holder The Safe retaining it.
+error UnexpectedRetainedAdminGrant(address authoriser, bytes32 role, address holder);
+
 /// @title LibAuthoriserInvariants
 /// @notice Reusable invariants for the ST0x production authoriser on Base:
 /// the grantee constants and the single master `(role, grantee)` map every
@@ -71,6 +81,12 @@ library LibAuthoriserInvariants {
     /// it. Pinned as the explicit expectation so `assertExpectedGrants`
     /// reverts `UnexpectedDefaultAdmin` if any pinned grantee holds it.
     bytes32 internal constant DEFAULT_ADMIN_ROLE = bytes32(0);
+
+    /// @notice The number of `_ADMIN` roles in the grant map — its LEADING
+    /// slice, so `expectedGrants(...)[0..ADMIN_ROLE_COUNT)` are exactly the
+    /// entries that track the admin holder. The slice's position and length
+    /// are pinned by `testExpectedGrantsAdminHolderParameterisation`.
+    uint256 internal constant ADMIN_ROLE_COUNT = 7;
 
     /// @notice The ST0x token-owner Safe — holds every `_ADMIN` role on the
     /// production authoriser and was later granted DEPOSIT, WITHDRAW and
@@ -113,20 +129,44 @@ library LibAuthoriserInvariants {
     /// grantee slots.
     /// @return grants The `(role, grantee)` pairs for that chain.
     function expectedGrants(address tokenOwnerSafe) internal pure returns (RoleGrant[] memory grants) {
+        grants = expectedGrants(tokenOwnerSafe, tokenOwnerSafe);
+    }
+
+    /// @notice The `(role, grantee)` map parameterised on BOTH the chain's
+    /// token-owner Safe AND the holder of the seven `_ADMIN` roles. Before
+    /// the governance-timelock migration the Safe is the admin holder (the
+    /// two-arg call sites above collapse the parameters); after the
+    /// migration the seven `_ADMIN` roles sit on the governance timelock
+    /// while the Safe keeps its three direct action roles. This overload is
+    /// the single map both states are expressed through, so the migration
+    /// script's post-state and the post-migration invariant surface assert
+    /// the same structure the pre-migration consumers do.
+    /// @param tokenOwnerSafe The chain's token-owner Safe filling the
+    /// operational Safe grantee slots.
+    /// @param adminHolder The holder of the seven `_ADMIN` roles (the Safe
+    /// pre-migration, the governance timelock post-migration).
+    /// @return grants The `(role, grantee)` pairs for that chain.
+    function expectedGrants(address tokenOwnerSafe, address adminHolder)
+        internal
+        pure
+        returns (RoleGrant[] memory grants)
+    {
         grants = new RoleGrant[](16);
 
-        // Init grants (block 41715184 on Base) — Safe receives every `_ADMIN`.
-        grants[0] = RoleGrant(keccak256("DEPOSIT_ADMIN"), tokenOwnerSafe);
-        grants[1] = RoleGrant(keccak256("WITHDRAW_ADMIN"), tokenOwnerSafe);
-        grants[2] = RoleGrant(keccak256("CERTIFY_ADMIN"), tokenOwnerSafe);
-        grants[3] = RoleGrant(keccak256("CONFISCATE_SHARES_ADMIN"), tokenOwnerSafe);
-        grants[4] = RoleGrant(keccak256("CONFISCATE_RECEIPT_ADMIN"), tokenOwnerSafe);
+        // Init grants (block 41715184 on Base) — the admin holder receives
+        // every `_ADMIN` (the Safe at init; the governance timelock once the
+        // timelock migration executes).
+        grants[0] = RoleGrant(keccak256("DEPOSIT_ADMIN"), adminHolder);
+        grants[1] = RoleGrant(keccak256("WITHDRAW_ADMIN"), adminHolder);
+        grants[2] = RoleGrant(keccak256("CERTIFY_ADMIN"), adminHolder);
+        grants[3] = RoleGrant(keccak256("CONFISCATE_SHARES_ADMIN"), adminHolder);
+        grants[4] = RoleGrant(keccak256("CONFISCATE_RECEIPT_ADMIN"), adminHolder);
 
         // The two corporate-action admins the 0.1.1 impl adds. On Base the
         // clone-deploy broadcast transferred them to the Safe alongside the
         // other five and renounced them from the deploy key.
-        grants[5] = RoleGrant(keccak256("SCHEDULE_CORPORATE_ACTION_ADMIN"), tokenOwnerSafe);
-        grants[6] = RoleGrant(keccak256("CANCEL_CORPORATE_ACTION_ADMIN"), tokenOwnerSafe);
+        grants[5] = RoleGrant(keccak256("SCHEDULE_CORPORATE_ACTION_ADMIN"), adminHolder);
+        grants[6] = RoleGrant(keccak256("CANCEL_CORPORATE_ACTION_ADMIN"), adminHolder);
 
         // Service EOA provisioned at blocks 41797262, 41797281, 41797297 (Base).
         grants[7] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_1C66);
@@ -173,6 +213,24 @@ library LibAuthoriserInvariants {
     /// @param tokenOwnerSafe The chain's token-owner Safe filling the Safe
     /// grantee slots.
     function assertExpectedGrants(address authoriser, address tokenOwnerSafe) internal view {
+        assertExpectedGrants(authoriser, tokenOwnerSafe, tokenOwnerSafe);
+    }
+
+    /// @notice Assert every `(role, grantee)` pair from
+    /// `expectedGrants(tokenOwnerSafe, adminHolder)` is held on the supplied
+    /// authoriser, that no named principal — the Safe, the admin holder,
+    /// the service signer — holds `DEFAULT_ADMIN_ROLE`, and that when the
+    /// admin holder is distinct from the Safe, the Safe retains NO `_ADMIN`
+    /// entry (exclusive holding — a retained copy would let the Safe mutate
+    /// the grant map without the admin holder's delay). This is the
+    /// post-timelock-migration assertion surface: the migration script's
+    /// post-state and the migration-window invariants call it with the
+    /// governance timelock as `adminHolder`.
+    /// @param authoriser The authoriser to validate.
+    /// @param tokenOwnerSafe The chain's token-owner Safe filling the
+    /// operational Safe grantee slots.
+    /// @param adminHolder The holder of the seven `_ADMIN` roles.
+    function assertExpectedGrants(address authoriser, address tokenOwnerSafe, address adminHolder) internal view {
         IAccessControl acl = IAccessControl(authoriser);
         // No pinned grantee holds DEFAULT_ADMIN_ROLE: the hierarchy admins each
         // action role by its own `<ROLE>_ADMIN`, so a root-admin holder would
@@ -180,16 +238,32 @@ library LibAuthoriserInvariants {
         if (acl.hasRole(DEFAULT_ADMIN_ROLE, tokenOwnerSafe)) {
             revert UnexpectedDefaultAdmin(authoriser, tokenOwnerSafe);
         }
+        if (acl.hasRole(DEFAULT_ADMIN_ROLE, adminHolder)) {
+            revert UnexpectedDefaultAdmin(authoriser, adminHolder);
+        }
         if (acl.hasRole(DEFAULT_ADMIN_ROLE, GRANTEE_SERVICE_1C66)) {
             revert UnexpectedDefaultAdmin(authoriser, GRANTEE_SERVICE_1C66);
         }
         if (acl.hasRole(DEFAULT_ADMIN_ROLE, GRANTEE_SERVICE_3D0C)) {
             revert UnexpectedDefaultAdmin(authoriser, GRANTEE_SERVICE_3D0C);
         }
-        RoleGrant[] memory grants = expectedGrants(tokenOwnerSafe);
+        RoleGrant[] memory grants = expectedGrants(tokenOwnerSafe, adminHolder);
         for (uint256 i = 0; i < grants.length; i++) {
             if (!acl.hasRole(grants[i].role, grants[i].grantee)) {
                 revert ExpectedGrantMissing(authoriser, grants[i].role, grants[i].grantee);
+            }
+        }
+        // Exclusive `_ADMIN` holding: with a distinct admin holder, a Safe
+        // that retains any admin entry can grant or revoke action roles
+        // directly, bypassing the delay the admin holder exists to impose.
+        // The slice is positional (the map's leading `ADMIN_ROLE_COUNT`
+        // entries) rather than matched by grantee address, which would
+        // mis-slice if the admin holder aliased another grantee.
+        if (adminHolder != tokenOwnerSafe) {
+            for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
+                if (acl.hasRole(grants[i].role, tokenOwnerSafe)) {
+                    revert UnexpectedRetainedAdminGrant(authoriser, grants[i].role, tokenOwnerSafe);
+                }
             }
         }
     }
