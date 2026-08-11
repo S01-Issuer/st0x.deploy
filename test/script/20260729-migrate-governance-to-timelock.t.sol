@@ -7,6 +7,7 @@ import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessContro
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/TimelockController.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
 import {DeployGovernanceTimelockHarness} from "./DeployGovernanceTimelockHarness.sol";
@@ -382,6 +383,31 @@ contract MigrateGovernanceToTimelockTest is Test {
             IAccessControl(timelock).hasRole(LibTimelockInvariants.TIMELOCK_PROPOSER_ROLE, successor),
             "self-administration must provision a successor proposer"
         );
+    }
+
+    /// @notice A beacon UPGRADE runs through the timelock: post-migration
+    /// the only path to `upgradeTo` is schedule -> 48h -> execute through
+    /// the Safe's threshold gate, proven literally with an idempotent
+    /// `upgradeTo(currentImpl)` — the operation completes, the beacon still
+    /// serves the same implementation, and no faster path exists (a direct
+    /// Safe call must revert: the Safe no longer owns the beacon).
+    function testBeaconUpgradeRunsThroughTimelock() external {
+        selectBaseFork();
+        address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
+        address timelock = deployTimelock();
+        new MigrateGovernanceToTimelockHarness(timelock).run();
+
+        address beacon = LibBeaconInvariants.prodBeaconsForChainId(block.chainid)[0];
+        address impl = IBeacon(beacon).implementation();
+
+        // The instant path is closed: the Safe is not the owner any more.
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, safe));
+        vm.prank(safe);
+        UpgradeableBeacon(beacon).upgradeTo(impl);
+
+        // The sanctioned path works end-to-end.
+        scheduleAndExecuteViaTimelock(safe, timelock, beacon, abi.encodeWithSignature("upgradeTo(address)", impl));
+        assertEq(IBeacon(beacon).implementation(), impl, "idempotent upgrade must leave the implementation in place");
     }
 
     /// @notice One governance-loop leg: schedule the call on the timelock
