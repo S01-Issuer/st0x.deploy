@@ -73,9 +73,13 @@ jobs:
     permissions:
       contents: read
     # Serialise dispatches of the same script so overlapping runs don't
-    # race on the same nonce / pre-flight state.
+    # race on the same nonce / pre-flight state. Single-chain scripts key on
+    # network too (per-chain nonces cannot collide across networks), but a
+    # MULTI-CHAIN script broadcasts on every chain regardless of the
+    # selected network, so all its dispatches must share ONE group — list
+    # each multi-chain script in the ternary below.
     concurrency:
-      group: manual-broadcast-${{ inputs.script }}-${{ inputs.network }}
+      group: manual-broadcast-${{ inputs.script }}-${{ inputs.script == '20260729-deploy-governance-timelock' && 'all-chains' || inputs.network }}
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4

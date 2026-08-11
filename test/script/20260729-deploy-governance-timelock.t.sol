@@ -7,7 +7,7 @@ import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
 import {DeployerHoldsTimelockRole} from "../../script/20260729-deploy-governance-timelock.s.sol";
 import {DeployGovernanceTimelockHarness} from "./DeployGovernanceTimelockHarness.sol";
-import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
+import {LibSafeInvariants, UnsupportedChainForTokenOwnerSafe} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
@@ -43,6 +43,17 @@ contract DeployGovernanceTimelockTest is Test {
         assertEq(nets[0], LibRainDeploy.BASE);
         assertEq(nets[1], LibStoxDeployNetworks.ETHEREUM);
         assertEq(nets[2], LibStoxDeployNetworks.HYPEREVM);
+    }
+
+    /// @notice A chain outside the allowlist refuses at pre-flight — the
+    /// active chain's Safe pin is resolved before anything else, so a chain
+    /// with no pinned token-owner Safe cannot reach the broadcast machinery
+    /// at all. Driven on the local EVM (chainid 31337), which is exactly
+    /// such a chain.
+    function testDeployRefusesUnsupportedChain() external {
+        DeployGovernanceTimelockHarness harness = new DeployGovernanceTimelockHarness();
+        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForTokenOwnerSafe.selector, uint256(31337)));
+        harness.callDeployOnActiveChain();
     }
 
     /// @notice The deploy lands at the derived address on Base.
