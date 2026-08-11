@@ -142,21 +142,38 @@ contract LibTimelockInvariantsTest is Test {
         harness.callAssertTimelockState(address(wrongDelay), SAFE);
     }
 
-    /// @notice A timelock whose proposer is not the Safe is rejected with
-    /// the exact missing `(role, account)` pair.
-    function testAssertRejectsMissingProposerRole() external {
-        address[] memory otherProposer = new address[](1);
-        otherProposer[0] = address(0xBEEF);
-        address[] memory executors = new address[](1);
-        executors[0] = SAFE;
-        TimelockController wrongProposer =
-            new TimelockController(LibTimelockInvariants.TIMELOCK_MIN_DELAY, otherProposer, executors, address(0));
+    /// @notice A missing grant on ANY required role — the Safe's proposer,
+    /// canceller, and executor, and the timelock's own root admin — trips
+    /// the exact missing `(role, account)` pair, walked per role: revoke,
+    /// assert the typed revert, re-grant, and prove the restored state
+    /// passes. Self-administration goes last and is not restored: once the
+    /// timelock renounces its own root admin no principal can re-grant it,
+    /// which is exactly why the invariant pins it.
+    function testAssertRejectsEveryMissingRole() external {
+        address timelock = deployPinnedTimelock();
+        bytes32[3] memory safeRoles = [
+            LibTimelockInvariants.TIMELOCK_PROPOSER_ROLE,
+            LibTimelockInvariants.TIMELOCK_CANCELLER_ROLE,
+            LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE
+        ];
+        for (uint256 i = 0; i < safeRoles.length; i++) {
+            vm.prank(timelock);
+            IAccessControl(timelock).revokeRole(safeRoles[i], SAFE);
+            vm.expectRevert(abi.encodeWithSelector(TimelockMissingRole.selector, timelock, safeRoles[i], SAFE));
+            harness.callAssertTimelockState(timelock, SAFE);
+            vm.prank(timelock);
+            IAccessControl(timelock).grantRole(safeRoles[i], SAFE);
+            harness.callAssertTimelockState(timelock, SAFE);
+        }
+
+        vm.prank(timelock);
+        IAccessControl(timelock).revokeRole(LibTimelockInvariants.TIMELOCK_DEFAULT_ADMIN_ROLE, timelock);
         vm.expectRevert(
             abi.encodeWithSelector(
-                TimelockMissingRole.selector, address(wrongProposer), LibTimelockInvariants.TIMELOCK_PROPOSER_ROLE, SAFE
+                TimelockMissingRole.selector, timelock, LibTimelockInvariants.TIMELOCK_DEFAULT_ADMIN_ROLE, timelock
             )
         );
-        harness.callAssertTimelockState(address(wrongProposer), SAFE);
+        harness.callAssertTimelockState(timelock, SAFE);
     }
 
     /// @notice A zero-address grant on ANY lifecycle role — OZ's
