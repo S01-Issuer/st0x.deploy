@@ -117,7 +117,7 @@ library LibTimelockInvariants {
 
     /// @notice The ST0x governance timelock on **Base**. Equals
     /// `expectedTimelockAddress(STOX_TOKEN_OWNER_SAFE)`, which
-    /// `testPinsMatchDerivedAddressesOnceHydrated` asserts.
+    /// `testPinsMatchDerivedAddresses` asserts.
     /// https://basescan.org/address/0xdb4b2187a685310e6b64170c97b80e90dd4a9b71
     address internal constant STOX_GOVERNANCE_TIMELOCK = address(0xdb4b2187A685310E6b64170c97B80E90DD4a9B71);
 
