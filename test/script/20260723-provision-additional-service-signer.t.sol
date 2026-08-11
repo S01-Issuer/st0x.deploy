@@ -183,7 +183,7 @@ contract ProvisionAdditionalServiceSignerTest is Test {
     function testRevertsWhenTheGrantMapHasDrifted() external {
         address authoriser = deployPreProvisionedAuthoriser();
         vm.prank(SAFE);
-        IAccessControl(authoriser).revokeRole(DEPOSIT, LibAuthoriserInvariants.GRANTEE_SERVICE_1C66);
+        IAccessControl(authoriser).revokeRole(DEPOSIT, SAFE);
         ProvisionAdditionalServiceSignerHarness harness = new ProvisionAdditionalServiceSignerHarness();
 
         vm.expectRevert(bytes("ProvisionAdditionalServiceSigner: authoriser grant map has drifted"));

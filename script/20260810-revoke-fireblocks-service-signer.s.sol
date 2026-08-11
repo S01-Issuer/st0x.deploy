@@ -55,18 +55,14 @@ error SafeMissingRoleAdmin(bytes32 adminRole);
 /// signer is not fully provisioned therefore refuses to author the
 /// revoke, so the service can never be left without an active signer.
 ///
-/// The canonical map still carries the retired signer's rows — it pins
-/// what production IS, and the signer holds its grants until the Safes
-/// sign. Executing this bundle on a chain turns that chain's `1C66` rows
-/// red (`ExpectedGrantMissing`) in every live invariant — the cross-chain
-/// parity authoriser leg, the multichain production-state bundle, the
-/// per-chain prod pins — forcing the post-execution pin PR that removes
-/// the rows from the map and pins their ABSENCE as the new negative
-/// invariant. The prod pin for this script
-/// (`20260810-revoke-fireblocks-service-signer.prod.t.sol`) works the
-/// same way in the opposite direction: it asserts `run()` authors a
-/// full three-pair bundle on each chain, so execution flips it to
-/// `FireblocksSignerAlreadyRevoked` and it retires in the same pin PR.
+/// The canonical map no longer carries the retired signer's rows:
+/// `expectedGrants()` pins the post-rotation state, and `revokedGrants()`
+/// pins the three revoked pairs, which every live invariant asserts
+/// ABSENT via `assertExpectedGrants` (`RevokedGrantStillHeld` on a chain
+/// that has not executed its bundle, or on any re-grant). Because the map
+/// yields no retired pairs, re-dispatching this script reverts
+/// `FireblocksSignerAlreadyRevoked` — the correct behaviour when
+/// re-deriving an executed historical operation.
 ///
 /// SELF-SCOPING: only the pairs the signer still holds are authored
 /// (partial execution recovers by re-dispatch); a fully revoked chain
