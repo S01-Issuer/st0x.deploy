@@ -114,6 +114,13 @@ struct MigrationTargets {
     bytes32[] renounceRoles;
 }
 
+/// @notice A field of the artifact under signer-side verification does not
+/// match the bundle re-derived from CURRENT live chain state. The artifact
+/// is stale (state moved since authoring), tampered, or authored for a
+/// different chain — either way it must not be signed.
+/// @param field The first mismatching field.
+error MigrationVerifyMismatch(string field);
+
 /// @notice The end-to-end governance-loop proof did not leave the scheduled
 /// operation in the `Done` state — the schedule → delay → execute path a
 /// future admin action must take does not work against the post-migration
@@ -336,6 +343,71 @@ contract MigrateGovernanceToTimelock is Script {
         // --- Governance-loop proof ----------------------------------------
 
         _proveGovernanceLoop(safe, timelock, authoriser);
+    }
+
+    /// @notice Signer-side integrity check for a CI-authored migration
+    /// artifact, run LOCALLY against a live fork before signing: re-runs
+    /// `run()`'s full pre-flight, re-derives the expected bundle from
+    /// CURRENT live chain state, asserts the artifact at `jsonPath`
+    /// matches it byte-exactly, and recomputes the canonical MultiSend
+    /// `SafeTxHash` at the live nonce for the Safe-UI cross-check. Any
+    /// drift between authoring and signing — a nonce bump from an executed
+    /// Safe tx, a vault/beacon/role that moved, a stale or tampered
+    /// artifact — surfaces as a typed mismatch before anyone signs.
+    /// Deliberately NOT in the run-script dispatcher: it takes a local
+    /// path and runs on the signer's machine.
+    /// @dev The governance-loop proof is not repeated here (it mutates
+    /// fork state and `verify` is view); it ran at authoring against the
+    /// same bundle this check proves byte-identical.
+    /// @param jsonPath Filesystem path to the downloaded Tx Builder JSON.
+    function verify(string calldata jsonPath) external view {
+        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid));
+        address timelock = activeChainTimelock();
+        if (timelock == address(0)) revert TimelockNotPinned(block.chainid);
+        LibTimelockInvariants.assertTimelockState(timelock, address(safe));
+        address authoriser = activeChainAuthoriser();
+        _preflightAuthoriser(authoriser, address(safe), timelock);
+
+        MigrationTargets memory targets;
+        targets.vaults = _selectVaultTargets(tokensForActiveChain(), address(safe), timelock);
+        targets.beacons = _selectBeaconTargets(address(safe), timelock);
+        (targets.grantRoles, targets.renounceRoles) = _selectRoleTargets(authoriser, address(safe), timelock);
+        if (
+            targets.vaults.length == 0 && targets.beacons.length == 0 && targets.grantRoles.length == 0
+                && targets.renounceRoles.length == 0
+        ) {
+            revert NothingToMigrate();
+        }
+
+        _verifyArtifact(safe, _buildBundle(authoriser, timelock, address(safe), targets), jsonPath);
+    }
+
+    /// @notice Compare a parsed artifact against the live-derived bundle
+    /// field by field, then log the canonical MultiSend `SafeTxHash` at the
+    /// live nonce for the Safe-UI cross-check. Split from `verify` for the
+    /// same legacy-codegen stack-limit reason as `_assertPostState`.
+    /// @param safe The chain's token-owner Safe.
+    /// @param expected The bundle derived from live state.
+    /// @param jsonPath Filesystem path to the artifact under verification.
+    function _verifyArtifact(IGnosisSafe safe, SafeTx[] memory expected, string calldata jsonPath) internal view {
+        (uint256 parsedChainId, address parsedFirstTarget, SafeTx[] memory parsed) =
+            LibSafeOps.parseTxBuilderJson(jsonPath);
+        if (parsedChainId != block.chainid) revert MigrationVerifyMismatch("chainId");
+        if (parsed.length != expected.length) revert MigrationVerifyMismatch("txCount");
+        if (parsedFirstTarget != expected[0].to) revert MigrationVerifyMismatch("firstTarget");
+        for (uint256 i = 0; i < expected.length; i++) {
+            if (parsed[i].to != expected[i].to) revert MigrationVerifyMismatch("to");
+            if (parsed[i].value != expected[i].value) revert MigrationVerifyMismatch("value");
+            if (parsed[i].operation != expected[i].operation) revert MigrationVerifyMismatch("operation");
+            if (keccak256(parsed[i].data) != keccak256(expected[i].data)) revert MigrationVerifyMismatch("data");
+        }
+
+        uint256 nonce = safe.nonce();
+        console2.log("Artifact verified against live state.");
+        console2.log(
+            "Bundle MultiSend SafeTxHash:", vm.toString(LibSafeOps.computeMultiSendSafeTxHash(safe, expected, nonce))
+        );
+        console2.log("Nonce:", nonce);
     }
 
     /// @notice Write the Safe Tx Builder JSON for the bundle and log it

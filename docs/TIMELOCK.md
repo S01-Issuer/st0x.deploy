@@ -107,8 +107,13 @@ timelocks live.
    48h → execute proof on the fork. The logged MultiSend `SafeTxHash` is the
    signer cross-check.
 4. **Sign + execute** — import the CI-authored artifact into the Safe UI (never
-   a locally generated JSON), verify the hash, execute. The bundle is atomic: 7
-   `_ADMIN` grants to the timelock → N vault `transferOwnership` → 3 beacon
+   a locally generated JSON). Before signing, each signer runs the local
+   integrity check against a live fork —
+   `forge script script/20260729-migrate-governance-to-timelock.s.sol --sig 'verify(string)' <downloaded.json> --rpc-url <network>`
+   — which re-derives the bundle from current chain state, asserts the artifact
+   matches byte-exactly, and prints the MultiSend `SafeTxHash` at the live nonce
+   to cross-check in the Safe UI. Then execute. The bundle is atomic: 7 `_ADMIN`
+   grants to the timelock → N vault `transferOwnership` → 3 beacon
    `transferOwnership` → 7 Safe renounces.
 5. **Post-execution flip PR** — mark the migration script
    `**EXECUTED YYYY-MM-DD.**`, repoint the strict uniform-ownership invariants

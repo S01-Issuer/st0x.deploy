@@ -16,7 +16,8 @@ import {
     TimelockNotPinned,
     UnexpectedVaultOwner,
     UnexpectedBeaconOwner,
-    NothingToMigrate
+    NothingToMigrate,
+    MigrationVerifyMismatch
 } from "../../script/20260729-migrate-governance-to-timelock.s.sol";
 import {MigrateGovernanceToTimelockHarness} from "./MigrateGovernanceToTimelockHarness.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInvariants.sol";
@@ -440,6 +441,37 @@ contract MigrateGovernanceToTimelockTest is Test {
             safe, timelock, vault, abi.encodeCall(OffchainAssetReceiptVault.setAuthorizer, (IAuthorizeV1(authoriser)))
         );
         assertEq(IAuthorisable(vault).authorizer(), authoriser, "idempotent re-set must leave the authoriser in place");
+    }
+
+    /// @notice The signer-side `verify(string)` accepts a freshly authored
+    /// artifact against a fresh fork of the same live state, and rejects a
+    /// tampered copy with the exact mismatching field. Authoring simulates
+    /// the migration onto its own fork, so verification runs on a NEW fork
+    /// — exactly the signer's vantage point: artifact in hand, live chain
+    /// untouched.
+    function testVerifyAcceptsAuthoredArtifactAndRejectsTamper() external {
+        selectBaseFork();
+        address timelock = deployTimelock();
+        new MigrateGovernanceToTimelockHarness(timelock).run();
+        string memory path =
+            string.concat("out/20260729-governance-timelock-migration-", vm.toString(block.chainid), ".json");
+
+        // Fresh fork: authoring mutated the previous fork's state; the live
+        // chain a signer verifies against is untouched.
+        selectBaseFork();
+        assertEq(deployTimelock(), timelock, "derived timelock must be stable across forks");
+        MigrateGovernanceToTimelockHarness verifier = new MigrateGovernanceToTimelockHarness(timelock);
+        verifier.verify(path);
+
+        // Tamper one call's payload and re-emit: verify pinpoints the field.
+        (,, SafeTx[] memory txs) = LibSafeOps.parseTxBuilderJson(path);
+        txs[0].data = abi.encodeCall(IAccessControl.grantRole, (bytes32(uint256(1)), address(0xBAD)));
+        vm.writeFile(
+            "out/tampered-migration.json",
+            LibSafeOps.emitTxBuilderJson(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, block.chainid, "tampered", txs)
+        );
+        vm.expectRevert(abi.encodeWithSelector(MigrationVerifyMismatch.selector, "data"));
+        verifier.verify("out/tampered-migration.json");
     }
 
     /// @notice One governance-loop leg: schedule the call on the timelock
