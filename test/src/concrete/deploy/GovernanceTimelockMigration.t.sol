@@ -32,13 +32,13 @@ import {LibTokenInvariants, TokenInstance} from "../../../../src/lib/LibTokenInv
 ///   (landed). Split holding ("both") and orphaned roles ("neither") are
 ///   drift and trip immediately, before or after the deadline.
 ///
-/// While a chain's timelock pin is still a placeholder, the post-state is
-/// unreachable (the pin IS the accepted post value), so the chain logs a
-/// loud PENDING and the deadline forces the whole rollout — deploy
-/// broadcast, pin hydration, Safe execution — not just the final step. If
-/// the rollout has not landed by the deadline this suite red-lines cron
-/// and forces an operator choice: execute, extend the deadline, or delete
-/// the invariant.
+/// A zero timelock pin is never a legitimate phase: with the creation
+/// bytecode frozen, every governed chain's pin is a pure function of its
+/// Safe pin and is written with the chain arm, before any deploy — so a
+/// zero pin can only be a reverted or never-hydrated arm and FAILS this
+/// suite immediately, deadline notwithstanding. If the rollout has not
+/// landed by the deadline this suite red-lines cron and forces an operator
+/// choice: execute, extend the deadline, or delete the invariant.
 ///
 /// @dev Unpinned head forks so `block.timestamp` is real — pinning a block
 /// would freeze the deadline check (same rationale as
@@ -80,9 +80,9 @@ contract GovernanceTimelockMigrationTest is Test {
     /// deadline, timelock-only after.
     /// @param tokens The chain's production token table.
     /// @param safe The chain's token-owner Safe (the pre-state).
-    /// @param timelock The chain's governance timelock pin (the post-state;
-    /// `address(0)` while unhydrated, making the post-state unreachable and
-    /// the deadline binding on the whole rollout).
+    /// @param timelock The chain's governance timelock pin (the
+    /// post-state); zero fails immediately — a reverted or never-hydrated
+    /// arm, never a phase.
     /// @param authoriser The chain's V4 authoriser clone.
     function assertChainMigrationWindow(
         TokenInstance[] memory tokens,
@@ -90,9 +90,10 @@ contract GovernanceTimelockMigrationTest is Test {
         address timelock,
         address authoriser
     ) internal {
-        if (timelock == address(0)) {
-            emit log("PENDING: governance timelock not yet deployed/pinned on this chain - dispatch 20260729-deploy-governance-timelock, hydrate the LibTimelockInvariants pin, then execute the 20260729-migrate-governance-to-timelock bundle before the deadline");
-        }
+        // Zero is its own checked case, never a skipped one: the pin is
+        // derivable from frozen bytecode before any deploy, so zero can
+        // only mean a reverted or never-hydrated arm.
+        assertNotEq(timelock, address(0), "governance timelock pin is zero: reverted or never-hydrated chain arm");
 
         LibTokenInvariants.assertUniformOwnershipMigration(
             tokens, safe, timelock, GOVERNANCE_TIMELOCK_MIGRATION_DEADLINE
@@ -102,7 +103,7 @@ contract GovernanceTimelockMigrationTest is Test {
         IAccessControl acl = IAccessControl(authoriser);
         for (uint256 i = 0; i < roles.length; i++) {
             bool safeHolds = acl.hasRole(roles[i], safe);
-            bool timelockHolds = timelock != address(0) && acl.hasRole(roles[i], timelock);
+            bool timelockHolds = acl.hasRole(roles[i], timelock);
             address holder;
             if (safeHolds && timelockHolds) {
                 holder = BOTH_HOLD_SENTINEL;
