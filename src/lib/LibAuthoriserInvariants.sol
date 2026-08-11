@@ -82,6 +82,12 @@ library LibAuthoriserInvariants {
     /// reverts `UnexpectedDefaultAdmin` if any pinned grantee holds it.
     bytes32 internal constant DEFAULT_ADMIN_ROLE = bytes32(0);
 
+    /// @notice The number of `_ADMIN` roles in the grant map — its LEADING
+    /// slice, so `expectedGrants(...)[0..ADMIN_ROLE_COUNT)` are exactly the
+    /// entries that track the admin holder. The slice's position and length
+    /// are pinned by `testExpectedGrantsAdminHolderParameterisation`.
+    uint256 internal constant ADMIN_ROLE_COUNT = 7;
+
     /// @notice The ST0x token-owner Safe — holds every `_ADMIN` role on the
     /// production authoriser and was later granted DEPOSIT, WITHDRAW and
     /// CERTIFY as a privileged operator. Identical to
@@ -250,11 +256,12 @@ library LibAuthoriserInvariants {
         // Exclusive `_ADMIN` holding: with a distinct admin holder, a Safe
         // that retains any admin entry can grant or revoke action roles
         // directly, bypassing the delay the admin holder exists to impose.
-        // The admin slice is identified structurally (the entries the map
-        // assigns to the admin holder) rather than by a hardcoded count.
+        // The slice is positional (the map's leading `ADMIN_ROLE_COUNT`
+        // entries) rather than matched by grantee address, which would
+        // mis-slice if the admin holder aliased another grantee.
         if (adminHolder != tokenOwnerSafe) {
-            for (uint256 i = 0; i < grants.length; i++) {
-                if (grants[i].grantee == adminHolder && acl.hasRole(grants[i].role, tokenOwnerSafe)) {
+            for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
+                if (acl.hasRole(grants[i].role, tokenOwnerSafe)) {
                     revert UnexpectedRetainedAdminGrant(authoriser, grants[i].role, tokenOwnerSafe);
                 }
             }
