@@ -151,11 +151,12 @@ contract LibTimelockInvariantsTest is Test {
     /// which is exactly why the invariant pins it.
     function testAssertRejectsEveryMissingRole() external {
         address timelock = deployPinnedTimelock();
-        bytes32[3] memory safeRoles = [
-            LibTimelockInvariants.TIMELOCK_PROPOSER_ROLE,
-            LibTimelockInvariants.TIMELOCK_CANCELLER_ROLE,
-            LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE
-        ];
+        // EXECUTOR is not among them: execution is permissionless, so the
+        // Safe never holds that role and revoking it from the Safe is a
+        // no-op. The executor requirement is pinned by
+        // `testAssertRejectsClosedExecutorRole` against the zero address.
+        bytes32[2] memory safeRoles =
+            [LibTimelockInvariants.TIMELOCK_PROPOSER_ROLE, LibTimelockInvariants.TIMELOCK_CANCELLER_ROLE];
         for (uint256 i = 0; i < safeRoles.length; i++) {
             vm.prank(timelock);
             IAccessControl(timelock).revokeRole(safeRoles[i], SAFE);
