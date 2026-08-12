@@ -7,6 +7,7 @@ import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessContro
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
 import {RevokeFireblocksServiceSigner} from "../../script/20260810-revoke-fireblocks-service-signer.s.sol";
+import {RevokeFireblocksServiceSignerRemainderHarness} from "./RevokeFireblocksServiceSignerRemainderHarness.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
@@ -239,20 +240,3 @@ contract RevokeFireblocksServiceSignerProdTest is Test {
     }
 }
 
-/// @notice The partial-re-dispatch fixture's script: identical to the
-/// production script except the artifact lands on a dedicated path. This
-/// test's bundle content DIFFERS from the full-bundle tests' on the same
-/// chain, and forge runs tests in parallel, so writing the canonical path
-/// would race with them.
-contract RevokeFireblocksServiceSignerRemainderHarness is RevokeFireblocksServiceSigner {
-    /// @notice The dedicated remainder-artifact path, exposed so the test
-    /// parses exactly the file this fixture wrote.
-    /// @return path The remainder artifact path for the ACTIVE chain.
-    function remainderArtifactPath() public view returns (string memory path) {
-        path = string.concat("out/20260810-revoke-remainder-", vm.toString(block.chainid), ".json");
-    }
-
-    function artifactPath() internal view override returns (string memory path) {
-        path = remainderArtifactPath();
-    }
-}
