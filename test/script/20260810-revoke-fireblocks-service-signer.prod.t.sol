@@ -177,6 +177,28 @@ contract RevokeFireblocksServiceSignerProdTest is Test {
         verifier.verify("out/tampered-revocation.json");
     }
 
+    /// @notice `verify` refuses a STALE artifact, not just a tampered one:
+    /// authored while all three pairs held, then a pair is revoked on the
+    /// live chain before signing — the re-derived bundle is now two txs and
+    /// the three-tx artifact must not be signed. This is the
+    /// authoring-to-signing drift window the entrypoint exists to close,
+    /// exercised as actual state drift rather than file mutation.
+    function testVerifyRejectsStaleArtifactAfterDrift() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        new RevokeFireblocksServiceSigner().run();
+        string memory path = artifactPath();
+
+        // Fresh fork = the live chain at signing time; drift one pair the
+        // way the bundle's own third leg would have.
+        vm.createSelectFork(LibRainDeploy.BASE);
+        vm.prank(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+        IAccessControl(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE).revokeRole(keccak256("CERTIFY"), SIGNER);
+
+        RevokeFireblocksServiceSigner verifier = new RevokeFireblocksServiceSigner();
+        vm.expectRevert(abi.encodeWithSelector(TxBuilderArtifactMismatch.selector, "txCount"));
+        verifier.verify(path);
+    }
+
     /// @notice A partial prior execution re-dispatches to exactly the
     /// remainder, artifact included: with CERTIFY already revoked on the
     /// live fork, `run()` authors and emits a two-tx bundle carrying the
