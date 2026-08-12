@@ -24,7 +24,7 @@ struct TokenConfig {
 }
 
 /// @title LibProdTokenConfig
-/// @notice The canonical name/symbol table for the 28 ST0x production
+/// @notice The canonical name/symbol table for the ST0x production
 /// tokens, captured verbatim from the live Base receipt vaults so a new
 /// chain's token set can be deployed byte-identical to Base. This is the
 /// deploy-input companion to `LibTokenInvariants` (which holds the deployed
@@ -48,7 +48,7 @@ struct TokenConfig {
 /// convention such a row follows is `"<issuer's legal name> ST0x"`, with
 /// `" ADR"` before the suffix for depositary receipts (see TSM, SKHY).
 library LibProdTokenConfig {
-    /// @notice The 28 production token deploy configs, Base table order.
+    /// @notice The production token deploy configs, Base table order.
     /// @return configs The name/symbol table.
     function productionTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
         configs = new TokenConfig[](34);

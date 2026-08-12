@@ -378,9 +378,9 @@ library LibTokenInvariants {
     }
 
     /// @notice Returns the production token instance triples on Ethereum
-    /// mainnet — the same 29 underlyings as Base, in the same order, so the
+    /// mainnet — the same underlyings as Base, in the same order, so the
     /// two tables pair by index as well as by key.
-    /// @return tokens The 29 production token instances on Ethereum.
+    /// @return tokens The production token instances on Ethereum.
     function productionTokensEthereum() internal pure returns (TokenInstance[] memory tokens) {
         // Deployed on Ethereum mainnet 2026-07-22 by
         // `20260706-deploy-tokens-ethereum` (manual-broadcast run
@@ -602,10 +602,10 @@ library LibTokenInvariants {
         );
     }
 
-    /// @notice Returns the 29 production token instance triples on HyperEVM,
+    /// @notice Returns the production token instance triples on HyperEVM,
     /// in the same row order as `productionTokensBase()` (the cross-chain
     /// parity pin asserts the alignment).
-    /// @return tokens The 29 production token instances on HyperEVM.
+    /// @return tokens The production token instances on HyperEVM.
     function productionTokensHyperEvm() internal pure returns (TokenInstance[] memory tokens) {
         // Deployed on HyperEVM 2026-07-24 (manual-broadcast run 30114307165):
         // all 29 tokens via the 0.1.1 unified deployer, each wired onto the
@@ -821,13 +821,13 @@ library LibTokenInvariants {
         );
     }
 
-    /// @notice Returns the 29 production receipt vault addresses on Base, in
+    /// @notice Returns the production receipt vault addresses on Base, in
     /// the order they were deployed. Provided so consumers (e.g. invariant
     /// assertions, migration scripts) can iterate without hardcoding the
     /// list inline.
     /// @dev Derived from `productionTokensBase()` so the token table is the
     /// single source of truth and the two accessors cannot drift.
-    /// @return vaults The 29 production receipt vault addresses on Base.
+    /// @return vaults The production receipt vault addresses on Base.
     function productionReceiptVaults() internal pure returns (address[] memory vaults) {
         TokenInstance[] memory tokens = productionTokensBase();
         vaults = new address[](tokens.length);
