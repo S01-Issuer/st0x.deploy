@@ -7,6 +7,8 @@ import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessContro
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
 import {LibAuthoriserInvariants, RoleGrant} from "../../../../src/lib/LibAuthoriserInvariants.sol";
+import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
+import {LibBeaconInvariantsHarness} from "../../lib/LibBeaconInvariantsHarness.sol";
 import {LibMigrationInvariant, MigrationStateDrift} from "../../../../src/lib/LibMigrationInvariant.sol";
 import {LibSafeInvariantsHarness} from "../../lib/LibSafeInvariantsHarness.sol";
 import {LibTimelockInvariantsHarness} from "../../lib/LibTimelockInvariantsHarness.sol";
@@ -27,6 +29,12 @@ import {LibTokenInvariants, TokenInstance} from "../../../../src/lib/LibTokenInv
 ///   timelock (migration landed), until
 ///   `GOVERNANCE_TIMELOCK_MIGRATION_DEADLINE`; from then on only the
 ///   timelock is accepted.
+/// - **Beacon ownership** — the same window over the chain's three in-use
+///   upgrade beacons. This is the leg that makes the delay real: a beacon
+///   owner can repoint every production proxy on the chain in one
+///   transaction, so a rollout that moved vault ownership but left the
+///   beacons on the Safe would leave the timelock bypassable, and the
+///   deadline must force both.
 /// - **Authoriser `_ADMIN` roles** — each of the seven `_ADMIN` roles is
 ///   held EXCLUSIVELY by either the Safe (pending) or the timelock
 ///   (landed). Split holding ("both") and orphaned roles ("neither") are
@@ -97,6 +105,10 @@ contract GovernanceTimelockMigrationTest is Test {
 
         LibTokenInvariants.assertUniformOwnershipMigration(
             tokens, safe, timelock, GOVERNANCE_TIMELOCK_MIGRATION_DEADLINE
+        );
+
+        LibBeaconInvariants.assertProdBeaconsOwnershipMigration(
+            block.chainid, safe, timelock, GOVERNANCE_TIMELOCK_MIGRATION_DEADLINE
         );
 
         bytes32[] memory roles = adminRoles();
@@ -260,6 +272,34 @@ contract GovernanceTimelockMigrationTest is Test {
         );
         harness.callAssertUniformOwnershipMigration(
             tokens, safe, LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, GOVERNANCE_TIMELOCK_MIGRATION_DEADLINE
+        );
+    }
+
+    /// @notice A beacon owned by neither side of the migration trips
+    /// `MigrationStateDrift` immediately, deadline notwithstanding — the
+    /// beacon leg is two-valued on exactly the same terms as the vault leg.
+    /// Beacons are the surface that can repoint every production proxy, so
+    /// an unrecognised owner here is the highest-severity drift the suite
+    /// can see.
+    function testBeaconOwnershipMigrationRejectsThirdOwner() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
+        address stranger = address(0xBAD);
+        address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        vm.mockCall(beacons[0], abi.encodeWithSignature("owner()"), abi.encode(stranger));
+
+        LibBeaconInvariantsHarness harness = new LibBeaconInvariantsHarness();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MigrationStateDrift.selector,
+                "beacon.owner()",
+                bytes32(uint256(uint160(safe))),
+                bytes32(uint256(uint160(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK))),
+                bytes32(uint256(uint160(stranger)))
+            )
+        );
+        harness.callAssertProdBeaconsOwnershipMigration(
+            block.chainid, safe, LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, GOVERNANCE_TIMELOCK_MIGRATION_DEADLINE
         );
     }
 }

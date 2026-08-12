@@ -3,6 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
+import {LibMigrationInvariant} from "./LibMigrationInvariant.sol";
 import {LibProdBeaconsBase} from "./LibProdBeaconsBase.sol";
 import {LibProdBeacons0_1_1} from "./LibProdBeacons0_1_1.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
@@ -213,16 +214,89 @@ library LibBeaconInvariants {
     /// pin's concern.
     /// @param chainId The active chain id (`block.chainid`).
     function assertProdBeaconsOwnedByChainSafe(uint256 chainId) internal view {
+        assertProdBeaconsOwnedBy(chainId, LibSafeInvariants.safeForChainId(chainId));
+    }
+
+    /// @notice Owner-parametric `assertProdBeaconsOwnedByChainSafe`: assert
+    /// the active chain's three IN-USE production beacons are deployed and
+    /// owned by `expectedOwner`. Parameterised because the beacon owner is a
+    /// principal an operational script deliberately mutates — the
+    /// governance-timelock migration moves it from the chain's Safe to the
+    /// chain's timelock — so the same iteration serves the pre-state
+    /// (Safe-owned), the post-state (timelock-owned), and the pre-flight of
+    /// the migration that moves it.
+    /// Each beacon's runtime codehash is pinned to the OZ
+    /// `UpgradeableBeacon` bytecode BEFORE its `owner()` read is trusted —
+    /// the same trust order the migration script's selection applies, and
+    /// for the same reason: a look-alike contract can shadow the `owner()`
+    /// selector and report whatever owner passes this check.
+    /// @param chainId The active chain id (`block.chainid`).
+    /// @param expectedOwner The address every in-use beacon must report as
+    /// `owner()`.
+    function assertProdBeaconsOwnedBy(uint256 chainId, address expectedOwner) internal view {
         address[3] memory beacons = prodBeaconsForChainId(chainId);
-        address expectedOwner = LibSafeInvariants.safeForChainId(chainId);
         for (uint256 i = 0; i < beacons.length; i++) {
-            if (beacons[i].code.length == 0) {
-                revert BeaconNotDeployed(beacons[i]);
-            }
+            _assertDeployedPinnedBeacon(beacons[i]);
             address actualOwner = IOwnable(beacons[i]).owner();
             if (actualOwner != expectedOwner) {
                 revert BeaconOwnerMismatch(beacons[i], expectedOwner, actualOwner);
             }
+        }
+    }
+
+    /// @notice Migration-window variant of `assertProdBeaconsOwnedBy`: every
+    /// in-use production beacon on the chain must report `pre` OR `post` as
+    /// `owner()` before `deadline`, and exactly `post` at/after it.
+    ///
+    /// The beacon leg is the load-bearing half of the governance-timelock
+    /// migration. Whoever owns an in-use beacon can `upgradeTo` a new
+    /// implementation for EVERY production proxy on the chain in a single
+    /// transaction — which would let them re-take vault ownership and
+    /// rewrite the authoriser wiring outright. Leaving the beacons on the
+    /// Safe while vault ownership sits behind the timelock would make the
+    /// delay bypassable by design, so this surface migrates in the same
+    /// bundle and is forced by the same deadline.
+    /// @dev Mirrors `LibTokenInvariants.assertUniformOwnershipMigration` —
+    /// same two-valued window, same drift semantics (any third owner trips
+    /// `MigrationStateDrift` immediately, deadline notwithstanding). Each
+    /// beacon's runtime codehash is pinned to the OZ `UpgradeableBeacon`
+    /// bytecode BEFORE its `owner()` read is trusted, on the same grounds
+    /// as `assertProdBeaconsOwnedBy`: this is the cron-facing drift
+    /// detector for the surface, and a look-alike beacon shadowing
+    /// `owner()` must surface as a codehash break, not pass as migrated.
+    /// Where the beacons POINT is deliberately not asserted here; the
+    /// migration script pins implementation immutability across its own
+    /// bundle, and cross-chain implementation parity is the parity pin's
+    /// concern.
+    /// @param chainId The active chain id (`block.chainid`).
+    /// @param pre The accepted beacon owner before the migration runs.
+    /// @param post The accepted beacon owner after the migration runs.
+    /// @param deadline Unix timestamp past which only `post` is accepted.
+    function assertProdBeaconsOwnershipMigration(uint256 chainId, address pre, address post, uint256 deadline)
+        internal
+        view
+    {
+        address[3] memory beacons = prodBeaconsForChainId(chainId);
+        for (uint256 i = 0; i < beacons.length; i++) {
+            _assertDeployedPinnedBeacon(beacons[i]);
+            LibMigrationInvariant.assertMigration("beacon.owner()", IOwnable(beacons[i]).owner(), pre, post, deadline);
+        }
+    }
+
+    /// @notice Deployment + codehash gate shared by the in-use-beacon
+    /// sweeps: the address must carry runtime code, and that code must be
+    /// the pinned OZ `UpgradeableBeacon` bytecode. Runs before any
+    /// `owner()` read is trusted — a look-alike contract could shadow the
+    /// selector and report whatever owner passes the caller's check, so
+    /// the pin is what makes the subsequent read meaningful.
+    /// @param beacon The beacon to gate.
+    function _assertDeployedPinnedBeacon(address beacon) private view {
+        if (beacon.code.length == 0) {
+            revert BeaconNotDeployed(beacon);
+        }
+        bytes32 actualCodehash = beacon.codehash;
+        if (actualCodehash != UPGRADEABLE_BEACON_CODEHASH) {
+            revert BeaconCodehashMismatch(beacon, UPGRADEABLE_BEACON_CODEHASH, actualCodehash);
         }
     }
 }
