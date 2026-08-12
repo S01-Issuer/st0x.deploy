@@ -208,6 +208,77 @@ contract LibTimelockInvariantsTest is Test {
         harness.callAssertTimelockState(timelock, SAFE);
     }
 
+    /// @notice Execution is permissionless END-TO-END, not just as a role
+    /// bit: a caller holding no role at all executes a matured operation and
+    /// the operation's effect lands. Schedule (Safe) → warp out the 48h
+    /// delay → execute (anon) → the scheduled self-administration grant is
+    /// live and the operation is `Done`. This is the behavioural proof of
+    /// the property the open-executor state assert pins; without it the
+    /// property rests only on OZ's `onlyRoleOrOpenRole` semantics being what
+    /// the assert assumes.
+    function testAnonExecutesMaturedOperation() external {
+        TimelockController timelock = TimelockController(payable(deployPinnedTimelock()));
+        address anon = address(0xA904);
+        address newCanceller = address(0xCACE);
+
+        bytes memory data =
+            abi.encodeCall(IAccessControl.grantRole, (LibTimelockInvariants.TIMELOCK_CANCELLER_ROLE, newCanceller));
+        bytes32 salt = keccak256("anon-executes-matured-operation");
+        bytes32 id = timelock.hashOperation(address(timelock), 0, data, bytes32(0), salt);
+
+        vm.prank(SAFE);
+        timelock.schedule(address(timelock), 0, data, bytes32(0), salt, LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        assertTrue(timelock.isOperationPending(id), "operation must be pending after schedule");
+        assertFalse(timelock.isOperationReady(id), "operation must not be executable inside the delay");
+
+        vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        vm.prank(anon);
+        timelock.execute(address(timelock), 0, data, bytes32(0), salt);
+
+        assertTrue(timelock.isOperationDone(id), "anon execution must complete the operation");
+        assertTrue(
+            IAccessControl(address(timelock)).hasRole(LibTimelockInvariants.TIMELOCK_CANCELLER_ROLE, newCanceller),
+            "the executed operation's effect must land"
+        );
+    }
+
+    /// @notice The asymmetry is the design: execution is open, scheduling
+    /// and vetoing stay privileged. The same roleless anon that can execute
+    /// can neither schedule nor cancel — each attempt reverts with OZ's
+    /// missing-role error naming the exact role gate it hit.
+    function testAnonCannotScheduleOrCancel() external {
+        TimelockController timelock = TimelockController(payable(deployPinnedTimelock()));
+        address anon = address(0xA904);
+        bytes memory data =
+            abi.encodeCall(IAccessControl.grantRole, (LibTimelockInvariants.TIMELOCK_CANCELLER_ROLE, anon));
+        bytes32 salt = keccak256("anon-cannot-schedule-or-cancel");
+
+        vm.prank(anon);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                anon,
+                LibTimelockInvariants.TIMELOCK_PROPOSER_ROLE
+            )
+        );
+        timelock.schedule(address(timelock), 0, data, bytes32(0), salt, LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+
+        vm.prank(SAFE);
+        timelock.schedule(address(timelock), 0, data, bytes32(0), salt, LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        bytes32 id = timelock.hashOperation(address(timelock), 0, data, bytes32(0), salt);
+
+        vm.prank(anon);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                anon,
+                LibTimelockInvariants.TIMELOCK_CANCELLER_ROLE
+            )
+        );
+        timelock.cancel(id);
+        assertTrue(timelock.isOperationPending(id), "the anon cancel attempt must not have removed the operation");
+    }
+
     /// @notice A CLOSED executor role is rejected. Execution is deliberately
     /// permissionless, so revoking the open grant would put the operator back
     /// in the path as a censor of matured operations — the exact property
