@@ -197,4 +197,64 @@ contract LibBeaconInvariantsTest is Test {
         vm.expectRevert(abi.encodeWithSelector(BeaconNotDeployed.selector, beacon));
         harness.callAssertProdBeaconsOwnedByChainSafe(LibSafeInvariants.BASE_CHAIN_ID);
     }
+
+    /// @notice An in-use beacon whose runtime code drifts from the pinned OZ
+    /// `UpgradeableBeacon` bytecode trips `BeaconCodehashMismatch` BEFORE its
+    /// `owner()` is read: the look-alike here mocks `owner()` to the expected
+    /// Safe, so only the codehash pin stands between it and a pass. Without
+    /// the pin, a swapped beacon shadowing `owner()` satisfies the ownership
+    /// sweep while serving arbitrary `upgradeTo` semantics.
+    function testInvertedProdBeaconCodehashMismatch() external {
+        selectBaseFork();
+        address beacon = LibProdBeaconsBase.beacons()[1];
+        vm.etch(beacon, hex"FE");
+        bytes32 mutatedCodehash;
+        assembly ("memory-safe") {
+            mutatedCodehash := extcodehash(beacon)
+        }
+        vm.mockCall(
+            beacon,
+            abi.encodeWithSelector(IOwnable.owner.selector),
+            abi.encode(LibSafeInvariants.safeForChainId(LibSafeInvariants.BASE_CHAIN_ID))
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BeaconCodehashMismatch.selector,
+                beacon,
+                LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH,
+                mutatedCodehash
+            )
+        );
+        harness.callAssertProdBeaconsOwnedByChainSafe(LibSafeInvariants.BASE_CHAIN_ID);
+    }
+
+    /// @notice The migration-window sweep applies the same trust order: a
+    /// look-alike beacon reporting an accepted owner (`post`, as if already
+    /// migrated) trips `BeaconCodehashMismatch` before the owner read is
+    /// consulted. The window variant is the cron-facing drift detector for
+    /// the surface, so a swapped beacon must surface as a codehash break,
+    /// not pass as migrated.
+    function testInvertedProdBeaconMigrationCodehashMismatch() external {
+        selectBaseFork();
+        address safe = LibSafeInvariants.safeForChainId(LibSafeInvariants.BASE_CHAIN_ID);
+        address post = address(0x7157);
+        address beacon = LibProdBeaconsBase.beacons()[2];
+        vm.etch(beacon, hex"FE");
+        bytes32 mutatedCodehash;
+        assembly ("memory-safe") {
+            mutatedCodehash := extcodehash(beacon)
+        }
+        vm.mockCall(beacon, abi.encodeWithSelector(IOwnable.owner.selector), abi.encode(post));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BeaconCodehashMismatch.selector,
+                beacon,
+                LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH,
+                mutatedCodehash
+            )
+        );
+        harness.callAssertProdBeaconsOwnershipMigration(
+            LibSafeInvariants.BASE_CHAIN_ID, safe, post, block.timestamp + 1 days
+        );
+    }
 }
