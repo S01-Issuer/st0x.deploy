@@ -333,6 +333,54 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x295e9eCAb319006900a53b3f8D6Fcb0C131F4ada
     address internal constant TQQQ_WRAPPED_TOKEN_VAULT = address(0x295e9eCAb319006900a53b3f8D6Fcb0C131F4ada);
 
+    // ---- tAAPL / wtAAPL — Apple Inc. ST0x ----
+    /// https://basescan.org/address/0x3156EB08c9dd870979f1475C5CFe681b8f6A3b53
+    address internal constant AAPL_RECEIPT = address(0x3156EB08c9dd870979f1475C5CFe681b8f6A3b53);
+    /// https://basescan.org/address/0xD36056a4a03707D3743fCE4e9C08852820ADcfdC
+    address internal constant AAPL_RECEIPT_VAULT = address(0xD36056a4a03707D3743fCE4e9C08852820ADcfdC);
+    /// https://basescan.org/address/0x1020EC8Aa3f709a1f3D8705cdBa89b950451bd88
+    address internal constant AAPL_WRAPPED_TOKEN_VAULT = address(0x1020EC8Aa3f709a1f3D8705cdBa89b950451bd88);
+
+    // ---- tGOOGL / wtGOOGL — Alphabet Inc. Class A ST0x ----
+    /// https://basescan.org/address/0x85ac79F639C692B2f1290d0994c79eEffF350D00
+    address internal constant GOOGL_RECEIPT = address(0x85ac79F639C692B2f1290d0994c79eEffF350D00);
+    /// https://basescan.org/address/0x15De944Cd020A18C8E5626fB0F81b36e73956199
+    address internal constant GOOGL_RECEIPT_VAULT = address(0x15De944Cd020A18C8E5626fB0F81b36e73956199);
+    /// https://basescan.org/address/0x6a2357Df4975C667B171bE53dA6FFe6deBf7030c
+    address internal constant GOOGL_WRAPPED_TOKEN_VAULT = address(0x6a2357Df4975C667B171bE53dA6FFe6deBf7030c);
+
+    // ---- tINTC / wtINTC — Intel Corporation ST0x ----
+    /// https://basescan.org/address/0xAFEd850e458d331EF2A13569547258A84e2e42D2
+    address internal constant INTC_RECEIPT = address(0xAFEd850e458d331EF2A13569547258A84e2e42D2);
+    /// https://basescan.org/address/0xBDC237Aa3B67cC3088adAf117913F30Bf08157a3
+    address internal constant INTC_RECEIPT_VAULT = address(0xBDC237Aa3B67cC3088adAf117913F30Bf08157a3);
+    /// https://basescan.org/address/0xf567652fC2d7Db8D5469fD06AEbe8C9c4372d722
+    address internal constant INTC_WRAPPED_TOKEN_VAULT = address(0xf567652fC2d7Db8D5469fD06AEbe8C9c4372d722);
+
+    // ---- tLLY / wtLLY — Eli Lilly and Company ST0x ----
+    /// https://basescan.org/address/0x7b345A02d56f989420EbEd4df647D1C673608F3C
+    address internal constant LLY_RECEIPT = address(0x7b345A02d56f989420EbEd4df647D1C673608F3C);
+    /// https://basescan.org/address/0xA41Ce7B8255A01062ED1AF23ea5E8137B9300554
+    address internal constant LLY_RECEIPT_VAULT = address(0xA41Ce7B8255A01062ED1AF23ea5E8137B9300554);
+    /// https://basescan.org/address/0x892CcF5E75f4a7Ee6402971a1587F65BEE4d52bd
+    address internal constant LLY_WRAPPED_TOKEN_VAULT = address(0x892CcF5E75f4a7Ee6402971a1587F65BEE4d52bd);
+
+    // ---- tMSFT / wtMSFT — Microsoft Corporation ST0x ----
+    /// https://basescan.org/address/0x6862e34dE9AFE099ca19934fC768A8eB9a906b90
+    address internal constant MSFT_RECEIPT = address(0x6862e34dE9AFE099ca19934fC768A8eB9a906b90);
+    /// https://basescan.org/address/0x6a071E25fa25653cF15d1ee320eA3df771926Aa0
+    address internal constant MSFT_RECEIPT_VAULT = address(0x6a071E25fa25653cF15d1ee320eA3df771926Aa0);
+    /// https://basescan.org/address/0x515A3Ac2a6aB590bDFa970caFFFd7fAdC680886E
+    address internal constant MSFT_WRAPPED_TOKEN_VAULT = address(0x515A3Ac2a6aB590bDFa970caFFFd7fAdC680886E);
+
+    // ---- tPTY / wtPTY — PIMCO Corporate & Income Opportunity Fund ST0x ----
+    /// https://basescan.org/address/0x019Ea210a98f5E74F03376712BDAab3801079b7F
+    address internal constant PTY_RECEIPT = address(0x019Ea210a98f5E74F03376712BDAab3801079b7F);
+    /// https://basescan.org/address/0xb6021810971714cD48572af527307Acc324ecF61
+    address internal constant PTY_RECEIPT_VAULT = address(0xb6021810971714cD48572af527307Acc324ecF61);
+    /// https://basescan.org/address/0xb6D779A79E7493ed821a65D52bA419F0F6D5dD0a
+    address internal constant PTY_WRAPPED_TOKEN_VAULT = address(0xb6D779A79E7493ed821a65D52bA419F0F6D5dD0a);
+
     /// @notice Returns the production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
@@ -340,7 +388,7 @@ library LibTokenInvariants {
     /// (cross-chain parity, per-token config checks) iterate this instead.
     /// @return tokens The production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](34);
+        tokens = new TokenInstance[](40);
         tokens[0] = TokenInstance("MSTR", MSTR_RECEIPT, MSTR_RECEIPT_VAULT, MSTR_WRAPPED_TOKEN_VAULT);
         tokens[1] = TokenInstance("TSLA", TSLA_RECEIPT, TSLA_RECEIPT_VAULT, TSLA_WRAPPED_TOKEN_VAULT);
         tokens[2] = TokenInstance("COIN", COIN_RECEIPT, COIN_RECEIPT_VAULT, COIN_WRAPPED_TOKEN_VAULT);
@@ -375,6 +423,12 @@ library LibTokenInvariants {
         tokens[31] = TokenInstance("SMCI", SMCI_RECEIPT, SMCI_RECEIPT_VAULT, SMCI_WRAPPED_TOKEN_VAULT);
         tokens[32] = TokenInstance("BABA", BABA_RECEIPT, BABA_RECEIPT_VAULT, BABA_WRAPPED_TOKEN_VAULT);
         tokens[33] = TokenInstance("TQQQ", TQQQ_RECEIPT, TQQQ_RECEIPT_VAULT, TQQQ_WRAPPED_TOKEN_VAULT);
+        tokens[34] = TokenInstance("AAPL", AAPL_RECEIPT, AAPL_RECEIPT_VAULT, AAPL_WRAPPED_TOKEN_VAULT);
+        tokens[35] = TokenInstance("GOOGL", GOOGL_RECEIPT, GOOGL_RECEIPT_VAULT, GOOGL_WRAPPED_TOKEN_VAULT);
+        tokens[36] = TokenInstance("INTC", INTC_RECEIPT, INTC_RECEIPT_VAULT, INTC_WRAPPED_TOKEN_VAULT);
+        tokens[37] = TokenInstance("LLY", LLY_RECEIPT, LLY_RECEIPT_VAULT, LLY_WRAPPED_TOKEN_VAULT);
+        tokens[38] = TokenInstance("MSFT", MSFT_RECEIPT, MSFT_RECEIPT_VAULT, MSFT_WRAPPED_TOKEN_VAULT);
+        tokens[39] = TokenInstance("PTY", PTY_RECEIPT, PTY_RECEIPT_VAULT, PTY_WRAPPED_TOKEN_VAULT);
     }
 
     /// @notice Returns the production token instance triples on Ethereum

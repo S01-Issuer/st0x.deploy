@@ -51,7 +51,7 @@ library LibProdTokenConfig {
     /// @notice The production token deploy configs, Base table order.
     /// @return configs The name/symbol table.
     function productionTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
-        configs = new TokenConfig[](34);
+        configs = new TokenConfig[](40);
         configs[0] = TokenConfig("MSTR", "MicroStrategy Incorporated ST0x", "tMSTR");
         configs[1] = TokenConfig("TSLA", "Tesla Inc ST0x", "tTSLA");
         configs[2] = TokenConfig("COIN", "Coinbase Global Inc ST0x", "tCOIN");
@@ -91,5 +91,11 @@ library LibProdTokenConfig {
         // TQQQ is a leveraged ETF rather than a plain equity; the name follows
         // the fund's own product name.
         configs[33] = TokenConfig("TQQQ", "ProShares UltraPro QQQ ST0x", "tTQQQ");
+        configs[34] = TokenConfig("AAPL", "Apple Inc. ST0x", "tAAPL");
+        configs[35] = TokenConfig("GOOGL", "Alphabet Inc. Class A ST0x", "tGOOGL");
+        configs[36] = TokenConfig("INTC", "Intel Corporation ST0x", "tINTC");
+        configs[37] = TokenConfig("LLY", "Eli Lilly and Company ST0x", "tLLY");
+        configs[38] = TokenConfig("MSFT", "Microsoft Corporation ST0x", "tMSFT");
+        configs[39] = TokenConfig("PTY", "PIMCO Corporate & Income Opportunity Fund ST0x", "tPTY");
     }
 }
