@@ -40,9 +40,19 @@ timelock). That keeps the audited contract set untouched.
 | -------------------- | ------------------------------------------------------ | --------------------------------------------------------------- |
 | `PROPOSER_ROLE`      | token-owner Safe                                       | schedules operations                                            |
 | `CANCELLER_ROLE`     | token-owner Safe (+ dedicated canceller, once decided) | vetoes a scheduled operation inside the window                  |
-| `EXECUTOR_ROLE`      | token-owner Safe                                       | executes once the delay elapses                                 |
+| `EXECUTOR_ROLE`      | `address(0)` — i.e. anyone                             | executes once the delay elapses                                 |
 | `DEFAULT_ADMIN_ROLE` | the timelock itself                                    | role changes are themselves timelocked (OZ self-administration) |
 
+- **Execution is permissionless.** `EXECUTOR_ROLE` is granted to `address(0)`,
+  which OZ's `onlyRoleOrOpenRole` reads as "open to everyone", so once the delay
+  has run ANYONE may execute a scheduled operation. The operator cannot censor a
+  matured operation, and the Safe executes as a member of the public rather than
+  by privilege. `cancel()` has no open-role path in OZ, so vetoing stays
+  privileged — the asymmetry is the design.
+- **Operations never expire.** OZ keeps a matured operation executable
+  indefinitely. With open execution that means a scheduled-then-abandoned
+  operation can be executed by anyone, at any later time. An operation you
+  decide against must be CANCELLED, not merely left unexecuted.
 - **Min delay: 48 hours** (`LibTimelockInvariants.TIMELOCK_MIN_DELAY`). Changing
   it is a timelocked `updateDelay` operation and must update the pin in the same
   operational window.
