@@ -390,7 +390,7 @@ library LibTokenInvariants {
         // run's logged (underlying, receipt, receiptVault, wrapped) tuples.
         // Order and underlyings match Base row-for-row (the cross-chain
         // parity pin asserts this).
-        tokens = new TokenInstance[](29);
+        tokens = new TokenInstance[](34);
         tokens[0] = TokenInstance(
             "MSTR",
             address(0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763),
@@ -570,6 +570,36 @@ library LibTokenInvariants {
             address(0xED0c085d92C262FB46937CB0B3C9763Af7fCCf30),
             address(0x8FC87Be766C0cB6f254F1FDc9351D4B85B560FB3)
         );
+        tokens[29] = TokenInstance(
+            "HOOD",
+            address(0x9e2C9bE59aEB0D9ea7bF070B37fc02AF8a5af239),
+            address(0xDA52106FC0D44096Fd500E096b9045FdAc1d27B9),
+            address(0x3209384FB852E7D0510aFa896236f3f866c3876f)
+        );
+        tokens[30] = TokenInstance(
+            "ORCL",
+            address(0xE3D23D83a750789D6c4150B70013D896e623c948),
+            address(0xC982730643321f3643436Eb4a6E910219Caa55f0),
+            address(0x1B2A2C8c3621642c64cf1245016488fA0f76da78)
+        );
+        tokens[31] = TokenInstance(
+            "SMCI",
+            address(0x1B5df34bD6397Ba7d9A365263692A006e7a2972a),
+            address(0x3b3936b5Ec170Cdb5823012dBF4dF1d56Cfa1ba5),
+            address(0x8DdAEC53399E5324BbC60a368eA853c713629B1d)
+        );
+        tokens[32] = TokenInstance(
+            "BABA",
+            address(0xB7D42b94A8E51b098270ac92ceD23fDC8042FDB3),
+            address(0x15d415952a36D4cE80671e918B2531bdB25274E5),
+            address(0x908266E3C3bFBb603d2EdF295deBE37C88985239)
+        );
+        tokens[33] = TokenInstance(
+            "TQQQ",
+            address(0x58916AC4e186ad201376288a6655Ea46b55b8ac5),
+            address(0xf3875383506677BCdA6b9F12c48Ff7fE300970D7),
+            address(0x04eE4ED5FF6643eA955503f966012b684f479966)
+        );
     }
 
     /// @notice Returns the 29 production token instance triples on HyperEVM,
@@ -584,7 +614,7 @@ library LibTokenInvariants {
         // (underlying, receipt, receiptVault, wrapped) tuples. The script that
         // ran it was per-chain and has since been superseded by
         // `20260807-deploy-missing-tokens`, so this is the record of the run.
-        tokens = new TokenInstance[](29);
+        tokens = new TokenInstance[](34);
         tokens[0] = TokenInstance(
             "MSTR",
             0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
@@ -758,6 +788,36 @@ library LibTokenInvariants {
             0xFf5b15a4f478F296893b0b244D9b118Be87bCda2,
             0xED0c085d92C262FB46937CB0B3C9763Af7fCCf30,
             0x8FC87Be766C0cB6f254F1FDc9351D4B85B560FB3
+        );
+        tokens[29] = TokenInstance(
+            "HOOD",
+            0x9e2C9bE59aEB0D9ea7bF070B37fc02AF8a5af239,
+            0xDA52106FC0D44096Fd500E096b9045FdAc1d27B9,
+            0x3209384FB852E7D0510aFa896236f3f866c3876f
+        );
+        tokens[30] = TokenInstance(
+            "ORCL",
+            0xE3D23D83a750789D6c4150B70013D896e623c948,
+            0xC982730643321f3643436Eb4a6E910219Caa55f0,
+            0x1B2A2C8c3621642c64cf1245016488fA0f76da78
+        );
+        tokens[31] = TokenInstance(
+            "SMCI",
+            0x1B5df34bD6397Ba7d9A365263692A006e7a2972a,
+            0x3b3936b5Ec170Cdb5823012dBF4dF1d56Cfa1ba5,
+            0x8DdAEC53399E5324BbC60a368eA853c713629B1d
+        );
+        tokens[32] = TokenInstance(
+            "BABA",
+            0xB7D42b94A8E51b098270ac92ceD23fDC8042FDB3,
+            0x15d415952a36D4cE80671e918B2531bdB25274E5,
+            0x908266E3C3bFBb603d2EdF295deBE37C88985239
+        );
+        tokens[33] = TokenInstance(
+            "TQQQ",
+            0x58916AC4e186ad201376288a6655Ea46b55b8ac5,
+            0xf3875383506677BCdA6b9F12c48Ff7fE300970D7,
+            0x04eE4ED5FF6643eA955503f966012b684f479966
         );
     }
 
