@@ -118,8 +118,11 @@ timelocks live.
 5. **Post-execution flip PR** — mark the migration script
    `**EXECUTED YYYY-MM-DD.**`, repoint the strict uniform-ownership invariants
    (`LibInvariants.assertAll`, `LibTokenInvariants` consumers,
-   `StoxProdV2`/`LibInvariants` fork tests, cross-chain parity) from the Safe to
-   the timelock, and retire the spent branch of the migration-window suite.
+   `StoxProdV2`/`LibInvariants` fork tests, cross-chain parity, and the
+   Safe-expecting beacon-owner asserts — the `StoxProdV4` and
+   `HyperEvmBeaconOwnership` fork tests plus the live deploy-script pre-flights
+   on `assertProdBeaconsOwnedByChainSafe`) from the Safe to the timelock, and
+   retire the spent branch of the migration-window suite.
 
 The forcing function: `GovernanceTimelockMigration.t.sol` accepts
 Safe-or-timelock per surface until **2026-10-01T00:00:00Z**, then demands the
