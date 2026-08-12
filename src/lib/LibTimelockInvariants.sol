@@ -122,13 +122,13 @@ library LibTimelockInvariants {
     /// @notice The ST0x governance timelock on **Base**. Equals
     /// `expectedTimelockAddress(STOX_TOKEN_OWNER_SAFE)`, which
     /// `testPinsMatchDerivedAddresses` asserts.
-    /// https://basescan.org/address/0xdb4b2187a685310e6b64170c97b80e90dd4a9b71
-    address internal constant STOX_GOVERNANCE_TIMELOCK = address(0);
+    /// https://basescan.org/address/0x48ba1371a78e6cc54157c63721756ab444510db3
+    address internal constant STOX_GOVERNANCE_TIMELOCK = address(0x48ba1371A78E6cC54157c63721756ab444510DB3);
 
     /// @notice The ST0x governance timelock on **Ethereum mainnet**. Equals
     /// `expectedTimelockAddress(STOX_TOKEN_OWNER_SAFE_ETHEREUM)`.
-    /// https://etherscan.io/address/0x290961ef70a86ab70b7201d46d29f2f357416b49
-    address internal constant STOX_GOVERNANCE_TIMELOCK_ETHEREUM = address(0);
+    /// https://etherscan.io/address/0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b
+    address internal constant STOX_GOVERNANCE_TIMELOCK_ETHEREUM = address(0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B);
 
     /// @notice The ST0x governance timelock on **HyperEVM**. HyperEVM
     /// carries 29 live production tokens, so it is governed on exactly the
@@ -141,8 +141,8 @@ library LibTimelockInvariants {
     /// init code, same CREATE2 address); they stay separate constants because
     /// the DEPLOY is per-chain and either could diverge if a chain's Safe ever
     /// moves.
-    /// https://hyperevmscan.io/address/0x290961ef70a86ab70b7201d46d29f2f357416b49
-    address internal constant STOX_GOVERNANCE_TIMELOCK_HYPEREVM = address(0);
+    /// https://hyperevmscan.io/address/0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b
+    address internal constant STOX_GOVERNANCE_TIMELOCK_HYPEREVM = address(0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B);
 
     /// @notice **PLACEHOLDER** for a dedicated canceller principal (a
     /// separate key or Safe that can veto a scheduled operation during the
