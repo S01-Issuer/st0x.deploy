@@ -213,7 +213,8 @@ contract MigrateGovernanceToTimelock is Script {
 
     /// @notice Human-readable name embedded in the emitted Tx Builder
     /// JSON's `meta.name`. Visible to signers in the Safe Tx Builder UI.
-    string internal constant BUNDLE_NAME = "ST0x governance to timelock: vault ownership + authoriser admin roles";
+    string internal constant BUNDLE_NAME =
+        "ST0x governance to timelock: vault ownership + beacon ownership + authoriser admin roles";
 
     /// @notice Salt for the governance-loop proof operation. Any constant
     /// works — the proof runs only in simulation.
