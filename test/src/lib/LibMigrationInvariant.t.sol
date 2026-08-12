@@ -164,4 +164,59 @@ contract LibMigrationInvariantTest is Test {
         );
         harness.callAssertMigrationUint256(LABEL, 1, 1, 3, DEADLINE);
     }
+
+    /// @notice The zero address is rejected as `actual` on BOTH sides of
+    /// the deadline, even when a migration side equals zero. Zero is
+    /// Solidity's default-everything value — renounced ownership, unset
+    /// storage, a failed lookup — the single most likely drift reading, so
+    /// it is its own checked case, never an accepted side. The load-bearing
+    /// branch is the third: with an UNHYDRATED `post` pin of zero, a
+    /// renounced-to-zero owner must trip drift rather than read as
+    /// "already migrated".
+    function testAddressZeroActualAlwaysRejected() external {
+        address pre = address(0xAAAA);
+        address post = address(0xBBBB);
+
+        vm.warp(DEADLINE - 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MigrationStateDrift.selector,
+                LABEL,
+                bytes32(uint256(uint160(pre))),
+                bytes32(uint256(uint160(post))),
+                bytes32(0)
+            )
+        );
+        harness.callAssertMigrationAddress(LABEL, address(0), pre, post, DEADLINE);
+
+        vm.warp(DEADLINE);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MigrationStateDrift.selector,
+                LABEL,
+                bytes32(uint256(uint160(pre))),
+                bytes32(uint256(uint160(post))),
+                bytes32(0)
+            )
+        );
+        harness.callAssertMigrationAddress(LABEL, address(0), pre, post, DEADLINE);
+
+        vm.warp(DEADLINE - 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MigrationStateDrift.selector, LABEL, bytes32(uint256(uint160(pre))), bytes32(0), bytes32(0)
+            )
+        );
+        harness.callAssertMigrationAddress(LABEL, address(0), pre, address(0), DEADLINE);
+
+        // And the inverse configuration: a zero PRE side must not bless a
+        // zero actual either.
+        vm.warp(DEADLINE - 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MigrationStateDrift.selector, LABEL, bytes32(0), bytes32(uint256(uint160(post))), bytes32(0)
+            )
+        );
+        harness.callAssertMigrationAddress(LABEL, address(0), address(0), post, DEADLINE);
+    }
 }

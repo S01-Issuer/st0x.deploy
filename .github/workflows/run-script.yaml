@@ -30,7 +30,22 @@ on:
           - 20260722-swap-rklb-authoriser
           - 20260722-swap-remaining-vault-authorisers
           - 20260723-provision-additional-service-signer
+          - 20260729-migrate-governance-to-timelock
           - 20260810-revoke-fireblocks-service-signer
+      network:
+        description: 'Network to author against (default: base)'
+        required: true
+        type: choice
+        default: 'base'
+        options:
+          # The chain whose head fork the authoring dry-runs against — the
+          # foundry.toml `[rpc_endpoints]` alias (`--rpc-url <network>`).
+          # Chain-aware scripts (e.g. the governance-timelock migration)
+          # self-scope from `block.chainid`, so the same registry entry
+          # authors each chain's bundle by re-dispatching per network.
+          - 'base'
+          - 'ethereum'
+          - 'hyperevm'
       sig:
         description: 'Entrypoint to dispatch (default: run())'
         required: true
@@ -46,28 +61,15 @@ on:
           # JSON path argument this dispatcher can't supply and runs off-chain
           # on the signer's machine, not in CI.
           - 'run()'
-      network:
-        description: 'Network whose authoriser/Safe the artifact targets (default: base)'
-        required: true
-        type: choice
-        default: 'base'
-        options:
-          # The chain to fork when authoring — the foundry.toml
-          # `[rpc_endpoints]` alias. Chain-aware scripts author for
-          # whichever network is selected; chain-pinned scripts simply
-          # revert on the wrong network.
-          - 'base'
-          - 'ethereum'
-          - 'hyperevm'
 # Manually dispatches an operational script from `script/` and uploads any
 # JSON it writes to `out/` as a build artifact.
 #
 # Operational scripts produce off-chain artifacts (Safe Tx Builder JSON,
 # signer briefs) under `out/`. They run a full on-chain pre-flight, simulate
 # the post-state, emit the artifact, and log the canonical hash that signers
-# must verify. The dry-run uses an unpinned Base head fork so any drift in
-# the underlying contracts trips the pre-flight here before a signer ever
-# sees the bundle.
+# must verify. The dry-run uses an unpinned head fork of the selected
+# network so any drift in the underlying contracts trips the pre-flight
+# here before a signer ever sees the bundle.
 #
 # Why a single dispatcher rather than one workflow per script:
 # - The Actions sidebar stays tight as more scripts accumulate.
@@ -84,8 +86,9 @@ jobs:
   run:
     name: Run operational script
     runs-on: ubuntu-latest
-    # Serialise dispatches of the same script+sig so overlapping runs don't
-    # race on the shared out/ artifacts; distinct entrypoints run in parallel.
+    # Serialise dispatches of the same script+sig+network so overlapping
+    # runs don't race on the shared out/ artifacts; distinct entrypoints and
+    # networks run in parallel.
     concurrency:
       group: run-script-${{ inputs.script }}-${{ inputs.sig }}-${{ inputs.network }}
       cancel-in-progress: false
@@ -98,6 +101,9 @@ jobs:
         run: nix develop --command forge soldeer install
       - name: Run script
         env:
+          # Expose every authoring network's RPC; `--rpc-url ${NETWORK}`
+          # selects which one foundry.toml resolves via its
+          # `[rpc_endpoints]` aliases.
           BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
           ETHEREUM_RPC_URL: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
           HYPEREVM_RPC_URL: ${{ secrets.RPC_URL_HYPEREVM_FORK }}

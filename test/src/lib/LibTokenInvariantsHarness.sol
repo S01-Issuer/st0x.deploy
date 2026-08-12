@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {LibTokenInvariants} from "../../../src/lib/LibTokenInvariants.sol";
+import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
 
 /// @title LibTokenInvariantsHarness
 /// @notice External-call shim around the internal library so
@@ -16,5 +16,14 @@ contract LibTokenInvariantsHarness {
 
     function callAssertUniformAuthoriser(address expected) external view {
         LibTokenInvariants.assertUniformAuthoriser(expected);
+    }
+
+    function callAssertUniformOwnershipMigration(
+        TokenInstance[] memory tokens,
+        address pre,
+        address post,
+        uint256 deadline
+    ) external view {
+        LibTokenInvariants.assertUniformOwnershipMigration(tokens, pre, post, deadline);
     }
 }

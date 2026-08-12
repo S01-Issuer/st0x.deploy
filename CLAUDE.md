@@ -151,6 +151,21 @@ Source contracts should reference addresses and codehashes through the versioned
 `src/generated/*.pointers.sol`. The pointer files are consumed only by the
 deploy libraries.
 
+## Governance
+
+Admin power over the production deployment is (post-migration) held by a
+per-chain **governance timelock** — an unmodified OZ `TimelockController` that
+owns every production receipt vault and holds the authoriser's seven `_ADMIN`
+roles, with the token-owner Safe as sole proposer/canceller/ executor and a 48h
+min delay. The Safe keeps the direct action roles
+(`DEPOSIT`/`WITHDRAW`/`CERTIFY`); only admin surfaces are delay-gated.
+Constants + invariants live in `src/lib/LibTimelockInvariants.sol`;
+`timelockForChainId(block.chainid)` is the only sanctioned way for a script to
+resolve the chain's timelock. Scripts authoring Safe bundles that touch
+`onlyOwner`/`_ADMIN` surfaces must route them through `timelock.schedule(...)` →
+(≥48h) → `timelock.execute(...)`. Full role model, rollout state, and runbook:
+`docs/TIMELOCK.md`.
+
 ## Dependencies
 
 Git submodules managed via Foundry. Key remappings in `foundry.toml`:
