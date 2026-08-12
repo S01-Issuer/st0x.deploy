@@ -16,8 +16,7 @@ import {
     TimelockNotPinned,
     UnexpectedVaultOwner,
     UnexpectedBeaconOwner,
-    NothingToMigrate,
-    MigrationVerifyMismatch
+    NothingToMigrate
 } from "../../script/20260729-migrate-governance-to-timelock.s.sol";
 import {MigrateGovernanceToTimelockHarness} from "./MigrateGovernanceToTimelockHarness.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInvariants.sol";
@@ -30,7 +29,7 @@ import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
 
 import {IAuthorisable} from "../../src/interface/IAuthorisable.sol";
 import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
-import {LibSafeOps, SafeTx} from "../../src/lib/LibSafeOps.sol";
+import {LibSafeOps, SafeTx, TxBuilderArtifactMismatch} from "../../src/lib/LibSafeOps.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 
@@ -490,7 +489,7 @@ contract MigrateGovernanceToTimelockTest is Test {
             "out/tampered-migration.json",
             LibSafeOps.emitTxBuilderJson(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, block.chainid, "tampered", txs)
         );
-        vm.expectRevert(abi.encodeWithSelector(MigrationVerifyMismatch.selector, "data"));
+        vm.expectRevert(abi.encodeWithSelector(TxBuilderArtifactMismatch.selector, "data"));
         verifier.verify("out/tampered-migration.json");
     }
 
