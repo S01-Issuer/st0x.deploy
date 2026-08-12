@@ -7,7 +7,8 @@ import {
     LibSafeOps,
     SafeTx,
     TxBuilderJsonNoTransactions,
-    TxBuilderJsonUnsupportedOperation
+    TxBuilderJsonUnsupportedOperation,
+    TxBuilderArtifactMismatch
 } from "../../../src/lib/LibSafeOps.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {IGnosisSafe} from "../../../src/interface/IGnosisSafe.sol";
@@ -254,6 +255,69 @@ contract LibSafeOpsTest is Test {
             assertEq(parsed[i].value, txs[i].value, "value round-trips");
             assertEq(parsed[i].data, txs[i].data, "data round-trips");
         }
+    }
+
+    /// @notice `assertParsedTxsMatch` walks every comparison it makes: an
+    /// exact emit+parse round-trip passes silently, and each field an
+    /// artifact could lie about — chain id, transaction count, first
+    /// target, per-tx target, value, calldata — trips
+    /// `TxBuilderArtifactMismatch` naming exactly that field. Each mismatch
+    /// is exercised with every OTHER field intact, so deleting any single
+    /// comparison fails this test. `operation` is not walked: the JSON
+    /// layer cannot represent a non-CALL (emit rejects it, parse hardcodes
+    /// zero), so no artifact can reach that comparison — it guards
+    /// non-JSON callers handing in a `SafeTx[]` directly.
+    function testAssertParsedTxsMatchWalksEveryField() external {
+        ParseHarness harness = new ParseHarness();
+        SafeTx[] memory expected = _multiTxBundle();
+        string memory path = string.concat(vm.projectRoot(), "/out/test-match-walk.json");
+
+        // Exact match passes silently.
+        vm.writeFile(path, LibSafeOps.emitTxBuilderJson(expected[0].to, block.chainid, "match", expected));
+        harness.callAssertParsedTxsMatch(expected, path);
+
+        // chainId: authored for a different chain.
+        vm.writeFile(path, LibSafeOps.emitTxBuilderJson(expected[0].to, block.chainid + 1, "match", expected));
+        vm.expectRevert(abi.encodeWithSelector(TxBuilderArtifactMismatch.selector, "chainId"));
+        harness.callAssertParsedTxsMatch(expected, path);
+
+        // txCount: the artifact carries one fewer transaction.
+        SafeTx[] memory shorter = new SafeTx[](2);
+        shorter[0] = expected[0];
+        shorter[1] = expected[1];
+        vm.writeFile(path, LibSafeOps.emitTxBuilderJson(expected[0].to, block.chainid, "match", shorter));
+        vm.expectRevert(abi.encodeWithSelector(TxBuilderArtifactMismatch.selector, "txCount"));
+        harness.callAssertParsedTxsMatch(expected, path);
+
+        // firstTarget: the FIRST tx's target moved — checked before the
+        // per-tx walk, so it names its own field.
+        SafeTx[] memory mutated = _multiTxBundle();
+        mutated[0].to = address(0xF157);
+        vm.writeFile(path, LibSafeOps.emitTxBuilderJson(mutated[0].to, block.chainid, "match", mutated));
+        vm.expectRevert(abi.encodeWithSelector(TxBuilderArtifactMismatch.selector, "firstTarget"));
+        harness.callAssertParsedTxsMatch(expected, path);
+
+        // to: a LATER tx's target moved, so firstTarget still matches and
+        // the per-tx walk names the field.
+        mutated = _multiTxBundle();
+        mutated[1].to = address(0xF157);
+        vm.writeFile(path, LibSafeOps.emitTxBuilderJson(mutated[0].to, block.chainid, "match", mutated));
+        vm.expectRevert(abi.encodeWithSelector(TxBuilderArtifactMismatch.selector, "to"));
+        harness.callAssertParsedTxsMatch(expected, path);
+
+        // value.
+        mutated = _multiTxBundle();
+        mutated[1].value = mutated[1].value + 1;
+        vm.writeFile(path, LibSafeOps.emitTxBuilderJson(mutated[0].to, block.chainid, "match", mutated));
+        vm.expectRevert(abi.encodeWithSelector(TxBuilderArtifactMismatch.selector, "value"));
+        harness.callAssertParsedTxsMatch(expected, path);
+
+        // data.
+        mutated = _multiTxBundle();
+        mutated[2].data = hex"00ff01";
+        vm.writeFile(path, LibSafeOps.emitTxBuilderJson(mutated[0].to, block.chainid, "match", mutated));
+        vm.expectRevert(abi.encodeWithSelector(TxBuilderArtifactMismatch.selector, "data"));
+        harness.callAssertParsedTxsMatch(expected, path);
     }
 
     /// @notice The emitted JSON for a multi-transaction bundle contains exactly
