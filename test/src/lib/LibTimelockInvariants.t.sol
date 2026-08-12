@@ -176,20 +176,22 @@ contract LibTimelockInvariantsTest is Test {
         harness.callAssertTimelockState(timelock, SAFE);
     }
 
-    /// @notice A zero-address grant on ANY lifecycle role — OZ's
+    /// @notice A zero-address grant on any role that must stay CLOSED — OZ's
     /// `onlyRoleOrOpenRole` treats `hasRole(role, address(0))` as "open to
-    /// everyone" — is rejected, walked per role: proposer, canceller,
-    /// executor, and root admin each trip their own typed revert, and the
-    /// closed state passes again after each revoke. Simulated through the
-    /// timelock's own self-administration path, proving the pinned deploy
-    /// COULD drift here only via a (timelocked) governance action that this
-    /// invariant would then flag.
+    /// everyone" — is rejected, walked per role: proposer, canceller and root
+    /// admin each trip their own typed revert, and the closed state passes
+    /// again after each revoke. Simulated through the timelock's own
+    /// self-administration path, proving the pinned deploy COULD drift here
+    /// only via a (timelocked) governance action that this invariant would
+    /// then flag.
+    /// @dev EXECUTOR is deliberately excluded: execution is permissionless,
+    /// so an open executor is the REQUIRED state, pinned by
+    /// `testAssertRejectsClosedExecutorRole` below.
     function testAssertRejectsEveryOpenRole() external {
         address timelock = deployPinnedTimelock();
-        bytes32[4] memory roles = [
+        bytes32[3] memory roles = [
             LibTimelockInvariants.TIMELOCK_PROPOSER_ROLE,
             LibTimelockInvariants.TIMELOCK_CANCELLER_ROLE,
-            LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE,
             LibTimelockInvariants.TIMELOCK_DEFAULT_ADMIN_ROLE
         ];
         for (uint256 i = 0; i < roles.length; i++) {
@@ -202,6 +204,23 @@ contract LibTimelockInvariantsTest is Test {
         }
         // Every zero-grant revoked: the closed state passes again, proving
         // each rejection above was the zero-grant and nothing else.
+        harness.callAssertTimelockState(timelock, SAFE);
+    }
+
+    /// @notice A CLOSED executor role is rejected. Execution is deliberately
+    /// permissionless, so revoking the open grant would put the operator back
+    /// in the path as a censor of matured operations — the exact property
+    /// Clearstar asked us to remove. Asserted by revoking `EXECUTOR_ROLE`
+    /// from the zero address on an otherwise-pinned timelock.
+    function testAssertRejectsClosedExecutorRole() external {
+        address timelock = deployPinnedTimelock();
+        vm.prank(timelock);
+        IAccessControl(timelock).revokeRole(LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE, address(0));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TimelockMissingRole.selector, timelock, LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE, address(0)
+            )
+        );
         harness.callAssertTimelockState(timelock, SAFE);
     }
 
