@@ -33,6 +33,13 @@ error TxBuilderJsonNoTransactions();
 /// @param operation The unsupported operation value.
 error TxBuilderJsonUnsupportedOperation(uint256 index, uint8 operation);
 
+/// @notice A field of a Tx Builder artifact under signer-side verification
+/// does not match the bundle re-derived from CURRENT live chain state. The
+/// artifact is stale (state moved since authoring), tampered, or authored
+/// for a different chain — either way it must not be signed.
+/// @param field The first mismatching field.
+error TxBuilderArtifactMismatch(string field);
+
 /// @notice A single Safe-Tx Builder transaction in canonical form. Mirrors
 /// the per-transaction shape of the Safe Tx Builder JSON.
 /// @param to The destination address of the inner transaction.
@@ -338,6 +345,34 @@ library LibSafeOps {
             txs[i] = scratch[i];
         }
         safeAddr = txs[0].to;
+    }
+
+    /// @notice Signer-side integrity comparison shared by every script's
+    /// `verify(string)`: parse the Tx Builder artifact at `jsonPath` and
+    /// assert it matches `expected` — the bundle the caller re-derived from
+    /// CURRENT live chain state — byte-exactly. Checks the artifact's chain
+    /// id against the active chain, the transaction count, the first
+    /// target, and every transaction's `to` / `value` / `operation` /
+    /// calldata. Reverts `TxBuilderArtifactMismatch` naming the first
+    /// mismatching field; returns silently on an exact match.
+    /// @dev One shared comparison rather than one per script: two copies
+    /// had already drifted (one skipped `operation`) before this was
+    /// extracted, and the comparison is exactly the part of a `verify`
+    /// that must not vary per script — only the bundle re-derivation is
+    /// script-specific.
+    /// @param expected The bundle derived from live state.
+    /// @param jsonPath Filesystem path to the artifact under verification.
+    function assertParsedTxsMatch(SafeTx[] memory expected, string memory jsonPath) internal view {
+        (uint256 parsedChainId, address parsedFirstTarget, SafeTx[] memory parsed) = parseTxBuilderJson(jsonPath);
+        if (parsedChainId != block.chainid) revert TxBuilderArtifactMismatch("chainId");
+        if (parsed.length != expected.length) revert TxBuilderArtifactMismatch("txCount");
+        if (parsedFirstTarget != expected[0].to) revert TxBuilderArtifactMismatch("firstTarget");
+        for (uint256 i = 0; i < expected.length; i++) {
+            if (parsed[i].to != expected[i].to) revert TxBuilderArtifactMismatch("to");
+            if (parsed[i].value != expected[i].value) revert TxBuilderArtifactMismatch("value");
+            if (parsed[i].operation != expected[i].operation) revert TxBuilderArtifactMismatch("operation");
+            if (keccak256(parsed[i].data) != keccak256(expected[i].data)) revert TxBuilderArtifactMismatch("data");
+        }
     }
 
     /// @notice Parse a decimal-formatted unsigned integer string. The Tx

@@ -114,13 +114,6 @@ struct MigrationTargets {
     bytes32[] renounceRoles;
 }
 
-/// @notice A field of the artifact under signer-side verification does not
-/// match the bundle re-derived from CURRENT live chain state. The artifact
-/// is stale (state moved since authoring), tampered, or authored for a
-/// different chain — either way it must not be signed.
-/// @param field The first mismatching field.
-error MigrationVerifyMismatch(string field);
-
 /// @notice The end-to-end governance-loop proof did not leave the scheduled
 /// operation in the `Done` state — the schedule → delay → execute path a
 /// future admin action must take does not work against the post-migration
@@ -384,24 +377,15 @@ contract MigrateGovernanceToTimelock is Script {
     }
 
     /// @notice Compare a parsed artifact against the live-derived bundle
-    /// field by field, then log the canonical MultiSend `SafeTxHash` at the
-    /// live nonce for the Safe-UI cross-check. Split from `verify` for the
-    /// same legacy-codegen stack-limit reason as `_assertPostState`.
+    /// via the shared `LibSafeOps.assertParsedTxsMatch`, then log the
+    /// canonical MultiSend `SafeTxHash` at the live nonce for the Safe-UI
+    /// cross-check. Split from `verify` for the same legacy-codegen
+    /// stack-limit reason as `_assertPostState`.
     /// @param safe The chain's token-owner Safe.
     /// @param expected The bundle derived from live state.
     /// @param jsonPath Filesystem path to the artifact under verification.
     function _verifyArtifact(IGnosisSafe safe, SafeTx[] memory expected, string calldata jsonPath) internal view {
-        (uint256 parsedChainId, address parsedFirstTarget, SafeTx[] memory parsed) =
-            LibSafeOps.parseTxBuilderJson(jsonPath);
-        if (parsedChainId != block.chainid) revert MigrationVerifyMismatch("chainId");
-        if (parsed.length != expected.length) revert MigrationVerifyMismatch("txCount");
-        if (parsedFirstTarget != expected[0].to) revert MigrationVerifyMismatch("firstTarget");
-        for (uint256 i = 0; i < expected.length; i++) {
-            if (parsed[i].to != expected[i].to) revert MigrationVerifyMismatch("to");
-            if (parsed[i].value != expected[i].value) revert MigrationVerifyMismatch("value");
-            if (parsed[i].operation != expected[i].operation) revert MigrationVerifyMismatch("operation");
-            if (keccak256(parsed[i].data) != keccak256(expected[i].data)) revert MigrationVerifyMismatch("data");
-        }
+        LibSafeOps.assertParsedTxsMatch(expected, jsonPath);
 
         uint256 nonce = safe.nonce();
         console2.log("Artifact verified against live state.");
