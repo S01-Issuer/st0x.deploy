@@ -98,8 +98,13 @@ contract RevokeFireblocksServiceSigner is Script {
     /// operational window, and a shared path would let one chain's bundle
     /// silently overwrite another's (in a signer's download folder as
     /// readily as in the test suite's shared `out/`).
+    /// Virtual so a test that authors DIFFERENT bundle content on the same
+    /// chain (the partial-re-dispatch fixture) can write to its own path:
+    /// forge runs tests in parallel and same-chain tests otherwise share
+    /// this file, which is benign only while every writer produces
+    /// identical bytes.
     /// @return path The artifact path for the ACTIVE chain.
-    function artifactPath() internal view returns (string memory path) {
+    function artifactPath() internal view virtual returns (string memory path) {
         path = string.concat("out/20260810-revoke-fireblocks-service-signer-", vm.toString(block.chainid), ".json");
     }
 
@@ -283,8 +288,12 @@ contract RevokeFireblocksServiceSigner is Script {
 
         (RoleGrant[] memory retired, SafeTx[] memory txs) = authorBundle(authoriser, safeAddr);
 
+        // The whole bundle executes as ONE MultiSend at this nonce, so the
+        // canonical MultiSend `SafeTxHash` is the hash the Safe UI shows
+        // signers — a per-inner-tx hash never appears there once the Tx
+        // Builder batches the import.
         uint256 nonce = safe.nonce();
-        bytes32 firstSafeTxHash = LibSafeOps.computeSafeTxHashViaSafe(safe, txs[0], nonce);
+        bytes32 bundleSafeTxHash = LibSafeOps.computeMultiSendSafeTxHash(safe, txs, nonce);
 
         // --- Simulate -----------------------------------------------------
 
@@ -308,7 +317,7 @@ contract RevokeFireblocksServiceSigner is Script {
         console2.log("==== TX BUILDER JSON BEGIN ====");
         console2.log(json);
         console2.log("==== TX BUILDER JSON END ====");
-        console2.log("First-tx SafeTxHash:", vm.toString(firstSafeTxHash));
+        console2.log("Bundle MultiSend SafeTxHash:", vm.toString(bundleSafeTxHash));
         console2.log("Nonce:", nonce);
         console2.log("Bundle item count:", txs.length);
         console2.log("Chain:", block.chainid);
@@ -335,5 +344,33 @@ contract RevokeFireblocksServiceSigner is Script {
             safe, authoriser, abi.encodeCall(IAccessControl.revokeRole, (retired[0].role, retired[0].grantee))
         );
         console2.log("n+1 reversal check passed: the Safe can re-grant (and re-revoke) under the live threshold");
+    }
+
+    /// @notice Signer-side integrity check for a CI-authored revocation
+    /// artifact, run LOCALLY against a live fork before signing: re-runs
+    /// the pre-flight and grant-map drift guard, re-derives the revoke
+    /// bundle from CURRENT live chain state, asserts the artifact at
+    /// `jsonPath` matches it byte-exactly (shared
+    /// `LibSafeOps.assertParsedTxsMatch`), and logs the canonical MultiSend
+    /// `SafeTxHash` at the live nonce for the Safe-UI cross-check. Any
+    /// drift between authoring and signing — a nonce bump, a pair already
+    /// revoked, a stale or tampered artifact — surfaces as a typed
+    /// mismatch before anyone signs. Deliberately NOT in the run-script
+    /// dispatcher: it takes a local path and runs on the signer's machine.
+    /// @param jsonPath Filesystem path to the downloaded Tx Builder JSON.
+    function verify(string calldata jsonPath) external view {
+        address safeAddr = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+        IGnosisSafe safe = IGnosisSafe(safeAddr);
+        address authoriser = activeChainAuthoriser();
+
+        (, SafeTx[] memory expected) = authorBundle(authoriser, safeAddr);
+        LibSafeOps.assertParsedTxsMatch(expected, jsonPath);
+
+        uint256 nonce = safe.nonce();
+        console2.log("Artifact verified against live state.");
+        console2.log(
+            "Bundle MultiSend SafeTxHash:", vm.toString(LibSafeOps.computeMultiSendSafeTxHash(safe, expected, nonce))
+        );
+        console2.log("Nonce:", nonce);
     }
 }

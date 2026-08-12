@@ -10,7 +10,7 @@ import {RevokeFireblocksServiceSigner} from "../../script/20260810-revoke-firebl
 import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {LibSafeOps, SafeTx} from "../../src/lib/LibSafeOps.sol";
+import {LibSafeOps, SafeTx, TxBuilderArtifactMismatch} from "../../src/lib/LibSafeOps.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 
 /// @title RevokeFireblocksServiceSignerProdTest
@@ -87,6 +87,18 @@ contract RevokeFireblocksServiceSignerProdTest is Test {
             );
         }
 
+        // ...and every OTHER canonical row survives — the replacement
+        // signer's operational grants, the Safe's action roles, every
+        // `_ADMIN`. Re-asserted here independently of the script's own
+        // post-state so this test fails even if those checks rot.
+        for (uint256 i = 0; i < all.length; i++) {
+            if (all[i].grantee == SIGNER) continue;
+            assertTrue(
+                acl.hasRole(all[i].role, all[i].grantee),
+                string.concat(label, ": run() disturbed a canonical row it must not touch")
+            );
+        }
+
         // Round-trip the emitted artifact: scoped to this chain, three
         // value-free revoke CALLs against the chain's authoriser, in
         // canonical map order.
@@ -135,5 +147,90 @@ contract RevokeFireblocksServiceSignerProdTest is Test {
             LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM,
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM
         );
+    }
+
+    /// @notice The signer-side `verify(string)` accepts a freshly authored
+    /// artifact against a fresh fork of the same live state, and rejects a
+    /// tampered copy with the exact mismatching field. Authoring simulates
+    /// the revocation onto its own fork, so verification runs on a NEW
+    /// fork — the signer's vantage point: artifact in hand, live chain
+    /// untouched.
+    function testVerifyAcceptsAuthoredArtifactAndRejectsTamper() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        new RevokeFireblocksServiceSigner().run();
+        string memory path = artifactPath();
+
+        // Fresh fork: authoring left the previous fork revoked; the live
+        // chain a signer verifies against still holds the grants.
+        vm.createSelectFork(LibRainDeploy.BASE);
+        RevokeFireblocksServiceSigner verifier = new RevokeFireblocksServiceSigner();
+        verifier.verify(path);
+
+        // Tamper one call's payload and re-emit: verify pinpoints the field.
+        (,, SafeTx[] memory txs) = LibSafeOps.parseTxBuilderJson(path);
+        txs[0].data = abi.encodeCall(IAccessControl.revokeRole, (bytes32(uint256(1)), address(0xBAD)));
+        vm.writeFile(
+            "out/tampered-revocation.json",
+            LibSafeOps.emitTxBuilderJson(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, block.chainid, "tampered", txs)
+        );
+        vm.expectRevert(abi.encodeWithSelector(TxBuilderArtifactMismatch.selector, "data"));
+        verifier.verify("out/tampered-revocation.json");
+    }
+
+    /// @notice A partial prior execution re-dispatches to exactly the
+    /// remainder, artifact included: with CERTIFY already revoked on the
+    /// live fork, `run()` authors and emits a two-tx bundle carrying the
+    /// DEPOSIT and WITHDRAW revokes only. The unit suite pins this
+    /// selection in memory; this pins the EMITTED artifact a signer would
+    /// import for the remainder.
+    function testBasePartialReDispatchEmitsRemainderArtifact() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        address authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
+
+        // The Safe holds CERTIFY_ADMIN, so it can revoke CERTIFY directly —
+        // the same call the bundle's third leg would have made.
+        vm.prank(safe);
+        IAccessControl(authoriser).revokeRole(keccak256("CERTIFY"), SIGNER);
+
+        // The remainder harness writes to its own path: this test's bundle
+        // CONTENT differs from the full-bundle tests', and forge runs tests
+        // in parallel, so sharing the canonical path would race.
+        RevokeFireblocksServiceSignerRemainderHarness script = new RevokeFireblocksServiceSignerRemainderHarness();
+        script.run();
+
+        (uint256 chainId, address firstTarget, SafeTx[] memory txs) =
+            LibSafeOps.parseTxBuilderJson(script.remainderArtifactPath());
+        assertEq(chainId, block.chainid, "remainder artifact chain id");
+        assertEq(firstTarget, authoriser, "remainder artifact target");
+        assertEq(txs.length, 2, "remainder artifact bundle size");
+        bytes32[2] memory roles = [keccak256("DEPOSIT"), keccak256("WITHDRAW")];
+        for (uint256 i = 0; i < txs.length; i++) {
+            assertEq(txs[i].to, authoriser, "remainder artifact tx target");
+            assertEq(txs[i].value, 0, "remainder artifact tx value");
+            assertEq(
+                txs[i].data,
+                abi.encodeCall(IAccessControl.revokeRole, (roles[i], SIGNER)),
+                "remainder artifact tx calldata"
+            );
+        }
+    }
+}
+
+/// @notice The partial-re-dispatch fixture's script: identical to the
+/// production script except the artifact lands on a dedicated path. This
+/// test's bundle content DIFFERS from the full-bundle tests' on the same
+/// chain, and forge runs tests in parallel, so writing the canonical path
+/// would race with them.
+contract RevokeFireblocksServiceSignerRemainderHarness is RevokeFireblocksServiceSigner {
+    /// @notice The dedicated remainder-artifact path, exposed so the test
+    /// parses exactly the file this fixture wrote.
+    /// @return path The remainder artifact path for the ACTIVE chain.
+    function remainderArtifactPath() public view returns (string memory path) {
+        path = string.concat("out/20260810-revoke-remainder-", vm.toString(block.chainid), ".json");
+    }
+
+    function artifactPath() internal view override returns (string memory path) {
+        path = remainderArtifactPath();
     }
 }
