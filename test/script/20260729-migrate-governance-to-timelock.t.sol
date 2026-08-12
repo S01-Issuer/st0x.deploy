@@ -161,41 +161,61 @@ contract MigrateGovernanceToTimelockTest is Test {
 
         // Derive the expected target set from the PRE-run fork state — the
         // same derivation a reviewing signer performs.
-        uint256 expectedTransfers = _safeOwnedVaultCount(safe);
-        assertGt(expectedTransfers, 0, "fork state should have Safe-owned vaults pre-migration");
-        uint256 expectedBeaconTransfers = _safeOwnedBeaconCount(safe);
-        assertGt(expectedBeaconTransfers, 0, "fork state should have Safe-owned beacons pre-migration");
+        address[] memory vaultTargets = _safeOwnedVaults(safe);
+        assertGt(vaultTargets.length, 0, "fork state should have Safe-owned vaults pre-migration");
+        address[] memory beaconTargets = _safeOwnedBeacons(safe);
+        assertGt(beaconTargets.length, 0, "fork state should have Safe-owned beacons pre-migration");
         address[3] memory implsBefore = _beaconImplementations();
 
         new MigrateGovernanceToTimelockHarness(timelock).run();
 
         _assertPostState(safe, timelock, implsBefore);
-        _assertArtifactMatchesDerivedBundle(safe, timelock, expectedTransfers, expectedBeaconTransfers);
+        _assertArtifactMatchesDerivedBundle(safe, timelock, vaultTargets, beaconTargets);
     }
 
-    /// @notice Count the production receipt vaults still owned by `safe` on
-    /// the active fork.
+    /// @notice The production receipt vaults still owned by `safe` on the
+    /// active fork, in table order — the same subset, in the same order,
+    /// that the script's selection rule emits as transfers. Captured as
+    /// addresses (not a count) BEFORE the run, so the artifact assertion
+    /// tracks the selection even on a fork where part of the table is
+    /// already timelock-owned.
     /// @param safe The chain's token-owner Safe.
-    /// @return count The Safe-owned vault count.
-    function _safeOwnedVaultCount(address safe) internal view returns (uint256 count) {
+    /// @return targets The Safe-owned vaults, in table order.
+    function _safeOwnedVaults(address safe) internal view returns (address[] memory targets) {
         address[] memory vaults = _activeChainVaults();
+        address[] memory candidates = new address[](vaults.length);
+        uint256 count = 0;
         for (uint256 i = 0; i < vaults.length; i++) {
             if (Ownable(vaults[i]).owner() == safe) {
+                candidates[count] = vaults[i];
                 count++;
             }
         }
+        targets = new address[](count);
+        for (uint256 i = 0; i < count; i++) {
+            targets[i] = candidates[i];
+        }
     }
 
-    /// @notice Count the in-use production beacons still owned by `safe` on
-    /// the active fork.
+    /// @notice The in-use production beacons still owned by `safe` on the
+    /// active fork, in `prodBeaconsForChainId` order — the beacon half of
+    /// the pre-run selection capture, on the same terms as
+    /// `_safeOwnedVaults`.
     /// @param safe The chain's token-owner Safe.
-    /// @return count The Safe-owned beacon count.
-    function _safeOwnedBeaconCount(address safe) internal view returns (uint256 count) {
+    /// @return targets The Safe-owned beacons, in pinned order.
+    function _safeOwnedBeacons(address safe) internal view returns (address[] memory targets) {
         address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        address[] memory candidates = new address[](beacons.length);
+        uint256 count = 0;
         for (uint256 i = 0; i < beacons.length; i++) {
             if (Ownable(beacons[i]).owner() == safe) {
+                candidates[count] = beacons[i];
                 count++;
             }
+        }
+        targets = new address[](count);
+        for (uint256 i = 0; i < count; i++) {
+            targets[i] = candidates[i];
         }
     }
 
@@ -246,17 +266,21 @@ contract MigrateGovernanceToTimelockTest is Test {
 
     /// @notice Parse the emitted Tx Builder JSON and assert it matches the
     /// bundle derived independently from the pre-run state: 7 grants, then
-    /// the vault transfers in table order, then the beacon transfers in
-    /// `prodBeaconsForChainId` order, then 7 renounces.
+    /// the captured Safe-owned vault selection in table order, then the
+    /// captured Safe-owned beacon selection in `prodBeaconsForChainId`
+    /// order, then 7 renounces. The selections are the pre-run captures —
+    /// the script skips surfaces already timelock-owned, so asserting
+    /// against the captured subset (not a table prefix) tracks its
+    /// selection rule on any fork state.
     /// @param safe The chain's token-owner Safe.
     /// @param timelock The chain's governance timelock.
-    /// @param expectedTransfers The pre-run Safe-owned vault count.
-    /// @param expectedBeaconTransfers The pre-run Safe-owned beacon count.
+    /// @param vaultTargets The pre-run Safe-owned vaults, in table order.
+    /// @param beaconTargets The pre-run Safe-owned beacons, in pinned order.
     function _assertArtifactMatchesDerivedBundle(
         address safe,
         address timelock,
-        uint256 expectedTransfers,
-        uint256 expectedBeaconTransfers
+        address[] memory vaultTargets,
+        address[] memory beaconTargets
     ) internal {
         address authoriser = _activeChainAuthoriser();
         RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
@@ -266,32 +290,28 @@ contract MigrateGovernanceToTimelockTest is Test {
         );
         assertEq(chainId, block.chainid, "artifact must be authored for the active chain");
         assertEq(firstTarget, authoriser, "bundle must open with the authoriser grants");
-        assertEq(txs.length, ADMIN_ROLE_COUNT + expectedTransfers + expectedBeaconTransfers + ADMIN_ROLE_COUNT);
+        assertEq(txs.length, ADMIN_ROLE_COUNT + vaultTargets.length + beaconTargets.length + ADMIN_ROLE_COUNT);
 
         for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
             assertEq(txs[i].to, authoriser);
             assertEq(txs[i].data, abi.encodeCall(IAccessControl.grantRole, (grants[i].role, timelock)));
         }
 
-        address[] memory vaults = _activeChainVaults();
-        for (uint256 i = 0; i < expectedTransfers; i++) {
-            // Pre-run every vault was Safe-owned (asserted via the count),
-            // so each appears as a transfer in table order.
-            assertEq(txs[ADMIN_ROLE_COUNT + i].to, vaults[i]);
+        for (uint256 i = 0; i < vaultTargets.length; i++) {
+            assertEq(txs[ADMIN_ROLE_COUNT + i].to, vaultTargets[i]);
             assertEq(txs[ADMIN_ROLE_COUNT + i].data, abi.encodeCall(Ownable.transferOwnership, (timelock)));
         }
 
         // Beacon transfers follow the vaults — the leg that closes the
         // upgrade-path bypass.
-        address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
-        for (uint256 i = 0; i < expectedBeaconTransfers; i++) {
-            uint256 idx = ADMIN_ROLE_COUNT + expectedTransfers + i;
-            assertEq(txs[idx].to, beacons[i]);
+        for (uint256 i = 0; i < beaconTargets.length; i++) {
+            uint256 idx = ADMIN_ROLE_COUNT + vaultTargets.length + i;
+            assertEq(txs[idx].to, beaconTargets[i]);
             assertEq(txs[idx].data, abi.encodeCall(Ownable.transferOwnership, (timelock)));
         }
 
         for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
-            uint256 idx = ADMIN_ROLE_COUNT + expectedTransfers + expectedBeaconTransfers + i;
+            uint256 idx = ADMIN_ROLE_COUNT + vaultTargets.length + beaconTargets.length + i;
             assertEq(txs[idx].to, authoriser);
             assertEq(txs[idx].data, abi.encodeCall(IAccessControl.renounceRole, (grants[i].role, safe)));
         }
