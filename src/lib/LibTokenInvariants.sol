@@ -444,7 +444,7 @@ library LibTokenInvariants {
         // run's logged (underlying, receipt, receiptVault, wrapped) tuples.
         // Order and underlyings match Base row-for-row (the cross-chain
         // parity pin asserts this).
-        tokens = new TokenInstance[](34);
+        tokens = new TokenInstance[](40);
         tokens[0] = TokenInstance(
             "MSTR",
             address(0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763),
@@ -654,6 +654,42 @@ library LibTokenInvariants {
             address(0xf3875383506677BCdA6b9F12c48Ff7fE300970D7),
             address(0x04eE4ED5FF6643eA955503f966012b684f479966)
         );
+        tokens[34] = TokenInstance(
+            "AAPL",
+            address(0x5f1DBfBf9345f3185C52aC3c080a0EDDb4f540c2),
+            address(0xb526Bf49DAB7F72B772FEF4B6D572C254A454ef7),
+            address(0x4E3600f48C61eF4513c72923ab50851bD546FFA9)
+        );
+        tokens[35] = TokenInstance(
+            "GOOGL",
+            address(0xdC29d07D2125699FA44cAB7e940542b526dB0abd),
+            address(0x50DE74136b67911799fc39B726bFC2707cCec769),
+            address(0xca678d0d69F9E815d1A4f4dF05C904b2DDE017f8)
+        );
+        tokens[36] = TokenInstance(
+            "INTC",
+            address(0x8CF3E580465e8DFaE05FF42BbFCe0d98BfF79580),
+            address(0x06aE3f6CFaE124039902a79Da44ad2a4A4489250),
+            address(0xd702276d50fdCf58b0E41b3f1f9651faBC1141f4)
+        );
+        tokens[37] = TokenInstance(
+            "LLY",
+            address(0x9a288A27a9898f145AF9575b46617bB1DF705106),
+            address(0x1eE2cE9654FFa008029e8e328a95f45EBfB3bC63),
+            address(0xa6890e89D99Fd4F275c016d89A28ec24A428846D)
+        );
+        tokens[38] = TokenInstance(
+            "MSFT",
+            address(0x824eA918F35821a72E34b4eaD257AF60603cb20C),
+            address(0xb3f9A61b0e97c7F7Bb85Ea5E9Dad0da8f3496B57),
+            address(0xAbb2641950C7dE9D3ec9AA05668e112E1DB701F6)
+        );
+        tokens[39] = TokenInstance(
+            "PTY",
+            address(0x7b66449B3d7cD6569F1e235f6E4A664C24538EA8),
+            address(0xdf4F0897Ec6f0C37Bfc974a815cA440A3c2C2e8B),
+            address(0xc80730995D2C53114BAaFd2736E02f4E274D5B83)
+        );
     }
 
     /// @notice Returns the production token instance triples on HyperEVM,
@@ -668,7 +704,7 @@ library LibTokenInvariants {
         // (underlying, receipt, receiptVault, wrapped) tuples. The script that
         // ran it was per-chain and has since been superseded by
         // `20260807-deploy-missing-tokens`, so this is the record of the run.
-        tokens = new TokenInstance[](34);
+        tokens = new TokenInstance[](40);
         tokens[0] = TokenInstance(
             "MSTR",
             0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
@@ -872,6 +908,42 @@ library LibTokenInvariants {
             0x58916AC4e186ad201376288a6655Ea46b55b8ac5,
             0xf3875383506677BCdA6b9F12c48Ff7fE300970D7,
             0x04eE4ED5FF6643eA955503f966012b684f479966
+        );
+        tokens[34] = TokenInstance(
+            "AAPL",
+            0x5f1DBfBf9345f3185C52aC3c080a0EDDb4f540c2,
+            0xb526Bf49DAB7F72B772FEF4B6D572C254A454ef7,
+            0x4E3600f48C61eF4513c72923ab50851bD546FFA9
+        );
+        tokens[35] = TokenInstance(
+            "GOOGL",
+            0xdC29d07D2125699FA44cAB7e940542b526dB0abd,
+            0x50DE74136b67911799fc39B726bFC2707cCec769,
+            0xca678d0d69F9E815d1A4f4dF05C904b2DDE017f8
+        );
+        tokens[36] = TokenInstance(
+            "INTC",
+            0x8CF3E580465e8DFaE05FF42BbFCe0d98BfF79580,
+            0x06aE3f6CFaE124039902a79Da44ad2a4A4489250,
+            0xd702276d50fdCf58b0E41b3f1f9651faBC1141f4
+        );
+        tokens[37] = TokenInstance(
+            "LLY",
+            0x9a288A27a9898f145AF9575b46617bB1DF705106,
+            0x1eE2cE9654FFa008029e8e328a95f45EBfB3bC63,
+            0xa6890e89D99Fd4F275c016d89A28ec24A428846D
+        );
+        tokens[38] = TokenInstance(
+            "MSFT",
+            0x824eA918F35821a72E34b4eaD257AF60603cb20C,
+            0xb3f9A61b0e97c7F7Bb85Ea5E9Dad0da8f3496B57,
+            0xAbb2641950C7dE9D3ec9AA05668e112E1DB701F6
+        );
+        tokens[39] = TokenInstance(
+            "PTY",
+            0x7b66449B3d7cD6569F1e235f6E4A664C24538EA8,
+            0xdf4F0897Ec6f0C37Bfc974a815cA440A3c2C2e8B,
+            0xc80730995D2C53114BAaFd2736E02f4E274D5B83
         );
     }
 
