@@ -31,6 +31,7 @@ on:
           - 20260722-swap-remaining-vault-authorisers
           - 20260723-provision-additional-service-signer
           - 20260729-migrate-governance-to-timelock
+          - 20260813-timelock-rehearsal
           - 20260810-revoke-fireblocks-service-signer
       network:
         description: 'Network to author against (default: base)'
@@ -61,6 +62,12 @@ on:
           # JSON path argument this dispatcher can't supply and runs off-chain
           # on the signer's machine, not in CI.
           - 'run()'
+          # `20260813-timelock-rehearsal` stages. `run()` schedules the
+          # no-op, `cancel()` cancels it, `reschedule()` schedules it
+          # again. Execution is not a Safe action — the timelock's
+          # executor role is open — so it lives in manual-broadcast.
+          - 'cancel()'
+          - 'reschedule()'
 # Manually dispatches an operational script from `script/` and uploads any
 # JSON it writes to `out/` as a build artifact.
 #

@@ -138,6 +138,35 @@ The forcing function: `GovernanceTimelockMigration.t.sol` accepts
 Safe-or-timelock per surface until **2026-10-01T00:00:00Z**, then demands the
 timelock. An unfinished rollout red-lines cron past that date.
 
+## Rehearsing the timelock
+
+The timelock can be exercised end-to-end BEFORE any governance is handed to it,
+so signers see the real loop before it controls anything. The rehearsed
+operation is `timelock.updateDelay(TIMELOCK_MIN_DELAY)` — re-setting the delay
+to the value it already holds. It is a genuine no-op, it targets the timelock
+rather than any production contract, and OZ rejects `updateDelay` from any
+caller other than the timelock itself, so it can only happen via the full
+schedule → delay → execute path. Rehearsing it therefore exercises the real
+mechanism rather than a shortcut.
+
+Stages 1–3 are Safe actions, dispatched via `Actions → run-script` with
+`script = 20260813-timelock-rehearsal` and `sig` selecting the stage:
+
+1. `run()` — schedule the no-op.
+2. `cancel()` — cancel it. Proves the veto works and that the same operation id
+   becomes schedulable again afterwards.
+3. `reschedule()` — schedule it again.
+
+Then wait out the delay and execute. Execution is **not** a Safe action: the
+executor role is open, so anyone may execute. `Actions → manual-broadcast` →
+`20260813-execute-timelock-operations` does it from the CI deploy key, which
+holds no role on the timelock — if that succeeds, permissionless execution is
+demonstrated rather than merely configured.
+
+Each stage refuses to author a bundle whose call would revert: cancelling
+nothing, or scheduling something already scheduled, fails at authoring time
+rather than in the Safe.
+
 ## Operating under the timelock (future governance actions)
 
 Every admin action becomes two Safe transactions separated by ≥48h:
