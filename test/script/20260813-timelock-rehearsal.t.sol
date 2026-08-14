@@ -7,10 +7,10 @@ import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/TimelockController.sol";
 
 import {
-    TimelockRehearsal,
-    RehearsalAlreadyScheduled,
-    RehearsalNotScheduled
-} from "../../script/20260813-timelock-rehearsal.s.sol";
+    TimelockRehearsalSchedule,
+    RehearsalAlreadyScheduled
+} from "../../script/20260813-timelock-rehearsal-schedule.s.sol";
+import {TimelockRehearsalCancel, RehearsalNotScheduled} from "../../script/20260813-timelock-rehearsal-cancel.s.sol";
 import {
     ExecuteTimelockOperations,
     OperationNotExecutable
@@ -18,6 +18,7 @@ import {
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibSafeOps, SafeTx} from "../../src/lib/LibSafeOps.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
+import {LibTimelockRehearsal} from "../../src/lib/LibTimelockRehearsal.sol";
 
 /// @title TimelockRehearsalTest
 /// @notice Live Base fork coverage for the pre-handover rehearsal: schedule
@@ -26,11 +27,13 @@ import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 /// @dev Unpinned head fork so the assertions run against the live timelock
 /// and Safe, the same state a real dispatch authors from.
 contract TimelockRehearsalTest is Test {
-    TimelockRehearsal internal rehearsal;
+    TimelockRehearsalSchedule internal scheduleScript;
+    TimelockRehearsalCancel internal cancelScript;
 
     function setUp() external {
         vm.createSelectFork(LibRainDeploy.BASE);
-        rehearsal = new TimelockRehearsal();
+        scheduleScript = new TimelockRehearsalSchedule();
+        cancelScript = new TimelockRehearsalCancel();
     }
 
     /// @notice The active chain's timelock, as the scripts resolve it.
@@ -57,7 +60,7 @@ contract TimelockRehearsalTest is Test {
     /// timelock, and the run's own fork proof shows the operation matures
     /// and executes without changing the delay.
     function testScheduleAuthorsABundle() external {
-        rehearsal.run();
+        scheduleScript.run();
 
         (uint256 chainId, address firstTarget, SafeTx[] memory txs) = LibSafeOps.parseTxBuilderJson(
             string.concat("out/20260813-timelock-rehearsal-schedule-", vm.toString(block.chainid), ".json")
@@ -86,7 +89,7 @@ contract TimelockRehearsalTest is Test {
     /// leaves `getMinDelay()` unchanged.
     function testRehearsalIsANoOp() external {
         uint256 before = timelock().getMinDelay();
-        rehearsal.run();
+        scheduleScript.run();
         assertEq(timelock().getMinDelay(), before, "the rehearsal must not change the delay");
         assertEq(before, LibTimelockInvariants.TIMELOCK_MIN_DELAY);
     }
@@ -95,7 +98,7 @@ contract TimelockRehearsalTest is Test {
     /// emitting a bundle that would revert inside the Safe.
     function testCancelRefusesWhenNothingScheduled() external {
         vm.expectRevert(abi.encodeWithSelector(RehearsalNotScheduled.selector, rehearsalOperationId()));
-        rehearsal.cancel();
+        cancelScript.run();
     }
 
     /// @notice Scheduling refuses when the operation is already registered,
@@ -105,12 +108,13 @@ contract TimelockRehearsalTest is Test {
         // schedule it again.
         _scheduleAsSafe();
         vm.expectRevert(abi.encodeWithSelector(RehearsalAlreadyScheduled.selector, rehearsalOperationId()));
-        rehearsal.run();
+        scheduleScript.run();
     }
 
-    /// @notice The full stage sequence: schedule, cancel, re-schedule. After
-    /// the cancel the SAME id is schedulable again — the property the
-    /// rehearsal exists to demonstrate.
+    /// @notice The full stage sequence: schedule, cancel, schedule again.
+    /// After the cancel the SAME id is schedulable again — which is why the
+    /// re-propose stage is a re-dispatch of the schedule script rather than a
+    /// separate script: there is no separate operation.
     function testScheduleCancelReschedule() external {
         bytes32 id = rehearsalOperationId();
 
@@ -119,12 +123,12 @@ contract TimelockRehearsalTest is Test {
 
         // `cancel()` simulates the Safe call against the fork, so the
         // operation is genuinely cleared here — no second cancel needed.
-        rehearsal.cancel();
+        cancelScript.run();
         assertFalse(timelock().isOperation(id), "cancel clears the operation");
 
-        rehearsal.reschedule();
+        scheduleScript.run();
         (,, SafeTx[] memory txs) = LibSafeOps.parseTxBuilderJson(
-            string.concat("out/20260813-timelock-rehearsal-reschedule-", vm.toString(block.chainid), ".json")
+            string.concat("out/20260813-timelock-rehearsal-schedule-", vm.toString(block.chainid), ".json")
         );
         assertEq(txs.length, 1);
         assertEq(txs[0].to, address(timelock()));

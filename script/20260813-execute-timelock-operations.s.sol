@@ -9,6 +9,7 @@ import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/Timel
 
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
+import {LibTimelockRehearsal} from "../src/lib/LibTimelockRehearsal.sol";
 
 /// @notice The active chain's governance-timelock pin is unhydrated.
 /// @param chainId The active chain id.
@@ -50,8 +51,9 @@ error ExecutionNotPermissionless(address timelock);
 /// from contract state alone — recovering it would mean indexing
 /// `CallScheduled` logs. Rather than pretend otherwise, this script executes
 /// operations it can RECONSTRUCT, and asserts their state before acting.
-/// Today that is the rehearsal no-op from
-/// `20260813-timelock-rehearsal`, whose parameters are fixed. A future
+/// Today that is the rehearsal no-op defined in `LibTimelockRehearsal`,
+/// whose parameters are fixed and shared with the scripts that schedule and
+/// cancel it, so the three cannot drift onto different ids. A future
 /// operation is added by appending its reconstruction here, which also keeps
 /// the executor honest: it can only ever run something whose full calldata is
 /// committed in this repo and therefore reviewable.
@@ -60,18 +62,6 @@ error ExecutionNotPermissionless(address timelock);
 /// execution is open, so a timelock whose executor role had been closed
 /// fails by name rather than as an opaque `AccessControl` revert.
 contract ExecuteTimelockOperations is Script {
-    /// @notice Salt of the rehearsal operation. Must match
-    /// `TimelockRehearsal.REHEARSAL_SALT`; the rehearsal test asserts the two
-    /// derive the same id so they cannot drift apart silently.
-    bytes32 internal constant REHEARSAL_SALT = keccak256("st0x.timelock.rehearsal.20260813");
-
-    /// @notice The rehearsal's no-op payload: re-set the minimum delay to the
-    /// value it already holds.
-    /// @return The `updateDelay` calldata.
-    function rehearsalPayload() internal pure returns (bytes memory) {
-        return abi.encodeCall(TimelockController.updateDelay, (LibTimelockInvariants.TIMELOCK_MIN_DELAY));
-    }
-
     /// @notice Execute the rehearsal operation on the active chain if it has
     /// matured. Broadcasts from the CI deploy key, which holds no roles.
     function run() external {
@@ -86,8 +76,8 @@ contract ExecuteTimelockOperations is Script {
         }
 
         TimelockController controller = TimelockController(payable(timelock));
-        bytes memory payload = rehearsalPayload();
-        bytes32 id = controller.hashOperation(timelock, 0, payload, bytes32(0), REHEARSAL_SALT);
+        bytes memory payload = LibTimelockRehearsal.payload();
+        bytes32 id = LibTimelockRehearsal.operationId(timelock);
 
         bool pending = controller.isOperationPending(id);
         bool ready = controller.isOperationReady(id);
@@ -100,7 +90,7 @@ contract ExecuteTimelockOperations is Script {
 
         vm.startBroadcast();
         address executor = msg.sender;
-        controller.execute(timelock, 0, payload, bytes32(0), REHEARSAL_SALT);
+        controller.execute(timelock, 0, payload, bytes32(0), LibTimelockRehearsal.REHEARSAL_SALT);
         vm.stopBroadcast();
 
         require(controller.isOperationDone(id), "ExecuteTimelockOperations: operation did not complete");

@@ -149,13 +149,15 @@ caller other than the timelock itself, so it can only happen via the full
 schedule → delay → execute path. Rehearsing it therefore exercises the real
 mechanism rather than a shortcut.
 
-Stages 1–3 are Safe actions, dispatched via `Actions → run-script` with
-`script = 20260813-timelock-rehearsal` and `sig` selecting the stage:
+Stages 1–3 are Safe actions, dispatched via `Actions → run-script`:
 
-1. `run()` — schedule the no-op.
-2. `cancel()` — cancel it. Proves the veto works and that the same operation id
-   becomes schedulable again afterwards.
-3. `reschedule()` — schedule it again.
+1. `20260813-timelock-rehearsal-schedule` — schedule the no-op.
+2. `20260813-timelock-rehearsal-cancel` — cancel it. Proves the veto works and
+   that the same operation id becomes schedulable again afterwards.
+3. `20260813-timelock-rehearsal-schedule` again — re-dispatching the same script
+   IS the re-propose stage. `cancel` deregisters the operation, so the identical
+   one becomes schedulable again; there is no separate operation, so there is no
+   separate script.
 
 Then wait out the delay and execute. Execution is **not** a Safe action: the
 executor role is open, so anyone may execute. `Actions → manual-broadcast` →
