@@ -452,8 +452,8 @@ library LibTokenInvariants {
 
     /// @notice Returns the production token instance triples on Ethereum
     /// mainnet — Base's underlyings in Base row order, so the tables pair by
-    /// index as well as by key. FTF is absent: it is on Base only.
-    /// @return tokens The 40 production token instances on Ethereum.
+    /// index as well as by key.
+    /// @return tokens The 41 production token instances on Ethereum.
     function productionTokensEthereum() internal pure returns (TokenInstance[] memory tokens) {
         // Deployed on Ethereum mainnet 2026-07-22 by
         // `20260706-deploy-tokens-ethereum` (manual-broadcast run
@@ -463,7 +463,7 @@ library LibTokenInvariants {
         // run's logged (underlying, receipt, receiptVault, wrapped) tuples.
         // Order and underlyings match Base row-for-row (the cross-chain
         // parity pin asserts this).
-        tokens = new TokenInstance[](40);
+        tokens = new TokenInstance[](41);
         tokens[0] = TokenInstance(
             "MSTR",
             address(0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763),
@@ -716,12 +716,22 @@ library LibTokenInvariants {
             address(0xf3875383506677BCdA6b9F12c48Ff7fE300970D7),
             address(0x04eE4ED5FF6643eA955503f966012b684f479966)
         );
+        // FTF, deployed 2026-08-14 by `20260807-deploy-missing-tokens` (run
+        // 31835550273) — the sole token the dispatch selected, Base having been
+        // pinned to 41 first. Wired onto this chain's V4 authoriser and handed
+        // to its token-owner Safe in the same broadcast.
+        tokens[40] = TokenInstance(
+            "FTF",
+            address(0x05215bE061F61d341703a6b63AcFDFf396965425),
+            address(0x334ccaD2e7D774F5e6A13437977dD0878926deF8),
+            address(0x710A14a41a8Ea2e25376124C48bf9cAdc1E69be5)
+        );
     }
 
-    /// @notice Returns the 40 production token instance triples on HyperEVM,
+    /// @notice Returns the 41 production token instance triples on HyperEVM,
     /// in the same row order as `productionTokensBase()` (the cross-chain
     /// parity pin asserts the alignment).
-    /// @return tokens The 40 production token instances on HyperEVM.
+    /// @return tokens The 41 production token instances on HyperEVM.
     function productionTokensHyperEvm() internal pure returns (TokenInstance[] memory tokens) {
         // Deployed on HyperEVM 2026-07-24 (manual-broadcast run 30114307165):
         // all 29 tokens via the 0.1.1 unified deployer, each wired onto the
@@ -730,7 +740,7 @@ library LibTokenInvariants {
         // (underlying, receipt, receiptVault, wrapped) tuples. The script that
         // ran it was per-chain and has since been superseded by
         // `20260807-deploy-missing-tokens`, so this is the record of the run.
-        tokens = new TokenInstance[](40);
+        tokens = new TokenInstance[](41);
         tokens[0] = TokenInstance(
             "MSTR",
             0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
@@ -977,6 +987,16 @@ library LibTokenInvariants {
             0x58916AC4e186ad201376288a6655Ea46b55b8ac5,
             0xf3875383506677BCdA6b9F12c48Ff7fE300970D7,
             0x04eE4ED5FF6643eA955503f966012b684f479966
+        );
+        // FTF, deployed 2026-08-14 by `20260807-deploy-missing-tokens` (run
+        // 31835971348) — the sole token the dispatch selected, Base having been
+        // pinned to 41 first. Wired onto this chain's V4 authoriser and handed
+        // to its token-owner Safe in the same broadcast.
+        tokens[40] = TokenInstance(
+            "FTF",
+            0x05215bE061F61d341703a6b63AcFDFf396965425,
+            0x334ccaD2e7D774F5e6A13437977dD0878926deF8,
+            0x710A14a41a8Ea2e25376124C48bf9cAdc1E69be5
         );
     }
 
