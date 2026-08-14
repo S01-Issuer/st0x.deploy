@@ -389,14 +389,22 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x9bDe199Ac6E7E050334306D9267c93e3D6d38333
     address internal constant FTF_WRAPPED_TOKEN_VAULT = address(0x9bDe199Ac6E7E050334306D9267c93e3D6d38333);
 
-    /// @notice Returns the 41 production token instance triples on Base, in
+    // ---- tCBRS / wtCBRS — Cerebras Systems Inc. ST0x ----
+    /// https://basescan.org/address/0xAe8aD2340aa19749A0b935C7F2245823fC4F14FB
+    address internal constant CBRS_RECEIPT = address(0xAe8aD2340aa19749A0b935C7F2245823fC4F14FB);
+    /// https://basescan.org/address/0xBeB0c2011bd5520A0998b69132E9245E39Ac5D1D
+    address internal constant CBRS_RECEIPT_VAULT = address(0xBeB0c2011bd5520A0998b69132E9245E39Ac5D1D);
+    /// https://basescan.org/address/0xB457cfBF31995d3aAAa704dA9999cC0b011820ca
+    address internal constant CBRS_WRAPPED_TOKEN_VAULT = address(0xB457cfBF31995d3aAAa704dA9999cC0b011820ca);
+
+    /// @notice Returns the 42 production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
     /// that need the receipt / wrapped-vault legs or the underlying join key
     /// (cross-chain parity, per-token config checks) iterate this instead.
-    /// @return tokens The 41 production token instances on Base.
+    /// @return tokens The 42 production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](41);
+        tokens = new TokenInstance[](42);
         tokens[0] = TokenInstance("MSTR", MSTR_RECEIPT, MSTR_RECEIPT_VAULT, MSTR_WRAPPED_TOKEN_VAULT);
         tokens[1] = TokenInstance("TSLA", TSLA_RECEIPT, TSLA_RECEIPT_VAULT, TSLA_WRAPPED_TOKEN_VAULT);
         tokens[2] = TokenInstance("COIN", COIN_RECEIPT, COIN_RECEIPT_VAULT, COIN_WRAPPED_TOKEN_VAULT);
@@ -448,6 +456,10 @@ library LibTokenInvariants {
         tokens[38] = TokenInstance("BABA", BABA_RECEIPT, BABA_RECEIPT_VAULT, BABA_WRAPPED_TOKEN_VAULT);
         tokens[39] = TokenInstance("TQQQ", TQQQ_RECEIPT, TQQQ_RECEIPT_VAULT, TQQQ_WRAPPED_TOKEN_VAULT);
         tokens[40] = TokenInstance("FTF", FTF_RECEIPT, FTF_RECEIPT_VAULT, FTF_WRAPPED_TOKEN_VAULT);
+        // Deployed on Base 2026-08-14 by `sft-ops create-sft`. Missing on
+        // Ethereum and HyperEVM until `20260807-deploy-missing-tokens` is
+        // dispatched against each — cross-chain parity is red until then.
+        tokens[41] = TokenInstance("CBRS", CBRS_RECEIPT, CBRS_RECEIPT_VAULT, CBRS_WRAPPED_TOKEN_VAULT);
     }
 
     /// @notice Returns the production token instance triples on Ethereum
