@@ -293,6 +293,94 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0xF4f8c66085910d583c01f3b4e44Bf731D4e2c565
     address internal constant RKLB_WRAPPED_TOKEN_VAULT = address(0xF4f8c66085910d583c01f3b4e44Bf731D4e2c565);
 
+    // ---- tGOOGL / wtGOOGL — Alphabet Inc. Class A ST0x ----
+    /// https://basescan.org/address/0x85ac79F639C692B2f1290d0994c79eEffF350D00
+    address internal constant GOOGL_RECEIPT = address(0x85ac79F639C692B2f1290d0994c79eEffF350D00);
+    /// https://basescan.org/address/0x15De944Cd020A18C8E5626fB0F81b36e73956199
+    address internal constant GOOGL_RECEIPT_VAULT = address(0x15De944Cd020A18C8E5626fB0F81b36e73956199);
+    /// https://basescan.org/address/0x6a2357Df4975C667B171bE53dA6FFe6deBf7030c
+    address internal constant GOOGL_WRAPPED_TOKEN_VAULT = address(0x6a2357Df4975C667B171bE53dA6FFe6deBf7030c);
+
+    // ---- tAAPL / wtAAPL — Apple Inc. ST0x ----
+    /// https://basescan.org/address/0x3156EB08c9dd870979f1475C5CFe681b8f6A3b53
+    address internal constant AAPL_RECEIPT = address(0x3156EB08c9dd870979f1475C5CFe681b8f6A3b53);
+    /// https://basescan.org/address/0xD36056a4a03707D3743fCE4e9C08852820ADcfdC
+    address internal constant AAPL_RECEIPT_VAULT = address(0xD36056a4a03707D3743fCE4e9C08852820ADcfdC);
+    /// https://basescan.org/address/0x1020EC8Aa3f709a1f3D8705cdBa89b950451bd88
+    address internal constant AAPL_WRAPPED_TOKEN_VAULT = address(0x1020EC8Aa3f709a1f3D8705cdBa89b950451bd88);
+
+    // ---- tMSFT / wtMSFT — Microsoft Corporation ST0x ----
+    /// https://basescan.org/address/0x6862e34dE9AFE099ca19934fC768A8eB9a906b90
+    address internal constant MSFT_RECEIPT = address(0x6862e34dE9AFE099ca19934fC768A8eB9a906b90);
+    /// https://basescan.org/address/0x6a071E25fa25653cF15d1ee320eA3df771926Aa0
+    address internal constant MSFT_RECEIPT_VAULT = address(0x6a071E25fa25653cF15d1ee320eA3df771926Aa0);
+    /// https://basescan.org/address/0x515A3Ac2a6aB590bDFa970caFFFd7fAdC680886E
+    address internal constant MSFT_WRAPPED_TOKEN_VAULT = address(0x515A3Ac2a6aB590bDFa970caFFFd7fAdC680886E);
+
+    // ---- tLLY / wtLLY — Eli Lilly and Company ST0x ----
+    /// https://basescan.org/address/0x7b345A02d56f989420EbEd4df647D1C673608F3C
+    address internal constant LLY_RECEIPT = address(0x7b345A02d56f989420EbEd4df647D1C673608F3C);
+    /// https://basescan.org/address/0xA41Ce7B8255A01062ED1AF23ea5E8137B9300554
+    address internal constant LLY_RECEIPT_VAULT = address(0xA41Ce7B8255A01062ED1AF23ea5E8137B9300554);
+    /// https://basescan.org/address/0x892CcF5E75f4a7Ee6402971a1587F65BEE4d52bd
+    address internal constant LLY_WRAPPED_TOKEN_VAULT = address(0x892CcF5E75f4a7Ee6402971a1587F65BEE4d52bd);
+
+    // ---- tPTY / wtPTY — PIMCO Corporate & Income Opportunity Fund ST0x ----
+    /// https://basescan.org/address/0x019Ea210a98f5E74F03376712BDAab3801079b7F
+    address internal constant PTY_RECEIPT = address(0x019Ea210a98f5E74F03376712BDAab3801079b7F);
+    /// https://basescan.org/address/0xb6021810971714cD48572af527307Acc324ecF61
+    address internal constant PTY_RECEIPT_VAULT = address(0xb6021810971714cD48572af527307Acc324ecF61);
+    /// https://basescan.org/address/0xb6D779A79E7493ed821a65D52bA419F0F6D5dD0a
+    address internal constant PTY_WRAPPED_TOKEN_VAULT = address(0xb6D779A79E7493ed821a65D52bA419F0F6D5dD0a);
+
+    // ---- tINTC / wtINTC — Intel Corporation ST0x ----
+    /// https://basescan.org/address/0xAFEd850e458d331EF2A13569547258A84e2e42D2
+    address internal constant INTC_RECEIPT = address(0xAFEd850e458d331EF2A13569547258A84e2e42D2);
+    /// https://basescan.org/address/0xBDC237Aa3B67cC3088adAf117913F30Bf08157a3
+    address internal constant INTC_RECEIPT_VAULT = address(0xBDC237Aa3B67cC3088adAf117913F30Bf08157a3);
+    /// https://basescan.org/address/0xf567652fC2d7Db8D5469fD06AEbe8C9c4372d722
+    address internal constant INTC_WRAPPED_TOKEN_VAULT = address(0xf567652fC2d7Db8D5469fD06AEbe8C9c4372d722);
+
+    // ---- tHOOD / wtHOOD — Robinhood Markets, Inc. ST0x ----
+    /// https://basescan.org/address/0x942639370E1c095ECCe2BdffebFB295d0B3e384e
+    address internal constant HOOD_RECEIPT = address(0x942639370E1c095ECCe2BdffebFB295d0B3e384e);
+    /// https://basescan.org/address/0x5cEfd886dD05001c2Fc32c313E05360D07f37d8f
+    address internal constant HOOD_RECEIPT_VAULT = address(0x5cEfd886dD05001c2Fc32c313E05360D07f37d8f);
+    /// https://basescan.org/address/0xd50f561322fe3235DBc9Ec8b3aB7693383d8A425
+    address internal constant HOOD_WRAPPED_TOKEN_VAULT = address(0xd50f561322fe3235DBc9Ec8b3aB7693383d8A425);
+
+    // ---- tORCL / wtORCL — Oracle Corporation ST0x ----
+    /// https://basescan.org/address/0xBaf83f5D1dbC8CF4D5F5BCb93EfE23d0E333223f
+    address internal constant ORCL_RECEIPT = address(0xBaf83f5D1dbC8CF4D5F5BCb93EfE23d0E333223f);
+    /// https://basescan.org/address/0x57573351f3fdD20a57dEE4a7f836de1cE9900d4B
+    address internal constant ORCL_RECEIPT_VAULT = address(0x57573351f3fdD20a57dEE4a7f836de1cE9900d4B);
+    /// https://basescan.org/address/0xCB9571aB96aA47374eF30D8E9ACCC1cD51064726
+    address internal constant ORCL_WRAPPED_TOKEN_VAULT = address(0xCB9571aB96aA47374eF30D8E9ACCC1cD51064726);
+
+    // ---- tSMCI / wtSMCI — Super Micro Computer, Inc. ST0x ----
+    /// https://basescan.org/address/0xC23aC719988d2ABeffEE8AC75C790E328c44Fe79
+    address internal constant SMCI_RECEIPT = address(0xC23aC719988d2ABeffEE8AC75C790E328c44Fe79);
+    /// https://basescan.org/address/0x8518931497d2A8f07Bc607D1D3295b398D065A65
+    address internal constant SMCI_RECEIPT_VAULT = address(0x8518931497d2A8f07Bc607D1D3295b398D065A65);
+    /// https://basescan.org/address/0xA759FAbbD866e6DB8bF76613C35825dC2e380bf0
+    address internal constant SMCI_WRAPPED_TOKEN_VAULT = address(0xA759FAbbD866e6DB8bF76613C35825dC2e380bf0);
+
+    // ---- tBABA / wtBABA — Alibaba Group Holding Limited ADR ST0x ----
+    /// https://basescan.org/address/0x635983387673B0Da01f70a94985c6F88BfAf78c2
+    address internal constant BABA_RECEIPT = address(0x635983387673B0Da01f70a94985c6F88BfAf78c2);
+    /// https://basescan.org/address/0x6B8fa7288dBEc7C1c62BfE59Cbd7Bec7EBF846C5
+    address internal constant BABA_RECEIPT_VAULT = address(0x6B8fa7288dBEc7C1c62BfE59Cbd7Bec7EBF846C5);
+    /// https://basescan.org/address/0x7e5cc7eAe0455A07Ab4abf354E0f5657BA2888BD
+    address internal constant BABA_WRAPPED_TOKEN_VAULT = address(0x7e5cc7eAe0455A07Ab4abf354E0f5657BA2888BD);
+
+    // ---- tTQQQ / wtTQQQ — ProShares UltraPro QQQ ST0x ----
+    /// https://basescan.org/address/0x81eFD642eBb942D725C4B035e7C3Cad154a37FAF
+    address internal constant TQQQ_RECEIPT = address(0x81eFD642eBb942D725C4B035e7C3Cad154a37FAF);
+    /// https://basescan.org/address/0xcA1A378F9a250131A2fE51c10f120FeF7EDCa56E
+    address internal constant TQQQ_RECEIPT_VAULT = address(0xcA1A378F9a250131A2fE51c10f120FeF7EDCa56E);
+    /// https://basescan.org/address/0x295e9eCAb319006900a53b3f8D6Fcb0C131F4ada
+    address internal constant TQQQ_WRAPPED_TOKEN_VAULT = address(0x295e9eCAb319006900a53b3f8D6Fcb0C131F4ada);
+
     // ---- tFTF / wtFTF — Franklin Limited Duration Income Trust ST0x ----
     /// https://basescan.org/address/0x4CA18bF0DcCCBbD80CeF238f4c9399eFBDE3927b
     address internal constant FTF_RECEIPT = address(0x4CA18bF0DcCCBbD80CeF238f4c9399eFBDE3927b);
@@ -301,14 +389,14 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x9bDe199Ac6E7E050334306D9267c93e3D6d38333
     address internal constant FTF_WRAPPED_TOKEN_VAULT = address(0x9bDe199Ac6E7E050334306D9267c93e3D6d38333);
 
-    /// @notice Returns the 30 production token instance triples on Base, in
+    /// @notice Returns the 41 production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
     /// that need the receipt / wrapped-vault legs or the underlying join key
     /// (cross-chain parity, per-token config checks) iterate this instead.
-    /// @return tokens The 30 production token instances on Base.
+    /// @return tokens The 41 production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](30);
+        tokens = new TokenInstance[](41);
         tokens[0] = TokenInstance("MSTR", MSTR_RECEIPT, MSTR_RECEIPT_VAULT, MSTR_WRAPPED_TOKEN_VAULT);
         tokens[1] = TokenInstance("TSLA", TSLA_RECEIPT, TSLA_RECEIPT_VAULT, TSLA_WRAPPED_TOKEN_VAULT);
         tokens[2] = TokenInstance("COIN", COIN_RECEIPT, COIN_RECEIPT_VAULT, COIN_WRAPPED_TOKEN_VAULT);
@@ -338,11 +426,28 @@ library LibTokenInvariants {
         tokens[26] = TokenInstance("LRCX", LRCX_RECEIPT, LRCX_RECEIPT_VAULT, LRCX_WRAPPED_TOKEN_VAULT);
         tokens[27] = TokenInstance("TTWO", TTWO_RECEIPT, TTWO_RECEIPT_VAULT, TTWO_WRAPPED_TOKEN_VAULT);
         tokens[28] = TokenInstance("RKLB", RKLB_RECEIPT, RKLB_RECEIPT_VAULT, RKLB_WRAPPED_TOKEN_VAULT);
-        // Deployed on Base 2026-08-14 by `sft-ops create-sft`, wired onto the
-        // shared V4 authoriser and handed to the Base token-owner Safe.
-        // Missing on Ethereum and HyperEVM until `20260807-deploy-missing-tokens`
-        // is dispatched against each — cross-chain parity is red until then.
-        tokens[29] = TokenInstance("FTF", FTF_RECEIPT, FTF_RECEIPT_VAULT, FTF_WRAPPED_TOKEN_VAULT);
+        // Deployed on Base across 2026-07-27, 2026-08-05 and 2026-08-14, each
+        // wired onto the shared V4 authoriser and handed to the Base
+        // token-owner Safe. All twelve are missing on Ethereum and HyperEVM
+        // until `20260807-deploy-missing-tokens` is dispatched against each —
+        // cross-chain parity is red until then.
+        //
+        // tMETA and tPLTR are deliberately absent: META is deployed but never
+        // launched (absent from the registry, the logos and the Turnkey token
+        // set), and PLTR's `owner()` is still the deployer EOA rather than the
+        // Safe, so pinning it would break `assertUniformOwnership`.
+        tokens[29] = TokenInstance("GOOGL", GOOGL_RECEIPT, GOOGL_RECEIPT_VAULT, GOOGL_WRAPPED_TOKEN_VAULT);
+        tokens[30] = TokenInstance("AAPL", AAPL_RECEIPT, AAPL_RECEIPT_VAULT, AAPL_WRAPPED_TOKEN_VAULT);
+        tokens[31] = TokenInstance("MSFT", MSFT_RECEIPT, MSFT_RECEIPT_VAULT, MSFT_WRAPPED_TOKEN_VAULT);
+        tokens[32] = TokenInstance("LLY", LLY_RECEIPT, LLY_RECEIPT_VAULT, LLY_WRAPPED_TOKEN_VAULT);
+        tokens[33] = TokenInstance("PTY", PTY_RECEIPT, PTY_RECEIPT_VAULT, PTY_WRAPPED_TOKEN_VAULT);
+        tokens[34] = TokenInstance("INTC", INTC_RECEIPT, INTC_RECEIPT_VAULT, INTC_WRAPPED_TOKEN_VAULT);
+        tokens[35] = TokenInstance("HOOD", HOOD_RECEIPT, HOOD_RECEIPT_VAULT, HOOD_WRAPPED_TOKEN_VAULT);
+        tokens[36] = TokenInstance("ORCL", ORCL_RECEIPT, ORCL_RECEIPT_VAULT, ORCL_WRAPPED_TOKEN_VAULT);
+        tokens[37] = TokenInstance("SMCI", SMCI_RECEIPT, SMCI_RECEIPT_VAULT, SMCI_WRAPPED_TOKEN_VAULT);
+        tokens[38] = TokenInstance("BABA", BABA_RECEIPT, BABA_RECEIPT_VAULT, BABA_WRAPPED_TOKEN_VAULT);
+        tokens[39] = TokenInstance("TQQQ", TQQQ_RECEIPT, TQQQ_RECEIPT_VAULT, TQQQ_WRAPPED_TOKEN_VAULT);
+        tokens[40] = TokenInstance("FTF", FTF_RECEIPT, FTF_RECEIPT_VAULT, FTF_WRAPPED_TOKEN_VAULT);
     }
 
     /// @notice Returns the production token instance triples on Ethereum
