@@ -42,10 +42,10 @@ struct TokenConfig {
 /// means carrying that space forward; the parity pin would flag it as a
 /// divergence otherwise.
 library LibProdTokenConfig {
-    /// @notice The 28 production token deploy configs, Base table order.
+    /// @notice The 30 production token deploy configs, Base table order.
     /// @return configs The name/symbol table.
     function productionTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
-        configs = new TokenConfig[](29);
+        configs = new TokenConfig[](30);
         configs[0] = TokenConfig("MSTR", "MicroStrategy Incorporated ST0x", "tMSTR");
         configs[1] = TokenConfig("TSLA", "Tesla Inc ST0x", "tTSLA");
         configs[2] = TokenConfig("COIN", "Coinbase Global Inc ST0x", "tCOIN");
@@ -76,5 +76,6 @@ library LibProdTokenConfig {
         configs[26] = TokenConfig("LRCX", "Lam Research Corporation ST0x", "tLRCX");
         configs[27] = TokenConfig("TTWO", "Take-Two Interactive Software, Inc. ST0x", "tTTWO");
         configs[28] = TokenConfig("RKLB", "Rocket Lab USA Inc ST0x", "tRKLB");
+        configs[29] = TokenConfig("FTF", "Franklin Limited Duration Income Trust ST0x", "tFTF");
     }
 }
