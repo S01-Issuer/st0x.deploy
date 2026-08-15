@@ -256,7 +256,7 @@ rasterized balances on subsequent reads — a silent semantic change. On bump:
    the reference-implementation fuzz will diverge if Rain Float's rounding path
    changes.
 
-Both are soldeer packages pinned at an exact semver version in `foundry.toml`'s
+Both are Soldeer packages pinned at an exact semver version in `foundry.toml`'s
 `[dependencies]`, so `forge update` — the git-submodule command — does nothing
 here. `forge soldeer update` is what moves them, and because the version is part
 of the import prefix, a bump also changes every
