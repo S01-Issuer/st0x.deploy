@@ -151,11 +151,12 @@ contract LibTimelockInvariantsTest is Test {
     /// which is exactly why the invariant pins it.
     function testAssertRejectsEveryMissingRole() external {
         address timelock = deployPinnedTimelock();
-        bytes32[3] memory safeRoles = [
-            LibTimelockInvariants.TIMELOCK_PROPOSER_ROLE,
-            LibTimelockInvariants.TIMELOCK_CANCELLER_ROLE,
-            LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE
-        ];
+        // EXECUTOR is not among them: execution is permissionless, so the
+        // Safe never holds that role and revoking it from the Safe is a
+        // no-op. The executor requirement is pinned by
+        // `testAssertRejectsClosedExecutorRole` against the zero address.
+        bytes32[2] memory safeRoles =
+            [LibTimelockInvariants.TIMELOCK_PROPOSER_ROLE, LibTimelockInvariants.TIMELOCK_CANCELLER_ROLE];
         for (uint256 i = 0; i < safeRoles.length; i++) {
             vm.prank(timelock);
             IAccessControl(timelock).revokeRole(safeRoles[i], SAFE);
@@ -176,20 +177,22 @@ contract LibTimelockInvariantsTest is Test {
         harness.callAssertTimelockState(timelock, SAFE);
     }
 
-    /// @notice A zero-address grant on ANY lifecycle role — OZ's
+    /// @notice A zero-address grant on any role that must stay CLOSED — OZ's
     /// `onlyRoleOrOpenRole` treats `hasRole(role, address(0))` as "open to
-    /// everyone" — is rejected, walked per role: proposer, canceller,
-    /// executor, and root admin each trip their own typed revert, and the
-    /// closed state passes again after each revoke. Simulated through the
-    /// timelock's own self-administration path, proving the pinned deploy
-    /// COULD drift here only via a (timelocked) governance action that this
-    /// invariant would then flag.
+    /// everyone" — is rejected, walked per role: proposer, canceller and root
+    /// admin each trip their own typed revert, and the closed state passes
+    /// again after each revoke. Simulated through the timelock's own
+    /// self-administration path, proving the pinned deploy COULD drift here
+    /// only via a (timelocked) governance action that this invariant would
+    /// then flag.
+    /// @dev EXECUTOR is deliberately excluded: execution is permissionless,
+    /// so an open executor is the REQUIRED state, pinned by
+    /// `testAssertRejectsClosedExecutorRole` below.
     function testAssertRejectsEveryOpenRole() external {
         address timelock = deployPinnedTimelock();
-        bytes32[4] memory roles = [
+        bytes32[3] memory roles = [
             LibTimelockInvariants.TIMELOCK_PROPOSER_ROLE,
             LibTimelockInvariants.TIMELOCK_CANCELLER_ROLE,
-            LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE,
             LibTimelockInvariants.TIMELOCK_DEFAULT_ADMIN_ROLE
         ];
         for (uint256 i = 0; i < roles.length; i++) {
@@ -202,6 +205,94 @@ contract LibTimelockInvariantsTest is Test {
         }
         // Every zero-grant revoked: the closed state passes again, proving
         // each rejection above was the zero-grant and nothing else.
+        harness.callAssertTimelockState(timelock, SAFE);
+    }
+
+    /// @notice Execution is permissionless END-TO-END, not just as a role
+    /// bit: a caller holding no role at all executes a matured operation and
+    /// the operation's effect lands. Schedule (Safe) → warp out the 48h
+    /// delay → execute (anon) → the scheduled self-administration grant is
+    /// live and the operation is `Done`. This is the behavioural proof of
+    /// the property the open-executor state assert pins; without it the
+    /// property rests only on OZ's `onlyRoleOrOpenRole` semantics being what
+    /// the assert assumes.
+    function testAnonExecutesMaturedOperation() external {
+        TimelockController timelock = TimelockController(payable(deployPinnedTimelock()));
+        address anon = address(0xA904);
+        address newCanceller = address(0xCACE);
+
+        bytes memory data =
+            abi.encodeCall(IAccessControl.grantRole, (LibTimelockInvariants.TIMELOCK_CANCELLER_ROLE, newCanceller));
+        bytes32 salt = keccak256("anon-executes-matured-operation");
+        bytes32 id = timelock.hashOperation(address(timelock), 0, data, bytes32(0), salt);
+
+        vm.prank(SAFE);
+        timelock.schedule(address(timelock), 0, data, bytes32(0), salt, LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        assertTrue(timelock.isOperationPending(id), "operation must be pending after schedule");
+        assertFalse(timelock.isOperationReady(id), "operation must not be executable inside the delay");
+
+        vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        vm.prank(anon);
+        timelock.execute(address(timelock), 0, data, bytes32(0), salt);
+
+        assertTrue(timelock.isOperationDone(id), "anon execution must complete the operation");
+        assertTrue(
+            IAccessControl(address(timelock)).hasRole(LibTimelockInvariants.TIMELOCK_CANCELLER_ROLE, newCanceller),
+            "the executed operation's effect must land"
+        );
+    }
+
+    /// @notice The asymmetry is the design: execution is open, scheduling
+    /// and vetoing stay privileged. The same roleless anon that can execute
+    /// can neither schedule nor cancel — each attempt reverts with OZ's
+    /// missing-role error naming the exact role gate it hit.
+    function testAnonCannotScheduleOrCancel() external {
+        TimelockController timelock = TimelockController(payable(deployPinnedTimelock()));
+        address anon = address(0xA904);
+        bytes memory data =
+            abi.encodeCall(IAccessControl.grantRole, (LibTimelockInvariants.TIMELOCK_CANCELLER_ROLE, anon));
+        bytes32 salt = keccak256("anon-cannot-schedule-or-cancel");
+
+        vm.prank(anon);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                anon,
+                LibTimelockInvariants.TIMELOCK_PROPOSER_ROLE
+            )
+        );
+        timelock.schedule(address(timelock), 0, data, bytes32(0), salt, LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+
+        vm.prank(SAFE);
+        timelock.schedule(address(timelock), 0, data, bytes32(0), salt, LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        bytes32 id = timelock.hashOperation(address(timelock), 0, data, bytes32(0), salt);
+
+        vm.prank(anon);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                anon,
+                LibTimelockInvariants.TIMELOCK_CANCELLER_ROLE
+            )
+        );
+        timelock.cancel(id);
+        assertTrue(timelock.isOperationPending(id), "the anon cancel attempt must not have removed the operation");
+    }
+
+    /// @notice A CLOSED executor role is rejected. Execution is deliberately
+    /// permissionless, so revoking the open grant would put the operator back
+    /// in the path as a censor of matured operations — the exact property
+    /// Clearstar asked us to remove. Asserted by revoking `EXECUTOR_ROLE`
+    /// from the zero address on an otherwise-pinned timelock.
+    function testAssertRejectsClosedExecutorRole() external {
+        address timelock = deployPinnedTimelock();
+        vm.prank(timelock);
+        IAccessControl(timelock).revokeRole(LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE, address(0));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TimelockMissingRole.selector, timelock, LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE, address(0)
+            )
+        );
         harness.callAssertTimelockState(timelock, SAFE);
     }
 
@@ -240,30 +331,27 @@ contract LibTimelockInvariantsTest is Test {
         harness.callTimelockForChainId(31337);
     }
 
-    /// @notice The hydration contract for the per-chain pins: while a pin is
-    /// a placeholder it must be zero; once hydrated it must equal the
-    /// derived Zoltu address for that chain's Safe. Both directions are
-    /// asserted here so the post-deploy pin PR turns this from the
-    /// placeholder branch to the equality branch with no test change.
-    function testPinsMatchDerivedAddressesOnceHydrated() external pure {
-        address basePin = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
-        if (basePin != address(0)) {
-            assertEq(basePin, LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE));
-        }
-        address ethereumPin = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ETHEREUM;
-        if (ethereumPin != address(0)) {
-            assertEq(
-                ethereumPin,
-                LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM)
-            );
-        }
-        address hyperevmPin = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_HYPEREVM;
-        if (hyperevmPin != address(0)) {
-            assertEq(
-                hyperevmPin,
-                LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM)
-            );
-        }
+    /// @notice Every per-chain pin equals the Zoltu address derived from the
+    /// frozen creation code and that chain's Safe — UNCONDITIONALLY. The
+    /// not-zero guards that let this test ride through the hydration window
+    /// are retired with it: all three deploys have executed and the pins are
+    /// deploy history, so a zeroed or drifted pin must fail loudly here
+    /// rather than silently skip. A future chain's placeholder phase gets
+    /// its own guarded branch when its arm is added; these three never go
+    /// back.
+    function testPinsMatchDerivedAddresses() external pure {
+        assertEq(
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK,
+            LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE)
+        );
+        assertEq(
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ETHEREUM,
+            LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM)
+        );
+        assertEq(
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_HYPEREVM,
+            LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM)
+        );
     }
 
     /// @notice Every chain with a pinned token-owner Safe resolves through

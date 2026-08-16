@@ -68,9 +68,12 @@ error TimelockUnexpectedRole(address timelock, bytes32 role, address account);
 /// only then execute.
 ///
 /// Role model (pinned by `assertTimelockState`):
-/// - The chain's token-owner Safe holds `PROPOSER_ROLE`, `CANCELLER_ROLE`
-///   and `EXECUTOR_ROLE` — it schedules, can cancel during the window, and
-///   executes once the delay elapses.
+/// - The chain's token-owner Safe holds `PROPOSER_ROLE` and
+///   `CANCELLER_ROLE` — it schedules, and can veto during the window.
+/// - `EXECUTOR_ROLE` is held by `address(0)`, which OZ reads as "open to
+///   everyone": once the delay has run ANYONE may execute. The operator
+///   cannot censor a matured operation, and the Safe executes as a member of
+///   the public rather than by privilege.
 /// - The timelock holds `DEFAULT_ADMIN_ROLE` on itself (OZ
 ///   self-administration): role changes — e.g. provisioning the dedicated
 ///   canceller once `TIMELOCK_CANCELLER` is decided — must themselves go
@@ -83,9 +86,10 @@ error TimelockUnexpectedRole(address timelock, bytes32 role, address account);
 /// @dev The timelock is deployed via the Zoltu deterministic factory, so its
 /// address is a pure function of its creation code — computable in-source by
 /// `expectedTimelockAddress`. The per-chain ADDRESS pins below are the
-/// audit-trail constants scripts and invariants target; each is hydrated by
-/// a post-deploy pin PR and must equal the derived address (a structure test
-/// pins that equality once hydrated). Constructor arguments embed the
+/// audit-trail constants scripts and invariants target; each is written
+/// with its chain arm, derived from the FROZEN creation bytecode before
+/// any deploy, and must equal the derivation unconditionally
+/// (`testPinsMatchDerivedAddresses`). Constructor arguments embed the
 /// chain's Safe, so the timelock address is a per-chain deploy artifact —
 /// same policy, different address per chain, exactly like the Safe itself.
 library LibTimelockInvariants {
@@ -117,14 +121,14 @@ library LibTimelockInvariants {
 
     /// @notice The ST0x governance timelock on **Base**. Equals
     /// `expectedTimelockAddress(STOX_TOKEN_OWNER_SAFE)`, which
-    /// `testPinsMatchDerivedAddressesOnceHydrated` asserts.
-    /// https://basescan.org/address/0xdb4b2187a685310e6b64170c97b80e90dd4a9b71
-    address internal constant STOX_GOVERNANCE_TIMELOCK = address(0xdb4b2187A685310E6b64170c97B80E90DD4a9B71);
+    /// `testPinsMatchDerivedAddresses` asserts.
+    /// https://basescan.org/address/0x48ba1371a78e6cc54157c63721756ab444510db3
+    address internal constant STOX_GOVERNANCE_TIMELOCK = address(0x48ba1371A78E6cC54157c63721756ab444510DB3);
 
     /// @notice The ST0x governance timelock on **Ethereum mainnet**. Equals
     /// `expectedTimelockAddress(STOX_TOKEN_OWNER_SAFE_ETHEREUM)`.
-    /// https://etherscan.io/address/0x290961ef70a86ab70b7201d46d29f2f357416b49
-    address internal constant STOX_GOVERNANCE_TIMELOCK_ETHEREUM = address(0x290961EF70A86aB70B7201D46d29f2f357416b49);
+    /// https://etherscan.io/address/0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b
+    address internal constant STOX_GOVERNANCE_TIMELOCK_ETHEREUM = address(0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B);
 
     /// @notice The ST0x governance timelock on **HyperEVM**. HyperEVM
     /// carries 29 live production tokens, so it is governed on exactly the
@@ -137,8 +141,8 @@ library LibTimelockInvariants {
     /// init code, same CREATE2 address); they stay separate constants because
     /// the DEPLOY is per-chain and either could diverge if a chain's Safe ever
     /// moves.
-    /// https://hyperevmscan.io/address/0x290961ef70a86ab70b7201d46d29f2f357416b49
-    address internal constant STOX_GOVERNANCE_TIMELOCK_HYPEREVM = address(0x290961EF70A86aB70B7201D46d29f2f357416b49);
+    /// https://hyperevmscan.io/address/0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b
+    address internal constant STOX_GOVERNANCE_TIMELOCK_HYPEREVM = address(0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B);
 
     /// @notice **PLACEHOLDER** for a dedicated canceller principal (a
     /// separate key or Safe that can veto a scheduled operation during the
@@ -176,9 +180,13 @@ library LibTimelockInvariants {
         0xb6234401d5b271d66957815831adcde1e66f80a4c7a9d01881c7eecb70e96993;
 
     /// @notice The ST0x governance timelock address for the active chain,
-    /// selected by chain id — `address(0)` until that chain's timelock is
-    /// deployed and the pin hydrated. Reverts for any chain without a pin
-    /// rather than falling back to another chain's timelock.
+    /// selected by chain id. Zero is never a legitimate reading: every pin
+    /// is a pure function of the frozen creation bytecode and its chain's
+    /// Safe pin, written with the chain arm before any deploy
+    /// (`testPinsMatchDerivedAddresses` pins the equality), so consumers
+    /// refuse a zero pin as a reverted or never-hydrated arm. Reverts for
+    /// any chain without an arm rather than falling back to another
+    /// chain's timelock.
     /// @param chainId The active chain id (`block.chainid`).
     /// @return timelock The chain's governance timelock pin.
     function timelockForChainId(uint256 chainId) internal pure returns (address timelock) {
@@ -196,17 +204,24 @@ library LibTimelockInvariants {
 
     /// @notice The exact creation code the governance timelock deploy
     /// broadcasts: the FROZEN `TIMELOCK_CREATION_CODE` with the pinned
-    /// constructor arguments appended — `TIMELOCK_MIN_DELAY`, the supplied Safe as sole
-    /// proposer (which also makes it canceller) and sole executor, and
-    /// `admin = address(0)` so the timelock is self-administered from birth
-    /// and the deploy key is never granted anything.
-    /// @param proposerExecutorSafe The chain's token-owner Safe.
+    /// constructor arguments appended — `TIMELOCK_MIN_DELAY`, the supplied
+    /// Safe as sole proposer (which also makes it canceller), `address(0)` as
+    /// executor so EXECUTION IS PERMISSIONLESS, and `admin = address(0)` so
+    /// the timelock is self-administered from birth and the deploy key is
+    /// never granted anything.
+    ///
+    /// OZ's `onlyRoleOrOpenRole` treats a zero-address role holder as "open
+    /// to everyone", so granting `EXECUTOR_ROLE` to `address(0)` at
+    /// construction means anyone may execute a matured operation. That is
+    /// deliberate: it removes the operator as a censor once the delay has
+    /// run. `cancel()` has no open-role path, so vetoing stays privileged.
+    /// @param proposerSafe The chain's token-owner Safe.
     /// @return The creation code including constructor arguments.
-    function timelockInitCode(address proposerExecutorSafe) internal pure returns (bytes memory) {
+    function timelockInitCode(address proposerSafe) internal pure returns (bytes memory) {
         address[] memory proposers = new address[](1);
-        proposers[0] = proposerExecutorSafe;
+        proposers[0] = proposerSafe;
         address[] memory executors = new address[](1);
-        executors[0] = proposerExecutorSafe;
+        executors[0] = address(0);
         return
             abi.encodePacked(TIMELOCK_CREATION_CODE, abi.encode(TIMELOCK_MIN_DELAY, proposers, executors, address(0)));
     }
@@ -217,10 +232,10 @@ library LibTimelockInvariants {
     /// of the creation code. The deploy script asserts the landed address
     /// equals this; once the per-chain pin is hydrated a structure test
     /// pins `pin == expectedTimelockAddress(chain's Safe)`.
-    /// @param proposerExecutorSafe The chain's token-owner Safe.
+    /// @param proposerSafe The chain's token-owner Safe.
     /// @return The deterministic timelock address for that Safe.
-    function expectedTimelockAddress(address proposerExecutorSafe) internal pure returns (address) {
-        bytes32 initCodeHash = keccak256(timelockInitCode(proposerExecutorSafe));
+    function expectedTimelockAddress(address proposerSafe) internal pure returns (address) {
+        bytes32 initCodeHash = keccak256(timelockInitCode(proposerSafe));
         // forge-lint: disable-next-line(unsafe-typecast)
         return address(
             uint160(
@@ -243,9 +258,9 @@ library LibTimelockInvariants {
     /// documents for the authoriser's grant map. Once `TIMELOCK_CANCELLER`
     /// is hydrated the dedicated canceller's grant is asserted too.
     /// @param timelock The governance timelock to validate.
-    /// @param proposerExecutorSafe The chain's token-owner Safe expected to
+    /// @param proposerSafe The chain's token-owner Safe expected to
     /// hold the proposer / canceller / executor roles.
-    function assertTimelockState(address timelock, address proposerExecutorSafe) internal view {
+    function assertTimelockState(address timelock, address proposerSafe) internal view {
         if (timelock.code.length == 0) revert TimelockNotDeployed(timelock);
         bytes32 actualCodehash = timelock.codehash;
         if (actualCodehash != TIMELOCK_RUNTIME_CODEHASH) {
@@ -259,11 +274,11 @@ library LibTimelockInvariants {
 
         IAccessControl acl = IAccessControl(timelock);
 
-        // The Safe drives every stage of the operation lifecycle: schedule,
-        // cancel (until a dedicated canceller is provisioned), execute.
-        _assertHasRole(acl, timelock, TIMELOCK_PROPOSER_ROLE, proposerExecutorSafe);
-        _assertHasRole(acl, timelock, TIMELOCK_CANCELLER_ROLE, proposerExecutorSafe);
-        _assertHasRole(acl, timelock, TIMELOCK_EXECUTOR_ROLE, proposerExecutorSafe);
+        // The Safe schedules and can cancel during the window. It does NOT
+        // need to hold EXECUTOR_ROLE: execution is open (asserted below), so
+        // the Safe can execute like anyone else without holding the role.
+        _assertHasRole(acl, timelock, TIMELOCK_PROPOSER_ROLE, proposerSafe);
+        _assertHasRole(acl, timelock, TIMELOCK_CANCELLER_ROLE, proposerSafe);
 
         // Self-administration: role changes go through the delay.
         _assertHasRole(acl, timelock, TIMELOCK_DEFAULT_ADMIN_ROLE, timelock);
@@ -271,18 +286,23 @@ library LibTimelockInvariants {
         // The Safe must NOT hold root admin — that would let it re-grant
         // roles instantly, bypassing the delay the timelock exists to
         // impose.
-        if (acl.hasRole(TIMELOCK_DEFAULT_ADMIN_ROLE, proposerExecutorSafe)) {
-            revert TimelockUnexpectedRole(timelock, TIMELOCK_DEFAULT_ADMIN_ROLE, proposerExecutorSafe);
+        if (acl.hasRole(TIMELOCK_DEFAULT_ADMIN_ROLE, proposerSafe)) {
+            revert TimelockUnexpectedRole(timelock, TIMELOCK_DEFAULT_ADMIN_ROLE, proposerSafe);
         }
 
         // OZ treats a zero-address grantee as "role open to everyone".
-        // Every lifecycle role must stay closed: open-proposer or
-        // open-canceller is an obvious takeover, and open-executor would
-        // let anyone execute (acceptable in some designs, but not the
-        // pinned one — execution stays with the Safe).
+        // EXECUTION IS DELIBERATELY OPEN: once the delay has run, anyone may
+        // execute, so the operator cannot censor a matured operation. Asserted
+        // positively — a closed executor role would silently reintroduce the
+        // operator as a gatekeeper.
+        _assertHasRole(acl, timelock, TIMELOCK_EXECUTOR_ROLE, address(0));
+
+        // Every other lifecycle role must stay closed: open-proposer lets
+        // anyone schedule, open-canceller lets anyone veto (and `cancel` has
+        // no open-role path in OZ precisely so vetoing stays privileged), and
+        // open root admin is total capture.
         _assertNotOpenRole(acl, timelock, TIMELOCK_PROPOSER_ROLE);
         _assertNotOpenRole(acl, timelock, TIMELOCK_CANCELLER_ROLE);
-        _assertNotOpenRole(acl, timelock, TIMELOCK_EXECUTOR_ROLE);
         _assertNotOpenRole(acl, timelock, TIMELOCK_DEFAULT_ADMIN_ROLE);
 
         // Once the dedicated canceller is decided and its pin hydrated, it

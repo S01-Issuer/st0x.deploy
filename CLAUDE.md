@@ -151,21 +151,56 @@ Source contracts should reference addresses and codehashes through the versioned
 `src/generated/*.pointers.sol`. The pointer files are consumed only by the
 deploy libraries.
 
+## Governance
+
+Admin power over the production deployment is (post-migration) held by a
+per-chain **governance timelock** — an unmodified OZ `TimelockController` that
+owns every production receipt vault and holds the authoriser's seven `_ADMIN`
+roles, with the token-owner Safe as sole proposer/canceller/ executor and a 48h
+min delay. The Safe keeps the direct action roles
+(`DEPOSIT`/`WITHDRAW`/`CERTIFY`); only admin surfaces are delay-gated.
+Constants + invariants live in `src/lib/LibTimelockInvariants.sol`;
+`timelockForChainId(block.chainid)` is the only sanctioned way for a script to
+resolve the chain's timelock. Scripts authoring Safe bundles that touch
+`onlyOwner`/`_ADMIN` surfaces must route them through `timelock.schedule(...)` →
+(≥48h) → `timelock.execute(...)`. Full role model, rollout state, and runbook:
+`docs/TIMELOCK.md`.
+
 ## Dependencies
 
-Git submodules managed via Foundry. Key remappings in `foundry.toml`:
+Soldeer packages, not git submodules. They are declared as exact semver pins in
+`foundry.toml`'s `[dependencies]`, locked in `soldeer.lock`, and installed by
+`forge soldeer install` into `dependencies/` (`libs = ['dependencies']`, so
+there is no `lib/`). Nothing here is a gitlink and there is no `.gitmodules` —
+rainix CI enforces that with its `no-submodules` check.
 
-- `rain.vats/` → receipt vault framework
-- `rain.factory/` → clonable factory pattern (ICloneableV2)
-- `rain.deploy/` → Zoltu deterministic deployment
-- `rain.sol.codegen/` → pointer file generation
-- `openzeppelin-contracts-upgradeable/` → ERC4626, ERC20, beacon proxies
-- `rain.math.float/` → Rain Float decimal arithmetic (used by the
+Every import prefix carries the pinned version: `<package>-<version>/`. Soldeer
+generates them into `remappings.txt`, which is the live list. Key packages:
+
+- `rain-vats-0.1.6/` → receipt vault framework
+- `rain-factory-0.1.1/` → clonable factory pattern (ICloneableV2)
+- `rain-deploy-0.1.4/` → Zoltu deterministic deployment
+- `rain-sol-codegen-0.1.0/` → pointer file generation
+- `@openzeppelin-contracts-upgradeable-5.7.0/` → ERC4626, ERC20, beacon proxies
+- `rain-math-float-0.1.1/` → Rain Float decimal arithmetic (used by the
   corporate-actions rebase path for stock split multipliers)
+
+The one `remappings` entry in `foundry.toml` is unrelated to the above: it
+bridges the unversioned `@openzeppelin/contracts/` prefix that a third-party
+dependency's own source hard-codes.
+
+`remappings.txt` additionally carries two **version-bridge** lines pointing the
+old `@openzeppelin-contracts-5.6.1/` and
+`@openzeppelin-contracts-upgradeable-5.6.1/` prefixes at the 5.7.0 install.
+These exist because `rain-vats-0.1.6` still imports the 5.6.1 prefixes in its
+own source; they can be dropped once rain-vats republishes against 5.7.0. Note
+`forge soldeer install` REGENERATES `remappings.txt` from `[dependencies]` and
+will delete them — re-apply after any soldeer run, or the build breaks on
+rain-vats' transitive imports.
 
 ### Breaking dependency bumps
 
-Two submodule bumps are **breaking** for the corporate-actions stack and cannot
+Two dependency bumps are **breaking** for the corporate-actions stack and cannot
 be treated as routine dependency updates.
 
 **`openzeppelin-contracts-upgradeable` v5 (ERC20Upgradeable ERC-7201 layout).**
@@ -230,9 +265,15 @@ rasterized balances on subsequent reads — a silent semantic change. On bump:
    the reference-implementation fuzz will diverge if Rain Float's rounding path
    changes.
 
-Both dependencies are submodules pinned at a specific commit SHA; a
-`forge update` without the follow-up verification steps above is NOT safe on
-this stack.
+Both are Soldeer packages pinned at an exact semver version in `foundry.toml`'s
+`[dependencies]`, so `forge update` — the git-submodule command — does nothing
+here. `forge soldeer update` is what moves them, and because the version is part
+of the import prefix, a bump also changes every
+`@openzeppelin-contracts-upgradeable-5.7.0/` and `rain-math-float-0.1.1/` import
+across `src/`, `test/` and `script/`. Soldeer regenerates `remappings.txt`; it
+does not rewrite those imports, so they are updated by hand in the same commit.
+Bumping without the follow-up verification steps above is NOT safe on this
+stack.
 
 ## Compiler Settings
 

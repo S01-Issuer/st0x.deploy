@@ -95,10 +95,8 @@ library LibAuthoriserInvariants {
     /// constant for call-site clarity.
     address internal constant GRANTEE_TOKEN_OWNER_SAFE = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
 
-    /// @notice External service EOA granted `DEPOSIT` (block 41797262),
-    /// `WITHDRAW` (block 41797281) and `CERTIFY` (block 41797297) shortly
-    /// after the first service was provisioned. EOA, active service signer.
-    /// @dev TODO: confirm identity and rename.
+    /// @notice The original service EOA — Fireblocks-custodied — holding
+    /// `DEPOSIT`, `WITHDRAW` and `CERTIFY` on each chain's authoriser.
     /// https://basescan.org/address/0x1c66d6708914c40239d54919320b4c48cae3d1a9
     address internal constant GRANTEE_SERVICE_1C66 = 0x1c66D6708914C40239D54919320b4C48cAE3D1A9;
 

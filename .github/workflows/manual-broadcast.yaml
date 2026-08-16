@@ -33,6 +33,7 @@ on:
           - 20260619-deploy-v4-authoriser-clone
           - 20260706-deploy-tokens-ethereum
           - 20260807-deploy-missing-tokens
+          - 20260729-deploy-governance-timelock
       network:
         description: 'Network to broadcast against (default: base)'
         required: true
@@ -72,9 +73,13 @@ jobs:
     permissions:
       contents: read
     # Serialise dispatches of the same script so overlapping runs don't
-    # race on the same nonce / pre-flight state.
+    # race on the same nonce / pre-flight state. Single-chain scripts key on
+    # network too (per-chain nonces cannot collide across networks), but a
+    # MULTI-CHAIN script broadcasts on every chain regardless of the
+    # selected network, so all its dispatches must share ONE group — list
+    # each multi-chain script in the ternary below.
     concurrency:
-      group: manual-broadcast-${{ inputs.script }}-${{ inputs.network }}
+      group: manual-broadcast-${{ inputs.script }}-${{ inputs.script == '20260729-deploy-governance-timelock' && 'all-chains' || inputs.network }}
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -101,9 +106,11 @@ jobs:
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
         run: |
           # HyperEVM's RPC rejects forge's EIP-1559 fee-history estimation;
-          # type-0 transactions work on every network.
+          # type-0 transactions work on every network. Multi-chain scripts
+          # broadcast to HyperEVM inside a single run regardless of which
+          # network was dispatched, so they always take the legacy path.
           LEGACY_ARGS=()
-          if [[ "${NETWORK}" == "hyperevm" ]]; then
+          if [[ "${NETWORK}" == "hyperevm" || "${SCRIPT}" == "20260729-deploy-governance-timelock" ]]; then
             LEGACY_ARGS+=(--legacy)
           fi
           nix develop --command forge script "script/${SCRIPT}.s.sol" \
@@ -114,3 +121,71 @@ jobs:
             --slow \
             --broadcast \
             --private-key "${PRIVATE_KEY}"
+      # `forge script --verify` cannot serve a multi-chain broadcast: it
+      # resolves one explorer from `--rpc-url` and then fails to locate the
+      # contracts that landed on the other chains. Verifying from the script's
+      # own per-chain manifest instead targets each explorer correctly, and
+      # keeps working on a re-dispatch where every chain is skipped and no
+      # broadcast artifact is produced.
+      - name: Verify deployments
+        if: ${{ inputs.script == '20260729-deploy-governance-timelock' }}
+        env:
+          # Etherscan-family keys, per chain. Absent or free-tier keys simply
+          # skip that chain's Etherscan leg; Sourcify still runs.
+          CI_DEPLOY_BASE_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_BASE_ETHERSCAN_API_KEY || vars.CI_DEPLOY_BASE_ETHERSCAN_API_KEY || '' }}
+          CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY || vars.CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY || '' }}
+          CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY || vars.CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY || '' }}
+          # foundry resolves EVERY `[etherscan]` entry's env var up front, even
+          # when `--verifier sourcify` is used, and errors on any that is
+          # undefined. Declaring the rest (empty when the secret is unset) keeps
+          # config resolution from failing on a chain this deploy never touches.
+          CI_DEPLOY_ARBITRUM_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_ARBITRUM_ETHERSCAN_API_KEY || vars.CI_DEPLOY_ARBITRUM_ETHERSCAN_API_KEY || '' }}
+          CI_DEPLOY_BASE_SEPOLIA_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_BASE_SEPOLIA_ETHERSCAN_API_KEY || vars.CI_DEPLOY_BASE_SEPOLIA_ETHERSCAN_API_KEY || '' }}
+          CI_DEPLOY_FLARE_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_FLARE_ETHERSCAN_API_KEY || vars.CI_DEPLOY_FLARE_ETHERSCAN_API_KEY || '' }}
+          CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY || vars.CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY || '' }}
+          # `--guess-constructor-args` reads the creation transaction over RPC.
+          BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
+          ETHEREUM_RPC_URL: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
+          HYPEREVM_RPC_URL: ${{ secrets.RPC_URL_HYPEREVM_FORK }}
+        run: |
+          MANIFEST=out/20260729-governance-timelock-deployments.json
+          CONTRACT=dependencies/@openzeppelin-contracts-5.6.1/governance/TimelockController.sol:TimelockController
+          jq -c '.[]' "${MANIFEST}" | while read -r entry; do
+            CHAIN=$(echo "${entry}" | jq -r '.chainId')
+            NET=$(echo "${entry}" | jq -r '.network')
+            ADDR=$(echo "${entry}" | jq -r '.address')
+
+            # Sourcify: no API key, and the only verifier that covers all three
+            # chains including HyperEVM. Matches on bytecode, so it needs
+            # neither constructor args nor an RPC endpoint.
+            echo "Sourcify: verifying ${ADDR} on chain ${CHAIN}"
+            nix develop --command forge verify-contract \
+              --verifier sourcify \
+              --chain "${CHAIN}" \
+              --watch \
+              "${ADDR}" \
+              "${CONTRACT}"
+
+            # Etherscan: what actually surfaces on Basescan/Etherscan, since
+            # they do NOT ingest Sourcify. Needs a paid v2 key for any chain
+            # beyond mainnet, so run it only where a key is configured rather
+            # than failing the whole deploy on a missing or free-tier key.
+            KEY_VAR="CI_DEPLOY_$(echo "${NET}" | tr '[:lower:]' '[:upper:]')_ETHERSCAN_API_KEY"
+            if [[ -n "${!KEY_VAR:-}" ]]; then
+              echo "Etherscan: verifying ${ADDR} on ${NET}"
+              # Best-effort: a free-tier key is accepted by the config but
+              # rejected per-chain at request time, and that must not abort the
+              # loop before the remaining chains reach Sourcify. Sourcify above
+              # is the leg that gates this step's success.
+              nix develop --command forge verify-contract \
+                --chain "${NET}" \
+                --rpc-url "${NET}" \
+                --watch \
+                --guess-constructor-args \
+                "${ADDR}" \
+                "${CONTRACT}" \
+                || echo "Etherscan: verification failed for ${NET} (paid v2 plan required); Sourcify stands"
+            else
+              echo "Etherscan: no ${KEY_VAR} configured, skipping ${NET}"
+            fi
+          done

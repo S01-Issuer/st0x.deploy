@@ -4,8 +4,8 @@ pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.16.1/src/Script.sol";
 import {VmSafe} from "forge-std-1.16.1/src/Vm.sol";
-import {LibCodeGen} from "rain-sol-codegen-0.1.0/src/lib/LibCodeGen.sol";
-import {LibFs} from "rain-sol-codegen-0.1.0/src/lib/LibFs.sol";
+import {LibCodeGen} from "rain-sol-codegen-0.1.3/src/lib/LibCodeGen.sol";
+import {LibFs} from "rain-sol-codegen-0.1.3/src/lib/LibFs.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
@@ -51,17 +51,6 @@ contract BuildPointers is Script {
         return tag;
     }
 
-    function addressConstantString(address addr) internal pure returns (string memory) {
-        return string.concat(
-            "\n",
-            "/// @dev The deterministic deploy address of the contract when deployed via\n",
-            "/// the Zoltu factory.\n",
-            "address constant DEPLOYED_ADDRESS = address(",
-            vm.toString(addr),
-            ");\n"
-        );
-    }
-
     /// @notice Deploys a contract via the Zoltu factory and generates its
     /// pointer file containing `DEPLOYED_ADDRESS`, `CREATION_CODE`, and
     /// `RUNTIME_CODE` constants.
@@ -81,7 +70,12 @@ contract BuildPointers is Script {
             deployed,
             string.concat(deployTag(), "/", name),
             string.concat(
-                addressConstantString(deployed),
+                LibCodeGen.addressConstantString(
+                    vm,
+                    "/// @dev The deterministic deploy address of the contract when deployed via\n/// the Zoltu factory.",
+                    "DEPLOYED_ADDRESS",
+                    deployed
+                ),
                 LibCodeGen.bytesConstantString(
                     vm, "/// @dev The creation bytecode of the contract.", "CREATION_CODE", creationCode
                 ),
