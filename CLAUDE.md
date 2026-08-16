@@ -193,10 +193,11 @@ dependency's own source hard-codes.
 old `@openzeppelin-contracts-5.6.1/` and
 `@openzeppelin-contracts-upgradeable-5.6.1/` prefixes at the 5.7.0 install.
 These exist because `rain-vats-0.1.6` still imports the 5.6.1 prefixes in its
-own source; they can be dropped once rain-vats republishes against 5.7.0. Note
-`forge soldeer install` REGENERATES `remappings.txt` from `[dependencies]` and
-will delete them — re-apply after any soldeer run, or the build breaks on
-rain-vats' transitive imports.
+own source; they can be dropped once rain-vats republishes against 5.7.0.
+`forge soldeer install` rewrites `remappings.txt` ("Updated remappings") but was
+observed to PRESERVE these hand-added lines rather than drop them, so a soldeer
+run does not by itself break rain-vats' transitive imports. Re-check that if
+soldeer's remapping-merge behaviour ever changes: losing them breaks the build.
 
 ### Breaking dependency bumps
 
