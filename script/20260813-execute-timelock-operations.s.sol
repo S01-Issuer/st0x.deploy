@@ -23,11 +23,12 @@ error ExecuteTimelockNotPinned(uint256 chainId);
 /// @param done Whether the timelock reports it done.
 error OperationNotExecutable(bytes32 id, bool pending, bool ready, bool done);
 
-/// @notice Execution is not open on this timelock, so the CI deploy key —
-/// which holds no roles — cannot execute. Surfaced by name because the whole
-/// point of this script is that it needs no privilege.
+/// @notice The key this script is broadcasting from holds `EXECUTOR_ROLE`, so
+/// a successful execution would prove nothing about permissionlessness — the
+/// whole point of this script is that it executes WITHOUT privilege.
 /// @param timelock The timelock inspected.
-error ExecutionNotPermissionless(address timelock);
+/// @param executor The broadcasting key that unexpectedly holds the role.
+error ExecutorHoldsRole(address timelock, address executor);
 
 /// @title ExecuteTimelockOperations
 /// @notice **PENDING.** Executes a matured timelock operation from the CI
@@ -58,9 +59,14 @@ error ExecutionNotPermissionless(address timelock);
 /// the executor honest: it can only ever run something whose full calldata is
 /// committed in this repo and therefore reviewable.
 ///
-/// @dev Pre-flight asserts the timelock's pinned configuration AND that
-/// execution is open, so a timelock whose executor role had been closed
-/// fails by name rather than as an opaque `AccessControl` revert.
+/// @dev Pre-flight asserts the timelock's pinned configuration —
+/// `LibTimelockInvariants.assertTimelockState` asserts the open executor role
+/// positively and fails by name (`TimelockMissingRole`) on a timelock whose
+/// executor role had been closed, so this script does not restate that check.
+/// It asserts the one property the shared invariant cannot see: that the
+/// broadcasting key itself holds no `EXECUTOR_ROLE`. That check runs BEFORE
+/// the broadcast, because reporting it afterwards would already have sent the
+/// transaction.
 contract ExecuteTimelockOperations is Script {
     /// @notice Execute the rehearsal operation on the active chain if it has
     /// matured. Broadcasts from the CI deploy key, which holds no roles.
@@ -70,9 +76,13 @@ contract ExecuteTimelockOperations is Script {
         if (timelock == address(0)) revert ExecuteTimelockNotPinned(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock, safe);
 
-        // The property this script depends on, asserted rather than assumed.
-        if (!IAccessControl(timelock).hasRole(LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE, address(0))) {
-            revert ExecutionNotPermissionless(timelock);
+        // The executing key must hold no role — that is the point. Checked
+        // before anything is broadcast: a privileged key that got this far
+        // would execute the operation for real, retiring the rehearsal's
+        // fixed operation id while proving nothing about permissionlessness.
+        address executor = msg.sender;
+        if (IAccessControl(timelock).hasRole(LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE, executor)) {
+            revert ExecutorHoldsRole(timelock, executor);
         }
 
         TimelockController controller = TimelockController(payable(timelock));
@@ -89,17 +99,10 @@ contract ExecuteTimelockOperations is Script {
         console2.log("Chain:", block.chainid);
 
         vm.startBroadcast();
-        address executor = msg.sender;
         controller.execute(timelock, 0, payload, bytes32(0), LibTimelockRehearsal.REHEARSAL_SALT);
         vm.stopBroadcast();
 
         require(controller.isOperationDone(id), "ExecuteTimelockOperations: operation did not complete");
-
-        // The executing key holds no role — that is the point.
-        require(
-            !IAccessControl(timelock).hasRole(LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE, executor),
-            "ExecuteTimelockOperations: executor unexpectedly holds EXECUTOR_ROLE"
-        );
 
         console2.log("Executed by:", vm.toString(executor));
         console2.log("That address holds no EXECUTOR_ROLE - execution is permissionless");

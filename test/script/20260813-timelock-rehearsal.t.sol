@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/TimelockController.sol";
 
 import {
@@ -13,6 +14,7 @@ import {
 import {TimelockRehearsalCancel, RehearsalNotScheduled} from "../../script/20260813-timelock-rehearsal-cancel.s.sol";
 import {
     ExecuteTimelockOperations,
+    ExecutorHoldsRole,
     OperationNotExecutable
 } from "../../script/20260813-execute-timelock-operations.s.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
@@ -159,6 +161,34 @@ contract TimelockRehearsalTest is Test {
             abi.encodeWithSelector(OperationNotExecutable.selector, rehearsalOperationId(), true, false, false)
         );
         executor.run();
+    }
+
+    /// @notice A key holding `EXECUTOR_ROLE` is refused BEFORE the execution
+    /// is broadcast, not reported after it has landed. The operation is
+    /// matured, so nothing but the key's own privilege stands between this
+    /// call and a sent transaction — and the transaction must not be sent:
+    /// executing under privilege would retire the fixed rehearsal salt
+    /// (`isOperation` stays true on a Done operation) while proving nothing
+    /// about permissionless execution, leaving the operator to reconstruct
+    /// what happened from logs.
+    function testExecutorRefusesAPrivilegedKeyBeforeBroadcasting() external {
+        _scheduleAsSafe();
+        vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+
+        // The timelock self-administers, so it is the address that can grant
+        // its own roles — the same path a governance action would take.
+        address tl = address(timelock());
+        vm.prank(tl);
+        IAccessControl(tl).grantRole(LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE, address(this));
+
+        ExecuteTimelockOperations executor = new ExecuteTimelockOperations();
+        vm.expectRevert(abi.encodeWithSelector(ExecutorHoldsRole.selector, tl, address(this)));
+        executor.run();
+
+        assertFalse(
+            timelock().isOperationDone(rehearsalOperationId()),
+            "the refusal must precede the broadcast, so the operation stays unexecuted"
+        );
     }
 
     /// @notice Schedule the rehearsal operation on-chain as the Safe.
