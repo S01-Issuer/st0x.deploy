@@ -72,6 +72,28 @@
 
 ### Deploy scripts
 
+- **New broadcast script `20260817-deploy-orchestrator` deploys the orchestrator
+  singletons on every production chain.** `ST0xOrchestrator` and
+  `ST0xOrchestratorBeaconSetDeployer` postdate the audited 0.1.1 set that
+  `script/DeployProdV4_0_1_1.sol` ships, so they get their own
+  `manual-broadcast.yaml` entry rather than a suite in the 0.1.1 bootstrap
+  workflow. One dispatch covers Base, Ethereum and HyperEVM (multi-chain like
+  `20260729-deploy-governance-timelock`: shared `all-chains` concurrency group,
+  always `--legacy`), Zoltu-deploying the checked-out ref's CANDIDATE creation
+  bytecode — implementation first, then the beacon-set deployer, whose
+  constructor bakes an `UpgradeableBeacon` over the implementation pin.
+  Idempotent per chain: an already-deployed pin is codehash-asserted and
+  skipped, and a pin carrying any other code reverts `DeployedCodehashMismatch`
+  rather than deploying over a ref/deployment mismatch. Post-state asserts both
+  candidate codehashes, the beacon's implementation wiring, and that the
+  beacon's owner is the pinned initial owner or the chain's governance timelock.
+  The orchestrator proxy instance (`deploy(owner)`) is deliberately NOT created
+  — the vault-logic version lock gates `initialize` on the candidate vault +
+  receipt beacons being live, so instance creation is sequenced with the
+  vault-logic rollout. The script writes
+  `out/20260817-orchestrator-deployments.json`, and a manifest-driven workflow
+  step verifies both contracts per chain (Sourcify, plus Etherscan where a key
+  is configured).
 - **The per-chain "deploy missing tokens" scripts are merged into one.**
   `20260722-deploy-missing-tokens-ethereum` and `-hyperevm` were byte-identical
   apart from the chain each hardcoded; both are replaced by
@@ -93,11 +115,11 @@
   reading as "copy everything".
 - **The canonical config table is allowed to run ahead of Base.** A row is
   authored when a ticker is chosen and Base is pinned when it is deployed, so
-  the config table leads in that window; only the rows Base carries are read,
-  so the excess is inert. The genuine error is a config table SHORTER than
-  Base — a deployed Base row with no name/symbol to deploy under — which
-  reverts `TokenTableTooShort(configsLength, baseLength)`. Row-for-row key
-  drift between the two tables still reverts `TokenTableMisaligned`.
+  the config table leads in that window; only the rows Base carries are read, so
+  the excess is inert. The genuine error is a config table SHORTER than Base — a
+  deployed Base row with no name/symbol to deploy under — which reverts
+  `TokenTableTooShort(configsLength, baseLength)`. Row-for-row key drift between
+  the two tables still reverts `TokenTableMisaligned`.
 - **Three checks the gap-fill scripts had dropped are back, matching
   `20260706-deploy-tokens-ethereum`.** Each deployed vault is now read back
   before the loop moves on — `AuthoriserNotWired` if it is not routed to the
