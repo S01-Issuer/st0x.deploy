@@ -169,6 +169,16 @@ Each stage refuses to author a bundle whose call would revert: cancelling
 nothing, or scheduling something already scheduled, fails at authoring time
 rather than in the Safe.
 
+**The execution stage is one-shot.** `REHEARSAL_SALT` is a constant, so the
+operation id is fixed per chain, and OZ keeps an executed operation registered
+forever (`_execute` writes `DONE_TIMESTAMP`; only `cancel` clears it). Once the
+rehearsal has been executed on a chain, every later
+`20260813-timelock-rehearsal-schedule` dispatch there refuses with
+`RehearsalAlreadyScheduled`, and the fork tests that drive scheduling report
+`SPENT` and stop asserting. Cancel-and-re-propose can be repeated freely;
+rehearsing again _after_ an execution needs a new salt, i.e. a new dated
+rehearsal.
+
 ## Operating under the timelock (future governance actions)
 
 Every admin action becomes two Safe transactions separated by ≥48h:

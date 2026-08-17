@@ -27,7 +27,12 @@ import {LibTimelockRehearsal} from "../../src/lib/LibTimelockRehearsal.sol";
 /// a no-op, cancel it, schedule it again, and execute it from an address
 /// holding no roles.
 /// @dev Unpinned head fork so the assertions run against the live timelock
-/// and Safe, the same state a real dispatch authors from.
+/// and Safe, the same state a real dispatch authors from. That cuts both
+/// ways: the rehearsal's operation id is fixed, so dispatching the stages
+/// moves live Base out of the state most of these tests need. Each one that
+/// drives `schedule` therefore guards on
+/// `rehearsalIsRegisteredOnChain()` — see that function for why, and for what
+/// keeps asserting once they are spent.
 contract TimelockRehearsalTest is Test {
     TimelockRehearsalSchedule internal scheduleScript;
     TimelockRehearsalCancel internal cancelScript;
@@ -43,9 +48,15 @@ contract TimelockRehearsalTest is Test {
         return TimelockController(payable(LibTimelockInvariants.timelockForChainId(block.chainid)));
     }
 
-    /// @notice Read the operation id out of an emitted artifact by
-    /// re-deriving it the way the script does, so the test does not restate
-    /// the operation shape independently.
+    /// @notice The rehearsal operation id, derived by calling the live
+    /// timelock's `hashOperation` over the operation's parameters restated as
+    /// literals here.
+    ///
+    /// Restating them is the point: the salt and payload are owned by
+    /// `LibTimelockRehearsal`, and re-deriving the id from that same library
+    /// would make every assertion below agree with whatever the library said,
+    /// including a drift. `testRehearsalOperationIdMatchesTheLibrary` compares
+    /// the two.
     function rehearsalOperationId() internal view returns (bytes32) {
         address tl = address(timelock());
         return timelock()
@@ -58,10 +69,67 @@ contract TimelockRehearsalTest is Test {
             );
     }
 
+    /// @notice True once the live timelock knows the rehearsal operation, in
+    /// which case the tests below that drive `schedule` cannot run — logged so
+    /// a spent run is visible rather than silently green.
+    ///
+    /// The fork is unpinned head and `REHEARSAL_SALT` is fixed, so the
+    /// operation id is fixed on Base forever. While the rehearsal is pending
+    /// the script's `!isOperation` pre-flight refuses; once it EXECUTES the
+    /// refusal is permanent, because OZ writes `DONE_TIMESTAMP` and never
+    /// clears it (`isOperation` is `getOperationState != Unset`). Dispatching
+    /// this PR's own stages is therefore what spends these tests, and
+    /// `testRehearsalIsOneShotOnceExecuted` pins that mechanism.
+    ///
+    /// A guarded early return is how
+    /// `20260729-migrate-governance-to-timelock.t.sol::testRunRefusesUnpinnedTimelock`
+    /// handles its own spent precondition; `vm.skip` is not an option because
+    /// the static job bans it.
+    function rehearsalIsRegisteredOnChain() internal returns (bool) {
+        if (timelock().isOperation(rehearsalOperationId())) {
+            emit log("SPENT: the rehearsal operation is registered on the live timelock; schedule cannot be driven");
+            return true;
+        }
+        return false;
+    }
+
+    /// @notice The id every stage acts on is the one derived from the
+    /// parameters this test owns — so a drift in `LibTimelockRehearsal`'s salt
+    /// or payload is caught here, and caught for good: this reads no operation
+    /// state, so it keeps asserting after the rehearsal has been spent on
+    /// chain and the tests below have stopped running.
+    function testRehearsalOperationIdMatchesTheLibrary() external view {
+        assertEq(
+            LibTimelockRehearsal.operationId(address(timelock())),
+            rehearsalOperationId(),
+            "the scripts and this test must agree on the rehearsal operation id"
+        );
+    }
+
+    /// @notice Executing the rehearsal retires it permanently. The fixed salt
+    /// fixes the id, and OZ keeps a Done operation registered forever, so the
+    /// schedule script's pre-flight refuses from then on — repeating the
+    /// rehearsal needs a new salt, i.e. a new dated script.
+    function testRehearsalIsOneShotOnceExecuted() external {
+        if (rehearsalIsRegisteredOnChain()) return;
+        bytes32 id = rehearsalOperationId();
+
+        _scheduleAsSafe();
+        vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        new ExecuteTimelockOperations().run();
+        assertTrue(timelock().isOperationDone(id), "the rehearsal executed");
+
+        // Done, not cleared: unlike `cancel`, execution leaves the id known.
+        assertTrue(timelock().isOperation(id), "a done operation stays registered");
+        vm.expectRevert(abi.encodeWithSelector(RehearsalAlreadyScheduled.selector, id));
+        scheduleScript.run();
+    }
+
     /// @notice Scheduling authors a one-transaction bundle targeting the
     /// timelock, and the run's own fork proof shows the operation matures
     /// and executes without changing the delay.
     function testScheduleAuthorsABundle() external {
+        if (rehearsalIsRegisteredOnChain()) return;
         scheduleScript.run();
 
         (uint256 chainId, address firstTarget, SafeTx[] memory txs) = LibSafeOps.parseTxBuilderJson(
@@ -70,6 +138,15 @@ contract TimelockRehearsalTest is Test {
         assertEq(chainId, LibSafeInvariants.BASE_CHAIN_ID);
         assertEq(firstTarget, address(timelock()), "the rehearsal targets the timelock itself");
         assertEq(txs.length, 1, "scheduling is a single call");
+        // The rehearsal moves no ether. `value` survives the Tx Builder
+        // round-trip, so a bundle that asked the Safe to fund the timelock
+        // would be caught here. `operation` does NOT survive it — the schema
+        // carries no such field and `parseTxBuilderJson` writes 0
+        // unconditionally — so CALL-vs-DELEGATECALL is pinned where it is
+        // actually observable: `LibSafeOps._requireCallOperation` refuses to
+        // serialise a non-CALL op at all, which is why `run()` above cannot
+        // have emitted one.
+        assertEq(txs[0].value, 0, "the rehearsal sends no value");
         assertEq(
             txs[0].data,
             abi.encodeCall(
@@ -90,6 +167,7 @@ contract TimelockRehearsalTest is Test {
     /// schedules sets the delay to the value already held, so executing it
     /// leaves `getMinDelay()` unchanged.
     function testRehearsalIsANoOp() external {
+        if (rehearsalIsRegisteredOnChain()) return;
         uint256 before = timelock().getMinDelay();
         scheduleScript.run();
         assertEq(timelock().getMinDelay(), before, "the rehearsal must not change the delay");
@@ -98,7 +176,14 @@ contract TimelockRehearsalTest is Test {
 
     /// @notice Cancelling refuses while nothing is scheduled, rather than
     /// emitting a bundle that would revert inside the Safe.
+    /// @dev Narrower precondition than the tests above: a DONE operation is
+    /// still "nothing to cancel" (`isOperationPending` excludes it), so only a
+    /// live rehearsal sitting inside its window spends this one.
     function testCancelRefusesWhenNothingScheduled() external {
+        if (timelock().isOperationPending(rehearsalOperationId())) {
+            emit log("SPENT: the rehearsal is pending on the live timelock; cancel has something to author");
+            return;
+        }
         vm.expectRevert(abi.encodeWithSelector(RehearsalNotScheduled.selector, rehearsalOperationId()));
         cancelScript.run();
     }
@@ -106,6 +191,7 @@ contract TimelockRehearsalTest is Test {
     /// @notice Scheduling refuses when the operation is already registered,
     /// for the same reason.
     function testScheduleRefusesWhenAlreadyScheduled() external {
+        if (rehearsalIsRegisteredOnChain()) return;
         // Put the operation on-chain via the Safe, then ask the script to
         // schedule it again.
         _scheduleAsSafe();
@@ -118,6 +204,7 @@ contract TimelockRehearsalTest is Test {
     /// re-propose stage is a re-dispatch of the schedule script rather than a
     /// separate script: there is no separate operation.
     function testScheduleCancelReschedule() external {
+        if (rehearsalIsRegisteredOnChain()) return;
         bytes32 id = rehearsalOperationId();
 
         _scheduleAsSafe();
@@ -141,6 +228,7 @@ contract TimelockRehearsalTest is Test {
     /// between them would leave the executor unable to execute what the
     /// rehearsal scheduled — with no other test catching it.
     function testExecutorTargetsTheRehearsalOperation() external {
+        if (rehearsalIsRegisteredOnChain()) return;
         _scheduleAsSafe();
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
 
@@ -155,6 +243,7 @@ contract TimelockRehearsalTest is Test {
     /// @notice The executor refuses while the operation is still inside its
     /// delay window, rather than reverting opaquely inside the timelock.
     function testExecutorRefusesBeforeTheDelay() external {
+        if (rehearsalIsRegisteredOnChain()) return;
         _scheduleAsSafe();
         ExecuteTimelockOperations executor = new ExecuteTimelockOperations();
         vm.expectRevert(
@@ -172,6 +261,7 @@ contract TimelockRehearsalTest is Test {
     /// about permissionless execution, leaving the operator to reconstruct
     /// what happened from logs.
     function testExecutorRefusesAPrivilegedKeyBeforeBroadcasting() external {
+        if (rehearsalIsRegisteredOnChain()) return;
         _scheduleAsSafe();
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
 

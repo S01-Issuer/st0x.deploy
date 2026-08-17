@@ -26,6 +26,17 @@ import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 /// 3. It targets the timelock, never a production contract, so a rehearsal
 ///    abandoned half-way cannot touch vaults, beacons or the authoriser.
 ///
+/// ONE-SHOT. `REHEARSAL_SALT` is a constant, so the operation id is a
+/// constant per chain, and OZ's `TimelockController` never deregisters an
+/// executed operation — `_execute` writes `DONE_TIMESTAMP` and `isOperation`
+/// reports any non-`Unset` state. So once the rehearsal has been EXECUTED on a
+/// chain, `schedule` reverts there forever and the schedule script's
+/// `RehearsalAlreadyScheduled` pre-flight refuses every later dispatch.
+/// `cancel` is the exception: it clears the timestamp outright, which is what
+/// makes the cancel → re-propose stage possible. Rehearsing again after an
+/// execution therefore needs a NEW salt, i.e. a new dated rehearsal, not a
+/// re-dispatch of this one.
+///
 /// @dev Centralised deliberately. The scripts derive an operation id from
 /// `(target, value, payload, predecessor, salt)`; if any one of them held its
 /// own copy and drifted, the executor would be unable to execute what the
