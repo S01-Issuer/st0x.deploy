@@ -181,13 +181,23 @@ generates them into `remappings.txt`, which is the live list. Key packages:
 - `rain-factory-0.1.1/` → clonable factory pattern (ICloneableV2)
 - `rain-deploy-0.1.4/` → Zoltu deterministic deployment
 - `rain-sol-codegen-0.1.0/` → pointer file generation
-- `@openzeppelin-contracts-upgradeable-5.6.1/` → ERC4626, ERC20, beacon proxies
+- `@openzeppelin-contracts-upgradeable-5.7.0/` → ERC4626, ERC20, beacon proxies
 - `rain-math-float-0.1.1/` → Rain Float decimal arithmetic (used by the
   corporate-actions rebase path for stock split multipliers)
 
 The one `remappings` entry in `foundry.toml` is unrelated to the above: it
 bridges the unversioned `@openzeppelin/contracts/` prefix that a third-party
 dependency's own source hard-codes.
+
+`remappings.txt` additionally carries two **version-bridge** lines pointing the
+old `@openzeppelin-contracts-5.6.1/` and
+`@openzeppelin-contracts-upgradeable-5.6.1/` prefixes at the 5.7.0 install.
+These exist because `rain-vats-0.1.6` still imports the 5.6.1 prefixes in its
+own source; they can be dropped once rain-vats republishes against 5.7.0.
+`forge soldeer install` rewrites `remappings.txt` ("Updated remappings") but was
+observed to PRESERVE these hand-added lines rather than drop them, so a soldeer
+run does not by itself break rain-vats' transitive imports. Re-check that if
+soldeer's remapping-merge behaviour ever changes: losing them breaks the build.
 
 ### Breaking dependency bumps
 
@@ -260,7 +270,7 @@ Both are Soldeer packages pinned at an exact semver version in `foundry.toml`'s
 `[dependencies]`, so `forge update` — the git-submodule command — does nothing
 here. `forge soldeer update` is what moves them, and because the version is part
 of the import prefix, a bump also changes every
-`@openzeppelin-contracts-upgradeable-5.6.1/` and `rain-math-float-0.1.1/` import
+`@openzeppelin-contracts-upgradeable-5.7.0/` and `rain-math-float-0.1.1/` import
 across `src/`, `test/` and `script/`. Soldeer regenerates `remappings.txt`; it
 does not rewrite those imports, so they are updated by hand in the same commit.
 Bumping without the follow-up verification steps above is NOT safe on this

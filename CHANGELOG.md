@@ -2,6 +2,23 @@
 
 ## V4 (rain.vats 0.1.6)
 
+### Dependencies
+
+- **OpenZeppelin bumped 5.6.1 → 5.7.0 (`@openzeppelin-contracts` +
+  `@openzeppelin-contracts-upgradeable`).** The only production bytecode this
+  moves is `StoxWrappedTokenVault`: 5.7.0's `ERC4626Upgradeable` swaps its
+  private `_tryGetAssetDecimals` for the shared `SafeERC20.tryGetDecimals`
+  helper, so the candidate pointers regenerate with a new Zoltu address and
+  codehash. Every other contract compiles byte-identical — in particular the
+  governance timelock: the frozen `TIMELOCK_CREATION_CODE` /
+  `TIMELOCK_RUNTIME_CODEHASH` pins are reproduced exactly by the 5.7.0
+  dependency (`testTimelockPinsMatchCompiledDependency` passes unchanged), so
+  the three live deployments remain fully described. rain-vats 0.1.6 still
+  imports `@openzeppelin-contracts-5.6.1/` prefixes internally; the two
+  `remappings.txt` bridge lines point those at the 5.7.0 install so exactly one
+  OZ copy compiles (re-apply if soldeer regenerates the file) until rain-vats
+  republishes against 5.7.0.
+
 ### StoxReceiptVault
 
 - **Fix (audit H01): keep OZ's `_totalSupply` in step with rebased balances.**
@@ -93,11 +110,11 @@
   reading as "copy everything".
 - **The canonical config table is allowed to run ahead of Base.** A row is
   authored when a ticker is chosen and Base is pinned when it is deployed, so
-  the config table leads in that window; only the rows Base carries are read,
-  so the excess is inert. The genuine error is a config table SHORTER than
-  Base — a deployed Base row with no name/symbol to deploy under — which
-  reverts `TokenTableTooShort(configsLength, baseLength)`. Row-for-row key
-  drift between the two tables still reverts `TokenTableMisaligned`.
+  the config table leads in that window; only the rows Base carries are read, so
+  the excess is inert. The genuine error is a config table SHORTER than Base — a
+  deployed Base row with no name/symbol to deploy under — which reverts
+  `TokenTableTooShort(configsLength, baseLength)`. Row-for-row key drift between
+  the two tables still reverts `TokenTableMisaligned`.
 - **Three checks the gap-fill scripts had dropped are back, matching
   `20260706-deploy-tokens-ethereum`.** Each deployed vault is now read back
   before the loop moves on — `AuthoriserNotWired` if it is not routed to the

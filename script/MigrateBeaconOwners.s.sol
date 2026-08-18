@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {Script} from "forge-std-1.16.1/src/Script.sol";
 import {console2} from "forge-std-1.16.1/src/console2.sol";
 
-import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";

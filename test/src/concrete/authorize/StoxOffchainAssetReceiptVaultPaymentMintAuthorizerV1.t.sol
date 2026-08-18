@@ -6,7 +6,7 @@ import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {
     StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 } from "../../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
-import {Initializable} from "@openzeppelin-contracts-upgradeable-5.6.1/proxy/utils/Initializable.sol";
+import {Initializable} from "@openzeppelin-contracts-upgradeable-5.7.0/proxy/utils/Initializable.sol";
 
 contract StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1Test is Test {
     /// Constructor disables initializers on the implementation.
