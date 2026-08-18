@@ -31,6 +31,8 @@ on:
           - 20260722-swap-remaining-vault-authorisers
           - 20260723-provision-additional-service-signer
           - 20260729-migrate-governance-to-timelock
+          - 20260813-timelock-rehearsal-schedule
+          - 20260813-timelock-rehearsal-cancel
           - 20260810-revoke-fireblocks-service-signer
       network:
         description: 'Network to author against (default: base)'
