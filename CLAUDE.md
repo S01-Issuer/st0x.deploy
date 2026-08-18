@@ -329,6 +329,19 @@ workflow's listed order — later suites reference earlier ones via dependency
 pointers, so an out-of-order run trips the dep-codehash check. The orchestrator
 (introduced at 0.1.2) is not part of the audited 0.1.1 set.
 
+The orchestrator ships from the frozen 0.1.8 snapshot — the set the source at
+tag `sol-v0.1.14` (commit ed767bf2, audited by Protofire as `st0x.deploy 5.0`)
+compiles to byte-identically. `script/DeployProdV4_0_1_8.sol` (via the
+`manual-sol-artifacts-0-1-8.yaml` workflow; networks Base, Ethereum, HyperEVM)
+deploys the orchestrator and its on-chain dependency closure: corporate-actions
+facet → receipt → receipt vault → OARV beacon-set deployer → orchestrator →
+orchestrator beacon-set deployer, from the stored `_0_1_8` creation bytecode
+against the `_0_1_8` pins. All six are already live on Base (dispatches there
+are idempotent no-ops); the workflow exists to ship the same audited set to the
+bootstrap networks. Creating an orchestrator instance (the beacon-set deployer's
+`deploy(owner)`) is a separate non-deterministic operation outside this
+workflow.
+
 The rolling `candidate` snapshot (`src/generated/candidate/`) is NEVER a deploy
 target — it exists only so tests exercise the current source and
 `testCandidateSelfConsistent` pins source↔snapshot integrity. When a later

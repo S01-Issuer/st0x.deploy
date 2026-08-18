@@ -1,0 +1,74 @@
+name: Manual sol artifacts (0.1.8 orchestrator set)
+# Least-privilege: the broadcast authenticates via `secrets.PRIVATE_KEY`, so
+# the ambient GITHUB_TOKEN needs nothing beyond read.
+permissions:
+  contents: read
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: 'Suite to deploy (one contract per suite, deploy in listed order)'
+        required: true
+        type: choice
+        options:
+          # ===================================================================
+          # The audited 0.1.8 orchestrator set — the ST0x orchestrator and its
+          # on-chain dependency closure — shipped to the selected network via
+          # script/DeployProdV4_0_1_8.sol (stored 0.1.8 creation bytecode; the
+          # set the audited tag sol-v0.1.14 compiles to byte-identically).
+          #
+          # Deploy in the listed order; later entries reference earlier ones
+          # via dependency pointers so an out-of-order run trips the
+          # dep-codehash check. The Zoltu deploy is idempotent per network, so
+          # a suite already on-chain (all six are live on Base) is a no-op.
+          # ===================================================================
+          # 1. Corporate-actions facet (no on-chain dependencies).
+          - stox-corporate-actions-facet
+          # 2. Receipt impl (no on-chain dependencies; byte-identical 0.1.1
+          #    twin, so a no-op wherever the 0.1.1 set is live).
+          - stox-receipt
+          # 3. Receipt vault impl (depends on the corporate-actions facet its
+          #    fallback delegatecalls).
+          - stox-receipt-vault
+          # 4. OARV beacon-set deployer (its constructor bakes beacons over the
+          #    receipt and receipt-vault impls above).
+          - stox-offchain-asset-receipt-vault-beacon-set-deployer
+          # 5. Orchestrator impl (its vault-logic version lock reads the OARV
+          #    beacon-set deployer above; initialize reverts until it exists).
+          - st0x-orchestrator
+          # 6. Orchestrator beacon-set deployer (its constructor bakes a beacon
+          #    over the orchestrator impl above).
+          - st0x-orchestrator-beacon-set-deployer
+      network:
+        description: 'Network to ship the 0.1.8 orchestrator set to'
+        required: true
+        type: choice
+        options:
+          # Closed set of vetted networks — mirrored by the deploy script's
+          # `deploymentNetwork()` guard.
+          - 'base'
+          - 'ethereum'
+          - 'hyperevm'
+jobs:
+  deploy:
+    uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-artifacts.yaml@main
+    with:
+      suite: ${{ inputs.suite }}
+      network: ${{ inputs.network }}
+      # HyperEVM's RPC rejects forge's EIP-1559 fee-history estimation;
+      # type-0 transactions work on every supported network.
+      legacy: ${{ inputs.network == 'hyperevm' }}
+      # Ship the stored 0.1.8 creation bytecode, not current source.
+      script: script/DeployProdV4_0_1_8.sol:Deploy
+      # The current source diverged from 0.1.8 (H01 remediation + optimizer
+      # change), so Etherscan verification against current source would fail
+      # the run. Deploy unverified; verify manually from the sol-v0.1.14 tag.
+      verify: false
+    # Runs unverified, so it needs only the deployer key and the supported
+    # networks' RPCs. The reusable declares every other secret as optional and
+    # falls back to `|| vars.* || ''` for any it isn't given.
+    secrets:
+      PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+      RPC_URL_BASE_FORK: ${{ secrets.RPC_URL_BASE_FORK }}
+      RPC_URL_ETHEREUM_FORK: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
+      RPC_URL_HYPEREVM_FORK: ${{ secrets.RPC_URL_HYPEREVM_FORK }}

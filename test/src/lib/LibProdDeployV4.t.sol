@@ -327,6 +327,29 @@ contract LibProdDeployV4Test is Test {
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_1
         );
         assertEq(
+            keccak256(LibProdDeployV4.STOX_RECEIPT_RUNTIME_CODE_0_1_8), LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_8
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_8),
+            LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_8
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_8),
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_8
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_8),
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_8
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.ST0X_ORCHESTRATOR_RUNTIME_CODE_0_1_8),
+            LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_0_1_8
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_8),
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_8
+        );
+        assertEq(
             keccak256(LibProdDeployV4.STOX_RECEIPT_RUNTIME_CODE_CANDIDATE),
             LibProdDeployV4.STOX_RECEIPT_CODEHASH_CANDIDATE
         );
@@ -531,6 +554,85 @@ contract LibProdDeployV4Test is Test {
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1,
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_1,
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_1
+        );
+    }
+
+    // --- 0.1.8 frozen redeploys (the audited orchestrator set: source at tag
+    // `sol-v0.1.14`, commit ed767bf2, audited by Protofire as `st0x.deploy
+    // 5.0`, compiles byte-identically to this snapshot). The snapshot is
+    // deliberately PARTIAL: only the orchestrator's on-chain dependency
+    // closure is frozen — the wrapped-token-vault chain, the authorizers and
+    // the unified deployer stay 0.1.1-only, since their production instances
+    // come from the audited 0.1.1 bootstrap set. Five of the six frozen
+    // contracts have a distinct (creation code, address) pair vs 0.1.1: the
+    // receipt vault, corporate-actions facet, OARV beacon-set deployer,
+    // orchestrator, and orchestrator beacon-set deployer. The receipt is a
+    // byte-identical 0.1.1 twin (pinned by `testRelease0_1_8TwinsEqual0_1_1`)
+    // whose frozen redeploy above already covers the shared address. ---
+
+    /// The one 0.1.8 contract without its own frozen-redeploy test — the
+    /// receipt — is a byte-identical twin of its 0.1.1 counterpart: same
+    /// creation code, same Zoltu address, same codehash.
+    function testRelease0_1_8TwinsEqual0_1_1() external pure {
+        assertEq(LibProdDeployV4.STOX_RECEIPT_0_1_8, LibProdDeployV4.STOX_RECEIPT_0_1_1);
+        assertEq(LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_8, LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_1);
+        assertEq(LibProdDeployV4.STOX_RECEIPT_CREATION_CODE_0_1_8, LibProdDeployV4.STOX_RECEIPT_CREATION_CODE_0_1_1);
+    }
+
+    function testFrozenRedeployStoxReceiptVault_0_1_8() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.STOX_RECEIPT_VAULT_CREATION_CODE_0_1_8,
+            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_8,
+            LibProdDeployV4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_8,
+            LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_8
+        );
+    }
+
+    function testFrozenRedeployStoxCorporateActionsFacet_0_1_8() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CREATION_CODE_0_1_8,
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_8,
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_8,
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_8
+        );
+    }
+
+    /// Its constructor builds two beacons over the receipt and receipt-vault
+    /// impls, so both are deployed (frozen, at their 0.1.8 addresses) first.
+    function testFrozenRedeployStoxOffchainAssetReceiptVaultBeaconSetDeployer_0_1_8() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.STOX_RECEIPT_CREATION_CODE_0_1_8);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.STOX_RECEIPT_VAULT_CREATION_CODE_0_1_8);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_8,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_8,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_8,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_8
+        );
+    }
+
+    function testFrozenRedeployST0xOrchestrator_0_1_8() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_0_1_8,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_8,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_RUNTIME_CODE_0_1_8,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_0_1_8
+        );
+    }
+
+    /// Its constructor builds an `UpgradeableBeacon` over the orchestrator impl,
+    /// so the impl is deployed (frozen, at its 0.1.8 address) first.
+    function testFrozenRedeployST0xOrchestratorBeaconSetDeployer_0_1_8() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_0_1_8);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_8,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_8,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_8,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_8
         );
     }
 
