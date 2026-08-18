@@ -34,6 +34,7 @@ on:
           - 20260813-timelock-rehearsal-schedule
           - 20260813-timelock-rehearsal-cancel
           - 20260810-revoke-fireblocks-service-signer
+          - 20260619-migrate-multisig-threshold
       network:
         description: 'Network to author against (default: base)'
         required: true

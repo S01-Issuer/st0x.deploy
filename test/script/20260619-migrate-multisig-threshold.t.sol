@@ -7,7 +7,7 @@ import {
     MigrateMultisigThreshold,
     VerifyMismatch,
     VerifyExpectedSingleTx
-} from "../../script/MigrateMultisigThreshold.s.sol";
+} from "../../script/20260619-migrate-multisig-threshold.s.sol";
 import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibSafeOps, SafeTx} from "../../src/lib/LibSafeOps.sol";
