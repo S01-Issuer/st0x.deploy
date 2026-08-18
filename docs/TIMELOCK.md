@@ -138,6 +138,47 @@ The forcing function: `GovernanceTimelockMigration.t.sol` accepts
 Safe-or-timelock per surface until **2026-10-01T00:00:00Z**, then demands the
 timelock. An unfinished rollout red-lines cron past that date.
 
+## Rehearsing the timelock
+
+The timelock can be exercised end-to-end BEFORE any governance is handed to it,
+so signers see the real loop before it controls anything. The rehearsed
+operation is `timelock.updateDelay(TIMELOCK_MIN_DELAY)` — re-setting the delay
+to the value it already holds. It is a genuine no-op, it targets the timelock
+rather than any production contract, and OZ rejects `updateDelay` from any
+caller other than the timelock itself, so it can only happen via the full
+schedule → delay → execute path. Rehearsing it therefore exercises the real
+mechanism rather than a shortcut.
+
+Stages 1–3 are Safe actions, dispatched via `Actions → run-script`:
+
+1. `20260813-timelock-rehearsal-schedule` — schedule the no-op.
+2. `20260813-timelock-rehearsal-cancel` — cancel it. Proves the veto works and
+   that the same operation id becomes schedulable again afterwards.
+3. `20260813-timelock-rehearsal-schedule` again — re-dispatching the same script
+   IS the re-propose stage. `cancel` deregisters the operation, so the identical
+   one becomes schedulable again; there is no separate operation, so there is no
+   separate script.
+
+Then wait out the delay and execute. Execution is **not** a Safe action: the
+executor role is open, so anyone may execute. `Actions → manual-broadcast` →
+`20260813-execute-timelock-operations` does it from the CI deploy key, which
+holds no role on the timelock — if that succeeds, permissionless execution is
+demonstrated rather than merely configured.
+
+Each stage refuses to author a bundle whose call would revert: cancelling
+nothing, or scheduling something already scheduled, fails at authoring time
+rather than in the Safe.
+
+**The execution stage is one-shot.** `REHEARSAL_SALT` is a constant, so the
+operation id is fixed per chain, and OZ keeps an executed operation registered
+forever (`_execute` writes `DONE_TIMESTAMP`; only `cancel` clears it). Once the
+rehearsal has been executed on a chain, every later
+`20260813-timelock-rehearsal-schedule` dispatch there refuses with
+`RehearsalAlreadyScheduled`, and the fork tests that drive scheduling report
+`SPENT` and stop asserting. Cancel-and-re-propose can be repeated freely;
+rehearsing again _after_ an execution needs a new salt, i.e. a new dated
+rehearsal.
+
 ## Operating under the timelock (future governance actions)
 
 Every admin action becomes two Safe transactions separated by ≥48h:

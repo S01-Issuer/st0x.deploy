@@ -168,19 +168,30 @@ resolve the chain's timelock. Scripts authoring Safe bundles that touch
 
 ## Dependencies
 
-Git submodules managed via Foundry. Key remappings in `foundry.toml`:
+Soldeer packages, not git submodules. They are declared as exact semver pins in
+`foundry.toml`'s `[dependencies]`, locked in `soldeer.lock`, and installed by
+`forge soldeer install` into `dependencies/` (`libs = ['dependencies']`, so
+there is no `lib/`). Nothing here is a gitlink and there is no `.gitmodules` —
+rainix CI enforces that with its `no-submodules` check.
 
-- `rain.vats/` → receipt vault framework
-- `rain.factory/` → clonable factory pattern (ICloneableV2)
-- `rain.deploy/` → Zoltu deterministic deployment
-- `rain.sol.codegen/` → pointer file generation
-- `openzeppelin-contracts-upgradeable/` → ERC4626, ERC20, beacon proxies
-- `rain.math.float/` → Rain Float decimal arithmetic (used by the
+Every import prefix carries the pinned version: `<package>-<version>/`. Soldeer
+generates them into `remappings.txt`, which is the live list. Key packages:
+
+- `rain-vats-0.1.6/` → receipt vault framework
+- `rain-factory-0.1.1/` → clonable factory pattern (ICloneableV2)
+- `rain-deploy-0.1.4/` → Zoltu deterministic deployment
+- `rain-sol-codegen-0.1.0/` → pointer file generation
+- `@openzeppelin-contracts-upgradeable-5.6.1/` → ERC4626, ERC20, beacon proxies
+- `rain-math-float-0.1.1/` → Rain Float decimal arithmetic (used by the
   corporate-actions rebase path for stock split multipliers)
+
+The one `remappings` entry in `foundry.toml` is unrelated to the above: it
+bridges the unversioned `@openzeppelin/contracts/` prefix that a third-party
+dependency's own source hard-codes.
 
 ### Breaking dependency bumps
 
-Two submodule bumps are **breaking** for the corporate-actions stack and cannot
+Two dependency bumps are **breaking** for the corporate-actions stack and cannot
 be treated as routine dependency updates.
 
 **`openzeppelin-contracts-upgradeable` v5 (ERC20Upgradeable ERC-7201 layout).**
@@ -245,9 +256,15 @@ rasterized balances on subsequent reads — a silent semantic change. On bump:
    the reference-implementation fuzz will diverge if Rain Float's rounding path
    changes.
 
-Both dependencies are submodules pinned at a specific commit SHA; a
-`forge update` without the follow-up verification steps above is NOT safe on
-this stack.
+Both are Soldeer packages pinned at an exact semver version in `foundry.toml`'s
+`[dependencies]`, so `forge update` — the git-submodule command — does nothing
+here. `forge soldeer update` is what moves them, and because the version is part
+of the import prefix, a bump also changes every
+`@openzeppelin-contracts-upgradeable-5.6.1/` and `rain-math-float-0.1.1/` import
+across `src/`, `test/` and `script/`. Soldeer regenerates `remappings.txt`; it
+does not rewrite those imports, so they are updated by hand in the same commit.
+Bumping without the follow-up verification steps above is NOT safe on this
+stack.
 
 ## Compiler Settings
 

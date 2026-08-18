@@ -24,7 +24,7 @@ struct TokenConfig {
 }
 
 /// @title LibProdTokenConfig
-/// @notice The canonical name/symbol table for the 28 ST0x production
+/// @notice The canonical name/symbol table for the 41 ST0x production
 /// tokens, captured verbatim from the live Base receipt vaults so a new
 /// chain's token set can be deployed byte-identical to Base. This is the
 /// deploy-input companion to `LibTokenInvariants` (which holds the deployed
@@ -42,10 +42,10 @@ struct TokenConfig {
 /// means carrying that space forward; the parity pin would flag it as a
 /// divergence otherwise.
 library LibProdTokenConfig {
-    /// @notice The 28 production token deploy configs, Base table order.
+    /// @notice The 41 production token deploy configs, Base table order.
     /// @return configs The name/symbol table.
     function productionTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
-        configs = new TokenConfig[](29);
+        configs = new TokenConfig[](41);
         configs[0] = TokenConfig("MSTR", "MicroStrategy Incorporated ST0x", "tMSTR");
         configs[1] = TokenConfig("TSLA", "Tesla Inc ST0x", "tTSLA");
         configs[2] = TokenConfig("COIN", "Coinbase Global Inc ST0x", "tCOIN");
@@ -76,5 +76,17 @@ library LibProdTokenConfig {
         configs[26] = TokenConfig("LRCX", "Lam Research Corporation ST0x", "tLRCX");
         configs[27] = TokenConfig("TTWO", "Take-Two Interactive Software, Inc. ST0x", "tTTWO");
         configs[28] = TokenConfig("RKLB", "Rocket Lab USA Inc ST0x", "tRKLB");
+        configs[29] = TokenConfig("GOOGL", "Alphabet Inc. Class A ST0x", "tGOOGL");
+        configs[30] = TokenConfig("AAPL", "Apple Inc. ST0x", "tAAPL");
+        configs[31] = TokenConfig("MSFT", "Microsoft Corporation ST0x", "tMSFT");
+        configs[32] = TokenConfig("LLY", "Eli Lilly and Company ST0x", "tLLY");
+        configs[33] = TokenConfig("PTY", "PIMCO Corporate & Income Opportunity Fund ST0x", "tPTY");
+        configs[34] = TokenConfig("INTC", "Intel Corporation ST0x", "tINTC");
+        configs[35] = TokenConfig("HOOD", "Robinhood Markets, Inc. ST0x", "tHOOD");
+        configs[36] = TokenConfig("ORCL", "Oracle Corporation ST0x", "tORCL");
+        configs[37] = TokenConfig("SMCI", "Super Micro Computer, Inc. ST0x", "tSMCI");
+        configs[38] = TokenConfig("BABA", "Alibaba Group Holding Limited ADR ST0x", "tBABA");
+        configs[39] = TokenConfig("TQQQ", "ProShares UltraPro QQQ ST0x", "tTQQQ");
+        configs[40] = TokenConfig("FTF", "Franklin Limited Duration Income Trust ST0x", "tFTF");
     }
 }
