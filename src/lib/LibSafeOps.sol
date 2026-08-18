@@ -57,14 +57,15 @@ struct SafeTx {
 }
 
 /// @title LibSafeOps
-/// @notice Off-chain Safe transaction helpers shared between the multisig
-/// threshold migration script and its tests. Wraps the canonical
+/// @notice Off-chain Safe transaction helpers shared between the
+/// `YYYYMMDD-<kebab-name>.s.sol` operational scripts under `script/` that
+/// author Safe bundles, and their tests. Wraps the canonical
 /// `getTransactionHash` view, foundry-level simulation of self-calls and
 /// external calls, and the Safe Tx Builder JSON serialise/parse round-trip
 /// used to hand the bundle to signers via the Safe UI.
 /// @dev The library is `Vm`-aware: it pokes the foundry cheatcode address
-/// directly so callers can use it from non-Test contracts (notably the
-/// `MigrateMultisigThreshold` script). The JSON helpers hand-assemble the
+/// directly so callers can use it from non-Test contracts, which is what
+/// those `script/` scripts are. The JSON helpers hand-assemble the
 /// output rather than going through `vm.serializeJson` because the Tx
 /// Builder schema requires `transactions` to be a JSON array of objects —
 /// `vm.serializeString` keyed by index emits an object, not an array.

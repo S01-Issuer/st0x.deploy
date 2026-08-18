@@ -32,6 +32,7 @@ on:
           - 20260723-provision-additional-service-signer
           - 20260729-migrate-governance-to-timelock
           - 20260810-revoke-fireblocks-service-signer
+          - 20260619-migrate-multisig-threshold
       network:
         description: 'Network to author against (default: base)'
         required: true
