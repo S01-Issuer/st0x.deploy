@@ -16,6 +16,7 @@ import {
     DeployKeyHoldsAdmin
 } from "../../script/20260818-deploy-orchestrator.s.sol";
 import {DeployOrchestratorHarness} from "./DeployOrchestratorHarness.sol";
+import {MigrationStateDrift} from "../../src/lib/LibMigrationInvariant.sol";
 import {
     LibOrchestratorInvariants,
     ST0xOrchestratorBeaconSetDeployerLike,
@@ -225,6 +226,40 @@ contract DeployOrchestratorTest is Test {
     function testLandedAcceptsTheLandedState() external {
         mockBeaconSet();
         mockLandedInstance();
+        harness.assertDeployLanded(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE, SAFE, DEPLOY_KEY);
+    }
+
+    /// The beacon-owner invariant accepts the post-migration state too: a
+    /// beacon already owned by the Safe (after
+    /// `20260818-migrate-orchestrator-beacon-owner`) passes.
+    function testLandedAcceptsASafeOwnedBeacon() external {
+        mockBeaconSet();
+        mockLandedInstance();
+        vm.mockCall(
+            LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON, abi.encodeCall(Ownable.owner, ()), abi.encode(SAFE)
+        );
+        harness.assertDeployLanded(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE, SAFE, DEPLOY_KEY);
+    }
+
+    /// A beacon owner that is neither the deploy EOA nor the Safe is
+    /// migration-state drift, before or after the deadline.
+    function testLandedRefusesADriftedBeaconOwner() external {
+        mockBeaconSet();
+        mockLandedInstance();
+        vm.mockCall(
+            LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON,
+            abi.encodeCall(Ownable.owner, ()),
+            abi.encode(address(0xBAD))
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MigrationStateDrift.selector,
+                "ST0X_ORCHESTRATOR_BEACON.owner()",
+                bytes32(uint256(uint160(LibProdDeployV4.BEACON_INITIAL_OWNER))),
+                bytes32(uint256(uint160(SAFE))),
+                bytes32(uint256(uint160(address(0xBAD))))
+            )
+        );
         harness.assertDeployLanded(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE, SAFE, DEPLOY_KEY);
     }
 }
