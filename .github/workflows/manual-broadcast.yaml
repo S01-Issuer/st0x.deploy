@@ -34,6 +34,7 @@ on:
           - 20260706-deploy-tokens-ethereum
           - 20260807-deploy-missing-tokens
           - 20260729-deploy-governance-timelock
+          - 20260818-deploy-orchestrator
       network:
         description: 'Network to broadcast against (default: base)'
         required: true

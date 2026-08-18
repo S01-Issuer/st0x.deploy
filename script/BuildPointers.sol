@@ -356,6 +356,24 @@ contract BuildPointers is Script {
             "address constant STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);"
         );
         vm.writeLine(GEN_V4_PATH, "uint256 constant V4_SWAP_DEADLINE = 1_793_491_200;");
+        // ST0x orchestrator beacon + production instance — CREATE-derived
+        // from the 0.1.8 orchestrator beacon-set deployer (itself a Zoltu
+        // deploy), so chain-invariant like every Zoltu pin: the beacon is the
+        // deployer constructor's CREATE at account nonce 1, and the instance
+        // is the first `deploy()` call's BeaconProxy at nonce 2
+        // (`20260818-deploy-orchestrator` refuses any other deployer state).
+        // Carried as literals like the authoriser clone above;
+        // `testOrchestratorBeaconPin` / `testOrchestratorInstancePin`
+        // re-derive both from the deployer pin so a drifted literal fails a
+        // test.
+        vm.writeLine(
+            GEN_V4_PATH,
+            "address constant ST0X_ORCHESTRATOR_BEACON = address(0xbA0d89f6e84A201cD2C720A91911fDadBBb2Ad48);"
+        );
+        vm.writeLine(
+            GEN_V4_PATH,
+            "address constant ST0X_ORCHESTRATOR_INSTANCE = address(0x21372a9Dc4475F877b8Be8F81DD0D05050Bd9f7c);"
+        );
         for (uint256 t = 0; t < tags.length; t++) {
             for (uint256 c = 0; c < 12; c++) {
                 if (pointerExists(tags[t], names[c])) {
