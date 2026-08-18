@@ -33,7 +33,16 @@ error UnsupportedChainForRevocation(uint256 chainId);
 error SafeMissingRoleAdmin(bytes32 adminRole);
 
 /// @title RevokeFireblocksServiceSigner
-/// @notice **PENDING.** Authors the Safe bundle that revokes the RETIRED
+/// @notice **EXECUTED — verified 2026-08-18 (Base, Ethereum and
+/// HyperEVM).** Bundle MultiSend SafeTxHashes:
+/// Base (nonce 694)
+/// `0xc01cd00b63b4a646228a27781189b65fcb8e4dc2a9cf785002172aa4b74a0a76`,
+/// Ethereum (nonce 3)
+/// `0x04ca4b30c6de2413a5c1c13b1a41049eaadbb0479ede9d8b9ac7c80201d66378`,
+/// HyperEVM (nonce 1)
+/// `0xc621215611830c4692bb7e7870662f0f84ead4bed511aeddc30b0096a6d2b220`.
+///
+/// Authors the Safe bundle that revokes the RETIRED
 /// Fireblocks-custodied service signer
 /// (`LibAuthoriserInvariants.GRANTEE_SERVICE_1C66`) from the ACTIVE chain's
 /// V4 authoriser: one `revokeRole` per canonical grant the signer still
@@ -45,8 +54,7 @@ error SafeMissingRoleAdmin(bytes32 adminRole);
 /// the replacement signer. Dispatch via `Actions → run-script` with
 /// `script = 20260810-revoke-fireblocks-service-signer`, `sig = run()`,
 /// and the target `network`; one dispatch + Safe signing per chain
-/// carrying a live authoriser — `base`, `ethereum` and `hyperevm`, all
-/// three of which hold the signer's three canonical pairs today.
+/// carrying a live authoriser — `base`, `ethereum` and `hyperevm`.
 ///
 /// SAFETY — the drift guard doubles as a rotation gate: pre-flight
 /// requires every NON-retired row of
