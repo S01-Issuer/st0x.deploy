@@ -10,7 +10,8 @@ import {
     ExpectedGrantMissing,
     UnexpectedDefaultAdmin,
     UnexpectedRetainedAdminGrant,
-    AuthoriserImplCodehashMismatch
+    AuthoriserImplCodehashMismatch,
+    RevokedGrantStillHeld
 } from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
@@ -85,31 +86,28 @@ contract LibAuthoriserInvariantsTest is Test {
 
     /// @notice The admin-holder parameterisation: the seven `_ADMIN` entries
     /// track `adminHolder`, the six operational entries stay split between
-    /// the service signer and the Safe, and the narrower overloads are exact
+    /// the Safe and the service signer, and the narrower overloads are exact
     /// collapses of the widest one (so no consumer can drift from the single
     /// map).
     function testExpectedGrantsAdminHolderParameterisation() external pure {
         address safe = address(0x5AFE);
         address timelock = address(0x7135);
         RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
-        assertEq(grants.length, 16);
+        assertEq(grants.length, 13);
         for (uint256 i = 0; i < 7; i++) {
             assertEq(grants[i].grantee, timelock, "admin entries must track adminHolder");
         }
         for (uint256 i = 7; i < 10; i++) {
-            assertEq(grants[i].grantee, LibAuthoriserInvariants.GRANTEE_SERVICE_1C66);
-        }
-        for (uint256 i = 10; i < 13; i++) {
             assertEq(grants[i].grantee, safe, "operational Safe entries must track the Safe");
         }
-        // The additional service signer's three action roles are operational,
-        // not admin: they must track the signer regardless of who holds the
+        // The service signer's three action roles are operational, not
+        // admin: they must track the signer regardless of who holds the
         // `_ADMIN` slice, so the timelock migration never moves them.
-        for (uint256 i = 13; i < 16; i++) {
+        for (uint256 i = 10; i < 13; i++) {
             assertEq(
                 grants[i].grantee,
                 LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C,
-                "additional service signer entries must be independent of adminHolder"
+                "service signer entries must be independent of adminHolder"
             );
         }
 
@@ -164,6 +162,43 @@ contract LibAuthoriserInvariantsTest is Test {
                 clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, grants[i].role, safe), abi.encode(false)
             );
         }
+        // The retired signer's live grants would still trip the revoked-pair
+        // sweep until its revocation bundle executes, so mock them absent —
+        // this test pins the admin-holder mechanics, not the rotation state.
+        RoleGrant[] memory revoked = LibAuthoriserInvariants.revokedGrants();
+        for (uint256 i = 0; i < revoked.length; i++) {
+            vm.mockCall(
+                clone,
+                abi.encodeWithSelector(IAccessControl.hasRole.selector, revoked[i].role, revoked[i].grantee),
+                abi.encode(false)
+            );
+        }
         harness.callAssertExpectedGrants(clone, safe, timelock);
+    }
+
+    /// @notice `assertExpectedGrants` reverts `RevokedGrantStillHeld` when a
+    /// `revokedGrants()` pair is held on the authoriser: the retired service
+    /// signer must hold none of its former action roles. Mocked so the pin
+    /// is deterministic regardless of the live chain state.
+    function testAssertExpectedGrantsRejectsRevokedGrantStillHeld() external {
+        selectBaseFork();
+        address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        vm.mockCall(
+            clone,
+            abi.encodeWithSelector(
+                IAccessControl.hasRole.selector, keccak256("DEPOSIT"), LibAuthoriserInvariants.GRANTEE_SERVICE_1C66
+            ),
+            abi.encode(true)
+        );
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RevokedGrantStillHeld.selector,
+                clone,
+                keccak256("DEPOSIT"),
+                LibAuthoriserInvariants.GRANTEE_SERVICE_1C66
+            )
+        );
+        harness.callAssertExpectedGrants(clone);
     }
 }

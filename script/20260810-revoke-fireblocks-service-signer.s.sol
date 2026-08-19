@@ -33,7 +33,16 @@ error UnsupportedChainForRevocation(uint256 chainId);
 error SafeMissingRoleAdmin(bytes32 adminRole);
 
 /// @title RevokeFireblocksServiceSigner
-/// @notice **PENDING.** Authors the Safe bundle that revokes the RETIRED
+/// @notice **EXECUTED — verified 2026-08-18 (Base, Ethereum and
+/// HyperEVM).** Bundle MultiSend SafeTxHashes:
+/// Base (nonce 694)
+/// `0xc01cd00b63b4a646228a27781189b65fcb8e4dc2a9cf785002172aa4b74a0a76`,
+/// Ethereum (nonce 3)
+/// `0x04ca4b30c6de2413a5c1c13b1a41049eaadbb0479ede9d8b9ac7c80201d66378`,
+/// HyperEVM (nonce 1)
+/// `0xc621215611830c4692bb7e7870662f0f84ead4bed511aeddc30b0096a6d2b220`.
+///
+/// Authors the Safe bundle that revokes the RETIRED
 /// Fireblocks-custodied service signer
 /// (`LibAuthoriserInvariants.GRANTEE_SERVICE_1C66`) from the ACTIVE chain's
 /// V4 authoriser: one `revokeRole` per canonical grant the signer still
@@ -45,8 +54,7 @@ error SafeMissingRoleAdmin(bytes32 adminRole);
 /// the replacement signer. Dispatch via `Actions → run-script` with
 /// `script = 20260810-revoke-fireblocks-service-signer`, `sig = run()`,
 /// and the target `network`; one dispatch + Safe signing per chain
-/// carrying a live authoriser — `base`, `ethereum` and `hyperevm`, all
-/// three of which hold the signer's three canonical pairs today.
+/// carrying a live authoriser — `base`, `ethereum` and `hyperevm`.
 ///
 /// SAFETY — the drift guard doubles as a rotation gate: pre-flight
 /// requires every NON-retired row of
@@ -55,18 +63,14 @@ error SafeMissingRoleAdmin(bytes32 adminRole);
 /// signer is not fully provisioned therefore refuses to author the
 /// revoke, so the service can never be left without an active signer.
 ///
-/// The canonical map still carries the retired signer's rows — it pins
-/// what production IS, and the signer holds its grants until the Safes
-/// sign. Executing this bundle on a chain turns that chain's `1C66` rows
-/// red (`ExpectedGrantMissing`) in every live invariant — the cross-chain
-/// parity authoriser leg, the multichain production-state bundle, the
-/// per-chain prod pins — forcing the post-execution pin PR that removes
-/// the rows from the map and pins their ABSENCE as the new negative
-/// invariant. The prod pin for this script
-/// (`20260810-revoke-fireblocks-service-signer.prod.t.sol`) works the
-/// same way in the opposite direction: it asserts `run()` authors a
-/// full three-pair bundle on each chain, so execution flips it to
-/// `FireblocksSignerAlreadyRevoked` and it retires in the same pin PR.
+/// The canonical map no longer carries the retired signer's rows:
+/// `expectedGrants()` pins the post-rotation state, and `revokedGrants()`
+/// pins the three revoked pairs, which every live invariant asserts
+/// ABSENT via `assertExpectedGrants` (`RevokedGrantStillHeld` on a chain
+/// that has not executed its bundle, or on any re-grant). Because the map
+/// yields no retired pairs, re-dispatching this script reverts
+/// `FireblocksSignerAlreadyRevoked` — the correct behaviour when
+/// re-deriving an executed historical operation.
 ///
 /// SELF-SCOPING: only the pairs the signer still holds are authored
 /// (partial execution recovers by re-dispatch); a fully revoked chain
