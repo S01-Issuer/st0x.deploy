@@ -100,7 +100,7 @@ error NothingToMigrate();
 /// @notice The migration work selected from live chain state, grouped so
 /// `run()` carries one local for the whole selection rather than four.
 /// @dev Grouping is load-bearing, not cosmetic: `via_ir` is off for this
-/// repo (see CLAUDE.md) and `run()` runs up against the legacy codegen's
+/// repo (see `foundry.toml`) and `run()` runs up against the legacy codegen's
 /// stack limit, so each collapsed local buys headroom the authoring flow
 /// needs.
 /// @param vaults Production receipt vaults still owned by the Safe.
@@ -433,7 +433,7 @@ contract MigrateGovernanceToTimelock is Script {
     /// Safe; Safe identity, threshold and timelock configuration unchanged.
     /// @dev Split out of `run()` rather than inlined: `run()` already
     /// carries the selection, bundle, nonce and artifact locals, and
-    /// `via_ir` is off for this repo (see CLAUDE.md — IR was measured and
+    /// `via_ir` is off for this repo (see `foundry.toml` — IR was measured and
     /// made the vault bigger), so the post-state block's locals push the
     /// function over the stack limit when inlined.
     /// @param safe The chain's token-owner Safe.
