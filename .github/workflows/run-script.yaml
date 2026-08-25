@@ -33,6 +33,7 @@ on:
           - 20260729-migrate-governance-to-timelock
           - 20260813-timelock-rehearsal-schedule
           - 20260813-timelock-rehearsal-cancel
+          - 20260831-enable-orchestrator-roles
       network:
         description: 'Network to author against (default: base)'
         required: true
