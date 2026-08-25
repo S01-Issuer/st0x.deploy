@@ -46,6 +46,13 @@ error AuthoriserImplCodehashMismatch(address authoriser, bytes32 expected, bytes
 /// @param holder The Safe retaining it.
 error UnexpectedRetainedAdminGrant(address authoriser, bytes32 role, address holder);
 
+/// @notice The retired service signer holds an action role it was revoked
+/// from. The `20260810-revoke-fireblocks-service-signer` bundles removed
+/// every grant the retired signer held; any re-grant is unsanctioned drift.
+/// @param authoriser The authoriser carrying the unexpected grant.
+/// @param role The action role the retired signer holds.
+error UnexpectedRetiredSignerGrant(address authoriser, bytes32 role);
+
 /// @title LibAuthoriserInvariants
 /// @notice Reusable invariants for the ST0x production authoriser on Base:
 /// the grantee constants and the single master `(role, grantee)` map every
@@ -95,15 +102,18 @@ library LibAuthoriserInvariants {
     /// constant for call-site clarity.
     address internal constant GRANTEE_TOKEN_OWNER_SAFE = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
 
-    /// @notice The original service EOA — Fireblocks-custodied — holding
-    /// `DEPOSIT`, `WITHDRAW` and `CERTIFY` on each chain's authoriser.
+    /// @notice The RETIRED original service EOA — Fireblocks-custodied. It
+    /// holds NOTHING on any chain's authoriser: its `DEPOSIT`, `WITHDRAW`
+    /// and `CERTIFY` were revoked on every chain by the
+    /// `20260810-revoke-fireblocks-service-signer` Safe bundles (executed
+    /// Aug 2026), and `assertExpectedGrants` asserts that absence so a
+    /// re-grant red-lines cron. Kept as an audit-trail constant.
     /// https://basescan.org/address/0x1c66d6708914c40239d54919320b4c48cae3d1a9
     address internal constant GRANTEE_SERVICE_1C66 = 0x1c66D6708914C40239D54919320b4C48cAE3D1A9;
 
-    /// @notice ADDITIONAL service EOA, holding the same three action roles
-    /// as `GRANTEE_SERVICE_1C66` — both signers are active side by side.
-    /// Provisioned on each live chain's authoriser by the
-    /// `20260723-provision-additional-service-signer` Safe bundle; the
+    /// @notice The service EOA holding the three action roles on each
+    /// chain's authoriser. Provisioned on each live chain's authoriser by
+    /// the `20260723-provision-additional-service-signer` Safe bundle; the
     /// ADDRESS is shared across chains while the grants are per-chain
     /// state.
     address internal constant GRANTEE_SERVICE_3D0C = 0x3d0CD66EFA66c05d86c3d4316B03eAE87ab9E8aE;
@@ -149,7 +159,7 @@ library LibAuthoriserInvariants {
         pure
         returns (RoleGrant[] memory grants)
     {
-        grants = new RoleGrant[](16);
+        grants = new RoleGrant[](13);
 
         // Init grants (block 41715184 on Base) — the admin holder receives
         // every `_ADMIN` (the Safe at init; the governance timelock once the
@@ -166,22 +176,18 @@ library LibAuthoriserInvariants {
         grants[5] = RoleGrant(keccak256("SCHEDULE_CORPORATE_ACTION_ADMIN"), adminHolder);
         grants[6] = RoleGrant(keccak256("CANCEL_CORPORATE_ACTION_ADMIN"), adminHolder);
 
-        // Service EOA provisioned at blocks 41797262, 41797281, 41797297 (Base).
-        grants[7] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_1C66);
-        grants[8] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_1C66);
-        grants[9] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_1C66);
-
         // Safe holds the corresponding action roles (Base blocks 42704120,
         // 42704140, 44076075) for direct operational use.
-        grants[10] = RoleGrant(keccak256("DEPOSIT"), tokenOwnerSafe);
-        grants[11] = RoleGrant(keccak256("WITHDRAW"), tokenOwnerSafe);
-        grants[12] = RoleGrant(keccak256("CERTIFY"), tokenOwnerSafe);
+        grants[7] = RoleGrant(keccak256("DEPOSIT"), tokenOwnerSafe);
+        grants[8] = RoleGrant(keccak256("WITHDRAW"), tokenOwnerSafe);
+        grants[9] = RoleGrant(keccak256("CERTIFY"), tokenOwnerSafe);
 
-        // Additional service signer, provisioned by the 20260723 bundle
-        // per chain.
-        grants[13] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_3D0C);
-        grants[14] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_3D0C);
-        grants[15] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_3D0C);
+        // Service signer, provisioned by the 20260723 bundle per chain. The
+        // retired `GRANTEE_SERVICE_1C66` deliberately has no rows: its
+        // revocation is asserted as an ABSENCE in `assertExpectedGrants`.
+        grants[10] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_3D0C);
+        grants[11] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_3D0C);
+        grants[12] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_3D0C);
     }
 
     /// @notice Assert every pinned `(role, grantee)` pair in
@@ -245,6 +251,7 @@ library LibAuthoriserInvariants {
         if (acl.hasRole(DEFAULT_ADMIN_ROLE, GRANTEE_SERVICE_3D0C)) {
             revert UnexpectedDefaultAdmin(authoriser, GRANTEE_SERVICE_3D0C);
         }
+        assertRetiredSignerAbsent(acl, authoriser);
         RoleGrant[] memory grants = expectedGrants(tokenOwnerSafe, adminHolder);
         for (uint256 i = 0; i < grants.length; i++) {
             if (!acl.hasRole(grants[i].role, grants[i].grantee)) {
@@ -262,6 +269,21 @@ library LibAuthoriserInvariants {
                 if (acl.hasRole(grants[i].role, tokenOwnerSafe)) {
                     revert UnexpectedRetainedAdminGrant(authoriser, grants[i].role, tokenOwnerSafe);
                 }
+            }
+        }
+    }
+
+    /// @notice Assert the retired signer's revocation as an absence: it must
+    /// hold none of the three action roles the
+    /// `20260810-revoke-fireblocks-service-signer` bundles revoked, so a
+    /// re-grant red-lines rather than passing silently.
+    /// @param acl The authoriser as an `IAccessControl`.
+    /// @param authoriser The authoriser address, for the revert.
+    function assertRetiredSignerAbsent(IAccessControl acl, address authoriser) internal view {
+        bytes32[3] memory actionRoles = [keccak256("DEPOSIT"), keccak256("WITHDRAW"), keccak256("CERTIFY")];
+        for (uint256 i = 0; i < actionRoles.length; i++) {
+            if (acl.hasRole(actionRoles[i], GRANTEE_SERVICE_1C66)) {
+                revert UnexpectedRetiredSignerGrant(authoriser, actionRoles[i]);
             }
         }
     }
