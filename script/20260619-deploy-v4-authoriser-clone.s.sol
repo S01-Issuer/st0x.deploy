@@ -127,11 +127,12 @@ contract DeployV4AuthoriserClone is Script {
     /// on the freshly-cloned V4 authoriser, plus the two corporate-action
     /// admins the ST0x override adds — all transferred to the Safe by
     /// steps 3-4). Indices 7..12 are the operational grants (`DEPOSIT` /
-    /// `WITHDRAW` / `CERTIFY` × service + Safe) this script mirrors in.
+    /// `WITHDRAW` / `CERTIFY` × Safe + service signer) this script mirrors
+    /// in.
     uint256 internal constant MIRROR_START_INDEX = 7;
 
     /// @notice The number of non-admin grants this script mirrors in.
-    uint256 internal constant MIRROR_COUNT = 9;
+    uint256 internal constant MIRROR_COUNT = 6;
 
     /// @notice The number of `_ADMIN` roles the base + ST0x-override
     /// `initialize` auto-grant to `initialAdmin` (five base + two
