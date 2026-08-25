@@ -34,6 +34,7 @@ on:
           - 20260813-timelock-rehearsal-schedule
           - 20260813-timelock-rehearsal-cancel
           - 20260831-enable-orchestrator-roles
+          - 20260825-upgrade-fleet-to-0-1-30
       network:
         description: 'Network to author against (default: base)'
         required: true

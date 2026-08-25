@@ -3,6 +3,8 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {LibMigrationInvariant} from "../../../../src/lib/LibMigrationInvariant.sol";
+import {FLEET_UPGRADE_DEADLINE} from "../../../../script/20260825-upgrade-fleet-to-0-1-30.s.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
@@ -49,7 +51,7 @@ contract StoxProdV4Test is Test {
     /// tests. On Base the 0.1.1-address beacons checked here are an unadopted
     /// deploy artifact whose owner is irrelevant; on Ethereum they ARE the
     /// in-use beacons and the per-chain assert covers them.
-    function checkProd_0_1_1OnChain() internal view {
+    function checkProd_0_1_1OnChain(bool oarvBeaconsAreInUse) internal view {
         assertTrue(LibProdDeployV4.STOX_RECEIPT_0_1_1.code.length > 0, "V4 StoxReceipt not deployed");
         assertEq(LibProdDeployV4.STOX_RECEIPT_0_1_1.codehash, LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_1);
         assertEq(LibProdDeployV4.STOX_RECEIPT_0_1_1.code, LibProdDeployV4.STOX_RECEIPT_RUNTIME_CODE_0_1_1);
@@ -173,18 +175,41 @@ contract StoxProdV4Test is Test {
         );
 
         IBeacon receiptBeacon = oarvDeployer.iReceiptBeacon();
-        assertEq(
-            receiptBeacon.implementation(),
-            LibProdDeployV4.STOX_RECEIPT_0_1_1,
-            "V4 OARV receipt beacon implementation mismatch"
-        );
-
         IBeacon vaultBeacon = oarvDeployer.iOffchainAssetReceiptVaultBeacon();
-        assertEq(
-            vaultBeacon.implementation(),
-            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1,
-            "V4 OARV vault beacon implementation mismatch"
-        );
+        if (oarvBeaconsAreInUse) {
+            // On the bootstrap chains these ARE the in-use production
+            // beacons, so they ride the fleet-upgrade migration window
+            // (20260825-upgrade-fleet-to-0-1-30): 0.1.1 OR 0.1.30 until the
+            // deadline, 0.1.30 only after.
+            LibMigrationInvariant.assertMigration(
+                "OARV receipt beacon implementation()",
+                receiptBeacon.implementation(),
+                LibProdDeployV4.STOX_RECEIPT_0_1_1,
+                LibProdDeployV4.STOX_RECEIPT_0_1_30,
+                FLEET_UPGRADE_DEADLINE
+            );
+            LibMigrationInvariant.assertMigration(
+                "OARV vault beacon implementation()",
+                vaultBeacon.implementation(),
+                LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1,
+                LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30,
+                FLEET_UPGRADE_DEADLINE
+            );
+        } else {
+            // On Base these beacons are unadopted deploy artifacts
+            // (production runs on the V1-address beacons) — never
+            // repointed, frozen at the 0.1.1 impls their constructor baked.
+            assertEq(
+                receiptBeacon.implementation(),
+                LibProdDeployV4.STOX_RECEIPT_0_1_1,
+                "V4 OARV receipt beacon implementation mismatch"
+            );
+            assertEq(
+                vaultBeacon.implementation(),
+                LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1,
+                "V4 OARV vault beacon implementation mismatch"
+            );
+        }
     }
 
     /// The Base fork verifies only the frozen audited 0.1.1 set — that is what
@@ -195,7 +220,7 @@ contract StoxProdV4Test is Test {
     /// instead. The in-use beacons MUST be owned by Base's token-owner Safe.
     function testProdDeployBaseV4() external {
         vm.createSelectFork(LibRainDeploy.BASE);
-        checkProd_0_1_1OnChain();
+        checkProd_0_1_1OnChain(false);
         LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
     }
 
@@ -207,7 +232,7 @@ contract StoxProdV4Test is Test {
     /// Ethereum's token-owner Safe — asserted via the per-chain in-use pin.
     function testProdDeployEthereumV4() external {
         vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
-        checkProd_0_1_1OnChain();
+        checkProd_0_1_1OnChain(true);
         LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
     }
 
@@ -220,7 +245,7 @@ contract StoxProdV4Test is Test {
     /// the HyperEVM token-owner Safe; green otherwise, catching later drift.
     function testProdDeployHyperEvmV4() external {
         vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
-        checkProd_0_1_1OnChain();
+        checkProd_0_1_1OnChain(true);
         LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
     }
 }
