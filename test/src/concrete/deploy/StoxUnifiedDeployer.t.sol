@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test, Vm} from "forge-std-1.16.1/src/Test.sol";
+import {Test, Vm} from "forge-std-1.16.2/src/Test.sol";
 import {
     OffchainAssetReceiptVaultBeaconSetDeployer,
     OffchainAssetReceiptVaultConfigV2,
@@ -19,6 +19,11 @@ import {ReceiptVaultConfigV2} from "rain-vats-0.1.6/src/abstract/ReceiptVault.so
 import {MockERC20} from "../../../concrete/MockERC20.sol";
 
 contract StoxUnifiedDeployerTest is Test {
+    /// `vm.getCode` matches an artifact by the trailing path components of its
+    /// source, so a bare `X.sol:X` is only unique while no other source file is
+    /// named `X.sol`. Every contract deployed by `script/BuildPointers.sol` now
+    /// has exactly such a sibling: rain-sol-codegen writes its snapshot to
+    /// `src/generated/<tag>/<ContractName>.sol`. Hence the full source path.
     function testStoxUnifiedDeployer(address asset, address vault, OffchainAssetReceiptVaultConfigV2 memory config)
         external
     {
@@ -29,7 +34,7 @@ contract StoxUnifiedDeployerTest is Test {
         vm.etch(
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,
             vm.getCode(
-                "StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer"
+                "src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer"
             )
         );
         vm.mockCall(
@@ -42,7 +47,9 @@ contract StoxUnifiedDeployerTest is Test {
 
         vm.etch(
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,
-            vm.getCode("StoxWrappedTokenVaultBeaconSetDeployer.sol:StoxWrappedTokenVaultBeaconSetDeployer")
+            vm.getCode(
+                "src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol:StoxWrappedTokenVaultBeaconSetDeployer"
+            )
         );
         vm.mockCall(
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,
@@ -62,7 +69,7 @@ contract StoxUnifiedDeployerTest is Test {
         vm.etch(
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,
             vm.getCode(
-                "StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer"
+                "src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer"
             )
         );
         vm.mockCallRevert(
@@ -88,7 +95,7 @@ contract StoxUnifiedDeployerTest is Test {
         vm.etch(
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,
             vm.getCode(
-                "StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer"
+                "src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer"
             )
         );
         vm.mockCall(
@@ -101,7 +108,9 @@ contract StoxUnifiedDeployerTest is Test {
 
         vm.etch(
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,
-            vm.getCode("StoxWrappedTokenVaultBeaconSetDeployer.sol:StoxWrappedTokenVaultBeaconSetDeployer")
+            vm.getCode(
+                "src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol:StoxWrappedTokenVaultBeaconSetDeployer"
+            )
         );
         vm.mockCallRevert(
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,

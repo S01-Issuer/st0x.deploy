@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Script} from "forge-std-1.16.1/src/Script.sol";
-import {console2} from "forge-std-1.16.1/src/console2.sol";
-import {Vm} from "forge-std-1.16.1/src/Vm.sol";
+import {Script} from "forge-std-1.16.2/src/Script.sol";
+import {console2} from "forge-std-1.16.2/src/console2.sol";
+import {Vm} from "forge-std-1.16.2/src/Vm.sol";
 import {
     OffchainAssetReceiptVaultConfigV2
 } from "rain-vats-0.1.6/src/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";

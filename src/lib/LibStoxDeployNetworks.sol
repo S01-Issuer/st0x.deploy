@@ -3,18 +3,19 @@
 pragma solidity ^0.8.25;
 
 /// @title LibStoxDeployNetworks
-/// @notice The ST0x-specific deploy network-name constants that
-/// `rain-deploy`'s `LibRainDeploy` does not provide. Each matches its
+/// @notice ST0x-local deploy network-name constants. Declared when
+/// `rain-deploy` 0.1.4's `LibRainDeploy` had no `ETHEREUM`/`HYPEREVM`; 0.1.7
+/// provides identical constants, and these stay so the audited deploy script
+/// keeps its import surface unchanged. Each matches its
 /// `[rpc_endpoints]` alias in `foundry.toml`, the same convention as every
 /// `LibRainDeploy` network constant. Consumed by the audited deploy script
 /// `script/DeployProdV4_0_1_1.sol` and the cross-chain fork tests.
 library LibStoxDeployNetworks {
     /// @notice Ethereum mainnet network name, matching the `[rpc_endpoints]`
     /// alias in `foundry.toml` (resolved from `ETHEREUM_RPC_URL`).
-    /// @dev Declared here because `rain-deploy-0.1.4`'s `LibRainDeploy` has no
-    /// `ETHEREUM` constant. The Zoltu factory is deployed on Ethereum mainnet at
-    /// the canonical `LibRainDeploy.ZOLTU_FACTORY` address, so deterministic
-    /// deploys work unchanged.
+    /// @dev The Zoltu factory is deployed on Ethereum mainnet at the canonical
+    /// `LibRainDeploy.ZOLTU_FACTORY` address, so deterministic deploys work
+    /// unchanged.
     string internal constant ETHEREUM = "ethereum";
 
     /// @notice HyperEVM mainnet network name, matching the `[rpc_endpoints]`

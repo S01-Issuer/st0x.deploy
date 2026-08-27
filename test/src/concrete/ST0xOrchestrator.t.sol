@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {Test} from "forge-std-1.16.2/src/Test.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
 import {IST0xVaultBeaconSet} from "../../../src/interface/IST0xVaultBeaconSet.sol";
