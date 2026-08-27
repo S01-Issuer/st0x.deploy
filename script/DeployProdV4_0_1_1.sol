@@ -12,16 +12,13 @@ import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 /// suite.
 error UnknownDeploymentSuite(bytes32 suite);
 
-/// @dev Error thrown when the DEPLOYMENT_NETWORK env var does not match any
-/// supported bootstrap network.
-error UnknownDeploymentNetwork(string network);
-
 // One suite per contract to avoid Zoltu factory nonce issues.
 //
-// This script ships the audited 0.1.1 production set to one bootstrap network
-// per dispatch, selected by `DEPLOYMENT_NETWORK`. Each suite deploys the stored
-// `LibProdDeployV4.*_CREATION_CODE_0_1_1` bytecode — the exact bytes the 0.1.1
-// audit covers — and asserts against the `_0_1_1` address/codehash pins.
+// This script ships the audited 0.1.1 production set to the bootstrap networks
+// `DEPLOYMENT_NETWORK` selects: `all` ships to every one of them in a single
+// dispatch, a named network ships to that one only. Each suite deploys the
+// stored `LibProdDeployV4.*_CREATION_CODE_0_1_1` bytecode — the exact bytes the
+// 0.1.1 audit covers — and asserts against the `_0_1_1` address/codehash pins.
 // Deploying stored creation code (not `type(T).creationCode`) reproduces the
 // audited 0.1.1 deployment regardless of what the current source compiles to.
 //
@@ -46,7 +43,7 @@ bytes32 constant DEPLOYMENT_SUITE_STOX_CORPORATE_ACTIONS_FACET = keccak256("stox
 
 contract Deploy is Script {
     /// @dev Broadcasts a single contract via the Zoltu deterministic deployer
-    /// on the selected bootstrap network. Reads `DEPLOYMENT_KEY` from the
+    /// on every selected bootstrap network. Reads `DEPLOYMENT_KEY` from the
     /// environment, logs
     /// diagnostic information (expected address, codehash, dependency state),
     /// then delegates to `LibRainDeploy.deployAndBroadcast`.
@@ -66,8 +63,7 @@ contract Deploy is Script {
         bytes32 expectedCodeHash,
         address[] memory dependencies
     ) internal {
-        string[] memory networks = new string[](1);
-        networks[0] = bootstrapNetwork();
+        string[] memory networks = deploymentNetworks();
         uint256 deployerPrivateKey = vm.envUint("DEPLOYMENT_KEY");
 
         console2.log("Suite deploying (0.1.1):", contractPath);
@@ -96,20 +92,27 @@ contract Deploy is Script {
         );
     }
 
-    /// @notice The bootstrap network the suite broadcasts to, from the
-    /// `DEPLOYMENT_NETWORK` env var, validated against the supported set.
-    /// No default: an unset network reverts rather than silently picking a
-    /// chain.
-    /// @return network The validated `foundry.toml` rpc alias.
-    function bootstrapNetwork() internal view returns (string memory network) {
-        network = vm.envOr("DEPLOYMENT_NETWORK", string(""));
-        bytes32 networkHash = keccak256(bytes(network));
-        if (
-            networkHash != keccak256(bytes(LibStoxDeployNetworks.ETHEREUM))
-                && networkHash != keccak256(bytes(LibStoxDeployNetworks.HYPEREVM))
-        ) {
-            revert UnknownDeploymentNetwork(network);
-        }
+    /// @notice The bootstrap networks the suite broadcasts to, from the
+    /// `DEPLOYMENT_NETWORK` env var, resolved against `supportedNetworks`.
+    /// `all` selects every supported network in one dispatch; anything else
+    /// must name one of them. No default: an unset network reverts rather than
+    /// silently picking a chain.
+    /// @return The validated `foundry.toml` rpc aliases.
+    function deploymentNetworks() internal view returns (string[] memory) {
+        return LibStoxDeployNetworks.selectNetworks(vm.envOr("DEPLOYMENT_NETWORK", string("")), supportedNetworks());
+    }
+
+    /// @notice The closed set of bootstrap networks the 0.1.1 set ships to, as
+    /// `foundry.toml` rpc aliases. Base is absent on purpose: its production
+    /// instances were never bootstrapped from the 0.1.1 set, so `base` is
+    /// rejected here and by `all` alike. Mirrored by the `network` choice in
+    /// `.github/workflows/manual-sol-artifacts-0-1-1.yaml`.
+    /// @return The supported `foundry.toml` rpc aliases.
+    function supportedNetworks() public pure returns (string[] memory) {
+        string[] memory networks = new string[](2);
+        networks[0] = LibStoxDeployNetworks.ETHEREUM;
+        networks[1] = LibStoxDeployNetworks.HYPEREVM;
+        return networks;
     }
 
     /// @notice Entry point for the 0.1.1 bootstrap deployment script.
@@ -117,8 +120,8 @@ contract Deploy is Script {
     /// - `DEPLOYMENT_KEY`: private key for the deployer account.
     /// - `DEPLOYMENT_SUITE`: which contract to deploy (e.g. "stox-receipt").
     ///   One contract per run.
-    /// - `DEPLOYMENT_NETWORK`: bootstrap network to ship to — `ethereum` or
-    ///   `hyperevm`.
+    /// - `DEPLOYMENT_NETWORK`: bootstrap network to ship to — `ethereum`,
+    ///   `hyperevm`, or `all` for both in a single dispatch.
     function run() public {
         bytes32 suite = keccak256(bytes(vm.envString("DEPLOYMENT_SUITE")));
         address[] memory noDeps = new address[](0);

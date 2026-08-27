@@ -12,22 +12,20 @@ import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 /// suite.
 error UnknownDeploymentSuite(bytes32 suite);
 
-/// @dev Error thrown when the DEPLOYMENT_NETWORK env var does not match any
-/// supported network.
-error UnknownDeploymentNetwork(string network);
-
 // One suite per contract to avoid Zoltu factory nonce issues.
 //
 // This script ships the audited 0.1.30 orchestrator set — the ST0x orchestrator
-// and its on-chain dependency closure — to the selected network via the stored
-// 0.1.30 creation bytecode. The 0.1.30 snapshot is the set the source at tag
-// `sol-v0.1.30` (commit 4f126183) compiles to byte-identically, which is the
-// commit Protofire's `st0x.deploy 6.0` report (Aug 2026) reviews. Each suite
-// deploys the stored `LibProdDeployV4.*_CREATION_CODE_0_1_30` bytes and asserts
-// against the `_0_1_30` address/codehash pins, so the on-chain result is the
-// audited deployment regardless of what the current source compiles to.
+// and its on-chain dependency closure — to the networks `DEPLOYMENT_NETWORK`
+// selects, via the stored 0.1.30 creation bytecode. `all` ships to every
+// supported network in one dispatch; a named network ships to that one only.
+// The 0.1.30 snapshot is the set the source at tag `sol-v0.1.30` (commit
+// 4f126183) compiles to byte-identically, which is the commit Protofire's
+// `st0x.deploy 6.0` report (Aug 2026) reviews. Each suite deploys the stored
+// `LibProdDeployV4.*_CREATION_CODE_0_1_30` bytes and asserts against the
+// `_0_1_30` address/codehash pins, so the on-chain result is the audited
+// deployment regardless of what the current source compiles to.
 //
-// The closure is exactly what a working orchestrator needs on the target
+// The closure is exactly what a working orchestrator needs on each target
 // network and nothing more:
 //
 // - `ST0xOrchestrator.initialize` (and mint/burn) hard-revert via the
@@ -58,7 +56,7 @@ bytes32 constant DEPLOYMENT_SUITE_ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER =
 
 contract Deploy is Script {
     /// @dev Broadcasts a single contract via the Zoltu deterministic deployer
-    /// on the selected network. Reads `DEPLOYMENT_KEY` from the environment,
+    /// on every selected network. Reads `DEPLOYMENT_KEY` from the environment,
     /// logs diagnostic information (expected address, codehash, dependency
     /// state), then delegates to `LibRainDeploy.deployAndBroadcast`.
     /// @param creationCode The creation bytecode of the contract to deploy.
@@ -77,8 +75,7 @@ contract Deploy is Script {
         bytes32 expectedCodeHash,
         address[] memory dependencies
     ) internal {
-        string[] memory networks = new string[](1);
-        networks[0] = deploymentNetwork();
+        string[] memory networks = deploymentNetworks();
         uint256 deployerPrivateKey = vm.envUint("DEPLOYMENT_KEY");
 
         console2.log("Suite deploying (0.1.30):", contractPath);
@@ -107,21 +104,26 @@ contract Deploy is Script {
         );
     }
 
-    /// @notice The network the suite broadcasts to, from the
-    /// `DEPLOYMENT_NETWORK` env var, validated against the supported set.
-    /// No default: an unset network
-    /// reverts rather than silently picking a chain.
-    /// @return network The validated `foundry.toml` rpc alias.
-    function deploymentNetwork() internal view returns (string memory network) {
-        network = vm.envOr("DEPLOYMENT_NETWORK", string(""));
-        bytes32 networkHash = keccak256(bytes(network));
-        if (
-            networkHash != keccak256(bytes(LibRainDeploy.BASE))
-                && networkHash != keccak256(bytes(LibStoxDeployNetworks.ETHEREUM))
-                && networkHash != keccak256(bytes(LibStoxDeployNetworks.HYPEREVM))
-        ) {
-            revert UnknownDeploymentNetwork(network);
-        }
+    /// @notice The networks the suite broadcasts to, from the
+    /// `DEPLOYMENT_NETWORK` env var, resolved against `supportedNetworks`.
+    /// `all` selects every supported network in one dispatch; anything else
+    /// must name one of them. No default: an unset network reverts rather than
+    /// silently picking a chain.
+    /// @return The validated `foundry.toml` rpc aliases.
+    function deploymentNetworks() internal view returns (string[] memory) {
+        return LibStoxDeployNetworks.selectNetworks(vm.envOr("DEPLOYMENT_NETWORK", string("")), supportedNetworks());
+    }
+
+    /// @notice The closed set of networks the 0.1.30 orchestrator set ships to,
+    /// as `foundry.toml` rpc aliases. Mirrored by the `network` choice in
+    /// `.github/workflows/manual-sol-artifacts-0-1-30.yaml`.
+    /// @return The supported `foundry.toml` rpc aliases.
+    function supportedNetworks() public pure returns (string[] memory) {
+        string[] memory networks = new string[](3);
+        networks[0] = LibRainDeploy.BASE;
+        networks[1] = LibStoxDeployNetworks.ETHEREUM;
+        networks[2] = LibStoxDeployNetworks.HYPEREVM;
+        return networks;
     }
 
     /// @notice Entry point for the 0.1.30 orchestrator-set deployment script.
@@ -129,8 +131,8 @@ contract Deploy is Script {
     /// - `DEPLOYMENT_KEY`: private key for the deployer account.
     /// - `DEPLOYMENT_SUITE`: which contract to deploy (e.g.
     ///   "st0x-orchestrator"). One contract per run.
-    /// - `DEPLOYMENT_NETWORK`: network to ship to — `base`, `ethereum` or
-    ///   `hyperevm`.
+    /// - `DEPLOYMENT_NETWORK`: network to ship to — `base`, `ethereum`,
+    ///   `hyperevm`, or `all` for every one of them in a single dispatch.
     function run() public {
         bytes32 suite = keccak256(bytes(vm.envString("DEPLOYMENT_SUITE")));
         address[] memory noDeps = new address[](0);

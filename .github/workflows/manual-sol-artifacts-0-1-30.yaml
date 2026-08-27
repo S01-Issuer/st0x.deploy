@@ -45,7 +45,12 @@ on:
         type: choice
         options:
           # Closed set of vetted networks — mirrored by the deploy script's
-          # `deploymentNetwork()` guard.
+          # `supportedNetworks()`. `all` ships the suite to every one of them
+          # in this single run: the script hands the whole list to
+          # `LibRainDeploy.deployToNetworks`, which forks each in turn and
+          # skips any that already has code at the expected address. A partial
+          # run is repaired by dispatching again, not by unpicking anything.
+          - 'all'
           - 'base'
           - 'ethereum'
           - 'hyperevm'
@@ -55,9 +60,12 @@ jobs:
     with:
       suite: ${{ inputs.suite }}
       network: ${{ inputs.network }}
-      # HyperEVM's RPC rejects forge's EIP-1559 fee-history estimation;
-      # type-0 transactions work on every supported network.
-      legacy: ${{ inputs.network == 'hyperevm' }}
+      # HyperEVM's RPC rejects forge's EIP-1559 fee-history estimation, and
+      # `--legacy` is one flag over the whole `forge script` run, so an `all`
+      # run cannot vary it per network. Unconditional rather than conditional:
+      # type-0 is valid on every network here, and it keeps an `all` run and a
+      # single-network rerun of one of its legs identical.
+      legacy: true
       # Ship the stored 0.1.30 creation bytecode, not current source.
       script: script/DeployProdV4_0_1_30.sol:Deploy
       # The current source diverged from 0.1.30 (H01 remediation + optimizer

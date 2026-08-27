@@ -44,7 +44,11 @@ on:
         type: choice
         options:
           # Closed set of vetted bootstrap networks — mirrored by the deploy
-          # script's `bootstrapNetwork()` guard.
+          # script's `supportedNetworks()`. `all` is both of them in this
+          # single run, and is Base-free for the same reason the named options
+          # are: Base was never bootstrapped from the 0.1.1 set, and the script
+          # rejects it either way.
+          - 'all'
           - 'ethereum'
           - 'hyperevm'
 jobs:
@@ -53,9 +57,12 @@ jobs:
     with:
       suite: ${{ inputs.suite }}
       network: ${{ inputs.network }}
-      # HyperEVM's RPC rejects forge's EIP-1559 fee-history estimation;
-      # type-0 transactions work on every bootstrap network.
-      legacy: ${{ inputs.network == 'hyperevm' }}
+      # HyperEVM's RPC rejects forge's EIP-1559 fee-history estimation, and
+      # `--legacy` is one flag over the whole `forge script` run, so an `all`
+      # run cannot vary it per network. Unconditional rather than conditional:
+      # type-0 is valid on every bootstrap network here, and it keeps an `all`
+      # run and a single-network rerun of one of its legs identical.
+      legacy: true
       # Ship the stored 0.1.1 creation bytecode, not current source.
       script: script/DeployProdV4_0_1_1.sol:Deploy
       # The 0.1.1 bytecode of the contracts that changed by 0.1.3 does not match

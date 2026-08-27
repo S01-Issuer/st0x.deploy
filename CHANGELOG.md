@@ -93,11 +93,11 @@
   reading as "copy everything".
 - **The canonical config table is allowed to run ahead of Base.** A row is
   authored when a ticker is chosen and Base is pinned when it is deployed, so
-  the config table leads in that window; only the rows Base carries are read,
-  so the excess is inert. The genuine error is a config table SHORTER than
-  Base — a deployed Base row with no name/symbol to deploy under — which
-  reverts `TokenTableTooShort(configsLength, baseLength)`. Row-for-row key
-  drift between the two tables still reverts `TokenTableMisaligned`.
+  the config table leads in that window; only the rows Base carries are read, so
+  the excess is inert. The genuine error is a config table SHORTER than Base — a
+  deployed Base row with no name/symbol to deploy under — which reverts
+  `TokenTableTooShort(configsLength, baseLength)`. Row-for-row key drift between
+  the two tables still reverts `TokenTableMisaligned`.
 - **Three checks the gap-fill scripts had dropped are back, matching
   `20260706-deploy-tokens-ethereum`.** Each deployed vault is now read back
   before the loop moves on — `AuthoriserNotWired` if it is not routed to the
@@ -112,6 +112,19 @@
   states the exception the deletion was made under: an entry may be dropped only
   when a named successor listed there covers its pre-flight at least as
   strongly, and the run id has been carried into the pin.
+- **One dispatch ships a suite to every supported network.** Both
+  `DeployProdV4_0_1_1` and `DeployProdV4_0_1_30` built a one-element `string[]`
+  for `LibRainDeploy.deployAndBroadcast`, which takes a list and loops it, so
+  the six-suite 0.1.30 rollout cost one dispatch per (suite, network) pair.
+  `DEPLOYMENT_NETWORK=all` now hands the script's whole supported set to that
+  loop, which forks each network in turn and skips any that already has code at
+  the expected address — so a repeat dispatch is a no-op where the suite landed
+  and a retry where it did not. Naming a single network still ships to that one
+  only, and 0.1.1 still refuses `base`, by name and under `all` alike, because
+  Base is absent from its supported set. Both workflows now pass `legacy: true`
+  unconditionally: `--legacy` is one flag over the whole `forge script` run, so
+  an all-networks run cannot vary the transaction type per network, and type-0
+  is valid on every network these scripts ship to.
 
 ### New contracts
 
