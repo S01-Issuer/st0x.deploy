@@ -327,6 +327,29 @@ contract LibProdDeployV4Test is Test {
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_1
         );
         assertEq(
+            keccak256(LibProdDeployV4.STOX_RECEIPT_RUNTIME_CODE_0_1_30), LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_30
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_30),
+            LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_30
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_30),
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_30
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_30),
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_30
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.ST0X_ORCHESTRATOR_RUNTIME_CODE_0_1_30),
+            LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_0_1_30
+        );
+        assertEq(
+            keccak256(LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_30),
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_30
+        );
+        assertEq(
             keccak256(LibProdDeployV4.STOX_RECEIPT_RUNTIME_CODE_CANDIDATE),
             LibProdDeployV4.STOX_RECEIPT_CODEHASH_CANDIDATE
         );
@@ -531,6 +554,84 @@ contract LibProdDeployV4Test is Test {
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1,
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_1,
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_1
+        );
+    }
+
+    // --- 0.1.30 frozen redeploys (the audited orchestrator set: source at
+    // tag `sol-v0.1.30`, commit 4f126183, the commit Protofire's `st0x.deploy
+    // 6.0` report (Aug 2026) reviews; it compiles byte-identically to this
+    // snapshot). The snapshot is deliberately PARTIAL: only the orchestrator's
+    // on-chain dependency closure is frozen — the wrapped-token-vault chain,
+    // the authorizers and the unified deployer stay 0.1.1-only, since their
+    // production instances come from the audited 0.1.1 bootstrap set. All six
+    // frozen contracts have a distinct (creation code, address) pair vs 0.1.1
+    // — the H01 remediation's optimizer change (5000 -> 2000 runs) moved
+    // every address, so unlike earlier releases there are no 0.1.1 twins. ---
+
+    function testFrozenRedeployStoxReceipt_0_1_30() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.STOX_RECEIPT_CREATION_CODE_0_1_30,
+            LibProdDeployV4.STOX_RECEIPT_0_1_30,
+            LibProdDeployV4.STOX_RECEIPT_RUNTIME_CODE_0_1_30,
+            LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_30
+        );
+    }
+
+    function testFrozenRedeployStoxReceiptVault_0_1_30() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.STOX_RECEIPT_VAULT_CREATION_CODE_0_1_30,
+            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30,
+            LibProdDeployV4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_30,
+            LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_30
+        );
+    }
+
+    function testFrozenRedeployStoxCorporateActionsFacet_0_1_30() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CREATION_CODE_0_1_30,
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_30,
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_30,
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_30
+        );
+    }
+
+    /// Its constructor builds two beacons over the receipt and receipt-vault
+    /// impls, so both are deployed (frozen, at their 0.1.30 addresses) first.
+    function testFrozenRedeployStoxOffchainAssetReceiptVaultBeaconSetDeployer_0_1_30() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.STOX_RECEIPT_CREATION_CODE_0_1_30);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.STOX_RECEIPT_VAULT_CREATION_CODE_0_1_30);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_30,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_30,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_30,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_30
+        );
+    }
+
+    function testFrozenRedeployST0xOrchestrator_0_1_30() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_0_1_30,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_RUNTIME_CODE_0_1_30,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_0_1_30
+        );
+    }
+
+    /// Its constructor builds an `UpgradeableBeacon` over the orchestrator impl,
+    /// so the impl is deployed (frozen, at its 0.1.30 address) first.
+    function testFrozenRedeployST0xOrchestratorBeaconSetDeployer_0_1_30() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_0_1_30);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_30,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_30,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_30,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_30
         );
     }
 
