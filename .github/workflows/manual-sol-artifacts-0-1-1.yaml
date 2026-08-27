@@ -12,9 +12,12 @@ on:
         type: choice
         options:
           # ===================================================================
-          # The audited 0.1.1 production set, shipped to the selected bootstrap
-          # network via script/DeployProdV4_0_1_1.sol (stored 0.1.1 creation
-          # bytecode).
+          # The audited 0.1.1 production set, shipped via
+          # script/DeployProdV4_0_1_1.sol (stored 0.1.1 creation bytecode) to
+          # every network in LibStoxDeployNetworks.deploymentNetworks. There is
+          # no network input: a dispatch picks a suite and ships it everywhere.
+          # The set already has code at every pinned address on all of those
+          # networks, so a dispatch here is a no-op re-proving the pins.
           # The orchestrator (introduced at 0.1.2) is not part of this set.
           #
           # Deploy in the listed order; later entries reference earlier ones via
@@ -38,30 +41,15 @@ on:
           - stox-offchain-asset-receipt-vault-beacon-set-deployer
           # 5. Unified deployer (depends on the two set-deployers above).
           - stox-unified-deployer
-      network:
-        description: 'Bootstrap network to ship the 0.1.1 set to'
-        required: true
-        type: choice
-        options:
-          # Closed set of vetted bootstrap networks — mirrored by the deploy
-          # script's `supportedNetworks()`. `all` is both of them in this
-          # single run, and is Base-free for the same reason the named options
-          # are: Base was never bootstrapped from the 0.1.1 set, and the script
-          # rejects it either way.
-          - 'all'
-          - 'ethereum'
-          - 'hyperevm'
 jobs:
   deploy:
     uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-artifacts.yaml@main
     with:
       suite: ${{ inputs.suite }}
-      network: ${{ inputs.network }}
       # HyperEVM's RPC rejects forge's EIP-1559 fee-history estimation, and
-      # `--legacy` is one flag over the whole `forge script` run, so an `all`
-      # run cannot vary it per network. Unconditional rather than conditional:
-      # type-0 is valid on every bootstrap network here, and it keeps an `all`
-      # run and a single-network rerun of one of its legs identical.
+      # `--legacy` is one flag over the whole `forge script` run, so it cannot
+      # vary per network within a run. Type-0 is valid on every network the
+      # script ships to, so it is unconditional.
       legacy: true
       # Ship the stored 0.1.1 creation bytecode, not current source.
       script: script/DeployProdV4_0_1_1.sol:Deploy
@@ -69,10 +57,12 @@ jobs:
       # current source, so Etherscan verification against current source would
       # fail the run. Deploy unverified; verify manually from the 0.1.1 tag.
       verify: false
-    # Runs unverified, so it needs only the deployer key and the bootstrap
-    # networks' RPCs. The reusable declares every other secret as optional and
-    # falls back to `|| vars.* || ''` for any it isn't given.
+    # Runs unverified, so it needs only the deployer key and an RPC for every
+    # network in LibStoxDeployNetworks.deploymentNetworks. The reusable
+    # declares every other secret as optional and falls back to
+    # `|| vars.* || ''` for any it isn't given.
     secrets:
       PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+      RPC_URL_BASE_FORK: ${{ secrets.RPC_URL_BASE_FORK }}
       RPC_URL_ETHEREUM_FORK: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
       RPC_URL_HYPEREVM_FORK: ${{ secrets.RPC_URL_HYPEREVM_FORK }}

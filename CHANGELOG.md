@@ -112,19 +112,23 @@
   states the exception the deletion was made under: an entry may be dropped only
   when a named successor listed there covers its pre-flight at least as
   strongly, and the run id has been carried into the pin.
-- **One dispatch ships a suite to every supported network.** Both
-  `DeployProdV4_0_1_1` and `DeployProdV4_0_1_30` built a one-element `string[]`
-  for `LibRainDeploy.deployAndBroadcast`, which takes a list and loops it, so
-  the six-suite 0.1.30 rollout cost one dispatch per (suite, network) pair.
-  `DEPLOYMENT_NETWORK=all` now hands the script's whole supported set to that
-  loop, which forks each network in turn and skips any that already has code at
-  the expected address — so a repeat dispatch is a no-op where the suite landed
-  and a retry where it did not. Naming a single network still ships to that one
-  only, and 0.1.1 still refuses `base`, by name and under `all` alike, because
-  Base is absent from its supported set. Both workflows now pass `legacy: true`
-  unconditionally: `--legacy` is one flag over the whole `forge script` run, so
-  an all-networks run cannot vary the transaction type per network, and type-0
-  is valid on every network these scripts ship to.
+- **One dispatch ships a suite to every network.** Both `DeployProdV4_0_1_1` and
+  `DeployProdV4_0_1_30` built a one-element `string[]` for
+  `LibRainDeploy.deployAndBroadcast`, which takes a list and loops it, so the
+  six-suite 0.1.30 rollout cost one dispatch per (suite, network) pair. Both now
+  hand it `LibStoxDeployNetworks.deploymentNetworks` — Base, Ethereum, HyperEVM
+  — which the loop forks in turn, skipping any that already has code at the
+  expected address, so a repeat dispatch is a no-op where the suite landed and a
+  retry where it did not. Picking a network is gone with it: the
+  `DEPLOYMENT_NETWORK` env var, the `network` choice on both workflows and the
+  per-script supported-network lists are all removed, leaving one declaration of
+  the set in `LibStoxDeployNetworks`. 0.1.1 no longer excludes Base — the whole
+  audited 0.1.1 set already has code at its pinned addresses there, as
+  `StoxProdV4Test` asserts per chain, so the exclusion had nothing left to
+  express and the run is a no-op on all three. Both workflows now pass
+  `legacy: true` unconditionally: `--legacy` is one flag over the whole
+  `forge script` run, so it cannot vary per network within a run, and type-0 is
+  valid on every network these scripts ship to.
 
 ### New contracts
 
