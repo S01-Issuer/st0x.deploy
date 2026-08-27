@@ -10,6 +10,7 @@ import {
     ExpectedGrantMissing,
     UnexpectedDefaultAdmin,
     UnexpectedRetainedAdminGrant,
+    UnexpectedRetiredSignerGrant,
     AuthoriserImplCodehashMismatch
 } from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
@@ -92,24 +93,23 @@ contract LibAuthoriserInvariantsTest is Test {
         address safe = address(0x5AFE);
         address timelock = address(0x7135);
         RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
-        assertEq(grants.length, 16);
+        assertEq(grants.length, 13);
         for (uint256 i = 0; i < 7; i++) {
             assertEq(grants[i].grantee, timelock, "admin entries must track adminHolder");
         }
         for (uint256 i = 7; i < 10; i++) {
-            assertEq(grants[i].grantee, LibAuthoriserInvariants.GRANTEE_SERVICE_1C66);
-        }
-        for (uint256 i = 10; i < 13; i++) {
             assertEq(grants[i].grantee, safe, "operational Safe entries must track the Safe");
         }
-        // The additional service signer's three action roles are operational,
-        // not admin: they must track the signer regardless of who holds the
-        // `_ADMIN` slice, so the timelock migration never moves them.
-        for (uint256 i = 13; i < 16; i++) {
+        // The service signer's three action roles are operational, not
+        // admin: they must track the signer regardless of who holds the
+        // `_ADMIN` slice, so the timelock migration never moves them. The
+        // retired signer has no rows at all — its revocation is asserted as
+        // an absence, not a grant.
+        for (uint256 i = 10; i < 13; i++) {
             assertEq(
                 grants[i].grantee,
                 LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C,
-                "additional service signer entries must be independent of adminHolder"
+                "service signer entries must be independent of adminHolder"
             );
         }
 
@@ -165,5 +165,25 @@ contract LibAuthoriserInvariantsTest is Test {
             );
         }
         harness.callAssertExpectedGrants(clone, safe, timelock);
+    }
+
+    /// @notice A re-grant to the retired signer is refused: the revocation
+    /// is pinned as an absence, so any action role landing back on
+    /// `GRANTEE_SERVICE_1C66` red-lines with `UnexpectedRetiredSignerGrant`
+    /// naming the role.
+    function testAssertExpectedGrantsRefusesARetiredSignerRegrant() external {
+        selectBaseFork();
+        address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+
+        vm.mockCall(
+            clone,
+            abi.encodeWithSelector(
+                IAccessControl.hasRole.selector, keccak256("WITHDRAW"), LibAuthoriserInvariants.GRANTEE_SERVICE_1C66
+            ),
+            abi.encode(true)
+        );
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedRetiredSignerGrant.selector, clone, keccak256("WITHDRAW")));
+        harness.callAssertExpectedGrants(clone);
     }
 }

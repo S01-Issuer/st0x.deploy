@@ -705,7 +705,7 @@ contract MigrateGovernanceToTimelock is Script {
     /// @param authoriser The chain's authoriser clone.
     function _proveGovernanceLoop(IGnosisSafe safe, address timelock, address authoriser) internal {
         bytes memory adminAction = abi.encodeCall(
-            IAccessControl.grantRole, (keccak256("DEPOSIT"), LibAuthoriserInvariants.GRANTEE_SERVICE_1C66)
+            IAccessControl.grantRole, (keccak256("DEPOSIT"), LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C)
         );
         TimelockController controller = TimelockController(payable(timelock));
         bytes32 id = controller.hashOperation(authoriser, 0, adminAction, bytes32(0), LOOP_PROOF_SALT);
