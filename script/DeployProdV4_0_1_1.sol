@@ -12,18 +12,19 @@ import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 /// suite.
 error UnknownDeploymentSuite(bytes32 suite);
 
-/// @dev Error thrown when the DEPLOYMENT_NETWORK env var does not match any
-/// supported bootstrap network.
-error UnknownDeploymentNetwork(string network);
-
 // One suite per contract to avoid Zoltu factory nonce issues.
 //
-// This script ships the audited 0.1.1 production set to one bootstrap network
-// per dispatch, selected by `DEPLOYMENT_NETWORK`. Each suite deploys the stored
+// This script ships the audited 0.1.1 production set to every network in
+// `LibStoxDeployNetworks.deploymentNetworks`. Each suite deploys the stored
 // `LibProdDeployV4.*_CREATION_CODE_0_1_1` bytecode — the exact bytes the 0.1.1
 // audit covers — and asserts against the `_0_1_1` address/codehash pins.
 // Deploying stored creation code (not `type(T).creationCode`) reproduces the
 // audited 0.1.1 deployment regardless of what the current source compiles to.
+//
+// The whole set already has code at its pinned addresses on every one of those
+// networks (`StoxProdV4Test` asserts exactly that per chain), so a dispatch
+// here is a no-op that re-proves the pins, and a redeploy only where a
+// contract is somehow missing.
 //
 // The orchestrator is intentionally absent: `ST0xOrchestrator` and its
 // beacon-set deployer were introduced at 0.1.2, so they are not part of the
@@ -46,10 +47,9 @@ bytes32 constant DEPLOYMENT_SUITE_STOX_CORPORATE_ACTIONS_FACET = keccak256("stox
 
 contract Deploy is Script {
     /// @dev Broadcasts a single contract via the Zoltu deterministic deployer
-    /// on the selected bootstrap network. Reads `DEPLOYMENT_KEY` from the
-    /// environment, logs
-    /// diagnostic information (expected address, codehash, dependency state),
-    /// then delegates to `LibRainDeploy.deployAndBroadcast`.
+    /// on every network ST0x deploys to. Reads `DEPLOYMENT_KEY` from the
+    /// environment, logs diagnostic information (expected address, codehash,
+    /// dependency state), then delegates to `LibRainDeploy.deployAndBroadcast`.
     /// @param creationCode The creation bytecode of the contract to deploy.
     /// @param contractPath Fully qualified contract path
     /// (e.g. "src/concrete/StoxReceipt.sol:StoxReceipt").
@@ -58,7 +58,7 @@ contract Deploy is Script {
     /// @param expectedCodeHash The expected codehash of the deployed runtime
     /// bytecode.
     /// @param dependencies Addresses of contracts that must already be
-    /// deployed on the selected network before this contract is deployed.
+    /// deployed on each network before this contract is deployed.
     function deploySuite(
         bytes memory creationCode,
         string memory contractPath,
@@ -66,8 +66,7 @@ contract Deploy is Script {
         bytes32 expectedCodeHash,
         address[] memory dependencies
     ) internal {
-        string[] memory networks = new string[](1);
-        networks[0] = bootstrapNetwork();
+        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
         uint256 deployerPrivateKey = vm.envUint("DEPLOYMENT_KEY");
 
         console2.log("Suite deploying (0.1.1):", contractPath);
@@ -96,29 +95,11 @@ contract Deploy is Script {
         );
     }
 
-    /// @notice The bootstrap network the suite broadcasts to, from the
-    /// `DEPLOYMENT_NETWORK` env var, validated against the supported set.
-    /// No default: an unset network reverts rather than silently picking a
-    /// chain.
-    /// @return network The validated `foundry.toml` rpc alias.
-    function bootstrapNetwork() internal view returns (string memory network) {
-        network = vm.envOr("DEPLOYMENT_NETWORK", string(""));
-        bytes32 networkHash = keccak256(bytes(network));
-        if (
-            networkHash != keccak256(bytes(LibStoxDeployNetworks.ETHEREUM))
-                && networkHash != keccak256(bytes(LibStoxDeployNetworks.HYPEREVM))
-        ) {
-            revert UnknownDeploymentNetwork(network);
-        }
-    }
-
     /// @notice Entry point for the 0.1.1 bootstrap deployment script.
     /// @dev Requires env vars:
     /// - `DEPLOYMENT_KEY`: private key for the deployer account.
     /// - `DEPLOYMENT_SUITE`: which contract to deploy (e.g. "stox-receipt").
     ///   One contract per run.
-    /// - `DEPLOYMENT_NETWORK`: bootstrap network to ship to — `ethereum` or
-    ///   `hyperevm`.
     function run() public {
         bytes32 suite = keccak256(bytes(vm.envString("DEPLOYMENT_SUITE")));
         address[] memory noDeps = new address[](0);
