@@ -5,4 +5,4 @@ dependencies
 
 .env
 .fixes
-.claude/scheduled_tasks.lock
+.claude/scheduled_tasks.lockbroadcast
