@@ -88,9 +88,6 @@ contract Deploy is Script {
         console2.log("Dependencies count:", dependencies.length);
         for (uint256 i = 0; i < dependencies.length; i++) {
             console2.log("  Dep address:", dependencies[i]);
-            console2.log("  Dep code length:", dependencies[i].code.length);
-            console2.log("  Dep codehash:");
-            console2.logBytes32(dependencies[i].codehash);
         }
 
         LibRainDeploy.deployAndBroadcast(
