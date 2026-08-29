@@ -230,6 +230,9 @@ library LibBeaconInvariants {
     /// `prodBeaconsForChainId`.
     uint256 internal constant WRAPPED_TOKEN_VAULT_BEACON_INDEX = 2;
 
+    /// @notice Position of the orchestrator beacon in `prodBeaconsForChainId`.
+    uint256 internal constant ORCHESTRATOR_BEACON_INDEX = 3;
+
     /// @notice The three production beacons IN USE on the active chain, in a
     /// fixed order (receipt, receipt vault, wrapped token vault). Beacon
     /// addresses are per-chain deploy artifacts that never change once a
@@ -240,7 +243,7 @@ library LibBeaconInvariants {
     /// order); this map only dispatches by chain id.
     /// @param chainId The active chain id (`block.chainid`).
     /// @return The chain's three in-use beacon addresses.
-    function prodBeaconsForChainId(uint256 chainId) internal view returns (address[3] memory) {
+    function prodBeaconsForChainId(uint256 chainId) internal view returns (address[4] memory) {
         if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
             return LibProdBeaconsBase.beacons();
         }
@@ -285,7 +288,7 @@ library LibBeaconInvariants {
     /// @param expectedOwner The address every in-use beacon must report as
     /// `owner()`.
     function assertProdBeaconsOwnedBy(uint256 chainId, address expectedOwner) internal view {
-        address[3] memory beacons = prodBeaconsForChainId(chainId);
+        address[4] memory beacons = prodBeaconsForChainId(chainId);
         for (uint256 i = 0; i < beacons.length; i++) {
             _assertDeployedPinnedBeacon(beacons[i]);
             address actualOwner = IOwnable(beacons[i]).owner();
@@ -327,7 +330,7 @@ library LibBeaconInvariants {
         internal
         view
     {
-        address[3] memory beacons = prodBeaconsForChainId(chainId);
+        address[4] memory beacons = prodBeaconsForChainId(chainId);
         for (uint256 i = 0; i < beacons.length; i++) {
             _assertDeployedPinnedBeacon(beacons[i]);
             LibMigrationInvariant.assertMigration("beacon.owner()", IOwnable(beacons[i]).owner(), pre, post, deadline);
