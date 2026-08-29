@@ -220,6 +220,16 @@ library LibBeaconInvariants {
         }
     }
 
+    /// @notice Position of the receipt beacon in `prodBeaconsForChainId`.
+    uint256 internal constant RECEIPT_BEACON_INDEX = 0;
+
+    /// @notice Position of the receipt-vault beacon in `prodBeaconsForChainId`.
+    uint256 internal constant RECEIPT_VAULT_BEACON_INDEX = 1;
+
+    /// @notice Position of the wrapped-token-vault beacon in
+    /// `prodBeaconsForChainId`.
+    uint256 internal constant WRAPPED_TOKEN_VAULT_BEACON_INDEX = 2;
+
     /// @notice The three production beacons IN USE on the active chain, in a
     /// fixed order (receipt, receipt vault, wrapped token vault). Beacon
     /// addresses are per-chain deploy artifacts that never change once a
@@ -243,32 +253,6 @@ library LibBeaconInvariants {
             return LibProdBeacons0_1_1.beacons();
         }
         revert UnsupportedChainForProdBeacons(chainId);
-    }
-
-    /// @notice Position of the receipt beacon in `prodBeaconsForChainId`.
-    uint256 internal constant RECEIPT_BEACON_INDEX = 0;
-
-    /// @notice Position of the receipt-vault beacon in
-    /// `prodBeaconsForChainId`.
-    uint256 internal constant RECEIPT_VAULT_BEACON_INDEX = 1;
-
-    /// @notice The receipt beacon on `chainId`, resolved by role.
-    /// @dev Consumers that want one specific beacon ask for it by name here
-    /// rather than indexing `prodBeaconsForChainId`. Only this library knows
-    /// the array's layout, so the set can gain a member — the orchestrator
-    /// beacon is a fourth, see #333 — without every caller having to agree
-    /// about positions. New members are APPENDED so these indices hold.
-    /// @param chainId The chain to resolve for.
-    /// @return The receipt beacon.
-    function receiptBeaconForChainId(uint256 chainId) internal view returns (address) {
-        return prodBeaconsForChainId(chainId)[RECEIPT_BEACON_INDEX];
-    }
-
-    /// @notice The receipt-vault beacon on `chainId`, resolved by role.
-    /// @param chainId The chain to resolve for.
-    /// @return The receipt-vault beacon.
-    function receiptVaultBeaconForChainId(uint256 chainId) internal view returns (address) {
-        return prodBeaconsForChainId(chainId)[RECEIPT_VAULT_BEACON_INDEX];
     }
 
     /// @notice Assert the active chain's three IN-USE production beacons are
