@@ -18,6 +18,7 @@ import {LibProdBeacons0_1_1} from "../../../src/lib/LibProdBeacons0_1_1.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibBeaconInvariantsHarness} from "./LibBeaconInvariantsHarness.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 
@@ -255,6 +256,36 @@ contract LibBeaconInvariantsTest is Test {
         );
         harness.callAssertProdBeaconsOwnershipMigration(
             LibSafeInvariants.BASE_CHAIN_ID, safe, post, block.timestamp + 1 days
+        );
+    }
+
+    /// @notice `UPGRADEABLE_BEACON_CODEHASH_0_1_30` is the runtime of a beacon
+    /// this tree actually compiles, re-derived rather than transcribed.
+    /// @dev The defect this exists to stop: the V1 pin was documented as "a
+    /// property of the OZ bytecode rather than of any one deployment
+    /// generation" and reused for the orchestrator beacon, which OZ 5.6.1 at
+    /// `optimizer_runs = 2000` builds 130 bytes shorter. Nothing compared the
+    /// two, so `MigrateOrchestratorBeaconOwner.run()` reverted
+    /// `BeaconCodehashMismatch` in pre-flight on every chain while the suite
+    /// stayed green. Constructing the beacon here means an OZ bump or an
+    /// optimizer change fails at build time instead of at a broadcast.
+    function testOrchestratorBeaconCodehashPin() external {
+        UpgradeableBeacon beacon = new UpgradeableBeacon(address(this), address(this));
+        assertEq(
+            address(beacon).codehash,
+            LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30,
+            "0.1.30 beacon pin no longer matches a beacon this tree compiles"
+        );
+    }
+
+    /// @notice The two generation pins are distinct, and the V1 pin cannot be
+    /// used for a beacon this tree builds.
+    /// @dev Guards the shortcut of "fixing" a mismatch by repointing the V1
+    /// constant, which the live V1 fleet is still asserted against.
+    function testBeaconCodehashPinsAreDistinct() external pure {
+        assertTrue(
+            LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH != LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30,
+            "generation pins collapsed into one value"
         );
     }
 }

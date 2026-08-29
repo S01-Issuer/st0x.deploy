@@ -152,7 +152,7 @@ contract DeployOrchestrator is Script {
         if (instance != LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE) {
             revert InstanceAddressMismatch(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE, instance);
         }
-        LibOrchestratorInvariants.assertBeaconSet();
+        LibOrchestratorInvariants.assertBeaconSet(safe);
         LibOrchestratorInvariants.assertInstance(safe);
         if (IAccessControl(instance).hasRole(bytes32(0), deployer)) {
             revert DeployKeyHoldsAdmin(instance, deployer);
@@ -163,8 +163,8 @@ contract DeployOrchestrator is Script {
     /// chain, owned by its token-owner Safe, and assert the pinned end state.
     function run() external {
         _assertClosureReady();
-        LibOrchestratorInvariants.assertBeaconSet();
         address safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+        LibOrchestratorInvariants.assertBeaconSet(safe);
 
         address setDeployer = LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_30;
         _assertNoInstanceYet(setDeployer);

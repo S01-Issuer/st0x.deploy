@@ -62,7 +62,7 @@ contract DeployOrchestratorProdTest is Test {
     function assertInstanceLanded(string memory label) internal {
         address instance = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
         address safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
-        LibOrchestratorInvariants.assertBeaconSet();
+        LibOrchestratorInvariants.assertBeaconSet(safe);
         LibOrchestratorInvariants.assertInstance(safe);
         assertEq(
             address(uint160(uint256(vm.load(instance, ERC1967_BEACON_SLOT)))),

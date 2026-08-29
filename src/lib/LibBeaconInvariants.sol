@@ -112,12 +112,32 @@ library LibBeaconInvariants {
     /// @dev Equal to
     /// `LibProdDeployV1.PROD_BEACON_BASE_RUNTIME_CODEHASH_V1`; re-declared
     /// here so the beacon invariant does not have to reach into the V1 deploy
-    /// library for a value that is a property of the OZ bytecode rather than
-    /// of any one deployment generation. Verified on Base on 2026-05-22
-    /// against the three live V1 beacons (receipt, receipt vault, wrapped
-    /// token vault), all of which share this codehash.
+    /// library. Verified on Base on 2026-05-22 against the three live V1
+    /// beacons (receipt, receipt vault, wrapped token vault), all of which
+    /// share this codehash.
+    ///
+    /// This value is NOT a property of the OZ source alone, whatever an
+    /// earlier revision of this comment claimed. It is the runtime of one
+    /// build: OZ's `UpgradeableBeacon` as compiled for the V1 generation, at
+    /// the optimizer settings of that day. `optimizer_runs` has since moved
+    /// 5000 -> 2000, so a beacon compiled from today's tree is 728 bytes
+    /// against these 858 and cannot match. Pin a NEW constant per generation;
+    /// never repoint this one, which the live V1 fleet is still asserted
+    /// against.
     bytes32 internal constant UPGRADEABLE_BEACON_CODEHASH =
         0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630;
+
+    /// @notice Runtime codehash of OZ `UpgradeableBeacon` as compiled by the
+    /// CURRENT tree — OpenZeppelin 5.6.1 at `optimizer_runs = 2000`. This is
+    /// the beacon `ST0xOrchestratorBeaconSetDeployer`'s constructor builds,
+    /// so it is what the orchestrator beacon must be asserted against.
+    /// @dev Re-derived by `testOrchestratorBeaconCodehashPin`, which compiles
+    /// a beacon and compares. That test is the whole guarantee: without it
+    /// this constant silently rots the next time OZ or the optimizer moves,
+    /// which is exactly how the V1 pin came to be asserted against a beacon
+    /// that could never match it.
+    bytes32 internal constant UPGRADEABLE_BEACON_CODEHASH_0_1_30 =
+        0x448cd06335de9e79ecdc51aa7c6647926860a1976f407de6f79f363b85ccaf2b;
 
     /// @notice Assert the invariants of an OpenZeppelin `UpgradeableBeacon`
     /// at `beacon`: it is a deployed contract, its runtime codehash matches
@@ -152,6 +172,27 @@ library LibBeaconInvariants {
     /// @param expectedImpl The implementation the beacon is expected to
     /// point at.
     function assertBeaconInvariants(address beacon, address expectedOwner, address expectedImpl) internal view {
+        assertBeaconInvariants(beacon, expectedOwner, expectedImpl, UPGRADEABLE_BEACON_CODEHASH);
+    }
+
+    /// @notice As `assertBeaconInvariants`, for a beacon of a generation other
+    /// than V1.
+    /// @dev The codehash is a parameter because it belongs to a build, not to
+    /// the OZ source: the V1 fleet and the 0.1.30 orchestrator beacon are both
+    /// canonical OZ `UpgradeableBeacon`s and their runtimes still differ. A
+    /// single hardcoded pin forced every caller onto V1's, which made the
+    /// orchestrator migration revert `BeaconCodehashMismatch` in pre-flight on
+    /// every chain.
+    /// @param beacon The beacon to assert.
+    /// @param expectedOwner The address `owner()` must return.
+    /// @param expectedImpl The address `implementation()` must return.
+    /// @param expectedCodehash The runtime codehash for this beacon's build.
+    function assertBeaconInvariants(
+        address beacon,
+        address expectedOwner,
+        address expectedImpl,
+        bytes32 expectedCodehash
+    ) internal view {
         if (beacon.code.length == 0) {
             revert BeaconNotDeployed(beacon);
         }
@@ -160,8 +201,8 @@ library LibBeaconInvariants {
         assembly ("memory-safe") {
             actualCodehash := extcodehash(beacon)
         }
-        if (actualCodehash != UPGRADEABLE_BEACON_CODEHASH) {
-            revert BeaconCodehashMismatch(beacon, UPGRADEABLE_BEACON_CODEHASH, actualCodehash);
+        if (actualCodehash != expectedCodehash) {
+            revert BeaconCodehashMismatch(beacon, expectedCodehash, actualCodehash);
         }
 
         address actualOwner = IOwnable(beacon).owner();
