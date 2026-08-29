@@ -74,10 +74,7 @@ contract MigrateOrchestratorBeaconOwner is Script {
         // at the audited 0.1.30 orchestrator impl. Reverts with the relevant
         // typed error on the first drift, before any broadcast happens.
         LibBeaconInvariants.assertBeaconInvariants(
-            beacon,
-            LibProdDeployV4.BEACON_INITIAL_OWNER,
-            impl,
-            LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30
+            beacon, LibProdDeployV4.BEACON_INITIAL_OWNER, impl, LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30
         );
 
         console2.log("Migrating orchestrator beacon owner on chain id", block.chainid);
