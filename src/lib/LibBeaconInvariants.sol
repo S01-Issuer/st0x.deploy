@@ -245,6 +245,32 @@ library LibBeaconInvariants {
         revert UnsupportedChainForProdBeacons(chainId);
     }
 
+    /// @notice Position of the receipt beacon in `prodBeaconsForChainId`.
+    uint256 internal constant RECEIPT_BEACON_INDEX = 0;
+
+    /// @notice Position of the receipt-vault beacon in
+    /// `prodBeaconsForChainId`.
+    uint256 internal constant RECEIPT_VAULT_BEACON_INDEX = 1;
+
+    /// @notice The receipt beacon on `chainId`, resolved by role.
+    /// @dev Consumers that want one specific beacon ask for it by name here
+    /// rather than indexing `prodBeaconsForChainId`. Only this library knows
+    /// the array's layout, so the set can gain a member — the orchestrator
+    /// beacon is a fourth, see #333 — without every caller having to agree
+    /// about positions. New members are APPENDED so these indices hold.
+    /// @param chainId The chain to resolve for.
+    /// @return The receipt beacon.
+    function receiptBeaconForChainId(uint256 chainId) internal view returns (address) {
+        return prodBeaconsForChainId(chainId)[RECEIPT_BEACON_INDEX];
+    }
+
+    /// @notice The receipt-vault beacon on `chainId`, resolved by role.
+    /// @param chainId The chain to resolve for.
+    /// @return The receipt-vault beacon.
+    function receiptVaultBeaconForChainId(uint256 chainId) internal view returns (address) {
+        return prodBeaconsForChainId(chainId)[RECEIPT_VAULT_BEACON_INDEX];
+    }
+
     /// @notice Assert the active chain's three IN-USE production beacons are
     /// deployed and owned by THAT chain's token-owner Safe. This is the
     /// ownership invariant that matters operationally: whoever owns an in-use

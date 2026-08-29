@@ -45,7 +45,8 @@ contract UpgradeFleetProdTest is Test {
     /// @param label Human chain name, surfaced in logs and messages.
     function assertFleetRollout(string memory label) internal {
         UpgradeFleetTo0_1_30 script = new UpgradeFleetTo0_1_30();
-        address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        address receiptBeacon = LibBeaconInvariants.receiptBeaconForChainId(block.chainid);
+        address receiptVaultBeacon = LibBeaconInvariants.receiptVaultBeaconForChainId(block.chainid);
 
         bool targetsLive = LibProdDeployV4.STOX_RECEIPT_0_1_30.code.length != 0
             && LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30.code.length != 0
@@ -63,8 +64,8 @@ contract UpgradeFleetProdTest is Test {
             return;
         }
 
-        bool upgraded = IBeacon(beacons[0]).implementation() == LibProdDeployV4.STOX_RECEIPT_0_1_30
-            && IBeacon(beacons[1]).implementation() == LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30;
+        bool upgraded = IBeacon(receiptBeacon).implementation() == LibProdDeployV4.STOX_RECEIPT_0_1_30
+            && IBeacon(receiptVaultBeacon).implementation() == LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30;
         if (!upgraded) {
             if (block.timestamp >= FLEET_UPGRADE_DEADLINE) {
                 revert FleetUpgradeOverdue(label);
@@ -79,12 +80,12 @@ contract UpgradeFleetProdTest is Test {
 
         // Executed steady state.
         assertEq(
-            IBeacon(beacons[0]).implementation(),
+            IBeacon(receiptBeacon).implementation(),
             LibProdDeployV4.STOX_RECEIPT_0_1_30,
             string.concat(label, ": receipt beacon not on 0.1.30")
         );
         assertEq(
-            IBeacon(beacons[1]).implementation(),
+            IBeacon(receiptVaultBeacon).implementation(),
             LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30,
             string.concat(label, ": receipt-vault beacon not on 0.1.30")
         );

@@ -24,12 +24,15 @@ import {SafeTx} from "../../src/lib/LibSafeOps.sol";
 /// The live-fork walk is in `20260825-upgrade-fleet-to-0-1-30.prod.t.sol`.
 contract UpgradeFleetTest is Test {
     UpgradeFleetHarness internal harness;
-    address[3] internal beacons;
+    address[2] internal beacons;
 
     function setUp() external {
         vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         harness = new UpgradeFleetHarness();
-        beacons = LibBeaconInvariants.prodBeaconsForChainId(LibSafeInvariants.BASE_CHAIN_ID);
+        beacons = [
+            LibBeaconInvariants.receiptBeaconForChainId(LibSafeInvariants.BASE_CHAIN_ID),
+            LibBeaconInvariants.receiptVaultBeaconForChainId(LibSafeInvariants.BASE_CHAIN_ID)
+        ];
     }
 
     /// @notice Mock both gated beacons in the pre-upgrade (0.1.1) state.
@@ -63,7 +66,7 @@ contract UpgradeFleetTest is Test {
     /// The pre-upgrade state authors both `upgradeTo` transactions.
     function testAuthoringProducesBothUpgrades() external {
         mockPreUpgradeBeacons();
-        SafeTx[] memory txs = harness.callAuthorBundle(beacons);
+        SafeTx[] memory txs = harness.callAuthorBundle();
         assertEq(txs.length, 2);
         assertEq(txs[0].to, beacons[0]);
         assertEq(txs[0].data, abi.encodeCall(IUpgradeableBeaconLike.upgradeTo, (LibProdDeployV4.STOX_RECEIPT_0_1_30)));
@@ -79,7 +82,7 @@ contract UpgradeFleetTest is Test {
         vm.mockCall(
             beacons[0], abi.encodeCall(IBeacon.implementation, ()), abi.encode(LibProdDeployV4.STOX_RECEIPT_0_1_30)
         );
-        SafeTx[] memory txs = harness.callAuthorBundle(beacons);
+        SafeTx[] memory txs = harness.callAuthorBundle();
         assertEq(txs.length, 1);
         assertEq(txs[0].to, beacons[1]);
     }
@@ -89,7 +92,7 @@ contract UpgradeFleetTest is Test {
         mockPreUpgradeBeacons();
         vm.mockCall(beacons[0], abi.encodeCall(IBeacon.implementation, ()), abi.encode(address(0xBAD)));
         vm.expectRevert(abi.encodeWithSelector(BeaconInUnknownState.selector, beacons[0], address(0xBAD)));
-        harness.callAuthorBundle(beacons);
+        harness.callAuthorBundle();
     }
 
     /// A fully-upgraded chain refuses to author anything.
@@ -104,6 +107,6 @@ contract UpgradeFleetTest is Test {
             abi.encode(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30)
         );
         vm.expectRevert(FleetAlreadyUpgraded.selector);
-        harness.callAuthorBundle(beacons);
+        harness.callAuthorBundle();
     }
 }

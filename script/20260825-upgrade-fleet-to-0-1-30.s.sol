@@ -104,11 +104,15 @@ contract UpgradeFleetTo0_1_30 is Script {
     /// @notice Pre-flight the beacons and self-scope the bundle: one
     /// `upgradeTo` per gated beacon still serving 0.1.1. A beacon in
     /// neither state is unknown drift; both already at 0.1.30 refuses.
-    /// @param beacons The chain's in-use beacons (receipt, receipt vault,
-    /// wrapped token vault) — index order pinned by `LibProdBeacons*`.
     /// @return txs The self-scoped upgrade transactions.
-    function authorBundle(address[3] memory beacons) internal view returns (SafeTx[] memory txs) {
-        address[2] memory gated = [beacons[0], beacons[1]];
+    /// @dev The two gated beacons are resolved by role, not by position in
+    /// `prodBeaconsForChainId`, so that set can gain the orchestrator beacon
+    /// (#333) without this bundle silently re-pointing at a different one.
+    function authorBundle() internal view returns (SafeTx[] memory txs) {
+        address[2] memory gated = [
+            LibBeaconInvariants.receiptBeaconForChainId(block.chainid),
+            LibBeaconInvariants.receiptVaultBeaconForChainId(block.chainid)
+        ];
         address[2] memory pre = [LibProdDeployV4.STOX_RECEIPT_0_1_1, LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1];
         address[2] memory post = [LibProdDeployV4.STOX_RECEIPT_0_1_30, LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30];
 
@@ -211,11 +215,12 @@ contract UpgradeFleetTo0_1_30 is Script {
 
         // The in-use beacons are deployed, OZ bytecode, Safe-owned.
         LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
-        address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        address receiptBeacon = LibBeaconInvariants.receiptBeaconForChainId(block.chainid);
+        address receiptVaultBeacon = LibBeaconInvariants.receiptVaultBeaconForChainId(block.chainid);
 
         // --- Build the bundle ----------------------------------------------
 
-        SafeTx[] memory txs = authorBundle(beacons);
+        SafeTx[] memory txs = authorBundle();
 
         uint256 nonce = safe.nonce();
         bytes32 bundleSafeTxHash = LibSafeOps.computeMultiSendSafeTxHash(safe, txs, nonce);
@@ -232,8 +237,8 @@ contract UpgradeFleetTo0_1_30 is Script {
         // --- Post-state ---------------------------------------------------
 
         require(
-            IBeacon(beacons[0]).implementation() == LibProdDeployV4.STOX_RECEIPT_0_1_30
-                && IBeacon(beacons[1]).implementation() == LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30,
+            IBeacon(receiptBeacon).implementation() == LibProdDeployV4.STOX_RECEIPT_0_1_30
+                && IBeacon(receiptVaultBeacon).implementation() == LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30,
             "UpgradeFleetTo0_1_30: beacons did not land on the 0.1.30 impls"
         );
         assertTokenStatePreserved(tokens, supplies, metaHashes);
@@ -261,16 +266,16 @@ contract UpgradeFleetTo0_1_30 is Script {
         // so the fork ends on 0.1.30.
         LibSafeOps.simulateNPlus1(
             safe,
-            beacons[0],
+            receiptBeacon,
             abi.encodeCall(IUpgradeableBeaconLike.upgradeTo, (LibProdDeployV4.STOX_RECEIPT_0_1_1)),
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD
         );
         require(
-            IBeacon(beacons[0]).implementation() == LibProdDeployV4.STOX_RECEIPT_0_1_1,
+            IBeacon(receiptBeacon).implementation() == LibProdDeployV4.STOX_RECEIPT_0_1_1,
             "UpgradeFleetTo0_1_30: n+1 downgrade did not land"
         );
         LibSafeOps.simulateExternalCall(
-            safe, beacons[0], abi.encodeCall(IUpgradeableBeaconLike.upgradeTo, (LibProdDeployV4.STOX_RECEIPT_0_1_30))
+            safe, receiptBeacon, abi.encodeCall(IUpgradeableBeaconLike.upgradeTo, (LibProdDeployV4.STOX_RECEIPT_0_1_30))
         );
         console2.log("n+1 reversal check passed: the Safe can downgrade (and re-upgrade) under the live threshold");
     }
@@ -285,7 +290,7 @@ contract UpgradeFleetTo0_1_30 is Script {
         IGnosisSafe safe = IGnosisSafe(safeAddr);
         LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
 
-        SafeTx[] memory expected = authorBundle(LibBeaconInvariants.prodBeaconsForChainId(block.chainid));
+        SafeTx[] memory expected = authorBundle();
         LibSafeOps.assertParsedTxsMatch(expected, jsonPath);
 
         uint256 nonce = safe.nonce();
