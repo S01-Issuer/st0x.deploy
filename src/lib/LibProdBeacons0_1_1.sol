@@ -66,11 +66,12 @@ library LibProdBeacons0_1_1 {
     /// deterministic addresses on every chain, so no separate Ethereum copy.
     /// Asserted unchanged across the ownership transfer.
     /// @return The three implementation addresses.
-    function implementations() internal pure returns (address[3] memory) {
+    function implementations() internal pure returns (address[4] memory) {
         return [
             LibProdDeployV4.STOX_RECEIPT_0_1_1,
             LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30
         ];
     }
 }

@@ -40,7 +40,7 @@ contract EnableOrchestratorRolesTest is Test {
     /// @notice Mock Base's three in-use production beacons pointing at the
     /// 0.1.30 receipt/vault impls (the post-fleet-upgrade state).
     function mockUpgradedFleet() internal {
-        address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(LibSafeInvariants.BASE_CHAIN_ID);
+        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(LibSafeInvariants.BASE_CHAIN_ID);
         vm.etch(beacons[0], hex"fe");
         vm.etch(beacons[1], hex"fe");
         vm.mockCall(
@@ -90,7 +90,7 @@ contract EnableOrchestratorRolesTest is Test {
     /// The fleet-upgrade interlock refuses beacons still on pre-0.1.30
     /// impls, naming the beacon and both impls.
     function testFleetGateRefusesUnupgradedBeacons() external {
-        address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(LibSafeInvariants.BASE_CHAIN_ID);
+        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(LibSafeInvariants.BASE_CHAIN_ID);
         vm.etch(beacons[0], hex"fe");
         vm.mockCall(
             beacons[0], abi.encodeCall(IBeacon.implementation, ()), abi.encode(LibProdDeployV4.STOX_RECEIPT_0_1_1)

@@ -133,7 +133,7 @@ contract LibBeaconInvariantsTest is Test {
     /// nothing runs on while leaving the live beacons unpinned.
     function testProdBeaconsForChainIdBaseIsTheV1Generation() external {
         selectBaseFork();
-        address[3] memory beacons = harness.callProdBeaconsForChainId(LibSafeInvariants.BASE_CHAIN_ID);
+        address[4] memory beacons = harness.callProdBeaconsForChainId(LibSafeInvariants.BASE_CHAIN_ID);
         assertEq(beacons[0], LibProdDeployV1.STOX_RECEIPT_BEACON_V1, "receipt beacon");
         assertEq(beacons[1], LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1, "receipt vault beacon");
         assertEq(beacons[2], LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1, "wrapped vault beacon");
@@ -146,8 +146,8 @@ contract LibBeaconInvariantsTest is Test {
     function testProdBeaconsForChainIdEthereumIsThe011Set() external {
         vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
         harness = new LibBeaconInvariantsHarness();
-        address[3] memory beacons = harness.callProdBeaconsForChainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
-        address[3] memory expected = LibProdBeacons0_1_1.beacons();
+        address[4] memory beacons = harness.callProdBeaconsForChainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
+        address[4] memory expected = LibProdBeacons0_1_1.beacons();
         assertEq(beacons[0], expected[0], "receipt beacon");
         assertEq(beacons[1], expected[1], "receipt vault beacon");
         assertEq(beacons[2], expected[2], "wrapped vault beacon");

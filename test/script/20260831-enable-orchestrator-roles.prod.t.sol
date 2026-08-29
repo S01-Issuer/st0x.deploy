@@ -68,7 +68,7 @@ contract EnableOrchestratorRolesProdTest is Test {
             return;
         }
 
-        address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
         bool fleetUpgraded = IBeacon(beacons[0]).implementation() == LibProdDeployV4.STOX_RECEIPT_0_1_30
             && IBeacon(beacons[1]).implementation() == LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30;
         if (!fleetUpgraded) {

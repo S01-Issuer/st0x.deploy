@@ -24,7 +24,7 @@ import {SafeTx} from "../../src/lib/LibSafeOps.sol";
 /// The live-fork walk is in `20260825-upgrade-fleet-to-0-1-30.prod.t.sol`.
 contract UpgradeFleetTest is Test {
     UpgradeFleetHarness internal harness;
-    address[3] internal beacons;
+    address[4] internal beacons;
 
     function setUp() external {
         vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);

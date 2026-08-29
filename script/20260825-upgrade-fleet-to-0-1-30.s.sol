@@ -107,7 +107,7 @@ contract UpgradeFleetTo0_1_30 is Script {
     /// @param beacons The chain's in-use beacons (receipt, receipt vault,
     /// wrapped token vault) — index order pinned by `LibProdBeacons*`.
     /// @return txs The self-scoped upgrade transactions.
-    function authorBundle(address[3] memory beacons) internal view returns (SafeTx[] memory txs) {
+    function authorBundle(address[4] memory beacons) internal view returns (SafeTx[] memory txs) {
         address[2] memory gated = [
             beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX], beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]
         ];
@@ -213,7 +213,7 @@ contract UpgradeFleetTo0_1_30 is Script {
 
         // The in-use beacons are deployed, OZ bytecode, Safe-owned.
         LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
-        address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
 
         // --- Build the bundle ----------------------------------------------
 

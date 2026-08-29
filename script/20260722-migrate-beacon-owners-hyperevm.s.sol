@@ -47,8 +47,8 @@ contract MigrateBeaconOwnersHyperEvm is Script {
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM;
         require(safe != address(0), "HyperEVM token-owner Safe not pinned");
         require(block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID, "not HyperEVM - wrong --rpc-url");
-        address[3] memory beaconList = LibProdBeacons0_1_1.beacons();
-        address[3] memory implList = LibProdBeacons0_1_1.implementations();
+        address[4] memory beaconList = LibProdBeacons0_1_1.beacons();
+        address[4] memory implList = LibProdBeacons0_1_1.implementations();
 
         // Pre-flight: every beacon is deployed, is the OZ UpgradeableBeacon,
         // is still owned by the deploy EOA, and points at its pinned impl.

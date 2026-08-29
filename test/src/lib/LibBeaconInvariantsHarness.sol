@@ -14,7 +14,7 @@ contract LibBeaconInvariantsHarness {
         LibBeaconInvariants.assertBeaconInvariants(beacon, expectedOwner, expectedImpl);
     }
 
-    function callProdBeaconsForChainId(uint256 chainId) external view returns (address[3] memory) {
+    function callProdBeaconsForChainId(uint256 chainId) external view returns (address[4] memory) {
         return LibBeaconInvariants.prodBeaconsForChainId(chainId);
     }
 

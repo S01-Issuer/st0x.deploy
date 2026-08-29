@@ -285,7 +285,7 @@ contract GovernanceTimelockMigrationTest is Test {
         vm.createSelectFork(LibRainDeploy.BASE);
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         address stranger = address(0xBAD);
-        address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
         vm.mockCall(beacons[0], abi.encodeWithSignature("owner()"), abi.encode(stranger));
 
         LibBeaconInvariantsHarness harness = new LibBeaconInvariantsHarness();

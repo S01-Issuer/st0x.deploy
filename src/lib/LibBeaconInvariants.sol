@@ -233,6 +233,23 @@ library LibBeaconInvariants {
     /// @notice Position of the orchestrator beacon in `prodBeaconsForChainId`.
     uint256 internal constant ORCHESTRATOR_BEACON_INDEX = 3;
 
+    /// @notice Expected runtime codehash of each beacon in
+    /// `prodBeaconsForChainId`, index-aligned with it.
+    /// @dev The set spans two build generations and a single pin cannot cover
+    /// both: the three token beacons are the V1 build (858 bytes), the
+    /// orchestrator beacon is OZ 5.6.1 at the current `optimizer_runs`
+    /// (728 bytes). Asserting the whole set against one constant reverts on
+    /// the orchestrator beacon and takes every chain's migration with it.
+    /// @return The expected codehash per beacon.
+    function prodBeaconCodehashesForChainId(uint256) internal pure returns (bytes32[4] memory) {
+        return [
+            UPGRADEABLE_BEACON_CODEHASH,
+            UPGRADEABLE_BEACON_CODEHASH,
+            UPGRADEABLE_BEACON_CODEHASH,
+            UPGRADEABLE_BEACON_CODEHASH_0_1_30
+        ];
+    }
+
     /// @notice The three production beacons IN USE on the active chain, in a
     /// fixed order (receipt, receipt vault, wrapped token vault). Beacon
     /// addresses are per-chain deploy artifacts that never change once a
@@ -289,8 +306,9 @@ library LibBeaconInvariants {
     /// `owner()`.
     function assertProdBeaconsOwnedBy(uint256 chainId, address expectedOwner) internal view {
         address[4] memory beacons = prodBeaconsForChainId(chainId);
+        bytes32[4] memory codehashes = prodBeaconCodehashesForChainId(chainId);
         for (uint256 i = 0; i < beacons.length; i++) {
-            _assertDeployedPinnedBeacon(beacons[i]);
+            _assertDeployedPinnedBeacon(beacons[i], codehashes[i]);
             address actualOwner = IOwnable(beacons[i]).owner();
             if (actualOwner != expectedOwner) {
                 revert BeaconOwnerMismatch(beacons[i], expectedOwner, actualOwner);
@@ -331,8 +349,9 @@ library LibBeaconInvariants {
         view
     {
         address[4] memory beacons = prodBeaconsForChainId(chainId);
+        bytes32[4] memory codehashes = prodBeaconCodehashesForChainId(chainId);
         for (uint256 i = 0; i < beacons.length; i++) {
-            _assertDeployedPinnedBeacon(beacons[i]);
+            _assertDeployedPinnedBeacon(beacons[i], codehashes[i]);
             LibMigrationInvariant.assertMigration("beacon.owner()", IOwnable(beacons[i]).owner(), pre, post, deadline);
         }
     }
@@ -344,13 +363,13 @@ library LibBeaconInvariants {
     /// selector and report whatever owner passes the caller's check, so
     /// the pin is what makes the subsequent read meaningful.
     /// @param beacon The beacon to gate.
-    function _assertDeployedPinnedBeacon(address beacon) private view {
+    function _assertDeployedPinnedBeacon(address beacon, bytes32 expectedCodehash) private view {
         if (beacon.code.length == 0) {
             revert BeaconNotDeployed(beacon);
         }
         bytes32 actualCodehash = beacon.codehash;
-        if (actualCodehash != UPGRADEABLE_BEACON_CODEHASH) {
-            revert BeaconCodehashMismatch(beacon, UPGRADEABLE_BEACON_CODEHASH, actualCodehash);
+        if (actualCodehash != expectedCodehash) {
+            revert BeaconCodehashMismatch(beacon, expectedCodehash, actualCodehash);
         }
     }
 }

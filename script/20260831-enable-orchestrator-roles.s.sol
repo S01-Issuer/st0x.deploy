@@ -141,7 +141,7 @@ contract EnableOrchestratorRoles is Script {
         // Index order pinned by LibProdBeacons*: receipt, receipt vault,
         // wrapped token vault. The wrapped-token-vault beacon is not part of
         // the orchestrator's surface and is not gated here.
-        address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
         address receiptImpl = IBeacon(beacons[0]).implementation();
         if (receiptImpl != LibProdDeployV4.STOX_RECEIPT_0_1_30) {
             revert FleetNotUpgraded(beacons[0], LibProdDeployV4.STOX_RECEIPT_0_1_30, receiptImpl);
