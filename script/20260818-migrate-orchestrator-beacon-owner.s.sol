@@ -73,7 +73,12 @@ contract MigrateOrchestratorBeaconOwner is Script {
         // Pre-flight: deployed, OZ beacon bytecode, still EOA-owned, pointing
         // at the audited 0.1.30 orchestrator impl. Reverts with the relevant
         // typed error on the first drift, before any broadcast happens.
-        LibBeaconInvariants.assertBeaconInvariants(beacon, LibProdDeployV4.BEACON_INITIAL_OWNER, impl);
+        LibBeaconInvariants.assertBeaconInvariants(
+            beacon,
+            LibProdDeployV4.BEACON_INITIAL_OWNER,
+            impl,
+            LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30
+        );
 
         console2.log("Migrating orchestrator beacon owner on chain id", block.chainid);
         console2.log("beacon:", beacon);
@@ -85,7 +90,9 @@ contract MigrateOrchestratorBeaconOwner is Script {
         vm.stopBroadcast();
 
         // Post-state: Safe-owned, implementation unchanged.
-        LibBeaconInvariants.assertBeaconInvariants(beacon, safe, impl);
+        LibBeaconInvariants.assertBeaconInvariants(
+            beacon, safe, impl, LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30
+        );
 
         // n+1: the Safe can drive the beacon through its threshold-gated
         // exec — an idempotent upgradeTo(currentImpl), simulated on the fork.
