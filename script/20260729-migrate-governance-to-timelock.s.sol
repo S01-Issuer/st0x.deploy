@@ -13,6 +13,7 @@ import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
+import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
@@ -563,6 +564,19 @@ contract MigrateGovernanceToTimelock is Script {
             }
             address actual = Ownable(beacons[i]).owner();
             if (actual == timelock) {
+                continue;
+            }
+            // The orchestrator beacon joins the governed set mid-lifecycle:
+            // until its own EOA -> Safe migration
+            // (20260818-migrate-orchestrator-beacon-owner) executes, it is
+            // not the Safe's to move — skip it; a later dispatch of this
+            // script picks it up once Safe-owned. After that migration's
+            // deadline the baked EOA stops being an accepted state and the
+            // refusal below fires.
+            if (
+                i == LibBeaconInvariants.ORCHESTRATOR_BEACON_INDEX && actual == LibProdDeployV4.BEACON_INITIAL_OWNER
+                    && block.timestamp < LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON_OWNER_MIGRATION_DEADLINE
+            ) {
                 continue;
             }
             if (actual != safe) {
