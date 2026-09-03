@@ -4,23 +4,26 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
+import {IERC20} from "@openzeppelin-contracts-5.6.1/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensions/IERC20Metadata.sol";
+import {IReceiptV3} from "rain-vats-0.1.6/src/interface/IReceiptV3.sol";
 
 import {
-    UpgradeTargetNotDeployed,
     BeaconInUnknownState,
     FleetAlreadyUpgraded,
-    IUpgradeableBeaconLike
+    UpgradeChangedTokenState
 } from "../../script/20260825-upgrade-fleet-to-0-1-30.s.sol";
 import {UpgradeFleetHarness} from "./UpgradeFleetHarness.sol";
 import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {SafeTx} from "../../src/lib/LibSafeOps.sol";
+import {SafeTx, IUpgradeableBeacon} from "../../src/lib/LibSafeOps.sol";
+import {TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 
 /// @title UpgradeFleetTest
 /// @notice Guard coverage for `20260825-upgrade-fleet-to-0-1-30` without a
-/// fork: the target-deployed gate, the unknown-drift refusal, the
-/// self-scoping, the already-upgraded refusal, and the exact bundle shape.
+/// fork: the unknown-drift refusal, the self-scoping, the already-upgraded
+/// refusal, the exact bundle shape, and the token-state preservation check.
 /// The live-fork walk is in `20260825-upgrade-fleet-to-0-1-30.prod.t.sol`.
 contract UpgradeFleetTest is Test {
     UpgradeFleetHarness internal harness;
@@ -48,33 +51,15 @@ contract UpgradeFleetTest is Test {
         );
     }
 
-    /// The target gate refuses a codeless (or wrong-codehash) 0.1.30 impl.
-    function testTargetGateRefusesUndeployedImpl() external {
-        vm.expectRevert(abi.encodeWithSelector(UpgradeTargetNotDeployed.selector, LibProdDeployV4.STOX_RECEIPT_0_1_30));
-        harness.callAssertTargetDeployed(
-            LibProdDeployV4.STOX_RECEIPT_0_1_30, LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_30
-        );
-    }
-
-    /// The target gate accepts the frozen 0.1.30 runtime at the pin.
-    function testTargetGateAcceptsTheFrozenRuntime() external {
-        vm.etch(LibProdDeployV4.STOX_RECEIPT_0_1_30, LibProdDeployV4.STOX_RECEIPT_RUNTIME_CODE_0_1_30);
-        harness.callAssertTargetDeployed(
-            LibProdDeployV4.STOX_RECEIPT_0_1_30, LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_30
-        );
-    }
-
     /// The pre-upgrade state authors both `upgradeTo` transactions.
     function testAuthoringProducesBothUpgrades() external {
         mockPreUpgradeBeacons();
         SafeTx[] memory txs = harness.callAuthorBundle(beacons);
         assertEq(txs.length, 2);
         assertEq(txs[0].to, beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX]);
-        assertEq(txs[0].data, abi.encodeCall(IUpgradeableBeaconLike.upgradeTo, (LibProdDeployV4.STOX_RECEIPT_0_1_30)));
+        assertEq(txs[0].data, abi.encodeCall(IUpgradeableBeacon.upgradeTo, (LibProdDeployV4.STOX_RECEIPT_0_1_30)));
         assertEq(txs[1].to, beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]);
-        assertEq(
-            txs[1].data, abi.encodeCall(IUpgradeableBeaconLike.upgradeTo, (LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30))
-        );
+        assertEq(txs[1].data, abi.encodeCall(IUpgradeableBeacon.upgradeTo, (LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30)));
     }
 
     /// A half-executed upgrade self-scopes to the remaining beacon.
@@ -121,5 +106,47 @@ contract UpgradeFleetTest is Test {
         );
         vm.expectRevert(FleetAlreadyUpgraded.selector);
         harness.callAuthorBundle(beacons);
+    }
+
+    address internal constant VAULT = address(0x1111);
+    address internal constant RECEIPT = address(0x2222);
+    address internal constant MANAGER = address(0x3333);
+
+    /// @notice Mock one production token's reads.
+    function mockToken(uint256 supply, address manager) internal returns (TokenInstance[] memory tokens) {
+        vm.etch(VAULT, hex"fe");
+        vm.etch(RECEIPT, hex"fe");
+        vm.mockCall(VAULT, abi.encodeCall(IERC20.totalSupply, ()), abi.encode(supply));
+        vm.mockCall(VAULT, abi.encodeCall(IERC20Metadata.symbol, ()), abi.encode("stTEST"));
+        vm.mockCall(VAULT, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(uint8(18)));
+        vm.mockCall(RECEIPT, abi.encodeCall(IReceiptV3.manager, ()), abi.encode(manager));
+        tokens = new TokenInstance[](1);
+        tokens[0] =
+            TokenInstance({underlying: "TEST", receipt: RECEIPT, receiptVault: VAULT, wrappedTokenVault: address(0)});
+    }
+
+    /// Identical reads across the upgrade pass the preservation check.
+    function testTokenStatePreservedAcceptsIdenticalReads() external {
+        TokenInstance[] memory tokens = mockToken(1e18, MANAGER);
+        (uint256[] memory supplies, bytes32[] memory metaHashes) = harness.callSnapshotTokenState(tokens);
+        harness.callAssertTokenStatePreserved(tokens, supplies, metaHashes);
+    }
+
+    /// A vault whose `totalSupply` moved across the upgrade is refused.
+    function testTokenStatePreservedRefusesASupplyChange() external {
+        TokenInstance[] memory tokens = mockToken(1e18, MANAGER);
+        (uint256[] memory supplies, bytes32[] memory metaHashes) = harness.callSnapshotTokenState(tokens);
+        vm.mockCall(VAULT, abi.encodeCall(IERC20.totalSupply, ()), abi.encode(1e18 + 1));
+        vm.expectRevert(abi.encodeWithSelector(UpgradeChangedTokenState.selector, VAULT));
+        harness.callAssertTokenStatePreserved(tokens, supplies, metaHashes);
+    }
+
+    /// A receipt whose `manager` moved across the upgrade is refused.
+    function testTokenStatePreservedRefusesAManagerChange() external {
+        TokenInstance[] memory tokens = mockToken(1e18, MANAGER);
+        (uint256[] memory supplies, bytes32[] memory metaHashes) = harness.callSnapshotTokenState(tokens);
+        vm.mockCall(RECEIPT, abi.encodeCall(IReceiptV3.manager, ()), abi.encode(address(0x4444)));
+        vm.expectRevert(abi.encodeWithSelector(UpgradeChangedTokenState.selector, VAULT));
+        harness.callAssertTokenStatePreserved(tokens, supplies, metaHashes);
     }
 }

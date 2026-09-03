@@ -8,12 +8,16 @@ import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
-import {EnableOrchestratorRoles, FleetNotUpgraded} from "../../script/20260831-enable-orchestrator-roles.s.sol";
-import {LibOrchestratorInvariants, OrchestratorSetDeployerMissing} from "../../src/lib/LibOrchestratorInvariants.sol";
+import {FleetNotUpgraded, OrchestratorRolesAlreadyEnabled} from "../../script/20260831-enable-orchestrator-roles.s.sol";
+import {EnableOrchestratorRolesHarness} from "./EnableOrchestratorRolesHarness.sol";
+import {
+    LibOrchestratorInvariants,
+    OrchestratorInstanceMissing,
+    OrchestratorSetDeployerMissing
+} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
-import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 
 /// @notice The enable deadline passed with this chain still pending.
@@ -53,7 +57,7 @@ contract EnableOrchestratorRolesProdTest is Test {
     /// NatSpec) and assert it.
     /// @param label Human chain name, surfaced in logs and messages.
     function assertEnableRollout(string memory label) internal {
-        EnableOrchestratorRoles script = new EnableOrchestratorRoles();
+        EnableOrchestratorRolesHarness script = new EnableOrchestratorRolesHarness();
         address setDeployer = LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_30;
         address orchestrator = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
 
@@ -63,14 +67,22 @@ contract EnableOrchestratorRolesProdTest is Test {
             }
             console2.log(string.concat("PENDING [", label, "]: 0.1.30 orchestrator world not deployed"));
             console2.log("-> manual-sol-artifacts-0-1-30 suites, then 20260818-deploy-orchestrator, come first");
-            vm.expectRevert(abi.encodeWithSelector(OrchestratorSetDeployerMissing.selector, setDeployer));
+            // run() reads the beacon set before the instance, so whichever
+            // is missing first decides the revert.
+            if (setDeployer.code.length == 0) {
+                vm.expectRevert(abi.encodeWithSelector(OrchestratorSetDeployerMissing.selector, setDeployer));
+            } else {
+                vm.expectRevert(abi.encodeWithSelector(OrchestratorInstanceMissing.selector, orchestrator));
+            }
             script.run();
             return;
         }
 
         address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
-        bool fleetUpgraded = IBeacon(beacons[0]).implementation() == LibProdDeployV4.STOX_RECEIPT_0_1_30
-            && IBeacon(beacons[1]).implementation() == LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30;
+        bool fleetUpgraded = IBeacon(beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX]).implementation()
+                == LibProdDeployV4.STOX_RECEIPT_0_1_30
+            && IBeacon(beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]).implementation()
+                == LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30;
         if (!fleetUpgraded) {
             if (block.timestamp >= ENABLE_DEADLINE) {
                 revert OrchestratorEnableOverdue(label);
@@ -80,16 +92,16 @@ contract EnableOrchestratorRolesProdTest is Test {
             vm.expectRevert(
                 abi.encodeWithSelector(
                     FleetNotUpgraded.selector,
-                    beacons[0],
+                    beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX],
                     LibProdDeployV4.STOX_RECEIPT_0_1_30,
-                    IBeacon(beacons[0]).implementation()
+                    IBeacon(beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX]).implementation()
                 )
             );
             script.run();
             return;
         }
 
-        IAccessControl acl = IAccessControl(activeAuthoriser());
+        IAccessControl acl = IAccessControl(script.callActiveChainAuthoriser());
         bool enabled = acl.hasRole(keccak256("DEPOSIT"), orchestrator);
         if (!enabled) {
             if (block.timestamp >= ENABLE_DEADLINE) {
@@ -116,15 +128,10 @@ contract EnableOrchestratorRolesProdTest is Test {
         if (acl.hasRole(keccak256("DEPOSIT"), LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C)) {
             console2.log(string.concat("PARALLEL [", label, "]: burn-in window - direct signer path still live"));
         }
-    }
-
-    /// @notice The active chain's authoriser pin (mirrors the script's
-    /// chain switch; the script's own guard covers validation).
-    function activeAuthoriser() internal view returns (address) {
-        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
-        }
-        return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
+        // Re-authoring against the executed state refuses rather than
+        // emitting an empty bundle.
+        vm.expectRevert(OrchestratorRolesAlreadyEnabled.selector);
+        script.run();
     }
 
     function testEnableRolloutBase() external {

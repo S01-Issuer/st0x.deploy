@@ -4,8 +4,6 @@ pragma solidity ^0.8.25;
 
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {LibMigrationInvariant} from "./LibMigrationInvariant.sol";
-import {LibOrchestratorInvariants} from "./LibOrchestratorInvariants.sol";
-import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibProdBeaconsBase} from "./LibProdBeaconsBase.sol";
 import {LibProdBeacons0_1_1} from "./LibProdBeacons0_1_1.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
@@ -312,19 +310,6 @@ library LibBeaconInvariants {
         for (uint256 i = 0; i < beacons.length; i++) {
             _assertDeployedPinnedBeacon(beacons[i], codehashes[i]);
             address actualOwner = IOwnable(beacons[i]).owner();
-            // The orchestrator beacon joins the governed set mid-lifecycle:
-            // its constructor bakes the deploy EOA as owner and the
-            // `20260818-migrate-orchestrator-beacon-owner` EOA broadcast
-            // moves it to the chain's Safe. Until that migration's deadline,
-            // the EOA is an accepted pre-state; after it, only the expected
-            // owner passes — the same window `LibOrchestratorInvariants.
-            // assertBeaconSet` applies.
-            if (
-                i == ORCHESTRATOR_BEACON_INDEX && actualOwner == LibProdDeployV4.BEACON_INITIAL_OWNER
-                    && block.timestamp < LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON_OWNER_MIGRATION_DEADLINE
-            ) {
-                continue;
-            }
             if (actualOwner != expectedOwner) {
                 revert BeaconOwnerMismatch(beacons[i], expectedOwner, actualOwner);
             }
@@ -368,16 +353,6 @@ library LibBeaconInvariants {
         for (uint256 i = 0; i < beacons.length; i++) {
             _assertDeployedPinnedBeacon(beacons[i], codehashes[i]);
             address actualOwner = IOwnable(beacons[i]).owner();
-            // See `assertProdBeaconsOwnedBy`: the orchestrator beacon's own
-            // EOA -> Safe migration window overlaps the governance window,
-            // so its baked initial owner is an accepted extra pre-state
-            // until that migration's deadline.
-            if (
-                i == ORCHESTRATOR_BEACON_INDEX && actualOwner == LibProdDeployV4.BEACON_INITIAL_OWNER
-                    && block.timestamp < LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON_OWNER_MIGRATION_DEADLINE
-            ) {
-                continue;
-            }
             LibMigrationInvariant.assertMigration("beacon.owner()", actualOwner, pre, post, deadline);
         }
     }

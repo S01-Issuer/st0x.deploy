@@ -6,11 +6,8 @@ import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {console2} from "forge-std-1.16.1/src/console2.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
-import {
-    DeployOrchestrator,
-    ClosureNotDeployed,
-    OrchestratorAlreadyDeployed
-} from "../../script/20260818-deploy-orchestrator.s.sol";
+import {DeployOrchestrator, OrchestratorAlreadyDeployed} from "../../script/20260818-deploy-orchestrator.s.sol";
+import {ClosureNotDeployed} from "../../src/lib/LibClosureInvariants.sol";
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
