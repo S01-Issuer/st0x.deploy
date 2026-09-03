@@ -220,6 +220,16 @@ library LibBeaconInvariants {
         }
     }
 
+    /// @notice Position of the receipt beacon in `prodBeaconsForChainId`.
+    uint256 internal constant RECEIPT_BEACON_INDEX = 0;
+
+    /// @notice Position of the receipt-vault beacon in `prodBeaconsForChainId`.
+    uint256 internal constant RECEIPT_VAULT_BEACON_INDEX = 1;
+
+    /// @notice Position of the wrapped-token-vault beacon in
+    /// `prodBeaconsForChainId`.
+    uint256 internal constant WRAPPED_TOKEN_VAULT_BEACON_INDEX = 2;
+
     /// @notice The three production beacons IN USE on the active chain, in a
     /// fixed order (receipt, receipt vault, wrapped token vault). Beacon
     /// addresses are per-chain deploy artifacts that never change once a

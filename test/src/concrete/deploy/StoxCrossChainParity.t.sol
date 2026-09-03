@@ -12,6 +12,8 @@ import {IGnosisSafe} from "../../../../src/interface/IGnosisSafe.sol";
 import {IOwnable} from "../../../../src/interface/IOwnable.sol";
 import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV2BaseOverrides} from "../../../../src/lib/LibProdDeployV2BaseOverrides.sol";
+import {LibMigrationInvariant} from "../../../../src/lib/LibMigrationInvariant.sol";
+import {FLEET_UPGRADE_DEADLINE} from "../../../../script/20260825-upgrade-fleet-to-0-1-30.s.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
@@ -450,15 +452,19 @@ contract StoxCrossChainParityTest is Test {
             // the same pins `LibProdBeaconsBase/Ethereum.implementations()`
             // resolve. When a beacon upgrade migration moves production,
             // these pins move with it.
-            assertEq(
+            LibMigrationInvariant.assertMigration(
+                string.concat(label, " in-use receipt-vault beacon implementation()"),
                 IBeacon(beacon).implementation(),
                 LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1,
-                string.concat(label, " receipt-vault beacon does not serve the audited production impl")
+                LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30,
+                FLEET_UPGRADE_DEADLINE
             );
-            assertEq(
+            LibMigrationInvariant.assertMigration(
+                string.concat(label, " in-use receipt beacon implementation()"),
                 IBeacon(receiptBeacon).implementation(),
                 LibProdDeployV4.STOX_RECEIPT_0_1_1,
-                string.concat(label, " receipt beacon does not serve the audited production impl")
+                LibProdDeployV4.STOX_RECEIPT_0_1_30,
+                FLEET_UPGRADE_DEADLINE
             );
             assertCleanV4Lineage(beacon);
             assertCleanV4Lineage(receiptBeacon);

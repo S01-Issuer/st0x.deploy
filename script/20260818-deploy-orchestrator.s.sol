@@ -7,22 +7,9 @@ import {console2} from "forge-std-1.16.1/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
+import {LibClosureInvariants} from "../src/lib/LibClosureInvariants.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {IST0xOrchestratorBeaconSetDeployerV1} from "../src/interface/IST0xOrchestratorBeaconSetDeployerV1.sol";
-
-/// @notice Pre-flight failed: a contract of the audited 0.1.30 orchestrator
-/// closure has no runtime code at its pinned address on the active chain.
-/// Ship the closure first via `manual-sol-artifacts-0-1-30.yaml`.
-/// @param pinned The pinned closure address that is missing.
-error ClosureNotDeployed(address pinned);
-
-/// @notice Pre-flight failed: a closure contract's runtime codehash does not
-/// match its 0.1.30 pin — something other than the audited bytecode sits at
-/// the pinned address.
-/// @param pinned The pinned closure address inspected.
-/// @param expected The pinned 0.1.30 codehash.
-/// @param actual The codehash read from the chain.
-error ClosureCodehashMismatch(address pinned, bytes32 expected, bytes32 actual);
 
 /// @notice The pinned orchestrator instance already has code on this chain —
 /// the production instance exists and there is nothing to deploy. This is
@@ -86,38 +73,27 @@ error DeployKeyHoldsAdmin(address instance, address deployer);
 /// the source of truth (`deploy` is permissionless, so an attacker can emit
 /// lookalike `Deployment` events; see the interface's event NatSpec).
 contract DeployOrchestrator is Script {
-    /// @notice Assert one closure contract is live at its pin with the
-    /// audited 0.1.30 codehash.
-    /// @param pinned The pinned closure address.
-    /// @param codehash The pinned 0.1.30 codehash.
-    function _assertClosureContract(address pinned, bytes32 codehash) internal view {
-        if (pinned.code.length == 0) {
-            revert ClosureNotDeployed(pinned);
-        }
-        if (pinned.codehash != codehash) {
-            revert ClosureCodehashMismatch(pinned, codehash, pinned.codehash);
-        }
-    }
-
     /// @notice Assert the full audited 0.1.30 orchestrator closure is live on
     /// the active chain, by codehash, in dependency order.
     function _assertClosureReady() internal view {
-        _assertClosureContract(
+        LibClosureInvariants.assertClosureContract(
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_30,
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_30
         );
-        _assertClosureContract(LibProdDeployV4.STOX_RECEIPT_0_1_30, LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_30);
-        _assertClosureContract(
+        LibClosureInvariants.assertClosureContract(
+            LibProdDeployV4.STOX_RECEIPT_0_1_30, LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_30
+        );
+        LibClosureInvariants.assertClosureContract(
             LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30, LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_30
         );
-        _assertClosureContract(
+        LibClosureInvariants.assertClosureContract(
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_30,
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_30
         );
-        _assertClosureContract(
+        LibClosureInvariants.assertClosureContract(
             LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30, LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_0_1_30
         );
-        _assertClosureContract(
+        LibClosureInvariants.assertClosureContract(
             LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_30,
             LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_30
         );
