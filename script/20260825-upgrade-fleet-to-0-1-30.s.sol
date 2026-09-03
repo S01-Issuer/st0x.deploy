@@ -12,7 +12,9 @@ import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
-import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
+import {LibSafeOps, SafeTx, IUpgradeableBeacon} from "../src/lib/LibSafeOps.sol";
+import {LibClosureInvariants} from "../src/lib/LibClosureInvariants.sol";
+import {IReceiptV3} from "rain-vats-0.1.6/src/interface/IReceiptV3.sol";
 
 /// @dev Unix timestamp (2026-10-01T00:00:00Z) by which the fleet upgrade
 /// must have executed on every chain. Shared by the migration-window
@@ -20,12 +22,6 @@ import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
 /// then; the orchestrator rollout shares the same date — this upgrade gates
 /// its cutover.
 uint256 constant FLEET_UPGRADE_DEADLINE = 1_790_812_800;
-
-/// @notice A 0.1.30 implementation this upgrade would repoint a beacon to
-/// has no runtime code (or the wrong codehash) on the active chain. Ship the
-/// audited closure via `manual-sol-artifacts-0-1-30.yaml` first.
-/// @param impl The pinned 0.1.30 implementation inspected.
-error UpgradeTargetNotDeployed(address impl);
 
 /// @notice A production beacon is neither in the pre-upgrade (0.1.1) nor the
 /// post-upgrade (0.1.30) implementation state — unknown drift; resolve
@@ -74,8 +70,9 @@ error UpgradeChangedTokenState(address receiptVault);
 /// no-ops); each gated beacon must be exactly in the 0.1.1 state (or
 /// already upgraded — self-scoped); the Safe must own both beacons. The
 /// simulation then proves, for EVERY production token on the chain, that
-/// `totalSupply` / `symbol` / `decimals` read identically across the
-/// upgrade — the H01 fix changes internal accounting, never reported state.
+/// `totalSupply` / `symbol` / `decimals` and each receipt's `manager` read
+/// identically across the upgrade — the H01 fix changes internal accounting,
+/// never reported state.
 ///
 /// The post-execution pin PR flips `LibProdBeaconsBase` /
 /// `LibProdBeacons0_1_1`'s `implementations()` (and the fork asserts riding
@@ -91,14 +88,20 @@ contract UpgradeFleetTo0_1_30 is Script {
         path = string.concat("out/20260825-upgrade-fleet-to-0-1-30-", vm.toString(block.chainid), ".json");
     }
 
-    /// @notice Assert one 0.1.30 upgrade target is live at its pin with the
-    /// audited codehash.
-    /// @param impl The pinned implementation address.
-    /// @param codehash The pinned 0.1.30 codehash.
-    function assertTargetDeployed(address impl, bytes32 codehash) internal view {
-        if (impl.code.length == 0 || impl.codehash != codehash) {
-            revert UpgradeTargetNotDeployed(impl);
-        }
+    /// @notice The audited 0.1.30 targets (and the facet the new vault
+    /// delegatecalls) must be live at their pins by codehash. Shared by
+    /// `run()` and the signer-side `verify()`.
+    function assertUpgradeTargetsLive() internal view {
+        LibClosureInvariants.assertClosureContract(
+            LibProdDeployV4.STOX_RECEIPT_0_1_30, LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_30
+        );
+        LibClosureInvariants.assertClosureContract(
+            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30, LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_30
+        );
+        LibClosureInvariants.assertClosureContract(
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_30,
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_30
+        );
     }
 
     /// @notice Pre-flight the beacons and self-scope the bundle: one
@@ -125,7 +128,7 @@ contract UpgradeFleetTo0_1_30 is Script {
                 revert BeaconInUnknownState(gated[i], actual);
             }
             candidates[count++] = SafeTx({
-                to: gated[i], value: 0, data: abi.encodeCall(IUpgradeableBeaconLike.upgradeTo, (post[i])), operation: 0
+                to: gated[i], value: 0, data: abi.encodeCall(IUpgradeableBeacon.upgradeTo, (post[i])), operation: 0
             });
         }
         if (count == 0) {
@@ -151,11 +154,12 @@ contract UpgradeFleetTo0_1_30 is Script {
     }
 
     /// @notice Snapshot every production token's reported state (receipt
-    /// vault `totalSupply`, `symbol` hash, `decimals`) so the post-upgrade
-    /// reads can be proven identical.
+    /// vault `totalSupply`, `symbol`, `decimals`; receipt `manager`) so the
+    /// post-upgrade reads can be proven identical.
     /// @param tokens The chain's token instances.
     /// @return supplies Each vault's `totalSupply`.
-    /// @return metaHashes keccak of each vault's `symbol` + `decimals`.
+    /// @return metaHashes keccak of each vault's `symbol` + `decimals` and its
+    /// receipt's `manager`.
     function snapshotTokenState(TokenInstance[] memory tokens)
         internal
         view
@@ -166,7 +170,8 @@ contract UpgradeFleetTo0_1_30 is Script {
         for (uint256 i = 0; i < tokens.length; i++) {
             IERC20Metadata vault = IERC20Metadata(tokens[i].receiptVault);
             supplies[i] = vault.totalSupply();
-            metaHashes[i] = keccak256(abi.encode(vault.symbol(), vault.decimals()));
+            metaHashes[i] =
+                keccak256(abi.encode(vault.symbol(), vault.decimals(), IReceiptV3(tokens[i].receipt).manager()));
         }
     }
 
@@ -184,7 +189,8 @@ contract UpgradeFleetTo0_1_30 is Script {
             IERC20Metadata vault = IERC20Metadata(tokens[i].receiptVault);
             if (
                 vault.totalSupply() != supplies[i]
-                    || keccak256(abi.encode(vault.symbol(), vault.decimals())) != metaHashes[i]
+                    || keccak256(abi.encode(vault.symbol(), vault.decimals(), IReceiptV3(tokens[i].receipt).manager()))
+                        != metaHashes[i]
             ) {
                 revert UpgradeChangedTokenState(tokens[i].receiptVault);
             }
@@ -200,16 +206,7 @@ contract UpgradeFleetTo0_1_30 is Script {
         address safeAddr = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         IGnosisSafe safe = IGnosisSafe(safeAddr);
 
-        // The audited 0.1.30 targets (and the facet the new vault
-        // delegatecalls) must be live at their pins by codehash.
-        assertTargetDeployed(LibProdDeployV4.STOX_RECEIPT_0_1_30, LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_30);
-        assertTargetDeployed(
-            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30, LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_30
-        );
-        assertTargetDeployed(
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_30,
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_30
-        );
+        assertUpgradeTargetsLive();
 
         // The in-use beacons are deployed, OZ bytecode, Safe-owned.
         LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
@@ -266,7 +263,7 @@ contract UpgradeFleetTo0_1_30 is Script {
         LibSafeOps.simulateNPlus1(
             safe,
             beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX],
-            abi.encodeCall(IUpgradeableBeaconLike.upgradeTo, (LibProdDeployV4.STOX_RECEIPT_0_1_1)),
+            abi.encodeCall(IUpgradeableBeacon.upgradeTo, (LibProdDeployV4.STOX_RECEIPT_0_1_1)),
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD
         );
         require(
@@ -277,7 +274,7 @@ contract UpgradeFleetTo0_1_30 is Script {
         LibSafeOps.simulateExternalCall(
             safe,
             beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX],
-            abi.encodeCall(IUpgradeableBeaconLike.upgradeTo, (LibProdDeployV4.STOX_RECEIPT_0_1_30))
+            abi.encodeCall(IUpgradeableBeacon.upgradeTo, (LibProdDeployV4.STOX_RECEIPT_0_1_30))
         );
         console2.log("n+1 reversal check passed: the Safe can downgrade (and re-upgrade) under the live threshold");
     }
@@ -290,6 +287,7 @@ contract UpgradeFleetTo0_1_30 is Script {
     function verify(string calldata jsonPath) external view {
         address safeAddr = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         IGnosisSafe safe = IGnosisSafe(safeAddr);
+        assertUpgradeTargetsLive();
         LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
 
         SafeTx[] memory expected = authorBundle(LibBeaconInvariants.prodBeaconsForChainId(block.chainid));
@@ -302,10 +300,4 @@ contract UpgradeFleetTo0_1_30 is Script {
         );
         console2.log("Nonce:", nonce);
     }
-}
-
-/// @dev Local mirror of OZ `UpgradeableBeacon.upgradeTo` — rain-vats ships
-/// no interface carrying it and OZ's contract is not an interface.
-interface IUpgradeableBeaconLike {
-    function upgradeTo(address newImplementation) external;
 }

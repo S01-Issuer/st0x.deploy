@@ -37,23 +37,35 @@ contract EthereumBeaconOwnershipTest is Test {
         vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
         address[4] memory beacons = LibProdBeacons0_1_1.beacons();
         address[4] memory impls = LibProdBeacons0_1_1.implementations();
-        // The wrapped-token-vault beacon (index 2) still serves its 0.1.1
+        // The wrapped-token-vault beacon still serves its 0.1.1
         // impl; the receipt + receipt-vault beacons ride the fleet-upgrade
         // migration window (20260825-upgrade-fleet-to-0-1-30): 0.1.1 OR
         // 0.1.30 until the deadline, 0.1.30 only after.
-        LibBeaconInvariants.assertBeaconInvariants(beacons[2], safe, impls[2]);
-        LibBeaconInvariants.assertBeaconInvariants(beacons[0], safe, IBeacon(beacons[0]).implementation());
-        LibBeaconInvariants.assertBeaconInvariants(beacons[1], safe, IBeacon(beacons[1]).implementation());
+        LibBeaconInvariants.assertBeaconInvariants(
+            beacons[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX],
+            safe,
+            impls[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX]
+        );
+        LibBeaconInvariants.assertBeaconInvariants(
+            beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX],
+            safe,
+            IBeacon(beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX]).implementation()
+        );
+        LibBeaconInvariants.assertBeaconInvariants(
+            beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX],
+            safe,
+            IBeacon(beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]).implementation()
+        );
         LibMigrationInvariant.assertMigration(
             "in-use receipt beacon implementation()",
-            IBeacon(beacons[0]).implementation(),
+            IBeacon(beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX]).implementation(),
             LibProdDeployV4.STOX_RECEIPT_0_1_1,
             LibProdDeployV4.STOX_RECEIPT_0_1_30,
             FLEET_UPGRADE_DEADLINE
         );
         LibMigrationInvariant.assertMigration(
             "in-use receipt-vault beacon implementation()",
-            IBeacon(beacons[1]).implementation(),
+            IBeacon(beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]).implementation(),
             LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1,
             LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30,
             FLEET_UPGRADE_DEADLINE
