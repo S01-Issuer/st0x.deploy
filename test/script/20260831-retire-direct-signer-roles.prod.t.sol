@@ -7,11 +7,8 @@ import {console2} from "forge-std-1.16.1/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
-import {
-    RetireDirectSignerRoles,
-    RETIRE_DEADLINE,
-    OrchestratorPathNotEnabled
-} from "../../script/20260831-retire-direct-signer-roles.s.sol";
+import {RETIRE_DEADLINE, OrchestratorPathNotEnabled} from "../../script/20260831-retire-direct-signer-roles.s.sol";
+import {RetireDirectSignerRolesHarness} from "./RetireDirectSignerRolesHarness.sol";
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
