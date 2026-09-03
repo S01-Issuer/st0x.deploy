@@ -11,6 +11,7 @@ import {FleetAlreadyUpgraded, FLEET_UPGRADE_DEADLINE} from "../../script/2026082
 import {UpgradeFleetHarness} from "./UpgradeFleetHarness.sol";
 import {LibSafeOps, SafeTx, TxBuilderArtifactMismatch} from "../../src/lib/LibSafeOps.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
+import {ClosureCodehashMismatch} from "../../src/lib/LibClosureInvariants.sol";
 import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
@@ -29,7 +30,8 @@ error FleetUpgradeOverdue(string label);
 ///    end on the fork — bundle authored and simulated, both beacons land
 ///    on 0.1.30, EVERY production token's reported state proven unchanged,
 ///    n+1 downgrade proven; the signer-side `verify` then round-trips the
-///    written artifact against the pre-run state and refuses a tampered copy.
+///    written artifact against the pre-run state, refusing a tampered copy
+///    and a wrong build at a target pin.
 /// 2. **Executed**: both beacons serve 0.1.30 (asserted directly) and a
 ///    re-dispatch refuses (`FleetAlreadyUpgraded`).
 ///
@@ -74,6 +76,18 @@ contract UpgradeFleetProdTest is Test {
             );
             vm.expectRevert(abi.encodeWithSelector(TxBuilderArtifactMismatch.selector, "firstTarget"));
             script.verify(tampered);
+
+            // The signer-side check gates on the audited targets too.
+            vm.etch(LibProdDeployV4.STOX_RECEIPT_0_1_30, hex"fe");
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    ClosureCodehashMismatch.selector,
+                    LibProdDeployV4.STOX_RECEIPT_0_1_30,
+                    LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_30,
+                    keccak256(hex"fe")
+                )
+            );
+            script.verify(path);
             return;
         }
 

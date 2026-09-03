@@ -88,6 +88,22 @@ contract UpgradeFleetTo0_1_30 is Script {
         path = string.concat("out/20260825-upgrade-fleet-to-0-1-30-", vm.toString(block.chainid), ".json");
     }
 
+    /// @notice The audited 0.1.30 targets (and the facet the new vault
+    /// delegatecalls) must be live at their pins by codehash. Shared by
+    /// `run()` and the signer-side `verify()`.
+    function assertUpgradeTargetsLive() internal view {
+        LibClosureInvariants.assertClosureContract(
+            LibProdDeployV4.STOX_RECEIPT_0_1_30, LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_30
+        );
+        LibClosureInvariants.assertClosureContract(
+            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30, LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_30
+        );
+        LibClosureInvariants.assertClosureContract(
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_30,
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_30
+        );
+    }
+
     /// @notice Pre-flight the beacons and self-scope the bundle: one
     /// `upgradeTo` per gated beacon still serving 0.1.1. A beacon in
     /// neither state is unknown drift; both already at 0.1.30 refuses.
@@ -190,18 +206,7 @@ contract UpgradeFleetTo0_1_30 is Script {
         address safeAddr = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         IGnosisSafe safe = IGnosisSafe(safeAddr);
 
-        // The audited 0.1.30 targets (and the facet the new vault
-        // delegatecalls) must be live at their pins by codehash.
-        LibClosureInvariants.assertClosureContract(
-            LibProdDeployV4.STOX_RECEIPT_0_1_30, LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_30
-        );
-        LibClosureInvariants.assertClosureContract(
-            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30, LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_30
-        );
-        LibClosureInvariants.assertClosureContract(
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_30,
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_30
-        );
+        assertUpgradeTargetsLive();
 
         // The in-use beacons are deployed, OZ bytecode, Safe-owned.
         LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
@@ -282,6 +287,7 @@ contract UpgradeFleetTo0_1_30 is Script {
     function verify(string calldata jsonPath) external view {
         address safeAddr = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         IGnosisSafe safe = IGnosisSafe(safeAddr);
+        assertUpgradeTargetsLive();
         LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
 
         SafeTx[] memory expected = authorBundle(LibBeaconInvariants.prodBeaconsForChainId(block.chainid));
