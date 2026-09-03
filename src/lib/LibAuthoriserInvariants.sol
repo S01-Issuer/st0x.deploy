@@ -53,6 +53,15 @@ error UnexpectedRetainedAdminGrant(address authoriser, bytes32 role, address hol
 /// @param role The action role the retired signer holds.
 error UnexpectedRetiredSignerGrant(address authoriser, bytes32 role);
 
+/// @notice Dispatched against a chain without a hydrated authoriser pin.
+/// @param chainId The active chain id.
+error UnsupportedChainForAuthoriser(uint256 chainId);
+
+/// @notice The active chain's V4 authoriser is not ready (unpinned, no code,
+/// or the wrong codehash).
+/// @param authoriser The authoriser address inspected.
+error AuthoriserNotReady(address authoriser);
+
 /// @title LibAuthoriserInvariants
 /// @notice Reusable invariants for the ST0x production authoriser on Base:
 /// the grantee constants and the single master `(role, grantee)` map every
@@ -72,6 +81,27 @@ error UnexpectedRetiredSignerGrant(address authoriser, bytes32 role);
 /// and `LibTokenInvariants`; individually callable via `assertAll()` for
 /// the focused authoriser drift detector.
 library LibAuthoriserInvariants {
+    /// @notice The active chain's hydrated V4 authoriser clone, asserted
+    /// deployed with the shared EIP-1167 codehash.
+    /// @return authoriser The validated authoriser address.
+    function activeChainAuthoriser() internal view returns (address authoriser) {
+        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
+            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        } else if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
+            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
+        } else if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
+            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM;
+        } else {
+            revert UnsupportedChainForAuthoriser(block.chainid);
+        }
+        if (
+            authoriser == address(0) || authoriser.code.length == 0
+                || authoriser.codehash != LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH
+        ) {
+            revert AuthoriserNotReady(authoriser);
+        }
+    }
+
     /// @notice THE current production authoriser — the single entrypoint
     /// every invariant and script reads. Aliases the V4 clone pinned in
     /// `LibProdDeployV4` (the generated deploy lib is the single source

@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {EnableOrchestratorRoles} from "../../script/20260831-enable-orchestrator-roles.s.sol";
+import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {SafeTx} from "../../src/lib/LibSafeOps.sol";
 
 /// @dev Exposes the script's internals so the guard tests can drive them
@@ -24,6 +25,6 @@ contract EnableOrchestratorRolesHarness is EnableOrchestratorRoles {
 
     /// @notice The script's `activeChainAuthoriser()`, externally callable.
     function callActiveChainAuthoriser() external view returns (address) {
-        return activeChainAuthoriser();
+        return LibAuthoriserInvariants.activeChainAuthoriser();
     }
 }

@@ -16,15 +16,6 @@ import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
 
-/// @notice Dispatched against a chain without a hydrated authoriser pin.
-/// @param chainId The active chain id.
-error UnsupportedChainForEnable(uint256 chainId);
-
-/// @notice The active chain's V4 authoriser is not ready (unpinned, no code,
-/// or the wrong codehash).
-/// @param authoriser The authoriser address inspected.
-error AuthoriserNotReadyForEnable(address authoriser);
-
 /// @notice The chain's production token beacons do not point at the audited
 /// 0.1.30 implementations the orchestrator was built for. The fleet upgrade
 /// must execute BEFORE the orchestrator gains vault access — the
@@ -109,27 +100,6 @@ contract EnableOrchestratorRoles is Script {
     /// @return path The artifact path for the ACTIVE chain.
     function artifactPath() internal view virtual returns (string memory path) {
         path = string.concat("out/20260831-enable-orchestrator-roles-", vm.toString(block.chainid), ".json");
-    }
-
-    /// @notice The active chain's hydrated V4 authoriser, asserted deployed
-    /// with the shared EIP-1167 codehash.
-    /// @return authoriser The validated authoriser address.
-    function activeChainAuthoriser() internal view returns (address authoriser) {
-        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
-        } else if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
-        } else if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM;
-        } else {
-            revert UnsupportedChainForEnable(block.chainid);
-        }
-        if (
-            authoriser == address(0) || authoriser.code.length == 0
-                || authoriser.codehash != LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH
-        ) {
-            revert AuthoriserNotReadyForEnable(authoriser);
-        }
     }
 
     /// @notice The fleet-upgrade interlock: the active chain's in-use
@@ -277,7 +247,7 @@ contract EnableOrchestratorRoles is Script {
 
         address safeAddr = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         IGnosisSafe safe = IGnosisSafe(safeAddr);
-        address authoriser = activeChainAuthoriser();
+        address authoriser = LibAuthoriserInvariants.activeChainAuthoriser();
         IAccessControl acl = IAccessControl(authoriser);
 
         // The 0.1.30 orchestrator world must be live at its pins, with the
@@ -358,7 +328,7 @@ contract EnableOrchestratorRoles is Script {
     function verify(string calldata jsonPath) external view {
         address safeAddr = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         IGnosisSafe safe = IGnosisSafe(safeAddr);
-        address authoriser = activeChainAuthoriser();
+        address authoriser = LibAuthoriserInvariants.activeChainAuthoriser();
         LibOrchestratorInvariants.assertBeaconSet(safeAddr);
         LibOrchestratorInvariants.assertInstance(safeAddr);
         assertFleetUpgraded();
