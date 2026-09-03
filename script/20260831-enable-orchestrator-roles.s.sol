@@ -138,17 +138,22 @@ contract EnableOrchestratorRoles is Script {
     /// orchestrator's own vault-logic lock reads its release set-deployer's
     /// beacons, not these (RAI-2125), so this pre-flight carries the rule.
     function assertFleetUpgraded() internal view {
-        // Index order pinned by LibProdBeacons*: receipt, receipt vault,
-        // wrapped token vault. The wrapped-token-vault beacon is not part of
-        // the orchestrator's surface and is not gated here.
+        // The wrapped-token-vault beacon is not part of the orchestrator's
+        // surface and is not gated here.
         address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
-        address receiptImpl = IBeacon(beacons[0]).implementation();
+        address receiptImpl = IBeacon(beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX]).implementation();
         if (receiptImpl != LibProdDeployV4.STOX_RECEIPT_0_1_30) {
-            revert FleetNotUpgraded(beacons[0], LibProdDeployV4.STOX_RECEIPT_0_1_30, receiptImpl);
+            revert FleetNotUpgraded(
+                beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX], LibProdDeployV4.STOX_RECEIPT_0_1_30, receiptImpl
+            );
         }
-        address vaultImpl = IBeacon(beacons[1]).implementation();
+        address vaultImpl = IBeacon(beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]).implementation();
         if (vaultImpl != LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30) {
-            revert FleetNotUpgraded(beacons[1], LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30, vaultImpl);
+            revert FleetNotUpgraded(
+                beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX],
+                LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30,
+                vaultImpl
+            );
         }
     }
 

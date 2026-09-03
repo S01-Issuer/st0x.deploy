@@ -8,14 +8,13 @@ import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 
 import {
-    ClosureNotDeployed,
-    ClosureCodehashMismatch,
     OrchestratorAlreadyDeployed,
     UnexpectedSetDeployerNonce,
     InstanceAddressMismatch,
     DeployKeyHoldsAdmin
 } from "../../script/20260818-deploy-orchestrator.s.sol";
 import {DeployOrchestratorHarness} from "./DeployOrchestratorHarness.sol";
+import {ClosureNotDeployed, ClosureCodehashMismatch} from "../../src/lib/LibClosureInvariants.sol";
 import {MigrationStateDrift} from "../../src/lib/LibMigrationInvariant.sol";
 import {
     LibOrchestratorInvariants,

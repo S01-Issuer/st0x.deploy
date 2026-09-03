@@ -69,8 +69,10 @@ contract EnableOrchestratorRolesProdTest is Test {
         }
 
         address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
-        bool fleetUpgraded = IBeacon(beacons[0]).implementation() == LibProdDeployV4.STOX_RECEIPT_0_1_30
-            && IBeacon(beacons[1]).implementation() == LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30;
+        bool fleetUpgraded = IBeacon(beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX]).implementation()
+                == LibProdDeployV4.STOX_RECEIPT_0_1_30
+            && IBeacon(beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]).implementation()
+                == LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30;
         if (!fleetUpgraded) {
             if (block.timestamp >= ENABLE_DEADLINE) {
                 revert OrchestratorEnableOverdue(label);
@@ -80,9 +82,9 @@ contract EnableOrchestratorRolesProdTest is Test {
             vm.expectRevert(
                 abi.encodeWithSelector(
                     FleetNotUpgraded.selector,
-                    beacons[0],
+                    beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX],
                     LibProdDeployV4.STOX_RECEIPT_0_1_30,
-                    IBeacon(beacons[0]).implementation()
+                    IBeacon(beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX]).implementation()
                 )
             );
             script.run();

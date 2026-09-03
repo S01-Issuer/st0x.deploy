@@ -41,13 +41,15 @@ contract EnableOrchestratorRolesTest is Test {
     /// 0.1.30 receipt/vault impls (the post-fleet-upgrade state).
     function mockUpgradedFleet() internal {
         address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(LibSafeInvariants.BASE_CHAIN_ID);
-        vm.etch(beacons[0], hex"fe");
-        vm.etch(beacons[1], hex"fe");
+        vm.etch(beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX], hex"fe");
+        vm.etch(beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX], hex"fe");
         vm.mockCall(
-            beacons[0], abi.encodeCall(IBeacon.implementation, ()), abi.encode(LibProdDeployV4.STOX_RECEIPT_0_1_30)
+            beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX],
+            abi.encodeCall(IBeacon.implementation, ()),
+            abi.encode(LibProdDeployV4.STOX_RECEIPT_0_1_30)
         );
         vm.mockCall(
-            beacons[1],
+            beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX],
             abi.encodeCall(IBeacon.implementation, ()),
             abi.encode(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30)
         );
@@ -91,14 +93,16 @@ contract EnableOrchestratorRolesTest is Test {
     /// impls, naming the beacon and both impls.
     function testFleetGateRefusesUnupgradedBeacons() external {
         address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(LibSafeInvariants.BASE_CHAIN_ID);
-        vm.etch(beacons[0], hex"fe");
+        vm.etch(beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX], hex"fe");
         vm.mockCall(
-            beacons[0], abi.encodeCall(IBeacon.implementation, ()), abi.encode(LibProdDeployV4.STOX_RECEIPT_0_1_1)
+            beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX],
+            abi.encodeCall(IBeacon.implementation, ()),
+            abi.encode(LibProdDeployV4.STOX_RECEIPT_0_1_1)
         );
         vm.expectRevert(
             abi.encodeWithSelector(
                 FleetNotUpgraded.selector,
-                beacons[0],
+                beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX],
                 LibProdDeployV4.STOX_RECEIPT_0_1_30,
                 LibProdDeployV4.STOX_RECEIPT_0_1_1
             )
