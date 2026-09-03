@@ -25,4 +25,9 @@ contract RetireDirectSignerRolesHarness is RetireDirectSignerRoles {
     function callAssertPostRetireState(IAccessControl acl, address orchestrator, address safeAddr) external view {
         assertPostRetireState(acl, orchestrator, safeAddr);
     }
+
+    /// @notice The script's `artifactPath()`, externally callable.
+    function callArtifactPath() external view returns (string memory) {
+        return artifactPath();
+    }
 }

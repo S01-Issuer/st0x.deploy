@@ -46,7 +46,7 @@ contract RetireDirectSignerRolesProdTest is Test {
     /// NatSpec) and assert it.
     /// @param label Human chain name, surfaced in logs and messages.
     function assertRetireRollout(string memory label) internal {
-        RetireDirectSignerRoles script = new RetireDirectSignerRoles();
+        RetireDirectSignerRolesHarness script = new RetireDirectSignerRolesHarness();
         address orchestrator = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
         address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
 
@@ -78,9 +78,14 @@ contract RetireDirectSignerRolesProdTest is Test {
             IAccessControl(orchestrator).grantRole(keccak256("MINT"), signer);
             IAccessControl(orchestrator).grantRole(keccak256("BURN"), signer);
             vm.stopPrank();
+            // The artifact outlives the state revert, so verify() reads it
+            // against the state a signer would see.
+            uint256 preRun = vm.snapshotState();
             script.run();
             assertFalse(acl.hasRole(keccak256("DEPOSIT"), signer), string.concat(label, ": signer direct DEPOSIT"));
             assertFalse(acl.hasRole(keccak256("WITHDRAW"), signer), string.concat(label, ": signer direct WITHDRAW"));
+            vm.revertToState(preRun);
+            script.verify(script.callArtifactPath());
             return;
         }
 

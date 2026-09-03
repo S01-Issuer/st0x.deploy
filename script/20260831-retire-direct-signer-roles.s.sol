@@ -261,6 +261,7 @@ contract RetireDirectSignerRoles is Script {
         LibOrchestratorInvariants.assertInstance(safeAddr);
         assertOrchestratorPathEnabled(IAccessControl(authoriser), LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
 
+        LibAuthoriserInvariants.assertExpectedGrants(authoriser, safeAddr);
         SafeTx[] memory expected = authorBundle(authoriser, safeAddr);
         LibSafeOps.assertParsedTxsMatch(expected, jsonPath);
 
