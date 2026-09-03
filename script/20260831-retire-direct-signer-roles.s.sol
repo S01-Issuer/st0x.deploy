@@ -60,6 +60,11 @@ error DirectSignerRolesAlreadyRetired();
 /// chain with no working mint path. Self-scoping; a retired chain refuses
 /// (`DirectSignerRolesAlreadyRetired`).
 ///
+/// Dispatch BEFORE `20260729-migrate-governance-to-timelock` executes on
+/// the chain: the revokes need the vault `_ADMIN`s the Safe holds today,
+/// which that migration hands to the timelock; afterwards this script
+/// refuses (`SafeMissingRoleAdminForRetire`).
+///
 /// The post-execution pin PR removes the signer's `DEPOSIT`/`WITHDRAW`
 /// rows from the canonical grant map, pins their absence (the
 /// Fireblocks-revocation lifecycle), and retires this script's fixtures.
