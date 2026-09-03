@@ -13,7 +13,6 @@ import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
-import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
@@ -564,10 +563,6 @@ contract MigrateGovernanceToTimelock is Script {
             }
             address actual = Ownable(beacons[i]).owner();
             if (actual == timelock) {
-                continue;
-            }
-            // Not the Safe's to move yet; a later dispatch picks it up.
-            if (LibBeaconInvariants.isOrchestratorBeaconAwaitingSafe(i, actual)) {
                 continue;
             }
             if (actual != safe) {

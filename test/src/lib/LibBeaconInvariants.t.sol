@@ -3,9 +3,6 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
-import {LibOrchestratorInvariants} from "../../../src/lib/LibOrchestratorInvariants.sol";
-import {MigrationDeadlinePassed} from "../../../src/lib/LibMigrationInvariant.sol";
 import {
     LibBeaconInvariants,
     IOwnable,
@@ -290,67 +287,5 @@ contract LibBeaconInvariantsTest is Test {
             LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH != LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30,
             "generation pins collapsed into one value"
         );
-    }
-
-    /// @notice The orchestrator beacon's baked deploy-key owner is pending,
-    /// not drift, until its own migration deadline. At the deadline both
-    /// sweeps refuse it, and the skip never reaches a token beacon.
-    function testOrchestratorBeaconDeployKeyOwnerIsPendingUntilItsDeadline() external {
-        selectBaseFork();
-        address safe = LibSafeInvariants.safeForChainId(LibSafeInvariants.BASE_CHAIN_ID);
-        address timelock = address(0x7155);
-        uint256 deadline = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON_OWNER_MIGRATION_DEADLINE;
-        address[4] memory beacons = LibProdBeaconsBase.beacons();
-        address orchestratorBeacon = beacons[LibBeaconInvariants.ORCHESTRATOR_BEACON_INDEX];
-        vm.mockCall(
-            orchestratorBeacon,
-            abi.encodeWithSelector(IOwnable.owner.selector),
-            abi.encode(LibProdDeployV4.BEACON_INITIAL_OWNER)
-        );
-
-        harness.callAssertProdBeaconsOwnedByChainSafe(LibSafeInvariants.BASE_CHAIN_ID);
-        harness.callAssertProdBeaconsOwnershipMigration(LibSafeInvariants.BASE_CHAIN_ID, safe, timelock, deadline);
-
-        vm.warp(deadline);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                BeaconOwnerMismatch.selector, orchestratorBeacon, safe, LibProdDeployV4.BEACON_INITIAL_OWNER
-            )
-        );
-        harness.callAssertProdBeaconsOwnedByChainSafe(LibSafeInvariants.BASE_CHAIN_ID);
-        // The token beacons already on the post-state, so the orchestrator
-        // index is the one the sweep refuses.
-        for (uint256 i = 0; i < LibBeaconInvariants.ORCHESTRATOR_BEACON_INDEX; i++) {
-            vm.mockCall(beacons[i], abi.encodeWithSelector(IOwnable.owner.selector), abi.encode(timelock));
-        }
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                MigrationDeadlinePassed.selector,
-                "beacon.owner()",
-                bytes32(uint256(uint160(timelock))),
-                bytes32(uint256(uint160(LibProdDeployV4.BEACON_INITIAL_OWNER))),
-                deadline
-            )
-        );
-        harness.callAssertProdBeaconsOwnershipMigration(LibSafeInvariants.BASE_CHAIN_ID, safe, timelock, deadline);
-    }
-
-    /// @notice The deploy key is only an accepted owner at the orchestrator
-    /// index: a token beacon held by it is drift.
-    function testDeployKeyOwnerIsDriftOnATokenBeacon() external {
-        selectBaseFork();
-        address beacon = LibProdBeaconsBase.beacons()[LibBeaconInvariants.RECEIPT_BEACON_INDEX];
-        vm.mockCall(
-            beacon, abi.encodeWithSelector(IOwnable.owner.selector), abi.encode(LibProdDeployV4.BEACON_INITIAL_OWNER)
-        );
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                BeaconOwnerMismatch.selector,
-                beacon,
-                LibSafeInvariants.safeForChainId(LibSafeInvariants.BASE_CHAIN_ID),
-                LibProdDeployV4.BEACON_INITIAL_OWNER
-            )
-        );
-        harness.callAssertProdBeaconsOwnedByChainSafe(LibSafeInvariants.BASE_CHAIN_ID);
     }
 }

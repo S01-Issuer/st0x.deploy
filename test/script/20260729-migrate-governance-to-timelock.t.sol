@@ -3,7 +3,6 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/TimelockController.sol";
@@ -524,43 +523,5 @@ contract MigrateGovernanceToTimelockTest is Test {
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD
         );
         assertTrue(controller.isOperationDone(id), "leg must complete after the delay");
-    }
-
-    /// @notice The orchestrator beacon stays out of the bundle while its
-    /// baked deploy-key owner is pending, joins it once the Safe owns it,
-    /// and is refused as an unknown owner once its migration deadline
-    /// passes with the deploy key still holding it.
-    function testRunSkipsTheOrchestratorBeaconUntilTheSafeOwnsIt() external {
-        selectBaseFork();
-        address timelock = deployTimelock();
-        address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
-        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
-        address orchestratorBeacon = beacons[LibBeaconInvariants.ORCHESTRATOR_BEACON_INDEX];
-        MigrateGovernanceToTimelockHarness script = new MigrateGovernanceToTimelockHarness(timelock);
-
-        vm.mockCall(
-            orchestratorBeacon, abi.encodeWithSignature("owner()"), abi.encode(LibProdDeployV4.BEACON_INITIAL_OWNER)
-        );
-        address[] memory targets = script.callSelectBeaconTargets(safe, timelock);
-        assertEq(targets.length, 3, "deploy-key-owned orchestrator beacon must be skipped");
-        for (uint256 i = 0; i < targets.length; i++) {
-            assertTrue(targets[i] != orchestratorBeacon, "orchestrator beacon selected while deploy-key-owned");
-        }
-
-        vm.mockCall(orchestratorBeacon, abi.encodeWithSignature("owner()"), abi.encode(safe));
-        targets = script.callSelectBeaconTargets(safe, timelock);
-        assertEq(targets.length, 4, "Safe-owned orchestrator beacon must be selected");
-        assertEq(targets[3], orchestratorBeacon, "orchestrator beacon must be last, in pinned order");
-
-        vm.mockCall(
-            orchestratorBeacon, abi.encodeWithSignature("owner()"), abi.encode(LibProdDeployV4.BEACON_INITIAL_OWNER)
-        );
-        vm.warp(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON_OWNER_MIGRATION_DEADLINE);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                UnexpectedBeaconOwner.selector, orchestratorBeacon, LibProdDeployV4.BEACON_INITIAL_OWNER
-            )
-        );
-        script.callSelectBeaconTargets(safe, timelock);
     }
 }

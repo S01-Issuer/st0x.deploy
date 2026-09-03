@@ -21,9 +21,4 @@ contract MigrateGovernanceToTimelockHarness is MigrateGovernanceToTimelock {
     function activeChainTimelock() internal view override returns (address) {
         return I_TIMELOCK;
     }
-
-    /// @notice The script's `_selectBeaconTargets()`, externally callable.
-    function callSelectBeaconTargets(address safe, address timelock) external view returns (address[] memory) {
-        return _selectBeaconTargets(safe, timelock);
-    }
 }
