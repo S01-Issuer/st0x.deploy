@@ -235,6 +235,19 @@ library LibBeaconInvariants {
     /// @notice Position of the orchestrator beacon in `prodBeaconsForChainId`.
     uint256 internal constant ORCHESTRATOR_BEACON_INDEX = 3;
 
+    /// @notice The orchestrator beacon joins the governed set mid-lifecycle:
+    /// its constructor bakes the deploy key as owner and
+    /// `20260818-migrate-orchestrator-beacon-owner` moves it to the chain's
+    /// Safe. Until that migration's deadline every ownership sweep over the
+    /// set treats the baked owner at that index as pending, not drift.
+    /// @param index Position in `prodBeaconsForChainId`.
+    /// @param owner The owner read from the beacon.
+    /// @return Whether the sweep skips this beacon.
+    function isOrchestratorBeaconAwaitingSafe(uint256 index, address owner) internal view returns (bool) {
+        return index == ORCHESTRATOR_BEACON_INDEX && owner == LibProdDeployV4.BEACON_INITIAL_OWNER
+            && block.timestamp < LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON_OWNER_MIGRATION_DEADLINE;
+    }
+
     /// @notice Expected runtime codehash of each beacon in
     /// `prodBeaconsForChainId`, index-aligned with it.
     /// @dev The set spans two build generations and a single pin cannot cover
@@ -312,17 +325,7 @@ library LibBeaconInvariants {
         for (uint256 i = 0; i < beacons.length; i++) {
             _assertDeployedPinnedBeacon(beacons[i], codehashes[i]);
             address actualOwner = IOwnable(beacons[i]).owner();
-            // The orchestrator beacon joins the governed set mid-lifecycle:
-            // its constructor bakes the deploy EOA as owner and the
-            // `20260818-migrate-orchestrator-beacon-owner` EOA broadcast
-            // moves it to the chain's Safe. Until that migration's deadline,
-            // the EOA is an accepted pre-state; after it, only the expected
-            // owner passes — the same window `LibOrchestratorInvariants.
-            // assertBeaconSet` applies.
-            if (
-                i == ORCHESTRATOR_BEACON_INDEX && actualOwner == LibProdDeployV4.BEACON_INITIAL_OWNER
-                    && block.timestamp < LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON_OWNER_MIGRATION_DEADLINE
-            ) {
+            if (isOrchestratorBeaconAwaitingSafe(i, actualOwner)) {
                 continue;
             }
             if (actualOwner != expectedOwner) {
@@ -368,14 +371,7 @@ library LibBeaconInvariants {
         for (uint256 i = 0; i < beacons.length; i++) {
             _assertDeployedPinnedBeacon(beacons[i], codehashes[i]);
             address actualOwner = IOwnable(beacons[i]).owner();
-            // See `assertProdBeaconsOwnedBy`: the orchestrator beacon's own
-            // EOA -> Safe migration window overlaps the governance window,
-            // so its baked initial owner is an accepted extra pre-state
-            // until that migration's deadline.
-            if (
-                i == ORCHESTRATOR_BEACON_INDEX && actualOwner == LibProdDeployV4.BEACON_INITIAL_OWNER
-                    && block.timestamp < LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON_OWNER_MIGRATION_DEADLINE
-            ) {
+            if (isOrchestratorBeaconAwaitingSafe(i, actualOwner)) {
                 continue;
             }
             LibMigrationInvariant.assertMigration("beacon.owner()", actualOwner, pre, post, deadline);

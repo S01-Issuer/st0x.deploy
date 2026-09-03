@@ -566,17 +566,8 @@ contract MigrateGovernanceToTimelock is Script {
             if (actual == timelock) {
                 continue;
             }
-            // The orchestrator beacon joins the governed set mid-lifecycle:
-            // until its own EOA -> Safe migration
-            // (20260818-migrate-orchestrator-beacon-owner) executes, it is
-            // not the Safe's to move — skip it; a later dispatch of this
-            // script picks it up once Safe-owned. After that migration's
-            // deadline the baked EOA stops being an accepted state and the
-            // refusal below fires.
-            if (
-                i == LibBeaconInvariants.ORCHESTRATOR_BEACON_INDEX && actual == LibProdDeployV4.BEACON_INITIAL_OWNER
-                    && block.timestamp < LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON_OWNER_MIGRATION_DEADLINE
-            ) {
+            // Not the Safe's to move yet; a later dispatch picks it up.
+            if (LibBeaconInvariants.isOrchestratorBeaconAwaitingSafe(i, actual)) {
                 continue;
             }
             if (actual != safe) {
