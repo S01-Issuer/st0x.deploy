@@ -63,6 +63,10 @@ error UpgradeChangedTokenState(address receiptVault);
 /// the artifact in the Safe UI (the in-use beacons are owned by each
 /// chain's token-owner Safe). Dispatch the three chains in ONE operational
 /// window — cross-chain parity is red in between, by design.
+/// Dispatch BEFORE `20260729-migrate-governance-to-timelock` executes on
+/// the chain: once the beacons are the timelock's, this script refuses
+/// (`BeaconOwnerMismatch`) and the upgrade has to go schedule → delay →
+/// execute through the timelock, which it does not author.
 ///
 /// Pre-flight: the 0.1.30 receipt, receipt-vault and corporate-actions
 /// facet must be live at their pins by codehash (the new vault's
