@@ -9,7 +9,11 @@ import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessContro
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
 import {EnableOrchestratorRoles, FleetNotUpgraded} from "../../script/20260831-enable-orchestrator-roles.s.sol";
-import {LibOrchestratorInvariants, OrchestratorSetDeployerMissing} from "../../src/lib/LibOrchestratorInvariants.sol";
+import {
+    LibOrchestratorInvariants,
+    OrchestratorInstanceMissing,
+    OrchestratorSetDeployerMissing
+} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
@@ -63,7 +67,13 @@ contract EnableOrchestratorRolesProdTest is Test {
             }
             console2.log(string.concat("PENDING [", label, "]: 0.1.30 orchestrator world not deployed"));
             console2.log("-> manual-sol-artifacts-0-1-30 suites, then 20260818-deploy-orchestrator, come first");
-            vm.expectRevert(abi.encodeWithSelector(OrchestratorSetDeployerMissing.selector, setDeployer));
+            // run() reads the beacon set before the instance, so whichever
+            // is missing first decides the revert.
+            if (setDeployer.code.length == 0) {
+                vm.expectRevert(abi.encodeWithSelector(OrchestratorSetDeployerMissing.selector, setDeployer));
+            } else {
+                vm.expectRevert(abi.encodeWithSelector(OrchestratorInstanceMissing.selector, orchestrator));
+            }
             script.run();
             return;
         }
