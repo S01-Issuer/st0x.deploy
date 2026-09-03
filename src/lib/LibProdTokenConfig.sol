@@ -42,10 +42,10 @@ struct TokenConfig {
 /// means carrying that space forward; the parity pin would flag it as a
 /// divergence otherwise.
 library LibProdTokenConfig {
-    /// @notice The 41 production token deploy configs, Base table order.
+    /// @notice The 50 production token deploy configs, Base table order.
     /// @return configs The name/symbol table.
     function productionTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
-        configs = new TokenConfig[](41);
+        configs = new TokenConfig[](50);
         configs[0] = TokenConfig("MSTR", "MicroStrategy Incorporated ST0x", "tMSTR");
         configs[1] = TokenConfig("TSLA", "Tesla Inc ST0x", "tTSLA");
         configs[2] = TokenConfig("COIN", "Coinbase Global Inc ST0x", "tCOIN");
@@ -88,5 +88,16 @@ library LibProdTokenConfig {
         configs[38] = TokenConfig("BABA", "Alibaba Group Holding Limited ADR ST0x", "tBABA");
         configs[39] = TokenConfig("TQQQ", "ProShares UltraPro QQQ ST0x", "tTQQQ");
         configs[40] = TokenConfig("FTF", "Franklin Limited Duration Income Trust ST0x", "tFTF");
+        configs[41] = TokenConfig("CBRS", "Cerebras Systems Inc. ST0x", "tCBRS");
+        configs[42] = TokenConfig("AIR.PA", "Airbus SE ST0x", "tAIR.PA");
+        configs[43] = TokenConfig("BMW.DE", "Bayerische Motoren Werke Aktiengesellschaft ST0x", "tBMW.DE");
+        // solc rejects a bare non-ASCII string literal; `unicode"..."` is the
+        // same bytes, and Base carries the ë — dropping it would break parity.
+        configs[44] = TokenConfig("MC.PA", unicode"LVMH Moët Hennessy Louis Vuitton SE ST0x", "tMC.PA");
+        configs[45] = TokenConfig("SIE.DE", "Siemens Aktiengesellschaft ST0x", "tSIE.DE");
+        configs[46] = TokenConfig("MBG.DE", "Mercedes-Benz Group AG ST0x", "tMBG.DE");
+        configs[47] = TokenConfig("RHM.DE", "Rheinmetall AG ST0x", "tRHM.DE");
+        configs[48] = TokenConfig("MCD", "McDonald's Corporation ST0x", "tMCD");
+        configs[49] = TokenConfig("NKE", "NIKE, Inc. ST0x", "tNKE");
     }
 }
