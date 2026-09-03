@@ -534,7 +534,7 @@ library LibTokenInvariants {
     /// @notice Returns the production token instance triples on Ethereum
     /// mainnet — Base's underlyings in Base row order, so the tables pair by
     /// index as well as by key.
-    /// @return tokens The 41 production token instances on Ethereum.
+    /// @return tokens The 42 production token instances on Ethereum.
     function productionTokensEthereum() internal pure returns (TokenInstance[] memory tokens) {
         // Deployed on Ethereum mainnet 2026-07-22 by
         // `20260706-deploy-tokens-ethereum` (manual-broadcast run
@@ -544,7 +544,7 @@ library LibTokenInvariants {
         // run's logged (underlying, receipt, receiptVault, wrapped) tuples.
         // Order and underlyings match Base row-for-row (the cross-chain
         // parity pin asserts this).
-        tokens = new TokenInstance[](41);
+        tokens = new TokenInstance[](42);
         tokens[0] = TokenInstance(
             "MSTR",
             address(0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763),
@@ -807,12 +807,23 @@ library LibTokenInvariants {
             address(0x334ccaD2e7D774F5e6A13437977dD0878926deF8),
             address(0x710A14a41a8Ea2e25376124C48bf9cAdc1E69be5)
         );
+        // CBRS, deployed 2026-08-14 by `20260807-deploy-missing-tokens` (run
+        // 31845108154) — the sole token that dispatch selected. It was never pinned
+        // here: the pin PR (#310) stayed open, so this table sat a row behind
+        // the chain. Verified live before pinning — symbol() tCBRS, receipt()
+        // and owner() the chain's token-owner Safe.
+        tokens[41] = TokenInstance(
+            "CBRS",
+            address(0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8),
+            address(0x75E0d127794b9C26eE35c55fbaBcc41c53Ccb37C),
+            address(0x15925E1c19c0F0d392F6FCb40FdE9144Dd823962)
+        );
     }
 
-    /// @notice Returns the 41 production token instance triples on HyperEVM,
+    /// @notice Returns the 42 production token instance triples on HyperEVM,
     /// in the same row order as `productionTokensBase()` (the cross-chain
     /// parity pin asserts the alignment).
-    /// @return tokens The 41 production token instances on HyperEVM.
+    /// @return tokens The 42 production token instances on HyperEVM.
     function productionTokensHyperEvm() internal pure returns (TokenInstance[] memory tokens) {
         // Deployed on HyperEVM 2026-07-24 (manual-broadcast run 30114307165):
         // all 29 tokens via the 0.1.1 unified deployer, each wired onto the
@@ -821,7 +832,7 @@ library LibTokenInvariants {
         // (underlying, receipt, receiptVault, wrapped) tuples. The script that
         // ran it was per-chain and has since been superseded by
         // `20260807-deploy-missing-tokens`, so this is the record of the run.
-        tokens = new TokenInstance[](41);
+        tokens = new TokenInstance[](42);
         tokens[0] = TokenInstance(
             "MSTR",
             0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
@@ -1078,6 +1089,17 @@ library LibTokenInvariants {
             0x05215bE061F61d341703a6b63AcFDFf396965425,
             0x334ccaD2e7D774F5e6A13437977dD0878926deF8,
             0x710A14a41a8Ea2e25376124C48bf9cAdc1E69be5
+        );
+        // CBRS, deployed 2026-08-14 by `20260807-deploy-missing-tokens` (run
+        // 31845492796) — the sole token that dispatch selected. It was never pinned
+        // here: the pin PR (#310) stayed open, so this table sat a row behind
+        // the chain. Verified live before pinning — symbol() tCBRS, receipt()
+        // and owner() the chain's token-owner Safe.
+        tokens[41] = TokenInstance(
+            "CBRS",
+            0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8,
+            0x75E0d127794b9C26eE35c55fbaBcc41c53Ccb37C,
+            0x15925E1c19c0F0d392F6FCb40FdE9144Dd823962
         );
     }
 
