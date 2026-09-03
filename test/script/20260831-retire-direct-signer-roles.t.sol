@@ -116,4 +116,41 @@ contract RetireDirectSignerRolesTest is Test {
         vm.expectRevert(DirectSignerRolesAlreadyRetired.selector);
         harness.callAuthorBundle(AUTHORISER, SAFE);
     }
+
+    /// @notice Mock the retired state: burn-in with both direct vault roles
+    /// gone from the signer.
+    function mockRetiredState() internal {
+        mockBurnInState();
+        vm.mockCall(
+            AUTHORISER, abi.encodeCall(IAccessControl.hasRole, (keccak256("DEPOSIT"), SIGNER)), abi.encode(false)
+        );
+        vm.mockCall(
+            AUTHORISER, abi.encodeCall(IAccessControl.hasRole, (keccak256("WITHDRAW"), SIGNER)), abi.encode(false)
+        );
+    }
+
+    /// The retired state passes the post-state check.
+    function testPostStateAcceptsTheRetiredState() external {
+        mockRetiredState();
+        harness.callAssertPostRetireState(IAccessControl(AUTHORISER), ORCHESTRATOR, SAFE);
+    }
+
+    /// A signer still holding a direct vault role fails the post-state check.
+    function testPostStateRefusesALingeringDirectRole() external {
+        mockRetiredState();
+        vm.mockCall(
+            AUTHORISER, abi.encodeCall(IAccessControl.hasRole, (keccak256("WITHDRAW"), SIGNER)), abi.encode(true)
+        );
+        vm.expectRevert(bytes("RetireDirectSignerRoles: signer still holds a direct vault role"));
+        harness.callAssertPostRetireState(IAccessControl(AUTHORISER), ORCHESTRATOR, SAFE);
+    }
+
+    /// Any other row of the canonical grant map going missing fails the
+    /// post-state check: the retirement touches exactly two rows.
+    function testPostStateRefusesADisturbedUnrelatedGrant() external {
+        mockRetiredState();
+        vm.mockCall(AUTHORISER, abi.encodeCall(IAccessControl.hasRole, (keccak256("CERTIFY"), SAFE)), abi.encode(false));
+        vm.expectRevert(bytes("RetireDirectSignerRoles: retirement disturbed an unrelated grant"));
+        harness.callAssertPostRetireState(IAccessControl(AUTHORISER), ORCHESTRATOR, SAFE);
+    }
 }

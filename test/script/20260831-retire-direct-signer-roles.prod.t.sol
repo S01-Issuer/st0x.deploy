@@ -28,9 +28,10 @@ error RetirementOverdue(string label);
 /// on each chain, read from a real fork with no mocks, walking the states:
 ///
 /// 1. **Burn-in pending** (every chain today: orchestrator live, path not
-///    fully enabled):
-///    the burn-in gate refuses — retirement can never strand a chain
-///    without a working mint path.
+///    fully enabled): the burn-in gate refuses — retirement can never
+///    strand a chain without a working mint path. The enable bundle is
+///    then applied as the Safe and `run()` driven end to end, so the
+///    retirement is proven against live state before either executes.
 /// 2. **Burn-in** (path enabled, direct roles still live): drives `run()`
 ///    end to end — revokes authored and simulated, post-state and n+1
 ///    proven. The window between states 2 and 3 is DELIBERATE: the
@@ -63,6 +64,23 @@ contract RetireDirectSignerRolesProdTest is Test {
             (address holder, bytes32 role) = firstMissingGrant(acl, orchestrator, signer);
             vm.expectRevert(abi.encodeWithSelector(OrchestratorPathNotEnabled.selector, holder, role));
             script.run();
+
+            // The enable bundle (20260831-enable-orchestrator-roles) applied as
+            // the Safe, so the retirement is proven end to end against live
+            // state before either has executed.
+            console2.log(
+                string.concat("BURN-IN [", label, "]: simulating the enable bundle, then driving the retirement")
+            );
+            address safe = LibSafeInvariants.safeForChainId(block.chainid);
+            vm.startPrank(safe);
+            acl.grantRole(keccak256("DEPOSIT"), orchestrator);
+            acl.grantRole(keccak256("WITHDRAW"), orchestrator);
+            IAccessControl(orchestrator).grantRole(keccak256("MINT"), signer);
+            IAccessControl(orchestrator).grantRole(keccak256("BURN"), signer);
+            vm.stopPrank();
+            script.run();
+            assertFalse(acl.hasRole(keccak256("DEPOSIT"), signer), string.concat(label, ": signer direct DEPOSIT"));
+            assertFalse(acl.hasRole(keccak256("WITHDRAW"), signer), string.concat(label, ": signer direct WITHDRAW"));
             return;
         }
 
