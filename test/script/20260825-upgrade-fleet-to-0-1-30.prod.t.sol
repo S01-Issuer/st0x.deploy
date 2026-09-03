@@ -43,7 +43,7 @@ contract UpgradeFleetProdTest is Test {
     /// @param label Human chain name, surfaced in logs and messages.
     function assertFleetRollout(string memory label) internal {
         UpgradeFleetHarness script = new UpgradeFleetHarness();
-        address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
 
         bool upgraded = IBeacon(beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX]).implementation()
                 == LibProdDeployV4.STOX_RECEIPT_0_1_30

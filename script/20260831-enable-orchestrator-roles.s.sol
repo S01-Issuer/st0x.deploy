@@ -140,7 +140,7 @@ contract EnableOrchestratorRoles is Script {
     function assertFleetUpgraded() internal view {
         // The wrapped-token-vault beacon is not part of the orchestrator's
         // surface and is not gated here.
-        address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
         address receiptImpl = IBeacon(beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX]).implementation();
         if (receiptImpl != LibProdDeployV4.STOX_RECEIPT_0_1_30) {
             revert FleetNotUpgraded(

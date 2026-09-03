@@ -35,8 +35,8 @@ contract EthereumBeaconOwnershipTest is Test {
         }
 
         vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
-        address[3] memory beacons = LibProdBeacons0_1_1.beacons();
-        address[3] memory impls = LibProdBeacons0_1_1.implementations();
+        address[4] memory beacons = LibProdBeacons0_1_1.beacons();
+        address[4] memory impls = LibProdBeacons0_1_1.implementations();
         // The wrapped-token-vault beacon still serves its 0.1.1
         // impl; the receipt + receipt-vault beacons ride the fleet-upgrade
         // migration window (20260825-upgrade-fleet-to-0-1-30): 0.1.1 OR

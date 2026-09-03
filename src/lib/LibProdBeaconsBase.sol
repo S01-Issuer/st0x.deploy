@@ -29,11 +29,12 @@ library LibProdBeaconsBase {
     /// receipt vault, wrapped token vault) — index-aligned with
     /// `implementations()` and with `LibProdBeacons0_1_1.beacons()`.
     /// @return The three Base beacon addresses.
-    function beacons() internal pure returns (address[3] memory) {
+    function beacons() internal pure returns (address[4] memory) {
         return [
             LibProdDeployV1.STOX_RECEIPT_BEACON_V1,
             LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1,
-            LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1
+            LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON
         ];
     }
 
@@ -42,11 +43,12 @@ library LibProdBeaconsBase {
     /// same deterministic addresses `LibProdBeacons0_1_1.implementations()`
     /// resolves, because implementation parity across chains is the goal.
     /// @return The three implementation addresses.
-    function implementations() internal pure returns (address[3] memory) {
+    function implementations() internal pure returns (address[4] memory) {
         return [
             LibProdDeployV4.STOX_RECEIPT_0_1_1,
             LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30
         ];
     }
 }

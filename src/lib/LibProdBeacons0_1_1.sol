@@ -50,13 +50,14 @@ library LibProdBeacons0_1_1 {
     /// generated `0_1_1` pin. `view` because the first two are live reads from
     /// the deployer (which is why callers run against an Ethereum fork).
     /// @return The three Ethereum beacon addresses.
-    function beacons() internal view returns (address[3] memory) {
+    function beacons() internal view returns (address[4] memory) {
         IST0xVaultBeaconSet deployer =
             IST0xVaultBeaconSet(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1);
         return [
             address(deployer.iReceiptBeacon()),
             address(deployer.iOffchainAssetReceiptVaultBeacon()),
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON
         ];
     }
 
@@ -65,11 +66,12 @@ library LibProdBeacons0_1_1 {
     /// deterministic addresses on every chain, so no separate Ethereum copy.
     /// Asserted unchanged across the ownership transfer.
     /// @return The three implementation addresses.
-    function implementations() internal pure returns (address[3] memory) {
+    function implementations() internal pure returns (address[4] memory) {
         return [
             LibProdDeployV4.STOX_RECEIPT_0_1_1,
             LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30
         ];
     }
 }

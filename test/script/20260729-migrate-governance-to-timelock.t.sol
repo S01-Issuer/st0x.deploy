@@ -164,7 +164,7 @@ contract MigrateGovernanceToTimelockTest is Test {
         assertGt(vaultTargets.length, 0, "fork state should have Safe-owned vaults pre-migration");
         address[] memory beaconTargets = _safeOwnedBeacons(safe);
         assertGt(beaconTargets.length, 0, "fork state should have Safe-owned beacons pre-migration");
-        address[3] memory implsBefore = _beaconImplementations();
+        address[4] memory implsBefore = _beaconImplementations();
 
         new MigrateGovernanceToTimelockHarness(timelock).run();
 
@@ -203,7 +203,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// @param safe The chain's token-owner Safe.
     /// @return targets The Safe-owned beacons, in pinned order.
     function _safeOwnedBeacons(address safe) internal view returns (address[] memory targets) {
-        address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
         address[] memory candidates = new address[](beacons.length);
         uint256 count = 0;
         for (uint256 i = 0; i < beacons.length; i++) {
@@ -221,8 +221,8 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// @notice The implementation each in-use beacon currently serves, in
     /// `prodBeaconsForChainId` order.
     /// @return impls The three current implementations.
-    function _beaconImplementations() internal view returns (address[3] memory impls) {
-        address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+    function _beaconImplementations() internal view returns (address[4] memory impls) {
+        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
         for (uint256 i = 0; i < beacons.length; i++) {
             impls[i] = IBeacon(beacons[i]).implementation();
         }
@@ -238,13 +238,13 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// @param safe The chain's token-owner Safe.
     /// @param timelock The chain's governance timelock.
     /// @param implsBefore Beacon implementations captured pre-run.
-    function _assertPostState(address safe, address timelock, address[3] memory implsBefore) internal view {
+    function _assertPostState(address safe, address timelock, address[4] memory implsBefore) internal view {
         address authoriser = _activeChainAuthoriser();
 
         LibTokenInvariants.assertUniformOwnership(_activeChainTokens(), timelock);
         LibBeaconInvariants.assertProdBeaconsOwnedBy(block.chainid, timelock);
 
-        address[3] memory implsAfter = _beaconImplementations();
+        address[4] memory implsAfter = _beaconImplementations();
         for (uint256 i = 0; i < implsAfter.length; i++) {
             assertEq(
                 implsAfter[i],
@@ -350,7 +350,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     function testRunRejectsUnknownBeaconOwner() external {
         selectBaseFork();
         address timelock = deployTimelock();
-        address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
         address stranger = address(0xDEAD);
         vm.mockCall(beacons[1], abi.encodeWithSignature("owner()"), abi.encode(stranger));
 

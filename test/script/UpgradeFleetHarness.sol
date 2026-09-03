@@ -10,7 +10,7 @@ import {TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 /// directly.
 contract UpgradeFleetHarness is UpgradeFleetTo0_1_30 {
     /// @notice The script's `authorBundle()`, externally callable.
-    function callAuthorBundle(address[3] memory beacons) external view returns (SafeTx[] memory) {
+    function callAuthorBundle(address[4] memory beacons) external view returns (SafeTx[] memory) {
         return authorBundle(beacons);
     }
 

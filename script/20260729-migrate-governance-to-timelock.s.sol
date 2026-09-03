@@ -308,7 +308,7 @@ contract MigrateGovernanceToTimelock is Script {
 
         // What the beacons serve, captured before the bundle so the
         // post-state can prove the migration moved ownership only.
-        address[3] memory beaconImplsBefore = _beaconImplementations();
+        address[4] memory beaconImplsBefore = _beaconImplementations();
 
         // --- Build the bundle ---------------------------------------------
 
@@ -447,14 +447,14 @@ contract MigrateGovernanceToTimelock is Script {
         address timelock,
         address authoriser,
         TokenInstance[] memory tokens,
-        address[3] memory beaconImplsBefore
+        address[4] memory beaconImplsBefore
     ) internal view {
         LibTokenInvariants.assertUniformOwnership(tokens, timelock);
         LibTokenInvariants.assertUniformAuthoriser(tokens, authoriser);
 
         LibBeaconInvariants.assertProdBeaconsOwnedBy(block.chainid, timelock);
-        address[3] memory beaconsAfter = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
-        address[3] memory beaconImplsAfter = _beaconImplementations();
+        address[4] memory beaconsAfter = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        address[4] memory beaconImplsAfter = _beaconImplementations();
         for (uint256 i = 0; i < beaconsAfter.length; i++) {
             if (beaconImplsAfter[i] != beaconImplsBefore[i]) {
                 revert BeaconImplementationMoved(beaconsAfter[i], beaconImplsBefore[i], beaconImplsAfter[i]);
@@ -550,15 +550,16 @@ contract MigrateGovernanceToTimelock is Script {
     /// @return targets The still-Safe-owned in-use beacons, in fixed
     /// (receipt, receipt vault, wrapped token vault) order.
     function _selectBeaconTargets(address safe, address timelock) internal view returns (address[] memory targets) {
-        address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        // Index-aligned: the set spans two build generations, so one pin
+        // cannot cover it. See `prodBeaconCodehashesForChainId`.
+        bytes32[4] memory expectedCodehashes = LibBeaconInvariants.prodBeaconCodehashesForChainId(block.chainid);
         address[] memory candidates = new address[](beacons.length);
         uint256 count = 0;
         for (uint256 i = 0; i < beacons.length; i++) {
             bytes32 codehash = beacons[i].codehash;
-            if (codehash != LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH) {
-                revert MigrationBeaconCodehashMismatch(
-                    beacons[i], LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH, codehash
-                );
+            if (codehash != expectedCodehashes[i]) {
+                revert MigrationBeaconCodehashMismatch(beacons[i], expectedCodehashes[i], codehash);
             }
             address actual = Ownable(beacons[i]).owner();
             if (actual == timelock) {
@@ -583,8 +584,8 @@ contract MigrateGovernanceToTimelock is Script {
     /// would propagate to every production proxy on the chain.
     /// @return impls The three current implementations, index-aligned with
     /// `prodBeaconsForChainId`.
-    function _beaconImplementations() internal view returns (address[3] memory impls) {
-        address[3] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+    function _beaconImplementations() internal view returns (address[4] memory impls) {
+        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
         for (uint256 i = 0; i < beacons.length; i++) {
             impls[i] = IBeacon(beacons[i]).implementation();
         }
