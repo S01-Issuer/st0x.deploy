@@ -21,15 +21,6 @@ import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
 /// while the orchestrator proves itself off-chain.
 uint256 constant RETIRE_DEADLINE = 1_792_022_400;
 
-/// @notice Dispatched against a chain without a hydrated authoriser pin.
-/// @param chainId The active chain id.
-error UnsupportedChainForRetire(uint256 chainId);
-
-/// @notice The active chain's V4 authoriser is not ready (unpinned, no code,
-/// or the wrong codehash).
-/// @param authoriser The authoriser address inspected.
-error AuthoriserNotReadyForRetire(address authoriser);
-
 /// @notice The orchestrator mint/burn path is not fully enabled on this
 /// chain — retiring the signer's direct roles now would leave NO working
 /// mint/burn path. Execute `20260831-enable-orchestrator-roles` (and give
@@ -87,27 +78,6 @@ contract RetireDirectSignerRoles is Script {
     /// @return path The artifact path for the ACTIVE chain.
     function artifactPath() internal view virtual returns (string memory path) {
         path = string.concat("out/20260831-retire-direct-signer-roles-", vm.toString(block.chainid), ".json");
-    }
-
-    /// @notice The active chain's hydrated V4 authoriser, asserted deployed
-    /// with the shared EIP-1167 codehash.
-    /// @return authoriser The validated authoriser address.
-    function activeChainAuthoriser() internal view returns (address authoriser) {
-        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
-        } else if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
-        } else if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM;
-        } else {
-            revert UnsupportedChainForRetire(block.chainid);
-        }
-        if (
-            authoriser == address(0) || authoriser.code.length == 0
-                || authoriser.codehash != LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH
-        ) {
-            revert AuthoriserNotReadyForRetire(authoriser);
-        }
     }
 
     /// @notice The burn-in gate: the orchestrator path must be FULLY enabled
@@ -208,7 +178,7 @@ contract RetireDirectSignerRoles is Script {
 
         address safeAddr = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         IGnosisSafe safe = IGnosisSafe(safeAddr);
-        address authoriser = activeChainAuthoriser();
+        address authoriser = LibAuthoriserInvariants.activeChainAuthoriser();
         IAccessControl acl = IAccessControl(authoriser);
 
         LibOrchestratorInvariants.assertBeaconSet(safeAddr);
@@ -286,7 +256,7 @@ contract RetireDirectSignerRoles is Script {
     function verify(string calldata jsonPath) external view {
         address safeAddr = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         IGnosisSafe safe = IGnosisSafe(safeAddr);
-        address authoriser = activeChainAuthoriser();
+        address authoriser = LibAuthoriserInvariants.activeChainAuthoriser();
         LibOrchestratorInvariants.assertBeaconSet(safeAddr);
         LibOrchestratorInvariants.assertInstance(safeAddr);
         assertOrchestratorPathEnabled(IAccessControl(authoriser), LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
