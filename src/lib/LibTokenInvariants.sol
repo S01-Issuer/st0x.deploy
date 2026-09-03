@@ -389,14 +389,86 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x9bDe199Ac6E7E050334306D9267c93e3D6d38333
     address internal constant FTF_WRAPPED_TOKEN_VAULT = address(0x9bDe199Ac6E7E050334306D9267c93e3D6d38333);
 
-    /// @notice Returns the 41 production token instance triples on Base, in
+    // ---- tCBRS / wtCBRS — Cerebras Systems Inc. ST0x ----
+    /// https://basescan.org/address/0xAe8aD2340aa19749A0b935C7F2245823fC4F14FB
+    address internal constant CBRS_RECEIPT = address(0xAe8aD2340aa19749A0b935C7F2245823fC4F14FB);
+    /// https://basescan.org/address/0xBeB0c2011bd5520A0998b69132E9245E39Ac5D1D
+    address internal constant CBRS_RECEIPT_VAULT = address(0xBeB0c2011bd5520A0998b69132E9245E39Ac5D1D);
+    /// https://basescan.org/address/0xB457cfBF31995d3aAAa704dA9999cC0b011820ca
+    address internal constant CBRS_WRAPPED_TOKEN_VAULT = address(0xB457cfBF31995d3aAAa704dA9999cC0b011820ca);
+
+    // ---- tAIR.PA / wtAIR.PA — Airbus SE ST0x ----
+    /// https://basescan.org/address/0xa618f8eB7c33a23C84d1500c5191746f86F98b2A
+    address internal constant AIR_PA_RECEIPT = address(0xa618f8eB7c33a23C84d1500c5191746f86F98b2A);
+    /// https://basescan.org/address/0xDdB07ADd0e23BB7eC97f53C0959d9c6Cc09624f4
+    address internal constant AIR_PA_RECEIPT_VAULT = address(0xDdB07ADd0e23BB7eC97f53C0959d9c6Cc09624f4);
+    /// https://basescan.org/address/0x1C600EF167c675C878BF3222f3935C4fA2A43C31
+    address internal constant AIR_PA_WRAPPED_TOKEN_VAULT = address(0x1C600EF167c675C878BF3222f3935C4fA2A43C31);
+
+    // ---- tBMW.DE / wtBMW.DE — Bayerische Motoren Werke Aktiengesellschaft ST0x ----
+    /// https://basescan.org/address/0x30864F2921886Dc491326D86015eB66c9601BF2b
+    address internal constant BMW_DE_RECEIPT = address(0x30864F2921886Dc491326D86015eB66c9601BF2b);
+    /// https://basescan.org/address/0x9610C265EB8F38B22Fec78498C74924D9fe55891
+    address internal constant BMW_DE_RECEIPT_VAULT = address(0x9610C265EB8F38B22Fec78498C74924D9fe55891);
+    /// https://basescan.org/address/0xD0269618455cF7dA71665856f16C2D03A1b26290
+    address internal constant BMW_DE_WRAPPED_TOKEN_VAULT = address(0xD0269618455cF7dA71665856f16C2D03A1b26290);
+
+    // ---- tMC.PA / wtMC.PA — LVMH Moët Hennessy Louis Vuitton SE ST0x ----
+    /// https://basescan.org/address/0xBEDD4C7219E35E6C45BE792F31F076737481FF2c
+    address internal constant MC_PA_RECEIPT = address(0xBEDD4C7219E35E6C45BE792F31F076737481FF2c);
+    /// https://basescan.org/address/0xF5245a17E5eb64D53dEa213d40aBa01821D465Cd
+    address internal constant MC_PA_RECEIPT_VAULT = address(0xF5245a17E5eb64D53dEa213d40aBa01821D465Cd);
+    /// https://basescan.org/address/0xd92cc92557BFC33028195983ED31465F99b4A01c
+    address internal constant MC_PA_WRAPPED_TOKEN_VAULT = address(0xd92cc92557BFC33028195983ED31465F99b4A01c);
+
+    // ---- tSIE.DE / wtSIE.DE — Siemens Aktiengesellschaft ST0x ----
+    /// https://basescan.org/address/0xe89995E4Bf9691486445917e3C69ed3d935183f1
+    address internal constant SIE_DE_RECEIPT = address(0xe89995E4Bf9691486445917e3C69ed3d935183f1);
+    /// https://basescan.org/address/0xa662066a60964a528aD05209139a79BDa3a7577f
+    address internal constant SIE_DE_RECEIPT_VAULT = address(0xa662066a60964a528aD05209139a79BDa3a7577f);
+    /// https://basescan.org/address/0xed0B0fdD92F7eece606A0FB0457352616d6e6B34
+    address internal constant SIE_DE_WRAPPED_TOKEN_VAULT = address(0xed0B0fdD92F7eece606A0FB0457352616d6e6B34);
+
+    // ---- tMBG.DE / wtMBG.DE — Mercedes-Benz Group AG ST0x ----
+    /// https://basescan.org/address/0x984d884fc03D17e7b9cCfE6A32f27e9b6d9B92bd
+    address internal constant MBG_DE_RECEIPT = address(0x984d884fc03D17e7b9cCfE6A32f27e9b6d9B92bd);
+    /// https://basescan.org/address/0x07d7ca9384812b86e7E429473dF354fb59DA73A0
+    address internal constant MBG_DE_RECEIPT_VAULT = address(0x07d7ca9384812b86e7E429473dF354fb59DA73A0);
+    /// https://basescan.org/address/0xfae641bfE7009B5326396048b951E3aa31902a2B
+    address internal constant MBG_DE_WRAPPED_TOKEN_VAULT = address(0xfae641bfE7009B5326396048b951E3aa31902a2B);
+
+    // ---- tRHM.DE / wtRHM.DE — Rheinmetall AG ST0x ----
+    /// https://basescan.org/address/0xfbd76467e4FBbd64dD43057bF137a75ec676C3c2
+    address internal constant RHM_DE_RECEIPT = address(0xfbd76467e4FBbd64dD43057bF137a75ec676C3c2);
+    /// https://basescan.org/address/0x725E0Df28D1EB09338f63776B76bCfc00f3b6f44
+    address internal constant RHM_DE_RECEIPT_VAULT = address(0x725E0Df28D1EB09338f63776B76bCfc00f3b6f44);
+    /// https://basescan.org/address/0xD3c42aB4D5A60A50401b3A67D10B03Ce7D96DA19
+    address internal constant RHM_DE_WRAPPED_TOKEN_VAULT = address(0xD3c42aB4D5A60A50401b3A67D10B03Ce7D96DA19);
+
+    // ---- tMCD / wtMCD — McDonald's Corporation ST0x ----
+    /// https://basescan.org/address/0x1Cfa3Af9DcEc40dCa8f8588c7b7FCE5a1BA6eC3f
+    address internal constant MCD_RECEIPT = address(0x1Cfa3Af9DcEc40dCa8f8588c7b7FCE5a1BA6eC3f);
+    /// https://basescan.org/address/0x6363657E19A82ABE0E210e9b8c88Ea61d96eceaB
+    address internal constant MCD_RECEIPT_VAULT = address(0x6363657E19A82ABE0E210e9b8c88Ea61d96eceaB);
+    /// https://basescan.org/address/0x7ecAE30Ed8ee4F72653ada7b0941bDE7a0a8eE8d
+    address internal constant MCD_WRAPPED_TOKEN_VAULT = address(0x7ecAE30Ed8ee4F72653ada7b0941bDE7a0a8eE8d);
+
+    // ---- tNKE / wtNKE — NIKE, Inc. ST0x ----
+    /// https://basescan.org/address/0x8A0037757d67084f5431c02eE2A352593eFe2957
+    address internal constant NKE_RECEIPT = address(0x8A0037757d67084f5431c02eE2A352593eFe2957);
+    /// https://basescan.org/address/0x88C3F4E2E0a977Fed97ed246c70BFD7A01070246
+    address internal constant NKE_RECEIPT_VAULT = address(0x88C3F4E2E0a977Fed97ed246c70BFD7A01070246);
+    /// https://basescan.org/address/0x0883f32d23Ed5535057a4B5E3eB1970FE08606AF
+    address internal constant NKE_WRAPPED_TOKEN_VAULT = address(0x0883f32d23Ed5535057a4B5E3eB1970FE08606AF);
+
+    /// @notice Returns the 50 production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
     /// that need the receipt / wrapped-vault legs or the underlying join key
     /// (cross-chain parity, per-token config checks) iterate this instead.
-    /// @return tokens The 41 production token instances on Base.
+    /// @return tokens The 50 production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](41);
+        tokens = new TokenInstance[](50);
         tokens[0] = TokenInstance("MSTR", MSTR_RECEIPT, MSTR_RECEIPT_VAULT, MSTR_WRAPPED_TOKEN_VAULT);
         tokens[1] = TokenInstance("TSLA", TSLA_RECEIPT, TSLA_RECEIPT_VAULT, TSLA_WRAPPED_TOKEN_VAULT);
         tokens[2] = TokenInstance("COIN", COIN_RECEIPT, COIN_RECEIPT_VAULT, COIN_WRAPPED_TOKEN_VAULT);
@@ -448,6 +520,15 @@ library LibTokenInvariants {
         tokens[38] = TokenInstance("BABA", BABA_RECEIPT, BABA_RECEIPT_VAULT, BABA_WRAPPED_TOKEN_VAULT);
         tokens[39] = TokenInstance("TQQQ", TQQQ_RECEIPT, TQQQ_RECEIPT_VAULT, TQQQ_WRAPPED_TOKEN_VAULT);
         tokens[40] = TokenInstance("FTF", FTF_RECEIPT, FTF_RECEIPT_VAULT, FTF_WRAPPED_TOKEN_VAULT);
+        tokens[41] = TokenInstance("CBRS", CBRS_RECEIPT, CBRS_RECEIPT_VAULT, CBRS_WRAPPED_TOKEN_VAULT);
+        tokens[42] = TokenInstance("AIR.PA", AIR_PA_RECEIPT, AIR_PA_RECEIPT_VAULT, AIR_PA_WRAPPED_TOKEN_VAULT);
+        tokens[43] = TokenInstance("BMW.DE", BMW_DE_RECEIPT, BMW_DE_RECEIPT_VAULT, BMW_DE_WRAPPED_TOKEN_VAULT);
+        tokens[44] = TokenInstance("MC.PA", MC_PA_RECEIPT, MC_PA_RECEIPT_VAULT, MC_PA_WRAPPED_TOKEN_VAULT);
+        tokens[45] = TokenInstance("SIE.DE", SIE_DE_RECEIPT, SIE_DE_RECEIPT_VAULT, SIE_DE_WRAPPED_TOKEN_VAULT);
+        tokens[46] = TokenInstance("MBG.DE", MBG_DE_RECEIPT, MBG_DE_RECEIPT_VAULT, MBG_DE_WRAPPED_TOKEN_VAULT);
+        tokens[47] = TokenInstance("RHM.DE", RHM_DE_RECEIPT, RHM_DE_RECEIPT_VAULT, RHM_DE_WRAPPED_TOKEN_VAULT);
+        tokens[48] = TokenInstance("MCD", MCD_RECEIPT, MCD_RECEIPT_VAULT, MCD_WRAPPED_TOKEN_VAULT);
+        tokens[49] = TokenInstance("NKE", NKE_RECEIPT, NKE_RECEIPT_VAULT, NKE_WRAPPED_TOKEN_VAULT);
     }
 
     /// @notice Returns the production token instance triples on Ethereum
