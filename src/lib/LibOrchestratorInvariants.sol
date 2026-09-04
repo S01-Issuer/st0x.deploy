@@ -6,7 +6,6 @@ import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
-import {LibMigrationInvariant} from "./LibMigrationInvariant.sol";
 import {IST0xOrchestratorV1} from "../interface/IST0xOrchestratorV1.sol";
 
 /// @notice The orchestrator beacon-set deployer has no runtime code at its
@@ -25,6 +24,14 @@ error OrchestratorBeaconMismatch(address expected, address actual);
 /// @param expected The pinned 0.1.30 implementation.
 /// @param actual The implementation the beacon reports.
 error OrchestratorBeaconImplMismatch(address expected, address actual);
+
+/// @notice The orchestrator beacon's owner is not the chain's token-owner
+/// Safe. The `20260818-migrate-orchestrator-beacon-owner` migration
+/// executed on every chain (2026-09-04), so any other owner — including a
+/// transfer back to the deploy EOA — is unsanctioned drift.
+/// @param expected The chain's token-owner Safe.
+/// @param actual The owner the beacon reports.
+error OrchestratorBeaconOwnerMismatch(address expected, address actual);
 
 /// @notice The pinned orchestrator instance has no runtime code on the
 /// active chain.
@@ -75,21 +82,12 @@ library LibOrchestratorInvariants {
     /// of truth, emitted by `BuildPointers`).
     address internal constant ST0X_ORCHESTRATOR_INSTANCE = LibProdDeployV4.ST0X_ORCHESTRATOR_INSTANCE;
 
-    /// @notice Unix timestamp (2026-10-01T00:00:00Z) by which
-    /// `20260818-migrate-orchestrator-beacon-owner` must have moved the
-    /// orchestrator beacon's owner from the deploy EOA to the chain's
-    /// token-owner Safe. Until then either owner passes; after it only the
-    /// Safe does (see `LibMigrationInvariant`).
-    uint256 internal constant ST0X_ORCHESTRATOR_BEACON_OWNER_MIGRATION_DEADLINE = 1_790_812_800;
-
     /// @notice Assert the orchestrator beacon set on the active chain: the
     /// 0.1.30 beacon-set deployer is live, reports the pinned beacon, and the
-    /// beacon points at the audited 0.1.30 orchestrator implementation. The
-    /// beacon's owner is asserted through the owner-migration window: the
-    /// deploy EOA (`BEACON_INITIAL_OWNER`, pre) or `chainSafe` (post) until
-    /// the migration deadline, only `chainSafe` after it.
-    /// @param chainSafe The chain's token-owner Safe — the post-migration
-    /// beacon owner.
+    /// beacon points at the audited 0.1.30 orchestrator implementation
+    /// under the chain's token-owner Safe (the executed
+    /// `20260818-migrate-orchestrator-beacon-owner` end-state).
+    /// @param chainSafe The chain's token-owner Safe — the beacon owner.
     function assertBeaconSet(address chainSafe) internal view {
         address setDeployer = LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_30;
         if (setDeployer.code.length == 0) {
@@ -106,13 +104,10 @@ library LibOrchestratorInvariants {
             revert OrchestratorBeaconImplMismatch(LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30, impl);
         }
 
-        LibMigrationInvariant.assertMigration(
-            "ST0X_ORCHESTRATOR_BEACON.owner()",
-            Ownable(beacon).owner(),
-            LibProdDeployV4.BEACON_INITIAL_OWNER,
-            chainSafe,
-            ST0X_ORCHESTRATOR_BEACON_OWNER_MIGRATION_DEADLINE
-        );
+        address owner = Ownable(beacon).owner();
+        if (owner != chainSafe) {
+            revert OrchestratorBeaconOwnerMismatch(chainSafe, owner);
+        }
     }
 
     /// @notice Assert the pinned orchestrator instance on the active chain:

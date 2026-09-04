@@ -14,7 +14,12 @@ import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.so
 import {LibSafeOps} from "../src/lib/LibSafeOps.sol";
 
 /// @title MigrateOrchestratorBeaconOwner
-/// @notice **PENDING.** Transfers ownership of the ST0x orchestrator beacon
+/// @notice **EXECUTED 2026-09-04** on Base (tx
+/// 0x73f7017d08502fdf16e1fbb0794c26f095c19bb87707b6d61c0260e09d9101cd),
+/// Ethereum and HyperEVM — the beacon reports each chain's token-owner
+/// Safe as owner. Re-running reverts at the owner pre-flight.
+///
+/// Transfers ownership of the ST0x orchestrator beacon
 /// (`LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON`) on whichever chain
 /// this is broadcast against, from the deploy EOA
 /// (`LibProdDeployV4.BEACON_INITIAL_OWNER`, rainlang.eth) to that chain's
@@ -43,7 +48,7 @@ import {LibSafeOps} from "../src/lib/LibSafeOps.sol";
 /// (`20260818-deploy-orchestrator`): beacon ownership gates `upgradeTo`,
 /// not `deploy()`. The live-fork invariant
 /// (`LibOrchestratorInvariants.assertBeaconSet`) accepts either owner until
-/// `ST0X_ORCHESTRATOR_BEACON_OWNER_MIGRATION_DEADLINE` and only the Safe
+/// executed end-state (Safe-owned) and only the Safe
 /// after it, so cron red-lines any chain this migration misses.
 ///
 /// The flow is the beacon-owner-migration standard shape:
