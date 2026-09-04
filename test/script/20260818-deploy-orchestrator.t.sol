@@ -15,11 +15,11 @@ import {
 } from "../../script/20260818-deploy-orchestrator.s.sol";
 import {DeployOrchestratorHarness} from "./DeployOrchestratorHarness.sol";
 import {ClosureNotDeployed, ClosureCodehashMismatch} from "../../src/lib/LibClosureInvariants.sol";
-import {MigrationStateDrift} from "../../src/lib/LibMigrationInvariant.sol";
 import {
     LibOrchestratorInvariants,
     ST0xOrchestratorBeaconSetDeployerLike,
-    OrchestratorAdminMissing
+    OrchestratorAdminMissing,
+    OrchestratorBeaconOwnerMismatch
 } from "../../src/lib/LibOrchestratorInvariants.sol";
 import {IST0xOrchestratorV1} from "../../src/interface/IST0xOrchestratorV1.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
@@ -74,9 +74,7 @@ contract DeployOrchestratorTest is Test {
             abi.encode(LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30)
         );
         vm.mockCall(
-            LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON,
-            abi.encodeCall(Ownable.owner, ()),
-            abi.encode(LibProdDeployV4.BEACON_INITIAL_OWNER)
+            LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON, abi.encodeCall(Ownable.owner, ()), abi.encode(SAFE)
         );
         vm.etch(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON, hex"fe");
     }
@@ -228,36 +226,20 @@ contract DeployOrchestratorTest is Test {
         harness.assertDeployLanded(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE, SAFE, DEPLOY_KEY);
     }
 
-    /// The beacon-owner invariant accepts the post-migration state too: a
-    /// beacon already owned by the Safe (after
-    /// `20260818-migrate-orchestrator-beacon-owner`) passes.
-    function testLandedAcceptsASafeOwnedBeacon() external {
-        mockBeaconSet();
-        mockLandedInstance();
-        vm.mockCall(
-            LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON, abi.encodeCall(Ownable.owner, ()), abi.encode(SAFE)
-        );
-        harness.assertDeployLanded(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE, SAFE, DEPLOY_KEY);
-    }
-
-    /// A beacon owner that is neither the deploy EOA nor the Safe is
-    /// migration-state drift, before or after the deadline.
-    function testLandedRefusesADriftedBeaconOwner() external {
+    /// The beacon-owner migration is EXECUTED (2026-09-04): only the
+    /// chain's Safe passes as beacon owner. A transfer back to the deploy
+    /// EOA — the accepted pre-state during the migration window — now
+    /// refuses like any other drift.
+    function testLandedRefusesANonSafeBeaconOwner() external {
         mockBeaconSet();
         mockLandedInstance();
         vm.mockCall(
             LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON,
             abi.encodeCall(Ownable.owner, ()),
-            abi.encode(address(0xBAD))
+            abi.encode(LibProdDeployV4.BEACON_INITIAL_OWNER)
         );
         vm.expectRevert(
-            abi.encodeWithSelector(
-                MigrationStateDrift.selector,
-                "ST0X_ORCHESTRATOR_BEACON.owner()",
-                bytes32(uint256(uint160(LibProdDeployV4.BEACON_INITIAL_OWNER))),
-                bytes32(uint256(uint160(SAFE))),
-                bytes32(uint256(uint160(address(0xBAD))))
-            )
+            abi.encodeWithSelector(OrchestratorBeaconOwnerMismatch.selector, SAFE, LibProdDeployV4.BEACON_INITIAL_OWNER)
         );
         harness.assertDeployLanded(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE, SAFE, DEPLOY_KEY);
     }
