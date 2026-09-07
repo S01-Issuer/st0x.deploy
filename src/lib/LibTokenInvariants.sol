@@ -301,6 +301,15 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x6a2357Df4975C667B171bE53dA6FFe6deBf7030c
     address internal constant GOOGL_WRAPPED_TOKEN_VAULT = address(0x6a2357Df4975C667B171bE53dA6FFe6deBf7030c);
 
+    // ---- tMETA / wtMETA — Meta Platforms, Inc. ST0x ----
+    // Deployed 2026-07-27, never launched — absent from registry, logos and Turnkey set; recorded, not pinned.
+    // /// https://basescan.org/address/0xffcBEA042a0d55293f9ad0f050CE11f6331C9313
+    // address internal constant META_RECEIPT = address(0xffcBEA042a0d55293f9ad0f050CE11f6331C9313);
+    // /// https://basescan.org/address/0xAF07a843A6221d3E6540122Fa712DF8541B05E26
+    // address internal constant META_RECEIPT_VAULT = address(0xAF07a843A6221d3E6540122Fa712DF8541B05E26);
+    // /// https://basescan.org/address/0xd1ddE998d1Cd19B502242FBE14F6CC97bE601E30
+    // address internal constant META_WRAPPED_TOKEN_VAULT = address(0xd1ddE998d1Cd19B502242FBE14F6CC97bE601E30);
+
     // ---- tAAPL / wtAAPL — Apple Inc. ST0x ----
     /// https://basescan.org/address/0x3156EB08c9dd870979f1475C5CFe681b8f6A3b53
     address internal constant AAPL_RECEIPT = address(0x3156EB08c9dd870979f1475C5CFe681b8f6A3b53);
@@ -316,6 +325,15 @@ library LibTokenInvariants {
     address internal constant MSFT_RECEIPT_VAULT = address(0x6a071E25fa25653cF15d1ee320eA3df771926Aa0);
     /// https://basescan.org/address/0x515A3Ac2a6aB590bDFa970caFFFd7fAdC680886E
     address internal constant MSFT_WRAPPED_TOKEN_VAULT = address(0x515A3Ac2a6aB590bDFa970caFFFd7fAdC680886E);
+
+    // ---- tPLTR / wtPLTR — Palantir Technologies Inc. ST0x ----
+    // Deployed 2026-07-27, never launched — `owner()` is still the deployer EOA, not the Safe; recorded, not pinned.
+    // /// https://basescan.org/address/0x0fa01D10006486f042E55728f14A1A8f70ACa6a3
+    // address internal constant PLTR_RECEIPT = address(0x0fa01D10006486f042E55728f14A1A8f70ACa6a3);
+    // /// https://basescan.org/address/0xEAcB0EF8b160D0340578d8BA24311A5F7AD717F2
+    // address internal constant PLTR_RECEIPT_VAULT = address(0xEAcB0EF8b160D0340578d8BA24311A5F7AD717F2);
+    // /// https://basescan.org/address/0x842C2A838Bd005840Dea1EF62e82FC89533FF8f9
+    // address internal constant PLTR_WRAPPED_TOKEN_VAULT = address(0x842C2A838Bd005840Dea1EF62e82FC89533FF8f9);
 
     // ---- tLLY / wtLLY — Eli Lilly and Company ST0x ----
     /// https://basescan.org/address/0x7b345A02d56f989420EbEd4df647D1C673608F3C
@@ -461,14 +479,71 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x0883f32d23Ed5535057a4B5E3eB1970FE08606AF
     address internal constant NKE_WRAPPED_TOKEN_VAULT = address(0x0883f32d23Ed5535057a4B5E3eB1970FE08606AF);
 
-    /// @notice Returns the 50 production token instance triples on Base, in
+    // ---- tGRND / wtGRND — Grindr Inc. ST0x ----
+    /// https://basescan.org/address/0xca4495d2fe8e82951DEbda1102A1dCf09DB7Bba6
+    address internal constant GRND_RECEIPT = address(0xca4495d2fe8e82951DEbda1102A1dCf09DB7Bba6);
+    /// https://basescan.org/address/0xA4178410216F5f00C718BE88C2fF8AC24de192bc
+    address internal constant GRND_RECEIPT_VAULT = address(0xA4178410216F5f00C718BE88C2fF8AC24de192bc);
+    /// https://basescan.org/address/0x1197E6FA778c4D13E47875bD1761c68C22c928e0
+    address internal constant GRND_WRAPPED_TOKEN_VAULT = address(0x1197E6FA778c4D13E47875bD1761c68C22c928e0);
+
+    // ---- tDNUT / wtDNUT — Krispy Kreme, Inc. ST0x ----
+    /// https://basescan.org/address/0xE06eD5d80Db468a10fCfadF27ee9771DD73C7e35
+    address internal constant DNUT_RECEIPT = address(0xE06eD5d80Db468a10fCfadF27ee9771DD73C7e35);
+    /// https://basescan.org/address/0x6C2b6Ed57d4d9e93F3E4975FAc70eE4B180F4Eb9
+    address internal constant DNUT_RECEIPT_VAULT = address(0x6C2b6Ed57d4d9e93F3E4975FAc70eE4B180F4Eb9);
+    /// https://basescan.org/address/0x1db49Ff8BEe88ec73F82F395B0BEAd372BdcAdb7
+    address internal constant DNUT_WRAPPED_TOKEN_VAULT = address(0x1db49Ff8BEe88ec73F82F395B0BEAd372BdcAdb7);
+
+    // ---- tGM / wtGM — General Motors Company ST0x ----
+    // Deployed 2026-09-06, never launched — swapped out for FGI before launch; recorded, not pinned.
+    // /// https://basescan.org/address/0x912193f95512480167B0894E20DDe5062105F3b7
+    // address internal constant GM_RECEIPT = address(0x912193f95512480167B0894E20DDe5062105F3b7);
+    // /// https://basescan.org/address/0x47C04A6f705f755C10641E975607ecE8f18BC60c
+    // address internal constant GM_RECEIPT_VAULT = address(0x47C04A6f705f755C10641E975607ecE8f18BC60c);
+    // /// https://basescan.org/address/0x761d56D1FE1E390A96A5ECf58dE69838A231A37c
+    // address internal constant GM_WRAPPED_TOKEN_VAULT = address(0x761d56D1FE1E390A96A5ECf58dE69838A231A37c);
+
+    // ---- tPLBY / wtPLBY — Playboy, Inc. ST0x ----
+    /// https://basescan.org/address/0x5978B2FA7B3DDA36847eb7D2003EC7AE112258AA
+    address internal constant PLBY_RECEIPT = address(0x5978B2FA7B3DDA36847eb7D2003EC7AE112258AA);
+    /// https://basescan.org/address/0xe9bc7eF69f123cA2bcA1021D1BE30224271a9217
+    address internal constant PLBY_RECEIPT_VAULT = address(0xe9bc7eF69f123cA2bcA1021D1BE30224271a9217);
+    /// https://basescan.org/address/0x35fDe767dBFAa610D12cf99914bCd6CFEda73B7B
+    address internal constant PLBY_WRAPPED_TOKEN_VAULT = address(0x35fDe767dBFAa610D12cf99914bCd6CFEda73B7B);
+
+    // ---- tTR / wtTR — Tootsie Roll Industries, Inc. ST0x ----
+    /// https://basescan.org/address/0xf5e5d2d3b6be819Ff65cB364F4178252C9dbf5B7
+    address internal constant TR_RECEIPT = address(0xf5e5d2d3b6be819Ff65cB364F4178252C9dbf5B7);
+    /// https://basescan.org/address/0xeF935b17d5BE5b7ecA803158a845A08A7A9383f2
+    address internal constant TR_RECEIPT_VAULT = address(0xeF935b17d5BE5b7ecA803158a845A08A7A9383f2);
+    /// https://basescan.org/address/0x433fd2Fc0964B07E9820e4cd01774eDE59D1F002
+    address internal constant TR_WRAPPED_TOKEN_VAULT = address(0x433fd2Fc0964B07E9820e4cd01774eDE59D1F002);
+
+    // ---- tWEN / wtWEN — The Wendy's Company ST0x ----
+    /// https://basescan.org/address/0x6c26044FAa1Ea4459a03c3760F4aAA1826a1e392
+    address internal constant WEN_RECEIPT = address(0x6c26044FAa1Ea4459a03c3760F4aAA1826a1e392);
+    /// https://basescan.org/address/0xedA4df511dEA07b6529db2196998B30E03791d87
+    address internal constant WEN_RECEIPT_VAULT = address(0xedA4df511dEA07b6529db2196998B30E03791d87);
+    /// https://basescan.org/address/0x31Fa821F8B1BDea7Db357ec9622d1A2f6aFE903d
+    address internal constant WEN_WRAPPED_TOKEN_VAULT = address(0x31Fa821F8B1BDea7Db357ec9622d1A2f6aFE903d);
+
+    // ---- tFGI / wtFGI — FGI Industries Ltd. ST0x ----
+    /// https://basescan.org/address/0x46b25F089fFf268E28286C0d7A837c2f13Ad0952
+    address internal constant FGI_RECEIPT = address(0x46b25F089fFf268E28286C0d7A837c2f13Ad0952);
+    /// https://basescan.org/address/0x785BD77B8e92866f87E01416D1022d729975D529
+    address internal constant FGI_RECEIPT_VAULT = address(0x785BD77B8e92866f87E01416D1022d729975D529);
+    /// https://basescan.org/address/0x6aed8b1aCfb04F4e0e6db580F12fF41438a394e5
+    address internal constant FGI_WRAPPED_TOKEN_VAULT = address(0x6aed8b1aCfb04F4e0e6db580F12fF41438a394e5);
+
+    /// @notice Returns the 56 production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
     /// that need the receipt / wrapped-vault legs or the underlying join key
     /// (cross-chain parity, per-token config checks) iterate this instead.
-    /// @return tokens The 50 production token instances on Base.
+    /// @return tokens The 56 production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](50);
+        tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance("MSTR", MSTR_RECEIPT, MSTR_RECEIPT_VAULT, MSTR_WRAPPED_TOKEN_VAULT);
         tokens[1] = TokenInstance("TSLA", TSLA_RECEIPT, TSLA_RECEIPT_VAULT, TSLA_WRAPPED_TOKEN_VAULT);
         tokens[2] = TokenInstance("COIN", COIN_RECEIPT, COIN_RECEIPT_VAULT, COIN_WRAPPED_TOKEN_VAULT);
@@ -500,17 +575,25 @@ library LibTokenInvariants {
         tokens[28] = TokenInstance("RKLB", RKLB_RECEIPT, RKLB_RECEIPT_VAULT, RKLB_WRAPPED_TOKEN_VAULT);
         // Deployed on Base across 2026-07-27, 2026-08-05 and 2026-08-14, each
         // wired onto the shared V4 authoriser and handed to the Base
-        // token-owner Safe. All twelve are missing on Ethereum and HyperEVM
-        // until `20260807-deploy-missing-tokens` is dispatched against each —
-        // cross-chain parity is red until then.
+        // token-owner Safe. All twelve were copied onto Ethereum and HyperEVM
+        // by `20260807-deploy-missing-tokens`, so rows 29-41 exist on all
+        // three chains; the Base-only rows start at index 42.
         //
-        // tMETA and tPLTR are deliberately absent: META is deployed but never
-        // launched (absent from the registry, the logos and the Turnkey token
-        // set), and PLTR's `owner()` is still the deployer EOA rather than the
-        // Safe, so pinning it would break `assertUniformOwnership`.
+        // tMETA and tPLTR are deliberately absent from the array: META is
+        // deployed but never launched (absent from the registry, the logos and
+        // the Turnkey token set), and PLTR's `owner()` is still the deployer
+        // EOA rather than the Safe, so pinning it would break
+        // `assertUniformOwnership`. Both are recorded as commented-out rows at
+        // the index they would occupy — see below — so their addresses are on
+        // the record without entering the array or
+        // `20260807-deploy-missing-tokens`' selection.
         tokens[29] = TokenInstance("GOOGL", GOOGL_RECEIPT, GOOGL_RECEIPT_VAULT, GOOGL_WRAPPED_TOKEN_VAULT);
+        // tMETA — deployed 2026-07-27, never launched; recorded here, deliberately not in the array.
+        // tokens[..] = TokenInstance("META", META_RECEIPT, META_RECEIPT_VAULT, META_WRAPPED_TOKEN_VAULT);
         tokens[30] = TokenInstance("AAPL", AAPL_RECEIPT, AAPL_RECEIPT_VAULT, AAPL_WRAPPED_TOKEN_VAULT);
         tokens[31] = TokenInstance("MSFT", MSFT_RECEIPT, MSFT_RECEIPT_VAULT, MSFT_WRAPPED_TOKEN_VAULT);
+        // tPLTR — deployed 2026-07-27, never launched, `owner()` still the deployer EOA; not in the array.
+        // tokens[..] = TokenInstance("PLTR", PLTR_RECEIPT, PLTR_RECEIPT_VAULT, PLTR_WRAPPED_TOKEN_VAULT);
         tokens[32] = TokenInstance("LLY", LLY_RECEIPT, LLY_RECEIPT_VAULT, LLY_WRAPPED_TOKEN_VAULT);
         tokens[33] = TokenInstance("PTY", PTY_RECEIPT, PTY_RECEIPT_VAULT, PTY_WRAPPED_TOKEN_VAULT);
         tokens[34] = TokenInstance("INTC", INTC_RECEIPT, INTC_RECEIPT_VAULT, INTC_WRAPPED_TOKEN_VAULT);
@@ -521,6 +604,14 @@ library LibTokenInvariants {
         tokens[39] = TokenInstance("TQQQ", TQQQ_RECEIPT, TQQQ_RECEIPT_VAULT, TQQQ_WRAPPED_TOKEN_VAULT);
         tokens[40] = TokenInstance("FTF", FTF_RECEIPT, FTF_RECEIPT_VAULT, FTF_WRAPPED_TOKEN_VAULT);
         tokens[41] = TokenInstance("CBRS", CBRS_RECEIPT, CBRS_RECEIPT_VAULT, CBRS_WRAPPED_TOKEN_VAULT);
+        // Base-only from here. Every row below is deployed on Base and has no
+        // Ethereum / HyperEVM copy yet: the EU batch (2026-08-27), MCD and NKE
+        // (2026-09-03), GRND (2026-09-04) and the 2026-09-06 batch. This repo
+        // records every Base deployment, so they are pinned here even though
+        // the mirror tables are shorter — and
+        // `20260807-deploy-missing-tokens` diffs Base against the target
+        // chain's table, so these rows are exactly what it will select when
+        // dispatched against Ethereum and HyperEVM.
         tokens[42] = TokenInstance("AIR.PA", AIR_PA_RECEIPT, AIR_PA_RECEIPT_VAULT, AIR_PA_WRAPPED_TOKEN_VAULT);
         tokens[43] = TokenInstance("BMW.DE", BMW_DE_RECEIPT, BMW_DE_RECEIPT_VAULT, BMW_DE_WRAPPED_TOKEN_VAULT);
         tokens[44] = TokenInstance("MC.PA", MC_PA_RECEIPT, MC_PA_RECEIPT_VAULT, MC_PA_WRAPPED_TOKEN_VAULT);
@@ -529,6 +620,14 @@ library LibTokenInvariants {
         tokens[47] = TokenInstance("RHM.DE", RHM_DE_RECEIPT, RHM_DE_RECEIPT_VAULT, RHM_DE_WRAPPED_TOKEN_VAULT);
         tokens[48] = TokenInstance("MCD", MCD_RECEIPT, MCD_RECEIPT_VAULT, MCD_WRAPPED_TOKEN_VAULT);
         tokens[49] = TokenInstance("NKE", NKE_RECEIPT, NKE_RECEIPT_VAULT, NKE_WRAPPED_TOKEN_VAULT);
+        tokens[50] = TokenInstance("GRND", GRND_RECEIPT, GRND_RECEIPT_VAULT, GRND_WRAPPED_TOKEN_VAULT);
+        tokens[51] = TokenInstance("DNUT", DNUT_RECEIPT, DNUT_RECEIPT_VAULT, DNUT_WRAPPED_TOKEN_VAULT);
+        // tGM — deployed 2026-09-06, swapped out for FGI before launch; recorded, deliberately not in the array.
+        // tokens[..] = TokenInstance("GM", GM_RECEIPT, GM_RECEIPT_VAULT, GM_WRAPPED_TOKEN_VAULT);
+        tokens[52] = TokenInstance("PLBY", PLBY_RECEIPT, PLBY_RECEIPT_VAULT, PLBY_WRAPPED_TOKEN_VAULT);
+        tokens[53] = TokenInstance("TR", TR_RECEIPT, TR_RECEIPT_VAULT, TR_WRAPPED_TOKEN_VAULT);
+        tokens[54] = TokenInstance("WEN", WEN_RECEIPT, WEN_RECEIPT_VAULT, WEN_WRAPPED_TOKEN_VAULT);
+        tokens[55] = TokenInstance("FGI", FGI_RECEIPT, FGI_RECEIPT_VAULT, FGI_WRAPPED_TOKEN_VAULT);
     }
 
     /// @notice Returns the production token instance triples on Ethereum
@@ -1103,13 +1202,13 @@ library LibTokenInvariants {
         );
     }
 
-    /// @notice Returns the 29 production receipt vault addresses on Base, in
+    /// @notice Returns the 56 production receipt vault addresses on Base, in
     /// the order they were deployed. Provided so consumers (e.g. invariant
     /// assertions, migration scripts) can iterate without hardcoding the
     /// list inline.
     /// @dev Derived from `productionTokensBase()` so the token table is the
     /// single source of truth and the two accessors cannot drift.
-    /// @return vaults The 29 production receipt vault addresses on Base.
+    /// @return vaults The 56 production receipt vault addresses on Base.
     function productionReceiptVaults() internal pure returns (address[] memory vaults) {
         TokenInstance[] memory tokens = productionTokensBase();
         vaults = new address[](tokens.length);
