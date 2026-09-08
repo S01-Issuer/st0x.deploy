@@ -2,7 +2,8 @@ name: Manual sol verify
 # Explorer source verification for a contract already on chain. Dispatch it
 # on the ref whose source built the bytecode (the release tag), never on
 # main: `forge verify-contract` compiles the checked-out source with the
-# checked-out `foundry.toml`.
+# checked-out `foundry.toml`. A tag cut before this file existed cannot be
+# dispatched directly: branch off it, add this file, dispatch the branch.
 permissions:
   contents: read
 on:
