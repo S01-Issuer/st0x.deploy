@@ -55,7 +55,7 @@ jobs:
       script: script/DeployProdV4_0_1_1.sol:Deploy
       # The 0.1.1 bytecode of the contracts that changed by 0.1.3 does not match
       # current source, so Etherscan verification against current source would
-      # fail the run. Deploy unverified; verify by dispatching `manual-sol-verify.yaml` on the 0.1.1 tag.
+      # fail the run. Deploy unverified; verify by dispatching `manual-sol-verify.yaml` on the v0.1.1 tag.
       verify: false
     # Runs unverified, so it needs only the deployer key and an RPC for every
     # network in LibStoxDeployNetworks.deploymentNetworks. The reusable
