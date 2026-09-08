@@ -56,7 +56,7 @@ jobs:
       script: script/DeployProdV4_0_1_30.sol:Deploy
       # The current source diverged from 0.1.30 (H01 remediation + optimizer
       # change), so Etherscan verification against current source would fail
-      # the run. Deploy unverified; verify manually from the sol-v0.1.30 tag.
+      # the run. Deploy unverified; verify by dispatching `manual-sol-verify.yaml` on the sol-v0.1.30 tag.
       verify: false
     # Runs unverified, so it needs only the deployer key and an RPC for every
     # network in LibStoxDeployNetworks.deploymentNetworks. The reusable
