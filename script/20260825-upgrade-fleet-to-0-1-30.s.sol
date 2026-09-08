@@ -42,7 +42,7 @@ error FleetAlreadyUpgraded();
 error UpgradeChangedTokenState(address receiptVault);
 
 /// @title UpgradeFleetTo0_1_30
-/// @notice **PENDING.** Authors the per-chain Safe Tx Builder bundle that
+/// @notice Authors the per-chain Safe Tx Builder bundle that
 /// upgrades the production token fleet to the audited 0.1.30
 /// implementations — one atomic MultiSend repointing the chain's IN-USE
 /// receipt beacon and receipt-vault beacon (`upgradeTo`) from the audited

@@ -44,7 +44,7 @@ error RklbSwapAuthoriserCodehashMismatch(address authoriser, bytes32 expected, b
 error RklbSwapAuthoriserGrantMissing(address authoriser, bytes32 role, address grantee);
 
 /// @title SwapRklbAuthoriser
-/// @notice **EXECUTED 2026-07-23.** Authored the SINGLE-tx Safe bundle that
+/// @notice Authored the SINGLE-tx Safe bundle that
 /// swapped the RKLB receipt vault onto the V4 authoriser
 /// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`), and the Safe executed
 /// it. `0xf6744Fd94e27c2f58F6110aa9fDC77A87e41766B` now reports

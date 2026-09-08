@@ -58,7 +58,7 @@ error TimelockAddressMismatch(address expected, address actual);
 error DeployerHoldsTimelockRole(bytes32 role, address deployer);
 
 /// @title DeployGovernanceTimelock
-/// @notice **PENDING.** Broadcast script that deploys the ST0x governance
+/// @notice Broadcast script that deploys the ST0x governance
 /// timelock — an unmodified, pre-audited OZ `TimelockController` — on the
 /// active chain via the Zoltu deterministic factory, configured entirely by
 /// its constructor:

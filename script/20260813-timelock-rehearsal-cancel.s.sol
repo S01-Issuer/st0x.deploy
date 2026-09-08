@@ -23,7 +23,7 @@ error CancelTimelockNotPinned(uint256 chainId);
 error RehearsalNotScheduled(bytes32 id);
 
 /// @title TimelockRehearsalCancel
-/// @notice **PENDING.** Authors the Safe bundle that CANCELS the scheduled
+/// @notice Authors the Safe bundle that CANCELS the scheduled
 /// timelock rehearsal — see `LibTimelockRehearsal` for the operation.
 ///
 /// This is the stage that demonstrates the veto: a scheduled operation can be

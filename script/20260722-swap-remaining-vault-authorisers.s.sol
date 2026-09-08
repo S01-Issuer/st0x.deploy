@@ -47,7 +47,7 @@ error SwapCloneCodehashMismatch(address clone, bytes32 expected, bytes32 actual)
 error SwapCloneExpectedGrantMissing(address clone, bytes32 role, address grantee);
 
 /// @title SwapRemainingVaultAuthorisers
-/// @notice **EXECUTED — verified 2026-07-23.** Authors the Safe bundle that
+/// @notice Authors the Safe bundle that
 /// swaps every production receipt vault still gated by the V3 authoriser onto
 /// the V4 authoriser clone (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`).
 /// Dispatch via `Actions → run-script` with

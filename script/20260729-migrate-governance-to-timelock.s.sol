@@ -122,7 +122,7 @@ struct MigrationTargets {
 error GovernanceLoopNotProven(bytes32 id);
 
 /// @title MigrateGovernanceToTimelock
-/// @notice **PENDING.** Authors the Safe bundle that hands ST0x governance
+/// @notice Authors the Safe bundle that hands ST0x governance
 /// on the active chain to the governance timelock:
 ///
 ///   1. Grants each of the authoriser's seven `_ADMIN` roles to the
