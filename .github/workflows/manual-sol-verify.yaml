@@ -1,0 +1,42 @@
+name: Manual sol verify
+# Explorer source verification for a contract already on chain. Dispatch it
+# on the ref whose source built the bytecode (the release tag), never on
+# main: `forge verify-contract` compiles the checked-out source with the
+# checked-out `foundry.toml`.
+permissions:
+  contents: read
+on:
+  workflow_dispatch:
+    inputs:
+      contract:
+        description: 'Fully qualified artifact, e.g. src/concrete/StoxReceiptVault.sol:StoxReceiptVault'
+        required: true
+        type: string
+      address:
+        description: 'Deployed address (Zoltu: one address on every network)'
+        required: true
+        type: string
+      networks:
+        description: 'Whitespace separated foundry chain ids or names'
+        required: true
+        type: string
+        default: '8453 1 999'
+jobs:
+  verify:
+    uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-verify.yaml@main
+    with:
+      contract: ${{ inputs.contract }}
+      address: ${{ inputs.address }}
+      networks: ${{ inputs.networks }}
+    # Cross-org caller: `secrets: inherit` does not reach a reusable in another
+    # org, so every explorer key is passed by name.
+    secrets:
+      CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      EXPLORER_VERIFICATION_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY }}
+      CI_DEPLOY_ARBITRUM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_ARBITRUM_ETHERSCAN_API_KEY }}
+      CI_DEPLOY_BASE_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_BASE_ETHERSCAN_API_KEY }}
+      CI_DEPLOY_BASE_SEPOLIA_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_BASE_SEPOLIA_ETHERSCAN_API_KEY }}
+      CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY }}
+      CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY }}
+      CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY }}
+      CI_DEPLOY_FLARE_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_FLARE_ETHERSCAN_API_KEY }}
