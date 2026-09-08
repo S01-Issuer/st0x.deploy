@@ -41,7 +41,12 @@ error InstanceAddressMismatch(address expected, address actual);
 error DeployKeyHoldsAdmin(address instance, address deployer);
 
 /// @title DeployOrchestrator
-/// @notice **PENDING.** Deploys the production `ST0xOrchestrator` instance on
+/// @notice **EXECUTED 2026-08-28** on Base, Ethereum and HyperEVM (three
+/// `manual-broadcast` dispatches; the instance is live at its pin on every
+/// chain with that chain's token-owner Safe holding `DEFAULT_ADMIN_ROLE`).
+/// Re-dispatch refuses `OrchestratorAlreadyDeployed`.
+///
+/// Deploys the production `ST0xOrchestrator` instance on
 /// whichever chain this is dispatched against and lands its
 /// `DEFAULT_ADMIN_ROLE` on that chain's token-owner Safe — one deploy-key
 /// broadcast, no Safe signature.
