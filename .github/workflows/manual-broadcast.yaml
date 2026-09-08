@@ -27,9 +27,10 @@ on:
           # Each entry is the date-prefixed filename (without `.s.sol`) of a
           # broadcast script under `script/`. Convention:
           # `YYYYMMDD-<kebab-name>`, where the date is the day the script was
-          # added to this dropdown. Execution status (PENDING / EXECUTED)
-          # lives in the script's file-level NatSpec — this dropdown is a
-          # registry of *which* scripts exist, not *whether* they've run.
+          # added to this dropdown. Whether a script has run is the chain's
+          # record (executed scripts refuse re-dispatch in pre-flight, and
+          # pins record what landed) — this dropdown is a registry of *which*
+          # scripts exist, not *whether* they've run.
           - 20260619-deploy-v4-authoriser-clone
           - 20260706-deploy-tokens-ethereum
           - 20260807-deploy-missing-tokens

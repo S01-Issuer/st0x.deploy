@@ -125,8 +125,7 @@ timelocks live.
    to cross-check in the Safe UI. Then execute. The bundle is atomic: 7 `_ADMIN`
    grants to the timelock → N vault `transferOwnership` → 3 beacon
    `transferOwnership` → 7 Safe renounces.
-5. **Post-execution flip PR** — mark the migration script
-   `**EXECUTED YYYY-MM-DD.**`, repoint the strict uniform-ownership invariants
+5. **Post-execution flip PR** — repoint the strict uniform-ownership invariants
    (`LibInvariants.assertAll`, `LibTokenInvariants` consumers,
    `StoxProdV2`/`LibInvariants` fork tests, cross-chain parity, and the
    Safe-expecting beacon-owner asserts — the `StoxProdV4` and

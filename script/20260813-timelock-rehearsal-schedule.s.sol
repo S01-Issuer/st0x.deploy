@@ -31,7 +31,7 @@ error RehearsalAlreadyScheduled(bytes32 id);
 error RehearsalChangedMinDelay(uint256 expected, uint256 actual);
 
 /// @title TimelockRehearsalSchedule
-/// @notice **PENDING.** Authors the Safe bundle that SCHEDULES the timelock
+/// @notice Authors the Safe bundle that SCHEDULES the timelock
 /// rehearsal no-op — see `LibTimelockRehearsal` for what the operation is and
 /// why it was chosen.
 ///

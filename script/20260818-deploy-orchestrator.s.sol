@@ -41,7 +41,7 @@ error InstanceAddressMismatch(address expected, address actual);
 error DeployKeyHoldsAdmin(address instance, address deployer);
 
 /// @title DeployOrchestrator
-/// @notice **PENDING.** Deploys the production `ST0xOrchestrator` instance on
+/// @notice Deploys the production `ST0xOrchestrator` instance on
 /// whichever chain this is dispatched against and lands its
 /// `DEFAULT_ADMIN_ROLE` on that chain's token-owner Safe — one deploy-key
 /// broadcast, no Safe signature.

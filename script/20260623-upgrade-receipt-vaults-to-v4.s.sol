@@ -68,7 +68,7 @@ error V4AuthoriserCloneExpectedGrantMissing(address clone, bytes32 role, address
 error VaultAuthoriserMismatchPostUpgrade(address vault, address expected, address actual);
 
 /// @title UpgradeReceiptVaultsToV4
-/// @notice **PENDING.** Forge script that authors the receipt-vault V4
+/// @notice Forge script that authors the receipt-vault V4
 /// upgrade plus the authoriser swap onto the corporate-action-aware V4
 /// clone. Dispatch via `Actions → run-script` with
 /// `script = 20260623-upgrade-receipt-vaults-to-v4` and `sig = run()` once

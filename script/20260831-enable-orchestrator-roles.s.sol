@@ -43,7 +43,7 @@ error SafeNotOrchestratorAdmin(address orchestrator);
 error OrchestratorRolesAlreadyEnabled();
 
 /// @title EnableOrchestratorRoles
-/// @notice **PENDING.** Authors the per-chain Safe Tx Builder bundle that
+/// @notice Authors the per-chain Safe Tx Builder bundle that
 /// ENABLES the orchestrator mint/burn path, as ONE atomic MultiSend:
 ///
 ///  1. authoriser `grantRole(DEPOSIT, orchestrator)` and
