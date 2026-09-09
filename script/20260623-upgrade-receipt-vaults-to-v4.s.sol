@@ -304,12 +304,10 @@ contract UpgradeReceiptVaultsToV4 is Script {
                 V4_AUTHORISER_CLONE, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH, cloneCodehash
             );
         }
-        // The master `expectedGrants()` map holds on the clone — 13 entries
-        // covering all seven `_ADMIN` roles on the Safe (including the two
-        // V4-only corporate-action admins; without them the swapped clone
-        // can't admin corporate actions, so this is the enforcement point
-        // that must reject a mis-configured clone) plus the six operational
-        // action roles.
+        // The master `expectedGrants()` map holds on the clone, including
+        // the two V4-only corporate-action admins on the Safe (without them
+        // the swapped clone can't admin corporate actions, so this is the
+        // enforcement point that must reject a mis-configured clone).
         IAccessControl cloneAcl = IAccessControl(V4_AUTHORISER_CLONE);
         RoleGrant[] memory expected = LibAuthoriserInvariants.expectedGrants();
         for (uint256 i = 0; i < expected.length; i++) {

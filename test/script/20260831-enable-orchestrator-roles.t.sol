@@ -12,7 +12,7 @@ import {
     OrchestratorRolesAlreadyEnabled
 } from "../../script/20260831-enable-orchestrator-roles.s.sol";
 import {EnableOrchestratorRolesHarness} from "./EnableOrchestratorRolesHarness.sol";
-import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
+import {ExpectedGrantMissing, LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
@@ -22,7 +22,7 @@ import {SafeTx} from "../../src/lib/LibSafeOps.sol";
 /// @notice Guard coverage for `20260831-enable-orchestrator-roles` without
 /// a full replica: the fleet-upgrade interlock, the orchestrator-admin
 /// refusal, the self-scoping, and the already-executed refusal are each
-/// shown to fire. The live-fork walk of the rollout states is in
+/// shown to fire. The live-fork read of the executed state is in
 /// `20260831-enable-orchestrator-roles.prod.t.sol`.
 contract EnableOrchestratorRolesTest is Test {
     EnableOrchestratorRolesHarness internal harness;
@@ -55,16 +55,18 @@ contract EnableOrchestratorRolesTest is Test {
         );
     }
 
-    /// @notice Mock the canonical grant map fully held on the authoriser,
-    /// with no principal holding `DEFAULT_ADMIN_ROLE`, and the Safe holding
-    /// orchestrator admin. `hasRole` defaults are then narrowed per test.
+    /// @notice Mock the canonical grant map (orchestrator rows included)
+    /// fully held on the authoriser, with no principal holding
+    /// `DEFAULT_ADMIN_ROLE`, and the Safe holding orchestrator admin with
+    /// the signer's orchestrator roles not yet granted. `hasRole` defaults
+    /// are then narrowed per test.
     function mockHealthyPrincipals() internal {
         vm.etch(AUTHORISER, hex"fe");
         vm.etch(ORCHESTRATOR, hex"fe");
         // Default every authoriser hasRole probe to true, then carve out the
         // DEFAULT_ADMIN probes the map assertion requires to be false.
         vm.mockCall(AUTHORISER, abi.encodeWithSelector(IAccessControl.hasRole.selector), abi.encode(true));
-        address[4] memory admins = [SAFE, SAFE, LibAuthoriserInvariants.GRANTEE_SERVICE_1C66, SIGNER];
+        address[5] memory admins = [SAFE, SAFE, LibAuthoriserInvariants.GRANTEE_SERVICE_1C66, SIGNER, ORCHESTRATOR];
         for (uint256 i = 0; i < admins.length; i++) {
             vm.mockCall(AUTHORISER, abi.encodeCall(IAccessControl.hasRole, (bytes32(0), admins[i])), abi.encode(false));
         }
@@ -77,16 +79,9 @@ contract EnableOrchestratorRolesTest is Test {
                 abi.encode(false)
             );
         }
-        // Orchestrator: Safe is admin; signer holds nothing yet; the
-        // orchestrator itself holds no direct vault roles yet.
+        // Orchestrator: Safe is admin; signer holds nothing yet.
         vm.mockCall(ORCHESTRATOR, abi.encodeWithSelector(IAccessControl.hasRole.selector), abi.encode(false));
         vm.mockCall(ORCHESTRATOR, abi.encodeCall(IAccessControl.hasRole, (bytes32(0), SAFE)), abi.encode(true));
-        bytes32[2] memory vaultRoles = [keccak256("DEPOSIT"), keccak256("WITHDRAW")];
-        for (uint256 i = 0; i < vaultRoles.length; i++) {
-            vm.mockCall(
-                AUTHORISER, abi.encodeCall(IAccessControl.hasRole, (vaultRoles[i], ORCHESTRATOR)), abi.encode(false)
-            );
-        }
     }
 
     /// The fleet-upgrade interlock refuses beacons still on pre-0.1.30
@@ -125,47 +120,37 @@ contract EnableOrchestratorRolesTest is Test {
         harness.callAuthorBundle(AUTHORISER, ORCHESTRATOR, SAFE);
     }
 
-    /// The fresh pre-enable state authors all four transactions in the
-    /// fixed order: grant orchestrator both vault roles, grant the signer
-    /// both orchestrator roles. NO revokes — the signer's direct roles stay
-    /// for the parallel burn-in window.
-    function testAuthoringProducesTheFullFourTxBundle() external {
-        mockHealthyPrincipals();
-        SafeTx[] memory txs = harness.callAuthorBundle(AUTHORISER, ORCHESTRATOR, SAFE);
-        assertEq(txs.length, 4);
-        assertEq(txs[0].to, AUTHORISER);
-        assertEq(txs[0].data, abi.encodeCall(IAccessControl.grantRole, (keccak256("DEPOSIT"), ORCHESTRATOR)));
-        assertEq(txs[1].data, abi.encodeCall(IAccessControl.grantRole, (keccak256("WITHDRAW"), ORCHESTRATOR)));
-        assertEq(txs[2].to, ORCHESTRATOR);
-        assertEq(txs[2].data, abi.encodeCall(IAccessControl.grantRole, (keccak256("MINT"), SIGNER)));
-        assertEq(txs[3].to, ORCHESTRATOR);
-        assertEq(txs[3].data, abi.encodeCall(IAccessControl.grantRole, (keccak256("BURN"), SIGNER)));
-    }
-
-    /// A partially-executed cutover self-scopes: an orchestrator grant that
-    /// already landed is not re-authored (the canonical map is untouched by
-    /// EXTRA holders, so the map gate still passes).
-    function testAuthoringSelfScopesLandedOrchestratorGrants() external {
+    /// A pre-enable authoriser — the orchestrator's vault rows absent — is
+    /// refused by the map gate: the rows are pinned, so authoring is
+    /// closed everywhere the enable has not executed.
+    function testAuthoringRefusesAPreEnableMap() external {
         mockHealthyPrincipals();
         vm.mockCall(
-            AUTHORISER, abi.encodeCall(IAccessControl.hasRole, (keccak256("DEPOSIT"), ORCHESTRATOR)), abi.encode(true)
+            AUTHORISER, abi.encodeCall(IAccessControl.hasRole, (keccak256("DEPOSIT"), ORCHESTRATOR)), abi.encode(false)
         );
-        SafeTx[] memory txs = harness.callAuthorBundle(AUTHORISER, ORCHESTRATOR, SAFE);
-        assertEq(txs.length, 3);
-        assertEq(txs[0].data, abi.encodeCall(IAccessControl.grantRole, (keccak256("WITHDRAW"), ORCHESTRATOR)));
+        vm.expectRevert(
+            abi.encodeWithSelector(ExpectedGrantMissing.selector, AUTHORISER, keccak256("DEPOSIT"), ORCHESTRATOR)
+        );
+        harness.callAuthorBundle(AUTHORISER, ORCHESTRATOR, SAFE);
     }
 
-    /// A fully-enabled chain refuses to author anything — and because the
-    /// enable removes no map rows, this refusal is reachable immediately
-    /// after execution, before any pin PR.
+    /// With the authoriser half landed, authoring self-scopes to the
+    /// orchestrator half in the fixed order: grant the signer MINT, then
+    /// BURN. NO revokes — the signer's direct roles stay for the parallel
+    /// burn-in window.
+    function testAuthoringSelfScopesToTheOrchestratorHalf() external {
+        mockHealthyPrincipals();
+        SafeTx[] memory txs = harness.callAuthorBundle(AUTHORISER, ORCHESTRATOR, SAFE);
+        assertEq(txs.length, 2);
+        assertEq(txs[0].to, ORCHESTRATOR);
+        assertEq(txs[0].data, abi.encodeCall(IAccessControl.grantRole, (keccak256("MINT"), SIGNER)));
+        assertEq(txs[1].to, ORCHESTRATOR);
+        assertEq(txs[1].data, abi.encodeCall(IAccessControl.grantRole, (keccak256("BURN"), SIGNER)));
+    }
+
+    /// A fully-enabled chain refuses to author anything.
     function testRefusesWhenAlreadyEnabled() external {
         mockHealthyPrincipals();
-        vm.mockCall(
-            AUTHORISER, abi.encodeCall(IAccessControl.hasRole, (keccak256("DEPOSIT"), ORCHESTRATOR)), abi.encode(true)
-        );
-        vm.mockCall(
-            AUTHORISER, abi.encodeCall(IAccessControl.hasRole, (keccak256("WITHDRAW"), ORCHESTRATOR)), abi.encode(true)
-        );
         vm.mockCall(ORCHESTRATOR, abi.encodeCall(IAccessControl.hasRole, (keccak256("MINT"), SIGNER)), abi.encode(true));
         vm.mockCall(ORCHESTRATOR, abi.encodeCall(IAccessControl.hasRole, (keccak256("BURN"), SIGNER)), abi.encode(true));
         vm.mockCall(ORCHESTRATOR, abi.encodeCall(IAccessControl.hasRole, (bytes32(0), SAFE)), abi.encode(true));

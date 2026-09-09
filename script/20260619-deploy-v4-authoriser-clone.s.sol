@@ -81,7 +81,7 @@ error GrantsSliceOutOfRange(uint256 startIndex, uint256 sliceLength, uint256 gra
 ///      DEPOSIT / WITHDRAW; two override: SCHEDULE_CORPORATE_ACTION /
 ///      CANCEL_CORPORATE_ACTION) therefore land on the deployer, not the
 ///      Safe.
-///   2. Grants the six non-admin roles enumerated in
+///   2. Grants the non-admin roles enumerated in
 ///      `LibAuthoriserInvariants.expectedGrants()` (indices
 ///      `MIRROR_START_INDEX ..`) to their pinned grantees. These are the
 ///      operational `DEPOSIT` / `WITHDRAW` / `CERTIFY` provisions.
@@ -126,13 +126,13 @@ contract DeployV4AuthoriserClone is Script {
     /// seven `_ADMIN` grants (five auto-granted by the base `initialize`
     /// on the freshly-cloned V4 authoriser, plus the two corporate-action
     /// admins the ST0x override adds — all transferred to the Safe by
-    /// steps 3-4). Indices 7..12 are the operational grants (`DEPOSIT` /
-    /// `WITHDRAW` / `CERTIFY` × Safe + service signer) this script mirrors
-    /// in.
+    /// steps 3-4). Indices 7..14 are the operational grants (`DEPOSIT` /
+    /// `WITHDRAW` / `CERTIFY` × Safe + service signer, `DEPOSIT` /
+    /// `WITHDRAW` × orchestrator) this script mirrors in.
     uint256 internal constant MIRROR_START_INDEX = 7;
 
     /// @notice The number of non-admin grants this script mirrors in.
-    uint256 internal constant MIRROR_COUNT = 6;
+    uint256 internal constant MIRROR_COUNT = 8;
 
     /// @notice The number of `_ADMIN` roles the base + ST0x-override
     /// `initialize` auto-grant to `initialAdmin` (five base + two
@@ -225,8 +225,7 @@ contract DeployV4AuthoriserClone is Script {
 
         IAccessControl acl = IAccessControl(clone);
 
-        // Step 2: mirror the six non-admin operational grants
-        // (`DEPOSIT` / `WITHDRAW` / `CERTIFY` × service + Safe).
+        // Step 2: mirror the non-admin operational grants.
         for (uint256 i = 0; i < MIRROR_COUNT; i++) {
             RoleGrant memory grant = allGrants[MIRROR_START_INDEX + i];
             acl.grantRole(grant.role, grant.grantee);
@@ -292,9 +291,9 @@ contract DeployV4AuthoriserClone is Script {
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants(safe);
 
-        // Every `(role, grantee)` in the chain's 13-entry grant map holds:
-        // all seven `_ADMIN` roles on the Safe (swapped there in step 3) AND
-        // the six operational grants from step 2, in one sweep.
+        // Every `(role, grantee)` in the chain's grant map holds: all seven
+        // `_ADMIN` roles on the Safe (swapped there in step 3) AND the
+        // operational grants from step 2, in one sweep.
         for (uint256 i = 0; i < allGrants.length; i++) {
             if (!acl.hasRole(allGrants[i].role, allGrants[i].grantee)) {
                 revert ExpectedGrantMissing(allGrants[i].role, allGrants[i].grantee);
