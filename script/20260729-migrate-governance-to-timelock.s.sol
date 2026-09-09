@@ -223,7 +223,7 @@ contract MigrateGovernanceToTimelock is Script {
     }
 
     /// @notice The chain's V4 authoriser clone, selected by chain id from
-    /// `LibProdDeployV4`. Both chains' clones proxy the same Zoltu-deployed
+    /// `LibProdDeployV4`. Every chain's clone proxies the same Zoltu-deployed
     /// 0.1.1 impl address, so they share one EIP-1167 codehash pin.
     /// @return The active chain's authoriser clone.
     function activeChainAuthoriser() internal view returns (address) {
@@ -235,6 +235,9 @@ contract MigrateGovernanceToTimelock is Script {
         }
         if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
             return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM;
+        }
+        if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD;
         }
         revert UnsupportedChainForTokenTable(block.chainid);
     }
@@ -250,6 +253,9 @@ contract MigrateGovernanceToTimelock is Script {
         }
         if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
             return LibTokenInvariants.productionTokensHyperEvm();
+        }
+        if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
+            return LibTokenInvariants.productionTokensRobinhood();
         }
         revert UnsupportedChainForTokenTable(block.chainid);
     }

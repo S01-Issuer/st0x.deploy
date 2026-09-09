@@ -58,6 +58,9 @@ contract MigrateGovernanceToTimelockTest is Test {
         if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
             return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM;
         }
+        if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD;
+        }
         revert("unsupported chain in migration test");
     }
 
@@ -71,6 +74,9 @@ contract MigrateGovernanceToTimelockTest is Test {
         }
         if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
             return LibTokenInvariants.productionTokensHyperEvm();
+        }
+        if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
+            return LibTokenInvariants.productionTokensRobinhood();
         }
         revert("unsupported chain in migration test");
     }

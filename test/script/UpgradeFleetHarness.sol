@@ -14,6 +14,11 @@ contract UpgradeFleetHarness is UpgradeFleetTo0_1_30 {
         return authorBundle(beacons);
     }
 
+    /// @notice The script's `activeChainTokens()`, externally callable.
+    function callActiveChainTokens() external view returns (TokenInstance[] memory) {
+        return activeChainTokens();
+    }
+
     /// @notice The script's `artifactPath()`, externally callable.
     function callArtifactPath() external view returns (string memory) {
         return artifactPath();
