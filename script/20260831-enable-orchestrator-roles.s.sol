@@ -75,10 +75,10 @@ error OrchestratorRolesAlreadyEnabled();
 /// authored, and a fully-enabled chain refuses
 /// (`OrchestratorRolesAlreadyEnabled`).
 ///
-/// The post-execution pin PR ADDS the orchestrator's DEPOSIT/WITHDRAW rows
-/// to the authoriser grant map (nothing is removed — the signer's rows
-/// stay until the retire script executes) and retires this script's
-/// fixtures.
+/// The orchestrator's DEPOSIT/WITHDRAW rows are pinned in the authoriser
+/// grant map (nothing is removed — the signer's rows stay until the retire
+/// script executes), so the pre-flight map check refuses a chain that has
+/// not executed: authoring is closed on every chain.
 contract EnableOrchestratorRoles is Script {
     /// @notice The service signer whose direct vault access moves behind
     /// the orchestrator.

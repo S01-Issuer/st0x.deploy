@@ -12,8 +12,7 @@ import {
 } from "../../script/20260706-deploy-tokens-ethereum.s.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
-import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
-import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInvariants.sol";
+import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
@@ -156,13 +155,6 @@ contract DeployTokensEthereumTest is Test {
             clone.codehash, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH, "Ethereum clone codehash mismatch"
         );
 
-        RoleGrant[] memory grants =
-            LibAuthoriserInvariants.expectedGrants(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM);
-        for (uint256 i = 0; i < grants.length; i++) {
-            assertTrue(
-                IAccessControl(clone).hasRole(grants[i].role, grants[i].grantee),
-                "Ethereum clone missing expected grant"
-            );
-        }
+        LibAuthoriserInvariants.assertExpectedGrants(clone, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM);
     }
 }

@@ -148,6 +148,12 @@ library LibAuthoriserInvariants {
     /// state.
     address internal constant GRANTEE_SERVICE_3D0C = 0x3d0CD66EFA66c05d86c3d4316B03eAE87ab9E8aE;
 
+    /// @notice The production orchestrator instance, granted `DEPOSIT` and
+    /// `WITHDRAW` on each chain's authoriser by
+    /// `20260831-enable-orchestrator-roles` so the service signer can mint
+    /// and burn through it. Same address on every chain.
+    address internal constant GRANTEE_ORCHESTRATOR = LibProdDeployV4.ST0X_ORCHESTRATOR_INSTANCE;
+
     /// @notice The full `(role, grantee)` map in effect on the Base
     /// production authoriser. Delegates to the Safe-parametric overload with
     /// Base's token-owner Safe.
@@ -189,7 +195,7 @@ library LibAuthoriserInvariants {
         pure
         returns (RoleGrant[] memory grants)
     {
-        grants = new RoleGrant[](13);
+        grants = new RoleGrant[](15);
 
         // Init grants (block 41715184 on Base) — the admin holder receives
         // every `_ADMIN` (the Safe at init; the governance timelock once the
@@ -218,6 +224,12 @@ library LibAuthoriserInvariants {
         grants[10] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_3D0C);
         grants[11] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_3D0C);
         grants[12] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_3D0C);
+
+        // Orchestrator vault access, granted by the 20260831 enable bundle;
+        // the signer's direct rows above stay until the retire bundle
+        // executes.
+        grants[13] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_ORCHESTRATOR);
+        grants[14] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_ORCHESTRATOR);
     }
 
     /// @notice Assert every pinned `(role, grantee)` pair in
@@ -253,8 +265,9 @@ library LibAuthoriserInvariants {
     /// @notice Assert every `(role, grantee)` pair from
     /// `expectedGrants(tokenOwnerSafe, adminHolder)` is held on the supplied
     /// authoriser, that no named principal — the Safe, the admin holder,
-    /// the service signer — holds `DEFAULT_ADMIN_ROLE`, and that when the
-    /// admin holder is distinct from the Safe, the Safe retains NO `_ADMIN`
+    /// the service signer, the orchestrator — holds `DEFAULT_ADMIN_ROLE`,
+    /// and that when the admin holder is distinct from the Safe, the Safe
+    /// retains NO `_ADMIN`
     /// entry (exclusive holding — a retained copy would let the Safe mutate
     /// the grant map without the admin holder's delay). This is the
     /// post-timelock-migration assertion surface: the migration script's
@@ -280,6 +293,9 @@ library LibAuthoriserInvariants {
         }
         if (acl.hasRole(DEFAULT_ADMIN_ROLE, GRANTEE_SERVICE_3D0C)) {
             revert UnexpectedDefaultAdmin(authoriser, GRANTEE_SERVICE_3D0C);
+        }
+        if (acl.hasRole(DEFAULT_ADMIN_ROLE, GRANTEE_ORCHESTRATOR)) {
+            revert UnexpectedDefaultAdmin(authoriser, GRANTEE_ORCHESTRATOR);
         }
         assertRetiredSignerAbsent(acl, authoriser);
         RoleGrant[] memory grants = expectedGrants(tokenOwnerSafe, adminHolder);
