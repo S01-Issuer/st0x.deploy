@@ -248,4 +248,16 @@ contract StoxProdV4Test is Test {
         checkProd_0_1_1OnChain(true);
         LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
     }
+
+    /// Only the audited 0.1.1 production set ships to Robinhood Chain (the
+    /// RAI-2285 bootstrap), mirroring HyperEVM. Forks unconditionally from
+    /// the `RPC_URL_ROBINHOOD_FORK` secret. RED until the audited 0.1.1
+    /// suite lands on Robinhood Chain and its in-use beacons are owned by
+    /// the Robinhood Chain token-owner Safe; green thereafter, catching
+    /// later drift.
+    function testProdDeployRobinhoodV4() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
+        checkProd_0_1_1OnChain(true);
+        LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
+    }
 }

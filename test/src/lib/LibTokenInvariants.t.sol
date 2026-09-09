@@ -89,4 +89,27 @@ contract LibTokenInvariantsTest is Test {
             assertEq(eth[i].underlying, base[i].underlying, "Ethereum token underlying diverges from Base");
         }
     }
+
+    /// The HyperEVM token table mirrors Base row-for-row on the `underlying`
+    /// key, for the same reason as Ethereum's.
+    function testHyperEvmTokenTableMirrorsBaseUnderlyings() external pure {
+        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
+        TokenInstance[] memory hyper = LibTokenInvariants.productionTokensHyperEvm();
+        assertEq(hyper.length, base.length, "HyperEVM token table length diverges from Base");
+        for (uint256 i = 0; i < base.length; i++) {
+            assertEq(hyper[i].underlying, base[i].underlying, "HyperEVM token underlying diverges from Base");
+        }
+    }
+
+    /// The Robinhood Chain token table mirrors Base row-for-row on the
+    /// `underlying` key. Its addresses are placeholders until the token
+    /// deploy executes there; this guards only the shared shape.
+    function testRobinhoodTokenTableMirrorsBaseUnderlyings() external pure {
+        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
+        TokenInstance[] memory robinhood = LibTokenInvariants.productionTokensRobinhood();
+        assertEq(robinhood.length, base.length, "Robinhood Chain token table length diverges from Base");
+        for (uint256 i = 0; i < base.length; i++) {
+            assertEq(robinhood[i].underlying, base[i].underlying, "Robinhood Chain token underlying diverges from Base");
+        }
+    }
 }
