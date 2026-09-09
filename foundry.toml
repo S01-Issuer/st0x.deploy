@@ -82,6 +82,7 @@ ethereum = "${ETHEREUM_RPC_URL}"
 flare = "${FLARE_RPC_URL}"
 hyperevm = "${HYPEREVM_RPC_URL}"
 polygon = "${POLYGON_RPC_URL}"
+robinhood = "${ROBINHOOD_RPC_URL}"
 
 [etherscan]
 arbitrum = { key = "${CI_DEPLOY_ARBITRUM_ETHERSCAN_API_KEY}" }
@@ -98,3 +99,8 @@ flare = { key = "${CI_DEPLOY_FLARE_ETHERSCAN_API_KEY}" }
 # the same reason `ethereum` is above.
 hyperevm = { key = "${CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY}", chain = 999, url = "https://api.etherscan.io/v2/api?chainid=999" }
 polygon = { key = "${CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY}" }
+# Robinhood Chain (4663) has no `[etherscan]` entry on purpose: Etherscan's
+# multichain (v2) API does not index it, so an entry here would only make
+# foundry demand an API key it cannot use. Its explorer is Blockscout, which
+# imports Sourcify matches, and Sourcify supports 4663 — the `--verifier
+# sourcify` leg of `manual-broadcast.yaml` is the verification path.

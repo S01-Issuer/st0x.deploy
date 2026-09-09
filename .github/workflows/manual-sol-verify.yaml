@@ -18,6 +18,10 @@ on:
         required: true
         type: string
       networks:
+        # Etherscan-family chains only. Robinhood Chain (4663) is not
+        # indexed by Etherscan v2 and has no `[etherscan]` entry in
+        # foundry.toml; verify there through Sourcify instead
+        # (`forge verify-contract --verifier sourcify --chain 4663 ...`).
         description: 'Whitespace separated foundry chain ids or names'
         required: true
         type: string

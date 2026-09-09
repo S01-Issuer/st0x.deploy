@@ -27,6 +27,15 @@ library LibStoxDeployNetworks {
     /// unchanged.
     string internal constant HYPEREVM = "hyperevm";
 
+    /// @notice Robinhood Chain mainnet (chain id 4663) network name, matching
+    /// the `[rpc_endpoints]` alias in `foundry.toml` (resolved from
+    /// `ROBINHOOD_RPC_URL`).
+    /// @dev An Arbitrum Orbit L2 settling to Ethereum. The Zoltu factory is
+    /// deployed there at the canonical `LibRainDeploy.ZOLTU_FACTORY` address
+    /// with Base's exact runtime, so deterministic deploys land at the same
+    /// addresses as on every other chain.
+    string internal constant ROBINHOOD = "robinhood";
+
     /// @notice Every network ST0x deploys to, as `foundry.toml` rpc aliases.
     /// @dev The deploy scripts hand this whole list to
     /// `LibRainDeploy.deployToNetworks`, which forks each in turn and skips any
@@ -34,10 +43,11 @@ library LibStoxDeployNetworks {
     /// suite everywhere and a repeat dispatch is a no-op wherever it landed.
     /// @return The `foundry.toml` rpc aliases to deploy to.
     function deploymentNetworks() internal pure returns (string[] memory) {
-        string[] memory networks = new string[](3);
+        string[] memory networks = new string[](4);
         networks[0] = LibRainDeploy.BASE;
         networks[1] = ETHEREUM;
         networks[2] = HYPEREVM;
+        networks[3] = ROBINHOOD;
         return networks;
     }
 }

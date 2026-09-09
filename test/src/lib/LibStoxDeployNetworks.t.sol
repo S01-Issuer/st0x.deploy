@@ -22,16 +22,23 @@ contract LibStoxDeployNetworksTest is Test {
         assertEq(LibStoxDeployNetworks.HYPEREVM, "hyperevm", "expected hyperevm rpc alias");
     }
 
-    /// The deploy list is exactly the three production chains, in a fixed
+    /// The locally-declared Robinhood Chain network name matches the
+    /// foundry.toml rpc alias convention.
+    function testRobinhoodNetworkName() external pure {
+        assertEq(LibStoxDeployNetworks.ROBINHOOD, "robinhood", "expected robinhood rpc alias");
+    }
+
+    /// The deploy list is exactly the four production chains, in a fixed
     /// order. Both `DeployProdV4_0_1_1` and `DeployProdV4_0_1_30` hand this
     /// whole list to `LibRainDeploy.deployAndBroadcast`, so a network dropped
     /// here silently stops being deployed to.
     function testDeploymentNetworks() external pure {
         string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
-        assertEq(networks.length, 3, "expected three deploy networks");
+        assertEq(networks.length, 4, "expected four deploy networks");
         assertEq(networks[0], LibRainDeploy.BASE);
         assertEq(networks[1], LibStoxDeployNetworks.ETHEREUM);
         assertEq(networks[2], LibStoxDeployNetworks.HYPEREVM);
+        assertEq(networks[3], LibStoxDeployNetworks.ROBINHOOD);
     }
 
     /// Every name in the deploy list resolves to a configured
