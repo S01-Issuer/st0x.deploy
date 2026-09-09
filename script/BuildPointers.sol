@@ -355,6 +355,14 @@ contract BuildPointers is Script {
             GEN_V4_PATH,
             "address constant STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);"
         );
+        // Robinhood Chain V4 authoriser clone — PLACEHOLDER (zero) until
+        // `20260619-deploy-v4-authoriser-clone` executes on 4663; the script
+        // refuses a hydrated pin, so the zero is what lets it run. The
+        // post-execution pin PR carries the logged address here. Expected to
+        // land at the Ethereum / HyperEVM address (first clone from a fresh
+        // CloneFactory over the same Zoltu-deployed impl), but the pin is
+        // the run's logged value, never the expectation.
+        vm.writeLine(GEN_V4_PATH, "address constant STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD = address(0);");
         vm.writeLine(GEN_V4_PATH, "uint256 constant V4_SWAP_DEADLINE = 1_793_491_200;");
         // ST0x orchestrator beacon + production instance — CREATE-derived
         // from the 0.1.30 orchestrator beacon-set deployer (itself a Zoltu

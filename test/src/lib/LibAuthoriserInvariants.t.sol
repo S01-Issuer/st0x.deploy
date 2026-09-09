@@ -11,7 +11,8 @@ import {
     UnexpectedDefaultAdmin,
     UnexpectedRetainedAdminGrant,
     UnexpectedRetiredSignerGrant,
-    AuthoriserImplCodehashMismatch
+    AuthoriserImplCodehashMismatch,
+    AuthoriserNotReady
 } from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
@@ -43,6 +44,17 @@ contract LibAuthoriserInvariantsTest is Test {
     function testAssertAllPasses() external {
         selectBaseFork();
         LibAuthoriserInvariants.assertAll();
+    }
+
+    /// @notice Robinhood Chain has an arm but a placeholder pin until its
+    /// clone deploy executes, and a placeholder is refused as not-ready
+    /// rather than read as "no authoriser to check". Fork-free: the arm and
+    /// the zero check are both pure functions of `block.chainid` and the pin.
+    function testActiveChainAuthoriserRefusesTheRobinhoodPlaceholder() external {
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        vm.chainId(LibSafeInvariants.ROBINHOOD_CHAIN_ID);
+        vm.expectRevert(abi.encodeWithSelector(AuthoriserNotReady.selector, address(0)));
+        harness.callActiveChainAuthoriser();
     }
 
     /// @notice `assertAll` reverts `AuthoriserImplCodehashMismatch` when the
