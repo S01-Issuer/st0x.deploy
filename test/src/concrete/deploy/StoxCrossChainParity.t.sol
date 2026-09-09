@@ -492,6 +492,74 @@ contract StoxCrossChainParityTest is Test {
         }
     }
 
+    /// @notice Compare one chain's LIVE legs against Base's. Every comparison
+    /// is gated on both sides carrying the leg, so a pending leg on either
+    /// side compares nothing (and is accounted for by the deadline
+    /// assertions in `testCrossChainParity`).
+    ///  - **Safe policy**: same owner SET (order-insensitive) + threshold,
+    ///    compared against Base's LIVE Safe (each chain's Safe is a distinct
+    ///    per-chain deployment that must still carry Base's exact policy).
+    ///  - **Authoriser clone**: EIP-1167 over the same impl on every chain,
+    ///    so the clone codehashes match.
+    ///  - **Token leg**: identical receipt-vault + receipt implementation
+    ///    (address + codehash) through the beacons, and identical per-token
+    ///    config in identical table order.
+    /// @param label Human chain name, used in the assertion messages.
+    /// @param base Base's legs, the reference.
+    /// @param other The compared chain's legs.
+    function assertParityWithBase(string memory label, ChainLegs memory base, ChainLegs memory other) internal pure {
+        string memory tag = string.concat(" (", label, ")");
+        if (base.safeLive && other.safeLive) {
+            assertEq(other.threshold, base.threshold, string.concat("Safe threshold diverges cross-chain", tag));
+            assertSameOwnerSet(base.owners, other.owners);
+        }
+        if (base.cloneLive && other.cloneLive) {
+            assertEq(
+                other.cloneCodehash,
+                base.cloneCodehash,
+                string.concat("authoriser clone impl codehash diverges cross-chain", tag)
+            );
+        }
+        if (base.tokenLegLive && other.tokenLegLive) {
+            assertEq(
+                other.beaconImpl, base.beaconImpl, string.concat("receipt-vault beacon impl diverges cross-chain", tag)
+            );
+            assertEq(
+                other.beaconImplCodehash,
+                base.beaconImplCodehash,
+                string.concat("receipt-vault beacon impl codehash diverges cross-chain", tag)
+            );
+            assertEq(
+                other.receiptBeaconImpl,
+                base.receiptBeaconImpl,
+                string.concat("receipt beacon impl diverges cross-chain", tag)
+            );
+            assertEq(
+                other.receiptBeaconImplCodehash,
+                base.receiptBeaconImplCodehash,
+                string.concat("receipt beacon impl codehash diverges cross-chain", tag)
+            );
+            assertEq(
+                base.tokenConfigs.length, other.tokenConfigs.length, string.concat("token table lengths diverge", tag)
+            );
+            for (uint256 i = 0; i < base.tokenConfigs.length; i++) {
+                TokenConfigSnapshot memory b = base.tokenConfigs[i];
+                TokenConfigSnapshot memory o = other.tokenConfigs[i];
+                assertEq(o.underlying, b.underlying, string.concat("token table underlying order diverges", tag));
+                assertEq(o.vaultName, b.vaultName, string.concat(b.underlying, ": vault name diverges", tag));
+                assertEq(o.vaultSymbol, b.vaultSymbol, string.concat(b.underlying, ": vault symbol diverges", tag));
+                assertEq(o.vaultDecimals, b.vaultDecimals, string.concat(b.underlying, ": vault decimals diverge", tag));
+                assertEq(o.wrappedName, b.wrappedName, string.concat(b.underlying, ": wrapped name diverges", tag));
+                assertEq(
+                    o.wrappedSymbol, b.wrappedSymbol, string.concat(b.underlying, ": wrapped symbol diverges", tag)
+                );
+                assertEq(
+                    o.wrappedDecimals, b.wrappedDecimals, string.concat(b.underlying, ": wrapped decimals diverge", tag)
+                );
+            }
+        }
+    }
+
     /// @notice The cross-chain parity pin. Asserts each chain's LIVE legs on
     /// its own fork (pending legs skipped + logged), then compares whatever is
     /// live on BOTH chains. Every comparison is gated on both sides carrying
@@ -527,109 +595,8 @@ contract StoxCrossChainParityTest is Test {
         );
 
         // ---- Cross-chain comparisons, each gated on both sides being live ----
-
-        // Safe policy: same owner SET (order-insensitive) + threshold, compared
-        // against Base's LIVE Safe (the Ethereum Safe is a distinct per-chain
-        // address that must still carry Base's exact policy).
-        if (base.safeLive && eth.safeLive) {
-            assertEq(eth.threshold, base.threshold, "Safe threshold diverges cross-chain");
-            assertSameOwnerSet(base.owners, eth.owners);
-        }
-
-        // Authoriser clone: EIP-1167 over the same impl on every chain, so the
-        // clone codehashes match.
-        if (base.cloneLive && eth.cloneLive) {
-            assertEq(eth.cloneCodehash, base.cloneCodehash, "authoriser clone impl codehash diverges cross-chain");
-        }
-
-        // Token leg: identical receipt-vault implementation (address + codehash)
-        // through the beacon, the shared beacon deployer, and identical per-token
-        // config in identical table order.
-        if (base.tokenLegLive && eth.tokenLegLive) {
-            assertEq(eth.beaconImpl, base.beaconImpl, "receipt-vault beacon impl diverges cross-chain");
-            assertEq(
-                eth.beaconImplCodehash,
-                base.beaconImplCodehash,
-                "receipt-vault beacon impl codehash diverges cross-chain"
-            );
-            assertEq(eth.receiptBeaconImpl, base.receiptBeaconImpl, "receipt beacon impl diverges cross-chain");
-            assertEq(
-                eth.receiptBeaconImplCodehash,
-                base.receiptBeaconImplCodehash,
-                "receipt beacon impl codehash diverges cross-chain"
-            );
-
-            assertEq(base.tokenConfigs.length, eth.tokenConfigs.length, "token table lengths diverge");
-            for (uint256 i = 0; i < base.tokenConfigs.length; i++) {
-                TokenConfigSnapshot memory b = base.tokenConfigs[i];
-                TokenConfigSnapshot memory o = eth.tokenConfigs[i];
-                assertEq(o.underlying, b.underlying, "token table underlying order diverges");
-                assertEq(o.vaultName, b.vaultName, string.concat(b.underlying, ": vault name diverges"));
-                assertEq(o.vaultSymbol, b.vaultSymbol, string.concat(b.underlying, ": vault symbol diverges"));
-                assertEq(o.vaultDecimals, b.vaultDecimals, string.concat(b.underlying, ": vault decimals diverge"));
-                assertEq(o.wrappedName, b.wrappedName, string.concat(b.underlying, ": wrapped name diverges"));
-                assertEq(o.wrappedSymbol, b.wrappedSymbol, string.concat(b.underlying, ": wrapped symbol diverges"));
-                assertEq(
-                    o.wrappedDecimals, b.wrappedDecimals, string.concat(b.underlying, ": wrapped decimals diverge")
-                );
-            }
-        }
-
-        // HyperEVM vs Base — the same comparisons as Ethereum's, gated on
-        // each leg being live on both sides.
-        if (base.safeLive && hyper.safeLive) {
-            assertEq(hyper.threshold, base.threshold, "Safe threshold diverges cross-chain (HyperEVM)");
-            assertSameOwnerSet(base.owners, hyper.owners);
-        }
-        if (base.cloneLive && hyper.cloneLive) {
-            assertEq(
-                hyper.cloneCodehash,
-                base.cloneCodehash,
-                "authoriser clone impl codehash diverges cross-chain (HyperEVM)"
-            );
-        }
-        if (base.tokenLegLive && hyper.tokenLegLive) {
-            assertEq(hyper.beaconImpl, base.beaconImpl, "receipt-vault beacon impl diverges cross-chain (HyperEVM)");
-            assertEq(
-                hyper.beaconImplCodehash,
-                base.beaconImplCodehash,
-                "receipt-vault beacon impl codehash diverges cross-chain (HyperEVM)"
-            );
-            assertEq(
-                hyper.receiptBeaconImpl, base.receiptBeaconImpl, "receipt beacon impl diverges cross-chain (HyperEVM)"
-            );
-            assertEq(
-                hyper.receiptBeaconImplCodehash,
-                base.receiptBeaconImplCodehash,
-                "receipt beacon impl codehash diverges cross-chain (HyperEVM)"
-            );
-            assertEq(base.tokenConfigs.length, hyper.tokenConfigs.length, "token table lengths diverge (HyperEVM)");
-            for (uint256 i = 0; i < base.tokenConfigs.length; i++) {
-                TokenConfigSnapshot memory b = base.tokenConfigs[i];
-                TokenConfigSnapshot memory h = hyper.tokenConfigs[i];
-                assertEq(h.underlying, b.underlying, "token table underlying order diverges (HyperEVM)");
-                assertEq(h.vaultName, b.vaultName, string.concat(b.underlying, ": vault name diverges (HyperEVM)"));
-                assertEq(
-                    h.vaultSymbol, b.vaultSymbol, string.concat(b.underlying, ": vault symbol diverges (HyperEVM)")
-                );
-                assertEq(
-                    h.vaultDecimals, b.vaultDecimals, string.concat(b.underlying, ": vault decimals diverge (HyperEVM)")
-                );
-                assertEq(
-                    h.wrappedName, b.wrappedName, string.concat(b.underlying, ": wrapped name diverges (HyperEVM)")
-                );
-                assertEq(
-                    h.wrappedSymbol,
-                    b.wrappedSymbol,
-                    string.concat(b.underlying, ": wrapped symbol diverges (HyperEVM)")
-                );
-                assertEq(
-                    h.wrappedDecimals,
-                    b.wrappedDecimals,
-                    string.concat(b.underlying, ": wrapped decimals diverge (HyperEVM)")
-                );
-            }
-        }
+        assertParityWithBase("Ethereum", base, eth);
+        assertParityWithBase("HyperEVM", base, hyper);
 
         // ---- The suite must prove it actually ran ----
 
