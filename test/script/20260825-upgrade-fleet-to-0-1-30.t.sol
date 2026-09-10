@@ -64,6 +64,8 @@ contract UpgradeFleetTest is Test {
         assertEq(harness.callActiveChainTokens().length, 41, "HyperEVM table");
         vm.chainId(LibSafeInvariants.ROBINHOOD_CHAIN_ID);
         assertEq(harness.callActiveChainTokens().length, 41, "Robinhood Chain table");
+        vm.chainId(LibSafeInvariants.BSC_CHAIN_ID);
+        assertEq(harness.callActiveChainTokens().length, 41, "BNB Smart Chain table");
     }
 
     /// A chain with no table is refused rather than handed another chain's

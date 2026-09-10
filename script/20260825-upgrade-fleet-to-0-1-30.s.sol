@@ -169,6 +169,9 @@ contract UpgradeFleetTo0_1_30 is Script {
         if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
             return LibTokenInvariants.productionTokensRobinhood();
         }
+        if (block.chainid == LibSafeInvariants.BSC_CHAIN_ID) {
+            return LibTokenInvariants.productionTokensBsc();
+        }
         revert FleetUpgradeUnsupportedChain(block.chainid);
     }
 

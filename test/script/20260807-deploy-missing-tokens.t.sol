@@ -186,6 +186,17 @@ contract DeployMissingTokensTest is Test {
         assertEq(
             robinhood.length, LibTokenInvariants.productionTokensRobinhood().length, "Robinhood Chain table mismatch"
         );
+
+        vm.chainId(LibSafeInvariants.BSC_CHAIN_ID);
+        TokenInstance[] memory bsc = harness.targetTokens();
+        assertEq(bsc.length, LibTokenInvariants.productionTokensBsc().length, "BNB Smart Chain table mismatch");
+    }
+
+    /// @notice Same placeholder refusal for BNB Smart Chain.
+    function testAuthoriserNotReadyWhileTheBscPinIsAPlaceholder() external {
+        vm.chainId(LibSafeInvariants.BSC_CHAIN_ID);
+        vm.expectRevert(abi.encodeWithSelector(AuthoriserNotReady.selector, address(0)));
+        harness.assertAuthoriserReady();
     }
 
     /// @notice Robinhood Chain's clone pin is a placeholder until its

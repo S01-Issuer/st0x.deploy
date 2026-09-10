@@ -142,6 +142,9 @@ contract DeployMissingTokens is Script {
         if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
             return LibTokenInvariants.productionTokensRobinhood();
         }
+        if (block.chainid == LibSafeInvariants.BSC_CHAIN_ID) {
+            return LibTokenInvariants.productionTokensBsc();
+        }
         revert UnsupportedTargetChain(block.chainid);
     }
 
@@ -155,6 +158,8 @@ contract DeployMissingTokens is Script {
             authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM;
         } else if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
             authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD;
+        } else if (block.chainid == LibSafeInvariants.BSC_CHAIN_ID) {
+            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC;
         } else {
             revert UnsupportedTargetChain(block.chainid);
         }
