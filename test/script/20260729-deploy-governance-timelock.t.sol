@@ -40,11 +40,12 @@ contract DeployGovernanceTimelockTest is Test {
     /// body, which the per-chain tests below exercise.
     function testNetworksCoversEveryProductionChain() external {
         string[] memory nets = new DeployGovernanceTimelockHarness().callNetworks();
-        assertEq(nets.length, 4);
+        assertEq(nets.length, 5);
         assertEq(nets[0], LibRainDeploy.BASE);
         assertEq(nets[1], LibStoxDeployNetworks.ETHEREUM);
         assertEq(nets[2], LibStoxDeployNetworks.HYPEREVM);
         assertEq(nets[3], LibStoxDeployNetworks.ROBINHOOD);
+        assertEq(nets[4], LibStoxDeployNetworks.BSC);
     }
 
     /// @notice A chain outside the allowlist refuses at pre-flight — the

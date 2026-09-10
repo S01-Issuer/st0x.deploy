@@ -105,11 +105,12 @@ contract DeployGovernanceTimelock is Script {
     /// @return nets The network names, matching `foundry.toml`'s
     /// `[rpc_endpoints]` aliases.
     function networks() internal pure returns (string[] memory nets) {
-        nets = new string[](4);
+        nets = new string[](5);
         nets[0] = LibRainDeploy.BASE;
         nets[1] = LibStoxDeployNetworks.ETHEREUM;
         nets[2] = LibStoxDeployNetworks.HYPEREVM;
         nets[3] = LibStoxDeployNetworks.ROBINHOOD;
+        nets[4] = LibStoxDeployNetworks.BSC;
     }
 
     /// @notice The active chain's governance-timelock pin. Virtual so the

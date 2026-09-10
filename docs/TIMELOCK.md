@@ -88,6 +88,7 @@ invariants target:
 | `STOX_GOVERNANCE_TIMELOCK_ETHEREUM`  | the Ethereum timelock                     |
 | `STOX_GOVERNANCE_TIMELOCK_HYPEREVM`  | the HyperEVM timelock                     |
 | `STOX_GOVERNANCE_TIMELOCK_ROBINHOOD` | the Robinhood Chain timelock              |
+| `STOX_GOVERNANCE_TIMELOCK_BSC`       | the BNB Smart Chain timelock              |
 | `TIMELOCK_CANCELLER`                 | the dedicated canceller, once provisioned |
 
 Every pin is written with its chain arm, derived from the frozen creation
@@ -97,10 +98,10 @@ wrong or zeroed pin cannot survive CI. A zero pin is never a legitimate phase:
 every consumer (the deploy pre-flight, the migration authoring, the
 migration-window suite) refuses it as a reverted or never-hydrated arm rather
 than proceeding against a wrong address. The Base, Ethereum and HyperEVM
-timelocks are live at their pins; Robinhood Chain's pin is derived ahead of its
-deploy, per step 1 below.
+timelocks are live at their pins; the Robinhood Chain and BNB Smart Chain pins
+are derived ahead of their deploys, per step 1 below.
 
-## Rollout (per chain: Base, Ethereum, HyperEVM, Robinhood Chain)
+## Rollout (per chain: Base, Ethereum, HyperEVM, Robinhood Chain, BNB Smart Chain)
 
 1. **Chain arm + pin** — a governed chain's `LibTimelockInvariants` arm is added
    WITH its pin, derived from the frozen creation bytecode and the chain's Safe
@@ -113,7 +114,7 @@ deploy, per step 1 below.
    landing at its derived address, fully configured by its constructor.
 3. **Author the migration bundle** — Actions → `run-script` →
    `20260729-migrate-governance-to-timelock`, network `base` / `ethereum` /
-   `hyperevm` / `robinhood`. Emits the Safe Tx Builder JSON
+   `hyperevm` / `robinhood` / `bsc`. Emits the Safe Tx Builder JSON
    (`out/20260729-governance-timelock-migration-<chainid>.json`) after a full
    pre-flight, simulation, post-state assertion, and an end-to-end schedule →
    48h → execute proof on the fork. The logged MultiSend `SafeTxHash` is the
