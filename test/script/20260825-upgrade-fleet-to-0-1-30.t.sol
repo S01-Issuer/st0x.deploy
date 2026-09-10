@@ -11,7 +11,8 @@ import {IReceiptV3} from "rain-vats-0.1.6/src/interface/IReceiptV3.sol";
 import {
     BeaconInUnknownState,
     FleetAlreadyUpgraded,
-    UpgradeChangedTokenState
+    UpgradeChangedTokenState,
+    FleetUpgradeUnsupportedChain
 } from "../../script/20260825-upgrade-fleet-to-0-1-30.s.sol";
 import {UpgradeFleetHarness} from "./UpgradeFleetHarness.sol";
 import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
@@ -49,6 +50,31 @@ contract UpgradeFleetTest is Test {
             abi.encodeCall(IBeacon.implementation, ()),
             abi.encode(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1)
         );
+    }
+
+    /// Each production chain resolves to its own token table, keyed by chain
+    /// id — including a chain whose table is still all placeholders, which is
+    /// a valid (empty) snapshot rather than a wrong-network dispatch.
+    function testActiveChainTokensResolvesPerChain() external {
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
+        assertEq(harness.callActiveChainTokens().length, 41, "Base table");
+        vm.chainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
+        assertEq(harness.callActiveChainTokens().length, 41, "Ethereum table");
+        vm.chainId(LibSafeInvariants.HYPEREVM_CHAIN_ID);
+        assertEq(harness.callActiveChainTokens().length, 41, "HyperEVM table");
+        vm.chainId(LibSafeInvariants.ROBINHOOD_CHAIN_ID);
+        assertEq(harness.callActiveChainTokens().length, 41, "Robinhood Chain table");
+        vm.chainId(LibSafeInvariants.BSC_CHAIN_ID);
+        assertEq(harness.callActiveChainTokens().length, 41, "BNB Smart Chain table");
+    }
+
+    /// A chain with no table is refused rather than handed another chain's
+    /// table: the snapshot would read empty code on every vault and report
+    /// it preserved.
+    function testActiveChainTokensRejectsUnknownChain() external {
+        vm.chainId(123456);
+        vm.expectRevert(abi.encodeWithSelector(FleetUpgradeUnsupportedChain.selector, 123456));
+        harness.callActiveChainTokens();
     }
 
     /// The pre-upgrade state authors both `upgradeTo` transactions.

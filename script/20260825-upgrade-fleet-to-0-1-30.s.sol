@@ -41,6 +41,12 @@ error FleetAlreadyUpgraded();
 /// @param receiptVault The vault whose reads drifted.
 error UpgradeChangedTokenState(address receiptVault);
 
+/// @notice The active chain has no production token table here, so there is
+/// nothing to snapshot or upgrade — a wrong-network dispatch, not a chain
+/// with an empty table.
+/// @param chainId The active chain id.
+error FleetUpgradeUnsupportedChain(uint256 chainId);
+
 /// @title UpgradeFleetTo0_1_30
 /// @notice Authors the per-chain Safe Tx Builder bundle that
 /// upgrades the production token fleet to the audited 0.1.30
@@ -146,6 +152,9 @@ contract UpgradeFleetTo0_1_30 is Script {
 
     /// @notice The active chain's production token table (empty tables are
     /// valid — a chain carrying no tokens yet has nothing to snapshot).
+    /// Reverts for a chain without a table rather than falling through to
+    /// another chain's: snapshotting the wrong chain's vaults would read
+    /// empty code as preserved state.
     /// @return tokens The chain's token instances.
     function activeChainTokens() internal view returns (TokenInstance[] memory tokens) {
         if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
@@ -154,7 +163,16 @@ contract UpgradeFleetTo0_1_30 is Script {
         if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
             return LibTokenInvariants.productionTokensEthereum();
         }
-        return LibTokenInvariants.productionTokensHyperEvm();
+        if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
+            return LibTokenInvariants.productionTokensHyperEvm();
+        }
+        if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
+            return LibTokenInvariants.productionTokensRobinhood();
+        }
+        if (block.chainid == LibSafeInvariants.BSC_CHAIN_ID) {
+            return LibTokenInvariants.productionTokensBsc();
+        }
+        revert FleetUpgradeUnsupportedChain(block.chainid);
     }
 
     /// @notice Snapshot every production token's reported state (receipt

@@ -180,6 +180,32 @@ contract DeployMissingTokensTest is Test {
         vm.chainId(LibSafeInvariants.HYPEREVM_CHAIN_ID);
         TokenInstance[] memory hyperevm = harness.targetTokens();
         assertEq(hyperevm.length, LibTokenInvariants.productionTokensHyperEvm().length, "HyperEVM table mismatch");
+
+        vm.chainId(LibSafeInvariants.ROBINHOOD_CHAIN_ID);
+        TokenInstance[] memory robinhood = harness.targetTokens();
+        assertEq(
+            robinhood.length, LibTokenInvariants.productionTokensRobinhood().length, "Robinhood Chain table mismatch"
+        );
+
+        vm.chainId(LibSafeInvariants.BSC_CHAIN_ID);
+        TokenInstance[] memory bsc = harness.targetTokens();
+        assertEq(bsc.length, LibTokenInvariants.productionTokensBsc().length, "BNB Smart Chain table mismatch");
+    }
+
+    /// @notice Same placeholder refusal for BNB Smart Chain.
+    function testAuthoriserNotReadyWhileTheBscPinIsAPlaceholder() external {
+        vm.chainId(LibSafeInvariants.BSC_CHAIN_ID);
+        vm.expectRevert(abi.encodeWithSelector(AuthoriserNotReady.selector, address(0)));
+        harness.assertAuthoriserReady();
+    }
+
+    /// @notice Robinhood Chain's clone pin is a placeholder until its
+    /// authoriser deploy executes, and a placeholder is refused as not-ready
+    /// — the token deploy cannot wire vaults onto `address(0)`.
+    function testAuthoriserNotReadyWhileTheRobinhoodPinIsAPlaceholder() external {
+        vm.chainId(LibSafeInvariants.ROBINHOOD_CHAIN_ID);
+        vm.expectRevert(abi.encodeWithSelector(AuthoriserNotReady.selector, address(0)));
+        harness.assertAuthoriserReady();
     }
 
     /// @notice `run()` reverts `DeployerNotDeployed` when the 0.1.1 core has
