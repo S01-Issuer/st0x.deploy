@@ -163,10 +163,10 @@ contract StoxReceipt is Receipt {
     /// trusts each STATICCALL return individually. A malicious vault
     /// implementation installed via beacon upgrade could serve
     /// inconsistent answers across iterations and inflate, zero, or drift
-    /// any first-touched balance. The protocol relies on
-    /// `BEACON_INITIAL_OWNER = rainlang.eth` only installing audited
-    /// vault implementations behind every receipt's manager pointer.
-    /// Beacon upgrade authority is the trust root.
+    /// any first-touched balance. The protocol relies on the beacon owner
+    /// (the chain's ST0x token-owner Safe) only installing audited vault
+    /// implementations behind every receipt's manager pointer. Beacon
+    /// upgrade authority is the trust root.
     /// @inheritdoc ERC1155Upgradeable
     function _update(address from, address to, uint256[] memory ids, uint256[] memory amounts)
         internal

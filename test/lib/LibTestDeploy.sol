@@ -5,6 +5,7 @@ pragma solidity ^0.8.25;
 import {Vm} from "forge-std-1.16.1/src/Vm.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
+import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {StoxReceipt} from "../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../src/concrete/StoxWrappedTokenVault.sol";
@@ -21,8 +22,20 @@ import {
 /// @notice Deploys the full Stox contract suite via Zoltu in a test
 /// environment. Etches the Zoltu factory and deploys each contract,
 /// asserting deterministic addresses match LibProdDeployV4.
+///
+/// The beacons resolve their initial owner from `block.chainid` (the chain's
+/// token-owner Safe), and the local test chain has no Safe pin, so every
+/// deploy helper first pins the test to Base's chain id. Tests that assert
+/// beacon ownership expect `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE`.
 library LibTestDeploy {
+    /// @notice Pin the active chain id to Base so the beacon constructors
+    /// resolve a Safe. Idempotent.
+    function selectBaseChainId(Vm vm) internal {
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
+    }
+
     function deployWrappedTokenVaultBeaconSet(Vm vm) internal {
+        selectBaseChainId(vm);
         LibRainDeploy.etchZoltuFactory(vm);
 
         address vault = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
@@ -42,6 +55,7 @@ library LibTestDeploy {
     }
 
     function deployOffchainAssetReceiptVaultBeaconSet(Vm vm) internal {
+        selectBaseChainId(vm);
         LibRainDeploy.etchZoltuFactory(vm);
 
         address receipt = LibRainDeploy.deployZoltu(type(StoxReceipt).creationCode);

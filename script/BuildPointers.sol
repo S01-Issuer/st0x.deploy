@@ -7,6 +7,7 @@ import {VmSafe} from "forge-std-1.16.1/src/Vm.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.3/src/lib/LibCodeGen.sol";
 import {LibFs} from "rain-sol-codegen-0.1.3/src/lib/LibFs.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
@@ -87,6 +88,15 @@ contract BuildPointers is Script {
     }
 
     function run() external {
+        // The beacon-set deployers and the wrapped-vault beacon resolve their
+        // initial owner from `block.chainid` (the chain's token-owner Safe)
+        // and refuse a chain with no Safe pin, which the local build chain
+        // is. Pin the generator to Base: the pointers it derives — Zoltu
+        // address, creation code, runtime code and their hashes — are
+        // functions of the creation code alone and identical on every chain;
+        // only the constructed beacon's owner storage differs, and that is
+        // not a pointer.
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         LibRainDeploy.etchZoltuFactory(vm);
 
         // Regenerate the rolling `candidate/` snapshot from current source.
@@ -140,6 +150,10 @@ contract BuildPointers is Script {
 
     string constant GEN_V4_PATH = "src/generated/LibProdDeployV4.sol";
     string constant GEN_CURRENT_PATH = "src/generated/LibProdDeployCurrent.sol";
+    // The beacon owner the DEPLOYED 0.1.1 / 0.1.30 artifacts bake in
+    // (rainlang.eth). Emitted into `LibProdDeployV4` as deploy history only:
+    // current source resolves each chain's token-owner Safe at construction
+    // instead, so `LibProdDeployCurrent` carries no owner.
     string constant GEN_OWNER = "0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b";
 
     // REUSE-IgnoreStart  (the two SPDX lines below are the header EMITTED into
@@ -398,7 +412,6 @@ contract BuildPointers is Script {
         vm.writeLine(GEN_CURRENT_PATH, "");
         vm.writeLine(GEN_CURRENT_PATH, "library LibProdDeployCurrent {");
         vm.writeLine(GEN_CURRENT_PATH, string.concat('string constant DEPLOY_TAG = "', tag, '";'));
-        vm.writeLine(GEN_CURRENT_PATH, "address constant BEACON_INITIAL_OWNER = LibProdDeployV4.BEACON_INITIAL_OWNER;");
         vm.writeLine(
             GEN_CURRENT_PATH,
             "address constant STOX_PROD_AUTHORISER_V4_CLONE = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;"

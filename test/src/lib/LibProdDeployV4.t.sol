@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1167Proxy.sol";
+import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
 import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
@@ -53,6 +54,14 @@ import {ST0xOrchestratorBeaconSetDeployer} from "../../../src/concrete/deploy/ST
 /// `testAuthoriserV4ClonePin` asserts the literal + the codehash derivation
 /// so a drifted generator value fails a test.
 contract LibProdDeployV4Test is Test {
+    /// The beacon-set deployers and the wrapped-vault beacon resolve their
+    /// owner from `block.chainid` and refuse a chain with no Safe pin, which
+    /// the local test chain is. Pin every deploy here to Base: the pointers
+    /// under test are functions of the creation code alone.
+    function setUp() public {
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
+    }
+
     // --- StoxReceipt ---
 
     function testDeployAddressStoxReceipt() external {

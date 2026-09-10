@@ -2,6 +2,25 @@
 
 ## V4 (rain.vats 0.1.6)
 
+### Beacon owners (unreleased — needs a new audit stamp and tag)
+
+- **Beacons come up owned by the chain's token-owner Safe, not an EOA.**
+  `StoxWrappedTokenVaultBeacon`, `StoxOffchainAssetReceiptVaultBeaconSetDeployer`
+  and `ST0xOrchestratorBeaconSetDeployer` resolve their initial owner from
+  `block.chainid` via `LibSafeInvariants.safeForChainId` instead of baking in
+  `BEACON_INITIAL_OWNER` (rainlang.eth). Constructors stay parameterless, so the
+  contracts remain Zoltu-deployable with identical creation code on every chain,
+  while each chain's beacons belong to that chain's Safe from construction. A
+  chain with no pinned Safe reverts in the constructor rather than defaulting to
+  an EOA or another chain's Safe. This removes the beacon-owner migration step
+  from every future chain bootstrap and closes the recovery gap in #335: a fresh
+  set-deployer no longer creates a beacon owned by a hot key. The candidate
+  pointers of these three contracts and of the three that embed their Zoltu
+  addresses (`StoxUnifiedDeployer`, `StoxWrappedTokenVaultBeaconSetDeployer`,
+  `ST0xOrchestrator`) move accordingly. `LibProdDeployV4.BEACON_INITIAL_OWNER`
+  stays as the record of what the deployed 0.1.1 / 0.1.30 artifacts bake in;
+  `LibProdDeployCurrent` no longer carries an owner.
+
 ### StoxReceiptVault
 
 - **Fix (audit H01): keep OZ's `_totalSupply` in step with rebased balances.**
