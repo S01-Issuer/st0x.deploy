@@ -38,6 +38,7 @@ on:
           - 20260813-execute-timelock-operations
           - 20260818-deploy-orchestrator
           - 20260910-create-token-owner-safe
+          - 20260910-deploy-orchestrator-enabled
       network:
         description: 'Network to broadcast against (default: base)'
         required: true
