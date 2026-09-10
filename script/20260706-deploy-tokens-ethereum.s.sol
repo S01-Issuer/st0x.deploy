@@ -82,11 +82,10 @@ error AuthoriserNotWired(address receiptVault, address expected, address actual)
 error EthereumSafeNotReady(address safe);
 
 /// @title DeployTokensEthereum
-/// @notice **PENDING.** Deploys the full ST0x production token set on Ethereum
+/// @notice Deploys the full ST0x production token set on Ethereum
 /// mainnet, matched to Base, wires each vault onto the V4 authoriser
 /// authoriser, and hands ownership to the token-owner Safe — all in a single
-/// deploy-key broadcast, no Safe signature. Flips to `**EXECUTED YYYY-MM-DD.**`
-/// in the post-execution pin PR.
+/// deploy-key broadcast, no Safe signature.
 /// @dev Single operation (`run()`), broadcast from the CI deploy key via
 /// `manual-broadcast.yaml`. Mirrors the authoriser deploy pattern (20260619): the
 /// deploy key deploys, configures, then self-relinquishes — the Safe signs

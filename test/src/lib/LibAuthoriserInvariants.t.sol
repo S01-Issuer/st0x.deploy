@@ -13,6 +13,7 @@ import {
     UnexpectedRetiredSignerGrant,
     AuthoriserImplCodehashMismatch
 } from "../../../src/lib/LibAuthoriserInvariants.sol";
+import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
@@ -85,15 +86,15 @@ contract LibAuthoriserInvariantsTest is Test {
     }
 
     /// @notice The admin-holder parameterisation: the seven `_ADMIN` entries
-    /// track `adminHolder`, the six operational entries stay split between
-    /// the service signer and the Safe, and the narrower overloads are exact
-    /// collapses of the widest one (so no consumer can drift from the single
-    /// map).
+    /// track `adminHolder`, the eight operational entries stay split between
+    /// the Safe, the service signer and the orchestrator, and the narrower
+    /// overloads are exact collapses of the widest one (so no consumer can
+    /// drift from the single map).
     function testExpectedGrantsAdminHolderParameterisation() external pure {
         address safe = address(0x5AFE);
         address timelock = address(0x7135);
         RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
-        assertEq(grants.length, 13);
+        assertEq(grants.length, 15);
         for (uint256 i = 0; i < 7; i++) {
             assertEq(grants[i].grantee, timelock, "admin entries must track adminHolder");
         }
@@ -112,6 +113,12 @@ contract LibAuthoriserInvariantsTest is Test {
                 "service signer entries must be independent of adminHolder"
             );
         }
+        // The orchestrator's vault access: DEPOSIT and WITHDRAW only (no
+        // CERTIFY surface), independent of both parameters.
+        assertEq(grants[13].role, keccak256("DEPOSIT"));
+        assertEq(grants[13].grantee, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
+        assertEq(grants[14].role, keccak256("WITHDRAW"));
+        assertEq(grants[14].grantee, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
 
         // The two-arg overload is the adminHolder == Safe collapse.
         RoleGrant[] memory collapsed = LibAuthoriserInvariants.expectedGrants(safe);
@@ -184,6 +191,47 @@ contract LibAuthoriserInvariantsTest is Test {
             abi.encode(true)
         );
         vm.expectRevert(abi.encodeWithSelector(UnexpectedRetiredSignerGrant.selector, clone, keccak256("WITHDRAW")));
+        harness.callAssertExpectedGrants(clone);
+    }
+
+    /// @notice The orchestrator rows are strict like every other row, under
+    /// every production chain id alike: a revoked orchestrator `WITHDRAW`
+    /// red-lines as `ExpectedGrantMissing` naming the orchestrator. Driven
+    /// on the Base fork with the chain id switched, so the row state is the
+    /// same under each id.
+    function testAssertExpectedGrantsRejectsARevokedOrchestratorGrant() external {
+        selectBaseFork();
+        address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        address orchestrator = LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR;
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        vm.mockCall(
+            clone,
+            abi.encodeWithSelector(IAccessControl.hasRole.selector, keccak256("WITHDRAW"), orchestrator),
+            abi.encode(false)
+        );
+        uint256[3] memory chainIds =
+            [LibSafeInvariants.BASE_CHAIN_ID, LibSafeInvariants.ETHEREUM_CHAIN_ID, LibSafeInvariants.HYPEREVM_CHAIN_ID];
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            vm.chainId(chainIds[i]);
+            vm.expectRevert(
+                abi.encodeWithSelector(ExpectedGrantMissing.selector, clone, keccak256("WITHDRAW"), orchestrator)
+            );
+            harness.callAssertExpectedGrants(clone);
+        }
+    }
+
+    /// @notice The orchestrator is a pinned grantee, so it joins the
+    /// `DEFAULT_ADMIN_ROLE` negative: root admin on the orchestrator
+    /// red-lines as `UnexpectedDefaultAdmin` naming it.
+    function testAssertExpectedGrantsRejectsOrchestratorDefaultAdmin() external {
+        selectBaseFork();
+        address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        address orchestrator = LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR;
+        vm.mockCall(
+            clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, bytes32(0), orchestrator), abi.encode(true)
+        );
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedDefaultAdmin.selector, clone, orchestrator));
         harness.callAssertExpectedGrants(clone);
     }
 }

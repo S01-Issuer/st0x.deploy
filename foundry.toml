@@ -78,15 +78,20 @@ recursive_deps = false
 arbitrum = "${ARBITRUM_RPC_URL}"
 base = "${BASE_RPC_URL}"
 base_sepolia = "${BASE_SEPOLIA_RPC_URL}"
+bsc = "${BSC_RPC_URL}"
 ethereum = "${ETHEREUM_RPC_URL}"
 flare = "${FLARE_RPC_URL}"
 hyperevm = "${HYPEREVM_RPC_URL}"
 polygon = "${POLYGON_RPC_URL}"
+robinhood = "${ROBINHOOD_RPC_URL}"
 
 [etherscan]
 arbitrum = { key = "${CI_DEPLOY_ARBITRUM_ETHERSCAN_API_KEY}" }
 base = { key = "${CI_DEPLOY_BASE_ETHERSCAN_API_KEY}" }
 base_sepolia = { key = "${CI_DEPLOY_BASE_SEPOLIA_ETHERSCAN_API_KEY}" }
+# `bsc` is not a built-in foundry chain alias either, so the chain id is pinned.
+# Etherscan V2 covers 56 (BscScan), so this is the ordinary keyed entry.
+bsc = { key = "${CI_DEPLOY_BSC_ETHERSCAN_API_KEY}", chain = 56 }
 # `ethereum` is not a built-in foundry chain alias (foundry's canonical name for
 # chain 1 is `mainnet`), so the chain id is pinned explicitly. Without it,
 # verification fails with "unknown alias `ethereum`".
@@ -98,3 +103,8 @@ flare = { key = "${CI_DEPLOY_FLARE_ETHERSCAN_API_KEY}" }
 # the same reason `ethereum` is above.
 hyperevm = { key = "${CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY}", chain = 999, url = "https://api.etherscan.io/v2/api?chainid=999" }
 polygon = { key = "${CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY}" }
+# Robinhood Chain (4663) has no `[etherscan]` entry on purpose: Etherscan's
+# multichain (v2) API does not index it, so an entry here would only make
+# foundry demand an API key it cannot use. Its explorer is Blockscout, which
+# imports Sourcify matches, and Sourcify supports 4663 — the `--verifier
+# sourcify` leg of `manual-broadcast.yaml` is the verification path.

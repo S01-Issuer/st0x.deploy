@@ -14,7 +14,7 @@ import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.so
 import {LibSafeOps} from "../src/lib/LibSafeOps.sol";
 
 /// @title MigrateOrchestratorBeaconOwner
-/// @notice **PENDING.** Transfers ownership of the ST0x orchestrator beacon
+/// @notice Transfers ownership of the ST0x orchestrator beacon
 /// (`LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON`) on whichever chain
 /// this is broadcast against, from the deploy EOA
 /// (`LibProdDeployV4.BEACON_INITIAL_OWNER`, rainlang.eth) to that chain's

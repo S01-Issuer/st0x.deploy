@@ -122,7 +122,7 @@ struct MigrationTargets {
 error GovernanceLoopNotProven(bytes32 id);
 
 /// @title MigrateGovernanceToTimelock
-/// @notice **PENDING.** Authors the Safe bundle that hands ST0x governance
+/// @notice Authors the Safe bundle that hands ST0x governance
 /// on the active chain to the governance timelock:
 ///
 ///   1. Grants each of the authoriser's seven `_ADMIN` roles to the
@@ -175,8 +175,8 @@ error GovernanceLoopNotProven(bytes32 id);
 ///    timelock pin is hydrated and `assertTimelockState` passes (codehash,
 ///    48h delay, Safe as sole proposer/canceller/executor,
 ///    self-administration, no open roles); the chain's V4 authoriser clone
-///    carries the pinned codehash and its six operational grants (service
-///    signer + Safe action roles) are intact.
+///    carries the pinned codehash and its operational grants (service
+///    signer, Safe and orchestrator action roles) are intact.
 /// 2. **Select** — still-Safe-owned vaults, still-Safe-owned beacons and
 ///    still-Safe-held `_ADMIN` roles, from live chain state.
 /// 3. **Build** — grants, then vault transfers, then beacon transfers,

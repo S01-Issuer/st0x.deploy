@@ -33,10 +33,9 @@ error UnsupportedChainForProvisioning(uint256 chainId);
 error SafeMissingRoleAdmin(bytes32 adminRole);
 
 /// @title ProvisionAdditionalServiceSigner
-/// @notice **EXECUTED — verified 2026-08-05 (Base and Ethereum).** Authors
-/// the Safe bundle that provisions the ADDITIONAL service signer
-/// (`LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C`) on the ACTIVE chain's
-/// V4 authoriser with the canonical post-ceremony grants
+/// @notice Authors the Safe bundle that provisions the ADDITIONAL service
+/// signer (`LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C`) on the ACTIVE
+/// chain's V4 authoriser with the canonical post-ceremony grants
 /// (`additionalServiceGrants()`: `DEPOSIT` / `WITHDRAW` / `CERTIFY` — the
 /// same three action roles the original service signer holds; both signers
 /// are active side by side, nothing is revoked). Dispatch via

@@ -31,7 +31,7 @@ error OperationNotExecutable(bytes32 id, bool pending, bool ready, bool done);
 error ExecutorHoldsRole(address timelock, address executor);
 
 /// @title ExecuteTimelockOperations
-/// @notice **PENDING.** Executes a matured timelock operation from the CI
+/// @notice Executes a matured timelock operation from the CI
 /// deploy key.
 ///
 /// This is deliberately NOT a Safe-routed script. The timelock grants

@@ -27,15 +27,17 @@ on:
           # Each entry is the date-prefixed filename (without `.s.sol`) of a
           # broadcast script under `script/`. Convention:
           # `YYYYMMDD-<kebab-name>`, where the date is the day the script was
-          # added to this dropdown. Execution status (PENDING / EXECUTED)
-          # lives in the script's file-level NatSpec — this dropdown is a
-          # registry of *which* scripts exist, not *whether* they've run.
+          # added to this dropdown. Whether a script has run is the chain's
+          # record (executed scripts refuse re-dispatch in pre-flight, and
+          # pins record what landed) — this dropdown is a registry of *which*
+          # scripts exist, not *whether* they've run.
           - 20260619-deploy-v4-authoriser-clone
           - 20260706-deploy-tokens-ethereum
           - 20260807-deploy-missing-tokens
           - 20260729-deploy-governance-timelock
           - 20260813-execute-timelock-operations
           - 20260818-deploy-orchestrator
+          - 20260910-create-token-owner-safe
       network:
         description: 'Network to broadcast against (default: base)'
         required: true
@@ -50,6 +52,8 @@ on:
           - 'base'
           - 'ethereum'
           - 'hyperevm'
+          - 'robinhood'
+          - 'bsc'
 # Dispatches an operational broadcast script from `script/` and sends the
 # resulting transactions from the CI deploy key (`secrets.PRIVATE_KEY`,
 # the same secret `manual-sol-artifacts-0-1-1.yaml` uses for Zoltu impl deploys).
@@ -97,6 +101,8 @@ jobs:
           BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
           ETHEREUM_RPC_URL: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
           HYPEREVM_RPC_URL: ${{ secrets.RPC_URL_HYPEREVM_FORK }}
+          ROBINHOOD_RPC_URL: ${{ secrets.RPC_URL_ROBINHOOD_FORK }}
+          BSC_RPC_URL: ${{ secrets.RPC_URL_BSC_FORK }}
           # Pass the choice inputs via env rather than template-expanding them
           # into the command, so the dispatched values are used as literal
           # arguments and cannot inject shell.
@@ -143,6 +149,7 @@ jobs:
           # config resolution from failing on a chain this deploy never touches.
           CI_DEPLOY_ARBITRUM_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_ARBITRUM_ETHERSCAN_API_KEY || vars.CI_DEPLOY_ARBITRUM_ETHERSCAN_API_KEY || '' }}
           CI_DEPLOY_BASE_SEPOLIA_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_BASE_SEPOLIA_ETHERSCAN_API_KEY || vars.CI_DEPLOY_BASE_SEPOLIA_ETHERSCAN_API_KEY || '' }}
+          CI_DEPLOY_BSC_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_BSC_ETHERSCAN_API_KEY || vars.CI_DEPLOY_BSC_ETHERSCAN_API_KEY || '' }}
           CI_DEPLOY_FLARE_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_FLARE_ETHERSCAN_API_KEY || vars.CI_DEPLOY_FLARE_ETHERSCAN_API_KEY || '' }}
           CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY || vars.CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY || '' }}
           # `--guess-constructor-args` reads the creation transaction over RPC.

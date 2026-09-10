@@ -92,9 +92,9 @@ contract DeployV4AuthoriserCloneTest is Test {
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
         bytes32[7] memory adminRoles = _autoGrantedAdminRoles();
 
-        // Step 2: mirror the six operational grants (indices 7..12 of the
-        // master map) under the deployer (who holds every `_ADMIN` role
-        // from init).
+        // Step 2: mirror the operational grants (indices 7.. of the master
+        // map) under the deployer (who holds every `_ADMIN` role from
+        // init).
         for (uint256 i = 7; i < allGrants.length; i++) {
             vm.prank(deployer, deployer);
             acl.grantRole(allGrants[i].role, allGrants[i].grantee);
@@ -215,7 +215,7 @@ contract DeployV4AuthoriserCloneTest is Test {
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
         bytes32[7] memory adminRoles = _autoGrantedAdminRoles();
 
-        // Step 2: mirror the operational grants (indices 7..12).
+        // Step 2: mirror the operational grants (indices 7..).
         for (uint256 i = 7; i < allGrants.length; i++) {
             if (i == skipMirrorIndex) continue;
             vm.prank(deployer, deployer);
@@ -256,6 +256,21 @@ contract DeployV4AuthoriserCloneTest is Test {
         selectBaseFork();
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
         uint256 skipped = 7;
+        address clone = _deployAndConfigure(false, skipped, type(uint256).max);
+        vm.expectRevert(
+            abi.encodeWithSelector(ExpectedGrantMissing.selector, allGrants[skipped].role, allGrants[skipped].grantee)
+        );
+        harness.callAssertPostState(clone, deployer, v4Impl);
+    }
+
+    /// @notice `_assertPostState` reverts `ExpectedGrantMissing` when an
+    /// orchestrator grant is absent: the mirror slice covers the
+    /// orchestrator rows, so a fresh clone without them is refused.
+    function testAssertPostStateRejectsMissingOrchestratorGrant() external {
+        selectBaseFork();
+        RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
+        uint256 skipped = 13;
+        assertEq(allGrants[skipped].grantee, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
         address clone = _deployAndConfigure(false, skipped, type(uint256).max);
         vm.expectRevert(
             abi.encodeWithSelector(ExpectedGrantMissing.selector, allGrants[skipped].role, allGrants[skipped].grantee)
@@ -335,7 +350,7 @@ contract DeployV4AuthoriserCloneTest is Test {
         selectBaseFork();
         RoleGrant[] memory allGrants = LibAuthoriserInvariants.expectedGrants();
         assertEq(harness.mirrorStartIndex(), 7, "MIRROR_START_INDEX drifted from the happy-path replica");
-        assertEq(harness.mirrorCount(), 6, "MIRROR_COUNT drifted from the happy-path replica");
+        assertEq(harness.mirrorCount(), 8, "MIRROR_COUNT drifted from the happy-path replica");
         assertEq(
             harness.mirrorStartIndex() + harness.mirrorCount(),
             allGrants.length,

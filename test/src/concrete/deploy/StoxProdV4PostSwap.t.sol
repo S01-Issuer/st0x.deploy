@@ -82,7 +82,7 @@ contract StoxProdV4PostSwapTest is Test {
     /// Base-only.
     /// @dev The swap has executed: every production receipt vault reports
     /// the V4 clone. `LibAuthoriserInvariants.assertAll()` asserts the
-    /// clone's pinned codehash and its full 13-entry grant map, so no
+    /// clone's pinned codehash and its full grant map, so no
     /// separate hydration guard or hand-listed admin sweep is needed here.
     function checkPostSwapAuthoriserStateOnBase() internal view {
         LibTokenInvariants.assertUniformAuthoriser(LibAuthoriserInvariants.STOX_PROD_AUTHORISER);

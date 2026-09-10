@@ -15,10 +15,10 @@ on:
           # Each entry is the date-prefixed filename (without `.s.sol`) of a
           # Safe Tx Builder JSON emitting script under `script/`. Convention:
           # `YYYYMMDD-<kebab-name>`, where the date is the day the script was
-          # added to this dropdown. Execution status (PENDING / EXECUTED +
-          # SafeTxHash) lives in the script's file-level NatSpec — this
-          # dropdown is a registry of *which* scripts exist, not *whether*
-          # they've run.
+          # added to this dropdown. Whether a script has run is the chain's
+          # record (executed scripts refuse re-dispatch in pre-flight), not
+          # anything written here — this dropdown is a registry of *which*
+          # scripts exist, not *whether* they've run.
           #
           # Broadcast scripts (dispatched with `--broadcast` from the CI
           # deploy key) live in `manual-broadcast.yaml` instead. The
@@ -50,6 +50,8 @@ on:
           - 'base'
           - 'ethereum'
           - 'hyperevm'
+          - 'robinhood'
+          - 'bsc'
       sig:
         description: 'Entrypoint to dispatch (default: run())'
         required: true
@@ -111,6 +113,8 @@ jobs:
           BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
           ETHEREUM_RPC_URL: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
           HYPEREVM_RPC_URL: ${{ secrets.RPC_URL_HYPEREVM_FORK }}
+          ROBINHOOD_RPC_URL: ${{ secrets.RPC_URL_ROBINHOOD_FORK }}
+          BSC_RPC_URL: ${{ secrets.RPC_URL_BSC_FORK }}
           # Pass the choice inputs via env rather than template-expanding them
           # into the command, so a dispatch (even one crafted via the API) is
           # used as a literal argument and cannot inject shell.

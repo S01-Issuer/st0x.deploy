@@ -39,7 +39,7 @@ error SafeMissingRoleAdminForRetire(bytes32 adminRole);
 error DirectSignerRolesAlreadyRetired();
 
 /// @title RetireDirectSignerRoles
-/// @notice **PENDING.** Authors the per-chain Safe Tx Builder bundle that
+/// @notice Authors the per-chain Safe Tx Builder bundle that
 /// closes the parallel burn-in window opened by
 /// `20260831-enable-orchestrator-roles`: revoke the service signer's DIRECT
 /// `DEPOSIT` and `WITHDRAW` on the authoriser, leaving the orchestrator as

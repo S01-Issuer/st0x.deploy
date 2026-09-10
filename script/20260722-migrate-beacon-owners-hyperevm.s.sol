@@ -11,9 +11,7 @@ import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 
 /// @title MigrateBeaconOwnersHyperEvm
-/// @notice **EXECUTED 2026-07-24** (broadcast from the deploy EOA's CLI;
-/// all three beacons verified Safe-owned with implementations unchanged).
-/// Transfers ownership of the three ST0x production
+/// @notice Transfers ownership of the three ST0x production
 /// beacons on **HyperEVM** (chain id 999) from the deploy EOA
 /// (`LibProdDeployV1.BEACON_INITIAL_OWNER`, rainlang.eth) to the HyperEVM
 /// token-owner Safe (`LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM`).
