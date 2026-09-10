@@ -191,11 +191,12 @@ contract GovernanceTimelockMigrationTest is Test {
     /// deleting it from this list.
     /// @return ids The candidate chain ids.
     function governedChainCandidates() internal pure returns (uint256[] memory ids) {
-        ids = new uint256[](4);
+        ids = new uint256[](5);
         ids[0] = LibSafeInvariants.BASE_CHAIN_ID;
         ids[1] = LibSafeInvariants.ETHEREUM_CHAIN_ID;
         ids[2] = LibSafeInvariants.HYPEREVM_CHAIN_ID;
         ids[3] = LibSafeInvariants.ROBINHOOD_CHAIN_ID;
+        ids[4] = LibSafeInvariants.BSC_CHAIN_ID;
     }
 
     /// @notice Every chain ST0x governs must be known to the governance

@@ -356,6 +356,10 @@ contract LibTimelockInvariantsTest is Test {
             LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ROBINHOOD,
             LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD)
         );
+        assertEq(
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_BSC,
+            LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC)
+        );
     }
 
     /// @notice Every chain with a pinned token-owner Safe resolves through
@@ -379,6 +383,10 @@ contract LibTimelockInvariantsTest is Test {
         assertEq(
             LibTimelockInvariants.timelockForChainId(LibSafeInvariants.ROBINHOOD_CHAIN_ID),
             LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ROBINHOOD
+        );
+        assertEq(
+            LibTimelockInvariants.timelockForChainId(LibSafeInvariants.BSC_CHAIN_ID),
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_BSC
         );
     }
 }
