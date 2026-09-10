@@ -272,6 +272,15 @@ library LibBeaconInvariants {
             // set resolves to the SAME addresses as Ethereum's.
             return LibProdBeacons0_1_1.beacons();
         }
+        if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
+            // Robinhood Chain bootstraps at 0.1.1 as well: the same
+            // deterministic beacon set.
+            return LibProdBeacons0_1_1.beacons();
+        }
+        if (chainId == LibSafeInvariants.BSC_CHAIN_ID) {
+            // BNB Smart Chain too.
+            return LibProdBeacons0_1_1.beacons();
+        }
         revert UnsupportedChainForProdBeacons(chainId);
     }
 
