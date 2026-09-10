@@ -277,6 +277,10 @@ library LibBeaconInvariants {
             // deterministic beacon set.
             return LibProdBeacons0_1_1.beacons();
         }
+        if (chainId == LibSafeInvariants.BSC_CHAIN_ID) {
+            // BNB Smart Chain too.
+            return LibProdBeacons0_1_1.beacons();
+        }
         revert UnsupportedChainForProdBeacons(chainId);
     }
 
