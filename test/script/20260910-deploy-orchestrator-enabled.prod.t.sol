@@ -21,6 +21,7 @@ import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
+import {IST0xOrchestratorBeaconSetDeployerV1} from "../../src/interface/IST0xOrchestratorBeaconSetDeployerV1.sol";
 
 /// @notice The enabled-orchestrator rollout deadline passed with this chain
 /// still pending. Run the outstanding dispatches, extend the deadline, or
@@ -39,7 +40,7 @@ error OrchestratorEnabledRolloutOverdue(string label);
 ///    `AuthoriserNotReady` — the ceremony + hydration PR come first.
 /// 3. **Fleet on 0.1.1** (authoriser live): refuses `FleetNotUpgraded` —
 ///    `20260909-upgrade-and-migrate-token-beacons` comes first.
-/// 4. **Ready**: drives `run()` end to end on the fork — instance at its
+/// 4. **Ready**: simulates the ceremony `run()` performs on the fork — instance at its
 ///    pin, Safe admin, signer on MINT/BURN, deploy key clean, canonical
 ///    map intact — then proves the Safe-bundle enable script has nothing
 ///    left to author (`OrchestratorRolesAlreadyEnabled`).
@@ -123,11 +124,45 @@ contract DeployOrchestratorEnabledProdTest is Test {
             return;
         }
 
-        pending(label, "ready - driving the enabled deploy end to end on the fork");
-        script.run();
+        pending(label, "ready - simulating the enabled deploy ceremony on the fork");
+        simulateCeremony(script, label);
         assertEnabledSteadyState(label);
         vm.expectRevert(OrchestratorRolesAlreadyEnabled.selector);
         enable.run();
+    }
+
+    /// @notice Drive the ceremony `run()` performs, step by step, as a
+    /// synthetic deploy key: `deploy(deployer)`, the two signer grants, the
+    /// admin hand-off to the Safe, the deploy key's renounce — then run the
+    /// script's own `assertEnabledLanded` against the result. Driven inline
+    /// under `vm.prank` because `vm.startBroadcast` (which `run()` wraps
+    /// around the sequence) is mutually exclusive with `vm.prank` in
+    /// `forge test`, and `msg.sender` inside `run()` would be this test
+    /// contract rather than the broadcaster. Mirrors
+    /// `DeployV4AuthoriserCloneTest.testHappyPathLeavesExpectedGrantsAndNoDeployerAdmin`.
+    /// @param script The script whose post-state assertion is exercised.
+    /// @param label Human chain name for messages.
+    function simulateCeremony(DeployOrchestratorEnabled script, string memory label) internal {
+        address deployer = makeAddr("orchestrator-enabled-deploy-key");
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        address authoriser = LibAuthoriserInvariants.activeChainAuthoriser();
+        address setDeployer = LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_30;
+
+        vm.prank(deployer, deployer);
+        address instance = IST0xOrchestratorBeaconSetDeployerV1(setDeployer).deploy(deployer);
+        assertEq(instance, LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE, string.concat(label, ": instance pin"));
+
+        IAccessControl orch = IAccessControl(instance);
+        vm.prank(deployer, deployer);
+        orch.grantRole(keccak256("MINT"), SIGNER);
+        vm.prank(deployer, deployer);
+        orch.grantRole(keccak256("BURN"), SIGNER);
+        vm.prank(deployer, deployer);
+        orch.grantRole(bytes32(0), safe);
+        vm.prank(deployer, deployer);
+        orch.renounceRole(bytes32(0), deployer);
+
+        script.assertEnabledLanded(instance, safe, authoriser, deployer);
     }
 
     function testOrchestratorEnabledRolloutRobinhood() external {
