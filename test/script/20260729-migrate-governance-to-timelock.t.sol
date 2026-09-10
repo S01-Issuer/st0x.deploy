@@ -13,7 +13,6 @@ import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {DeployGovernanceTimelockHarness} from "./DeployGovernanceTimelockHarness.sol";
 import {
     MigrateGovernanceToTimelock,
-    TimelockNotPinned,
     UnexpectedVaultOwner,
     UnexpectedBeaconOwner,
     NothingToMigrate
@@ -110,20 +109,6 @@ contract MigrateGovernanceToTimelockTest is Test {
         return LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.safeForChainId(block.chainid));
     }
 
-    /// @notice Production dispatch (no override) refuses while the chain's
-    /// timelock pin is a placeholder — the deploy + pin PR must land first.
-    function testRunRefusesUnpinnedTimelock() external {
-        selectBaseFork();
-        // Skip if a future pin PR has hydrated Base's pin: from then on the
-        // production path is the harness-free one and this guard is spent.
-        if (LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK != address(0)) {
-            return;
-        }
-        MigrateGovernanceToTimelock script = new MigrateGovernanceToTimelock();
-        vm.expectRevert(abi.encodeWithSelector(TimelockNotPinned.selector, uint256(LibSafeInvariants.BASE_CHAIN_ID)));
-        script.run();
-    }
-
     /// @notice The full authoring against live Base state: post-state holds
     /// (every vault AND every in-use beacon timelock-owned, grant map on the
     /// timelock, Safe stripped of `_ADMIN` roles) and the emitted artifact
@@ -140,14 +125,11 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// beacon shape, so the chain-generic script must author there on
     /// identical terms — this is the assertion that proves HyperEVM is
     /// actually covered rather than merely reachable through the chain map.
-    /// @dev Soft-skips while `HYPEREVM_RPC_URL` is unprovisioned in CI
-    /// (RAI-1511); run locally with the RPC set before executing the
-    /// HyperEVM bundle, since CI cannot prove this leg yet.
+    /// @dev Forks unconditionally, matching `StoxProdV4Test`: CI supplies
+    /// `HYPEREVM_RPC_URL` to the shared rainix test workflow from the
+    /// `RPC_URL_HYPEREVM_FORK` secret, so a missing RPC must fail at fork
+    /// time rather than pass having asserted nothing.
     function testRunAuthorsFullMigrationOnHyperevm() external {
-        if (bytes(vm.envOr("HYPEREVM_RPC_URL", string(""))).length == 0) {
-            emit log("PENDING: HYPEREVM_RPC_URL not available in this environment (RAI-1511)");
-            return;
-        }
         vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
         _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM);
     }

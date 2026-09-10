@@ -5,10 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.16.1/src/Test.sol";
 import {LibProdBeacons0_1_1} from "../../../../src/lib/LibProdBeacons0_1_1.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
-import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
-import {LibMigrationInvariant} from "../../../../src/lib/LibMigrationInvariant.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
-import {FLEET_UPGRADE_DEADLINE} from "../../../../script/20260825-upgrade-fleet-to-0-1-30.s.sol";
 import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
 
@@ -35,38 +32,23 @@ contract BscBeaconOwnershipTest is Test {
         vm.createSelectFork(LibStoxDeployNetworks.BSC);
         address[4] memory beacons = LibProdBeacons0_1_1.beacons();
         address[4] memory impls = LibProdBeacons0_1_1.implementations();
-        // The wrapped-token-vault beacon still serves its 0.1.1
-        // impl; the receipt + receipt-vault beacons ride the fleet-upgrade
-        // migration window (20260825-upgrade-fleet-to-0-1-30): 0.1.1 OR
-        // 0.1.30 until the deadline, 0.1.30 only after.
+        // Every expected implementation is named as an explicit pin. The
+        // wrapped-token-vault beacon serves the 0.1.1 impl its bootstrap
+        // baked; the receipt + receipt-vault beacons were moved onto 0.1.30
+        // by the fleet upgrade (20260825-upgrade-fleet-to-0-1-30), which has
+        // landed on every chain. Reading the beacon's own
+        // `implementation()` back as the expectation asserted only that the
+        // beacon agrees with itself, which no upgrade can ever break.
         LibBeaconInvariants.assertBeaconInvariants(
             beacons[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX],
             safe,
             impls[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX]
         );
         LibBeaconInvariants.assertBeaconInvariants(
-            beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX],
-            safe,
-            IBeacon(beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX]).implementation()
+            beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX], safe, LibProdDeployV4.STOX_RECEIPT_0_1_30
         );
         LibBeaconInvariants.assertBeaconInvariants(
-            beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX],
-            safe,
-            IBeacon(beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]).implementation()
-        );
-        LibMigrationInvariant.assertMigration(
-            "in-use receipt beacon implementation()",
-            IBeacon(beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX]).implementation(),
-            LibProdDeployV4.STOX_RECEIPT_0_1_1,
-            LibProdDeployV4.STOX_RECEIPT_0_1_30,
-            FLEET_UPGRADE_DEADLINE
-        );
-        LibMigrationInvariant.assertMigration(
-            "in-use receipt-vault beacon implementation()",
-            IBeacon(beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]).implementation(),
-            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1,
-            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30,
-            FLEET_UPGRADE_DEADLINE
+            beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX], safe, LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30
         );
     }
 }

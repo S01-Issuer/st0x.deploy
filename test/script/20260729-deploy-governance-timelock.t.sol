@@ -13,10 +13,13 @@ import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
 /// @title DeployGovernanceTimelockTest
-/// @notice Live-fork coverage for the governance-timelock deploy broadcast.
-/// The deploy is deterministic (Zoltu CREATE2 over pinned init code) and
-/// idempotent per chain, so each chain is driven on its own fork and asserted
-/// with the same checks the production broadcast makes.
+/// @notice Live-fork coverage for the governance-timelock deploy broadcast,
+/// on every chain in `networks()`. The deploy is deterministic (Zoltu CREATE2
+/// over pinned init code) and idempotent per chain, so each chain is driven on
+/// its own fork and asserted with the same checks the production broadcast
+/// makes. Base / Ethereum / HyperEVM already carry the timelock and so
+/// exercise the verify-and-skip path; Robinhood Chain and BNB Smart Chain do
+/// not yet, and so exercise the deploy path on live chain state.
 /// @dev Per-chain rather than through `run()`: `run()` creates its own fork
 /// per network, and deployments written inside those forks are not visible to
 /// a fork a test creates afterwards. The tests therefore select a fork and
@@ -89,6 +92,23 @@ contract DeployGovernanceTimelockTest is Test {
     function testDeploysOnHyperevmFork() external {
         vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
         deployOnSelectedFork(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM);
+    }
+
+    /// @notice The deploy lands at the derived address on Robinhood Chain.
+    /// The timelock is not on-chain there yet (the dispatch is pending), so
+    /// unlike the Base / Ethereum / HyperEVM legs this drives the DEPLOY
+    /// rather than the idempotent skip — which is the half of the script a
+    /// chain that already carries the timelock can no longer exercise.
+    function testDeploysOnRobinhoodFork() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
+        deployOnSelectedFork(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD);
+    }
+
+    /// @notice The deploy lands at the derived address on BNB Smart Chain,
+    /// on the same terms as the Robinhood Chain leg.
+    function testDeploysOnBscFork() external {
+        vm.createSelectFork(LibStoxDeployNetworks.BSC);
+        deployOnSelectedFork(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC);
     }
 
     /// @notice A chain that already carries the timelock is verified and

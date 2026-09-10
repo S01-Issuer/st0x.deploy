@@ -250,8 +250,10 @@ library LibBeaconInvariants {
         ];
     }
 
-    /// @notice The three production beacons IN USE on the active chain, in a
-    /// fixed order (receipt, receipt vault, wrapped token vault). Beacon
+    /// @notice The four production beacons IN USE on the active chain, in a
+    /// fixed order (receipt, receipt vault, wrapped token vault,
+    /// orchestrator) — index-aligned with the `*_BEACON_INDEX` constants
+    /// above. Beacon
     /// addresses are per-chain deploy artifacts that never change once a
     /// chain's production tokens point at them — only the implementations they
     /// serve are upgraded — so "which beacons is production running on" is
@@ -259,7 +261,7 @@ library LibBeaconInvariants {
     /// (`LibProdBeaconsBase` / `LibProdBeacons0_1_1`, same shape and index
     /// order); this map only dispatches by chain id.
     /// @param chainId The active chain id (`block.chainid`).
-    /// @return The chain's three in-use beacon addresses.
+    /// @return The chain's four in-use beacon addresses.
     function prodBeaconsForChainId(uint256 chainId) internal view returns (address[4] memory) {
         if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
             return LibProdBeaconsBase.beacons();
@@ -284,7 +286,7 @@ library LibBeaconInvariants {
         revert UnsupportedChainForProdBeacons(chainId);
     }
 
-    /// @notice Assert the active chain's three IN-USE production beacons are
+    /// @notice Assert the active chain's four IN-USE production beacons are
     /// deployed and owned by THAT chain's token-owner Safe. This is the
     /// ownership invariant that matters operationally: whoever owns an in-use
     /// beacon can repoint every production vault proxy on the chain, so each
@@ -298,7 +300,7 @@ library LibBeaconInvariants {
     }
 
     /// @notice Owner-parametric `assertProdBeaconsOwnedByChainSafe`: assert
-    /// the active chain's three IN-USE production beacons are deployed and
+    /// the active chain's four IN-USE production beacons are deployed and
     /// owned by `expectedOwner`. Parameterised because the beacon owner is a
     /// principal an operational script deliberately mutates — the
     /// governance-timelock migration moves it from the chain's Safe to the

@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {console2} from "forge-std-1.16.1/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 
@@ -19,10 +20,22 @@ import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.s
 import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../../../src/lib/LibTokenInvariants.sol";
 
+/// @notice The governance-timelock rollout deadline passed with this chain
+/// still pre-rollout: the timelock is not deployed there, or the chain has no
+/// production tokens to govern. Run the outstanding dispatches, extend the
+/// deadline, or delete the invariant.
+/// @param label The chain still pending.
+error GovernanceTimelockRolloutOverdue(string label);
+
 /// @title GovernanceTimelockMigrationTest
 /// @notice Live-fork forcing function for the governance-timelock rollout,
-/// per chain (Base + Ethereum + HyperEVM — every chain carrying production
-/// tokens). Two surfaces are asserted through the migration window:
+/// per chain — every chain in `governedChainCandidates()`. Base, Ethereum and
+/// HyperEVM carry production tokens behind a deployed timelock and are
+/// asserted through the full migration window; Robinhood Chain and BNB Smart
+/// Chain are pre-rollout (no timelock on-chain, token tables still
+/// placeholders) and take the PENDING branch, which still pins the derivation
+/// and refuses past `ROLLOUT_DEADLINE`. Two surfaces are asserted through the
+/// migration window:
 ///
 /// - **Vault ownership** — every production receipt vault's `owner()` is
 ///   either the chain's Safe (migration pending) or the chain's governance
@@ -61,6 +74,18 @@ contract GovernanceTimelockMigrationTest is Test {
     /// move it earlier to tighten the forcing function or later to loosen
     /// it if the SLA shifts.
     uint256 internal constant GOVERNANCE_TIMELOCK_MIGRATION_DEADLINE = 1_790_812_800;
+
+    /// @notice Unix timestamp past which a chain may no longer be
+    /// pre-rollout — `2026-12-01T00:00:00Z`, the shared Robinhood Chain / BNB
+    /// Smart Chain bootstrap date every other pending gate in the repo uses
+    /// (`DeployOrchestratorEnabledProdTest.ROLLOUT_DEADLINE`,
+    /// `StoxCrossChainParityTest.ROBINHOOD_PARITY_DEADLINE` /
+    /// `BSC_PARITY_DEADLINE`). Deliberately NOT
+    /// `GOVERNANCE_TIMELOCK_MIGRATION_DEADLINE`: that one is the SLA for
+    /// EXECUTING the migration on a chain that already has both a timelock
+    /// and tokens, and holding an un-bootstrapped chain to it would red-line
+    /// cron over a rollout that is on schedule.
+    uint256 internal constant ROLLOUT_DEADLINE = 1_796_083_200;
 
     /// @notice Sentinel "holder" reported when BOTH the Safe and the
     /// timelock hold an `_ADMIN` role. Never a legitimate on-chain state
@@ -161,24 +186,112 @@ contract GovernanceTimelockMigrationTest is Test {
     /// inside the same migration window. HyperEVM carries 29 live production
     /// tokens, so leaving it outside the deadline would let the chain with
     /// the newest deployment be the one chain still Safe-governed.
-    /// @dev Soft-skips while `HYPEREVM_RPC_URL` is unprovisioned in CI
-    /// (rainix is adding the `RPC_URL_HYPEREVM_FORK` slot, RAI-1511) — the
-    /// same PENDING-log-and-return the multichain stack's HyperEVM suites
-    /// use, since the static job bans `vm.skip`. The chain-map half of
-    /// HyperEVM's coverage is asserted fork-free by
-    /// `testEveryGovernedChainHasTimelockCoverage` below, so a missing RPC
-    /// does not leave the chain wholly unasserted.
+    /// @dev Forks unconditionally, matching `StoxProdV4Test`: CI supplies
+    /// `HYPEREVM_RPC_URL` to the shared rainix test workflow from the
+    /// `RPC_URL_HYPEREVM_FORK` secret, so a missing RPC must fail at fork
+    /// time rather than pass having asserted nothing.
     function testHyperevmGovernanceInMigrationWindow() external {
-        if (bytes(vm.envOr("HYPEREVM_RPC_URL", string(""))).length == 0) {
-            emit log("PENDING: HYPEREVM_RPC_URL not available in this environment (RAI-1511)");
-            return;
-        }
         vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
         assertChainMigrationWindow(
             LibTokenInvariants.productionTokensHyperEvm(),
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM,
             LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_HYPEREVM,
             LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM
+        );
+    }
+
+    /// @notice Log that a chain is still pre-rollout, and refuse once the
+    /// rollout deadline has passed. The PENDING branch is never silent and
+    /// never open-ended.
+    /// @param label Human chain name.
+    /// @param what What the chain is still waiting on.
+    function pendingRollout(string memory label, string memory what) internal view {
+        if (block.timestamp >= ROLLOUT_DEADLINE) {
+            revert GovernanceTimelockRolloutOverdue(label);
+        }
+        console2.log(string.concat("PENDING [", label, "]: ", what));
+    }
+
+    /// @notice Whether every triple in a token table is hydrated. A chain
+    /// mid-bootstrap carries an all-placeholder table, and there is nothing
+    /// to assert ownership of until the deploy lands.
+    /// @param tokens The table to inspect.
+    /// @return Every address in the table is non-zero.
+    function tokenTableHydrated(TokenInstance[] memory tokens) internal pure returns (bool) {
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (
+                tokens[i].receipt == address(0) || tokens[i].receiptVault == address(0)
+                    || tokens[i].wrappedTokenVault == address(0)
+            ) {
+                return false;
+            }
+        }
+        return tokens.length > 0;
+    }
+
+    /// @notice `assertChainMigrationWindow` for a chain that may still be
+    /// pre-rollout. The pin is asserted unconditionally — non-zero, and equal
+    /// to the address the chain's own Safe derives — because the pin is a
+    /// pure function of frozen creation bytecode and is knowable before any
+    /// deploy. Only the LIVE-state legs wait, and only until
+    /// `ROLLOUT_DEADLINE`.
+    /// @param label Human chain name, used in the PENDING logs.
+    /// @param tokens The chain's production token table.
+    /// @param safe The chain's token-owner Safe (the pre-state).
+    /// @param timelock The chain's governance timelock pin (the post-state).
+    /// @param authoriser The chain's V4 authoriser clone.
+    function assertChainMigrationWindowOrPending(
+        string memory label,
+        TokenInstance[] memory tokens,
+        address safe,
+        address timelock,
+        address authoriser
+    ) internal {
+        assertNotEq(timelock, address(0), "governance timelock pin is zero: reverted or never-hydrated chain arm");
+        assertEq(
+            timelock,
+            LibTimelockInvariants.expectedTimelockAddress(safe),
+            string.concat(label, ": timelock pin does not match the address its own Safe derives")
+        );
+
+        if (timelock.code.length == 0) {
+            pendingRollout(label, "governance timelock not deployed -> dispatch 20260729-deploy-governance-timelock");
+            return;
+        }
+
+        if (!tokenTableHydrated(tokens)) {
+            pendingRollout(label, "token table placeholder -> dispatch 20260807-deploy-missing-tokens");
+            return;
+        }
+
+        assertChainMigrationWindow(tokens, safe, timelock, authoriser);
+    }
+
+    /// @notice Robinhood Chain's governance rollout. Pre-rollout today: the
+    /// timelock deploy has not been dispatched and the 41-token table is
+    /// still placeholders, so the pin + derivation are asserted and the
+    /// live-state legs are PENDING until `ROLLOUT_DEADLINE`.
+    function testRobinhoodGovernanceInMigrationWindow() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
+        assertChainMigrationWindowOrPending(
+            "robinhood",
+            LibTokenInvariants.productionTokensRobinhood(),
+            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD,
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ROBINHOOD,
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD
+        );
+    }
+
+    /// @notice BNB Smart Chain's governance rollout, on the same terms as the
+    /// Robinhood Chain leg.
+    function testBscGovernanceInMigrationWindow() external {
+        vm.createSelectFork(LibStoxDeployNetworks.BSC);
+        assertChainMigrationWindowOrPending(
+            "bsc",
+            LibTokenInvariants.productionTokensBsc(),
+            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC,
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_BSC,
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC
         );
     }
 
