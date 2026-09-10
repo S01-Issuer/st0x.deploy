@@ -66,3 +66,5 @@ jobs:
       RPC_URL_BASE_FORK: ${{ secrets.RPC_URL_BASE_FORK }}
       RPC_URL_ETHEREUM_FORK: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
       RPC_URL_HYPEREVM_FORK: ${{ secrets.RPC_URL_HYPEREVM_FORK }}
+      RPC_URL_ROBINHOOD_FORK: ${{ secrets.RPC_URL_ROBINHOOD_FORK }}
+      RPC_URL_BSC_FORK: ${{ secrets.RPC_URL_BSC_FORK }}
