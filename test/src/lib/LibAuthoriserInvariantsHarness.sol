@@ -13,6 +13,10 @@ contract LibAuthoriserInvariantsHarness {
         LibAuthoriserInvariants.assertAll();
     }
 
+    function callActiveChainAuthoriser() external view returns (address) {
+        return LibAuthoriserInvariants.activeChainAuthoriser();
+    }
+
     function callAssertExpectedGrants(address authoriser) external view {
         LibAuthoriserInvariants.assertExpectedGrants(authoriser);
     }

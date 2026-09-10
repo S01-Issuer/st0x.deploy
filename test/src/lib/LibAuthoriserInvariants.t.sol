@@ -17,6 +17,7 @@ import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 
 /// @title LibAuthoriserInvariantsTest
 /// @notice Fork tests pinning the production V4 authoriser clone's state
@@ -43,6 +44,29 @@ contract LibAuthoriserInvariantsTest is Test {
     function testAssertAllPasses() external {
         selectBaseFork();
         LibAuthoriserInvariants.assertAll();
+    }
+
+    /// @notice Robinhood Chain's arm resolves to its hydrated pin, the clone
+    /// is live at it with the pinned EIP-1167 codehash, and the ceremony
+    /// left it on the canonical grant map keyed to that chain's Safe
+    /// (orchestrator rows included, pointing at the not-yet-deployed
+    /// instance pin). Live drift detector on an unpinned fork, same
+    /// precedent as `testAssertAllPasses`.
+    function testRobinhoodAuthoriserIsLiveOnTheCanonicalMap() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        address authoriser = harness.callActiveChainAuthoriser();
+        assertEq(authoriser, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD, "Robinhood arm != pin");
+        LibAuthoriserInvariants.assertExpectedGrants(authoriser, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD);
+    }
+
+    /// @notice Same for BNB Smart Chain.
+    function testBscAuthoriserIsLiveOnTheCanonicalMap() external {
+        vm.createSelectFork(LibStoxDeployNetworks.BSC);
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        address authoriser = harness.callActiveChainAuthoriser();
+        assertEq(authoriser, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC, "BSC arm != pin");
+        LibAuthoriserInvariants.assertExpectedGrants(authoriser, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC);
     }
 
     /// @notice `assertAll` reverts `AuthoriserImplCodehashMismatch` when the
