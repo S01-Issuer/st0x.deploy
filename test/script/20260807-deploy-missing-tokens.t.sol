@@ -19,6 +19,7 @@ import {
 } from "../../script/20260807-deploy-missing-tokens.s.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
+import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 import {DeployMissingTokensHarness} from "./DeployMissingTokensHarness.sol";
@@ -28,6 +29,11 @@ import {DeployMissingTokensHarness} from "./DeployMissingTokensHarness.sol";
 /// two in-code tables (Base vs the target chain), so it is PURE — testable
 /// without a fork — and the deploy pre-flight reuses the gate chain the
 /// per-chain prod pins already exercise against live state.
+/// @dev The authoriser pre-flight is covered from both sides. The refusals are
+/// fork-free (`vm.chainId` + a pin with nothing, or the wrong thing, at it),
+/// which is what lets them state an exact expected revert; the acceptances are
+/// live head forks, which is what makes the PINS themselves assertable rather
+/// than only the codehash comparison they feed.
 contract DeployMissingTokensTest is Test {
     /// @dev The 0.1.1 authoriser implementation the production V4 authoriser
     /// clones. Written out rather than imported so this test states the
@@ -192,20 +198,39 @@ contract DeployMissingTokensTest is Test {
         assertEq(bsc.length, LibTokenInvariants.productionTokensBsc().length, "BNB Smart Chain table mismatch");
     }
 
-    /// @notice Same placeholder refusal for BNB Smart Chain.
-    function testAuthoriserNotReadyWhileTheBscPinIsAPlaceholder() external {
-        vm.chainId(LibSafeInvariants.BSC_CHAIN_ID);
-        vm.expectRevert(abi.encodeWithSelector(AuthoriserNotReady.selector, address(0)));
-        harness.assertAuthoriserReady();
+    /// @notice Robinhood Chain's V4 authoriser clone is live at its pin, so
+    /// the pre-flight accepts it against the real chain rather than against an
+    /// etched stand-in. This is the check the etched positive below cannot
+    /// make: it proves the PIN is the address the clone actually occupies on
+    /// Robinhood Chain, not merely that some address carrying the audited
+    /// runtime would be accepted.
+    /// @dev Unpinned head fork. Pinning a block would freeze the answer to
+    /// what was true at that block, and a clone selfdestructed or replaced
+    /// afterwards would still read as ready.
+    function testAuthoriserReadyOnTheRobinhoodFork() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
+        assertEq(block.chainid, LibSafeInvariants.ROBINHOOD_CHAIN_ID, "ROBINHOOD_RPC_URL is not Robinhood Chain");
+        // Redeployed on the fork: `setUp`'s harness lives in the pre-fork
+        // state, which `createSelectFork` swaps out from under it.
+        DeployMissingTokensHarness forked = new DeployMissingTokensHarness();
+        assertEq(
+            forked.assertAuthoriserReady(),
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD,
+            "Robinhood Chain authoriser clone rejected on the live fork"
+        );
     }
 
-    /// @notice Robinhood Chain's clone pin is a placeholder until its
-    /// authoriser deploy executes, and a placeholder is refused as not-ready
-    /// — the token deploy cannot wire vaults onto `address(0)`.
-    function testAuthoriserNotReadyWhileTheRobinhoodPinIsAPlaceholder() external {
-        vm.chainId(LibSafeInvariants.ROBINHOOD_CHAIN_ID);
-        vm.expectRevert(abi.encodeWithSelector(AuthoriserNotReady.selector, address(0)));
-        harness.assertAuthoriserReady();
+    /// @notice Same live-fork acceptance for BNB Smart Chain.
+    /// @dev Unpinned head fork, for the same reason as the Robinhood leg.
+    function testAuthoriserReadyOnTheBscFork() external {
+        vm.createSelectFork(LibStoxDeployNetworks.BSC);
+        assertEq(block.chainid, LibSafeInvariants.BSC_CHAIN_ID, "BSC_RPC_URL is not BNB Smart Chain");
+        DeployMissingTokensHarness forked = new DeployMissingTokensHarness();
+        assertEq(
+            forked.assertAuthoriserReady(),
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC,
+            "BNB Smart Chain authoriser clone rejected on the live fork"
+        );
     }
 
     /// @notice `run()` reverts `DeployerNotDeployed` when the 0.1.1 core has
