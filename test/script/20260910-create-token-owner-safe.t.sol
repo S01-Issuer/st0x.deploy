@@ -12,14 +12,7 @@ import {
 import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
-
-/// @dev Exposes the script's derivation so the tests can pin it against the
-/// live Safes without broadcasting.
-contract CreateTokenOwnerSafeHarness is CreateTokenOwnerSafe {
-    function callDerivedSafeAddress() external view returns (address) {
-        return derivedSafeAddress();
-    }
-}
+import {CreateTokenOwnerSafeHarness} from "./CreateTokenOwnerSafeHarness.sol";
 
 /// @title CreateTokenOwnerSafeTest
 /// @notice The replayed initializer must derive to the address the live
