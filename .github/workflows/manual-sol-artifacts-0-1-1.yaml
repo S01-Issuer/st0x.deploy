@@ -41,16 +41,27 @@ on:
           - stox-offchain-asset-receipt-vault-beacon-set-deployer
           # 5. Unified deployer (depends on the two set-deployers above).
           - stox-unified-deployer
+      legacy:
+        description: >-
+          Send type-0 transactions. HyperEVM's RPC rejects forge's EIP-1559
+          fee-history estimation, so a run that has to BROADCAST on HyperEVM
+          needs this. Robinhood Chain rejects it the other way round: its
+          gas-price oracle quotes below the block base fee, so a type-0 run
+          there fails with "max fee per gas less than block base fee". A
+          network where the suite already has code is skipped before any fee
+          estimation, so a bootstrap run onto new chains only needs the flag
+          set for the chains it will actually land on.
+        required: false
+        type: boolean
+        default: true
 jobs:
   deploy:
     uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-artifacts.yaml@main
     with:
       suite: ${{ inputs.suite }}
-      # HyperEVM's RPC rejects forge's EIP-1559 fee-history estimation, and
       # `--legacy` is one flag over the whole `forge script` run, so it cannot
-      # vary per network within a run. Type-0 is valid on every network the
-      # script ships to, so it is unconditional.
-      legacy: true
+      # vary per network within a run; see the input for when to set it.
+      legacy: ${{ inputs.legacy }}
       # Ship the stored 0.1.1 creation bytecode, not current source.
       script: script/DeployProdV4_0_1_1.sol:Deploy
       # The 0.1.1 bytecode of the contracts that changed by 0.1.3 does not match
