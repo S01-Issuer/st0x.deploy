@@ -248,4 +248,25 @@ contract StoxProdV4Test is Test {
         checkProd_0_1_1OnChain(true);
         LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
     }
+
+    /// Only the audited 0.1.1 production set ships to Robinhood Chain (the
+    /// RAI-2285 bootstrap), mirroring HyperEVM. Forks unconditionally from
+    /// the `RPC_URL_ROBINHOOD_FORK` secret. RED until the audited 0.1.1
+    /// suite lands on Robinhood Chain and its in-use beacons are owned by
+    /// the Robinhood Chain token-owner Safe; green thereafter, catching
+    /// later drift.
+    function testProdDeployRobinhoodV4() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
+        checkProd_0_1_1OnChain(true);
+        LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
+    }
+
+    /// Same pin for BNB Smart Chain (RAI-2312): RED until the audited 0.1.1
+    /// suite lands there and its in-use beacons are owned by the BNB Smart
+    /// Chain token-owner Safe.
+    function testProdDeployBscV4() external {
+        vm.createSelectFork(LibStoxDeployNetworks.BSC);
+        checkProd_0_1_1OnChain(true);
+        LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
+    }
 }
