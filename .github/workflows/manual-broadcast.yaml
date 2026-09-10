@@ -37,6 +37,7 @@ on:
           - 20260729-deploy-governance-timelock
           - 20260813-execute-timelock-operations
           - 20260818-deploy-orchestrator
+          - 20260910-deploy-clone-factory
       network:
         description: 'Network to broadcast against (default: base)'
         required: true
