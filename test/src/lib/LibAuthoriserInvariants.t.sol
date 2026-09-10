@@ -11,13 +11,13 @@ import {
     UnexpectedDefaultAdmin,
     UnexpectedRetainedAdminGrant,
     UnexpectedRetiredSignerGrant,
-    AuthoriserImplCodehashMismatch,
-    AuthoriserNotReady
+    AuthoriserImplCodehashMismatch
 } from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 
 /// @title LibAuthoriserInvariantsTest
 /// @notice Fork tests pinning the production V4 authoriser clone's state
@@ -46,23 +46,27 @@ contract LibAuthoriserInvariantsTest is Test {
         LibAuthoriserInvariants.assertAll();
     }
 
-    /// @notice Robinhood Chain has an arm but a placeholder pin until its
-    /// clone deploy executes, and a placeholder is refused as not-ready
-    /// rather than read as "no authoriser to check". Fork-free: the arm and
-    /// the zero check are both pure functions of `block.chainid` and the pin.
-    function testActiveChainAuthoriserRefusesTheRobinhoodPlaceholder() external {
+    /// @notice Robinhood Chain's arm resolves to its hydrated pin, the clone
+    /// is live at it with the pinned EIP-1167 codehash, and the ceremony
+    /// left it on the canonical grant map keyed to that chain's Safe
+    /// (orchestrator rows included, pointing at the not-yet-deployed
+    /// instance pin). Live drift detector on an unpinned fork, same
+    /// precedent as `testAssertAllPasses`.
+    function testRobinhoodAuthoriserIsLiveOnTheCanonicalMap() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
-        vm.chainId(LibSafeInvariants.ROBINHOOD_CHAIN_ID);
-        vm.expectRevert(abi.encodeWithSelector(AuthoriserNotReady.selector, address(0)));
-        harness.callActiveChainAuthoriser();
+        address authoriser = harness.callActiveChainAuthoriser();
+        assertEq(authoriser, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD, "Robinhood arm != pin");
+        LibAuthoriserInvariants.assertExpectedGrants(authoriser, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD);
     }
 
-    /// @notice Same placeholder phase for BNB Smart Chain.
-    function testActiveChainAuthoriserRefusesTheBscPlaceholder() external {
+    /// @notice Same for BNB Smart Chain.
+    function testBscAuthoriserIsLiveOnTheCanonicalMap() external {
+        vm.createSelectFork(LibStoxDeployNetworks.BSC);
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
-        vm.chainId(LibSafeInvariants.BSC_CHAIN_ID);
-        vm.expectRevert(abi.encodeWithSelector(AuthoriserNotReady.selector, address(0)));
-        harness.callActiveChainAuthoriser();
+        address authoriser = harness.callActiveChainAuthoriser();
+        assertEq(authoriser, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC, "BSC arm != pin");
+        LibAuthoriserInvariants.assertExpectedGrants(authoriser, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC);
     }
 
     /// @notice `assertAll` reverts `AuthoriserImplCodehashMismatch` when the
