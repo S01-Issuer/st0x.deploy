@@ -25,7 +25,7 @@ on:
         description: 'Whitespace separated foundry chain ids or names'
         required: true
         type: string
-        default: '8453 1 999'
+        default: '8453 1 999 56'
 jobs:
   verify:
     uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-verify.yaml@main
@@ -41,6 +41,7 @@ jobs:
       CI_DEPLOY_ARBITRUM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_ARBITRUM_ETHERSCAN_API_KEY }}
       CI_DEPLOY_BASE_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_BASE_ETHERSCAN_API_KEY }}
       CI_DEPLOY_BASE_SEPOLIA_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_BASE_SEPOLIA_ETHERSCAN_API_KEY }}
+      CI_DEPLOY_BSC_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_BSC_ETHERSCAN_API_KEY }}
       CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY }}
       CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY }}
       CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY }}
