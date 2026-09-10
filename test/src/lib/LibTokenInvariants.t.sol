@@ -112,4 +112,15 @@ contract LibTokenInvariantsTest is Test {
             assertEq(robinhood[i].underlying, base[i].underlying, "Robinhood Chain token underlying diverges from Base");
         }
     }
+
+    /// The BNB Smart Chain token table mirrors Base row-for-row on the
+    /// `underlying` key; addresses are placeholders until its token deploy.
+    function testBscTokenTableMirrorsBaseUnderlyings() external pure {
+        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
+        TokenInstance[] memory bsc = LibTokenInvariants.productionTokensBsc();
+        assertEq(bsc.length, base.length, "BNB Smart Chain token table length diverges from Base");
+        for (uint256 i = 0; i < base.length; i++) {
+            assertEq(bsc[i].underlying, base[i].underlying, "BNB Smart Chain token underlying diverges from Base");
+        }
+    }
 }

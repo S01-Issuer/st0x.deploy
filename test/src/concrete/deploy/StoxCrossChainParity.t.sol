@@ -394,6 +394,11 @@ contract StoxCrossChainParityTest is Test {
     /// deliberately if the bootstrap slips.
     uint256 internal constant ROBINHOOD_PARITY_DEADLINE = 1_796_083_200;
 
+    /// @notice Unix timestamp past which the BNB Smart Chain legs must have
+    /// armed — `2026-12-01T00:00:00Z`, the same placeholder deadline as
+    /// Robinhood Chain's; move it deliberately if the bootstrap slips.
+    uint256 internal constant BSC_PARITY_DEADLINE = 1_796_083_200;
+
     /// @notice Assert every LIVE leg of a chain on the ACTIVE fork, skipping
     /// (with a loud PENDING log) any leg whose pins are still placeholders, and
     /// capture what it read for the cross-chain comparison. The legs are nested
@@ -610,10 +615,20 @@ contract StoxCrossChainParityTest is Test {
             LibTokenInvariants.productionTokensRobinhood()
         );
 
+        // BNB Smart Chain, from the `RPC_URL_BSC_FORK` secret.
+        vm.createSelectFork(LibStoxDeployNetworks.BSC);
+        ChainLegs memory bsc = assertChainLegs(
+            "BNB Smart Chain",
+            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC,
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC,
+            LibTokenInvariants.productionTokensBsc()
+        );
+
         // ---- Cross-chain comparisons, each gated on both sides being live ----
         assertParityWithBase("Ethereum", base, eth);
         assertParityWithBase("HyperEVM", base, hyper);
         assertParityWithBase("Robinhood Chain", base, robinhood);
+        assertParityWithBase("BNB Smart Chain", base, bsc);
 
         // ---- The suite must prove it actually ran ----
 
@@ -655,6 +670,13 @@ contract StoxCrossChainParityTest is Test {
             assertTrue(robinhood.safeLive, "Robinhood Chain Safe leg still pending past the parity deadline");
             assertTrue(robinhood.cloneLive, "Robinhood Chain authoriser leg still pending past the parity deadline");
             assertTrue(robinhood.tokenLegLive, "Robinhood Chain token leg still pending past the parity deadline");
+        }
+
+        // BNB Smart Chain's legs arm as its bootstrap lands (RAI-2312).
+        if (block.timestamp >= BSC_PARITY_DEADLINE) {
+            assertTrue(bsc.safeLive, "BNB Smart Chain Safe leg still pending past the parity deadline");
+            assertTrue(bsc.cloneLive, "BNB Smart Chain authoriser leg still pending past the parity deadline");
+            assertTrue(bsc.tokenLegLive, "BNB Smart Chain token leg still pending past the parity deadline");
         }
     }
 }

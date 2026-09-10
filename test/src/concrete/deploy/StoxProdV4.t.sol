@@ -260,4 +260,13 @@ contract StoxProdV4Test is Test {
         checkProd_0_1_1OnChain(true);
         LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
     }
+
+    /// Same pin for BNB Smart Chain (RAI-2312): RED until the audited 0.1.1
+    /// suite lands there and its in-use beacons are owned by the BNB Smart
+    /// Chain token-owner Safe.
+    function testProdDeployBscV4() external {
+        vm.createSelectFork(LibStoxDeployNetworks.BSC);
+        checkProd_0_1_1OnChain(true);
+        LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
+    }
 }
