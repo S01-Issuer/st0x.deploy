@@ -102,6 +102,32 @@ contract DeployMissingTokensTest is Test {
         assertEq(missing.length, LibTokenInvariants.productionTokensBase().length, "expected the full Base set");
     }
 
+    /// @notice A target table of PLACEHOLDER rows — every ticker listed with
+    /// zero addresses, the shape a new chain's table takes ahead of its
+    /// deploy so the parity pins can pair by index — selects the whole Base
+    /// set, exactly like an empty table. The 2026-09-10 Robinhood Chain
+    /// dispatch (run 34541560863) refused `NoMissingTokens` because the
+    /// ticker match alone read the placeholders as deployed tokens.
+    function testSelectionTreatsPlaceholderRowsAsMissing() external view {
+        TokenInstance[] memory placeholders = LibTokenInvariants.productionTokensRobinhood();
+        TokenConfig[] memory missing = harness.selectMissing(
+            LibProdTokenConfig.productionTokenConfigs(), LibTokenInvariants.productionTokensBase(), placeholders
+        );
+        assertEq(missing.length, LibTokenInvariants.productionTokensBase().length, "expected the full Base set");
+    }
+
+    /// @notice A half-hydrated target — some rows deployed, the rest still
+    /// placeholders — selects only the placeholder rows.
+    function testSelectionSkipsDeployedRowsAmongPlaceholders() external view {
+        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
+        TokenInstance[] memory target = LibTokenInvariants.productionTokensRobinhood();
+        target[0] = base[0];
+        target[base.length - 1] = base[base.length - 1];
+        TokenConfig[] memory missing = harness.selectMissing(LibProdTokenConfig.productionTokenConfigs(), base, target);
+        assertEq(missing.length, base.length - 2, "expected every placeholder row and nothing else");
+        assertEq(missing[0].underlying, base[1].underlying, "first selected row");
+    }
+
     /// @notice A config table running AHEAD of Base is a normal state, not a
     /// drift: rows are authored when a ticker is chosen and Base is pinned
     /// when it is deployed, so the config table leads until the Base deploy
