@@ -14,7 +14,7 @@ import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.s
 
 /// @title RobinhoodBeaconOwnershipTest
 /// @notice The forcing function for the Robinhood Chain beacon-ownership
-/// migration (`20260909-migrate-token-beacon-owners`), mirroring
+/// migration (`20260909-upgrade-and-migrate-token-beacons`), mirroring
 /// `HyperEvmBeaconOwnershipTest`: every chain's production beacons must be
 /// owned by that chain's token-owner Safe. RED from the moment the 0.1.1
 /// impl suites land on Robinhood Chain (beacons come up EOA-owned) until
