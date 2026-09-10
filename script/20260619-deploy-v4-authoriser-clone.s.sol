@@ -158,6 +158,9 @@ contract DeployV4AuthoriserClone is Script {
         if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
             return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD;
         }
+        if (block.chainid == LibSafeInvariants.BSC_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC;
+        }
         revert V4AuthoriserCloneUnsupportedChain(block.chainid);
     }
 

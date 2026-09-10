@@ -363,6 +363,9 @@ contract BuildPointers is Script {
         // CloneFactory over the same Zoltu-deployed impl), but the pin is
         // the run's logged value, never the expectation.
         vm.writeLine(GEN_V4_PATH, "address constant STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD = address(0);");
+        // BNB Smart Chain V4 authoriser clone — the same placeholder phase as
+        // Robinhood Chain's, hydrated by its own post-execution pin PR.
+        vm.writeLine(GEN_V4_PATH, "address constant STOX_PROD_AUTHORISER_V4_CLONE_BSC = address(0);");
         vm.writeLine(GEN_V4_PATH, "uint256 constant V4_SWAP_DEADLINE = 1_793_491_200;");
         // ST0x orchestrator beacon + production instance — CREATE-derived
         // from the 0.1.30 orchestrator beacon-set deployer (itself a Zoltu

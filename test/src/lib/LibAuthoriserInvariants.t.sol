@@ -57,6 +57,14 @@ contract LibAuthoriserInvariantsTest is Test {
         harness.callActiveChainAuthoriser();
     }
 
+    /// @notice Same placeholder phase for BNB Smart Chain.
+    function testActiveChainAuthoriserRefusesTheBscPlaceholder() external {
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        vm.chainId(LibSafeInvariants.BSC_CHAIN_ID);
+        vm.expectRevert(abi.encodeWithSelector(AuthoriserNotReady.selector, address(0)));
+        harness.callActiveChainAuthoriser();
+    }
+
     /// @notice `assertAll` reverts `AuthoriserImplCodehashMismatch` when the
     /// clone's runtime codehash drifts from the pinned EIP-1167 runtime.
     /// Simulated by etching alien bytecode over the pinned clone address.
