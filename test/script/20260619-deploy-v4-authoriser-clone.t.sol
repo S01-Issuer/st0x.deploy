@@ -22,7 +22,8 @@ import {
     CloneFactoryCodehashMismatch,
     DeployerStillHoldsAdminRole,
     ExpectedGrantMissing,
-    CloneCodehashMismatch
+    CloneCodehashMismatch,
+    V4AuthoriserClonePinAlreadyHydrated
 } from "../../script/20260619-deploy-v4-authoriser-clone.s.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
@@ -162,6 +163,21 @@ contract DeployV4AuthoriserCloneTest is Test {
         bytes32 expected = LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_1;
         bytes32 actual = keccak256(bogusCode);
         vm.expectRevert(abi.encodeWithSelector(V4ImplCodehashMismatch.selector, v4Impl, expected, actual));
+        vm.prank(deployer, deployer);
+        script.run();
+    }
+
+    /// @notice Pre-flight refuses a chain whose clone pin is already
+    /// hydrated: a re-dispatch would mint a second clone the lib does not
+    /// know about. Every chain's pin is hydrated today, so this guard is
+    /// what stands between the dropdown and a stray clone.
+    function testRunRejectsHydratedClonePin() external {
+        selectBaseFork();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                V4AuthoriserClonePinAlreadyHydrated.selector, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE
+            )
+        );
         vm.prank(deployer, deployer);
         script.run();
     }
