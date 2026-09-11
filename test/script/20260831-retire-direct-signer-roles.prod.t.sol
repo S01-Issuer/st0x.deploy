@@ -42,7 +42,9 @@ contract RetireDirectSignerRolesProdTest is Test {
     /// @notice Walk the active fork's retirement state (see the contract
     /// NatSpec) and assert it.
     /// @param label Human chain name, surfaced in logs and messages.
-    function assertRetireRollout(string memory label) internal {
+    /// @param chainId The chain the leg must be forked on.
+    function assertRetireRollout(string memory label, uint256 chainId) internal {
+        assertEq(block.chainid, chainId, string.concat(label, ": fork"));
         RetireDirectSignerRolesHarness script = new RetireDirectSignerRolesHarness();
         address orchestrator = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
         address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
@@ -116,16 +118,40 @@ contract RetireDirectSignerRolesProdTest is Test {
 
     function testRetireRolloutBase() external {
         vm.createSelectFork(LibRainDeploy.BASE);
-        assertRetireRollout("base");
+        assertRetireRollout("base", LibSafeInvariants.BASE_CHAIN_ID);
     }
 
     function testRetireRolloutEthereum() external {
         vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
-        assertRetireRollout("ethereum");
+        assertRetireRollout("ethereum", LibSafeInvariants.ETHEREUM_CHAIN_ID);
     }
 
     function testRetireRolloutHyperEvm() external {
         vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
-        assertRetireRollout("hyperevm");
+        assertRetireRollout("hyperevm", LibSafeInvariants.HYPEREVM_CHAIN_ID);
+    }
+
+    function testRetireRolloutRobinhood() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
+        assertRetireRollout("robinhood", LibSafeInvariants.ROBINHOOD_CHAIN_ID);
+    }
+
+    function testRetireRolloutBsc() external {
+        vm.createSelectFork(LibStoxDeployNetworks.BSC);
+        assertRetireRollout("bsc", LibSafeInvariants.BSC_CHAIN_ID);
+    }
+
+    /// @notice A new chain still in burn-in is overdue at the deadline like
+    /// any other.
+    function testRetireRolloutOverdueOnANewChain() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
+        vm.warp(RETIRE_DEADLINE);
+        vm.expectRevert(abi.encodeWithSelector(RetirementOverdue.selector, "robinhood"));
+        this.externalAssertRetireRollout("robinhood", LibSafeInvariants.ROBINHOOD_CHAIN_ID);
+    }
+
+    /// @notice External shim so `vm.expectRevert` can see the helper's revert.
+    function externalAssertRetireRollout(string memory label, uint256 chainId) external {
+        assertRetireRollout(label, chainId);
     }
 }
