@@ -55,18 +55,11 @@ error TokenOwnerSafeLandedElsewhere(address expected, address actual);
 /// the CI deploy key can dispatch this on any chain and land the same
 /// `0x3840aeDa…0329` the Ethereum and HyperEVM Safes occupy.
 ///
-/// @dev Dispatch via `Actions → manual-broadcast` with
-/// `script = 20260910-create-token-owner-safe` and `network` set to the new
-/// chain. Self-scoping: it derives the address from the initializer, refuses
-/// unless that equals the chain's `LibSafeInvariants` pin (so it cannot create
-/// a Safe the repo does not expect — Base's pin is not derivable this way and
-/// is refused), and refuses if the pin already has code. It leaves the Safe at
-/// threshold **1**, exactly as the replayed creation did, because the
-/// threshold is part of the initializer and therefore of the address. Raising
-/// it to the policy's 3-of-6 is an owner action: author it with
-/// `MigrateMultisigThreshold` (`multisig-artifact.yaml`) and execute from any
-/// one owner. Every pin-dependent step (`assertActiveChainTokenOwnerSafe`)
-/// gates on the threshold, so nothing downstream can run against the 1-of-6
+/// @dev Base's Safe was created some other way and sits elsewhere, so Base is
+/// refused. The Safe is left at threshold 1 because the threshold is part of
+/// the initializer and therefore of the address; an owner raises it to the
+/// policy's 3 with `changeThreshold(3)` in the Safe UI. Every pin-dependent
+/// step gates on the threshold, so nothing downstream runs in the 1-of-6
 /// window.
 contract CreateTokenOwnerSafe is Script {
     /// @notice Pre-flight (pin derivable, not yet created), broadcast the
@@ -100,7 +93,7 @@ contract CreateTokenOwnerSafe is Script {
             LibSafeInvariants.tokenOwnerSafeCreationOwners()
         );
 
-        console2.log("Token-owner Safe created at the pin. Threshold is 1 of 6: raise it to");
-        console2.log("3 via MigrateMultisigThreshold before any pin-dependent dispatch.");
+        console2.log("Token-owner Safe created at the pin at threshold 1 of 6. An owner");
+        console2.log("raises it to 3 (changeThreshold) before any pin-dependent dispatch.");
     }
 }
