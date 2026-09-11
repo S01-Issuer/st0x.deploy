@@ -62,11 +62,12 @@ error TokenOwnerSafeLandedElsewhere(address expected, address actual);
 /// a Safe the repo does not expect — Base's pin is not derivable this way and
 /// is refused), and refuses if the pin already has code. It leaves the Safe at
 /// threshold **1**, exactly as the replayed creation did, because the
-/// threshold is not part of the address derivation. Raising it to the policy's
-/// 3-of-6 is an owner action: author it with `MigrateMultisigThreshold`
-/// (`multisig-artifact.yaml`) and execute from any one owner. Every
-/// pin-dependent step (`assertActiveChainTokenOwnerSafe`) gates on the
-/// threshold, so nothing downstream can run against the 1-of-6 window.
+/// threshold is part of the initializer and therefore of the address. Raising
+/// it to the policy's 3-of-6 is an owner action: author it with
+/// `MigrateMultisigThreshold` (`multisig-artifact.yaml`) and execute from any
+/// one owner. Every pin-dependent step (`assertActiveChainTokenOwnerSafe`)
+/// gates on the threshold, so nothing downstream can run against the 1-of-6
+/// window.
 contract CreateTokenOwnerSafe is Script {
     /// @notice Safe's fee collector, the `paymentReceiver` the Safe UI wrote
     /// into the Ethereum creation. Inert at `payment = 0`, but part of the
