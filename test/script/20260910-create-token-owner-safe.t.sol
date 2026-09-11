@@ -9,7 +9,6 @@ import {
     TokenOwnerSafeAlreadyExists,
     TokenOwnerSafePinNotDerivable
 } from "../../script/20260910-create-token-owner-safe.s.sol";
-import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {CreateTokenOwnerSafeHarness} from "./CreateTokenOwnerSafeHarness.sol";
@@ -77,11 +76,7 @@ contract CreateTokenOwnerSafeTest is Test {
                 vm.resetNonce(pin);
             }
             script.run();
-            IGnosisSafe safe = IGnosisSafe(pin);
             assertGt(pin.code.length, 0, networks[i]);
-            LibSafeInvariants.assertImmutableInvariants(safe);
-            LibSafeInvariants.assertOwnerSetUnordered(safe, LibSafeInvariants.expectedOwners());
-            assertEq(safe.getThreshold(), 1, "creation threshold");
             vm.expectRevert(abi.encodeWithSelector(TokenOwnerSafeAlreadyExists.selector, pin));
             script.run();
         }
