@@ -7,6 +7,8 @@ import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessContro
 import {
     LibAuthoriserInvariants,
     RoleGrant,
+    AuthoriserNotReady,
+    UnsupportedChainForAuthoriser,
     ExpectedGrantMissing,
     UnexpectedDefaultAdmin,
     UnexpectedRetainedAdminGrant,
@@ -52,6 +54,38 @@ contract LibAuthoriserInvariantsTest is Test {
     /// (orchestrator rows included, pointing at the not-yet-deployed
     /// instance pin). Live drift detector on an unpinned fork, same
     /// precedent as `testAssertAllPasses`.
+    /// @notice A governed chain whose pin has no code here (no fork) is
+    /// refused as not ready rather than returned; the pin alone is not
+    /// enough.
+    function testActiveChainAuthoriserRefusesAPinWithoutCode() external {
+        vm.chainId(LibSafeInvariants.ROBINHOOD_CHAIN_ID);
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        vm.expectRevert(
+            abi.encodeWithSelector(AuthoriserNotReady.selector, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD)
+        );
+        harness.callActiveChainAuthoriser();
+    }
+
+    /// @notice A pin carrying bytecode other than the EIP-1167 clone is
+    /// refused: address and code presence are not enough either.
+    function testActiveChainAuthoriserRefusesForeignCode() external {
+        vm.chainId(LibSafeInvariants.BSC_CHAIN_ID);
+        address pin = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC;
+        vm.etch(pin, hex"FE");
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        vm.expectRevert(abi.encodeWithSelector(AuthoriserNotReady.selector, pin));
+        harness.callActiveChainAuthoriser();
+    }
+
+    /// @notice An unpinned chain reverts typed rather than resolving to
+    /// another chain's clone.
+    function testActiveChainAuthoriserRefusesAnUnknownChain() external {
+        vm.chainId(123456);
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForAuthoriser.selector, uint256(123456)));
+        harness.callActiveChainAuthoriser();
+    }
+
     function testRobinhoodAuthoriserIsLiveOnTheCanonicalMap() external {
         vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
