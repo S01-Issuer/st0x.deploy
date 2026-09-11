@@ -1005,57 +1005,261 @@ library LibTokenInvariants {
     /// tables pair by index as well as by key (the cross-chain parity pin
     /// asserts the alignment).
     ///
-    /// **ALL PLACEHOLDERS** (`address(0)`) until the Robinhood Chain token
-    /// deployment (`20260807-deploy-missing-tokens` on `robinhood`) executes
-    /// and the post-execution pin PR hydrates every entry in one reviewed
-    /// change. Hydration is all-or-nothing across the table: the multichain
-    /// issuance cutover is lockstep over the full token set, so a partially
-    /// hydrated table is an error state, which the cross-chain parity suite
-    /// rejects rather than half-checks.
+    /// Deployed on Robinhood Chain 2026-09-10 by `20260807-deploy-missing-tokens`
+    /// on `robinhood` (manual-broadcast run 34542355140): all 41 tokens via the
+    /// 0.1.1 unified deployer against beacons already on 0.1.30, each wired
+    /// onto this chain's V4 authoriser and handed to its token-owner Safe in
+    /// the same broadcast. Addresses pinned from the run's logged
+    /// (underlying, receipt, receiptVault, wrapped) tuples.
     /// @return tokens The 41 production token instances on Robinhood Chain.
     function productionTokensRobinhood() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](41);
-        tokens[0] = TokenInstance("MSTR", address(0), address(0), address(0));
-        tokens[1] = TokenInstance("TSLA", address(0), address(0), address(0));
-        tokens[2] = TokenInstance("COIN", address(0), address(0), address(0));
-        tokens[3] = TokenInstance("SPYM", address(0), address(0), address(0));
-        tokens[4] = TokenInstance("SIVR", address(0), address(0), address(0));
-        tokens[5] = TokenInstance("CRCL", address(0), address(0), address(0));
-        tokens[6] = TokenInstance("NVDA", address(0), address(0), address(0));
-        tokens[7] = TokenInstance("IAU", address(0), address(0), address(0));
-        tokens[8] = TokenInstance("PPLT", address(0), address(0), address(0));
-        tokens[9] = TokenInstance("AMZN", address(0), address(0), address(0));
-        tokens[10] = TokenInstance("BMNR", address(0), address(0), address(0));
-        tokens[11] = TokenInstance("IBHG", address(0), address(0), address(0));
-        tokens[12] = TokenInstance("SGOV", address(0), address(0), address(0));
-        tokens[13] = TokenInstance("QQQM", address(0), address(0), address(0));
-        tokens[14] = TokenInstance("VWO", address(0), address(0), address(0));
-        tokens[15] = TokenInstance("ARKK", address(0), address(0), address(0));
-        tokens[16] = TokenInstance("SPCX", address(0), address(0), address(0));
-        tokens[17] = TokenInstance("CEG", address(0), address(0), address(0));
-        tokens[18] = TokenInstance("DRAM", address(0), address(0), address(0));
-        tokens[19] = TokenInstance("TSM", address(0), address(0), address(0));
-        tokens[20] = TokenInstance("SKHY", address(0), address(0), address(0));
-        tokens[21] = TokenInstance("ASML", address(0), address(0), address(0));
-        tokens[22] = TokenInstance("MU", address(0), address(0), address(0));
-        tokens[23] = TokenInstance("AMD", address(0), address(0), address(0));
-        tokens[24] = TokenInstance("AVGO", address(0), address(0), address(0));
-        tokens[25] = TokenInstance("AMAT", address(0), address(0), address(0));
-        tokens[26] = TokenInstance("LRCX", address(0), address(0), address(0));
-        tokens[27] = TokenInstance("TTWO", address(0), address(0), address(0));
-        tokens[28] = TokenInstance("RKLB", address(0), address(0), address(0));
-        tokens[29] = TokenInstance("GOOGL", address(0), address(0), address(0));
-        tokens[30] = TokenInstance("AAPL", address(0), address(0), address(0));
-        tokens[31] = TokenInstance("MSFT", address(0), address(0), address(0));
-        tokens[32] = TokenInstance("LLY", address(0), address(0), address(0));
-        tokens[33] = TokenInstance("PTY", address(0), address(0), address(0));
-        tokens[34] = TokenInstance("INTC", address(0), address(0), address(0));
-        tokens[35] = TokenInstance("HOOD", address(0), address(0), address(0));
-        tokens[36] = TokenInstance("ORCL", address(0), address(0), address(0));
-        tokens[37] = TokenInstance("SMCI", address(0), address(0), address(0));
-        tokens[38] = TokenInstance("BABA", address(0), address(0), address(0));
-        tokens[39] = TokenInstance("TQQQ", address(0), address(0), address(0));
-        tokens[40] = TokenInstance("FTF", address(0), address(0), address(0));
+        tokens[0] = TokenInstance(
+            "MSTR",
+            0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
+            0x8500189061e2206Bc33Bf04DC10fFB1Fe7dED637,
+            0xd9fE7488B86D3aEaf457b181C744BD1A5a120833
+        );
+        tokens[1] = TokenInstance(
+            "TSLA",
+            0x3a3E00d6fb65E686941f77DD375ca677Ad7772c2,
+            0xB41fD00d0bA60D9Ae8dCE405cB6AAd5710E5F84d,
+            0x550499e28A3CE8cb1dB3e3Db23fDD0357eD3ff48
+        );
+        tokens[2] = TokenInstance(
+            "COIN",
+            0x5cF43A3fFd5B979C36B6512800cdAa6A2EF4f352,
+            0x5100ED387Ab3ED37667199aD8f9F6D963157d28e,
+            0xa3d1be1Ab9F4E72309Cb9Bfeaa14aFe46D012e36
+        );
+        tokens[3] = TokenInstance(
+            "SPYM",
+            0xB023d277f4a50cE056Dd921C28fF7e27F56B3445,
+            0x484AaA9e6542774026b24aeD4EC3058400eD2439,
+            0x7dF3ad1ECC10DBF0296D05F91a697e4A059771c2
+        );
+        tokens[4] = TokenInstance(
+            "SIVR",
+            0x89dC2d5B33e8DcbD24A2e4A07f7B06f55b5bb24e,
+            0xc6100518997004eFb0701Da3c56000B3d093470a,
+            0x2B310218001C38cf82816c2098AedDCE22D3Df27
+        );
+        tokens[5] = TokenInstance(
+            "CRCL",
+            0xDf228279B380e8445970a3B4162B9509D4339520,
+            0xeF63EdB9F39Dcd03C103A11e2e7E1878308b9586,
+            0x25Ab6926BA171e1618b214cda774104B2f6ec884
+        );
+        tokens[6] = TokenInstance(
+            "NVDA",
+            0xA26C89357e6cb53Bf670db2e0e939f5489Ba26A8,
+            0xf6A89b0c9FF897000E37bBD06397992278FfC50d,
+            0xa3947d2A74F5a3A7135A9d0c66B28fC7315f30Da
+        );
+        tokens[7] = TokenInstance(
+            "IAU",
+            0x9003CAc529d1299891C2aaa08b4c810b81F49488,
+            0xb9A1D1822F57f52959b8c5097A8322D534bceDEe,
+            0x33f3a6401ce08f705eE4B8a03fc37F298395b720
+        );
+        tokens[8] = TokenInstance(
+            "PPLT",
+            0x216cbEeC16cF7e4dBd53e6e3D8B54b7dA23BE146,
+            0x47C2e6644eFDF58E86dA45dC60e0f67A65043B99,
+            0xCbD06C802BFe993de94d0d635AB5B1fa764519D8
+        );
+        tokens[9] = TokenInstance(
+            "AMZN",
+            0xA583addaA69142E8588D9ffE3767Dbb0F23fd516,
+            0x6615f3D82989949fa7d167b40FEc0Ef30cdbA476,
+            0x4404E24629a33b85FC1E2D7beA673Cd283054594
+        );
+        tokens[10] = TokenInstance(
+            "BMNR",
+            0x34BF824C28121EbD421026D70a03A7Ec9Ee5a0d4,
+            0x00472aA0D0611F933c22b8148F02B0cDd1Ae5fbc,
+            0x35e1D3d3Fa6D43438641d2b8f63cBf84C84435c0
+        );
+        tokens[11] = TokenInstance(
+            "IBHG",
+            0x8e05CB17994Ee9B207e87993717F6Fb2ee7D0bD3,
+            0x36b30F5B5D1AcD3D8135Afe7a5516A300021f139,
+            0x03bBb4148ba82d63993D32fB8E6Eff8Cc51A56f2
+        );
+        tokens[12] = TokenInstance(
+            "SGOV",
+            0xE4B5Af0bAc3dC97b77d6eE4E95F59c74c679ee5c,
+            0x344147366F648640076d363FAF659c214788E99d,
+            0x06b17E431a957Dd8522Bf106653BAc6B39F437E6
+        );
+        tokens[13] = TokenInstance(
+            "QQQM",
+            0x1Eb9583d1BB2b00B3CB5ead921d021b445F77dBc,
+            0x5Aa65dfF455C7f18C21370086EaFaEe4f2b63608,
+            0x63fDfe9cf53cB1FD5d98fE7537B881B86aE04A31
+        );
+        tokens[14] = TokenInstance(
+            "VWO",
+            0x1A09A154E2ae3890d1e18507a37bC3e2FCfA10cc,
+            0x2cc8DCfC649f9633C482C81473cC251226375fE3,
+            0x01EE8b582147D1Aa8A8f2Adc2EBB91fA60082AB0
+        );
+        tokens[15] = TokenInstance(
+            "ARKK",
+            0xF1E5f11e7fAA40b2C2CEdfAD825D81207f793862,
+            0xDf406836D5A092894ee5d5bdC7F58e5bdc8D196A,
+            0x5D80cAcaABCe0ab4C1541493ceB25D97970D250a
+        );
+        tokens[16] = TokenInstance(
+            "SPCX",
+            0x46dC08972b1d5D5876d244292c551dbbbC7d7e80,
+            0x659Ea9dd1C833fc76E5328E0E616d8b9D9836dc3,
+            0xC32C8166164E2cA18BB5fbf3E82CB776943d97FB
+        );
+        tokens[17] = TokenInstance(
+            "CEG",
+            0x99Ffbf38E7c0D9C440BA629D0108E7d0E96cB710,
+            0x6240E93f1A08d43002e52b210cD49c54C813D780,
+            0xc842fC56Dd39B62357d027a0F3B3266353cac991
+        );
+        tokens[18] = TokenInstance(
+            "DRAM",
+            0xbD4Fa8Fd2643b46eADC499b5A468108817988830,
+            0x5F5a1Bdc00ade7702ea5944B1374DC598dA3759f,
+            0x7e1263f1e1EeF7eCe7fA7e568842f213a6CEa956
+        );
+        tokens[19] = TokenInstance(
+            "TSM",
+            0x2Ce6A6B9E573ec0444C00103ACEee9dC23223621,
+            0x7Ac659f601bEa2d9f490E0D0D8a68c4282fD9B21,
+            0x050dB961D36DC2047c779798694AeE455CD40BE6
+        );
+        tokens[20] = TokenInstance(
+            "SKHY",
+            0xd3150728FFDb338eFd9b07ae90A7D5e688bc3B20,
+            0xa3a7BEcF428b250Ec1b88Dbc65F579a9570670c7,
+            0xD13bBc46C4582246656868d32227A99A538D97E1
+        );
+        tokens[21] = TokenInstance(
+            "ASML",
+            0x6AEBd84df448d2E25080590797075b399Ca43549,
+            0x77Ee94C8B85cF48a426F84B0F2d796eC77e41c7b,
+            0xb8605a64B57E7A8631c87F3187c783493231bdD9
+        );
+        tokens[22] = TokenInstance(
+            "MU",
+            0x98A3887f51AA93079978D265Cb20E215AfEB8b0f,
+            0x2C845ed32c5fDE012eb14508d0d24BD3300B1D71,
+            0xF01523C4ca52dF88f07938D4Fb32FCBb6b159867
+        );
+        tokens[23] = TokenInstance(
+            "AMD",
+            0x0e257A952817ef779407aA27E5CD5F27863883Aa,
+            0xe2De878d8Ca6bA544BFE80a10fAb0395DF32Cff0,
+            0xb904955bC71FE6c8e6aBE676ACca640Abc771622
+        );
+        tokens[24] = TokenInstance(
+            "AVGO",
+            0x607991FE92F9476eBedA4761295E5E2cc37e2834,
+            0x503a69b2918DFA152eb0e0803174ed90ba5be756,
+            0xCee4981Fc273C105e2b9eA1fD19031Aa9a6cf113
+        );
+        tokens[25] = TokenInstance(
+            "AMAT",
+            0x8C8810F83a0F5a8C1A3D541411100DBFB68C5b0c,
+            0x26139195f7a82a52c62C4047F843C99c61Ed9a5E,
+            0x44DE27A07B33CD708A49fa79629fAC1df03C56d3
+        );
+        tokens[26] = TokenInstance(
+            "LRCX",
+            0x2630CA3D952b265F88C189f3679FA985dF34A93D,
+            0xe68A46547CdBBB181587B32cCD1A505Bedf0a994,
+            0xD1c1D974837d3f79A92E14048993AD28a6228831
+        );
+        tokens[27] = TokenInstance(
+            "TTWO",
+            0x47E3487B12272Bb1F933452F855CEb1C5e27204E,
+            0xb62E913f0cC881862527Fa7e41e1C98eEf09cedD,
+            0x1D6F0763e58FA6d472d470Eaaef0a4C08080d208
+        );
+        tokens[28] = TokenInstance(
+            "RKLB",
+            0xFf5b15a4f478F296893b0b244D9b118Be87bCda2,
+            0xED0c085d92C262FB46937CB0B3C9763Af7fCCf30,
+            0x8FC87Be766C0cB6f254F1FDc9351D4B85B560FB3
+        );
+        tokens[29] = TokenInstance(
+            "GOOGL",
+            0x9e2C9bE59aEB0D9ea7bF070B37fc02AF8a5af239,
+            0xDA52106FC0D44096Fd500E096b9045FdAc1d27B9,
+            0x3209384FB852E7D0510aFa896236f3f866c3876f
+        );
+        tokens[30] = TokenInstance(
+            "AAPL",
+            0xE3D23D83a750789D6c4150B70013D896e623c948,
+            0xC982730643321f3643436Eb4a6E910219Caa55f0,
+            0x1B2A2C8c3621642c64cf1245016488fA0f76da78
+        );
+        tokens[31] = TokenInstance(
+            "MSFT",
+            0x1B5df34bD6397Ba7d9A365263692A006e7a2972a,
+            0x3b3936b5Ec170Cdb5823012dBF4dF1d56Cfa1ba5,
+            0x8DdAEC53399E5324BbC60a368eA853c713629B1d
+        );
+        tokens[32] = TokenInstance(
+            "LLY",
+            0xB7D42b94A8E51b098270ac92ceD23fDC8042FDB3,
+            0x15d415952a36D4cE80671e918B2531bdB25274E5,
+            0x908266E3C3bFBb603d2EdF295deBE37C88985239
+        );
+        tokens[33] = TokenInstance(
+            "PTY",
+            0x58916AC4e186ad201376288a6655Ea46b55b8ac5,
+            0xf3875383506677BCdA6b9F12c48Ff7fE300970D7,
+            0x04eE4ED5FF6643eA955503f966012b684f479966
+        );
+        tokens[34] = TokenInstance(
+            "INTC",
+            0x5f1DBfBf9345f3185C52aC3c080a0EDDb4f540c2,
+            0xb526Bf49DAB7F72B772FEF4B6D572C254A454ef7,
+            0x4E3600f48C61eF4513c72923ab50851bD546FFA9
+        );
+        tokens[35] = TokenInstance(
+            "HOOD",
+            0xdC29d07D2125699FA44cAB7e940542b526dB0abd,
+            0x50DE74136b67911799fc39B726bFC2707cCec769,
+            0xca678d0d69F9E815d1A4f4dF05C904b2DDE017f8
+        );
+        tokens[36] = TokenInstance(
+            "ORCL",
+            0x8CF3E580465e8DFaE05FF42BbFCe0d98BfF79580,
+            0x06aE3f6CFaE124039902a79Da44ad2a4A4489250,
+            0xd702276d50fdCf58b0E41b3f1f9651faBC1141f4
+        );
+        tokens[37] = TokenInstance(
+            "SMCI",
+            0x9a288A27a9898f145AF9575b46617bB1DF705106,
+            0x1eE2cE9654FFa008029e8e328a95f45EBfB3bC63,
+            0xa6890e89D99Fd4F275c016d89A28ec24A428846D
+        );
+        tokens[38] = TokenInstance(
+            "BABA",
+            0x824eA918F35821a72E34b4eaD257AF60603cb20C,
+            0xb3f9A61b0e97c7F7Bb85Ea5E9Dad0da8f3496B57,
+            0xAbb2641950C7dE9D3ec9AA05668e112E1DB701F6
+        );
+        tokens[39] = TokenInstance(
+            "TQQQ",
+            0x7b66449B3d7cD6569F1e235f6E4A664C24538EA8,
+            0xdf4F0897Ec6f0C37Bfc974a815cA440A3c2C2e8B,
+            0xc80730995D2C53114BAaFd2736E02f4E274D5B83
+        );
+        tokens[40] = TokenInstance(
+            "FTF",
+            0x05215bE061F61d341703a6b63AcFDFf396965425,
+            0x334ccaD2e7D774F5e6A13437977dD0878926deF8,
+            0x710A14a41a8Ea2e25376124C48bf9cAdc1E69be5
+        );
     }
 
     /// @notice Returns the production token instance triples on BNB Smart
@@ -1063,54 +1267,261 @@ library LibTokenInvariants {
     /// tables pair by index as well as by key (the cross-chain parity pin
     /// asserts the alignment).
     ///
-    /// **ALL PLACEHOLDERS** (`address(0)`) until the BNB Smart Chain token
-    /// deployment (`20260807-deploy-missing-tokens` on `bsc`) executes and
-    /// the post-execution pin PR hydrates every entry in one reviewed
-    /// change; all-or-nothing, as for every other chain's table.
+    /// Deployed on BNB Smart Chain 2026-09-10 by `20260807-deploy-missing-tokens`
+    /// on `bsc` (manual-broadcast run 34545683866): all 41 tokens via the
+    /// 0.1.1 unified deployer against beacons already on 0.1.30, each wired
+    /// onto this chain's V4 authoriser and handed to its token-owner Safe in
+    /// the same broadcast. Addresses pinned from the run's logged
+    /// (underlying, receipt, receiptVault, wrapped) tuples.
     /// @return tokens The 41 production token instances on BNB Smart Chain.
     function productionTokensBsc() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](41);
-        tokens[0] = TokenInstance("MSTR", address(0), address(0), address(0));
-        tokens[1] = TokenInstance("TSLA", address(0), address(0), address(0));
-        tokens[2] = TokenInstance("COIN", address(0), address(0), address(0));
-        tokens[3] = TokenInstance("SPYM", address(0), address(0), address(0));
-        tokens[4] = TokenInstance("SIVR", address(0), address(0), address(0));
-        tokens[5] = TokenInstance("CRCL", address(0), address(0), address(0));
-        tokens[6] = TokenInstance("NVDA", address(0), address(0), address(0));
-        tokens[7] = TokenInstance("IAU", address(0), address(0), address(0));
-        tokens[8] = TokenInstance("PPLT", address(0), address(0), address(0));
-        tokens[9] = TokenInstance("AMZN", address(0), address(0), address(0));
-        tokens[10] = TokenInstance("BMNR", address(0), address(0), address(0));
-        tokens[11] = TokenInstance("IBHG", address(0), address(0), address(0));
-        tokens[12] = TokenInstance("SGOV", address(0), address(0), address(0));
-        tokens[13] = TokenInstance("QQQM", address(0), address(0), address(0));
-        tokens[14] = TokenInstance("VWO", address(0), address(0), address(0));
-        tokens[15] = TokenInstance("ARKK", address(0), address(0), address(0));
-        tokens[16] = TokenInstance("SPCX", address(0), address(0), address(0));
-        tokens[17] = TokenInstance("CEG", address(0), address(0), address(0));
-        tokens[18] = TokenInstance("DRAM", address(0), address(0), address(0));
-        tokens[19] = TokenInstance("TSM", address(0), address(0), address(0));
-        tokens[20] = TokenInstance("SKHY", address(0), address(0), address(0));
-        tokens[21] = TokenInstance("ASML", address(0), address(0), address(0));
-        tokens[22] = TokenInstance("MU", address(0), address(0), address(0));
-        tokens[23] = TokenInstance("AMD", address(0), address(0), address(0));
-        tokens[24] = TokenInstance("AVGO", address(0), address(0), address(0));
-        tokens[25] = TokenInstance("AMAT", address(0), address(0), address(0));
-        tokens[26] = TokenInstance("LRCX", address(0), address(0), address(0));
-        tokens[27] = TokenInstance("TTWO", address(0), address(0), address(0));
-        tokens[28] = TokenInstance("RKLB", address(0), address(0), address(0));
-        tokens[29] = TokenInstance("GOOGL", address(0), address(0), address(0));
-        tokens[30] = TokenInstance("AAPL", address(0), address(0), address(0));
-        tokens[31] = TokenInstance("MSFT", address(0), address(0), address(0));
-        tokens[32] = TokenInstance("LLY", address(0), address(0), address(0));
-        tokens[33] = TokenInstance("PTY", address(0), address(0), address(0));
-        tokens[34] = TokenInstance("INTC", address(0), address(0), address(0));
-        tokens[35] = TokenInstance("HOOD", address(0), address(0), address(0));
-        tokens[36] = TokenInstance("ORCL", address(0), address(0), address(0));
-        tokens[37] = TokenInstance("SMCI", address(0), address(0), address(0));
-        tokens[38] = TokenInstance("BABA", address(0), address(0), address(0));
-        tokens[39] = TokenInstance("TQQQ", address(0), address(0), address(0));
-        tokens[40] = TokenInstance("FTF", address(0), address(0), address(0));
+        tokens[0] = TokenInstance(
+            "MSTR",
+            0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8,
+            0x75E0d127794b9C26eE35c55fbaBcc41c53Ccb37C,
+            0x15925E1c19c0F0d392F6FCb40FdE9144Dd823962
+        );
+        tokens[1] = TokenInstance(
+            "TSLA",
+            0x9452c603A552f35003206f9001C51007C36F530F,
+            0x4Da175A70020EeEFa71C36d710307ed0803Aed60,
+            0xc3bc6EEf91FfAeBACB13f4c48aC0515C820d2b0c
+        );
+        tokens[2] = TokenInstance(
+            "COIN",
+            0x7bc0B10f99c95F9F3e1e12a436a3869B53c9cb9C,
+            0x6872cEe8E1a07Dd8C1154755f7e215F2973caE52,
+            0x36FE4dc30b3b4906c9A64D5C957D49388E8d38E8
+        );
+        tokens[3] = TokenInstance(
+            "SPYM",
+            0xc562dB7c3B8A41cBF8B84D3C057787723BD13d2F,
+            0xaE7115d434c84F2f4a1196BaD67415d479804af1,
+            0xeaA6da57f120D5a0acB9Ff4807F7990EfBbE303a
+        );
+        tokens[4] = TokenInstance(
+            "SIVR",
+            0xee6F971a9Bf473355286749b52Bfe614Df5fC129,
+            0x269CA594b6463F0D94086fb2D77dFaad32d1c6C4,
+            0x08A85a5AcE300e881e7c8828412A3Bdfd6F99054
+        );
+        tokens[5] = TokenInstance(
+            "CRCL",
+            0x5536F0308E969C2DB0e52dBe99CB6871cC9E35f4,
+            0xA1768baE756058fE00dD281C405DDe1C48B00F3B,
+            0x6a73364EaE305199B62585C4486C24f3b72b2C72
+        );
+        tokens[6] = TokenInstance(
+            "NVDA",
+            0xbf56725da5a71B3111C660c2279ADA6D1270772E,
+            0x8790337c4Ce51b66CBa179129d830A3683780ff6,
+            0x24ae429A29882b06898afCBAef20BfDb93f67e20
+        );
+        tokens[7] = TokenInstance(
+            "IAU",
+            0x37BbE0cd96266CFc10960521EfB32A822ef780E0,
+            0xC04160F3e18e120C2259f3FE33864823bF3b9015,
+            0xe26b53fb8B0819682432d27C88D6505883cabafF
+        );
+        tokens[8] = TokenInstance(
+            "PPLT",
+            0x6884986776e2e221B7Cd5c566bBD9338051F24fB,
+            0x5e6e803242E52451FfdA82Fd7b5Ce4967B95C76E,
+            0x8fe134109A9Eb38D3f071a9Df4911081B4aa0814
+        );
+        tokens[9] = TokenInstance(
+            "AMZN",
+            0x9765A993735a639191ea2AAd2ac92eb122Bd394c,
+            0xdca06fddf5320870C8E9D0534aa102677C36bCc4,
+            0xB80Bd4D599EeBBF2851d4E7F5594918B82FF1823
+        );
+        tokens[10] = TokenInstance(
+            "BMNR",
+            0x0eE9d8bB4D7d035b5Dc33937573Cc03BDb419c6e,
+            0x4a88c84AA04a5151997e8E503BEe7fD92E0918A9,
+            0xb7fC2b7881cceeB73D8DEccf69B6AcB8aC2E0826
+        );
+        tokens[11] = TokenInstance(
+            "IBHG",
+            0xea8AF911CE3582d8fB5d6F1cd4695Ba115d1BdCA,
+            0x4a18036Dce22168D8891919a1c75aC2CAf9a08AB,
+            0xBe127eeD812DC1F622227FAdc8639d4138B47b2e
+        );
+        tokens[12] = TokenInstance(
+            "SGOV",
+            0xEb36fc7B191b8358c0Cc839A873fCe1108fc36d1,
+            0xF88e511a3c762eE7E9ddd348a417F8e8db45BDEE,
+            0x1abADE2601DA2617f441e2c2B3Fff870445FEfd1
+        );
+        tokens[13] = TokenInstance(
+            "QQQM",
+            0x8231910EA52Ce2753C70D07545cEBfe476a609bA,
+            0x6c6f1CBe2fA860b1a15A02922d97A2d614db4923,
+            0x441Eaae749B7BA0C4462F2b19a47fBe8De0DFac2
+        );
+        tokens[14] = TokenInstance(
+            "VWO",
+            0x7B3aA82Ca4Ef0eE146C32183366f3dED77400E0c,
+            0xfEa217600e2b00bBB2172a99345016a0cEb7d29f,
+            0x685DFd386968B58D895F934485820C479C79a8bB
+        );
+        tokens[15] = TokenInstance(
+            "ARKK",
+            0x34a8386fd0a943D4c1F182e9eb6b5e125509dFF2,
+            0x2E04C503ebd584C3c0Bb1d57E0C51E7B7EaE28E1,
+            0xe93A1Bb48e797dDa936f405A7A253f55040584D5
+        );
+        tokens[16] = TokenInstance(
+            "SPCX",
+            0xc3f3EAfCc5927C645cdb22CEEB68844D53AA7C7C,
+            0x76D34283ec6d29b1b07E0e6077f5c436AD163B9c,
+            0xfBA650082205E5807a5eAF28BdcC8E851bB2f753
+        );
+        tokens[17] = TokenInstance(
+            "CEG",
+            0x4ed13d2C1f545FA73f53bE8c0BB82D279738C10f,
+            0xF8bF43D61E4Cd2a5b5DfaD01BaC84693d7B95e51,
+            0x06096908dBC38fc54509024674E4fd1891B5F7CA
+        );
+        tokens[18] = TokenInstance(
+            "DRAM",
+            0x395717EE8201419b21B40A400ea959a7D7d43A36,
+            0xfAE9AfE275E57759f8Fbae5f252c65aDBF1b773F,
+            0x23A0944e82766242dA76cb0f77e0b7812e5487EA
+        );
+        tokens[19] = TokenInstance(
+            "TSM",
+            0x9835e52FAFA9A92678C8A9420034706B1edD431e,
+            0x4d4D633bf04ABF6e4cF152C7c5c1ecD906Ab3de4,
+            0x5Ce8b84756dDdE011734F04dC4bA2930C981B443
+        );
+        tokens[20] = TokenInstance(
+            "SKHY",
+            0x29e7fe750DFffd4D7C8e907C126324B8a5A9AdB7,
+            0xd78025Aa344E549A1D76eCE1591c481cC7Bc3548,
+            0x81f40cbCFAE7A1aD1f4474eD95A210DfA3B90B0f
+        );
+        tokens[21] = TokenInstance(
+            "ASML",
+            0xe509C440B68c4FBf95e24d7476d3e5Bc8b25a8BB,
+            0x89857176e95973FDC8f365532CF4c162b3EE11f0,
+            0x88c10BEcFf283c21e9253d688ec06804359cF795
+        );
+        tokens[22] = TokenInstance(
+            "MU",
+            0x7e26dE68d52b54f9CBc8D64833c1fEDA82C36A92,
+            0xdab834808F67f8aC69642996A28571D4B2aD484E,
+            0xE828671B6EDd47122e4AcDE7aba6D12c58F244A3
+        );
+        tokens[23] = TokenInstance(
+            "AMD",
+            0xe26C011A6dcFd8286a3Cf47718F14299d33f9478,
+            0xb4e960909A3fe9179Ed7e0FBC6ABF3301Ce85536,
+            0x5d6775Cb5b22faF47471986e99265C1a4846d845
+        );
+        tokens[24] = TokenInstance(
+            "AVGO",
+            0x25A8D39070510B41889000b2Cc35c4f7DBD72134,
+            0xaAb11f0141C2AA6B9A3845EFdB1a6D16DC40924a,
+            0xF4a7b2f0D02C488099e80874Bb035A5490fBB063
+        );
+        tokens[25] = TokenInstance(
+            "AMAT",
+            0x53405346fc8a6235408083FE612bbc41703a32e2,
+            0x516d6c697C40E24De9D17811e642a07a6D70Cf07,
+            0xFF4d9a957868fAa99c8E46B16614527806BF9Df5
+        );
+        tokens[26] = TokenInstance(
+            "LRCX",
+            0xe8A142fbDCFa6Ca663b507d4f23Df20d71cb4EFB,
+            0x012ec0436407b8ade9A00614e01Abf1FaAB69755,
+            0x8135482f5590e25eD8CCaFa3aD4165A3c57C84DF
+        );
+        tokens[27] = TokenInstance(
+            "TTWO",
+            0xd06c1c388769FFeB47BDE408B0C5BBb071797aE1,
+            0xe319e212860ef85c4082B3B73641bD25721c88B2,
+            0x5A61EF0b15e4B2805aE066848f63ECA646988129
+        );
+        tokens[28] = TokenInstance(
+            "RKLB",
+            0xBF907e8bE14FfFeDef6FD2f02E780E03176Fc514,
+            0x2C594750DBE8e5B2D8d155b4FcB39FEd307A91b9,
+            0xcF06ba5e81B5148f371823d86e88a9508FA3c7E9
+        );
+        tokens[29] = TokenInstance(
+            "GOOGL",
+            0xCe5a91f916A91e005fC0a87CFf161B560e608e42,
+            0x925eB169Ed82889a7AFE5292D97998acb26B6233,
+            0xc7f956fc103bDD062C01B9cAaa1829a55fC9dE9F
+        );
+        tokens[30] = TokenInstance(
+            "AAPL",
+            0xC617Fe6239A8Eb2aD2CB2151fb56C9B5ACb72cE6,
+            0xfa63F568c4487711124D9f258D3A9167a89797c3,
+            0x407DEa5B6a1B7B7DbA021C55A9ecb294530A89Df
+        );
+        tokens[31] = TokenInstance(
+            "MSFT",
+            0xaCfd9C413fe0253dc9336dA97e426eaaB9A5AfbD,
+            0xb9c3a133e2425eeC6D8a1dAD9A0D78308BE79a5E,
+            0x2CFe46d386Ea8D7E4cDAE588C933560674BB9085
+        );
+        tokens[32] = TokenInstance(
+            "LLY",
+            0x698E03e7504dcACF0D526d79713f51F363e961D4,
+            0xd2F6AbFB251a3e43df9191486485dE0E46a9E6A5,
+            0x55b3dcc96d635495831c3BE68ef7b1A28982De60
+        );
+        tokens[33] = TokenInstance(
+            "PTY",
+            0x27544f69AAceca9752714FE0c44B580FFef7f59A,
+            0xD170Ed7698508f228bB5A67D0f4548eeeA6f15CB,
+            0xEf58b9197cA61C09d140f37F009dAF5df5c811e8
+        );
+        tokens[34] = TokenInstance(
+            "INTC",
+            0x58535e864CD6C9174b26b90B8F3da82A6c5b976c,
+            0x2aA2258B97f44425769cF1a4E92a3562060A93E8,
+            0x73d02c80d3611FB1E33fa61E9c99B4FD732418F3
+        );
+        tokens[35] = TokenInstance(
+            "HOOD",
+            0x78E9123ba21f52B976FaB92dCF8944E8dE32b9Be,
+            0x0D2029Ed7497A8CC5c65E808393CEd0AF2259385,
+            0x83527768c19F845fC981A2deAeaD8C4E6c33b9Ce
+        );
+        tokens[36] = TokenInstance(
+            "ORCL",
+            0x5Ac28Db4773d6B1903c96479E7ecfaBe83E90f8A,
+            0x683dd1C36169b25355c8c110942A820f395FFB7d,
+            0xDE616a1935C6292Bcbe650b701C9abE300DEd13B
+        );
+        tokens[37] = TokenInstance(
+            "SMCI",
+            0x0d685C1A795059Ed93873b80FE87617B99D01897,
+            0x185CcB3c9C09300b3877f71E747f041604f7603F,
+            0xaE817035eEabF45E7Ae1a145c29EBEb285349474
+        );
+        tokens[38] = TokenInstance(
+            "BABA",
+            0x9d846203E00d5561F57648A6063d1D9E80B920AE,
+            0xcb8b0c80560a66c96A25297cc98b23fa1d7ACC6A,
+            0xDE6d3a82B44ac3a5618e348646591d72448Ae7e0
+        );
+        tokens[39] = TokenInstance(
+            "TQQQ",
+            0xfAC9480634A8CD16d4ad0DA795fC2bd9fef9e9A5,
+            0xCd49DA53D0570E6d34AB786aA4EB4F9E0e6aB045,
+            0x2304ad0f88635f6088522FBe2703D27C4c3168c1
+        );
+        tokens[40] = TokenInstance(
+            "FTF",
+            0xaa10C79156b09701A8ca313a985dbB671FaAe04D,
+            0x162d65E4E4313b88D7eFc37F9c8110b334110406,
+            0xd6c50a60b46eeF15ae2E8dbeFC417A6F0F154bc5
+        );
     }
 
     /// @notice Returns the 29 production receipt vault addresses on Base, in
