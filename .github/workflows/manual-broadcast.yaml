@@ -80,6 +80,17 @@ on:
         required: false
         type: boolean
         default: false
+      rpc_throttle:
+        description: >-
+          Throttle forge's fork RPC usage for a rate-limited public archive
+          endpoint: caps the assumed compute units per second at 60 and retries
+          rate-limit responses (30 retries, 2s initial backoff) instead of
+          aborting the run. Needed for long broadcasts (the 41-token copy) on
+          chains where the only archive RPC available is a public one (BNB
+          Smart Chain: blastapi 429s under forge's default request rate).
+        required: false
+        type: boolean
+        default: false
 jobs:
   broadcast:
     name: Broadcast operational script
@@ -120,6 +131,7 @@ jobs:
           SCRIPT: ${{ inputs.script }}
           NETWORK: ${{ inputs.network }}
           LEGACY: ${{ inputs.legacy }}
+          RPC_THROTTLE: ${{ inputs.rpc_throttle }}
           # PRIVATE_KEY is only available inside this step — matching
           # `manual-sol-artifacts-0-1-1.yaml`. The workflow file itself does not
           # persist it anywhere else.
@@ -138,8 +150,13 @@ jobs:
           if [[ "${NETWORK}" == "hyperevm" || "${LEGACY}" == "true" ]]; then
             LEGACY_ARGS+=(--legacy)
           fi
+          THROTTLE_ARGS=()
+          if [[ "${RPC_THROTTLE}" == "true" ]]; then
+            THROTTLE_ARGS+=(--compute-units-per-second 60 --fork-retries 30 --fork-retry-backoff 2000)
+          fi
           nix develop --command forge script "script/${SCRIPT}.s.sol" \
             "${LEGACY_ARGS[@]}" \
+            "${THROTTLE_ARGS[@]}" \
             --sig 'run()' \
             --rpc-url "${NETWORK}" \
             --no-storage-caching \
