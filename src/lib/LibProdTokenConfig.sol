@@ -24,7 +24,7 @@ struct TokenConfig {
 }
 
 /// @title LibProdTokenConfig
-/// @notice The canonical name/symbol table for the 41 ST0x production
+/// @notice The canonical name/symbol table for the 42 ST0x production
 /// tokens, captured verbatim from the live Base receipt vaults so a new
 /// chain's token set can be deployed byte-identical to Base. This is the
 /// deploy-input companion to `LibTokenInvariants` (which holds the deployed
@@ -42,10 +42,10 @@ struct TokenConfig {
 /// means carrying that space forward; the parity pin would flag it as a
 /// divergence otherwise.
 library LibProdTokenConfig {
-    /// @notice The 41 production token deploy configs, Base table order.
+    /// @notice The 42 production token deploy configs, Base table order.
     /// @return configs The name/symbol table.
     function productionTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
-        configs = new TokenConfig[](41);
+        configs = new TokenConfig[](42);
         configs[0] = TokenConfig("MSTR", "MicroStrategy Incorporated ST0x", "tMSTR");
         configs[1] = TokenConfig("TSLA", "Tesla Inc ST0x", "tTSLA");
         configs[2] = TokenConfig("COIN", "Coinbase Global Inc ST0x", "tCOIN");
@@ -88,5 +88,6 @@ library LibProdTokenConfig {
         configs[38] = TokenConfig("BABA", "Alibaba Group Holding Limited ADR ST0x", "tBABA");
         configs[39] = TokenConfig("TQQQ", "ProShares UltraPro QQQ ST0x", "tTQQQ");
         configs[40] = TokenConfig("FTF", "Franklin Limited Duration Income Trust ST0x", "tFTF");
+        configs[41] = TokenConfig("CBRS", "Cerebras Systems Inc. ST0x", "tCBRS");
     }
 }

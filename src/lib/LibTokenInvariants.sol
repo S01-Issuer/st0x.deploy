@@ -389,14 +389,22 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x9bDe199Ac6E7E050334306D9267c93e3D6d38333
     address internal constant FTF_WRAPPED_TOKEN_VAULT = address(0x9bDe199Ac6E7E050334306D9267c93e3D6d38333);
 
-    /// @notice Returns the 41 production token instance triples on Base, in
+    // ---- tCBRS / wtCBRS — Cerebras Systems Inc. ST0x ----
+    /// https://basescan.org/address/0xAe8aD2340aa19749A0b935C7F2245823fC4F14FB
+    address internal constant CBRS_RECEIPT = address(0xAe8aD2340aa19749A0b935C7F2245823fC4F14FB);
+    /// https://basescan.org/address/0xBeB0c2011bd5520A0998b69132E9245E39Ac5D1D
+    address internal constant CBRS_RECEIPT_VAULT = address(0xBeB0c2011bd5520A0998b69132E9245E39Ac5D1D);
+    /// https://basescan.org/address/0xB457cfBF31995d3aAAa704dA9999cC0b011820ca
+    address internal constant CBRS_WRAPPED_TOKEN_VAULT = address(0xB457cfBF31995d3aAAa704dA9999cC0b011820ca);
+
+    /// @notice Returns the 42 production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
     /// that need the receipt / wrapped-vault legs or the underlying join key
     /// (cross-chain parity, per-token config checks) iterate this instead.
-    /// @return tokens The 41 production token instances on Base.
+    /// @return tokens The 42 production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](41);
+        tokens = new TokenInstance[](42);
         tokens[0] = TokenInstance("MSTR", MSTR_RECEIPT, MSTR_RECEIPT_VAULT, MSTR_WRAPPED_TOKEN_VAULT);
         tokens[1] = TokenInstance("TSLA", TSLA_RECEIPT, TSLA_RECEIPT_VAULT, TSLA_WRAPPED_TOKEN_VAULT);
         tokens[2] = TokenInstance("COIN", COIN_RECEIPT, COIN_RECEIPT_VAULT, COIN_WRAPPED_TOKEN_VAULT);
@@ -448,12 +456,16 @@ library LibTokenInvariants {
         tokens[38] = TokenInstance("BABA", BABA_RECEIPT, BABA_RECEIPT_VAULT, BABA_WRAPPED_TOKEN_VAULT);
         tokens[39] = TokenInstance("TQQQ", TQQQ_RECEIPT, TQQQ_RECEIPT_VAULT, TQQQ_WRAPPED_TOKEN_VAULT);
         tokens[40] = TokenInstance("FTF", FTF_RECEIPT, FTF_RECEIPT_VAULT, FTF_WRAPPED_TOKEN_VAULT);
+        // Deployed on Base 2026-08-14 by `sft-ops create-sft`. Missing on
+        // Ethereum and HyperEVM until `20260807-deploy-missing-tokens` is
+        // dispatched against each — cross-chain parity is red until then.
+        tokens[41] = TokenInstance("CBRS", CBRS_RECEIPT, CBRS_RECEIPT_VAULT, CBRS_WRAPPED_TOKEN_VAULT);
     }
 
     /// @notice Returns the production token instance triples on Ethereum
     /// mainnet — Base's underlyings in Base row order, so the tables pair by
     /// index as well as by key.
-    /// @return tokens The 41 production token instances on Ethereum.
+    /// @return tokens The 42 production token instances on Ethereum.
     function productionTokensEthereum() internal pure returns (TokenInstance[] memory tokens) {
         // Deployed on Ethereum mainnet 2026-07-22 by
         // `20260706-deploy-tokens-ethereum` (manual-broadcast run
@@ -463,7 +475,7 @@ library LibTokenInvariants {
         // run's logged (underlying, receipt, receiptVault, wrapped) tuples.
         // Order and underlyings match Base row-for-row (the cross-chain
         // parity pin asserts this).
-        tokens = new TokenInstance[](41);
+        tokens = new TokenInstance[](42);
         tokens[0] = TokenInstance(
             "MSTR",
             address(0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763),
@@ -726,12 +738,22 @@ library LibTokenInvariants {
             address(0x334ccaD2e7D774F5e6A13437977dD0878926deF8),
             address(0x710A14a41a8Ea2e25376124C48bf9cAdc1E69be5)
         );
+        // CBRS, deployed 2026-08-14 by `20260807-deploy-missing-tokens` (run
+        // 31845108154) — the sole token the dispatch selected. Wired onto this
+        // chain's V4 authoriser and handed to its token-owner Safe in the same
+        // broadcast.
+        tokens[41] = TokenInstance(
+            "CBRS",
+            address(0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8),
+            address(0x75E0d127794b9C26eE35c55fbaBcc41c53Ccb37C),
+            address(0x15925E1c19c0F0d392F6FCb40FdE9144Dd823962)
+        );
     }
 
-    /// @notice Returns the 41 production token instance triples on HyperEVM,
+    /// @notice Returns the 42 production token instance triples on HyperEVM,
     /// in the same row order as `productionTokensBase()` (the cross-chain
     /// parity pin asserts the alignment).
-    /// @return tokens The 41 production token instances on HyperEVM.
+    /// @return tokens The 42 production token instances on HyperEVM.
     function productionTokensHyperEvm() internal pure returns (TokenInstance[] memory tokens) {
         // Deployed on HyperEVM 2026-07-24 (manual-broadcast run 30114307165):
         // all 29 tokens via the 0.1.1 unified deployer, each wired onto the
@@ -740,7 +762,7 @@ library LibTokenInvariants {
         // (underlying, receipt, receiptVault, wrapped) tuples. The script that
         // ran it was per-chain and has since been superseded by
         // `20260807-deploy-missing-tokens`, so this is the record of the run.
-        tokens = new TokenInstance[](41);
+        tokens = new TokenInstance[](42);
         tokens[0] = TokenInstance(
             "MSTR",
             0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
@@ -997,6 +1019,16 @@ library LibTokenInvariants {
             0x05215bE061F61d341703a6b63AcFDFf396965425,
             0x334ccaD2e7D774F5e6A13437977dD0878926deF8,
             0x710A14a41a8Ea2e25376124C48bf9cAdc1E69be5
+        );
+        // CBRS, deployed 2026-08-14 by `20260807-deploy-missing-tokens` (run
+        // 31845492796) — the sole token the dispatch selected. Wired onto this
+        // chain's V4 authoriser and handed to its token-owner Safe in the same
+        // broadcast.
+        tokens[41] = TokenInstance(
+            "CBRS",
+            0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8,
+            0x75E0d127794b9C26eE35c55fbaBcc41c53Ccb37C,
+            0x15925E1c19c0F0d392F6FCb40FdE9144Dd823962
         );
     }
 
