@@ -536,14 +536,22 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x6aed8b1aCfb04F4e0e6db580F12fF41438a394e5
     address internal constant FGI_WRAPPED_TOKEN_VAULT = address(0x6aed8b1aCfb04F4e0e6db580F12fF41438a394e5);
 
-    /// @notice Returns the 56 production token instance triples on Base, in
+    // ---- tBIRD / wtBIRD — Smartbird, Inc. ST0x ----
+    /// https://basescan.org/address/0x5ae4611fD6944613E2947A44fd76ad4B48551F6A
+    address internal constant BIRD_RECEIPT = address(0x5ae4611fD6944613E2947A44fd76ad4B48551F6A);
+    /// https://basescan.org/address/0x22E99389f5ef6FA110317e2Aec0a95d8AA39eFD4
+    address internal constant BIRD_RECEIPT_VAULT = address(0x22E99389f5ef6FA110317e2Aec0a95d8AA39eFD4);
+    /// https://basescan.org/address/0x95d46fC0faf4141C508D037469F472366093415a
+    address internal constant BIRD_WRAPPED_TOKEN_VAULT = address(0x95d46fC0faf4141C508D037469F472366093415a);
+
+    /// @notice Returns the 57 production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
     /// that need the receipt / wrapped-vault legs or the underlying join key
     /// (cross-chain parity, per-token config checks) iterate this instead.
-    /// @return tokens The 56 production token instances on Base.
+    /// @return tokens The 57 production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](56);
+        tokens = new TokenInstance[](57);
         tokens[0] = TokenInstance("MSTR", MSTR_RECEIPT, MSTR_RECEIPT_VAULT, MSTR_WRAPPED_TOKEN_VAULT);
         tokens[1] = TokenInstance("TSLA", TSLA_RECEIPT, TSLA_RECEIPT_VAULT, TSLA_WRAPPED_TOKEN_VAULT);
         tokens[2] = TokenInstance("COIN", COIN_RECEIPT, COIN_RECEIPT_VAULT, COIN_WRAPPED_TOKEN_VAULT);
@@ -627,6 +635,11 @@ library LibTokenInvariants {
         tokens[53] = TokenInstance("TR", TR_RECEIPT, TR_RECEIPT_VAULT, TR_WRAPPED_TOKEN_VAULT);
         tokens[54] = TokenInstance("WEN", WEN_RECEIPT, WEN_RECEIPT_VAULT, WEN_WRAPPED_TOKEN_VAULT);
         tokens[55] = TokenInstance("FGI", FGI_RECEIPT, FGI_RECEIPT_VAULT, FGI_WRAPPED_TOKEN_VAULT);
+        // tBIRD — deployed on Base 2026-09-11 by sft-ops CD (run 34614696472),
+        // wired onto the V4 authoriser and handed to the Base token-owner Safe.
+        // Copied onto the four other chains by `20260807-deploy-missing-tokens`;
+        // see each chain's table for its run id.
+        tokens[56] = TokenInstance("BIRD", BIRD_RECEIPT, BIRD_RECEIPT_VAULT, BIRD_WRAPPED_TOKEN_VAULT);
     }
 
     /// @notice Returns the production token instance triples on Ethereum
@@ -2097,13 +2110,13 @@ library LibTokenInvariants {
         );
     }
 
-    /// @notice Returns the 56 production receipt vault addresses on Base, in
+    /// @notice Returns the 57 production receipt vault addresses on Base, in
     /// the order they were deployed. Provided so consumers (e.g. invariant
     /// assertions, migration scripts) can iterate without hardcoding the
     /// list inline.
     /// @dev Derived from `productionTokensBase()` so the token table is the
     /// single source of truth and the two accessors cannot drift.
-    /// @return vaults The 56 production receipt vault addresses on Base.
+    /// @return vaults The 57 production receipt vault addresses on Base.
     function productionReceiptVaults() internal pure returns (address[] memory vaults) {
         TokenInstance[] memory tokens = productionTokensBase();
         vaults = new address[](tokens.length);
