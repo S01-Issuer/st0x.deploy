@@ -20,6 +20,10 @@ contract LibSafeInvariantsHarness {
         return LibSafeInvariants.safeForChainId(chainId);
     }
 
+    function callAssertCanonicalSafeContracts() external view {
+        LibSafeInvariants.assertCanonicalSafeContracts();
+    }
+
     function callAssertImmutableInvariants(IGnosisSafe safe) external view {
         LibSafeInvariants.assertImmutableInvariants(safe);
     }

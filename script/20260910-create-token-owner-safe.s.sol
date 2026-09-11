@@ -55,112 +55,45 @@ error TokenOwnerSafeLandedElsewhere(address expected, address actual);
 /// the CI deploy key can dispatch this on any chain and land the same
 /// `0x3840aeDa…0329` the Ethereum and HyperEVM Safes occupy.
 ///
-/// @dev Dispatch via `Actions → manual-broadcast` with
-/// `script = 20260910-create-token-owner-safe` and `network` set to the new
-/// chain. Self-scoping: it derives the address from the initializer, refuses
-/// unless that equals the chain's `LibSafeInvariants` pin (so it cannot create
-/// a Safe the repo does not expect — Base's pin is not derivable this way and
-/// is refused), and refuses if the pin already has code. It leaves the Safe at
-/// threshold **1**, exactly as the replayed creation did, because the
-/// threshold is not part of the address derivation. Raising it to the policy's
-/// 3-of-6 is an owner action: author it with `MigrateMultisigThreshold`
-/// (`multisig-artifact.yaml`) and execute from any one owner. Every
-/// pin-dependent step (`assertActiveChainTokenOwnerSafe`) gates on the
-/// threshold, so nothing downstream can run against the 1-of-6 window.
+/// @dev Base's Safe was created some other way and sits elsewhere, so Base is
+/// refused. The Safe is left at threshold 1 because the threshold is part of
+/// the initializer and therefore of the address; an owner raises it to the
+/// policy's 3 with `changeThreshold(3)` in the Safe UI. Every pin-dependent
+/// step gates on the threshold, so nothing downstream runs in the 1-of-6
+/// window.
 contract CreateTokenOwnerSafe is Script {
-    /// @notice The canonical Safe v1.4.1 proxy factory.
-    address internal constant SAFE_PROXY_FACTORY_1_4_1 = 0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67;
-    /// @notice `SafeToL2Setup` 1.4.1: the `setup` delegatecall target that
-    /// switches a freshly created proxy from the L1 singleton to `SafeL2` when
-    /// the chain is not Ethereum mainnet (a no-op on chain 1), which is why the
-    /// Ethereum Safe runs `Safe` and every other chain's runs `SafeL2` from the
-    /// same initializer.
-    address internal constant SAFE_TO_L2_SETUP_1_4_1 = 0xBD89A1CE4DDe368FFAB0eC35506eEcE0b1fFdc54;
-    /// @notice Safe's fee collector, the `paymentReceiver` the Safe UI wrote
-    /// into the Ethereum creation. Inert at `payment = 0`, but part of the
-    /// initializer bytes and therefore of the address.
-    address internal constant SAFE_PAYMENT_RECEIVER = 0x5afe7A11E7000000000000000000000000000000;
-    /// @notice The threshold the replayed creation sets. NOT the policy's; see
-    /// the contract NatSpec.
-    uint256 internal constant CREATION_THRESHOLD = 1;
-    /// @notice The salt nonce the Ethereum creation used.
-    uint256 internal constant SALT_NONCE = 0;
-
-    /// @notice The six owners in the order the Ethereum creation listed them.
-    /// Order matters: it is part of the initializer bytes. The set is the
-    /// policy set (`LibSafeInvariants.expectedOwners`, asserted below).
-    /// @return owners The creation-order owner list.
-    function creationOwners() internal pure returns (address[] memory owners) {
-        owners = new address[](6);
-        owners[0] = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_OWNER_5;
-        owners[1] = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_OWNER_1;
-        owners[2] = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_OWNER_2;
-        owners[3] = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_OWNER_3;
-        owners[4] = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_OWNER_4;
-        owners[5] = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_OWNER_6;
-    }
-
-    /// @notice The exact `Safe.setup` calldata of the Ethereum creation.
-    /// @return The initializer bytes.
-    function initializer() internal pure returns (bytes memory) {
-        return abi.encodeWithSignature(
-            "setup(address[],uint256,address,bytes,address,address,uint256,address)",
-            creationOwners(),
-            CREATION_THRESHOLD,
-            SAFE_TO_L2_SETUP_1_4_1,
-            abi.encodeWithSignature("setupToL2(address)", LibSafeInvariants.SAFE_V1_4_1_L2_SINGLETON),
-            LibSafeInvariants.SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER,
-            address(0),
-            uint256(0),
-            SAFE_PAYMENT_RECEIVER
-        );
-    }
-
-    /// @notice The address `createProxyWithNonce` derives for the initializer
-    /// on this chain: the v1.4.1 factory's `CREATE2` over its proxy creation
-    /// code appended with the L1 singleton, salted with
-    /// `keccak256(keccak256(initializer) ++ saltNonce)`.
-    /// @return The derived proxy address.
-    function derivedSafeAddress() internal view returns (address) {
-        bytes32 salt = keccak256(abi.encodePacked(keccak256(initializer()), SALT_NONCE));
-        bytes memory deploymentData = abi.encodePacked(
-            ISafeProxyFactory(SAFE_PROXY_FACTORY_1_4_1).proxyCreationCode(),
-            uint256(uint160(LibSafeInvariants.SAFE_V1_4_1_L1_SINGLETON))
-        );
-        return address(
-            uint160(
-                uint256(
-                    keccak256(abi.encodePacked(bytes1(0xff), SAFE_PROXY_FACTORY_1_4_1, salt, keccak256(deploymentData)))
-                )
-            )
-        );
-    }
-
     /// @notice Pre-flight (pin derivable, not yet created), broadcast the
     /// replay, assert the Safe landed at the pin with the policy's owner set,
     /// v1.4.1 identity and fallback handler, at the creation threshold.
     function run() external {
         address pinned = LibSafeInvariants.safeForChainId(block.chainid);
-        if (pinned.code.length != 0) revert TokenOwnerSafeAlreadyExists(pinned);
-        address derived = derivedSafeAddress();
+        address derived = LibSafeInvariants.expectedTokenOwnerSafeAddress();
         if (derived != pinned) revert TokenOwnerSafePinNotDerivable(pinned, derived);
+        if (pinned.code.length != 0) revert TokenOwnerSafeAlreadyExists(pinned);
+        LibSafeInvariants.assertCanonicalSafeContracts();
 
         console2.log("Creating the token-owner Safe on chain id", block.chainid);
         console2.log("at:", pinned);
 
         vm.startBroadcast();
-        address created = ISafeProxyFactory(SAFE_PROXY_FACTORY_1_4_1)
-            .createProxyWithNonce(LibSafeInvariants.SAFE_V1_4_1_L1_SINGLETON, initializer(), SALT_NONCE);
+        address created = ISafeProxyFactory(LibSafeInvariants.SAFE_V1_4_1_PROXY_FACTORY)
+            .createProxyWithNonce(
+                LibSafeInvariants.SAFE_V1_4_1_L1_SINGLETON,
+                LibSafeInvariants.tokenOwnerSafeInitializer(),
+                LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_CREATION_SALT_NONCE
+            );
         vm.stopBroadcast();
         if (created != pinned) revert TokenOwnerSafeLandedElsewhere(pinned, created);
 
-        // Post-state: the policy in every respect the creation controls.
-        IGnosisSafe safe = IGnosisSafe(pinned);
-        LibSafeInvariants.assertImmutableInvariants(safe);
-        LibSafeInvariants.assertOwnerSetUnordered(safe, LibSafeInvariants.expectedOwners());
-        LibSafeInvariants.assertThreshold(safe, CREATION_THRESHOLD);
+        // Ordered: Safe stores owners in the order `setup` received them, so
+        // this also proves the initializer's owner order landed byte-exact.
+        LibSafeInvariants.assertAll(
+            IGnosisSafe(pinned),
+            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_CREATION_THRESHOLD,
+            LibSafeInvariants.tokenOwnerSafeCreationOwners()
+        );
 
-        console2.log("Token-owner Safe created at the pin. Threshold is 1 of 6: raise it to");
-        console2.log("3 via MigrateMultisigThreshold before any pin-dependent dispatch.");
+        console2.log("Token-owner Safe created at the pin at threshold 1 of 6. An owner");
+        console2.log("raises it to 3 (changeThreshold) before any pin-dependent dispatch.");
     }
 }
