@@ -57,15 +57,15 @@ contract UpgradeFleetTest is Test {
     /// a valid (empty) snapshot rather than a wrong-network dispatch.
     function testActiveChainTokensResolvesPerChain() external {
         vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
-        assertEq(harness.callActiveChainTokens().length, 41, "Base table");
+        assertEq(harness.callActiveChainTokens().length, 56, "Base table");
         vm.chainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
-        assertEq(harness.callActiveChainTokens().length, 41, "Ethereum table");
+        assertEq(harness.callActiveChainTokens().length, 56, "Ethereum table");
         vm.chainId(LibSafeInvariants.HYPEREVM_CHAIN_ID);
-        assertEq(harness.callActiveChainTokens().length, 41, "HyperEVM table");
+        assertEq(harness.callActiveChainTokens().length, 56, "HyperEVM table");
         vm.chainId(LibSafeInvariants.ROBINHOOD_CHAIN_ID);
-        assertEq(harness.callActiveChainTokens().length, 41, "Robinhood Chain table");
+        assertEq(harness.callActiveChainTokens().length, 56, "Robinhood Chain table");
         vm.chainId(LibSafeInvariants.BSC_CHAIN_ID);
-        assertEq(harness.callActiveChainTokens().length, 41, "BNB Smart Chain table");
+        assertEq(harness.callActiveChainTokens().length, 56, "BNB Smart Chain table");
     }
 
     /// A chain with no table is refused rather than handed another chain's

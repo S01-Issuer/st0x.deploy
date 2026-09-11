@@ -1398,9 +1398,9 @@ library LibTokenInvariants {
     /// onto this chain's V4 authoriser and handed to its token-owner Safe in
     /// the same broadcast. Addresses pinned from the run's logged
     /// (underlying, receipt, receiptVault, wrapped) tuples.
-    /// @return tokens The 41 production token instances on Robinhood Chain.
+    /// @return tokens The 56 production token instances on Robinhood Chain (41 live, 15 placeholders).
     function productionTokensRobinhood() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](41);
+        tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance(
             "MSTR",
             0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
@@ -1647,6 +1647,25 @@ library LibTokenInvariants {
             0x334ccaD2e7D774F5e6A13437977dD0878926deF8,
             0x710A14a41a8Ea2e25376124C48bf9cAdc1E69be5
         );
+        // Rows 41-55: Base's later deployments (#339), PLACEHOLDERS until
+        // `20260807-deploy-missing-tokens` copies them onto this chain and the
+        // post-execution pin PR hydrates them — the same phase the first 41
+        // rows went through.
+        tokens[41] = TokenInstance("CBRS", address(0), address(0), address(0));
+        tokens[42] = TokenInstance("AIR.PA", address(0), address(0), address(0));
+        tokens[43] = TokenInstance("BMW.DE", address(0), address(0), address(0));
+        tokens[44] = TokenInstance("MC.PA", address(0), address(0), address(0));
+        tokens[45] = TokenInstance("SIE.DE", address(0), address(0), address(0));
+        tokens[46] = TokenInstance("MBG.DE", address(0), address(0), address(0));
+        tokens[47] = TokenInstance("RHM.DE", address(0), address(0), address(0));
+        tokens[48] = TokenInstance("MCD", address(0), address(0), address(0));
+        tokens[49] = TokenInstance("NKE", address(0), address(0), address(0));
+        tokens[50] = TokenInstance("GRND", address(0), address(0), address(0));
+        tokens[51] = TokenInstance("DNUT", address(0), address(0), address(0));
+        tokens[52] = TokenInstance("PLBY", address(0), address(0), address(0));
+        tokens[53] = TokenInstance("TR", address(0), address(0), address(0));
+        tokens[54] = TokenInstance("WEN", address(0), address(0), address(0));
+        tokens[55] = TokenInstance("FGI", address(0), address(0), address(0));
     }
 
     /// @notice Returns the production token instance triples on BNB Smart
@@ -1660,9 +1679,9 @@ library LibTokenInvariants {
     /// onto this chain's V4 authoriser and handed to its token-owner Safe in
     /// the same broadcast. Addresses pinned from the run's logged
     /// (underlying, receipt, receiptVault, wrapped) tuples.
-    /// @return tokens The 41 production token instances on BNB Smart Chain.
+    /// @return tokens The 56 production token instances on BNB Smart Chain (41 live, 15 placeholders).
     function productionTokensBsc() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](41);
+        tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance(
             "MSTR",
             0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8,
@@ -1909,6 +1928,25 @@ library LibTokenInvariants {
             0x162d65E4E4313b88D7eFc37F9c8110b334110406,
             0xd6c50a60b46eeF15ae2E8dbeFC417A6F0F154bc5
         );
+        // Rows 41-55: Base's later deployments (#339), PLACEHOLDERS until
+        // `20260807-deploy-missing-tokens` copies them onto this chain and the
+        // post-execution pin PR hydrates them — the same phase the first 41
+        // rows went through.
+        tokens[41] = TokenInstance("CBRS", address(0), address(0), address(0));
+        tokens[42] = TokenInstance("AIR.PA", address(0), address(0), address(0));
+        tokens[43] = TokenInstance("BMW.DE", address(0), address(0), address(0));
+        tokens[44] = TokenInstance("MC.PA", address(0), address(0), address(0));
+        tokens[45] = TokenInstance("SIE.DE", address(0), address(0), address(0));
+        tokens[46] = TokenInstance("MBG.DE", address(0), address(0), address(0));
+        tokens[47] = TokenInstance("RHM.DE", address(0), address(0), address(0));
+        tokens[48] = TokenInstance("MCD", address(0), address(0), address(0));
+        tokens[49] = TokenInstance("NKE", address(0), address(0), address(0));
+        tokens[50] = TokenInstance("GRND", address(0), address(0), address(0));
+        tokens[51] = TokenInstance("DNUT", address(0), address(0), address(0));
+        tokens[52] = TokenInstance("PLBY", address(0), address(0), address(0));
+        tokens[53] = TokenInstance("TR", address(0), address(0), address(0));
+        tokens[54] = TokenInstance("WEN", address(0), address(0), address(0));
+        tokens[55] = TokenInstance("FGI", address(0), address(0), address(0));
     }
 
     /// @notice Returns the 56 production receipt vault addresses on Base, in

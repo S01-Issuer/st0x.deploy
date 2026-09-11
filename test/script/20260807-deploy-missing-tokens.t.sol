@@ -109,23 +109,32 @@ contract DeployMissingTokensTest is Test {
     /// dispatch (run 34541560863) refused `NoMissingTokens` because the
     /// ticker match alone read the placeholders as deployed tokens.
     function testSelectionTreatsPlaceholderRowsAsMissing() external view {
-        TokenInstance[] memory placeholders = LibTokenInvariants.productionTokensRobinhood();
-        TokenConfig[] memory missing = harness.selectMissing(
-            LibProdTokenConfig.productionTokenConfigs(), LibTokenInvariants.productionTokensBase(), placeholders
-        );
-        assertEq(missing.length, LibTokenInvariants.productionTokensBase().length, "expected the full Base set");
+        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
+        TokenInstance[] memory placeholders = new TokenInstance[](base.length);
+        for (uint256 i = 0; i < base.length; i++) {
+            placeholders[i] = TokenInstance(base[i].underlying, address(0), address(0), address(0));
+        }
+        TokenConfig[] memory missing =
+            harness.selectMissing(LibProdTokenConfig.productionTokenConfigs(), base, placeholders);
+        assertEq(missing.length, base.length, "expected the full Base set");
     }
 
     /// @notice A half-hydrated target — some rows deployed, the rest still
-    /// placeholders — selects only the placeholder rows.
+    /// placeholders — selects exactly the placeholder rows, in Base order.
+    /// The live Robinhood Chain table is that shape today: 41 deployed rows
+    /// and 15 placeholders for Base's later deployments.
     function testSelectionSkipsDeployedRowsAmongPlaceholders() external view {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
         TokenInstance[] memory target = LibTokenInvariants.productionTokensRobinhood();
-        target[0] = base[0];
-        target[base.length - 1] = base[base.length - 1];
+        uint256 placeholderCount = 0;
+        for (uint256 i = 0; i < target.length; i++) {
+            if (target[i].receiptVault == address(0)) placeholderCount++;
+        }
+        assertGt(placeholderCount, 0, "precondition: the Robinhood table still carries placeholders");
+        assertLt(placeholderCount, target.length, "precondition: the Robinhood table is not all placeholders");
         TokenConfig[] memory missing = harness.selectMissing(LibProdTokenConfig.productionTokenConfigs(), base, target);
-        assertEq(missing.length, base.length - 2, "expected every placeholder row and nothing else");
-        assertEq(missing[0].underlying, base[1].underlying, "first selected row");
+        assertEq(missing.length, placeholderCount, "expected every placeholder row and nothing else");
+        assertEq(missing[0].underlying, base[41].underlying, "first selected row is Base's first later deployment");
     }
 
     /// @notice A config table running AHEAD of Base is a normal state, not a
