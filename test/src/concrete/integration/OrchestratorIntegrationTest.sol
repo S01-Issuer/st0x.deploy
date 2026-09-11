@@ -36,6 +36,7 @@ import {
 import {ICorporateActionsV1} from "../../../../src/interface/ICorporateActionsV1.sol";
 import {SCHEDULE_CORPORATE_ACTION, STOCK_SPLIT_V1_TYPE_HASH} from "../../../../src/lib/LibCorporateAction.sol";
 import {LibStockSplit} from "../../../../src/lib/LibStockSplit.sol";
+import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 import {LibTestTofu} from "../../../lib/LibTestTofu.sol";
@@ -60,7 +61,9 @@ abstract contract OrchestratorIntegrationTest is Test {
     /// Beacon owner for the OARV beacon set — the address the beacon-set
     /// deployer hands ownership to at construction. Needed to upgrade the
     /// vault beacon out from under the guard (the guard-halt workflow).
-    address internal constant BEACON_OWNER = LibProdDeployV4.BEACON_INITIAL_OWNER;
+    /// The beacons come up owned by the active chain's token-owner Safe;
+    /// `LibTestDeploy` pins the chain to Base.
+    address internal constant BEACON_OWNER = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
 
     StoxReceiptVault internal vault;
     IERC1155 internal receipt;
