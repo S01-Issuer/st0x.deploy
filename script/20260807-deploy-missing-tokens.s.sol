@@ -278,14 +278,19 @@ contract DeployMissingTokens is Script {
         }
     }
 
-    /// @notice Whether `tokens` already carries an entry for `underlying`.
+    /// @notice Whether `tokens` already carries a DEPLOYED entry for
+    /// `underlying`. A placeholder row — the ticker listed with a zero
+    /// receipt vault, which is how a new chain's table is authored ahead of
+    /// its deploy so the parity pins can pair by index — is not a token the
+    /// chain has, so it does not count: a chain whose whole table is
+    /// placeholders is the bootstrap case and selects the full Base set.
     /// @param tokens The table to search.
     /// @param underlying The ticker to look for.
-    /// @return True when the ticker is already present.
+    /// @return True when the ticker is present with a deployed receipt vault.
     function _hasUnderlying(TokenInstance[] memory tokens, string memory underlying) internal pure returns (bool) {
         bytes32 target = keccak256(bytes(underlying));
         for (uint256 i = 0; i < tokens.length; i++) {
-            if (keccak256(bytes(tokens[i].underlying)) == target) {
+            if (keccak256(bytes(tokens[i].underlying)) == target && tokens[i].receiptVault != address(0)) {
                 return true;
             }
         }
