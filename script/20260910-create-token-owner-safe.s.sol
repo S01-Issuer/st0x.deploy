@@ -110,17 +110,15 @@ contract CreateTokenOwnerSafe is Script {
     }
 
     /// @notice The address `createProxyWithNonce` derives for the initializer
-    /// on this chain: the v1.4.1 factory's `CREATE2` over its proxy creation
-    /// code appended with the L1 singleton, salted with
+    /// on every chain: the v1.4.1 factory's `CREATE2` over the pinned proxy
+    /// init code (creation code ++ L1 singleton), salted with
     /// `keccak256(keccak256(initializer) ++ saltNonce)`.
     /// @return The derived proxy address.
-    function derivedSafeAddress() internal view returns (address) {
+    function derivedSafeAddress() internal pure returns (address) {
         bytes32 salt = keccak256(abi.encodePacked(keccak256(initializer()), SALT_NONCE));
-        bytes memory deploymentData = abi.encodePacked(
-            ISafeProxyFactory(LibSafeInvariants.SAFE_V1_4_1_PROXY_FACTORY).proxyCreationCode(),
-            uint256(uint160(LibSafeInvariants.SAFE_V1_4_1_L1_SINGLETON))
+        return vm.computeCreate2Address(
+            salt, LibSafeInvariants.SAFE_V1_4_1_L1_PROXY_INITCODE_HASH, LibSafeInvariants.SAFE_V1_4_1_PROXY_FACTORY
         );
-        return vm.computeCreate2Address(salt, keccak256(deploymentData), LibSafeInvariants.SAFE_V1_4_1_PROXY_FACTORY);
     }
 
     /// @notice Pre-flight (pin derivable, not yet created), broadcast the

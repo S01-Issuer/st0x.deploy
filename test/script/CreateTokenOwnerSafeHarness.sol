@@ -8,7 +8,7 @@ import {CreateTokenOwnerSafe} from "../../script/20260910-create-token-owner-saf
 /// against the live Safes without broadcasting.
 contract CreateTokenOwnerSafeHarness is CreateTokenOwnerSafe {
     /// @notice The script's `derivedSafeAddress()`, externally callable.
-    function callDerivedSafeAddress() external view returns (address) {
+    function callDerivedSafeAddress() external pure returns (address) {
         return derivedSafeAddress();
     }
 }
