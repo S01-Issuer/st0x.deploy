@@ -57,30 +57,32 @@ contract CreateTokenOwnerSafeTest is Test {
         script.run();
     }
 
-    /// @notice On a chain whose pin has no code yet, the replay lands the
-    /// Safe at the pin with the policy's owner set, v1.4.1 identity and
-    /// fallback handler, at the creation threshold of 1 — and a second run
-    /// refuses. Exercised on whichever of the new chains is still bare; a
-    /// chain whose Safe already exists proves the refusal instead.
+    /// @notice The replay lands the Safe at the pin with the policy's owner
+    /// set, v1.4.1 identity and fallback handler, at the creation threshold of
+    /// 1, and a second run refuses. A chain whose Safe already exists first
+    /// proves the refusal, then has the pin cleared on the fork so the creation
+    /// path stays exercised against its live factory and singletons; Ethereum
+    /// runs that branch today.
     function testCreatesAtThePinOnAFreshChain() external {
-        string[2] memory networks = [LibStoxDeployNetworks.ROBINHOOD, LibStoxDeployNetworks.BSC];
-        address[2] memory pins =
-            [LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC];
+        string[3] memory networks =
+            [LibStoxDeployNetworks.ETHEREUM, LibStoxDeployNetworks.ROBINHOOD, LibStoxDeployNetworks.BSC];
         for (uint256 i = 0; i < networks.length; i++) {
             vm.createSelectFork(networks[i]);
+            address pin = LibSafeInvariants.safeForChainId(block.chainid);
             CreateTokenOwnerSafe script = new CreateTokenOwnerSafe();
-            if (pins[i].code.length != 0) {
-                vm.expectRevert(abi.encodeWithSelector(TokenOwnerSafeAlreadyExists.selector, pins[i]));
+            if (pin.code.length != 0) {
+                vm.expectRevert(abi.encodeWithSelector(TokenOwnerSafeAlreadyExists.selector, pin));
                 script.run();
-                continue;
+                vm.etch(pin, "");
+                vm.resetNonce(pin);
             }
             script.run();
-            IGnosisSafe safe = IGnosisSafe(pins[i]);
-            assertGt(pins[i].code.length, 0, networks[i]);
+            IGnosisSafe safe = IGnosisSafe(pin);
+            assertGt(pin.code.length, 0, networks[i]);
             LibSafeInvariants.assertImmutableInvariants(safe);
             LibSafeInvariants.assertOwnerSetUnordered(safe, LibSafeInvariants.expectedOwners());
             assertEq(safe.getThreshold(), 1, "creation threshold");
-            vm.expectRevert(abi.encodeWithSelector(TokenOwnerSafeAlreadyExists.selector, pins[i]));
+            vm.expectRevert(abi.encodeWithSelector(TokenOwnerSafeAlreadyExists.selector, pin));
             script.run();
         }
     }
