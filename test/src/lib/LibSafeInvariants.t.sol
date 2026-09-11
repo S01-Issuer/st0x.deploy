@@ -18,7 +18,8 @@ import {
     SafeFallbackHandlerMismatch,
     SafeOwnerCountMismatch,
     SafeOwnerMismatch,
-    SafeThresholdMismatch
+    SafeThresholdMismatch,
+    SafeCanonicalContractCodehashMismatch
 } from "../../../src/lib/LibSafeInvariants.sol";
 
 /// @title LibSafeInvariantsTest
@@ -49,6 +50,47 @@ contract LibSafeInvariantsTest is Test {
         vm.createSelectFork(LibRainDeploy.BASE);
         safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
         harness = new LibSafeInvariantsHarness();
+    }
+
+    /// @notice The five canonical Safe v1.4.1 contracts are live on Base with
+    /// the pinned bytecode.
+    function testCanonicalSafeContractsOnBase() external {
+        selectBaseFork();
+        harness.callAssertCanonicalSafeContracts();
+    }
+
+    /// @notice A canonical contract with foreign bytecode trips
+    /// `SafeCanonicalContractCodehashMismatch`; the fallback handler is the one
+    /// Safe itself never checks.
+    function testInvertedCanonicalSafeContractsHandlerMismatch() external {
+        selectBaseFork();
+        address handler = LibSafeInvariants.SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER;
+        vm.etch(handler, hex"FE");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                SafeCanonicalContractCodehashMismatch.selector,
+                handler,
+                LibSafeInvariants.SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER_CODEHASH,
+                keccak256(hex"FE")
+            )
+        );
+        harness.callAssertCanonicalSafeContracts();
+    }
+
+    /// @notice A canonical contract with no code trips the same error.
+    function testInvertedCanonicalSafeContractsFactoryMissing() external {
+        selectBaseFork();
+        address factory = LibSafeInvariants.SAFE_V1_4_1_PROXY_FACTORY;
+        vm.etch(factory, "");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                SafeCanonicalContractCodehashMismatch.selector,
+                factory,
+                LibSafeInvariants.SAFE_V1_4_1_PROXY_FACTORY_CODEHASH,
+                factory.codehash
+            )
+        );
+        harness.callAssertCanonicalSafeContracts();
     }
 
     /// @notice Drift in the proxy runtime codehash trips

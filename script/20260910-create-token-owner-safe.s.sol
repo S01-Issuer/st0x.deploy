@@ -68,14 +68,6 @@ error TokenOwnerSafeLandedElsewhere(address expected, address actual);
 /// pin-dependent step (`assertActiveChainTokenOwnerSafe`) gates on the
 /// threshold, so nothing downstream can run against the 1-of-6 window.
 contract CreateTokenOwnerSafe is Script {
-    /// @notice The canonical Safe v1.4.1 proxy factory.
-    address internal constant SAFE_PROXY_FACTORY_1_4_1 = 0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67;
-    /// @notice `SafeToL2Setup` 1.4.1: the `setup` delegatecall target that
-    /// switches a freshly created proxy from the L1 singleton to `SafeL2` when
-    /// the chain is not Ethereum mainnet (a no-op on chain 1), which is why the
-    /// Ethereum Safe runs `Safe` and every other chain's runs `SafeL2` from the
-    /// same initializer.
-    address internal constant SAFE_TO_L2_SETUP_1_4_1 = 0xBD89A1CE4DDe368FFAB0eC35506eEcE0b1fFdc54;
     /// @notice Safe's fee collector, the `paymentReceiver` the Safe UI wrote
     /// into the Ethereum creation. Inert at `payment = 0`, but part of the
     /// initializer bytes and therefore of the address.
@@ -107,7 +99,7 @@ contract CreateTokenOwnerSafe is Script {
             "setup(address[],uint256,address,bytes,address,address,uint256,address)",
             creationOwners(),
             CREATION_THRESHOLD,
-            SAFE_TO_L2_SETUP_1_4_1,
+            LibSafeInvariants.SAFE_V1_4_1_TO_L2_SETUP,
             abi.encodeWithSignature("setupToL2(address)", LibSafeInvariants.SAFE_V1_4_1_L2_SINGLETON),
             LibSafeInvariants.SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER,
             address(0),
@@ -124,13 +116,17 @@ contract CreateTokenOwnerSafe is Script {
     function derivedSafeAddress() internal view returns (address) {
         bytes32 salt = keccak256(abi.encodePacked(keccak256(initializer()), SALT_NONCE));
         bytes memory deploymentData = abi.encodePacked(
-            ISafeProxyFactory(SAFE_PROXY_FACTORY_1_4_1).proxyCreationCode(),
+            ISafeProxyFactory(LibSafeInvariants.SAFE_V1_4_1_PROXY_FACTORY).proxyCreationCode(),
             uint256(uint160(LibSafeInvariants.SAFE_V1_4_1_L1_SINGLETON))
         );
         return address(
             uint160(
                 uint256(
-                    keccak256(abi.encodePacked(bytes1(0xff), SAFE_PROXY_FACTORY_1_4_1, salt, keccak256(deploymentData)))
+                    keccak256(
+                        abi.encodePacked(
+                            bytes1(0xff), LibSafeInvariants.SAFE_V1_4_1_PROXY_FACTORY, salt, keccak256(deploymentData)
+                        )
+                    )
                 )
             )
         );
@@ -144,12 +140,13 @@ contract CreateTokenOwnerSafe is Script {
         if (pinned.code.length != 0) revert TokenOwnerSafeAlreadyExists(pinned);
         address derived = derivedSafeAddress();
         if (derived != pinned) revert TokenOwnerSafePinNotDerivable(pinned, derived);
+        LibSafeInvariants.assertCanonicalSafeContracts();
 
         console2.log("Creating the token-owner Safe on chain id", block.chainid);
         console2.log("at:", pinned);
 
         vm.startBroadcast();
-        address created = ISafeProxyFactory(SAFE_PROXY_FACTORY_1_4_1)
+        address created = ISafeProxyFactory(LibSafeInvariants.SAFE_V1_4_1_PROXY_FACTORY)
             .createProxyWithNonce(LibSafeInvariants.SAFE_V1_4_1_L1_SINGLETON, initializer(), SALT_NONCE);
         vm.stopBroadcast();
         if (created != pinned) revert TokenOwnerSafeLandedElsewhere(pinned, created);
