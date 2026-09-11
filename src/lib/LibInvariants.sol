@@ -72,6 +72,13 @@ library LibInvariants {
     /// authoriser CODEHASH is not asserted here (a deploy-artifact property
     /// the clone-deploy script + cross-chain parity pin check); this bundle
     /// asserts live ROLE state + ownership.
+    ///
+    /// Driven per chain by `LibInvariantsTest` against live Base, Ethereum
+    /// and HyperEVM forks — every chain whose token table is hydrated.
+    /// Robinhood Chain and BNB Smart Chain join when their tables do; until
+    /// then there is nothing on those chains for this bundle to assert, and
+    /// `StoxCrossChainParityTest` is what holds their pending legs to a
+    /// deadline.
     /// @param tokens The chain's production token table.
     /// @param authoriser The chain's live authoriser the vaults point at.
     function assertProductionState(TokenInstance[] memory tokens, address authoriser) internal view {

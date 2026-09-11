@@ -14,10 +14,6 @@ contract LibTokenInvariantsHarness {
         LibTokenInvariants.assertUniformOwnership(expectedOwner);
     }
 
-    function callAssertUniformAuthoriser(address expected) external view {
-        LibTokenInvariants.assertUniformAuthoriser(expected);
-    }
-
     function callAssertUniformOwnershipMigration(
         TokenInstance[] memory tokens,
         address pre,

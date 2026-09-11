@@ -22,18 +22,13 @@ import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.s
 /// future divergence — Base rotates an owner, the Ethereum Safe is reconfigured
 /// — turns it red until the two match again.
 ///
-/// Until the address is pinned the check is PENDING (logged loudly, not a
-/// silent skip): there is no live Safe to assert against yet.
+/// The Ethereum Safe pin is hydrated, so the suite runs unconditionally:
+/// there is no un-pinned phase left to skip past.
 contract EthereumTokenOwnerSafeParityTest is Test {
     /// The pinned Ethereum Safe carries Base's policy in every way that
     /// matters, and is a distinct address from Base's Safe.
     function testEthereumSafeMatchesBasePolicy() external {
         address ethSafe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM;
-
-        if (ethSafe == address(0)) {
-            emit log("PENDING: Ethereum token-owner Safe address not yet pinned - deploy the Safe (clean v1.4.1, Base's owners + threshold) and hydrate STOX_TOKEN_OWNER_SAFE_ETHEREUM");
-            return;
-        }
 
         // The matched-address approach was abandoned, so the Ethereum Safe must
         // be a DISTINCT per-chain address — never Base's. Guards against a

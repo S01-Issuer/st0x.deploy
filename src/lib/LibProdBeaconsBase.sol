@@ -6,8 +6,8 @@ import {LibProdDeployV1} from "./LibProdDeployV1.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 
 /// @title LibProdBeaconsBase
-/// @notice The three ST0x production beacons on **Base** and the
-/// implementations they point at — the Base counterpart of
+/// @notice The four ST0x production beacons on **Base** and the
+/// implementations they were BOOTSTRAPPED with — the Base counterpart of
 /// `LibProdBeacons0_1_1`, same shape and index order so per-chain
 /// consumers dispatch to one lib per chain instead of hand-assembling
 /// either side.
@@ -25,10 +25,11 @@ import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 /// every chain) — the V4 upgrade pointed Base's V1-address beacons at those
 /// 0.1.1 implementations.
 library LibProdBeaconsBase {
-    /// @notice The three production beacons, in a fixed order (receipt,
-    /// receipt vault, wrapped token vault) — index-aligned with
-    /// `implementations()` and with `LibProdBeacons0_1_1.beacons()`.
-    /// @return The three Base beacon addresses.
+    /// @notice The four production beacons, in a fixed order (receipt,
+    /// receipt vault, wrapped token vault, orchestrator) — index-aligned with
+    /// `implementations()`, with `LibProdBeacons0_1_1.beacons()` and with
+    /// `LibBeaconInvariants`' `*_BEACON_INDEX` constants.
+    /// @return The four Base beacon addresses.
     function beacons() internal pure returns (address[4] memory) {
         return [
             LibProdDeployV1.STOX_RECEIPT_BEACON_V1,
@@ -38,11 +39,17 @@ library LibProdBeaconsBase {
         ];
     }
 
-    /// @notice The implementation each beacon points at, index-aligned with
-    /// `beacons()`. Referenced from the generated `0_1_1` impl pins — the
-    /// same deterministic addresses `LibProdBeacons0_1_1.implementations()`
-    /// resolves, because implementation parity across chains is the goal.
-    /// @return The three implementation addresses.
+    /// @notice The implementation each beacon was BOOTSTRAPPED with, index-
+    /// aligned with `beacons()`. Referenced from the generated `0_1_1` impl
+    /// pins — the same deterministic addresses
+    /// `LibProdBeacons0_1_1.implementations()` resolves, because
+    /// implementation parity across chains is the goal.
+    /// @dev Bootstrap-time, not live: the fleet upgrade
+    /// (`20260825-upgrade-fleet-to-0-1-30`) moved Base's receipt and
+    /// receipt-vault beacons onto the `0_1_30` impls, so only the
+    /// wrapped-token-vault entry still matches what its beacon serves. Same
+    /// reasoning as `LibProdBeacons0_1_1.implementations()`.
+    /// @return The four bootstrap-time implementation addresses.
     function implementations() internal pure returns (address[4] memory) {
         return [
             LibProdDeployV4.STOX_RECEIPT_0_1_1,
