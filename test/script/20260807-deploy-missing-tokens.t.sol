@@ -109,23 +109,30 @@ contract DeployMissingTokensTest is Test {
     /// dispatch (run 34541560863) refused `NoMissingTokens` because the
     /// ticker match alone read the placeholders as deployed tokens.
     function testSelectionTreatsPlaceholderRowsAsMissing() external view {
-        TokenInstance[] memory placeholders = LibTokenInvariants.productionTokensRobinhood();
-        TokenConfig[] memory missing = harness.selectMissing(
-            LibProdTokenConfig.productionTokenConfigs(), LibTokenInvariants.productionTokensBase(), placeholders
-        );
-        assertEq(missing.length, LibTokenInvariants.productionTokensBase().length, "expected the full Base set");
+        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
+        TokenInstance[] memory placeholders = new TokenInstance[](base.length);
+        for (uint256 i = 0; i < base.length; i++) {
+            placeholders[i] = TokenInstance(base[i].underlying, address(0), address(0), address(0));
+        }
+        TokenConfig[] memory missing =
+            harness.selectMissing(LibProdTokenConfig.productionTokenConfigs(), base, placeholders);
+        assertEq(missing.length, base.length, "expected the full Base set");
     }
 
     /// @notice A half-hydrated target — some rows deployed, the rest still
-    /// placeholders — selects only the placeholder rows.
+    /// placeholders — selects exactly the placeholder rows, in Base order.
+    /// Built from Base by zeroing its trailing rows: the shape every new
+    /// chain's table passes through between a partial copy and its pin.
     function testSelectionSkipsDeployedRowsAmongPlaceholders() external view {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
-        TokenInstance[] memory target = LibTokenInvariants.productionTokensRobinhood();
-        target[0] = base[0];
-        target[base.length - 1] = base[base.length - 1];
+        TokenInstance[] memory target = new TokenInstance[](base.length);
+        uint256 deployed = 41;
+        for (uint256 i = 0; i < base.length; i++) {
+            target[i] = i < deployed ? base[i] : TokenInstance(base[i].underlying, address(0), address(0), address(0));
+        }
         TokenConfig[] memory missing = harness.selectMissing(LibProdTokenConfig.productionTokenConfigs(), base, target);
-        assertEq(missing.length, base.length - 2, "expected every placeholder row and nothing else");
-        assertEq(missing[0].underlying, base[1].underlying, "first selected row");
+        assertEq(missing.length, base.length - deployed, "expected every placeholder row and nothing else");
+        assertEq(missing[0].underlying, base[deployed].underlying, "first selected row is the first placeholder");
     }
 
     /// @notice A config table running AHEAD of Base is a normal state, not a

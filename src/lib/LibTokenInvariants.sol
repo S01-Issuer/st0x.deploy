@@ -301,6 +301,15 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x6a2357Df4975C667B171bE53dA6FFe6deBf7030c
     address internal constant GOOGL_WRAPPED_TOKEN_VAULT = address(0x6a2357Df4975C667B171bE53dA6FFe6deBf7030c);
 
+    // ---- tMETA / wtMETA — Meta Platforms, Inc. ST0x ----
+    // Deployed 2026-07-27, never launched — absent from registry, logos and Turnkey set; recorded, not pinned.
+    // /// https://basescan.org/address/0xffcBEA042a0d55293f9ad0f050CE11f6331C9313
+    // address internal constant META_RECEIPT = address(0xffcBEA042a0d55293f9ad0f050CE11f6331C9313);
+    // /// https://basescan.org/address/0xAF07a843A6221d3E6540122Fa712DF8541B05E26
+    // address internal constant META_RECEIPT_VAULT = address(0xAF07a843A6221d3E6540122Fa712DF8541B05E26);
+    // /// https://basescan.org/address/0xd1ddE998d1Cd19B502242FBE14F6CC97bE601E30
+    // address internal constant META_WRAPPED_TOKEN_VAULT = address(0xd1ddE998d1Cd19B502242FBE14F6CC97bE601E30);
+
     // ---- tAAPL / wtAAPL — Apple Inc. ST0x ----
     /// https://basescan.org/address/0x3156EB08c9dd870979f1475C5CFe681b8f6A3b53
     address internal constant AAPL_RECEIPT = address(0x3156EB08c9dd870979f1475C5CFe681b8f6A3b53);
@@ -316,6 +325,15 @@ library LibTokenInvariants {
     address internal constant MSFT_RECEIPT_VAULT = address(0x6a071E25fa25653cF15d1ee320eA3df771926Aa0);
     /// https://basescan.org/address/0x515A3Ac2a6aB590bDFa970caFFFd7fAdC680886E
     address internal constant MSFT_WRAPPED_TOKEN_VAULT = address(0x515A3Ac2a6aB590bDFa970caFFFd7fAdC680886E);
+
+    // ---- tPLTR / wtPLTR — Palantir Technologies Inc. ST0x ----
+    // Deployed 2026-07-27, never launched — `owner()` is still the deployer EOA, not the Safe; recorded, not pinned.
+    // /// https://basescan.org/address/0x0fa01D10006486f042E55728f14A1A8f70ACa6a3
+    // address internal constant PLTR_RECEIPT = address(0x0fa01D10006486f042E55728f14A1A8f70ACa6a3);
+    // /// https://basescan.org/address/0xEAcB0EF8b160D0340578d8BA24311A5F7AD717F2
+    // address internal constant PLTR_RECEIPT_VAULT = address(0xEAcB0EF8b160D0340578d8BA24311A5F7AD717F2);
+    // /// https://basescan.org/address/0x842C2A838Bd005840Dea1EF62e82FC89533FF8f9
+    // address internal constant PLTR_WRAPPED_TOKEN_VAULT = address(0x842C2A838Bd005840Dea1EF62e82FC89533FF8f9);
 
     // ---- tLLY / wtLLY — Eli Lilly and Company ST0x ----
     /// https://basescan.org/address/0x7b345A02d56f989420EbEd4df647D1C673608F3C
@@ -389,14 +407,143 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x9bDe199Ac6E7E050334306D9267c93e3D6d38333
     address internal constant FTF_WRAPPED_TOKEN_VAULT = address(0x9bDe199Ac6E7E050334306D9267c93e3D6d38333);
 
-    /// @notice Returns the 41 production token instance triples on Base, in
+    // ---- tCBRS / wtCBRS — Cerebras Systems Inc. ST0x ----
+    /// https://basescan.org/address/0xAe8aD2340aa19749A0b935C7F2245823fC4F14FB
+    address internal constant CBRS_RECEIPT = address(0xAe8aD2340aa19749A0b935C7F2245823fC4F14FB);
+    /// https://basescan.org/address/0xBeB0c2011bd5520A0998b69132E9245E39Ac5D1D
+    address internal constant CBRS_RECEIPT_VAULT = address(0xBeB0c2011bd5520A0998b69132E9245E39Ac5D1D);
+    /// https://basescan.org/address/0xB457cfBF31995d3aAAa704dA9999cC0b011820ca
+    address internal constant CBRS_WRAPPED_TOKEN_VAULT = address(0xB457cfBF31995d3aAAa704dA9999cC0b011820ca);
+
+    // ---- tAIR.PA / wtAIR.PA — Airbus SE ST0x ----
+    /// https://basescan.org/address/0xa618f8eB7c33a23C84d1500c5191746f86F98b2A
+    address internal constant AIR_PA_RECEIPT = address(0xa618f8eB7c33a23C84d1500c5191746f86F98b2A);
+    /// https://basescan.org/address/0xDdB07ADd0e23BB7eC97f53C0959d9c6Cc09624f4
+    address internal constant AIR_PA_RECEIPT_VAULT = address(0xDdB07ADd0e23BB7eC97f53C0959d9c6Cc09624f4);
+    /// https://basescan.org/address/0x1C600EF167c675C878BF3222f3935C4fA2A43C31
+    address internal constant AIR_PA_WRAPPED_TOKEN_VAULT = address(0x1C600EF167c675C878BF3222f3935C4fA2A43C31);
+
+    // ---- tBMW.DE / wtBMW.DE — Bayerische Motoren Werke Aktiengesellschaft ST0x ----
+    /// https://basescan.org/address/0x30864F2921886Dc491326D86015eB66c9601BF2b
+    address internal constant BMW_DE_RECEIPT = address(0x30864F2921886Dc491326D86015eB66c9601BF2b);
+    /// https://basescan.org/address/0x9610C265EB8F38B22Fec78498C74924D9fe55891
+    address internal constant BMW_DE_RECEIPT_VAULT = address(0x9610C265EB8F38B22Fec78498C74924D9fe55891);
+    /// https://basescan.org/address/0xD0269618455cF7dA71665856f16C2D03A1b26290
+    address internal constant BMW_DE_WRAPPED_TOKEN_VAULT = address(0xD0269618455cF7dA71665856f16C2D03A1b26290);
+
+    // ---- tMC.PA / wtMC.PA — LVMH Moët Hennessy Louis Vuitton SE ST0x ----
+    /// https://basescan.org/address/0xBEDD4C7219E35E6C45BE792F31F076737481FF2c
+    address internal constant MC_PA_RECEIPT = address(0xBEDD4C7219E35E6C45BE792F31F076737481FF2c);
+    /// https://basescan.org/address/0xF5245a17E5eb64D53dEa213d40aBa01821D465Cd
+    address internal constant MC_PA_RECEIPT_VAULT = address(0xF5245a17E5eb64D53dEa213d40aBa01821D465Cd);
+    /// https://basescan.org/address/0xd92cc92557BFC33028195983ED31465F99b4A01c
+    address internal constant MC_PA_WRAPPED_TOKEN_VAULT = address(0xd92cc92557BFC33028195983ED31465F99b4A01c);
+
+    // ---- tSIE.DE / wtSIE.DE — Siemens Aktiengesellschaft ST0x ----
+    /// https://basescan.org/address/0xe89995E4Bf9691486445917e3C69ed3d935183f1
+    address internal constant SIE_DE_RECEIPT = address(0xe89995E4Bf9691486445917e3C69ed3d935183f1);
+    /// https://basescan.org/address/0xa662066a60964a528aD05209139a79BDa3a7577f
+    address internal constant SIE_DE_RECEIPT_VAULT = address(0xa662066a60964a528aD05209139a79BDa3a7577f);
+    /// https://basescan.org/address/0xed0B0fdD92F7eece606A0FB0457352616d6e6B34
+    address internal constant SIE_DE_WRAPPED_TOKEN_VAULT = address(0xed0B0fdD92F7eece606A0FB0457352616d6e6B34);
+
+    // ---- tMBG.DE / wtMBG.DE — Mercedes-Benz Group AG ST0x ----
+    /// https://basescan.org/address/0x984d884fc03D17e7b9cCfE6A32f27e9b6d9B92bd
+    address internal constant MBG_DE_RECEIPT = address(0x984d884fc03D17e7b9cCfE6A32f27e9b6d9B92bd);
+    /// https://basescan.org/address/0x07d7ca9384812b86e7E429473dF354fb59DA73A0
+    address internal constant MBG_DE_RECEIPT_VAULT = address(0x07d7ca9384812b86e7E429473dF354fb59DA73A0);
+    /// https://basescan.org/address/0xfae641bfE7009B5326396048b951E3aa31902a2B
+    address internal constant MBG_DE_WRAPPED_TOKEN_VAULT = address(0xfae641bfE7009B5326396048b951E3aa31902a2B);
+
+    // ---- tRHM.DE / wtRHM.DE — Rheinmetall AG ST0x ----
+    /// https://basescan.org/address/0xfbd76467e4FBbd64dD43057bF137a75ec676C3c2
+    address internal constant RHM_DE_RECEIPT = address(0xfbd76467e4FBbd64dD43057bF137a75ec676C3c2);
+    /// https://basescan.org/address/0x725E0Df28D1EB09338f63776B76bCfc00f3b6f44
+    address internal constant RHM_DE_RECEIPT_VAULT = address(0x725E0Df28D1EB09338f63776B76bCfc00f3b6f44);
+    /// https://basescan.org/address/0xD3c42aB4D5A60A50401b3A67D10B03Ce7D96DA19
+    address internal constant RHM_DE_WRAPPED_TOKEN_VAULT = address(0xD3c42aB4D5A60A50401b3A67D10B03Ce7D96DA19);
+
+    // ---- tMCD / wtMCD — McDonald's Corporation ST0x ----
+    /// https://basescan.org/address/0x1Cfa3Af9DcEc40dCa8f8588c7b7FCE5a1BA6eC3f
+    address internal constant MCD_RECEIPT = address(0x1Cfa3Af9DcEc40dCa8f8588c7b7FCE5a1BA6eC3f);
+    /// https://basescan.org/address/0x6363657E19A82ABE0E210e9b8c88Ea61d96eceaB
+    address internal constant MCD_RECEIPT_VAULT = address(0x6363657E19A82ABE0E210e9b8c88Ea61d96eceaB);
+    /// https://basescan.org/address/0x7ecAE30Ed8ee4F72653ada7b0941bDE7a0a8eE8d
+    address internal constant MCD_WRAPPED_TOKEN_VAULT = address(0x7ecAE30Ed8ee4F72653ada7b0941bDE7a0a8eE8d);
+
+    // ---- tNKE / wtNKE — NIKE, Inc. ST0x ----
+    /// https://basescan.org/address/0x8A0037757d67084f5431c02eE2A352593eFe2957
+    address internal constant NKE_RECEIPT = address(0x8A0037757d67084f5431c02eE2A352593eFe2957);
+    /// https://basescan.org/address/0x88C3F4E2E0a977Fed97ed246c70BFD7A01070246
+    address internal constant NKE_RECEIPT_VAULT = address(0x88C3F4E2E0a977Fed97ed246c70BFD7A01070246);
+    /// https://basescan.org/address/0x0883f32d23Ed5535057a4B5E3eB1970FE08606AF
+    address internal constant NKE_WRAPPED_TOKEN_VAULT = address(0x0883f32d23Ed5535057a4B5E3eB1970FE08606AF);
+
+    // ---- tGRND / wtGRND — Grindr Inc. ST0x ----
+    /// https://basescan.org/address/0xca4495d2fe8e82951DEbda1102A1dCf09DB7Bba6
+    address internal constant GRND_RECEIPT = address(0xca4495d2fe8e82951DEbda1102A1dCf09DB7Bba6);
+    /// https://basescan.org/address/0xA4178410216F5f00C718BE88C2fF8AC24de192bc
+    address internal constant GRND_RECEIPT_VAULT = address(0xA4178410216F5f00C718BE88C2fF8AC24de192bc);
+    /// https://basescan.org/address/0x1197E6FA778c4D13E47875bD1761c68C22c928e0
+    address internal constant GRND_WRAPPED_TOKEN_VAULT = address(0x1197E6FA778c4D13E47875bD1761c68C22c928e0);
+
+    // ---- tDNUT / wtDNUT — Krispy Kreme, Inc. ST0x ----
+    /// https://basescan.org/address/0xE06eD5d80Db468a10fCfadF27ee9771DD73C7e35
+    address internal constant DNUT_RECEIPT = address(0xE06eD5d80Db468a10fCfadF27ee9771DD73C7e35);
+    /// https://basescan.org/address/0x6C2b6Ed57d4d9e93F3E4975FAc70eE4B180F4Eb9
+    address internal constant DNUT_RECEIPT_VAULT = address(0x6C2b6Ed57d4d9e93F3E4975FAc70eE4B180F4Eb9);
+    /// https://basescan.org/address/0x1db49Ff8BEe88ec73F82F395B0BEAd372BdcAdb7
+    address internal constant DNUT_WRAPPED_TOKEN_VAULT = address(0x1db49Ff8BEe88ec73F82F395B0BEAd372BdcAdb7);
+
+    // ---- tGM / wtGM — General Motors Company ST0x ----
+    // Deployed 2026-09-06, never launched — swapped out for FGI before launch; recorded, not pinned.
+    // /// https://basescan.org/address/0x912193f95512480167B0894E20DDe5062105F3b7
+    // address internal constant GM_RECEIPT = address(0x912193f95512480167B0894E20DDe5062105F3b7);
+    // /// https://basescan.org/address/0x47C04A6f705f755C10641E975607ecE8f18BC60c
+    // address internal constant GM_RECEIPT_VAULT = address(0x47C04A6f705f755C10641E975607ecE8f18BC60c);
+    // /// https://basescan.org/address/0x761d56D1FE1E390A96A5ECf58dE69838A231A37c
+    // address internal constant GM_WRAPPED_TOKEN_VAULT = address(0x761d56D1FE1E390A96A5ECf58dE69838A231A37c);
+
+    // ---- tPLBY / wtPLBY — Playboy, Inc. ST0x ----
+    /// https://basescan.org/address/0x5978B2FA7B3DDA36847eb7D2003EC7AE112258AA
+    address internal constant PLBY_RECEIPT = address(0x5978B2FA7B3DDA36847eb7D2003EC7AE112258AA);
+    /// https://basescan.org/address/0xe9bc7eF69f123cA2bcA1021D1BE30224271a9217
+    address internal constant PLBY_RECEIPT_VAULT = address(0xe9bc7eF69f123cA2bcA1021D1BE30224271a9217);
+    /// https://basescan.org/address/0x35fDe767dBFAa610D12cf99914bCd6CFEda73B7B
+    address internal constant PLBY_WRAPPED_TOKEN_VAULT = address(0x35fDe767dBFAa610D12cf99914bCd6CFEda73B7B);
+
+    // ---- tTR / wtTR — Tootsie Roll Industries, Inc. ST0x ----
+    /// https://basescan.org/address/0xf5e5d2d3b6be819Ff65cB364F4178252C9dbf5B7
+    address internal constant TR_RECEIPT = address(0xf5e5d2d3b6be819Ff65cB364F4178252C9dbf5B7);
+    /// https://basescan.org/address/0xeF935b17d5BE5b7ecA803158a845A08A7A9383f2
+    address internal constant TR_RECEIPT_VAULT = address(0xeF935b17d5BE5b7ecA803158a845A08A7A9383f2);
+    /// https://basescan.org/address/0x433fd2Fc0964B07E9820e4cd01774eDE59D1F002
+    address internal constant TR_WRAPPED_TOKEN_VAULT = address(0x433fd2Fc0964B07E9820e4cd01774eDE59D1F002);
+
+    // ---- tWEN / wtWEN — The Wendy's Company ST0x ----
+    /// https://basescan.org/address/0x6c26044FAa1Ea4459a03c3760F4aAA1826a1e392
+    address internal constant WEN_RECEIPT = address(0x6c26044FAa1Ea4459a03c3760F4aAA1826a1e392);
+    /// https://basescan.org/address/0xedA4df511dEA07b6529db2196998B30E03791d87
+    address internal constant WEN_RECEIPT_VAULT = address(0xedA4df511dEA07b6529db2196998B30E03791d87);
+    /// https://basescan.org/address/0x31Fa821F8B1BDea7Db357ec9622d1A2f6aFE903d
+    address internal constant WEN_WRAPPED_TOKEN_VAULT = address(0x31Fa821F8B1BDea7Db357ec9622d1A2f6aFE903d);
+
+    // ---- tFGI / wtFGI — FGI Industries Ltd. ST0x ----
+    /// https://basescan.org/address/0x46b25F089fFf268E28286C0d7A837c2f13Ad0952
+    address internal constant FGI_RECEIPT = address(0x46b25F089fFf268E28286C0d7A837c2f13Ad0952);
+    /// https://basescan.org/address/0x785BD77B8e92866f87E01416D1022d729975D529
+    address internal constant FGI_RECEIPT_VAULT = address(0x785BD77B8e92866f87E01416D1022d729975D529);
+    /// https://basescan.org/address/0x6aed8b1aCfb04F4e0e6db580F12fF41438a394e5
+    address internal constant FGI_WRAPPED_TOKEN_VAULT = address(0x6aed8b1aCfb04F4e0e6db580F12fF41438a394e5);
+
+    /// @notice Returns the 56 production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
     /// that need the receipt / wrapped-vault legs or the underlying join key
     /// (cross-chain parity, per-token config checks) iterate this instead.
-    /// @return tokens The 41 production token instances on Base.
+    /// @return tokens The 56 production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](41);
+        tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance("MSTR", MSTR_RECEIPT, MSTR_RECEIPT_VAULT, MSTR_WRAPPED_TOKEN_VAULT);
         tokens[1] = TokenInstance("TSLA", TSLA_RECEIPT, TSLA_RECEIPT_VAULT, TSLA_WRAPPED_TOKEN_VAULT);
         tokens[2] = TokenInstance("COIN", COIN_RECEIPT, COIN_RECEIPT_VAULT, COIN_WRAPPED_TOKEN_VAULT);
@@ -428,17 +575,25 @@ library LibTokenInvariants {
         tokens[28] = TokenInstance("RKLB", RKLB_RECEIPT, RKLB_RECEIPT_VAULT, RKLB_WRAPPED_TOKEN_VAULT);
         // Deployed on Base across 2026-07-27, 2026-08-05 and 2026-08-14, each
         // wired onto the shared V4 authoriser and handed to the Base
-        // token-owner Safe. All twelve are missing on Ethereum and HyperEVM
-        // until `20260807-deploy-missing-tokens` is dispatched against each —
-        // cross-chain parity is red until then.
+        // token-owner Safe. All twelve were copied onto Ethereum and HyperEVM
+        // by `20260807-deploy-missing-tokens`, so rows 29-41 exist on all
+        // three chains, as does every row below them.
         //
-        // tMETA and tPLTR are deliberately absent: META is deployed but never
-        // launched (absent from the registry, the logos and the Turnkey token
-        // set), and PLTR's `owner()` is still the deployer EOA rather than the
-        // Safe, so pinning it would break `assertUniformOwnership`.
+        // tMETA and tPLTR are deliberately absent from the array: META is
+        // deployed but never launched (absent from the registry, the logos and
+        // the Turnkey token set), and PLTR's `owner()` is still the deployer
+        // EOA rather than the Safe, so pinning it would break
+        // `assertUniformOwnership`. Both are recorded as commented-out rows at
+        // the index they would occupy — see below — so their addresses are on
+        // the record without entering the array or
+        // `20260807-deploy-missing-tokens`' selection.
         tokens[29] = TokenInstance("GOOGL", GOOGL_RECEIPT, GOOGL_RECEIPT_VAULT, GOOGL_WRAPPED_TOKEN_VAULT);
+        // tMETA — deployed 2026-07-27, never launched; recorded here, deliberately not in the array.
+        // tokens[..] = TokenInstance("META", META_RECEIPT, META_RECEIPT_VAULT, META_WRAPPED_TOKEN_VAULT);
         tokens[30] = TokenInstance("AAPL", AAPL_RECEIPT, AAPL_RECEIPT_VAULT, AAPL_WRAPPED_TOKEN_VAULT);
         tokens[31] = TokenInstance("MSFT", MSFT_RECEIPT, MSFT_RECEIPT_VAULT, MSFT_WRAPPED_TOKEN_VAULT);
+        // tPLTR — deployed 2026-07-27, never launched, `owner()` still the deployer EOA; not in the array.
+        // tokens[..] = TokenInstance("PLTR", PLTR_RECEIPT, PLTR_RECEIPT_VAULT, PLTR_WRAPPED_TOKEN_VAULT);
         tokens[32] = TokenInstance("LLY", LLY_RECEIPT, LLY_RECEIPT_VAULT, LLY_WRAPPED_TOKEN_VAULT);
         tokens[33] = TokenInstance("PTY", PTY_RECEIPT, PTY_RECEIPT_VAULT, PTY_WRAPPED_TOKEN_VAULT);
         tokens[34] = TokenInstance("INTC", INTC_RECEIPT, INTC_RECEIPT_VAULT, INTC_WRAPPED_TOKEN_VAULT);
@@ -448,12 +603,36 @@ library LibTokenInvariants {
         tokens[38] = TokenInstance("BABA", BABA_RECEIPT, BABA_RECEIPT_VAULT, BABA_WRAPPED_TOKEN_VAULT);
         tokens[39] = TokenInstance("TQQQ", TQQQ_RECEIPT, TQQQ_RECEIPT_VAULT, TQQQ_WRAPPED_TOKEN_VAULT);
         tokens[40] = TokenInstance("FTF", FTF_RECEIPT, FTF_RECEIPT_VAULT, FTF_WRAPPED_TOKEN_VAULT);
+        tokens[41] = TokenInstance("CBRS", CBRS_RECEIPT, CBRS_RECEIPT_VAULT, CBRS_WRAPPED_TOKEN_VAULT);
+        // The EU batch (2026-08-27), MCD and NKE (2026-09-03), GRND
+        // (2026-09-04) and the 2026-09-06 batch. Deployed on Base first and
+        // copied onto Ethereum and HyperEVM on 2026-09-07 by
+        // `20260807-deploy-missing-tokens` (runs 34127693038 and 34129816326),
+        // which diffs Base against the target chain's table and selected
+        // exactly these fourteen rows. All three tables are now 56 rows deep
+        // and mirror each other index-for-index.
+        tokens[42] = TokenInstance("AIR.PA", AIR_PA_RECEIPT, AIR_PA_RECEIPT_VAULT, AIR_PA_WRAPPED_TOKEN_VAULT);
+        tokens[43] = TokenInstance("BMW.DE", BMW_DE_RECEIPT, BMW_DE_RECEIPT_VAULT, BMW_DE_WRAPPED_TOKEN_VAULT);
+        tokens[44] = TokenInstance("MC.PA", MC_PA_RECEIPT, MC_PA_RECEIPT_VAULT, MC_PA_WRAPPED_TOKEN_VAULT);
+        tokens[45] = TokenInstance("SIE.DE", SIE_DE_RECEIPT, SIE_DE_RECEIPT_VAULT, SIE_DE_WRAPPED_TOKEN_VAULT);
+        tokens[46] = TokenInstance("MBG.DE", MBG_DE_RECEIPT, MBG_DE_RECEIPT_VAULT, MBG_DE_WRAPPED_TOKEN_VAULT);
+        tokens[47] = TokenInstance("RHM.DE", RHM_DE_RECEIPT, RHM_DE_RECEIPT_VAULT, RHM_DE_WRAPPED_TOKEN_VAULT);
+        tokens[48] = TokenInstance("MCD", MCD_RECEIPT, MCD_RECEIPT_VAULT, MCD_WRAPPED_TOKEN_VAULT);
+        tokens[49] = TokenInstance("NKE", NKE_RECEIPT, NKE_RECEIPT_VAULT, NKE_WRAPPED_TOKEN_VAULT);
+        tokens[50] = TokenInstance("GRND", GRND_RECEIPT, GRND_RECEIPT_VAULT, GRND_WRAPPED_TOKEN_VAULT);
+        tokens[51] = TokenInstance("DNUT", DNUT_RECEIPT, DNUT_RECEIPT_VAULT, DNUT_WRAPPED_TOKEN_VAULT);
+        // tGM — deployed 2026-09-06, swapped out for FGI before launch; recorded, deliberately not in the array.
+        // tokens[..] = TokenInstance("GM", GM_RECEIPT, GM_RECEIPT_VAULT, GM_WRAPPED_TOKEN_VAULT);
+        tokens[52] = TokenInstance("PLBY", PLBY_RECEIPT, PLBY_RECEIPT_VAULT, PLBY_WRAPPED_TOKEN_VAULT);
+        tokens[53] = TokenInstance("TR", TR_RECEIPT, TR_RECEIPT_VAULT, TR_WRAPPED_TOKEN_VAULT);
+        tokens[54] = TokenInstance("WEN", WEN_RECEIPT, WEN_RECEIPT_VAULT, WEN_WRAPPED_TOKEN_VAULT);
+        tokens[55] = TokenInstance("FGI", FGI_RECEIPT, FGI_RECEIPT_VAULT, FGI_WRAPPED_TOKEN_VAULT);
     }
 
     /// @notice Returns the production token instance triples on Ethereum
     /// mainnet — Base's underlyings in Base row order, so the tables pair by
     /// index as well as by key.
-    /// @return tokens The 41 production token instances on Ethereum.
+    /// @return tokens The 56 production token instances on Ethereum.
     function productionTokensEthereum() internal pure returns (TokenInstance[] memory tokens) {
         // Deployed on Ethereum mainnet 2026-07-22 by
         // `20260706-deploy-tokens-ethereum` (manual-broadcast run
@@ -463,7 +642,7 @@ library LibTokenInvariants {
         // run's logged (underlying, receipt, receiptVault, wrapped) tuples.
         // Order and underlyings match Base row-for-row (the cross-chain
         // parity pin asserts this).
-        tokens = new TokenInstance[](41);
+        tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance(
             "MSTR",
             address(0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763),
@@ -726,12 +905,116 @@ library LibTokenInvariants {
             address(0x334ccaD2e7D774F5e6A13437977dD0878926deF8),
             address(0x710A14a41a8Ea2e25376124C48bf9cAdc1E69be5)
         );
+        // CBRS, deployed 2026-08-14 by `20260807-deploy-missing-tokens` (run
+        // 31845108154) — the sole token that dispatch selected. It was never pinned
+        // here: the pin PR (#310) stayed open, so this table sat a row behind
+        // the chain. Verified live before pinning — symbol() tCBRS, receipt()
+        // and owner() the chain's token-owner Safe.
+        tokens[41] = TokenInstance(
+            "CBRS",
+            address(0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8),
+            address(0x75E0d127794b9C26eE35c55fbaBcc41c53Ccb37C),
+            address(0x15925E1c19c0F0d392F6FCb40FdE9144Dd823962)
+        );
+        // Deployed 2026-09-07 by `20260807-deploy-missing-tokens`
+        // (manual-broadcast run 34127693038) — the fourteen Base rows this table
+        // was missing: the EU batch (2026-08-27), MCD and NKE (2026-09-03),
+        // GRND (2026-09-04) and the 2026-09-06 batch. Each was wired onto this
+        // chain's V4 authoriser and handed to its token-owner Safe in the same
+        // broadcast; these rows pin the logged tuples. Verified on chain before
+        // pinning: every `receipt()` matches, every `owner()` is the chain's
+        // token-owner Safe, every `symbol()` is the expected t-ticker and every
+        // wrapper has code.
+        tokens[42] = TokenInstance(
+            "AIR.PA",
+            address(0x9452c603A552f35003206f9001C51007C36F530F),
+            address(0x4Da175A70020EeEFa71C36d710307ed0803Aed60),
+            address(0xc3bc6EEf91FfAeBACB13f4c48aC0515C820d2b0c)
+        );
+        tokens[43] = TokenInstance(
+            "BMW.DE",
+            address(0x7bc0B10f99c95F9F3e1e12a436a3869B53c9cb9C),
+            address(0x6872cEe8E1a07Dd8C1154755f7e215F2973caE52),
+            address(0x36FE4dc30b3b4906c9A64D5C957D49388E8d38E8)
+        );
+        tokens[44] = TokenInstance(
+            "MC.PA",
+            address(0xc562dB7c3B8A41cBF8B84D3C057787723BD13d2F),
+            address(0xaE7115d434c84F2f4a1196BaD67415d479804af1),
+            address(0xeaA6da57f120D5a0acB9Ff4807F7990EfBbE303a)
+        );
+        tokens[45] = TokenInstance(
+            "SIE.DE",
+            address(0xee6F971a9Bf473355286749b52Bfe614Df5fC129),
+            address(0x269CA594b6463F0D94086fb2D77dFaad32d1c6C4),
+            address(0x08A85a5AcE300e881e7c8828412A3Bdfd6F99054)
+        );
+        tokens[46] = TokenInstance(
+            "MBG.DE",
+            address(0x5536F0308E969C2DB0e52dBe99CB6871cC9E35f4),
+            address(0xA1768baE756058fE00dD281C405DDe1C48B00F3B),
+            address(0x6a73364EaE305199B62585C4486C24f3b72b2C72)
+        );
+        tokens[47] = TokenInstance(
+            "RHM.DE",
+            address(0xbf56725da5a71B3111C660c2279ADA6D1270772E),
+            address(0x8790337c4Ce51b66CBa179129d830A3683780ff6),
+            address(0x24ae429A29882b06898afCBAef20BfDb93f67e20)
+        );
+        tokens[48] = TokenInstance(
+            "MCD",
+            address(0x37BbE0cd96266CFc10960521EfB32A822ef780E0),
+            address(0xC04160F3e18e120C2259f3FE33864823bF3b9015),
+            address(0xe26b53fb8B0819682432d27C88D6505883cabafF)
+        );
+        tokens[49] = TokenInstance(
+            "NKE",
+            address(0x6884986776e2e221B7Cd5c566bBD9338051F24fB),
+            address(0x5e6e803242E52451FfdA82Fd7b5Ce4967B95C76E),
+            address(0x8fe134109A9Eb38D3f071a9Df4911081B4aa0814)
+        );
+        tokens[50] = TokenInstance(
+            "GRND",
+            address(0x9765A993735a639191ea2AAd2ac92eb122Bd394c),
+            address(0xdca06fddf5320870C8E9D0534aa102677C36bCc4),
+            address(0xB80Bd4D599EeBBF2851d4E7F5594918B82FF1823)
+        );
+        tokens[51] = TokenInstance(
+            "DNUT",
+            address(0x0eE9d8bB4D7d035b5Dc33937573Cc03BDb419c6e),
+            address(0x4a88c84AA04a5151997e8E503BEe7fD92E0918A9),
+            address(0xb7fC2b7881cceeB73D8DEccf69B6AcB8aC2E0826)
+        );
+        tokens[52] = TokenInstance(
+            "PLBY",
+            address(0xea8AF911CE3582d8fB5d6F1cd4695Ba115d1BdCA),
+            address(0x4a18036Dce22168D8891919a1c75aC2CAf9a08AB),
+            address(0xBe127eeD812DC1F622227FAdc8639d4138B47b2e)
+        );
+        tokens[53] = TokenInstance(
+            "TR",
+            address(0xEb36fc7B191b8358c0Cc839A873fCe1108fc36d1),
+            address(0xF88e511a3c762eE7E9ddd348a417F8e8db45BDEE),
+            address(0x1abADE2601DA2617f441e2c2B3Fff870445FEfd1)
+        );
+        tokens[54] = TokenInstance(
+            "WEN",
+            address(0x8231910EA52Ce2753C70D07545cEBfe476a609bA),
+            address(0x6c6f1CBe2fA860b1a15A02922d97A2d614db4923),
+            address(0x441Eaae749B7BA0C4462F2b19a47fBe8De0DFac2)
+        );
+        tokens[55] = TokenInstance(
+            "FGI",
+            address(0x7B3aA82Ca4Ef0eE146C32183366f3dED77400E0c),
+            address(0xfEa217600e2b00bBB2172a99345016a0cEb7d29f),
+            address(0x685DFd386968B58D895F934485820C479C79a8bB)
+        );
     }
 
-    /// @notice Returns the 41 production token instance triples on HyperEVM,
+    /// @notice Returns the 56 production token instance triples on HyperEVM,
     /// in the same row order as `productionTokensBase()` (the cross-chain
     /// parity pin asserts the alignment).
-    /// @return tokens The 41 production token instances on HyperEVM.
+    /// @return tokens The 56 production token instances on HyperEVM.
     function productionTokensHyperEvm() internal pure returns (TokenInstance[] memory tokens) {
         // Deployed on HyperEVM 2026-07-24 (manual-broadcast run 30114307165):
         // all 29 tokens via the 0.1.1 unified deployer, each wired onto the
@@ -740,7 +1023,7 @@ library LibTokenInvariants {
         // (underlying, receipt, receiptVault, wrapped) tuples. The script that
         // ran it was per-chain and has since been superseded by
         // `20260807-deploy-missing-tokens`, so this is the record of the run.
-        tokens = new TokenInstance[](41);
+        tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance(
             "MSTR",
             0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
@@ -998,6 +1281,110 @@ library LibTokenInvariants {
             0x334ccaD2e7D774F5e6A13437977dD0878926deF8,
             0x710A14a41a8Ea2e25376124C48bf9cAdc1E69be5
         );
+        // CBRS, deployed 2026-08-14 by `20260807-deploy-missing-tokens` (run
+        // 31845492796) — the sole token that dispatch selected. It was never pinned
+        // here: the pin PR (#310) stayed open, so this table sat a row behind
+        // the chain. Verified live before pinning — symbol() tCBRS, receipt()
+        // and owner() the chain's token-owner Safe.
+        tokens[41] = TokenInstance(
+            "CBRS",
+            0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8,
+            0x75E0d127794b9C26eE35c55fbaBcc41c53Ccb37C,
+            0x15925E1c19c0F0d392F6FCb40FdE9144Dd823962
+        );
+        // Deployed 2026-09-07 by `20260807-deploy-missing-tokens`
+        // (manual-broadcast run 34129816326) — the fourteen Base rows this table
+        // was missing: the EU batch (2026-08-27), MCD and NKE (2026-09-03),
+        // GRND (2026-09-04) and the 2026-09-06 batch. Each was wired onto this
+        // chain's V4 authoriser and handed to its token-owner Safe in the same
+        // broadcast; these rows pin the logged tuples. Verified on chain before
+        // pinning: every `receipt()` matches, every `owner()` is the chain's
+        // token-owner Safe, every `symbol()` is the expected t-ticker and every
+        // wrapper has code.
+        tokens[42] = TokenInstance(
+            "AIR.PA",
+            0x9452c603A552f35003206f9001C51007C36F530F,
+            0x4Da175A70020EeEFa71C36d710307ed0803Aed60,
+            0xc3bc6EEf91FfAeBACB13f4c48aC0515C820d2b0c
+        );
+        tokens[43] = TokenInstance(
+            "BMW.DE",
+            0x7bc0B10f99c95F9F3e1e12a436a3869B53c9cb9C,
+            0x6872cEe8E1a07Dd8C1154755f7e215F2973caE52,
+            0x36FE4dc30b3b4906c9A64D5C957D49388E8d38E8
+        );
+        tokens[44] = TokenInstance(
+            "MC.PA",
+            0xc562dB7c3B8A41cBF8B84D3C057787723BD13d2F,
+            0xaE7115d434c84F2f4a1196BaD67415d479804af1,
+            0xeaA6da57f120D5a0acB9Ff4807F7990EfBbE303a
+        );
+        tokens[45] = TokenInstance(
+            "SIE.DE",
+            0xee6F971a9Bf473355286749b52Bfe614Df5fC129,
+            0x269CA594b6463F0D94086fb2D77dFaad32d1c6C4,
+            0x08A85a5AcE300e881e7c8828412A3Bdfd6F99054
+        );
+        tokens[46] = TokenInstance(
+            "MBG.DE",
+            0x5536F0308E969C2DB0e52dBe99CB6871cC9E35f4,
+            0xA1768baE756058fE00dD281C405DDe1C48B00F3B,
+            0x6a73364EaE305199B62585C4486C24f3b72b2C72
+        );
+        tokens[47] = TokenInstance(
+            "RHM.DE",
+            0xbf56725da5a71B3111C660c2279ADA6D1270772E,
+            0x8790337c4Ce51b66CBa179129d830A3683780ff6,
+            0x24ae429A29882b06898afCBAef20BfDb93f67e20
+        );
+        tokens[48] = TokenInstance(
+            "MCD",
+            0x37BbE0cd96266CFc10960521EfB32A822ef780E0,
+            0xC04160F3e18e120C2259f3FE33864823bF3b9015,
+            0xe26b53fb8B0819682432d27C88D6505883cabafF
+        );
+        tokens[49] = TokenInstance(
+            "NKE",
+            0x6884986776e2e221B7Cd5c566bBD9338051F24fB,
+            0x5e6e803242E52451FfdA82Fd7b5Ce4967B95C76E,
+            0x8fe134109A9Eb38D3f071a9Df4911081B4aa0814
+        );
+        tokens[50] = TokenInstance(
+            "GRND",
+            0x9765A993735a639191ea2AAd2ac92eb122Bd394c,
+            0xdca06fddf5320870C8E9D0534aa102677C36bCc4,
+            0xB80Bd4D599EeBBF2851d4E7F5594918B82FF1823
+        );
+        tokens[51] = TokenInstance(
+            "DNUT",
+            0x0eE9d8bB4D7d035b5Dc33937573Cc03BDb419c6e,
+            0x4a88c84AA04a5151997e8E503BEe7fD92E0918A9,
+            0xb7fC2b7881cceeB73D8DEccf69B6AcB8aC2E0826
+        );
+        tokens[52] = TokenInstance(
+            "PLBY",
+            0xea8AF911CE3582d8fB5d6F1cd4695Ba115d1BdCA,
+            0x4a18036Dce22168D8891919a1c75aC2CAf9a08AB,
+            0xBe127eeD812DC1F622227FAdc8639d4138B47b2e
+        );
+        tokens[53] = TokenInstance(
+            "TR",
+            0xEb36fc7B191b8358c0Cc839A873fCe1108fc36d1,
+            0xF88e511a3c762eE7E9ddd348a417F8e8db45BDEE,
+            0x1abADE2601DA2617f441e2c2B3Fff870445FEfd1
+        );
+        tokens[54] = TokenInstance(
+            "WEN",
+            0x8231910EA52Ce2753C70D07545cEBfe476a609bA,
+            0x6c6f1CBe2fA860b1a15A02922d97A2d614db4923,
+            0x441Eaae749B7BA0C4462F2b19a47fBe8De0DFac2
+        );
+        tokens[55] = TokenInstance(
+            "FGI",
+            0x7B3aA82Ca4Ef0eE146C32183366f3dED77400E0c,
+            0xfEa217600e2b00bBB2172a99345016a0cEb7d29f,
+            0x685DFd386968B58D895F934485820C479C79a8bB
+        );
     }
 
     /// @notice Returns the production token instance triples on Robinhood
@@ -1011,9 +1398,9 @@ library LibTokenInvariants {
     /// onto this chain's V4 authoriser and handed to its token-owner Safe in
     /// the same broadcast. Addresses pinned from the run's logged
     /// (underlying, receipt, receiptVault, wrapped) tuples.
-    /// @return tokens The 41 production token instances on Robinhood Chain.
+    /// @return tokens The 56 production token instances on Robinhood Chain.
     function productionTokensRobinhood() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](41);
+        tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance(
             "MSTR",
             0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
@@ -1260,6 +1647,99 @@ library LibTokenInvariants {
             0x334ccaD2e7D774F5e6A13437977dD0878926deF8,
             0x710A14a41a8Ea2e25376124C48bf9cAdc1E69be5
         );
+        // Rows 41-55: Base's later deployments, copied onto this chain by
+        // `20260807-deploy-missing-tokens` on 2026-09-11 (manual-broadcast run
+        // 34588739371) — the fifteen rows the dispatch selected, in Base order.
+        tokens[41] = TokenInstance(
+            "CBRS",
+            0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8,
+            0x75E0d127794b9C26eE35c55fbaBcc41c53Ccb37C,
+            0x15925E1c19c0F0d392F6FCb40FdE9144Dd823962
+        );
+        tokens[42] = TokenInstance(
+            "AIR.PA",
+            0x9452c603A552f35003206f9001C51007C36F530F,
+            0x4Da175A70020EeEFa71C36d710307ed0803Aed60,
+            0xc3bc6EEf91FfAeBACB13f4c48aC0515C820d2b0c
+        );
+        tokens[43] = TokenInstance(
+            "BMW.DE",
+            0x7bc0B10f99c95F9F3e1e12a436a3869B53c9cb9C,
+            0x6872cEe8E1a07Dd8C1154755f7e215F2973caE52,
+            0x36FE4dc30b3b4906c9A64D5C957D49388E8d38E8
+        );
+        tokens[44] = TokenInstance(
+            "MC.PA",
+            0xc562dB7c3B8A41cBF8B84D3C057787723BD13d2F,
+            0xaE7115d434c84F2f4a1196BaD67415d479804af1,
+            0xeaA6da57f120D5a0acB9Ff4807F7990EfBbE303a
+        );
+        tokens[45] = TokenInstance(
+            "SIE.DE",
+            0xee6F971a9Bf473355286749b52Bfe614Df5fC129,
+            0x269CA594b6463F0D94086fb2D77dFaad32d1c6C4,
+            0x08A85a5AcE300e881e7c8828412A3Bdfd6F99054
+        );
+        tokens[46] = TokenInstance(
+            "MBG.DE",
+            0x5536F0308E969C2DB0e52dBe99CB6871cC9E35f4,
+            0xA1768baE756058fE00dD281C405DDe1C48B00F3B,
+            0x6a73364EaE305199B62585C4486C24f3b72b2C72
+        );
+        tokens[47] = TokenInstance(
+            "RHM.DE",
+            0xbf56725da5a71B3111C660c2279ADA6D1270772E,
+            0x8790337c4Ce51b66CBa179129d830A3683780ff6,
+            0x24ae429A29882b06898afCBAef20BfDb93f67e20
+        );
+        tokens[48] = TokenInstance(
+            "MCD",
+            0x37BbE0cd96266CFc10960521EfB32A822ef780E0,
+            0xC04160F3e18e120C2259f3FE33864823bF3b9015,
+            0xe26b53fb8B0819682432d27C88D6505883cabafF
+        );
+        tokens[49] = TokenInstance(
+            "NKE",
+            0x6884986776e2e221B7Cd5c566bBD9338051F24fB,
+            0x5e6e803242E52451FfdA82Fd7b5Ce4967B95C76E,
+            0x8fe134109A9Eb38D3f071a9Df4911081B4aa0814
+        );
+        tokens[50] = TokenInstance(
+            "GRND",
+            0x9765A993735a639191ea2AAd2ac92eb122Bd394c,
+            0xdca06fddf5320870C8E9D0534aa102677C36bCc4,
+            0xB80Bd4D599EeBBF2851d4E7F5594918B82FF1823
+        );
+        tokens[51] = TokenInstance(
+            "DNUT",
+            0x0eE9d8bB4D7d035b5Dc33937573Cc03BDb419c6e,
+            0x4a88c84AA04a5151997e8E503BEe7fD92E0918A9,
+            0xb7fC2b7881cceeB73D8DEccf69B6AcB8aC2E0826
+        );
+        tokens[52] = TokenInstance(
+            "PLBY",
+            0xea8AF911CE3582d8fB5d6F1cd4695Ba115d1BdCA,
+            0x4a18036Dce22168D8891919a1c75aC2CAf9a08AB,
+            0xBe127eeD812DC1F622227FAdc8639d4138B47b2e
+        );
+        tokens[53] = TokenInstance(
+            "TR",
+            0xEb36fc7B191b8358c0Cc839A873fCe1108fc36d1,
+            0xF88e511a3c762eE7E9ddd348a417F8e8db45BDEE,
+            0x1abADE2601DA2617f441e2c2B3Fff870445FEfd1
+        );
+        tokens[54] = TokenInstance(
+            "WEN",
+            0x8231910EA52Ce2753C70D07545cEBfe476a609bA,
+            0x6c6f1CBe2fA860b1a15A02922d97A2d614db4923,
+            0x441Eaae749B7BA0C4462F2b19a47fBe8De0DFac2
+        );
+        tokens[55] = TokenInstance(
+            "FGI",
+            0x7B3aA82Ca4Ef0eE146C32183366f3dED77400E0c,
+            0xfEa217600e2b00bBB2172a99345016a0cEb7d29f,
+            0x685DFd386968B58D895F934485820C479C79a8bB
+        );
     }
 
     /// @notice Returns the production token instance triples on BNB Smart
@@ -1273,9 +1753,9 @@ library LibTokenInvariants {
     /// onto this chain's V4 authoriser and handed to its token-owner Safe in
     /// the same broadcast. Addresses pinned from the run's logged
     /// (underlying, receipt, receiptVault, wrapped) tuples.
-    /// @return tokens The 41 production token instances on BNB Smart Chain.
+    /// @return tokens The 56 production token instances on BNB Smart Chain.
     function productionTokensBsc() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](41);
+        tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance(
             "MSTR",
             0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8,
@@ -1522,15 +2002,108 @@ library LibTokenInvariants {
             0x162d65E4E4313b88D7eFc37F9c8110b334110406,
             0xd6c50a60b46eeF15ae2E8dbeFC417A6F0F154bc5
         );
+        // Rows 41-55: Base's later deployments, copied onto this chain by
+        // `20260807-deploy-missing-tokens` on 2026-09-11 (manual-broadcast run
+        // 34589363778) — the fifteen rows the dispatch selected, in Base order.
+        tokens[41] = TokenInstance(
+            "CBRS",
+            0xdEa3AA3Ad91C7989Dd9986b8E5558d0e9889d718,
+            0xB51C6A5c30A37814128E143e307E1f9c8cC9E32B,
+            0x13C799519E62eB07bf324896241F535f16dEdAe6
+        );
+        tokens[42] = TokenInstance(
+            "AIR.PA",
+            0x079E9711E66b8e7A206ef23737374F4eD2Ff821b,
+            0x7a54A3D95721E086bC9F7F50ae6B6A2f440c5983,
+            0xADF02BecE4427217C2e2f5c221F625b6bfC02d0d
+        );
+        tokens[43] = TokenInstance(
+            "BMW.DE",
+            0x2d5656B1861B7dE521dBd5dF8a0AaC3aA822D035,
+            0x710645EE06D013581617f9fDbCcFbcc8D891D43a,
+            0x11E2B27101A8074779195019937b43195234D1C8
+        );
+        tokens[44] = TokenInstance(
+            "MC.PA",
+            0x5c5957E4bDCE3845D21fa33a71F425D57da8e1a2,
+            0x194C6Ebe9919C8681aa17C8814ee6c8A0534b28f,
+            0x20BAdF51225A689B3C5b17eAA71927c1D3C1d481
+        );
+        tokens[45] = TokenInstance(
+            "SIE.DE",
+            0x56371804af362136D8f6F6b9ECd21D3e5c8dA740,
+            0xEA6093BAD015aF29ADfa4013904e0f75f140b59b,
+            0x795B83223EC78f2Ba6abD2Db23ddd4D6163A4e5C
+        );
+        tokens[46] = TokenInstance(
+            "MBG.DE",
+            0x22122e8717ef11FE544495e700a1Fba8B5aF3d07,
+            0xa814255182F68cd5176bdb356A57411340F87d84,
+            0x3ef1367B12A4099caa73A003a4DB273Dd9a11E18
+        );
+        tokens[47] = TokenInstance(
+            "RHM.DE",
+            0x8F63D208EFD46bD8632d93e97f9bA3A53089AF11,
+            0xc6E584f4341E418962A0DDe3F2969B6be58f1920,
+            0x83f8828b6EAd177Fb3D516b3dD7C2E96c39F84CE
+        );
+        tokens[48] = TokenInstance(
+            "MCD",
+            0x78182C3f2940a335A6D79BFCAFa1E10cD9abe17A,
+            0x1169CDA99AeC045f9A42227D32DF005650Bc0d9D,
+            0xf0FA8bC5ca94BeE5074dA2467dF3c8057a2D0502
+        );
+        tokens[49] = TokenInstance(
+            "NKE",
+            0x883588E050768B90eacf49e24C1fb0554815B133,
+            0x2FA89b48915FDaa098E0d2Eb61ff7a72760A558C,
+            0x1Cf7DCAd8f2Cd57FD84B3058eB389a31BD49C47e
+        );
+        tokens[50] = TokenInstance(
+            "GRND",
+            0xF0F9bbC8D7c862DEa88F89FEb127cB78BC0b20f1,
+            0x4fdCE96b5EB6545C157619f835DA16dc71DE5E2e,
+            0x473E004a6d659ea17666100A445C79A5171D2D9b
+        );
+        tokens[51] = TokenInstance(
+            "DNUT",
+            0x8E6176f684Ed70A790B86B69F1F7Fa5ac45Ce299,
+            0x543e33E9276Cf00B74689c8E41FD7fC921128ba0,
+            0x52f2718831848dC72867198d73bA7a53737019e8
+        );
+        tokens[52] = TokenInstance(
+            "PLBY",
+            0x80c55176C9F1D155B0B8E546e49368516813a8ec,
+            0xE2593dB54E7893d311cBF5087CDB7a9027b9a7fD,
+            0x1007B4ad2c1f29ebf5897F8a49494FB8a1f12dE2
+        );
+        tokens[53] = TokenInstance(
+            "TR",
+            0xFeBDb50a8256c762E219a66047155D1927d68A63,
+            0xc67038BbFf91F2568B902ff171E9f9C06ed98815,
+            0xCf819a3E3746B543343D268B092BaB5244F8fE12
+        );
+        tokens[54] = TokenInstance(
+            "WEN",
+            0x8c7D787e6377B1f07bf5f644fB6A5629506FEA3e,
+            0xBCA97cc57916734130c9f05eA8B217682A249b75,
+            0x82894CeD5F0b7009E4D531abe81863A523F4d9A5
+        );
+        tokens[55] = TokenInstance(
+            "FGI",
+            0xE05a93a2d1D0E8bA13F2bC0D1017Cb0D93308F4e,
+            0x042Dfd33De6766a8858f188DFcf207D311da6488,
+            0x5A5c3b64907823b1c5ea9d75D5AF44dFD06b03ea
+        );
     }
 
-    /// @notice Returns the 29 production receipt vault addresses on Base, in
+    /// @notice Returns the 56 production receipt vault addresses on Base, in
     /// the order they were deployed. Provided so consumers (e.g. invariant
     /// assertions, migration scripts) can iterate without hardcoding the
     /// list inline.
     /// @dev Derived from `productionTokensBase()` so the token table is the
     /// single source of truth and the two accessors cannot drift.
-    /// @return vaults The 29 production receipt vault addresses on Base.
+    /// @return vaults The 56 production receipt vault addresses on Base.
     function productionReceiptVaults() internal pure returns (address[] memory vaults) {
         TokenInstance[] memory tokens = productionTokensBase();
         vaults = new address[](tokens.length);

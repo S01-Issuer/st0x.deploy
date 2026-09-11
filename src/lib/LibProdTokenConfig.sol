@@ -24,7 +24,7 @@ struct TokenConfig {
 }
 
 /// @title LibProdTokenConfig
-/// @notice The canonical name/symbol table for the 41 ST0x production
+/// @notice The canonical name/symbol table for the 56 ST0x production
 /// tokens, captured verbatim from the live Base receipt vaults so a new
 /// chain's token set can be deployed byte-identical to Base. This is the
 /// deploy-input companion to `LibTokenInvariants` (which holds the deployed
@@ -42,10 +42,10 @@ struct TokenConfig {
 /// means carrying that space forward; the parity pin would flag it as a
 /// divergence otherwise.
 library LibProdTokenConfig {
-    /// @notice The 41 production token deploy configs, Base table order.
+    /// @notice The 56 production token deploy configs, Base table order.
     /// @return configs The name/symbol table.
     function productionTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
-        configs = new TokenConfig[](41);
+        configs = new TokenConfig[](56);
         configs[0] = TokenConfig("MSTR", "MicroStrategy Incorporated ST0x", "tMSTR");
         configs[1] = TokenConfig("TSLA", "Tesla Inc ST0x", "tTSLA");
         configs[2] = TokenConfig("COIN", "Coinbase Global Inc ST0x", "tCOIN");
@@ -77,8 +77,12 @@ library LibProdTokenConfig {
         configs[27] = TokenConfig("TTWO", "Take-Two Interactive Software, Inc. ST0x", "tTTWO");
         configs[28] = TokenConfig("RKLB", "Rocket Lab USA Inc ST0x", "tRKLB");
         configs[29] = TokenConfig("GOOGL", "Alphabet Inc. Class A ST0x", "tGOOGL");
+        // tMETA — deployed 2026-07-27, never launched; recorded here, deliberately not in the table.
+        // configs[..] = TokenConfig("META", "Meta Platforms, Inc. ST0x", "tMETA");
         configs[30] = TokenConfig("AAPL", "Apple Inc. ST0x", "tAAPL");
         configs[31] = TokenConfig("MSFT", "Microsoft Corporation ST0x", "tMSFT");
+        // tPLTR — deployed 2026-07-27, never launched, `owner()` still the deployer EOA; not in the table.
+        // configs[..] = TokenConfig("PLTR", "Palantir Technologies Inc. ST0x", "tPLTR");
         configs[32] = TokenConfig("LLY", "Eli Lilly and Company ST0x", "tLLY");
         configs[33] = TokenConfig("PTY", "PIMCO Corporate & Income Opportunity Fund ST0x", "tPTY");
         configs[34] = TokenConfig("INTC", "Intel Corporation ST0x", "tINTC");
@@ -88,5 +92,24 @@ library LibProdTokenConfig {
         configs[38] = TokenConfig("BABA", "Alibaba Group Holding Limited ADR ST0x", "tBABA");
         configs[39] = TokenConfig("TQQQ", "ProShares UltraPro QQQ ST0x", "tTQQQ");
         configs[40] = TokenConfig("FTF", "Franklin Limited Duration Income Trust ST0x", "tFTF");
+        configs[41] = TokenConfig("CBRS", "Cerebras Systems Inc. ST0x", "tCBRS");
+        configs[42] = TokenConfig("AIR.PA", "Airbus SE ST0x", "tAIR.PA");
+        configs[43] = TokenConfig("BMW.DE", "Bayerische Motoren Werke Aktiengesellschaft ST0x", "tBMW.DE");
+        // solc rejects a bare non-ASCII string literal; `unicode"..."` is the
+        // same bytes, and Base carries the ë — dropping it would break parity.
+        configs[44] = TokenConfig("MC.PA", unicode"LVMH Moët Hennessy Louis Vuitton SE ST0x", "tMC.PA");
+        configs[45] = TokenConfig("SIE.DE", "Siemens Aktiengesellschaft ST0x", "tSIE.DE");
+        configs[46] = TokenConfig("MBG.DE", "Mercedes-Benz Group AG ST0x", "tMBG.DE");
+        configs[47] = TokenConfig("RHM.DE", "Rheinmetall AG ST0x", "tRHM.DE");
+        configs[48] = TokenConfig("MCD", "McDonald's Corporation ST0x", "tMCD");
+        configs[49] = TokenConfig("NKE", "NIKE, Inc. ST0x", "tNKE");
+        configs[50] = TokenConfig("GRND", "Grindr Inc. ST0x", "tGRND");
+        configs[51] = TokenConfig("DNUT", "Krispy Kreme, Inc. ST0x", "tDNUT");
+        // tGM — deployed 2026-09-06, swapped out for FGI before launch; recorded, deliberately not in the table.
+        // configs[..] = TokenConfig("GM", "General Motors Company ST0x", "tGM");
+        configs[52] = TokenConfig("PLBY", "Playboy, Inc. ST0x", "tPLBY");
+        configs[53] = TokenConfig("TR", "Tootsie Roll Industries, Inc. ST0x", "tTR");
+        configs[54] = TokenConfig("WEN", "The Wendy's Company ST0x", "tWEN");
+        configs[55] = TokenConfig("FGI", "FGI Industries Ltd. ST0x", "tFGI");
     }
 }
