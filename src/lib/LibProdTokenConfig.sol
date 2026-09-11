@@ -24,8 +24,9 @@ struct TokenConfig {
 }
 
 /// @title LibProdTokenConfig
-/// @notice The canonical name/symbol table for the 56 ST0x production
-/// tokens, captured verbatim from the live Base receipt vaults so a new
+/// @notice The canonical name/symbol table for the ST0x production tokens
+/// (the 56 deployed on Base plus `BIRD`, authored ahead of its Base deploy),
+/// captured verbatim from the live Base receipt vaults so a new
 /// chain's token set can be deployed byte-identical to Base. This is the
 /// deploy-input companion to `LibTokenInvariants` (which holds the deployed
 /// addresses): the deploy script reads this to author the
@@ -37,15 +38,19 @@ struct TokenConfig {
 /// @dev Entries are in the same order as
 /// `LibTokenInvariants.productionTokensBase()` so the two tables pair by
 /// index as well as by `underlying` key; `LibProdTokenConfigTest` pins that
-/// alignment. Strings are reproduced EXACTLY, including quirks that exist on
+/// alignment over every row Base carries. The table may run AHEAD of Base —
+/// a row is authored when a ticker is chosen and Base is pinned when its
+/// deploy lands, and `_selectMissing` reads only the rows Base carries — but
+/// never behind it. Strings are reproduced EXACTLY, including quirks that exist on
 /// Base — notably `SGOV`'s name has a leading space. Matching Base "exactly"
 /// means carrying that space forward; the parity pin would flag it as a
 /// divergence otherwise.
 library LibProdTokenConfig {
-    /// @notice The 56 production token deploy configs, Base table order.
+    /// @notice The 57 production token deploy configs, Base table order: the
+    /// 56 Base has deployed, then `BIRD` (row 56) ahead of its Base deploy.
     /// @return configs The name/symbol table.
     function productionTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
-        configs = new TokenConfig[](56);
+        configs = new TokenConfig[](57);
         configs[0] = TokenConfig("MSTR", "MicroStrategy Incorporated ST0x", "tMSTR");
         configs[1] = TokenConfig("TSLA", "Tesla Inc ST0x", "tTSLA");
         configs[2] = TokenConfig("COIN", "Coinbase Global Inc ST0x", "tCOIN");
@@ -111,5 +116,12 @@ library LibProdTokenConfig {
         configs[53] = TokenConfig("TR", "Tootsie Roll Industries, Inc. ST0x", "tTR");
         configs[54] = TokenConfig("WEN", "The Wendy's Company ST0x", "tWEN");
         configs[55] = TokenConfig("FGI", "FGI Industries Ltd. ST0x", "tFGI");
+        // tBIRD — authored AHEAD of its Base deploy (sft-ops PR #31,
+        // `metadata/bird.json`; name = "<metadata.name> ST0x"). Smartbird, Inc.
+        // is the former Allbirds, Inc. (renamed 2026, same Nasdaq listing —
+        // NOT "Allbirds"). Base pins the matching `productionTokensBase()` row
+        // at index 56 once the sft-ops CD deploy lands; until then this row is
+        // inert to `_selectMissing` and `LibProdTokenConfigTest`.
+        configs[56] = TokenConfig("BIRD", "Smartbird, Inc. ST0x", "tBIRD");
     }
 }

@@ -536,6 +536,54 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x6aed8b1aCfb04F4e0e6db580F12fF41438a394e5
     address internal constant FGI_WRAPPED_TOKEN_VAULT = address(0x6aed8b1aCfb04F4e0e6db580F12fF41438a394e5);
 
+    // ---- tBIRD / wtBIRD — Smartbird, Inc. ST0x — NOT YET DEPLOYED ----
+    // TODO(BIRD): `LibProdTokenConfig` row 56 is pinned ahead of the deploy.
+    // Hydrate in this order, one PR per step, and never guess an address:
+    //
+    // 1. Base — the sft-ops `metadata/bird.json` merge (sft-ops PR #31) is the
+    //    CD deploy. Take `sft` (= receiptVault) and `wrapper` from the run's
+    //    `cd/ledger-<run_id>` branch / `ops/launches.json`, read the receipt
+    //    live (`cast call <sft> "receipt()(address)" --rpc-url <base>`), then
+    //    add the constants here and the row at the end of
+    //    `productionTokensBase()`, bumping its length 56 -> 57:
+    //
+    //      /// https://basescan.org/address/0x...
+    //      address internal constant BIRD_RECEIPT = address(0x...);
+    //      /// https://basescan.org/address/0x...
+    //      address internal constant BIRD_RECEIPT_VAULT = address(0x...);
+    //      /// https://basescan.org/address/0x...
+    //      address internal constant BIRD_WRAPPED_TOKEN_VAULT = address(0x...);
+    //
+    //      tokens[56] = TokenInstance("BIRD", BIRD_RECEIPT, BIRD_RECEIPT_VAULT, BIRD_WRAPPED_TOKEN_VAULT);
+    //
+    // 2. Ethereum, HyperEVM, BNB Smart Chain, Robinhood Chain — dispatch
+    //    `Actions -> manual-broadcast`, `script = 20260807-deploy-missing-tokens`,
+    //    once per `network`. Pin each run's logged
+    //    (underlying, receipt, receiptVault, wrapped) tuple at the end of THAT
+    //    chain's table (`productionTokensEthereum()`, `productionTokensHyperEvm()`,
+    //    `productionTokensBsc()`, `productionTokensRobinhood()`), bumping each
+    //    length by one:
+    //
+    //      tokens[56] = TokenInstance(
+    //          "BIRD",
+    //          0x..., // receipt (ERC-1155)
+    //          0x..., // receiptVault
+    //          0x... // wrappedTokenVault
+    //      );
+    //
+    //    Do NOT assume the four non-Base chains share one triple. Ethereum and
+    //    HyperEVM have matched so far only because the deploy key's nonce is
+    //    in lockstep on those two; BNB Smart Chain and Robinhood Chain are
+    //    already out of step (BNB row 0 sits at Ethereum's row-41 address,
+    //    Robinhood rows 29-39 are a permutation of Ethereum's), so every
+    //    chain's tuple comes from its own run log. BNB and Robinhood carry 41
+    //    rows today, so their dispatch also copies rows 41-55 (16 tokens per
+    //    chain, Base order, BIRD last); Ethereum and HyperEVM copy BIRD alone.
+    //
+    // 3. Cross-chain parity (`StoxCrossChainParity`, the per-chain
+    //    `*TokenOwnerSafeParity` pins) is red between step 1 and the last pin
+    //    of step 2 and green again after.
+
     /// @notice Returns the 56 production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
