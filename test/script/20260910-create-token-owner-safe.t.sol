@@ -9,7 +9,7 @@ import {
     TokenOwnerSafeAlreadyExists,
     TokenOwnerSafePinNotDerivable
 } from "../../script/20260910-create-token-owner-safe.s.sol";
-import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
+import {LibSafeInvariants, SafeCanonicalContractCodehashMismatch} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 
 /// @title CreateTokenOwnerSafeTest
@@ -33,11 +33,30 @@ contract CreateTokenOwnerSafeTest is Test {
     /// Safe there.
     function testRefusesBase() external {
         vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
+        // Code at the pin, so the refusal proves derivability is checked first.
+        vm.etch(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, hex"FE");
         address derived = LibSafeInvariants.expectedTokenOwnerSafeAddress();
         CreateTokenOwnerSafe script = new CreateTokenOwnerSafe();
         vm.expectRevert(
             abi.encodeWithSelector(
                 TokenOwnerSafePinNotDerivable.selector, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, derived
+            )
+        );
+        script.run();
+    }
+
+    /// @notice A derivable, unoccupied pin on a chain without the canonical
+    /// Safe contracts is refused by the pre-flight, typed, before broadcasting.
+    function testRefusesAChainWithoutTheCanonicalSafeContracts() external {
+        vm.chainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
+        address factory = LibSafeInvariants.SAFE_V1_4_1_PROXY_FACTORY;
+        CreateTokenOwnerSafe script = new CreateTokenOwnerSafe();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                SafeCanonicalContractCodehashMismatch.selector,
+                factory,
+                LibSafeInvariants.SAFE_V1_4_1_PROXY_FACTORY_CODEHASH,
+                factory.codehash
             )
         );
         script.run();
