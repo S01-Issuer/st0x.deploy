@@ -121,20 +121,18 @@ contract DeployMissingTokensTest is Test {
 
     /// @notice A half-hydrated target — some rows deployed, the rest still
     /// placeholders — selects exactly the placeholder rows, in Base order.
-    /// The live Robinhood Chain table is that shape today: 41 deployed rows
-    /// and 15 placeholders for Base's later deployments.
+    /// Built from Base by zeroing its trailing rows: the shape every new
+    /// chain's table passes through between a partial copy and its pin.
     function testSelectionSkipsDeployedRowsAmongPlaceholders() external view {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
-        TokenInstance[] memory target = LibTokenInvariants.productionTokensRobinhood();
-        uint256 placeholderCount = 0;
-        for (uint256 i = 0; i < target.length; i++) {
-            if (target[i].receiptVault == address(0)) placeholderCount++;
+        TokenInstance[] memory target = new TokenInstance[](base.length);
+        uint256 deployed = 41;
+        for (uint256 i = 0; i < base.length; i++) {
+            target[i] = i < deployed ? base[i] : TokenInstance(base[i].underlying, address(0), address(0), address(0));
         }
-        assertGt(placeholderCount, 0, "precondition: the Robinhood table still carries placeholders");
-        assertLt(placeholderCount, target.length, "precondition: the Robinhood table is not all placeholders");
         TokenConfig[] memory missing = harness.selectMissing(LibProdTokenConfig.productionTokenConfigs(), base, target);
-        assertEq(missing.length, placeholderCount, "expected every placeholder row and nothing else");
-        assertEq(missing[0].underlying, base[41].underlying, "first selected row is Base's first later deployment");
+        assertEq(missing.length, base.length - deployed, "expected every placeholder row and nothing else");
+        assertEq(missing[0].underlying, base[deployed].underlying, "first selected row is the first placeholder");
     }
 
     /// @notice A config table running AHEAD of Base is a normal state, not a
