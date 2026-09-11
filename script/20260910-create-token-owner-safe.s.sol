@@ -138,9 +138,9 @@ contract CreateTokenOwnerSafe is Script {
     /// v1.4.1 identity and fallback handler, at the creation threshold.
     function run() external {
         address pinned = LibSafeInvariants.safeForChainId(block.chainid);
-        if (pinned.code.length != 0) revert TokenOwnerSafeAlreadyExists(pinned);
         address derived = derivedSafeAddress();
         if (derived != pinned) revert TokenOwnerSafePinNotDerivable(pinned, derived);
+        if (pinned.code.length != 0) revert TokenOwnerSafeAlreadyExists(pinned);
         LibSafeInvariants.assertCanonicalSafeContracts();
 
         console2.log("Creating the token-owner Safe on chain id", block.chainid);

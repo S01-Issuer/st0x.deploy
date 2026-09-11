@@ -49,20 +49,11 @@ contract CreateTokenOwnerSafeTest is Test {
         address derived = harness.callDerivedSafeAddress();
         assertNotEq(derived, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, "Base pin is not this derivation");
         CreateTokenOwnerSafe script = new CreateTokenOwnerSafe();
-        // Base's derived address may or may not have code; either refusal is
-        // the right outcome, and the pin check is what makes this test
-        // about derivability rather than occupancy.
-        if (LibSafeInvariants.STOX_TOKEN_OWNER_SAFE.code.length != 0) {
-            vm.expectRevert(
-                abi.encodeWithSelector(TokenOwnerSafeAlreadyExists.selector, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE)
-            );
-        } else {
-            vm.expectRevert(
-                abi.encodeWithSelector(
-                    TokenOwnerSafePinNotDerivable.selector, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, derived
-                )
-            );
-        }
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TokenOwnerSafePinNotDerivable.selector, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, derived
+            )
+        );
         script.run();
     }
 
