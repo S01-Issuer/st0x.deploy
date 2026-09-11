@@ -120,17 +120,7 @@ contract CreateTokenOwnerSafe is Script {
             ISafeProxyFactory(LibSafeInvariants.SAFE_V1_4_1_PROXY_FACTORY).proxyCreationCode(),
             uint256(uint160(LibSafeInvariants.SAFE_V1_4_1_L1_SINGLETON))
         );
-        return address(
-            uint160(
-                uint256(
-                    keccak256(
-                        abi.encodePacked(
-                            bytes1(0xff), LibSafeInvariants.SAFE_V1_4_1_PROXY_FACTORY, salt, keccak256(deploymentData)
-                        )
-                    )
-                )
-            )
-        );
+        return vm.computeCreate2Address(salt, keccak256(deploymentData), LibSafeInvariants.SAFE_V1_4_1_PROXY_FACTORY);
     }
 
     /// @notice Pre-flight (pin derivable, not yet created), broadcast the
