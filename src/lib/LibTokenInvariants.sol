@@ -645,7 +645,7 @@ library LibTokenInvariants {
     /// @notice Returns the production token instance triples on Ethereum
     /// mainnet — Base's underlyings in Base row order, so the tables pair by
     /// index as well as by key.
-    /// @return tokens The 56 production token instances on Ethereum.
+    /// @return tokens The 57 production token instances on Ethereum.
     function productionTokensEthereum() internal pure returns (TokenInstance[] memory tokens) {
         // Deployed on Ethereum mainnet 2026-07-22 by
         // `20260706-deploy-tokens-ethereum` (manual-broadcast run
@@ -655,7 +655,7 @@ library LibTokenInvariants {
         // run's logged (underlying, receipt, receiptVault, wrapped) tuples.
         // Order and underlyings match Base row-for-row (the cross-chain
         // parity pin asserts this).
-        tokens = new TokenInstance[](56);
+        tokens = new TokenInstance[](57);
         tokens[0] = TokenInstance(
             "MSTR",
             address(0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763),
@@ -1022,12 +1022,22 @@ library LibTokenInvariants {
             address(0xfEa217600e2b00bBB2172a99345016a0cEb7d29f),
             address(0x685DFd386968B58D895F934485820C479C79a8bB)
         );
+        // tBIRD — copied from Base 2026-09-11 15:24 UTC by `20260807-deploy-missing-tokens`
+        // on `ethereum` (manual-broadcast run 34615473964), the only token the
+        // selection found missing; wired onto this chain's V4 authoriser and
+        // handed to its token-owner Safe in the same broadcast.
+        tokens[56] = TokenInstance(
+            "BIRD",
+            address(0x34a8386fd0a943D4c1F182e9eb6b5e125509dFF2),
+            address(0x2E04C503ebd584C3c0Bb1d57E0C51E7B7EaE28E1),
+            address(0xe93A1Bb48e797dDa936f405A7A253f55040584D5)
+        );
     }
 
-    /// @notice Returns the 56 production token instance triples on HyperEVM,
+    /// @notice Returns the 57 production token instance triples on HyperEVM,
     /// in the same row order as `productionTokensBase()` (the cross-chain
     /// parity pin asserts the alignment).
-    /// @return tokens The 56 production token instances on HyperEVM.
+    /// @return tokens The 57 production token instances on HyperEVM.
     function productionTokensHyperEvm() internal pure returns (TokenInstance[] memory tokens) {
         // Deployed on HyperEVM 2026-07-24 (manual-broadcast run 30114307165):
         // all 29 tokens via the 0.1.1 unified deployer, each wired onto the
@@ -1036,7 +1046,7 @@ library LibTokenInvariants {
         // (underlying, receipt, receiptVault, wrapped) tuples. The script that
         // ran it was per-chain and has since been superseded by
         // `20260807-deploy-missing-tokens`, so this is the record of the run.
-        tokens = new TokenInstance[](56);
+        tokens = new TokenInstance[](57);
         tokens[0] = TokenInstance(
             "MSTR",
             0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
@@ -1398,6 +1408,16 @@ library LibTokenInvariants {
             0xfEa217600e2b00bBB2172a99345016a0cEb7d29f,
             0x685DFd386968B58D895F934485820C479C79a8bB
         );
+        // tBIRD — copied from Base 2026-09-11 15:26 UTC by `20260807-deploy-missing-tokens`
+        // on `hyperevm` (manual-broadcast run 34615476787), the only token the
+        // selection found missing; wired onto this chain's V4 authoriser and
+        // handed to its token-owner Safe in the same broadcast.
+        tokens[56] = TokenInstance(
+            "BIRD",
+            0x34a8386fd0a943D4c1F182e9eb6b5e125509dFF2,
+            0x2E04C503ebd584C3c0Bb1d57E0C51E7B7EaE28E1,
+            0xe93A1Bb48e797dDa936f405A7A253f55040584D5
+        );
     }
 
     /// @notice Returns the production token instance triples on Robinhood
@@ -1411,9 +1431,9 @@ library LibTokenInvariants {
     /// onto this chain's V4 authoriser and handed to its token-owner Safe in
     /// the same broadcast. Addresses pinned from the run's logged
     /// (underlying, receipt, receiptVault, wrapped) tuples.
-    /// @return tokens The 56 production token instances on Robinhood Chain.
+    /// @return tokens The 57 production token instances on Robinhood Chain.
     function productionTokensRobinhood() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](56);
+        tokens = new TokenInstance[](57);
         tokens[0] = TokenInstance(
             "MSTR",
             0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
@@ -1753,6 +1773,16 @@ library LibTokenInvariants {
             0xfEa217600e2b00bBB2172a99345016a0cEb7d29f,
             0x685DFd386968B58D895F934485820C479C79a8bB
         );
+        // tBIRD — copied from Base 2026-09-11 15:24 UTC by `20260807-deploy-missing-tokens`
+        // on `robinhood` (manual-broadcast run 34615482230), the only token the
+        // selection found missing; wired onto this chain's V4 authoriser and
+        // handed to its token-owner Safe in the same broadcast.
+        tokens[56] = TokenInstance(
+            "BIRD",
+            0x34a8386fd0a943D4c1F182e9eb6b5e125509dFF2,
+            0x2E04C503ebd584C3c0Bb1d57E0C51E7B7EaE28E1,
+            0xe93A1Bb48e797dDa936f405A7A253f55040584D5
+        );
     }
 
     /// @notice Returns the production token instance triples on BNB Smart
@@ -1766,9 +1796,9 @@ library LibTokenInvariants {
     /// onto this chain's V4 authoriser and handed to its token-owner Safe in
     /// the same broadcast. Addresses pinned from the run's logged
     /// (underlying, receipt, receiptVault, wrapped) tuples.
-    /// @return tokens The 56 production token instances on BNB Smart Chain.
+    /// @return tokens The 57 production token instances on BNB Smart Chain.
     function productionTokensBsc() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](56);
+        tokens = new TokenInstance[](57);
         tokens[0] = TokenInstance(
             "MSTR",
             0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8,
@@ -2107,6 +2137,16 @@ library LibTokenInvariants {
             0xE05a93a2d1D0E8bA13F2bC0D1017Cb0D93308F4e,
             0x042Dfd33De6766a8858f188DFcf207D311da6488,
             0x5A5c3b64907823b1c5ea9d75D5AF44dFD06b03ea
+        );
+        // tBIRD — copied from Base 2026-09-11 15:24 UTC by `20260807-deploy-missing-tokens`
+        // on `bsc` (manual-broadcast run 34615479611), the only token the
+        // selection found missing; wired onto this chain's V4 authoriser and
+        // handed to its token-owner Safe in the same broadcast.
+        tokens[56] = TokenInstance(
+            "BIRD",
+            0x6cFDdBddbCe10Cda74329F5B85FAa01d9d8081F8,
+            0x21a53882B0023c1F4D98087564e91ae6CEA0b4Ec,
+            0x9253907626f6FB9685c58e1C2cB2bF0AE6337A40
         );
     }
 

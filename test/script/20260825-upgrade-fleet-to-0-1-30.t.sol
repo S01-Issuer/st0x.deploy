@@ -59,13 +59,13 @@ contract UpgradeFleetTest is Test {
         vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         assertEq(harness.callActiveChainTokens().length, 57, "Base table");
         vm.chainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
-        assertEq(harness.callActiveChainTokens().length, 56, "Ethereum table");
+        assertEq(harness.callActiveChainTokens().length, 57, "Ethereum table");
         vm.chainId(LibSafeInvariants.HYPEREVM_CHAIN_ID);
-        assertEq(harness.callActiveChainTokens().length, 56, "HyperEVM table");
+        assertEq(harness.callActiveChainTokens().length, 57, "HyperEVM table");
         vm.chainId(LibSafeInvariants.ROBINHOOD_CHAIN_ID);
-        assertEq(harness.callActiveChainTokens().length, 56, "Robinhood Chain table");
+        assertEq(harness.callActiveChainTokens().length, 57, "Robinhood Chain table");
         vm.chainId(LibSafeInvariants.BSC_CHAIN_ID);
-        assertEq(harness.callActiveChainTokens().length, 56, "BNB Smart Chain table");
+        assertEq(harness.callActiveChainTokens().length, 57, "BNB Smart Chain table");
     }
 
     /// A chain with no table is refused rather than handed another chain's
