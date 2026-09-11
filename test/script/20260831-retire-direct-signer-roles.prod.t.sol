@@ -128,4 +128,28 @@ contract RetireDirectSignerRolesProdTest is Test {
         vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
         assertRetireRollout("hyperevm");
     }
+
+    function testRetireRolloutRobinhood() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
+        assertRetireRollout("robinhood");
+    }
+
+    function testRetireRolloutBsc() external {
+        vm.createSelectFork(LibStoxDeployNetworks.BSC);
+        assertRetireRollout("bsc");
+    }
+
+    /// @notice A chain still without its orchestrator is overdue at the
+    /// deadline like any other pending chain.
+    function testRetireRolloutOverdueWithoutAnOrchestrator() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
+        vm.warp(RETIRE_DEADLINE);
+        vm.expectRevert(abi.encodeWithSelector(RetirementOverdue.selector, "robinhood"));
+        this.externalAssertRetireRollout("robinhood");
+    }
+
+    /// @notice External shim so `vm.expectRevert` can see the helper's revert.
+    function externalAssertRetireRollout(string memory label) external {
+        assertRetireRollout(label);
+    }
 }
