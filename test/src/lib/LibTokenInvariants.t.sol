@@ -102,8 +102,9 @@ contract LibTokenInvariantsTest is Test {
     }
 
     /// The Robinhood Chain token table mirrors Base row-for-row on the
-    /// `underlying` key. Its addresses are placeholders until the token
-    /// deploy executes there; this guards only the shared shape.
+    /// `underlying` key. This guards only the shared shape; the addresses
+    /// themselves are asserted against the live chain by the cross-chain
+    /// parity pin.
     function testRobinhoodTokenTableMirrorsBaseUnderlyings() external pure {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
         TokenInstance[] memory robinhood = LibTokenInvariants.productionTokensRobinhood();
@@ -114,7 +115,9 @@ contract LibTokenInvariantsTest is Test {
     }
 
     /// The BNB Smart Chain token table mirrors Base row-for-row on the
-    /// `underlying` key; addresses are placeholders until its token deploy.
+    /// `underlying` key. This guards only the shared shape; the addresses
+    /// themselves are asserted against the live chain by the cross-chain
+    /// parity pin.
     function testBscTokenTableMirrorsBaseUnderlyings() external pure {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
         TokenInstance[] memory bsc = LibTokenInvariants.productionTokensBsc();
