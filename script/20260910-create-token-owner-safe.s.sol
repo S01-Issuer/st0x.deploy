@@ -142,11 +142,9 @@ contract CreateTokenOwnerSafe is Script {
         vm.stopBroadcast();
         if (created != pinned) revert TokenOwnerSafeLandedElsewhere(pinned, created);
 
-        // Post-state: the policy in every respect the creation controls.
-        IGnosisSafe safe = IGnosisSafe(pinned);
-        LibSafeInvariants.assertImmutableInvariants(safe);
-        LibSafeInvariants.assertOwnerSetUnordered(safe, LibSafeInvariants.expectedOwners());
-        LibSafeInvariants.assertThreshold(safe, CREATION_THRESHOLD);
+        // Ordered: Safe stores owners in the order `setup` received them, so
+        // this also proves the initializer's owner order landed byte-exact.
+        LibSafeInvariants.assertAll(IGnosisSafe(pinned), CREATION_THRESHOLD, creationOwners());
 
         console2.log("Token-owner Safe created at the pin. Threshold is 1 of 6: raise it to");
         console2.log("3 via MigrateMultisigThreshold before any pin-dependent dispatch.");
