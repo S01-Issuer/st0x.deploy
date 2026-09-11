@@ -183,6 +183,12 @@ library LibSafeInvariants {
     address internal constant SAFE_V1_4_1_PROXY_FACTORY = 0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67;
     bytes32 internal constant SAFE_V1_4_1_PROXY_FACTORY_CODEHASH =
         0x50c3cdc4074750a7a974204a716c999edd37482f907608d960b2b025ee0b3317;
+    /// @notice `keccak256(proxyCreationCode() ++ abi.encode(SAFE_V1_4_1_L1_SINGLETON))`:
+    /// the init code hash `createProxyWithNonce` CREATE2s over for a proxy on
+    /// the L1 singleton, which is what every factory-derived token-owner Safe
+    /// pin was created with.
+    bytes32 internal constant SAFE_V1_4_1_L1_PROXY_INITCODE_HASH =
+        0x76733d705f71b79841c0ee960a0ca880f779cde7ef446c989e6d23efc0a4adfb;
     /// @notice `SafeToL2Setup` 1.4.1: the `setup` delegatecall target that
     /// switches a freshly created proxy from the L1 singleton to `SafeL2` off
     /// Ethereum mainnet (a no-op on chain 1).

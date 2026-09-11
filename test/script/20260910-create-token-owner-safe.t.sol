@@ -3,9 +3,9 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
 import {
     CreateTokenOwnerSafe,
+    ISafeProxyFactory,
     TokenOwnerSafeAlreadyExists,
     TokenOwnerSafePinNotDerivable
 } from "../../script/20260910-create-token-owner-safe.s.sol";
@@ -19,31 +19,35 @@ import {CreateTokenOwnerSafeHarness} from "./CreateTokenOwnerSafeHarness.sol";
 /// refuse every chain it must not touch, and on a fresh chain it must land
 /// the Safe at the pin carrying the policy's owner set.
 contract CreateTokenOwnerSafeTest is Test {
-    /// @notice The derivation reproduces the Ethereum Safe's address — the
-    /// creation this script replays — and HyperEVM's, which was created the
-    /// same way. Both forks also prove the refusal to re-create.
-    function testDerivationMatchesTheLiveSafes() external {
+    /// @notice The derivation reproduces the pin of every factory-created Safe
+    /// (Ethereum, the creation this script replays, and the chains created the
+    /// same way) and not Base's. Fork-free: constants in, constants out.
+    function testDerivationMatchesThePins() external {
         CreateTokenOwnerSafeHarness harness = new CreateTokenOwnerSafeHarness();
+        address derived = harness.callDerivedSafeAddress();
+        assertEq(derived, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM, "ethereum");
+        assertEq(derived, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM, "hyperevm");
+        assertEq(derived, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD, "robinhood");
+        assertEq(derived, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC, "bsc");
+        assertNotEq(derived, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, "base");
+    }
 
+    /// @notice The pinned init code hash is what the live factory CREATE2s
+    /// over: its `proxyCreationCode()` with the L1 singleton appended.
+    function testLiveFactoryCreationCodeHashesToThePin() external {
         vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
-        assertEq(harness.callDerivedSafeAddress(), LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM, "ethereum");
-        CreateTokenOwnerSafe script = new CreateTokenOwnerSafe();
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                TokenOwnerSafeAlreadyExists.selector, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM
-            )
+        bytes memory initCode = abi.encodePacked(
+            ISafeProxyFactory(LibSafeInvariants.SAFE_V1_4_1_PROXY_FACTORY).proxyCreationCode(),
+            uint256(uint160(LibSafeInvariants.SAFE_V1_4_1_L1_SINGLETON))
         );
-        script.run();
-
-        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
-        assertEq(harness.callDerivedSafeAddress(), LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM, "hyperevm");
+        assertEq(keccak256(initCode), LibSafeInvariants.SAFE_V1_4_1_L1_PROXY_INITCODE_HASH);
     }
 
     /// @notice Base's Safe was not created by this initializer (a different
     /// address), so the script refuses Base rather than creating a stray
     /// Safe there.
     function testRefusesBase() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         CreateTokenOwnerSafeHarness harness = new CreateTokenOwnerSafeHarness();
         address derived = harness.callDerivedSafeAddress();
         assertNotEq(derived, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, "Base pin is not this derivation");
