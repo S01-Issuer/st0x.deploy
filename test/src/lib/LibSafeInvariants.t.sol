@@ -52,6 +52,19 @@ contract LibSafeInvariantsTest is Test {
         harness = new LibSafeInvariantsHarness();
     }
 
+    /// @notice Every factory-derived chain's Safe pin equals the derivation
+    /// from the pinned initializer, and Base's (created differently) does not.
+    /// Fork-free: a mistyped pin fails here, not as a "Safe not yet created"
+    /// red in the chain's parity test.
+    function testTokenOwnerSafePinsMatchDerivation() external pure {
+        address derived = LibSafeInvariants.expectedTokenOwnerSafeAddress();
+        assertEq(LibSafeInvariants.safeForChainId(LibSafeInvariants.ETHEREUM_CHAIN_ID), derived, "ethereum");
+        assertEq(LibSafeInvariants.safeForChainId(LibSafeInvariants.HYPEREVM_CHAIN_ID), derived, "hyperevm");
+        assertEq(LibSafeInvariants.safeForChainId(LibSafeInvariants.ROBINHOOD_CHAIN_ID), derived, "robinhood");
+        assertEq(LibSafeInvariants.safeForChainId(LibSafeInvariants.BSC_CHAIN_ID), derived, "bsc");
+        assertNotEq(LibSafeInvariants.safeForChainId(LibSafeInvariants.BASE_CHAIN_ID), derived, "base");
+    }
+
     /// @notice The five canonical Safe v1.4.1 contracts are live on Base with
     /// the pinned bytecode.
     function testCanonicalSafeContractsOnBase() external {

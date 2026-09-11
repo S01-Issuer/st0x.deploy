@@ -11,27 +11,12 @@ import {
 } from "../../script/20260910-create-token-owner-safe.s.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
-import {CreateTokenOwnerSafeHarness} from "./CreateTokenOwnerSafeHarness.sol";
 
 /// @title CreateTokenOwnerSafeTest
-/// @notice The replayed initializer must derive to the address the live
-/// Safes occupy (proving the reproduction is byte-exact), the script must
-/// refuse every chain it must not touch, and on a fresh chain it must land
-/// the Safe at the pin carrying the policy's owner set.
+/// @notice The script must refuse every chain it must not touch, and on a
+/// fresh chain it must land the Safe at the pin carrying the policy's owner
+/// set. The derivation itself is pinned in `LibSafeInvariantsTest`.
 contract CreateTokenOwnerSafeTest is Test {
-    /// @notice The derivation reproduces the pin of every factory-created Safe
-    /// (Ethereum, the creation this script replays, and the chains created the
-    /// same way) and not Base's. Fork-free: constants in, constants out.
-    function testDerivationMatchesThePins() external {
-        CreateTokenOwnerSafeHarness harness = new CreateTokenOwnerSafeHarness();
-        address derived = harness.callDerivedSafeAddress();
-        assertEq(derived, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM, "ethereum");
-        assertEq(derived, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM, "hyperevm");
-        assertEq(derived, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD, "robinhood");
-        assertEq(derived, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC, "bsc");
-        assertNotEq(derived, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, "base");
-    }
-
     /// @notice The pinned init code hash is what the live factory CREATE2s
     /// over: its `proxyCreationCode()` with the L1 singleton appended.
     function testLiveFactoryCreationCodeHashesToThePin() external {
@@ -48,9 +33,7 @@ contract CreateTokenOwnerSafeTest is Test {
     /// Safe there.
     function testRefusesBase() external {
         vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
-        CreateTokenOwnerSafeHarness harness = new CreateTokenOwnerSafeHarness();
-        address derived = harness.callDerivedSafeAddress();
-        assertNotEq(derived, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, "Base pin is not this derivation");
+        address derived = LibSafeInvariants.expectedTokenOwnerSafeAddress();
         CreateTokenOwnerSafe script = new CreateTokenOwnerSafe();
         vm.expectRevert(
             abi.encodeWithSelector(

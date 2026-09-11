@@ -542,6 +542,66 @@ library LibSafeInvariants {
         return owners;
     }
 
+    /// @notice The threshold the Ethereum creation set. Part of the initializer
+    /// and therefore of the address; the policy's 3 is applied afterwards by
+    /// the owners.
+    uint256 internal constant STOX_TOKEN_OWNER_SAFE_CREATION_THRESHOLD = 1;
+    /// @notice The salt nonce the Ethereum creation used.
+    uint256 internal constant STOX_TOKEN_OWNER_SAFE_CREATION_SALT_NONCE = 0;
+    /// @notice Safe's fee collector, the `paymentReceiver` the Safe UI wrote
+    /// into the Ethereum creation. Inert at `payment = 0`, but part of the
+    /// initializer bytes and therefore of the address.
+    address internal constant SAFE_PAYMENT_RECEIVER = 0x5afe7A11E7000000000000000000000000000000;
+
+    /// @notice The six owners in the order the Ethereum creation listed them.
+    /// Order is part of the initializer bytes; the set is `expectedOwners()`.
+    function tokenOwnerSafeCreationOwners() internal pure returns (address[] memory owners) {
+        owners = new address[](6);
+        owners[0] = STOX_TOKEN_OWNER_SAFE_OWNER_5;
+        owners[1] = STOX_TOKEN_OWNER_SAFE_OWNER_1;
+        owners[2] = STOX_TOKEN_OWNER_SAFE_OWNER_2;
+        owners[3] = STOX_TOKEN_OWNER_SAFE_OWNER_3;
+        owners[4] = STOX_TOKEN_OWNER_SAFE_OWNER_4;
+        owners[5] = STOX_TOKEN_OWNER_SAFE_OWNER_6;
+    }
+
+    /// @notice The exact `Safe.setup` calldata of the Ethereum creation
+    /// (tx 0x8825d68e…da39), which every factory-derived pin replays.
+    function tokenOwnerSafeInitializer() internal pure returns (bytes memory) {
+        return abi.encodeWithSignature(
+            "setup(address[],uint256,address,bytes,address,address,uint256,address)",
+            tokenOwnerSafeCreationOwners(),
+            STOX_TOKEN_OWNER_SAFE_CREATION_THRESHOLD,
+            SAFE_V1_4_1_TO_L2_SETUP,
+            abi.encodeWithSignature("setupToL2(address)", SAFE_V1_4_1_L2_SINGLETON),
+            SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER,
+            address(0),
+            uint256(0),
+            SAFE_PAYMENT_RECEIVER
+        );
+    }
+
+    /// @notice The address `createProxyWithNonce` derives for the initializer
+    /// on every chain: the v1.4.1 factory's `CREATE2` over the pinned proxy
+    /// init code, salted with `keccak256(keccak256(initializer) ++ saltNonce)`.
+    /// Independent of the sender. Every factory-derived chain's pin equals
+    /// this; Base's does not.
+    function expectedTokenOwnerSafeAddress() internal pure returns (address) {
+        bytes32 salt = keccak256(
+            abi.encodePacked(keccak256(tokenOwnerSafeInitializer()), STOX_TOKEN_OWNER_SAFE_CREATION_SALT_NONCE)
+        );
+        // forge-lint: disable-next-line(unsafe-typecast)
+        return address(
+            uint160(
+                uint256(
+                    keccak256(
+                        abi.encodePacked(hex"ff", SAFE_V1_4_1_PROXY_FACTORY, salt, SAFE_V1_4_1_L1_PROXY_INITCODE_HASH)
+                    )
+                )
+            )
+        );
+    }
+
     /// @notice The ST0x token-owner Safe address for the active chain, selected
     /// by chain id. The Safe address is a per-chain deploy artifact (the
     /// matched-address approach was abandoned), so consumers that must resolve
