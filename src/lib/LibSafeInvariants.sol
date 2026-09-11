@@ -113,6 +113,13 @@ error SafeOwnerSetMismatch(address safe, address missingOwner);
 /// @param chainId The chain id with no pinned token-owner Safe.
 error UnsupportedChainForTokenOwnerSafe(uint256 chainId);
 
+/// @notice A canonical Safe v1.4.1 contract is absent from the active chain or
+/// carries bytecode other than the pinned build.
+/// @param contractAddr The canonical address that was inspected.
+/// @param expected The pinned runtime codehash.
+/// @param actual The codehash observed at `contractAddr`.
+error SafeCanonicalContractCodehashMismatch(address contractAddr, bytes32 expected, bytes32 actual);
+
 /// @title LibSafeInvariants
 /// @notice Reusable invariant assertions for a Safe v1.4.1 L2 multisig
 /// pinned to the ST0x token-owner deployment. Each public assertion either
@@ -169,6 +176,19 @@ library LibSafeInvariants {
     // =========================================================================
     string internal constant SAFE_V1_4_1_VERSION = "1.4.1";
     address internal constant SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER = 0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99;
+    bytes32 internal constant SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER_CODEHASH =
+        0x7c6007a5d711cea8dfd5d91f5940ec29c7f200fe511eb1fc1397b367af3c42f9;
+    /// @notice The canonical Safe v1.4.1 proxy factory: `createProxyWithNonce`
+    /// is what every factory-derived token-owner Safe pin replays through.
+    address internal constant SAFE_V1_4_1_PROXY_FACTORY = 0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67;
+    bytes32 internal constant SAFE_V1_4_1_PROXY_FACTORY_CODEHASH =
+        0x50c3cdc4074750a7a974204a716c999edd37482f907608d960b2b025ee0b3317;
+    /// @notice `SafeToL2Setup` 1.4.1: the `setup` delegatecall target that
+    /// switches a freshly created proxy from the L1 singleton to `SafeL2` off
+    /// Ethereum mainnet (a no-op on chain 1).
+    address internal constant SAFE_V1_4_1_TO_L2_SETUP = 0xBD89A1CE4DDe368FFAB0eC35506eEcE0b1fFdc54;
+    bytes32 internal constant SAFE_V1_4_1_TO_L2_SETUP_CODEHASH =
+        0x2f25df28caf984366ee584e13241707e85dcd5a6ea0c14267928dafc1fd6274b;
 
     // ---- L2 variant (`SafeL2` singleton) — Base's Safe ----
     address internal constant SAFE_V1_4_1_L2_SINGLETON = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
@@ -292,6 +312,28 @@ library LibSafeInvariants {
     /// @dev Source: `ModuleManager` in
     /// `safe-contracts/contracts/base/ModuleManager.sol` at the v1.4.1 tag.
     address internal constant SAFE_MODULES_SENTINEL = address(0x1);
+
+    /// @notice Every canonical Safe v1.4.1 contract a token-owner Safe creation
+    /// or operation routes through is live on the active chain with the pinned
+    /// bytecode: proxy factory, both singletons, `SafeToL2Setup` and the
+    /// compatibility fallback handler. Safe itself only checks the singleton;
+    /// a missing fallback handler still yields a Safe, one whose EIP-1271 and
+    /// token-receiver hooks revert.
+    function assertCanonicalSafeContracts() internal view {
+        assertCodehash(SAFE_V1_4_1_PROXY_FACTORY, SAFE_V1_4_1_PROXY_FACTORY_CODEHASH);
+        assertCodehash(SAFE_V1_4_1_L1_SINGLETON, SAFE_V1_4_1_L1_SINGLETON_CODEHASH);
+        assertCodehash(SAFE_V1_4_1_L2_SINGLETON, SAFE_V1_4_1_L2_SINGLETON_CODEHASH);
+        assertCodehash(SAFE_V1_4_1_TO_L2_SETUP, SAFE_V1_4_1_TO_L2_SETUP_CODEHASH);
+        assertCodehash(SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER, SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER_CODEHASH);
+    }
+
+    function assertCodehash(address contractAddr, bytes32 expected) internal view {
+        bytes32 actual;
+        assembly ("memory-safe") {
+            actual := extcodehash(contractAddr)
+        }
+        if (actual != expected) revert SafeCanonicalContractCodehashMismatch(contractAddr, expected, actual);
+    }
 
     /// @notice Assert every immutable invariant of the Safe at `safe`:
     /// pinned proxy codehash, pinned singleton pointer, pinned singleton
