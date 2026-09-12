@@ -49,12 +49,6 @@ contract LibAuthoriserInvariantsTest is Test {
         LibAuthoriserInvariants.assertAll();
     }
 
-    /// @notice Robinhood Chain's arm resolves to its hydrated pin, the clone
-    /// is live at it with the pinned EIP-1167 codehash, and the ceremony
-    /// left it on the canonical grant map keyed to that chain's Safe
-    /// (orchestrator rows included, pointing at the not-yet-deployed
-    /// instance pin). Live drift detector on an unpinned fork, same
-    /// precedent as `testAssertAllPasses`.
     /// @notice The four factory-derived clone pins are the first CREATE from
     /// the canonical CloneFactory (nonce 1) on each chain, re-derived here so a
     /// mistyped literal fails fork-free. Base's clone came from a factory with
@@ -133,21 +127,40 @@ contract LibAuthoriserInvariantsTest is Test {
         harness.callActiveChainAuthoriser();
     }
 
-    function testRobinhoodAuthoriserIsLiveOnTheCanonicalMap() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
-        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
-        address authoriser = harness.callActiveChainAuthoriser();
-        assertEq(authoriser, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD, "Robinhood arm != pin");
-        LibAuthoriserInvariants.assertExpectedGrants(authoriser, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD);
+    /// @notice The active fork's arm resolves to a live clone with the pinned
+    /// EIP-1167 codehash, on the canonical grant map keyed to that chain's
+    /// Safe. Both resolve from `block.chainid`, as the scripts do, so a leg
+    /// forking the wrong chain or an arm pointing at the wrong slot fails
+    /// here. Live drift detector on an unpinned fork.
+    function assertAuthoriserLiveOnCanonicalMap() internal view {
+        LibAuthoriserInvariants.assertExpectedGrants(
+            LibAuthoriserInvariants.activeChainAuthoriser(), LibSafeInvariants.safeForChainId(block.chainid)
+        );
     }
 
-    /// @notice Same for BNB Smart Chain.
+    function testBaseAuthoriserIsLiveOnTheCanonicalMap() external {
+        selectBaseFork();
+        assertAuthoriserLiveOnCanonicalMap();
+    }
+
+    function testEthereumAuthoriserIsLiveOnTheCanonicalMap() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
+        assertAuthoriserLiveOnCanonicalMap();
+    }
+
+    function testHyperEvmAuthoriserIsLiveOnTheCanonicalMap() external {
+        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
+        assertAuthoriserLiveOnCanonicalMap();
+    }
+
+    function testRobinhoodAuthoriserIsLiveOnTheCanonicalMap() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
+        assertAuthoriserLiveOnCanonicalMap();
+    }
+
     function testBscAuthoriserIsLiveOnTheCanonicalMap() external {
         vm.createSelectFork(LibStoxDeployNetworks.BSC);
-        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
-        address authoriser = harness.callActiveChainAuthoriser();
-        assertEq(authoriser, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC, "BSC arm != pin");
-        LibAuthoriserInvariants.assertExpectedGrants(authoriser, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC);
+        assertAuthoriserLiveOnCanonicalMap();
     }
 
     /// @notice `assertAll` reverts `AuthoriserImplCodehashMismatch` when the
