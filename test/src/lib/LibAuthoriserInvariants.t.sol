@@ -30,8 +30,8 @@ import {LibCloneFactoryDeploy} from "rain-factory-0.1.1/src/lib/LibCloneFactoryD
 /// `expectedGrants()` map against the live clone. Any drift (a grant
 /// missing on-chain, or the clone's bytecode changing) surfaces as a typed
 /// error here.
-/// @dev Uses an unpinned Base head fork (same precedent as the other
-/// prod-state drift detectors in this repo). Pinning would freeze the
+/// @dev Uses unpinned head forks of each production chain (same precedent
+/// as the other prod-state drift detectors in this repo). Pinning would freeze the
 /// invariant assertions against a stale snapshot and let new drift slip
 /// through unnoticed.
 contract LibAuthoriserInvariantsTest is Test {

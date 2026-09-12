@@ -63,7 +63,8 @@ error UnsupportedChainForAuthoriser(uint256 chainId);
 error AuthoriserNotReady(address authoriser);
 
 /// @title LibAuthoriserInvariants
-/// @notice Reusable invariants for the ST0x production authoriser on Base:
+/// @notice Reusable invariants for the ST0x production authoriser on every
+/// chain:
 /// the grantee constants and the single master `(role, grantee)` map every
 /// consumer asserts. Each assertion either returns silently when the
 /// invariant holds against the live chain state or reverts with a typed
