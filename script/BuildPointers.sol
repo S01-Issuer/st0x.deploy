@@ -355,18 +355,16 @@ contract BuildPointers is Script {
             GEN_V4_PATH,
             "address constant STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);"
         );
-        // Robinhood Chain V4 authoriser clone — the logged address of the
-        // `20260619-deploy-v4-authoriser-clone` broadcast on 4663 (run
-        // 34533031839). First clone from a fresh CloneFactory over the same
-        // Zoltu-deployed impl, so it landed at the Ethereum / HyperEVM
-        // address; the pin is the run's logged value, not the expectation.
+        // Robinhood Chain and BNB Smart Chain V4 authoriser clones: the logged
+        // addresses of the `20260619-deploy-v4-authoriser-clone` broadcasts.
+        // `CloneFactory.clone` is a plain CREATE, so the address is a function
+        // of the factory and its nonce alone; each chain's first clone from its
+        // fresh factory (nonce 1) lands at the Ethereum / HyperEVM address. The
+        // impl plays no part, which is why Base, same impl and factory, differs.
         vm.writeLine(
             GEN_V4_PATH,
             "address constant STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);"
         );
-        // BNB Smart Chain V4 authoriser clone — the logged address of the
-        // same broadcast on 56 (run 34533389061); same derivation, same
-        // address.
         vm.writeLine(
             GEN_V4_PATH,
             "address constant STOX_PROD_AUTHORISER_V4_CLONE_BSC = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);"
