@@ -54,6 +54,39 @@ contract LibAuthoriserInvariantsTest is Test {
     /// (orchestrator rows included, pointing at the not-yet-deployed
     /// instance pin). Live drift detector on an unpinned fork, same
     /// precedent as `testAssertAllPasses`.
+    /// @notice The one chain-to-clone table resolves every pinned chain to
+    /// its slot and refuses the rest, fork-free.
+    function testAuthoriserForChainIdResolvesEveryPinnedChain() external {
+        assertEq(
+            LibAuthoriserInvariants.authoriserForChainId(LibSafeInvariants.BASE_CHAIN_ID),
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE,
+            "base"
+        );
+        assertEq(
+            LibAuthoriserInvariants.authoriserForChainId(LibSafeInvariants.ETHEREUM_CHAIN_ID),
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM,
+            "ethereum"
+        );
+        assertEq(
+            LibAuthoriserInvariants.authoriserForChainId(LibSafeInvariants.HYPEREVM_CHAIN_ID),
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM,
+            "hyperevm"
+        );
+        assertEq(
+            LibAuthoriserInvariants.authoriserForChainId(LibSafeInvariants.ROBINHOOD_CHAIN_ID),
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD,
+            "robinhood"
+        );
+        assertEq(
+            LibAuthoriserInvariants.authoriserForChainId(LibSafeInvariants.BSC_CHAIN_ID),
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC,
+            "bsc"
+        );
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForAuthoriser.selector, uint256(123456)));
+        harness.callAuthoriserForChainId(123456);
+    }
+
     /// @notice A governed chain whose pin has no code here (no fork) is
     /// refused as not ready rather than returned; the pin alone is not
     /// enough.

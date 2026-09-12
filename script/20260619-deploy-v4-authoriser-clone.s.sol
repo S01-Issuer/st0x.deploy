@@ -42,12 +42,6 @@ error CloneFactoryCodehashMismatch(address factory, bytes32 expected, bytes32 ac
 /// script is done for that chain.
 error V4AuthoriserClonePinAlreadyHydrated(address pinned);
 
-/// @notice This chain has no V4 authoriser clone pin in `LibProdDeployV4`, so
-/// the script has no per-chain target to guard against. A typed revert rather
-/// than a silent fallback to another chain's clone.
-/// @param chainId The active chain id with no defined clone pin.
-error V4AuthoriserCloneUnsupportedChain(uint256 chainId);
-
 /// @notice The freshly-deployed clone's runtime codehash does not match the
 /// EIP-1167 minimal-proxy shape computed from the V4 impl. Either the factory
 /// deployed something other than an EIP-1167 clone, or the impl embedded in
@@ -139,31 +133,6 @@ contract DeployV4AuthoriserClone is Script {
     /// corporate-action admins from the override).
     uint256 internal constant AUTO_GRANTED_ADMIN_COUNT = 7;
 
-    /// @notice The V4 authoriser clone pin for the active chain, selected by
-    /// `block.chainid` from `LibProdDeployV4` — `address(0)` until that chain's
-    /// clone is deployed and the pin hydrated. Reverts for any chain without a
-    /// pin rather than falling back to another chain's clone (reading the wrong
-    /// chain's clone is the catastrophic failure this guard exists to prevent).
-    /// @return The active chain's clone pin.
-    function activeChainClonePin() internal view returns (address) {
-        if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
-        }
-        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
-        }
-        if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM;
-        }
-        if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD;
-        }
-        if (block.chainid == LibSafeInvariants.BSC_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC;
-        }
-        revert V4AuthoriserCloneUnsupportedChain(block.chainid);
-    }
-
     /// @notice Deploy + configure + admin-transfer the V4 authoriser clone
     /// in a single broadcast. Steps 1-4 in the contract-level NatSpec.
     /// Pre-flight covers the invariants the whole flow relies on: the
@@ -203,7 +172,7 @@ contract DeployV4AuthoriserClone is Script {
         // running this script would deploy a SECOND clone the lib
         // doesn't know about — same behaviour as re-running any
         // deterministic deploy after it has already landed.
-        address pinned = activeChainClonePin();
+        address pinned = LibAuthoriserInvariants.authoriserForChainId(block.chainid);
         if (pinned != address(0)) revert V4AuthoriserClonePinAlreadyHydrated(pinned);
 
         // The grant map parameterised on THIS chain's Safe: the map's

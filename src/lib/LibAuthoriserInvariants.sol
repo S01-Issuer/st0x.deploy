@@ -81,23 +81,36 @@ error AuthoriserNotReady(address authoriser);
 /// and `LibTokenInvariants`; individually callable via `assertAll()` for
 /// the focused authoriser drift detector.
 library LibAuthoriserInvariants {
+    /// @notice A chain's V4 authoriser clone pin, raw: `address(0)` while the
+    /// slot is a placeholder. Reverts for a chain without a slot rather than
+    /// falling back to another chain's clone. The one chain-to-clone table;
+    /// the deploy script and every invariant read it.
+    /// @param chainId The chain id.
+    /// @return The pinned clone, or zero for a placeholder slot.
+    function authoriserForChainId(uint256 chainId) internal pure returns (address) {
+        if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        }
+        if (chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
+        }
+        if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM;
+        }
+        if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD;
+        }
+        if (chainId == LibSafeInvariants.BSC_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC;
+        }
+        revert UnsupportedChainForAuthoriser(chainId);
+    }
+
     /// @notice The active chain's hydrated V4 authoriser clone, asserted
     /// deployed with the shared EIP-1167 codehash.
     /// @return authoriser The validated authoriser address.
     function activeChainAuthoriser() internal view returns (address authoriser) {
-        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
-        } else if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
-        } else if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM;
-        } else if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD;
-        } else if (block.chainid == LibSafeInvariants.BSC_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC;
-        } else {
-            revert UnsupportedChainForAuthoriser(block.chainid);
-        }
+        authoriser = authoriserForChainId(block.chainid);
         if (
             authoriser == address(0) || authoriser.code.length == 0
                 || authoriser.codehash != LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH
