@@ -327,8 +327,13 @@ contract LibAuthoriserInvariantsTest is Test {
             abi.encodeWithSelector(IAccessControl.hasRole.selector, keccak256("WITHDRAW"), orchestrator),
             abi.encode(false)
         );
-        uint256[3] memory chainIds =
-            [LibSafeInvariants.BASE_CHAIN_ID, LibSafeInvariants.ETHEREUM_CHAIN_ID, LibSafeInvariants.HYPEREVM_CHAIN_ID];
+        uint256[5] memory chainIds = [
+            LibSafeInvariants.BASE_CHAIN_ID,
+            LibSafeInvariants.ETHEREUM_CHAIN_ID,
+            LibSafeInvariants.HYPEREVM_CHAIN_ID,
+            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
+            LibSafeInvariants.BSC_CHAIN_ID
+        ];
         for (uint256 i = 0; i < chainIds.length; i++) {
             vm.chainId(chainIds[i]);
             vm.expectRevert(
