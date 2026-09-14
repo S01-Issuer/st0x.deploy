@@ -67,7 +67,7 @@ contract BuildPointers is Script {
         vm.writeFile(
             string.concat("src/generated/", deployTag(), "/", name, ".pointers.sol"),
             string.concat(
-                POINTER_FILE_PREFIX,
+                LibCodeGen.filePrefix(),
                 LibCodeGen.bytecodeHashConstantString(vm, deployed),
                 LibCodeGen.addressConstantString(
                     vm,
