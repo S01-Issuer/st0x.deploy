@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {console2} from "forge-std-1.16.1/src/console2.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {Test} from "forge-std-1.16.2/src/Test.sol";
+import {console2} from "forge-std-1.16.2/src/console2.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
 
 import {DeployOrchestrator, OrchestratorAlreadyDeployed} from "../../script/20260818-deploy-orchestrator.s.sol";
 import {ClosureNotDeployed} from "../../src/lib/LibClosureInvariants.sol";
