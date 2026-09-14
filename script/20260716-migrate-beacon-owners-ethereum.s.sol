@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Script} from "forge-std-1.16.1/src/Script.sol";
-import {console2} from "forge-std-1.16.1/src/console2.sol";
+import {Script} from "forge-std-1.16.2/src/Script.sol";
+import {console2} from "forge-std-1.16.2/src/console2.sol";
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {LibProdBeacons0_1_1} from "../src/lib/LibProdBeacons0_1_1.sol";
 import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";

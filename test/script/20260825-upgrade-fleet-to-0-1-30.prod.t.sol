@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {console2} from "forge-std-1.16.1/src/console2.sol";
+import {Test} from "forge-std-1.16.2/src/Test.sol";
+import {console2} from "forge-std-1.16.2/src/console2.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
 
 import {FleetAlreadyUpgraded, FLEET_UPGRADE_DEADLINE} from "../../script/20260825-upgrade-fleet-to-0-1-30.s.sol";
 import {UpgradeFleetHarness} from "./UpgradeFleetHarness.sol";
