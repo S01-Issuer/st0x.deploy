@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.2/src/Test.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
 
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {IAuthorizableV1} from "rain-vats-0.1.6/src/interface/IAuthorizableV1.sol";

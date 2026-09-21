@@ -5,28 +5,25 @@ on:
       - sol-v*
 jobs:
   release:
-    # rainix-tag-release verifies the tag, publishes to soldeer, freezes the
-    # candidate snapshot into a numbered release dir, and commits it back — so it
-    # needs contents: write (push the release commit). This repo's default
-    # workflow-token permission is read-only, so grant that scope here or the
-    # reusable's request exceeds the caller and the run fails at startup. No
-    # id-token: nothing in the reusable uses OIDC (Soldeer publishes via
-    # SOLDEER_API_TOKEN).
+    # rainix-tag-release verifies the tag, re-attests the live chain against the
+    # pins, checks the frozen snapshot is a fresh regeneration, publishes to
+    # soldeer and creates the GitHub release — so it needs contents: write. It
+    # writes to no branch. This repo's default workflow-token permission is
+    # read-only, so grant that scope here or the reusable's request exceeds the
+    # caller and the run fails at startup. No id-token: nothing in the reusable
+    # uses OIDC (Soldeer publishes via SOLDEER_API_TOKEN).
     permissions:
       contents: write
-    # A DEPLOY repo is on the tag-release lifecycle, not autopublish. A release
-    # is cut by pushing a `sol-vX.Y.Z` tag (never on merge); deployment is a
-    # separate manual step. `[package].version` is the LAST released version and
-    # moves only at release, in lockstep with the frozen snapshot the tag cuts.
-    # This is the counterpart to library repos, which use rainix-autopublish and
-    # bump a next-version slot on every merge. Mirrors the rain.factory.deploy
-    # caller. `cut-release.sh` freezes `src/generated/candidate/` into
-    # `src/generated/<version>/` (see the script) then regenerates the libs.
+    # A DEPLOY repo is on the tag-release lifecycle, not autopublish. The
+    # release order is: deploy (the `Manual sol artifacts` dispatch), then a PR
+    # that bumps `[external.package].version` and runs
+    # `forge script ./script/Build.sol --sig "cutRelease()"` to freeze
+    # `src/generated/<version>/`, then a `sol-vX.Y.Z` tag on the merged commit,
+    # which triggers this workflow.
     uses: rainlanguage/rainix/.github/workflows/rainix-tag-release.yaml@main
     with:
       soldeer-package: st0x-deploy
       tag-prefix: sol-v
-      snapshot-generate-cmd: bash script/cut-release.sh
     # Secrets passed explicitly (not `inherit`), mirroring this repo's other
     # cross-org rainix callers — exactly the set rainix-tag-release declares. The
     # RPC_URL_*_FORK secrets are what its verify step forks with; omitting them

@@ -6,7 +6,7 @@ import {Test} from "forge-std-1.16.2/src/Test.sol";
 import {Vm} from "forge-std-1.16.2/src/Vm.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensions/IERC20Metadata.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
 import {
     OffchainAssetReceiptVaultConfigV2
 } from "rain-vats-0.1.6/src/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";

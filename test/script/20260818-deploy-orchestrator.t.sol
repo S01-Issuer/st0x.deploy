@@ -200,7 +200,7 @@ contract DeployOrchestratorTest is Test {
 
     /// The beacon pin is the beacon-set deployer's `CREATE` at account nonce
     /// 1 (its constructor's `new UpgradeableBeacon`). Re-derived here so a
-    /// drifted `BuildPointers` literal fails a test — the beacon analogue of
+    /// drifted `script/Build.sol` literal fails a test — the beacon analogue of
     /// `testAuthoriserV4ClonePin`.
     function testOrchestratorBeaconPin() external pure {
         assertEq(
@@ -212,7 +212,7 @@ contract DeployOrchestratorTest is Test {
 
     /// The instance pin is the beacon-set deployer's `CREATE` at account
     /// nonce 2 (the first `deploy()` call's `BeaconProxy`). Re-derived here
-    /// so a drifted `BuildPointers` literal fails a test.
+    /// so a drifted `script/Build.sol` literal fails a test.
     function testOrchestratorInstancePin() external pure {
         assertEq(
             LibProdDeployV4.ST0X_ORCHESTRATOR_INSTANCE,

@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.2/src/Test.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 
 /// @title LibStoxDeployNetworksTest
@@ -35,8 +35,8 @@ contract LibStoxDeployNetworksTest is Test {
     }
 
     /// The deploy list is exactly the five production chains, in a fixed
-    /// order. Both `DeployProdV4_0_1_1` and `DeployProdV4_0_1_30` hand this
-    /// whole list to `LibRainDeploy.deployAndBroadcast`, so a network dropped
+    /// order. `script/Deploy.sol` hands this whole list to
+    /// `LibRainDeploy.deployAndBroadcast` for every suite, so a network dropped
     /// here silently stops being deployed to.
     function testDeploymentNetworks() external pure {
         string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();

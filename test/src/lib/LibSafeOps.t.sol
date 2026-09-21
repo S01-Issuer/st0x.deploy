@@ -12,7 +12,7 @@ import {
 } from "../../../src/lib/LibSafeOps.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {IGnosisSafe} from "../../../src/interface/IGnosisSafe.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
 import {CallerRecorder} from "./CallerRecorder.sol";
 import {ParseHarness} from "./ParseHarness.sol";
 import {EmitHarness} from "./EmitHarness.sol";

@@ -2,15 +2,15 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
 
 /// @title LibStoxDeployNetworks
 /// @notice The ST0x deploy network set: the name constants `rain-deploy`'s
 /// `LibRainDeploy` does not provide, and the one list of networks ST0x deploys
 /// to. Each name matches its `[rpc_endpoints]` alias in `foundry.toml`, the
-/// same convention as every `LibRainDeploy` network constant. Consumed by the
-/// audited deploy scripts `script/DeployProdV4_0_1_1.sol` and
-/// `script/DeployProdV4_0_1_30.sol`, and by the cross-chain fork tests.
+/// same convention as every `LibRainDeploy` network constant. Consumed by
+/// `script/Deploy.sol`, which broadcasts every suite to this list, and by the
+/// cross-chain fork tests.
 library LibStoxDeployNetworks {
     /// @notice Ethereum mainnet network name, matching the `[rpc_endpoints]`
     /// alias in `foundry.toml` (resolved from `ETHEREUM_RPC_URL`).

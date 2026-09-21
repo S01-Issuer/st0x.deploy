@@ -1,0 +1,92 @@
+name: Manual sol artifacts
+# Least-privilege: the broadcast authenticates via `secrets.PRIVATE_KEY`, so
+# the ambient GITHUB_TOKEN needs nothing beyond read.
+permissions:
+  contents: read
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: 'Suite to deploy (one contract per suite, deploy in listed order)'
+        required: true
+        type: choice
+        # The keys `StoxDeploySuites` declares, broadcast by script/Deploy.sol
+        # to every network in LibStoxDeployNetworks.deploymentNetworks. There
+        # is no network input: a dispatch picks a suite and ships it
+        # everywhere.
+        #
+        # `<suite>@<tag>` is a frozen release and deploys that release's
+        # stored creation code, whatever current source compiles to. A bare
+        # `<suite>` is the rolling candidate current source compiles to.
+        #
+        # Within each group, deploy in the listed order: a suite's declared
+        # dependencies must already have code on a network, and the deploy
+        # refuses that network otherwise. The Zoltu deploy is idempotent per
+        # network, so re-dispatching a suite already on-chain is a no-op, and a
+        # partial run is repaired by dispatching again.
+        options:
+          # The audited 0.1.1 production set. It already has code at every
+          # pinned address on every network, so a dispatch here re-proves the
+          # pins.
+          - stox-corporate-actions-facet@0_1_1
+          - stox-receipt@0_1_1
+          - stox-receipt-vault@0_1_1
+          - stox-wrapped-token-vault@0_1_1
+          - stox-wrapped-token-vault-beacon@0_1_1
+          - stox-wrapped-token-vault-beacon-set-deployer@0_1_1
+          - stox-offchain-asset-receipt-vault-beacon-set-deployer@0_1_1
+          - stox-unified-deployer@0_1_1
+          - stox-offchain-asset-receipt-vault-authorizer@0_1_1
+          - stox-offchain-asset-receipt-vault-payment-mint-authorizer@0_1_1
+          # The audited 0.1.30 orchestrator set: the orchestrator and its
+          # on-chain dependency closure.
+          - stox-corporate-actions-facet@0_1_30
+          - stox-receipt@0_1_30
+          - stox-receipt-vault@0_1_30
+          - stox-offchain-asset-receipt-vault-beacon-set-deployer@0_1_30
+          - stox-orchestrator@0_1_30
+          - stox-orchestrator-beacon-set-deployer@0_1_30
+          # The rolling candidates.
+          - stox-corporate-actions-facet
+          - stox-receipt
+          - stox-receipt-vault
+          - stox-wrapped-token-vault
+          - stox-wrapped-token-vault-beacon
+          - stox-wrapped-token-vault-beacon-set-deployer
+          - stox-offchain-asset-receipt-vault-beacon-set-deployer
+          - stox-unified-deployer
+          - stox-offchain-asset-receipt-vault-authorizer
+          - stox-offchain-asset-receipt-vault-payment-mint-authorizer
+          - stox-orchestrator
+          - stox-orchestrator-beacon-set-deployer
+      legacy:
+        description: >-
+          Send type-0 transactions. HyperEVM's RPC rejects forge's EIP-1559 fee-history estimation, so a run that has to BROADCAST on HyperEVM needs this. Robinhood Chain rejects it the other way round: its gas-price oracle quotes below the block base fee, so a type-0 run there fails with "max fee per gas less than block base fee". A network where the suite already has code is skipped before any fee estimation, so a bootstrap run onto new chains only needs the flag set for the chains it will actually land on.
+        required: false
+        type: boolean
+        default: true
+jobs:
+  deploy:
+    uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-artifacts.yaml@main
+    with:
+      suite: ${{ inputs.suite }}
+      # `--legacy` is one flag over the whole `forge script` run, so it cannot
+      # vary per network within a run; see the input for when to set it.
+      legacy: ${{ inputs.legacy }}
+      script: script/Deploy.sol:Deploy
+      # A frozen release's creation code is not what current source compiles
+      # to, so Etherscan verification against current source would fail the
+      # run. Deploy unverified; verify by dispatching `manual-sol-verify.yaml`
+      # on the release's `sol-v*` tag.
+      verify: false
+    # Runs unverified, so it needs only the deployer key and an RPC for every
+    # network in LibStoxDeployNetworks.deploymentNetworks. The reusable
+    # declares every other secret as optional and falls back to
+    # `|| vars.* || ''` for any it isn't given.
+    secrets:
+      PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+      RPC_URL_BASE_FORK: ${{ secrets.RPC_URL_BASE_FORK }}
+      RPC_URL_ETHEREUM_FORK: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
+      RPC_URL_HYPEREVM_FORK: ${{ secrets.RPC_URL_HYPEREVM_FORK }}
+      RPC_URL_ROBINHOOD_FORK: ${{ secrets.RPC_URL_ROBINHOOD_FORK }}
+      RPC_URL_BSC_FORK: ${{ secrets.RPC_URL_BSC_FORK }}

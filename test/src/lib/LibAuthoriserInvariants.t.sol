@@ -18,7 +18,7 @@ import {
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibCloneFactoryDeploy} from "rain-factory-0.1.1/src/lib/LibCloneFactoryDeploy.sol";
 

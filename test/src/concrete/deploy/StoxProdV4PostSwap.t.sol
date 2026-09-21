@@ -7,7 +7,7 @@ import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvarian
 import {LibMigrationInvariant} from "../../../../src/lib/LibMigrationInvariant.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibTokenInvariants} from "../../../../src/lib/LibTokenInvariants.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
 
 /// @title StoxProdV4PostSwapTest
 /// @notice Post-deploy + post-swap integrity pin for V4 on-chain state.

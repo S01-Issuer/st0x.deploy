@@ -6,7 +6,7 @@ import {Test} from "forge-std-1.16.2/src/Test.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibSafeInvariantsHarness} from "./LibSafeInvariantsHarness.sol";
 import {IGnosisSafe} from "../../../src/interface/IGnosisSafe.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {
     SafeProxyCodehashMismatch,
