@@ -149,27 +149,6 @@ The `multisig-artifact` GitHub workflow runs the dry-run on `workflow_dispatch`
 dependencies, uploading `out/*.json` as a build artifact so reviewers can
 download the bundle directly from the run.
 
-### Beacon ownership migration
-
-`script/MigrateBeaconOwners.s.sol` transfers ownership of the three production
-V1 beacons that live tokens use — the receipt beacon, the receipt vault beacon,
-and the wrapped token vault beacon — from the rainlang.eth EOA to the
-`STOX_TOKEN_OWNER_SAFE`, so beacon upgrades route through the multisig. Unlike
-the threshold migration this is a direct EOA broadcast (an `Ownable` beacon
-transfers ownership by the current owner calling `transferOwnership`), so the
-script emits no Tx Builder JSON — the output is the on-chain `transferOwnership`
-transactions. It still runs the full operational treatment: a pre-flight
-`assertBeaconInvariants` against the expected EOA-owned state, the broadcast
-transfers, a post-state `assertBeaconInvariants` against the Safe-owned state,
-and an n+1 reversibility check per beacon (an idempotent
-`upgradeTo(currentImpl)` routed through the Safe's `execTransaction`, proving
-the Safe can act on each beacon after the migration).
-
-```shell
-forge script script/MigrateBeaconOwners.s.sol \
-  --rpc-url base --broadcast --private-key <EOA key>
-```
-
 ### Receipt vault V3 upgrade
 
 `script/UpgradeReceiptVaultToV3.s.sol` authors the Safe transaction that points

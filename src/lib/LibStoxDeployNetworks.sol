@@ -9,8 +9,7 @@ import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
 /// `LibRainDeploy` does not provide, and the one list of networks ST0x deploys
 /// to. Each name matches its `[rpc_endpoints]` alias in `foundry.toml`, the
 /// same convention as every `LibRainDeploy` network constant. Consumed by the
-/// audited deploy scripts `script/DeployProdV4_0_1_1.sol` and
-/// `script/DeployProdV4_0_1_30.sol`, and by the cross-chain fork tests.
+/// cross-chain fork tests.
 library LibStoxDeployNetworks {
     /// @notice Ethereum mainnet network name, matching the `[rpc_endpoints]`
     /// alias in `foundry.toml` (resolved from `ETHEREUM_RPC_URL`).
