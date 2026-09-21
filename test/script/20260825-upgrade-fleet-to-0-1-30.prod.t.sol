@@ -50,6 +50,8 @@ contract UpgradeFleetProdTest is Test {
             && IBeacon(beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]).implementation()
                 == LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30;
         if (!upgraded) {
+            // A deadline gate on the forked chain's clock; no on-chain value rides on it.
+            // forge-lint: disable-next-line(block-timestamp)
             if (block.timestamp >= FLEET_UPGRADE_DEADLINE) {
                 revert FleetUpgradeOverdue(label);
             }

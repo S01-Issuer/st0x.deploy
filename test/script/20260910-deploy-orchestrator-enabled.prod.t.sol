@@ -72,6 +72,8 @@ contract DeployOrchestratorEnabledProdTest is Test {
     }
 
     function pending(string memory label, string memory what) internal view {
+        // A deadline gate on the forked chain's clock; no on-chain value rides on it.
+        // forge-lint: disable-next-line(block-timestamp)
         if (block.timestamp >= ROLLOUT_DEADLINE) {
             revert OrchestratorEnabledRolloutOverdue(label);
         }

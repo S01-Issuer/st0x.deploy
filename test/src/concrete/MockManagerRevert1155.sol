@@ -10,6 +10,8 @@ pragma solidity =0.8.25;
 contract MockManagerRevert1155 {
     address internal immutable VAULT;
 
+    // A test fixture stores the address its test hands it; zero is not a case it guards.
+    // forge-lint: disable-next-line(missing-zero-check)
     constructor(address vault) {
         VAULT = vault;
     }

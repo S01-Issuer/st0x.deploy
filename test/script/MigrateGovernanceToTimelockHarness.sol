@@ -14,6 +14,8 @@ import {MigrateGovernanceToTimelock} from "../../script/20260729-migrate-governa
 contract MigrateGovernanceToTimelockHarness is MigrateGovernanceToTimelock {
     address internal immutable I_TIMELOCK;
 
+    // A test fixture stores the address its test hands it; zero is not a case it guards.
+    // forge-lint: disable-next-line(missing-zero-check)
     constructor(address timelock) {
         I_TIMELOCK = timelock;
     }

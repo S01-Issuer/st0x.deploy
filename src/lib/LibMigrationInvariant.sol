@@ -62,6 +62,8 @@ library LibMigrationInvariant {
         internal
         view
     {
+        // A migration deadline read by an invariant check; no on-chain value rides on it.
+        // forge-lint: disable-next-line(block-timestamp)
         if (block.timestamp >= deadline) {
             if (actual != post) {
                 revert MigrationDeadlinePassed(label, post, actual, deadline);

@@ -77,6 +77,8 @@ contract DeployOrchestratorProdTest is Test {
         address instance = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
 
         if (setDeployer.code.length == 0) {
+            // A deadline gate on the forked chain's clock; no on-chain value rides on it.
+            // forge-lint: disable-next-line(block-timestamp)
             if (block.timestamp >= ORCHESTRATOR_ROLLOUT_DEADLINE) {
                 revert OrchestratorRolloutOverdue(label);
             }
@@ -93,6 +95,8 @@ contract DeployOrchestratorProdTest is Test {
         }
 
         if (instance.code.length == 0) {
+            // A deadline gate on the forked chain's clock; no on-chain value rides on it.
+            // forge-lint: disable-next-line(block-timestamp)
             if (block.timestamp >= ORCHESTRATOR_ROLLOUT_DEADLINE) {
                 revert OrchestratorRolloutOverdue(label);
             }

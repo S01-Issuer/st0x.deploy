@@ -19,6 +19,8 @@ contract MockAuthorizer is IAuthorizeV1 {
         denyMode = deny;
     }
 
+    // A mock authorizer records whichever user it is asked about, zero included.
+    // forge-lint: disable-next-line(missing-zero-check)
     function authorize(address user, bytes32 permission, bytes memory data) external override {
         callCount++;
         lastUser = user;

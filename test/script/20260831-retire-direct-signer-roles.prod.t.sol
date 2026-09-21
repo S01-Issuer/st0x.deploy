@@ -55,6 +55,8 @@ contract RetireDirectSignerRolesProdTest is Test {
             && IAccessControl(orchestrator).hasRole(keccak256("MINT"), signer)
             && IAccessControl(orchestrator).hasRole(keccak256("BURN"), signer);
         if (!pathEnabled) {
+            // A deadline gate on the forked chain's clock; no on-chain value rides on it.
+            // forge-lint: disable-next-line(block-timestamp)
             if (block.timestamp >= RETIRE_DEADLINE) {
                 revert RetirementOverdue(label);
             }
@@ -90,6 +92,8 @@ contract RetireDirectSignerRolesProdTest is Test {
 
         bool retired = !acl.hasRole(keccak256("DEPOSIT"), signer) && !acl.hasRole(keccak256("WITHDRAW"), signer);
         if (!retired) {
+            // A deadline gate on the forked chain's clock; no on-chain value rides on it.
+            // forge-lint: disable-next-line(block-timestamp)
             if (block.timestamp >= RETIRE_DEADLINE) {
                 revert RetirementOverdue(label);
             }
