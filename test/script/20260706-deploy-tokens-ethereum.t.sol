@@ -70,6 +70,8 @@ contract DeployTokensEthereumTest is Test {
     function testRunOnceGateInspectsEveryLeg() external {
         DeployTokensEthereum script = new DeployTokensEthereum();
         for (uint256 leg = 0; leg < 3; leg++) {
+            // casting to `uint160` is safe because `0xC0DE + leg` is below 2^16
+            // forge-lint: disable-next-line(unsafe-typecast)
             address hydrated = address(uint160(0xC0DE + leg));
             vm.expectRevert(abi.encodeWithSelector(EthereumTokensAlreadyDeployed.selector, hydrated));
             script.assertTableVirgin(virginTable(2, leg, hydrated));

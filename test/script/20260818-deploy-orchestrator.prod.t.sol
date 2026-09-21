@@ -56,7 +56,7 @@ contract DeployOrchestratorProdTest is Test {
     /// slot holding the pinned beacon, the beacon set intact, admin on the
     /// chain's token-owner Safe, and the vault-logic lock passing.
     /// @param label Human chain name, surfaced in assertion messages.
-    function assertInstanceLanded(string memory label) internal {
+    function assertInstanceLanded(string memory label) internal view {
         address instance = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
         address safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibOrchestratorInvariants.assertBeaconSet(safe);

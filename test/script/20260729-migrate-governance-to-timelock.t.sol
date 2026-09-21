@@ -274,7 +274,7 @@ contract MigrateGovernanceToTimelockTest is Test {
         address timelock,
         address[] memory vaultTargets,
         address[] memory beaconTargets
-    ) internal {
+    ) internal view {
         address authoriser = _activeChainAuthoriser();
         RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
 
