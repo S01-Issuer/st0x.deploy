@@ -10,11 +10,11 @@ import {LibMintCapUnits} from "../../src/lib/LibMintCapUnits.sol";
 /// frame cannot be caught, so the reverting cases would otherwise be
 /// unassertable.
 contract MintCapUnitsHarness {
-    function toGenesis(uint256 currentAmount, Float multiplierSinceGenesis) external pure returns (uint256) {
-        return LibMintCapUnits.toGenesis(currentAmount, multiplierSinceGenesis);
+    function redenominateUp(uint256 amount, Float from, Float to) external pure returns (uint256) {
+        return LibMintCapUnits.redenominateUp(amount, from, to);
     }
 
-    function toCurrent(uint256 genesisAmount, Float multiplierSinceGenesis) external pure returns (uint256) {
-        return LibMintCapUnits.toCurrent(genesisAmount, multiplierSinceGenesis);
+    function redenominateDown(uint256 amount, Float from, Float to) external pure returns (uint256) {
+        return LibMintCapUnits.redenominateDown(amount, from, to);
     }
 }

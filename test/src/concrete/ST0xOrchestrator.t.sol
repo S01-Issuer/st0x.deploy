@@ -1553,7 +1553,7 @@ contract ST0xOrchestratorTest is Test {
         assertEq(fresh.mintHeadroom(MINTER_A, TOKEN), 0, "global zero must floor the headroom");
 
         _mockCapMint(fresh, TOKEN, 1e18);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.GlobalMintCapExceeded.selector, 0, 0, 1e18));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.GlobalMintLimitUnset.selector));
         vm.prank(MINTER_A);
         fresh.mint(TOKEN, address(capRecipient), 1e18, _auth("", keccak256("global-unset")), "");
     }
@@ -1572,9 +1572,7 @@ contract ST0xOrchestratorTest is Test {
         assertEq(fresh.mintLimit(MINTER_A, TOKEN).capacity, 0, "resolved capacity must be zero");
 
         _mockCapMint(fresh, TOKEN, 1e18);
-        vm.expectRevert(
-            abi.encodeWithSelector(IST0xOrchestratorV1.MinterMintCapExceeded.selector, MINTER_A, TOKEN, 0, 0, 1e18)
-        );
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.MinterMintLimitUnset.selector, MINTER_A, TOKEN));
         vm.prank(MINTER_A);
         fresh.mint(TOKEN, address(capRecipient), 1e18, _auth("", keccak256("token-unset")), "");
     }
@@ -2132,11 +2130,11 @@ contract ST0xOrchestratorTest is Test {
     function testActionCompletingInsideTheTimelockWindowRevertsTheSet() external {
         _grantMintOn(orchestrator, MINTER_A);
 
-        // Proposal time: cursor zero, identity multiplier, so an approved
-        // "100e18 current units" converts to 100e18 genesis units.
+        // Proposal time: cursor zero. The admin approves 100e18 and that is
+        // the number the transaction carries — there is nothing for them to
+        // convert.
         uint256 pricedAtCursor = ICorporateActionsV1(TOKEN).completedActionCount();
         assertEq(pricedAtCursor, 0, "priced against a token with no completed action");
-        uint256 queuedGenesisCapacity = 100e18;
 
         // The delay elapses, and a 2-for-1 split completes inside it.
         vm.warp(block.timestamp + 2 days);
@@ -2144,14 +2142,16 @@ contract ST0xOrchestratorTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.MintLimitCursorMoved.selector, TOKEN, 0, 1));
         vm.prank(OWNER);
-        orchestrator.setTokenMintLimit(TOKEN, pricedAtCursor, queuedGenesisCapacity, 0);
+        orchestrator.setTokenMintLimit(TOKEN, pricedAtCursor, 100e18, 0);
         assertEq(orchestrator.tokenMintLimit(TOKEN).capacity, UNBOUNDED_CAPACITY, "nothing was written");
 
-        // Re-proposed against the denomination the admin can now see: the
-        // same approved 100e18 CURRENT units are 50e18 genesis units.
+        // Re-proposed at the cursor the admin can now see, carrying the SAME
+        // approved number. A stale set reverts; it never silently enacts a
+        // different cap.
         vm.prank(OWNER);
-        orchestrator.setTokenMintLimit(TOKEN, 1, 50e18, 0);
-        assertEq(orchestrator.mintHeadroom(MINTER_A, TOKEN), 100e18, "the approved current-unit cap, enacted");
+        orchestrator.setTokenMintLimit(TOKEN, 1, 100e18, 0);
+        assertEq(orchestrator.tokenMintLimit(TOKEN).capacity, 100e18, "stored as approved");
+        assertEq(orchestrator.mintHeadroom(MINTER_A, TOKEN), 100e18, "the approved cap, enacted");
     }
 
     /// Same pin on the per-pair override, which is priced against the same
