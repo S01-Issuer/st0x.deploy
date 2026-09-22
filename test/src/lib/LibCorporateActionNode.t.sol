@@ -696,7 +696,13 @@ contract LibCorporateActionNodeTest is Test {
                 for (uint256 i = 0; i < nodeCount; i++) {
                     (uint256 actionType, uint64 effectiveTime) = h.nodeAt(ids[i]);
                     if (actionType & masks[m] == 0) continue;
+                    // The test's own oracle, re-deriving the complete/pending split from the
+                    // same rule the library uses. Skew would move both sides together.
+                    // forge-lint: disable-next-line(block-timestamp)
                     if (filters[f] == CompletionFilter.COMPLETED && effectiveTime > block.timestamp) continue;
+                    // The test's own oracle, re-deriving the complete/pending split from the
+                    // same rule the library uses. Skew would move both sides together.
+                    // forge-lint: disable-next-line(block-timestamp)
                     if (filters[f] == CompletionFilter.PENDING && effectiveTime <= block.timestamp) continue;
                     anyMatch = true;
                     break;
@@ -840,7 +846,13 @@ contract LibCorporateActionNodeTest is Test {
                     if (cancelled[i]) continue;
                     (uint256 actionType, uint64 effectiveTime) = h.nodeAt(ids[i]);
                     if (actionType & masks[m] == 0) continue;
+                    // The test's own oracle, re-deriving the complete/pending split from the
+                    // same rule the library uses. Skew would move both sides together.
+                    // forge-lint: disable-next-line(block-timestamp)
                     if (filters[f] == CompletionFilter.COMPLETED && effectiveTime > block.timestamp) continue;
+                    // The test's own oracle, re-deriving the complete/pending split from the
+                    // same rule the library uses. Skew would move both sides together.
+                    // forge-lint: disable-next-line(block-timestamp)
                     if (filters[f] == CompletionFilter.PENDING && effectiveTime <= block.timestamp) continue;
                     anyMatch = true;
                     break;
@@ -900,8 +912,14 @@ contract LibCorporateActionNodeTest is Test {
         assertTrue(actionType & mask != 0, "returned cursor's actionType matches mask");
 
         if (filter == CompletionFilter.COMPLETED) {
+            // The test's own oracle, re-deriving the complete/pending split from the
+            // same rule the library uses. Skew would move both sides together.
+            // forge-lint: disable-next-line(block-timestamp)
             assertTrue(effectiveTime <= block.timestamp, "COMPLETED cursor is at or past effectiveTime");
         } else if (filter == CompletionFilter.PENDING) {
+            // The test's own oracle, re-deriving the complete/pending split from the
+            // same rule the library uses. Skew would move both sides together.
+            // forge-lint: disable-next-line(block-timestamp)
             assertTrue(effectiveTime > block.timestamp, "PENDING cursor is in the future");
         }
     }

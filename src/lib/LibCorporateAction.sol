@@ -141,6 +141,11 @@ library LibCorporateAction {
     /// @return The array index of the new node. Index 0 is the bootstrap
     /// node, so user-scheduled actions have index >= 1.
     function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters) internal returns (uint256) {
+        // `effectiveTime` is the schedule this list is ordered by, so comparing it
+        // to the clock IS the definition of complete versus pending. There is no
+        // advantage to skew here: moving the clock a few seconds only reclassifies
+        // an action that was already at its boundary.
+        // forge-lint: disable-next-line(block-timestamp)
         if (effectiveTime <= block.timestamp) {
             revert EffectiveTimeInPast(effectiveTime, block.timestamp);
         }
@@ -300,6 +305,11 @@ library LibCorporateAction {
         if (node.effectiveTime == 0) revert ActionDoesNotExist(actionId);
         // Bootstrap (idx 0) has effectiveTime == block.timestamp at creation,
         // so this guard rejects `cancel(0)` without a special case.
+        // `effectiveTime` is the schedule this list is ordered by, so comparing it
+        // to the clock IS the definition of complete versus pending. There is no
+        // advantage to skew here: moving the clock a few seconds only reclassifies
+        // an action that was already at its boundary.
+        // forge-lint: disable-next-line(block-timestamp)
         if (node.effectiveTime <= block.timestamp) revert ActionAlreadyComplete(actionId);
 
         uint256 prevId = node.prev;

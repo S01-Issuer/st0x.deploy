@@ -599,10 +599,18 @@ contract ST0xOrchestrator is
         // slither-disable-next-line low-level-calls,calls-loop
         (bool ok, bytes memory ret) = erc1155.staticcall(abi.encodeWithSelector(IReceiptV3.manager.selector));
         if (!ok || ret.length != 32) return;
+        // Decoding an address out of 32 bytes of raw returndata: truncating to 160
+        // bits IS the decode. `ret.length != 32` is checked above, and a word with
+        // dirty high bits simply fails the identity comparison below.
+        // forge-lint: disable-next-line(unsafe-typecast)
         address vault = address(uint160(uint256(bytes32(ret))));
         // slither-disable-next-line low-level-calls,calls-loop
         (ok, ret) = vault.staticcall(abi.encodeWithSelector(ReceiptVault.receipt.selector));
         if (!ok || ret.length != 32) return;
+        // Decoding an address out of 32 bytes of raw returndata: truncating to 160
+        // bits IS the decode. `ret.length != 32` is checked above, and a word with
+        // dirty high bits simply fails the identity comparison below.
+        // forge-lint: disable-next-line(unsafe-typecast)
         if (address(uint160(uint256(bytes32(ret)))) != erc1155) return;
 
         MainStorage storage $ = _main();

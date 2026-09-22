@@ -235,7 +235,7 @@ contract BuildPointers is Script {
     /// @notice All release-tag dirs under `src/generated`, numeric-sorted
     /// (`readDir` order is unspecified, so an explicit sort keeps the
     /// generated output deterministic).
-    function deployTags() internal returns (string[] memory tags) {
+    function deployTags() internal view returns (string[] memory tags) {
         VmSafe.DirEntry[] memory entries = vm.readDir("src/generated");
         string[] memory tmp = new string[](entries.length);
         uint256 n = 0;
@@ -263,7 +263,7 @@ contract BuildPointers is Script {
         }
     }
 
-    function pointerExists(string memory tag, string memory name) internal returns (bool) {
+    function pointerExists(string memory tag, string memory name) internal view returns (bool) {
         return vm.exists(string.concat("src/generated/", tag, "/", name, ".pointers.sol"));
     }
 
