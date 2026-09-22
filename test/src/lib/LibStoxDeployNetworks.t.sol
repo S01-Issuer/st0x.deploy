@@ -35,9 +35,7 @@ contract LibStoxDeployNetworksTest is Test {
     }
 
     /// The deploy list is exactly the five production chains, in a fixed
-    /// order. Both `DeployProdV4_0_1_1` and `DeployProdV4_0_1_30` hand this
-    /// whole list to `LibRainDeploy.deployAndBroadcast`, so a network dropped
-    /// here silently stops being deployed to.
+    /// order.
     function testDeploymentNetworks() external pure {
         string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
         assertEq(networks.length, 5, "expected five deploy networks");
