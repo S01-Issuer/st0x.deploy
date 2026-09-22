@@ -50,7 +50,7 @@ contract LibStoxDeployNetworksTest is Test {
     /// `[rpc_endpoints]` alias. `LibRainDeploy.deployToNetworks` passes each
     /// name straight to `vm.createSelectFork`, so a name that is not an alias
     /// is a dispatch-time failure that no constant-literal assertion catches.
-    function testDeploymentNetworksAreRpcAliases() external {
+    function testDeploymentNetworksAreRpcAliases() external view {
         string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
         for (uint256 i = 0; i < networks.length; i++) {
             assertGt(bytes(vm.rpcUrl(networks[i])).length, 0, networks[i]);
