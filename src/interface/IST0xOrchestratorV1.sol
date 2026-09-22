@@ -71,10 +71,10 @@ struct MintLimitV1 {
     Float cursorMultiplier;
 }
 
-/// @dev A per-`(minter, token)` override of the per-token default mint limit.
+/// @dev A per-`(minter, token)` override of the minter's default mint limit.
 /// The `set` marker distinguishes a deliberate zero from no override.
 /// @param set True once an override has been written for the pair. False
-/// means the pair falls through to the per-token default.
+/// means the pair falls through to the minter's default.
 /// @param limit The override policy. Only consulted when `set` is true.
 struct MintLimitOverrideV1 {
     bool set;
@@ -133,25 +133,39 @@ interface IST0xOrchestratorV1 {
     /// `sweepERC1155`. Distinct from `ReceiptsWithdrawn` so indexers never
     /// mistake `erc1155` for a receipt-vault address.
     event ForeignERC1155Swept(address indexed erc1155, address indexed to, uint256 indexed id, uint256 amount);
-    /// @notice Admin replaced the global mint limit.
+    /// @notice Admin replaced `minter`'s global mint limit: the one bucket
+    /// metering that minter across every token.
+    /// @param minter The minter the limit applies to.
     /// @param denominationToken The token whose current units the admin priced
-    /// this global cap in, and whose cursor the set was pinned to. Recorded so
-    /// a global cap's pricing basis is on chain rather than only in the
-    /// proposal text.
+    /// the cap in, and whose cursor the set was pinned to. Recorded so the
+    /// pricing basis is on chain rather than only in the proposal text.
     /// @param completedActionCount `denominationToken`'s cursor at the set.
     /// @param capacity The burst, in units at `completedActionCount`.
     /// @param leakRate The sustained rate, in units at `completedActionCount` per second.
-    event GlobalMintLimitSet(
-        address indexed denominationToken, uint256 completedActionCount, uint256 capacity, uint256 leakRate
+    event MinterGlobalMintLimitSet(
+        address indexed minter,
+        address indexed denominationToken,
+        uint256 completedActionCount,
+        uint256 capacity,
+        uint256 leakRate
     );
-    /// @notice Admin replaced `token`'s default mint limit.
-    /// @param token The token whose default was replaced.
-    /// @param completedActionCount `token`'s cursor at the set.
+    /// @notice Admin replaced `minter`'s default per-token mint limit, which
+    /// applies to every token the minter has no override for.
+    /// @param minter The minter the default applies to.
+    /// @param denominationToken The token whose current units the admin priced
+    /// the cap in, and whose cursor the set was pinned to.
+    /// @param completedActionCount `denominationToken`'s cursor at the set.
     /// @param capacity The burst, in units at `completedActionCount`.
     /// @param leakRate The sustained rate, in units at `completedActionCount` per second.
-    event TokenMintLimitSet(address indexed token, uint256 completedActionCount, uint256 capacity, uint256 leakRate);
+    event MinterDefaultMintLimitSet(
+        address indexed minter,
+        address indexed denominationToken,
+        uint256 completedActionCount,
+        uint256 capacity,
+        uint256 leakRate
+    );
     /// @notice Admin wrote the `(minter, token)` override, which takes
-    /// precedence over `token`'s default.
+    /// precedence over `minter`'s default.
     /// @param minter The minter the override applies to.
     /// @param token The token the override applies to.
     /// @param completedActionCount `token`'s cursor at the set.
@@ -162,7 +176,7 @@ interface IST0xOrchestratorV1 {
     );
     /// @notice Admin removed the `(minter, token)` override.
     event MinterMintLimitCleared(address indexed minter, address indexed token);
-    /// @notice The global bucket's outstanding level was CARRIED from the
+    /// @notice A minter's global bucket's outstanding level was CARRIED from the
     /// denomination it was consumed in into the denomination of the limit now
     /// in force.
     ///
@@ -177,14 +191,15 @@ interface IST0xOrchestratorV1 {
     /// Only emitted when the level actually moves. A level of zero is the same
     /// in every denomination and is restamped without an event.
     /// @param oldLevel The outstanding level in the denomination it was
+    /// @param minter The minter whose global bucket was carried.
     /// consumed in.
     /// @param newLevel The same credit in the new limit's denomination,
     /// rounded UP — a rounded-down level would hand back headroom nobody
     /// earned.
-    event GlobalMintBucketCarried(uint256 oldLevel, uint256 newLevel);
+    event MinterGlobalMintBucketCarried(address indexed minter, uint256 oldLevel, uint256 newLevel);
     /// @notice The `(minter, token)` bucket's outstanding level was carried
     /// into the denomination of the limit now in force. See
-    /// `GlobalMintBucketCarried` for why this is an event rather than a silent
+    /// `MinterGlobalMintBucketCarried` for why this is an event rather than a silent
     /// write.
     /// @param minter The minter whose bucket was carried.
     /// @param token The token whose bucket was carried.
@@ -219,41 +234,44 @@ interface IST0xOrchestratorV1 {
     /// means the vault is not behaving as this orchestrator was built to
     /// expect — halt loudly rather than continue on bad accounting.
     error VaultAmountMismatch(uint256 expected, uint256 actual);
-    /// @notice A mint was metered against a global limit that has never been
-    /// set.
+    /// @notice A mint was metered against a minter global limit that has never
+    /// been set.
     ///
     /// Unset is zero capacity and zero admits nothing, so this is a refusal
     /// and not a special case of one. It has its own name because an unset
     /// limit has no DENOMINATION either — there is no cursor it was priced at
     /// — so there is no honest way to state a capacity, a headroom or a
-    /// converted amount for it, and `GlobalMintCapExceeded` with three zeroes
+    /// converted amount for it, and `MinterGlobalMintCapExceeded` with three zeroes
     /// would be inviting the reader to believe numbers that mean nothing. A
     /// deliberate zero capacity is a different thing entirely: it was set, it
-    /// has a cursor, and it reverts `GlobalMintCapExceeded` with figures that
-    /// can be read.
-    error GlobalMintLimitUnset();
+    /// has a cursor, and it reverts `MinterGlobalMintCapExceeded` with figures
+    /// that can be read.
+    /// @param minter The `MINT_ROLE` caller with no global limit.
+    error MinterGlobalMintLimitUnset(address minter);
     /// @notice A mint was metered against a `(minter, token)` policy that has
     /// never been set — no override for the pair, and no default for the
-    /// token. See `GlobalMintLimitUnset` for why this is its own error rather
-    /// than a zero-valued cap.
+    /// minter. See `MinterGlobalMintLimitUnset` for why this is its own error
+    /// rather than a zero-valued cap.
     /// @param minter The `MINT_ROLE` caller with no policy for this token.
-    /// @param token The token with no default and no override for `minter`.
+    /// @param token The token `minter` has no override for.
     error MinterMintLimitUnset(address minter, address token);
-    /// @notice The mint did not fit the global bucket. Every numeric field is
+    /// @notice The mint did not fit the minter's global bucket, which meters
+    /// the minter across every token. Every numeric field is
     /// in the LIMIT's denomination — units as at the cursor the global cap was
     /// set at, which is the denomination its bucket is metered in — so
     /// `amount` is the offered `mint` amount after conversion into that
     /// denomination, not the number the caller passed. `completedActionCount`
-    /// on `globalMintLimit()` names the cursor those units belong to.
+    /// on `minterGlobalMintLimit(minter)` names the cursor those units belong to.
+    /// @param minter The minter whose global bucket refused the mint.
     /// @param capacity The global capacity in force, as stored.
     /// @param headroom What the global bucket would have accepted, in the
     /// same units.
     /// @param amount The offered amount converted into those units, rounded
     /// UP.
-    error GlobalMintCapExceeded(uint256 capacity, uint256 headroom, uint256 amount);
+    error MinterGlobalMintCapExceeded(address minter, uint256 capacity, uint256 headroom, uint256 amount);
     /// @notice The mint did not fit the `(minter, token)` bucket. Every
     /// numeric field is in the resolved limit's denomination, as for
-    /// `GlobalMintCapExceeded`; `mintLimit(minter, token)` names the cursor.
+    /// `MinterGlobalMintCapExceeded`; `mintLimit(minter, token)` names the cursor.
     /// @param minter The `MINT_ROLE` caller whose bucket rejected the mint.
     /// @param token The token whose bucket rejected the mint.
     /// @param capacity The capacity in force for the pair, as stored.
@@ -286,8 +304,8 @@ interface IST0xOrchestratorV1 {
     /// Metered by two leaky buckets, both of which must accept: the global
     /// bucket, and the `(msg.sender, token)` bucket under the pair's override
     /// if set, else `token`'s default. Either rejection reverts with
-    /// `GlobalMintCapExceeded` or `MinterMintCapExceeded`, or with
-    /// `GlobalMintLimitUnset` / `MinterMintLimitUnset` where the limit was
+    /// `MinterGlobalMintCapExceeded` or `MinterMintCapExceeded`, or with
+    /// `MinterGlobalMintLimitUnset` / `MinterMintLimitUnset` where the limit was
     /// never set at all.
     ///
     /// Each bucket is denominated at the cursor ITS limit was set at, and the
@@ -331,17 +349,17 @@ interface IST0xOrchestratorV1 {
     /// @notice `EMERGENCY_ROLE` escape hatch: rescue a foreign ERC-1155.
     function sweepERC1155(address erc1155, uint256 id, uint256 amount, address to) external;
 
-    /// @notice `MINT_ADMIN_ROLE` sets the global mint limit: one bucket
-    /// covering every mint, across all minters and all tokens.
+    /// @notice `MINT_ADMIN_ROLE` sets `minter`'s global mint limit: one bucket
+    /// covering every mint by `minter`, across all tokens.
     ///
     /// ## Why a global cap names a denomination token
     ///
-    /// The global bucket is not per-token, so no single token's cursor is
+    /// The bucket spans every token, so no single token's cursor is
     /// *its* cursor, and per-token cursors disagree. A global cap is approved
     /// as a figure in the current units of whichever token it was priced
     /// against, and only the admin knows which token that was — so the setter
     /// is told, and pins that token's cursor. Naming it also puts the pricing
-    /// basis on chain (see `GlobalMintLimitSet`) instead of leaving it in the
+    /// basis on chain (see `MinterGlobalMintLimitSet`) instead of leaving it in the
     /// proposal text. There is deliberately no "no reference" escape value.
     /// @param denominationToken The token the cap was priced against. Must
     /// answer `completedActionCount()`.
@@ -353,25 +371,35 @@ interface IST0xOrchestratorV1 {
     /// `LeakyBucketCapacityOverflow` if it does not fit the bucket codec's
     /// level field.
     /// @param leakRate Sustained rate in those same units per second.
-    function setGlobalMintLimit(
+    function setMinterGlobalMintLimit(
+        address minter,
         address denominationToken,
         uint256 expectedActionCount,
         uint256 capacity,
         uint256 leakRate
     ) external;
 
-    /// @notice `MINT_ADMIN_ROLE` sets `token`'s default mint limit, which
-    /// applies to every minter with no override for `token`.
-    /// @param token The token the default applies to.
-    /// @param expectedActionCount `token`'s `completedActionCount()` as at
-    /// pricing. Reverts `MintLimitCursorMoved` if it has moved since.
+    /// @notice `MINT_ADMIN_ROLE` sets `minter`'s default per-token mint limit,
+    /// which applies to every token `minter` has no override for. One policy,
+    /// one bucket per token. Spans tokens, so it names a denomination token
+    /// the way the global limit does.
+    /// @param minter The `MINT_ROLE` holder the default applies to.
+    /// @param denominationToken The token the cap was priced against.
+    /// @param expectedActionCount `denominationToken`'s `completedActionCount()`
+    /// as at pricing. Reverts `MintLimitCursorMoved` if it has moved since.
     /// @param capacity Burst, in 18-decimal rebased tStock units as at
     /// `expectedActionCount`.
     /// @param leakRate Sustained rate in those same units per second.
-    function setTokenMintLimit(address token, uint256 expectedActionCount, uint256 capacity, uint256 leakRate) external;
+    function setMinterDefaultMintLimit(
+        address minter,
+        address denominationToken,
+        uint256 expectedActionCount,
+        uint256 capacity,
+        uint256 leakRate
+    ) external;
 
     /// @notice `MINT_ADMIN_ROLE` sets the `(minter, token)` override, which
-    /// takes precedence over `token`'s default. A zero `capacity` here is a
+    /// takes precedence over `minter`'s default. A zero `capacity` here is a
     /// set override that admits nothing, distinct from having no override.
     /// @param minter The `MINT_ROLE` holder the override applies to.
     /// @param token The token the override applies to.
@@ -389,14 +417,14 @@ interface IST0xOrchestratorV1 {
     ) external;
 
     /// @notice `MINT_ADMIN_ROLE` removes the `(minter, token)` override, so
-    /// the pair falls back to `token`'s default. The pair's bucket level is
+    /// the pair falls back to `minter`'s default. The pair's bucket level is
     /// untouched.
     ///
     /// Takes no cursor, and that is the same rule the setters follow rather
     /// than an exception to it. A cursor pins an admin's *conversion*, and
     /// this writes no capacity at all, so a completed action between proposal
     /// and execution cannot change what it does. It does carry the pair's
-    /// consumed level into the token default's denomination, which is a
+    /// consumed level into the minter default's denomination, which is a
     /// conversion the contract does from two stored stamps, not one the admin
     /// supplies.
     /// @param minter The `MINT_ROLE` holder whose override is removed.
@@ -414,13 +442,13 @@ interface IST0xOrchestratorV1 {
     /// `authorizeMint` callback) to authorise a mint.
     function mintAuthDigest(address token, address to, uint256 amount, bytes32 nonce) external view returns (Digest);
 
-    /// @notice The global mint limit currently in force, as stored: the
-    /// numbers that were approved, in the units current at its own cursor.
-    function globalMintLimit() external view returns (MintLimitV1 memory);
+    /// @notice `minter`'s global mint limit, as stored: the numbers that were
+    /// approved, in the units current at its own cursor.
+    function minterGlobalMintLimit(address minter) external view returns (MintLimitV1 memory);
 
-    /// @notice `token`'s default mint limit, used by any minter with no
-    /// override for `token`. As stored, in the units current at its cursor.
-    function tokenMintLimit(address token) external view returns (MintLimitV1 memory);
+    /// @notice `minter`'s default per-token mint limit, used for any token the
+    /// minter has no override for. As stored, in the units current at its cursor.
+    function minterDefaultMintLimit(address minter) external view returns (MintLimitV1 memory);
 
     /// @notice The raw `(minter, token)` override, including whether one is
     /// set at all. As stored, in the units current at its cursor.

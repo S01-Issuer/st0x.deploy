@@ -122,11 +122,11 @@ abstract contract OrchestratorIntegrationTest is Test {
         orchestrator.grantRole(orchestrator.BURN_ROLE(), MM);
         // Mint caps fail closed, so a freshly initialised orchestrator mints
         // nothing for anyone. Grant the widest capacity the bucket codec can
-        // enforce, globally and as this vault's default, so these workflows
+        // enforce, as MM's global and default limits, so these workflows
         // exercise the real vault machinery rather than the caps — which have
         // their own unit tests in `ST0xOrchestrator.t.sol`.
-        orchestrator.setGlobalMintLimit(address(vault), 0, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
-        orchestrator.setTokenMintLimit(address(vault), 0, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
+        orchestrator.setMinterGlobalMintLimit(MM, address(vault), 0, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
+        orchestrator.setMinterDefaultMintLimit(MM, address(vault), 0, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
         vm.stopPrank();
     }
 

@@ -88,10 +88,11 @@ import {
 /// ignored so the pointer can never be floored over an empty id (see the
 /// receiver hooks).
 ///
-/// **Mint caps.** Every mint is metered by two leaky buckets and both must
-/// accept: a global bucket covering every mint, and a per-`(minter, token)`
-/// bucket metered against the pair's override if one is set, else `token`'s
-/// default. `MINT_ADMIN_ROLE` sets all three.
+/// **Mint caps.** Every policy is per minter. Every mint is metered by two of
+/// the minter's leaky buckets and both must accept: the minter's global bucket
+/// across every token, and its per-token bucket metered against the pair's
+/// override if one is set, else the minter's default. `MINT_ADMIN_ROLE` sets
+/// all three.
 ///
 /// An unconfigured limit is `0` and a zero capacity admits nothing, so a fresh
 /// deployment, a new token and a new minter all start unable to mint.
@@ -140,15 +141,17 @@ contract ST0xOrchestrator is
     struct MainStorage {
         mapping(address token => uint256) nextBurnReceiptId;
         mapping(address to => mapping(bytes32 nonce => bool)) usedNonce;
-        /// The global policy, in the units current at its own cursor.
-        MintLimitV1 globalMintLimit;
-        /// The global bucket: a packed `(level, checkpoint)` word plus the
-        /// denomination that level is in. A zero multiplier is an unused
+        /// Per-minter global policy, across every token the minter mints, in
+        /// the units current at its own cursor.
+        mapping(address minter => MintLimitV1) minterGlobalMintLimit;
+        /// Per-minter global bucket: a packed `(level, checkpoint)` word plus
+        /// the denomination that level is in. A zero multiplier is an unused
         /// bucket.
-        MintBucketV1 globalMintBucket;
-        /// Per-token default policy, in the units current at its own cursor.
-        mapping(address token => MintLimitV1) tokenMintLimit;
-        /// Per-`(minter, token)` override of the token default.
+        mapping(address minter => MintBucketV1) minterGlobalMintBucket;
+        /// Per-minter default per-token policy, in the units current at its
+        /// own cursor.
+        mapping(address minter => MintLimitV1) minterDefaultMintLimit;
+        /// Per-`(minter, token)` override of the minter default.
         mapping(address minter => mapping(address token => MintLimitOverrideV1)) minterMintLimitOverride;
         /// Per-`(minter, token)` bucket state, each stamped with the
         /// denomination its level was consumed in. Keyed by the pair
@@ -278,18 +281,18 @@ contract ST0xOrchestrator is
         _consumeMinterMintCap($, token, amount, current);
     }
 
-    /// @dev The global bucket. Split out of `_consumeMintCaps` to keep that
-    /// frame within stack limits.
+    /// @dev The minter's global bucket, across all tokens. Split out of
+    /// `_consumeMintCaps` to keep that frame within stack limits.
     function _consumeGlobalMintCap(MainStorage storage $, uint256 amount, Float current) internal {
-        MintLimitV1 memory limit = $.globalMintLimit;
-        if (Float.unwrap(limit.cursorMultiplier) == 0) revert GlobalMintLimitUnset();
+        MintLimitV1 memory limit = $.minterGlobalMintLimit[msg.sender];
+        if (Float.unwrap(limit.cursorMultiplier) == 0) revert MinterGlobalMintLimitUnset(msg.sender);
 
         uint256 charge = LibMintCapUnits.redenominateUp(amount, current, limit.cursorMultiplier);
-        uint256 checkpoint = _carriedGlobalCheckpoint($, limit.cursorMultiplier);
+        uint256 checkpoint = _carriedGlobalCheckpoint($, msg.sender, limit.cursorMultiplier);
         uint256 headroom = LibLeakyBucket.headroomAt(_bucket(checkpoint, limit), block.timestamp);
-        if (charge > headroom) revert GlobalMintCapExceeded(limit.capacity, headroom, charge);
+        if (charge > headroom) revert MinterGlobalMintCapExceeded(msg.sender, limit.capacity, headroom, charge);
 
-        $.globalMintBucket = MintBucketV1({
+        $.minterGlobalMintBucket[msg.sender] = MintBucketV1({
             checkpoint: LibLeakyBucket.fill(_bucket(checkpoint, limit), block.timestamp, charge),
             cursorMultiplier: limit.cursorMultiplier
         });
@@ -340,23 +343,23 @@ contract ST0xOrchestrator is
         return (LibLeakyBucket.pack(carried, timestamp), level);
     }
 
-    /// @dev `_carried` for the global bucket, emitting the carry when one
-    /// happened. Lazy: a bucket whose policy was re-priced under it carries
-    /// itself here, at its next metering, from its own stamp.
-    function _carriedGlobalCheckpoint(MainStorage storage $, Float to) internal returns (uint256) {
-        MintBucketV1 memory bucket = $.globalMintBucket;
+    /// @dev `_carried` for a minter's global bucket, emitting the carry when
+    /// one happened. Lazy: a bucket whose policy was re-priced under it
+    /// carries itself here, at its next metering, from its own stamp.
+    function _carriedGlobalCheckpoint(MainStorage storage $, address minter, Float to) internal returns (uint256) {
+        MintBucketV1 memory bucket = $.minterGlobalMintBucket[minter];
         (uint256 checkpoint, uint256 oldLevel) = _carried(bucket, to);
         if (oldLevel != 0) {
             // The timestamp half is deliberately dropped: the event names levels.
             // slither-disable-next-line unused-return
             (uint256 newLevel,) = LibLeakyBucket.unpack(checkpoint);
-            emit GlobalMintBucketCarried(oldLevel, newLevel);
+            emit MinterGlobalMintBucketCarried(minter, oldLevel, newLevel);
         }
         return checkpoint;
     }
 
-    /// @dev `_carried` for a `(minter, token)` bucket. `setTokenMintLimit`
-    /// cannot reach these — one default covers unboundedly many pairs — so
+    /// @dev `_carried` for a `(minter, token)` bucket. `setMinterDefaultMintLimit`
+    /// cannot reach these — one default covers unboundedly many tokens — so
     /// this is where a re-priced default is actually applied to a level.
     function _carriedMinterCheckpoint(MainStorage storage $, address minter, address token, Float to)
         internal
@@ -389,14 +392,14 @@ contract ST0xOrchestrator is
     }
 
     /// @dev The per-pair policy: the `(minter, token)` override if one is set,
-    /// else `token`'s default.
+    /// else `minter`'s default.
     function _resolveMintLimit(MainStorage storage $, address minter, address token)
         internal
         view
         returns (MintLimitV1 memory)
     {
         MintLimitOverrideV1 memory pairOverride = $.minterMintLimitOverride[minter][token];
-        return pairOverride.set ? pairOverride.limit : $.tokenMintLimit[token];
+        return pairOverride.set ? pairOverride.limit : $.minterDefaultMintLimit[minter];
     }
 
     /// @dev Consume the recipient's single-use `(to, nonce)` replay slot and
@@ -499,7 +502,8 @@ contract ST0xOrchestrator is
     /// The cursor is checked BEFORE the capacity: a cursor that has moved
     /// means the whole set is being re-priced, so naming that rather than a
     /// packing width sends the admin to the right place.
-    function setGlobalMintLimit(
+    function setMinterGlobalMintLimit(
+        address minter,
         address denominationToken,
         uint256 expectedActionCount,
         uint256 capacity,
@@ -508,25 +512,28 @@ contract ST0xOrchestrator is
         Float pinned = _pinDenomination(denominationToken, expectedActionCount);
         if (capacity > LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX) revert LeakyBucketCapacityOverflow(capacity);
         MainStorage storage $ = _main();
-        uint256 checkpoint = _carriedGlobalCheckpoint($, pinned);
-        $.globalMintLimit = MintLimitV1({
+        uint256 checkpoint = _carriedGlobalCheckpoint($, minter, pinned);
+        $.minterGlobalMintLimit[minter] = MintLimitV1({
             capacity: capacity, leakRate: leakRate, completedActionCount: expectedActionCount, cursorMultiplier: pinned
         });
-        $.globalMintBucket = MintBucketV1({checkpoint: checkpoint, cursorMultiplier: pinned});
-        emit GlobalMintLimitSet(denominationToken, expectedActionCount, capacity, leakRate);
+        $.minterGlobalMintBucket[minter] = MintBucketV1({checkpoint: checkpoint, cursorMultiplier: pinned});
+        emit MinterGlobalMintLimitSet(minter, denominationToken, expectedActionCount, capacity, leakRate);
     }
 
     /// @inheritdoc IST0xOrchestratorV1
-    function setTokenMintLimit(address token, uint256 expectedActionCount, uint256 capacity, uint256 leakRate)
-        external
-        onlyRole(MINT_ADMIN_ROLE)
-    {
-        Float pinned = _pinDenomination(token, expectedActionCount);
+    function setMinterDefaultMintLimit(
+        address minter,
+        address denominationToken,
+        uint256 expectedActionCount,
+        uint256 capacity,
+        uint256 leakRate
+    ) external onlyRole(MINT_ADMIN_ROLE) {
+        Float pinned = _pinDenomination(denominationToken, expectedActionCount);
         if (capacity > LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX) revert LeakyBucketCapacityOverflow(capacity);
-        _main().tokenMintLimit[token] = MintLimitV1({
+        _main().minterDefaultMintLimit[minter] = MintLimitV1({
             capacity: capacity, leakRate: leakRate, completedActionCount: expectedActionCount, cursorMultiplier: pinned
         });
-        emit TokenMintLimitSet(token, expectedActionCount, capacity, leakRate);
+        emit MinterDefaultMintLimitSet(minter, denominationToken, expectedActionCount, capacity, leakRate);
     }
 
     /// @inheritdoc IST0xOrchestratorV1
@@ -557,7 +564,7 @@ contract ST0xOrchestrator is
     /// @inheritdoc IST0xOrchestratorV1
     function clearMinterMintLimit(address minter, address token) external onlyRole(MINT_ADMIN_ROLE) {
         MainStorage storage $ = _main();
-        Float fallbackDenomination = $.tokenMintLimit[token].cursorMultiplier;
+        Float fallbackDenomination = $.minterDefaultMintLimit[minter].cursorMultiplier;
         if (Float.unwrap(fallbackDenomination) != 0) {
             uint256 checkpoint = _carriedMinterCheckpoint($, minter, token, fallbackDenomination);
             $.minterMintBucket[minter][token] =
@@ -623,13 +630,13 @@ contract ST0xOrchestrator is
     }
 
     /// @inheritdoc IST0xOrchestratorV1
-    function globalMintLimit() external view returns (MintLimitV1 memory) {
-        return _main().globalMintLimit;
+    function minterGlobalMintLimit(address minter) external view returns (MintLimitV1 memory) {
+        return _main().minterGlobalMintLimit[minter];
     }
 
     /// @inheritdoc IST0xOrchestratorV1
-    function tokenMintLimit(address token) external view returns (MintLimitV1 memory) {
-        return _main().tokenMintLimit[token];
+    function minterDefaultMintLimit(address minter) external view returns (MintLimitV1 memory) {
+        return _main().minterDefaultMintLimit[minter];
     }
 
     /// @inheritdoc IST0xOrchestratorV1
@@ -654,12 +661,12 @@ contract ST0xOrchestrator is
         MainStorage storage $ = _main();
         Float current = ICorporateActionsV1(token).cumulativeBalanceMultiplierSinceGenesis();
 
-        MintLimitV1 memory globalLimit = $.globalMintLimit;
+        MintLimitV1 memory globalLimit = $.minterGlobalMintLimit[minter];
         if (Float.unwrap(globalLimit.cursorMultiplier) == 0) return 0;
         MintLimitV1 memory limit = _resolveMintLimit($, minter, token);
         if (Float.unwrap(limit.cursorMultiplier) == 0) return 0;
 
-        (uint256 globalCheckpoint,) = _carried($.globalMintBucket, globalLimit.cursorMultiplier);
+        (uint256 globalCheckpoint,) = _carried($.minterGlobalMintBucket[minter], globalLimit.cursorMultiplier);
         uint256 globalHeadroom = LibMintCapUnits.redenominateDown(
             LibLeakyBucket.headroomAt(_bucket(globalCheckpoint, globalLimit), block.timestamp),
             globalLimit.cursorMultiplier,

@@ -115,13 +115,17 @@ contract ST0xOrchestratorTest is Test {
         _mockVaultTopology(TOKEN, RECEIPT_ADDR);
         _mockVaultTopology(TOKEN2, RECEIPT_ADDR2);
         // Mint caps fail closed, so a proxy with nothing configured mints
-        // nothing at all. Grant an unbounded global limit and unbounded
-        // per-token defaults so the rest of the suite exercises what it is
+        // nothing at all. Grant both minters an unbounded global limit and an
+        // unbounded default so the rest of the suite exercises what it is
         // about rather than the caps.
         vm.startPrank(OWNER);
-        orchestrator.setGlobalMintLimit(TOKEN, 0, UNBOUNDED_CAPACITY, 0);
-        orchestrator.setTokenMintLimit(TOKEN, 0, UNBOUNDED_CAPACITY, 0);
-        orchestrator.setTokenMintLimit(TOKEN2, 0, UNBOUNDED_CAPACITY, 0);
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, TOKEN, 0, UNBOUNDED_CAPACITY, 0);
+        orchestrator.setMinterDefaultMintLimit(MINTER_A, TOKEN, 0, UNBOUNDED_CAPACITY, 0);
+        orchestrator.setMinterGlobalMintLimit(MINTER_B, TOKEN, 0, UNBOUNDED_CAPACITY, 0);
+        orchestrator.setMinterDefaultMintLimit(MINTER_B, TOKEN, 0, UNBOUNDED_CAPACITY, 0);
+        // The test contract mints directly in the signature and callback tests.
+        orchestrator.setMinterGlobalMintLimit(address(this), TOKEN, 0, UNBOUNDED_CAPACITY, 0);
+        orchestrator.setMinterDefaultMintLimit(address(this), TOKEN, 0, UNBOUNDED_CAPACITY, 0);
         vm.stopPrank();
     }
 
@@ -1542,29 +1546,29 @@ contract ST0xOrchestratorTest is Test {
         ST0xOrchestrator fresh = _unconfiguredOrchestrator();
         _grantMintOn(fresh, MINTER_A);
         vm.startPrank(OWNER);
-        fresh.setTokenMintLimit(TOKEN, 0, 100e18, 1e18);
+        fresh.setMinterDefaultMintLimit(MINTER_A, TOKEN, 0, 100e18, 1e18);
         fresh.setMinterMintLimit(MINTER_A, TOKEN, 0, 100e18, 1e18);
         vm.stopPrank();
 
-        assertEq(fresh.globalMintLimit().capacity, 0, "global capacity must start at zero");
+        assertEq(fresh.minterGlobalMintLimit(MINTER_A).capacity, 0, "global capacity must start at zero");
         assertEq(fresh.mintHeadroom(MINTER_A, TOKEN), 0, "global zero must floor the headroom");
 
         _mockCapMint(fresh, TOKEN, 1e18);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.GlobalMintLimitUnset.selector));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.MinterGlobalMintLimitUnset.selector, MINTER_A));
         vm.prank(MINTER_A);
         fresh.mint(TOKEN, address(capRecipient), 1e18, _auth("", keccak256("global-unset")), "");
     }
 
-    /// Level 2 of "unset ⇒ 0 ⇒ rejected": a token with no default, and a
-    /// minter with no override for it, cannot mint that token even with the
-    /// global limit wide open.
-    function testMintTokenLimitUnsetReverts() external {
+    /// Level 2 of "unset ⇒ 0 ⇒ rejected": a minter with no default, and no
+    /// override for the token, cannot mint that token even with its global
+    /// limit wide open.
+    function testMintDefaultLimitUnsetReverts() external {
         ST0xOrchestrator fresh = _unconfiguredOrchestrator();
         _grantMintOn(fresh, MINTER_A);
         vm.prank(OWNER);
-        fresh.setGlobalMintLimit(TOKEN, 0, UNBOUNDED_CAPACITY, 0);
+        fresh.setMinterGlobalMintLimit(MINTER_A, TOKEN, 0, UNBOUNDED_CAPACITY, 0);
 
-        assertEq(fresh.tokenMintLimit(TOKEN).capacity, 0, "token default must start at zero");
+        assertEq(fresh.minterDefaultMintLimit(MINTER_A).capacity, 0, "minter default must start at zero");
         assertFalse(fresh.minterMintLimitOverride(MINTER_A, TOKEN).set, "no override may be set");
         assertEq(fresh.mintLimit(MINTER_A, TOKEN).capacity, 0, "resolved capacity must be zero");
 
@@ -1611,7 +1615,7 @@ contract ST0xOrchestratorTest is Test {
         _grantMintOn(orchestrator, MINTER_A);
         _grantMintOn(orchestrator, MINTER_B);
         vm.startPrank(OWNER);
-        orchestrator.setTokenMintLimit(TOKEN, 0, 10e18, 0);
+        orchestrator.setMinterDefaultMintLimit(MINTER_A, TOKEN, 0, 10e18, 0);
         orchestrator.setMinterMintLimit(MINTER_A, TOKEN, 0, 50e18, 0);
         orchestrator.setMinterMintLimit(MINTER_B, TOKEN, 0, 1e18, 0);
         vm.stopPrank();
@@ -1640,7 +1644,7 @@ contract ST0xOrchestratorTest is Test {
         uint256 capacity = 10e18;
         _grantMintOn(orchestrator, MINTER_A);
         vm.prank(OWNER);
-        orchestrator.setTokenMintLimit(TOKEN, 0, capacity, 0);
+        orchestrator.setMinterDefaultMintLimit(MINTER_A, TOKEN, 0, capacity, 0);
 
         assertEq(orchestrator.mintHeadroom(MINTER_A, TOKEN), capacity, "a fresh bucket offers one capacity");
 
@@ -1673,8 +1677,10 @@ contract ST0xOrchestratorTest is Test {
         uint256 capacity = 10e18;
         _grantMintOn(orchestrator, MINTER_A);
         _grantMintOn(orchestrator, MINTER_B);
-        vm.prank(OWNER);
-        orchestrator.setTokenMintLimit(TOKEN, 0, capacity, 0);
+        vm.startPrank(OWNER);
+        orchestrator.setMinterDefaultMintLimit(MINTER_A, TOKEN, 0, capacity, 0);
+        orchestrator.setMinterDefaultMintLimit(MINTER_B, TOKEN, 0, capacity, 0);
+        vm.stopPrank();
 
         _capMint(orchestrator, MINTER_A, TOKEN, capacity, keccak256("a-drain"));
         assertEq(orchestrator.mintHeadroom(MINTER_A, TOKEN), 0, "A's bucket is spent");
@@ -1688,10 +1694,8 @@ contract ST0xOrchestratorTest is Test {
     function testMintPerTokenIsolation() external {
         uint256 capacity = 10e18;
         _grantMintOn(orchestrator, MINTER_A);
-        vm.startPrank(OWNER);
-        orchestrator.setTokenMintLimit(TOKEN, 0, capacity, 0);
-        orchestrator.setTokenMintLimit(TOKEN2, 0, capacity, 0);
-        vm.stopPrank();
+        vm.prank(OWNER);
+        orchestrator.setMinterDefaultMintLimit(MINTER_A, TOKEN, 0, capacity, 0);
 
         _capMint(orchestrator, MINTER_A, TOKEN, capacity, keccak256("token-drain"));
         assertEq(orchestrator.mintHeadroom(MINTER_A, TOKEN), 0, "TOKEN's bucket is spent");
@@ -1700,28 +1704,32 @@ contract ST0xOrchestratorTest is Test {
         _capMint(orchestrator, MINTER_A, TOKEN2, capacity, keccak256("token2-full"));
     }
 
-    /// The global bucket binds independently of the per-pair one: with the
-    /// per-pair capacity left unbounded, the global bucket alone rejects the
-    /// mint, and the revert names the GLOBAL cap rather than the pair's.
+    /// A minter's global bucket binds independently of its per-pair one: with
+    /// the pair capacity left unbounded, the global bucket alone rejects the
+    /// mint, the revert names the GLOBAL cap rather than the pair's, and
+    /// another minter's global bucket is untouched.
     function testMintGlobalBucketBindsIndependently() external {
         uint256 globalCapacity = 10e18;
         _grantMintOn(orchestrator, MINTER_A);
         _grantMintOn(orchestrator, MINTER_B);
-        // setUp leaves TOKEN's default unbounded; only the global is narrowed.
+        // setUp leaves A's default unbounded; only A's global is narrowed.
         vm.prank(OWNER);
-        orchestrator.setGlobalMintLimit(TOKEN, 0, globalCapacity, 0);
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, TOKEN, 0, globalCapacity, 0);
 
         _capMint(orchestrator, MINTER_A, TOKEN, globalCapacity, keccak256("global-drain"));
 
-        // B's own bucket is untouched and unbounded; the global one is spent.
-        assertEq(orchestrator.mintLimit(MINTER_B, TOKEN).capacity, UNBOUNDED_CAPACITY, "B's pair capacity is unbounded");
-        assertEq(orchestrator.mintHeadroom(MINTER_B, TOKEN), 0, "the global bucket floors B's headroom");
+        // A's pair capacity is unbounded; A's global bucket is spent.
+        assertEq(orchestrator.mintLimit(MINTER_A, TOKEN).capacity, UNBOUNDED_CAPACITY, "A's pair capacity is unbounded");
+        assertEq(orchestrator.mintHeadroom(MINTER_A, TOKEN), 0, "A's global bucket floors A's headroom");
+        assertEq(orchestrator.mintHeadroom(MINTER_B, TOKEN), UNBOUNDED_CAPACITY, "B's global bucket is B's own");
 
         _mockCapMint(orchestrator, TOKEN, 1);
         vm.expectRevert(
-            abi.encodeWithSelector(IST0xOrchestratorV1.GlobalMintCapExceeded.selector, globalCapacity, 0, 1)
+            abi.encodeWithSelector(
+                IST0xOrchestratorV1.MinterGlobalMintCapExceeded.selector, MINTER_A, globalCapacity, 0, 1
+            )
         );
-        vm.prank(MINTER_B);
+        vm.prank(MINTER_A);
         orchestrator.mint(TOKEN, address(capRecipient), 1, _auth("", keccak256("global-bound")), "");
     }
 
@@ -1732,7 +1740,7 @@ contract ST0xOrchestratorTest is Test {
         uint256 leakRate = 1e18;
         _grantMintOn(orchestrator, MINTER_A);
         vm.prank(OWNER);
-        orchestrator.setTokenMintLimit(TOKEN, 0, capacity, leakRate);
+        orchestrator.setMinterDefaultMintLimit(MINTER_A, TOKEN, 0, capacity, leakRate);
 
         _capMint(orchestrator, MINTER_A, TOKEN, capacity, keccak256("drain"));
         assertEq(orchestrator.mintHeadroom(MINTER_A, TOKEN), 0, "spent at the filling second");
@@ -1760,7 +1768,7 @@ contract ST0xOrchestratorTest is Test {
         uint256 leakRate = 1e18;
         _grantMintOn(orchestrator, MINTER_A);
         vm.prank(OWNER);
-        orchestrator.setGlobalMintLimit(TOKEN, 0, globalCapacity, leakRate);
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, TOKEN, 0, globalCapacity, leakRate);
 
         _capMint(orchestrator, MINTER_A, TOKEN, globalCapacity, keccak256("global-drain"));
         assertEq(orchestrator.mintHeadroom(MINTER_A, TOKEN), 0, "global spent at the filling second");
@@ -1772,7 +1780,7 @@ contract ST0xOrchestratorTest is Test {
         _mockCapMint(orchestrator, TOKEN, leaked + 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.GlobalMintCapExceeded.selector, globalCapacity, leaked, leaked + 1
+                IST0xOrchestratorV1.MinterGlobalMintCapExceeded.selector, MINTER_A, globalCapacity, leaked, leaked + 1
             )
         );
         vm.prank(MINTER_A);
@@ -1789,7 +1797,7 @@ contract ST0xOrchestratorTest is Test {
         uint256 leakRate = 1e18;
         _grantMintOn(orchestrator, MINTER_A);
         vm.prank(OWNER);
-        orchestrator.setTokenMintLimit(TOKEN, 0, capacity, leakRate);
+        orchestrator.setMinterDefaultMintLimit(MINTER_A, TOKEN, 0, capacity, leakRate);
 
         // A million seconds at one token per second is 1e6 tokens of leak,
         // five orders of magnitude above the capacity.
@@ -1812,7 +1820,7 @@ contract ST0xOrchestratorTest is Test {
     function testClearMinterMintLimitKeepsBucketLevel() external {
         _grantMintOn(orchestrator, MINTER_A);
         vm.startPrank(OWNER);
-        orchestrator.setTokenMintLimit(TOKEN, 0, 10e18, 0);
+        orchestrator.setMinterDefaultMintLimit(MINTER_A, TOKEN, 0, 10e18, 0);
         orchestrator.setMinterMintLimit(MINTER_A, TOKEN, 0, 6e18, 0);
         vm.stopPrank();
 
@@ -1835,11 +1843,11 @@ contract ST0xOrchestratorTest is Test {
     function testLoweringCapacityBelowLevelBindsImmediately() external {
         _grantMintOn(orchestrator, MINTER_A);
         vm.prank(OWNER);
-        orchestrator.setTokenMintLimit(TOKEN, 0, 10e18, 0);
+        orchestrator.setMinterDefaultMintLimit(MINTER_A, TOKEN, 0, 10e18, 0);
         _capMint(orchestrator, MINTER_A, TOKEN, 8e18, keccak256("before-lowering"));
 
         vm.prank(OWNER);
-        orchestrator.setTokenMintLimit(TOKEN, 0, 2e18, 0);
+        orchestrator.setMinterDefaultMintLimit(MINTER_A, TOKEN, 0, 2e18, 0);
 
         assertEq(orchestrator.mintHeadroom(MINTER_A, TOKEN), 0, "a level above the new capacity leaves no headroom");
         _mockCapMint(orchestrator, TOKEN, 1);
@@ -1854,7 +1862,7 @@ contract ST0xOrchestratorTest is Test {
     //                        Mint-cap setters                            //
     // ------------------------------------------------------------------ //
 
-    function testFuzzSetGlobalMintLimitUnauthorized(address caller, uint256 capacity, uint256 leakRate) external {
+    function testFuzzSetMinterGlobalMintLimitUnauthorized(address caller, uint256 capacity, uint256 leakRate) external {
         vm.assume(!orchestrator.hasRole(orchestrator.MINT_ADMIN_ROLE(), caller));
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -1862,12 +1870,15 @@ contract ST0xOrchestratorTest is Test {
             )
         );
         vm.prank(caller);
-        orchestrator.setGlobalMintLimit(TOKEN, 0, capacity, leakRate);
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, TOKEN, 0, capacity, leakRate);
     }
 
-    function testFuzzSetTokenMintLimitUnauthorized(address caller, address token, uint256 capacity, uint256 leakRate)
-        external
-    {
+    function testFuzzSetMinterDefaultMintLimitUnauthorized(
+        address caller,
+        address token,
+        uint256 capacity,
+        uint256 leakRate
+    ) external {
         vm.assume(!orchestrator.hasRole(orchestrator.MINT_ADMIN_ROLE(), caller));
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -1875,7 +1886,7 @@ contract ST0xOrchestratorTest is Test {
             )
         );
         vm.prank(caller);
-        orchestrator.setTokenMintLimit(token, 0, capacity, leakRate);
+        orchestrator.setMinterDefaultMintLimit(MINTER_A, token, 0, capacity, leakRate);
     }
 
     function testFuzzSetMinterMintLimitUnauthorized(address caller, address minter, address token, uint256 capacity)
@@ -1915,32 +1926,32 @@ contract ST0xOrchestratorTest is Test {
         orchestrator.setMinterMintLimit(MINTER_A, TOKEN, 0, type(uint128).max, 0);
     }
 
-    function testFuzzSetGlobalMintLimitEmitsAndReads(uint256 capacity, uint256 leakRate) external {
+    function testFuzzSetMinterGlobalMintLimitEmitsAndReads(uint256 capacity, uint256 leakRate) external {
         capacity = bound(capacity, 0, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX);
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.GlobalMintLimitSet(TOKEN, 0, capacity, leakRate);
+        emit IST0xOrchestratorV1.MinterGlobalMintLimitSet(MINTER_A, TOKEN, 0, capacity, leakRate);
         vm.prank(OWNER);
-        orchestrator.setGlobalMintLimit(TOKEN, 0, capacity, leakRate);
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, TOKEN, 0, capacity, leakRate);
 
-        MintLimitV1 memory limit = orchestrator.globalMintLimit();
+        MintLimitV1 memory limit = orchestrator.minterGlobalMintLimit(MINTER_A);
         assertEq(limit.capacity, capacity, "global capacity");
         assertEq(limit.leakRate, leakRate, "global leak rate");
     }
 
-    function testFuzzSetTokenMintLimitEmitsAndReads(address token, uint256 capacity, uint256 leakRate) external {
-        _assumeMockableToken(token);
-        _mockCorporateActions(token, 0, LibDecimalFloat.FLOAT_ONE);
+    function testFuzzSetMinterDefaultMintLimitEmitsAndReads(address minter, uint256 capacity, uint256 leakRate)
+        external
+    {
         capacity = bound(capacity, 0, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX);
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.TokenMintLimitSet(token, 0, capacity, leakRate);
+        emit IST0xOrchestratorV1.MinterDefaultMintLimitSet(minter, TOKEN, 0, capacity, leakRate);
         vm.prank(OWNER);
-        orchestrator.setTokenMintLimit(token, 0, capacity, leakRate);
+        orchestrator.setMinterDefaultMintLimit(minter, TOKEN, 0, capacity, leakRate);
 
-        MintLimitV1 memory limit = orchestrator.tokenMintLimit(token);
-        assertEq(limit.capacity, capacity, "token capacity");
-        assertEq(limit.leakRate, leakRate, "token leak rate");
-        // With no override for the pair, the token default is what resolves.
-        MintLimitV1 memory resolved = orchestrator.mintLimit(MINTER_A, token);
+        MintLimitV1 memory limit = orchestrator.minterDefaultMintLimit(minter);
+        assertEq(limit.capacity, capacity, "default capacity");
+        assertEq(limit.leakRate, leakRate, "default leak rate");
+        // With no override for the pair, the minter default is what resolves.
+        MintLimitV1 memory resolved = orchestrator.mintLimit(minter, TOKEN2);
         assertEq(resolved.capacity, capacity, "resolved capacity");
         assertEq(resolved.leakRate, leakRate, "resolved leak rate");
     }
@@ -1960,7 +1971,7 @@ contract ST0xOrchestratorTest is Test {
         assertTrue(pairOverride.set, "override must read back as set");
         assertEq(pairOverride.limit.capacity, capacity, "override capacity");
         assertEq(pairOverride.limit.leakRate, leakRate, "override leak rate");
-        // The override, not the (still unset) token default, is what resolves.
+        // The override, not the (still unset) minter default, is what resolves.
         MintLimitV1 memory resolved = orchestrator.mintLimit(minter, token);
         assertEq(resolved.capacity, capacity, "resolved capacity");
         assertEq(resolved.leakRate, leakRate, "resolved leak rate");
@@ -1974,11 +1985,11 @@ contract ST0xOrchestratorTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(LeakyBucketCapacityOverflow.selector, capacity));
         vm.prank(OWNER);
-        orchestrator.setGlobalMintLimit(TOKEN, 0, capacity, 0);
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, TOKEN, 0, capacity, 0);
 
         vm.expectRevert(abi.encodeWithSelector(LeakyBucketCapacityOverflow.selector, capacity));
         vm.prank(OWNER);
-        orchestrator.setTokenMintLimit(TOKEN, 0, capacity, 0);
+        orchestrator.setMinterDefaultMintLimit(MINTER_A, TOKEN, 0, capacity, 0);
 
         vm.expectRevert(abi.encodeWithSelector(LeakyBucketCapacityOverflow.selector, capacity));
         vm.prank(OWNER);
@@ -1997,13 +2008,13 @@ contract ST0xOrchestratorTest is Test {
     function testForwardSplitRescalesTheCapWithNoAdminWrite() external {
         _grantMintOn(orchestrator, MINTER_A);
         vm.prank(OWNER);
-        orchestrator.setTokenMintLimit(TOKEN, 0, 100e18, 0);
+        orchestrator.setMinterDefaultMintLimit(MINTER_A, TOKEN, 0, 100e18, 0);
         assertEq(orchestrator.mintHeadroom(MINTER_A, TOKEN), 100e18, "genesis and current coincide before an action");
 
         // The split completes. Nothing writes to the orchestrator.
         _mockCorporateActions(TOKEN, 1, LibDecimalFloat.packLossless(2, 0));
 
-        assertEq(orchestrator.tokenMintLimit(TOKEN).capacity, 100e18, "the stored cap is untouched");
+        assertEq(orchestrator.minterDefaultMintLimit(MINTER_A).capacity, 100e18, "the stored cap is untouched");
         assertEq(orchestrator.mintHeadroom(MINTER_A, TOKEN), 200e18, "the same cap admits twice the units");
 
         // One current unit past it is `100e18 + 1` genesis units (the half
@@ -2030,11 +2041,11 @@ contract ST0xOrchestratorTest is Test {
     function testConsolidationTightensTheCapInCurrentUnits() external {
         _grantMintOn(orchestrator, MINTER_A);
         vm.prank(OWNER);
-        orchestrator.setTokenMintLimit(TOKEN, 0, 100e18, 0);
+        orchestrator.setMinterDefaultMintLimit(MINTER_A, TOKEN, 0, 100e18, 0);
 
         _mockCorporateActions(TOKEN, 1, LibDecimalFloat.packLossless(1, -1));
 
-        assertEq(orchestrator.tokenMintLimit(TOKEN).capacity, 100e18, "the stored cap is untouched");
+        assertEq(orchestrator.minterDefaultMintLimit(MINTER_A).capacity, 100e18, "the stored cap is untouched");
         assertEq(orchestrator.mintHeadroom(MINTER_A, TOKEN), 10e18, "one tenth the units, the same value");
 
         _mockCapMint(orchestrator, TOKEN, 10e18 + 1);
@@ -2058,7 +2069,7 @@ contract ST0xOrchestratorTest is Test {
     function testConsumedAmountRoundsUpSoDustIsNeverFree() external {
         _grantMintOn(orchestrator, MINTER_A);
         vm.prank(OWNER);
-        orchestrator.setTokenMintLimit(TOKEN, 0, 2, 0);
+        orchestrator.setMinterDefaultMintLimit(MINTER_A, TOKEN, 0, 2, 0);
         _mockCorporateActions(TOKEN, 1, LibDecimalFloat.packLossless(3, 0));
 
         assertEq(orchestrator.mintHeadroom(MINTER_A, TOKEN), 6, "two genesis wei is six current wei");
@@ -2082,7 +2093,7 @@ contract ST0xOrchestratorTest is Test {
     function testMintHeadroomNamesAnAmountThatFits() external {
         _grantMintOn(orchestrator, MINTER_A);
         vm.prank(OWNER);
-        orchestrator.setTokenMintLimit(TOKEN, 0, 2, 0);
+        orchestrator.setMinterDefaultMintLimit(MINTER_A, TOKEN, 0, 2, 0);
         _mockCorporateActions(TOKEN, 1, LibDecimalFloat.packLossless(3, 0));
 
         uint256 headroom = orchestrator.mintHeadroom(MINTER_A, TOKEN);
@@ -2105,14 +2116,16 @@ contract ST0xOrchestratorTest is Test {
     function testGlobalBucketSumsGenesisUnitsAcrossTokens() external {
         _grantMintOn(orchestrator, MINTER_A);
         vm.prank(OWNER);
-        orchestrator.setGlobalMintLimit(TOKEN, 0, 200e18, 0);
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, TOKEN, 0, 200e18, 0);
         _mockCorporateActions(TOKEN, 1, LibDecimalFloat.packLossless(2, 0));
 
         _capMint(orchestrator, MINTER_A, TOKEN, 200e18, keccak256("global-doubled"));
         _capMint(orchestrator, MINTER_A, TOKEN2, 100e18, keccak256("global-plain"));
 
         _mockCapMint(orchestrator, TOKEN2, 1);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.GlobalMintCapExceeded.selector, 200e18, 0, 1));
+        vm.expectRevert(
+            abi.encodeWithSelector(IST0xOrchestratorV1.MinterGlobalMintCapExceeded.selector, MINTER_A, 200e18, 0, 1)
+        );
         vm.prank(MINTER_A);
         orchestrator.mint(TOKEN2, address(capRecipient), 1, _auth("", keccak256("global-full")), "");
     }
@@ -2139,15 +2152,15 @@ contract ST0xOrchestratorTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.MintLimitCursorMoved.selector, TOKEN, 0, 1));
         vm.prank(OWNER);
-        orchestrator.setTokenMintLimit(TOKEN, pricedAtCursor, 100e18, 0);
-        assertEq(orchestrator.tokenMintLimit(TOKEN).capacity, UNBOUNDED_CAPACITY, "nothing was written");
+        orchestrator.setMinterDefaultMintLimit(MINTER_A, TOKEN, pricedAtCursor, 100e18, 0);
+        assertEq(orchestrator.minterDefaultMintLimit(MINTER_A).capacity, UNBOUNDED_CAPACITY, "nothing was written");
 
         // Re-proposed at the cursor the admin can now see, carrying the SAME
         // approved number. A stale set reverts; it never silently enacts a
         // different cap.
         vm.prank(OWNER);
-        orchestrator.setTokenMintLimit(TOKEN, 1, 100e18, 0);
-        assertEq(orchestrator.tokenMintLimit(TOKEN).capacity, 100e18, "stored as approved");
+        orchestrator.setMinterDefaultMintLimit(MINTER_A, TOKEN, 1, 100e18, 0);
+        assertEq(orchestrator.minterDefaultMintLimit(MINTER_A).capacity, 100e18, "stored as approved");
         assertEq(orchestrator.mintHeadroom(MINTER_A, TOKEN), 100e18, "the approved cap, enacted");
     }
 
@@ -2178,21 +2191,21 @@ contract ST0xOrchestratorTest is Test {
         // Priced against TOKEN2, a stale cursor is refused.
         vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.MintLimitCursorMoved.selector, TOKEN2, 0, 1));
         vm.prank(OWNER);
-        orchestrator.setGlobalMintLimit(TOKEN2, 0, 100e18, 0);
-        assertEq(orchestrator.globalMintLimit().capacity, UNBOUNDED_CAPACITY, "nothing was written");
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, TOKEN2, 0, 100e18, 0);
+        assertEq(orchestrator.minterGlobalMintLimit(MINTER_A).capacity, UNBOUNDED_CAPACITY, "nothing was written");
 
         // The SAME cursor value against TOKEN, which has not moved, goes
         // through — the two tokens disagree and only the named one governs.
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.GlobalMintLimitSet(TOKEN, 0, 100e18, 0);
+        emit IST0xOrchestratorV1.MinterGlobalMintLimitSet(MINTER_A, TOKEN, 0, 100e18, 0);
         vm.prank(OWNER);
-        orchestrator.setGlobalMintLimit(TOKEN, 0, 100e18, 0);
-        assertEq(orchestrator.globalMintLimit().capacity, 100e18, "the global cap is stored");
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, TOKEN, 0, 100e18, 0);
+        assertEq(orchestrator.minterGlobalMintLimit(MINTER_A).capacity, 100e18, "the global cap is stored");
 
         // And against TOKEN2 at its real cursor it goes through too.
         vm.prank(OWNER);
-        orchestrator.setGlobalMintLimit(TOKEN2, 1, 200e18, 0);
-        assertEq(orchestrator.globalMintLimit().capacity, 200e18, "re-priced against the moved token");
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, TOKEN2, 1, 200e18, 0);
+        assertEq(orchestrator.minterGlobalMintLimit(MINTER_A).capacity, 200e18, "re-priced against the moved token");
     }
 
     /// `clearMinterMintLimit` takes no cursor, and this is what that means:
@@ -2232,13 +2245,13 @@ contract ST0xOrchestratorTest is Test {
 
     /// Same fail-closed rule on the setters' half: a token that cannot answer
     /// its cursor cannot have a cap priced against it at all.
-    function testSetTokenMintLimitRevertsWhenTheTokenCannotAnswerItsCursor() external {
+    function testSetMinterDefaultMintLimitRevertsWhenTheTokenCannotAnswerItsCursor() external {
         bytes memory failure = abi.encodeWithSignature("FacetMustBeDelegatecalled()");
         vm.mockCallRevert(TOKEN, abi.encodeWithSelector(ICorporateActionsV1.completedActionCount.selector), failure);
 
         vm.expectRevert(failure);
         vm.prank(OWNER);
-        orchestrator.setTokenMintLimit(TOKEN, 0, 5e18, 0);
+        orchestrator.setMinterDefaultMintLimit(MINTER_A, TOKEN, 0, 5e18, 0);
     }
 
     /// An `amount` too wide for a `Float` coefficient is refused rather than
@@ -2272,7 +2285,7 @@ contract ST0xOrchestratorTest is Test {
 
         _grantMintOn(orchestrator, MINTER_A);
         vm.prank(OWNER);
-        orchestrator.setTokenMintLimit(TOKEN, 0, genesisCapacity, 0);
+        orchestrator.setMinterDefaultMintLimit(MINTER_A, TOKEN, 0, genesisCapacity, 0);
         _mockCorporateActions(TOKEN, 1, multiplier);
 
         uint256 worth = Math.mulDiv(genesisCapacity, multiplierUnits, 1e6);
