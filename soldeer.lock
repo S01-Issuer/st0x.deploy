@@ -41,6 +41,13 @@ checksum = "6b02e2b87983e196bc88cb8fb802a2720b252783429567864cd13336167c369d"
 integrity = "be6a3343d0ea247d8b495b584cd21c3bf64f0a1396ca21aaa8ce31715df29842"
 
 [[dependencies]]
+name = "rain-lib-leakybucket"
+version = "0.4.0"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-lib-leakybucket/0_4_0_22-09-2026_19:48:38_rain.lib.zip"
+checksum = "8ec0890d7ccded730692035ae9e0e5216f4b99f94a4ffd3b2ca0505d3e7810b7"
+integrity = "af380feaf4fd04c7e731918cbbf482ae18e60bab520169f7597aab5de6800079"
+
+[[dependencies]]
 name = "rain-math-fixedpoint"
 version = "0.2.0"
 url = "https://soldeer-revisions.s3.amazonaws.com/rain-math-fixedpoint/0_2_0_09-05-2026_21:16:31_rain.math.zip"
@@ -53,6 +60,13 @@ version = "0.1.1"
 url = "https://soldeer-revisions.s3.amazonaws.com/rain-math-float/0_1_1_13-05-2026_13:48:34_rain.math.zip"
 checksum = "322956f272ae3073ee02b0e7301b8834f08f2de62bcd6c309c44e946d7cd7056"
 integrity = "dccdd4406a37db6af690872b805084a7dbe5211c57961a61ef083a7912ddbdc9"
+
+[[dependencies]]
+name = "rain-math-saturating"
+version = "0.1.10"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-math-saturating/0_1_10_06-09-2026_02:56:19_rain.math.zip"
+checksum = "2c0b51ebfec8f0a6896e0a3dc3b251b423c49766641363ef1ad733d660c93d31"
+integrity = "c45986d57624470fd89d5ceaab94f8a1ae575f159a50e21d66eef2eb755bfceb"
 
 [[dependencies]]
 name = "rain-sol-codegen"

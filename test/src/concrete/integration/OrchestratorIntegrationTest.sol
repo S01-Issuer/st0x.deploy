@@ -21,6 +21,7 @@ import {
 } from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {ReceiptVaultConfigV2} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
 import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
+import {LibLeakyBucket} from "rain-lib-leakybucket-0.4.0/src/lib/LibLeakyBucket.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";
@@ -119,6 +120,13 @@ abstract contract OrchestratorIntegrationTest is Test {
         vm.startPrank(OWNER);
         orchestrator.grantRole(orchestrator.MINT_ROLE(), MM);
         orchestrator.grantRole(orchestrator.BURN_ROLE(), MM);
+        // Mint caps fail closed, so a freshly initialised orchestrator mints
+        // nothing for anyone. Grant the widest capacity the bucket codec can
+        // enforce, as MM's global and default limits, so these workflows
+        // exercise the real vault machinery rather than the caps — which have
+        // their own unit tests in `ST0xOrchestrator.t.sol`.
+        orchestrator.setMinterGlobalMintLimit(MM, address(vault), 0, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
+        orchestrator.setMinterDefaultMintLimit(MM, address(vault), 0, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
         vm.stopPrank();
     }
 

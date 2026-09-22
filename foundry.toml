@@ -70,6 +70,8 @@ forge-std = "1.16.2"
 "rain-tofu-erc20-decimals" = "0.1.1"
 "rain-vats" = "0.1.6"
 "rain-verify-interface" = "0.1.0"
+rain-lib-leakybucket = "0.4.0"
+rain-math-saturating = "0.1.10"
 
 [soldeer]
 recursive_deps = false
