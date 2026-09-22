@@ -7,7 +7,7 @@ import {Unauthorized} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV1.sol";
-import {LEAKY_BUCKET_LEVEL_MAX} from "rain-lib-leakybucket-0.1.4/src/lib/LibLeakyBucketCheckpoint.sol";
+import {LibLeakyBucket} from "rain-lib-leakybucket-0.4.0/src/lib/LibLeakyBucket.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 
 /// @title MintWithEcdsaSignatureTest
@@ -86,8 +86,8 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
         // orchestrator the widest enforceable limits for the same reason;
         // grant them here too so the vault's missing `DEPOSIT` grant stays the
         // only thing that can fail.
-        fresh.setGlobalMintLimit(address(vault), 0, LEAKY_BUCKET_LEVEL_MAX, 0);
-        fresh.setTokenMintLimit(address(vault), 0, LEAKY_BUCKET_LEVEL_MAX, 0);
+        fresh.setGlobalMintLimit(address(vault), 0, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
+        fresh.setTokenMintLimit(address(vault), 0, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
         vm.stopPrank();
 
         (address eoa, uint256 pk) = makeAddrAndKey("norole-recipient");

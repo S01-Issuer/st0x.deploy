@@ -21,7 +21,7 @@ import {
 } from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {ReceiptVaultConfigV2} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
 import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
-import {LEAKY_BUCKET_LEVEL_MAX} from "rain-lib-leakybucket-0.1.4/src/lib/LibLeakyBucketCheckpoint.sol";
+import {LibLeakyBucket} from "rain-lib-leakybucket-0.4.0/src/lib/LibLeakyBucket.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";
@@ -125,8 +125,8 @@ abstract contract OrchestratorIntegrationTest is Test {
         // enforce, globally and as this vault's default, so these workflows
         // exercise the real vault machinery rather than the caps — which have
         // their own unit tests in `ST0xOrchestrator.t.sol`.
-        orchestrator.setGlobalMintLimit(address(vault), 0, LEAKY_BUCKET_LEVEL_MAX, 0);
-        orchestrator.setTokenMintLimit(address(vault), 0, LEAKY_BUCKET_LEVEL_MAX, 0);
+        orchestrator.setGlobalMintLimit(address(vault), 0, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
+        orchestrator.setTokenMintLimit(address(vault), 0, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
         vm.stopPrank();
     }
 

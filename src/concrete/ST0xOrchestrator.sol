@@ -17,7 +17,11 @@ import {OffchainAssetReceiptVault} from "rain-vats-0.1.6/src/concrete/vault/Offc
 import {IReceiptV3} from "rain-vats-0.1.6/src/interface/IReceiptV3.sol";
 import {ReceiptVault} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
 
-import {LibLeakyBucketCheckpoint} from "rain-lib-leakybucket-0.1.4/src/lib/LibLeakyBucketCheckpoint.sol";
+import {
+    LibLeakyBucket,
+    LeakyBucket,
+    LeakyBucketCapacityOverflow
+} from "rain-lib-leakybucket-0.4.0/src/lib/LibLeakyBucket.sol";
 
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {LibMintCapUnits} from "../lib/LibMintCapUnits.sol";
@@ -282,14 +286,11 @@ contract ST0xOrchestrator is
 
         uint256 charge = LibMintCapUnits.redenominateUp(amount, current, limit.cursorMultiplier);
         uint256 checkpoint = _carriedGlobalCheckpoint($, limit.cursorMultiplier);
-        uint256 headroom =
-            LibLeakyBucketCheckpoint.headroomAt(checkpoint, block.timestamp, limit.capacity, limit.leakRate);
+        uint256 headroom = LibLeakyBucket.headroomAt(_bucket(checkpoint, limit), block.timestamp);
         if (charge > headroom) revert GlobalMintCapExceeded(limit.capacity, headroom, charge);
 
         $.globalMintBucket = MintBucketV1({
-            checkpoint: LibLeakyBucketCheckpoint.fill(
-                checkpoint, block.timestamp, limit.capacity, limit.leakRate, charge
-            ),
+            checkpoint: LibLeakyBucket.fill(_bucket(checkpoint, limit), block.timestamp, charge),
             cursorMultiplier: limit.cursorMultiplier
         });
     }
@@ -302,18 +303,20 @@ contract ST0xOrchestrator is
 
         uint256 charge = LibMintCapUnits.redenominateUp(amount, current, limit.cursorMultiplier);
         uint256 checkpoint = _carriedMinterCheckpoint($, msg.sender, token, limit.cursorMultiplier);
-        uint256 headroom =
-            LibLeakyBucketCheckpoint.headroomAt(checkpoint, block.timestamp, limit.capacity, limit.leakRate);
+        uint256 headroom = LibLeakyBucket.headroomAt(_bucket(checkpoint, limit), block.timestamp);
         if (charge > headroom) {
             revert MinterMintCapExceeded(msg.sender, token, limit.capacity, headroom, charge);
         }
 
         $.minterMintBucket[msg.sender][token] = MintBucketV1({
-            checkpoint: LibLeakyBucketCheckpoint.fill(
-                checkpoint, block.timestamp, limit.capacity, limit.leakRate, charge
-            ),
+            checkpoint: LibLeakyBucket.fill(_bucket(checkpoint, limit), block.timestamp, charge),
             cursorMultiplier: limit.cursorMultiplier
         });
+    }
+
+    /// @dev A checkpoint under a limit, as the library takes it.
+    function _bucket(uint256 checkpoint, MintLimitV1 memory limit) internal pure returns (LeakyBucket memory) {
+        return LeakyBucket({checkpoint: checkpoint, capacity: limit.capacity, leakRate: limit.leakRate});
     }
 
     /// @dev A bucket's stored level carried into `to`, or the level itself
@@ -331,10 +334,10 @@ contract ST0xOrchestrator is
         if (Float.unwrap(bucket.cursorMultiplier) == 0 || Float.unwrap(bucket.cursorMultiplier) == Float.unwrap(to)) {
             return (bucket.checkpoint, 0);
         }
-        (uint256 level, uint256 timestamp) = LibLeakyBucketCheckpoint.unpack(bucket.checkpoint);
+        (uint256 level, uint256 timestamp) = LibLeakyBucket.unpack(bucket.checkpoint);
         if (level == 0) return (bucket.checkpoint, 0);
         uint256 carried = LibMintCapUnits.redenominateUp(level, bucket.cursorMultiplier, to);
-        return (LibLeakyBucketCheckpoint.pack(carried, timestamp), level);
+        return (LibLeakyBucket.pack(carried, timestamp), level);
     }
 
     /// @dev `_carried` for the global bucket, emitting the carry when one
@@ -346,7 +349,7 @@ contract ST0xOrchestrator is
         if (oldLevel != 0) {
             // The timestamp half is deliberately dropped: the event names levels.
             // slither-disable-next-line unused-return
-            (uint256 newLevel,) = LibLeakyBucketCheckpoint.unpack(checkpoint);
+            (uint256 newLevel,) = LibLeakyBucket.unpack(checkpoint);
             emit GlobalMintBucketCarried(oldLevel, newLevel);
         }
         return checkpoint;
@@ -364,7 +367,7 @@ contract ST0xOrchestrator is
         if (oldLevel != 0) {
             // The timestamp half is deliberately dropped: the event names levels.
             // slither-disable-next-line unused-return
-            (uint256 newLevel,) = LibLeakyBucketCheckpoint.unpack(checkpoint);
+            (uint256 newLevel,) = LibLeakyBucket.unpack(checkpoint);
             emit MinterMintBucketCarried(minter, token, oldLevel, newLevel);
         }
         return checkpoint;
@@ -503,7 +506,7 @@ contract ST0xOrchestrator is
         uint256 leakRate
     ) external onlyRole(MINT_ADMIN_ROLE) {
         Float pinned = _pinDenomination(denominationToken, expectedActionCount);
-        LibLeakyBucketCheckpoint.checkCapacity(capacity);
+        if (capacity > LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX) revert LeakyBucketCapacityOverflow(capacity);
         MainStorage storage $ = _main();
         uint256 checkpoint = _carriedGlobalCheckpoint($, pinned);
         $.globalMintLimit = MintLimitV1({
@@ -519,7 +522,7 @@ contract ST0xOrchestrator is
         onlyRole(MINT_ADMIN_ROLE)
     {
         Float pinned = _pinDenomination(token, expectedActionCount);
-        LibLeakyBucketCheckpoint.checkCapacity(capacity);
+        if (capacity > LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX) revert LeakyBucketCapacityOverflow(capacity);
         _main().tokenMintLimit[token] = MintLimitV1({
             capacity: capacity, leakRate: leakRate, completedActionCount: expectedActionCount, cursorMultiplier: pinned
         });
@@ -535,7 +538,7 @@ contract ST0xOrchestrator is
         uint256 leakRate
     ) external onlyRole(MINT_ADMIN_ROLE) {
         Float pinned = _pinDenomination(token, expectedActionCount);
-        LibLeakyBucketCheckpoint.checkCapacity(capacity);
+        if (capacity > LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX) revert LeakyBucketCapacityOverflow(capacity);
         MainStorage storage $ = _main();
         uint256 checkpoint = _carriedMinterCheckpoint($, minter, token, pinned);
         $.minterMintLimitOverride[minter][token] = MintLimitOverrideV1({
@@ -658,18 +661,14 @@ contract ST0xOrchestrator is
 
         (uint256 globalCheckpoint,) = _carried($.globalMintBucket, globalLimit.cursorMultiplier);
         uint256 globalHeadroom = LibMintCapUnits.redenominateDown(
-            LibLeakyBucketCheckpoint.headroomAt(
-                globalCheckpoint, block.timestamp, globalLimit.capacity, globalLimit.leakRate
-            ),
+            LibLeakyBucket.headroomAt(_bucket(globalCheckpoint, globalLimit), block.timestamp),
             globalLimit.cursorMultiplier,
             current
         );
 
         (uint256 pairCheckpoint,) = _carried($.minterMintBucket[minter][token], limit.cursorMultiplier);
         uint256 pairHeadroom = LibMintCapUnits.redenominateDown(
-            LibLeakyBucketCheckpoint.headroomAt(pairCheckpoint, block.timestamp, limit.capacity, limit.leakRate),
-            limit.cursorMultiplier,
-            current
+            LibLeakyBucket.headroomAt(_bucket(pairCheckpoint, limit), block.timestamp), limit.cursorMultiplier, current
         );
 
         return globalHeadroom < pairHeadroom ? globalHeadroom : pairHeadroom;

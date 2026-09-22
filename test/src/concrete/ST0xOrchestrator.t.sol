@@ -13,10 +13,7 @@ import {
     MintLimitOverrideV1,
     Digest
 } from "../../../src/interface/IST0xOrchestratorV1.sol";
-import {
-    LEAKY_BUCKET_LEVEL_MAX,
-    LeakyBucketCapacityOverflow
-} from "rain-lib-leakybucket-0.1.4/src/lib/LibLeakyBucketCheckpoint.sol";
+import {LibLeakyBucket, LeakyBucketCapacityOverflow} from "rain-lib-leakybucket-0.4.0/src/lib/LibLeakyBucket.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {ICorporateActionsV1} from "../../../src/interface/ICorporateActionsV1.sol";
 import {AmountNotRepresentableAsFloat} from "../../../src/error/ErrMintCapUnits.sol";
@@ -98,7 +95,7 @@ contract ST0xOrchestratorTest is Test {
     /// tests that are about something OTHER than the caps are not metered by
     /// them. The mint-cap tests configure their own narrow limits, and the
     /// fail-closed ones deploy a fresh, unconfigured proxy via `_deployProxy`.
-    uint256 internal constant UNBOUNDED_CAPACITY = LEAKY_BUCKET_LEVEL_MAX;
+    uint256 internal constant UNBOUNDED_CAPACITY = LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX;
 
     ST0xOrchestrator internal impl;
     ST0xOrchestrator internal orchestrator;
@@ -1919,7 +1916,7 @@ contract ST0xOrchestratorTest is Test {
     }
 
     function testFuzzSetGlobalMintLimitEmitsAndReads(uint256 capacity, uint256 leakRate) external {
-        capacity = bound(capacity, 0, LEAKY_BUCKET_LEVEL_MAX);
+        capacity = bound(capacity, 0, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX);
         vm.expectEmit(true, true, true, true, address(orchestrator));
         emit IST0xOrchestratorV1.GlobalMintLimitSet(TOKEN, 0, capacity, leakRate);
         vm.prank(OWNER);
@@ -1933,7 +1930,7 @@ contract ST0xOrchestratorTest is Test {
     function testFuzzSetTokenMintLimitEmitsAndReads(address token, uint256 capacity, uint256 leakRate) external {
         _assumeMockableToken(token);
         _mockCorporateActions(token, 0, LibDecimalFloat.FLOAT_ONE);
-        capacity = bound(capacity, 0, LEAKY_BUCKET_LEVEL_MAX);
+        capacity = bound(capacity, 0, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX);
         vm.expectEmit(true, true, true, true, address(orchestrator));
         emit IST0xOrchestratorV1.TokenMintLimitSet(token, 0, capacity, leakRate);
         vm.prank(OWNER);
@@ -1953,7 +1950,7 @@ contract ST0xOrchestratorTest is Test {
     {
         _assumeMockableToken(token);
         _mockCorporateActions(token, 0, LibDecimalFloat.FLOAT_ONE);
-        capacity = bound(capacity, 0, LEAKY_BUCKET_LEVEL_MAX);
+        capacity = bound(capacity, 0, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX);
         vm.expectEmit(true, true, true, true, address(orchestrator));
         emit IST0xOrchestratorV1.MinterMintLimitSet(minter, token, 0, capacity, leakRate);
         vm.prank(OWNER);
@@ -1973,7 +1970,7 @@ contract ST0xOrchestratorTest is Test {
     /// is WRITTEN, on every setter, rather than surfacing later as a mint that
     /// can never succeed.
     function testFuzzSetMintLimitCapacityOverflowReverts(uint256 capacity) external {
-        capacity = bound(capacity, LEAKY_BUCKET_LEVEL_MAX + 1, type(uint256).max);
+        capacity = bound(capacity, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX + 1, type(uint256).max);
 
         vm.expectRevert(abi.encodeWithSelector(LeakyBucketCapacityOverflow.selector, capacity));
         vm.prank(OWNER);
