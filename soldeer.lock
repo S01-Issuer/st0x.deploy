@@ -42,10 +42,10 @@ integrity = "be6a3343d0ea247d8b495b584cd21c3bf64f0a1396ca21aaa8ce31715df29842"
 
 [[dependencies]]
 name = "rain-lib-leakybucket"
-version = "0.1.0"
-url = "https://soldeer-revisions.s3.amazonaws.com/rain-lib-leakybucket/0_1_0_22-09-2026_04:46:18_rain.lib.zip"
-checksum = "c51f69b92bf169c1531845dc40145ff784881882407a504485d1860410f98a68"
-integrity = "2390d2a8b6da04815e35caab73d7ea58c78250abc7afcdb84da869784fbae66f"
+version = "0.1.4"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-lib-leakybucket/0_1_4_22-09-2026_10:49:08_rain.lib.zip"
+checksum = "b3e14ebf08231d74ecc4e88ddb256bd37ecc5125637b66bf6cb1cfbef1f3b4f3"
+integrity = "09059c44d2c3c04c3e9944810139762e4a2fc32dea66285c6dd9e74be42c7b5a"
 
 [[dependencies]]
 name = "rain-math-fixedpoint"

@@ -16,7 +16,7 @@ import {
 import {
     LEAKY_BUCKET_LEVEL_MAX,
     LeakyBucketCapacityOverflow
-} from "rain-lib-leakybucket-0.1.0/src/lib/LibLeakyBucketCheckpoint.sol";
+} from "rain-lib-leakybucket-0.1.4/src/lib/LibLeakyBucketCheckpoint.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 
 import {Initializable} from "@openzeppelin-contracts-upgradeable-5.6.1/proxy/utils/Initializable.sol";

@@ -21,7 +21,7 @@ import {
 } from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {ReceiptVaultConfigV2} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
 import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
-import {LEAKY_BUCKET_LEVEL_MAX} from "rain-lib-leakybucket-0.1.0/src/lib/LibLeakyBucketCheckpoint.sol";
+import {LEAKY_BUCKET_LEVEL_MAX} from "rain-lib-leakybucket-0.1.4/src/lib/LibLeakyBucketCheckpoint.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";

@@ -7,7 +7,7 @@ import {Unauthorized} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV1.sol";
-import {LEAKY_BUCKET_LEVEL_MAX} from "rain-lib-leakybucket-0.1.0/src/lib/LibLeakyBucketCheckpoint.sol";
+import {LEAKY_BUCKET_LEVEL_MAX} from "rain-lib-leakybucket-0.1.4/src/lib/LibLeakyBucketCheckpoint.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 
 /// @title MintWithEcdsaSignatureTest
