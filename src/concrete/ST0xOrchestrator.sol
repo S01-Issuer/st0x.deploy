@@ -78,38 +78,18 @@ import {
 /// ignored so the pointer can never be floored over an empty id (see the
 /// receiver hooks).
 ///
-/// **Mint caps.** Role membership and the recipient's `MintAuthV1` say WHO
-/// may mint and WHERE the shares go; neither bounds HOW MUCH. Every mint is
-/// additionally metered by two leaky buckets, and BOTH must accept — this is a
-/// conjunction, not most-specific-wins:
-///  1. a GLOBAL bucket covering every mint, across all minters and all tokens;
-///  2. a per-`(minter, token)` bucket, with its own state per pair, metered
-///     against the pair's override if one is set, else `token`'s default.
+/// **Mint caps.** Every mint is metered by two leaky buckets and both must
+/// accept: a global bucket covering every mint, and a per-`(minter, token)`
+/// bucket metered against the pair's override if one is set, else `token`'s
+/// default. Admins set all three with `DEFAULT_ADMIN_ROLE`.
 ///
-/// So admins configure three things: a global limit, a per-token default, and
-/// per-minter overrides per token. All three are `DEFAULT_ADMIN_ROLE` (see
-/// `setGlobalMintLimit`, `setTokenMintLimit`, `setMinterMintLimit`,
-/// `clearMinterMintLimit`), all emit events, and all are readable.
+/// An unconfigured limit is `0` and a zero capacity admits nothing, so a fresh
+/// deployment, a new token and a new minter all start unable to mint.
 ///
-/// **Unset is 0, and 0 fails closed.** An unconfigured limit is `0` and a zero
-/// capacity admits nothing. A fresh deployment mints nothing for anyone until
-/// a global limit is set; a new token mints nothing until it has a default or
-/// the minter has an override. That is deliberate — there is no "nothing
-/// configured means unlimited" path anywhere here.
-///
-/// `capacity` is the burst and `leakRate` is the sustained rate in units per
-/// second, both in the same 18-decimal units as `mint`'s `amount` argument
-/// (one whole tStock is `1e18`), which is the bucket library's native
-/// denomination, so no conversion layer exists. Sizing `capacity` is a
-/// security decision: it is the most a compromised minter can take in one go,
-/// however long its bucket has been idle.
-///
-/// All `mint`/`burn` amounts are current rebased tStock units, matching
-/// `vault.balanceOf` semantics — so a cap denominated in them meters the
-/// rebased unit AS AT the moment of the mint. A corporate action that rebases
-/// the unit (e.g. a stock split) therefore rescales what a fixed `capacity` is
-/// worth in pre-action terms, and admin must re-set the affected limits
-/// alongside the action if the economic size of the cap is meant to hold.
+/// `capacity` is the burst and `leakRate` the sustained rate per second, both
+/// in the same 18-decimal rebased tStock units as `mint`'s `amount`. A
+/// corporate action that rebases the unit rescales what a fixed `capacity` is
+/// worth, so admin must re-set the affected limits alongside it.
 contract ST0xOrchestrator is
     IST0xOrchestratorV1,
     Initializable,
@@ -131,25 +111,21 @@ contract ST0xOrchestrator is
     /// @custom:storage-location erc7201:st0x.orchestrator.main
     /// @dev The orchestrator is upgradeable behind a beacon, so this struct is
     /// APPEND-ONLY: members are never reordered, removed or retyped, and new
-    /// state goes on the end. `nextBurnReceiptId` and `usedNonce` predate the
-    /// mint caps and keep their slots.
+    /// state goes on the end.
     struct MainStorage {
         mapping(address token => uint256) nextBurnReceiptId;
         mapping(address to => mapping(bytes32 nonce => bool)) usedNonce;
-        /// The policy for the one bucket every mint passes through.
+        /// The global policy.
         MintLimitV1 globalMintLimit;
-        /// The global bucket itself, as a packed `(level, checkpoint)` word.
-        /// A zero word is an empty bucket checkpointed at the epoch, so the
-        /// untouched slot needs no initialiser.
+        /// The global bucket, as a packed `(level, checkpoint)` word. A zero
+        /// word is an empty bucket checkpointed at the epoch.
         uint256 globalMintBucket;
-        /// Per-token DEFAULT policy, used by any minter with no override.
+        /// Per-token default policy, used by any minter with no override.
         mapping(address token => MintLimitV1) tokenMintLimit;
-        /// Per-`(minter, token)` override of the token default, carrying an
-        /// explicit `set` marker so a deliberate zero is expressible.
+        /// Per-`(minter, token)` override of the token default.
         mapping(address minter => mapping(address token => MintLimitOverrideV1)) minterMintLimitOverride;
         /// Per-`(minter, token)` bucket state, as packed words. Keyed by the
-        /// pair regardless of which policy resolves for it, so the level a
-        /// pair has consumed survives an override being set or cleared.
+        /// pair regardless of which policy resolves for it.
         mapping(address minter => mapping(address token => uint256)) minterMintBucket;
     }
 
@@ -249,21 +225,15 @@ contract ST0xOrchestrator is
         emit Minted(msg.sender, token, to, amount, auth.nonce);
     }
 
-    /// @dev Meter `amount` through BOTH mint buckets, writing each back, and
+    /// @dev Meter `amount` through both mint buckets, writing each back, and
     /// revert naming whichever one it did not fit. Runs before the recipient
-    /// authorisation so the bucket writes land before any external call, and
-    /// so a mint that the caps will refuse never reaches the recipient's
-    /// `authorizeMint` callback.
+    /// authorisation, so the bucket writes land before any external call.
     ///
-    /// The global bucket is filled before the per-pair bucket is even checked;
-    /// that is safe because a per-pair rejection reverts the whole call, which
-    /// unwinds the global fill with it. There is no path that consumes one
-    /// bucket without the other.
+    /// The global bucket is filled before the per-pair bucket is checked; a
+    /// per-pair rejection reverts the whole call, unwinding that fill with it.
     ///
-    /// `headroomAt` is what `fill` takes — exactly the amount it names fits
-    /// and one unit more does not — so the pre-check cannot disagree with the
-    /// fill that follows it. It exists only to name WHICH cap bound, which the
-    /// library's own `LeakyBucketCapacityExceeded` cannot say.
+    /// `headroomAt` is read only to name which cap bound, which the library's
+    /// `LeakyBucketCapacityExceeded` cannot say.
     function _consumeMintCaps(address token, uint256 amount) internal {
         MainStorage storage $ = _main();
 
@@ -290,9 +260,7 @@ contract ST0xOrchestrator is
     }
 
     /// @dev The per-pair policy: the `(minter, token)` override if one is set,
-    /// else `token`'s default. Both are zero until configured, and a zero
-    /// capacity admits nothing, so the fall-through of an unconfigured token
-    /// is a closed door rather than an open one.
+    /// else `token`'s default.
     function _resolveMintLimit(MainStorage storage $, address minter, address token)
         internal
         view
@@ -393,16 +361,12 @@ contract ST0xOrchestrator is
     // ------------------------------------------------------------------ //
 
     /// @inheritdoc IST0xOrchestratorV1
-    /// @dev Administered by `DEFAULT_ADMIN_ROLE` — the role that administers
-    /// `MINT_ROLE` itself. A cap is only as strong as the weakest key that can
-    /// raise it, and a separate cap-setting role would be exactly that weaker
-    /// key: it could lift the bound on the very mint path it is there to
-    /// bound, without being able to grant `MINT_ROLE`. Keeping both under the
-    /// one admin means raising a cap is no cheaper than minting the role.
+    /// @dev Administered by `DEFAULT_ADMIN_ROLE`, the role that administers
+    /// `MINT_ROLE` itself, so raising a cap is no cheaper than granting the
+    /// role it bounds.
     ///
     /// `checkCapacity` refuses a capacity the bucket codec cannot enforce at
-    /// the moment it is WRITTEN, so a misconfiguration surfaces as a refused
-    /// governance action rather than as a mint that reverts later.
+    /// the moment it is written.
     function setGlobalMintLimit(uint256 capacity, uint256 leakRate) external onlyRole(DEFAULT_ADMIN_ROLE) {
         LibLeakyBucketCheckpoint.checkCapacity(capacity);
         _main().globalMintLimit = MintLimitV1({capacity: capacity, leakRate: leakRate});
