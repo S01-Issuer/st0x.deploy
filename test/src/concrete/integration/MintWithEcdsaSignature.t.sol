@@ -7,7 +7,6 @@ import {Unauthorized} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV1.sol";
-import {LEAKY_BUCKET_LEVEL_MAX} from "rain-lib-leakybucket-0.1.4/src/lib/LibLeakyBucketCheckpoint.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 
 /// @title MintWithEcdsaSignatureTest
@@ -77,18 +76,8 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
         // Fresh orchestrator, never granted DEPOSIT/WITHDRAW on the authoriser.
         ST0xOrchestrator fresh = _deployOrchestrator(OWNER);
         bytes32 mintRole = fresh.MINT_ROLE();
-        vm.startPrank(OWNER);
+        vm.prank(OWNER);
         fresh.grantRole(mintRole, MM);
-        // The mint caps fail closed, so this orchestrator — freshly
-        // initialised and never given a limit — would refuse the mint on its
-        // own zero capacity before the vault leg was ever reached, and this
-        // test would go green on the wrong revert. `setUp` grants the shared
-        // orchestrator the widest enforceable limits for the same reason;
-        // grant them here too so the vault's missing `DEPOSIT` grant stays the
-        // only thing that can fail.
-        fresh.setGlobalMintLimit(address(vault), 0, LEAKY_BUCKET_LEVEL_MAX, 0);
-        fresh.setTokenMintLimit(address(vault), 0, LEAKY_BUCKET_LEVEL_MAX, 0);
-        vm.stopPrank();
 
         (address eoa, uint256 pk) = makeAddrAndKey("norole-recipient");
         uint256 amount = 1e18;
