@@ -42,8 +42,10 @@ import {
 /// handling away from callers — the orchestrator owns every receipt; callers
 /// never touch one.
 ///
-/// **Roles** (all administered by `DEFAULT_ADMIN_ROLE`, which itself performs
-/// no operations — see the deploy/permissions docs):
+/// **Roles** (administered by `DEFAULT_ADMIN_ROLE`, which itself performs no
+/// operations, except that `MINT_ROLE` is administered by `MINT_ADMIN_ROLE` —
+/// see the deploy/permissions docs):
+///  - `MINT_ADMIN_ROLE` — grant `MINT_ROLE` and set the mint caps.
 ///  - `MINT_ROLE` — call `mint`.
 ///  - `BURN_ROLE` — call `burn`.
 ///  - `EMERGENCY_ROLE` — recovery ops (`setBurnIndex`, `withdrawReceipt`,
@@ -85,31 +87,25 @@ import {
 /// **Mint caps.** Every mint is metered by two leaky buckets and both must
 /// accept: a global bucket covering every mint, and a per-`(minter, token)`
 /// bucket metered against the pair's override if one is set, else `token`'s
-/// default. Admins set all three with `DEFAULT_ADMIN_ROLE`.
+/// default. `MINT_ADMIN_ROLE` sets all three.
 ///
 /// An unconfigured limit is `0` and a zero capacity admits nothing, so a fresh
 /// deployment, a new token and a new minter all start unable to mint.
 ///
-/// `capacity` is the burst and `leakRate` the sustained rate per second, both
-/// in 18-decimal GENESIS units — tStock units as they were before any
-/// corporate action completed — and so are the bucket levels. `mint`'s
-/// `amount` is in current rebased units and is converted to genesis units at
-/// metering time, so a rebase rescales what every cap authorises by
-/// construction. Nothing has to be re-set alongside a corporate action, which
-/// is the point: an onchain corporate action exists to remove manual admin
-/// and the async windows it opens, and a cap that needed a human to chase the
-/// action with a second transaction would put one back.
+/// `capacity` is the burst and `leakRate` the sustained rate per second, in
+/// 18-decimal rebased tStock units as at the cursor the limit was set at. A
+/// limit stores the numbers that were approved, together with that cursor and
+/// its multiplier, and `mint`'s `amount` is converted into the limit's own
+/// denomination at metering time. So a rebase rescales what every cap
+/// authorises by construction, and nothing is re-set alongside a corporate
+/// action. Each bucket carries the denomination its level was consumed in and
+/// is converted, never reinterpreted, when it meets a different one.
 ///
-/// The cap setters are the other half. They take the caller's expected
-/// `completedActionCount()` and revert if it has moved, because governance is
-/// timelocked: an admin approves a figure in current units, converts it to
-/// genesis units at proposal time, and the transaction executes later. If an
-/// action completes in between, the same genesis number no longer means the
-/// current-unit cap that was approved. That is a revert rather than a
-/// silently mispriced cap.
-///
-/// Part one removes the window after an action; part two removes the window
-/// inside the timelock.
+/// The cap setters take the caller's expected `completedActionCount()` and
+/// revert if it has moved. Governance is timelocked: an admin approves a
+/// figure at one cursor and the transaction executes later, and if an action
+/// completes in between the figure no longer means what was approved. That is
+/// a revert rather than a silently mispriced cap.
 contract ST0xOrchestrator is
     IST0xOrchestratorV1,
     Initializable,
@@ -121,6 +117,11 @@ contract ST0xOrchestrator is
     using SafeERC20 for IERC20;
 
     bytes32 public constant MINT_ROLE = keccak256("MINT");
+    /// @notice Administers `MINT_ROLE` and owns the mint caps. Whoever can
+    /// grant the right to mint is who sizes what minting is allowed to do;
+    /// splitting those apart would make the cap only as strong as the weaker
+    /// of two keys.
+    bytes32 public constant MINT_ADMIN_ROLE = keccak256("MINT_ADMIN");
     bytes32 public constant BURN_ROLE = keccak256("BURN");
     bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY");
 
@@ -180,6 +181,8 @@ contract ST0xOrchestrator is
         __AccessControl_init();
         __EIP712_init("ST0xOrchestrator", "1");
         _grantRole(DEFAULT_ADMIN_ROLE, owner);
+        _grantRole(MINT_ADMIN_ROLE, owner);
+        _setRoleAdmin(MINT_ROLE, MINT_ADMIN_ROLE);
     }
 
     // ------------------------------------------------------------------ //
@@ -366,13 +369,10 @@ contract ST0xOrchestrator is
     /// @dev Revert unless `token`'s corporate-action cursor is still the one
     /// the caller priced against.
     ///
-    /// Every cap setter runs this, against the token whose genesis
-    /// denomination the caller used. The stored cap is in genesis units and
-    /// so is never stale; what goes stale is the admin's own current-to-
-    /// genesis arithmetic, done at proposal time and executed after a
-    /// timelock. A moved cursor means that arithmetic no longer holds, and
-    /// the only safe thing to do with a number that no longer means what was
-    /// approved is refuse to store it.
+    /// Every cap setter runs this and stores the multiplier it returns as the
+    /// limit's denomination. A moved cursor means the number being written
+    /// was approved against units that no longer exist, and the only safe
+    /// thing to do with it is refuse to store it.
     function _pinDenomination(address token, uint256 expectedActionCount) internal view returns (Float) {
         uint256 actualActionCount = ICorporateActionsV1(token).completedActionCount();
         if (actualActionCount != expectedActionCount) {
@@ -483,9 +483,8 @@ contract ST0xOrchestrator is
     // ------------------------------------------------------------------ //
 
     /// @inheritdoc IST0xOrchestratorV1
-    /// @dev Administered by `DEFAULT_ADMIN_ROLE`, the role that administers
-    /// `MINT_ROLE` itself, so raising a cap is no cheaper than granting the
-    /// role it bounds.
+    /// @dev `MINT_ADMIN_ROLE` administers `MINT_ROLE` and owns its caps, so
+    /// raising a cap is no cheaper than granting the role it bounds.
     ///
     /// `checkCapacity` refuses a capacity the bucket codec cannot enforce at
     /// the moment it is written.
@@ -498,7 +497,7 @@ contract ST0xOrchestrator is
         uint256 expectedActionCount,
         uint256 capacity,
         uint256 leakRate
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external onlyRole(MINT_ADMIN_ROLE) {
         Float pinned = _pinDenomination(denominationToken, expectedActionCount);
         LibLeakyBucketCheckpoint.checkCapacity(capacity);
         MainStorage storage $ = _main();
@@ -513,7 +512,7 @@ contract ST0xOrchestrator is
     /// @inheritdoc IST0xOrchestratorV1
     function setTokenMintLimit(address token, uint256 expectedActionCount, uint256 capacity, uint256 leakRate)
         external
-        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyRole(MINT_ADMIN_ROLE)
     {
         Float pinned = _pinDenomination(token, expectedActionCount);
         LibLeakyBucketCheckpoint.checkCapacity(capacity);
@@ -530,7 +529,7 @@ contract ST0xOrchestrator is
         uint256 expectedActionCount,
         uint256 capacity,
         uint256 leakRate
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external onlyRole(MINT_ADMIN_ROLE) {
         Float pinned = _pinDenomination(token, expectedActionCount);
         LibLeakyBucketCheckpoint.checkCapacity(capacity);
         MainStorage storage $ = _main();
@@ -549,7 +548,7 @@ contract ST0xOrchestrator is
     }
 
     /// @inheritdoc IST0xOrchestratorV1
-    function clearMinterMintLimit(address minter, address token) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function clearMinterMintLimit(address minter, address token) external onlyRole(MINT_ADMIN_ROLE) {
         MainStorage storage $ = _main();
         Float fallbackDenomination = $.tokenMintLimit[token].cursorMultiplier;
         if (Float.unwrap(fallbackDenomination) != 0) {

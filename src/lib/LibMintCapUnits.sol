@@ -19,7 +19,7 @@ import {AmountNotRepresentableAsFloat, NonPositiveDenomination} from "../error/E
 /// the collapsed product of every balance-migration multiplier completed by
 /// then. Call that `m`. A quantity of `v` units at the instant `m` was taken
 /// is `v × m' / m` units at an instant whose multiplier is `m'`, because both
-/// measure the same thing against the same genesis.
+/// are the same product measured from the same origin.
 ///
 /// So the whole of this library is one expression, `amount × to / from`, and
 /// everything below is about the two things that expression does not say:

@@ -331,36 +331,28 @@ interface IST0xOrchestratorV1 {
     /// @notice `EMERGENCY_ROLE` escape hatch: rescue a foreign ERC-1155.
     function sweepERC1155(address erc1155, uint256 id, uint256 amount, address to) external;
 
-    /// @notice `DEFAULT_ADMIN_ROLE` sets the global mint limit: one bucket
+    /// @notice `MINT_ADMIN_ROLE` sets the global mint limit: one bucket
     /// covering every mint, across all minters and all tokens.
     ///
     /// ## Why a global cap names a denomination token
     ///
     /// The global bucket is not per-token, so no single token's cursor is
-    /// *its* cursor, and per-token cursors disagree. The cap itself needs no
-    /// re-pricing after an action — it is stored in genesis units, which no
-    /// corporate action moves. What is conversion-sensitive is the admin's
-    /// own arithmetic: a global cap is approved as a figure in the current
-    /// units of whichever token the admin priced it against, and converted to
-    /// genesis units with that token's multiplier. Only the admin knows which
-    /// token that was, so the setter is told, and pins it. Naming it also
-    /// puts the pricing basis of a global cap on chain (see
-    /// `GlobalMintLimitSet`) instead of leaving it in the proposal text.
-    ///
-    /// An admin who genuinely priced in genesis units can name any live token
-    /// and its current cursor; the pin then simply asserts something that was
-    /// already true. There is deliberately no "no reference" escape value: an
-    /// admin who *did* convert and reached for it by mistake would get back
-    /// exactly the silent mispricing this argument exists to prevent.
-    /// @param denominationToken The token whose genesis denomination the cap
-    /// was priced against. Must answer `completedActionCount()`.
+    /// *its* cursor, and per-token cursors disagree. A global cap is approved
+    /// as a figure in the current units of whichever token it was priced
+    /// against, and only the admin knows which token that was — so the setter
+    /// is told, and pins that token's cursor. Naming it also puts the pricing
+    /// basis on chain (see `GlobalMintLimitSet`) instead of leaving it in the
+    /// proposal text. There is deliberately no "no reference" escape value.
+    /// @param denominationToken The token the cap was priced against. Must
+    /// answer `completedActionCount()`.
     /// @param expectedActionCount `denominationToken`'s
     /// `completedActionCount()` as at pricing. Reverts
     /// `MintLimitCursorMoved` if it has moved since.
-    /// @param capacity Burst, in 18-decimal GENESIS units. Reverts
+    /// @param capacity Burst, in 18-decimal rebased tStock units as at
+    /// `expectedActionCount`. Reverts
     /// `LeakyBucketCapacityOverflow` if it does not fit the bucket codec's
     /// level field.
-    /// @param leakRate Sustained rate in genesis units per second.
+    /// @param leakRate Sustained rate in those same units per second.
     function setGlobalMintLimit(
         address denominationToken,
         uint256 expectedActionCount,
@@ -368,24 +360,26 @@ interface IST0xOrchestratorV1 {
         uint256 leakRate
     ) external;
 
-    /// @notice `DEFAULT_ADMIN_ROLE` sets `token`'s default mint limit, which
+    /// @notice `MINT_ADMIN_ROLE` sets `token`'s default mint limit, which
     /// applies to every minter with no override for `token`.
     /// @param token The token the default applies to.
     /// @param expectedActionCount `token`'s `completedActionCount()` as at
     /// pricing. Reverts `MintLimitCursorMoved` if it has moved since.
-    /// @param capacity Burst, in 18-decimal GENESIS units.
-    /// @param leakRate Sustained rate in genesis units per second.
+    /// @param capacity Burst, in 18-decimal rebased tStock units as at
+    /// `expectedActionCount`.
+    /// @param leakRate Sustained rate in those same units per second.
     function setTokenMintLimit(address token, uint256 expectedActionCount, uint256 capacity, uint256 leakRate) external;
 
-    /// @notice `DEFAULT_ADMIN_ROLE` sets the `(minter, token)` override, which
+    /// @notice `MINT_ADMIN_ROLE` sets the `(minter, token)` override, which
     /// takes precedence over `token`'s default. A zero `capacity` here is a
     /// set override that admits nothing, distinct from having no override.
     /// @param minter The `MINT_ROLE` holder the override applies to.
     /// @param token The token the override applies to.
     /// @param expectedActionCount `token`'s `completedActionCount()` as at
     /// pricing. Reverts `MintLimitCursorMoved` if it has moved since.
-    /// @param capacity Burst, in 18-decimal GENESIS units.
-    /// @param leakRate Sustained rate in genesis units per second.
+    /// @param capacity Burst, in 18-decimal rebased tStock units as at
+    /// `expectedActionCount`.
+    /// @param leakRate Sustained rate in those same units per second.
     function setMinterMintLimit(
         address minter,
         address token,
@@ -394,16 +388,17 @@ interface IST0xOrchestratorV1 {
         uint256 leakRate
     ) external;
 
-    /// @notice `DEFAULT_ADMIN_ROLE` removes the `(minter, token)` override, so
+    /// @notice `MINT_ADMIN_ROLE` removes the `(minter, token)` override, so
     /// the pair falls back to `token`'s default. The pair's bucket level is
     /// untouched.
     ///
     /// Takes no cursor, and that is the same rule the setters follow rather
     /// than an exception to it. A cursor pins an admin's *conversion*, and
-    /// this writes no converted number: it names no capacity, and the default
-    /// it falls back to is already stored in genesis units, so a completed
-    /// action between proposal and execution cannot change what this call
-    /// does.
+    /// this writes no capacity at all, so a completed action between proposal
+    /// and execution cannot change what it does. It does carry the pair's
+    /// consumed level into the token default's denomination, which is a
+    /// conversion the contract does from two stored stamps, not one the admin
+    /// supplies.
     /// @param minter The `MINT_ROLE` holder whose override is removed.
     /// @param token The token the override is removed for.
     function clearMinterMintLimit(address minter, address token) external;
@@ -419,22 +414,22 @@ interface IST0xOrchestratorV1 {
     /// `authorizeMint` callback) to authorise a mint.
     function mintAuthDigest(address token, address to, uint256 amount, bytes32 nonce) external view returns (Digest);
 
-    /// @notice The global mint limit currently in force, as stored: GENESIS
-    /// units, the denomination the setters take.
+    /// @notice The global mint limit currently in force, as stored: the
+    /// numbers that were approved, in the units current at its own cursor.
     function globalMintLimit() external view returns (MintLimitV1 memory);
 
     /// @notice `token`'s default mint limit, used by any minter with no
-    /// override for `token`. GENESIS units, as stored.
+    /// override for `token`. As stored, in the units current at its cursor.
     function tokenMintLimit(address token) external view returns (MintLimitV1 memory);
 
     /// @notice The raw `(minter, token)` override, including whether one is
-    /// set at all. GENESIS units, as stored.
+    /// set at all. As stored, in the units current at its cursor.
     function minterMintLimitOverride(address minter, address token) external view returns (MintLimitOverrideV1 memory);
 
     /// @notice The resolved per-pair policy `mint` meters `(minter, token)`
     /// against: the override if one is set, else `token`'s default. The global
-    /// limit is a separate bucket and is not folded in here. GENESIS units, as
-    /// stored.
+    /// limit is a separate bucket and is not folded in here. As stored, in the
+    /// units current at its cursor.
     function mintLimit(address minter, address token) external view returns (MintLimitV1 memory);
 
     /// @notice The largest `amount` a `mint(token, …)` by `minter` would
@@ -443,9 +438,10 @@ interface IST0xOrchestratorV1 {
     /// it.
     ///
     /// Unlike the policy views above this answers in CURRENT rebased units,
-    /// because it answers the question "what may I pass as `amount`". The
-    /// genesis headroom is converted with `token`'s multiplier rounding DOWN,
-    /// so the number really is accepted rather than being one wei too large.
+    /// because it answers the question "what may I pass as `amount`". Each
+    /// bucket's headroom is converted out of its own denomination rounding
+    /// DOWN, so the number really is accepted rather than being one wei too
+    /// large.
     ///
     /// Reverts (`FixedDecimalOverflow`) if the current-unit headroom does not
     /// fit a `uint256` — a headroom no `amount` could name in the first place.

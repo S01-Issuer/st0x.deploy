@@ -1858,10 +1858,10 @@ contract ST0xOrchestratorTest is Test {
     // ------------------------------------------------------------------ //
 
     function testFuzzSetGlobalMintLimitUnauthorized(address caller, uint256 capacity, uint256 leakRate) external {
-        vm.assume(!orchestrator.hasRole(orchestrator.DEFAULT_ADMIN_ROLE(), caller));
+        vm.assume(!orchestrator.hasRole(orchestrator.MINT_ADMIN_ROLE(), caller));
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.DEFAULT_ADMIN_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.MINT_ADMIN_ROLE()
             )
         );
         vm.prank(caller);
@@ -1871,10 +1871,10 @@ contract ST0xOrchestratorTest is Test {
     function testFuzzSetTokenMintLimitUnauthorized(address caller, address token, uint256 capacity, uint256 leakRate)
         external
     {
-        vm.assume(!orchestrator.hasRole(orchestrator.DEFAULT_ADMIN_ROLE(), caller));
+        vm.assume(!orchestrator.hasRole(orchestrator.MINT_ADMIN_ROLE(), caller));
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.DEFAULT_ADMIN_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.MINT_ADMIN_ROLE()
             )
         );
         vm.prank(caller);
@@ -1884,10 +1884,10 @@ contract ST0xOrchestratorTest is Test {
     function testFuzzSetMinterMintLimitUnauthorized(address caller, address minter, address token, uint256 capacity)
         external
     {
-        vm.assume(!orchestrator.hasRole(orchestrator.DEFAULT_ADMIN_ROLE(), caller));
+        vm.assume(!orchestrator.hasRole(orchestrator.MINT_ADMIN_ROLE(), caller));
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.DEFAULT_ADMIN_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.MINT_ADMIN_ROLE()
             )
         );
         vm.prank(caller);
@@ -1895,23 +1895,23 @@ contract ST0xOrchestratorTest is Test {
     }
 
     function testFuzzClearMinterMintLimitUnauthorized(address caller, address minter, address token) external {
-        vm.assume(!orchestrator.hasRole(orchestrator.DEFAULT_ADMIN_ROLE(), caller));
+        vm.assume(!orchestrator.hasRole(orchestrator.MINT_ADMIN_ROLE(), caller));
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.DEFAULT_ADMIN_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.MINT_ADMIN_ROLE()
             )
         );
         vm.prank(caller);
         orchestrator.clearMinterMintLimit(minter, token);
     }
 
-    /// `MINT_ROLE` is not `DEFAULT_ADMIN_ROLE`: the key the cap exists to
+    /// `MINT_ROLE` is not `MINT_ADMIN_ROLE`: the key the cap exists to
     /// bound cannot raise its own cap.
     function testMintRoleCannotSetItsOwnCap() external {
         _grantMintOn(orchestrator, MINTER_A);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, MINTER_A, orchestrator.DEFAULT_ADMIN_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, MINTER_A, orchestrator.MINT_ADMIN_ROLE()
             )
         );
         vm.prank(MINTER_A);
