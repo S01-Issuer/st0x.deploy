@@ -86,8 +86,8 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
         // orchestrator the widest enforceable limits for the same reason;
         // grant them here too so the vault's missing `DEPOSIT` grant stays the
         // only thing that can fail.
-        fresh.setGlobalMintLimit(LEAKY_BUCKET_LEVEL_MAX, 0);
-        fresh.setTokenMintLimit(address(vault), LEAKY_BUCKET_LEVEL_MAX, 0);
+        fresh.setGlobalMintLimit(address(vault), 0, LEAKY_BUCKET_LEVEL_MAX, 0);
+        fresh.setTokenMintLimit(address(vault), 0, LEAKY_BUCKET_LEVEL_MAX, 0);
         vm.stopPrank();
 
         (address eoa, uint256 pk) = makeAddrAndKey("norole-recipient");

@@ -125,8 +125,8 @@ abstract contract OrchestratorIntegrationTest is Test {
         // enforce, globally and as this vault's default, so these workflows
         // exercise the real vault machinery rather than the caps — which have
         // their own unit tests in `ST0xOrchestrator.t.sol`.
-        orchestrator.setGlobalMintLimit(LEAKY_BUCKET_LEVEL_MAX, 0);
-        orchestrator.setTokenMintLimit(address(vault), LEAKY_BUCKET_LEVEL_MAX, 0);
+        orchestrator.setGlobalMintLimit(address(vault), 0, LEAKY_BUCKET_LEVEL_MAX, 0);
+        orchestrator.setTokenMintLimit(address(vault), 0, LEAKY_BUCKET_LEVEL_MAX, 0);
         vm.stopPrank();
     }
 

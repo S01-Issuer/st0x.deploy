@@ -20,6 +20,8 @@ import {ReceiptVault} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
 import {LibLeakyBucketCheckpoint} from "rain-lib-leakybucket-0.1.4/src/lib/LibLeakyBucketCheckpoint.sol";
 
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
+import {LibMintCapUnits} from "../lib/LibMintCapUnits.sol";
+import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
 import {IST0xVaultBeaconSet} from "../interface/IST0xVaultBeaconSet.sol";
 import {
@@ -87,9 +89,25 @@ import {
 /// deployment, a new token and a new minter all start unable to mint.
 ///
 /// `capacity` is the burst and `leakRate` the sustained rate per second, both
-/// in the same 18-decimal rebased tStock units as `mint`'s `amount`. A
-/// corporate action that rebases the unit rescales what a fixed `capacity` is
-/// worth, so admin must re-set the affected limits alongside it.
+/// in 18-decimal GENESIS units — tStock units as they were before any
+/// corporate action completed — and so are the bucket levels. `mint`'s
+/// `amount` is in current rebased units and is converted to genesis units at
+/// metering time, so a rebase rescales what every cap authorises by
+/// construction. Nothing has to be re-set alongside a corporate action, which
+/// is the point: an onchain corporate action exists to remove manual admin
+/// and the async windows it opens, and a cap that needed a human to chase the
+/// action with a second transaction would put one back.
+///
+/// The cap setters are the other half. They take the caller's expected
+/// `completedActionCount()` and revert if it has moved, because governance is
+/// timelocked: an admin approves a figure in current units, converts it to
+/// genesis units at proposal time, and the transaction executes later. If an
+/// action completes in between, the same genesis number no longer means the
+/// current-unit cap that was approved. That is a revert rather than a
+/// silently mispriced cap.
+///
+/// Part one removes the window after an action; part two removes the window
+/// inside the timelock.
 contract ST0xOrchestrator is
     IST0xOrchestratorV1,
     Initializable,
@@ -115,17 +133,22 @@ contract ST0xOrchestrator is
     struct MainStorage {
         mapping(address token => uint256) nextBurnReceiptId;
         mapping(address to => mapping(bytes32 nonce => bool)) usedNonce;
-        /// The global policy.
+        /// The global policy, in genesis units.
         MintLimitV1 globalMintLimit;
-        /// The global bucket, as a packed `(level, checkpoint)` word. A zero
-        /// word is an empty bucket checkpointed at the epoch.
+        /// The global bucket, as a packed `(level, checkpoint)` word. The
+        /// level is in genesis units, the same denomination as the policy it
+        /// is measured against. A zero word is an empty bucket checkpointed
+        /// at the epoch.
         uint256 globalMintBucket;
-        /// Per-token default policy, used by any minter with no override.
+        /// Per-token default policy, in genesis units, used by any minter
+        /// with no override.
         mapping(address token => MintLimitV1) tokenMintLimit;
-        /// Per-`(minter, token)` override of the token default.
+        /// Per-`(minter, token)` override of the token default, in genesis
+        /// units.
         mapping(address minter => mapping(address token => MintLimitOverrideV1)) minterMintLimitOverride;
-        /// Per-`(minter, token)` bucket state, as packed words. Keyed by the
-        /// pair regardless of which policy resolves for it.
+        /// Per-`(minter, token)` bucket state, as packed words with levels in
+        /// genesis units. Keyed by the pair regardless of which policy
+        /// resolves for it.
         mapping(address minter => mapping(address token => uint256)) minterMintBucket;
     }
 
@@ -234,7 +257,17 @@ contract ST0xOrchestrator is
     ///
     /// `headroomAt` is read only to name which cap bound, which the library's
     /// `LeakyBucketCapacityExceeded` cannot say.
+    ///
+    /// Both buckets are denominated in genesis units, so the first thing that
+    /// happens is the conversion of `amount` out of current rebased units.
+    /// The SAME converted figure meters both: the global bucket is a sum over
+    /// every mint of every token, and genesis units are at least a
+    /// denomination that no corporate action moves under it.
+    ///
+    /// `token` is called once, before any bucket state is read or written.
     function _consumeMintCaps(address token, uint256 amount) internal {
+        uint256 genesisAmount = _toGenesisUnits(token, amount);
+
         MainStorage storage $ = _main();
 
         MintLimitV1 memory globalLimit = $.globalMintLimit;
@@ -242,21 +275,50 @@ contract ST0xOrchestrator is
         uint256 globalHeadroom = LibLeakyBucketCheckpoint.headroomAt(
             globalBucket, block.timestamp, globalLimit.capacity, globalLimit.leakRate
         );
-        if (amount > globalHeadroom) {
-            revert GlobalMintCapExceeded(globalLimit.capacity, globalHeadroom, amount);
+        if (genesisAmount > globalHeadroom) {
+            revert GlobalMintCapExceeded(globalLimit.capacity, globalHeadroom, genesisAmount);
         }
         $.globalMintBucket = LibLeakyBucketCheckpoint.fill(
-            globalBucket, block.timestamp, globalLimit.capacity, globalLimit.leakRate, amount
+            globalBucket, block.timestamp, globalLimit.capacity, globalLimit.leakRate, genesisAmount
         );
 
         MintLimitV1 memory limit = _resolveMintLimit($, msg.sender, token);
         uint256 bucket = $.minterMintBucket[msg.sender][token];
         uint256 headroom = LibLeakyBucketCheckpoint.headroomAt(bucket, block.timestamp, limit.capacity, limit.leakRate);
-        if (amount > headroom) {
-            revert MinterMintCapExceeded(msg.sender, token, limit.capacity, headroom, amount);
+        if (genesisAmount > headroom) {
+            revert MinterMintCapExceeded(msg.sender, token, limit.capacity, headroom, genesisAmount);
         }
         $.minterMintBucket[msg.sender][token] =
-            LibLeakyBucketCheckpoint.fill(bucket, block.timestamp, limit.capacity, limit.leakRate, amount);
+            LibLeakyBucketCheckpoint.fill(bucket, block.timestamp, limit.capacity, limit.leakRate, genesisAmount);
+    }
+
+    /// @dev `amount` in current rebased units as a genesis-denominated
+    /// figure, rounded UP because it is the amount being charged against a
+    /// bucket — see `LibMintCapUnits`.
+    ///
+    /// The multiplier comes from the token itself, so a token that cannot
+    /// answer reverts the mint. That is the right direction for a cap: an
+    /// amount whose denomination cannot be established is not metered at par,
+    /// it is refused.
+    function _toGenesisUnits(address token, uint256 amount) internal view returns (uint256) {
+        return LibMintCapUnits.toGenesis(amount, ICorporateActionsV1(token).cumulativeBalanceMultiplierSinceGenesis());
+    }
+
+    /// @dev Revert unless `token`'s corporate-action cursor is still the one
+    /// the caller priced against.
+    ///
+    /// Every cap setter runs this, against the token whose genesis
+    /// denomination the caller used. The stored cap is in genesis units and
+    /// so is never stale; what goes stale is the admin's own current-to-
+    /// genesis arithmetic, done at proposal time and executed after a
+    /// timelock. A moved cursor means that arithmetic no longer holds, and
+    /// the only safe thing to do with a number that no longer means what was
+    /// approved is refuse to store it.
+    function _checkActionCursor(address token, uint256 expectedActionCount) internal view {
+        uint256 actualActionCount = ICorporateActionsV1(token).completedActionCount();
+        if (actualActionCount != expectedActionCount) {
+            revert MintLimitCursorMoved(token, expectedActionCount, actualActionCount);
+        }
     }
 
     /// @dev The per-pair policy: the `(minter, token)` override if one is set,
@@ -367,31 +429,46 @@ contract ST0xOrchestrator is
     ///
     /// `checkCapacity` refuses a capacity the bucket codec cannot enforce at
     /// the moment it is written.
-    function setGlobalMintLimit(uint256 capacity, uint256 leakRate) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ///
+    /// The cursor is checked BEFORE the capacity: a cursor that has moved
+    /// means the whole set is being re-priced, so naming that rather than a
+    /// packing width sends the admin to the right place.
+    function setGlobalMintLimit(
+        address denominationToken,
+        uint256 expectedActionCount,
+        uint256 capacity,
+        uint256 leakRate
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _checkActionCursor(denominationToken, expectedActionCount);
         LibLeakyBucketCheckpoint.checkCapacity(capacity);
         _main().globalMintLimit = MintLimitV1({capacity: capacity, leakRate: leakRate});
-        emit GlobalMintLimitSet(capacity, leakRate);
+        emit GlobalMintLimitSet(denominationToken, expectedActionCount, capacity, leakRate);
     }
 
     /// @inheritdoc IST0xOrchestratorV1
-    function setTokenMintLimit(address token, uint256 capacity, uint256 leakRate)
+    function setTokenMintLimit(address token, uint256 expectedActionCount, uint256 capacity, uint256 leakRate)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
+        _checkActionCursor(token, expectedActionCount);
         LibLeakyBucketCheckpoint.checkCapacity(capacity);
         _main().tokenMintLimit[token] = MintLimitV1({capacity: capacity, leakRate: leakRate});
-        emit TokenMintLimitSet(token, capacity, leakRate);
+        emit TokenMintLimitSet(token, expectedActionCount, capacity, leakRate);
     }
 
     /// @inheritdoc IST0xOrchestratorV1
-    function setMinterMintLimit(address minter, address token, uint256 capacity, uint256 leakRate)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function setMinterMintLimit(
+        address minter,
+        address token,
+        uint256 expectedActionCount,
+        uint256 capacity,
+        uint256 leakRate
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _checkActionCursor(token, expectedActionCount);
         LibLeakyBucketCheckpoint.checkCapacity(capacity);
         _main().minterMintLimitOverride[minter][token] =
             MintLimitOverrideV1({set: true, limit: MintLimitV1({capacity: capacity, leakRate: leakRate})});
-        emit MinterMintLimitSet(minter, token, capacity, leakRate);
+        emit MinterMintLimitSet(minter, token, expectedActionCount, capacity, leakRate);
     }
 
     /// @inheritdoc IST0xOrchestratorV1
@@ -476,6 +553,10 @@ contract ST0xOrchestrator is
     }
 
     /// @inheritdoc IST0xOrchestratorV1
+    /// @dev The two buckets are compared in genesis units, which is the
+    /// denomination they are both already in, and only the winner is
+    /// converted to current units. Converting each first and comparing after
+    /// would take the same `min` through a rounding step twice for no gain.
     function mintHeadroom(address minter, address token) external view returns (uint256) {
         MainStorage storage $ = _main();
         MintLimitV1 memory globalLimit = $.globalMintLimit;
@@ -486,7 +567,10 @@ contract ST0xOrchestrator is
         uint256 pairHeadroom = LibLeakyBucketCheckpoint.headroomAt(
             $.minterMintBucket[minter][token], block.timestamp, limit.capacity, limit.leakRate
         );
-        return globalHeadroom < pairHeadroom ? globalHeadroom : pairHeadroom;
+        return LibMintCapUnits.toCurrent(
+            globalHeadroom < pairHeadroom ? globalHeadroom : pairHeadroom,
+            ICorporateActionsV1(token).cumulativeBalanceMultiplierSinceGenesis()
+        );
     }
 
     // ------------------------------------------------------------------ //
