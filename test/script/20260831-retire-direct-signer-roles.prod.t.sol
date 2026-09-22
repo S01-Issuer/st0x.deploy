@@ -55,6 +55,9 @@ contract RetireDirectSignerRolesProdTest is Test {
             && IAccessControl(orchestrator).hasRole(keccak256("MINT"), signer)
             && IAccessControl(orchestrator).hasRole(keccak256("BURN"), signer);
         if (!pathEnabled) {
+            // A date on a rollout plan, not a race: the window is days wide, so the
+            // seconds a validator could skew cannot change which side of it we are on.
+            // forge-lint: disable-next-line(block-timestamp)
             if (block.timestamp >= RETIRE_DEADLINE) {
                 revert RetirementOverdue(label);
             }
@@ -90,6 +93,9 @@ contract RetireDirectSignerRolesProdTest is Test {
 
         bool retired = !acl.hasRole(keccak256("DEPOSIT"), signer) && !acl.hasRole(keccak256("WITHDRAW"), signer);
         if (!retired) {
+            // A date on a rollout plan, not a race: the window is days wide, so the
+            // seconds a validator could skew cannot change which side of it we are on.
+            // forge-lint: disable-next-line(block-timestamp)
             if (block.timestamp >= RETIRE_DEADLINE) {
                 revert RetirementOverdue(label);
             }

@@ -18,6 +18,9 @@ contract PermissiveAuthorizer is IAuthorizeV1 {
         denyMode = deny;
     }
 
+    // A test double that records whatever it is asked to authorise, the zero
+    // address included.
+    // forge-lint: disable-next-line(missing-zero-check)
     function authorize(address user, bytes32 permission, bytes memory data) external override {
         callCount++;
         lastUser = user;

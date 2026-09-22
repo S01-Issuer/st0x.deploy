@@ -10,6 +10,9 @@ pragma solidity =0.8.25;
 contract MockManagerRevert1155 {
     address internal immutable VAULT;
 
+    // A test double storing the collaborator it is handed. Rejecting zero here
+    // would only stop the suite exercising the zero case.
+    // forge-lint: disable-next-line(missing-zero-check)
     constructor(address vault) {
         VAULT = vault;
     }
