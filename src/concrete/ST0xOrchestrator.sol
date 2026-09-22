@@ -344,6 +344,8 @@ contract ST0xOrchestrator is
         MintBucketV1 memory bucket = $.globalMintBucket;
         (uint256 checkpoint, uint256 oldLevel) = _carried(bucket, to);
         if (oldLevel != 0) {
+            // The timestamp half is deliberately dropped: the event names levels.
+            // slither-disable-next-line unused-return
             (uint256 newLevel,) = LibLeakyBucketCheckpoint.unpack(checkpoint);
             emit GlobalMintBucketCarried(oldLevel, newLevel);
         }
@@ -360,6 +362,8 @@ contract ST0xOrchestrator is
         MintBucketV1 memory bucket = $.minterMintBucket[minter][token];
         (uint256 checkpoint, uint256 oldLevel) = _carried(bucket, to);
         if (oldLevel != 0) {
+            // The timestamp half is deliberately dropped: the event names levels.
+            // slither-disable-next-line unused-return
             (uint256 newLevel,) = LibLeakyBucketCheckpoint.unpack(checkpoint);
             emit MinterMintBucketCarried(minter, token, oldLevel, newLevel);
         }

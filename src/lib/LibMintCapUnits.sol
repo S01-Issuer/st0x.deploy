@@ -152,6 +152,9 @@ library LibMintCapUnits {
         // forge-lint: disable-next-line(boolean-cst)
         if (Float.unwrap(fromDenomination) == Float.unwrap(toDenomination)) return (amount, true);
 
+        // Both halves of the tuple are returned to the caller, who acts on the
+        // lossless flag; nothing is discarded here.
+        // slither-disable-next-line unused-return
         return LibDecimalFloat.toFixedDecimalLossy(
             LibDecimalFloat.div(LibDecimalFloat.mul(value, toDenomination), fromDenomination), 0
         );
