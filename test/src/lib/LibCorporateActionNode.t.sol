@@ -696,7 +696,10 @@ contract LibCorporateActionNodeTest is Test {
                 for (uint256 i = 0; i < nodeCount; i++) {
                     (uint256 actionType, uint64 effectiveTime) = h.nodeAt(ids[i]);
                     if (actionType & masks[m] == 0) continue;
+                    // The reference model splits COMPLETED from PENDING on block.timestamp, as the library does.
+                    // forge-lint: disable-next-line(block-timestamp)
                     if (filters[f] == CompletionFilter.COMPLETED && effectiveTime > block.timestamp) continue;
+                    // forge-lint: disable-next-line(block-timestamp)
                     if (filters[f] == CompletionFilter.PENDING && effectiveTime <= block.timestamp) continue;
                     anyMatch = true;
                     break;
@@ -840,7 +843,10 @@ contract LibCorporateActionNodeTest is Test {
                     if (cancelled[i]) continue;
                     (uint256 actionType, uint64 effectiveTime) = h.nodeAt(ids[i]);
                     if (actionType & masks[m] == 0) continue;
+                    // The reference model splits COMPLETED from PENDING on block.timestamp, as the library does.
+                    // forge-lint: disable-next-line(block-timestamp)
                     if (filters[f] == CompletionFilter.COMPLETED && effectiveTime > block.timestamp) continue;
+                    // forge-lint: disable-next-line(block-timestamp)
                     if (filters[f] == CompletionFilter.PENDING && effectiveTime <= block.timestamp) continue;
                     anyMatch = true;
                     break;
@@ -900,8 +906,12 @@ contract LibCorporateActionNodeTest is Test {
         assertTrue(actionType & mask != 0, "returned cursor's actionType matches mask");
 
         if (filter == CompletionFilter.COMPLETED) {
+            // The reference model splits COMPLETED from PENDING on block.timestamp, as the library does.
+            // forge-lint: disable-next-line(block-timestamp)
             assertTrue(effectiveTime <= block.timestamp, "COMPLETED cursor is at or past effectiveTime");
         } else if (filter == CompletionFilter.PENDING) {
+            // The reference model splits COMPLETED from PENDING on block.timestamp, as the library does.
+            // forge-lint: disable-next-line(block-timestamp)
             assertTrue(effectiveTime > block.timestamp, "PENDING cursor is in the future");
         }
     }

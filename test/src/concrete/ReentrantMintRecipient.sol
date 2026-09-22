@@ -20,6 +20,8 @@ contract ReentrantMintRecipient is IMintRecipient {
 
     bool public entered;
 
+    // A test fixture stores the address its test hands it; zero is not a case it guards.
+    // forge-lint: disable-next-line(missing-zero-check)
     constructor(IST0xOrchestratorV1 orchestrator, address token, uint256 reenterAmount, bytes32 reenterNonce) {
         ORCHESTRATOR = orchestrator;
         TOKEN = token;

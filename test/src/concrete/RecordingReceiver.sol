@@ -13,6 +13,8 @@ contract RecordingReceiver {
     uint256 public observedAliceBalance;
     uint256 public observedRecvBalance;
 
+    // A test fixture stores the address its test hands it; zero is not a case it guards.
+    // forge-lint: disable-next-line(missing-zero-check)
     constructor(StoxReceipt receipt_, address alice_) {
         RECEIPT = receipt_;
         ALICE = alice_;

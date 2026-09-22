@@ -122,7 +122,7 @@ contract GovernanceTimelockMigrationTest is Test {
         address safe,
         address timelock,
         address authoriser
-    ) internal {
+    ) internal view {
         // Zero is its own checked case, never a skipped one: the pin is
         // derivable from frozen bytecode before any deploy, so zero can
         // only mean a reverted or never-hydrated arm.
@@ -206,6 +206,8 @@ contract GovernanceTimelockMigrationTest is Test {
     /// @param label Human chain name.
     /// @param what What the chain is still waiting on.
     function pendingRollout(string memory label, string memory what) internal view {
+        // A deadline gate on the forked chain's clock; no on-chain value rides on it.
+        // forge-lint: disable-next-line(block-timestamp)
         if (block.timestamp >= ROLLOUT_DEADLINE) {
             revert GovernanceTimelockRolloutOverdue(label);
         }
@@ -246,7 +248,7 @@ contract GovernanceTimelockMigrationTest is Test {
         address safe,
         address timelock,
         address authoriser
-    ) internal {
+    ) internal view {
         assertNotEq(timelock, address(0), "governance timelock pin is zero: reverted or never-hydrated chain arm");
         assertEq(
             timelock,
