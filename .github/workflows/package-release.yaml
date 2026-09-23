@@ -20,13 +20,13 @@ jobs:
     # moves only at release, in lockstep with the frozen snapshot the tag cuts.
     # This is the counterpart to library repos, which use rainix-autopublish and
     # bump a next-version slot on every merge. Mirrors the rain.factory.deploy
-    # caller. `cut-release.sh` freezes `src/generated/candidate/` into
-    # `src/generated/<version>/` (see the script) then regenerates the libs.
+    # caller. The freeze itself — regenerate `src/generated/candidate/`, format,
+    # then copy it to `src/generated/<version>/` — is `rainix-static cut-release`
+    # inside the reusable, so this caller supplies no command for it.
     uses: rainlanguage/rainix/.github/workflows/rainix-tag-release.yaml@main
     with:
       soldeer-package: st0x-deploy
       tag-prefix: sol-v
-      snapshot-generate-cmd: bash script/cut-release.sh
     # Secrets passed explicitly (not `inherit`), mirroring this repo's other
     # cross-org rainix callers — exactly the set rainix-tag-release declares. The
     # RPC_URL_*_FORK secrets are what its verify step forks with; omitting them
