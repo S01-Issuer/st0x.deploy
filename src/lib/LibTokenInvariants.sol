@@ -1392,12 +1392,20 @@ library LibTokenInvariants {
     /// tables pair by index as well as by key (the cross-chain parity pin
     /// asserts the alignment).
     ///
-    /// Deployed on Robinhood Chain 2026-09-10 by `20260807-deploy-missing-tokens`
-    /// on `robinhood` (manual-broadcast run 34542355140): all 41 tokens via the
-    /// 0.1.1 unified deployer against beacons already on 0.1.30, each wired
-    /// onto this chain's V4 authoriser and handed to its token-owner Safe in
-    /// the same broadcast. Addresses pinned from the run's logged
-    /// (underlying, receipt, receiptVault, wrapped) tuples.
+    /// Deployed on Robinhood Chain by `20260807-deploy-missing-tokens` on
+    /// `robinhood`, in two broadcasts, each via the 0.1.1 unified deployer
+    /// against beacons already on 0.1.30, each token wired onto this chain's
+    /// V4 authoriser and handed to its token-owner Safe in the same
+    /// broadcast. Addresses pinned from each run's logged
+    /// (underlying, receipt, receiptVault, wrapped) tuples:
+    ///
+    ///   rows 0-40   2026-09-10  manual-broadcast run 34542355140 (41 tokens)
+    ///   rows 41-55  2026-09-11  manual-broadcast run 34588739371 (15 tokens)
+    ///
+    /// The second run is the copy of the fifteen Base rows Base itself only
+    /// picked up in #339 (CBRS, the EU batch, MCD/NKE, GRND/DNUT and the
+    /// 2026-09-06 batch); the script diffed Base against this table and
+    /// selected exactly those fifteen.
     /// @return tokens The 56 production token instances on Robinhood Chain.
     function productionTokensRobinhood() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](56);
@@ -1747,12 +1755,33 @@ library LibTokenInvariants {
     /// tables pair by index as well as by key (the cross-chain parity pin
     /// asserts the alignment).
     ///
-    /// Deployed on BNB Smart Chain 2026-09-10 by `20260807-deploy-missing-tokens`
-    /// on `bsc` (manual-broadcast run 34545683866): all 41 tokens via the
-    /// 0.1.1 unified deployer against beacons already on 0.1.30, each wired
-    /// onto this chain's V4 authoriser and handed to its token-owner Safe in
-    /// the same broadcast. Addresses pinned from the run's logged
-    /// (underlying, receipt, receiptVault, wrapped) tuples.
+    /// Deployed on BNB Smart Chain by `20260807-deploy-missing-tokens` on
+    /// `bsc`, in two broadcasts, each via the 0.1.1 unified deployer against
+    /// beacons already on 0.1.30, each token wired onto this chain's V4
+    /// authoriser and handed to its token-owner Safe in the same broadcast.
+    /// Addresses pinned from each run's logged
+    /// (underlying, receipt, receiptVault, wrapped) tuples:
+    ///
+    ///   rows 0-40   2026-09-11  manual-broadcast run 34545683866 (41 tokens)
+    ///   rows 41-55  2026-09-11  manual-broadcast run 34589363778 (15 tokens)
+    ///
+    /// An EARLIER run, 34542307257, also broadcast all 41 tokens on this
+    /// chain and was never pinned; its vaults are live, Safe-owned and
+    /// zero-supply, and nothing references them. They are NOT in this table
+    /// and must not be pinned into it by mistake — see issue #364.
+    ///
+    /// Two address facts that look like copy-paste bugs and are not. These
+    /// are nonce-ordered deploys from one key, so equal deployer nonces give
+    /// equal addresses across chains, and this chain's nonce cursor is 41
+    /// ahead of Robinhood's because of run 34542307257:
+    ///
+    ///   - the orphan set from 34542307257 sits at the addresses Robinhood
+    ///     rows 0-40 occupy, and
+    ///   - rows 0-14 HERE sit at the addresses Robinhood rows 41-55 occupy.
+    ///
+    /// Neither is a duplicate pin: each address is a distinct contract on its
+    /// own chain, carrying that chain's own symbol. Rows 41-55 here were
+    /// broadcast past both windows and collide with nothing on Robinhood.
     /// @return tokens The 56 production token instances on BNB Smart Chain.
     function productionTokensBsc() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](56);

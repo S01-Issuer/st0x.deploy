@@ -139,8 +139,10 @@ contract LibProdBeacons0_1_1Test is Test {
         assertTokensRunOnPinnedBeacons("HyperEVM", LibTokenInvariants.productionTokensHyperEvm());
     }
 
-    /// @notice Robinhood Chain's production tokens run on the pinned beacons
-    /// once its table hydrates; PENDING until the 41-token deploy lands.
+    /// @notice Robinhood Chain's production tokens run on the pinned beacons.
+    /// The table is fully hydrated (56/56), so this asserts rather than
+    /// skips; the `OrPending` wrapper stays as the guard against a future
+    /// chain's table being half-pinned.
     function testRobinhoodTokensRunOnTheseBeacons() external {
         vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
         assertTokensRunOnPinnedBeaconsOrPending(
@@ -148,8 +150,10 @@ contract LibProdBeacons0_1_1Test is Test {
         );
     }
 
-    /// @notice BNB Smart Chain's production tokens run on the pinned beacons
-    /// once its table hydrates; PENDING until the 41-token deploy lands.
+    /// @notice BNB Smart Chain's production tokens run on the pinned beacons.
+    /// The table is fully hydrated (56/56), so this asserts rather than
+    /// skips; the `OrPending` wrapper stays as the guard against a future
+    /// chain's table being half-pinned.
     function testBscTokensRunOnTheseBeacons() external {
         vm.createSelectFork(LibStoxDeployNetworks.BSC);
         assertTokensRunOnPinnedBeaconsOrPending(
