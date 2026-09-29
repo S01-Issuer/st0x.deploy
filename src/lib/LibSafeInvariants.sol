@@ -113,6 +113,13 @@ error SafeOwnerSetMismatch(address safe, address missingOwner);
 /// @param chainId The chain id with no pinned token-owner Safe.
 error UnsupportedChainForTokenOwnerSafe(uint256 chainId);
 
+/// @notice A canonical Safe v1.4.1 contract is absent from the active chain or
+/// carries bytecode other than the pinned build.
+/// @param contractAddr The canonical address that was inspected.
+/// @param expected The pinned runtime codehash.
+/// @param actual The codehash observed at `contractAddr`.
+error SafeCanonicalContractCodehashMismatch(address contractAddr, bytes32 expected, bytes32 actual);
+
 /// @title LibSafeInvariants
 /// @notice Reusable invariant assertions for a Safe v1.4.1 L2 multisig
 /// pinned to the ST0x token-owner deployment. Each public assertion either
@@ -169,6 +176,25 @@ library LibSafeInvariants {
     // =========================================================================
     string internal constant SAFE_V1_4_1_VERSION = "1.4.1";
     address internal constant SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER = 0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99;
+    bytes32 internal constant SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER_CODEHASH =
+        0x7c6007a5d711cea8dfd5d91f5940ec29c7f200fe511eb1fc1397b367af3c42f9;
+    /// @notice The canonical Safe v1.4.1 proxy factory: `createProxyWithNonce`
+    /// is what every factory-derived token-owner Safe pin replays through.
+    address internal constant SAFE_V1_4_1_PROXY_FACTORY = 0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67;
+    bytes32 internal constant SAFE_V1_4_1_PROXY_FACTORY_CODEHASH =
+        0x50c3cdc4074750a7a974204a716c999edd37482f907608d960b2b025ee0b3317;
+    /// @notice `keccak256(proxyCreationCode() ++ abi.encode(SAFE_V1_4_1_L1_SINGLETON))`:
+    /// the init code hash `createProxyWithNonce` CREATE2s over for a proxy on
+    /// the L1 singleton, which is what every factory-derived token-owner Safe
+    /// pin was created with.
+    bytes32 internal constant SAFE_V1_4_1_L1_PROXY_INITCODE_HASH =
+        0x76733d705f71b79841c0ee960a0ca880f779cde7ef446c989e6d23efc0a4adfb;
+    /// @notice `SafeToL2Setup` 1.4.1: the `setup` delegatecall target that
+    /// switches a freshly created proxy from the L1 singleton to `SafeL2` off
+    /// Ethereum mainnet (a no-op on chain 1).
+    address internal constant SAFE_V1_4_1_TO_L2_SETUP = 0xBD89A1CE4DDe368FFAB0eC35506eEcE0b1fFdc54;
+    bytes32 internal constant SAFE_V1_4_1_TO_L2_SETUP_CODEHASH =
+        0x2f25df28caf984366ee584e13241707e85dcd5a6ea0c14267928dafc1fd6274b;
 
     // ---- L2 variant (`SafeL2` singleton) — Base's Safe ----
     address internal constant SAFE_V1_4_1_L2_SINGLETON = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
@@ -292,6 +318,28 @@ library LibSafeInvariants {
     /// @dev Source: `ModuleManager` in
     /// `safe-contracts/contracts/base/ModuleManager.sol` at the v1.4.1 tag.
     address internal constant SAFE_MODULES_SENTINEL = address(0x1);
+
+    /// @notice Every canonical Safe v1.4.1 contract a token-owner Safe creation
+    /// or operation routes through is live on the active chain with the pinned
+    /// bytecode: proxy factory, both singletons, `SafeToL2Setup` and the
+    /// compatibility fallback handler. Safe itself only checks the singleton;
+    /// a missing fallback handler still yields a Safe, one whose EIP-1271 and
+    /// token-receiver hooks revert.
+    function assertCanonicalSafeContracts() internal view {
+        assertCodehash(SAFE_V1_4_1_PROXY_FACTORY, SAFE_V1_4_1_PROXY_FACTORY_CODEHASH);
+        assertCodehash(SAFE_V1_4_1_L1_SINGLETON, SAFE_V1_4_1_L1_SINGLETON_CODEHASH);
+        assertCodehash(SAFE_V1_4_1_L2_SINGLETON, SAFE_V1_4_1_L2_SINGLETON_CODEHASH);
+        assertCodehash(SAFE_V1_4_1_TO_L2_SETUP, SAFE_V1_4_1_TO_L2_SETUP_CODEHASH);
+        assertCodehash(SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER, SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER_CODEHASH);
+    }
+
+    function assertCodehash(address contractAddr, bytes32 expected) internal view {
+        bytes32 actual;
+        assembly ("memory-safe") {
+            actual := extcodehash(contractAddr)
+        }
+        if (actual != expected) revert SafeCanonicalContractCodehashMismatch(contractAddr, expected, actual);
+    }
 
     /// @notice Assert every immutable invariant of the Safe at `safe`:
     /// pinned proxy codehash, pinned singleton pointer, pinned singleton
@@ -492,6 +540,66 @@ library LibSafeInvariants {
         owners[4] = STOX_TOKEN_OWNER_SAFE_OWNER_5;
         owners[5] = STOX_TOKEN_OWNER_SAFE_OWNER_6;
         return owners;
+    }
+
+    /// @notice The threshold the Ethereum creation set. Part of the initializer
+    /// and therefore of the address; the policy's 3 is applied afterwards by
+    /// the owners.
+    uint256 internal constant STOX_TOKEN_OWNER_SAFE_CREATION_THRESHOLD = 1;
+    /// @notice The salt nonce the Ethereum creation used.
+    uint256 internal constant STOX_TOKEN_OWNER_SAFE_CREATION_SALT_NONCE = 0;
+    /// @notice Safe's fee collector, the `paymentReceiver` the Safe UI wrote
+    /// into the Ethereum creation. Inert at `payment = 0`, but part of the
+    /// initializer bytes and therefore of the address.
+    address internal constant SAFE_PAYMENT_RECEIVER = 0x5afe7A11E7000000000000000000000000000000;
+
+    /// @notice The six owners in the order the Ethereum creation listed them.
+    /// Order is part of the initializer bytes; the set is `expectedOwners()`.
+    function tokenOwnerSafeCreationOwners() internal pure returns (address[] memory owners) {
+        owners = new address[](6);
+        owners[0] = STOX_TOKEN_OWNER_SAFE_OWNER_5;
+        owners[1] = STOX_TOKEN_OWNER_SAFE_OWNER_1;
+        owners[2] = STOX_TOKEN_OWNER_SAFE_OWNER_2;
+        owners[3] = STOX_TOKEN_OWNER_SAFE_OWNER_3;
+        owners[4] = STOX_TOKEN_OWNER_SAFE_OWNER_4;
+        owners[5] = STOX_TOKEN_OWNER_SAFE_OWNER_6;
+    }
+
+    /// @notice The exact `Safe.setup` calldata of the Ethereum creation
+    /// (tx 0x8825d68e…da39), which every factory-derived pin replays.
+    function tokenOwnerSafeInitializer() internal pure returns (bytes memory) {
+        return abi.encodeWithSignature(
+            "setup(address[],uint256,address,bytes,address,address,uint256,address)",
+            tokenOwnerSafeCreationOwners(),
+            STOX_TOKEN_OWNER_SAFE_CREATION_THRESHOLD,
+            SAFE_V1_4_1_TO_L2_SETUP,
+            abi.encodeWithSignature("setupToL2(address)", SAFE_V1_4_1_L2_SINGLETON),
+            SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER,
+            address(0),
+            uint256(0),
+            SAFE_PAYMENT_RECEIVER
+        );
+    }
+
+    /// @notice The address `createProxyWithNonce` derives for the initializer
+    /// on every chain: the v1.4.1 factory's `CREATE2` over the pinned proxy
+    /// init code, salted with `keccak256(keccak256(initializer) ++ saltNonce)`.
+    /// Independent of the sender. Every factory-derived chain's pin equals
+    /// this; Base's does not.
+    function expectedTokenOwnerSafeAddress() internal pure returns (address) {
+        bytes32 salt = keccak256(
+            abi.encodePacked(keccak256(tokenOwnerSafeInitializer()), STOX_TOKEN_OWNER_SAFE_CREATION_SALT_NONCE)
+        );
+        // forge-lint: disable-next-line(unsafe-typecast)
+        return address(
+            uint160(
+                uint256(
+                    keccak256(
+                        abi.encodePacked(hex"ff", SAFE_V1_4_1_PROXY_FACTORY, salt, SAFE_V1_4_1_L1_PROXY_INITCODE_HASH)
+                    )
+                )
+            )
+        );
     }
 
     /// @notice The ST0x token-owner Safe address for the active chain, selected

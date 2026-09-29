@@ -2,18 +2,18 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {Test} from "forge-std-1.16.2/src/Test.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC4626} from "@openzeppelin-contracts-5.6.1/interfaces/IERC4626.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {ERC1967Utils} from "@openzeppelin-contracts-5.6.1/proxy/ERC1967/ERC1967Utils.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
 import {IGnosisSafe} from "../../../../src/interface/IGnosisSafe.sol";
 import {IOwnable} from "../../../../src/interface/IOwnable.sol";
 import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV2BaseOverrides} from "../../../../src/lib/LibProdDeployV2BaseOverrides.sol";
 import {LibMigrationInvariant} from "../../../../src/lib/LibMigrationInvariant.sol";
-import {FLEET_UPGRADE_DEADLINE} from "../../../../script/20260825-upgrade-fleet-to-0-1-30.s.sol";
+import {FLEET_UPGRADE_DEADLINE} from "../../../lib/LibTestProd.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
@@ -650,6 +650,9 @@ contract StoxCrossChainParityTest is Test {
         // migration pin: land the pins, move the deadline, or delete the
         // invariant deliberately. Without it, a leg that never arms is
         // indistinguishable from one that passes, forever.
+        // A date on a rollout plan, not a race: the window is days wide, so the
+        // seconds a validator could skew cannot change which side of it we are on.
+        // forge-lint: disable-next-line(block-timestamp)
         if (block.timestamp >= ETHEREUM_PARITY_DEADLINE) {
             assertTrue(eth.safeLive, "Ethereum Safe leg still pending past the parity deadline");
             assertTrue(eth.cloneLive, "Ethereum authoriser leg still pending past the parity deadline");
@@ -658,6 +661,9 @@ contract StoxCrossChainParityTest is Test {
 
         // HyperEVM's legs arm as the RAI-1511 bootstrap lands. Same forcing
         // function as Ethereum's.
+        // A date on a rollout plan, not a race: the window is days wide, so the
+        // seconds a validator could skew cannot change which side of it we are on.
+        // forge-lint: disable-next-line(block-timestamp)
         if (block.timestamp >= HYPEREVM_PARITY_DEADLINE) {
             assertTrue(hyper.safeLive, "HyperEVM Safe leg still pending past the parity deadline");
             assertTrue(hyper.cloneLive, "HyperEVM authoriser leg still pending past the parity deadline");
@@ -666,6 +672,9 @@ contract StoxCrossChainParityTest is Test {
 
         // Robinhood Chain's legs arm as the RAI-2285 bootstrap lands. Same
         // forcing function again.
+        // A date on a rollout plan, not a race: the window is days wide, so the
+        // seconds a validator could skew cannot change which side of it we are on.
+        // forge-lint: disable-next-line(block-timestamp)
         if (block.timestamp >= ROBINHOOD_PARITY_DEADLINE) {
             assertTrue(robinhood.safeLive, "Robinhood Chain Safe leg still pending past the parity deadline");
             assertTrue(robinhood.cloneLive, "Robinhood Chain authoriser leg still pending past the parity deadline");
@@ -673,6 +682,9 @@ contract StoxCrossChainParityTest is Test {
         }
 
         // BNB Smart Chain's legs arm as its bootstrap lands (RAI-2312).
+        // A date on a rollout plan, not a race: the window is days wide, so the
+        // seconds a validator could skew cannot change which side of it we are on.
+        // forge-lint: disable-next-line(block-timestamp)
         if (block.timestamp >= BSC_PARITY_DEADLINE) {
             assertTrue(bsc.safeLive, "BNB Smart Chain Safe leg still pending past the parity deadline");
             assertTrue(bsc.cloneLive, "BNB Smart Chain authoriser leg still pending past the parity deadline");

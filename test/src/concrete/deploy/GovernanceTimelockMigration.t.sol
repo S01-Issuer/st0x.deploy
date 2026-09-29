@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {console2} from "forge-std-1.16.1/src/console2.sol";
+import {Test} from "forge-std-1.16.2/src/Test.sol";
+import {console2} from "forge-std-1.16.2/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
 
 import {LibAuthoriserInvariants, RoleGrant} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
@@ -122,7 +122,7 @@ contract GovernanceTimelockMigrationTest is Test {
         address safe,
         address timelock,
         address authoriser
-    ) internal {
+    ) internal view {
         // Zero is its own checked case, never a skipped one: the pin is
         // derivable from frozen bytecode before any deploy, so zero can
         // only mean a reverted or never-hydrated arm.
@@ -206,6 +206,9 @@ contract GovernanceTimelockMigrationTest is Test {
     /// @param label Human chain name.
     /// @param what What the chain is still waiting on.
     function pendingRollout(string memory label, string memory what) internal view {
+        // A date on a rollout plan, not a race: the window is days wide, so the
+        // seconds a validator could skew cannot change which side of it we are on.
+        // forge-lint: disable-next-line(block-timestamp)
         if (block.timestamp >= ROLLOUT_DEADLINE) {
             revert GovernanceTimelockRolloutOverdue(label);
         }
@@ -246,7 +249,7 @@ contract GovernanceTimelockMigrationTest is Test {
         address safe,
         address timelock,
         address authoriser
-    ) internal {
+    ) internal view {
         assertNotEq(timelock, address(0), "governance timelock pin is zero: reverted or never-hydrated chain arm");
         assertEq(
             timelock,

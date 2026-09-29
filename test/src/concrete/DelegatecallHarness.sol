@@ -14,6 +14,9 @@ contract DelegatecallHarness {
     IAuthorizeV1 public authorizer;
     uint8 public constant decimals = 18;
 
+    // A test double storing the collaborator it is handed. Rejecting zero here
+    // would only stop the suite exercising the zero case.
+    // forge-lint: disable-next-line(missing-zero-check)
     constructor(address facet_) {
         FACET = facet_;
     }

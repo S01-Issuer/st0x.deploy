@@ -10,7 +10,7 @@ import {DeployGovernanceTimelockHarness} from "./DeployGovernanceTimelockHarness
 /// zero pin has a discriminating test. Production dispatch always reads the
 /// `LibTimelockInvariants` pin.
 contract UnpinnedDeployGovernanceTimelockHarness is DeployGovernanceTimelockHarness {
-    function pinnedTimelock() internal view override returns (address) {
+    function pinnedTimelock() internal pure override returns (address) {
         return address(0);
     }
 }

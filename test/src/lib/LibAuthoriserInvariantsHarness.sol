@@ -13,6 +13,10 @@ contract LibAuthoriserInvariantsHarness {
         LibAuthoriserInvariants.assertAll();
     }
 
+    function callAuthoriserForChainId(uint256 chainId) external pure returns (address) {
+        return LibAuthoriserInvariants.authoriserForChainId(chainId);
+    }
+
     function callActiveChainAuthoriser() external view returns (address) {
         return LibAuthoriserInvariants.activeChainAuthoriser();
     }

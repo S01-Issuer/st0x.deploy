@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {Test} from "forge-std-1.16.2/src/Test.sol";
 import {BALANCE_MIGRATION_TYPES_MASK} from "../../../src/interface/ICorporateActionsV1.sol";
 import {CorporateActionNode, CompletionFilter, NODE_NONE} from "../../../src/lib/LibCorporateActionNode.sol";
 import {InvariantVault} from "./InvariantVault.sol";

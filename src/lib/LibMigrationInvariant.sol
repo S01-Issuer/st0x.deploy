@@ -62,6 +62,9 @@ library LibMigrationInvariant {
         internal
         view
     {
+        // A date on a rollout plan, not a race: the window is days wide, so the
+        // seconds a validator could skew cannot change which side of it we are on.
+        // forge-lint: disable-next-line(block-timestamp)
         if (block.timestamp >= deadline) {
             if (actual != post) {
                 revert MigrationDeadlinePassed(label, post, actual, deadline);

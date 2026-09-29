@@ -2,11 +2,13 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {Test} from "forge-std-1.16.2/src/Test.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {
     LibAuthoriserInvariants,
     RoleGrant,
+    AuthoriserNotReady,
+    UnsupportedChainForAuthoriser,
     ExpectedGrantMissing,
     UnexpectedDefaultAdmin,
     UnexpectedRetainedAdminGrant,
@@ -16,8 +18,9 @@ import {
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
+import {LibCloneFactoryDeploy} from "rain-factory-0.1.1/src/lib/LibCloneFactoryDeploy.sol";
 
 /// @title LibAuthoriserInvariantsTest
 /// @notice Fork tests pinning the production V4 authoriser clone's state
@@ -27,8 +30,8 @@ import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol"
 /// `expectedGrants()` map against the live clone. Any drift (a grant
 /// missing on-chain, or the clone's bytecode changing) surfaces as a typed
 /// error here.
-/// @dev Uses an unpinned Base head fork (same precedent as the other
-/// prod-state drift detectors in this repo). Pinning would freeze the
+/// @dev Uses unpinned head forks of each production chain (same precedent
+/// as the other prod-state drift detectors in this repo). Pinning would freeze the
 /// invariant assertions against a stale snapshot and let new drift slip
 /// through unnoticed.
 contract LibAuthoriserInvariantsTest is Test {
@@ -46,27 +49,118 @@ contract LibAuthoriserInvariantsTest is Test {
         LibAuthoriserInvariants.assertAll();
     }
 
-    /// @notice Robinhood Chain's arm resolves to its hydrated pin, the clone
-    /// is live at it with the pinned EIP-1167 codehash, and the ceremony
-    /// left it on the canonical grant map keyed to that chain's Safe
-    /// (orchestrator rows included, pointing at the not-yet-deployed
-    /// instance pin). Live drift detector on an unpinned fork, same
-    /// precedent as `testAssertAllPasses`.
-    function testRobinhoodAuthoriserIsLiveOnTheCanonicalMap() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
-        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
-        address authoriser = harness.callActiveChainAuthoriser();
-        assertEq(authoriser, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD, "Robinhood arm != pin");
-        LibAuthoriserInvariants.assertExpectedGrants(authoriser, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD);
+    /// @notice The four factory-derived clone pins are the first CREATE from
+    /// the canonical CloneFactory (nonce 1) on each chain, re-derived here so a
+    /// mistyped literal fails fork-free. Base's clone came from a factory with
+    /// history and is not derivable.
+    function testClonePinsMatchTheFactoryNonceOneDerivation() external pure {
+        address derived = vm.computeCreateAddress(LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS, 1);
+        assertEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM, derived, "ethereum");
+        assertEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM, derived, "hyperevm");
+        assertEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD, derived, "robinhood");
+        assertEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC, derived, "bsc");
+        assertNotEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE, derived, "base");
     }
 
-    /// @notice Same for BNB Smart Chain.
+    /// @notice The one chain-to-clone table resolves every pinned chain to
+    /// its slot and refuses the rest, fork-free.
+    function testAuthoriserForChainIdResolvesEveryPinnedChain() external {
+        assertEq(
+            LibAuthoriserInvariants.authoriserForChainId(LibSafeInvariants.BASE_CHAIN_ID),
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE,
+            "base"
+        );
+        assertEq(
+            LibAuthoriserInvariants.authoriserForChainId(LibSafeInvariants.ETHEREUM_CHAIN_ID),
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM,
+            "ethereum"
+        );
+        assertEq(
+            LibAuthoriserInvariants.authoriserForChainId(LibSafeInvariants.HYPEREVM_CHAIN_ID),
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM,
+            "hyperevm"
+        );
+        assertEq(
+            LibAuthoriserInvariants.authoriserForChainId(LibSafeInvariants.ROBINHOOD_CHAIN_ID),
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD,
+            "robinhood"
+        );
+        assertEq(
+            LibAuthoriserInvariants.authoriserForChainId(LibSafeInvariants.BSC_CHAIN_ID),
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC,
+            "bsc"
+        );
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForAuthoriser.selector, uint256(123456)));
+        harness.callAuthoriserForChainId(123456);
+    }
+
+    /// @notice A governed chain whose pin has no code here (no fork) is
+    /// refused as not ready rather than returned; the pin alone is not
+    /// enough.
+    function testActiveChainAuthoriserRefusesAPinWithoutCode() external {
+        vm.chainId(LibSafeInvariants.ROBINHOOD_CHAIN_ID);
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        vm.expectRevert(
+            abi.encodeWithSelector(AuthoriserNotReady.selector, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD)
+        );
+        harness.callActiveChainAuthoriser();
+    }
+
+    /// @notice A pin carrying bytecode other than the EIP-1167 clone is
+    /// refused: address and code presence are not enough either.
+    function testActiveChainAuthoriserRefusesForeignCode() external {
+        vm.chainId(LibSafeInvariants.BSC_CHAIN_ID);
+        address pin = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC;
+        vm.etch(pin, hex"FE");
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        vm.expectRevert(abi.encodeWithSelector(AuthoriserNotReady.selector, pin));
+        harness.callActiveChainAuthoriser();
+    }
+
+    /// @notice An unpinned chain reverts typed rather than resolving to
+    /// another chain's clone.
+    function testActiveChainAuthoriserRefusesAnUnknownChain() external {
+        vm.chainId(123456);
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForAuthoriser.selector, uint256(123456)));
+        harness.callActiveChainAuthoriser();
+    }
+
+    /// @notice The active fork's arm resolves to a live clone with the pinned
+    /// EIP-1167 codehash, on the canonical grant map keyed to that chain's
+    /// Safe. Both resolve from `block.chainid`, as the scripts do, so a leg
+    /// forking the wrong chain or an arm pointing at the wrong slot fails
+    /// here. Live drift detector on an unpinned fork.
+    function assertAuthoriserLiveOnCanonicalMap() internal view {
+        LibAuthoriserInvariants.assertExpectedGrants(
+            LibAuthoriserInvariants.activeChainAuthoriser(), LibSafeInvariants.safeForChainId(block.chainid)
+        );
+    }
+
+    function testBaseAuthoriserIsLiveOnTheCanonicalMap() external {
+        selectBaseFork();
+        assertAuthoriserLiveOnCanonicalMap();
+    }
+
+    function testEthereumAuthoriserIsLiveOnTheCanonicalMap() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
+        assertAuthoriserLiveOnCanonicalMap();
+    }
+
+    function testHyperEvmAuthoriserIsLiveOnTheCanonicalMap() external {
+        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
+        assertAuthoriserLiveOnCanonicalMap();
+    }
+
+    function testRobinhoodAuthoriserIsLiveOnTheCanonicalMap() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
+        assertAuthoriserLiveOnCanonicalMap();
+    }
+
     function testBscAuthoriserIsLiveOnTheCanonicalMap() external {
         vm.createSelectFork(LibStoxDeployNetworks.BSC);
-        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
-        address authoriser = harness.callActiveChainAuthoriser();
-        assertEq(authoriser, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC, "BSC arm != pin");
-        LibAuthoriserInvariants.assertExpectedGrants(authoriser, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC);
+        assertAuthoriserLiveOnCanonicalMap();
     }
 
     /// @notice `assertAll` reverts `AuthoriserImplCodehashMismatch` when the
@@ -233,8 +327,13 @@ contract LibAuthoriserInvariantsTest is Test {
             abi.encodeWithSelector(IAccessControl.hasRole.selector, keccak256("WITHDRAW"), orchestrator),
             abi.encode(false)
         );
-        uint256[3] memory chainIds =
-            [LibSafeInvariants.BASE_CHAIN_ID, LibSafeInvariants.ETHEREUM_CHAIN_ID, LibSafeInvariants.HYPEREVM_CHAIN_ID];
+        uint256[5] memory chainIds = [
+            LibSafeInvariants.BASE_CHAIN_ID,
+            LibSafeInvariants.ETHEREUM_CHAIN_ID,
+            LibSafeInvariants.HYPEREVM_CHAIN_ID,
+            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
+            LibSafeInvariants.BSC_CHAIN_ID
+        ];
         for (uint256 i = 0; i < chainIds.length; i++) {
             vm.chainId(chainIds[i]);
             vm.expectRevert(
