@@ -667,7 +667,7 @@ library LibTokenInvariants {
     /// @notice Returns the production token instance triples on Ethereum
     /// mainnet — Base's underlyings in Base row order, so the tables pair by
     /// index as well as by key.
-    /// @return tokens The 58 production token instances on Ethereum.
+    /// @return tokens The 59 production token instances on Ethereum.
     function productionTokensEthereum() internal pure returns (TokenInstance[] memory tokens) {
         // Deployed on Ethereum mainnet 2026-07-22 by
         // `20260706-deploy-tokens-ethereum` (manual-broadcast run
@@ -677,7 +677,7 @@ library LibTokenInvariants {
         // run's logged (underlying, receipt, receiptVault, wrapped) tuples.
         // Order and underlyings match Base row-for-row (the cross-chain
         // parity pin asserts this).
-        tokens = new TokenInstance[](58);
+        tokens = new TokenInstance[](59);
         tokens[0] = TokenInstance(
             "MSTR",
             address(0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763),
@@ -1064,12 +1064,22 @@ library LibTokenInvariants {
             address(0x76D34283ec6d29b1b07E0e6077f5c436AD163B9c),
             address(0xfBA650082205E5807a5eAF28BdcC8E851bB2f753)
         );
+        // tSNES — copied from Base 2026-09-30 by `20260807-deploy-missing-tokens`
+        // on `ethereum` (manual-broadcast run 36714584347), the only token the
+        // selection found missing; wired onto this chain's V4 authoriser and
+        // handed to its token-owner Safe in the same broadcast.
+        tokens[58] = TokenInstance(
+            "SNES",
+            address(0x4ed13d2C1f545FA73f53bE8c0BB82D279738C10f),
+            address(0xF8bF43D61E4Cd2a5b5DfaD01BaC84693d7B95e51),
+            address(0x06096908dBC38fc54509024674E4fd1891B5F7CA)
+        );
     }
 
-    /// @notice Returns the 58 production token instance triples on HyperEVM,
+    /// @notice Returns the 59 production token instance triples on HyperEVM,
     /// in the same row order as `productionTokensBase()` (the cross-chain
     /// parity pin asserts the alignment).
-    /// @return tokens The 58 production token instances on HyperEVM.
+    /// @return tokens The 59 production token instances on HyperEVM.
     function productionTokensHyperEvm() internal pure returns (TokenInstance[] memory tokens) {
         // Deployed on HyperEVM 2026-07-24 (manual-broadcast run 30114307165):
         // all 29 tokens via the 0.1.1 unified deployer, each wired onto the
@@ -1078,7 +1088,7 @@ library LibTokenInvariants {
         // (underlying, receipt, receiptVault, wrapped) tuples. The script that
         // ran it was per-chain and has since been superseded by
         // `20260807-deploy-missing-tokens`, so this is the record of the run.
-        tokens = new TokenInstance[](58);
+        tokens = new TokenInstance[](59);
         tokens[0] = TokenInstance(
             "MSTR",
             0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
@@ -1460,6 +1470,16 @@ library LibTokenInvariants {
             address(0x76D34283ec6d29b1b07E0e6077f5c436AD163B9c),
             address(0xfBA650082205E5807a5eAF28BdcC8E851bB2f753)
         );
+        // tSNES — copied from Base 2026-09-30 by `20260807-deploy-missing-tokens`
+        // on `hyperevm` (manual-broadcast run 36714588187), the only token the
+        // selection found missing; wired onto this chain's V4 authoriser and
+        // handed to its token-owner Safe in the same broadcast.
+        tokens[58] = TokenInstance(
+            "SNES",
+            address(0x4ed13d2C1f545FA73f53bE8c0BB82D279738C10f),
+            address(0xF8bF43D61E4Cd2a5b5DfaD01BaC84693d7B95e51),
+            address(0x06096908dBC38fc54509024674E4fd1891B5F7CA)
+        );
     }
 
     /// @notice Returns the production token instance triples on Robinhood
@@ -1473,9 +1493,9 @@ library LibTokenInvariants {
     /// onto this chain's V4 authoriser and handed to its token-owner Safe in
     /// the same broadcast. Addresses pinned from the run's logged
     /// (underlying, receipt, receiptVault, wrapped) tuples.
-    /// @return tokens The 58 production token instances on Robinhood Chain.
+    /// @return tokens The 59 production token instances on Robinhood Chain.
     function productionTokensRobinhood() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](58);
+        tokens = new TokenInstance[](59);
         tokens[0] = TokenInstance(
             "MSTR",
             0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
@@ -1835,6 +1855,16 @@ library LibTokenInvariants {
             address(0x76D34283ec6d29b1b07E0e6077f5c436AD163B9c),
             address(0xfBA650082205E5807a5eAF28BdcC8E851bB2f753)
         );
+        // tSNES — copied from Base 2026-09-30 by `20260807-deploy-missing-tokens`
+        // on `robinhood` (manual-broadcast run 36714592472), the only token the
+        // selection found missing; wired onto this chain's V4 authoriser and
+        // handed to its token-owner Safe in the same broadcast.
+        tokens[58] = TokenInstance(
+            "SNES",
+            address(0x4ed13d2C1f545FA73f53bE8c0BB82D279738C10f),
+            address(0xF8bF43D61E4Cd2a5b5DfaD01BaC84693d7B95e51),
+            address(0x06096908dBC38fc54509024674E4fd1891B5F7CA)
+        );
     }
 
     /// @notice Returns the production token instance triples on BNB Smart
@@ -1848,9 +1878,9 @@ library LibTokenInvariants {
     /// onto this chain's V4 authoriser and handed to its token-owner Safe in
     /// the same broadcast. Addresses pinned from the run's logged
     /// (underlying, receipt, receiptVault, wrapped) tuples.
-    /// @return tokens The 58 production token instances on BNB Smart Chain.
+    /// @return tokens The 59 production token instances on BNB Smart Chain.
     function productionTokensBsc() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](58);
+        tokens = new TokenInstance[](59);
         tokens[0] = TokenInstance(
             "MSTR",
             0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8,
@@ -2209,6 +2239,16 @@ library LibTokenInvariants {
             address(0xDF7aBB7e9eA11b158CC17a84e79916Df3AA3f8f9),
             address(0x788E2fEE2EDa979739a7E4b3EBfC2AeB7E4f3A12),
             address(0xa0E98F987B0c1b9D2Eb92b24e81a69Dd0449CAd8)
+        );
+        // tSNES — copied from Base 2026-09-30 by `20260807-deploy-missing-tokens`
+        // on `bsc` (manual-broadcast run 36714595910), the only token the
+        // selection found missing; wired onto this chain's V4 authoriser and
+        // handed to its token-owner Safe in the same broadcast.
+        tokens[58] = TokenInstance(
+            "SNES",
+            address(0x800144a27098164095d7BaAaba1700aB23bb29C7),
+            address(0x9A13CA5347146D705e33bb42b336CA3b6868cc61),
+            address(0xbF85d4451CcB77B497532dBc4ACa58d10b5DC192)
         );
     }
 
