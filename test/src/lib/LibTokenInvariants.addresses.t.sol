@@ -19,13 +19,22 @@ import {ICertifiableV1} from "rain-vats-0.2.1/src/interface/ICertifiableV1.sol";
 import {
     ERC1967_BEACON_SLOT,
     LibExtrospectERC1967BeaconProxy
-} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1967BeaconProxy.sol";
-import {LibExtrospectBytecode} from "rain-extrospection-0.1.1/src/lib/LibExtrospectBytecode.sol";
-import {LibExtrospectMetamorphic} from "rain-extrospection-0.1.1/src/lib/LibExtrospectMetamorphic.sol";
-import {EVM_OP_CREATE, EVM_OP_DELEGATECALL} from "rain-extrospection-0.1.1/src/lib/EVMOpcodes.sol";
-import {IExtrospectV1} from "rain-extrospection-0.1.1/src/interface/IExtrospectV1.sol";
-import {EXTROSPECT_ZOLTU_ADDRESS_V1} from "rain-extrospection-0.1.1/src/concrete/Extrospect.sol";
-import {IBeacon} from "rain-extrospection-0.1.1/src/interface/IBeacon.sol";
+} from "rain-extrospection-0.1.14/src/lib/LibExtrospectERC1967BeaconProxy.sol";
+import {LibExtrospectBytecode} from "rain-extrospection-0.1.14/src/lib/LibExtrospectBytecode.sol";
+import {LibExtrospectMetamorphic} from "rain-extrospection-0.1.14/src/lib/LibExtrospectMetamorphic.sol";
+import {EVM_OP_CREATE, EVM_OP_DELEGATECALL} from "rain-extrospection-0.1.14/src/lib/EVMOpcodes.sol";
+import {IExtrospectV1} from "rain-extrospection-0.1.14/src/interface/IExtrospectV1.sol";
+import {IBeacon} from "rain-extrospection-0.1.14/src/interface/IBeacon.sol";
+
+/// @dev The deterministic Zoltu address of the released `Extrospect`
+/// concrete, the `IExtrospectV1` this test calls on Base. rain-extrospection
+/// 0.1.14 no longer ships the concrete or its address constant; both moved to
+/// rain.extrospection.deploy, whose soldeer package (0.1.0) imports
+/// rain-extrospection 0.1.6 and rain-deploy 0.1.7 by path and so cannot sit
+/// beside 0.1.14 / 0.1.11 here. The value is that package's
+/// `src/generated/0_1_0/Extrospect.sol` `DEPLOYED_ADDRESS`, unchanged from the
+/// `EXTROSPECT_ZOLTU_ADDRESS_V1` that rain-extrospection 0.1.1 exported.
+address constant EXTROSPECT_ZOLTU_ADDRESS_V1 = address(0x1BE878af679C1a0A6AC15108b0F4398de1f94506);
 
 /// @title LibTokenInvariantsAddressesTest
 /// @notice Fork tests verifying production token instances on Base.

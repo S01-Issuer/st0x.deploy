@@ -5,6 +5,8 @@ pragma solidity =0.8.25;
 import {Script} from "forge-std-1.16.2/src/Script.sol";
 import {VmSafe} from "forge-std-1.16.2/src/Vm.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.37/src/lib/LibCodeGen.sol";
+import {LibFs} from "rain-sol-codegen-0.1.37/src/lib/LibFs.sol";
+import {LibGenParseMeta} from "rainlang-interface-0.2.9/src/lib/codegen/LibGenParseMeta.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
@@ -26,8 +28,14 @@ import {
 } from "../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {ST0xOrchestratorBeaconSetDeployer} from "../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
+import {St0xAttestSubParser} from "../src/concrete/St0xAttestSubParser.sol";
+import {LibSt0xAttestSubParser, PARSE_META_BUILD_DEPTH} from "../src/lib/LibSt0xAttestSubParser.sol";
 
 contract BuildPointers is Script {
+    /// @notice How many contracts `contractNames()` / `contractBases()`
+    /// enumerate: every candidate-snapshot contract the deploy libs alias.
+    uint256 constant CONTRACT_COUNT = 13;
+
     /// @notice The rolling "current source" snapshot tag — always `candidate`,
     /// never a version number. `src/generated/candidate/` is regenerated from
     /// the current source on every run; a numbered snapshot is frozen only when
@@ -61,8 +69,10 @@ contract BuildPointers is Script {
     /// (see `script/cut-release.sh`).
     /// @param creationCode The creation bytecode of the contract, typically
     /// obtained via `type(ContractName).creationCode`.
-    function buildContractPointers(string memory name, bytes memory creationCode) internal {
-        address deployed = LibRainDeploy.deployZoltu(creationCode);
+    /// @return deployed The Zoltu address the contract was deployed to, for a
+    /// caller that reads pointer tables back off the live instance.
+    function buildContractPointers(string memory name, bytes memory creationCode) internal returns (address deployed) {
+        deployed = LibRainDeploy.deployZoltu(creationCode);
 
         vm.writeFile(
             string.concat("src/generated/", deployTag(), "/", name, ".pointers.sol"),
@@ -121,9 +131,38 @@ contract BuildPointers is Script {
         // Zoltu-deployed at that address) before the deployer.
         buildContractPointers("ST0xOrchestrator", type(ST0xOrchestrator).creationCode);
         buildContractPointers("ST0xOrchestratorBeaconSetDeployer", type(ST0xOrchestratorBeaconSetDeployer).creationCode);
+        // The Rainlang subparser. Its parse meta and function pointer tables
+        // are read back off the instance just deployed, so the candidate
+        // snapshot and the tables come from one build of the same source.
+        buildSubParserPointers(buildContractPointers("St0xAttestSubParser", type(St0xAttestSubParser).creationCode));
 
         // Regenerate the deploy libs from the (now-updated) per-tag snapshots.
         genProdLibs();
+    }
+
+    /// @notice Generates `src/generated/St0xAttestSubParserPointers.sol`: the
+    /// described-by meta hash, the parse meta, and the word parser, operand
+    /// handler and literal parser pointer tables, read back off the deployed
+    /// subparser. `St0xAttestSubParser` imports that file, so its creation
+    /// code embeds the tables and the candidate snapshot converges on the
+    /// second run after a table changes. Run `script/build-meta.sh` first so
+    /// the meta hash is of the current words.
+    /// @param subParser The subparser `buildContractPointers` deployed.
+    function buildSubParserPointers(address subParser) internal {
+        LibFs.buildFileForContract(
+            vm,
+            subParser,
+            "St0xAttestSubParserPointers",
+            string.concat(
+                LibCodeGen.describedByMetaHashConstantString(vm, "St0xAttestSubParser"),
+                LibGenParseMeta.parseMetaConstantString(
+                    vm, LibSt0xAttestSubParser.authoringMetaV2(), PARSE_META_BUILD_DEPTH
+                ),
+                LibCodeGen.subParserWordParsersConstantString(vm, St0xAttestSubParser(subParser)),
+                LibCodeGen.operandHandlerFunctionPointersConstantString(vm, St0xAttestSubParser(subParser)),
+                LibCodeGen.literalParserFunctionPointersConstantString(vm, St0xAttestSubParser(subParser))
+            )
+        );
     }
 
     // =========================================================================
@@ -149,7 +188,7 @@ contract BuildPointers is Script {
     // REUSE-IgnoreEnd
 
     /// @notice Pointer filenames (without `.pointers.sol`) in a fixed order.
-    function contractNames() internal pure returns (string[12] memory names) {
+    function contractNames() internal pure returns (string[CONTRACT_COUNT] memory names) {
         names[0] = "StoxReceipt";
         names[1] = "StoxReceiptVault";
         names[2] = "StoxWrappedTokenVault";
@@ -162,10 +201,11 @@ contract BuildPointers is Script {
         names[9] = "StoxCorporateActionsFacet";
         names[10] = "ST0xOrchestrator";
         names[11] = "ST0xOrchestratorBeaconSetDeployer";
+        names[12] = "St0xAttestSubParser";
     }
 
     /// @notice The constant BASE for each contract, in the same order.
-    function contractBases() internal pure returns (string[12] memory bases) {
+    function contractBases() internal pure returns (string[CONTRACT_COUNT] memory bases) {
         bases[0] = "STOX_RECEIPT";
         bases[1] = "STOX_RECEIPT_VAULT";
         bases[2] = "STOX_WRAPPED_TOKEN_VAULT";
@@ -178,6 +218,7 @@ contract BuildPointers is Script {
         bases[9] = "STOX_CORPORATE_ACTIONS_FACET";
         bases[10] = "ST0X_ORCHESTRATOR";
         bases[11] = "ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER";
+        bases[12] = "ST0X_ATTEST_SUB_PARSER";
     }
 
     /// @notice The last path segment of `path` (the basename).
@@ -316,12 +357,12 @@ contract BuildPointers is Script {
 
     /// @notice Generate `LibProdDeployV4.sol`: one versioned alias set per tag.
     function genV4(string[] memory tags) internal {
-        string[12] memory names = contractNames();
-        string[12] memory bases = contractBases();
+        string[CONTRACT_COUNT] memory names = contractNames();
+        string[CONTRACT_COUNT] memory bases = contractBases();
 
         writeGeneratedHeader(GEN_V4_PATH);
         for (uint256 t = 0; t < tags.length; t++) {
-            for (uint256 c = 0; c < 12; c++) {
+            for (uint256 c = 0; c < CONTRACT_COUNT; c++) {
                 if (pointerExists(tags[t], names[c])) {
                     vm.writeLine(GEN_V4_PATH, v4ImportLine(names[c], bases[c], tags[t]));
                 }
@@ -388,7 +429,7 @@ contract BuildPointers is Script {
             "address constant ST0X_ORCHESTRATOR_INSTANCE = address(0x3A7387a484d87Aa8bBA45E98AAB401Ce4FBF03E2);"
         );
         for (uint256 t = 0; t < tags.length; t++) {
-            for (uint256 c = 0; c < 12; c++) {
+            for (uint256 c = 0; c < CONTRACT_COUNT; c++) {
                 if (pointerExists(tags[t], names[c])) {
                     emitV4Constants(tags[t], bases[c]);
                 }
@@ -403,8 +444,8 @@ contract BuildPointers is Script {
         string memory tag = deployTag();
         string memory suffix = tagSuffix(tag);
         require(vm.exists(string.concat("src/generated/", tag)), "BuildPointers: current tag dir missing");
-        string[12] memory names = contractNames();
-        string[12] memory bases = contractBases();
+        string[CONTRACT_COUNT] memory names = contractNames();
+        string[CONTRACT_COUNT] memory bases = contractBases();
 
         writeGeneratedHeader(GEN_CURRENT_PATH);
         vm.writeLine(GEN_CURRENT_PATH, 'import {LibProdDeployV4} from "./LibProdDeployV4.sol";');
@@ -420,7 +461,7 @@ contract BuildPointers is Script {
             GEN_CURRENT_PATH,
             "bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH;"
         );
-        for (uint256 c = 0; c < 12; c++) {
+        for (uint256 c = 0; c < CONTRACT_COUNT; c++) {
             if (!pointerExists(tag, names[c])) continue;
             string memory base = bases[c];
             vm.writeLine(

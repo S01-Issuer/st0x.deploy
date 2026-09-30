@@ -39,6 +39,11 @@ cbor_metadata = false
 
 fs_permissions = [
   { access = "read-write", path = "src/generated" },
+  # `BuildAuthoringMeta` writes the subparser authoring meta under `meta/`;
+  # `BuildPointers` (via `LibCodeGen.describedByMetaHashConstantString`) and
+  # the `describedByMetaV1` test read the cbor meta `build-meta.sh` builds
+  # from it.
+  { access = "read-write", path = "meta" },
   # `BuildPointers` reads the canonical release version from `[package].version`
   # here to name the `src/generated/<tag>/` snapshot and generate the deploy tag.
   { access = "read", path = "foundry.toml" },
@@ -61,17 +66,28 @@ forge-std = "1.16.2"
 "@openzeppelin-contracts" = "5.6.1"
 "@openzeppelin-contracts-upgradeable" = "5.6.1"
 "rain-deploy" = "0.1.10"
-"rain-extrospection" = "0.1.1"
+"rain-extrospection" = "0.1.14"
 "rain-factory" = "0.1.5"
 "rain-math-fixedpoint" = "0.2.0"
 "rain-math-float" = "0.2.4"
 "rain-sol-codegen" = "0.1.37"
-"rain-solmem" = "0.1.3"
+"rain-solmem" = "0.1.28"
 "rain-tofu-erc20-decimals" = "0.1.1"
 "rain-vats" = "0.2.1"
 "rain-verify-interface" = "0.1.0"
 rain-lib-leakybucket = "0.4.1"
 rain-math-saturating = "0.1.10"
+"rain-datacontract" = "0.1.9"
+"rain-intorastring" = "0.1.0"
+"rain-lib-hash" = "0.1.0"
+"rain-lib-memkv" = "0.2.0"
+"rain-lib-typecast" = "0.1.4"
+"rain-math-binary" = "0.1.4"
+"rain-math-float-deploy" = "0.1.3"
+"rain-metadata" = "0.1.7"
+"rain-string" = "0.2.0"
+rainlang = "0.2.11"
+"rainlang-interface" = "0.2.9"
 
 [soldeer]
 recursive_deps = false

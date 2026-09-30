@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.2/src/Test.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
-import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1167Proxy.sol";
+import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.14/src/lib/LibExtrospectERC1167Proxy.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
 import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
@@ -27,6 +27,7 @@ import {
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 import {ST0xOrchestratorBeaconSetDeployer} from "../../../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
+import {St0xAttestSubParser} from "../../../src/concrete/St0xAttestSubParser.sol";
 
 /// @title LibProdDeployV4Test
 /// @notice Pins every constant in `LibProdDeployV4` so a wrong address or
@@ -203,6 +204,14 @@ contract LibProdDeployV4Test is Test {
         assertEq(deployed.codehash, LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE);
     }
 
+    function testDeployAddressSt0xAttestSubParser() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        address deployed = LibRainDeploy.deployZoltu(type(St0xAttestSubParser).creationCode);
+        assertEq(deployed, LibProdDeployV4.ST0X_ATTEST_SUB_PARSER_CANDIDATE);
+        assertTrue(deployed.code.length > 0);
+        assertEq(deployed.codehash, LibProdDeployV4.ST0X_ATTEST_SUB_PARSER_CODEHASH_CANDIDATE);
+    }
+
     // --- Non-deployed-contract constants ---
 
     /// The beacon initial owner is rainlang.eth and unchanged across versions.
@@ -250,6 +259,7 @@ contract LibProdDeployV4Test is Test {
             LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_CODE_CANDIDATE,
             type(ST0xOrchestratorBeaconSetDeployer).creationCode
         );
+        assertEq(LibProdDeployV4.ST0X_ATTEST_SUB_PARSER_CREATION_CODE_CANDIDATE, type(St0xAttestSubParser).creationCode);
     }
 
     /// The V4 authoriser clone pin. The address was hydrated from the

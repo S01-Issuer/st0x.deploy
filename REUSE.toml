@@ -15,6 +15,7 @@ path = [
   "docs/**/",
   "flake.lock",
   "flake.nix",
+  "meta/**/",
   "foundry.toml",
   "REUSE.toml",
   "slither.config.json",

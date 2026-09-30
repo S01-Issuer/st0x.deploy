@@ -26,7 +26,7 @@ import {IReceiptV3} from "rain-vats-0.2.1/src/interface/IReceiptV3.sol";
 import {IAuthorizableV1} from "rain-vats-0.2.1/src/interface/IAuthorizableV1.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.1/src/interface/IAuthorizeV1.sol";
 import {ICertifiableV1} from "rain-vats-0.2.1/src/interface/ICertifiableV1.sol";
-import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1967BeaconProxy.sol";
+import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.14/src/lib/LibExtrospectERC1967BeaconProxy.sol";
 
 /// @title V3UpgradeShadowForkTest
 /// @notice Shadow-fork verification of the receipt vault V3 upgrade against
