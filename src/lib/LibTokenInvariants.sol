@@ -552,14 +552,22 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x9Aa9c5a24e976096A6A7aB44986DAE8230fa5b27
     address internal constant SPY_WRAPPED_TOKEN_VAULT = address(0x9Aa9c5a24e976096A6A7aB44986DAE8230fa5b27);
 
-    /// @notice Returns the 58 production token instance triples on Base, in
+    // ---- tSNES / wtSNES — SenesTech, Inc. ST0x ----
+    /// https://basescan.org/address/0x977A4e0784075421EB71f62c871414073ce03b65
+    address internal constant SNES_RECEIPT = address(0x977A4e0784075421EB71f62c871414073ce03b65);
+    /// https://basescan.org/address/0x6c5C451672e9D0ceF8728cb511C01e5Cdd096563
+    address internal constant SNES_RECEIPT_VAULT = address(0x6c5C451672e9D0ceF8728cb511C01e5Cdd096563);
+    /// https://basescan.org/address/0x07234e86246fcDBa320E5d59f1Ccb618d765DbFb
+    address internal constant SNES_WRAPPED_TOKEN_VAULT = address(0x07234e86246fcDBa320E5d59f1Ccb618d765DbFb);
+
+    /// @notice Returns the 59 production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
     /// that need the receipt / wrapped-vault legs or the underlying join key
     /// (cross-chain parity, per-token config checks) iterate this instead.
-    /// @return tokens The 58 production token instances on Base.
+    /// @return tokens The 59 production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](58);
+        tokens = new TokenInstance[](59);
         tokens[0] = TokenInstance("MSTR", MSTR_RECEIPT, MSTR_RECEIPT_VAULT, MSTR_WRAPPED_TOKEN_VAULT);
         tokens[1] = TokenInstance("TSLA", TSLA_RECEIPT, TSLA_RECEIPT_VAULT, TSLA_WRAPPED_TOKEN_VAULT);
         tokens[2] = TokenInstance("COIN", COIN_RECEIPT, COIN_RECEIPT_VAULT, COIN_WRAPPED_TOKEN_VAULT);
@@ -651,6 +659,9 @@ library LibTokenInvariants {
         // tSPY — deployed on Base 2026-09-29 by sft-ops CD (run 36576678295),
         // wired onto the V4 authoriser and handed to the Base token-owner Safe.
         tokens[57] = TokenInstance("SPY", SPY_RECEIPT, SPY_RECEIPT_VAULT, SPY_WRAPPED_TOKEN_VAULT);
+        // tSNES — deployed on Base 2026-09-30 by sft-ops CD (run 36713883246),
+        // wired onto the V4 authoriser and handed to the Base token-owner Safe.
+        tokens[58] = TokenInstance("SNES", SNES_RECEIPT, SNES_RECEIPT_VAULT, SNES_WRAPPED_TOKEN_VAULT);
     }
 
     /// @notice Returns the production token instance triples on Ethereum
@@ -2201,13 +2212,13 @@ library LibTokenInvariants {
         );
     }
 
-    /// @notice Returns the 58 production receipt vault addresses on Base, in
+    /// @notice Returns the 59 production receipt vault addresses on Base, in
     /// the order they were deployed. Provided so consumers (e.g. invariant
     /// assertions, migration scripts) can iterate without hardcoding the
     /// list inline.
     /// @dev Derived from `productionTokensBase()` so the token table is the
     /// single source of truth and the two accessors cannot drift.
-    /// @return vaults The 58 production receipt vault addresses on Base.
+    /// @return vaults The 59 production receipt vault addresses on Base.
     function productionReceiptVaults() internal pure returns (address[] memory vaults) {
         TokenInstance[] memory tokens = productionTokensBase();
         vaults = new address[](tokens.length);

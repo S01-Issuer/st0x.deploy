@@ -24,7 +24,7 @@ struct TokenConfig {
 }
 
 /// @title LibProdTokenConfig
-/// @notice The canonical name/symbol table for the 58 ST0x production
+/// @notice The canonical name/symbol table for the 59 ST0x production
 /// tokens, captured verbatim from the live Base receipt vaults so a new
 /// chain's token set can be deployed byte-identical to Base. This is the
 /// deploy-input companion to `LibTokenInvariants` (which holds the deployed
@@ -45,10 +45,10 @@ struct TokenConfig {
 /// means carrying that space forward; the parity pin would flag it as a
 /// divergence otherwise.
 library LibProdTokenConfig {
-    /// @notice The 58 production token deploy configs, Base table order.
+    /// @notice The 59 production token deploy configs, Base table order.
     /// @return configs The name/symbol table.
     function productionTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
-        configs = new TokenConfig[](58);
+        configs = new TokenConfig[](59);
         configs[0] = TokenConfig("MSTR", "MicroStrategy Incorporated ST0x", "tMSTR");
         configs[1] = TokenConfig("TSLA", "Tesla Inc ST0x", "tTSLA");
         configs[2] = TokenConfig("COIN", "Coinbase Global Inc ST0x", "tCOIN");
@@ -121,5 +121,8 @@ library LibProdTokenConfig {
         // tSPY — name derived from sft-ops `metadata/spy.json` the way CD derives it
         // (`"<metadata.name> ST0x"`, `"t<code>"`); verified against the live Base vault.
         configs[57] = TokenConfig("SPY", "State Street SPDR S&P 500 ETF Trust ST0x", "tSPY");
+        // tSNES — name derived from sft-ops `metadata/snes.json` the way CD derives it;
+        // verified against the live Base vault.
+        configs[58] = TokenConfig("SNES", "SenesTech, Inc. ST0x", "tSNES");
     }
 }
