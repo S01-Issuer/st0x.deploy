@@ -13,15 +13,12 @@ import {IERC1155Receiver} from "@openzeppelin-contracts-5.6.1/token/ERC1155/IERC
 import {IERC165} from "@openzeppelin-contracts-5.6.1/utils/introspection/IERC165.sol";
 import {SignatureChecker} from "@openzeppelin-contracts-5.6.1/utils/cryptography/SignatureChecker.sol";
 
-import {OffchainAssetReceiptVault} from "rain-vats-0.1.6/src/concrete/vault/OffchainAssetReceiptVault.sol";
-import {IReceiptV3} from "rain-vats-0.1.6/src/interface/IReceiptV3.sol";
-import {ReceiptVault} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.1/src/concrete/vault/OffchainAssetReceiptVault.sol";
+import {IReceiptV3} from "rain-vats-0.2.1/src/interface/IReceiptV3.sol";
+import {ReceiptVault} from "rain-vats-0.2.1/src/abstract/ReceiptVault.sol";
 
-import {
-    LibLeakyBucket,
-    LeakyBucket,
-    LeakyBucketCapacityOverflow
-} from "rain-lib-leakybucket-0.4.0/src/lib/LibLeakyBucket.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
+import {LibLeakyBucket, LeakyBucket} from "rain-lib-leakybucket-0.4.1/src/lib/LibLeakyBucket.sol";
 
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
@@ -91,10 +88,17 @@ import {IST0xOrchestratorV1, MintAuthV1, MintLimitV1, MintBucketV1, Digest} from
 /// An unconfigured limit is `0` and a zero capacity admits nothing, so a fresh
 /// deployment, a new minter and a new recipient all start unable to mint.
 ///
-/// `capacity` is the burst and `leakRate` the sustained rate per second, in
-/// 18-decimal rebased tStock units. A limit stores the numbers that were
-/// approved and `mint`'s `amount` is charged against them as passed. The cap
-/// path never reads the token's corporate-action state.
+/// Every number in a cap is a Rain `Float`: `capacity` is the burst and
+/// `leakRate` the sustained rate per second, and a limit stores the numbers
+/// that were approved. What a mint is charged is `amount` as passed, packed
+/// losslessly at exponent zero, so the units are 18-decimal rebased tStock
+/// units until the mint admin's Rainlang puts a value on each mint instead —
+/// that value is what the buckets will meter, and the charge is the one place
+/// it lands. The cap path never reads the token's corporate-action state.
+///
+/// The bucket library refuses a negative capacity, a negative leak rate, a
+/// zero charge and a negative charge by name, at every read and every fill;
+/// the setters store what they are given and leave that judgement to it.
 contract ST0xOrchestrator is
     IST0xOrchestratorV1,
     Initializable,
@@ -104,6 +108,7 @@ contract ST0xOrchestrator is
     IERC1155Receiver
 {
     using SafeERC20 for IERC20;
+    using LibDecimalFloat for Float;
 
     bytes32 public constant MINT_ROLE = keccak256("MINT");
     /// @notice Administers `MINT_ROLE` and owns the mint caps. Whoever can
@@ -133,8 +138,8 @@ contract ST0xOrchestrator is
         mapping(address recipient => MintCapV1) recipientMintCaps;
     }
 
-    /// @dev One cap: a policy and the bucket metered under it. The bucket is
-    /// a packed `(level, checkpoint)` word, and a zero word is an unused
+    /// @dev One cap: a policy and the bucket metered under it. A bucket is
+    /// two words, `(level, timestamp)`, and two zero words are an unused
     /// bucket.
     ///
     /// `minterMintCaps` once held a wider struct whose first two members were
@@ -264,40 +269,57 @@ contract ST0xOrchestrator is
     /// the only state read is the orchestrator's own.
     function _consumeMintCaps(address to, uint256 amount) internal {
         MainStorage storage $ = _main();
-        _consumeMinterMintCap($, amount);
-        _consumeRecipientMintCap($, to, amount);
+        // The charge is `amount` as passed, an integer at exponent zero, so
+        // the policy stays in 18-decimal rebased tStock units for now. This
+        // is the placeholder the Rainlang weighting replaces: the expression's
+        // value for the mint is what the buckets will be charged, and this is
+        // the only line that decides it.
+        Float charge = LibDecimalFloat.fromFixedDecimalLosslessPacked(amount, 0);
+        Float timestamp = _now();
+        _consumeMinterMintCap($, timestamp, charge);
+        _consumeRecipientMintCap($, to, timestamp, charge);
     }
 
     /// @dev The minter's bucket, across every token and recipient. Split out
     /// of `_consumeMintCaps` to keep that frame within stack limits.
-    function _consumeMinterMintCap(MainStorage storage $, uint256 amount) internal {
+    function _consumeMinterMintCap(MainStorage storage $, Float timestamp, Float charge) internal {
         MintCapV1 storage cap = $.minterMintCaps[msg.sender];
         MintLimitV1 memory limit = cap.limit;
         if (!limit.set) revert MinterGlobalMintLimitUnset(msg.sender);
 
-        LeakyBucket memory bucket = _bucket(cap.bucket.checkpoint, limit);
-        uint256 headroom = LibLeakyBucket.headroomAt(bucket, block.timestamp);
-        if (amount > headroom) revert MinterGlobalMintCapExceeded(msg.sender, limit.capacity, headroom, amount);
+        LeakyBucket memory bucket = _bucket(cap.bucket, limit);
+        Float headroom = LibLeakyBucket.headroomAt(bucket, timestamp);
+        if (charge.gt(headroom)) revert MinterGlobalMintCapExceeded(msg.sender, limit.capacity, headroom, charge);
 
-        cap.bucket = MintBucketV1({checkpoint: LibLeakyBucket.fill(bucket, block.timestamp, amount)});
+        (Float level, Float checkpoint) = LibLeakyBucket.fill(bucket, timestamp, charge);
+        cap.bucket = MintBucketV1({level: level, timestamp: checkpoint});
     }
 
     /// @dev The recipient's bucket, across every token and minter.
-    function _consumeRecipientMintCap(MainStorage storage $, address to, uint256 amount) internal {
+    function _consumeRecipientMintCap(MainStorage storage $, address to, Float timestamp, Float charge) internal {
         MintCapV1 storage cap = $.recipientMintCaps[to];
         MintLimitV1 memory limit = cap.limit;
         if (!limit.set) revert RecipientMintLimitUnset(to);
 
-        LeakyBucket memory bucket = _bucket(cap.bucket.checkpoint, limit);
-        uint256 headroom = LibLeakyBucket.headroomAt(bucket, block.timestamp);
-        if (amount > headroom) revert RecipientMintCapExceeded(to, limit.capacity, headroom, amount);
+        LeakyBucket memory bucket = _bucket(cap.bucket, limit);
+        Float headroom = LibLeakyBucket.headroomAt(bucket, timestamp);
+        if (charge.gt(headroom)) revert RecipientMintCapExceeded(to, limit.capacity, headroom, charge);
 
-        cap.bucket = MintBucketV1({checkpoint: LibLeakyBucket.fill(bucket, block.timestamp, amount)});
+        (Float level, Float checkpoint) = LibLeakyBucket.fill(bucket, timestamp, charge);
+        cap.bucket = MintBucketV1({level: level, timestamp: checkpoint});
     }
 
-    /// @dev A checkpoint under a limit, as the library takes it.
-    function _bucket(uint256 checkpoint, MintLimitV1 memory limit) internal pure returns (LeakyBucket memory) {
-        return LeakyBucket({checkpoint: checkpoint, capacity: limit.capacity, leakRate: limit.leakRate});
+    /// @dev A stored bucket under a limit, as the library takes it.
+    function _bucket(MintBucketV1 memory stored, MintLimitV1 memory limit) internal pure returns (LeakyBucket memory) {
+        return LeakyBucket({
+            level: stored.level, timestamp: stored.timestamp, capacity: limit.capacity, leakRate: limit.leakRate
+        });
+    }
+
+    /// @dev `block.timestamp` as the library's clock: seconds, at exponent
+    /// zero, so `leakRate` is per second.
+    function _now() internal view returns (Float) {
+        return LibDecimalFloat.fromFixedDecimalLosslessPacked(block.timestamp, 0);
     }
 
     /// @dev Consume the recipient's single-use `(to, nonce)` replay slot and
@@ -394,16 +416,17 @@ contract ST0xOrchestrator is
     /// @dev `MINT_ADMIN_ROLE` administers `MINT_ROLE` and owns its caps, so
     /// raising a cap is no cheaper than granting the role it bounds.
     ///
-    /// `checkCapacity` refuses a capacity the bucket codec cannot enforce at
-    /// the moment it is written.
+    /// There is no magnitude to refuse here: a `Float` capacity has no ceiling
+    /// the bucket cannot enforce. The sign is not refused here either — the
+    /// bucket library refuses a negative capacity or leak rate by name at
+    /// every read and fill, so a policy written negative fails closed.
     ///
     /// Only the policy is written; the bucket's level is left where the
     /// earlier mints put it, so a lowered capacity binds immediately.
-    function setMinterGlobalMintLimit(address minter, uint256 capacity, uint256 leakRate)
+    function setMinterGlobalMintLimit(address minter, Float capacity, Float leakRate)
         external
         onlyRole(MINT_ADMIN_ROLE)
     {
-        if (capacity > LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX) revert LeakyBucketCapacityOverflow(capacity);
         _main().minterMintCaps[minter].limit = MintLimitV1({capacity: capacity, leakRate: leakRate, set: true});
         emit MinterGlobalMintLimitSet(minter, capacity, leakRate);
     }
@@ -411,11 +434,10 @@ contract ST0xOrchestrator is
     /// @inheritdoc IST0xOrchestratorV1
     /// @dev Same terms as `setMinterGlobalMintLimit`: the policy is written,
     /// the bucket's level is left where the earlier mints put it.
-    function setRecipientMintLimit(address recipient, uint256 capacity, uint256 leakRate)
+    function setRecipientMintLimit(address recipient, Float capacity, Float leakRate)
         external
         onlyRole(MINT_ADMIN_ROLE)
     {
-        if (capacity > LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX) revert LeakyBucketCapacityOverflow(capacity);
         _main().recipientMintCaps[recipient].limit = MintLimitV1({capacity: capacity, leakRate: leakRate, set: true});
         emit RecipientMintLimitSet(recipient, capacity, leakRate);
     }
@@ -488,22 +510,21 @@ contract ST0xOrchestrator is
     /// @inheritdoc IST0xOrchestratorV1
     /// @dev Zero for an unset limit, matching what a mint would do: an unset
     /// limit admits nothing.
-    function mintHeadroom(address minter, address recipient) external view returns (uint256) {
+    function mintHeadroom(address minter, address recipient) external view returns (Float) {
         MainStorage storage $ = _main();
+        MintCapV1 storage minterCap = $.minterMintCaps[minter];
+        MintCapV1 storage recipientCap = $.recipientMintCaps[recipient];
 
-        MintLimitV1 memory minterLimit = $.minterMintCaps[minter].limit;
-        if (!minterLimit.set) return 0;
-        MintLimitV1 memory recipientLimit = $.recipientMintCaps[recipient].limit;
-        if (!recipientLimit.set) return 0;
+        MintLimitV1 memory minterLimit = minterCap.limit;
+        if (!minterLimit.set) return LibDecimalFloat.FLOAT_ZERO;
+        MintLimitV1 memory recipientLimit = recipientCap.limit;
+        if (!recipientLimit.set) return LibDecimalFloat.FLOAT_ZERO;
 
-        uint256 minterHeadroom = LibLeakyBucket.headroomAt(
-            _bucket($.minterMintCaps[minter].bucket.checkpoint, minterLimit), block.timestamp
-        );
-        uint256 recipientHeadroom = LibLeakyBucket.headroomAt(
-            _bucket($.recipientMintCaps[recipient].bucket.checkpoint, recipientLimit), block.timestamp
-        );
+        Float timestamp = _now();
+        Float minterHeadroom = LibLeakyBucket.headroomAt(_bucket(minterCap.bucket, minterLimit), timestamp);
+        Float recipientHeadroom = LibLeakyBucket.headroomAt(_bucket(recipientCap.bucket, recipientLimit), timestamp);
 
-        return minterHeadroom < recipientHeadroom ? minterHeadroom : recipientHeadroom;
+        return LibDecimalFloat.min(minterHeadroom, recipientHeadroom);
     }
 
     // ------------------------------------------------------------------ //

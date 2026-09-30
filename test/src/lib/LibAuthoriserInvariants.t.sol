@@ -20,7 +20,7 @@ import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
-import {LibCloneFactoryDeploy} from "rain-factory-0.1.1/src/lib/LibCloneFactoryDeploy.sol";
+import {DEPLOYED_ADDRESS as PROD_CLONE_FACTORY} from "rain-factory-0.1.5/src/generated/0_1_3/CloneFactory.pointers.sol";
 
 /// @title LibAuthoriserInvariantsTest
 /// @notice Fork tests pinning the production V4 authoriser clone's state
@@ -53,8 +53,12 @@ contract LibAuthoriserInvariantsTest is Test {
     /// the canonical CloneFactory (nonce 1) on each chain, re-derived here so a
     /// mistyped literal fails fork-free. Base's clone came from a factory with
     /// history and is not derivable.
+    /// @dev The factory that cut the production clones is the one rain-factory
+    /// 0.1.1 through 0.1.4 pin (one bytecode, one Zoltu address), carried by
+    /// the frozen `0_1_3` snapshot. The 0.1.5 release is a new contract at a
+    /// new address, so its `LibCloneFactoryDeploy` alias is the wrong parent.
     function testClonePinsMatchTheFactoryNonceOneDerivation() external pure {
-        address derived = vm.computeCreateAddress(LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS, 1);
+        address derived = vm.computeCreateAddress(PROD_CLONE_FACTORY, 1);
         assertEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM, derived, "ethereum");
         assertEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM, derived, "hyperevm");
         assertEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD, derived, "robinhood");

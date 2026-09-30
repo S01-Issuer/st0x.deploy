@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
+import {Float} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
+
 /// @dev An EIP-712 typed-data digest produced by the orchestrator's
 /// `mintAuthDigest`. Aliased so the compiler rejects any `bytes32` that was
 /// not explicitly produced as a digest (and vice versa).
@@ -26,13 +28,22 @@ struct MintAuthV1 {
     bytes signature;
 }
 
-/// @dev A leaky-bucket mint cap, in 18-decimal rebased tStock units.
+/// @dev A leaky-bucket mint cap. Both policy numbers are Rain `Float`s, in
+/// whatever units a mint is charged in: today `mint`'s `amount` as passed, an
+/// integer of 18-decimal rebased tStock units at exponent zero, until the
+/// mint admin's Rainlang puts a value on each mint instead.
 ///
 /// The stored `capacity` is the number governance approved, written down
 /// exactly as approved, so it can be checked against the proposal that
-/// authorised it and disputed by anyone. `mint`'s `amount` is metered against
-/// it as passed; nothing about the token's corporate-action history enters
-/// the cap path.
+/// authorised it and disputed by anyone. Nothing about the token's
+/// corporate-action history enters the cap path.
+///
+/// The setters store what they are given. A negative `capacity` or a negative
+/// `leakRate` is not a stricter policy — the first admits no fill and the
+/// second fills the bucket as time passes — and the leaky-bucket library
+/// refuses each by name (`LeakyBucketNegativeCapacity`,
+/// `LeakyBucketNegativeLeakRate`) at every read and every fill, so a policy
+/// written that way fails closed at the first `mint` or `mintHeadroom`.
 /// @param capacity The burst. The most one `mint` can take under this policy,
 /// and the most that can be outstanding against it at one instant. Zero
 /// admits nothing.
@@ -41,17 +52,21 @@ struct MintAuthV1 {
 /// is distinct from a deliberate zero capacity: both admit nothing, but only
 /// the former means no admin has ever priced this policy.
 struct MintLimitV1 {
-    uint256 capacity;
-    uint256 leakRate;
+    Float capacity;
+    Float leakRate;
     bool set;
 }
 
-/// @dev A mint bucket: the leaky-bucket state for one cap.
-/// @param checkpoint The packed `(level, timestamp)` word the leaky-bucket
-/// codec owns. A zero word is an empty bucket checkpointed at the epoch, which
-/// is exactly what an untouched slot should mean.
+/// @dev A mint bucket: the leaky-bucket state for one cap, two words. A zero
+/// level at a zero timestamp is an empty bucket at the epoch, which is exactly
+/// what an untouched slot should mean. `fill` returns both words and the
+/// orchestrator stores both: a level written without its checkpoint would
+/// have the interval before the fill measured a second time on the next read.
+/// @param level The outstanding level at `timestamp`.
+/// @param timestamp When `level` was recorded, in seconds.
 struct MintBucketV1 {
-    uint256 checkpoint;
+    Float level;
+    Float timestamp;
 }
 
 /// @title IST0xOrchestratorV1
@@ -89,14 +104,14 @@ interface IST0xOrchestratorV1 {
     /// @param minter The minter the limit applies to.
     /// @param capacity The burst.
     /// @param leakRate The sustained rate per second.
-    event MinterGlobalMintLimitSet(address indexed minter, uint256 capacity, uint256 leakRate);
+    event MinterGlobalMintLimitSet(address indexed minter, Float capacity, Float leakRate);
     /// @notice Admin replaced `recipient`'s mint limit: the one bucket
     /// metering everything minted to that recipient, across every token and
     /// minter.
     /// @param recipient The recipient the limit applies to.
     /// @param capacity The burst.
     /// @param leakRate The sustained rate per second.
-    event RecipientMintLimitSet(address indexed recipient, uint256 capacity, uint256 leakRate);
+    event RecipientMintLimitSet(address indexed recipient, Float capacity, Float leakRate);
 
     error ZeroOwner();
     error ZeroAmount();
@@ -150,15 +165,15 @@ interface IST0xOrchestratorV1 {
     /// @param minter The minter whose global bucket refused the mint.
     /// @param capacity The global capacity in force, as stored.
     /// @param headroom What the global bucket would have accepted.
-    /// @param amount The offered `mint` amount.
-    error MinterGlobalMintCapExceeded(address minter, uint256 capacity, uint256 headroom, uint256 amount);
+    /// @param charge What the mint was charged against the bucket.
+    error MinterGlobalMintCapExceeded(address minter, Float capacity, Float headroom, Float charge);
     /// @notice The mint did not fit the recipient's bucket, which meters
     /// everything minted to that recipient across every token and minter.
     /// @param recipient The `to` whose bucket refused the mint.
     /// @param capacity The recipient's capacity in force, as stored.
     /// @param headroom What the recipient's bucket would have accepted.
-    /// @param amount The offered `mint` amount.
-    error RecipientMintCapExceeded(address recipient, uint256 capacity, uint256 headroom, uint256 amount);
+    /// @param charge What the mint was charged against the bucket.
+    error RecipientMintCapExceeded(address recipient, Float capacity, Float headroom, Float charge);
 
     /// @notice Mint `amount` rebased tStocks of `token` to `to`. The receipt
     /// is minted to (and kept by) the orchestrator; the shares are forwarded
@@ -174,7 +189,7 @@ interface IST0xOrchestratorV1 {
     /// `MinterGlobalMintCapExceeded` or `RecipientMintCapExceeded`, or with
     /// `MinterGlobalMintLimitUnset` / `RecipientMintLimitUnset` where the
     /// limit was never set at all. Both buckets are charged `amount` as
-    /// passed.
+    /// passed, as a `Float` at exponent zero.
     /// @param token The `OffchainAssetReceiptVault` to mint.
     /// @param to Recipient of the shares.
     /// @param amount Rebased tStock units to mint.
@@ -213,22 +228,21 @@ interface IST0xOrchestratorV1 {
     /// @notice `MINT_ADMIN_ROLE` sets `minter`'s global mint limit: one bucket
     /// covering every mint by `minter`, across all tokens and recipients.
     /// @param minter The `MINT_ROLE` holder the limit applies to.
-    /// @param capacity Burst, in 18-decimal rebased tStock units. Reverts
-    /// `LeakyBucketCapacityOverflow` if it does not fit the bucket codec's
-    /// level field.
+    /// @param capacity Burst, in the units mints are charged in (see
+    /// `MintLimitV1`). Stored as given; there is no magnitude a `Float`
+    /// capacity cannot hold, and a negative one is refused by the bucket, not
+    /// here.
     /// @param leakRate Sustained rate in those same units per second.
-    function setMinterGlobalMintLimit(address minter, uint256 capacity, uint256 leakRate) external;
+    function setMinterGlobalMintLimit(address minter, Float capacity, Float leakRate) external;
 
     /// @notice `MINT_ADMIN_ROLE` sets `recipient`'s mint limit: one bucket
     /// covering everything minted to `recipient`, across all tokens and
     /// minters. A zero `capacity` is a set limit that admits nothing, distinct
     /// from never having been set.
     /// @param recipient The mint `to` the limit applies to.
-    /// @param capacity Burst, in 18-decimal rebased tStock units. Reverts
-    /// `LeakyBucketCapacityOverflow` if it does not fit the bucket codec's
-    /// level field.
+    /// @param capacity Burst, as for `setMinterGlobalMintLimit`.
     /// @param leakRate Sustained rate in those same units per second.
-    function setRecipientMintLimit(address recipient, uint256 capacity, uint256 leakRate) external;
+    function setRecipientMintLimit(address recipient, Float capacity, Float leakRate) external;
 
     /// @notice `token`'s burn-walk pointer: the next receipt id `burn` will
     /// inspect.
@@ -249,11 +263,12 @@ interface IST0xOrchestratorV1 {
     /// approved.
     function recipientMintLimit(address recipient) external view returns (MintLimitV1 memory);
 
-    /// @notice The largest `amount` a `mint(…, recipient, …)` by `minter`
-    /// would accept at the current block timestamp, for any token: the
-    /// smaller of the minter's global headroom and the recipient's. Zero when
-    /// either limit is unset. Nothing in the enforcement path reads it.
-    function mintHeadroom(address minter, address recipient) external view returns (uint256);
+    /// @notice The largest charge a `mint(…, recipient, …)` by `minter` would
+    /// accept at the current block timestamp, for any token: the smaller of
+    /// the minter's global headroom and the recipient's. Zero when either
+    /// limit is unset. Reverts, as a mint would, on a limit whose capacity or
+    /// leak rate is negative. Nothing in the enforcement path reads it.
+    function mintHeadroom(address minter, address recipient) external view returns (Float);
 
     /// @notice True if the production vault + receipt beacons currently point
     /// at the implementations this orchestrator expects (i.e. mint/burn are

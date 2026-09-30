@@ -10,12 +10,12 @@ import {LibTestProd} from "../../lib/LibTestProd.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC4626} from "@openzeppelin-contracts-5.6.1/interfaces/IERC4626.sol";
-import {IReceiptVaultV3} from "rain-vats-0.1.6/src/interface/IReceiptVaultV3.sol";
-import {IReceiptV3} from "rain-vats-0.1.6/src/interface/IReceiptV3.sol";
+import {IReceiptVaultV3} from "rain-vats-0.2.1/src/interface/IReceiptVaultV3.sol";
+import {IReceiptV3} from "rain-vats-0.2.1/src/interface/IReceiptV3.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
-} from "rain-vats-0.1.6/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
-import {ICertifiableV1} from "rain-vats-0.1.6/src/interface/ICertifiableV1.sol";
+} from "rain-vats-0.2.1/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
+import {ICertifiableV1} from "rain-vats-0.2.1/src/interface/ICertifiableV1.sol";
 import {
     ERC1967_BEACON_SLOT,
     LibExtrospectERC1967BeaconProxy

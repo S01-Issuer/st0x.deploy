@@ -7,21 +7,20 @@ import {Test} from "forge-std-1.16.2/src/Test.sol";
 import {IERC1155} from "@openzeppelin-contracts-5.6.1/token/ERC1155/IERC1155.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "@openzeppelin-contracts-5.6.1/proxy/beacon/BeaconProxy.sol";
-import {CloneFactory} from "rain-factory-0.1.1/src/concrete/CloneFactory.sol";
+import {CloneFactory} from "rain-factory-0.1.5/src/concrete/CloneFactory.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
-import {Float} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
 import {
     OffchainAssetReceiptVaultConfigV2,
     DEPOSIT,
     WITHDRAW,
     CERTIFY
-} from "rain-vats-0.1.6/src/concrete/vault/OffchainAssetReceiptVault.sol";
+} from "rain-vats-0.2.1/src/concrete/vault/OffchainAssetReceiptVault.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
-import {ReceiptVaultConfigV2} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
-import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
-import {LibLeakyBucket} from "rain-lib-leakybucket-0.4.0/src/lib/LibLeakyBucket.sol";
+} from "rain-vats-0.2.1/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+import {ReceiptVaultConfigV2} from "rain-vats-0.2.1/src/abstract/ReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.1/src/interface/IAuthorizeV1.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";
@@ -57,6 +56,15 @@ abstract contract OrchestratorIntegrationTest is Test {
     address internal constant ADMIN = address(uint160(uint256(keccak256("ADMIN"))));
     address internal constant OWNER = address(uint160(uint256(keccak256("OWNER"))));
     address internal constant MM = address(uint160(uint256(keccak256("MM"))));
+
+    /// A capacity no amount in these workflows comes near: `1e60`, forty
+    /// orders of magnitude over the widest `uint256` amount a workflow mints.
+    /// Granted as MM's global limit and as each recipient's limit so the
+    /// workflows exercise the real vault machinery rather than the caps.
+    Float internal immutable UNBOUNDED_CAPACITY = LibDecimalFloat.packLossless(1, 60);
+
+    /// A zero leak rate: nothing here relies on a bucket refilling.
+    Float internal constant NO_LEAK = LibDecimalFloat.FLOAT_ZERO;
 
     /// Beacon owner for the OARV beacon set — the address the beacon-set
     /// deployer hands ownership to at construction. Needed to upgrade the
@@ -121,21 +129,20 @@ abstract contract OrchestratorIntegrationTest is Test {
         orchestrator.grantRole(orchestrator.MINT_ROLE(), MM);
         orchestrator.grantRole(orchestrator.BURN_ROLE(), MM);
         // Mint caps fail closed, so a freshly initialised orchestrator mints
-        // nothing for anyone. Grant the widest capacity the bucket codec can
-        // enforce as MM's global limit, so these workflows exercise the real
-        // vault machinery rather than the caps — which have their own unit
-        // tests in `ST0xOrchestrator.t.sol`. Each workflow allows its own
-        // recipient the same way with `_allowRecipient`.
-        orchestrator.setMinterGlobalMintLimit(MM, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
+        // nothing for anyone. Grant an unreachable capacity as MM's global
+        // limit, so these workflows exercise the real vault machinery rather
+        // than the caps — which have their own unit tests in
+        // `ST0xOrchestrator.t.sol`. Each workflow allows its own recipient
+        // the same way with `_allowRecipient`.
+        orchestrator.setMinterGlobalMintLimit(MM, UNBOUNDED_CAPACITY, NO_LEAK);
         vm.stopPrank();
     }
 
-    /// Give `to` the widest recipient limit the bucket codec can enforce on
-    /// the shared orchestrator, so a workflow that is not about the caps can
-    /// mint to it.
+    /// Give `to` an unreachable recipient capacity on the shared orchestrator,
+    /// so a workflow that is not about the caps can mint to it.
     function _allowRecipient(address to) internal {
         vm.prank(OWNER);
-        orchestrator.setRecipientMintLimit(to, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
+        orchestrator.setRecipientMintLimit(to, UNBOUNDED_CAPACITY, NO_LEAK);
     }
 
     // ------------------------------------------------------------------ //
@@ -164,8 +171,10 @@ abstract contract OrchestratorIntegrationTest is Test {
         StoxOffchainAssetReceiptVaultAuthorizerV1 authorizerImpl = new StoxOffchainAssetReceiptVaultAuthorizerV1();
         CloneFactory factory = new CloneFactory();
         return StoxOffchainAssetReceiptVaultAuthorizerV1(
-            factory.clone(
-                address(authorizerImpl), abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: ADMIN}))
+            factory.cloneDeterministic(
+                address(authorizerImpl),
+                abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: ADMIN})),
+                bytes32(0)
             )
         );
     }

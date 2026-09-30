@@ -7,7 +7,11 @@ import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
 import {IST0xVaultBeaconSet} from "../../../src/interface/IST0xVaultBeaconSet.sol";
 import {IST0xOrchestratorV1, MintAuthV1, MintLimitV1, Digest} from "../../../src/interface/IST0xOrchestratorV1.sol";
-import {LibLeakyBucket, LeakyBucketCapacityOverflow} from "rain-lib-leakybucket-0.4.0/src/lib/LibLeakyBucket.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
+import {
+    LeakyBucketNegativeCapacity,
+    LeakyBucketNegativeLeakRate
+} from "rain-lib-leakybucket-0.4.1/src/lib/LibLeakyBucket.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {ICorporateActionsV1} from "../../../src/interface/ICorporateActionsV1.sol";
 
@@ -27,9 +31,9 @@ import {ReentrantMintRecipient} from "./ReentrantMintRecipient.sol";
 import {ReentrantBurnVault} from "./ReentrantBurnVault.sol";
 import {MockManagerRevert1155} from "./MockManagerRevert1155.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin-contracts-5.6.1/utils/ReentrancyGuardTransient.sol";
-import {OffchainAssetReceiptVault} from "rain-vats-0.1.6/src/concrete/vault/OffchainAssetReceiptVault.sol";
-import {ReceiptVault} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
-import {IReceiptV3} from "rain-vats-0.1.6/src/interface/IReceiptV3.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.1/src/concrete/vault/OffchainAssetReceiptVault.sol";
+import {ReceiptVault} from "rain-vats-0.2.1/src/abstract/ReceiptVault.sol";
+import {IReceiptV3} from "rain-vats-0.2.1/src/interface/IReceiptV3.sol";
 
 /// @dev Comprehensive unit + fuzz tests for the SINGLETON `ST0xOrchestrator`.
 /// All external dependencies (vault, receipt, ERC-20 shares, the production
@@ -43,6 +47,8 @@ import {IReceiptV3} from "rain-vats-0.1.6/src/interface/IReceiptV3.sol";
 /// associated receipt address — the ERC-1155 `balanceOf` (and, for the
 /// receiver-hook tests, `IReceiptV3.manager()`).
 contract ST0xOrchestratorTest is Test {
+    using LibDecimalFloat for Float;
+
     /// Canonical placeholder vault ("token") + receipt addresses. Each is a
     /// distinct, code-less address that we mock every relevant selector on.
     address internal constant TOKEN = address(0xAA17);
@@ -81,12 +87,21 @@ contract ST0xOrchestratorTest is Test {
     bytes32 internal constant EXPECTED_MAIN_STORAGE_LOCATION =
         0x4bb94ceb743cdbfc320393e9b6fac11d883b2f90ac89bce731e459177c5be700;
 
-    /// The widest capacity the bucket codec can enforce. Used as the
+    /// A capacity no amount in this suite comes near: `1e60`, forty orders of
+    /// magnitude over the widest `uint256` amount a test mints. Used as the
     /// "effectively unbounded" cap the shared `setUp` grants, so the mint
     /// tests that are about something OTHER than the caps are not metered by
     /// them. The mint-cap tests configure their own narrow limits, and the
     /// fail-closed ones deploy a fresh, unconfigured proxy via `_deployProxy`.
-    uint256 internal constant UNBOUNDED_CAPACITY = LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX;
+    Float internal immutable UNBOUNDED_CAPACITY = LibDecimalFloat.packLossless(1, 60);
+
+    /// A zero leak rate, so a spent bucket stays spent unless a test says
+    /// otherwise.
+    Float internal constant NO_LEAK = LibDecimalFloat.FLOAT_ZERO;
+
+    /// Zero as a capacity, a level or a headroom: the same word as `NO_LEAK`,
+    /// named for what it is compared against.
+    Float internal constant ZERO = LibDecimalFloat.FLOAT_ZERO;
 
     ST0xOrchestrator internal impl;
     ST0xOrchestrator internal orchestrator;
@@ -114,14 +129,39 @@ contract ST0xOrchestratorTest is Test {
         // exercises what it is about rather than the caps. Tests that mint to
         // a recipient of their own allow it with `_allowRecipient`.
         vm.startPrank(OWNER);
-        orchestrator.setMinterGlobalMintLimit(MINTER_A, UNBOUNDED_CAPACITY, 0);
-        orchestrator.setMinterGlobalMintLimit(MINTER_B, UNBOUNDED_CAPACITY, 0);
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, UNBOUNDED_CAPACITY, NO_LEAK);
+        orchestrator.setMinterGlobalMintLimit(MINTER_B, UNBOUNDED_CAPACITY, NO_LEAK);
         // The test contract mints directly in the signature and callback tests.
-        orchestrator.setMinterGlobalMintLimit(address(this), UNBOUNDED_CAPACITY, 0);
-        orchestrator.setRecipientMintLimit(BOB, UNBOUNDED_CAPACITY, 0);
-        orchestrator.setRecipientMintLimit(address(capRecipient), UNBOUNDED_CAPACITY, 0);
-        orchestrator.setRecipientMintLimit(address(capRecipient2), UNBOUNDED_CAPACITY, 0);
+        orchestrator.setMinterGlobalMintLimit(address(this), UNBOUNDED_CAPACITY, NO_LEAK);
+        orchestrator.setRecipientMintLimit(BOB, UNBOUNDED_CAPACITY, NO_LEAK);
+        orchestrator.setRecipientMintLimit(address(capRecipient), UNBOUNDED_CAPACITY, NO_LEAK);
+        orchestrator.setRecipientMintLimit(address(capRecipient2), UNBOUNDED_CAPACITY, NO_LEAK);
         vm.stopPrank();
+    }
+
+    /// `n` as a `Float` at exponent zero: the same packing `mint` charges its
+    /// `amount` with, so a limit written through this is in the units a mint
+    /// is metered in.
+    function _f(uint256 n) internal pure returns (Float) {
+        return LibDecimalFloat.fromFixedDecimalLosslessPacked(n, 0);
+    }
+
+    /// `coefficient * 10 ** exponent`, for the values `_f` cannot spell: a
+    /// negative, or a magnitude past `uint256`.
+    function _f(int256 coefficient, int256 exponent) internal pure returns (Float) {
+        return LibDecimalFloat.packLossless(coefficient, exponent);
+    }
+
+    /// Numeric `Float` equality. One number has many spellings — `4e18` and
+    /// `40e17` are the same value in different words — so an arithmetic
+    /// result is compared as a number, never as bytes.
+    function _assertFloatEq(Float actual, Float expected, string memory err) internal pure {
+        assertTrue(actual.eq(expected), string.concat(err, ": got ", _str(actual), ", want ", _str(expected)));
+    }
+
+    function _str(Float float) internal pure returns (string memory) {
+        (int256 coefficient, int256 exponent) = float.unpack();
+        return string.concat(vm.toString(coefficient), "e", vm.toString(exponent));
     }
 
     // ------------------------------------------------------------------ //
@@ -217,7 +257,7 @@ contract ST0xOrchestratorTest is Test {
     /// test about something other than the caps can mint to it.
     function _allowRecipient(address to) internal {
         vm.prank(OWNER);
-        orchestrator.setRecipientMintLimit(to, UNBOUNDED_CAPACITY, 0);
+        orchestrator.setRecipientMintLimit(to, UNBOUNDED_CAPACITY, NO_LEAK);
     }
 
     /// Build a `MintAuthV1` from a signature + nonce.
@@ -620,8 +660,8 @@ contract ST0xOrchestratorTest is Test {
         // an unset recipient cap is not what rejects the self-mint: the
         // guard is.
         vm.startPrank(OWNER);
-        orchestrator.setMinterGlobalMintLimit(minter, UNBOUNDED_CAPACITY, 0);
-        orchestrator.setRecipientMintLimit(minter, UNBOUNDED_CAPACITY, 0);
+        orchestrator.setMinterGlobalMintLimit(minter, UNBOUNDED_CAPACITY, NO_LEAK);
+        orchestrator.setRecipientMintLimit(minter, UNBOUNDED_CAPACITY, NO_LEAK);
         vm.stopPrank();
         _mockCapMint(orchestrator, TOKEN, amount);
 
@@ -633,7 +673,7 @@ contract ST0xOrchestratorTest is Test {
         // Control: the same minter, caps and mocks, to someone else, succeeds.
         MockMintRecipient other = new MockMintRecipient(true);
         vm.prank(OWNER);
-        orchestrator.setRecipientMintLimit(address(other), UNBOUNDED_CAPACITY, 0);
+        orchestrator.setRecipientMintLimit(address(other), UNBOUNDED_CAPACITY, NO_LEAK);
         vm.prank(minter);
         vm.expectEmit(true, true, true, true, address(orchestrator));
         emit IST0xOrchestratorV1.Minted(minter, TOKEN, address(other), amount, keccak256("other"));
@@ -900,7 +940,7 @@ contract ST0xOrchestratorTest is Test {
         // unrelated reason.
         _allowRecipient(address(recipient));
         vm.prank(OWNER);
-        orchestrator.setMinterGlobalMintLimit(address(recipient), UNBOUNDED_CAPACITY, 0);
+        orchestrator.setMinterGlobalMintLimit(address(recipient), UNBOUNDED_CAPACITY, NO_LEAK);
         _prepMintExact(TOKEN, outerAmount, "");
         _prepMintExact(TOKEN, innerAmount, "");
 
@@ -1575,11 +1615,11 @@ contract ST0xOrchestratorTest is Test {
         ST0xOrchestrator fresh = _unconfiguredOrchestrator();
         _grantMintOn(fresh, MINTER_A);
         vm.prank(OWNER);
-        fresh.setRecipientMintLimit(address(capRecipient), UNBOUNDED_CAPACITY, 0);
+        fresh.setRecipientMintLimit(address(capRecipient), UNBOUNDED_CAPACITY, NO_LEAK);
 
-        assertEq(fresh.minterGlobalMintLimit(MINTER_A).capacity, 0, "global capacity must start at zero");
+        _assertFloatEq(fresh.minterGlobalMintLimit(MINTER_A).capacity, ZERO, "global capacity must start at zero");
         assertFalse(fresh.minterGlobalMintLimit(MINTER_A).set, "global limit must start unset");
-        assertEq(fresh.mintHeadroom(MINTER_A, address(capRecipient)), 0, "global zero must floor the headroom");
+        _assertFloatEq(fresh.mintHeadroom(MINTER_A, address(capRecipient)), ZERO, "global zero must floor the headroom");
 
         _mockCapMint(fresh, TOKEN, 1e18);
         vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.MinterGlobalMintLimitUnset.selector, MINTER_A));
@@ -1593,11 +1633,15 @@ contract ST0xOrchestratorTest is Test {
         ST0xOrchestrator fresh = _unconfiguredOrchestrator();
         _grantMintOn(fresh, MINTER_A);
         vm.prank(OWNER);
-        fresh.setMinterGlobalMintLimit(MINTER_A, UNBOUNDED_CAPACITY, 0);
+        fresh.setMinterGlobalMintLimit(MINTER_A, UNBOUNDED_CAPACITY, NO_LEAK);
 
-        assertEq(fresh.recipientMintLimit(address(capRecipient)).capacity, 0, "recipient capacity must start at zero");
+        _assertFloatEq(
+            fresh.recipientMintLimit(address(capRecipient)).capacity, ZERO, "recipient capacity must start at zero"
+        );
         assertFalse(fresh.recipientMintLimit(address(capRecipient)).set, "recipient limit must start unset");
-        assertEq(fresh.mintHeadroom(MINTER_A, address(capRecipient)), 0, "recipient zero must floor the headroom");
+        _assertFloatEq(
+            fresh.mintHeadroom(MINTER_A, address(capRecipient)), ZERO, "recipient zero must floor the headroom"
+        );
 
         _mockCapMint(fresh, TOKEN, 1e18);
         vm.expectRevert(
@@ -1616,17 +1660,18 @@ contract ST0xOrchestratorTest is Test {
         _grantMintOn(orchestrator, MINTER_A);
         _grantMintOn(orchestrator, MINTER_B);
         vm.prank(OWNER);
-        orchestrator.setRecipientMintLimit(address(capRecipient), 0, 0);
+        orchestrator.setRecipientMintLimit(address(capRecipient), ZERO, NO_LEAK);
 
         MintLimitV1 memory pinned = orchestrator.recipientMintLimit(address(capRecipient));
         assertTrue(pinned.set, "a deliberate zero must read back as SET");
-        assertEq(pinned.capacity, 0, "pinned capacity");
-        assertEq(orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), 0, "pinned recipient has no headroom");
+        _assertFloatEq(pinned.capacity, ZERO, "pinned capacity");
+        Float headroom = orchestrator.mintHeadroom(MINTER_A, address(capRecipient));
+        _assertFloatEq(headroom, ZERO, "pinned recipient has no headroom");
 
         _mockCapMint(orchestrator, TOKEN, 1e18);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), 0, 0, 1e18
+                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), ZERO, headroom, _f(1e18)
             )
         );
         vm.prank(MINTER_A);
@@ -1635,7 +1680,7 @@ contract ST0xOrchestratorTest is Test {
         _mockCapMint(orchestrator, TOKEN2, 1e18);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), 0, 0, 1e18
+                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), ZERO, headroom, _f(1e18)
             )
         );
         vm.prank(MINTER_B);
@@ -1653,20 +1698,19 @@ contract ST0xOrchestratorTest is Test {
         uint256 capacity = 10e18;
         _grantMintOn(orchestrator, MINTER_A);
         vm.prank(OWNER);
-        orchestrator.setRecipientMintLimit(address(capRecipient), capacity, 0);
+        orchestrator.setRecipientMintLimit(address(capRecipient), _f(capacity), NO_LEAK);
 
-        assertEq(
-            orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), capacity, "a fresh bucket offers one capacity"
-        );
+        Float headroom = orchestrator.mintHeadroom(MINTER_A, address(capRecipient));
+        _assertFloatEq(headroom, _f(capacity), "a fresh bucket offers one capacity");
 
         _mockCapMint(orchestrator, TOKEN, capacity + 1);
         vm.expectRevert(
             abi.encodeWithSelector(
                 IST0xOrchestratorV1.RecipientMintCapExceeded.selector,
                 address(capRecipient),
-                capacity,
-                capacity,
-                capacity + 1
+                _f(capacity),
+                headroom,
+                _f(capacity + 1)
             )
         );
         vm.prank(MINTER_A);
@@ -1677,11 +1721,16 @@ contract ST0xOrchestratorTest is Test {
 
         // And the bucket is spent at that same second, with no leak rate to
         // refill it.
-        assertEq(orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), 0, "a spent bucket offers nothing");
+        headroom = orchestrator.mintHeadroom(MINTER_A, address(capRecipient));
+        _assertFloatEq(headroom, ZERO, "a spent bucket offers nothing");
         _mockCapMint(orchestrator, TOKEN, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), capacity, 0, 1
+                IST0xOrchestratorV1.RecipientMintCapExceeded.selector,
+                address(capRecipient),
+                _f(capacity),
+                headroom,
+                _f(1)
             )
         );
         vm.prank(MINTER_A);
@@ -1695,13 +1744,15 @@ contract ST0xOrchestratorTest is Test {
         _grantMintOn(orchestrator, MINTER_A);
         _grantMintOn(orchestrator, MINTER_B);
         vm.startPrank(OWNER);
-        orchestrator.setMinterGlobalMintLimit(MINTER_A, capacity, 0);
-        orchestrator.setMinterGlobalMintLimit(MINTER_B, capacity, 0);
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, _f(capacity), NO_LEAK);
+        orchestrator.setMinterGlobalMintLimit(MINTER_B, _f(capacity), NO_LEAK);
         vm.stopPrank();
 
         _capMint(orchestrator, MINTER_A, TOKEN, capacity, keccak256("a-drain"));
-        assertEq(orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), 0, "A's bucket is spent");
-        assertEq(orchestrator.mintHeadroom(MINTER_B, address(capRecipient)), capacity, "B's bucket is untouched");
+        _assertFloatEq(orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), ZERO, "A's bucket is spent");
+        _assertFloatEq(
+            orchestrator.mintHeadroom(MINTER_B, address(capRecipient)), _f(capacity), "B's bucket is untouched"
+        );
 
         _capMint(orchestrator, MINTER_B, TOKEN, capacity, keccak256("b-full"));
     }
@@ -1712,14 +1763,18 @@ contract ST0xOrchestratorTest is Test {
         uint256 capacity = 10e18;
         _grantMintOn(orchestrator, MINTER_A);
         vm.startPrank(OWNER);
-        orchestrator.setRecipientMintLimit(address(capRecipient), capacity, 0);
-        orchestrator.setRecipientMintLimit(address(capRecipient2), capacity, 0);
+        orchestrator.setRecipientMintLimit(address(capRecipient), _f(capacity), NO_LEAK);
+        orchestrator.setRecipientMintLimit(address(capRecipient2), _f(capacity), NO_LEAK);
         vm.stopPrank();
 
         _capMint(orchestrator, MINTER_A, TOKEN, capacity, keccak256("recipient-drain"));
-        assertEq(orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), 0, "capRecipient's bucket is spent");
-        assertEq(
-            orchestrator.mintHeadroom(MINTER_A, address(capRecipient2)), capacity, "capRecipient2's bucket is untouched"
+        _assertFloatEq(
+            orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), ZERO, "capRecipient's bucket is spent"
+        );
+        _assertFloatEq(
+            orchestrator.mintHeadroom(MINTER_A, address(capRecipient2)),
+            _f(capacity),
+            "capRecipient2's bucket is untouched"
         );
 
         _capMintTo(orchestrator, MINTER_A, TOKEN, address(capRecipient2), capacity, keccak256("recipient2-full"));
@@ -1732,16 +1787,17 @@ contract ST0xOrchestratorTest is Test {
     function testRecipientBucketSumsAmountsAcrossTokens() external {
         _grantMintOn(orchestrator, MINTER_A);
         vm.prank(OWNER);
-        orchestrator.setRecipientMintLimit(address(capRecipient), 10e18, 0);
+        orchestrator.setRecipientMintLimit(address(capRecipient), _f(10e18), NO_LEAK);
 
         _capMint(orchestrator, MINTER_A, TOKEN, 6e18, keccak256("recipient-token"));
         _capMint(orchestrator, MINTER_A, TOKEN2, 4e18, keccak256("recipient-token2"));
-        assertEq(orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), 0, "the recipient bucket is spent");
+        Float headroom = orchestrator.mintHeadroom(MINTER_A, address(capRecipient));
+        _assertFloatEq(headroom, ZERO, "the recipient bucket is spent");
 
         _mockCapMint(orchestrator, TOKEN, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), 10e18, 0, 1
+                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), _f(10e18), headroom, _f(1)
             )
         );
         vm.prank(MINTER_A);
@@ -1750,7 +1806,7 @@ contract ST0xOrchestratorTest is Test {
         _mockCapMint(orchestrator, TOKEN2, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), 10e18, 0, 1
+                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), _f(10e18), headroom, _f(1)
             )
         );
         vm.prank(MINTER_A);
@@ -1765,17 +1821,23 @@ contract ST0xOrchestratorTest is Test {
         _grantMintOn(orchestrator, MINTER_A);
         _grantMintOn(orchestrator, MINTER_B);
         vm.prank(OWNER);
-        orchestrator.setRecipientMintLimit(address(capRecipient), 10e18, 0);
+        orchestrator.setRecipientMintLimit(address(capRecipient), _f(10e18), NO_LEAK);
 
         _capMint(orchestrator, MINTER_A, TOKEN, 6e18, keccak256("recipient-minter-a"));
         _capMint(orchestrator, MINTER_B, TOKEN, 4e18, keccak256("recipient-minter-b"));
-        assertEq(orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), 0, "spent for A");
-        assertEq(orchestrator.mintHeadroom(MINTER_B, address(capRecipient)), 0, "spent for B");
+        Float headroomA = orchestrator.mintHeadroom(MINTER_A, address(capRecipient));
+        Float headroomB = orchestrator.mintHeadroom(MINTER_B, address(capRecipient));
+        _assertFloatEq(headroomA, ZERO, "spent for A");
+        _assertFloatEq(headroomB, ZERO, "spent for B");
 
         _mockCapMint(orchestrator, TOKEN, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), 10e18, 0, 1
+                IST0xOrchestratorV1.RecipientMintCapExceeded.selector,
+                address(capRecipient),
+                _f(10e18),
+                headroomA,
+                _f(1)
             )
         );
         vm.prank(MINTER_A);
@@ -1784,7 +1846,11 @@ contract ST0xOrchestratorTest is Test {
         _mockCapMint(orchestrator, TOKEN, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), 10e18, 0, 1
+                IST0xOrchestratorV1.RecipientMintCapExceeded.selector,
+                address(capRecipient),
+                _f(10e18),
+                headroomB,
+                _f(1)
             )
         );
         vm.prank(MINTER_B);
@@ -1801,34 +1867,35 @@ contract ST0xOrchestratorTest is Test {
         _grantMintOn(orchestrator, MINTER_B);
         // setUp leaves capRecipient unbounded; only A's global is narrowed.
         vm.prank(OWNER);
-        orchestrator.setMinterGlobalMintLimit(MINTER_A, globalCapacity, 0);
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, _f(globalCapacity), NO_LEAK);
 
         _capMint(orchestrator, MINTER_A, TOKEN, globalCapacity, keccak256("global-drain"));
 
-        assertEq(
+        _assertFloatEq(
             orchestrator.recipientMintLimit(address(capRecipient)).capacity,
             UNBOUNDED_CAPACITY,
             "the recipient's capacity is unbounded"
         );
-        assertEq(orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), 0, "A's global bucket floors A's headroom");
+        Float headroom = orchestrator.mintHeadroom(MINTER_A, address(capRecipient));
+        _assertFloatEq(headroom, ZERO, "A's global bucket floors A's headroom");
         // B's global bucket is B's own: to a recipient A never minted to, B
         // still has the whole unbounded capacity. (To capRecipient it has
         // less, but that is capRecipient's bucket, which A did spend from.)
-        assertEq(
+        _assertFloatEq(
             orchestrator.mintHeadroom(MINTER_B, address(capRecipient2)),
             UNBOUNDED_CAPACITY,
             "B's global bucket is B's own"
         );
-        assertEq(
+        _assertFloatEq(
             orchestrator.mintHeadroom(MINTER_B, address(capRecipient)),
-            UNBOUNDED_CAPACITY - globalCapacity,
+            UNBOUNDED_CAPACITY.sub(_f(globalCapacity)),
             "what B lacks at capRecipient is the recipient's bucket, not B's"
         );
 
         _mockCapMint(orchestrator, TOKEN, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.MinterGlobalMintCapExceeded.selector, MINTER_A, globalCapacity, 0, 1
+                IST0xOrchestratorV1.MinterGlobalMintCapExceeded.selector, MINTER_A, _f(globalCapacity), headroom, _f(1)
             )
         );
         vm.prank(MINTER_A);
@@ -1843,23 +1910,24 @@ contract ST0xOrchestratorTest is Test {
         uint256 leakRate = 1e18;
         _grantMintOn(orchestrator, MINTER_A);
         vm.prank(OWNER);
-        orchestrator.setRecipientMintLimit(address(capRecipient), capacity, leakRate);
+        orchestrator.setRecipientMintLimit(address(capRecipient), _f(capacity), _f(leakRate));
 
         _capMint(orchestrator, MINTER_A, TOKEN, capacity, keccak256("drain"));
-        assertEq(orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), 0, "spent at the filling second");
+        _assertFloatEq(orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), ZERO, "spent at the filling second");
 
         vm.warp(block.timestamp + 4);
         uint256 leaked = 4 * leakRate;
-        assertEq(orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), leaked, "four seconds of leak");
+        Float headroom = orchestrator.mintHeadroom(MINTER_A, address(capRecipient));
+        _assertFloatEq(headroom, _f(leaked), "four seconds of leak");
 
         _mockCapMint(orchestrator, TOKEN, leaked + 1);
         vm.expectRevert(
             abi.encodeWithSelector(
                 IST0xOrchestratorV1.RecipientMintCapExceeded.selector,
                 address(capRecipient),
-                capacity,
-                leaked,
-                leaked + 1
+                _f(capacity),
+                headroom,
+                _f(leaked + 1)
             )
         );
         vm.prank(MINTER_A);
@@ -1875,25 +1943,55 @@ contract ST0xOrchestratorTest is Test {
         uint256 leakRate = 1e18;
         _grantMintOn(orchestrator, MINTER_A);
         vm.prank(OWNER);
-        orchestrator.setMinterGlobalMintLimit(MINTER_A, globalCapacity, leakRate);
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, _f(globalCapacity), _f(leakRate));
 
         _capMint(orchestrator, MINTER_A, TOKEN, globalCapacity, keccak256("global-drain"));
-        assertEq(orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), 0, "global spent at the filling second");
+        _assertFloatEq(
+            orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), ZERO, "global spent at the filling second"
+        );
 
         vm.warp(block.timestamp + 3);
         uint256 leaked = 3 * leakRate;
-        assertEq(orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), leaked, "three seconds of global leak");
+        Float headroom = orchestrator.mintHeadroom(MINTER_A, address(capRecipient));
+        _assertFloatEq(headroom, _f(leaked), "three seconds of global leak");
 
         _mockCapMint(orchestrator, TOKEN, leaked + 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.MinterGlobalMintCapExceeded.selector, MINTER_A, globalCapacity, leaked, leaked + 1
+                IST0xOrchestratorV1.MinterGlobalMintCapExceeded.selector,
+                MINTER_A,
+                _f(globalCapacity),
+                headroom,
+                _f(leaked + 1)
             )
         );
         vm.prank(MINTER_A);
         orchestrator.mint(TOKEN, address(capRecipient), leaked + 1, _auth("", keccak256("global-too-soon")), "");
 
         _capMint(orchestrator, MINTER_A, TOKEN, leaked, keccak256("global-after-leak"));
+    }
+
+    /// A bucket is two words and a fill writes both. Filling at a clock far
+    /// from the epoch and reading one second later must credit ONE second of
+    /// leak: a level stored without its checkpoint would be leaked forward
+    /// from the epoch instead, refunding the whole burst at once.
+    function testMintStoresTheCheckpointWithTheLevel() external {
+        uint256 capacity = 10e18;
+        uint256 leakRate = 1e18;
+        _grantMintOn(orchestrator, MINTER_A);
+        vm.prank(OWNER);
+        orchestrator.setRecipientMintLimit(address(capRecipient), _f(capacity), _f(leakRate));
+
+        vm.warp(1_000_000);
+        _capMint(orchestrator, MINTER_A, TOKEN, capacity, keccak256("late-fill"));
+        _assertFloatEq(orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), ZERO, "spent at the filling second");
+
+        vm.warp(1_000_001);
+        _assertFloatEq(
+            orchestrator.mintHeadroom(MINTER_A, address(capRecipient)),
+            _f(leakRate),
+            "one second of leak, not a million"
+        );
     }
 
     /// Idling banks no credit: however long a bucket sits untouched, the most
@@ -1904,21 +2002,22 @@ contract ST0xOrchestratorTest is Test {
         uint256 leakRate = 1e18;
         _grantMintOn(orchestrator, MINTER_A);
         vm.prank(OWNER);
-        orchestrator.setRecipientMintLimit(address(capRecipient), capacity, leakRate);
+        orchestrator.setRecipientMintLimit(address(capRecipient), _f(capacity), _f(leakRate));
 
         // A million seconds at one token per second is 1e6 tokens of leak,
         // five orders of magnitude above the capacity.
         vm.warp(block.timestamp + 1_000_000);
-        assertEq(orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), capacity, "idling cannot enlarge a burst");
+        Float headroom = orchestrator.mintHeadroom(MINTER_A, address(capRecipient));
+        _assertFloatEq(headroom, _f(capacity), "idling cannot enlarge a burst");
 
         _mockCapMint(orchestrator, TOKEN, capacity + 1);
         vm.expectRevert(
             abi.encodeWithSelector(
                 IST0xOrchestratorV1.RecipientMintCapExceeded.selector,
                 address(capRecipient),
-                capacity,
-                capacity,
-                capacity + 1
+                _f(capacity),
+                headroom,
+                _f(capacity + 1)
             )
         );
         vm.prank(MINTER_A);
@@ -1931,17 +2030,19 @@ contract ST0xOrchestratorTest is Test {
     function testSetRecipientMintLimitKeepsBucketLevel() external {
         _grantMintOn(orchestrator, MINTER_A);
         vm.prank(OWNER);
-        orchestrator.setRecipientMintLimit(address(capRecipient), 6e18, 0);
+        orchestrator.setRecipientMintLimit(address(capRecipient), _f(6e18), NO_LEAK);
 
         _capMint(orchestrator, MINTER_A, TOKEN, 6e18, keccak256("under-first-limit"));
-        assertEq(orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), 0, "spent under the first limit");
+        _assertFloatEq(orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), ZERO, "spent under the first limit");
 
         vm.prank(OWNER);
-        orchestrator.setRecipientMintLimit(address(capRecipient), 10e18, 0);
+        orchestrator.setRecipientMintLimit(address(capRecipient), _f(10e18), NO_LEAK);
 
         // The level is still 6e18, so the 10e18 limit leaves 4e18, not 10e18.
-        assertEq(
-            orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), 4e18, "the consumed level survives the rewrite"
+        _assertFloatEq(
+            orchestrator.mintHeadroom(MINTER_A, address(capRecipient)),
+            _f(4e18),
+            "the consumed level survives the rewrite"
         );
     }
 
@@ -1951,21 +2052,18 @@ contract ST0xOrchestratorTest is Test {
     function testLoweringRecipientCapacityBelowLevelBindsImmediately() external {
         _grantMintOn(orchestrator, MINTER_A);
         vm.prank(OWNER);
-        orchestrator.setRecipientMintLimit(address(capRecipient), 10e18, 0);
+        orchestrator.setRecipientMintLimit(address(capRecipient), _f(10e18), NO_LEAK);
         _capMint(orchestrator, MINTER_A, TOKEN, 8e18, keccak256("before-lowering"));
 
         vm.prank(OWNER);
-        orchestrator.setRecipientMintLimit(address(capRecipient), 2e18, 0);
+        orchestrator.setRecipientMintLimit(address(capRecipient), _f(2e18), NO_LEAK);
 
-        assertEq(
-            orchestrator.mintHeadroom(MINTER_A, address(capRecipient)),
-            0,
-            "a level above the new capacity leaves no headroom"
-        );
+        Float headroom = orchestrator.mintHeadroom(MINTER_A, address(capRecipient));
+        _assertFloatEq(headroom, ZERO, "a level above the new capacity leaves no headroom");
         _mockCapMint(orchestrator, TOKEN, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), 2e18, 0, 1
+                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), _f(2e18), headroom, _f(1)
             )
         );
         vm.prank(MINTER_A);
@@ -1976,30 +2074,94 @@ contract ST0xOrchestratorTest is Test {
     function testLoweringGlobalCapacityBelowLevelBindsImmediately() external {
         _grantMintOn(orchestrator, MINTER_A);
         vm.prank(OWNER);
-        orchestrator.setMinterGlobalMintLimit(MINTER_A, 10e18, 0);
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, _f(10e18), NO_LEAK);
         _capMint(orchestrator, MINTER_A, TOKEN, 8e18, keccak256("before-lowering"));
 
         vm.prank(OWNER);
-        orchestrator.setMinterGlobalMintLimit(MINTER_A, 2e18, 0);
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, _f(2e18), NO_LEAK);
 
-        assertEq(
-            orchestrator.mintHeadroom(MINTER_A, address(capRecipient)),
-            0,
-            "a level above the new capacity leaves no headroom"
-        );
+        Float headroom = orchestrator.mintHeadroom(MINTER_A, address(capRecipient));
+        _assertFloatEq(headroom, ZERO, "a level above the new capacity leaves no headroom");
         _mockCapMint(orchestrator, TOKEN, 1);
         vm.expectRevert(
-            abi.encodeWithSelector(IST0xOrchestratorV1.MinterGlobalMintCapExceeded.selector, MINTER_A, 2e18, 0, 1)
+            abi.encodeWithSelector(
+                IST0xOrchestratorV1.MinterGlobalMintCapExceeded.selector, MINTER_A, _f(2e18), headroom, _f(1)
+            )
         );
         vm.prank(MINTER_A);
         orchestrator.mint(TOKEN, address(capRecipient), 1, _auth("", keccak256("after-lowering")), "");
+    }
+
+    /// A `Float` capacity has no ceiling the bucket cannot enforce. `1e60` is
+    /// a level the old packed word could not have held at all; it fills to
+    /// the last unit and refuses the unit after it, in both buckets.
+    function testMintCapacityBeyondTheOldWordIsEnforcedToTheUnit() external {
+        uint256 capacity = 1e60;
+        _grantMintOn(orchestrator, MINTER_A);
+        vm.startPrank(OWNER);
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, _f(capacity), NO_LEAK);
+        orchestrator.setRecipientMintLimit(address(capRecipient), _f(capacity), NO_LEAK);
+        vm.stopPrank();
+
+        _capMint(orchestrator, MINTER_A, TOKEN, capacity, keccak256("to-the-brim"));
+        Float headroom = orchestrator.mintHeadroom(MINTER_A, address(capRecipient));
+        _assertFloatEq(headroom, ZERO, "full to the unit");
+
+        _mockCapMint(orchestrator, TOKEN, 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IST0xOrchestratorV1.MinterGlobalMintCapExceeded.selector, MINTER_A, _f(capacity), headroom, _f(1)
+            )
+        );
+        vm.prank(MINTER_A);
+        orchestrator.mint(TOKEN, address(capRecipient), 1, _auth("", keccak256("one-over")), "");
+    }
+
+    /// A negative capacity is not a stricter policy — no fill could ever fit
+    /// it — so the bucket library refuses it by name rather than reading it as
+    /// zero. The setter stores it as given; the refusal comes from the read
+    /// (`mintHeadroom`) and from the fill (`mint`) alike, so a policy written
+    /// negative fails closed at the first use. Here on the recipient bucket.
+    function testNegativeCapacityIsRefusedByTheBucket() external {
+        Float negative = _f(-1, 18);
+        _grantMintOn(orchestrator, MINTER_A);
+        vm.prank(OWNER);
+        orchestrator.setRecipientMintLimit(address(capRecipient), negative, NO_LEAK);
+        _assertFloatEq(orchestrator.recipientMintLimit(address(capRecipient)).capacity, negative, "stored as given");
+
+        vm.expectRevert(abi.encodeWithSelector(LeakyBucketNegativeCapacity.selector, negative));
+        orchestrator.mintHeadroom(MINTER_A, address(capRecipient));
+
+        _mockCapMint(orchestrator, TOKEN, 1);
+        vm.expectRevert(abi.encodeWithSelector(LeakyBucketNegativeCapacity.selector, negative));
+        vm.prank(MINTER_A);
+        orchestrator.mint(TOKEN, address(capRecipient), 1, _auth("", keccak256("negative-capacity")), "");
+    }
+
+    /// A negative leak rate would fill the bucket as time passed, the opposite
+    /// of a leak, and is refused the same way — here on the global bucket, so
+    /// both buckets are shown to carry the library's domain check.
+    function testNegativeLeakRateIsRefusedByTheBucket() external {
+        Float negative = _f(-1, 0);
+        _grantMintOn(orchestrator, MINTER_A);
+        vm.prank(OWNER);
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, _f(10e18), negative);
+        _assertFloatEq(orchestrator.minterGlobalMintLimit(MINTER_A).leakRate, negative, "stored as given");
+
+        vm.expectRevert(abi.encodeWithSelector(LeakyBucketNegativeLeakRate.selector, negative));
+        orchestrator.mintHeadroom(MINTER_A, address(capRecipient));
+
+        _mockCapMint(orchestrator, TOKEN, 1);
+        vm.expectRevert(abi.encodeWithSelector(LeakyBucketNegativeLeakRate.selector, negative));
+        vm.prank(MINTER_A);
+        orchestrator.mint(TOKEN, address(capRecipient), 1, _auth("", keccak256("negative-leak")), "");
     }
 
     // ------------------------------------------------------------------ //
     //                        Mint-cap setters                            //
     // ------------------------------------------------------------------ //
 
-    function testFuzzSetMinterGlobalMintLimitUnauthorized(address caller, uint256 capacity, uint256 leakRate) external {
+    function testFuzzSetMinterGlobalMintLimitUnauthorized(address caller, bytes32 capacity, bytes32 leakRate) external {
         vm.assume(!orchestrator.hasRole(orchestrator.MINT_ADMIN_ROLE(), caller));
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -2007,14 +2169,14 @@ contract ST0xOrchestratorTest is Test {
             )
         );
         vm.prank(caller);
-        orchestrator.setMinterGlobalMintLimit(MINTER_A, capacity, leakRate);
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, Float.wrap(capacity), Float.wrap(leakRate));
     }
 
     function testFuzzSetRecipientMintLimitUnauthorized(
         address caller,
         address recipient,
-        uint256 capacity,
-        uint256 leakRate
+        bytes32 capacity,
+        bytes32 leakRate
     ) external {
         vm.assume(!orchestrator.hasRole(orchestrator.MINT_ADMIN_ROLE(), caller));
         vm.expectRevert(
@@ -2023,7 +2185,7 @@ contract ST0xOrchestratorTest is Test {
             )
         );
         vm.prank(caller);
-        orchestrator.setRecipientMintLimit(recipient, capacity, leakRate);
+        orchestrator.setRecipientMintLimit(recipient, Float.wrap(capacity), Float.wrap(leakRate));
     }
 
     /// `MINT_ROLE` is not `MINT_ADMIN_ROLE`: the key the caps exist to bound
@@ -2036,7 +2198,7 @@ contract ST0xOrchestratorTest is Test {
             )
         );
         vm.prank(MINTER_A);
-        orchestrator.setMinterGlobalMintLimit(MINTER_A, type(uint128).max, 0);
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, UNBOUNDED_CAPACITY, NO_LEAK);
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -2044,11 +2206,16 @@ contract ST0xOrchestratorTest is Test {
             )
         );
         vm.prank(MINTER_A);
-        orchestrator.setRecipientMintLimit(address(capRecipient), type(uint128).max, 0);
+        orchestrator.setRecipientMintLimit(address(capRecipient), UNBOUNDED_CAPACITY, NO_LEAK);
     }
 
-    function testFuzzSetMinterGlobalMintLimitEmitsAndReads(uint256 capacity, uint256 leakRate) external {
-        capacity = bound(capacity, 0, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX);
+    /// The setters store the words they are given, whatever they spell: any
+    /// `Float`, of any sign, magnitude or scale, reads back and is emitted
+    /// bit for bit. There is no magnitude to refuse, and the sign is the
+    /// bucket's to refuse, at the read and the fill, not the setter's.
+    function testFuzzSetMinterGlobalMintLimitEmitsAndReads(bytes32 capacityWord, bytes32 leakRateWord) external {
+        Float capacity = Float.wrap(capacityWord);
+        Float leakRate = Float.wrap(leakRateWord);
         vm.expectEmit(true, true, true, true, address(orchestrator));
         emit IST0xOrchestratorV1.MinterGlobalMintLimitSet(MINTER_A, capacity, leakRate);
         vm.prank(OWNER);
@@ -2056,14 +2223,15 @@ contract ST0xOrchestratorTest is Test {
 
         MintLimitV1 memory limit = orchestrator.minterGlobalMintLimit(MINTER_A);
         assertTrue(limit.set, "global limit reads back as set");
-        assertEq(limit.capacity, capacity, "global capacity");
-        assertEq(limit.leakRate, leakRate, "global leak rate");
+        assertEq(Float.unwrap(limit.capacity), capacityWord, "global capacity");
+        assertEq(Float.unwrap(limit.leakRate), leakRateWord, "global leak rate");
     }
 
-    function testFuzzSetRecipientMintLimitEmitsAndReads(address recipient, uint256 capacity, uint256 leakRate)
+    function testFuzzSetRecipientMintLimitEmitsAndReads(address recipient, bytes32 capacityWord, bytes32 leakRateWord)
         external
     {
-        capacity = bound(capacity, 0, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX);
+        Float capacity = Float.wrap(capacityWord);
+        Float leakRate = Float.wrap(leakRateWord);
         vm.expectEmit(true, true, true, true, address(orchestrator));
         emit IST0xOrchestratorV1.RecipientMintLimitSet(recipient, capacity, leakRate);
         vm.prank(OWNER);
@@ -2071,23 +2239,30 @@ contract ST0xOrchestratorTest is Test {
 
         MintLimitV1 memory limit = orchestrator.recipientMintLimit(recipient);
         assertTrue(limit.set, "recipient limit reads back as set");
-        assertEq(limit.capacity, capacity, "recipient capacity");
-        assertEq(limit.leakRate, leakRate, "recipient leak rate");
+        assertEq(Float.unwrap(limit.capacity), capacityWord, "recipient capacity");
+        assertEq(Float.unwrap(limit.leakRate), leakRateWord, "recipient leak rate");
     }
 
-    /// A capacity the packed bucket codec cannot enforce is refused where it
-    /// is WRITTEN, on both setters, rather than surfacing later as a mint
-    /// that can never succeed.
-    function testFuzzSetMintLimitCapacityOverflowReverts(uint256 capacity) external {
-        capacity = bound(capacity, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX + 1, type(uint256).max);
+    /// Every non-negative capacity is a policy the bucket enforces, whatever
+    /// its magnitude and scale: a fresh bucket under it offers exactly that
+    /// capacity as headroom. The old codec refused a capacity above its level
+    /// field at the setter; there is no such ceiling to refuse now.
+    function testFuzzAnyNonNegativeCapacityIsEnforceable(int224 coefficient, int32 exponent) external {
+        coefficient = int224(bound(int256(coefficient), 0, type(int224).max));
+        exponent = int32(bound(int256(exponent), -1000, 1000));
+        Float capacity = _f(coefficient, exponent);
 
-        vm.expectRevert(abi.encodeWithSelector(LeakyBucketCapacityOverflow.selector, capacity));
-        vm.prank(OWNER);
-        orchestrator.setMinterGlobalMintLimit(MINTER_A, capacity, 0);
+        // Both buckets, so the headroom is this capacity and not the floor
+        // of setUp's `UNBOUNDED_CAPACITY` on the other once the fuzz goes
+        // past it.
+        vm.startPrank(OWNER);
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, capacity, NO_LEAK);
+        orchestrator.setRecipientMintLimit(address(capRecipient), capacity, NO_LEAK);
+        vm.stopPrank();
 
-        vm.expectRevert(abi.encodeWithSelector(LeakyBucketCapacityOverflow.selector, capacity));
-        vm.prank(OWNER);
-        orchestrator.setRecipientMintLimit(address(capRecipient), capacity, 0);
+        _assertFloatEq(
+            orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), capacity, "a fresh bucket offers one capacity"
+        );
     }
 
     // ------------------------------------------------------------------ //
@@ -2108,17 +2283,19 @@ contract ST0xOrchestratorTest is Test {
 
         _grantMintOn(orchestrator, MINTER_A);
         vm.startPrank(OWNER);
-        orchestrator.setMinterGlobalMintLimit(MINTER_A, 100e18, 0);
-        orchestrator.setRecipientMintLimit(address(capRecipient), 100e18, 0);
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, _f(100e18), NO_LEAK);
+        orchestrator.setRecipientMintLimit(address(capRecipient), _f(100e18), NO_LEAK);
         vm.stopPrank();
 
-        assertEq(
+        _assertFloatEq(
             orchestrator.mintHeadroom(MINTER_A, address(capRecipient)),
-            100e18,
+            _f(100e18),
             "the headroom is answered from storage alone"
         );
         _capMint(orchestrator, MINTER_A, TOKEN, 100e18, keccak256("mute-token"));
-        assertEq(orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), 0, "the mint was metered as passed");
+        _assertFloatEq(
+            orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), ZERO, "the mint was metered as passed"
+        );
     }
 
     /// The global bucket is a plain sum of amounts across tokens: `100e18` of
@@ -2127,15 +2304,18 @@ contract ST0xOrchestratorTest is Test {
     function testGlobalBucketSumsAmountsAcrossTokens() external {
         _grantMintOn(orchestrator, MINTER_A);
         vm.prank(OWNER);
-        orchestrator.setMinterGlobalMintLimit(MINTER_A, 200e18, 0);
+        orchestrator.setMinterGlobalMintLimit(MINTER_A, _f(200e18), NO_LEAK);
 
         _capMint(orchestrator, MINTER_A, TOKEN, 100e18, keccak256("global-token"));
         _capMint(orchestrator, MINTER_A, TOKEN2, 100e18, keccak256("global-token2"));
-        assertEq(orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), 0, "the global bucket is spent");
+        Float headroom = orchestrator.mintHeadroom(MINTER_A, address(capRecipient));
+        _assertFloatEq(headroom, ZERO, "the global bucket is spent");
 
         _mockCapMint(orchestrator, TOKEN2, 1);
         vm.expectRevert(
-            abi.encodeWithSelector(IST0xOrchestratorV1.MinterGlobalMintCapExceeded.selector, MINTER_A, 200e18, 0, 1)
+            abi.encodeWithSelector(
+                IST0xOrchestratorV1.MinterGlobalMintCapExceeded.selector, MINTER_A, _f(200e18), headroom, _f(1)
+            )
         );
         vm.prank(MINTER_A);
         orchestrator.mint(TOKEN2, address(capRecipient), 1, _auth("", keccak256("global-full")), "");
@@ -2150,14 +2330,18 @@ contract ST0xOrchestratorTest is Test {
         assertFalse(fresh.minterGlobalMintLimit(MINTER_A).set, "never set");
 
         vm.startPrank(OWNER);
-        fresh.setMinterGlobalMintLimit(MINTER_A, 0, 0);
-        fresh.setRecipientMintLimit(address(capRecipient), 100e18, 0);
+        fresh.setMinterGlobalMintLimit(MINTER_A, ZERO, NO_LEAK);
+        fresh.setRecipientMintLimit(address(capRecipient), _f(100e18), NO_LEAK);
         vm.stopPrank();
         assertTrue(fresh.minterGlobalMintLimit(MINTER_A).set, "a deliberate zero reads back as SET");
 
+        Float headroom = fresh.mintHeadroom(MINTER_A, address(capRecipient));
+        _assertFloatEq(headroom, ZERO, "a zero capacity offers nothing");
         _mockCapMint(fresh, TOKEN, 1);
         vm.expectRevert(
-            abi.encodeWithSelector(IST0xOrchestratorV1.MinterGlobalMintCapExceeded.selector, MINTER_A, 0, 0, 1)
+            abi.encodeWithSelector(
+                IST0xOrchestratorV1.MinterGlobalMintCapExceeded.selector, MINTER_A, ZERO, headroom, _f(1)
+            )
         );
         vm.prank(MINTER_A);
         fresh.mint(TOKEN, address(capRecipient), 1, _auth("", keccak256("zero-global")), "");
@@ -2172,15 +2356,17 @@ contract ST0xOrchestratorTest is Test {
         assertFalse(fresh.recipientMintLimit(address(capRecipient)).set, "never set");
 
         vm.startPrank(OWNER);
-        fresh.setMinterGlobalMintLimit(MINTER_A, 100e18, 0);
-        fresh.setRecipientMintLimit(address(capRecipient), 0, 0);
+        fresh.setMinterGlobalMintLimit(MINTER_A, _f(100e18), NO_LEAK);
+        fresh.setRecipientMintLimit(address(capRecipient), ZERO, NO_LEAK);
         vm.stopPrank();
         assertTrue(fresh.recipientMintLimit(address(capRecipient)).set, "a deliberate zero reads back as SET");
 
+        Float headroom = fresh.mintHeadroom(MINTER_A, address(capRecipient));
+        _assertFloatEq(headroom, ZERO, "a zero capacity offers nothing");
         _mockCapMint(fresh, TOKEN, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), 0, 0, 1
+                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), ZERO, headroom, _f(1)
             )
         );
         vm.prank(MINTER_A);
