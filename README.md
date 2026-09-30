@@ -96,6 +96,31 @@ is delegatecalled by the vault. Key design choices:
 See `ICorporateActionsV1` NatSpec for the full external API and integrator
 guidance, and `docs/GLOSSARY.md` for domain terms.
 
+### Mint weighting
+
+`ST0xOrchestrator` charges its mint-cap buckets with the value a Rainlang
+weighting puts on each mint, evaluated over the minter's signed price
+attestations (`SPEC.md` of `st0x.attest`, sections 2 and 4). The production
+weighting is `src/rain/mint-weighting.rain`, a dotrain source whose elided
+bindings are the per-deployment configuration: the `St0xAttestSubParser`
+address, the lead signer, the operator allowlist, the tolerances and the price
+bounds. The vault-symbol-to-ticker mapping (`tMSTR` to `MSTR`) is written into
+the expression as defaults.
+
+Compose it with every binding given, parse the output with the chain's Rainlang
+deployer and install the result with `setMintWeighting`:
+
+```
+rain dotrain compose -i src/rain/mint-weighting.rain -e weighting \
+  -b st0x-attest-subparser=0x… -b lead-signer=0x… \
+  -b operator-1=0x… … -b operator-6=0x… \
+  -b max-deviation=0.01 -b max-time-spread=600 -b min-price=… -b max-price=…
+```
+
+`test/src/rain/MintWeighting.t.sol` composes the same file with the same
+substitution and runs it through `mint`, so the checks in the file are the
+checks the tests show refusing.
+
 ## Operational scripts
 
 Scripts under `script/` that produce off-chain artifacts (Safe Tx Builder JSON,

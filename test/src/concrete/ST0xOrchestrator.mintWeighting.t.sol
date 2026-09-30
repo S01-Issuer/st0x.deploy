@@ -3,12 +3,6 @@
 pragma solidity =0.8.25;
 
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
-import {IERC20} from "@openzeppelin-contracts-5.6.1/token/ERC20/IERC20.sol";
-import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensions/IERC20Metadata.sol";
-import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
-import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
-import {BeaconProxy} from "@openzeppelin-contracts-5.6.1/proxy/beacon/BeaconProxy.sol";
-import {ReceiptVault} from "rain-vats-0.2.1/src/abstract/ReceiptVault.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
 import {LeakyBucketZeroAmount, LeakyBucketNegativeAmount} from "rain-lib-leakybucket-0.4.1/src/lib/LibLeakyBucket.sol";
 import {
@@ -20,218 +14,25 @@ import {StateNamespace} from "rainlang-interface-0.2.9/src/interface/IInterprete
 import {LibNamespace} from "rainlang-interface-0.2.9/src/lib/ns/LibNamespace.sol";
 import {InvalidSignature} from "rainlang-interface-0.2.9/src/lib/caller/LibContext.sol";
 
-import {ST0xOrchestrator} from "src/concrete/ST0xOrchestrator.sol";
 import {IST0xOrchestratorV1, MintAuthV1, Digest} from "src/interface/IST0xOrchestratorV1.sol";
-import {IST0xVaultBeaconSet} from "src/interface/IST0xVaultBeaconSet.sol";
-import {LibProdDeployV4} from "src/generated/LibProdDeployV4.sol";
 import {LibSt0xAttestContext} from "src/lib/LibSt0xAttestContext.sol";
-import {St0xAttestSubParserTest} from "test/src/concrete/St0xAttestSubParserTest.sol";
-import {MockMintRecipient} from "test/src/concrete/MockMintRecipient.sol";
+import {ST0xOrchestratorMintWeightingFixture} from "test/src/concrete/ST0xOrchestratorMintWeightingFixture.sol";
 
 /// @title ST0xOrchestratorMintWeightingTest
 /// @notice SPEC.md item 26: the value the Rainlang weighting produces is what
 /// fills the mint-cap buckets, in place of the raw token amount. Every mint
 /// here goes through the test Rainlang `St0xAttestSubParserTest` binds, with
-/// the attest subparser beside it, over a token mocked as `tAAPL` with 18
-/// decimals — so `mint-amount()` is the amount in WHOLE tokens and a mint of
-/// `2e18` units with a lead price of `150` is worth `300`, not `2e18`.
-/// Everything vault-side is mocked, as in `ST0xOrchestrator.t.sol`; the
-/// orchestrator is a real proxy.
-contract ST0xOrchestratorMintWeightingTest is St0xAttestSubParserTest {
+/// the attest subparser beside it, over the token
+/// `ST0xOrchestratorMintWeightingFixture` mocks as `tAAPL`.
+contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     using LibDecimalFloat for Float;
 
-    /// The mocked vault ("token") and its receipt.
-    address internal constant TOKEN = address(0xA11E);
-    address internal constant RECEIPT_ADDR = address(0xEEC1);
-
-    /// The one `MINT_ROLE` holder, and the admin `initialize` hands
-    /// `MINT_ADMIN_ROLE` to.
-    address internal constant MINTER = address(0x111A);
-    address internal constant OWNER = address(0x0FFCE);
-
-    /// The vault-version guard reads these fixed production addresses.
-    address internal constant DEPLOYER =
-        LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE;
-    address internal constant VAULT_BEACON = address(0xBEAC04);
-    address internal constant RECEIPT_BEACON = address(0xBEAC12);
-
-    /// What the token answers `symbol()` and `decimals()` with.
+    /// What the token answers `symbol()` with.
     string internal constant TOKEN_SYMBOL = "tAAPL";
-    uint8 internal constant TOKEN_DECIMALS = 18;
 
-    /// The canonical mint: two whole tokens at a lead price of 150 is a
-    /// value of 300.
-    uint256 internal constant AMOUNT = 2e18;
-    int256 internal constant PRICE = 150;
-    int256 internal constant VALUE = 300;
-
-    /// The canonical weighting: the mint's value at the lead's price.
-    string internal constant PRICED = "_: mul(mint-amount() lead-price());";
-
-    /// A capacity the value fits and the raw amount does not.
-    Float internal immutable CAPACITY = LibDecimalFloat.packLossless(1000, 0);
-
-    /// A capacity nothing here comes near.
-    Float internal immutable UNBOUNDED_CAPACITY = LibDecimalFloat.packLossless(1, 60);
-
-    Float internal constant NO_LEAK = LibDecimalFloat.FLOAT_ZERO;
-
-    ST0xOrchestrator internal orchestrator;
-    MockMintRecipient internal recipient;
-
-    function setUp() public {
-        recipient = new MockMintRecipient(true);
-        _makeGuardPass();
-        ST0xOrchestrator impl = new ST0xOrchestrator();
-        UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        BeaconProxy proxy = new BeaconProxy(address(beacon), abi.encodeCall(ST0xOrchestrator.initialize, (OWNER)));
-        orchestrator = ST0xOrchestrator(payable(address(proxy)));
-
-        vm.mockCall(TOKEN, abi.encodeWithSelector(ReceiptVault.receipt.selector), abi.encode(RECEIPT_ADDR));
-        vm.mockCall(TOKEN, abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode(TOKEN_SYMBOL));
-        vm.mockCall(TOKEN, abi.encodeWithSelector(IERC20Metadata.decimals.selector), abi.encode(TOKEN_DECIMALS));
-        vm.mockCall(TOKEN, abi.encodeWithSelector(IERC20.transfer.selector), abi.encode(true));
-
-        bytes32 mintRole = orchestrator.MINT_ROLE();
-        vm.prank(OWNER);
-        orchestrator.grantRole(mintRole, MINTER);
-    }
-
-    // ------------------------------------------------------------------ //
-    //                              Helpers                               //
-    // ------------------------------------------------------------------ //
-
-    /// Make the vault-logic version guard PASS.
-    function _makeGuardPass() internal {
-        vm.mockCall(
-            DEPLOYER,
-            abi.encodeWithSelector(IST0xVaultBeaconSet.iOffchainAssetReceiptVaultBeacon.selector),
-            abi.encode(VAULT_BEACON)
-        );
-        vm.mockCall(
-            DEPLOYER, abi.encodeWithSelector(IST0xVaultBeaconSet.iReceiptBeacon.selector), abi.encode(RECEIPT_BEACON)
-        );
-        vm.mockCall(
-            VAULT_BEACON,
-            abi.encodeWithSelector(IBeacon.implementation.selector),
-            abi.encode(LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE)
-        );
-        vm.mockCall(
-            RECEIPT_BEACON,
-            abi.encodeWithSelector(IBeacon.implementation.selector),
-            abi.encode(LibProdDeployV4.STOX_RECEIPT_CANDIDATE)
-        );
-    }
-
-    /// `coefficient * 10 ** exponent`.
-    function _f(int256 coefficient, int256 exponent) internal pure returns (Float) {
-        return LibDecimalFloat.packLossless(coefficient, exponent);
-    }
-
-    /// Numeric `Float` equality: `300` may come back from `mul` in any
-    /// spelling, so a charge is compared as a number, never as bytes.
-    function _assertFloatEq(Float actual, Float expected, string memory err) internal pure {
-        assertTrue(actual.eq(expected), string.concat(err, ": got ", _str(actual), ", want ", _str(expected)));
-    }
-
-    function _str(Float float_) internal pure returns (string memory) {
-        (int256 coefficient, int256 exponent) = float_.unpack();
-        return string.concat(vm.toString(coefficient), "e", vm.toString(exponent));
-    }
-
-    /// `rainlang`, with the subparser's pragma prepended, parsed by the test
-    /// deployer and bound to the test interpreter and store.
-    function _weighting(string memory rainlang) internal view returns (EvaluableV4 memory) {
-        return EvaluableV4({
-            interpreter: I_INTERPRETER,
-            store: I_STORE,
-            bytecode: I_DEPLOYER.parse2(bytes(string.concat(usingWords(), rainlang)))
-        });
-    }
-
-    /// Install `rainlang` as the weighting, as OWNER. Parsed BEFORE the
-    /// prank, since `parse2` is an external call the prank would land on.
-    function _setWeighting(string memory rainlang) internal returns (EvaluableV4 memory) {
-        EvaluableV4 memory evaluable = _weighting(rainlang);
-        vm.prank(OWNER);
-        orchestrator.setMintWeighting(evaluable);
-        return evaluable;
-    }
-
-    /// Set the minter's and the recipient's limits, as OWNER.
-    function _setLimits(Float minterCapacity, Float recipientCapacity) internal {
-        vm.startPrank(OWNER);
-        orchestrator.setMinterGlobalMintLimit(MINTER, minterCapacity, NO_LEAK);
-        orchestrator.setRecipientMintLimit(address(recipient), recipientCapacity, NO_LEAK);
-        vm.stopPrank();
-    }
-
-    /// One attestation, the lead's, of `[attestedSymbol, price, now]`.
-    function _lead(string memory attestedSymbol, int256 price) internal view returns (SignedContextV1[] memory) {
-        SignedContextV1[] memory attestations = new SignedContextV1[](1);
-        attestations[0] = attest(LEAD_KEY, symbol(attestedSymbol), float(price), float(int256(block.timestamp)));
-        return attestations;
-    }
-
-    /// Mock the vault side of a mint of exactly `amount`.
-    function _mockVaultMint(uint256 amount) internal {
-        vm.mockCall(
-            TOKEN,
-            abi.encodeWithSelector(ReceiptVault.mint.selector, amount, address(orchestrator), uint256(0), ""),
-            abi.encode(amount)
-        );
-    }
-
-    /// Mint `amount` of `TOKEN` to `recipient` from `MINTER`, with
-    /// `attestations`. The recipient authorises by callback.
-    function _mint(uint256 amount, bytes32 nonce, SignedContextV1[] memory attestations) internal {
-        _mockVaultMint(amount);
-        vm.prank(MINTER);
-        orchestrator.mint(
-            TOKEN, address(recipient), amount, MintAuthV1({nonce: nonce, signature: ""}), "", attestations
-        );
-    }
-
-    /// As `_mint`, expecting a revert, whose data is returned for the tests
-    /// that compare a carried `Float` as a number.
-    function _mintReverts(uint256 amount, bytes32 nonce, SignedContextV1[] memory attestations)
-        internal
-        returns (bytes memory)
-    {
-        _mockVaultMint(amount);
-        vm.prank(MINTER);
-        try orchestrator.mint(
-            TOKEN, address(recipient), amount, MintAuthV1({nonce: nonce, signature: ""}), "", attestations
-        ) {
-            revert("the mint was expected to revert");
-        } catch (bytes memory reason) {
-            return reason;
-        }
-    }
-
-    /// The arguments of a `*CapExceeded(address, Float, Float, Float)` error,
-    /// after checking its selector.
-    function _decodeCapExceeded(bytes memory reason, bytes4 selector)
-        internal
-        pure
-        returns (address who, Float capacity, Float headroom, Float charge)
-    {
-        // The first four bytes ARE the selector; the truncation is the point.
-        // forge-lint: disable-next-line(unsafe-typecast)
-        assertEq(bytes32(bytes4(reason)), bytes32(selector), "selector");
-        bytes memory args = new bytes(reason.length - 4);
-        for (uint256 i = 0; i < args.length; i++) {
-            args[i] = reason[i + 4];
-        }
-        bytes32 capacityWord;
-        bytes32 headroomWord;
-        bytes32 chargeWord;
-        (who, capacityWord, headroomWord, chargeWord) = abi.decode(args, (address, bytes32, bytes32, bytes32));
-        return (who, Float.wrap(capacityWord), Float.wrap(headroomWord), Float.wrap(chargeWord));
-    }
-
-    function _headroom() internal view returns (Float) {
-        return orchestrator.mintHeadroom(MINTER, address(recipient));
+    /// @inheritdoc ST0xOrchestratorMintWeightingFixture
+    function tokenSymbol() internal pure override returns (string memory) {
+        return TOKEN_SYMBOL;
     }
 
     // ------------------------------------------------------------------ //
