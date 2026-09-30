@@ -118,6 +118,11 @@ interface IST0xOrchestratorV1 {
 
     error ZeroOwner();
     error ZeroAmount();
+    /// @notice `mint` was asked to send the shares to the minter itself. The
+    /// sender and the recipient of a mint can never be the same address. This
+    /// is hard-coded and has no override.
+    /// @param sender The `MINT_ROLE` caller that named itself as `to`.
+    error SenderIsRecipient(address sender);
     /// @notice `to` has already consumed `nonce`. Replay protection is
     /// namespaced by recipient: a nonce is single-use for that recipient
     /// regardless of token or amount.
@@ -178,6 +183,10 @@ interface IST0xOrchestratorV1 {
     /// @notice Mint `amount` rebased tStocks of `token` to `to`. The receipt
     /// is minted to (and kept by) the orchestrator; the shares are forwarded
     /// to `to`, which must authorise the mint via `auth`.
+    ///
+    /// The minter can never be the recipient: `to == msg.sender` reverts
+    /// `SenderIsRecipient`. This is hard-coded, checked before anything is
+    /// metered or authorised, and has no override.
     ///
     /// Metered by two leaky buckets, both of which must accept: the global
     /// bucket, and the `(msg.sender, token)` bucket under the pair's override
