@@ -122,12 +122,20 @@ abstract contract OrchestratorIntegrationTest is Test {
         orchestrator.grantRole(orchestrator.BURN_ROLE(), MM);
         // Mint caps fail closed, so a freshly initialised orchestrator mints
         // nothing for anyone. Grant the widest capacity the bucket codec can
-        // enforce, as MM's global and default limits, so these workflows
-        // exercise the real vault machinery rather than the caps — which have
-        // their own unit tests in `ST0xOrchestrator.t.sol`.
+        // enforce as MM's global limit, so these workflows exercise the real
+        // vault machinery rather than the caps — which have their own unit
+        // tests in `ST0xOrchestrator.t.sol`. Each workflow allows its own
+        // recipient the same way with `_allowRecipient`.
         orchestrator.setMinterGlobalMintLimit(MM, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
-        orchestrator.setMinterDefaultMintLimit(MM, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
         vm.stopPrank();
+    }
+
+    /// Give `to` the widest recipient limit the bucket codec can enforce on
+    /// the shared orchestrator, so a workflow that is not about the caps can
+    /// mint to it.
+    function _allowRecipient(address to) internal {
+        vm.prank(OWNER);
+        orchestrator.setRecipientMintLimit(to, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
     }
 
     // ------------------------------------------------------------------ //

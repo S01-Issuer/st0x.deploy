@@ -18,6 +18,7 @@ import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 contract BurnInfoAuditTrailTest is OrchestratorIntegrationTest {
     function testBurnInfoForwardedToVaultRedeem() external {
         (address eoa, uint256 pk) = makeAddrAndKey("audit-recipient");
+        _allowRecipient(eoa);
         uint256 amount = 7e18;
         bytes32 nonce = keccak256("audit-burn");
         bytes memory burnInfo = bytes("st0x:debt-repay-burn:42");

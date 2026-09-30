@@ -17,6 +17,7 @@ import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 contract BurnHappyPathTest is OrchestratorIntegrationTest {
     function testBurnHappyPathAndPointer() external {
         (address eoa, uint256 pk) = makeAddrAndKey("burn-recipient");
+        _allowRecipient(eoa);
         uint256 amount = 55e18;
         bytes32 nonce = keccak256("burn");
 

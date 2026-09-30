@@ -33,6 +33,7 @@ contract GuardHaltsAfterVaultBeaconUpgradeTest is OrchestratorIntegrationTest {
         assertFalse(orchestrator.vaultLogicIsExpected(), "guard halts after the vault beacon upgrade");
 
         (address eoa, uint256 pk) = makeAddrAndKey("halt-recipient");
+        _allowRecipient(eoa);
         MintAuthV1 memory auth = _signedMintAuth(address(vault), eoa, 1e18, keccak256("halt"), pk);
         vm.prank(MM);
         vm.expectRevert(

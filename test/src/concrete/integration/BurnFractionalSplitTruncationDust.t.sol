@@ -18,6 +18,7 @@ import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 contract BurnFractionalSplitTruncationDustTest is OrchestratorIntegrationTest {
     function testBurnAfterFractionalSplitRevertsOnTruncationDust() external {
         (address eoa, uint256 pkA) = makeAddrAndKey("frac-recipient");
+        _allowRecipient(eoa);
 
         // Two separate small receipts, each of which truncates on a 1/3
         // multiplier: trunc(5/3) == 1 per id, but trunc(10/3) == 3 for the

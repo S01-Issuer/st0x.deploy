@@ -17,6 +17,7 @@ import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 contract CertificationLapseTest is OrchestratorIntegrationTest {
     function testCertificationLapseHaltsMintAndBurn() external {
         (address eoa, uint256 pk) = makeAddrAndKey("cert-recipient");
+        _allowRecipient(eoa);
 
         // Pre-lapse external mint to an EOA succeeds.
         uint256 minted = 10e18;

@@ -46,16 +46,6 @@ struct MintLimitV1 {
     bool set;
 }
 
-/// @dev A per-`(minter, token)` override of the minter's default mint limit.
-/// The `set` marker distinguishes a deliberate zero from no override.
-/// @param set True once an override has been written for the pair. False
-/// means the pair falls through to the minter's default.
-/// @param limit The override policy. Only consulted when `set` is true.
-struct MintLimitOverrideV1 {
-    bool set;
-    MintLimitV1 limit;
-}
-
 /// @dev A mint bucket: the leaky-bucket state for one cap.
 /// @param checkpoint The packed `(level, timestamp)` word the leaky-bucket
 /// codec owns. A zero word is an empty bucket checkpointed at the epoch, which
@@ -95,26 +85,18 @@ interface IST0xOrchestratorV1 {
     /// mistake `erc1155` for a receipt-vault address.
     event ForeignERC1155Swept(address indexed erc1155, address indexed to, uint256 indexed id, uint256 amount);
     /// @notice Admin replaced `minter`'s global mint limit: the one bucket
-    /// metering that minter across every token.
+    /// metering that minter across every token and recipient.
     /// @param minter The minter the limit applies to.
     /// @param capacity The burst.
     /// @param leakRate The sustained rate per second.
     event MinterGlobalMintLimitSet(address indexed minter, uint256 capacity, uint256 leakRate);
-    /// @notice Admin replaced `minter`'s default per-token mint limit, which
-    /// applies to every token the minter has no override for.
-    /// @param minter The minter the default applies to.
+    /// @notice Admin replaced `recipient`'s mint limit: the one bucket
+    /// metering everything minted to that recipient, across every token and
+    /// minter.
+    /// @param recipient The recipient the limit applies to.
     /// @param capacity The burst.
     /// @param leakRate The sustained rate per second.
-    event MinterDefaultMintLimitSet(address indexed minter, uint256 capacity, uint256 leakRate);
-    /// @notice Admin wrote the `(minter, token)` override, which takes
-    /// precedence over `minter`'s default.
-    /// @param minter The minter the override applies to.
-    /// @param token The token the override applies to.
-    /// @param capacity The burst.
-    /// @param leakRate The sustained rate per second.
-    event MinterMintLimitSet(address indexed minter, address indexed token, uint256 capacity, uint256 leakRate);
-    /// @notice Admin removed the `(minter, token)` override.
-    event MinterMintLimitCleared(address indexed minter, address indexed token);
+    event RecipientMintLimitSet(address indexed recipient, uint256 capacity, uint256 leakRate);
 
     error ZeroOwner();
     error ZeroAmount();
@@ -158,27 +140,25 @@ interface IST0xOrchestratorV1 {
     /// with the figures that were approved.
     /// @param minter The `MINT_ROLE` caller with no global limit.
     error MinterGlobalMintLimitUnset(address minter);
-    /// @notice A mint was metered against a `(minter, token)` policy that has
-    /// never been set — no override for the pair, and no default for the
-    /// minter. See `MinterGlobalMintLimitUnset` for why this is its own error
-    /// rather than a zero-valued cap.
-    /// @param minter The `MINT_ROLE` caller with no policy for this token.
-    /// @param token The token `minter` has no override for.
-    error MinterMintLimitUnset(address minter, address token);
+    /// @notice A mint was metered against a recipient limit that has never
+    /// been set. See `MinterGlobalMintLimitUnset` for why this is its own
+    /// error rather than a zero-valued cap.
+    /// @param recipient The `to` of the mint, with no limit.
+    error RecipientMintLimitUnset(address recipient);
     /// @notice The mint did not fit the minter's global bucket, which meters
-    /// the minter across every token.
+    /// the minter across every token and recipient.
     /// @param minter The minter whose global bucket refused the mint.
     /// @param capacity The global capacity in force, as stored.
     /// @param headroom What the global bucket would have accepted.
     /// @param amount The offered `mint` amount.
     error MinterGlobalMintCapExceeded(address minter, uint256 capacity, uint256 headroom, uint256 amount);
-    /// @notice The mint did not fit the `(minter, token)` bucket.
-    /// @param minter The `MINT_ROLE` caller whose bucket rejected the mint.
-    /// @param token The token whose bucket rejected the mint.
-    /// @param capacity The capacity in force for the pair, as stored.
-    /// @param headroom What the pair's bucket would have accepted.
+    /// @notice The mint did not fit the recipient's bucket, which meters
+    /// everything minted to that recipient across every token and minter.
+    /// @param recipient The `to` whose bucket refused the mint.
+    /// @param capacity The recipient's capacity in force, as stored.
+    /// @param headroom What the recipient's bucket would have accepted.
     /// @param amount The offered `mint` amount.
-    error MinterMintCapExceeded(address minter, address token, uint256 capacity, uint256 headroom, uint256 amount);
+    error RecipientMintCapExceeded(address recipient, uint256 capacity, uint256 headroom, uint256 amount);
 
     /// @notice Mint `amount` rebased tStocks of `token` to `to`. The receipt
     /// is minted to (and kept by) the orchestrator; the shares are forwarded
@@ -188,12 +168,13 @@ interface IST0xOrchestratorV1 {
     /// `SenderIsRecipient`. This is hard-coded, checked before anything is
     /// metered or authorised, and has no override.
     ///
-    /// Metered by two leaky buckets, both of which must accept: the global
-    /// bucket, and the `(msg.sender, token)` bucket under the pair's override
-    /// if set, else `token`'s default. Either rejection reverts with
-    /// `MinterGlobalMintCapExceeded` or `MinterMintCapExceeded`, or with
-    /// `MinterGlobalMintLimitUnset` / `MinterMintLimitUnset` where the limit was
-    /// never set at all. Both buckets are charged `amount` as passed.
+    /// Metered by two leaky buckets, both of which must accept: the minter's
+    /// (`msg.sender`) global bucket and the recipient's (`to`) bucket. Nothing
+    /// is metered per token. Either rejection reverts with
+    /// `MinterGlobalMintCapExceeded` or `RecipientMintCapExceeded`, or with
+    /// `MinterGlobalMintLimitUnset` / `RecipientMintLimitUnset` where the
+    /// limit was never set at all. Both buckets are charged `amount` as
+    /// passed.
     /// @param token The `OffchainAssetReceiptVault` to mint.
     /// @param to Recipient of the shares.
     /// @param amount Rebased tStock units to mint.
@@ -230,7 +211,7 @@ interface IST0xOrchestratorV1 {
     function sweepERC1155(address erc1155, uint256 id, uint256 amount, address to) external;
 
     /// @notice `MINT_ADMIN_ROLE` sets `minter`'s global mint limit: one bucket
-    /// covering every mint by `minter`, across all tokens.
+    /// covering every mint by `minter`, across all tokens and recipients.
     /// @param minter The `MINT_ROLE` holder the limit applies to.
     /// @param capacity Burst, in 18-decimal rebased tStock units. Reverts
     /// `LeakyBucketCapacityOverflow` if it does not fit the bucket codec's
@@ -238,29 +219,16 @@ interface IST0xOrchestratorV1 {
     /// @param leakRate Sustained rate in those same units per second.
     function setMinterGlobalMintLimit(address minter, uint256 capacity, uint256 leakRate) external;
 
-    /// @notice `MINT_ADMIN_ROLE` sets `minter`'s default per-token mint limit,
-    /// which applies to every token `minter` has no override for. One policy,
-    /// one bucket per token.
-    /// @param minter The `MINT_ROLE` holder the default applies to.
-    /// @param capacity Burst, in 18-decimal rebased tStock units.
+    /// @notice `MINT_ADMIN_ROLE` sets `recipient`'s mint limit: one bucket
+    /// covering everything minted to `recipient`, across all tokens and
+    /// minters. A zero `capacity` is a set limit that admits nothing, distinct
+    /// from never having been set.
+    /// @param recipient The mint `to` the limit applies to.
+    /// @param capacity Burst, in 18-decimal rebased tStock units. Reverts
+    /// `LeakyBucketCapacityOverflow` if it does not fit the bucket codec's
+    /// level field.
     /// @param leakRate Sustained rate in those same units per second.
-    function setMinterDefaultMintLimit(address minter, uint256 capacity, uint256 leakRate) external;
-
-    /// @notice `MINT_ADMIN_ROLE` sets the `(minter, token)` override, which
-    /// takes precedence over `minter`'s default. A zero `capacity` here is a
-    /// set override that admits nothing, distinct from having no override.
-    /// @param minter The `MINT_ROLE` holder the override applies to.
-    /// @param token The token the override applies to.
-    /// @param capacity Burst, in 18-decimal rebased tStock units.
-    /// @param leakRate Sustained rate in those same units per second.
-    function setMinterMintLimit(address minter, address token, uint256 capacity, uint256 leakRate) external;
-
-    /// @notice `MINT_ADMIN_ROLE` removes the `(minter, token)` override, so
-    /// the pair falls back to `minter`'s default. The pair's bucket level is
-    /// untouched.
-    /// @param minter The `MINT_ROLE` holder whose override is removed.
-    /// @param token The token the override is removed for.
-    function clearMinterMintLimit(address minter, address token) external;
+    function setRecipientMintLimit(address recipient, uint256 capacity, uint256 leakRate) external;
 
     /// @notice `token`'s burn-walk pointer: the next receipt id `burn` will
     /// inspect.
@@ -277,24 +245,15 @@ interface IST0xOrchestratorV1 {
     /// approved.
     function minterGlobalMintLimit(address minter) external view returns (MintLimitV1 memory);
 
-    /// @notice `minter`'s default per-token mint limit, used for any token the
-    /// minter has no override for. As stored.
-    function minterDefaultMintLimit(address minter) external view returns (MintLimitV1 memory);
+    /// @notice `recipient`'s mint limit, as stored: the numbers that were
+    /// approved.
+    function recipientMintLimit(address recipient) external view returns (MintLimitV1 memory);
 
-    /// @notice The raw `(minter, token)` override, including whether one is
-    /// set at all. As stored.
-    function minterMintLimitOverride(address minter, address token) external view returns (MintLimitOverrideV1 memory);
-
-    /// @notice The resolved per-pair policy `mint` meters `(minter, token)`
-    /// against: the override if one is set, else `minter`'s default. The
-    /// global limit is a separate bucket and is not folded in here. As stored.
-    function mintLimit(address minter, address token) external view returns (MintLimitV1 memory);
-
-    /// @notice The largest `amount` a `mint(token, …)` by `minter` would
-    /// accept at the current block timestamp: the smaller of the global
-    /// bucket's headroom and the pair's. Zero when either limit is unset.
-    /// Nothing in the enforcement path reads it.
-    function mintHeadroom(address minter, address token) external view returns (uint256);
+    /// @notice The largest `amount` a `mint(…, recipient, …)` by `minter`
+    /// would accept at the current block timestamp, for any token: the
+    /// smaller of the minter's global headroom and the recipient's. Zero when
+    /// either limit is unset. Nothing in the enforcement path reads it.
+    function mintHeadroom(address minter, address recipient) external view returns (uint256);
 
     /// @notice True if the production vault + receipt beacons currently point
     /// at the implementations this orchestrator expects (i.e. mint/burn are

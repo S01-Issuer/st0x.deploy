@@ -15,6 +15,7 @@ import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 contract BurnAfterForwardSplitTest is OrchestratorIntegrationTest {
     function testBurnAfterForwardSplitConsumesRebasedReceiptExactly() external {
         (address eoa, uint256 pk) = makeAddrAndKey("split-recipient");
+        _allowRecipient(eoa);
         uint256 minted = 90e18;
         bytes32 nonce = keccak256("fwd-split");
 

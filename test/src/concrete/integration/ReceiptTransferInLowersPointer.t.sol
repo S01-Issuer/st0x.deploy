@@ -20,6 +20,7 @@ contract ReceiptTransferInLowersPointerTest is OrchestratorIntegrationTest {
 
     function testReceiptTransferInLowersPointerAndEnablesBurn() external {
         (address eoa, uint256 pk) = makeAddrAndKey("bootstrap-recipient");
+        _allowRecipient(eoa);
         address holder = makeAddr("receipt-holder");
 
         // Mint 10e18 to the EOA — receipt id 1 held by the orchestrator.

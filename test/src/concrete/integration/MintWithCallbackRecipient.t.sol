@@ -14,6 +14,7 @@ import {AcceptingMintRecipient} from "./AcceptingMintRecipient.sol";
 contract MintWithCallbackRecipientTest is OrchestratorIntegrationTest {
     function testMintWithCallbackRecipient() external {
         AcceptingMintRecipient recipient = new AcceptingMintRecipient();
+        _allowRecipient(address(recipient));
         uint256 amount = 42e18;
         bytes32 nonce = keccak256("callback");
 

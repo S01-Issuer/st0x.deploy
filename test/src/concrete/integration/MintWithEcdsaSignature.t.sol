@@ -22,6 +22,7 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
     /// the burn pointer: a fresh token's pointer starts (and stays) at 0.
     function testMintWithEcdsaSignatureDeliversShares() external {
         (address eoa, uint256 pk) = makeAddrAndKey("ecdsa-recipient");
+        _allowRecipient(eoa);
         uint256 amount = 123e18;
         bytes32 nonce = keccak256("ecdsa");
 
@@ -47,6 +48,7 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
     /// the same nonce remains free for a different recipient.
     function testMintNonceReplayAcrossAmountsReverts() external {
         (address eoa, uint256 pk) = makeAddrAndKey("replay-recipient");
+        _allowRecipient(eoa);
         bytes32 nonce = keccak256("replay");
 
         MintAuthV1 memory auth = _signedMintAuth(address(vault), eoa, 10e18, nonce, pk);
@@ -63,6 +65,7 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
 
         // The SAME nonce is still free for a different recipient.
         (address other, uint256 otherPk) = makeAddrAndKey("other-recipient");
+        _allowRecipient(other);
         assertFalse(orchestrator.nonceUsed(other, nonce), "nonce namespaced per recipient");
         MintAuthV1 memory otherAuth = _signedMintAuth(address(vault), other, 3e18, nonce, otherPk);
         vm.prank(MM);
@@ -76,6 +79,7 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
     function testMintRevertsWithoutVaultRoles() external {
         // Fresh orchestrator, never granted DEPOSIT/WITHDRAW on the authoriser.
         ST0xOrchestrator fresh = _deployOrchestrator(OWNER);
+        (address eoa, uint256 pk) = makeAddrAndKey("norole-recipient");
         bytes32 mintRole = fresh.MINT_ROLE();
         vm.startPrank(OWNER);
         fresh.grantRole(mintRole, MM);
@@ -84,13 +88,12 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
         // own zero capacity before the vault leg was ever reached, and this
         // test would go green on the wrong revert. `setUp` grants the shared
         // orchestrator the widest enforceable limits for the same reason;
-        // grant them here too so the vault's missing `DEPOSIT` grant stays the
-        // only thing that can fail.
+        // grant them here too, for MM and for the recipient, so the vault's
+        // missing `DEPOSIT` grant stays the only thing that can fail.
         fresh.setMinterGlobalMintLimit(MM, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
-        fresh.setMinterDefaultMintLimit(MM, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
+        fresh.setRecipientMintLimit(eoa, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
         vm.stopPrank();
 
-        (address eoa, uint256 pk) = makeAddrAndKey("norole-recipient");
         uint256 amount = 1e18;
         bytes32 nonce = keccak256("norole");
         bytes32 digest = Digest.unwrap(fresh.mintAuthDigest(address(vault), eoa, amount, nonce));

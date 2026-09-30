@@ -33,6 +33,7 @@ contract GuardPassesAgainstRealV4BeaconsTest is OrchestratorIntegrationTest {
 
         // And a mint against the real vault goes through with the guard live.
         (address eoa, uint256 pk) = makeAddrAndKey("guard-recipient");
+        _allowRecipient(eoa);
         uint256 amount = 7e18;
         bytes32 nonce = keccak256("guard");
         MintAuthV1 memory auth = _signedMintAuth(address(vault), eoa, amount, nonce, pk);
