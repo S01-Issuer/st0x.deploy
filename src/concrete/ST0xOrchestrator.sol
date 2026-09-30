@@ -66,7 +66,10 @@ import {
 /// namespaced by recipient: `(to, nonce)` is single-use, regardless of token
 /// or amount. The minter's `receiptInformation` audit payload is a separate
 /// parameter — it is the MINTER's responsibility and never part of the
-/// recipient's authorisation.
+/// recipient's authorisation. The minter itself can never be the recipient:
+/// `to == msg.sender` reverts `SenderIsRecipient`, with no override, so a
+/// single key is never both the one directing the shares and the one
+/// authorising where they land.
 ///
 /// **Vault-logic version lock.** So much of the burn/mint logic depends on
 /// the exact behaviour of the current receipt-vault implementation that
@@ -251,6 +254,10 @@ contract ST0xOrchestrator is
         bytes calldata receiptInformation
     ) external onlyRole(MINT_ROLE) onlyExpectedVaultLogic nonReentrant {
         if (amount == 0) revert ZeroAmount();
+        // The sender and the recipient can never be the same. Hard-coded, no
+        // override: a minter that could mint to itself would need only its
+        // own key to both direct and authorise the shares.
+        if (to == msg.sender) revert SenderIsRecipient(msg.sender);
         _consumeMintCaps(token, amount);
         _consumeMintAuth(token, to, amount, auth);
 

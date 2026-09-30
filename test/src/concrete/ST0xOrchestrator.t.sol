@@ -630,6 +630,34 @@ contract ST0xOrchestratorTest is Test {
         orchestrator.mint(TOKEN, BOB, 0, _auth("", bytes32(0)), "");
     }
 
+    /// The sender and the recipient can never be the same. The minter here is
+    /// a callback recipient that authorises anything, with unbounded caps and
+    /// the vault side mocked, so the ONLY thing standing between it and a
+    /// mint to itself is the guard: the same minter minting to a different
+    /// recipient in the same conditions goes through.
+    function testMintSenderIsRecipientReverts() external {
+        address minter = address(capRecipient);
+        uint256 amount = 100;
+        _grantMintOn(orchestrator, minter);
+        vm.startPrank(OWNER);
+        orchestrator.setMinterGlobalMintLimit(minter, TOKEN, 0, UNBOUNDED_CAPACITY, 0);
+        orchestrator.setMinterDefaultMintLimit(minter, TOKEN, 0, UNBOUNDED_CAPACITY, 0);
+        vm.stopPrank();
+        _mockCapMint(orchestrator, TOKEN, amount);
+
+        vm.prank(minter);
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.SenderIsRecipient.selector, minter));
+        orchestrator.mint(TOKEN, minter, amount, _auth("", keccak256("self")), "");
+        assertFalse(orchestrator.nonceUsed(minter, keccak256("self")), "self-mint must not consume the nonce");
+
+        // Control: the same minter, caps and mocks, to someone else, succeeds.
+        MockMintRecipient other = new MockMintRecipient(true);
+        vm.prank(minter);
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit IST0xOrchestratorV1.Minted(minter, TOKEN, address(other), amount, keccak256("other"));
+        orchestrator.mint(TOKEN, address(other), amount, _auth("", keccak256("other")), "");
+    }
+
     /// Nonce replay: identical (token,to,amount,nonce) twice reverts.
     function testMintReplayReverts() external {
         (address eoa, uint256 pk) = makeAddrAndKey("recipient");
