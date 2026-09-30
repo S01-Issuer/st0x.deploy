@@ -125,8 +125,8 @@ abstract contract OrchestratorIntegrationTest is Test {
         // enforce, as MM's global and default limits, so these workflows
         // exercise the real vault machinery rather than the caps — which have
         // their own unit tests in `ST0xOrchestrator.t.sol`.
-        orchestrator.setMinterGlobalMintLimit(MM, address(vault), 0, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
-        orchestrator.setMinterDefaultMintLimit(MM, address(vault), 0, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
+        orchestrator.setMinterGlobalMintLimit(MM, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
+        orchestrator.setMinterDefaultMintLimit(MM, LibLeakyBucket.LEAKY_BUCKET_LEVEL_MAX, 0);
         vm.stopPrank();
     }
 
