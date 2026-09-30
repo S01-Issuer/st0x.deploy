@@ -11,8 +11,16 @@ import {LibTOFUTokenDecimals} from "rain-tofu-erc20-decimals-0.1.1/src/lib/LibTO
 library LibTestTofu {
     /// Etches the Zoltu factory and deploys the TOFU singleton so that
     /// `LibTOFUTokenDecimals.safeDecimalsForToken` resolves to the real
-    /// singleton at the expected address.
+    /// singleton at the expected address. A no-op when the singleton is
+    /// already there: the Rainlang test bases deploy it from their
+    /// constructor, and Zoltu refuses to deploy the same code twice.
     function deployTofu(Vm vm) internal {
+        if (
+            address(LibTOFUTokenDecimals.TOFU_DECIMALS_DEPLOYMENT).codehash
+                == LibTOFUTokenDecimals.TOFU_DECIMALS_EXPECTED_CODE_HASH
+        ) {
+            return;
+        }
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(LibTOFUTokenDecimals.TOFU_DECIMALS_EXPECTED_CREATION_CODE);
     }

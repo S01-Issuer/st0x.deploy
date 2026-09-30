@@ -3,6 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {Float} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
+import {EvaluableV4, SignedContextV1} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
 
 /// @dev An EIP-712 typed-data digest produced by the orchestrator's
 /// `mintAuthDigest`. Aliased so the compiler rejects any `bytes32` that was
@@ -29,9 +30,10 @@ struct MintAuthV1 {
 }
 
 /// @dev A leaky-bucket mint cap. Both policy numbers are Rain `Float`s, in
-/// whatever units a mint is charged in: today `mint`'s `amount` as passed, an
-/// integer of 18-decimal rebased tStock units at exponent zero, until the
-/// mint admin's Rainlang puts a value on each mint instead.
+/// whatever units the mint weighting charges a mint in: the mint admin's
+/// Rainlang expression (see `setMintWeighting`) turns each mint into one
+/// `Float`, and that number is what fills the bucket, so the units of a cap
+/// are the units of that expression's output.
 ///
 /// The stored `capacity` is the number governance approved, written down
 /// exactly as approved, so it can be checked against the proposal that
@@ -112,6 +114,11 @@ interface IST0xOrchestratorV1 {
     /// @param capacity The burst.
     /// @param leakRate The sustained rate per second.
     event RecipientMintLimitSet(address indexed recipient, Float capacity, Float leakRate);
+    /// @notice Admin replaced the mint weighting: the one expression that
+    /// converts every mint, on every token, into the charge on both buckets.
+    /// @param sender The `MINT_ADMIN_ROLE` caller that set it.
+    /// @param evaluable The interpreter, store and bytecode now in force.
+    event MintWeightingSet(address indexed sender, EvaluableV4 evaluable);
 
     error ZeroOwner();
     error ZeroAmount();
@@ -174,6 +181,15 @@ interface IST0xOrchestratorV1 {
     /// @param headroom What the recipient's bucket would have accepted.
     /// @param charge What the mint was charged against the bucket.
     error RecipientMintCapExceeded(address recipient, Float capacity, Float headroom, Float charge);
+    /// @notice A mint was requested before any mint weighting was set. There
+    /// is no expression to put a value on the mint, so there is nothing to
+    /// charge the buckets with and the mint is refused.
+    error MintWeightingUnset();
+    /// @notice The mint weighting evaluated to an empty stack, so there is no
+    /// charge. The expression must leave at least one output; the last one is
+    /// the charge.
+    /// @param outputs How many outputs the expression left.
+    error UnsupportedMintWeightingOutputs(uint256 outputs);
 
     /// @notice Mint `amount` rebased tStocks of `token` to `to`. The receipt
     /// is minted to (and kept by) the orchestrator; the shares are forwarded
@@ -188,20 +204,33 @@ interface IST0xOrchestratorV1 {
     /// is metered per token. Either rejection reverts with
     /// `MinterGlobalMintCapExceeded` or `RecipientMintCapExceeded`, or with
     /// `MinterGlobalMintLimitUnset` / `RecipientMintLimitUnset` where the
-    /// limit was never set at all. Both buckets are charged `amount` as
-    /// passed, as a `Float` at exponent zero.
+    /// limit was never set at all.
+    ///
+    /// What both buckets are charged is the value the mint weighting puts on
+    /// this mint: the mint admin's expression (`setMintWeighting`) is
+    /// evaluated over the mint (`token`'s symbol and `amount` as a `Float` of
+    /// whole tokens) and `attestations`, and its last output is the charge.
+    /// The expression decides what the attestations must say and reverts the
+    /// mint if they do not say it. `MintWeightingUnset` if no expression has
+    /// been set; a zero or negative charge is refused by the bucket by name.
     /// @param token The `OffchainAssetReceiptVault` to mint.
     /// @param to Recipient of the shares.
     /// @param amount Rebased tStock units to mint.
     /// @param auth The recipient's authorisation (see `MintAuthV1`).
     /// @param receiptInformation The MINTER's audit-trail payload, forwarded
     /// verbatim to `vault.mint` — not part of the recipient's authorisation.
+    /// @param attestations The signed attestations the weighting reads, the
+    /// lead's first, each `[symbol, price, time]` (see
+    /// `LibSt0xAttestContext`). Every signature is verified before the
+    /// expression runs; what the signed values must be is the expression's
+    /// decision. Not part of the recipient's authorisation.
     function mint(
         address token,
         address to,
         uint256 amount,
         MintAuthV1 calldata auth,
-        bytes calldata receiptInformation
+        bytes calldata receiptInformation,
+        SignedContextV1[] calldata attestations
     ) external;
 
     /// @notice Burn `amount` rebased tStocks of `token`, pulled from the
@@ -244,6 +273,23 @@ interface IST0xOrchestratorV1 {
     /// @param leakRate Sustained rate in those same units per second.
     function setRecipientMintLimit(address recipient, Float capacity, Float leakRate) external;
 
+    /// @notice `MINT_ADMIN_ROLE` sets the mint weighting: the one Rainlang
+    /// expression, global across every token, minter and recipient, that
+    /// converts a mint into the value both buckets are charged. Only the
+    /// buckets are granular; this is not. It is a per-chain setting.
+    ///
+    /// The expression is evaluated by `evaluable.interpreter` over the context
+    /// grid `LibSt0xAttestContext` builds — the mint's symbol and amount, then
+    /// the attestations passed to `mint` — and must leave at least one
+    /// output, the last of which is the charge. Any state it writes is
+    /// persisted to `evaluable.store` under the orchestrator's namespace.
+    ///
+    /// Stored as given. The interpreter and store are trusted by whoever sets
+    /// them: a zero interpreter is the same as no weighting and every mint
+    /// reverts `MintWeightingUnset`.
+    /// @param evaluable The interpreter, store and bytecode to evaluate.
+    function setMintWeighting(EvaluableV4 calldata evaluable) external;
+
     /// @notice `token`'s burn-walk pointer: the next receipt id `burn` will
     /// inspect.
     function nextBurnReceiptId(address token) external view returns (uint256);
@@ -262,6 +308,10 @@ interface IST0xOrchestratorV1 {
     /// @notice `recipient`'s mint limit, as stored: the numbers that were
     /// approved.
     function recipientMintLimit(address recipient) external view returns (MintLimitV1 memory);
+
+    /// @notice The mint weighting in force, as stored. A zero interpreter
+    /// means none has been set.
+    function mintWeighting() external view returns (EvaluableV4 memory);
 
     /// @notice The largest charge a `mint(…, recipient, …)` by `minter` would
     /// accept at the current block timestamp, for any token: the smaller of

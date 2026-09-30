@@ -7,6 +7,7 @@ import {EIP712Upgradeable} from "@openzeppelin-contracts-upgradeable-5.6.1/utils
 import {Initializable} from "@openzeppelin-contracts-upgradeable-5.6.1/proxy/utils/Initializable.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin-contracts-5.6.1/utils/ReentrancyGuardTransient.sol";
 import {IERC20} from "@openzeppelin-contracts-5.6.1/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin-contracts-5.6.1/token/ERC20/utils/SafeERC20.sol";
 import {IERC1155} from "@openzeppelin-contracts-5.6.1/token/ERC1155/IERC1155.sol";
 import {IERC1155Receiver} from "@openzeppelin-contracts-5.6.1/token/ERC1155/IERC1155Receiver.sol";
@@ -19,11 +20,26 @@ import {ReceiptVault} from "rain-vats-0.2.1/src/abstract/ReceiptVault.sol";
 
 import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
 import {LibLeakyBucket, LeakyBucket} from "rain-lib-leakybucket-0.4.1/src/lib/LibLeakyBucket.sol";
+import {LibIntOrAString, IntOrAString} from "rain-intorastring-0.1.0/src/lib/LibIntOrAString.sol";
+import {
+    IInterpreterCallerV4,
+    EvaluableV4,
+    SignedContextV1
+} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
+import {
+    EvalV4,
+    SourceIndexV2,
+    StackItem,
+    StateNamespace,
+    DEFAULT_STATE_NAMESPACE
+} from "rainlang-interface-0.2.9/src/interface/IInterpreterV4.sol";
+import {LibNamespace} from "rainlang-interface-0.2.9/src/lib/ns/LibNamespace.sol";
 
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
 import {IST0xVaultBeaconSet} from "../interface/IST0xVaultBeaconSet.sol";
 import {IST0xOrchestratorV1, MintAuthV1, MintLimitV1, MintBucketV1, Digest} from "../interface/IST0xOrchestratorV1.sol";
+import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
 
 /// @title ST0xOrchestrator
 /// @notice Singleton mint/burn proxy for the whole ST0x receipt-vault set.
@@ -90,17 +106,30 @@ import {IST0xOrchestratorV1, MintAuthV1, MintLimitV1, MintBucketV1, Digest} from
 ///
 /// Every number in a cap is a Rain `Float`: `capacity` is the burst and
 /// `leakRate` the sustained rate per second, and a limit stores the numbers
-/// that were approved. What a mint is charged is `amount` as passed, packed
-/// losslessly at exponent zero, so the units are 18-decimal rebased tStock
-/// units until the mint admin's Rainlang puts a value on each mint instead —
-/// that value is what the buckets will meter, and the charge is the one place
-/// it lands. The cap path never reads the token's corporate-action state.
+/// that were approved. What a mint is charged is the value the mint weighting
+/// puts on it, never the token amount. The cap path never reads the token's
+/// corporate-action state.
+///
+/// **Mint weighting.** One Rainlang expression, set by `MINT_ADMIN_ROLE` and
+/// global across every token, minter and recipient, converts each mint into
+/// the charge. `mint` builds the context grid of `LibSt0xAttestContext` —
+/// the token's symbol and the amount as a `Float` of whole tokens, then the
+/// signed attestations the minter passed, every signature verified — and
+/// evaluates the expression over it with its interpreter. The last output is
+/// the charge on both buckets. Everything about what the attestations must
+/// say (who signed, how many agree, how close to `now()`, which symbol, what
+/// price) is the expression's to decide and to revert on; the orchestrator
+/// only verifies that each attestation was signed by the signer it names.
+/// State the expression writes is persisted to its store under the
+/// orchestrator's namespace, as rain.orderbook does for an order.
 ///
 /// The bucket library refuses a negative capacity, a negative leak rate, a
 /// zero charge and a negative charge by name, at every read and every fill;
-/// the setters store what they are given and leave that judgement to it.
+/// the setters store what they are given and leave that judgement to it. A
+/// weighting that evaluates to zero or below is therefore a refused mint.
 contract ST0xOrchestrator is
     IST0xOrchestratorV1,
+    IInterpreterCallerV4,
     Initializable,
     AccessControlUpgradeable,
     EIP712Upgradeable,
@@ -136,6 +165,9 @@ contract ST0xOrchestrator is
         /// Each recipient's cap: its policy across every token and minter,
         /// and the bucket under it.
         mapping(address recipient => MintCapV1) recipientMintCaps;
+        /// The mint weighting: the one expression that converts every mint
+        /// into the charge on both buckets. A zero interpreter is unset.
+        EvaluableV4 mintWeighting;
     }
 
     /// @dev One cap: a policy and the bucket metered under it. A bucket is
@@ -154,6 +186,20 @@ contract ST0xOrchestrator is
 
     // keccak256(abi.encode(uint256(keccak256("st0x.orchestrator.main")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant MAIN_STORAGE_LOCATION = 0x4bb94ceb743cdbfc320393e9b6fac11d883b2f90ac89bce731e459177c5be700;
+
+    /// @dev The mint weighting is evaluated as the first source of its
+    /// bytecode.
+    SourceIndexV2 private constant MINT_WEIGHTING_ENTRYPOINT = SourceIndexV2.wrap(0);
+
+    /// @dev The mint weighting must leave at least this many outputs; the
+    /// last is the charge.
+    uint256 private constant MINT_WEIGHTING_MIN_OUTPUTS = 1;
+
+    /// @dev The one expression has one namespace in its store. The store
+    /// qualifies it with the orchestrator's address on every write, and the
+    /// orchestrator qualifies it the same way for every read, so nothing
+    /// another caller of the same store writes can be read here.
+    StateNamespace private constant MINT_WEIGHTING_NAMESPACE = DEFAULT_STATE_NAMESPACE;
 
     function _main() private pure returns (MainStorage storage $) {
         assembly {
@@ -231,19 +277,24 @@ contract ST0xOrchestrator is
     // ------------------------------------------------------------------ //
 
     /// @inheritdoc IST0xOrchestratorV1
+    // The nonce write in `_consumeMintAuth` follows the weighting's store
+    // write and the recipient callback by design: `nonReentrant` holds the
+    // ReentrancyGuardTransient lock for the whole entrypoint.
+    // slither-disable-next-line reentrancy-no-eth
     function mint(
         address token,
         address to,
         uint256 amount,
         MintAuthV1 calldata auth,
-        bytes calldata receiptInformation
+        bytes calldata receiptInformation,
+        SignedContextV1[] calldata attestations
     ) external onlyRole(MINT_ROLE) onlyExpectedVaultLogic nonReentrant {
         if (amount == 0) revert ZeroAmount();
         // The sender and the recipient can never be the same. Hard-coded, no
         // override: a minter that could mint to itself would need only its
         // own key to both direct and authorise the shares.
         if (to == msg.sender) revert SenderIsRecipient(msg.sender);
-        _consumeMintCaps(to, amount);
+        _consumeMintCaps(token, to, amount, attestations);
         _consumeMintAuth(token, to, amount, auth);
 
         // Share ratio is 1:1 by construction; anything else is the vault
@@ -254,9 +305,15 @@ contract ST0xOrchestrator is
         emit Minted(msg.sender, token, to, amount, auth.nonce);
     }
 
-    /// @dev Meter `amount` through both mint buckets, writing each back, and
-    /// revert naming whichever one it did not fit. Runs before the recipient
-    /// authorisation, so the bucket writes land before any external call.
+    /// @dev Put a value on the mint with the mint weighting, then meter that
+    /// value through both mint buckets, writing each back, and revert naming
+    /// whichever one it did not fit. Runs before the recipient authorisation,
+    /// so the bucket writes land before the callback to `to`.
+    ///
+    /// Both limits are checked for having been set before the weighting is
+    /// evaluated: an unset limit is refused by name without verifying a
+    /// signature or calling an interpreter, and the two "unset" errors keep
+    /// their meaning regardless of what the weighting would have said.
     ///
     /// The minter's bucket is filled before the recipient's is checked; a
     /// recipient rejection reverts the whole call, unwinding that fill with
@@ -264,29 +321,87 @@ contract ST0xOrchestrator is
     ///
     /// `headroomAt` is read only to name which cap bound, which the library's
     /// `LeakyBucketCapacityExceeded` cannot say.
-    ///
-    /// Nothing here calls out: the caps are metered on `amount` as passed and
-    /// the only state read is the orchestrator's own.
-    function _consumeMintCaps(address to, uint256 amount) internal {
+    function _consumeMintCaps(address token, address to, uint256 amount, SignedContextV1[] calldata attestations)
+        internal
+    {
         MainStorage storage $ = _main();
-        // The charge is `amount` as passed, an integer at exponent zero, so
-        // the policy stays in 18-decimal rebased tStock units for now. This
-        // is the placeholder the Rainlang weighting replaces: the expression's
-        // value for the mint is what the buckets will be charged, and this is
-        // the only line that decides it.
-        Float charge = LibDecimalFloat.fromFixedDecimalLosslessPacked(amount, 0);
+        MintCapV1 storage minterCap = $.minterMintCaps[msg.sender];
+        MintCapV1 storage recipientCap = $.recipientMintCaps[to];
+        MintLimitV1 memory minterLimit = minterCap.limit;
+        if (!minterLimit.set) revert MinterGlobalMintLimitUnset(msg.sender);
+        MintLimitV1 memory recipientLimit = recipientCap.limit;
+        if (!recipientLimit.set) revert RecipientMintLimitUnset(to);
+
+        // The charge is whatever the mint admin's expression says this mint
+        // is worth. This is the one place that decides what the buckets
+        // meter; the amount as passed never reaches them.
+        Float charge = _weighMint($, token, amount, attestations);
         Float timestamp = _now();
-        _consumeMinterMintCap($, timestamp, charge);
-        _consumeRecipientMintCap($, to, timestamp, charge);
+        _fillMinterMintCap(minterCap, minterLimit, timestamp, charge);
+        _fillRecipientMintCap(recipientCap, recipientLimit, to, timestamp, charge);
+    }
+
+    /// @dev Evaluate the mint weighting over this mint and its attestations
+    /// and return the charge. Reverts `MintWeightingUnset` if no expression
+    /// has been set, `UnsupportedMintWeightingOutputs` if the expression left
+    /// nothing on its stack, and with whatever the expression itself reverts
+    /// with — a failed `ensure` is a refused mint.
+    ///
+    /// The context is the grid of `LibSt0xAttestContext`: the token's symbol
+    /// as an `IntOrAString` so a Rainlang string literal compares equal to
+    /// it, and the amount as a `Float` in whole tokens per the token's own
+    /// `decimals()`, so `mul(mint-amount() lead-price())` is a value in the
+    /// price's units. Building the grid verifies every attestation's
+    /// signature and reverts `InvalidSignature(i)` on the first that fails.
+    ///
+    /// The evaluation is a static call; the writes it returns are then
+    /// applied to the expression's store under the orchestrator's namespace,
+    /// as rain.orderbook does after a calculate. Split out of
+    /// `_consumeMintCaps` to keep that frame within stack limits.
+    function _weighMint(MainStorage storage $, address token, uint256 amount, SignedContextV1[] calldata attestations)
+        internal
+        returns (Float)
+    {
+        EvaluableV4 memory evaluable = $.mintWeighting;
+        if (address(evaluable.interpreter) == address(0)) revert MintWeightingUnset();
+
+        bytes32[][] memory context = LibSt0xAttestContext.build(
+            bytes32(IntOrAString.unwrap(LibIntOrAString.fromStringV3(IERC20Metadata(token).symbol()))),
+            Float.unwrap(LibDecimalFloat.fromFixedDecimalLosslessPacked(amount, IERC20Metadata(token).decimals())),
+            attestations
+        );
+        emit ContextV2(msg.sender, context);
+
+        (StackItem[] memory stack, bytes32[] memory writes) = evaluable.interpreter
+            .eval4(
+                EvalV4({
+                    store: evaluable.store,
+                    namespace: LibNamespace.qualifyNamespace(MINT_WEIGHTING_NAMESPACE, address(this)),
+                    bytecode: evaluable.bytecode,
+                    sourceIndex: MINT_WEIGHTING_ENTRYPOINT,
+                    context: context,
+                    inputs: new StackItem[](0),
+                    stateOverlay: new bytes32[](0)
+                })
+            );
+        if (stack.length < MINT_WEIGHTING_MIN_OUTPUTS) revert UnsupportedMintWeightingOutputs(stack.length);
+        if (writes.length > 0) {
+            evaluable.store.set(MINT_WEIGHTING_NAMESPACE, writes);
+        }
+        // The interpreter returns the stack top first, so the last output the
+        // expression wrote is item zero.
+        return Float.wrap(StackItem.unwrap(stack[0]));
     }
 
     /// @dev The minter's bucket, across every token and recipient. Split out
     /// of `_consumeMintCaps` to keep that frame within stack limits.
-    function _consumeMinterMintCap(MainStorage storage $, Float timestamp, Float charge) internal {
-        MintCapV1 storage cap = $.minterMintCaps[msg.sender];
-        MintLimitV1 memory limit = cap.limit;
-        if (!limit.set) revert MinterGlobalMintLimitUnset(msg.sender);
-
+    // The bucket write follows the weighting's external calls by design: the
+    // charge is their result, and every caller holds the reentrancy lock for
+    // the whole entrypoint.
+    // slither-disable-next-line reentrancy-no-eth
+    function _fillMinterMintCap(MintCapV1 storage cap, MintLimitV1 memory limit, Float timestamp, Float charge)
+        internal
+    {
         LeakyBucket memory bucket = _bucket(cap.bucket, limit);
         Float headroom = LibLeakyBucket.headroomAt(bucket, timestamp);
         if (charge.gt(headroom)) revert MinterGlobalMintCapExceeded(msg.sender, limit.capacity, headroom, charge);
@@ -296,11 +411,15 @@ contract ST0xOrchestrator is
     }
 
     /// @dev The recipient's bucket, across every token and minter.
-    function _consumeRecipientMintCap(MainStorage storage $, address to, Float timestamp, Float charge) internal {
-        MintCapV1 storage cap = $.recipientMintCaps[to];
-        MintLimitV1 memory limit = cap.limit;
-        if (!limit.set) revert RecipientMintLimitUnset(to);
-
+    // As `_fillMinterMintCap`.
+    // slither-disable-next-line reentrancy-no-eth
+    function _fillRecipientMintCap(
+        MintCapV1 storage cap,
+        MintLimitV1 memory limit,
+        address to,
+        Float timestamp,
+        Float charge
+    ) internal {
         LeakyBucket memory bucket = _bucket(cap.bucket, limit);
         Float headroom = LibLeakyBucket.headroomAt(bucket, timestamp);
         if (charge.gt(headroom)) revert RecipientMintCapExceeded(to, limit.capacity, headroom, charge);
@@ -442,6 +561,18 @@ contract ST0xOrchestrator is
         emit RecipientMintLimitSet(recipient, capacity, leakRate);
     }
 
+    /// @inheritdoc IST0xOrchestratorV1
+    /// @dev Stored as given, the whole evaluable rather than its hash, because
+    /// there is exactly one and every mint reads it. Nothing is validated
+    /// here: the interpreter is trusted by whoever sets it, and the bytecode
+    /// is judged by that interpreter at the first mint. The buckets are left
+    /// where the earlier mints put them; a new weighting changes what the
+    /// next mint is charged, not what has been charged.
+    function setMintWeighting(EvaluableV4 calldata evaluable) external onlyRole(MINT_ADMIN_ROLE) {
+        _main().mintWeighting = evaluable;
+        emit MintWeightingSet(msg.sender, evaluable);
+    }
+
     // ------------------------------------------------------------------ //
     //                           Emergency sweeps                         //
     // ------------------------------------------------------------------ //
@@ -505,6 +636,11 @@ contract ST0xOrchestrator is
     /// @inheritdoc IST0xOrchestratorV1
     function recipientMintLimit(address recipient) external view returns (MintLimitV1 memory) {
         return _main().recipientMintCaps[recipient].limit;
+    }
+
+    /// @inheritdoc IST0xOrchestratorV1
+    function mintWeighting() external view returns (EvaluableV4 memory) {
+        return _main().mintWeighting;
     }
 
     /// @inheritdoc IST0xOrchestratorV1

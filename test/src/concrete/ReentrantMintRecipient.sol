@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
 import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../../../src/interface/IST0xOrchestratorV1.sol";
+import {SignedContextV1} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
 
 /// @dev Malicious callback recipient: on the first `authorizeMint` it
 /// reenters `orchestrator.mint` for itself with a fresh nonce (empty
@@ -34,7 +35,12 @@ contract ReentrantMintRecipient is IMintRecipient {
         if (!entered) {
             entered = true;
             ORCHESTRATOR.mint(
-                TOKEN, address(this), REENTER_AMOUNT, MintAuthV1({nonce: REENTER_NONCE, signature: ""}), ""
+                TOKEN,
+                address(this),
+                REENTER_AMOUNT,
+                MintAuthV1({nonce: REENTER_NONCE, signature: ""}),
+                "",
+                new SignedContextV1[](0)
             );
         }
         return IMintRecipient.authorizeMint.selector;

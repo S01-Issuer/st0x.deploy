@@ -8,6 +8,7 @@ import {IReceiptV3} from "rain-vats-0.2.1/src/interface/IReceiptV3.sol";
 
 import {IST0xOrchestratorV1, MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV1.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
+import {SignedContextV1} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
 
 /// @title BurnInfoAuditTrailTest
 /// @notice Workflow: mint, hand the shares back, then burn with a NON-EMPTY
@@ -25,7 +26,7 @@ contract BurnInfoAuditTrailTest is OrchestratorIntegrationTest {
 
         MintAuthV1 memory auth = _signedMintAuth(address(vault), eoa, amount, nonce, pk);
         vm.prank(MM);
-        orchestrator.mint(address(vault), eoa, amount, auth, "");
+        orchestrator.mint(address(vault), eoa, amount, auth, "", new SignedContextV1[](0));
         uint256 mintedId = vault.highwaterId();
 
         vm.prank(eoa);
