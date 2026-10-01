@@ -27,12 +27,8 @@ import {
 /// `LibSafeInvariants` by injecting drift via `vm.etch` / `vm.mockCall` /
 /// `vm.store` and asserting the matching typed error is raised. The
 /// positive ("live state passes") cases live in
-/// `StoxProdV2.t.sol::testProdDeployBaseV2` (via `checkAllSafeBase`),
-/// so this file focuses on coverage of every error path.
-/// @dev Uses an unpinned Base head fork (same precedent as
-/// `StoxProdV2.t.sol::testProdDeployBaseV2`). Pinning would freeze the
-/// invariant assertions against a stale snapshot and let new drift slip
-/// through unnoticed.
+/// `StoxProdV2.t.sol::testProdDeployBaseV2` (via `checkAllSafeBase`).
+/// @dev Uses an unpinned Base head fork so drift surfaces on the next run.
 contract LibSafeInvariantsTest is Test {
     /// @notice Wrapper for the production Safe address; reset by every test
     /// after `selectBaseFork` because `vm.createSelectFork` resets cheatcode
@@ -44,8 +40,7 @@ contract LibSafeInvariantsTest is Test {
     /// harness; the harness is recreated against the active fork.
     LibSafeInvariantsHarness internal harness;
 
-    /// @notice Selects the Base fork at chain head — deliberately
-    /// unpinned. Live drift detector; see contract-level rationale.
+    /// @notice Selects the Base fork at chain head, unpinned.
     function selectBaseFork() internal {
         vm.createSelectFork(LibRainDeploy.BASE);
         safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
@@ -54,8 +49,7 @@ contract LibSafeInvariantsTest is Test {
 
     /// @notice Every factory-derived chain's Safe pin equals the derivation
     /// from the pinned initializer, and Base's (created differently) does not.
-    /// Fork-free: a mistyped pin fails here, not as a "Safe not yet created"
-    /// red in the chain's parity test.
+    /// Fork-free.
     function testTokenOwnerSafePinsMatchDerivation() external pure {
         address derived = LibSafeInvariants.expectedTokenOwnerSafeAddress();
         assertEq(LibSafeInvariants.safeForChainId(LibSafeInvariants.ETHEREUM_CHAIN_ID), derived, "ethereum");
@@ -302,10 +296,8 @@ contract LibSafeInvariantsTest is Test {
 
     /// @notice `assertAll(safe)` (no-arg overload) trips
     /// `SafeThresholdMismatch` when the live threshold drifts from the
-    /// pinned current truth. Mocks `getThreshold()` to `5` and asserts the
-    /// bundle surfaces the threshold error rather than passing silently.
-    /// This is the load-bearing test for the no-arg overload's defaulting
-    /// to `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD`.
+    /// pinned `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD`. Mocks
+    /// `getThreshold()` to `5`.
     function testInvertedAssertAllDefaultsThresholdDrift() external {
         selectBaseFork();
         vm.mockCall(address(safe), abi.encodeWithSelector(IGnosisSafe.getThreshold.selector), abi.encode(uint256(5)));
@@ -322,35 +314,27 @@ contract LibSafeInvariantsTest is Test {
 
     /// @notice `assertAll(safe, threshold, owners)` (full-args overload)
     /// trips `SafeThresholdMismatch` when the caller's supplied threshold
-    /// diverges from the live Safe — covering the migration script's
-    /// post-state call site. Caller asks for `4` against a live threshold
-    /// of `3`; the bundle reports the mismatch with the caller's `4` as
-    /// the expected value, not the pinned constant.
+    /// diverges from the live Safe. Caller asks for `4` against a live
+    /// threshold of `3`; the error reports the caller's `4` as the expected
+    /// value, not the pinned constant.
     function testInvertedAssertAllFullArgsThresholdMismatch() external {
         selectBaseFork();
         vm.expectRevert(abi.encodeWithSelector(SafeThresholdMismatch.selector, address(safe), uint256(4), uint256(3)));
         harness.callAssertAll(safe, 4, LibSafeInvariants.expectedOwners());
     }
 
-    /// @notice `assertActiveChainTokenOwnerSafe` passes against the LIVE Base
-    /// token-owner Safe and resolves Base's Safe address — the same
-    /// chain-agnostic policy assertion every chain gets.
+    /// @notice `assertActiveChainTokenOwnerSafe` passes against the live Base
+    /// token-owner Safe and resolves Base's Safe address.
     function testAssertActiveChainTokenOwnerSafeOnBase() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         address resolved = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         assertEq(resolved, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, "Base resolved the wrong Safe");
     }
 
-    /// @notice The SAME entry point passes against the LIVE Ethereum token-
-    /// owner Safe and resolves Ethereum's Safe address. The policy pins
-    /// (owner SET, threshold, v1.4.1 identity) are chain-agnostic truths;
-    /// only the Safe address is per-chain, and `getOwners()` order is an
-    /// incidental linked-list artifact of each chain's own deploy — which is
-    /// why the policy's owner check is order-insensitive. This per-chain fork
-    /// coverage is what keeps a broadcast script's Safe pre-flight from ever
-    /// reverting on a chain CI has not exercised: any consumer of this entry
-    /// point is proven against every pinned chain's live Safe on every CI
-    /// run.
+    /// @notice The same entry point passes against the live Ethereum
+    /// token-owner Safe and resolves Ethereum's Safe address. Only the Safe
+    /// address is per-chain; the owner check is order-insensitive because
+    /// `getOwners()` order depends on each chain's own deploy.
     function testAssertActiveChainTokenOwnerSafeOnEthereum() external {
         vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
         address resolved = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);

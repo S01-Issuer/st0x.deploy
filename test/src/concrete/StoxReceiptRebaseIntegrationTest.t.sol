@@ -454,7 +454,7 @@ contract StoxReceiptRebaseIntegrationTest is Test {
     /// In a multi-id batch transfer, `ReceiptAccountMigrated` events fire
     /// in `(from, ids[0]), (to, ids[0]), (from, ids[1]), (to, ids[1])`
     /// order, all before the `TransferBatch` event. Bob's zero-balance
-    /// migrations also emit (per #81 — every cursor advance fires).
+    /// migrations also emit: every cursor advance fires.
     /// Indexers rely on this interleaving: for each event emitted for
     /// `ids[i]`, the balance at that cursor for that id is the rasterized
     /// value, not yet touched by the transfer.
@@ -582,7 +582,7 @@ contract StoxReceiptRebaseIntegrationTest is Test {
     }
 
     // -----------------------------------------------------------------------
-    // Issue #81: receipt-side always-emit semantics.
+    // Receipt-side always-emit semantics.
     //
     // Mirrors the share-side test matrix on `StoxReceiptVault.t.sol`.
     // `migrateHolderId` must emit `ReceiptAccountMigrated` on every

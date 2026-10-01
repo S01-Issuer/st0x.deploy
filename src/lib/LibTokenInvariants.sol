@@ -24,9 +24,7 @@ struct TokenInstance {
 }
 
 /// @notice A production receipt vault's `owner()` does not match the owner
-/// the uniform-ownership invariant expected every vault to share. Surfaces
-/// the exact vault address that breaks the invariant rather than a generic
-/// mismatch.
+/// every vault is expected to share.
 /// @param vault The receipt vault whose owner was read.
 /// @param expected The address every vault is expected to report as
 /// `owner()`.
@@ -34,25 +32,20 @@ struct TokenInstance {
 error ReceiptVaultOwnerMismatch(address vault, address expected, address actual);
 
 /// @notice A production receipt vault's `authorizer()` does not match the
-/// authoriser every vault is expected to share. Surfaces the exact vault
-/// that breaks the uniform-authoriser invariant.
+/// authoriser every vault is expected to share.
 /// @param vault The receipt vault whose authoriser was read.
 /// @param expected The authoriser address every vault is expected to share.
 /// @param actual The authoriser address returned by `vault.authorizer()`.
 error ReceiptVaultAuthoriserMismatch(address vault, address expected, address actual);
 
 /// @title LibTokenInvariants
-/// @notice Reusable token-side uniformity invariants for the ST0x
-/// production receipt vaults on Base. Each assertion iterates the vault
-/// list emitted by `productionReceiptVaults` and either
-/// returns silently when the invariant holds against the live chain state
-/// or reverts with a typed error that pinpoints the offending vault.
-/// @dev These are token-side prod invariants: a receipt vault's owner and
-/// authoriser uniformity is a property of the token deployment, not of the
-/// Safe multisig. `LibInvariants.assertAll` composes this lib's `assertAll`
-/// alongside `LibSafeInvariants.assertAll` so consumers asserting the full
-/// production state get both. Individual asserts are also callable
-/// standalone for focused drift detection.
+/// @notice Token-side uniformity invariants for the ST0x production receipt
+/// vaults. Each assertion iterates a token table and either returns when
+/// the invariant holds against the live chain state or reverts with a typed
+/// error naming the offending vault.
+/// @dev `LibInvariants.assertAll` composes this lib's `assertAll` alongside
+/// `LibSafeInvariants.assertAll`. Individual asserts are also callable
+/// standalone.
 library LibTokenInvariants {
     // =========================================================================
     // Production token instance addresses on Base. Each token set is a
@@ -302,7 +295,7 @@ library LibTokenInvariants {
     address internal constant GOOGL_WRAPPED_TOKEN_VAULT = address(0x6a2357Df4975C667B171bE53dA6FFe6deBf7030c);
 
     // ---- tMETA / wtMETA — Meta Platforms, Inc. ST0x ----
-    // Deployed 2026-07-27, never launched — absent from registry, logos and Turnkey set; recorded, not pinned.
+    // Deployed, not launched; not in the token table.
     // /// https://basescan.org/address/0xffcBEA042a0d55293f9ad0f050CE11f6331C9313
     // address internal constant META_RECEIPT = address(0xffcBEA042a0d55293f9ad0f050CE11f6331C9313);
     // /// https://basescan.org/address/0xAF07a843A6221d3E6540122Fa712DF8541B05E26
@@ -327,7 +320,7 @@ library LibTokenInvariants {
     address internal constant MSFT_WRAPPED_TOKEN_VAULT = address(0x515A3Ac2a6aB590bDFa970caFFFd7fAdC680886E);
 
     // ---- tPLTR / wtPLTR — Palantir Technologies Inc. ST0x ----
-    // Deployed 2026-07-27, never launched — `owner()` is still the deployer EOA, not the Safe; recorded, not pinned.
+    // Deployed, not launched; `owner()` is the deployer EOA, not the Safe; not in the token table.
     // /// https://basescan.org/address/0x0fa01D10006486f042E55728f14A1A8f70ACa6a3
     // address internal constant PLTR_RECEIPT = address(0x0fa01D10006486f042E55728f14A1A8f70ACa6a3);
     // /// https://basescan.org/address/0xEAcB0EF8b160D0340578d8BA24311A5F7AD717F2
@@ -496,7 +489,7 @@ library LibTokenInvariants {
     address internal constant DNUT_WRAPPED_TOKEN_VAULT = address(0x1db49Ff8BEe88ec73F82F395B0BEAd372BdcAdb7);
 
     // ---- tGM / wtGM — General Motors Company ST0x ----
-    // Deployed 2026-09-06, never launched — swapped out for FGI before launch; recorded, not pinned.
+    // Deployed, not launched; not in the token table.
     // /// https://basescan.org/address/0x912193f95512480167B0894E20DDe5062105F3b7
     // address internal constant GM_RECEIPT = address(0x912193f95512480167B0894E20DDe5062105F3b7);
     // /// https://basescan.org/address/0x47C04A6f705f755C10641E975607ecE8f18BC60c
@@ -537,10 +530,7 @@ library LibTokenInvariants {
     address internal constant FGI_WRAPPED_TOKEN_VAULT = address(0x6aed8b1aCfb04F4e0e6db580F12fF41438a394e5);
 
     /// @notice Returns the 56 production token instance triples on Base, in
-    /// the order they were deployed. This is the structured source of truth
-    /// the flat `productionReceiptVaults()` accessor derives from; consumers
-    /// that need the receipt / wrapped-vault legs or the underlying join key
-    /// (cross-chain parity, per-token config checks) iterate this instead.
+    /// deployment order. `productionReceiptVaults()` derives from this.
     /// @return tokens The 56 production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](56);
@@ -573,26 +563,13 @@ library LibTokenInvariants {
         tokens[26] = TokenInstance("LRCX", LRCX_RECEIPT, LRCX_RECEIPT_VAULT, LRCX_WRAPPED_TOKEN_VAULT);
         tokens[27] = TokenInstance("TTWO", TTWO_RECEIPT, TTWO_RECEIPT_VAULT, TTWO_WRAPPED_TOKEN_VAULT);
         tokens[28] = TokenInstance("RKLB", RKLB_RECEIPT, RKLB_RECEIPT_VAULT, RKLB_WRAPPED_TOKEN_VAULT);
-        // Deployed on Base across 2026-07-27, 2026-08-05 and 2026-08-14, each
-        // wired onto the shared V4 authoriser and handed to the Base
-        // token-owner Safe. All twelve were copied onto Ethereum and HyperEVM
-        // by `20260807-deploy-missing-tokens`, so rows 29-41 exist on all
-        // three chains, as does every row below them.
-        //
-        // tMETA and tPLTR are deliberately absent from the array: META is
-        // deployed but never launched (absent from the registry, the logos and
-        // the Turnkey token set), and PLTR's `owner()` is still the deployer
-        // EOA rather than the Safe, so pinning it would break
-        // `assertUniformOwnership`. Both are recorded as commented-out rows at
-        // the index they would occupy — see below — so their addresses are on
-        // the record without entering the array or
-        // `20260807-deploy-missing-tokens`' selection.
         tokens[29] = TokenInstance("GOOGL", GOOGL_RECEIPT, GOOGL_RECEIPT_VAULT, GOOGL_WRAPPED_TOKEN_VAULT);
-        // tMETA — deployed 2026-07-27, never launched; recorded here, deliberately not in the array.
+        // tMETA: deployed, not launched; not in the table.
         // tokens[..] = TokenInstance("META", META_RECEIPT, META_RECEIPT_VAULT, META_WRAPPED_TOKEN_VAULT);
         tokens[30] = TokenInstance("AAPL", AAPL_RECEIPT, AAPL_RECEIPT_VAULT, AAPL_WRAPPED_TOKEN_VAULT);
         tokens[31] = TokenInstance("MSFT", MSFT_RECEIPT, MSFT_RECEIPT_VAULT, MSFT_WRAPPED_TOKEN_VAULT);
-        // tPLTR — deployed 2026-07-27, never launched, `owner()` still the deployer EOA; not in the array.
+        // tPLTR: deployed, not launched; `owner()` is the deployer EOA, so it would fail
+        // `assertUniformOwnership`; not in the table.
         // tokens[..] = TokenInstance("PLTR", PLTR_RECEIPT, PLTR_RECEIPT_VAULT, PLTR_WRAPPED_TOKEN_VAULT);
         tokens[32] = TokenInstance("LLY", LLY_RECEIPT, LLY_RECEIPT_VAULT, LLY_WRAPPED_TOKEN_VAULT);
         tokens[33] = TokenInstance("PTY", PTY_RECEIPT, PTY_RECEIPT_VAULT, PTY_WRAPPED_TOKEN_VAULT);
@@ -604,13 +581,6 @@ library LibTokenInvariants {
         tokens[39] = TokenInstance("TQQQ", TQQQ_RECEIPT, TQQQ_RECEIPT_VAULT, TQQQ_WRAPPED_TOKEN_VAULT);
         tokens[40] = TokenInstance("FTF", FTF_RECEIPT, FTF_RECEIPT_VAULT, FTF_WRAPPED_TOKEN_VAULT);
         tokens[41] = TokenInstance("CBRS", CBRS_RECEIPT, CBRS_RECEIPT_VAULT, CBRS_WRAPPED_TOKEN_VAULT);
-        // The EU batch (2026-08-27), MCD and NKE (2026-09-03), GRND
-        // (2026-09-04) and the 2026-09-06 batch. Deployed on Base first and
-        // copied onto Ethereum and HyperEVM on 2026-09-07 by
-        // `20260807-deploy-missing-tokens` (runs 34127693038 and 34129816326),
-        // which diffs Base against the target chain's table and selected
-        // exactly these fourteen rows. All three tables are now 56 rows deep
-        // and mirror each other index-for-index.
         tokens[42] = TokenInstance("AIR.PA", AIR_PA_RECEIPT, AIR_PA_RECEIPT_VAULT, AIR_PA_WRAPPED_TOKEN_VAULT);
         tokens[43] = TokenInstance("BMW.DE", BMW_DE_RECEIPT, BMW_DE_RECEIPT_VAULT, BMW_DE_WRAPPED_TOKEN_VAULT);
         tokens[44] = TokenInstance("MC.PA", MC_PA_RECEIPT, MC_PA_RECEIPT_VAULT, MC_PA_WRAPPED_TOKEN_VAULT);
@@ -621,7 +591,7 @@ library LibTokenInvariants {
         tokens[49] = TokenInstance("NKE", NKE_RECEIPT, NKE_RECEIPT_VAULT, NKE_WRAPPED_TOKEN_VAULT);
         tokens[50] = TokenInstance("GRND", GRND_RECEIPT, GRND_RECEIPT_VAULT, GRND_WRAPPED_TOKEN_VAULT);
         tokens[51] = TokenInstance("DNUT", DNUT_RECEIPT, DNUT_RECEIPT_VAULT, DNUT_WRAPPED_TOKEN_VAULT);
-        // tGM — deployed 2026-09-06, swapped out for FGI before launch; recorded, deliberately not in the array.
+        // tGM: deployed, not launched; not in the table.
         // tokens[..] = TokenInstance("GM", GM_RECEIPT, GM_RECEIPT_VAULT, GM_WRAPPED_TOKEN_VAULT);
         tokens[52] = TokenInstance("PLBY", PLBY_RECEIPT, PLBY_RECEIPT_VAULT, PLBY_WRAPPED_TOKEN_VAULT);
         tokens[53] = TokenInstance("TR", TR_RECEIPT, TR_RECEIPT_VAULT, TR_WRAPPED_TOKEN_VAULT);
@@ -630,18 +600,11 @@ library LibTokenInvariants {
     }
 
     /// @notice Returns the production token instance triples on Ethereum
-    /// mainnet — Base's underlyings in Base row order, so the tables pair by
-    /// index as well as by key.
+    /// mainnet: Base's underlyings in Base row order, so the tables pair by
+    /// index as well as by key (the cross-chain parity pin asserts the
+    /// alignment).
     /// @return tokens The 56 production token instances on Ethereum.
     function productionTokensEthereum() internal pure returns (TokenInstance[] memory tokens) {
-        // Deployed on Ethereum mainnet 2026-07-22 by
-        // `20260706-deploy-tokens-ethereum` (manual-broadcast run
-        // 29921218929): 28 tokens via the 0.1.1 unified deployer, each wired
-        // onto the Ethereum V4 authoriser and handed to the Ethereum
-        // token-owner Safe in the same broadcast. Addresses pinned from the
-        // run's logged (underlying, receipt, receiptVault, wrapped) tuples.
-        // Order and underlyings match Base row-for-row (the cross-chain
-        // parity pin asserts this).
         tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance(
             "MSTR",
@@ -811,24 +774,12 @@ library LibTokenInvariants {
             address(0xb62E913f0cC881862527Fa7e41e1C98eEf09cedD),
             address(0x1D6F0763e58FA6d472d470Eaaef0a4C08080d208)
         );
-        // RKLB was accidentally omitted from the table when the 28-token
-        // Ethereum broadcast ran; a gap-filling broadcast (EXECUTED
-        // 2026-07-22, manual-broadcast run 29924926246) deployed it and this
-        // row pins the logged tuple. That per-chain script has since been
-        // superseded by `20260807-deploy-missing-tokens`.
         tokens[28] = TokenInstance(
             "RKLB",
             address(0xFf5b15a4f478F296893b0b244D9b118Be87bCda2),
             address(0xED0c085d92C262FB46937CB0B3C9763Af7fCCf30),
             address(0x8FC87Be766C0cB6f254F1FDc9351D4B85B560FB3)
         );
-        // Deployed 2026-08-12 by `20260807-deploy-missing-tokens` across two
-        // manual-broadcast runs (31613854321, 31624478447) — the five 2026-08-05
-        // tokens then the six 2026-07-27 ones. Each was wired onto this
-        // chain's V4 authoriser and handed to its token-owner Safe in the same
-        // broadcast; these rows pin the logged tuples, which the runs produced
-        // but no PR ever recorded. Verified on chain before pinning: every
-        // `owner()` is the Safe and every `authorizer()` the V4 clone.
         tokens[29] = TokenInstance(
             "GOOGL",
             address(0xdC29d07D2125699FA44cAB7e940542b526dB0abd),
@@ -895,36 +846,18 @@ library LibTokenInvariants {
             address(0xf3875383506677BCdA6b9F12c48Ff7fE300970D7),
             address(0x04eE4ED5FF6643eA955503f966012b684f479966)
         );
-        // FTF, deployed 2026-08-14 by `20260807-deploy-missing-tokens` (run
-        // 31835550273) — the sole token the dispatch selected, Base having been
-        // pinned to 41 first. Wired onto this chain's V4 authoriser and handed
-        // to its token-owner Safe in the same broadcast.
         tokens[40] = TokenInstance(
             "FTF",
             address(0x05215bE061F61d341703a6b63AcFDFf396965425),
             address(0x334ccaD2e7D774F5e6A13437977dD0878926deF8),
             address(0x710A14a41a8Ea2e25376124C48bf9cAdc1E69be5)
         );
-        // CBRS, deployed 2026-08-14 by `20260807-deploy-missing-tokens` (run
-        // 31845108154) — the sole token that dispatch selected. It was never pinned
-        // here: the pin PR (#310) stayed open, so this table sat a row behind
-        // the chain. Verified live before pinning — symbol() tCBRS, receipt()
-        // and owner() the chain's token-owner Safe.
         tokens[41] = TokenInstance(
             "CBRS",
             address(0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8),
             address(0x75E0d127794b9C26eE35c55fbaBcc41c53Ccb37C),
             address(0x15925E1c19c0F0d392F6FCb40FdE9144Dd823962)
         );
-        // Deployed 2026-09-07 by `20260807-deploy-missing-tokens`
-        // (manual-broadcast run 34127693038) — the fourteen Base rows this table
-        // was missing: the EU batch (2026-08-27), MCD and NKE (2026-09-03),
-        // GRND (2026-09-04) and the 2026-09-06 batch. Each was wired onto this
-        // chain's V4 authoriser and handed to its token-owner Safe in the same
-        // broadcast; these rows pin the logged tuples. Verified on chain before
-        // pinning: every `receipt()` matches, every `owner()` is the chain's
-        // token-owner Safe, every `symbol()` is the expected t-ticker and every
-        // wrapper has code.
         tokens[42] = TokenInstance(
             "AIR.PA",
             address(0x9452c603A552f35003206f9001C51007C36F530F),
@@ -1016,13 +949,6 @@ library LibTokenInvariants {
     /// parity pin asserts the alignment).
     /// @return tokens The 56 production token instances on HyperEVM.
     function productionTokensHyperEvm() internal pure returns (TokenInstance[] memory tokens) {
-        // Deployed on HyperEVM 2026-07-24 (manual-broadcast run 30114307165):
-        // all 29 tokens via the 0.1.1 unified deployer, each wired onto the
-        // HyperEVM V4 authoriser and handed to the HyperEVM token-owner Safe
-        // in the same broadcast. Addresses pinned from the run's logged
-        // (underlying, receipt, receiptVault, wrapped) tuples. The script that
-        // ran it was per-chain and has since been superseded by
-        // `20260807-deploy-missing-tokens`, so this is the record of the run.
         tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance(
             "MSTR",
@@ -1198,13 +1124,6 @@ library LibTokenInvariants {
             0xED0c085d92C262FB46937CB0B3C9763Af7fCCf30,
             0x8FC87Be766C0cB6f254F1FDc9351D4B85B560FB3
         );
-        // Deployed 2026-08-12 by `20260807-deploy-missing-tokens` across two
-        // manual-broadcast runs (31614605147, 31625585429) — the five 2026-08-05
-        // tokens then the six 2026-07-27 ones. Each was wired onto this
-        // chain's V4 authoriser and handed to its token-owner Safe in the same
-        // broadcast; these rows pin the logged tuples, which the runs produced
-        // but no PR ever recorded. Verified on chain before pinning: every
-        // `owner()` is the Safe and every `authorizer()` the V4 clone.
         tokens[29] = TokenInstance(
             "GOOGL",
             0xdC29d07D2125699FA44cAB7e940542b526dB0abd,
@@ -1271,36 +1190,18 @@ library LibTokenInvariants {
             0xf3875383506677BCdA6b9F12c48Ff7fE300970D7,
             0x04eE4ED5FF6643eA955503f966012b684f479966
         );
-        // FTF, deployed 2026-08-14 by `20260807-deploy-missing-tokens` (run
-        // 31835971348) — the sole token the dispatch selected, Base having been
-        // pinned to 41 first. Wired onto this chain's V4 authoriser and handed
-        // to its token-owner Safe in the same broadcast.
         tokens[40] = TokenInstance(
             "FTF",
             0x05215bE061F61d341703a6b63AcFDFf396965425,
             0x334ccaD2e7D774F5e6A13437977dD0878926deF8,
             0x710A14a41a8Ea2e25376124C48bf9cAdc1E69be5
         );
-        // CBRS, deployed 2026-08-14 by `20260807-deploy-missing-tokens` (run
-        // 31845492796) — the sole token that dispatch selected. It was never pinned
-        // here: the pin PR (#310) stayed open, so this table sat a row behind
-        // the chain. Verified live before pinning — symbol() tCBRS, receipt()
-        // and owner() the chain's token-owner Safe.
         tokens[41] = TokenInstance(
             "CBRS",
             0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8,
             0x75E0d127794b9C26eE35c55fbaBcc41c53Ccb37C,
             0x15925E1c19c0F0d392F6FCb40FdE9144Dd823962
         );
-        // Deployed 2026-09-07 by `20260807-deploy-missing-tokens`
-        // (manual-broadcast run 34129816326) — the fourteen Base rows this table
-        // was missing: the EU batch (2026-08-27), MCD and NKE (2026-09-03),
-        // GRND (2026-09-04) and the 2026-09-06 batch. Each was wired onto this
-        // chain's V4 authoriser and handed to its token-owner Safe in the same
-        // broadcast; these rows pin the logged tuples. Verified on chain before
-        // pinning: every `receipt()` matches, every `owner()` is the chain's
-        // token-owner Safe, every `symbol()` is the expected t-ticker and every
-        // wrapper has code.
         tokens[42] = TokenInstance(
             "AIR.PA",
             0x9452c603A552f35003206f9001C51007C36F530F,
@@ -1388,16 +1289,9 @@ library LibTokenInvariants {
     }
 
     /// @notice Returns the production token instance triples on Robinhood
-    /// Chain (chain id 4663) — Base's underlyings in Base row order, so the
+    /// Chain (chain id 4663): Base's underlyings in Base row order, so the
     /// tables pair by index as well as by key (the cross-chain parity pin
     /// asserts the alignment).
-    ///
-    /// Deployed on Robinhood Chain 2026-09-10 by `20260807-deploy-missing-tokens`
-    /// on `robinhood` (manual-broadcast run 34542355140): all 41 tokens via the
-    /// 0.1.1 unified deployer against beacons already on 0.1.30, each wired
-    /// onto this chain's V4 authoriser and handed to its token-owner Safe in
-    /// the same broadcast. Addresses pinned from the run's logged
-    /// (underlying, receipt, receiptVault, wrapped) tuples.
     /// @return tokens The 56 production token instances on Robinhood Chain.
     function productionTokensRobinhood() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](56);
@@ -1647,9 +1541,6 @@ library LibTokenInvariants {
             0x334ccaD2e7D774F5e6A13437977dD0878926deF8,
             0x710A14a41a8Ea2e25376124C48bf9cAdc1E69be5
         );
-        // Rows 41-55: Base's later deployments, copied onto this chain by
-        // `20260807-deploy-missing-tokens` on 2026-09-11 (manual-broadcast run
-        // 34588739371) — the fifteen rows the dispatch selected, in Base order.
         tokens[41] = TokenInstance(
             "CBRS",
             0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8,
@@ -1743,16 +1634,9 @@ library LibTokenInvariants {
     }
 
     /// @notice Returns the production token instance triples on BNB Smart
-    /// Chain (chain id 56) — Base's underlyings in Base row order, so the
+    /// Chain (chain id 56): Base's underlyings in Base row order, so the
     /// tables pair by index as well as by key (the cross-chain parity pin
     /// asserts the alignment).
-    ///
-    /// Deployed on BNB Smart Chain 2026-09-10 by `20260807-deploy-missing-tokens`
-    /// on `bsc` (manual-broadcast run 34545683866): all 41 tokens via the
-    /// 0.1.1 unified deployer against beacons already on 0.1.30, each wired
-    /// onto this chain's V4 authoriser and handed to its token-owner Safe in
-    /// the same broadcast. Addresses pinned from the run's logged
-    /// (underlying, receipt, receiptVault, wrapped) tuples.
     /// @return tokens The 56 production token instances on BNB Smart Chain.
     function productionTokensBsc() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](56);
@@ -2002,9 +1886,6 @@ library LibTokenInvariants {
             0x162d65E4E4313b88D7eFc37F9c8110b334110406,
             0xd6c50a60b46eeF15ae2E8dbeFC417A6F0F154bc5
         );
-        // Rows 41-55: Base's later deployments, copied onto this chain by
-        // `20260807-deploy-missing-tokens` on 2026-09-11 (manual-broadcast run
-        // 34589363778) — the fifteen rows the dispatch selected, in Base order.
         tokens[41] = TokenInstance(
             "CBRS",
             0xdEa3AA3Ad91C7989Dd9986b8E5558d0e9889d718,
@@ -2098,11 +1979,8 @@ library LibTokenInvariants {
     }
 
     /// @notice Returns the 56 production receipt vault addresses on Base, in
-    /// the order they were deployed. Provided so consumers (e.g. invariant
-    /// assertions, migration scripts) can iterate without hardcoding the
-    /// list inline.
-    /// @dev Derived from `productionTokensBase()` so the token table is the
-    /// single source of truth and the two accessors cannot drift.
+    /// deployment order.
+    /// @dev Derived from `productionTokensBase()`.
     /// @return vaults The 56 production receipt vault addresses on Base.
     function productionReceiptVaults() internal pure returns (address[] memory vaults) {
         TokenInstance[] memory tokens = productionTokensBase();
@@ -2112,16 +1990,12 @@ library LibTokenInvariants {
         }
     }
 
-    /// @notice Assert that every production receipt vault reports the same
-    /// `owner()`. Iterates `productionReceiptVaults` and
-    /// reverts with `ReceiptVaultOwnerMismatch` on the first vault whose
-    /// `owner()` diverges from `expectedOwner`, surfacing the offending
-    /// vault.
-    /// @dev A divergent owner means a token is controlled by a different
-    /// account than the rest of the system — the class of inconsistency
-    /// this invariant exists to prevent. Composed into `assertAll` (with
-    /// the Safe as the expected owner) and through there into
-    /// `LibInvariants.assertAll`; also callable standalone.
+    /// @notice Assert that every Base production receipt vault reports
+    /// `expectedOwner` as `owner()`. Reverts with `ReceiptVaultOwnerMismatch`
+    /// on the first vault whose `owner()` diverges.
+    /// @dev Composed into `assertAll` (with the Safe as the expected owner)
+    /// and through there into `LibInvariants.assertAll`; also callable
+    /// standalone.
     /// @param expectedOwner The address every production receipt vault is
     /// expected to report as `owner()`.
     function assertUniformOwnership(address expectedOwner) internal view {
@@ -2130,10 +2004,6 @@ library LibTokenInvariants {
 
     /// @notice Chain-parametric `assertUniformOwnership`: assert every
     /// receipt vault in the supplied token table reports `expectedOwner`.
-    /// The Base no-arg-table overload delegates here with
-    /// `productionTokensBase()`; a multichain caller passes another chain's
-    /// table so the same uniform-ownership invariant runs against every
-    /// chain with that chain's vaults and Safe.
     /// @param tokens The token table whose receipt vaults are checked.
     /// @param expectedOwner The address every receipt vault must report as
     /// `owner()`.
@@ -2146,14 +2016,12 @@ library LibTokenInvariants {
         }
     }
 
-    /// @notice Assert that every production receipt vault reports the same
-    /// authoriser. Iterates `productionReceiptVaults` and
-    /// reverts with `ReceiptVaultAuthoriserMismatch` on the first vault whose
-    /// `authorizer()` diverges from `expected`, surfacing the offending vault.
-    /// @dev A divergent authoriser means a token is gated by a different RBAC
-    /// contract than the rest of the system — the class of inconsistency this
-    /// invariant exists to prevent. Composed into `assertAll` and through
-    /// there into `LibInvariants.assertAll`; also callable standalone.
+    /// @notice Assert that every Base production receipt vault reports
+    /// `expected` as `authorizer()`. Reverts with
+    /// `ReceiptVaultAuthoriserMismatch` on the first vault whose
+    /// `authorizer()` diverges.
+    /// @dev Composed into `assertAll` and through there into
+    /// `LibInvariants.assertAll`; also callable standalone.
     /// @param expected The authoriser address every production receipt vault
     /// is expected to share.
     function assertUniformAuthoriser(address expected) internal view {
@@ -2162,9 +2030,7 @@ library LibTokenInvariants {
 
     /// @notice Chain-parametric `assertUniformAuthoriser`: assert every
     /// receipt vault in the supplied token table reports `expected` as its
-    /// authoriser. The Base overload delegates here with
-    /// `productionTokensBase()`; a multichain caller passes another chain's
-    /// table + that chain's authoriser clone.
+    /// authoriser.
     /// @param tokens The token table whose receipt vaults are checked.
     /// @param expected The authoriser every receipt vault must share.
     function assertUniformAuthoriser(TokenInstance[] memory tokens, address expected) internal view {
@@ -2177,17 +2043,14 @@ library LibTokenInvariants {
     }
 
     /// @notice Migration-window variant of `assertUniformOwnership`: every
-    /// receipt vault in the supplied table must report `pre` OR `post` as
-    /// `owner()` before `deadline`, and exactly `post` at/after it. Lets
-    /// the governance-timelock ownership invariant merge alongside the
-    /// migration script instead of waiting for on-chain execution — both
-    /// sides of the transition are cron-covered, and a migration left
-    /// un-run past the deadline red-lines via `MigrationDeadlinePassed`.
+    /// receipt vault in the supplied table must report `pre` or `post` as
+    /// `owner()` before `deadline`, and exactly `post` at/after it. A
+    /// migration left un-run past the deadline reverts with
+    /// `MigrationDeadlinePassed`.
     /// @dev Each vault is asserted independently, so a half-landed
     /// migration (some vaults on `pre`, some on `post`) passes before the
-    /// deadline — the bundle is atomic per Safe execution, but this leg
-    /// does not assume that. Any third owner trips `MigrationStateDrift`
-    /// immediately regardless of the deadline.
+    /// deadline. Any third owner reverts with `MigrationStateDrift`
+    /// regardless of the deadline.
     /// @param tokens The token table whose receipt vaults are checked.
     /// @param pre The accepted owner before the migration runs.
     /// @param post The accepted owner after the migration runs.
@@ -2203,18 +2066,11 @@ library LibTokenInvariants {
         }
     }
 
-    /// @notice Full token-side invariant bundle: every production receipt
-    /// vault reports the supplied Safe as its `owner()` AND the supplied
-    /// authoriser as its `authorizer()`. Pre-flight / post-state hook for
-    /// any script touching the production receipt vault set; consumers
-    /// asserting the full production state (Safe + token + authoriser)
-    /// compose this alongside `LibSafeInvariants.assertAll` and
-    /// `LibAuthoriserInvariants.assertAll` via `LibInvariants.assertAll`.
-    /// @dev Both legs run last in the composed bundle because each performs
-    /// one external call per production token instance and is only
-    /// meaningful once the Safe itself has been validated. The authoriser is
-    /// parameterised rather than hardcoded so this lib stays free of
-    /// cross-facet dependencies; the orchestrator supplies the pinned address.
+    /// @notice Full token-side invariant bundle: every Base production
+    /// receipt vault reports the supplied Safe as its `owner()` and the
+    /// supplied authoriser as its `authorizer()`. `LibInvariants.assertAll`
+    /// composes this alongside `LibSafeInvariants.assertAll` and
+    /// `LibAuthoriserInvariants.assertAll`.
     /// @param safe The Safe address every production receipt vault is
     /// expected to report as `owner()`.
     /// @param expectedAuthoriser The authoriser address every production
@@ -2225,10 +2081,7 @@ library LibTokenInvariants {
 
     /// @notice Chain-parametric token-side bundle: every receipt vault in
     /// the supplied table reports `safe` as `owner()` and
-    /// `expectedAuthoriser` as `authorizer()`. The Base overload delegates
-    /// here with `productionTokensBase()`; `LibInvariants.assertProductionState`
-    /// calls this with each chain's own table so the full-production-state
-    /// pre-flight works on every chain.
+    /// `expectedAuthoriser` as `authorizer()`.
     /// @param tokens The chain's token table.
     /// @param safe The Safe every receipt vault must report as `owner()`.
     /// @param expectedAuthoriser The authoriser every receipt vault must

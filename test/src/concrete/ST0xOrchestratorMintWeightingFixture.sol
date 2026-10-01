@@ -97,7 +97,7 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
         vm.mockCall(token, abi.encodeWithSelector(IERC20.transfer.selector), abi.encode(true));
     }
 
-    /// Make the vault-logic version guard PASS.
+    /// Make the vault-logic version guard pass.
     function _makeGuardPass() internal {
         vm.mockCall(
             DEPLOYER,
@@ -147,7 +147,7 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
         return EvaluableV4({interpreter: I_INTERPRETER, store: I_STORE, bytecode: I_DEPLOYER.parse2(bytes(rainlang))});
     }
 
-    /// Install `rainlang` as the weighting, as OWNER. Parsed BEFORE the
+    /// Install `rainlang` as the weighting, as OWNER. Parsed before the
     /// prank, since `parse2` is an external call the prank would land on.
     function _setWeighting(string memory rainlang) internal returns (EvaluableV4 memory) {
         return _install(_weighting(rainlang));
@@ -237,7 +237,7 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
         pure
         returns (address who, Float capacity, Float headroom, Float charge)
     {
-        // The first four bytes ARE the selector; the truncation is the point.
+        // The truncation to the selector is intended.
         // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(bytes32(bytes4(reason)), bytes32(selector), "selector");
         bytes memory args = new bytes(reason.length - 4);

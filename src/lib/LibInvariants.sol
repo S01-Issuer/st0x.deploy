@@ -14,11 +14,6 @@ import {LibTokenInvariants, TokenInstance} from "./LibTokenInvariants.sol";
 /// chains them so a consumer asserting the full production state has a
 /// single call site without any facet lib having to know about other
 /// facets.
-/// @dev Lives separately from `LibSafeInvariants` so the file name doesn't
-/// lie about scope: cross-facet composition belongs in a cross-facet lib,
-/// not inside a Safe-named lib. Per-facet libs stay focused on their
-/// subject and reachable standalone for scripts / fork tests that don't
-/// need the full bundle.
 library LibInvariants {
     /// @notice Full production-state invariant bundle. Composes every
     /// per-facet `assertAll`: Safe identity / config + token-side
@@ -28,13 +23,12 @@ library LibInvariants {
     /// fork test; if this passes silently the live system is in its
     /// current expected state across every pinned facet.
     ///
-    /// @dev The chain-agnostic generalisation used for other chains is
-    /// `assertProductionState`; this overload fills in Base's pinned
-    /// token set and Safe. The full-args overload is the right call site
-    /// only when a caller is *deliberately* asserting a state that
-    /// diverges from the pinned current truth (e.g. a migration script's
-    /// post-state re-check after it has simulated `changeThreshold`); the
-    /// no-arg overload fills in the `LibSafeInvariants`-pinned defaults.
+    /// @dev `assertProductionState` is the chain-agnostic generalisation;
+    /// this overload fills in Base's pinned token set and Safe. The
+    /// full-args overload is for a caller asserting a state that diverges
+    /// from the pinned current truth (e.g. a migration script's post-state
+    /// re-check after it has simulated `changeThreshold`); this overload
+    /// fills in the `LibSafeInvariants`-pinned defaults.
     /// @param safe The Safe to validate against the pinned current truth.
     function assertAll(IGnosisSafe safe) internal view {
         LibSafeInvariants.assertAll(safe);
@@ -58,27 +52,17 @@ library LibInvariants {
     /// service signer are SHARED across chains; only the ADDRESSES differ. The
     /// Safe address is therefore a per-chain deploy artifact (not a principal):
     /// resolved by chain id, and its policy asserted against the shared pins.
-    /// The owner check is order-INSENSITIVE because a per-chain Safe's
-    /// `getOwners()` order is incidental. There is no `ChainPrincipals`
-    /// parameter — the per-chain inputs are the token addresses and the
-    /// authoriser clone address (whose impl codehash is asserted equal across
-    /// chains by the cross-chain parity pin); the Safe address is read from
-    /// the per-chain pin here.
+    /// The owner check is order-insensitive because a per-chain Safe's
+    /// `getOwners()` order is incidental. The per-chain inputs are the token
+    /// addresses and the authoriser clone address (whose impl codehash is
+    /// asserted equal across chains by the cross-chain parity pin); the Safe
+    /// address is read from the per-chain pin here.
     ///
-    /// Unlike Base's `assertAll(safe)` this asserts a SINGLE uniform
-    /// authoriser rather than the V4 swap-window pair: a bootstrap chain is
-    /// deployed directly at V4 with its vaults wired onto one clone from the
-    /// start, so there is no V3→V4 migration window to tolerate. The
-    /// authoriser CODEHASH is not asserted here (a deploy-artifact property
-    /// the clone-deploy script + cross-chain parity pin check); this bundle
-    /// asserts live ROLE state + ownership.
+    /// The authoriser codehash is not asserted here (the clone-deploy script
+    /// and the cross-chain parity pin check it); this bundle asserts live
+    /// role state and ownership.
     ///
-    /// Driven per chain by `LibInvariantsTest` against live Base, Ethereum
-    /// and HyperEVM forks — every chain whose token table is hydrated.
-    /// Robinhood Chain and BNB Smart Chain join when their tables do; until
-    /// then there is nothing on those chains for this bundle to assert, and
-    /// `StoxCrossChainParityTest` is what holds their pending legs to a
-    /// deadline.
+    /// Driven per chain by `LibInvariantsTest` against live forks.
     /// @param tokens The chain's production token table.
     /// @param authoriser The chain's live authoriser the vaults point at.
     function assertProductionState(TokenInstance[] memory tokens, address authoriser) internal view {

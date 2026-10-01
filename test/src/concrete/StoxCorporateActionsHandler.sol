@@ -10,31 +10,24 @@ import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 import {InvariantVault} from "./InvariantVault.sol";
 import {InvariantReceipt} from "./InvariantReceipt.sol";
 
-/// @dev Handler for the corporate-actions invariant suite. Foundry's invariant
-/// fuzzer targets this contract's external functions; each call drives one
-/// operation against the vault with bounded, fuzzer-supplied inputs. After
-/// every operation that migrates an account, the handler asserts the cursor-
-/// equality invariant inline so violations surface at the offending call
-/// rather than at the periodic invariant sweep.
+/// @dev Handler for the corporate-actions invariant suite. Each external
+/// function drives one operation against the vault with bounded,
+/// fuzzer-supplied inputs. After every operation that migrates an account,
+/// the handler asserts the cursor-equality invariant inline.
 ///
 /// Actors: a fixed set of 5 addresses plus the zero address (for mint/burn).
-/// Multipliers: bounded to {1, 2, 3} (and their reciprocals via fractional
-/// form) to keep Float precision inside well-tested territory without losing
-/// the fractional vs integer distinction.
-/// Amounts: bounded per-op against current balances to avoid OZ underflow
-/// reverts that would mask real bugs.
+/// Multipliers: {1, 2, 3} and the reciprocals 1/2, 1/3.
+/// Amounts: bounded per-op against current balances so OZ does not underflow.
 contract StoxCorporateActionsHandler is Test {
     InvariantVault public immutable VAULT;
     InvariantReceipt public immutable RECEIPT;
 
     /// @dev Fixed set of actors the handler cycles through. Each actor is
-    /// paired with a fixed receipt id (`i + 1`) for the proportionality
-    /// invariant: `deposit` and `withdraw` create / destroy matching amounts
-    /// of both the share balance and the receipt at that actor's id, so
+    /// paired with a fixed receipt id (`i + 1`): `deposit` and `withdraw`
+    /// create / destroy matching amounts of the share balance and the
+    /// receipt at that id, so
     /// `vault.balanceOf(actor_i) == receipt.balanceOf(actor_i, i+1)` holds
-    /// at every post-handler-call checkpoint. Share-only transfers would
-    /// break this proportionality (shares fungible, receipts per-id), so
-    /// the handler deliberately does not expose them.
+    /// after every handler call. The handler exposes no share-only transfer.
     address[5] public actors;
 
     /// @dev Total number of mints executed (for ghost-variable assertions).
@@ -109,7 +102,7 @@ contract StoxCorporateActionsHandler is Test {
     /// (caught by the inline try / ignore pattern).
     function cancel(uint256 indexSeed) external {
         uint256 len = VAULT.nodesLength();
-        if (len <= 1) return; // only sentinel; nothing to cancel
+        if (len <= 1) return; // only bootstrap; nothing to cancel
         uint256 actionIndex = (indexSeed % (len - 1)) + 1; // in [1, len-1]
         // forge-lint: disable-next-line(unchecked-call)
         try VAULT.publicCancel(actionIndex) {} catch {}
@@ -122,10 +115,7 @@ contract StoxCorporateActionsHandler is Test {
     }
 
     /// @dev Deposit — mints matching amounts of share and receipt to an
-    /// actor at their assigned id. Models the real vault flow where a
-    /// deposit creates both a share balance and a receipt in lockstep.
-    /// This is the only mint path in the handler so that the
-    /// share-receipt proportionality invariant holds at every checkpoint.
+    /// actor at their assigned id. The handler's only mint path.
     function deposit(uint256 actorSeed, uint64 amountSeed) external {
         uint256 actorIndex = actorSeed % actors.length;
         address to = actors[actorIndex];
@@ -225,10 +215,7 @@ contract StoxCorporateActionsHandler is Test {
     }
 
     /// @dev After any migration on the receipt, the (holder, id) cursor
-    /// equals the vault's `totalSupplyLatestCursor`. A receipt cursor that
-    /// drifted behind would cause `LibReceiptRebase.migratedBalance` to
-    /// silently re-apply multipliers to an already-rasterized stored
-    /// balance on the next read.
+    /// equals the vault's `totalSupplyLatestCursor`.
     function _assertReceiptCursorInvariant(address a, uint256 id) internal view {
         assertEq(
             RECEIPT.holderIdCursor(a, id),
@@ -238,11 +225,7 @@ contract StoxCorporateActionsHandler is Test {
     }
 
     /// @dev Record the receipt-side cursor to check per-(holder, id)
-    /// monotonicity. Same list-order semantics as the share side: a
-    /// later-scheduled earlier-effective split can land at a numerically
-    /// smaller node id but still be reachable forward from `last`, so a
-    /// raw `assertGe` would falsely flag a valid schedule. Walk forward
-    /// via `next` pointers instead.
+    /// monotonicity, in list order as on the share side.
     function _recordReceiptCursor(address a, uint256 id) internal {
         uint256 current = RECEIPT.holderIdCursor(a, id);
         uint256 last = lastSeenReceiptCursor[a][id];

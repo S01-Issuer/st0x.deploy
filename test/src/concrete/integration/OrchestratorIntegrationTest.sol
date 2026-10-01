@@ -63,10 +63,9 @@ abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
     address internal constant OWNER = address(uint160(uint256(keccak256("OWNER"))));
     address internal constant MM = address(uint160(uint256(keccak256("MM"))));
 
-    /// A capacity no amount in these workflows comes near: `1e60`, forty
-    /// orders of magnitude over the widest `uint256` amount a workflow mints.
-    /// Granted as MM's global limit and as each recipient's limit so the
-    /// workflows exercise the real vault machinery rather than the caps.
+    /// A capacity no amount in these workflows comes near, granted as MM's
+    /// global limit and as each recipient's limit so the workflows exercise
+    /// the vault machinery rather than the caps.
     Float internal immutable UNBOUNDED_CAPACITY = LibDecimalFloat.packLossless(1, 60);
 
     /// A zero leak rate: nothing here relies on a bucket refilling.
@@ -139,15 +138,11 @@ abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
         orchestrator.grantRole(orchestrator.MINT_ROLE(), MM);
         orchestrator.grantRole(orchestrator.BURN_ROLE(), MM);
         // No weighting means no mint. The identity weighting charges each
-        // mint its amount in whole tokens, so the workflows that are about
-        // the vault machinery are not about the weighting either.
+        // mint its amount in whole tokens.
         orchestrator.setMintWeighting(identity);
-        // Mint caps fail closed, so a freshly initialised orchestrator mints
-        // nothing for anyone. Grant an unreachable capacity as MM's global
-        // limit, so these workflows exercise the real vault machinery rather
-        // than the caps — which have their own unit tests in
-        // `ST0xOrchestrator.t.sol`. Each workflow allows its own recipient
-        // the same way with `_allowRecipient`.
+        // Mint caps fail closed. Grant an unreachable capacity as MM's global
+        // limit; each workflow allows its own recipient with
+        // `_allowRecipient`.
         orchestrator.setMinterGlobalMintLimit(MM, UNBOUNDED_CAPACITY, NO_LEAK);
         vm.stopPrank();
     }

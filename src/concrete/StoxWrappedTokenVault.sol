@@ -13,19 +13,11 @@ import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensio
 error ZeroAsset();
 
 /// @title StoxWrappedTokenVault
-/// @notice An ERC-4626 compliant vault that wraps an underlying token, intended
-/// to be a StoxReceiptVault as the asset.
-/// This allows for defi compatible tokens that have a claim on any underlying
-/// revaluations of the base assets that are 1:1 with the offchain bridge. For
-/// example, dividends and stock splits both revalue the underlying asset, either
-/// indirectly as yield or directly as a rebase of the total supply.
-/// The wrapper token as a vault never produces yield or rebases due to offchain
-/// events, therefore it captures the value in its price onchain rather than
-/// in its supply or an external token.
-/// The downside is that the wrapper token will trade at a premium or discount
-/// relative to the offchain asset that is ostensibly being tokenized, but the
-/// benefit is that the wrapper token can easily integrate with defi protocols
-/// that make minimal assumptions/affordances beyond basic ERC20 functionality.
+/// @notice An ERC-4626 vault that wraps an underlying token, intended to be a
+/// StoxReceiptVault as the asset. The wrapper never yields or rebases on
+/// offchain events; revaluations of the underlying (dividends as yield, stock
+/// splits as a rebase of the supply) are captured in the wrapper's price, so
+/// the wrapper is a plain ERC20 to any protocol holding it.
 contract StoxWrappedTokenVault is ERC4626Upgradeable, ICloneableV2 {
     /// @dev Emitted when the StoxWrappedTokenVault is initialized.
     /// @param sender The address that initiated the initialization.

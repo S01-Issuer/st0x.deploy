@@ -1,17 +1,17 @@
 # SPDX-License-Identifier: LicenseRef-DCL-1.0
 # SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 ---
-/* An example mint weighting: SPEC.md's item 9 rendering, kept under test.
- * What `ST0xOrchestrator.setMintWeighting` installs is governance's choice;
- * this file is not it.
+/* An example mint weighting, kept under test. What
+ * `ST0xOrchestrator.setMintWeighting` installs is governance's; this file is
+ * not it.
  *
- * SPEC.md section 2 as one expression: it checks the attestations that came
- * with a mint and prices the mint, or reverts. Every attestation word is from
- * the `St0xAttestSubParser`; everything else is standard Rainlang. The elided
+ * One expression: it checks the attestations that came with a mint and prices
+ * the mint, or reverts. Every attestation word is from the
+ * `St0xAttestSubParser`; everything else is standard Rainlang. The elided
  * bindings below are per-deployment configuration, bound at compose time with
  * `rain dotrain compose -e weighting -b <name>=<value>`. Nothing is per token:
- * one composed expression serves every vault, deriving the ticker its feed
- * carries from the symbol of the vault being minted.
+ * one composed expression serves every vault, deriving the ticker from the
+ * symbol of the vault being minted.
  *
  * Only the entrypoint `weighting` is composed. The mint amount is in whole
  * tokens and the output is `mint-amount * lead-price`, the value the mint-cap
@@ -42,8 +42,7 @@ using-words-from st0x-attest-subparser
   "Lead attestation missing"
 ),
 
-/* Both pool attestations must come from the allowlist. The pool is six and the
- * mint collects two, so any four operators can be down without stopping it. */
+/* Both pool attestations come from the allowlist. */
 :ensure(
   binary-in<2>(
     attestor<0>() attestor<1>()
@@ -60,8 +59,7 @@ using-words-from st0x-attest-subparser
 
 /* Every attestation is for the ticker the vault being minted wraps. A vault's
  * symbol is its ticker behind a fixed `t`, `tMSTR` for `MSTR`, so the ticker
- * is the vault's symbol with its first character dropped, and no table of
- * vaults is needed here.
+ * is the vault's symbol with its first character dropped.
  *
  * Symbols are IntOrAString V3 words: the string's bytes sit just above the
  * low byte, which is `0xe0 | length`, and the first character is the highest
@@ -73,15 +71,15 @@ using-words-from st0x-attest-subparser
  *
  * which is the IntOrAString of the string less its first character: the
  * same bytes, one byte shorter, the length byte one less. The arithmetic is
- * integer, since the words are bytes, not numbers. */
+ * integer: the words are bytes, not numbers. */
 vault-symbol: mint-symbol(),
 symbol-scale: uint256-power(0x0100 bitwise-and(vault-symbol 0x1f)),
 symbol-first: uint256-div(vault-symbol symbol-scale),
 
 /* The prefix is `t`, 0x74 in ASCII. A vault whose symbol does not carry it is
- * not a vault this weighting prices. This runs before the ticker is taken,
- * so an empty symbol, with nothing to drop, is refused here: its `first` is
- * the length byte 0xe0 itself, and the subtraction below would underflow. */
+ * refused. This runs before the ticker is taken, so an empty symbol is
+ * refused here: its `first` is the length byte 0xe0 itself, and the
+ * subtraction below would underflow. */
 :ensure(
   binary-equal-to(symbol-first 0x74)
   "Vault symbol has no t prefix"
@@ -96,8 +94,7 @@ ticker: uint256-sub(vault-symbol uint256-mul(symbol-first symbol-scale) 0x01),
 ),
 
 /* The attested times and the chain clock all fall within max-time-spread of
- * each other. The proportional tolerance is an explicit zero: a time is an
- * offset from an epoch, so a proportion of it means nothing. */
+ * each other; the proportional tolerance is zero. */
 :ensure(
   agree(
     max-time-spread 0
@@ -106,9 +103,8 @@ ticker: uint256-sub(vault-symbol uint256-mul(symbol-first symbol-scale) 0x01),
   "Times disagree"
 ),
 
-/* Highest and lowest no more than max-deviation apart. The absolute tolerance
- * is an explicit zero, which asserts these prices stay away from zero, since a
- * proportional limit alone breaks as values approach it. */
+/* Highest and lowest price no more than max-deviation apart; the absolute
+ * tolerance is zero. */
 :ensure(
   agree(
     0 max-deviation
@@ -117,14 +113,11 @@ ticker: uint256-sub(vault-symbol uint256-mul(symbol-first symbol-scale) 0x01),
   "Attestors disagree"
 ),
 
-/* Absolute bounds on the price that gets used. Agreement between the
- * attestors does not catch a price they all got wrong. The other two are
- * already within max-deviation of this one. */
+/* Absolute bounds on the lead price, the price that gets used. */
 :ensure(
   less-than-or-equal-to(min-price lead-price() max-price)
   "Price outside bounds"
 ),
 
-/* Any of the values may be taken once they agree. This takes the lead's and
- * weights the requested mint amount by it. */
+/* The requested mint amount weighted by the lead price. */
 value: mul(mint-amount() lead-price());

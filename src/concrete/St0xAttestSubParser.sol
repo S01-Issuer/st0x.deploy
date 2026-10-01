@@ -22,16 +22,15 @@ import {
 } from "../generated/St0xAttestSubParserPointers.sol";
 
 /// @title St0xAttestSubParser
-/// @notice The subparser of SPEC.md item 11. Registered in an expression with
-/// `using-words-from`, it provides `lead`, `attestor<N>`, `lead-symbol`,
-/// `lead-price`, `lead-time`, `attested-symbol<N>`, `attested-price<N>`,
-/// `attested-time<N>`, `mint-symbol` and `mint-amount`, each of which
-/// compiles to a `context` read of the grid in `LibSt0xAttestContext`.
+/// @notice Registered in an expression with `using-words-from`, provides
+/// `lead`, `attestor<N>`, `lead-symbol`, `lead-price`, `lead-time`,
+/// `attested-symbol<N>`, `attested-price<N>`, `attested-time<N>`,
+/// `mint-symbol` and `mint-amount`, each of which compiles to a `context`
+/// read of the grid in `LibSt0xAttestContext`.
 ///
 /// Every table the base contract dispatches on is a constant from
-/// `src/generated/St0xAttestSubParserPointers.sol`, which `script/Build.sol`
-/// regenerates from the `build*` functions below. The tests assert the two
-/// agree, because a stale table dispatches the wrong word.
+/// `src/generated/St0xAttestSubParserPointers.sol`, which
+/// `script/BuildPointers.sol` regenerates from the `build*` functions below.
 contract St0xAttestSubParser is BaseRainlangSubParser {
     /// @inheritdoc IDescribedByMetaV1
     function describedByMetaV1() external pure returns (bytes32) {

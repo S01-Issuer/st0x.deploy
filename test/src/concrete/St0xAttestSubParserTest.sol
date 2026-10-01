@@ -58,7 +58,7 @@ abstract contract St0xAttestSubParserTest is OpTest {
         return bytes32(uint256(uint160(account)));
     }
 
-    /// An attestation of `[symbol, price, time]` signed by `key`, exactly as
+    /// An attestation of `[symbol, price, time]` signed by `key`, as
     /// `LibContext.build` verifies it.
     function attest(uint256 key, bytes32 attestedSymbol, bytes32 price, bytes32 time)
         internal

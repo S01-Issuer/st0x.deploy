@@ -9,20 +9,14 @@ import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
 import {LibTotalSupply} from "../../../src/lib/LibTotalSupply.sol";
 
 /// @dev Test-only subclass of StoxReceiptVault that bypasses
-/// `OffchainAssetReceiptVault._update`'s authorizer / freeze checks. This lets
-/// us exercise `StoxReceiptVault`'s migration logic in isolation without
-/// standing up the full rain.vats auth/freeze infrastructure (admin grants,
-/// authorizer wiring, certify state, etc).
-///
-/// The test class re-overrides `_update` to call `migrateAccount` for both
-/// sides and then call `ERC20Upgradeable._update` directly, skipping the
-/// `OffchainAssetReceiptVault._update` middle layer. The migration semantics
-/// being tested live entirely in `StoxReceiptVault` and the libraries it calls,
-/// so the bypass is faithful for the purpose of these tests.
+/// `OffchainAssetReceiptVault._update`'s authorizer / freeze checks, so
+/// `StoxReceiptVault`'s migration logic can be exercised without the rain.vats
+/// auth/freeze setup. `_update` calls `migrateAccount` for both sides and then
+/// `ERC20Upgradeable._update` directly.
 contract TestStoxReceiptVault is StoxReceiptVault {
     function _update(address from, address to, uint256 amount) internal override {
-        // Mirror the production StoxReceiptVault._update flow exactly, only
-        // bypassing the OffchainAssetReceiptVault authorizer/freeze layer.
+        // Mirror the StoxReceiptVault._update flow, bypassing the
+        // OffchainAssetReceiptVault authorizer/freeze layer.
         LibTotalSupply.fold();
 
         migrateAccount(from);

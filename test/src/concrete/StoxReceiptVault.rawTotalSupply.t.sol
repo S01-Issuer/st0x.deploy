@@ -8,26 +8,18 @@ import {ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/interface/ICorporateActio
 import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 import {TestStoxReceiptVault} from "./TestStoxReceiptVault.sol";
 
-/// Regression guards for Protofire H01 (report `st0x.deploy 5.0`, July 2026,
-/// audited at `ed767bf2`): "Raw OZ `_totalSupply` can block minting".
+/// A stock split rewrites holder balances through
+/// `LibERC20Storage.setUnderlyingBalance`, bypassing `_mint` / `_burn`. OZ
+/// subtracts from its `_totalSupply` accumulator unchecked on burn and adds to
+/// it checked on mint, so if the accumulator is not kept in step with the
+/// rewritten balances it wraps and every subsequent mint reverts with
+/// `Panic(0x11)`.
 ///
-/// A stock split rewrites holder balances directly through
-/// `LibERC20Storage.setUnderlyingBalance`, bypassing `_mint` / `_burn`. Before
-/// the fix, OZ's own `_totalSupply` accumulator was never adjusted to match, so
-/// it drifted below the true sum of balances. OZ subtracts from that
-/// accumulator **unchecked** on burn and adds to it **checked** on mint, so the
-/// drift eventually wrapped the slot to ~2**256 and every subsequent mint
-/// reverted with `Panic(0x11)` — while `totalSupply()`, `balanceOf()` and all
-/// events kept reporting correct, mutually consistent values.
-///
-/// The invariant these tests pin is OZ's own:
-///
-///   `_totalSupply == Σ _balances`
-///
-/// which is a *different* quantity from the rebase-aware `totalSupply()`.
-/// During partial migration the raw slot tracks the sum of *stored* balances
-/// while `totalSupply()` projects unmigrated pots forward through every
-/// completed multiplier; the two converge once every holder has migrated.
+/// These tests pin OZ's invariant `_totalSupply == Σ _balances`, a different
+/// quantity from the rebase-aware `totalSupply()`. During partial migration
+/// the raw slot tracks the sum of stored balances while `totalSupply()`
+/// projects unmigrated pots forward through every completed multiplier; the
+/// two converge once every holder has migrated.
 contract StoxReceiptVaultRawTotalSupplyTest is Test {
     TestStoxReceiptVault internal vault;
 
@@ -43,10 +35,8 @@ contract StoxReceiptVaultRawTotalSupplyTest is Test {
         return LibStockSplit.encodeParametersV1(LibDecimalFloat.packLossless(multiplier, 0));
     }
 
-    /// The exact scenario tabulated in the H01 finding.
-    ///
-    /// Alice mints 1000, a 2x split completes, Alice redeems 1002. Before the
-    /// fix the raw slot went `1000 - 1002` and wrapped to `2**256 - 2`.
+    /// Alice mints 1000, a 2x split completes, Alice redeems 1002: the raw
+    /// slot follows the rewritten balance instead of going `1000 - 1002`.
     function testH01RedeemAcrossSplitDoesNotWrapRawTotalSupply() external {
         vault.publicUpdate(address(0), ALICE, 1000);
         assertEq(vault.rawTotalSupply(), 1000, "raw slot tracks the mint");
@@ -57,8 +47,7 @@ contract StoxReceiptVaultRawTotalSupplyTest is Test {
         assertEq(vault.balanceOf(ALICE), 2000, "2x split doubles Alice's balance");
         assertEq(vault.totalSupply(), 2000, "rebase-aware supply doubles too");
 
-        // Redeem more than the pre-split supply. This is the step that
-        // underflowed OZ's accumulator before the fix.
+        // Redeem more than the pre-split supply.
         vault.publicUpdate(ALICE, address(0), 1002);
 
         assertEq(vault.balanceOf(ALICE), 998, "Alice keeps 2000 - 1002");
@@ -67,18 +56,15 @@ contract StoxReceiptVaultRawTotalSupplyTest is Test {
         assertEq(vault.rawTotalSupply(), vault.rawStoredBalance(ALICE), "OZ invariant: _totalSupply == sum of balances");
     }
 
-    /// The impact the finding describes: after the wrap, new issuance is
-    /// permanently capped because OZ's mint path adds to the raw slot with
-    /// overflow checks enabled. Post-fix, minting after the redeem is
-    /// unremarkable.
+    /// Minting after a redeem across a split succeeds: OZ's mint path adds to
+    /// the raw slot with overflow checks enabled, so a wrapped slot would cap
+    /// issuance.
     function testH01MintAfterRedeemAcrossSplitStillSucceeds() external {
         vault.publicUpdate(address(0), ALICE, 1000);
         vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
         vm.warp(2000);
         vault.publicUpdate(ALICE, address(0), 1002);
 
-        // Pre-fix this reverted with Panic(0x11) — arithmetic overflow — because
-        // the raw slot sat at 2**256 - 2.
         vault.publicUpdate(address(0), BOB, 500);
 
         assertEq(vault.balanceOf(BOB), 500, "Bob receives exactly the minted amount");

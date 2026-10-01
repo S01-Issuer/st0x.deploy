@@ -44,8 +44,8 @@ contract StoxProdBaseTest is Test {
         );
 
         // StoxWrappedTokenVault implementation (via beacon)
-        // The on-chain deployer uses the old I_STOX_WRAPPED_TOKEN_VAULT_BEACON
-        // selector from before the rename to iStoxWrappedTokenVaultBeacon.
+        // The on-chain V1 deployer exposes `I_STOX_WRAPPED_TOKEN_VAULT_BEACON()`,
+        // not `iStoxWrappedTokenVaultBeacon()`.
         (bool ok, bytes memory beaconData) = LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
             .staticcall(abi.encodeWithSignature("I_STOX_WRAPPED_TOKEN_VAULT_BEACON()"));
         assertTrue(ok, "beacon call failed");
@@ -105,13 +105,6 @@ contract StoxProdBaseTest is Test {
             "Receipt vault beacon owner mismatch"
         );
     }
-
-    /// Both StoxReceipt and StoxReceiptVault diverged from V1 when rebase
-    /// logic was added, so no contract's current compiled bytecode matches
-    /// its V1 constant. The V1 bytecodes are frozen in LibProdDeployV1 as
-    /// an audit trail only. Contracts that changed between V1 and V2
-    /// (StoxWrappedTokenVault, StoxWrappedTokenVaultBeaconSetDeployer,
-    /// StoxUnifiedDeployer) are verified in the V2 tests instead.
 
     /// All contracts MUST be deployed on Base.
     function testProdDeployBase() external {

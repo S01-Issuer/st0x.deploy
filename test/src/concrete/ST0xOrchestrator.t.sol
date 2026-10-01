@@ -37,24 +37,22 @@ import {IReceiptV3} from "rain-vats-0.2.1/src/interface/IReceiptV3.sol";
 import {SignedContextV1, EvaluableV4} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensions/IERC20Metadata.sol";
 
-/// @dev Comprehensive unit + fuzz tests for the SINGLETON `ST0xOrchestrator`.
-/// All external dependencies (vault, receipt, ERC-20 shares, the production
-/// beacon set) are mocked via `vm.mockCall` against fixed addresses — no
-/// forking, no real vault deployment. The orchestrator is deployed behind a
-/// real `UpgradeableBeacon` + `BeaconProxy`.
+/// @dev Unit and fuzz tests for the singleton `ST0xOrchestrator`. The vault,
+/// receipt, ERC-20 shares and the production beacon set are mocked via
+/// `vm.mockCall` against fixed addresses; the orchestrator is deployed behind
+/// a real `UpgradeableBeacon` + `BeaconProxy`.
 ///
-/// Each "token" in the singleton model is just a mock vault address on which
-/// we mock the vault selectors (`receipt()`, `highwaterId()`, `mint`,
-/// `redeem`), the ERC-20 selectors (`transfer`, `transferFrom`), and — on the
-/// associated receipt address — the ERC-1155 `balanceOf` (and, for the
-/// receiver-hook tests, `IReceiptV3.manager()`).
+/// Each "token" is a mock vault address on which the vault selectors
+/// (`receipt()`, `highwaterId()`, `mint`, `redeem`), the ERC-20 selectors
+/// (`transfer`, `transferFrom`) and, on the associated receipt address, the
+/// ERC-1155 `balanceOf` (and `IReceiptV3.manager()` for the receiver-hook
+/// tests) are mocked.
 ///
 /// The mint weighting is real: the test Rainlang `St0xAttestSubParserTest`
 /// binds, with the attest subparser beside it. The shared `setUp` installs
 /// the identity weighting (`_: mint-amount();`) on tokens mocked at zero
-/// decimals, so every mint here is charged exactly `_f(amount)` and the cap
-/// tests read as they always did. The weighting itself has its own suite in
-/// `ST0xOrchestrator.mintWeighting.t.sol`.
+/// decimals, so every mint here is charged `_f(amount)`. The weighting has
+/// its own suite in `ST0xOrchestrator.mintWeighting.t.sol`.
 contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     using LibDecimalFloat for Float;
 
@@ -67,7 +65,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     address internal constant TOKEN2 = address(0xBB28);
     address internal constant RECEIPT_ADDR2 = address(0xEEC1D8);
 
-    /// A code-less ERC-1155 that is NOT a production receipt (no `manager()`
+    /// A code-less ERC-1155 that is not a production receipt (no `manager()`
     /// mocked), for the foreign-sender receiver-hook tests.
     address internal constant FOREIGN_1155 = address(0xF04E16);
 
@@ -96,12 +94,10 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     bytes32 internal constant EXPECTED_MAIN_STORAGE_LOCATION =
         0x4bb94ceb743cdbfc320393e9b6fac11d883b2f90ac89bce731e459177c5be700;
 
-    /// A capacity no amount in this suite comes near: `1e60`, forty orders of
-    /// magnitude over the widest `uint256` amount a test mints. Used as the
-    /// "effectively unbounded" cap the shared `setUp` grants, so the mint
-    /// tests that are about something OTHER than the caps are not metered by
-    /// them. The mint-cap tests configure their own narrow limits, and the
-    /// fail-closed ones deploy a fresh, unconfigured proxy via `_deployProxy`.
+    /// A capacity no amount in this suite comes near. `setUp` grants it so
+    /// the tests that are not about the caps are not metered by them; the
+    /// mint-cap tests set their own limits, and the fail-closed ones deploy a
+    /// fresh, unconfigured proxy via `_deployProxy`.
     Float internal immutable UNBOUNDED_CAPACITY = LibDecimalFloat.packLossless(1, 60);
 
     /// A zero leak rate, so a spent bucket stays spent unless a test says
@@ -127,7 +123,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         capRecipient2 = new MockMintRecipient(true);
         impl = new ST0xOrchestrator();
         // `initialize` runs the vault-logic guard, so the guard mocks must be
-        // in place BEFORE the proxy is deployed.
+        // in place before the proxy is deployed.
         _makeGuardPass();
         orchestrator = _deployProxy(OWNER);
         _setIdentityWeighting(orchestrator);
@@ -162,9 +158,8 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         return LibDecimalFloat.packLossless(coefficient, exponent);
     }
 
-    /// Numeric `Float` equality. One number has many spellings — `4e18` and
-    /// `40e17` are the same value in different words — so an arithmetic
-    /// result is compared as a number, never as bytes.
+    /// Numeric `Float` equality: one value has many spellings, so an
+    /// arithmetic result is compared as a number, never as bytes.
     function _assertFloatEq(Float actual, Float expected, string memory err) internal pure {
         assertTrue(actual.eq(expected), string.concat(err, ": got ", _str(actual), ", want ", _str(expected)));
     }
@@ -188,7 +183,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     }
 
     /// Install the identity weighting on `o` as OWNER: `_: mint-amount();`,
-    /// evaluated by the test interpreter. The bytecode is parsed BEFORE the
+    /// evaluated by the test interpreter. The bytecode is parsed before the
     /// prank, since `parse2` is an external call the prank would land on.
     function _setIdentityWeighting(ST0xOrchestrator o) internal {
         bytes memory bytecode = I_DEPLOYER.parse2(bytes(string.concat(usingWords(), "_: mint-amount();")));
@@ -197,7 +192,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         o.setMintWeighting(identity);
     }
 
-    /// Make the vault-logic version guard PASS: the deployer resolves each
+    /// Make the vault-logic version guard pass: the deployer resolves each
     /// beacon and each beacon reports the expected implementation.
     function _makeGuardPass() internal {
         vm.mockCall(
@@ -231,12 +226,11 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     }
 
     /// Mock a token's static vault topology: `receipt()` returns its receipt,
-    /// `symbol()` its symbol, and `decimals()` ZERO. With zero decimals the
+    /// `symbol()` its symbol, and `decimals()` zero. With zero decimals the
     /// identity weighting's `mint-amount()` is `amount` packed at exponent
-    /// zero, byte for byte what `_f(amount)` spells, so a cap test can write
-    /// its expectations as `_f(…)` and compare the reverts as bytes.
-    /// Nothing on the token's corporate-action surface is mocked, so a cap
-    /// path that read it would fail to decode an answer here.
+    /// zero, byte for byte what `_f(amount)` spells, so a cap test can compare
+    /// the reverts as bytes. Nothing on the token's corporate-action surface
+    /// is mocked.
     function _mockVaultTopology(address token, address receipt_, string memory symbol_) internal {
         vm.mockCall(token, abi.encodeWithSelector(ReceiptVault.receipt.selector), abi.encode(receipt_));
         vm.mockCall(token, abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode(symbol_));
@@ -320,11 +314,9 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     //                       EIP-712 domain pinning                       //
     // ------------------------------------------------------------------ //
 
-    /// The ERC-5267 self-description must advertise exactly the documented
-    /// signer domain: name "ST0xOrchestrator", version "1", the current
-    /// chain, and the proxy address, with no salt or extensions. External
-    /// integrations (wallets, recipients) build their digests from these
-    /// values, so they are pinned as literals here.
+    /// The ERC-5267 self-description advertises the signer domain: name
+    /// "ST0xOrchestrator", version "1", the current chain, and the proxy
+    /// address, with no salt or extensions.
     function testEip712DomainFields() external view {
         (
             bytes1 fields,
@@ -344,12 +336,10 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertEq(extensions.length, 0, "domain extensions");
     }
 
-    /// `mintAuthDigest` must equal a FULLY independent EIP-712 computation:
-    /// domain separator built from the literal ("ST0xOrchestrator", "1",
-    /// chainid, proxy) and struct hash built from the literal MintAuth type
-    /// string. This is what an external signer computes from the docs alone,
-    /// so any drift in domain name/version, typehash, or field order breaks
-    /// this test.
+    /// `mintAuthDigest` equals an independent EIP-712 computation: domain
+    /// separator from the literal ("ST0xOrchestrator", "1", chainid, proxy)
+    /// and struct hash from the literal MintAuth type string, so any drift in
+    /// domain name/version, typehash, or field order breaks this test.
     function testMintAuthDigestMatchesIndependentComputation(address token, address to, uint256 amount, bytes32 nonce)
         external
         view
@@ -505,7 +495,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         }
     }
 
-    /// A MINT_ROLE holder canNOT setBurnIndex or withdraw (EMERGENCY-gated).
+    /// A MINT_ROLE holder cannot setBurnIndex or withdraw (EMERGENCY-gated).
     function testMintHolderCannotEmergency() external {
         _grant(orchestrator.MINT_ROLE(), BOB);
         vm.expectRevert(
@@ -677,9 +667,9 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
     /// The sender and the recipient can never be the same. The minter here is
     /// a callback recipient that authorises anything, with unbounded caps and
-    /// the vault side mocked, so the ONLY thing standing between it and a
-    /// mint to itself is the guard: the same minter minting to a different
-    /// recipient in the same conditions goes through.
+    /// the vault side mocked, so only the guard stands between it and a mint
+    /// to itself: the same minter minting to a different recipient in the
+    /// same conditions goes through.
     function testMintSenderIsRecipientReverts() external {
         address minter = address(capRecipient);
         uint256 amount = 100;
@@ -726,7 +716,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), "", new SignedContextV1[](0));
     }
 
-    /// Replay is namespaced by (to, nonce), NOT by digest: the same nonce
+    /// Replay is namespaced by (to, nonce), not by digest: the same nonce
     /// with a different amount reverts even with a fresh valid signature.
     function testMintSameNonceDifferentAmountReverts() external {
         (address eoa, uint256 pk) = makeAddrAndKey("recipient");
@@ -766,7 +756,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         orchestrator.mint(TOKEN2, eoa, 500, _auth(sig, nonce), "", new SignedContextV1[](0));
     }
 
-    /// The SAME nonce for a DIFFERENT recipient is fine — no third party can
+    /// The same nonce for a different recipient is fine — no third party can
     /// consume another recipient's nonce.
     function testMintSameNonceDifferentRecipientSucceeds() external {
         (address alice, uint256 alicePk) = makeAddrAndKey("alice");
@@ -856,7 +846,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     }
 
     /// The vault reporting an assets amount != the shares requested (the
-    /// ratio is 1:1 by construction) halts the mint loudly.
+    /// ratio is 1:1 by construction) reverts the mint.
     function testMintVaultAmountMismatchReverts() external {
         _grant(orchestrator.MINT_ROLE(), address(this));
         uint256 amount = 100;
@@ -877,15 +867,14 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     //                EIP-712 digest reference vectors                    //
     // ------------------------------------------------------------------ //
 
-    /// The canonical MintAuth EIP-712 type string, exactly as documented on
-    /// `MINT_AUTH_TYPEHASH`. Offchain signers are built against this string,
-    /// so the contract constant must hash it byte-for-byte.
+    /// The canonical MintAuth EIP-712 type string, as documented on
+    /// `MINT_AUTH_TYPEHASH`. The contract constant hashes it byte-for-byte.
     string internal constant MINT_AUTH_TYPE = "MintAuth(address token,address recipient,uint256 amount,bytes32 nonce)";
 
-    /// Reconstruct the mint-auth digest fully independently of the contract:
-    /// domain separator from the documented ("ST0xOrchestrator", "1") domain
-    /// and struct hash from the canonical type string. This is what a
-    /// spec-conformant offchain signer computes.
+    /// Reconstruct the mint-auth digest independently of the contract: domain
+    /// separator from the documented ("ST0xOrchestrator", "1") domain and
+    /// struct hash from the canonical type string, as an offchain signer
+    /// computes it.
     function _referenceMintAuthDigest(address token, address to, uint256 amount, bytes32 nonce)
         internal
         view
@@ -904,8 +893,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         return keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
     }
 
-    /// Pin the typehash constant to the documented type string so offchain
-    /// signers built to the spec can never silently diverge.
+    /// Pin the typehash constant to the documented type string.
     function testMintAuthTypehashPinned() external view {
         assertEq(
             orchestrator.MINT_AUTH_TYPEHASH(),
@@ -914,9 +902,9 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
     }
 
-    /// `mintAuthDigest` must equal the independently reconstructed EIP-712
-    /// digest for distinct non-zero (token, recipient, amount, nonce), so the
-    /// signed payload provably commits to every field.
+    /// `mintAuthDigest` equals the independently reconstructed EIP-712 digest
+    /// for distinct non-zero (token, recipient, amount, nonce), so the signed
+    /// payload commits to every field.
     function testMintAuthDigestMatchesEip712Reference() external view {
         address token = TOKEN;
         address to = BOB;
@@ -941,10 +929,10 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
     }
 
-    /// End-to-end: an EOA signing the INDEPENDENTLY reconstructed digest (as
-    /// a spec-conformant offchain signer would, never calling the contract's
-    /// own view) is accepted by `mint`. Any drift between the contract digest
-    /// and the documented construction turns this into BadRecipientSignature.
+    /// End-to-end: an EOA signing the independently reconstructed digest,
+    /// never calling the contract's own view, is accepted by `mint`. Any drift
+    /// between the contract digest and the documented construction turns this
+    /// into BadRecipientSignature.
     function testMintWithSignatureOverReferenceDigest() external {
         (address eoa, uint256 pk) = makeAddrAndKey("reference-signer");
         _grant(orchestrator.MINT_ROLE(), address(this));
@@ -967,9 +955,9 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     //                        Reentrancy guard                            //
     // ------------------------------------------------------------------ //
 
-    /// A malicious callback recipient that reenters `mint` from inside its
-    /// `authorizeMint` callback (holding MINT_ROLE itself) must be stopped by
-    /// the reentrancy guard: the nested call reverts
+    /// A callback recipient that reenters `mint` from inside its
+    /// `authorizeMint` callback (holding MINT_ROLE itself) is stopped by the
+    /// reentrancy guard: the nested call reverts
     /// `ReentrancyGuardReentrantCall` and the whole outer mint unwinds, so
     /// neither nonce is consumed.
     function testMintReenteredFromCallbackReverts() external {
@@ -982,7 +970,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         ReentrantMintRecipient recipient = new ReentrantMintRecipient(orchestrator, TOKEN, innerAmount, innerNonce);
         _grant(orchestrator.MINT_ROLE(), address(recipient));
 
-        // Mock the vault legs for BOTH mints, and cap neither the recipient
+        // Mock the vault legs for both mints, and cap neither the recipient
         // nor its own minting, so that, were the guard absent, nested and
         // outer mint would both complete instead of reverting for an
         // unrelated reason.
@@ -999,8 +987,8 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertFalse(orchestrator.nonceUsed(address(recipient), innerNonce), "inner nonce must not persist");
     }
 
-    /// The vault reporting an assets amount != the shares redeemed halts the
-    /// burn loudly.
+    /// The vault reporting an assets amount != the shares redeemed reverts
+    /// the burn.
     function testBurnVaultAmountMismatchReverts() external {
         _grant(orchestrator.BURN_ROLE(), address(this));
         _seedPointer(TOKEN, 0);
@@ -1108,7 +1096,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 2);
     }
 
-    /// Partial drain parks the pointer AT the id (does not advance).
+    /// Partial drain parks the pointer at the id (does not advance).
     function testBurnPartialDrainParksPointer() external {
         _grant(orchestrator.BURN_ROLE(), address(this));
         _seedPointer(TOKEN, 0);
@@ -1141,7 +1129,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     }
 
     /// Partial-then-insufficient: id1 covers 30 of 50, then idx(2)>cap(1)
-    /// with 20 still unburned → the WHOLE burn reverts `InsufficientReceipts`
+    /// with 20 still unburned → the whole burn reverts `InsufficientReceipts`
     /// (the id1 redeem included — no partial state survives).
     function testBurnPartialThenInsufficientReverts() external {
         _grant(orchestrator.BURN_ROLE(), address(this));
@@ -1343,7 +1331,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 5, "pointer lowered to arriving id");
     }
 
-    /// A genuine receipt at an id AT or ABOVE the pointer is a no-op.
+    /// A genuine receipt at an id at or above the pointer is a no-op.
     function testOnERC1155ReceivedIdAtOrAbovePointerNoOp() external {
         _seedPointer(TOKEN, 10);
         _mockManager(RECEIPT_ADDR, TOKEN);
@@ -1357,7 +1345,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 10, "id > pointer must not move it");
     }
 
-    /// A sender whose claimed vault does NOT round-trip (`vault.receipt()` is
+    /// A sender whose claimed vault does not round-trip (`vault.receipt()` is
     /// some other address) is treated as foreign: accepted, no pointer move.
     function testOnERC1155ReceivedRoundTripMismatchNoOp() external {
         _seedPointer(TOKEN, 10);
@@ -1371,7 +1359,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 10, "spoofed receipt must not move the pointer");
     }
 
-    /// The batch hook lowers the pointer to the MINIMUM qualifying id.
+    /// The batch hook lowers the pointer to the minimum qualifying id.
     function testOnERC1155BatchReceivedLowersToMin() external {
         _seedPointer(TOKEN, 10);
         _mockManager(RECEIPT_ADDR, TOKEN);
@@ -1398,12 +1386,9 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 3, "pointer lowered to minimum qualifying id");
     }
 
-    /// A ZERO-value transfer of a genuine receipt at a low id must NOT lower
-    /// the pointer: a zero-value transfer delivers no burnable balance, so
-    /// lowering to its id would strand the pointer over an empty id. Without
-    /// this gate any unprivileged account could floor the pointer for free
-    /// (a zero-value transfer needs no balance) and inflate the next burn's
-    /// walk to O(highwaterId) as a repeatable griefing vector.
+    /// A zero-value transfer of a genuine receipt at a low id does not lower
+    /// the pointer: it delivers no burnable balance, so lowering to its id
+    /// would strand the pointer over an empty id.
     function testOnERC1155ReceivedZeroValueDoesNotLowerPointer() external {
         _seedPointer(TOKEN, 10);
         _mockManager(RECEIPT_ADDR, TOKEN);
@@ -1480,8 +1465,8 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertFalse(orchestrator.vaultLogicIsExpected());
     }
 
-    /// `burnInfo` is forwarded VERBATIM to `vault.redeem` as the audit-trail
-    /// `receiptInformation`: the interface promises it, indexers rely on it.
+    /// `burnInfo` is forwarded verbatim to `vault.redeem` as
+    /// `receiptInformation`.
     function testBurnForwardsBurnInfoToRedeem() external {
         _grant(orchestrator.BURN_ROLE(), address(this));
         _seedPointer(TOKEN, 0);
@@ -1505,14 +1490,13 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     }
 
     /// `burn` holds the ReentrancyGuardTransient lock for the whole
-    /// entrypoint: a token whose `transferFrom` reenters `burn` must see the
-    /// nested call revert `ReentrancyGuardReentrantCall` (the pointer write
-    /// after external calls in `_burnWalk` is only safe under this lock),
-    /// while the outer burn completes normally.
+    /// entrypoint: a token whose `transferFrom` reenters `burn` sees the
+    /// nested call revert `ReentrancyGuardReentrantCall`, while the outer
+    /// burn completes normally.
     function testBurnReentrantCallReverts() external {
         ReentrantBurnVault attacker = new ReentrantBurnVault(orchestrator);
         _grant(orchestrator.BURN_ROLE(), address(this));
-        // The nested call comes FROM the attacker, so it passes the role
+        // The nested call comes from the attacker, so it passes the role
         // check and reaches the reentrancy guard.
         _grant(orchestrator.BURN_ROLE(), address(attacker));
 
@@ -1529,15 +1513,15 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
     }
 
-    /// A sender whose `manager()` probe REVERTS with exactly 32 bytes of
+    /// A sender whose `manager()` probe reverts with exactly 32 bytes of
     /// returndata (decoding to a vault whose `receipt()` round-trips back to
-    /// the sender) must be treated as foreign: accepted, no pointer move, no
+    /// the sender) is treated as foreign: accepted, no pointer move, no
     /// `BurnIndexLowered`. Only the `!ok` guard on the manager() staticcall
     /// separates this revert payload from a genuine manager() answer.
     function testOnERC1155ReceivedManagerRevert32BytesNoOp() external {
         address fakeVault = address(0xFA6E);
         MockManagerRevert1155 evil = new MockManagerRevert1155(fakeVault);
-        // Make the round-trip leg pass so the ONLY thing rejecting the
+        // Make the round-trip leg pass so the only thing rejecting the
         // sender is the failure status of the manager() probe itself.
         vm.mockCall(fakeVault, abi.encodeWithSelector(ReceiptVault.receipt.selector), abi.encode(address(evil)));
         _seedPointer(fakeVault, 10);
@@ -1550,19 +1534,18 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertEq(vm.getRecordedLogs().length, 0, "no BurnIndexLowered may be emitted for a reverting manager() probe");
     }
 
-    /// Sibling of the manager()-probe guard: a sender whose manager() probe
-    /// SUCCEEDS (returns a vault), but whose vault's receipt() probe REVERTS
-    /// with exactly 32 bytes decoding to the sender itself, must still be
-    /// treated as foreign: accepted, no pointer move, no BurnIndexLowered.
-    /// Only the `!ok` half of the guard on the receipt() staticcall separates
-    /// that revert payload from a genuine round-tripping receipt() answer that
-    /// would (wrongly) lower the pointer.
+    /// A sender whose manager() probe succeeds (returns a vault), but whose
+    /// vault's receipt() probe reverts with exactly 32 bytes decoding to the
+    /// sender itself, is treated as foreign: accepted, no pointer move, no
+    /// BurnIndexLowered. Only the `!ok` half of the guard on the receipt()
+    /// staticcall separates that revert payload from a genuine round-tripping
+    /// receipt() answer.
     function testOnERC1155ReceivedReceiptRevert32BytesNoOp() external {
         address evil = address(0xE711);
         address fakeVault = address(0xFA6E);
         // manager() probe succeeds and points at fakeVault.
         vm.mockCall(evil, abi.encodeWithSelector(IReceiptV3.manager.selector), abi.encode(fakeVault));
-        // receipt() probe REVERTS with 32 bytes that decode back to the
+        // receipt() probe reverts with 32 bytes that decode back to the
         // sender, so dropping the `!ok` guard would let it round-trip.
         vm.mockCallRevert(fakeVault, abi.encodeWithSelector(ReceiptVault.receipt.selector), abi.encode(evil));
         _seedPointer(fakeVault, 10);
@@ -1575,9 +1558,9 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertEq(vm.getRecordedLogs().length, 0, "no BurnIndexLowered may be emitted for a reverting receipt() probe");
     }
 
-    /// A sender whose `manager()` probe succeeds but names a CODE-LESS claimed
+    /// A sender whose `manager()` probe succeeds but names a code-less claimed
     /// vault is treated as foreign: the `vault.receipt()` staticcall to an
-    /// address with no code succeeds with EMPTY returndata, so the
+    /// address with no code succeeds with empty returndata, so the
     /// `ret.length != 32` half of the second-probe guard bails. Accepted, no
     /// pointer move, no `BurnIndexLowered`.
     function testOnERC1155ReceivedCodelessClaimedVaultNoOp() external {
@@ -1594,7 +1577,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     }
 
     /// A sender whose `manager()` probe succeeds but whose claimed vault
-    /// REVERTS on `receipt()` is treated as foreign: the `!ok` half of the
+    /// reverts on `receipt()` is treated as foreign: the `!ok` half of the
     /// second-probe guard bails. Accepted, no pointer move, no
     /// `BurnIndexLowered`.
     function testOnERC1155ReceivedRevertingClaimedVaultNoOp() external {
@@ -1615,7 +1598,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     //                             Mint caps                              //
     // ------------------------------------------------------------------ //
 
-    /// Grant `minter` `MINT_ROLE` on `o`. The role is read BEFORE the prank so
+    /// Grant `minter` `MINT_ROLE` on `o`. The role is read before the prank so
     /// the view call doesn't consume it.
     function _grantMintOn(ST0xOrchestrator o, address minter) internal {
         bytes32 mintRole = o.MINT_ROLE();
@@ -1623,10 +1606,9 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         o.grantRole(mintRole, minter);
     }
 
-    /// Mock the vault side of a mint of EXACTLY `amount` on `token` into `o`:
-    /// `vault.mint` returns matching assets and the share transfer succeeds.
-    /// Everything vault-side being mocked is what leaves the cap path as the
-    /// only thing these tests can fail on.
+    /// Mock the vault side of a mint of exactly `amount` on `token` into `o`:
+    /// `vault.mint` returns matching assets and the share transfer succeeds,
+    /// leaving the cap path as the only thing these tests can fail on.
     function _mockCapMint(ST0xOrchestrator o, address token, uint256 amount) internal {
         vm.mockCall(token, abi.encodeWithSelector(IERC20.transfer.selector), abi.encode(true));
         vm.mockCall(
@@ -1650,10 +1632,10 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _capMintTo(o, minter, token, address(capRecipient), amount, nonce);
     }
 
-    /// A proxy with no LIMITS configured: every limit is zero, so it mints
-    /// nothing at all until a test sets the one limit it is about. It does
-    /// carry the identity weighting, because the cap-exceeded checks run
-    /// after the weighting is evaluated and these tests are about the caps.
+    /// A proxy with no limits configured: every limit is zero, so it mints
+    /// nothing until a test sets the one limit it is about. It carries the
+    /// identity weighting, since the cap-exceeded checks run after the
+    /// weighting is evaluated.
     function _unconfiguredOrchestrator() internal returns (ST0xOrchestrator) {
         ST0xOrchestrator fresh = _deployProxy(OWNER);
         _setIdentityWeighting(fresh);
@@ -1708,10 +1690,10 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     }
 
     /// Level 3 of "unset ⇒ 0 ⇒ rejected", and the explicit zero in one test:
-    /// a recipient pinned to zero cannot be minted to by ANY minter, on ANY
-    /// token, while every other recipient still serves those same minters.
-    /// That is what the `set` marker buys — a zero limit is distinct from no
-    /// limit, and reverts naming the figures that were approved.
+    /// a recipient pinned to zero cannot be minted to by any minter, on any
+    /// token, while every other recipient still serves those same minters. A
+    /// zero limit is distinct from no limit, and reverts naming the figures
+    /// that were approved.
     function testMintZeroRecipientLimitBlocksOneRecipientOnly() external {
         _grantMintOn(orchestrator, MINTER_A);
         _grantMintOn(orchestrator, MINTER_B);
@@ -1751,9 +1733,9 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _capMintTo(orchestrator, MINTER_B, TOKEN2, address(capRecipient2), 1e18, keccak256("other-recipient-b"));
     }
 
-    /// The boundary on the recipient's bucket: `mintHeadroom` names exactly
-    /// what fits, that amount succeeds, and one unit more reverts — before
-    /// the mint and again after it, when the bucket is spent.
+    /// The boundary on the recipient's bucket: `mintHeadroom` names what
+    /// fits, that amount succeeds, and one unit more reverts — before the
+    /// mint and again after it, when the bucket is spent.
     function testMintBoundaryExactAmountFitsOneMoreReverts() external {
         uint256 capacity = 10e18;
         _grantMintOn(orchestrator, MINTER_A);
@@ -1800,7 +1782,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     }
 
     /// Per-minter isolation: one minter exhausting its global bucket leaves
-    /// another minter's bucket untouched, for the SAME recipient and token.
+    /// another minter's bucket untouched, for the same recipient and token.
     function testMintPerMinterIsolation() external {
         uint256 capacity = 10e18;
         _grantMintOn(orchestrator, MINTER_A);
@@ -1820,7 +1802,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     }
 
     /// Per-recipient isolation: one recipient's bucket being exhausted leaves
-    /// another recipient's bucket untouched, for the SAME minter and token.
+    /// another recipient's bucket untouched, for the same minter and token.
     function testMintPerRecipientIsolation() external {
         uint256 capacity = 10e18;
         _grantMintOn(orchestrator, MINTER_A);
@@ -1934,7 +1916,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
     /// A minter's global bucket binds independently of the recipient's: with
     /// the recipient's capacity left unbounded, the global bucket alone
-    /// rejects the mint, the revert names the MINTER's cap rather than the
+    /// rejects the mint, the revert names the minter's cap rather than the
     /// recipient's, and another minter's global bucket is untouched.
     function testMintGlobalBucketBindsIndependently() external {
         uint256 globalCapacity = 10e18;
@@ -2058,9 +2040,9 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     }
 
     /// A bucket is two words and a fill writes both. Filling at a clock far
-    /// from the epoch and reading one second later must credit ONE second of
+    /// from the epoch and reading one second later credits one second of
     /// leak: a level stored without its checkpoint would be leaked forward
-    /// from the epoch instead, refunding the whole burst at once.
+    /// from the epoch instead.
     function testMintStoresTheCheckpointWithTheLevel() external {
         uint256 capacity = 10e18;
         uint256 leakRate = 1e18;
@@ -2112,7 +2094,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
     }
 
-    /// Rewriting a recipient's limit changes the POLICY, not the credit
+    /// Rewriting a recipient's limit changes the policy, not the credit
     /// already consumed: the bucket stays where the earlier mints left it, so
     /// a raised capacity offers only the difference.
     function testSetRecipientMintLimitKeepsBucketLevel() external {
@@ -2184,9 +2166,8 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
     }
 
-    /// A `Float` capacity has no ceiling the bucket cannot enforce. `1e60` is
-    /// a level the old packed word could not have held at all; it fills to
-    /// the last unit and refuses the unit after it, in both buckets.
+    /// A `Float` capacity has no ceiling the bucket cannot enforce: `1e60`
+    /// fills to the last unit and refuses the unit after it, in both buckets.
     function testMintCapacityBeyondTheOldWordIsEnforcedToTheUnit() external {
         uint256 capacity = 1e60;
         _grantMintOn(orchestrator, MINTER_A);
@@ -2211,11 +2192,10 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
     }
 
-    /// A negative capacity is not a stricter policy — no fill could ever fit
-    /// it — so the bucket library refuses it by name rather than reading it as
-    /// zero. The setter stores it as given; the refusal comes from the read
-    /// (`mintHeadroom`) and from the fill (`mint`) alike, so a policy written
-    /// negative fails closed at the first use. Here on the recipient bucket.
+    /// The bucket library refuses a negative capacity by name rather than
+    /// reading it as zero. The setter stores it as given; the refusal comes
+    /// from the read (`mintHeadroom`) and from the fill (`mint`) alike. Here
+    /// on the recipient bucket.
     function testNegativeCapacityIsRefusedByTheBucket() external {
         Float negative = _f(-1, 18);
         _grantMintOn(orchestrator, MINTER_A);
@@ -2234,9 +2214,8 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
     }
 
-    /// A negative leak rate would fill the bucket as time passed, the opposite
-    /// of a leak, and is refused the same way — here on the global bucket, so
-    /// both buckets are shown to carry the library's domain check.
+    /// A negative leak rate is refused the same way — here on the global
+    /// bucket, so both buckets are shown to carry the library's domain check.
     function testNegativeLeakRateIsRefusedByTheBucket() external {
         Float negative = _f(-1, 0);
         _grantMintOn(orchestrator, MINTER_A);
@@ -2342,9 +2321,8 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     }
 
     /// Every non-negative capacity is a policy the bucket enforces, whatever
-    /// its magnitude and scale: a fresh bucket under it offers exactly that
-    /// capacity as headroom. The old codec refused a capacity above its level
-    /// field at the setter; there is no such ceiling to refuse now.
+    /// its magnitude and scale: a fresh bucket under it offers that capacity
+    /// as headroom.
     function testFuzzAnyNonNegativeCapacityIsEnforceable(int224 coefficient, int32 exponent) external {
         coefficient = int224(bound(int256(coefficient), 0, type(int224).max));
         exponent = int32(bound(int256(exponent), -1000, 1000));

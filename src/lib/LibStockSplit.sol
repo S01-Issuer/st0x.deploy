@@ -50,12 +50,6 @@ library LibStockSplit {
     ///    as a raw smallest-unit count (`fromFixedDecimal(10^decimals, 0)`) —
     ///    rejects near-saturation multipliers that risk overflow on
     ///    sequential application (`MultiplierTooLarge`).
-    ///
-    /// The bounds are deliberately conservative. The largest historical real
-    /// stock split was roughly 1000x (= 1e3), well inside the ceiling, and
-    /// the smallest realistic reverse split would be around 1/1000 (= 1e-3),
-    /// well above the floor.
-    ///
     /// @param multiplier The stock split multiplier as a Float.
     function validateMultiplierV1(Float multiplier) internal {
         // Reject zero and negative multipliers.

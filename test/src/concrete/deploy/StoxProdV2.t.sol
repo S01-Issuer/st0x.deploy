@@ -17,8 +17,7 @@ import {
 
 /// @title StoxProdV2Test
 /// @notice Fork tests verifying all V2 Zoltu deployments exist on all
-/// supported networks with expected codehashes. These tests will fail until
-/// V2 is deployed on-chain.
+/// supported networks with expected codehashes.
 contract StoxProdV2Test is Test {
     function checkAllV2OnChain(
         address expectedReceiptBeaconImpl,
@@ -121,12 +120,9 @@ contract StoxProdV2Test is Test {
         );
     }
 
-    /// Per-Safe invariant bundle for the ST0x token-owner Safe on Base.
-    /// Calls `LibInvariants.assertAll` against the production Safe
-    /// address pinned in `LibSafeInvariants` — composes the Safe-side and
-    /// token-side invariants in one call. The Safe is Base-only (no Safe
-    /// on Arbitrum / Base Sepolia / Flare / Polygon for ST0x ops), so
-    /// this helper is only invoked from `testProdDeployBaseV2`.
+    /// Per-Safe invariant bundle for the ST0x token-owner Safe on Base:
+    /// `LibInvariants.assertAll` against the Safe pinned in
+    /// `LibSafeInvariants`. Only invoked from `testProdDeployBaseV2`.
     function checkAllSafeBase() internal view {
         LibInvariants.assertAll(IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE));
     }
@@ -137,13 +133,9 @@ contract StoxProdV2Test is Test {
         checkAllV2OnChain();
     }
 
-    /// All V2 contracts MUST be deployed on Base.
-    /// OARV deployer beacons on Base were corrupted post-deployment — see
-    /// LibProdDeployV2BaseOverrides for details.
-    /// Also pins the ST0x token-owner Safe's invariants against the live
-    /// Base head fork via `checkAllSafeBase` — Base is the only network
-    /// where the Safe is deployed, so this is the unique site where the
-    /// Safe-state pins are exercised against on-chain reality.
+    /// All V2 contracts MUST be deployed on Base. The OARV deployer beacons
+    /// on Base are checked against `LibProdDeployV2BaseOverrides`. Also
+    /// pins the ST0x token-owner Safe's invariants via `checkAllSafeBase`.
     function testProdDeployBaseV2() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         checkAllV2OnChain(

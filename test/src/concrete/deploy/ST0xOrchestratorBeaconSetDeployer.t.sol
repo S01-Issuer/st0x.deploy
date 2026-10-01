@@ -74,7 +74,7 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     }
 
     /// The no-arg constructor bakes the beacon owner + implementation from
-    /// `LibProdDeployV4` — the whole point of being Zoltu-deployable.
+    /// `LibProdDeployV4`.
     function testConstructorSuccess() external {
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
         IBeacon beacon = d.iOrchestratorBeacon();

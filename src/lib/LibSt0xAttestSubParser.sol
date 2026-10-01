@@ -51,20 +51,16 @@ uint256 constant SUB_PARSER_WORD_MINT_AMOUNT = 9;
 uint256 constant SUB_PARSER_WORD_PARSERS_LENGTH = 10;
 
 /// @title LibSt0xAttestSubParser
-/// @notice The words of SPEC.md item 11. Each one names a cell of the grid in
-/// `LibSt0xAttestContext` and subparses to a plain `context` opcode, so at
-/// eval it costs exactly what the `context<column row>()` it replaces would.
+/// @notice The words of `St0xAttestSubParser`. Each one names a cell of the
+/// grid in `LibSt0xAttestContext` and subparses to a `context` opcode.
 ///
-/// `lead` and `attestor<N>` read the signers column, because the signer is
-/// recovered from the signature rather than being an attested value. `lead`
-/// is its own word rather than attestation zero of a uniform list because the
-/// lead's attestation is mandatory while the pool is a threshold of
-/// interchangeable operators, so the pool indexes from zero separately.
+/// `lead` and `attestor<N>` read the signers column: the address recovered
+/// from each attestation's signature. `lead` is its own word; the pool
+/// indexes from zero separately from it.
 ///
 /// A word whose cell is not in the grid at eval, such as `attestor<3>` when
 /// two pool attestations were provided, reverts there: the `context` opcode
-/// bounds-checks its read. A missing attestation is a failed check, not a
-/// zero.
+/// bounds-checks its read.
 library LibSt0xAttestSubParser {
     /// @notice `lead`: the address recovered from the lead's signature.
     /// @return Whether the sub parse succeeded.
@@ -79,8 +75,7 @@ library LibSt0xAttestSubParser {
     /// @notice `attestor<N>`: the address recovered from pool attestation
     /// `N`'s signature.
     /// @param operand `N`, a uint16 from the operand handler. `subParserContext`
-    /// reverts `ContextGridOverflow` past a byte, so the sum cannot overflow
-    /// and an out of range `N` is a parse error rather than a wrong row.
+    /// reverts `ContextGridOverflow` when the row exceeds a byte.
     /// @return Whether the sub parse succeeded.
     /// @return The bytecode for the context opcode.
     /// @return The constants for the context opcode, always empty.
@@ -217,9 +212,9 @@ library LibSt0xAttestSubParser {
         return LibSubParse.subParserContext(CONTEXT_MINT_COLUMN, CONTEXT_MINT_ROW_AMOUNT);
     }
 
-    /// @notice The authoring meta for every word, in word index order. Tooling
-    /// reads it to describe the words to an author and `script/Build.sol`
-    /// builds the parse meta from it.
+    /// @notice The authoring meta for every word, in word index order.
+    /// `script/BuildAuthoringMeta.sol` writes it to `meta/` and
+    /// `script/BuildPointers.sol` builds the parse meta from it.
     /// @return The ABI encoded `AuthoringMetaV2[]`.
     //slither-disable-next-line dead-code
     function authoringMetaV2() internal pure returns (bytes memory) {

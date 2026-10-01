@@ -20,7 +20,7 @@ error OrchestratorSetDeployerMissing(address setDeployer);
 /// @param actual The beacon the set deployer reports.
 error OrchestratorBeaconMismatch(address expected, address actual);
 
-/// @notice The orchestrator beacon does not point at the audited 0.1.30
+/// @notice The orchestrator beacon does not point at the pinned 0.1.30
 /// orchestrator implementation.
 /// @param expected The pinned 0.1.30 implementation.
 /// @param actual The implementation the beacon reports.
@@ -32,8 +32,7 @@ error OrchestratorBeaconImplMismatch(address expected, address actual);
 error OrchestratorInstanceMissing(address instance);
 
 /// @notice The expected admin does not hold `DEFAULT_ADMIN_ROLE` on the
-/// orchestrator instance. An instance without the chain's Safe as admin is
-/// ungovernable (or governed by the wrong key).
+/// orchestrator instance.
 /// @param instance The orchestrator instance inspected.
 /// @param expectedAdmin The address that must hold `DEFAULT_ADMIN_ROLE`.
 error OrchestratorAdminMissing(address instance, address expectedAdmin);
@@ -47,48 +46,37 @@ error OrchestratorVaultLogicUnexpected(address instance);
 
 /// @title LibOrchestratorInvariants
 /// @notice Pins and live-state invariants for the ST0x orchestrator
-/// instance — the orchestrator analogue of the token pins in
-/// `LibTokenInvariants` and the beacon pins in `LibProdBeacons*`.
+/// instance.
 ///
-/// The whole surface is deterministic, so it is pinned up front rather than
-/// hydrated from a broadcast: the beacon-set deployer is a Zoltu deploy (the
-/// 0.1.30 pin), the beacon is the deployer constructor's first `CREATE`
+/// Every address is deterministic: the beacon-set deployer is a Zoltu deploy
+/// (the 0.1.30 pin), the beacon is the deployer constructor's first `CREATE`
 /// (deployer nonce 1), and the first `deploy()` call's `BeaconProxy` is the
-/// deployer's second `CREATE` (nonce 2). Identical deployer address +
-/// identical nonces ⇒ identical beacon and instance addresses on every
-/// chain.
+/// deployer's second `CREATE` (nonce 2), so the beacon and instance addresses
+/// are the same on every chain.
 library LibOrchestratorInvariants {
     /// @notice The `UpgradeableBeacon` created by the 0.1.30
-    /// `ST0xOrchestratorBeaconSetDeployer`'s constructor — its `CREATE` at
-    /// nonce 1, so the same address on every chain the deployer is on.
-    /// Aliases the `LibProdDeployV4` pin (single source of truth, emitted by
-    /// `BuildPointers`).
+    /// `ST0xOrchestratorBeaconSetDeployer`'s constructor, its `CREATE` at
+    /// nonce 1. Aliases the `LibProdDeployV4` pin.
     address internal constant ST0X_ORCHESTRATOR_BEACON = LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON;
 
     /// @notice The production orchestrator instance: the `BeaconProxy` minted
-    /// by the FIRST `deploy()` call on the 0.1.30 beacon-set deployer — its
-    /// `CREATE` at nonce 2, so the same address on every chain where the
-    /// instance is the first one deployed.
-    /// `20260818-deploy-orchestrator` refuses to broadcast against a deployer
-    /// whose nonce shows an earlier `deploy()`, so a pinned instance is
-    /// always this address. Aliases the `LibProdDeployV4` pin (single source
-    /// of truth, emitted by `BuildPointers`).
+    /// by the first `deploy()` call on the 0.1.30 beacon-set deployer, its
+    /// `CREATE` at nonce 2. Aliases the `LibProdDeployV4` pin.
     address internal constant ST0X_ORCHESTRATOR_INSTANCE = LibProdDeployV4.ST0X_ORCHESTRATOR_INSTANCE;
 
-    /// @notice Unix timestamp (2026-10-01T00:00:00Z) by which
-    /// `20260818-migrate-orchestrator-beacon-owner` must have moved the
-    /// orchestrator beacon's owner from the deploy EOA to the chain's
-    /// token-owner Safe. Until then either owner passes; after it only the
-    /// Safe does (see `LibMigrationInvariant`).
+    /// @notice Unix timestamp (2026-10-01T00:00:00Z) of the orchestrator
+    /// beacon owner migration deadline. Until then the deploy EOA or the
+    /// chain's token-owner Safe passes as owner; after it only the Safe does
+    /// (see `LibMigrationInvariant`).
     uint256 internal constant ST0X_ORCHESTRATOR_BEACON_OWNER_MIGRATION_DEADLINE = 1_790_812_800;
 
     /// @notice Assert the orchestrator beacon set on the active chain: the
     /// 0.1.30 beacon-set deployer is live, reports the pinned beacon, and the
-    /// beacon points at the audited 0.1.30 orchestrator implementation. The
+    /// beacon points at the pinned 0.1.30 orchestrator implementation. The
     /// beacon's owner is asserted through the owner-migration window: the
-    /// deploy EOA (`BEACON_INITIAL_OWNER`, pre) or `chainSafe` (post) until
-    /// the migration deadline, only `chainSafe` after it.
-    /// @param chainSafe The chain's token-owner Safe — the post-migration
+    /// deploy EOA (`BEACON_INITIAL_OWNER`) or `chainSafe` until the migration
+    /// deadline, only `chainSafe` after it.
+    /// @param chainSafe The chain's token-owner Safe, the post-migration
     /// beacon owner.
     function assertBeaconSet(address chainSafe) internal view {
         address setDeployer = LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_30;
@@ -118,8 +106,8 @@ library LibOrchestratorInvariants {
     /// @notice Assert the pinned orchestrator instance on the active chain:
     /// it has code, `expectedAdmin` holds `DEFAULT_ADMIN_ROLE`, and its
     /// vault-logic version lock passes (so `mint`/`burn` are operable).
-    /// @param expectedAdmin The address that must hold `DEFAULT_ADMIN_ROLE`
-    /// — the chain's token-owner Safe.
+    /// @param expectedAdmin The address that must hold `DEFAULT_ADMIN_ROLE`,
+    /// the chain's token-owner Safe.
     function assertInstance(address expectedAdmin) internal view {
         address instance = ST0X_ORCHESTRATOR_INSTANCE;
         if (instance.code.length == 0) {
@@ -136,9 +124,8 @@ library LibOrchestratorInvariants {
 }
 
 /// @dev Local mirror of the set deployer's `iOrchestratorBeacon` immutable
-/// getter — `IST0xOrchestratorBeaconSetDeployerV1` carries only the
-/// `deploy` surface, and the getter is a concrete-contract detail the
-/// interface deliberately omits.
+/// getter; `IST0xOrchestratorBeaconSetDeployerV1` carries only the `deploy`
+/// surface.
 interface ST0xOrchestratorBeaconSetDeployerLike {
     function iOrchestratorBeacon() external view returns (IBeacon);
 }

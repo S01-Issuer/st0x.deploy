@@ -13,10 +13,10 @@ import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {MockERC20} from "../../concrete/MockERC20.sol";
 
 /// @title StoxWrappedTokenVaultV2Test
-/// @notice Tests V2-specific behaviour changes that differ from V1.
+/// @notice Tests V2 behaviour that differs from V1.
 contract StoxWrappedTokenVaultV2Test is Test {
     /// V2 StoxWrappedTokenVault reverts with ZeroAsset when initialized with
-    /// address(0). This is the fix for the V1 vulnerability.
+    /// address(0).
     function testV2ZeroAssetReverts() external {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         vm.expectRevert(abi.encodeWithSelector(ZeroVaultAsset.selector));

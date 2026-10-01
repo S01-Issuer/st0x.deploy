@@ -30,11 +30,9 @@ bytes32 constant OFFCHAIN_ASSET_RECEIPT_VAULT_STORAGE_LOCATION =
 /// `LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE` address.
 ///
 /// The facet's `onlyDelegatecalled` modifier relies on an immutable `_SELF`
-/// captured in the constructor. `vm.etch` would leave `_SELF` pointing at the
-/// original temporary deploy address, so the "direct call reverts" assertion
-/// would not exercise the real guard. We use `vm.deployCodeTo` instead which
-/// runs the constructor at the target address, so the facet's `_SELF` matches
-/// the `LibProdDeployV4` constant exactly.
+/// captured in the constructor, so the facet is planted with
+/// `vm.deployCodeTo`, which runs the constructor at the target address and
+/// leaves `_SELF` equal to the `LibProdDeployV4` constant.
 contract StoxReceiptVaultFallbackRoutingTest is Test {
     StoxReceiptVault internal vault;
     PermissiveAuthorizer internal mockAuthorizer;
@@ -137,9 +135,7 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
     }
 
     /// Direct calls to the facet at its production address revert with
-    /// `FacetMustBeDelegatecalled`. Because we used `vm.deployCodeTo`, the
-    /// facet's `_SELF` immutable is the `LibProdDeployV4` constant and
-    /// `address(this) == _SELF` on a direct call, firing the guard.
+    /// `FacetMustBeDelegatecalled`: `address(this) == _SELF` on a direct call.
     function testDirectCallToFacetRevertsWithFacetMustBeDelegatecalled() external {
         ICorporateActionsV1 facetDirect = ICorporateActionsV1(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE);
         vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
@@ -265,9 +261,8 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
 
     /// `cancelCorporateAction` reaches the facet through the fallback,
     /// invokes the authorizer with `CANCEL_CORPORATE_ACTION`, unlinks the
-    /// node, and the cancelled action is no longer findable via the
-    /// COMPLETED-filtered traversal. Mirrors the schedule routing test for
-    /// the cancel surface.
+    /// node, and the cancelled action is not findable via the
+    /// PENDING-filtered traversal.
     function testCancelCorporateActionRoutesAndUnlinks() external {
         bytes memory params = abi.encode(LibDecimalFloat.packLossless(2, 0));
 
@@ -285,7 +280,7 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         assertEq(mockAuthorizer.lastUser(), ALICE);
         assertEq(mockAuthorizer.lastPermission(), keccak256("CANCEL_CORPORATE_ACTION"));
 
-        // The cancelled node is no longer reachable via the pending list —
+        // The cancelled node is not reachable via the pending list:
         // cancel zeroes its prev/next pointers and resets effectiveTime.
         (uint256 cursor,,) =
             ICorporateActionsV1(address(vault)).latestActionOfType(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
