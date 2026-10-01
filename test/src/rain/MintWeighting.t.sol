@@ -338,11 +338,13 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     }
 
     /// The ticker is derived by arithmetic on the symbol's length, so a
-    /// ticker of every length in production is minted: two, three and five
-    /// characters, around the four of `MSTR` and `AAPL`.
+    /// ticker of every length in production is minted, two, three and five
+    /// characters around the four of `MSTR` and `AAPL`, and one of thirty,
+    /// whose symbol is the 31 bytes an IntOrAString holds: every bit of the
+    /// length is read, not only the low four.
     function testATickerOfAnyLengthMints() external {
         _setLimits(UNBOUNDED_CAPACITY, UNBOUNDED_CAPACITY);
-        string[3] memory tickers = ["MU", "TSM", "GOOGL"];
+        string[4] memory tickers = ["MU", "TSM", "GOOGL", "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123"];
         for (uint256 i = 0; i < tickers.length; i++) {
             _mockToken(ANY_TOKEN, string.concat("t", tickers[i]));
             _accepted(ANY_TOKEN, _quorumFor(tickers[i]), _f(VALUE, 0));
