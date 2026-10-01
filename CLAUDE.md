@@ -32,3 +32,12 @@ from the repo and are deliberately absent — do not re-add them.
   `timelock.schedule(...)` → delay → `timelock.execute(...)`, resolving the
   address only via `LibTimelockInvariants.timelockForChainId`. Role model and
   runbook: `docs/TIMELOCK.md`.
+
+- **Comments and docs describe what the code does now, and nothing else.** No
+  references to the spec, its item numbers or `st0x.attest`; no history ("the
+  old version", "no longer", "replaced"); no process (PR or issue numbers as
+  explanation, who decided, when); no argument for why a design was chosen. A
+  docstring that only narrates how a thing came to be is deleted, not reworded.
+  The expression installed with `setMintWeighting` is governance's: the repo
+  holds no opinion on what it is, and no file in it is "the production
+  weighting".
