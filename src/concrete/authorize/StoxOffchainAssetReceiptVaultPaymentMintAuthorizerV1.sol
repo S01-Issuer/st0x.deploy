@@ -8,8 +8,7 @@ import {
 
 /// @title StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 /// @notice An OffchainAssetReceiptVaultPaymentMintAuthorizerV1 specialized for
-/// Stox. Currently there are no modifications to the base contract, but this is
-/// here to prepare for any future upgrades.
+/// Stox. No modifications to the base contract.
 /// @dev Inherits
 /// `rain.vats/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol`.
 /// Implements ICloneableV2: `initialize(bytes)` expects

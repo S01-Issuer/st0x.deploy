@@ -26,9 +26,8 @@ import {LibTimelockInvariantsHarness} from "./LibTimelockInvariantsHarness.sol";
 /// missing code, alien code, wrong delay, missing role, open role, and a
 /// root-admin escalation path.
 contract LibTimelockInvariantsTest is Test {
-    /// @notice Stand-in for a chain's token-owner Safe. The invariants only
-    /// read role membership for this address, so a plain EOA-style address
-    /// is sufficient locally.
+    /// @notice Stand-in for a chain's token-owner Safe; the invariants only
+    /// read role membership for it.
     address internal constant SAFE = address(0x5aFe00000000000000000000000000000000aAaa);
 
     LibTimelockInvariantsHarness internal harness;
@@ -38,24 +37,21 @@ contract LibTimelockInvariantsTest is Test {
     }
 
     /// @notice Deploy a timelock through the real (etched) Zoltu factory
-    /// from the pinned init code, exactly as the deploy broadcast does.
+    /// from the pinned init code, as the deploy broadcast does.
     function deployPinnedTimelock() internal returns (address) {
         LibRainDeploy.etchZoltuFactory(vm);
         return LibRainDeploy.deployZoltu(LibTimelockInvariants.timelockInitCode(SAFE));
     }
 
-    /// @notice The in-source CREATE2 derivation must land exactly where the
-    /// real Zoltu factory deploys the same init code — this is the equality
-    /// the deploy script's address assertion and the future pin PR both
-    /// stand on.
+    /// @notice The in-source CREATE2 derivation lands where the real Zoltu
+    /// factory deploys the same init code.
     function testExpectedAddressMatchesRealZoltuFactory() external {
         address deployed = deployPinnedTimelock();
         assertEq(deployed, LibTimelockInvariants.expectedTimelockAddress(SAFE));
     }
 
-    /// @notice Distinct Safes must derive distinct timelock addresses — the
-    /// constructor arguments are part of the init code, so per-chain Safes
-    /// produce per-chain timelocks by construction.
+    /// @notice Distinct Safes derive distinct timelock addresses: the
+    /// constructor arguments are part of the init code.
     function testExpectedAddressVariesWithSafe() external pure {
         assertNotEq(
             LibTimelockInvariants.expectedTimelockAddress(SAFE),
@@ -95,12 +91,7 @@ contract LibTimelockInvariantsTest is Test {
     }
 
     /// @notice The frozen creation-code and runtime-codehash pins match the
-    /// version-locked OZ dependency as the current profile compiles it. Red
-    /// here means the compiler settings or the dependency moved past the
-    /// pinned generation: regenerate the pins only while no chain has
-    /// deployed or migrated onto them; once production carries the pinned
-    /// generation the pins stand (they describe prod, not source) and the
-    /// divergence is a deliberate new-generation decision.
+    /// OZ dependency as the current profile compiles it.
     function testTimelockPinsMatchCompiledDependency() external pure {
         assertEq(
             keccak256(LibTimelockInvariants.TIMELOCK_CREATION_CODE), keccak256(type(TimelockController).creationCode)
@@ -144,11 +135,10 @@ contract LibTimelockInvariantsTest is Test {
 
     /// @notice A missing grant on ANY required role — the Safe's proposer,
     /// canceller, and executor, and the timelock's own root admin — trips
-    /// the exact missing `(role, account)` pair, walked per role: revoke,
-    /// assert the typed revert, re-grant, and prove the restored state
-    /// passes. Self-administration goes last and is not restored: once the
-    /// timelock renounces its own root admin no principal can re-grant it,
-    /// which is exactly why the invariant pins it.
+    /// the missing `(role, account)` pair, walked per role: revoke, assert
+    /// the typed revert, re-grant, and check the restored state passes.
+    /// Self-administration goes last and is not restored: once the timelock
+    /// renounces its own root admin no principal can re-grant it.
     function testAssertRejectsEveryMissingRole() external {
         address timelock = deployPinnedTimelock();
         // EXECUTOR is not among them: execution is permissionless, so the
@@ -182,11 +172,9 @@ contract LibTimelockInvariantsTest is Test {
     /// everyone" — is rejected, walked per role: proposer, canceller and root
     /// admin each trip their own typed revert, and the closed state passes
     /// again after each revoke. Simulated through the timelock's own
-    /// self-administration path, proving the pinned deploy COULD drift here
-    /// only via a (timelocked) governance action that this invariant would
-    /// then flag.
-    /// @dev EXECUTOR is deliberately excluded: execution is permissionless,
-    /// so an open executor is the REQUIRED state, pinned by
+    /// self-administration path.
+    /// @dev EXECUTOR is excluded: execution is permissionless, so an open
+    /// executor is the required state, pinned by
     /// `testAssertRejectsClosedExecutorRole` below.
     function testAssertRejectsEveryOpenRole() external {
         address timelock = deployPinnedTimelock();
@@ -203,19 +191,14 @@ contract LibTimelockInvariantsTest is Test {
             vm.prank(timelock);
             IAccessControl(timelock).revokeRole(roles[i], address(0));
         }
-        // Every zero-grant revoked: the closed state passes again, proving
-        // each rejection above was the zero-grant and nothing else.
+        // Every zero-grant revoked: the closed state passes again.
         harness.callAssertTimelockState(timelock, SAFE);
     }
 
-    /// @notice Execution is permissionless END-TO-END, not just as a role
-    /// bit: a caller holding no role at all executes a matured operation and
+    /// @notice A caller holding no role executes a matured operation and
     /// the operation's effect lands. Schedule (Safe) → warp out the 48h
     /// delay → execute (anon) → the scheduled self-administration grant is
-    /// live and the operation is `Done`. This is the behavioural proof of
-    /// the property the open-executor state assert pins; without it the
-    /// property rests only on OZ's `onlyRoleOrOpenRole` semantics being what
-    /// the assert assumes.
+    /// live and the operation is `Done`.
     function testAnonExecutesMaturedOperation() external {
         TimelockController timelock = TimelockController(payable(deployPinnedTimelock()));
         address anon = address(0xA904);
@@ -242,10 +225,9 @@ contract LibTimelockInvariantsTest is Test {
         );
     }
 
-    /// @notice The asymmetry is the design: execution is open, scheduling
-    /// and vetoing stay privileged. The same roleless anon that can execute
-    /// can neither schedule nor cancel — each attempt reverts with OZ's
-    /// missing-role error naming the exact role gate it hit.
+    /// @notice The roleless anon that can execute can neither schedule nor
+    /// cancel — each attempt reverts with OZ's missing-role error naming the
+    /// role gate it hit.
     function testAnonCannotScheduleOrCancel() external {
         TimelockController timelock = TimelockController(payable(deployPinnedTimelock()));
         address anon = address(0xA904);
@@ -279,11 +261,8 @@ contract LibTimelockInvariantsTest is Test {
         assertTrue(timelock.isOperationPending(id), "the anon cancel attempt must not have removed the operation");
     }
 
-    /// @notice A CLOSED executor role is rejected. Execution is deliberately
-    /// permissionless, so revoking the open grant would put the operator back
-    /// in the path as a censor of matured operations — the exact property
-    /// Clearstar asked us to remove. Asserted by revoking `EXECUTOR_ROLE`
-    /// from the zero address on an otherwise-pinned timelock.
+    /// @notice A closed executor role is rejected. Asserted by revoking
+    /// `EXECUTOR_ROLE` from the zero address on an otherwise-pinned timelock.
     function testAssertRejectsClosedExecutorRole() external {
         address timelock = deployPinnedTimelock();
         vm.prank(timelock);
@@ -296,10 +275,8 @@ contract LibTimelockInvariantsTest is Test {
         harness.callAssertTimelockState(timelock, SAFE);
     }
 
-    /// @notice A Safe holding `DEFAULT_ADMIN_ROLE` is rejected — root admin
-    /// on the proposer would let it re-grant roles instantly, bypassing the
-    /// delay entirely. Simulated by deploying with the optional constructor
-    /// admin set to the Safe.
+    /// @notice A Safe holding `DEFAULT_ADMIN_ROLE` is rejected. Simulated by
+    /// deploying with the optional constructor admin set to the Safe.
     function testAssertRejectsSafeAsRootAdmin() external {
         address[] memory principals = new address[](1);
         principals[0] = SAFE;
@@ -332,13 +309,8 @@ contract LibTimelockInvariantsTest is Test {
     }
 
     /// @notice Every per-chain pin equals the Zoltu address derived from the
-    /// frozen creation code and that chain's Safe — UNCONDITIONALLY. The
-    /// not-zero guards that let this test ride through the hydration window
-    /// are retired with it: all three deploys have executed and the pins are
-    /// deploy history, so a zeroed or drifted pin must fail loudly here
-    /// rather than silently skip. A future chain's placeholder phase gets
-    /// its own guarded branch when its arm is added; these three never go
-    /// back.
+    /// frozen creation code and that chain's Safe; a zeroed or drifted pin
+    /// fails here.
     function testPinsMatchDerivedAddresses() external pure {
         assertEq(
             LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK,
@@ -363,10 +335,7 @@ contract LibTimelockInvariantsTest is Test {
     }
 
     /// @notice Every chain with a pinned token-owner Safe resolves through
-    /// `timelockForChainId` rather than reverting. The chain-coverage guard
-    /// in `GovernanceTimelockMigration.t.sol` enforces this against the
-    /// live Safe map; this pins the three chains explicitly so a dropped
-    /// arm fails here too, next to the constants it would have dropped.
+    /// `timelockForChainId` rather than reverting.
     function testEveryPinnedChainResolves() external pure {
         assertEq(
             LibTimelockInvariants.timelockForChainId(LibSafeInvariants.BASE_CHAIN_ID),

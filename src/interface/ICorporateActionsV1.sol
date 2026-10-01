@@ -13,10 +13,9 @@ import {Float} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
 /// chronological walk — every holder's lazy migration first advances
 /// through this node, replacing the special "before any action" sentinel
 /// state. Cannot be scheduled or cancelled by users; resolveActionType
-/// rejects it. Future action types decide independently whether to include
-/// this bit in their masks (stock splits do, since identity-on-init is the
-/// correct semantic). Init occupies bit 0 because it is the primordial
-/// action type — every vault touched by `schedule` has exactly one.
+/// rejects it. Each action type's masks decide whether to include this bit
+/// (`BALANCE_MIGRATION_TYPES_MASK` does, since init is identity). Every
+/// vault touched by `schedule` has exactly one.
 uint256 constant ACTION_TYPE_INIT_V1 = 1 << 0;
 
 /// @dev Bitmap action type for V1 stock splits (forward and reverse).
@@ -27,7 +26,7 @@ uint256 constant ACTION_TYPE_INIT_V1 = 1 << 0;
 /// via an interface type (`IFoo.X` rejected).
 uint256 constant ACTION_TYPE_STOCK_SPLIT_V1 = 1 << 1;
 
-/// @dev Bitmap action type for V1 stablecoin dividends. Reserved; not yet
+/// @dev Bitmap action type for V1 stablecoin dividends. Reserved; not
 /// schedulable.
 uint256 constant ACTION_TYPE_STABLES_DIVIDEND_V1 = 1 << 2;
 
@@ -138,13 +137,11 @@ uint256 constant VALID_ACTION_TYPES_MASK =
 ///   (params, returns, event fields). External consumers must not reason
 ///   about ordering, sequencing, or arithmetic on these values; an action
 ///   id is only meaningful when fed back into another API call. Cancelled
-///   actions leave gaps in the underlying numbering, the bootstrap
-///   occupies the lowest id, and future versions may further re-shape
-///   the space.
+///   actions leave gaps in the underlying numbering and the bootstrap
+///   occupies the lowest id.
 /// - `cursor` is the conventional **local-variable name** for a walking
-///   pointer that holds the current action id during a traversal loop.
-///   The example below uses `cursor` for exactly this reason — it's a
-///   live position in a walk, not a stable identifier.
+///   pointer that holds the current action id during a traversal loop —
+///   a live position in a walk, not a stable identifier.
 ///
 /// Storage variables that track per-account walk progress over time
 /// (`accountMigrationCursor`, `accountIdCursor`,
@@ -182,82 +179,37 @@ uint256 constant VALID_ACTION_TYPES_MASK =
 ///
 /// EXTENSION MODEL:
 ///
-/// New action types are added as new bitmap bits + new type hashes,
-/// alongside existing types in the same chronological linked list. The
-/// model is **add a new type next to the old one**, not "evolve the old
-/// type in place". To add a new type:
+/// Each action type is a bitmap bit (`ACTION_TYPE_FOO_V1 = 1 << N`; the
+/// bitmap is `uint256`, so 256 types are addressable) plus a namespaced type
+/// hash (`keccak256("st0x.corporate-actions.foo.1")`, where the trailing
+/// `.1` is the schema version). A type is versioned by adding a new bit and
+/// a new type hash (`_V2`), never by changing the `_V1` codec: `_V1` nodes
+/// keep decoding under the `_V1` codec, `_V2` nodes under the `_V2` codec,
+/// and both coexist in one time-ordered linked list. Each type's
+/// validator and codec (`validateV1`, `encodeParametersV1`,
+/// `decodeParametersV1`) live in one library per type, and
+/// `LibCorporateAction.resolveActionType`'s if-chain dispatches the type
+/// hash to them. Adding a type is a core-library edit and a vault
+/// redeployment, not a runtime registration. Consumers that walk the list
+/// mask against the specific bit(s) they care about, not equality, so new
+/// bits do not break them.
 ///
-/// 1. Pick a new bitmap bit: `ACTION_TYPE_FOO_V1 = 1 << N`. The bitmap is
-///    `uint256` so 256 types are addressable.
-/// 2. Namespace a new type hash: `keccak256("st0x.corporate-actions.foo.1")`.
-///    The trailing `.1` is the schema version; bumping it to `.2` (with
-///    a corresponding `ACTION_TYPE_FOO_V2 = 1 << M`) is how an existing
-///    type is "versioned" — the V1 nodes keep decoding with V1 logic,
-///    V2 nodes dispatch to V2 logic, both coexist in one list.
-/// 3. Create a new library `LibFoo` with `validateV1`, `encodeParametersV1`,
-///    `decodeParametersV1` — a single-point-of-change for the type's
-///    on-chain schema. Co-locating the codec with the validator keeps the
-///    schema definition in one place.
-/// 4. Extend `LibCorporateAction.resolveActionType`'s if-chain to dispatch
-///    the new type hash to the new validator + encoder. This is the
-///    intentional extension point — adding a type is a core-library edit
-///    and a vault redeployment, not a runtime registration.
-/// 5. Extend any consumer that walks the list (today
-///    `LibRebase.migratedBalance` for stock splits only) to handle the
-///    new action type where relevant. Consumers mask against the
-///    specific bit(s) they care about — not equality — so forward-
-///    compatibility is preserved when new bits land.
-/// 6. Deploy a new vault implementation. Upgrade the beacon.
+/// Stored parameters are type-erased `bytes` and are never re-encoded in
+/// place. The V1 decoder calls `abi.decode(params, (Float))` directly, so a
+/// `rain.math.float` release with a different mantissa width would corrupt
+/// stored `_V1` parameters on decode; the dependency is pinned, and a
+/// dependency upgrade is a `_V2` action type with a new type hash.
 ///
-/// Old nodes keep decoding with their old libraries; new nodes dispatch
-/// to the new library via their action-type bit. Both coexist in one
-/// linked list, time-ordered.
-///
-/// **What the model handles cleanly:**
-///   - New action types with different parameter shapes (the type-erased
-///     `bytes` payload is exactly this).
-///   - Versioning an existing type (new `_V2` bit + new type hash; old
-///     `_V1` nodes keep decoding under the old codec).
-///   - Single chronological linked list across all types — consumers
-///     traverse in time order regardless of action-type mix.
-///
-/// **What the model does NOT auto-handle — design discipline applies:**
-///   - **Underlying-type drift in `Float` (or any other dependency
-///     library).** The V1 decoder calls `abi.decode(params, (Float))`
-///     directly. If `rain.math.float` ships a new release with a
-///     different mantissa width, old stored parameters silently corrupt
-///     when re-decoded. Mitigation: pin the dependency at a specific
-///     commit and never bump it across a deployed version. If the
-///     dependency must be upgraded, that's a `_V2` action type with a
-///     new type hash — old `_V1` parameters keep decoding under the old
-///     pinned dependency.
-///   - **In-place migration of stored parameters.** Storage bytes do
-///     NOT auto-translate. "Re-encode all V1 nodes as V2" requires
-///     explicit migration code that walks the list, decodes as V1,
-///     re-encodes as V2, and writes back while preserving
-///     `effectiveTime` ordering and `prev`/`next` pointers. The default
-///     policy is "never migrate, always add a new version" — write any
-///     migration code defensively if that policy ever changes.
-///   - **Type-level pause / disable.** `cancelCorporateAction(actionId)`
-///     unlinks one specific node. There is no "disable action type X
-///     across the list" primitive; cancelling N pending nodes of type X
-///     takes N transactions. If a type-level pause becomes operationally
-///     necessary it would need a new storage flag and a new entry point.
-///   - **Off-chain discovery of new types.** Indexers learn new bitmap
-///     bits and type hashes from the CHANGELOG / release notes — there
-///     is no on-chain registry of `(bit, typeHash, name)` mappings.
-///     Acceptable at the expected scale (dozens of types lifetime, not
-///     hundreds).
+/// `cancelCorporateAction(actionId)` unlinks one node; there is no
+/// type-level disable, so cancelling N pending nodes takes N transactions.
+/// There is no on-chain registry of `(bit, typeHash, name)` mappings.
 ///
 /// @dev **Action type bitmap.** The `actionType` field returned by the four
 /// traversal getters is a single-bit mask identifying the action's type.
 /// The canonical constants — `ACTION_TYPE_STOCK_SPLIT_V1`,
 /// `ACTION_TYPE_STABLES_DIVIDEND_V1`, and `VALID_ACTION_TYPES_MASK` —
-/// are declared at file scope above.
-///
-/// Further action types will be added as additional bit positions. Consumers
-/// should mask against the specific bit(s) they care about, not compare
-/// equality — so that pending additions remain forward-compatible.
+/// are declared at file scope above. Consumers mask against the specific
+/// bit(s) they care about rather than comparing equality.
 interface ICorporateActionsV1 {
     /// @notice Emitted when a corporate action is successfully scheduled.
     /// @param sender The msg.sender that called `scheduleCorporateAction`.

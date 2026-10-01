@@ -255,7 +255,7 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     }
 
     // ------------------------------------------------------------------ //
-    //                        SPEC.md item 24: the lead                   //
+    //                              the lead                              //
     // ------------------------------------------------------------------ //
 
     /// Three pool operators and no lead: the first attestation is not the
@@ -282,7 +282,7 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     }
 
     // ------------------------------------------------------------------ //
-    //                       SPEC.md item 23: the pool                    //
+    //                              the pool                              //
     // ------------------------------------------------------------------ //
 
     /// Fewer than two pool attestations: the second seat is read past the
@@ -325,7 +325,7 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     }
 
     // ------------------------------------------------------------------ //
-    //                      SPEC.md item 15: the symbol                   //
+    //                             the symbol                             //
     // ------------------------------------------------------------------ //
 
     /// The one composition installed in `setUp` serves every vault: `tAAPL`
@@ -391,7 +391,7 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     }
 
     // ------------------------------------------------------------------ //
-    //                     SPEC.md item 13: agreement                     //
+    //                             agreement                              //
     // ------------------------------------------------------------------ //
 
     /// A pool price further from the others than 1% of the largest.
@@ -429,7 +429,7 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     }
 
     // ------------------------------------------------------------------ //
-    //                       SPEC.md item 17: bounds                      //
+    //                               bounds                               //
     // ------------------------------------------------------------------ //
 
     /// All three agreeing on a price below the floor or above the ceiling.

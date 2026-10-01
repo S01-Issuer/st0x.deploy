@@ -13,11 +13,7 @@ pragma solidity ^0.8.25;
 error MigrationStateDrift(string label, bytes32 expectedPre, bytes32 expectedPost, bytes32 actual);
 
 /// @notice The migration deadline has passed but `actual` is still not the
-/// post-migration value. Signals that either the script never ran on-chain
-/// before `deadline`, or the deadline was set too aggressively. The invariant
-/// deliberately red-lines cron CI in this state to force an explicit
-/// operator choice: run the migration, extend the deadline, or delete the
-/// invariant (accepting the pre-state as the new canonical).
+/// post-migration value.
 /// @param label Human-readable identifier for the invariant being asserted.
 /// @param expectedPost The accepted state after the migration runs.
 /// @param actual The value read from the live chain.
@@ -25,24 +21,13 @@ error MigrationStateDrift(string label, bytes32 expectedPre, bytes32 expectedPos
 error MigrationDeadlinePassed(string label, bytes32 expectedPost, bytes32 actual, uint256 deadline);
 
 /// @title LibMigrationInvariant
-/// @notice Reusable dual-state invariant helper with an operator SLA baked
-/// in. Encodes the pattern:
+/// @notice Reusable dual-state invariant helper with a deadline:
 ///
-/// - The migration script mutates some on-chain value from `pre` to `post`.
+/// - A migration script mutates some on-chain value from `pre` to `post`.
 /// - A live-fork invariant test asserts, against the head of the target
-///   network, that the value is EITHER `pre` (script has not run yet) OR
+///   network, that the value is either `pre` (script has not run yet) or
 ///   `post` (script has run) — while `block.timestamp < deadline`.
-/// - Once `block.timestamp >= deadline`, only `post` passes. If the script
-///   has not landed on-chain by then, cron CI red-lines and forces the
-///   operator to make an explicit choice — run the script, extend the
-///   deadline, or delete the invariant (accepting `pre` as the new
-///   canonical).
-///
-/// This lets the invariant test PR merge alongside the migration script
-/// (rather than waiting until the script has actually executed on-chain),
-/// giving the migration itself the same "cron would trip if we drifted"
-/// enforcement every other production invariant has — even while the
-/// migration is pending.
+/// - Once `block.timestamp >= deadline`, only `post` passes.
 ///
 /// @dev `block.timestamp` is read once per call from the current chain. A
 /// live-fork test at chain head sees real time, so cron picks up the
@@ -77,14 +62,13 @@ library LibMigrationInvariant {
     /// @notice `address` overload. Casts each address to `bytes32` under the
     /// hood via `uint160`.
     ///
-    /// The zero address is rejected as `actual` UNCONDITIONALLY — on either
-    /// side of the deadline, even when a migration side equals zero. Every
-    /// address-valued surface this lib asserts (owners, role holders) has
-    /// zero as its default/renounced/unset value, making it the single most
-    /// likely drift reading — so it is its own checked case, never an
-    /// accepted side. In particular an unhydrated `post` pin of zero means
-    /// "post-state unreachable", and a renounced-to-zero owner must trip
-    /// drift rather than read as "already migrated".
+    /// The zero address is rejected as `actual` unconditionally — on either
+    /// side of the deadline, even when `pre` or `post` equals zero. Zero is
+    /// the default/renounced/unset value of every address-valued surface
+    /// this lib asserts (owners, role holders), so it is always drift, never
+    /// an accepted side: a `post` pin of zero means the post-state is
+    /// unreachable, and a renounced-to-zero owner trips drift rather than
+    /// reading as migrated.
     /// @param label Human-readable identifier for the invariant surfaced in
     /// revert data.
     /// @param actual The value read from the live chain.

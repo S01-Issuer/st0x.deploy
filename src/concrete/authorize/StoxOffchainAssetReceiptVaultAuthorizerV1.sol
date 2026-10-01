@@ -16,12 +16,10 @@ bytes32 constant SCHEDULE_CORPORATE_ACTION_ADMIN = keccak256("SCHEDULE_CORPORATE
 bytes32 constant CANCEL_CORPORATE_ACTION_ADMIN = keccak256("CANCEL_CORPORATE_ACTION_ADMIN");
 
 /// @title StoxOffchainAssetReceiptVaultAuthorizerV1
-/// @notice Extends the base authorizer with corporate action role admin
-/// configuration. The base authorizer handles corporate action permissions
-/// via its generic RBAC path, but cannot grant them because no role admin is
-/// configured. This contract adds SCHEDULE_CORPORATE_ACTION_ADMIN and
-/// CANCEL_CORPORATE_ACTION_ADMIN roles following the same pattern as the
-/// existing role admin hierarchy.
+/// @notice Extends the base authorizer with admin roles for the corporate
+/// action roles: SCHEDULE_CORPORATE_ACTION_ADMIN and
+/// CANCEL_CORPORATE_ACTION_ADMIN, each its own admin, both granted to
+/// `initialAdmin`.
 contract StoxOffchainAssetReceiptVaultAuthorizerV1 is OffchainAssetReceiptVaultAuthorizerV1 {
     /// @inheritdoc OffchainAssetReceiptVaultAuthorizerV1
     function initialize(bytes memory data) public override initializer returns (bytes32) {

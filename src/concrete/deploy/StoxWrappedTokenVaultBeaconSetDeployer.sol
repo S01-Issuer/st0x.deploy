@@ -18,12 +18,9 @@ error ZeroVaultAsset();
 /// @title StoxWrappedTokenVaultBeaconSetDeployer
 /// @notice Deploys new StoxWrappedTokenVault beacon proxy instances.
 /// The beacon is deployed separately via Zoltu and referenced by its
-/// deterministic address. This makes the deployer itself Zoltu-deployable
-/// (no constructor args).
-/// In practice, using this directly alongside the
-/// OffchainAssetReceiptVaultBeaconSetDeployer is error prone and tedious as it
-/// is not atomic, so the StoxUnifiedDeployer contract should be used instead
-/// for most use cases.
+/// deterministic address, so the deployer has no constructor args and is
+/// itself Zoltu-deployable. `StoxUnifiedDeployer` deploys a receipt vault and
+/// its wrapper atomically.
 contract StoxWrappedTokenVaultBeaconSetDeployer is ERC165, IStoxWrappedTokenVaultBeaconSetDeployerV1 {
     /// @inheritdoc ERC165
     function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
@@ -38,8 +35,8 @@ contract StoxWrappedTokenVaultBeaconSetDeployer is ERC165, IStoxWrappedTokenVaul
     event Deployment(address sender, address stoxWrappedTokenVault);
 
     /// Deploys and initializes a new StoxWrappedTokenVault contract.
-    /// @dev Reentrancy is not exploitable here because this contract holds no
-    /// mutable state between calls. Each invocation creates an independent proxy.
+    /// @dev This contract has no storage; each invocation creates an
+    /// independent proxy.
     /// @param asset The address of the underlying asset for the vault.
     /// @return stoxWrappedTokenVault The address of the deployed
     /// StoxWrappedTokenVault contract.

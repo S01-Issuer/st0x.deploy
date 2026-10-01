@@ -22,8 +22,8 @@ import {
 } from "src/generated/St0xAttestSubParserPointers.sol";
 
 /// Every table the subparser dispatches on is a committed constant. These
-/// tests prove the constants are what `script/Build.sol` would generate from
-/// the current source, because a stale table dispatches the wrong word.
+/// tests prove the constants are what `script/BuildPointers.sol` generates
+/// from the current source.
 contract St0xAttestSubParserPointersTest is Test {
     function testBytecodeHash() external {
         St0xAttestSubParser subParser = new St0xAttestSubParser();
@@ -56,8 +56,7 @@ contract St0xAttestSubParserPointersTest is Test {
         assertEq(LITERAL_PARSER_FUNCTION_POINTERS.length, 0);
     }
 
-    /// The word list is exactly SPEC.md item 11, in the index order the
-    /// tables are built in.
+    /// The word list, in the index order the tables are built in.
     function testWordList() external pure {
         AuthoringMetaV2[] memory authoringMeta =
             abi.decode(LibSt0xAttestSubParser.authoringMetaV2(), (AuthoringMetaV2[]));

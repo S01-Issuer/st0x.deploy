@@ -9,11 +9,8 @@ pragma solidity ^0.8.25;
 /// canonical transaction hash builder, and the privileged `changeThreshold`
 /// mutator (self-call only — guarded by the Safe's own signature verification
 /// in production; reachable in tests via `vm.prank`).
-/// @dev This interface intentionally omits the rest of the Safe ABI (sigs,
-/// owner management, module management, fallback handler config, etc.) — the
-/// migration tooling only needs the functions declared here. Extending this
-/// interface in future migrations is preferred over re-declaring functions
-/// locally per script.
+/// @dev Omits the rest of the Safe ABI (sigs, owner management, module
+/// management, fallback handler config, etc.).
 ///
 /// All function signatures match the canonical Safe v1.4.1 L2 source:
 /// https://github.com/safe-global/safe-contracts/tree/v1.4.1/contracts
@@ -57,10 +54,8 @@ interface IGnosisSafe {
     /// @notice Computes the canonical EIP-712 transaction hash for the supplied
     /// transaction inputs. This is the hash that owners must sign for
     /// `execTransaction` to accept the bundle.
-    /// @dev We delegate hashing to the live Safe instance rather than
-    /// recomputing locally — this binds the produced hash to the Safe's
-    /// declared domain separator and prevents drift between off-chain tooling
-    /// and on-chain verification.
+    /// @dev Hashing is delegated to the live Safe instance, which binds the
+    /// produced hash to the Safe's declared domain separator.
     /// @param to Destination of the inner transaction.
     /// @param value Native value forwarded to `to`.
     /// @param data Calldata forwarded to `to`.

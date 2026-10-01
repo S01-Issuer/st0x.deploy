@@ -16,8 +16,7 @@ import {IStoxUnifiedDeployerV1} from "../../interface/IStoxUnifiedDeployerV1.sol
 /// @title StoxUnifiedDeployer
 /// @notice Deploys a new OffchainAssetReceiptVault and a new
 /// StoxWrappedTokenVault linked to the OffchainAssetReceiptVault atomically.
-/// The beacon sets are hardcoded to simplify and harden deployment of this
-/// contract by providing an audit trail in git of any address modifications.
+/// The beacon set deployer addresses are hardcoded from `LibProdDeployCurrent`.
 contract StoxUnifiedDeployer is ERC165, IStoxUnifiedDeployerV1 {
     /// @inheritdoc ERC165
     function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
@@ -33,9 +32,8 @@ contract StoxUnifiedDeployer is ERC165, IStoxUnifiedDeployerV1 {
 
     /// @notice Deploys a new OffchainAssetReceiptVault and a new
     /// StoxWrappedTokenVault linked to the OffchainAssetReceiptVault.
-    /// @dev Reentrancy is not exploitable here because this contract is entirely
-    /// stateless — no storage, no balances. A reentrant call would just create
-    /// another independent vault pair.
+    /// @dev This contract has no storage; a reentrant call creates another
+    /// independent vault pair.
     /// @param config The configuration for the OffchainAssetReceiptVault. The
     /// resulting asset address is used to deploy the StoxWrappedTokenVault.
     // slither-disable-next-line reentrancy-events

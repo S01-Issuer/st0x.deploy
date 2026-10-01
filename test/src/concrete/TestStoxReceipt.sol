@@ -13,9 +13,7 @@ import {LibERC1155Storage} from "../../../src/lib/LibERC1155Storage.sol";
 /// go through the vault-as-manager path.
 contract TestStoxReceipt is StoxReceipt {
     function testInit(address vaultAddr) external {
-        // Bypass ethgild's `initializer` lock by writing the manager slot
-        // directly. We're initializing a fresh deployment in-test, so the
-        // one-shot initializer guard is irrelevant for our purposes.
+        // Bypass the `initializer` lock by writing the manager slot directly.
         bytes32 slot = 0xe5444a702a2f437387f4eb075af275e349f1dba9a68923d27352f035d01dc200;
         assembly {
             sstore(slot, vaultAddr)

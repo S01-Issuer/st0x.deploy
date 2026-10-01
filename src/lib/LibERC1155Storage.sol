@@ -3,27 +3,24 @@
 pragma solidity ^0.8.25;
 
 /// @dev The ERC-7201 namespaced storage root for OpenZeppelin's
-/// `ERC1155Upgradeable`, computed in-source from the spec formula rather
-/// than hardcoded as a hex literal. Mirrors `LibERC20Storage`.
+/// `ERC1155Upgradeable`, computed from the ERC-7201 formula. Mirrors
+/// `LibERC20Storage`.
 bytes32 constant ERC1155_STORAGE_LOCATION =
     keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.ERC1155")) - 1)) & ~bytes32(uint256(0xff));
 
 /// @title LibERC1155Storage
 /// @notice Direct storage access to OpenZeppelin ERC1155Upgradeable internals,
-/// mirroring the role `LibERC20Storage` plays for the share-side rebase.
-/// Used by the receipt-side rebase migration to write
-/// `_balances[id][account]` without going through `_update` (which would
-/// recurse into the migration logic, emit spurious TransferSingle events,
-/// and perform the authorizer callback a second time).
+/// the receipt-side counterpart of `LibERC20Storage`. Used by the receipt-side
+/// rebase migration to write `_balances[id][account]` without going through
+/// `_update`.
 ///
 /// SAFETY: Tightly coupled to OZ v5's ERC1155Upgradeable ERC-7201 storage
 /// layout. The struct at the namespaced slot is:
 ///   slot+0: mapping(uint256 id => mapping(address account => uint256)) _balances
 ///   slot+1: mapping(address => mapping(address => bool)) _operatorApprovals
 ///   slot+2: string _uri
-/// If OZ changes this layout, this library MUST be updated and
-/// `testErc1155SlotConstantMatchesDerivation` in the accompanying test file
-/// will fail first.
+/// If OZ changes this layout, this library MUST be updated;
+/// `testErc1155SlotConstantMatchesDerivation` fails first.
 library LibERC1155Storage {
     /// @dev Derive the storage slot holding `_balances[id][account]`. The
     /// nested mapping resolves in two steps:

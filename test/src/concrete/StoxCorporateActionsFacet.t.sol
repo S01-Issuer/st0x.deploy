@@ -98,9 +98,7 @@ contract StoxCorporateActionsFacetTest is Test {
 
     /// `scheduleCorporateAction` calls the authorizer with the SCHEDULE
     /// permission and `abi.encode(typeHash, effectiveTime, parameters)` as
-    /// the data argument. We use an unknown type hash so `resolveActionType`
-    /// reverts after the authorize call, then verify the authorize call
-    /// happened via `vm.expectCall` (which survives the downstream revert).
+    /// the data argument, before the type hash is resolved.
     function testScheduleCorporateActionForwardsContextToAuthorizer() external {
         bytes32 typeHash = keccak256("DefinitelyUnknownActionType");
         uint64 effectiveTime = 1500;
@@ -122,10 +120,8 @@ contract StoxCorporateActionsFacetTest is Test {
     }
 
     /// `cancelCorporateAction` calls the authorizer with the CANCEL permission
-    /// and `abi.encode(actionIndex)` as the data argument. `cancel` reverts
-    /// with `ActionDoesNotExist` for index 42 since nothing is scheduled, so
-    /// we use a low-level call and discard the success flag — the test is
-    /// asserting the authorize call happened first via `vm.expectCall`.
+    /// and `abi.encode(actionIndex)` as the data argument, before the index
+    /// is checked to exist.
     function testCancelCorporateActionForwardsContextToAuthorizer() external {
         uint256 actionIndex = 42;
 
@@ -271,10 +267,8 @@ contract StoxCorporateActionsFacetTest is Test {
     }
 
     /// Multiple actions scheduled at the same effectiveTime are inserted in
-    /// stable order: each new node lands AFTER existing nodes with equal
-    /// effectiveTime. Relies on the `<=` comparison in
-    /// LibCorporateAction.schedule's tail walk — flipping it to `<` would
-    /// silently reorder same-time actions and break time-stable iteration.
+    /// stable order: each new node lands after existing nodes with equal
+    /// effectiveTime.
     function testScheduleTiedEffectiveTimeStableOrdering() external {
         uint256 first = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"01");
         uint256 second = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"02");
@@ -298,8 +292,7 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(n3.next, NODE_NONE, "tail has no next");
 
         // Walk forward from the first user node (skipping bootstrap, which
-        // has empty parameters) and verify parameters land in insertion
-        // order — defends against any walk-direction regression.
+        // has empty parameters): parameters land in insertion order.
         uint256 cursor = first;
         bytes memory walked = "";
         while (cursor != NODE_NONE) {
@@ -347,8 +340,8 @@ contract StoxCorporateActionsFacetTest is Test {
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, "");
         corporateActionHarness.cancel(id1);
 
-        // Bootstrap (idx 1) is still the head; cancelling id1 just unlinks
-        // it from between bootstrap and id2.
+        // Bootstrap (idx 0) is still the head; cancelling id1 unlinks it
+        // from between bootstrap and id2.
         assertEq(corporateActionHarness.head(), 0, "bootstrap remains the head");
         CorporateActionNode memory cancelled = corporateActionHarness.getNode(id1);
         assertEq(cancelled.effectiveTime, 0);
@@ -519,12 +512,9 @@ contract StoxCorporateActionsFacetTest is Test {
     }
 
     /// Double-cancel on the same actionIndex reverts with
-    /// `ActionDoesNotExist`. This is the regression test for the
-    /// `node.effectiveTime = 0` sentinel guard in `LibCorporateAction.cancel`.
-    /// Without that zero assignment — or without this check catching it —
-    /// a second cancel would read `prev = next = 0` (zeroed by the first
-    /// cancel) and blow away `s.head` and `s.tail` during unlink. See the
-    /// @dev block on `LibCorporateAction.cancel`.
+    /// `ActionDoesNotExist` (the `effectiveTime == 0` guard in
+    /// `LibCorporateAction.cancel`), and head/tail are unchanged after
+    /// the revert.
     function testCancelAlreadyCancelledReverts() external {
         uint256 id = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         uint256 id2 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
@@ -532,80 +522,41 @@ contract StoxCorporateActionsFacetTest is Test {
         // First cancel succeeds.
         corporateActionHarness.cancel(id);
 
-        // Sanity: the list is still well-formed — head is bootstrap, tail
-        // is the surviving user action.
         assertEq(corporateActionHarness.head(), 0, "bootstrap remains the head");
         assertEq(corporateActionHarness.tail(), id2);
 
-        // Second cancel reverts with ActionDoesNotExist — the sentinel
-        // guard (`effectiveTime == 0` after the first cancel) catches it
-        // before the unlink logic runs.
         vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, id));
         corporateActionHarness.cancel(id);
 
-        // Sanity after the revert: head/tail are unchanged; a reverted
-        // call must not leave state corruption behind.
         assertEq(corporateActionHarness.head(), 0, "bootstrap remains the head after revert");
         assertEq(corporateActionHarness.tail(), id2);
     }
 
-    /// Storage layout pin: writes a distinct sentinel value to each field
-    /// of `CorporateActionStorage` via its logical accessors, then reads
-    /// each raw slot at `CORPORATE_ACTION_STORAGE_LOCATION + offset` via
-    /// `vm.load` to assert that each sentinel lands at its expected offset.
-    /// Any reorder or insertion in the middle of the struct breaks this
-    /// test. Must be extended in every PR that appends a new field. See
-    /// the DO NOT REORDER comment on `CorporateActionStorage`.
-    ///
-    /// Mappings (`accountMigrationCursor`) are tested by verifying the
-    /// mapping's base slot (`sload(slot+offset)` returns 0) and by reading
-    /// a keyed entry via `vm.load` at `keccak256(abi.encode(key, baseSlot))`
-    /// after writing through the library — this simultaneously proves the
-    /// mapping is at the right slot and exercises the lookup derivation.
+    /// Storage layout pin: each field of `CorporateActionStorage` sits at
+    /// its expected offset from `CORPORATE_ACTION_STORAGE_LOCATION`. Value
+    /// fields are read raw via `vm.load`; mapping fields are written via
+    /// `vm.store` at `keccak256(abi.encode(key, baseSlot))` and read back
+    /// through the library getter.
     function testStorageLayoutPin() external {
-        // Route writes through the harness so they target the namespaced
-        // slot at `CORPORATE_ACTION_STORAGE_LOCATION` inside the harness's
-        // storage context. `corporateActionHarness.schedule` populates `head`, `tail`,
-        // `nodes`; no library helper touches `accountMigrationCursor`, so
-        // we poke that one via vm.store at the derived slot for the key
-        // and then read it back through the library-path reader — proving
-        // the field is at slot+3 (offset 3 from the namespace base).
-        // Schedule TWO actions on top of the lazily-created bootstrap so
-        // head (bootstrap, idx 0) and tail (later real action) have
-        // distinct values. If only one schedule ran, head would still
-        // differ from tail (bootstrap vs. real), but two schedules also
-        // exercises the case where a swap between the head/tail offsets
-        // would be detectable.
+        // Two user actions on top of the bootstrap, so head (bootstrap,
+        // idx 0) and tail (idx 2) hold distinct values.
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
 
         address harnessAddr = address(corporateActionHarness);
         bytes32 base = CORPORATE_ACTION_STORAGE_LOCATION;
 
-        // Offset 0 — head. The bootstrap node always occupies index 0
-        // and its effectiveTime is `block.timestamp` at first-schedule
-        // time, which is strictly less than every user-scheduled action's
-        // future effectiveTime, so head is pinned at 0.
+        // Offset 0 — head (bootstrap, idx 0).
         bytes32 headSlot = vm.load(harnessAddr, base);
         assertEq(uint256(headSlot), 0, "head must be at offset 0");
 
-        // Offset 1 — tail. The second user-scheduled action (idx 2;
-        // bootstrap is idx 0 and the first user action is idx 1).
+        // Offset 1 — tail (second user action, idx 2).
         bytes32 tailSlot = vm.load(harnessAddr, bytes32(uint256(base) + 1));
         assertEq(uint256(tailSlot), 2, "tail must be at offset 1");
 
-        // Offset 2 — nodes[] length. Dynamic array layout stores length at
-        // the base slot; elements live at `keccak256(slot)`. After two
-        // schedule calls the array contains the bootstrap + two user nodes.
+        // Offset 2 — nodes[] length: bootstrap + two user nodes.
         bytes32 nodesLenSlot = vm.load(harnessAddr, bytes32(uint256(base) + 2));
         assertEq(uint256(nodesLenSlot), 3, "nodes length must be at offset 2");
-
-        // For the struct fields below: poke via `vm.store` at the expected
-        // offset, then read via a library-path getter on the harness. The
-        // getter traverses `LibCorporateAction.getStorage().field`, so a
-        // match proves the library actually reads from the offset we pinned.
-        // If the struct is reordered, the getter reads from a different
-        // slot than the poke and the assertion fails.
 
         // Offset 3 — accountMigrationCursor (mapping).
         address testAccount = address(0xBEEF);
@@ -661,12 +612,8 @@ contract StoxCorporateActionsFacetTest is Test {
     }
 
     /// Cancelling the only user-scheduled node leaves the list with just
-    /// the bootstrap node — head and tail both collapse to the bootstrap.
-    /// Bootstrap's `prev`/`next` storage fields are also pinned at
-    /// `NODE_NONE` (set by `ensureBootstrap`, restored by `cancel`'s
-    /// unlink path). A regression that left them at Solidity's default 0
-    /// would create a forward self-loop (bootstrap.next = idx 0 = itself);
-    /// surfaces here without needing a backward-walk-from-bootstrap test.
+    /// the bootstrap node: head and tail both collapse to the bootstrap,
+    /// and bootstrap's `prev`/`next` are `NODE_NONE`.
     function testCancelOnlyNodeLeavesEmptyList() external {
         uint256 id = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         corporateActionHarness.cancel(id);
@@ -685,37 +632,20 @@ contract StoxCorporateActionsFacetTest is Test {
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(block.timestamp), "");
     }
 
-    /// In a single `schedule` call, `ensureBootstrap` runs BEFORE the
-    /// user node is pushed. Symptoms (bootstrap at idx 0, user at idx 1)
-    /// are pinned by other tests, but the property "bootstrap precedes
-    /// user node in array order" is the precondition. This pins it
-    /// directly: post-first-schedule, the bootstrap node sits at a
-    /// strictly lower array index than the returned actionIndex.
-    /// A regression that flipped the order inside `schedule` (push user,
-    /// then ensureBootstrap) would put the user at idx 0 and bootstrap
-    /// at idx 1 — every downstream cursor assumption would break.
+    /// In a single `schedule` call, `ensureBootstrap` runs before the user
+    /// node is pushed: after the first schedule, the bootstrap node sits
+    /// at a strictly lower array index than the returned actionIndex.
     function testEnsureBootstrapPrecedesUserActionInArrayOrder() external {
         uint256 userIdx = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
 
-        // Walk the head-inclusive list filtered by INIT mask: bootstrap
-        // must be the only match, and its index must be < userIdx.
         uint256 bootstrapIdx = corporateActionHarness.nextOfType(NODE_NONE, ACTION_TYPE_INIT_V1, CompletionFilter.ALL);
         assertLt(bootstrapIdx, userIdx, "bootstrap must precede user action in array order");
     }
 
     /// `bootstrap.effectiveTime < user.effectiveTime` for every user
-    /// action ever scheduled. Bootstrap is created at the first
-    /// schedule call with `effectiveTime == block.timestamp`; `schedule`
-    /// requires `effectiveTime > block.timestamp` for user actions. The
-    /// strict-inequality between the user's `> block.timestamp` and
-    /// bootstrap's `== block.timestamp` is the precondition that makes
-    /// `insertOrdered`'s tail-walk always terminate at bootstrap (the
-    /// tail walks back finding `effectiveTime <= newTime`, which is
-    /// guaranteed at idx 0). If `schedule`'s guard ever weakened to
-    /// `effectiveTime >= block.timestamp`, a user action could share
-    /// bootstrap's effectiveTime and the tail-walk's stable-ordering
-    /// rule (insert AFTER equal-time) still works, but the inequality
-    /// invariant breaks.
+    /// action: bootstrap is created at the first schedule call with
+    /// `effectiveTime == block.timestamp`, and `schedule` requires
+    /// `effectiveTime > block.timestamp` for user actions.
     function testBootstrapEffectiveTimeStrictlyLessThanUserActions() external {
         uint256 first = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(block.timestamp + 1), "");
         uint256 second = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(block.timestamp + 2), "");
@@ -728,9 +658,9 @@ contract StoxCorporateActionsFacetTest is Test {
         assertLt(bootstrap.effectiveTime, secondUser.effectiveTime, "bootstrap < second user action");
     }
 
-    /// Cancel idx 0 (the bootstrap node) reverts with `ActionAlreadyComplete`.
-    /// Bootstrap's `effectiveTime == block.timestamp` at creation, so the
-    /// standard time guard rejects it without a special case.
+    /// Cancel idx 0 (the bootstrap node) reverts with `ActionAlreadyComplete`:
+    /// bootstrap's `effectiveTime == block.timestamp` at creation, so the
+    /// completion guard rejects it.
     function testCancelBootstrapIndexZeroReverts() external {
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         vm.expectRevert(abi.encodeWithSelector(ActionAlreadyComplete.selector, uint256(0)));
@@ -793,11 +723,7 @@ contract StoxCorporateActionsFacetTest is Test {
     }
 
     /// prevOfType from a cancelled node returns NODE_NONE (prev pointer
-    /// was reset). Companion to `testNextOfTypeFromCancelledNode` — pins
-    /// that `cancel` resets both the `next` and `prev` pointers, not just
-    /// one. A cancel that forgot to reset `prev` would silently leak a
-    /// backward-walkable path into the list that users with a stale
-    /// cursor could traverse.
+    /// was reset to NODE_NONE by `cancel`).
     function testPrevOfTypeFromCancelledNode() external {
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         uint256 id2 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
@@ -833,16 +759,8 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(walked, count + 1, "walked count includes the bootstrap node");
     }
 
-    /// Across any sequence of schedule/cancel ops, `head` remains pinned
-    /// at idx 0 (the bootstrap). Bootstrap can't be cancelled (its
-    /// `effectiveTime == block.timestamp` triggers the
-    /// `ActionAlreadyComplete` guard), and user actions all schedule
-    /// strictly into the future — so `insertOrdered`'s tail-walk lands
-    /// every user action AFTER bootstrap, never displacing it. This pin
-    /// catches a regression where the head pointer drifted to a user
-    /// action (e.g., an `insertOrdered` change that mistook an
-    /// equal-time tie for a head insertion) or where bootstrap
-    /// cancellation accidentally became reachable.
+    /// Across any sequence of schedule/cancel ops, `head` stays at idx 0
+    /// (the bootstrap).
     function testFuzzHeadStaysAtBootstrapAcrossScheduleCancelMix(uint8 nodeCountSeed, uint8 cancelMaskSeed) external {
         uint256 n = bound(nodeCountSeed, 1, 10);
 
@@ -872,11 +790,8 @@ contract StoxCorporateActionsFacetTest is Test {
             corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(1001 + i * 100), "");
         }
 
-        // Cancel odd-numbered USER nodes — user actions live at indices
-        // 1..n (idx 0 is bootstrap, which can't be cancelled). Cancelling
-        // every odd ordinal user node = indices 2, 4, 6, ... in 1-based
-        // user-ordering, which translates to indices 2, 4, 6 ... in the
-        // node array under 0-based bootstrap layout.
+        // Cancel every second user node. User actions live at indices
+        // 1..n; idx 0 is the bootstrap.
         for (uint256 i = 2; i <= n; i += 2) {
             corporateActionHarness.cancel(i);
         }
@@ -938,12 +853,9 @@ contract StoxCorporateActionsFacetTest is Test {
         );
     }
 
-    /// Boundary test for the `<=` completion check shared by `nextOfType`
-    /// and `prevOfType`. A node whose `effectiveTime` equals the current
-    /// block timestamp counts as completed from both directions. Flipping
-    /// the comparison to `<` would break both walks — this test (alongside
-    /// the vault-side `testEffectiveTimeBoundaryExactlyAtCompletesSplit`)
-    /// gates the prev-walk direction.
+    /// Boundary for the `<=` completion check shared by `nextOfType` and
+    /// `prevOfType`: a node whose `effectiveTime` equals the current block
+    /// timestamp counts as completed from both directions.
     function testPrevOfTypeEffectiveTimeBoundary() external {
         uint256 a = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         uint256 b = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
@@ -982,9 +894,9 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(corporateActionHarness.countCompleted(), 2, "cancelled node excluded from count");
     }
 
-    /// Cancel at index == nodes.length reverts. After one schedule the
-    /// nodes array has length 3 (sentinel + bootstrap + user node), so
-    /// idx 3 does not exist.
+    /// Cancel beyond the array length reverts. After one schedule the
+    /// nodes array has length 2 (bootstrap + user node), so idx 3 does
+    /// not exist.
     function testCancelAtNodesLengthReverts() external {
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, uint256(3)));
@@ -1068,15 +980,11 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(corporateActionHarness.tail(), c, "tail updated to new node");
     }
 
-    /// Node struct field layout pin: verifies that the first four fixed-size
-    /// fields of CorporateActionNode land at the expected offsets within the
-    /// dynamic array element. A reorder of the node struct would silently
-    /// remap actionType/effectiveTime/prev/next.
-    ///
-    /// Dynamic array elements live at keccak256(arrayBaseSlot) + index * elementSize.
-    /// We derive the element size empirically from node 0 vs node 1 positions
-    /// rather than hardcoding it, so this test survives if Solidity's struct
-    /// packing changes.
+    /// Node struct field layout pin: the first four fixed-size fields of
+    /// CorporateActionNode land at the expected offsets within the dynamic
+    /// array element. Elements live at
+    /// keccak256(arrayBaseSlot) + index * elementSize; the element size is
+    /// derived from the node 0 vs node 1 positions.
     function testNodeStructFieldLayoutPin() external {
         // Schedule two user actions with distinct values. Bootstrap takes
         // idx 0 (actionType = ACTION_TYPE_INIT_V1 = 1<<0 = 1); the user
@@ -1094,11 +1002,9 @@ contract StoxCorporateActionsFacetTest is Test {
         // Dynamic array elements start at keccak256(arrayBaseSlot).
         uint256 elementsStart = uint256(keccak256(abi.encode(arrayBaseSlot)));
 
-        // Derive element size: nodes[0] is the bootstrap (actionType =
-        // `ACTION_TYPE_INIT_V1` = 1), nodes[1] actionType is 7. Scan
-        // forward to find the first slot holding `7`; that's where
-        // nodes[1].actionType lives. The element size IS its offset
-        // (one element between nodes[0] and nodes[1]).
+        // Derive element size: nodes[0] is the bootstrap (actionType 1),
+        // nodes[1] actionType is 7. The first slot holding `7` is
+        // nodes[1].actionType, and its offset is the element size.
         uint256 sevenOffset = 0;
         for (uint256 offset = 1; offset < 40; offset++) {
             if (uint256(vm.load(harnessAddr, bytes32(elementsStart + offset))) == 7) {
@@ -1116,8 +1022,7 @@ contract StoxCorporateActionsFacetTest is Test {
 
         // Offset 1: effectiveTime (uint64, lowest bits)
         uint256 slot1 = uint256(vm.load(harnessAddr, bytes32(userNodeBase + 1)));
-        // Extracting the uint64-packed field from the slot — truncation is
-        // intentional and exactly what we want.
+        // Extracts the uint64 field from the slot.
         // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(uint64(slot1), 1500, "user node effectiveTime at offset 1");
 
@@ -1136,7 +1041,7 @@ contract StoxCorporateActionsFacetTest is Test {
         uint256 id1 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"AA");
         uint256 id2 = harness2.schedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 2000, hex"BB");
 
-        // Each harness has its own list — bootstrap at idx 1 in both.
+        // Each harness has its own list — bootstrap at idx 0 in both.
         assertEq(corporateActionHarness.head(), 0, "harness1 head is bootstrap");
         assertEq(harness2.head(), 0, "harness2 head is bootstrap");
 
@@ -1149,10 +1054,8 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(n2.parameters, hex"BB");
     }
 
-    /// Audit P2-4: `scheduleCorporateAction` emits `CorporateActionScheduled`
-    /// with the right indexed sender, indexed actionIndex, action type, and
-    /// effective time. Asserts the public event API consumed by offchain
-    /// indexers.
+    /// `scheduleCorporateAction` emits `CorporateActionScheduled` with the
+    /// indexed sender, indexed actionIndex, action type, and effective time.
     function testScheduleCorporateActionEmitsEvent() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
         bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
@@ -1168,13 +1071,8 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(actionIndex, 1);
     }
 
-    /// `ensureBootstrap` is silent — it must not emit `CorporateActionScheduled`
-    /// for the bootstrap node, only the user action triggers an emit. A
-    /// regression that taught `ensureBootstrap` to mirror `schedule`'s
-    /// emit would surface to off-chain indexers as a phantom action with
-    /// idx 0 and `actionType = ACTION_TYPE_INIT_V1` they had never asked
-    /// for, breaking any indexer that assumes one event per
-    /// scheduleCorporateAction call.
+    /// `ensureBootstrap` does not emit `CorporateActionScheduled` for the
+    /// bootstrap node; one `scheduleCorporateAction` call emits one event.
     function testEnsureBootstrapDoesNotEmitScheduledEvent() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
         bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
@@ -1194,8 +1092,8 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(count, 1, "exactly one CorporateActionScheduled event per scheduleCorporateAction call");
     }
 
-    /// Audit P2-4: `cancelCorporateAction` emits `CorporateActionCancelled`
-    /// with the right indexed sender and indexed actionIndex.
+    /// `cancelCorporateAction` emits `CorporateActionCancelled` with the
+    /// indexed sender and indexed actionIndex.
     function testCancelCorporateActionEmitsEvent() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
         bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
@@ -1367,25 +1265,15 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(read, params, "getActionParameters must round-trip exactly");
     }
 
-    /// getActionParameters(0) reverts with ActionDoesNotExist.
     /// getActionParameters with the `NODE_NONE` sentinel reverts with
-    /// ActionDoesNotExist. The bounds check `cursor >= s.nodes.length`
-    /// catches it transitively because `NODE_NONE = type(uint256).max`
-    /// is always larger than any realistic `nodes.length`. This pin
-    /// surfaces a regression that ever made `s.nodes.length` reach values
-    /// approaching `type(uint256).max` (impossible in practice but worth
-    /// pinning), or that replaced the bounds check with a different
-    /// validation that doesn't cover the sentinel.
+    /// ActionDoesNotExist via the `cursor >= s.nodes.length` bounds check.
     function testGetActionParametersNodeNoneReverts() external {
         vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, NODE_NONE));
         facetViaHarness.getActionParameters(NODE_NONE);
     }
 
     /// getActionParameters at idx 0 (the bootstrap node) returns the empty
-    /// bytes blob `ensureBootstrap` wrote. Bootstrap is a real walkable
-    /// node under the 0-based scheme — a future "tighten cursor lower
-    /// bound to 1" refactor would silently break receipt-side walks that
-    /// happen to land here.
+    /// bytes blob `ensureBootstrap` wrote.
     function testGetActionParametersBootstrapReturnsEmpty() external {
         // Schedule one user action so `ensureBootstrap` fires and the
         // bootstrap node lands at idx 0.
@@ -1405,11 +1293,9 @@ contract StoxCorporateActionsFacetTest is Test {
         facetViaHarness.getActionParameters(999);
     }
 
-    /// A cancelled action behaves like one that never existed: the
-    /// facet reverts `ActionDoesNotExist` on the same actionId that a
-    /// moment earlier returned the scheduled payload. Pins both the
-    /// storage-side clearing in `cancel()` and the gate on the facet
-    /// getter — a regression in either surface fails this test.
+    /// A cancelled action behaves like one that never existed: the facet
+    /// reverts `ActionDoesNotExist` on the actionId that returned the
+    /// scheduled payload before the cancel.
     function testGetActionParametersRevertsForCancelledAction() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
         bytes memory params = LibStockSplit.encodeParametersV1(twoX);
@@ -1425,10 +1311,7 @@ contract StoxCorporateActionsFacetTest is Test {
     }
 
     /// Boundary pin: `cursor == s.nodes.length` (one past the last valid
-    /// index) reverts with `ActionDoesNotExist`. The bounds check is
-    /// `cursor >= s.nodes.length`; an off-by-one to `>` would silently
-    /// allow reading past the array, which the existing `cursor = 999`
-    /// test wouldn't catch (999 fails the next-bigger guard too).
+    /// index) reverts with `ActionDoesNotExist`.
     function testGetActionParametersExactBoundaryReverts() external {
         Float twoX = LibDecimalFloat.packLossless(2, 0);
         bytes memory params = LibStockSplit.encodeParametersV1(twoX);
@@ -1630,7 +1513,7 @@ contract StoxCorporateActionsFacetTest is Test {
     // pin its identity, position, idempotency, and the immunity of the rest
     // of the system to the user trying to cancel or reschedule it.
 
-    /// On the first schedule call, the bootstrap node lands at index 1 with
+    /// On the first schedule call, the bootstrap node lands at index 0 with
     /// `ACTION_TYPE_INIT_V1`, `effectiveTime = block.timestamp`, and empty
     /// parameters. The user-scheduled action lands at index 1.
     function testBootstrapNodePropertiesAfterFirstSchedule() external {
@@ -1650,31 +1533,8 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(bootstrap.next, userId, "bootstrap.next is the first user action");
     }
 
-    /// `ensureBootstrap` writes `totalSupplyLatestCursor = NODE_NONE` as
-    /// the "no fold has run yet" sentinel. The first `fold()` walks
-    /// head-inclusive against this; `onMint` / `onBurn` use it as a
-    /// guard that they should be no-ops when the array is empty (via
-    /// the separate `nodes.length` check), but should route to
-    /// `unmigrated[NODE_NONE]` on a misuse — pinning the post-bootstrap
-    /// value directly catches a regression that initialised the slot to
-    /// 0 (which would silently mean "fold has landed on bootstrap" and
-    /// route mint/burn into pot 0 from the very first schedule call).
-    /// Pin the post-`ensureBootstrap` storage shape of `bootstrap.prev` /
-    /// `bootstrap.next`. After bootstrap fires, both must be `NODE_NONE` —
-    /// the bootstrap is the only node in the list and has no neighbours.
-    /// The production `schedule` call fires `ensureBootstrap` and then
-    /// immediately splices in the user action, mutating `bootstrap.next`
-    /// away from `NODE_NONE`; without a standalone hook into
-    /// `ensureBootstrap` (now `internal`) this in-between state is
-    /// unreachable.
-    ///
-    /// Failure mode this catches: a regression that left
-    /// `bootstrap.prev`/`next` at Solidity's default 0 would create a
-    /// self-loop (head's `next` points at the head itself = idx 0).
-    /// Forward walks from cursor 0 still terminate via the empty-list
-    /// short-circuit, but backward walks from cursor 0 with `prev = 0`
-    /// loop indefinitely until gas. No existing test exercises a
-    /// fresh-bootstrap-only state directly.
+    /// Directly after `ensureBootstrap`, before any user action is spliced
+    /// in, `bootstrap.prev` and `bootstrap.next` are both `NODE_NONE`.
     function testEnsureBootstrapWritesNodeNoneOnBootstrapPrevAndNext() external {
         corporateActionHarness.ensureBootstrap();
 
@@ -1683,10 +1543,9 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(bootstrap.next, NODE_NONE, "bootstrap.next must be NODE_NONE post-ensureBootstrap");
     }
 
+    /// `ensureBootstrap` writes `totalSupplyLatestCursor = NODE_NONE`, the
+    /// "no fold has run yet" sentinel, distinct from the storage default 0.
     function testEnsureBootstrapInitsTotalSupplyLatestCursorToNodeNone() external {
-        // Pre-schedule: storage default is 0. The post-ensureBootstrap
-        // value must be NODE_NONE, distinct from the default, so the
-        // first `fold` knows it has not run yet.
         assertEq(corporateActionHarness.totalSupplyLatestCursor(), 0, "default storage is 0 pre-schedule");
 
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
@@ -1719,9 +1578,8 @@ contract StoxCorporateActionsFacetTest is Test {
     }
 
     /// Bootstrap's `effectiveTime = block.timestamp` at schedule time means
-    /// it is "already complete" the moment it is created. Any attempt to
-    /// `cancel(bootstrap)` reverts with `ActionAlreadyComplete` via the
-    /// existing completion guard — no special-case in `cancel` needed.
+    /// it is complete the moment it is created, so `cancel(bootstrap)`
+    /// reverts with `ActionAlreadyComplete`.
     function testCancelBootstrapNodeRevertsAlreadyComplete() external {
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
 
@@ -1757,22 +1615,11 @@ contract StoxCorporateActionsFacetTest is Test {
     }
 
     /// `ensureBootstrap` snapshots `OZ.underlyingTotalSupply()` into
-    /// `unmigrated[0]` exactly once, on the first `schedule` call. A second
-    /// schedule (with new mints in between) MUST NOT overwrite the snapshot
-    /// — once the bootstrap has fired, additional supply is tracked via
-    /// `onMint`/`onBurn` against `unmigrated[totalSupplyLatestCursor]`,
-    /// not by re-snapshotting OZ. Re-snapshotting would double-count any
-    /// post-first-schedule mint or burn.
-    ///
-    /// This test pokes OZ's `_totalSupply` directly between the two
-    /// schedule calls to make a snapshot drift unambiguous: if
-    /// `ensureBootstrap` re-fired, `unmigrated[0]` would change to the
-    /// new value; if it correctly bailed out, the original snapshot
-    /// stands.
+    /// `unmigrated[0]` once, on the first `schedule` call; a second
+    /// schedule does not overwrite the snapshot. OZ's `_totalSupply` is
+    /// poked directly between the two schedule calls.
     function testEnsureBootstrapSnapshotsOnlyOnFirstSchedule() external {
-        // Pre-schedule, poke OZ's `_totalSupply` (offset 2 of the OZ ERC20
-        // namespaced struct) to a known value. This avoids needing real
-        // mints to seed the value.
+        // OZ's `_totalSupply` is offset 2 of the OZ ERC20 namespaced struct.
         bytes32 ozBase =
             keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.ERC20")) - 1)) & ~bytes32(uint256(0xff));
         vm.store(address(corporateActionHarness), bytes32(uint256(ozBase) + 2), bytes32(uint256(1000)));
@@ -1781,23 +1628,17 @@ contract StoxCorporateActionsFacetTest is Test {
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
         assertEq(corporateActionHarness.unmigrated(0), 1000, "first schedule snapshots 1000 into pot 0");
 
-        // Bump OZ's `_totalSupply` to 5000 directly (simulating what mint/burn
-        // calls outside the corporate-action path would do).
+        // Bump OZ's `_totalSupply` to 5000 directly.
         vm.store(address(corporateActionHarness), bytes32(uint256(ozBase) + 2), bytes32(uint256(5000)));
 
-        // Second schedule — `ensureBootstrap` must short-circuit on
-        // `s.nodes.length != 0` and NOT re-snapshot. `unmigrated[0]` stays
-        // pinned to the first value.
+        // Second schedule — `ensureBootstrap` short-circuits on
+        // `s.nodes.length != 0`; `unmigrated[0]` keeps the first value.
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
         assertEq(corporateActionHarness.unmigrated(0), 1000, "second schedule must not re-snapshot pot 0");
     }
 
-    /// Pin the exact `ACTION_TYPE_INIT_V1` bit position. The bootstrap
-    /// node carries this bit, every migration walk includes it via
-    /// `BALANCE_MIGRATION_TYPES_MASK`, and external consumers may have
-    /// hardcoded the value `1 << 0 = 1` against their indexer schemas.
-    /// Renumbering would silently break those consumers without
-    /// breaking any test that reads `ACTION_TYPE_INIT_V1` symbolically.
+    /// Pins the numeric value of each action type bit and the
+    /// `BALANCE_MIGRATION_TYPES_MASK` union.
     function testActionTypeInitV1BitPosition() external pure {
         assertEq(ACTION_TYPE_INIT_V1, 1 << 0, "ACTION_TYPE_INIT_V1 must be 1 << 0");
         assertEq(ACTION_TYPE_INIT_V1, 1, "ACTION_TYPE_INIT_V1 numeric value");
@@ -1819,16 +1660,13 @@ contract StoxCorporateActionsFacetTest is Test {
     }
 
     /// `countCompleted` excludes the bootstrap node from its count by
-    /// masking out `ACTION_TYPE_INIT_V1`. Without that exclusion, the
-    /// public `completedActionCount` would always be off-by-one once any
-    /// schedule call had run.
+    /// masking out `ACTION_TYPE_INIT_V1`.
     function testCountCompletedExcludesBootstrap() external {
         // No schedule yet → no bootstrap → count == 0.
         assertEq(corporateActionHarness.countCompleted(), 0);
 
-        // First schedule creates bootstrap (idx 0, complete) AND user action
-        // (idx 1, pending). `countCompleted` must report 0 — the bootstrap
-        // is completed but masked out, the user action is pending.
+        // First schedule creates bootstrap (idx 0, complete) and user action
+        // (idx 1, pending): count is 0.
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
         assertEq(corporateActionHarness.countCompleted(), 0, "bootstrap must not inflate the user-action count");
 
@@ -1838,19 +1676,12 @@ contract StoxCorporateActionsFacetTest is Test {
     }
 
     /// `getActionParameters(0)` returns the bootstrap's empty `parameters`
-    /// blob via the facet's external API. Under the 0-based scheme idx 0
-    /// is a real walkable node, and the facet's bounds check
+    /// blob via the facet's external API: the bounds check
     /// (`actionId >= s.nodes.length`) admits cursor 0 once
-    /// `ensureBootstrap` has fired. Storage-direct reads of
-    /// `bootstrap.parameters.length == 0` already pin the storage shape;
-    /// this pins the public-API contract — a regression that re-introduced
-    /// a `cursor != 0` reject inside `getActionParameters` (matching the
-    /// pre-bootstrap 1-based scheme) would silently break receipt-side
-    /// walks that read parameters at cursor 0 and would not surface in any
-    /// existing test.
+    /// `ensureBootstrap` has fired.
     function testGetActionParametersReturnsEmptyBytesForBootstrap() external {
-        // Schedule a user action via the delegatecall path so bootstrap
-        // exists in the same storage namespace the facet reads from.
+        // Schedule via the delegatecall path so bootstrap exists in the
+        // storage namespace the facet reads from.
         Float twoX = LibDecimalFloat.packLossless(2, 0);
         bytes memory params = LibStockSplit.encodeParametersV1(twoX);
         vm.prank(ALICE);
@@ -1860,20 +1691,12 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(bootstrapParams.length, 0, "bootstrap parameters must be empty bytes via facet API");
     }
 
-    /// Cross-contract pin: `vault.nextOfType(NODE_NONE, INIT, ALL)`
-    /// returns the bootstrap (idx 0) through the facet's external function
-    /// over a delegatecall fallback, not just through the in-process
-    /// `LibCorporateActionNode.nextOfType` library call exercised by
-    /// `testBootstrapIsVisibleViaInitMaskInvisibleViaSplitMask`. The
-    /// receipt contract relies on this exact path:
-    /// `ICorporateActionsV1(address(vault)).nextOfType(...)` reads the
-    /// vault's bootstrap idx during head-inclusive receipt-side walks. A
-    /// regression in the fallback router (e.g., a cursor-rewriting layer
-    /// added between caller and facet) would silently break that walk
-    /// without breaking the library-direct test.
+    /// `nextOfType(NODE_NONE, INIT, ALL)` through the facet's external
+    /// function over delegatecall returns the bootstrap (idx 0), the path
+    /// the receipt contract reads during head-inclusive walks.
     function testFacetNextOfTypeReturnsBootstrapForInitMaskFromNodeNone() external {
-        // Schedule a user action via the delegatecall path so bootstrap
-        // exists in the harness's storage namespace.
+        // Schedule via the delegatecall path so bootstrap exists in the
+        // harness's storage namespace.
         Float twoX = LibDecimalFloat.packLossless(2, 0);
         bytes memory params = LibStockSplit.encodeParametersV1(twoX);
         vm.prank(ALICE);
@@ -1907,10 +1730,8 @@ contract StoxCorporateActionsFacetTest is Test {
         assertTrue(LibDecimalFloat.eq(actual, expected), message);
     }
 
-    /// The identity seed is the canonical `FLOAT_ONE` constant exported by
-    /// rain-math-float, and it is numerically the same value as the
-    /// `packLossless(1, 0)` construction it replaced — locking in that the
-    /// swap changed no behaviour.
+    /// The identity seed `FLOAT_ONE` from rain-math-float is numerically
+    /// equal to `packLossless(1, 0)`.
     function testCumulativeMultiplierIdentityIsFloatOneConstant() external pure {
         assertTrue(
             LibDecimalFloat.eq(LibDecimalFloat.FLOAT_ONE, LibDecimalFloat.packLossless(1, 0)),
@@ -1998,21 +1819,14 @@ contract StoxCorporateActionsFacetTest is Test {
         );
     }
 
-    /// Boundary: a split whose `effectiveTime` equals `block.timestamp`
-    /// exactly is COMPLETED (the walk's `<=` completion check is inclusive)
-    /// and therefore contributes to the cumulative product. Every other
-    /// cumulative test warps strictly PAST the effective time; this pins the
-    /// inclusive boundary at this function's own API surface rather than
-    /// relying on it being covered transitively by the `LibCorporateActionNode`
-    /// COMPLETED-walk tests. A regression flipping that walk's `<=` to `<`
-    /// (so an exactly-due split reads as still pending) drops the split and
-    /// collapses the product back to identity — this test catches it from
-    /// both sides.
+    /// Boundary: a split whose `effectiveTime` equals `block.timestamp` is
+    /// completed (the `<=` completion check is inclusive) and contributes
+    /// to the cumulative product; one second earlier it does not.
     function testCumulativeMultiplierBoundaryAtExactEffectiveTime() external {
         scheduleFloatSplitViaFacet(LibDecimalFloat.packLossless(3, 0), 1500);
 
-        // One second before the effective time: the split is still pending
-        // and excluded — only the bootstrap (identity) is completed.
+        // One second before the effective time: the split is pending and
+        // excluded; only the bootstrap (identity) is completed.
         vm.warp(1499);
         assertFloatEq(
             facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
@@ -2020,8 +1834,7 @@ contract StoxCorporateActionsFacetTest is Test {
             "split one tick before its effective time is pending and excluded"
         );
 
-        // At exactly the effective time: inclusive `<=` completion means the
-        // split counts and the product jumps to exactly 3.
+        // At the effective time the split counts and the product is 3.
         vm.warp(1500);
         assertFloatEq(
             facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),

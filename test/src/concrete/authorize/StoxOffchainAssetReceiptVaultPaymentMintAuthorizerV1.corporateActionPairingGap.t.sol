@@ -16,15 +16,10 @@ import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../../sr
 import {MockERC20} from "../../../concrete/MockERC20.sol";
 
 /// @title PaymentMint authorizer corporate-action pairing gap
-/// @notice Pins the failure mode where pairing a vault with
-/// `StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1` (which does NOT
-/// initialise corporate-action role admin hierarchy) leaves
-/// `SCHEDULE_CORPORATE_ACTION` and `CANCEL_CORPORATE_ACTION` administered
-/// by the unassigned `DEFAULT_ADMIN_ROLE` — permanently ungrantable,
-/// silently disabling corporate actions. The vault then drifts from the
-/// underlying off-chain asset because no party can schedule splits.
-/// Enforcement of correct pairing lives only at the operator's manual
-/// verification step; the contracts themselves don't catch it.
+/// @notice `StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1` does not
+/// initialise the corporate-action role admin hierarchy, so
+/// `SCHEDULE_CORPORATE_ACTION` and `CANCEL_CORPORATE_ACTION` are administered
+/// by the unassigned `DEFAULT_ADMIN_ROLE` and cannot be granted by anyone.
 contract StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1CorporateActionPairingGapTest is Test {
     bytes32 internal constant DEFAULT_ADMIN_ROLE = 0x00;
 
@@ -63,14 +58,13 @@ contract StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1CorporateActionPair
         assertEq(IAccessControl(address(authorizer)).getRoleAdmin(CANCEL_CORPORATE_ACTION), DEFAULT_ADMIN_ROLE);
     }
 
-    /// DEFAULT_ADMIN_ROLE is itself unassigned — the PaymentMint authorizer
-    /// doesn't grant it to anyone during init. Combined with the previous
-    /// two assertions, this means nobody can grant SCHEDULE_CORPORATE_ACTION
-    /// or CANCEL_CORPORATE_ACTION. The roles are permanently ungrantable.
+    /// DEFAULT_ADMIN_ROLE is itself unassigned: the PaymentMint authorizer
+    /// doesn't grant it to anyone during init, so nobody can grant
+    /// SCHEDULE_CORPORATE_ACTION or CANCEL_CORPORATE_ACTION.
     function testDefaultAdminRoleIsUnassigned() external {
         StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1 authorizer = newAuthorizer();
         assertFalse(IAccessControl(address(authorizer)).hasRole(DEFAULT_ADMIN_ROLE, OWNER));
-        // Belt and braces: even the deployer doesn't get it.
+        // The deployer doesn't hold it either.
         assertFalse(IAccessControl(address(authorizer)).hasRole(DEFAULT_ADMIN_ROLE, address(this)));
     }
 

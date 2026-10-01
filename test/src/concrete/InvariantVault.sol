@@ -17,11 +17,9 @@ import {
 import {LibTestCorporateAction} from "../../lib/LibTestCorporateAction.sol";
 
 /// @dev Auth-bypassed vault subclass used by the invariant harness. Mirrors
-/// the production `StoxReceiptVault._update` flow exactly, only skipping the
-/// `OffchainAssetReceiptVault` authorizer/freeze middle layer — the migration
-/// semantics under test live entirely in `StoxReceiptVault` and the libraries
-/// it calls. Also exposes the internal cursor / split state so invariants can
-/// read it.
+/// the `StoxReceiptVault._update` flow, skipping the
+/// `OffchainAssetReceiptVault` authorizer/freeze layer. Also exposes the
+/// internal cursor / split state so invariants can read it.
 contract InvariantVault is StoxReceiptVault {
     function _update(address from, address to, uint256 amount) internal override {
         LibTotalSupply.fold();
@@ -93,13 +91,9 @@ contract InvariantVault is StoxReceiptVault {
     }
 
     // -----------------------------------------------------------------------
-    // ICorporateActionsV1 read surface — forwarded directly to the libraries
-    // so the receipt contract can read stock split multipliers cross-contract
-    // without a facet delegatecall router.
-    //
-    // Only the subset LibReceiptRebase actually consumes is implemented; the
-    // other traversal getters are omitted because the receipt never calls
-    // them. These are view-only; no migration or authorization logic needed.
+    // ICorporateActionsV1 read surface, forwarded to the libraries so the
+    // receipt contract can read stock split multipliers cross-contract.
+    // Only the subset LibReceiptRebase consumes is implemented.
 
     function nextOfType(uint256 cursor, uint256 mask, CompletionFilter filter)
         external
@@ -121,12 +115,9 @@ contract InvariantVault is StoxReceiptVault {
     }
 
     // -----------------------------------------------------------------------
-    // IReceiptManagerV2.authorizeReceiptTransfer3 — no-op override (always
+    // IReceiptManagerV2.authorizeReceiptTransfer3: no-op override (always
     // allows the transfer) so the receipt's base `_update` path can run in
-    // the invariant harness without needing an ethgild authorizer wired in.
-    // The real ethgild vault derives a multi-layered auth decision here;
-    // our invariant test doesn't care about auth correctness, only the
-    // rebase math.
+    // the invariant harness without an authorizer wired in.
 
     function authorizeReceiptTransfer3(address, address, address, uint256[] memory, uint256[] memory)
         public

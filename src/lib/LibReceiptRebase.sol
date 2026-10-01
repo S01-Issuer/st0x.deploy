@@ -19,42 +19,33 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 /// via the shared `LibRebaseMath.applyMultiplier` primitive, and returns
 /// the rasterized receipt balance.
 ///
-/// The key structural difference from `LibRebase` is the data source:
+/// The data source differs from `LibRebase`:
 ///
 /// - `LibRebase` (share side) reads stock split nodes directly from the
 ///   vault's `LibCorporateAction.CorporateActionStorage.nodes` array,
-///   because it runs under the vault's own delegatecall context.
-/// - `LibReceiptRebase` (receipt side) runs on the receipt contract, which
-///   is a **separate** contract at its own address. It reads nodes through
+///   under the vault's own delegatecall context.
+/// - `LibReceiptRebase` (receipt side) runs on the receipt contract, a
+///   separate contract at its own address. It reads nodes through
 ///   cross-contract view calls against `ICorporateActionsV1.nextOfType`
 ///   and `ICorporateActionsV1.getActionParameters` on the vault.
 ///
 /// Walk semantics:
 ///   - Zero-balance accounts still advance the cursor through completed
-///     splits. Required for fresh recipients: without it, a subsequent
-///     write at a stale cursor would cause the next `balanceOf` read to
-///     re-apply every completed multiplier to an already-rasterized
-///     balance, inflating it.
+///     splits, so a later write for a fresh recipient lands at the current
+///     cursor rather than a stale one.
 ///   - Non-zero balances apply each multiplier sequentially via
 ///     `LibRebaseMath.applyMultiplier`, matching the share-side
 ///     rasterization step exactly.
-///   - If the walk visits no further completed splits the function is a
-///     no-op and returns `(storedBalance, cursor)` unchanged.
+///   - If the walk visits no further completed splits the function
+///     returns `(storedBalance, cursor)` unchanged.
 ///
-/// **Cost note.** Each completed split visited costs two cross-contract
-/// view calls (`nextOfType` + `getActionParameters`). Stock splits are
-/// expected to be rare (O(10) over a contract's lifetime) so the
-/// per-receipt-holder migration cost is bounded and acceptable.
+/// Each completed split visited costs two cross-contract view calls
+/// (`nextOfType` + `getActionParameters`).
 ///
-/// **Trust model.** The walk has no defence against a malicious vault
-/// implementation serving inconsistent answers across `nextOfType` /
-/// `getActionParameters` iterations — such an implementation could
-/// inflate, zero, or arbitrarily drift balances on first-touch. The
-/// receipt assumes the beacon owner (`BEACON_INITIAL_OWNER =
-/// rainlang.eth`) only installs audited vault implementations behind
-/// every receipt's manager pointer. Beacon upgrade authority is the
-/// trust root; if that key is compromised, every downstream balance
-/// derived from this walk is compromised.
+/// The walk has no defence against a vault implementation serving
+/// inconsistent answers across `nextOfType` / `getActionParameters`
+/// iterations; the receipt trusts whatever implementation the vault beacon's
+/// owner installs behind its manager pointer.
 library LibReceiptRebase {
     /// @notice Walk the vault's completed stock split list from
     /// `fromActionId` forward, returning the rebased balance and the
@@ -80,22 +71,16 @@ library LibReceiptRebase {
     {
         uint256 toActionId = fromActionId;
 
-        // Discard effectiveTime — only nextActionId and actionType are used
-        // for the walk. The mask covers init and stock-split nodes;
-        // effectiveTime is irrelevant here (the COMPLETED filter already
-        // handled it on the vault side). actionType lets us skip the
-        // float multiplier read for the identity init node.
+        // effectiveTime is discarded: the COMPLETED filter already applied it
+        // on the vault side. actionType skips the float multiplier read for
+        // the identity init node.
         // slither-disable-next-line unused-return
         (uint256 nodeIndex, uint256 actionType,) =
             vault.nextOfType(fromActionId, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
 
         // Fast path: zero balance still advances the cursor through every
-        // completed migration node without any multiplier math. Required for
-        // fresh recipients of transfers: without it, a subsequent write
-        // would land at a stale cursor and the next balanceOf read would
-        // re-apply every completed multiplier to a post-rebase balance,
-        // inflating it. See LibRebase.migratedBalance for the same
-        // mechanism on the share side.
+        // completed migration node without any multiplier math. See
+        // LibRebase.migratedBalance for the share side.
         if (storedBalance == 0) {
             while (nodeIndex != NODE_NONE) {
                 toActionId = nodeIndex;
@@ -110,10 +95,9 @@ library LibReceiptRebase {
 
         while (nodeIndex != NODE_NONE) {
             toActionId = nodeIndex;
-            // Init is identity — no multiplier, no balance change. Skip the
-            // cross-contract `getActionParameters` call entirely; the
-            // bootstrap node has empty parameters that would not decode as
-            // a Float.
+            // Init is identity: no multiplier, no balance change, and no
+            // `getActionParameters` call; the bootstrap node's parameters are
+            // empty and would not decode as a Float.
             if (actionType == ACTION_TYPE_STOCK_SPLIT_V1) {
                 Float multiplier = LibStockSplit.decodeParametersV1(vault.getActionParameters(nodeIndex));
                 balance = LibRebaseMath.applyMultiplier(balance, multiplier);

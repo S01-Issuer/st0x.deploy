@@ -41,10 +41,8 @@ bytes32 constant INIT_V1_TYPE_HASH = keccak256("st0x.corporate-actions.init.1");
 /// @dev External identifier for V1 stock splits.
 bytes32 constant STOCK_SPLIT_V1_TYPE_HASH = keccak256("st0x.corporate-actions.stock-split.1");
 
-/// @dev External identifier for V1 stablecoin dividends. Reserved; not yet
-/// dispatchable by `resolveActionType`. Pinned now so the eventual
-/// implementer (#104) has a fixed external label rather than negotiating
-/// it at implementation time.
+/// @dev External identifier for V1 stablecoin dividends. Reserved; not
+/// dispatchable by `resolveActionType`.
 bytes32 constant STABLES_DIVIDEND_V1_TYPE_HASH = keccak256("st0x.corporate-actions.stables-dividend.1");
 
 /// @title LibCorporateAction
@@ -72,8 +70,8 @@ library LibCorporateAction {
     /// bytecode comparison. New state may only be added at the **end** of
     /// the struct, and the storage-layout pin test in
     /// `test/src/concrete/StoxCorporateActionsFacet.t.sol`
-    /// (`testStorageLayoutPin`) must be updated in the same PR to cover
-    /// the new field's offset.
+    /// (`testStorageLayoutPin`) must be updated to cover the new field's
+    /// offset.
     struct CorporateActionStorage {
         /// @param head Head of the list (earliest effectiveTime). After
         /// `ensureBootstrap` has fired this is always 0 (the bootstrap

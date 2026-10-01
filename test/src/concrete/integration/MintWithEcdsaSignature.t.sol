@@ -83,17 +83,13 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
         bytes32 mintRole = fresh.MINT_ROLE();
         vm.startPrank(OWNER);
         fresh.grantRole(mintRole, MM);
-        // The mint caps fail closed, so this orchestrator — freshly
-        // initialised and never given a limit — would refuse the mint on its
-        // own zero capacity before the vault leg was ever reached, and this
-        // test would go green on the wrong revert. `setUp` grants the shared
-        // orchestrator an unreachable capacity for the same reason; grant it
-        // here too, for MM and for the recipient, so the vault's missing
-        // `DEPOSIT` grant stays the only thing that can fail.
+        // Mint caps fail closed: grant an unreachable capacity for MM and the
+        // recipient so the vault's missing `DEPOSIT` grant is the only thing
+        // that can fail.
         fresh.setMinterGlobalMintLimit(MM, UNBOUNDED_CAPACITY, NO_LEAK);
         fresh.setRecipientMintLimit(eoa, UNBOUNDED_CAPACITY, NO_LEAK);
-        // And a weighting, for the same reason: without one the mint is
-        // refused `MintWeightingUnset` before the vault leg.
+        // And a weighting: without one the mint is refused
+        // `MintWeightingUnset` before the vault leg.
         fresh.setMintWeighting(_identityWeighting());
         vm.stopPrank();
 

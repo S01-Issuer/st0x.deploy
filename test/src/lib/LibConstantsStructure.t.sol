@@ -30,28 +30,17 @@ import {
 } from "src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
 
 /// @title LibConstantsStructureTest
-/// @notice Cross-cutting structural invariants on every named constant in the
-/// stack. The point: adding a new action type, permission, or storage
-/// namespace is a multi-file change that's easy to get subtly wrong (rename
-/// a constant but not its hash preimage, reuse a bitmap bit already taken,
-/// etc). The piecemeal ad-hoc tests catch some of this; this file owns the
-/// whole class invariant per shape, so a mis-shaped addition fails one
-/// canonical test rather than reviewer vigilance.
-///
-/// Registry approach: every class enumerates its constants explicitly in a
-/// hardcoded array. The bookkeeping cost is a feature — adding a new
-/// constant is a deliberate edit to this file with the structural check
-/// running on it.
+/// @notice Structural invariants on every named constant in the stack: action
+/// type bits, type hashes, permission hashes, storage locations, codec
+/// round-trips and sentinels. Each class enumerates its constants in a
+/// hardcoded registry array; a new constant is appended there.
 contract LibConstantsStructureTest is Test {
     // -------------------------------------------------------------------------
     // Single-source registries
     // -------------------------------------------------------------------------
 
-    /// Single source of truth for the action-type bit registry. Adding a
-    /// new `ACTION_TYPE_*_V<N>` to the codebase means appending it here
-    /// once; every action-type structural test reads through this helper
-    /// so the new type is automatically covered by the power-of-two and
-    /// pairwise-disjoint checks.
+    /// The action-type bit registry; every action-type structural test
+    /// reads through it.
     function _actionTypeRegistry() private pure returns (uint256[] memory) {
         uint256[] memory types_ = new uint256[](3);
         types_[0] = ACTION_TYPE_INIT_V1;
@@ -60,9 +49,7 @@ contract LibConstantsStructureTest is Test {
         return types_;
     }
 
-    /// Single source of truth for the type-hash registry. Adding a new
-    /// `*_V<N>_TYPE_HASH` means appending it here once; the
-    /// pairwise-distinctness check picks up the new entry automatically.
+    /// The type-hash registry; the pairwise-distinctness check reads it.
     function _typeHashRegistry() private pure returns (bytes32[] memory) {
         bytes32[] memory hashes_ = new bytes32[](3);
         hashes_[0] = INIT_V1_TYPE_HASH;
@@ -75,9 +62,7 @@ contract LibConstantsStructureTest is Test {
     // 1. Bitmap action types
     // -------------------------------------------------------------------------
 
-    /// Every `ACTION_TYPE_*_V<N>` constant must be a power of two so the
-    /// bitmap encoding stays unambiguous: `actionType & MASK != 0` matches
-    /// when (and only when) the action type is in the mask.
+    /// Every `ACTION_TYPE_*_V<N>` constant is a power of two.
     function testActionTypesArePowerOfTwo() external pure {
         uint256[] memory actionTypes = _actionTypeRegistry();
 
@@ -89,8 +74,6 @@ contract LibConstantsStructureTest is Test {
     }
 
     /// Every pair of `ACTION_TYPE_*_V<N>` constants occupies a distinct bit.
-    /// A collision would make traversal masks ambiguous: a mask intended to
-    /// match one type would match the other.
     function testActionTypesPairwiseDisjoint() external pure {
         uint256[] memory actionTypes = _actionTypeRegistry();
 
@@ -101,20 +84,15 @@ contract LibConstantsStructureTest is Test {
         }
     }
 
-    /// `VALID_ACTION_TYPES_MASK` must be the union of every defined
-    /// `ACTION_TYPE_*_V<N>` constant — adding a new type without updating
-    /// the union would leave the new type unreachable through the
-    /// `mask & VALID_ACTION_TYPES_MASK == 0 → revert` guard in the
-    /// traversal getters.
+    /// `VALID_ACTION_TYPES_MASK` is the union of every defined
+    /// `ACTION_TYPE_*_V<N>` constant.
     function testValidActionTypesMaskMatchesUnion() external pure {
         uint256 expected = ACTION_TYPE_INIT_V1 | ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1;
         assertEq(VALID_ACTION_TYPES_MASK, expected, "VALID_ACTION_TYPES_MASK must be union of all action types");
     }
 
-    /// `BALANCE_MIGRATION_TYPES_MASK` must be a subset of
-    /// `VALID_ACTION_TYPES_MASK`. The migration mask names types that
-    /// participate in lazy balance migration; anything outside the valid
-    /// set isn't a real action type and would trip the InvalidMask guard.
+    /// `BALANCE_MIGRATION_TYPES_MASK` is a subset of
+    /// `VALID_ACTION_TYPES_MASK`.
     function testBalanceMigrationMaskSubsetOfValidMask() external pure {
         assertEq(
             BALANCE_MIGRATION_TYPES_MASK & ~VALID_ACTION_TYPES_MASK,
@@ -132,27 +110,11 @@ contract LibConstantsStructureTest is Test {
     // 2. Type hashes
     // -------------------------------------------------------------------------
 
-    /// `*_V<N>_TYPE_HASH` constants must follow the namespace convention
-    /// `st0x.corporate-actions.<kebab-action-name>.<N>`. Constructing the
-    /// preimage from named components rather than hardcoding the literal
-    /// string is the structural invariant — a bare `keccak256("…literal…")`
-    /// check is just a tautology of the source declaration. With the
-    /// component decomposition, drift in the prefix or the version-suffix
-    /// dot separator trips every type-hash test at once, while the
-    /// bare-string check would only trip on a typo within the hardcoded
-    /// literal.
-    ///
-    /// **One type hash per action type.** Every `ACTION_TYPE_*_V<N>` has a
-    /// matching `*_V<N>_TYPE_HASH` constant. Whether `resolveActionType`
-    /// dispatches the hash is a separate concern from the structural
-    /// invariant — INIT exists as a hash even though it's bootstrap-only
-    /// and can't be scheduled, and STABLES_DIVIDEND exists as a hash even
-    /// though the codec is unimplemented (the hash pins the convention so
-    /// the eventual implementer in #104 has a fixed target). The point of
-    /// this file is to catch convention drift at the namespace level —
-    /// keeping the (action type, type hash, kebab name) registry uniform
-    /// for every action type ensures a future addition can't quietly skip
-    /// the structural check.
+    /// `*_V<N>_TYPE_HASH` constants follow the namespace convention
+    /// `st0x.corporate-actions.<kebab-action-name>.<N>`, with the preimage
+    /// built from named components. Every `ACTION_TYPE_*_V<N>` has a
+    /// matching `*_V<N>_TYPE_HASH` constant, including INIT (bootstrap-only,
+    /// not schedulable) and STABLES_DIVIDEND (codec unimplemented).
     bytes constant TYPE_HASH_NAMESPACE_PREFIX = "st0x.corporate-actions.";
     bytes constant TYPE_HASH_VERSION_SEP = ".";
 
@@ -184,10 +146,7 @@ contract LibConstantsStructureTest is Test {
         );
     }
 
-    /// All type-hash constants must be pairwise distinct — a collision
-    /// would make dispatch ambiguous in `resolveActionType` (today only
-    /// STOCK_SPLIT dispatches, but the invariant must hold for every type
-    /// the dispatch may eventually accept).
+    /// All type-hash constants are pairwise distinct.
     function testTypeHashesPairwiseDistinct() external pure {
         bytes32[] memory hashes = _typeHashRegistry();
 
@@ -202,10 +161,7 @@ contract LibConstantsStructureTest is Test {
     // 3. Permission hashes
     // -------------------------------------------------------------------------
 
-    /// Every permission hash must equal `keccak256(<constant-name-as-string>)`.
-    /// This is the established convention across the authorizer surface;
-    /// it makes the on-chain identity of a permission unambiguous from its
-    /// source-level name.
+    /// Every permission hash equals `keccak256(<constant-name-as-string>)`.
     function testPermissionHashesMatchConstantNames() external pure {
         assertEq(
             SCHEDULE_CORPORATE_ACTION,
@@ -233,11 +189,9 @@ contract LibConstantsStructureTest is Test {
     // 4. ERC-7201 storage locations
     // -------------------------------------------------------------------------
 
-    /// Every `*_STORAGE_LOCATION` constant must equal the ERC-7201
-    /// derivation `keccak256(abi.encode(uint256(keccak256(<namespace>)) - 1)) & ~bytes32(uint256(0xff))`
-    /// for its documented namespace. Drift between constant and namespace
-    /// silently remaps live storage on upgrade — catastrophic and invisible
-    /// to bytecode comparison.
+    /// Every `*_STORAGE_LOCATION` constant equals the ERC-7201 derivation
+    /// `keccak256(abi.encode(uint256(keccak256(<namespace>)) - 1)) & ~bytes32(uint256(0xff))`
+    /// for its namespace.
     function testCorporateActionStorageLocationMatchesNamespace() external pure {
         bytes32 expected =
             keccak256(abi.encode(uint256(keccak256("rain.storage.corporate-action.1")) - 1)) & ~bytes32(uint256(0xff));
@@ -262,9 +216,7 @@ contract LibConstantsStructureTest is Test {
         assertEq(ERC1155_STORAGE_LOCATION, expected);
     }
 
-    /// Every storage-location constant must occupy a distinct slot. A
-    /// collision would have two libraries sharing storage at the same
-    /// ERC-7201 slot, breaking diamond-storage isolation.
+    /// Every storage-location constant occupies a distinct slot.
     function testStorageLocationsPairwiseDistinct() external pure {
         bytes32[4] memory slots = [
             CORPORATE_ACTION_STORAGE_LOCATION,
@@ -284,14 +236,9 @@ contract LibConstantsStructureTest is Test {
     // 5. Versioned function trios — round-trip pin
     // -------------------------------------------------------------------------
 
-    /// Stock-split V1 codec round-trip: `decode(encode(x)) == x`.
-    /// Adding a `_V2` validator without the matching encoder/decoder is
-    /// caught at compile time (any reference to `encodeParametersV2` /
-    /// `decodeParametersV2` fails to resolve until all three exist
-    /// together). The validator's behavioural-invariant counterpart
-    /// (validate accepts every round-trippable in-range value) lives in
-    /// `LibStockSplit.t.sol::testFuzzValidMultiplier`, which has the
-    /// per-token-decimals harness this test would otherwise need.
+    /// Stock-split V1 codec round-trip: `decode(encode(x)) == x`. The
+    /// validator's counterpart lives in
+    /// `LibStockSplit.t.sol::testFuzzValidMultiplier`.
     function testStockSplitV1CodecRoundTrip() external pure {
         Float input = LibDecimalFloat.packLossless(2, 0);
 
@@ -305,12 +252,8 @@ contract LibConstantsStructureTest is Test {
     // 6. Misc sentinel constants
     // -------------------------------------------------------------------------
 
-    /// `NODE_NONE` is `type(uint256).max` — the value-level null sentinel
-    /// that distinguishes "no node" from "the bootstrap node at index 0".
-    /// Any change here cascades through every `prev`/`next` comparison in
-    /// the linked-list traversal. Pinning the literal value prevents an
-    /// accidental redefinition (e.g. to 0) from silently re-introducing
-    /// the positional disambiguation that issue #79 fixed.
+    /// `NODE_NONE` is `type(uint256).max`, the null sentinel that
+    /// distinguishes "no node" from "the bootstrap node at index 0".
     function testNodeNoneSentinelValue() external pure {
         assertEq(NODE_NONE, type(uint256).max, "NODE_NONE must be type(uint256).max");
     }

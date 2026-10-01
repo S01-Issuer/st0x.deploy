@@ -9,7 +9,8 @@ import {MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV1.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 
 /// @title MintChargedByWeightingTest
-/// @notice Workflow: SPEC.md item 26 against the real vault. The mint admin
+/// @notice Workflow: the weighting's value charges the buckets, against the
+/// real vault. The mint admin
 /// sets a weighting that prices each mint at the lead's attested price, MM
 /// mints two whole tokens of the real `tTEST` vault (18 decimals, read from
 /// the vault itself) with an attestation at 150, and the recipient's bucket

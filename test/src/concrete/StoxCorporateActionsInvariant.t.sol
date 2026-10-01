@@ -28,13 +28,9 @@ contract StoxCorporateActionsInvariantTest is Test {
         targetContract(address(handler));
     }
 
-    /// `InvariantVault.nextOfType` must guard the post-walk metadata read on
-    /// `nextCursor != NODE_NONE`, not on `!= 0`. The earlier shape (`!= 0`)
-    /// caused a silent OOB read on `s.nodes[NODE_NONE]` whenever the walk
-    /// returned no match. Pre-bootstrap the array is empty, so a query on
-    /// any mask must return `(NODE_NONE, 0, 0)` cleanly. A regression that
-    /// reverted the guard to `!= 0` would OOB on the read and surface as
-    /// the invariant suite setup panic we hit during the merge.
+    /// `InvariantVault.nextOfType` on an empty (pre-bootstrap) list returns
+    /// `(NODE_NONE, 0, 0)`: the metadata read is skipped when the walk
+    /// returns `NODE_NONE`.
     function testInvariantVaultNextOfTypeGuardsOnNodeNone() external view {
         (uint256 cursor, uint256 actionType, uint64 effectiveTime) =
             vault.nextOfType(NODE_NONE, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
@@ -58,11 +54,7 @@ contract StoxCorporateActionsInvariantTest is Test {
         uint256 tail = vault.listTail();
 
         // Once `nodes.length > 0`, bootstrap guarantees at least one
-        // reachable node — head and tail must be real indices, not the
-        // NODE_NONE sentinel. A regression that detached the roots
-        // (e.g., set head/tail to NODE_NONE on cancel of the only user
-        // node instead of falling back to bootstrap) would skip both
-        // walks below and silently pass invariant 1 on a corrupted list.
+        // reachable node, so head and tail are real indices.
         assertTrue(head != NODE_NONE, "invariant 1: head must be a real index when nodes.length > 0");
         assertTrue(tail != NODE_NONE, "invariant 1: tail must be a real index when nodes.length > 0");
 
@@ -122,12 +114,10 @@ contract StoxCorporateActionsInvariantTest is Test {
         }
     }
 
-    /// Invariant 3: per-actor cursor monotonicity is enforced inline in the
-    /// handler via `_recordCursor`. This function exists so the invariant
-    /// suite has an assertion at the framework level too. Cursor IDs are
-    /// allocation indices so numeric comparison is wrong — assert that the
-    /// current cursor is either the same as the last observed one or
-    /// reachable forward from it along `next` pointers.
+    /// Invariant 3: per-actor cursor monotonicity in list order. Each
+    /// actor's current cursor is the last observed one or reachable forward
+    /// from it along `next` pointers. Also enforced inline in the handler
+    /// via `_recordCursor`.
     function invariantCursorMonotonicity() external view {
         uint256 actorCount = handler.actorCount();
         for (uint256 i = 0; i < actorCount; i++) {
@@ -141,27 +131,16 @@ contract StoxCorporateActionsInvariantTest is Test {
         }
     }
 
-    /// Invariant 4 is a POST-CALL property, not a resting invariant:
-    /// after `migrateAccount(account)` returns inside `_update`, that
-    /// specific account's cursor equals `totalSupplyLatestCursor`. It does
-    /// NOT hold for every actor at every moment — an actor touched before
-    /// a later split completes legitimately sits at the older cursor until
-    /// they next transact, and that's the whole point of lazy migration.
-    ///
-    /// The invariant is therefore enforced inline at the handler level: after
-    /// every mint / burn / transfer / touch the handler calls
-    /// `_assertCursorInvariant` on the specific actor(s) that were just
-    /// migrated. A violation there fails the invariant suite immediately at
-    /// the offending handler call. There is no framework-level re-check
-    /// here because the "at rest" version of the property is simply false.
+    /// Invariant 4 is a post-call property: after `migrateAccount(account)`
+    /// returns inside `_update`, that account's cursor equals
+    /// `totalSupplyLatestCursor`. An actor not touched since a later split
+    /// completed sits at an older cursor, so it is enforced inline in the
+    /// handler (`_assertCursorInvariant`) rather than at rest here.
 
-    /// Invariant 5: the sum of per-actor effective balances must not exceed
+    /// Invariant 5: the sum of per-actor effective balances does not exceed
     /// `totalSupply()`. Equality holds once every actor has migrated through
-    /// every completed split; before that, `totalSupply` may be a slight
-    /// overestimate bounded by (#migrated-actors × #completed-splits) wei of
-    /// truncation drift. The harness's bounded actor set and bounded
-    /// multipliers keep the gap small; this assertion pins the one-sided
-    /// bound regardless.
+    /// every completed split; before that, `totalSupply` may overestimate by
+    /// at most (#migrated-actors × #completed-splits) wei of truncation.
     function invariantSumBalancesLeqTotalSupply() external view {
         uint256 sum = 0;
         uint256 actorCount = handler.actorCount();
@@ -173,15 +152,10 @@ contract StoxCorporateActionsInvariantTest is Test {
     }
 
     /// Invariant 7: with no stock split past its effective time,
-    /// `totalSupply()` is exactly `Σmints − Σburns`. This is the default
-    /// state of every token until the first stock split reaches its
-    /// effective time — the corporate-actions override must be a
-    /// straight passthrough of OZ's `_totalSupply` in this regime and
-    /// add no drift. Gates on `hasCompletedSplit()` rather than
-    /// `totalSupplyLatestCursor == 0`: `effectiveTotalSupply` applies
-    /// multipliers as soon as a split's effective time has passed, even
-    /// if no subsequent `_update` has triggered `fold()` to advance the
-    /// latest-split tracker.
+    /// `totalSupply()` is `Σmints − Σburns`. Gated on `hasCompletedSplit()`
+    /// because `effectiveTotalSupply` applies multipliers as soon as a
+    /// split's effective time has passed, before any `fold()` advances
+    /// `totalSupplyLatestCursor`.
     function invariantNoSplitSupplyEqualsNetMinted() external view {
         if (vault.hasCompletedSplit()) return;
 
@@ -216,10 +190,9 @@ contract StoxCorporateActionsInvariantTest is Test {
     }
 
     /// Share-receipt proportionality. The handler exposes deposit,
-    /// withdraw, and touch operations — never share-only transfers — so
+    /// withdraw, and touch operations and no share-only transfers, so
     /// every actor's share balance equals their receipt balance at the
-    /// actor's assigned id. Drift here means the two sides aren't applying
-    /// multipliers in lockstep and the underlying could be double-counted.
+    /// actor's assigned id.
     function invariantShareReceiptProportionality() external view {
         for (uint256 i = 0; i < 5; i++) {
             address a = handler.actor(i);

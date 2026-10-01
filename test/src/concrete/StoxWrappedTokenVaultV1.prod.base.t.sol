@@ -10,8 +10,7 @@ import {BeaconProxy} from "@openzeppelin-contracts-5.6.1/proxy/beacon/BeaconProx
 import {ICLONEABLE_V2_SUCCESS} from "rain-factory-0.1.5/src/interface/ICloneableV2.sol";
 
 /// @title StoxWrappedTokenVaultV1ProdBaseTest
-/// @notice Fork tests demonstrating V1 on-chain behaviour that differs from
-/// V2. Each test documents a specific behavioural change.
+/// @notice Fork tests pinning V1 on-chain behaviour that differs from V2.
 contract StoxWrappedTokenVaultV1ProdBaseTest is Test {
     function resolveV1Beacon() internal returns (address) {
         LibTestProd.createSelectForkBase(vm);
@@ -33,8 +32,8 @@ contract StoxWrappedTokenVaultV1ProdBaseTest is Test {
         assertEq(abi.decode(initData, (bytes32)), ICLONEABLE_V2_SUCCESS);
     }
 
-    /// V1 BeaconSetDeployer exposes the beacon via the old
-    /// I_STOX_WRAPPED_TOKEN_VAULT_BEACON() selector. V2 renames to
+    /// V1 BeaconSetDeployer exposes the beacon via the
+    /// I_STOX_WRAPPED_TOKEN_VAULT_BEACON() selector; V2 via
     /// iStoxWrappedTokenVaultBeacon().
     function testProdV1OldBeaconSelectorWorks() external {
         LibTestProd.createSelectForkBase(vm);

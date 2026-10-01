@@ -19,8 +19,8 @@ import {LibSt0xAttestContext} from "src/lib/LibSt0xAttestContext.sol";
 import {ST0xOrchestratorMintWeightingFixture} from "test/src/concrete/ST0xOrchestratorMintWeightingFixture.sol";
 
 /// @title ST0xOrchestratorMintWeightingTest
-/// @notice SPEC.md item 26: the value the Rainlang weighting produces is what
-/// fills the mint-cap buckets, in place of the raw token amount. Every mint
+/// @notice The value the Rainlang weighting produces is what fills the
+/// mint-cap buckets, in place of the raw token amount. Every mint
 /// here goes through the test Rainlang `St0xAttestSubParserTest` binds, with
 /// the attest subparser beside it, over the token
 /// `ST0xOrchestratorMintWeightingFixture` mocks as `tAAPL`.
@@ -98,7 +98,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
         );
     }
 
-    /// An unset limit is refused BEFORE the weighting is consulted: with no
+    /// An unset limit is refused before the weighting is consulted: with no
     /// weighting either, the error still names the limit.
     function testUnsetLimitIsRefusedBeforeTheWeighting() external {
         SignedContextV1[] memory attestations = _lead(TOKEN_SYMBOL, PRICE);
@@ -224,11 +224,11 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
     //                  The value is the charge, not the amount           //
     // ------------------------------------------------------------------ //
 
-    /// SPEC.md item 26. Two whole tokens at a lead price of 150 fill the
-    /// buckets by 300. The raw amount, `2e18`, would not have fit the
-    /// capacity of 1000 at all — the mint going through is itself the proof
-    /// that the amount never reached the buckets — and a second mint at a
-    /// different price is charged a different value for the same amount.
+    /// Two whole tokens at a lead price of 150 fill the buckets by 300. The
+    /// raw amount, `2e18`, does not fit the capacity of 1000, so the mint
+    /// going through shows the amount never reached the buckets; a second
+    /// mint at a different price is charged a different value for the same
+    /// amount.
     function testMintIsChargedTheWeightingValueNotTheAmount() external {
         _setLimits(CAPACITY, CAPACITY);
         _setWeighting(PRICED);
@@ -286,7 +286,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
         _assertFloatEq(_headroom(), _f(9975, -1), "charged 2.5");
     }
 
-    /// The LAST output is the charge, whatever else the expression leaves.
+    /// The last output is the charge, whatever else the expression leaves.
     function testMintWeightingLastOutputIsTheCharge() external {
         _setLimits(CAPACITY, CAPACITY);
         _setWeighting("_ _: mint-amount() 7;");
@@ -294,9 +294,9 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
         _assertFloatEq(_headroom(), _f(1000 - 7, 0), "charged the last output");
     }
 
-    /// The expression sees exactly the grid `LibSt0xAttestContext` builds
-    /// for this mint — the token's symbol, the amount in whole tokens, then
-    /// the attestations — and the orchestrator emits it as `ContextV2`.
+    /// The expression sees the grid `LibSt0xAttestContext` builds for this
+    /// mint — the token's symbol, the amount in whole tokens, then the
+    /// attestations — and the orchestrator emits it as `ContextV2`.
     function testMintEmitsTheContextTheWeightingSees() external {
         _setLimits(CAPACITY, CAPACITY);
         _setWeighting(PRICED);

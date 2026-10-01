@@ -3,23 +3,19 @@
 pragma solidity ^0.8.25;
 
 /// @dev The ERC-7201 namespaced storage root for OpenZeppelin's
-/// `ERC20Upgradeable`, computed in-source from the spec formula rather than
-/// hardcoded as a hex literal. The compiler evaluates this at deploy time,
-/// so there is no runtime cost versus a hardcoded hex.
+/// `ERC20Upgradeable`, computed from the ERC-7201 formula.
 bytes32 constant ERC20_STORAGE_LOCATION =
     keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.ERC20")) - 1)) & ~bytes32(uint256(0xff));
 
 /// @dev The slot holding OZ's raw `_totalSupply`: offset 2 from the ERC-7201
 /// root, per the `ERC20Upgradeable` struct layout documented on
-/// `LibERC20Storage`. Every read and write of the accumulator goes through
-/// this constant.
+/// `LibERC20Storage`.
 bytes32 constant ERC20_TOTAL_SUPPLY_SLOT = bytes32(uint256(ERC20_STORAGE_LOCATION) + 2);
 
 /// @title LibERC20Storage
 /// @notice Direct storage access to OpenZeppelin ERC20Upgradeable internals.
-/// Used by the rebase migration system to write balances and totalSupply
-/// without going through `_update`, which would emit spurious Transfer events
-/// and create reentrancy concerns.
+/// Used by the rebase migration to write balances and totalSupply without
+/// going through `_update`.
 ///
 /// SAFETY: This is tightly coupled to OZ v5's ERC20Upgradeable ERC-7201
 /// storage layout. The struct layout at the namespaced slot is:
@@ -104,22 +100,16 @@ library LibERC20Storage {
     /// one account's balance, preserving OZ's own `_totalSupply == Σ _balances`
     /// invariant.
     ///
-    /// @dev The lazy rebase migration rewrites `_balances` behind OZ's back.
-    /// OZ's `_update` still subtracts from the raw slot **unchecked** on burn
-    /// and adds to it **checked** on mint, so a slot left stale by a rebase
-    /// drifts below the true balance sum, wraps to ~`2**256` on the first burn
-    /// that exceeds it, and from then on reverts every mint with `Panic(0x11)`
-    /// — silently, because `totalSupply()`, `balanceOf()` and all events keep
-    /// agreeing with each other. The slot has no write path other than
-    /// mint/burn, so recovery would need a beacon implementation upgrade.
-    /// See `StoxReceiptVaultRawTotalSupplyTest` (Protofire H01).
+    /// @dev The rebase migration rewrites `_balances` directly. OZ's `_update`
+    /// subtracts from the raw slot unchecked on burn and adds to it checked on
+    /// mint, so a slot left below the true balance sum wraps on the first burn
+    /// that exceeds it and reverts every mint after that with `Panic(0x11)`.
+    /// The slot has no write path other than mint/burn.
     ///
     /// Arithmetic is checked. `supply >= oldBalance` always holds (the account's
     /// balance is one of the summands of the supply), so the only reachable
-    /// revert is an overflow on `supply + newBalance`, which means the split
-    /// multiplier has pushed supply past `uint256` — `LibRebaseMath` would
-    /// already have hit that on the individual balance, and failing closed is
-    /// the correct outcome.
+    /// revert is an overflow on `supply + newBalance`, which `LibRebaseMath`
+    /// would already have hit on the individual balance.
     ///
     /// @param oldBalance The account's stored balance before rasterization.
     /// @param newBalance The account's stored balance after rasterization.
