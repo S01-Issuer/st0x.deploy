@@ -65,7 +65,7 @@ import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
 /// namespaced by recipient: `(to, nonce)` is single-use, regardless of token
 /// or amount. The minter's `receiptInformation` payload is a separate
 /// parameter and never part of the recipient's authorisation. `to ==
-/// msg.sender` reverts `SenderIsRecipient`.
+/// msg.sender` reverts `SenderIsRecipient`, with no override.
 ///
 /// **Vault-logic version lock.** `initialize`, `mint` and `burn` revert
 /// unless the production vault + receipt beacons point at the implementations

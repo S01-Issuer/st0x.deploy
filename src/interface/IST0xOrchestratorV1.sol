@@ -123,7 +123,8 @@ interface IST0xOrchestratorV1 {
     error ReceiptLogicMismatch(address expected, address actual);
     /// @notice The burn walk exhausted the orchestrator's held receipts for
     /// `token` with `shortfall` still unburned. The orchestrator never mints
-    /// to cover a shortfall.
+    /// to cover a shortfall. Recovery is transferring receipts in or
+    /// `setBurnIndex`, then retrying.
     error InsufficientReceipts(address token, uint256 shortfall);
     /// @notice The vault reported an assets amount different from the shares
     /// requested. The share ratio is 1:1.
