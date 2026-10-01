@@ -104,8 +104,9 @@ attestations (`SPEC.md` of `st0x.attest`, sections 2 and 4). The production
 weighting is `src/rain/mint-weighting.rain`, a dotrain source whose elided
 bindings are the per-deployment configuration: the `St0xAttestSubParser`
 address, the lead signer, the operator allowlist, the tolerances and the price
-bounds. The vault-symbol-to-ticker mapping (`tMSTR` to `MSTR`) is written into
-the expression as defaults.
+bounds. Nothing is per token: one composition serves every vault, as the
+expression derives the ticker to check attestations against by dropping the `t`
+from the symbol of the vault being minted (`tMSTR` to `MSTR`).
 
 Compose it with every binding given, parse the output with the chain's Rainlang
 deployer and install the result with `setMintWeighting`:

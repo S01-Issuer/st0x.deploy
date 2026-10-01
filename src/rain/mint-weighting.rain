@@ -7,9 +7,9 @@
  * with a mint and prices the mint, or reverts. Every attestation word is from
  * the `St0xAttestSubParser`; everything else is standard Rainlang. The elided
  * bindings below are per-deployment configuration, bound at compose time with
- * `rain dotrain compose -e weighting -b <name>=<value>`. The two symbol
- * bindings are the mapping between the vault and the price feed, and default
- * to the token this weighting is written for.
+ * `rain dotrain compose -e weighting -b <name>=<value>`. Nothing is per token:
+ * one composed expression serves every vault, deriving the ticker its feed
+ * carries from the symbol of the vault being minted.
  *
  * Only the entrypoint `weighting` is composed. The mint amount is in whole
  * tokens and the output is `mint-amount * lead-price`, the value the mint-cap
@@ -17,9 +17,6 @@
  */
 
 #st0x-attest-subparser !The St0xAttestSubParser on this chain, the source of the attestation words.
-
-#vault-symbol "tMSTR"
-#ticker "MSTR"
 
 #lead-signer !The mandatory lead signer, S01 as issuer.
 #operator-1 !An allowlisted pool operator.
@@ -59,13 +56,35 @@ using-words-from st0x-attest-subparser
   "Same operator twice"
 ),
 
-/* This weighting is for one vault, and every attestation is for the ticker
- * that vault wraps. The vault's symbol and the feed's ticker differ, so the
- * mapping between them lives here, in the two symbol bindings. */
+/* Every attestation is for the ticker the vault being minted wraps. A vault's
+ * symbol is its ticker behind a fixed `t`, `tMSTR` for `MSTR`, so the ticker
+ * is the vault's symbol with its first character dropped, and no table of
+ * vaults is needed here.
+ *
+ * Symbols are IntOrAString V3 words: the string's bytes sit just above the
+ * low byte, which is `0xe0 | length`, and the first character is the highest
+ * of them. With `n = length`, `scale = 256^n`, and `low = 0xe0 | n`:
+ *
+ *   symbol  = first * scale + rest * 256 + low   where rest < 256^(n-1)
+ *   first   = symbol / scale                     (rest * 256 + low < scale)
+ *   ticker  = symbol - first * scale - 1         = rest * 256 + (0xe0 | n-1)
+ *
+ * which is the IntOrAString of the string less its first character: the
+ * same bytes, one byte shorter, the length byte one less. The arithmetic is
+ * integer, since the words are bytes, not numbers. */
+vault-symbol: mint-symbol(),
+symbol-scale: uint256-power(0x0100 bitwise-and(vault-symbol 0x1f)),
+symbol-first: uint256-div(vault-symbol symbol-scale),
+
+/* The prefix is `t`, 0x74 in ASCII. A vault whose symbol does not carry it is
+ * not a vault this weighting prices. This runs before the ticker is taken,
+ * so an empty symbol, with nothing to drop, is refused here: its `first` is
+ * the length byte 0xe0 itself, and the subtraction below would underflow. */
 :ensure(
-  binary-equal-to(mint-symbol() vault-symbol)
-  "Weighting is for another vault"
+  binary-equal-to(symbol-first 0x74)
+  "Vault symbol has no t prefix"
 ),
+ticker: uint256-sub(vault-symbol uint256-mul(symbol-first symbol-scale) 0x01),
 :ensure(
   binary-equal-to(
     lead-symbol() attested-symbol<0>() attested-symbol<1>()

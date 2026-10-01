@@ -18,10 +18,12 @@ import {ST0xOrchestratorMintWeightingFixture} from "test/src/concrete/ST0xOrches
 /// `mint-amount * lead-price`.
 ///
 /// The token is `tMSTR` and the attestations carry `MSTR`: the vault's symbol
-/// and the feed's ticker differ, and the expression holds the mapping. The
-/// pool is six operators and the mint collects two, as the expression is
-/// written; the lead is `LEAD_KEY` and operator `i` of the pool is
-/// `OPERATOR_KEY_0 + i`.
+/// is the feed's ticker behind a `t`, and the expression drops the `t`. One
+/// composition is installed in `setUp` and every vault here mints through it,
+/// `tAAPL` with `AAPL` attestations alongside `tMSTR` with `MSTR`. The pool
+/// is six operators and the mint collects two, as the expression is written;
+/// the lead is `LEAD_KEY` and operator `i` of the pool is `OPERATOR_KEY_0 +
+/// i`.
 contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     using Strings for address;
     using LibDecimalFloat for Float;
@@ -37,14 +39,20 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     string internal constant SOURCE = "src/rain/mint-weighting.rain";
     string internal constant ENTRYPOINT = "weighting";
 
-    /// The vault this weighting is written for, and the ticker its feed
-    /// carries. Both are defaults in the file, not bindings.
+    /// The vault most tests mint, and the ticker its feed carries. Neither
+    /// is in the file: the expression derives the second from the first.
     string internal constant VAULT_SYMBOL = "tMSTR";
     string internal constant TICKER = "MSTR";
 
-    /// Another vault, for the check that this weighting refuses it.
+    /// Another vault, minted through the same composition with its own
+    /// ticker's attestations.
     address internal constant OTHER_TOKEN = address(0xA22E);
     string internal constant OTHER_VAULT_SYMBOL = "tAAPL";
+    string internal constant OTHER_TICKER = "AAPL";
+
+    /// A vault mocked by the test that needs it, with whatever symbol that
+    /// test is about.
+    address internal constant ANY_TOKEN = address(0xA33E);
 
     /// The values bound to the file's elided bindings.
     uint256 internal constant POOL_SIZE = 6;
@@ -61,6 +69,10 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
 
     /// The composed Rainlang, for the tests to read.
     string internal rainlang;
+
+    /// Mints so far, so a test minting the same thing twice has a fresh
+    /// nonce each time.
+    uint256 internal mints;
 
     /// @inheritdoc ST0xOrchestratorMintWeightingFixture
     function tokenSymbol() internal pure override returns (string memory) {
@@ -111,12 +123,20 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     }
 
     /// The lead and pool operators 0 and 1, all attesting `[TICKER, PRICE,
-    /// now]`: the attestations the expression accepts.
-    function _quorum() internal view returns (Attestation[] memory attestations) {
+    /// now]`: the attestations the expression accepts for `TOKEN`.
+    function _quorum() internal view returns (Attestation[] memory) {
+        return _quorumFor(TICKER);
+    }
+
+    /// `_quorum` attesting `ticker` instead.
+    function _quorumFor(string memory ticker) internal view returns (Attestation[] memory attestations) {
         attestations = new Attestation[](3);
         attestations[0] = _attestation(LEAD_KEY, _f(PRICE, 0));
         attestations[1] = _attestation(OPERATOR_KEY_0, _f(PRICE, 0));
         attestations[2] = _attestation(OPERATOR_KEY_0 + 1, _f(PRICE, 0));
+        for (uint256 i = 0; i < attestations.length; i++) {
+            attestations[i].ticker = ticker;
+        }
     }
 
     /// `_quorum` at one price for all three.
@@ -165,8 +185,12 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     /// A mint of `AMOUNT` with `attestations` goes through and is charged
     /// `charge`.
     function _accepted(Attestation[] memory attestations, Float charge) internal {
+        _accepted(TOKEN, attestations, charge);
+    }
+
+    function _accepted(address token, Attestation[] memory attestations, Float charge) internal {
         Float before = _headroom();
-        _mint(AMOUNT, keccak256(abi.encode("accepted", attestations)), _sign(attestations));
+        _mint(token, AMOUNT, keccak256(abi.encode("accepted", mints++)), _sign(attestations));
         _assertFloatEq(_headroom(), before.sub(charge), "charged");
     }
 
@@ -304,14 +328,49 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     //                      SPEC.md item 15: the symbol                   //
     // ------------------------------------------------------------------ //
 
-    /// This weighting is for `tMSTR`. A mint of another vault, with a full
-    /// quorum for the ticker, is refused before the attestations are priced.
-    function testAnotherVaultIsRefused() external {
-        _refused(OTHER_TOKEN, _quorum(), _ensure("Weighting is for another vault"));
+    /// The one composition installed in `setUp` serves every vault: `tAAPL`
+    /// mints with `AAPL` attestations, and `tMSTR` with `MSTR`, each charged
+    /// `amount * price`, with nothing recomposed or reinstalled between them.
+    function testEveryVaultMintsThroughTheSameExpression() external {
+        _accepted(OTHER_TOKEN, _quorumFor(OTHER_TICKER), _f(VALUE, 0));
+        _accepted(TOKEN, _quorum(), _f(VALUE, 0));
+        _accepted(OTHER_TOKEN, _quorumFor(OTHER_TICKER), _f(VALUE, 0));
+    }
+
+    /// The ticker is derived by arithmetic on the symbol's length, so a
+    /// ticker of every length in production is minted: two, three and five
+    /// characters, around the four of `MSTR` and `AAPL`.
+    function testATickerOfAnyLengthMints() external {
+        _setLimits(UNBOUNDED_CAPACITY, UNBOUNDED_CAPACITY);
+        string[3] memory tickers = ["MU", "TSM", "GOOGL"];
+        for (uint256 i = 0; i < tickers.length; i++) {
+            _mockToken(ANY_TOKEN, string.concat("t", tickers[i]));
+            _accepted(ANY_TOKEN, _quorumFor(tickers[i]), _f(VALUE, 0));
+        }
+    }
+
+    /// A full quorum for one vault's ticker does not mint another vault:
+    /// `AAPL` attestations are refused for `tMSTR`, and `MSTR` attestations
+    /// for `tAAPL`.
+    function testAnotherVaultsAttestationsAreRefused() external {
+        _refused(TOKEN, _quorumFor(OTHER_TICKER), _ensure("Attestation for another token"));
+        _refused(OTHER_TOKEN, _quorum(), _ensure("Attestation for another token"));
+    }
+
+    /// The prefix dropped is `t` and only `t`. A vault whose symbol does not
+    /// start with it is refused whatever is attested, the ticker itself
+    /// included; so is a vault with no symbol, which has nothing to drop.
+    function testAVaultWithoutThePrefixIsRefused() external {
+        string[4] memory symbols = ["MSTR", "xMSTR", "TMSTR", ""];
+        string[4] memory tickers = ["STR", "MSTR", "MSTR", ""];
+        for (uint256 i = 0; i < symbols.length; i++) {
+            _mockToken(ANY_TOKEN, symbols[i]);
+            _refused(ANY_TOKEN, _quorumFor(tickers[i]), _ensure("Vault symbol has no t prefix"));
+        }
     }
 
     /// Attestations for the vault's own symbol are not attestations for the
-    /// ticker: the mapping is `tMSTR` to `MSTR`, and only that.
+    /// ticker: the `t` is dropped, not optional.
     function testAttestingTheVaultSymbolIsRefused() external {
         Attestation[] memory attestations = _quorum();
         for (uint256 i = 0; i < attestations.length; i++) {
@@ -324,7 +383,7 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     function testOneAttestationForAnotherTickerIsRefused() external {
         for (uint256 i = 0; i < 3; i++) {
             Attestation[] memory attestations = _quorum();
-            attestations[i].ticker = "AAPL";
+            attestations[i].ticker = OTHER_TICKER;
             _refused(attestations, _ensure("Attestation for another token"));
         }
     }
