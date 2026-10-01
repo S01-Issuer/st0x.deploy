@@ -6,7 +6,13 @@ import {Strings} from "@openzeppelin-contracts-5.6.1/utils/Strings.sol";
 import {stdError} from "forge-std-1.16.2/src/StdError.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
 import {SignedContextV1} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
+import {InvalidSignature} from "rainlang-interface-0.2.9/src/lib/caller/LibContext.sol";
 
+import {
+    LibSt0xAttestContext,
+    CONTEXT_SIGNERS_COLUMN,
+    CONTEXT_SIGNERS_ROW_ATTESTOR_0
+} from "src/lib/LibSt0xAttestContext.sol";
 import {LibTestDotrain, DotrainBinding} from "test/lib/LibTestDotrain.sol";
 import {ST0xOrchestratorMintWeightingFixture} from "test/src/concrete/ST0xOrchestratorMintWeightingFixture.sol";
 
@@ -296,6 +302,25 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
         Attestation[] memory one = new Attestation[](1);
         one[0] = _attestation(LEAD_KEY, _f(PRICE, 0));
         _refused(one, stdError.indexOOBError);
+    }
+
+    /// A second pool seat that is present but holds the zero address.
+    /// Through `mint` it never reaches the weighting: building the grid
+    /// refuses the seat as an invalid signature, and nothing is charged.
+    /// Handed a grid with the zero seat directly, the weighting refuses it
+    /// at the allowlist.
+    function testAZeroSecondSeatIsRefused() external {
+        SignedContextV1[] memory signed = _sign(_quorum());
+        signed[2].signer = address(0);
+        _refused(TOKEN, signed, abi.encodeWithSelector(InvalidSignature.selector, 2));
+
+        bytes32[][] memory grid = LibSt0xAttestContext.build(
+            symbol(VAULT_SYMBOL),
+            Float.unwrap(LibDecimalFloat.fromFixedDecimalLosslessPacked(AMOUNT, TOKEN_DECIMALS)),
+            _sign(_quorum())
+        );
+        grid[CONTEXT_SIGNERS_COLUMN][CONTEXT_SIGNERS_ROW_ATTESTOR_0 + 1] = bytes32(0);
+        checkEvalReverts(bytes(rainlang), grid, _ensure("Attestor not allowlisted"));
     }
 
     /// An operator outside the allowlist in either seat.
