@@ -100,16 +100,18 @@ guidance, and `docs/GLOSSARY.md` for domain terms.
 
 `ST0xOrchestrator` charges its mint-cap buckets with the value a Rainlang
 weighting puts on each mint, evaluated over the minter's signed price
-attestations (`SPEC.md` of `st0x.attest`, sections 2 and 4). The production
-weighting is `src/rain/mint-weighting.rain`, a dotrain source whose elided
-bindings are the per-deployment configuration: the `St0xAttestSubParser`
-address, the lead signer, the operator allowlist, the tolerances and the price
-bounds. Nothing is per token: one composition serves every vault, as the
-expression derives the ticker to check attestations against by dropping the `t`
-from the symbol of the vault being minted (`tMSTR` to `MSTR`).
+attestations (`SPEC.md` of `st0x.attest`, sections 2 and 4). Which weighting is
+installed is governance's: `setMintWeighting` takes any evaluable, and this repo
+has no say in what it is.
 
-Compose it with every binding given, parse the output with the chain's Rainlang
-deployer and install the result with `setMintWeighting`:
+`src/rain/mint-weighting.rain` is the spec's item 9 rendering as a dotrain
+source, kept under test so the mechanism is exercised end to end. It is an
+example, not the deployed expression. Its elided bindings show the shape of
+per-deployment configuration: the `St0xAttestSubParser` address, the lead
+signer, the operator allowlist, the tolerances and the price bounds.
+
+An expression is composed with every binding given, parsed with the chain's
+Rainlang deployer, and the result installed with `setMintWeighting`:
 
 ```
 rain dotrain compose -i src/rain/mint-weighting.rain -e weighting \

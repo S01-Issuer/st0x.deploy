@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: LicenseRef-DCL-1.0
 # SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 ---
-/* The production mint weighting for `ST0xOrchestrator.setMintWeighting`.
+/* An example mint weighting: SPEC.md's item 9 rendering, kept under test.
+ * What `ST0xOrchestrator.setMintWeighting` installs is governance's choice;
+ * this file is not it.
  *
  * SPEC.md section 2 as one expression: it checks the attestations that came
  * with a mint and prices the mint, or reverts. Every attestation word is from

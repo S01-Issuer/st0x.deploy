@@ -11,7 +11,7 @@ import {LibTestDotrain, DotrainBinding} from "test/lib/LibTestDotrain.sol";
 import {ST0xOrchestratorMintWeightingFixture} from "test/src/concrete/ST0xOrchestratorMintWeightingFixture.sol";
 
 /// @title MintWeightingTest
-/// @notice `src/rain/mint-weighting.rain`, the production mint weighting,
+/// @notice `src/rain/mint-weighting.rain`, the example mint weighting,
 /// composed from the file, parsed, installed on a real orchestrator and run
 /// by `mint`. Each check in the expression is shown refusing what it is there
 /// to refuse, with nothing charged, and the mint it lets through is charged
