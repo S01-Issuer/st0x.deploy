@@ -24,7 +24,7 @@ struct TokenConfig {
 }
 
 /// @title LibProdTokenConfig
-/// @notice The canonical name/symbol table for the 56 ST0x production
+/// @notice The canonical name/symbol table for the 59 ST0x production
 /// tokens, captured verbatim from the live Base receipt vaults so a new
 /// chain's token set can be deployed byte-identical to Base. This is the
 /// deploy-input companion to `LibTokenInvariants` (which holds the deployed
@@ -37,13 +37,15 @@ struct TokenConfig {
 /// @dev Entries are in the same order as
 /// `LibTokenInvariants.productionTokensBase()` so the two tables pair by
 /// index as well as by `underlying` key; `LibProdTokenConfigTest` pins that
-/// alignment. Strings are reproduced exactly, including `SGOV`'s leading
-/// space; the parity pin flags any divergence.
+/// alignment over every row Base carries. The table may run ahead of Base —
+/// `_selectMissing` reads only the rows Base carries — but never behind it.
+/// Strings are reproduced exactly, including `SGOV`'s leading space; the
+/// parity pin flags any divergence.
 library LibProdTokenConfig {
-    /// @notice The 56 production token deploy configs, Base table order.
+    /// @notice The 59 production token deploy configs, Base table order.
     /// @return configs The name/symbol table.
     function productionTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
-        configs = new TokenConfig[](56);
+        configs = new TokenConfig[](59);
         configs[0] = TokenConfig("MSTR", "MicroStrategy Incorporated ST0x", "tMSTR");
         configs[1] = TokenConfig("TSLA", "Tesla Inc ST0x", "tTSLA");
         configs[2] = TokenConfig("COIN", "Coinbase Global Inc ST0x", "tCOIN");
@@ -108,5 +110,15 @@ library LibProdTokenConfig {
         configs[53] = TokenConfig("TR", "Tootsie Roll Industries, Inc. ST0x", "tTR");
         configs[54] = TokenConfig("WEN", "The Wendy's Company ST0x", "tWEN");
         configs[55] = TokenConfig("FGI", "FGI Industries Ltd. ST0x", "tFGI");
+        // tBIRD — Smartbird, Inc. is the former Allbirds, Inc. (renamed 2026, same
+        // Nasdaq listing); name derived the way sft-ops derives it
+        // (`"<metadata.name> ST0x"`, `"t<code>"`) from sft-ops `metadata/bird.json`.
+        configs[56] = TokenConfig("BIRD", "Smartbird, Inc. ST0x", "tBIRD");
+        // tSPY — name derived from sft-ops `metadata/spy.json` the way CD derives it
+        // (`"<metadata.name> ST0x"`, `"t<code>"`); verified against the live Base vault.
+        configs[57] = TokenConfig("SPY", "State Street SPDR S&P 500 ETF Trust ST0x", "tSPY");
+        // tSNES — name derived from sft-ops `metadata/snes.json` the way CD derives it;
+        // verified against the live Base vault.
+        configs[58] = TokenConfig("SNES", "SenesTech, Inc. ST0x", "tSNES");
     }
 }

@@ -529,11 +529,35 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x6aed8b1aCfb04F4e0e6db580F12fF41438a394e5
     address internal constant FGI_WRAPPED_TOKEN_VAULT = address(0x6aed8b1aCfb04F4e0e6db580F12fF41438a394e5);
 
-    /// @notice Returns the 56 production token instance triples on Base, in
+    // ---- tBIRD / wtBIRD — Smartbird, Inc. ST0x ----
+    /// https://basescan.org/address/0x5ae4611fD6944613E2947A44fd76ad4B48551F6A
+    address internal constant BIRD_RECEIPT = address(0x5ae4611fD6944613E2947A44fd76ad4B48551F6A);
+    /// https://basescan.org/address/0x22E99389f5ef6FA110317e2Aec0a95d8AA39eFD4
+    address internal constant BIRD_RECEIPT_VAULT = address(0x22E99389f5ef6FA110317e2Aec0a95d8AA39eFD4);
+    /// https://basescan.org/address/0x95d46fC0faf4141C508D037469F472366093415a
+    address internal constant BIRD_WRAPPED_TOKEN_VAULT = address(0x95d46fC0faf4141C508D037469F472366093415a);
+
+    // ---- tSPY / wtSPY — State Street SPDR S&P 500 ETF Trust ST0x ----
+    /// https://basescan.org/address/0x1113A5DCAe56f5C7320024780079C9c79767DDb8
+    address internal constant SPY_RECEIPT = address(0x1113A5DCAe56f5C7320024780079C9c79767DDb8);
+    /// https://basescan.org/address/0xdA2E8d6e2A7D0a38A6b39a274D6911476062298B
+    address internal constant SPY_RECEIPT_VAULT = address(0xdA2E8d6e2A7D0a38A6b39a274D6911476062298B);
+    /// https://basescan.org/address/0x9Aa9c5a24e976096A6A7aB44986DAE8230fa5b27
+    address internal constant SPY_WRAPPED_TOKEN_VAULT = address(0x9Aa9c5a24e976096A6A7aB44986DAE8230fa5b27);
+
+    // ---- tSNES / wtSNES — SenesTech, Inc. ST0x ----
+    /// https://basescan.org/address/0x977A4e0784075421EB71f62c871414073ce03b65
+    address internal constant SNES_RECEIPT = address(0x977A4e0784075421EB71f62c871414073ce03b65);
+    /// https://basescan.org/address/0x6c5C451672e9D0ceF8728cb511C01e5Cdd096563
+    address internal constant SNES_RECEIPT_VAULT = address(0x6c5C451672e9D0ceF8728cb511C01e5Cdd096563);
+    /// https://basescan.org/address/0x07234e86246fcDBa320E5d59f1Ccb618d765DbFb
+    address internal constant SNES_WRAPPED_TOKEN_VAULT = address(0x07234e86246fcDBa320E5d59f1Ccb618d765DbFb);
+
+    /// @notice Returns the 59 production token instance triples on Base, in
     /// deployment order. `productionReceiptVaults()` derives from this.
-    /// @return tokens The 56 production token instances on Base.
+    /// @return tokens The 59 production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](56);
+        tokens = new TokenInstance[](59);
         tokens[0] = TokenInstance("MSTR", MSTR_RECEIPT, MSTR_RECEIPT_VAULT, MSTR_WRAPPED_TOKEN_VAULT);
         tokens[1] = TokenInstance("TSLA", TSLA_RECEIPT, TSLA_RECEIPT_VAULT, TSLA_WRAPPED_TOKEN_VAULT);
         tokens[2] = TokenInstance("COIN", COIN_RECEIPT, COIN_RECEIPT_VAULT, COIN_WRAPPED_TOKEN_VAULT);
@@ -597,15 +621,26 @@ library LibTokenInvariants {
         tokens[53] = TokenInstance("TR", TR_RECEIPT, TR_RECEIPT_VAULT, TR_WRAPPED_TOKEN_VAULT);
         tokens[54] = TokenInstance("WEN", WEN_RECEIPT, WEN_RECEIPT_VAULT, WEN_WRAPPED_TOKEN_VAULT);
         tokens[55] = TokenInstance("FGI", FGI_RECEIPT, FGI_RECEIPT_VAULT, FGI_WRAPPED_TOKEN_VAULT);
+        // tBIRD — deployed on Base 2026-09-11 by sft-ops CD (run 34614696472),
+        // wired onto the V4 authoriser and handed to the Base token-owner Safe.
+        // Copied onto the four other chains by `20260807-deploy-missing-tokens`;
+        // see each chain's table for its run id.
+        tokens[56] = TokenInstance("BIRD", BIRD_RECEIPT, BIRD_RECEIPT_VAULT, BIRD_WRAPPED_TOKEN_VAULT);
+        // tSPY — deployed on Base 2026-09-29 by sft-ops CD (run 36576678295),
+        // wired onto the V4 authoriser and handed to the Base token-owner Safe.
+        tokens[57] = TokenInstance("SPY", SPY_RECEIPT, SPY_RECEIPT_VAULT, SPY_WRAPPED_TOKEN_VAULT);
+        // tSNES — deployed on Base 2026-09-30 by sft-ops CD (run 36713883246),
+        // wired onto the V4 authoriser and handed to the Base token-owner Safe.
+        tokens[58] = TokenInstance("SNES", SNES_RECEIPT, SNES_RECEIPT_VAULT, SNES_WRAPPED_TOKEN_VAULT);
     }
 
     /// @notice Returns the production token instance triples on Ethereum
     /// mainnet: Base's underlyings in Base row order, so the tables pair by
     /// index as well as by key (the cross-chain parity pin asserts the
     /// alignment).
-    /// @return tokens The 56 production token instances on Ethereum.
+    /// @return tokens The 59 production token instances on Ethereum.
     function productionTokensEthereum() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](56);
+        tokens = new TokenInstance[](59);
         tokens[0] = TokenInstance(
             "MSTR",
             address(0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763),
@@ -942,14 +977,44 @@ library LibTokenInvariants {
             address(0xfEa217600e2b00bBB2172a99345016a0cEb7d29f),
             address(0x685DFd386968B58D895F934485820C479C79a8bB)
         );
+        // tBIRD — copied from Base 2026-09-11 15:24 UTC by `20260807-deploy-missing-tokens`
+        // on `ethereum` (manual-broadcast run 34615473964), the only token the
+        // selection found missing; wired onto this chain's V4 authoriser and
+        // handed to its token-owner Safe in the same broadcast.
+        tokens[56] = TokenInstance(
+            "BIRD",
+            address(0x34a8386fd0a943D4c1F182e9eb6b5e125509dFF2),
+            address(0x2E04C503ebd584C3c0Bb1d57E0C51E7B7EaE28E1),
+            address(0xe93A1Bb48e797dDa936f405A7A253f55040584D5)
+        );
+        // tSPY — copied from Base 2026-09-29 14:10 UTC by `20260807-deploy-missing-tokens`
+        // on `ethereum` (manual-broadcast run 36580206553), the only token the
+        // selection found missing; wired onto this chain's V4 authoriser and
+        // handed to its token-owner Safe in the same broadcast.
+        tokens[57] = TokenInstance(
+            "SPY",
+            address(0xc3f3EAfCc5927C645cdb22CEEB68844D53AA7C7C),
+            address(0x76D34283ec6d29b1b07E0e6077f5c436AD163B9c),
+            address(0xfBA650082205E5807a5eAF28BdcC8E851bB2f753)
+        );
+        // tSNES — copied from Base 2026-09-30 by `20260807-deploy-missing-tokens`
+        // on `ethereum` (manual-broadcast run 36714584347), the only token the
+        // selection found missing; wired onto this chain's V4 authoriser and
+        // handed to its token-owner Safe in the same broadcast.
+        tokens[58] = TokenInstance(
+            "SNES",
+            address(0x4ed13d2C1f545FA73f53bE8c0BB82D279738C10f),
+            address(0xF8bF43D61E4Cd2a5b5DfaD01BaC84693d7B95e51),
+            address(0x06096908dBC38fc54509024674E4fd1891B5F7CA)
+        );
     }
 
-    /// @notice Returns the 56 production token instance triples on HyperEVM,
+    /// @notice Returns the 59 production token instance triples on HyperEVM,
     /// in the same row order as `productionTokensBase()` (the cross-chain
     /// parity pin asserts the alignment).
-    /// @return tokens The 56 production token instances on HyperEVM.
+    /// @return tokens The 59 production token instances on HyperEVM.
     function productionTokensHyperEvm() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](56);
+        tokens = new TokenInstance[](59);
         tokens[0] = TokenInstance(
             "MSTR",
             0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
@@ -1285,6 +1350,36 @@ library LibTokenInvariants {
             0x7B3aA82Ca4Ef0eE146C32183366f3dED77400E0c,
             0xfEa217600e2b00bBB2172a99345016a0cEb7d29f,
             0x685DFd386968B58D895F934485820C479C79a8bB
+        );
+        // tBIRD — copied from Base 2026-09-11 15:26 UTC by `20260807-deploy-missing-tokens`
+        // on `hyperevm` (manual-broadcast run 34615476787), the only token the
+        // selection found missing; wired onto this chain's V4 authoriser and
+        // handed to its token-owner Safe in the same broadcast.
+        tokens[56] = TokenInstance(
+            "BIRD",
+            0x34a8386fd0a943D4c1F182e9eb6b5e125509dFF2,
+            0x2E04C503ebd584C3c0Bb1d57E0C51E7B7EaE28E1,
+            0xe93A1Bb48e797dDa936f405A7A253f55040584D5
+        );
+        // tSPY — copied from Base 2026-09-29 14:11 UTC by `20260807-deploy-missing-tokens`
+        // on `hyperevm` (manual-broadcast run 36580211489), the only token the
+        // selection found missing; wired onto this chain's V4 authoriser and
+        // handed to its token-owner Safe in the same broadcast.
+        tokens[57] = TokenInstance(
+            "SPY",
+            address(0xc3f3EAfCc5927C645cdb22CEEB68844D53AA7C7C),
+            address(0x76D34283ec6d29b1b07E0e6077f5c436AD163B9c),
+            address(0xfBA650082205E5807a5eAF28BdcC8E851bB2f753)
+        );
+        // tSNES — copied from Base 2026-09-30 by `20260807-deploy-missing-tokens`
+        // on `hyperevm` (manual-broadcast run 36714588187), the only token the
+        // selection found missing; wired onto this chain's V4 authoriser and
+        // handed to its token-owner Safe in the same broadcast.
+        tokens[58] = TokenInstance(
+            "SNES",
+            address(0x4ed13d2C1f545FA73f53bE8c0BB82D279738C10f),
+            address(0xF8bF43D61E4Cd2a5b5DfaD01BaC84693d7B95e51),
+            address(0x06096908dBC38fc54509024674E4fd1891B5F7CA)
         );
     }
 
@@ -1292,9 +1387,9 @@ library LibTokenInvariants {
     /// Chain (chain id 4663): Base's underlyings in Base row order, so the
     /// tables pair by index as well as by key (the cross-chain parity pin
     /// asserts the alignment).
-    /// @return tokens The 56 production token instances on Robinhood Chain.
+    /// @return tokens The 59 production token instances on Robinhood Chain.
     function productionTokensRobinhood() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](56);
+        tokens = new TokenInstance[](59);
         tokens[0] = TokenInstance(
             "MSTR",
             0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
@@ -1631,15 +1726,45 @@ library LibTokenInvariants {
             0xfEa217600e2b00bBB2172a99345016a0cEb7d29f,
             0x685DFd386968B58D895F934485820C479C79a8bB
         );
+        // tBIRD — copied from Base 2026-09-11 15:24 UTC by `20260807-deploy-missing-tokens`
+        // on `robinhood` (manual-broadcast run 34615482230), the only token the
+        // selection found missing; wired onto this chain's V4 authoriser and
+        // handed to its token-owner Safe in the same broadcast.
+        tokens[56] = TokenInstance(
+            "BIRD",
+            0x34a8386fd0a943D4c1F182e9eb6b5e125509dFF2,
+            0x2E04C503ebd584C3c0Bb1d57E0C51E7B7EaE28E1,
+            0xe93A1Bb48e797dDa936f405A7A253f55040584D5
+        );
+        // tSPY — copied from Base 2026-09-29 14:11 UTC by `20260807-deploy-missing-tokens`
+        // on `robinhood` (manual-broadcast run 36580216217), the only token the
+        // selection found missing; wired onto this chain's V4 authoriser and
+        // handed to its token-owner Safe in the same broadcast.
+        tokens[57] = TokenInstance(
+            "SPY",
+            address(0xc3f3EAfCc5927C645cdb22CEEB68844D53AA7C7C),
+            address(0x76D34283ec6d29b1b07E0e6077f5c436AD163B9c),
+            address(0xfBA650082205E5807a5eAF28BdcC8E851bB2f753)
+        );
+        // tSNES — copied from Base 2026-09-30 by `20260807-deploy-missing-tokens`
+        // on `robinhood` (manual-broadcast run 36714592472), the only token the
+        // selection found missing; wired onto this chain's V4 authoriser and
+        // handed to its token-owner Safe in the same broadcast.
+        tokens[58] = TokenInstance(
+            "SNES",
+            address(0x4ed13d2C1f545FA73f53bE8c0BB82D279738C10f),
+            address(0xF8bF43D61E4Cd2a5b5DfaD01BaC84693d7B95e51),
+            address(0x06096908dBC38fc54509024674E4fd1891B5F7CA)
+        );
     }
 
     /// @notice Returns the production token instance triples on BNB Smart
     /// Chain (chain id 56): Base's underlyings in Base row order, so the
     /// tables pair by index as well as by key (the cross-chain parity pin
     /// asserts the alignment).
-    /// @return tokens The 56 production token instances on BNB Smart Chain.
+    /// @return tokens The 59 production token instances on BNB Smart Chain.
     function productionTokensBsc() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](56);
+        tokens = new TokenInstance[](59);
         tokens[0] = TokenInstance(
             "MSTR",
             0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8,
@@ -1976,12 +2101,42 @@ library LibTokenInvariants {
             0x042Dfd33De6766a8858f188DFcf207D311da6488,
             0x5A5c3b64907823b1c5ea9d75D5AF44dFD06b03ea
         );
+        // tBIRD — copied from Base 2026-09-11 15:24 UTC by `20260807-deploy-missing-tokens`
+        // on `bsc` (manual-broadcast run 34615479611), the only token the
+        // selection found missing; wired onto this chain's V4 authoriser and
+        // handed to its token-owner Safe in the same broadcast.
+        tokens[56] = TokenInstance(
+            "BIRD",
+            0x6cFDdBddbCe10Cda74329F5B85FAa01d9d8081F8,
+            0x21a53882B0023c1F4D98087564e91ae6CEA0b4Ec,
+            0x9253907626f6FB9685c58e1C2cB2bF0AE6337A40
+        );
+        // tSPY — copied from Base 2026-09-29 14:12 UTC by `20260807-deploy-missing-tokens`
+        // on `bsc` (manual-broadcast run 36580222711), the only token the
+        // selection found missing; wired onto this chain's V4 authoriser and
+        // handed to its token-owner Safe in the same broadcast.
+        tokens[57] = TokenInstance(
+            "SPY",
+            address(0xDF7aBB7e9eA11b158CC17a84e79916Df3AA3f8f9),
+            address(0x788E2fEE2EDa979739a7E4b3EBfC2AeB7E4f3A12),
+            address(0xa0E98F987B0c1b9D2Eb92b24e81a69Dd0449CAd8)
+        );
+        // tSNES — copied from Base 2026-09-30 by `20260807-deploy-missing-tokens`
+        // on `bsc` (manual-broadcast run 36714595910), the only token the
+        // selection found missing; wired onto this chain's V4 authoriser and
+        // handed to its token-owner Safe in the same broadcast.
+        tokens[58] = TokenInstance(
+            "SNES",
+            address(0x800144a27098164095d7BaAaba1700aB23bb29C7),
+            address(0x9A13CA5347146D705e33bb42b336CA3b6868cc61),
+            address(0xbF85d4451CcB77B497532dBc4ACa58d10b5DC192)
+        );
     }
 
-    /// @notice Returns the 56 production receipt vault addresses on Base, in
+    /// @notice Returns the 59 production receipt vault addresses on Base, in
     /// deployment order.
     /// @dev Derived from `productionTokensBase()`.
-    /// @return vaults The 56 production receipt vault addresses on Base.
+    /// @return vaults The 59 production receipt vault addresses on Base.
     function productionReceiptVaults() internal pure returns (address[] memory vaults) {
         TokenInstance[] memory tokens = productionTokensBase();
         vaults = new address[](tokens.length);
