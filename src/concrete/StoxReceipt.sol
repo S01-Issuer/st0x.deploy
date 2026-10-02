@@ -18,7 +18,11 @@ import {LibReceiptRebase} from "../lib/LibReceiptRebase.sol";
 /// ## Rebase model
 ///
 /// When a stock split completes on the vault, every receipt balance rebases
-/// in lockstep with the vault's ERC-20 share balance.
+/// in lockstep with the vault's ERC-20 share balance. In lockstep because
+/// the two representations are redeemable against each other: a receipt left
+/// un-rebased while the share rebased is redeemable for the pre-split
+/// underlying by a holder whose share is worth double, which is an arbitrage
+/// against the vault rather than a cosmetic inconsistency.
 ///
 /// Migration is lazy, the same shape as the share side:
 ///   - Each `(holder, id)` pair tracks its own migration cursor: the
@@ -134,16 +138,25 @@ contract StoxReceipt is Receipt {
     /// then calls `super._update` to run the manager authorizer callback and
     /// the actual OZ ERC-1155 transfer.
     ///
-    /// `super._update` is the last statement in this function. OZ's ERC-1155
-    /// calls `onERC1155Received` / `onERC1155BatchReceived` on contract
-    /// recipients from inside `super._update`; by then all migration state is
-    /// consistent (cursors advanced, balances rasterized, events emitted) and
-    /// no state is modified after `super._update` returns.
+    /// **Reentrancy.** `super._update` is the last statement in this
+    /// function. OZ's ERC-1155 calls `onERC1155Received` /
+    /// `onERC1155BatchReceived` on contract recipients from inside
+    /// `super._update`; by then all migration state is consistent (cursors
+    /// advanced, balances rasterized, events emitted) and no state is
+    /// modified after `super._update` returns, so a receiver calling back
+    /// into `balanceOf` or `_update` sees post-migration state and there is
+    /// no window in which it could observe a half-migrated position. That
+    /// argument is about statement order and nothing else: **a refactor that
+    /// moves any state mutation after `super._update` invalidates it, and
+    /// the reentrancy risk has to be re-derived rather than assumed.**
     ///
     /// Migration walks `vault.nextOfType` / `vault.getActionParameters` per
     /// node without snapshotting, trusting each STATICCALL return
-    /// individually; the receipt trusts whatever implementation the vault
-    /// beacon's owner installs behind its manager pointer.
+    /// individually, so a vault implementation serving inconsistent answers
+    /// across iterations could inflate, zero or drift any first-touched
+    /// balance. The receipt trusts whatever implementation the vault beacon's
+    /// owner has installed behind its manager pointer; beacon upgrade
+    /// authority is the trust root here, as it is for the share side.
     /// @inheritdoc ERC1155Upgradeable
     function _update(address from, address to, uint256[] memory ids, uint256[] memory amounts)
         internal

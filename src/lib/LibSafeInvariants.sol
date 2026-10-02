@@ -5,7 +5,11 @@ pragma solidity ^0.8.25;
 import {IGnosisSafe} from "../interface/IGnosisSafe.sol";
 
 /// @notice The runtime codehash at the Safe's address does not match a
-/// pinned Safe v1.4.1 proxy codehash.
+/// pinned Safe v1.4.1 proxy codehash. Either the address has been swapped
+/// under us, or the Safe singleton has been redeployed with different
+/// bytecode. Either the address has been swapped
+/// under us, or the Safe singleton has been redeployed with different
+/// bytecode.
 /// @param safe The Safe address whose codehash was checked.
 /// @param expected The pinned codehash that was expected
 /// (`SAFE_V1_4_1_L2_PROXY_CODEHASH`).
@@ -13,7 +17,9 @@ import {IGnosisSafe} from "../interface/IGnosisSafe.sol";
 error SafeProxyCodehashMismatch(address safe, bytes32 expected, bytes32 actual);
 
 /// @notice The implementation pointer stored at Safe storage slot `0x0` is
-/// not a pinned Safe v1.4.1 singleton address.
+/// not a pinned Safe v1.4.1 singleton address. This is what detects a
+/// `setImplementation`-style takeover, which would route every call through
+/// a different singleton while leaving the proxy address unchanged.
 /// @param safe The Safe proxy address that was inspected.
 /// @param expected The pinned singleton address
 /// (`SAFE_V1_4_1_L2_SINGLETON`).
@@ -21,9 +27,13 @@ error SafeProxyCodehashMismatch(address safe, bytes32 expected, bytes32 actual);
 error SafeSingletonMismatch(address safe, address expected, address actual);
 
 /// @notice The Safe singleton's runtime bytecode codehash does not match the
-/// pinned codehash for that singleton. Asserted before any
-/// implementation-backed read (`VERSION()`, `getOwners()`, `getThreshold()`,
-/// etc.) is trusted.
+/// pinned codehash for that singleton. Pinning the singleton ADDRESS alone
+/// would trust whatever bytecode sits at that address, and an address can
+/// outlive its code — a `SELFDESTRUCT` and recreate, or a delegatecall-time
+/// substitution on a forked environment, preserves the address while
+/// replacing the implementation entirely. So the singleton's codehash is
+/// asserted too, before any implementation-backed read (`VERSION()`,
+/// `getOwners()`, `getThreshold()`, etc.) is trusted.
 /// @param safe The Safe proxy address that was inspected.
 /// @param singleton The singleton address read from slot `0x0` of the proxy.
 /// @param expected The pinned singleton codehash.
@@ -31,7 +41,9 @@ error SafeSingletonMismatch(address safe, address expected, address actual);
 error SafeSingletonBytecodeMismatch(address safe, address singleton, bytes32 expected, bytes32 actual);
 
 /// @notice The Safe singleton's `VERSION()` returned a string other than
-/// `"1.4.1"`.
+/// `"1.4.1"`. Defence in depth beside the codehash and singleton-slot pins:
+/// it cross-references what the implementation says about itself against the
+/// bytecode we expected to find.
 /// @param safe The Safe address whose `VERSION()` was queried.
 /// @param expected The expected version string (`"1.4.1"`).
 /// @param actual The version string returned by the live Safe.
@@ -319,8 +331,13 @@ library LibSafeInvariants {
 
         // Singleton (slot 0) must be one of the two canonical v1.4.1
         // singletons: L2 `SafeL2` (Base) or L1 `Safe` (Ethereum mainnet).
-        // Read raw via `getStorageAt`; the variant selects which singleton
-        // codehash to pin.
+        // Read raw via `getStorageAt` rather than through an accessor, so a
+        // swapped fallback handler cannot shadow the result: a handler
+        // services every selector the singleton does not implement, so one
+        // under an attacker's control could answer this read with the
+        // canonical singleton while the proxy delegates to something else,
+        // routing every implementation-backed call through attacker code.
+        // The variant selects which singleton codehash to pin.
         address actualSingleton = readSafeStorageAddress(safe, 0);
         bytes32 expectedSingletonCodehash;
         if (actualSingleton == SAFE_V1_4_1_L2_SINGLETON) {

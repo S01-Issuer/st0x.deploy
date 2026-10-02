@@ -32,8 +32,10 @@ contract StoxUnifiedDeployer is ERC165, IStoxUnifiedDeployerV1 {
 
     /// @notice Deploys a new OffchainAssetReceiptVault and a new
     /// StoxWrappedTokenVault linked to the OffchainAssetReceiptVault.
-    /// @dev This contract has no storage; a reentrant call creates another
-    /// independent vault pair.
+    /// @dev Reentrancy is not exploitable here: this contract is entirely
+    /// stateless — no storage, no balances — so a reentrant call creates
+    /// another independent vault pair and has nothing of this contract's to
+    /// corrupt.
     /// @param config The configuration for the OffchainAssetReceiptVault. The
     /// resulting asset address is used to deploy the StoxWrappedTokenVault.
     // slither-disable-next-line reentrancy-events

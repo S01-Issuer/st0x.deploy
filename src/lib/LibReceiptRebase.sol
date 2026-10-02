@@ -32,7 +32,9 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 /// Walk semantics:
 ///   - Zero-balance accounts still advance the cursor through completed
 ///     splits, so a later write for a fresh recipient lands at the current
-///     cursor rather than a stale one.
+///     cursor rather than a stale one. Without it the next `balanceOf` read
+///     would re-apply every completed multiplier to an already-rasterized
+///     balance and inflate it.
 ///   - Non-zero balances apply each multiplier sequentially via
 ///     `LibRebaseMath.applyMultiplier`, matching the share-side
 ///     rasterization step exactly.
@@ -40,12 +42,19 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 ///     returns `(storedBalance, cursor)` unchanged.
 ///
 /// Each completed split visited costs two cross-contract view calls
-/// (`nextOfType` + `getActionParameters`).
+/// (`nextOfType` + `getActionParameters`). Stock splits are rare — order ten
+/// over a contract's lifetime — so the per-holder migration cost is bounded
+/// by that rather than by anything a caller controls.
 ///
-/// The walk has no defence against a vault implementation serving
-/// inconsistent answers across `nextOfType` / `getActionParameters`
-/// iterations; the receipt trusts whatever implementation the vault beacon's
-/// owner installs behind its manager pointer.
+/// **Trust model.** The walk has no defence against a vault implementation
+/// serving inconsistent answers across `nextOfType` / `getActionParameters`
+/// iterations: one that did could inflate, zero or arbitrarily drift any
+/// first-touched balance. Nothing here can detect that, because the walk
+/// trusts each `STATICCALL` return individually rather than snapshotting.
+/// What stands behind it is that the receipt's manager pointer resolves to
+/// whatever implementation the vault beacon's owner has installed, so beacon
+/// upgrade authority is the trust root for every balance this walk derives,
+/// and a compromise of that key compromises all of them.
 library LibReceiptRebase {
     /// @notice Walk the vault's completed stock split list from
     /// `fromActionId` forward, returning the rebased balance and the

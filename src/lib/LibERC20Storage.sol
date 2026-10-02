@@ -15,7 +15,9 @@ bytes32 constant ERC20_TOTAL_SUPPLY_SLOT = bytes32(uint256(ERC20_STORAGE_LOCATIO
 /// @title LibERC20Storage
 /// @notice Direct storage access to OpenZeppelin ERC20Upgradeable internals.
 /// Used by the rebase migration to write balances and totalSupply without
-/// going through `_update`.
+/// going through `_update`, which would emit Transfer events for a rebase
+/// that moved nothing between holders, and would reach the authorizer
+/// callback and any receiver hook mid-migration.
 ///
 /// SAFETY: This is tightly coupled to OZ v5's ERC20Upgradeable ERC-7201
 /// storage layout. The struct layout at the namespaced slot is:

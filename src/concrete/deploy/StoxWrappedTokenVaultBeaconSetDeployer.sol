@@ -35,8 +35,9 @@ contract StoxWrappedTokenVaultBeaconSetDeployer is ERC165, IStoxWrappedTokenVaul
     event Deployment(address sender, address stoxWrappedTokenVault);
 
     /// Deploys and initializes a new StoxWrappedTokenVault contract.
-    /// @dev This contract has no storage; each invocation creates an
-    /// independent proxy.
+    /// @dev Reentrancy is not exploitable here: this contract holds no mutable
+    /// state between calls, so each invocation creates an independent proxy
+    /// and a reentrant one has nothing of this contract's to corrupt.
     /// @param asset The address of the underlying asset for the vault.
     /// @return stoxWrappedTokenVault The address of the deployed
     /// StoxWrappedTokenVault contract.
