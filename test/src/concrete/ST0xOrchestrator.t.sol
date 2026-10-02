@@ -494,7 +494,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertEq(o.getRoleAdmin(o.MINT_ROLE()), o.DEFAULT_ADMIN_ROLE(), "mint role already delegated");
 
         vm.prank(OWNER);
-        o.initializeV2();
+        o.initializeV2(OWNER);
 
         assertTrue(o.hasRole(o.MINT_ADMIN_ROLE(), OWNER), "mint admin not granted");
         assertEq(o.getRoleAdmin(o.MINT_ROLE()), o.MINT_ADMIN_ROLE(), "mint role not delegated");
@@ -509,7 +509,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertEq(o.getRoleAdmin(o.BURN_ROLE()), o.DEFAULT_ADMIN_ROLE(), "burn role already delegated");
 
         vm.prank(OWNER);
-        o.initializeV2();
+        o.initializeV2(OWNER);
 
         assertTrue(o.hasRole(o.BURN_ADMIN_ROLE(), OWNER), "burn admin not granted");
         assertEq(o.getRoleAdmin(o.BURN_ROLE()), o.BURN_ADMIN_ROLE(), "burn role not delegated");
@@ -523,7 +523,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         bytes32 burnRole = o.BURN_ROLE();
 
         vm.startPrank(OWNER);
-        o.initializeV2();
+        o.initializeV2(OWNER);
         o.grantRole(burnAdminRole, BOB);
         o.revokeRole(burnAdminRole, OWNER);
         vm.stopPrank();
@@ -547,7 +547,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertEq(o.getRoleAdmin(o.EMERGENCY_ROLE()), o.DEFAULT_ADMIN_ROLE(), "emergency already delegated");
 
         vm.prank(OWNER);
-        o.initializeV2();
+        o.initializeV2(OWNER);
 
         assertTrue(o.hasRole(o.EMERGENCY_ADMIN_ROLE(), OWNER), "emergency admin not granted");
         assertEq(o.getRoleAdmin(o.EMERGENCY_ROLE()), o.EMERGENCY_ADMIN_ROLE(), "emergency not delegated");
@@ -563,7 +563,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         bytes32 emergencyRole = o.EMERGENCY_ROLE();
 
         vm.startPrank(OWNER);
-        o.initializeV2();
+        o.initializeV2(OWNER);
         o.grantRole(emergencyAdminRole, BOB);
         o.revokeRole(emergencyAdminRole, OWNER);
         vm.stopPrank();
@@ -596,7 +596,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         o.setMinterGlobalMintLimit(MINTER_A, UNBOUNDED_CAPACITY, NO_LEAK);
 
         vm.prank(OWNER);
-        o.initializeV2();
+        o.initializeV2(OWNER);
 
         vm.prank(OWNER);
         o.setMinterGlobalMintLimit(MINTER_A, UNBOUNDED_CAPACITY, NO_LEAK);
@@ -612,7 +612,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         bytes32 mintRole = o.MINT_ROLE();
 
         vm.startPrank(OWNER);
-        o.initializeV2();
+        o.initializeV2(OWNER);
         o.grantRole(mintAdminRole, BOB);
         o.revokeRole(mintAdminRole, OWNER);
         vm.stopPrank();
@@ -630,14 +630,47 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertTrue(o.hasRole(mintRole, MINTER_A), "mint admin could not add a minter");
     }
 
+    /// The admin is the argument, not the caller. OWNER holds
+    /// `DEFAULT_ADMIN_ROLE` and so may make the call, but the roles land on
+    /// BOB — which is what distinguishes a parameter from `msg.sender`.
+    function testInitializeV2InstallsTheArgumentNotTheCaller() external {
+        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
+
+        vm.prank(OWNER);
+        o.initializeV2(BOB);
+
+        assertTrue(o.hasRole(o.MINT_ADMIN_ROLE(), BOB), "argument did not take mint admin");
+        assertTrue(o.hasRole(o.BURN_ADMIN_ROLE(), BOB), "argument did not take burn admin");
+        assertTrue(o.hasRole(o.EMERGENCY_ADMIN_ROLE(), BOB), "argument did not take emergency admin");
+        assertFalse(o.hasRole(o.MINT_ADMIN_ROLE(), OWNER), "caller took mint admin");
+        assertFalse(o.hasRole(o.BURN_ADMIN_ROLE(), OWNER), "caller took burn admin");
+        assertFalse(o.hasRole(o.EMERGENCY_ADMIN_ROLE(), OWNER), "caller took emergency admin");
+    }
+
+    /// A zero admin would burn the proxy's one shot while granting the admin
+    /// roles to nobody, leaving the operating roles delegated to a role no
+    /// account holds — unrecoverable without another upgrade. Refused.
+    function testInitializeV2ZeroAdminReverts() external {
+        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
+
+        vm.expectRevert(IST0xOrchestratorV1.ZeroOwner.selector);
+        vm.prank(OWNER);
+        o.initializeV2(address(0));
+
+        // The refused call left the shot intact.
+        vm.prank(OWNER);
+        o.initializeV2(OWNER);
+        assertTrue(o.hasRole(o.MINT_ADMIN_ROLE(), OWNER), "the refused call consumed the shot");
+    }
+
     /// One call per proxy.
     function testInitializeV2TwiceReverts() external {
         ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
         vm.prank(OWNER);
-        o.initializeV2();
+        o.initializeV2(OWNER);
         vm.prank(OWNER);
         vm.expectRevert(Initializable.InvalidInitialization.selector);
-        o.initializeV2();
+        o.initializeV2(OWNER);
     }
 
     /// Only `DEFAULT_ADMIN_ROLE` reconciles, and a refused call leaves the
@@ -654,10 +687,10 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, BOB, adminRole)
         );
         vm.prank(BOB);
-        o.initializeV2();
+        o.initializeV2(OWNER);
 
         vm.prank(OWNER);
-        o.initializeV2();
+        o.initializeV2(OWNER);
         assertTrue(o.hasRole(mintAdminRole, OWNER), "the refused call consumed the shot");
     }
 
@@ -669,14 +702,14 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         ST0xOrchestrator o = _deployProxy(OWNER);
 
         vm.prank(OWNER);
-        o.initializeV2();
+        o.initializeV2(OWNER);
 
         assertTrue(o.hasRole(o.MINT_ADMIN_ROLE(), OWNER), "mint admin lost");
         assertEq(o.getRoleAdmin(o.MINT_ROLE()), o.MINT_ADMIN_ROLE(), "delegation lost");
 
         vm.prank(OWNER);
         vm.expectRevert(Initializable.InvalidInitialization.selector);
-        o.initializeV2();
+        o.initializeV2(OWNER);
     }
 
     /// The latch lands on exactly 2, not on some higher version: a later
@@ -691,7 +724,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertEq(uint256(vm.load(address(o), initializableStorage)) & type(uint64).max, 1, "proxy is not at version 1");
 
         vm.prank(OWNER);
-        o.initializeV2();
+        o.initializeV2(OWNER);
 
         assertEq(
             uint256(vm.load(address(o), initializableStorage)) & type(uint64).max, 2, "latch did not land on version 2"
@@ -706,7 +739,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         vm.expectRevert(
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), bytes32(0))
         );
-        raw.initializeV2();
+        raw.initializeV2(OWNER);
     }
 
     // ------------------------------------------------------------------ //

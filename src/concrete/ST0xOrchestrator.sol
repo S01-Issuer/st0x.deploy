@@ -243,15 +243,36 @@ contract ST0xOrchestrator is
     /// on an unbound name, so there is no zero owner to check for.
     function initialize() external initializer {
         address owner = LibAddressRegistry.resolve(ST0X_TOKEN_OWNER_SAFE_NAME);
+        _initializeV1(owner);
+        _initializeV2(owner);
+    }
+
+    /// @dev The state a proxy took at its original deployment: the
+    /// vault-logic lock, the inherited module initialisers, and
+    /// `DEFAULT_ADMIN_ROLE`. A proxy already carrying this is every proxy
+    /// that exists, which is why nothing re-runs it.
+    /// @param owner Address granted `DEFAULT_ADMIN_ROLE`.
+    function _initializeV1(address owner) internal {
         _checkVaultLogic();
         __AccessControl_init();
         __EIP712_init("ST0xOrchestrator", "1");
         _grantRole(DEFAULT_ADMIN_ROLE, owner);
-        _grantRole(MINT_ADMIN_ROLE, owner);
+    }
+
+    /// @dev The admin-role split: each admin role granted to `admin`, and
+    /// each operating role delegated to its own admin. Held apart from
+    /// `_initializeV1` because a proxy deployed before these roles existed
+    /// needs exactly this and nothing else — `initialize` runs both,
+    /// `initializeV2` runs only this one.
+    /// @param admin Address granted `MINT_ADMIN_ROLE`, `BURN_ADMIN_ROLE` and
+    /// `EMERGENCY_ADMIN_ROLE`.
+    function _initializeV2(address admin) internal {
+        if (admin == address(0)) revert ZeroOwner();
+        _grantRole(MINT_ADMIN_ROLE, admin);
         _setRoleAdmin(MINT_ROLE, MINT_ADMIN_ROLE);
-        _grantRole(BURN_ADMIN_ROLE, owner);
+        _grantRole(BURN_ADMIN_ROLE, admin);
         _setRoleAdmin(BURN_ROLE, BURN_ADMIN_ROLE);
-        _grantRole(EMERGENCY_ADMIN_ROLE, owner);
+        _grantRole(EMERGENCY_ADMIN_ROLE, admin);
         _setRoleAdmin(EMERGENCY_ROLE, EMERGENCY_ADMIN_ROLE);
     }
 
@@ -261,10 +282,10 @@ contract ST0xOrchestrator is
     /// nobody and leaves `DEFAULT_ADMIN_ROLE` as the admin of all three
     /// operating roles, so the mint caps and the mint weighting are
     /// unsettable and the role split this contract documents holds on no
-    /// side. Grants the three admin roles to the caller and delegates each
-    /// operating role to its own — the six writes `initialize` performs and
-    /// nothing else, so a proxy reconciled here is indistinguishable from
-    /// one initialised at this version.
+    /// side. Runs `_initializeV2` and nothing else, which is the same
+    /// function `initialize` runs for the same purpose, so a proxy
+    /// reconciled here is indistinguishable from one initialised at this
+    /// version rather than merely intended to be.
     ///
     /// @dev A call refused on authorisation reverts in full, so it cannot
     /// consume the proxy's one shot — the version write rolls back with
@@ -272,23 +293,24 @@ contract ST0xOrchestrator is
     ///
     /// `reinitializer(2)` admits one call per proxy. A proxy initialised
     /// by this implementation is already in the reconciled state yet still
-    /// sits at version 1, so the call is open on it too; it re-grants the
-    /// caller roles the caller must already administer and rewrites the same
-    /// admins, so it changes nothing there. Marking `initialize` itself
-    /// `reinitializer(2)` would close that at the cost of leaving an ungated
-    /// `initialize` callable on every version-1 proxy, which would hand
-    /// `DEFAULT_ADMIN_ROLE` to any caller.
+    /// sits at version 1, so the call is open on it too, where it can only
+    /// re-grant and re-delegate what is already there. Marking `initialize`
+    /// itself `reinitializer(2)` would close that at the cost of leaving an
+    /// ungated `initialize` callable on every version-1 proxy, which would
+    /// hand `DEFAULT_ADMIN_ROLE` to any caller.
     ///
-    /// The caller takes the roles rather than an address argument: it must
-    /// hold `DEFAULT_ADMIN_ROLE` already, which is the same authority
-    /// `initialize` grants all three to.
-    function initializeV2() external onlyRole(DEFAULT_ADMIN_ROLE) reinitializer(2) {
-        _grantRole(MINT_ADMIN_ROLE, msg.sender);
-        _setRoleAdmin(MINT_ROLE, MINT_ADMIN_ROLE);
-        _grantRole(BURN_ADMIN_ROLE, msg.sender);
-        _setRoleAdmin(BURN_ROLE, BURN_ADMIN_ROLE);
-        _grantRole(EMERGENCY_ADMIN_ROLE, msg.sender);
-        _setRoleAdmin(EMERGENCY_ROLE, EMERGENCY_ADMIN_ROLE);
+    /// `admin` is an argument and deliberately not a registry read. This
+    /// runs as its own transaction against an already-deployed proxy, so a
+    /// resolve here would take whatever the registry's root has bound by
+    /// then — the point of use the registry's own rule forbids reading at.
+    /// A root compromise could otherwise sit dormant and be switched
+    /// immediately before this call, which is a moment the operator chooses
+    /// and nobody re-audits a binding at. The caller must already hold
+    /// `DEFAULT_ADMIN_ROLE`, so the authority is proven by state this proxy
+    /// holds, and the address it installs is stated rather than fetched.
+    /// @param admin Address granted the three admin roles.
+    function initializeV2(address admin) external onlyRole(DEFAULT_ADMIN_ROLE) reinitializer(2) {
+        _initializeV2(admin);
     }
 
     // ------------------------------------------------------------------ //
