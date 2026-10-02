@@ -500,18 +500,45 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertTrue(o.hasRole(burnRole, MINTER_A), "burn admin could not add a burner");
     }
 
-    /// `EMERGENCY_ROLE` is not delegated by the reconcile either — it answers
-    /// to `DEFAULT_ADMIN_ROLE` before and after.
-    function testInitializeV2LeavesEmergencyUnderDefaultAdmin() external {
+    /// The emergency half of the same reconcile.
+    function testInitializeV2InstallsEmergencyAdminAndDelegation() external {
         ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
-        bytes32 adminRole = o.DEFAULT_ADMIN_ROLE();
 
-        assertEq(o.getRoleAdmin(o.EMERGENCY_ROLE()), adminRole, "emergency delegated before the call");
+        assertFalse(o.hasRole(o.EMERGENCY_ADMIN_ROLE(), OWNER), "emergency admin granted before the call");
+        assertEq(o.getRoleAdmin(o.EMERGENCY_ROLE()), o.DEFAULT_ADMIN_ROLE(), "emergency already delegated");
 
         vm.prank(OWNER);
         o.initializeV2();
 
-        assertEq(o.getRoleAdmin(o.EMERGENCY_ROLE()), adminRole, "emergency delegated by the call");
+        assertTrue(o.hasRole(o.EMERGENCY_ADMIN_ROLE(), OWNER), "emergency admin not granted");
+        assertEq(o.getRoleAdmin(o.EMERGENCY_ROLE()), o.EMERGENCY_ADMIN_ROLE(), "emergency not delegated");
+    }
+
+    /// The emergency delegation by its effect: `EMERGENCY_ADMIN_ROLE` can
+    /// hand out the recovery key afterwards, where before only
+    /// `DEFAULT_ADMIN_ROLE` could — and holding the admin role is still not
+    /// holding the key.
+    function testInitializeV2MovesEmergencyGrantingToEmergencyAdmin() external {
+        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
+        bytes32 emergencyAdminRole = o.EMERGENCY_ADMIN_ROLE();
+        bytes32 emergencyRole = o.EMERGENCY_ROLE();
+
+        vm.startPrank(OWNER);
+        o.initializeV2();
+        o.grantRole(emergencyAdminRole, BOB);
+        o.revokeRole(emergencyAdminRole, OWNER);
+        vm.stopPrank();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, OWNER, emergencyAdminRole)
+        );
+        vm.prank(OWNER);
+        o.grantRole(emergencyRole, MINTER_A);
+
+        assertFalse(o.hasRole(emergencyRole, BOB), "emergency admin holds the key itself");
+        vm.prank(BOB);
+        o.grantRole(emergencyRole, MINTER_A);
+        assertTrue(o.hasRole(emergencyRole, MINTER_A), "emergency admin could not hand out the key");
     }
 
     /// What the grant is for: the mint caps are unsettable on an upgraded
@@ -660,24 +687,36 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertTrue(orchestrator.MINT_ADMIN_ROLE() != orchestrator.MINT_ROLE());
         assertTrue(orchestrator.BURN_ADMIN_ROLE() != orchestrator.BURN_ROLE());
         assertTrue(orchestrator.BURN_ADMIN_ROLE() != orchestrator.EMERGENCY_ROLE());
+        assertEq(orchestrator.EMERGENCY_ADMIN_ROLE(), keccak256("EMERGENCY_ADMIN"));
+        assertTrue(orchestrator.EMERGENCY_ADMIN_ROLE() != orchestrator.EMERGENCY_ROLE());
+        assertTrue(orchestrator.EMERGENCY_ADMIN_ROLE() != orchestrator.MINT_ADMIN_ROLE());
+        assertTrue(orchestrator.EMERGENCY_ADMIN_ROLE() != orchestrator.BURN_ADMIN_ROLE());
     }
 
-    /// Each operating role answers to its own admin, and `EMERGENCY_ROLE`
-    /// stays under `DEFAULT_ADMIN_ROLE` — the recovery key is deliberately
-    /// not delegated, so the remaining asymmetry is pinned rather than left
-    /// to be read as an oversight.
+    /// Every operating role answers to its own admin role, and each admin
+    /// role answers to `DEFAULT_ADMIN_ROLE` — which administers nothing else,
+    /// so it performs no operations.
     function testRoleAdminsOnAFreshProxy() external view {
         assertEq(orchestrator.getRoleAdmin(orchestrator.MINT_ROLE()), orchestrator.MINT_ADMIN_ROLE());
         assertEq(orchestrator.getRoleAdmin(orchestrator.BURN_ROLE()), orchestrator.BURN_ADMIN_ROLE());
-        assertEq(orchestrator.getRoleAdmin(orchestrator.EMERGENCY_ROLE()), orchestrator.DEFAULT_ADMIN_ROLE());
+        assertEq(orchestrator.getRoleAdmin(orchestrator.EMERGENCY_ROLE()), orchestrator.EMERGENCY_ADMIN_ROLE());
         assertEq(orchestrator.getRoleAdmin(orchestrator.MINT_ADMIN_ROLE()), orchestrator.DEFAULT_ADMIN_ROLE());
         assertEq(orchestrator.getRoleAdmin(orchestrator.BURN_ADMIN_ROLE()), orchestrator.DEFAULT_ADMIN_ROLE());
+        assertEq(orchestrator.getRoleAdmin(orchestrator.EMERGENCY_ADMIN_ROLE()), orchestrator.DEFAULT_ADMIN_ROLE());
     }
 
-    /// `initialize` hands the owner both admin roles, not just the mint one.
-    function testInitializeGrantsBothAdminRoles() external view {
+    /// `initialize` hands the owner all three admin roles.
+    function testInitializeGrantsEveryAdminRole() external view {
         assertTrue(orchestrator.hasRole(orchestrator.MINT_ADMIN_ROLE(), OWNER), "owner missing mint admin");
         assertTrue(orchestrator.hasRole(orchestrator.BURN_ADMIN_ROLE(), OWNER), "owner missing burn admin");
+        assertTrue(orchestrator.hasRole(orchestrator.EMERGENCY_ADMIN_ROLE(), OWNER), "owner missing emergency admin");
+    }
+
+    /// Holding an admin role is not holding the role it administers.
+    function testInitializeGrantsNoOperatingRole() external view {
+        assertFalse(orchestrator.hasRole(orchestrator.MINT_ROLE(), OWNER), "owner holds mint");
+        assertFalse(orchestrator.hasRole(orchestrator.BURN_ROLE(), OWNER), "owner holds burn");
+        assertFalse(orchestrator.hasRole(orchestrator.EMERGENCY_ROLE(), OWNER), "owner holds emergency");
     }
 
     function testFuzzMintUnauthorized(address caller) external {

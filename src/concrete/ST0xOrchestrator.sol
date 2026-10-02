@@ -48,23 +48,30 @@ import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
 /// vault-side `DEPOSIT` + `WITHDRAW` roles and owns every receipt; callers
 /// never touch one.
 ///
-/// **Roles** (administered by `DEFAULT_ADMIN_ROLE`, which itself performs no
-/// operations, except that `MINT_ROLE` is administered by `MINT_ADMIN_ROLE`
-/// and `BURN_ROLE` by `BURN_ADMIN_ROLE`):
+/// **Roles.** Every role that does something has its own admin role, and
+/// `DEFAULT_ADMIN_ROLE` administers only those admin roles — it performs no
+/// operations at all.
 ///  - `MINT_ADMIN_ROLE` — grant `MINT_ROLE`, set the mint caps and the mint
 ///    weighting.
 ///  - `MINT_ROLE` — call `mint`.
 ///  - `BURN_ADMIN_ROLE` — grant `BURN_ROLE`. The burn side has no policy to
 ///    set, so that is the whole of it.
 ///  - `BURN_ROLE` — call `burn`.
+///  - `EMERGENCY_ADMIN_ROLE` — grant `EMERGENCY_ROLE`, and nothing else.
+///    Saying who may hold the recovery key is not holding it.
 ///  - `EMERGENCY_ROLE` — recovery ops (`setBurnIndex`, `withdrawReceipt`,
-///    `withdrawShares`, `sweepERC1155`). Still administered by
-///    `DEFAULT_ADMIN_ROLE`: it is the recovery key, not an operating one,
-///    and nothing here delegates who may hold it.
+///    `withdrawShares`, `sweepERC1155`). Deliberately separate from
+///    mint/burn, so the key that can reposition pointers or sweep assets can
+///    never also mint.
+///
+/// An admin role is held separately from the role it administers: granting
+/// `MINT_ADMIN_ROLE` does not grant `MINT_ROLE`, and `initialize` grants only
+/// the admin roles.
 ///
 /// `initialize` wires that split. A proxy that initialised against an
-/// implementation without the two admin roles carries neither the grants nor
-/// the delegations, and `initializeV2` is the one call that installs them.
+/// implementation without the three admin roles carries neither the grants
+/// nor the delegations, and `initializeV2` is the one call that installs
+/// them.
 ///
 /// **Mint recipient authorisation.** Every mint carries the recipient's own
 /// authorisation of `(token, to, amount, nonce)` as a `MintAuthV1`: either an
@@ -138,6 +145,10 @@ contract ST0xOrchestrator is
     /// both.
     bytes32 public constant BURN_ADMIN_ROLE = keccak256("BURN_ADMIN");
     bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY");
+    /// @notice Administers `EMERGENCY_ROLE`. Holding this is not holding
+    /// `EMERGENCY_ROLE`: it says who may be handed the recovery key, never
+    /// that its holder may turn it.
+    bytes32 public constant EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN");
 
     /// @notice EIP-712 typehash for a recipient's mint authorisation.
     bytes32 public constant MINT_AUTH_TYPEHASH =
@@ -219,16 +230,18 @@ contract ST0xOrchestrator is
         _setRoleAdmin(MINT_ROLE, MINT_ADMIN_ROLE);
         _grantRole(BURN_ADMIN_ROLE, owner);
         _setRoleAdmin(BURN_ROLE, BURN_ADMIN_ROLE);
+        _grantRole(EMERGENCY_ADMIN_ROLE, owner);
+        _setRoleAdmin(EMERGENCY_ROLE, EMERGENCY_ADMIN_ROLE);
     }
 
     /// @notice Reconcile a proxy whose `initialize` ran against an
-    /// implementation that had neither admin role. Such a proxy holds
-    /// `MINT_ADMIN_ROLE` and `BURN_ADMIN_ROLE` for nobody and leaves
-    /// `DEFAULT_ADMIN_ROLE` as the admin of both `MINT_ROLE` and
-    /// `BURN_ROLE`, so the mint caps and the mint weighting are unsettable
-    /// and the role split this contract documents does not hold on either
-    /// side. Grants both admin roles to the caller and delegates both
-    /// operating roles to them — the four writes `initialize` performs and
+    /// implementation that had none of the admin roles. Such a proxy holds
+    /// `MINT_ADMIN_ROLE`, `BURN_ADMIN_ROLE` and `EMERGENCY_ADMIN_ROLE` for
+    /// nobody and leaves `DEFAULT_ADMIN_ROLE` as the admin of all three
+    /// operating roles, so the mint caps and the mint weighting are
+    /// unsettable and the role split this contract documents holds on no
+    /// side. Grants the three admin roles to the caller and delegates each
+    /// operating role to its own — the six writes `initialize` performs and
     /// nothing else, so a proxy reconciled here is indistinguishable from
     /// one initialised at this version.
     ///
@@ -253,6 +266,8 @@ contract ST0xOrchestrator is
         _setRoleAdmin(MINT_ROLE, MINT_ADMIN_ROLE);
         _grantRole(BURN_ADMIN_ROLE, msg.sender);
         _setRoleAdmin(BURN_ROLE, BURN_ADMIN_ROLE);
+        _grantRole(EMERGENCY_ADMIN_ROLE, msg.sender);
+        _setRoleAdmin(EMERGENCY_ROLE, EMERGENCY_ADMIN_ROLE);
     }
 
     // ------------------------------------------------------------------ //
