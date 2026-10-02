@@ -461,6 +461,59 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertEq(o.getRoleAdmin(o.MINT_ROLE()), o.MINT_ADMIN_ROLE(), "mint role not delegated");
     }
 
+    /// The burn half of the same reconcile. Separate from the mint half so a
+    /// call that installed only one is not reported as a pass.
+    function testInitializeV2InstallsBurnAdminAndDelegation() external {
+        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
+
+        assertFalse(o.hasRole(o.BURN_ADMIN_ROLE(), OWNER), "burn admin granted before the call");
+        assertEq(o.getRoleAdmin(o.BURN_ROLE()), o.DEFAULT_ADMIN_ROLE(), "burn role already delegated");
+
+        vm.prank(OWNER);
+        o.initializeV2();
+
+        assertTrue(o.hasRole(o.BURN_ADMIN_ROLE(), OWNER), "burn admin not granted");
+        assertEq(o.getRoleAdmin(o.BURN_ROLE()), o.BURN_ADMIN_ROLE(), "burn role not delegated");
+    }
+
+    /// The burn delegation by its effect: `BURN_ADMIN_ROLE` can add a burner
+    /// afterwards, where before only `DEFAULT_ADMIN_ROLE` could.
+    function testInitializeV2MovesBurnGrantingToBurnAdmin() external {
+        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
+        bytes32 burnAdminRole = o.BURN_ADMIN_ROLE();
+        bytes32 burnRole = o.BURN_ROLE();
+
+        vm.startPrank(OWNER);
+        o.initializeV2();
+        o.grantRole(burnAdminRole, BOB);
+        o.revokeRole(burnAdminRole, OWNER);
+        vm.stopPrank();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, OWNER, burnAdminRole)
+        );
+        vm.prank(OWNER);
+        o.grantRole(burnRole, MINTER_A);
+
+        vm.prank(BOB);
+        o.grantRole(burnRole, MINTER_A);
+        assertTrue(o.hasRole(burnRole, MINTER_A), "burn admin could not add a burner");
+    }
+
+    /// `EMERGENCY_ROLE` is not delegated by the reconcile either — it answers
+    /// to `DEFAULT_ADMIN_ROLE` before and after.
+    function testInitializeV2LeavesEmergencyUnderDefaultAdmin() external {
+        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
+        bytes32 adminRole = o.DEFAULT_ADMIN_ROLE();
+
+        assertEq(o.getRoleAdmin(o.EMERGENCY_ROLE()), adminRole, "emergency delegated before the call");
+
+        vm.prank(OWNER);
+        o.initializeV2();
+
+        assertEq(o.getRoleAdmin(o.EMERGENCY_ROLE()), adminRole, "emergency delegated by the call");
+    }
+
     /// What the grant is for: the mint caps are unsettable on an upgraded
     /// proxy until `initializeV2` runs, and settable after. Reads the limit
     /// back rather than trusting the call not to revert.
@@ -601,6 +654,30 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertEq(orchestrator.MINT_ROLE(), keccak256("MINT"));
         assertEq(orchestrator.BURN_ROLE(), keccak256("BURN"));
         assertEq(orchestrator.EMERGENCY_ROLE(), keccak256("EMERGENCY"));
+        assertEq(orchestrator.MINT_ADMIN_ROLE(), keccak256("MINT_ADMIN"));
+        assertEq(orchestrator.BURN_ADMIN_ROLE(), keccak256("BURN_ADMIN"));
+        assertTrue(orchestrator.MINT_ADMIN_ROLE() != orchestrator.BURN_ADMIN_ROLE());
+        assertTrue(orchestrator.MINT_ADMIN_ROLE() != orchestrator.MINT_ROLE());
+        assertTrue(orchestrator.BURN_ADMIN_ROLE() != orchestrator.BURN_ROLE());
+        assertTrue(orchestrator.BURN_ADMIN_ROLE() != orchestrator.EMERGENCY_ROLE());
+    }
+
+    /// Each operating role answers to its own admin, and `EMERGENCY_ROLE`
+    /// stays under `DEFAULT_ADMIN_ROLE` — the recovery key is deliberately
+    /// not delegated, so the remaining asymmetry is pinned rather than left
+    /// to be read as an oversight.
+    function testRoleAdminsOnAFreshProxy() external view {
+        assertEq(orchestrator.getRoleAdmin(orchestrator.MINT_ROLE()), orchestrator.MINT_ADMIN_ROLE());
+        assertEq(orchestrator.getRoleAdmin(orchestrator.BURN_ROLE()), orchestrator.BURN_ADMIN_ROLE());
+        assertEq(orchestrator.getRoleAdmin(orchestrator.EMERGENCY_ROLE()), orchestrator.DEFAULT_ADMIN_ROLE());
+        assertEq(orchestrator.getRoleAdmin(orchestrator.MINT_ADMIN_ROLE()), orchestrator.DEFAULT_ADMIN_ROLE());
+        assertEq(orchestrator.getRoleAdmin(orchestrator.BURN_ADMIN_ROLE()), orchestrator.DEFAULT_ADMIN_ROLE());
+    }
+
+    /// `initialize` hands the owner both admin roles, not just the mint one.
+    function testInitializeGrantsBothAdminRoles() external view {
+        assertTrue(orchestrator.hasRole(orchestrator.MINT_ADMIN_ROLE(), OWNER), "owner missing mint admin");
+        assertTrue(orchestrator.hasRole(orchestrator.BURN_ADMIN_ROLE(), OWNER), "owner missing burn admin");
     }
 
     function testFuzzMintUnauthorized(address caller) external {

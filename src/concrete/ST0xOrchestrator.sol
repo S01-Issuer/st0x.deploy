@@ -49,17 +49,22 @@ import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
 /// never touch one.
 ///
 /// **Roles** (administered by `DEFAULT_ADMIN_ROLE`, which itself performs no
-/// operations, except that `MINT_ROLE` is administered by `MINT_ADMIN_ROLE`):
+/// operations, except that `MINT_ROLE` is administered by `MINT_ADMIN_ROLE`
+/// and `BURN_ROLE` by `BURN_ADMIN_ROLE`):
 ///  - `MINT_ADMIN_ROLE` — grant `MINT_ROLE`, set the mint caps and the mint
 ///    weighting.
 ///  - `MINT_ROLE` — call `mint`.
+///  - `BURN_ADMIN_ROLE` — grant `BURN_ROLE`. The burn side has no policy to
+///    set, so that is the whole of it.
 ///  - `BURN_ROLE` — call `burn`.
 ///  - `EMERGENCY_ROLE` — recovery ops (`setBurnIndex`, `withdrawReceipt`,
-///    `withdrawShares`, `sweepERC1155`).
+///    `withdrawShares`, `sweepERC1155`). Still administered by
+///    `DEFAULT_ADMIN_ROLE`: it is the recovery key, not an operating one,
+///    and nothing here delegates who may hold it.
 ///
 /// `initialize` wires that split. A proxy that initialised against an
-/// implementation without `MINT_ADMIN_ROLE` carries neither the grant nor the
-/// delegation, and `initializeV2` is the one call that installs them.
+/// implementation without the two admin roles carries neither the grants nor
+/// the delegations, and `initializeV2` is the one call that installs them.
 ///
 /// **Mint recipient authorisation.** Every mint carries the recipient's own
 /// authorisation of `(token, to, amount, nonce)` as a `MintAuthV1`: either an
@@ -127,6 +132,11 @@ contract ST0xOrchestrator is
     /// weighting.
     bytes32 public constant MINT_ADMIN_ROLE = keccak256("MINT_ADMIN");
     bytes32 public constant BURN_ROLE = keccak256("BURN");
+    /// @notice Administers `BURN_ROLE`. The burn side carries no policy to
+    /// set, so granting and revoking `BURN_ROLE` is all this role does — the
+    /// burn-pointer repair is `EMERGENCY_ROLE`'s, deliberately apart from
+    /// both.
+    bytes32 public constant BURN_ADMIN_ROLE = keccak256("BURN_ADMIN");
     bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY");
 
     /// @notice EIP-712 typehash for a recipient's mint authorisation.
@@ -191,12 +201,14 @@ contract ST0xOrchestrator is
         _disableInitializers();
     }
 
-    /// @notice Initialise the singleton. Grants `DEFAULT_ADMIN_ROLE` and
-    /// `MINT_ADMIN_ROLE` to `owner` and makes `MINT_ADMIN_ROLE` the admin of
-    /// `MINT_ROLE`. `MINT_ROLE`, `BURN_ROLE` and `EMERGENCY_ROLE` are granted
-    /// separately. Reverts unless the vault-logic version lock passes.
-    /// @param owner Address granted `DEFAULT_ADMIN_ROLE` and
-    /// `MINT_ADMIN_ROLE`.
+    /// @notice Initialise the singleton. Grants `DEFAULT_ADMIN_ROLE`,
+    /// `MINT_ADMIN_ROLE` and `BURN_ADMIN_ROLE` to `owner`, and delegates
+    /// `MINT_ROLE` to `MINT_ADMIN_ROLE` and `BURN_ROLE` to
+    /// `BURN_ADMIN_ROLE`. `MINT_ROLE`, `BURN_ROLE` and `EMERGENCY_ROLE` are
+    /// granted separately. Reverts unless the vault-logic version lock
+    /// passes.
+    /// @param owner Address granted `DEFAULT_ADMIN_ROLE`, `MINT_ADMIN_ROLE`
+    /// and `BURN_ADMIN_ROLE`.
     function initialize(address owner) external initializer {
         if (owner == address(0)) revert ZeroOwner();
         _checkVaultLogic();
@@ -205,17 +217,20 @@ contract ST0xOrchestrator is
         _grantRole(DEFAULT_ADMIN_ROLE, owner);
         _grantRole(MINT_ADMIN_ROLE, owner);
         _setRoleAdmin(MINT_ROLE, MINT_ADMIN_ROLE);
+        _grantRole(BURN_ADMIN_ROLE, owner);
+        _setRoleAdmin(BURN_ROLE, BURN_ADMIN_ROLE);
     }
 
     /// @notice Reconcile a proxy whose `initialize` ran against an
-    /// implementation that had no `MINT_ADMIN_ROLE`. Such a proxy holds
-    /// `MINT_ADMIN_ROLE` for nobody and leaves `DEFAULT_ADMIN_ROLE` as the
-    /// admin of `MINT_ROLE`, so the mint caps and the mint weighting are
-    /// unsettable and the role split this contract documents does not hold.
-    /// Grants `MINT_ADMIN_ROLE` to the caller and makes it the admin of
-    /// `MINT_ROLE` — the two writes `initialize` performs and nothing else,
-    /// so a proxy reconciled here is indistinguishable from one initialised
-    /// at this version.
+    /// implementation that had neither admin role. Such a proxy holds
+    /// `MINT_ADMIN_ROLE` and `BURN_ADMIN_ROLE` for nobody and leaves
+    /// `DEFAULT_ADMIN_ROLE` as the admin of both `MINT_ROLE` and
+    /// `BURN_ROLE`, so the mint caps and the mint weighting are unsettable
+    /// and the role split this contract documents does not hold on either
+    /// side. Grants both admin roles to the caller and delegates both
+    /// operating roles to them — the four writes `initialize` performs and
+    /// nothing else, so a proxy reconciled here is indistinguishable from
+    /// one initialised at this version.
     ///
     /// @dev A call refused on authorisation reverts in full, so it cannot
     /// consume the proxy's one shot — the version write rolls back with
@@ -224,18 +239,20 @@ contract ST0xOrchestrator is
     /// `reinitializer(2)` admits one call per proxy. A proxy initialised
     /// by this implementation is already in the reconciled state yet still
     /// sits at version 1, so the call is open on it too; it re-grants the
-    /// caller a role the caller must already administer and rewrites the same
-    /// admin, so it changes nothing there. Marking `initialize` itself
+    /// caller roles the caller must already administer and rewrites the same
+    /// admins, so it changes nothing there. Marking `initialize` itself
     /// `reinitializer(2)` would close that at the cost of leaving an ungated
     /// `initialize` callable on every version-1 proxy, which would hand
     /// `DEFAULT_ADMIN_ROLE` to any caller.
     ///
-    /// The caller takes the role rather than an address argument: it must
+    /// The caller takes the roles rather than an address argument: it must
     /// hold `DEFAULT_ADMIN_ROLE` already, which is the same authority
-    /// `initialize` grants both roles to.
+    /// `initialize` grants all three to.
     function initializeV2() external onlyRole(DEFAULT_ADMIN_ROLE) reinitializer(2) {
         _grantRole(MINT_ADMIN_ROLE, msg.sender);
         _setRoleAdmin(MINT_ROLE, MINT_ADMIN_ROLE);
+        _grantRole(BURN_ADMIN_ROLE, msg.sender);
+        _setRoleAdmin(BURN_ROLE, BURN_ADMIN_ROLE);
     }
 
     // ------------------------------------------------------------------ //
