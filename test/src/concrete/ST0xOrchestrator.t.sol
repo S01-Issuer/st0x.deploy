@@ -521,8 +521,11 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         o.initializeV2();
     }
 
-    /// Only `DEFAULT_ADMIN_ROLE` reconciles, and the role check runs ahead of
-    /// the version latch — a refused call must not consume the one shot.
+    /// Only `DEFAULT_ADMIN_ROLE` reconciles, and a refused call leaves the
+    /// one shot intact — the version write reverts with the rest of the call,
+    /// so this holds whichever modifier checks first.
+    /// `testInitializeV2OnImplementationReverts` is the one that pins the
+    /// order, where the two modifiers disagree on which error to raise.
     function testInitializeV2NonAdminRevertsWithoutConsumingTheShot() external {
         ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
         bytes32 adminRole = o.DEFAULT_ADMIN_ROLE();
@@ -557,15 +560,32 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         o.initializeV2();
     }
 
+    /// The latch lands on exactly 2, not on some higher version: a later
+    /// `reinitializer(3)` has to stay reachable, and nothing else here would
+    /// notice if this call foreclosed it. Read from `Initializable`'s own
+    /// ERC-7201 slot, where `_initialized` is the low 64 bits and
+    /// `_initializing` is false once the call has returned.
+    function testInitializeV2LeavesLaterVersionsReachable() external {
+        bytes32 initializableStorage = 0xf0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00;
+        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
+
+        assertEq(uint256(vm.load(address(o), initializableStorage)) & type(uint64).max, 1, "proxy is not at version 1");
+
+        vm.prank(OWNER);
+        o.initializeV2();
+
+        assertEq(
+            uint256(vm.load(address(o), initializableStorage)) & type(uint64).max, 2, "latch did not land on version 2"
+        );
+    }
+
     /// Unreachable on the raw implementation. The role check is the first
     /// modifier, so the implementation — where nobody holds any role —
     /// refuses on authorisation rather than on the version.
     function testInitializeV2OnImplementationReverts() external {
         ST0xOrchestrator raw = new ST0xOrchestrator();
         vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), bytes32(0)
-            )
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), bytes32(0))
         );
         raw.initializeV2();
     }

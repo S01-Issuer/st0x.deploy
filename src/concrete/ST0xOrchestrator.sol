@@ -217,7 +217,11 @@ contract ST0xOrchestrator is
     /// so a proxy reconciled here is indistinguishable from one initialised
     /// at this version.
     ///
-    /// @dev `reinitializer(2)` admits one call per proxy. A proxy initialised
+    /// @dev A call refused on authorisation reverts in full, so it cannot
+    /// consume the proxy's one shot — the version write rolls back with
+    /// everything else, whichever modifier checks first.
+    ///
+    /// `reinitializer(2)` admits one call per proxy. A proxy initialised
     /// by this implementation is already in the reconciled state yet still
     /// sits at version 1, so the call is open on it too; it re-grants the
     /// caller a role the caller must already administer and rewrites the same
