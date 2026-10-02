@@ -118,8 +118,13 @@ address.
    `transferOwnership` → 7 Safe renounces.
 
 `GovernanceTimelockMigration.t.sol` accepts Safe-or-timelock per surface until
-**2026-10-01T00:00:00Z**, then demands the timelock. An unfinished rollout
+**2027-01-01T00:00:00Z**, then demands the timelock. An unfinished rollout
 red-lines cron past that date.
+
+The window moved out from `2026-10-01T00:00:00Z`. The bundle's vault leg covers
+every receipt vault live when it was authored, so each token pinned after that
+leaves it short and it has to be re-authored. The date now sits after
+`ROLLOUT_DEADLINE` so the token rollout settles first.
 
 ## Rehearsing the timelock
 

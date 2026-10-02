@@ -51,9 +51,15 @@ error GovernanceTimelockRolloutOverdue(string label);
 ///
 /// @dev Unpinned head forks so `block.timestamp` is real.
 contract GovernanceTimelockMigrationTest is Test {
-    /// @notice Unix timestamp (`2026-10-01T00:00:00Z`) past which only the
-    /// timelock-governed post-state is accepted.
-    uint256 internal constant GOVERNANCE_TIMELOCK_MIGRATION_DEADLINE = 1_790_812_800;
+    /// @notice Unix timestamp (`2027-01-01T00:00:00Z`) past which only the
+    /// timelock-governed post-state is accepted. Moved out from
+    /// `2026-10-01T00:00:00Z`: the migration bundle transfers every live
+    /// receipt vault, so tokens pinned after it was authored put the vault
+    /// count beyond what the artifact covers and it has to be re-authored
+    /// before it can be signed. Set after `ROLLOUT_DEADLINE` so the token
+    /// rollout settles first and the bundle is authored against a final
+    /// vault set.
+    uint256 internal constant GOVERNANCE_TIMELOCK_MIGRATION_DEADLINE = 1_798_761_600;
 
     /// @notice Unix timestamp (`2026-12-01T00:00:00Z`) past which a chain
     /// may no longer be pre-rollout. The same bootstrap date as
