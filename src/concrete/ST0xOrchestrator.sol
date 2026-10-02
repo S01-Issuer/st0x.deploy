@@ -57,6 +57,10 @@ import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
 ///  - `EMERGENCY_ROLE` — recovery ops (`setBurnIndex`, `withdrawReceipt`,
 ///    `withdrawShares`, `sweepERC1155`).
 ///
+/// `initialize` wires that split. A proxy that initialised against an
+/// implementation without `MINT_ADMIN_ROLE` carries neither the grant nor the
+/// delegation, and `initializeV2` is the one call that installs them.
+///
 /// **Mint recipient authorisation.** Every mint carries the recipient's own
 /// authorisation of `(token, to, amount, nonce)` as a `MintAuthV1`: either an
 /// EIP-712 signature (verified with `SignatureChecker`, so EOAs sign with
@@ -200,6 +204,33 @@ contract ST0xOrchestrator is
         __EIP712_init("ST0xOrchestrator", "1");
         _grantRole(DEFAULT_ADMIN_ROLE, owner);
         _grantRole(MINT_ADMIN_ROLE, owner);
+        _setRoleAdmin(MINT_ROLE, MINT_ADMIN_ROLE);
+    }
+
+    /// @notice Reconcile a proxy whose `initialize` ran against an
+    /// implementation that had no `MINT_ADMIN_ROLE`. Such a proxy holds
+    /// `MINT_ADMIN_ROLE` for nobody and leaves `DEFAULT_ADMIN_ROLE` as the
+    /// admin of `MINT_ROLE`, so the mint caps and the mint weighting are
+    /// unsettable and the role split this contract documents does not hold.
+    /// Grants `MINT_ADMIN_ROLE` to the caller and makes it the admin of
+    /// `MINT_ROLE` — the two writes `initialize` performs and nothing else,
+    /// so a proxy reconciled here is indistinguishable from one initialised
+    /// at this version.
+    ///
+    /// @dev `reinitializer(2)` admits one call per proxy. A proxy initialised
+    /// by this implementation is already in the reconciled state yet still
+    /// sits at version 1, so the call is open on it too; it re-grants the
+    /// caller a role the caller must already administer and rewrites the same
+    /// admin, so it changes nothing there. Marking `initialize` itself
+    /// `reinitializer(2)` would close that at the cost of leaving an ungated
+    /// `initialize` callable on every version-1 proxy, which would hand
+    /// `DEFAULT_ADMIN_ROLE` to any caller.
+    ///
+    /// The caller takes the role rather than an address argument: it must
+    /// hold `DEFAULT_ADMIN_ROLE` already, which is the same authority
+    /// `initialize` grants both roles to.
+    function initializeV2() external onlyRole(DEFAULT_ADMIN_ROLE) reinitializer(2) {
+        _grantRole(MINT_ADMIN_ROLE, msg.sender);
         _setRoleAdmin(MINT_ROLE, MINT_ADMIN_ROLE);
     }
 

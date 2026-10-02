@@ -27,6 +27,7 @@ import {BeaconProxy} from "@openzeppelin-contracts-5.6.1/proxy/beacon/BeaconProx
 import {IERC1271} from "@openzeppelin-contracts-5.6.1/interfaces/IERC1271.sol";
 import {Mock1271} from "./Mock1271.sol";
 import {MockMintRecipient} from "./MockMintRecipient.sol";
+import {PreMintAdminOrchestrator} from "./PreMintAdminOrchestrator.sol";
 import {ReentrantMintRecipient} from "./ReentrantMintRecipient.sol";
 import {ReentrantBurnVault} from "./ReentrantBurnVault.sol";
 import {MockManagerRevert1155} from "./MockManagerRevert1155.sol";
@@ -425,6 +426,148 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         vm.assume(owner != address(0));
         ST0xOrchestrator o = _deployProxy(owner);
         assertTrue(o.hasRole(o.DEFAULT_ADMIN_ROLE(), owner));
+    }
+
+    // ------------------------------------------------------------------ //
+    //                           initializeV2                             //
+    // ------------------------------------------------------------------ //
+
+    /// A proxy as a live one stands: initialised against the implementation
+    /// that had no `MINT_ADMIN_ROLE`, then rolled onto this one by a beacon
+    /// upgrade. The beacon is owned by the test contract, so the upgrade
+    /// needs no prank.
+    function _deployUpgradedPreMintAdminProxy(address owner) internal returns (ST0xOrchestrator) {
+        PreMintAdminOrchestrator legacy = new PreMintAdminOrchestrator();
+        UpgradeableBeacon beacon = new UpgradeableBeacon(address(legacy), address(this));
+        bytes memory initData = abi.encodeCall(PreMintAdminOrchestrator.initialize, (owner));
+        BeaconProxy proxy = new BeaconProxy(address(beacon), initData);
+        beacon.upgradeTo(address(impl));
+        return ST0xOrchestrator(payable(address(proxy)));
+    }
+
+    /// The upgrade alone leaves the role split uninstalled, and
+    /// `initializeV2` installs both halves of it. The pre-call assertions are
+    /// what separate "the call worked" from "the state was already right".
+    function testInitializeV2InstallsMintAdminAndDelegation() external {
+        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
+
+        assertFalse(o.hasRole(o.MINT_ADMIN_ROLE(), OWNER), "mint admin granted before the call");
+        assertEq(o.getRoleAdmin(o.MINT_ROLE()), o.DEFAULT_ADMIN_ROLE(), "mint role already delegated");
+
+        vm.prank(OWNER);
+        o.initializeV2();
+
+        assertTrue(o.hasRole(o.MINT_ADMIN_ROLE(), OWNER), "mint admin not granted");
+        assertEq(o.getRoleAdmin(o.MINT_ROLE()), o.MINT_ADMIN_ROLE(), "mint role not delegated");
+    }
+
+    /// What the grant is for: the mint caps are unsettable on an upgraded
+    /// proxy until `initializeV2` runs, and settable after. Reads the limit
+    /// back rather than trusting the call not to revert.
+    function testInitializeV2MakesMintLimitsSettable() external {
+        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
+        // Read ahead of the prank: a role getter is an external call, so
+        // reading it inside the `expectRevert` argument would spend the prank.
+        bytes32 mintAdminRole = o.MINT_ADMIN_ROLE();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, OWNER, mintAdminRole)
+        );
+        vm.prank(OWNER);
+        o.setMinterGlobalMintLimit(MINTER_A, UNBOUNDED_CAPACITY, NO_LEAK);
+
+        vm.prank(OWNER);
+        o.initializeV2();
+
+        vm.prank(OWNER);
+        o.setMinterGlobalMintLimit(MINTER_A, UNBOUNDED_CAPACITY, NO_LEAK);
+        assertTrue(o.minterGlobalMintLimit(MINTER_A).set, "limit not written");
+    }
+
+    /// The delegation is the half that governance cannot reach without this
+    /// call, so it is pinned by its effect too: `MINT_ADMIN_ROLE` can add a
+    /// minter afterwards, where before only `DEFAULT_ADMIN_ROLE` could.
+    function testInitializeV2MovesMinterGrantingToMintAdmin() external {
+        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
+        bytes32 mintAdminRole = o.MINT_ADMIN_ROLE();
+        bytes32 mintRole = o.MINT_ROLE();
+
+        vm.startPrank(OWNER);
+        o.initializeV2();
+        o.grantRole(mintAdminRole, BOB);
+        o.revokeRole(mintAdminRole, OWNER);
+        vm.stopPrank();
+
+        // OWNER keeps DEFAULT_ADMIN_ROLE and has lost the authority to add a
+        // minter; BOB holds only MINT_ADMIN_ROLE and has it.
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, OWNER, mintAdminRole)
+        );
+        vm.prank(OWNER);
+        o.grantRole(mintRole, MINTER_A);
+
+        vm.prank(BOB);
+        o.grantRole(mintRole, MINTER_A);
+        assertTrue(o.hasRole(mintRole, MINTER_A), "mint admin could not add a minter");
+    }
+
+    /// One call per proxy.
+    function testInitializeV2TwiceReverts() external {
+        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
+        vm.prank(OWNER);
+        o.initializeV2();
+        vm.prank(OWNER);
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        o.initializeV2();
+    }
+
+    /// Only `DEFAULT_ADMIN_ROLE` reconciles, and the role check runs ahead of
+    /// the version latch — a refused call must not consume the one shot.
+    function testInitializeV2NonAdminRevertsWithoutConsumingTheShot() external {
+        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
+        bytes32 adminRole = o.DEFAULT_ADMIN_ROLE();
+        bytes32 mintAdminRole = o.MINT_ADMIN_ROLE();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, BOB, adminRole)
+        );
+        vm.prank(BOB);
+        o.initializeV2();
+
+        vm.prank(OWNER);
+        o.initializeV2();
+        assertTrue(o.hasRole(mintAdminRole, OWNER), "the refused call consumed the shot");
+    }
+
+    /// A proxy initialised by this implementation is already reconciled but
+    /// still sits at version 1, so the call is open on it and changes
+    /// nothing. Pinned because it is the documented cost of not marking
+    /// `initialize` itself `reinitializer(2)`.
+    function testInitializeV2OnFreshProxyChangesNothing() external {
+        ST0xOrchestrator o = _deployProxy(OWNER);
+
+        vm.prank(OWNER);
+        o.initializeV2();
+
+        assertTrue(o.hasRole(o.MINT_ADMIN_ROLE(), OWNER), "mint admin lost");
+        assertEq(o.getRoleAdmin(o.MINT_ROLE()), o.MINT_ADMIN_ROLE(), "delegation lost");
+
+        vm.prank(OWNER);
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        o.initializeV2();
+    }
+
+    /// Unreachable on the raw implementation. The role check is the first
+    /// modifier, so the implementation — where nobody holds any role —
+    /// refuses on authorisation rather than on the version.
+    function testInitializeV2OnImplementationReverts() external {
+        ST0xOrchestrator raw = new ST0xOrchestrator();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), bytes32(0)
+            )
+        );
+        raw.initializeV2();
     }
 
     // ------------------------------------------------------------------ //
