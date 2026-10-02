@@ -304,8 +304,31 @@ contract BuildPointers is Script {
         }
     }
 
+    /// @notice The file name a snapshot of `name` has inside `tag`.
+    ///
+    /// New snapshots are written as `<Name>.sol`, which is the convention
+    /// `rain-deploy` writes its own record with. Tags frozen before that keep
+    /// the `<Name>.pointers.sol` they were frozen under: a frozen tag is an
+    /// append-only record of what was deployed, and rainix's
+    /// `frozen-snapshots-append-only` check reads a rename of one as a
+    /// deletion. So both spellings are read and only the new one is written.
+    /// @param tag The snapshot directory.
+    /// @param name The contract name.
+    /// @return The file name, or the new spelling when neither is present.
+    function pointerFileName(string memory tag, string memory name) internal view returns (string memory) {
+        string memory current = string.concat(name, ".sol");
+        if (vm.exists(string.concat("src/generated/", tag, "/", current))) {
+            return current;
+        }
+        string memory frozen = string.concat(name, ".pointers.sol");
+        if (vm.exists(string.concat("src/generated/", tag, "/", frozen))) {
+            return frozen;
+        }
+        return current;
+    }
+
     function pointerExists(string memory tag, string memory name) internal view returns (bool) {
-        return vm.exists(string.concat("src/generated/", tag, "/", name, ".sol"));
+        return vm.exists(string.concat("src/generated/", tag, "/", pointerFileName(tag, name)));
     }
 
     function writeGeneratedHeader(string memory path) internal {
@@ -319,7 +342,7 @@ contract BuildPointers is Script {
 
     function v4ImportLine(string memory name, string memory base, string memory tag)
         internal
-        pure
+        view
         returns (string memory)
     {
         string memory suffix = tagSuffix(tag);
@@ -328,7 +351,8 @@ contract BuildPointers is Script {
         string memory mid = string.concat(
             "_CODEHASH_", suffix, "_GEN, CREATION_CODE as ", base, "_CREATION_", suffix, "_GEN, RUNTIME_CODE as ", base
         );
-        string memory tail = string.concat("_RUNTIME_", suffix, '_GEN} from "./', tag, "/", name, '.sol";');
+        string memory tail =
+            string.concat("_RUNTIME_", suffix, '_GEN} from "./', tag, "/", pointerFileName(tag, name), '";');
         return string.concat(head, mid, tail);
     }
 
