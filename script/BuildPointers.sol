@@ -75,7 +75,7 @@ contract BuildPointers is Script {
         deployed = LibRainDeploy.deployZoltu(creationCode);
 
         vm.writeFile(
-            string.concat("src/generated/", deployTag(), "/", name, ".pointers.sol"),
+            string.concat("src/generated/", deployTag(), "/", name, ".sol"),
             string.concat(
                 LibCodeGen.filePrefix(),
                 LibCodeGen.bytecodeHashConstantString(vm, deployed),
@@ -169,7 +169,7 @@ contract BuildPointers is Script {
     // Deploy-lib generation.
     //
     // Regenerates `src/generated/LibProdDeployV4.sol` (one versioned constant
-    // set per release tag, each aliasing that tag's frozen `*.pointers.sol`
+    // set per release tag, each aliasing that tag's frozen `*.sol`
     // exports) and `src/generated/LibProdDeployCurrent.sol` (unversioned
     // aliases of the current `deployTag()`), from the per-tag snapshots on
     // disk. Emitted line-by-line via `vm.writeLine` so no single string grows
@@ -187,7 +187,7 @@ contract BuildPointers is Script {
 
     // REUSE-IgnoreEnd
 
-    /// @notice Pointer filenames (without `.pointers.sol`) in a fixed order.
+    /// @notice Pointer filenames (without `.sol`) in a fixed order.
     function contractNames() internal pure returns (string[CONTRACT_COUNT] memory names) {
         names[0] = "StoxReceipt";
         names[1] = "StoxReceiptVault";
@@ -305,7 +305,7 @@ contract BuildPointers is Script {
     }
 
     function pointerExists(string memory tag, string memory name) internal view returns (bool) {
-        return vm.exists(string.concat("src/generated/", tag, "/", name, ".pointers.sol"));
+        return vm.exists(string.concat("src/generated/", tag, "/", name, ".sol"));
     }
 
     function writeGeneratedHeader(string memory path) internal {
@@ -328,7 +328,7 @@ contract BuildPointers is Script {
         string memory mid = string.concat(
             "_CODEHASH_", suffix, "_GEN, CREATION_CODE as ", base, "_CREATION_", suffix, "_GEN, RUNTIME_CODE as ", base
         );
-        string memory tail = string.concat("_RUNTIME_", suffix, '_GEN} from "./', tag, "/", name, '.pointers.sol";');
+        string memory tail = string.concat("_RUNTIME_", suffix, '_GEN} from "./', tag, "/", name, '.sol";');
         return string.concat(head, mid, tail);
     }
 

@@ -488,7 +488,21 @@ contract StoxCrossChainParityTest is Test {
     /// its own fork (pending legs skipped + logged), then compares whatever is
     /// live on both chains.
     function testCrossChainParity() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
+        // Every fork is created before the first is selected. Foundry captures
+        // the account set of the pre-fork EVM when the first fork is selected
+        // and seeds every fork created after that capture with it, so an
+        // address this test reads on Base would be carried onto the later
+        // networks as the empty account the default EVM holds for it — the
+        // first network right and every one after it wrong.
+        string[] memory parityNetworks = new string[](5);
+        parityNetworks[0] = LibRainDeploy.BASE;
+        parityNetworks[1] = LibStoxDeployNetworks.ETHEREUM;
+        parityNetworks[2] = LibStoxDeployNetworks.HYPEREVM;
+        parityNetworks[3] = LibStoxDeployNetworks.ROBINHOOD;
+        parityNetworks[4] = LibStoxDeployNetworks.BSC;
+        uint256[] memory parityForks = LibRainDeploy.createForks(vm, parityNetworks);
+
+        vm.selectFork(parityForks[0]);
         ChainLegs memory base = assertChainLegs(
             "Base",
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE,
@@ -496,7 +510,7 @@ contract StoxCrossChainParityTest is Test {
             LibTokenInvariants.productionTokensBase()
         );
 
-        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
+        vm.selectFork(parityForks[1]);
         ChainLegs memory eth = assertChainLegs(
             "Ethereum",
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM,
@@ -504,7 +518,7 @@ contract StoxCrossChainParityTest is Test {
             LibTokenInvariants.productionTokensEthereum()
         );
 
-        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
+        vm.selectFork(parityForks[2]);
         ChainLegs memory hyper = assertChainLegs(
             "HyperEVM",
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM,
@@ -512,7 +526,7 @@ contract StoxCrossChainParityTest is Test {
             LibTokenInvariants.productionTokensHyperEvm()
         );
 
-        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
+        vm.selectFork(parityForks[3]);
         ChainLegs memory robinhood = assertChainLegs(
             "Robinhood Chain",
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD,
@@ -520,7 +534,7 @@ contract StoxCrossChainParityTest is Test {
             LibTokenInvariants.productionTokensRobinhood()
         );
 
-        vm.createSelectFork(LibStoxDeployNetworks.BSC);
+        vm.selectFork(parityForks[4]);
         ChainLegs memory bsc = assertChainLegs(
             "BNB Smart Chain",
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC,
