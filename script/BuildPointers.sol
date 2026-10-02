@@ -433,7 +433,6 @@ contract BuildPointers is Script {
             GEN_V4_PATH,
             "address constant STOX_PROD_AUTHORISER_V4_CLONE_BSC = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);"
         );
-        vm.writeLine(GEN_V4_PATH, "uint256 constant V4_SWAP_DEADLINE = 1_793_491_200;");
         // ST0x orchestrator beacon + production instance — CREATE-derived
         // from the 0.1.30 orchestrator beacon-set deployer (itself a Zoltu
         // deploy), so chain-invariant like every Zoltu pin: the beacon is the

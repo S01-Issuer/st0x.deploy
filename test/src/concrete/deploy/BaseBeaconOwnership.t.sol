@@ -19,9 +19,15 @@ contract BaseBeaconOwnershipTest is Test {
     /// beacon serves the 0.1.1 impl, the receipt and receipt-vault beacons
     /// serve 0.1.30. Base's beacon addresses are the V1-generation ones.
     ///
+    /// Each implementation is an explicit pin rather than a read-back of the
+    /// beacon's own `implementation()`, so an `upgradeTo` nobody reviewed
+    /// fails here. A read-back would agree with whatever was installed and
+    /// assert nothing.
+    ///
     /// The orchestrator beacon is out of scope: its owner is asserted by
     /// `assertProdBeaconsOwnedByChainSafe` and its build by
-    /// `LibOrchestratorInvariants`.
+    /// `LibOrchestratorInvariants`, which is a different codehash
+    /// generation.
     function testBaseBeaconsAreSafeOwnedAtTheirPinnedImpls() external {
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
 
