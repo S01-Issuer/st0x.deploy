@@ -7,12 +7,11 @@ import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/Upgr
 import {BeaconProxy} from "@openzeppelin-contracts-5.6.1/proxy/beacon/BeaconProxy.sol";
 import {ERC165} from "@openzeppelin-contracts-5.6.1/utils/introspection/ERC165.sol";
 
-import {ST0xOrchestrator} from "../ST0xOrchestrator.sol";
+import {LibAddressRegistry} from "rain-deploy-0.1.10/src/lib/LibAddressRegistry.sol";
+
+import {ST0xOrchestrator, ST0X_TOKEN_OWNER_SAFE_NAME} from "../ST0xOrchestrator.sol";
 import {LibProdDeployCurrent} from "../../generated/LibProdDeployCurrent.sol";
 import {IST0xOrchestratorBeaconSetDeployerV1} from "../../interface/IST0xOrchestratorBeaconSetDeployerV1.sol";
-
-/// Thrown when `deploy` is called with `owner == address(0)`.
-error ZeroOwner();
 
 /// @title ST0xOrchestratorBeaconSetDeployer
 /// @notice Deploys `ST0xOrchestrator` instances as `BeaconProxy` instances
@@ -32,15 +31,17 @@ contract ST0xOrchestratorBeaconSetDeployer is ERC165, IST0xOrchestratorBeaconSet
             new UpgradeableBeacon(LibProdDeployCurrent.ST0X_ORCHESTRATOR, LibProdDeployCurrent.BEACON_INITIAL_OWNER);
     }
 
-    /// @notice Deploy an `ST0xOrchestrator` singleton owned by `owner`.
-    /// Callable by anyone; the deployed instance's own `DEFAULT_ADMIN_ROLE`
-    /// (held by `owner`) governs it.
-    function deploy(address owner) external returns (address) {
-        if (owner == address(0)) revert ZeroOwner();
-
-        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, (owner));
+    /// @notice Deploy an `ST0xOrchestrator` singleton. Callable by anyone,
+    /// and the caller does not choose the owner: `initialize` resolves it
+    /// from the address registry inside this same transaction, so the
+    /// deployed instance is governed by whoever the registry names and
+    /// nothing here can point it elsewhere. The resolved owner is emitted so
+    /// the value the proxy took is on the log rather than only in storage.
+    function deploy() external returns (address) {
+        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
         BeaconProxy proxy = new BeaconProxy(address(iOrchestratorBeacon), initData);
 
+        address owner = LibAddressRegistry.resolve(ST0X_TOKEN_OWNER_SAFE_NAME);
         emit Deployment(msg.sender, address(proxy), owner);
         return address(proxy);
     }

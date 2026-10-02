@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
+import {ST0xOrchestrator, ST0X_TOKEN_OWNER_SAFE_NAME} from "../../../src/concrete/ST0xOrchestrator.sol";
 import {St0xAttestSubParserTest} from "./St0xAttestSubParserTest.sol";
 import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
 import {IST0xVaultBeaconSet} from "../../../src/interface/IST0xVaultBeaconSet.sol";
@@ -28,6 +28,10 @@ import {IERC1271} from "@openzeppelin-contracts-5.6.1/interfaces/IERC1271.sol";
 import {Mock1271} from "./Mock1271.sol";
 import {MockMintRecipient} from "./MockMintRecipient.sol";
 import {PreMintAdminOrchestrator} from "./PreMintAdminOrchestrator.sol";
+import {LibTestAddressRegistry} from "../lib/LibTestAddressRegistry.sol";
+import {IAddressRegistryV1} from "rain-deploy-0.1.10/src/interface/IAddressRegistryV1.sol";
+import {LibAddressRegistry} from "rain-deploy-0.1.10/src/lib/LibAddressRegistry.sol";
+import {LibAddressRegistryDeploy} from "rain-deploy-0.1.10/src/lib/LibAddressRegistryDeploy.sol";
 import {ReentrantMintRecipient} from "./ReentrantMintRecipient.sol";
 import {ReentrantBurnVault} from "./ReentrantBurnVault.sol";
 import {MockManagerRevert1155} from "./MockManagerRevert1155.sol";
@@ -176,9 +180,13 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
     /// Deploy a fresh beacon + proxy pair pointing at `impl`, initialised
     /// with `owner`. The guard mocks must already pass.
+    /// `initialize` resolves its owner from the address registry, so `owner`
+    /// is bound there rather than passed in. The binding is rewritten per
+    /// call so a test can deploy proxies under different owners.
     function _deployProxy(address owner) internal returns (ST0xOrchestrator) {
+        LibTestAddressRegistry.etchAndBind(vm, ST0X_TOKEN_OWNER_SAFE_NAME, owner);
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, (owner));
+        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
         BeaconProxy proxy = new BeaconProxy(address(beacon), initData);
         return ST0xOrchestrator(payable(address(proxy)));
     }
@@ -375,17 +383,48 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     function testConstructorDisablesInitializers() external {
         ST0xOrchestrator raw = new ST0xOrchestrator();
         vm.expectRevert(Initializable.InvalidInitialization.selector);
-        raw.initialize(OWNER);
+        raw.initialize();
     }
 
     function testInitializeGrantsAdmin() external view {
         assertTrue(orchestrator.hasRole(orchestrator.DEFAULT_ADMIN_ROLE(), OWNER), "owner missing admin role");
     }
 
-    function testInitializeZeroOwnerReverts() external {
+    /// The zero-owner check is gone because a zero owner is no longer
+    /// reachable: the registry refuses to bind the zero address and its read
+    /// reverts on an unbound name, so the two ways to arrive at one are both
+    /// refused before `initialize` has an owner at all. Both are pinned here
+    /// rather than left as an argument about the dependency's behaviour.
+    function testInitializeUnboundNameReverts() external {
+        LibTestAddressRegistry.unbind(vm, ST0X_TOKEN_OWNER_SAFE_NAME);
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, (address(0)));
-        vm.expectRevert(IST0xOrchestratorV1.ZeroOwner.selector);
+        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
+        vm.expectRevert(
+            abi.encodeWithSelector(IAddressRegistryV1.NameNotRegistered.selector, ST0X_TOKEN_OWNER_SAFE_NAME)
+        );
+        new BeaconProxy(address(beacon), initData);
+    }
+
+    /// Root cannot bind the zero address in the first place.
+    function testRegistryRefusesAZeroOwner() external {
+        LibTestAddressRegistry.etch(vm);
+        vm.expectRevert(abi.encodeWithSelector(IAddressRegistryV1.ZeroAccount.selector, ST0X_TOKEN_OWNER_SAFE_NAME));
+        LibTestAddressRegistry.bind(vm, ST0X_TOKEN_OWNER_SAFE_NAME, address(0));
+    }
+
+    /// A chain with no registry at the pinned address fails loudly on the
+    /// code hash rather than calling into whatever is there.
+    function testInitializeWithoutARegistryReverts() external {
+        UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
+        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
+        vm.etch(LibAddressRegistryDeploy.ADDRESS_REGISTRY_DEPLOYED_ADDRESS, hex"");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibAddressRegistry.UnexpectedAddressRegistryCodeHash.selector,
+                LibAddressRegistryDeploy.ADDRESS_REGISTRY_DEPLOYED_CODEHASH,
+                bytes32(0)
+            )
+        );
         new BeaconProxy(address(beacon), initData);
     }
 
@@ -395,7 +434,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     function testInitializeVaultGuardFailReverts() external {
         _makeGuardFailVault();
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, (OWNER));
+        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
         vm.expectRevert(
             abi.encodeWithSelector(
                 IST0xOrchestratorV1.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD)
@@ -408,7 +447,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     function testInitializeReceiptGuardFailReverts() external {
         _makeGuardFailReceipt();
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, (OWNER));
+        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
         vm.expectRevert(
             abi.encodeWithSelector(
                 IST0xOrchestratorV1.ReceiptLogicMismatch.selector, EXPECTED_RECEIPT_IMPL, address(0xDEAD)
@@ -419,7 +458,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
     function testDoubleInitializeReverts() external {
         vm.expectRevert(Initializable.InvalidInitialization.selector);
-        orchestrator.initialize(OWNER);
+        orchestrator.initialize();
     }
 
     function testFuzzInitializeGrantsAdmin(address owner) external {

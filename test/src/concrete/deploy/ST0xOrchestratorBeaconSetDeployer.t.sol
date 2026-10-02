@@ -8,12 +8,11 @@ import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/Upgr
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {IERC165} from "@openzeppelin-contracts-5.6.1/utils/introspection/IERC165.sol";
 
-import {
-    ST0xOrchestratorBeaconSetDeployer,
-    ZeroOwner
-} from "../../../../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
+import {ST0xOrchestratorBeaconSetDeployer} from "../../../../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
 import {UpgradedImpl} from "./UpgradedImpl.sol";
-import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
+import {ST0xOrchestrator, ST0X_TOKEN_OWNER_SAFE_NAME} from "../../../../src/concrete/ST0xOrchestrator.sol";
+import {LibTestAddressRegistry} from "../../lib/LibTestAddressRegistry.sol";
+import {IAddressRegistryV1} from "rain-deploy-0.1.10/src/interface/IAddressRegistryV1.sol";
 import {IST0xVaultBeaconSet} from "../../../../src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {IST0xOrchestratorBeaconSetDeployerV1} from "../../../../src/interface/IST0xOrchestratorBeaconSetDeployerV1.sol";
@@ -82,27 +81,34 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
         assertEq(Ownable(address(beacon)).owner(), LibProdDeployV4.BEACON_INITIAL_OWNER, "beacon owner");
     }
 
-    function testDeployRevertsZeroOwner() external {
+    /// There is no zero-owner path left to guard: the owner comes from the
+    /// registry, which refuses to bind the zero address, and an unbound name
+    /// reverts the read. So the deployer's failure mode on a chain with
+    /// nothing bound is the registry's own error, not one of ours.
+    function testDeployRevertsOnAnUnboundName() external {
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
-        // Pin the reverter to the deployer itself: the deployer's own guard
-        // must trip BEFORE any BeaconProxy construction is attempted. A plain
-        // selector expectation would also be satisfied by the same-selector
-        // ZeroOwner() bubbling out of ST0xOrchestrator.initialize inside the
-        // proxy constructor, which reverts from a different address.
-        vm.expectRevert(ZeroOwner.selector, address(d));
-        d.deploy(address(0));
+        LibTestAddressRegistry.etch(vm);
+        LibTestAddressRegistry.unbind(vm, ST0X_TOKEN_OWNER_SAFE_NAME);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAddressRegistryV1.NameNotRegistered.selector, ST0X_TOKEN_OWNER_SAFE_NAME)
+        );
+        d.deploy();
     }
 
+    /// The caller does not choose the owner. `caller` is pranked and is not
+    /// the bound address, and the deployed instance's admin is the bound
+    /// address regardless.
     function testFuzzDeploySuccess(address owner, address caller) external {
         vm.assume(owner != address(0));
         vm.assume(caller != address(0));
         vm.assume(caller != owner);
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
         IBeacon beacon = d.iOrchestratorBeacon();
+        LibTestAddressRegistry.etchAndBind(vm, ST0X_TOKEN_OWNER_SAFE_NAME, owner);
 
         vm.recordLogs();
         vm.prank(caller);
-        address orchestrator = d.deploy(owner);
+        address orchestrator = d.deploy();
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         assertTrue(orchestrator != address(0), "non-zero");
@@ -128,17 +134,27 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
         assertTrue(found, "Deployment emitted");
     }
 
+    /// Two deploys give two proxies even under one binding — the owner is
+    /// not what distinguishes them. The second is also deployed after the
+    /// binding moved, to show the proxies take the value live at their own
+    /// construction rather than the deployer caching one.
     function testDeployMultipleDistinct() external {
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
-        address a = d.deploy(address(0xA11CE));
-        address b = d.deploy(address(0xBEEF));
+        LibTestAddressRegistry.etchAndBind(vm, ST0X_TOKEN_OWNER_SAFE_NAME, address(0xA11CE));
+        address a = d.deploy();
+        LibTestAddressRegistry.bind(vm, ST0X_TOKEN_OWNER_SAFE_NAME, address(0xBEEF));
+        address b = d.deploy();
         assertTrue(a != b, "distinct proxies");
+        assertTrue(ST0xOrchestrator(payable(a)).hasRole(0x00, address(0xA11CE)), "first took the first binding");
+        assertTrue(ST0xOrchestrator(payable(b)).hasRole(0x00, address(0xBEEF)), "second took the second");
+        assertFalse(ST0xOrchestrator(payable(a)).hasRole(0x00, address(0xBEEF)), "rebind moved the first");
     }
 
     function testBeaconUpgradeRedirectsSingleton() external {
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
         IBeacon beacon = d.iOrchestratorBeacon();
-        address orchestrator = d.deploy(address(0xA11CE));
+        LibTestAddressRegistry.etchAndBind(vm, ST0X_TOKEN_OWNER_SAFE_NAME, address(0xA11CE));
+        address orchestrator = d.deploy();
 
         UpgradedImpl newImpl = new UpgradedImpl();
         // The beacon owner is the fixed production owner, not a deploy param.

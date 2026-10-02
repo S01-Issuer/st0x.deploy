@@ -35,11 +35,22 @@ import {
 } from "rainlang-interface-0.2.9/src/interface/IInterpreterV4.sol";
 import {LibNamespace} from "rainlang-interface-0.2.9/src/lib/ns/LibNamespace.sol";
 
+import {LibAddressRegistry} from "rain-deploy-0.1.10/src/lib/LibAddressRegistry.sol";
+
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
 import {IST0xVaultBeaconSet} from "../interface/IST0xVaultBeaconSet.sol";
 import {IST0xOrchestratorV1, MintAuthV1, MintLimitV1, MintBucketV1, Digest} from "../interface/IST0xOrchestratorV1.sol";
 import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
+
+// The address-registry name the orchestrator resolves its owner under: the
+// chain's ST0x token-owner Safe. The registry constrains nothing about how a
+// name is derived, so this is an agreement with the registry's root rather
+// than anything the registry checks. It is part of this contract's creation
+// code, so changing it moves the implementation's deterministic address and
+// every address derived from it. Plain `//` because solc rejects natspec on a
+// file level constant.
+bytes32 constant ST0X_TOKEN_OWNER_SAFE_NAME = keccak256("st0x.token-owner-safe");
 
 /// @title ST0xOrchestrator
 /// @notice Singleton mint/burn proxy for the ST0x receipt-vault set. One
@@ -212,16 +223,26 @@ contract ST0xOrchestrator is
         _disableInitializers();
     }
 
-    /// @notice Initialise the singleton. Grants `DEFAULT_ADMIN_ROLE`,
-    /// `MINT_ADMIN_ROLE` and `BURN_ADMIN_ROLE` to `owner`, and delegates
-    /// `MINT_ROLE` to `MINT_ADMIN_ROLE` and `BURN_ROLE` to
-    /// `BURN_ADMIN_ROLE`. `MINT_ROLE`, `BURN_ROLE` and `EMERGENCY_ROLE` are
-    /// granted separately. Reverts unless the vault-logic version lock
-    /// passes.
-    /// @param owner Address granted `DEFAULT_ADMIN_ROLE`, `MINT_ADMIN_ROLE`
-    /// and `BURN_ADMIN_ROLE`.
-    function initialize(address owner) external initializer {
-        if (owner == address(0)) revert ZeroOwner();
+    /// @notice Initialise the singleton. Resolves the owner from the address
+    /// registry and grants it `DEFAULT_ADMIN_ROLE`, `MINT_ADMIN_ROLE`,
+    /// `BURN_ADMIN_ROLE` and `EMERGENCY_ADMIN_ROLE`, then delegates each
+    /// operating role to its own admin. `MINT_ROLE`, `BURN_ROLE` and
+    /// `EMERGENCY_ROLE` are granted separately. Reverts unless the
+    /// vault-logic version lock passes.
+    ///
+    /// @dev The registry is read here rather than taken as an argument, and
+    /// here rather than in the constructor. The constructor runs on the
+    /// implementation, which is Zoltu-deployed to one address on every chain,
+    /// so resolving there would write a per-chain value into shared runtime
+    /// code and give the implementation a different code hash per chain.
+    /// This runs inside the proxy's own construction — the beacon-set
+    /// deployer passes it as the `BeaconProxy` constructor's init data — so
+    /// the value is settled the moment the proxy exists and no later
+    /// re-binding can move it, which is the registry's stated requirement.
+    /// `resolve` verifies the registry's code hash and the registry reverts
+    /// on an unbound name, so there is no zero owner to check for.
+    function initialize() external initializer {
+        address owner = LibAddressRegistry.resolve(ST0X_TOKEN_OWNER_SAFE_NAME);
         _checkVaultLogic();
         __AccessControl_init();
         __EIP712_init("ST0xOrchestrator", "1");
