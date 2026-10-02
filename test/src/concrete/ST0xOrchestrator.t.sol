@@ -112,7 +112,6 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     /// Zero as a capacity, a level or a headroom: the same word as `NO_LEAK`,
     /// named for what it is compared against.
     Float internal constant ZERO = LibDecimalFloat.FLOAT_ZERO;
-
     ST0xOrchestrator internal impl;
     ST0xOrchestrator internal orchestrator;
 
@@ -468,7 +467,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     }
 
     // ------------------------------------------------------------------ //
-    //                           initializeV2                             //
+    //                           migrate                             //
     // ------------------------------------------------------------------ //
 
     /// A proxy as a live one stands: initialised against the implementation
@@ -485,16 +484,16 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     }
 
     /// The upgrade alone leaves the role split uninstalled, and
-    /// `initializeV2` installs both halves of it. The pre-call assertions are
+    /// `migrate` installs both halves of it. The pre-call assertions are
     /// what separate "the call worked" from "the state was already right".
-    function testInitializeV2InstallsMintAdminAndDelegation() external {
+    function testMigrateInstallsMintAdminAndDelegation() external {
         ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
 
         assertFalse(o.hasRole(o.MINT_ADMIN_ROLE(), OWNER), "mint admin granted before the call");
         assertEq(o.getRoleAdmin(o.MINT_ROLE()), o.DEFAULT_ADMIN_ROLE(), "mint role already delegated");
 
         vm.prank(OWNER);
-        o.initializeV2(OWNER);
+        o.migrate(OWNER);
 
         assertTrue(o.hasRole(o.MINT_ADMIN_ROLE(), OWNER), "mint admin not granted");
         assertEq(o.getRoleAdmin(o.MINT_ROLE()), o.MINT_ADMIN_ROLE(), "mint role not delegated");
@@ -502,14 +501,14 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
     /// The burn half of the same reconcile. Separate from the mint half so a
     /// call that installed only one is not reported as a pass.
-    function testInitializeV2InstallsBurnAdminAndDelegation() external {
+    function testMigrateInstallsBurnAdminAndDelegation() external {
         ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
 
         assertFalse(o.hasRole(o.BURN_ADMIN_ROLE(), OWNER), "burn admin granted before the call");
         assertEq(o.getRoleAdmin(o.BURN_ROLE()), o.DEFAULT_ADMIN_ROLE(), "burn role already delegated");
 
         vm.prank(OWNER);
-        o.initializeV2(OWNER);
+        o.migrate(OWNER);
 
         assertTrue(o.hasRole(o.BURN_ADMIN_ROLE(), OWNER), "burn admin not granted");
         assertEq(o.getRoleAdmin(o.BURN_ROLE()), o.BURN_ADMIN_ROLE(), "burn role not delegated");
@@ -517,13 +516,13 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
     /// The burn delegation by its effect: `BURN_ADMIN_ROLE` can add a burner
     /// afterwards, where before only `DEFAULT_ADMIN_ROLE` could.
-    function testInitializeV2MovesBurnGrantingToBurnAdmin() external {
+    function testMigrateMovesBurnGrantingToBurnAdmin() external {
         ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
         bytes32 burnAdminRole = o.BURN_ADMIN_ROLE();
         bytes32 burnRole = o.BURN_ROLE();
 
         vm.startPrank(OWNER);
-        o.initializeV2(OWNER);
+        o.migrate(OWNER);
         o.grantRole(burnAdminRole, BOB);
         o.revokeRole(burnAdminRole, OWNER);
         vm.stopPrank();
@@ -540,14 +539,14 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     }
 
     /// The emergency half of the same reconcile.
-    function testInitializeV2InstallsEmergencyAdminAndDelegation() external {
+    function testMigrateInstallsEmergencyAdminAndDelegation() external {
         ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
 
         assertFalse(o.hasRole(o.EMERGENCY_ADMIN_ROLE(), OWNER), "emergency admin granted before the call");
         assertEq(o.getRoleAdmin(o.EMERGENCY_ROLE()), o.DEFAULT_ADMIN_ROLE(), "emergency already delegated");
 
         vm.prank(OWNER);
-        o.initializeV2(OWNER);
+        o.migrate(OWNER);
 
         assertTrue(o.hasRole(o.EMERGENCY_ADMIN_ROLE(), OWNER), "emergency admin not granted");
         assertEq(o.getRoleAdmin(o.EMERGENCY_ROLE()), o.EMERGENCY_ADMIN_ROLE(), "emergency not delegated");
@@ -557,13 +556,13 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     /// hand out the recovery key afterwards, where before only
     /// `DEFAULT_ADMIN_ROLE` could — and holding the admin role is still not
     /// holding the key.
-    function testInitializeV2MovesEmergencyGrantingToEmergencyAdmin() external {
+    function testMigrateMovesEmergencyGrantingToEmergencyAdmin() external {
         ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
         bytes32 emergencyAdminRole = o.EMERGENCY_ADMIN_ROLE();
         bytes32 emergencyRole = o.EMERGENCY_ROLE();
 
         vm.startPrank(OWNER);
-        o.initializeV2(OWNER);
+        o.migrate(OWNER);
         o.grantRole(emergencyAdminRole, BOB);
         o.revokeRole(emergencyAdminRole, OWNER);
         vm.stopPrank();
@@ -581,9 +580,9 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     }
 
     /// What the grant is for: the mint caps are unsettable on an upgraded
-    /// proxy until `initializeV2` runs, and settable after. Reads the limit
+    /// proxy until `migrate` runs, and settable after. Reads the limit
     /// back rather than trusting the call not to revert.
-    function testInitializeV2MakesMintLimitsSettable() external {
+    function testMigrateMakesMintLimitsSettable() external {
         ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
         // Read ahead of the prank: a role getter is an external call, so
         // reading it inside the `expectRevert` argument would spend the prank.
@@ -596,7 +595,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         o.setMinterGlobalMintLimit(MINTER_A, UNBOUNDED_CAPACITY, NO_LEAK);
 
         vm.prank(OWNER);
-        o.initializeV2(OWNER);
+        o.migrate(OWNER);
 
         vm.prank(OWNER);
         o.setMinterGlobalMintLimit(MINTER_A, UNBOUNDED_CAPACITY, NO_LEAK);
@@ -606,13 +605,13 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     /// The delegation is the half that governance cannot reach without this
     /// call, so it is pinned by its effect too: `MINT_ADMIN_ROLE` can add a
     /// minter afterwards, where before only `DEFAULT_ADMIN_ROLE` could.
-    function testInitializeV2MovesMinterGrantingToMintAdmin() external {
+    function testMigrateMovesMinterGrantingToMintAdmin() external {
         ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
         bytes32 mintAdminRole = o.MINT_ADMIN_ROLE();
         bytes32 mintRole = o.MINT_ROLE();
 
         vm.startPrank(OWNER);
-        o.initializeV2(OWNER);
+        o.migrate(OWNER);
         o.grantRole(mintAdminRole, BOB);
         o.revokeRole(mintAdminRole, OWNER);
         vm.stopPrank();
@@ -633,11 +632,11 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     /// The admin is the argument, not the caller. OWNER holds
     /// `DEFAULT_ADMIN_ROLE` and so may make the call, but the roles land on
     /// BOB — which is what distinguishes a parameter from `msg.sender`.
-    function testInitializeV2InstallsTheArgumentNotTheCaller() external {
+    function testMigrateInstallsTheArgumentNotTheCaller() external {
         ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
 
         vm.prank(OWNER);
-        o.initializeV2(BOB);
+        o.migrate(BOB);
 
         assertTrue(o.hasRole(o.MINT_ADMIN_ROLE(), BOB), "argument did not take mint admin");
         assertTrue(o.hasRole(o.BURN_ADMIN_ROLE(), BOB), "argument did not take burn admin");
@@ -650,35 +649,34 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     /// A zero admin would burn the proxy's one shot while granting the admin
     /// roles to nobody, leaving the operating roles delegated to a role no
     /// account holds — unrecoverable without another upgrade. Refused.
-    function testInitializeV2ZeroAdminReverts() external {
+    function testMigrateZeroAdminReverts() external {
         ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
 
         vm.expectRevert(IST0xOrchestratorV1.ZeroOwner.selector);
         vm.prank(OWNER);
-        o.initializeV2(address(0));
+        o.migrate(address(0));
 
         // The refused call left the shot intact.
         vm.prank(OWNER);
-        o.initializeV2(OWNER);
+        o.migrate(OWNER);
         assertTrue(o.hasRole(o.MINT_ADMIN_ROLE(), OWNER), "the refused call consumed the shot");
     }
 
     /// One call per proxy.
-    function testInitializeV2TwiceReverts() external {
+    /// A second run has nothing to apply and says so.
+    function testMigrateTwiceReverts() external {
         ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
+        uint256 latest = o.LATEST_MIGRATION();
         vm.prank(OWNER);
-        o.initializeV2(OWNER);
+        o.migrate(OWNER);
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.AlreadyMigrated.selector, latest));
         vm.prank(OWNER);
-        vm.expectRevert(Initializable.InvalidInitialization.selector);
-        o.initializeV2(OWNER);
+        o.migrate(OWNER);
     }
 
-    /// Only `DEFAULT_ADMIN_ROLE` reconciles, and a refused call leaves the
-    /// one shot intact — the version write reverts with the rest of the call,
-    /// so this holds whichever modifier checks first.
-    /// `testInitializeV2OnImplementationReverts` is the one that pins the
-    /// order, where the two modifiers disagree on which error to raise.
-    function testInitializeV2NonAdminRevertsWithoutConsumingTheShot() external {
+    /// Only `DEFAULT_ADMIN_ROLE` migrates, and a refused call records
+    /// nothing, so the work is still pending afterwards.
+    function testMigrateNonAdminRevertsWithoutRecording() external {
         ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
         bytes32 adminRole = o.DEFAULT_ADMIN_ROLE();
         bytes32 mintAdminRole = o.MINT_ADMIN_ROLE();
@@ -687,29 +685,26 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, BOB, adminRole)
         );
         vm.prank(BOB);
-        o.initializeV2(OWNER);
+        o.migrate(OWNER);
 
         vm.prank(OWNER);
-        o.initializeV2(OWNER);
-        assertTrue(o.hasRole(mintAdminRole, OWNER), "the refused call consumed the shot");
+        o.migrate(OWNER);
+        assertTrue(o.hasRole(mintAdminRole, OWNER), "the refused call recorded the migration");
     }
 
-    /// A proxy initialised by this implementation is already reconciled but
-    /// still sits at version 1, so the call is open on it and changes
-    /// nothing. Pinned because it is the documented cost of not marking
-    /// `initialize` itself `reinitializer(2)`.
-    function testInitializeV2OnFreshProxyChangesNothing() external {
+    /// A proxy initialised by this implementation has already run every step,
+    /// so there is nothing left to apply and `migrate` refuses. This is what
+    /// the contract's own counter buys over `reinitializer`, whose `< N` test
+    /// would have left the call open on a fresh proxy.
+    function testMigrateOnFreshProxyReverts() external {
         ST0xOrchestrator o = _deployProxy(OWNER);
+        uint256 latest = o.LATEST_MIGRATION();
 
+        assertEq(o.migration(), latest, "a fresh proxy is not at the latest step");
+
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.AlreadyMigrated.selector, latest));
         vm.prank(OWNER);
-        o.initializeV2(OWNER);
-
-        assertTrue(o.hasRole(o.MINT_ADMIN_ROLE(), OWNER), "mint admin lost");
-        assertEq(o.getRoleAdmin(o.MINT_ROLE()), o.MINT_ADMIN_ROLE(), "delegation lost");
-
-        vm.prank(OWNER);
-        vm.expectRevert(Initializable.InvalidInitialization.selector);
-        o.initializeV2(OWNER);
+        o.migrate(OWNER);
     }
 
     /// The latch lands on exactly 2, not on some higher version: a later
@@ -717,29 +712,56 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     /// notice if this call foreclosed it. Read from `Initializable`'s own
     /// ERC-7201 slot, where `_initialized` is the low 64 bits and
     /// `_initializing` is false once the call has returned.
-    function testInitializeV2LeavesLaterVersionsReachable() external {
+    /// The counter is the contract's own, not `Initializable`'s latch. A
+    /// proxy from an implementation that predates the counter reads zero and
+    /// lands on `LATEST_MIGRATION`, and the `Initializable` version is left
+    /// where `initialize` put it — the two are independent, which is what
+    /// lets a later step run without spending an initializer version.
+    function testMigrateRecordsOnItsOwnCounter() external {
         bytes32 initializableStorage = 0xf0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00;
         ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
+        uint256 latest = o.LATEST_MIGRATION();
 
-        assertEq(uint256(vm.load(address(o), initializableStorage)) & type(uint64).max, 1, "proxy is not at version 1");
+        assertEq(o.migration(), 0, "a pre-counter proxy does not read zero");
+        uint256 latchBefore = uint256(vm.load(address(o), initializableStorage)) & type(uint64).max;
 
         vm.prank(OWNER);
-        o.initializeV2(OWNER);
+        o.migrate(OWNER);
 
+        assertEq(o.migration(), latest, "counter did not reach the latest step");
         assertEq(
-            uint256(vm.load(address(o), initializableStorage)) & type(uint64).max, 2, "latch did not land on version 2"
+            uint256(vm.load(address(o), initializableStorage)) & type(uint64).max,
+            latchBefore,
+            "migrating spent an Initializable version"
         );
+    }
+
+    /// Catching up is one call however far behind the proxy is, and it runs
+    /// every missing step rather than only the newest. Here the proxy is at
+    /// zero and both steps have to land.
+    function testMigrateRunsEveryMissingStep() external {
+        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
+
+        vm.prank(OWNER);
+        o.migrate(OWNER);
+
+        // Step 1's state.
+        assertTrue(o.hasRole(o.DEFAULT_ADMIN_ROLE(), OWNER), "step 1 did not run");
+        // Step 2's state, on all three legs.
+        assertEq(o.getRoleAdmin(o.MINT_ROLE()), o.MINT_ADMIN_ROLE(), "step 2 mint leg did not run");
+        assertEq(o.getRoleAdmin(o.BURN_ROLE()), o.BURN_ADMIN_ROLE(), "step 2 burn leg did not run");
+        assertEq(o.getRoleAdmin(o.EMERGENCY_ROLE()), o.EMERGENCY_ADMIN_ROLE(), "step 2 emergency leg did not run");
     }
 
     /// Unreachable on the raw implementation. The role check is the first
     /// modifier, so the implementation — where nobody holds any role —
     /// refuses on authorisation rather than on the version.
-    function testInitializeV2OnImplementationReverts() external {
+    function testMigrateOnImplementationReverts() external {
         ST0xOrchestrator raw = new ST0xOrchestrator();
         vm.expectRevert(
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), bytes32(0))
         );
-        raw.initializeV2(OWNER);
+        raw.migrate(OWNER);
     }
 
     // ------------------------------------------------------------------ //

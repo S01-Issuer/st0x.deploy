@@ -79,10 +79,12 @@ bytes32 constant ST0X_TOKEN_OWNER_SAFE_NAME = keccak256("st0x.token-owner-safe")
 /// `MINT_ADMIN_ROLE` does not grant `MINT_ROLE`, and `initialize` grants only
 /// the admin roles.
 ///
-/// `initialize` wires that split. A proxy that initialised against an
-/// implementation without the three admin roles carries neither the grants
-/// nor the delegations, and `initializeV2` is the one call that installs
-/// them.
+/// **Migrations.** `initialize` records `LATEST_MIGRATION` on a new proxy.
+/// A proxy deployed by an earlier implementation carries only the state the
+/// steps it ran installed, and `migrate` applies the rest in order. The
+/// count lives in this contract's own storage so a run always starts from
+/// what the proxy has actually recorded, which is what makes a skipped step
+/// unrepresentable rather than merely discouraged.
 ///
 /// **Mint recipient authorisation.** Every mint carries the recipient's own
 /// authorisation of `(token, to, amount, nonce)` as a `MintAuthV1`: either an
@@ -160,6 +162,11 @@ contract ST0xOrchestrator is
     /// `EMERGENCY_ROLE`: it says who may be handed the recovery key, never
     /// that its holder may turn it.
     bytes32 public constant EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN");
+    /// @notice EIP-712 typehash for a recipient's mint authorisation.
+    /// @notice How many migration steps the current implementation has.
+    /// `initialize` records this on a new proxy, and `migrate` brings an
+    /// older one up to it. Adding a step bumps this by one.
+    uint256 public constant LATEST_MIGRATION = 2;
 
     /// @notice EIP-712 typehash for a recipient's mint authorisation.
     bytes32 public constant MINT_AUTH_TYPEHASH =
@@ -181,6 +188,24 @@ contract ST0xOrchestrator is
         /// The mint weighting: the one expression that converts every mint
         /// into the charge on both buckets. A zero interpreter is unset.
         EvaluableV4 mintWeighting;
+        /// How many of this contract's migration steps this proxy has run.
+        /// `LATEST_MIGRATION` is what a proxy initialised by the current
+        /// implementation holds; anything lower is a proxy that predates a
+        /// step and `migrate` is what brings it up.
+        ///
+        /// This is the contract's own counter rather than `Initializable`'s
+        /// version latch, because the latch cannot express "apply the steps
+        /// this proxy is missing": `reinitializer(N)` admits any version
+        /// below `N`, so a proxy still on step 1 could take a step-3
+        /// reinitializer and skip step 2's state entirely. A counter the
+        /// contract reads before it writes can refuse that, and one entry
+        /// point can apply a run of steps in order.
+        ///
+        /// Zero means a proxy that predates this field. Such a proxy has still
+        /// run step 1 — `initialize` is how it came to exist — so `migrate`
+        /// floors a stored zero at 1 rather than replaying a step that
+        /// cannot be replayed.
+        uint256 migration;
     }
 
     /// @dev One cap: a policy and the bucket metered under it. A bucket is
@@ -243,8 +268,66 @@ contract ST0xOrchestrator is
     /// on an unbound name, so there is no zero owner to check for.
     function initialize() external initializer {
         address owner = LibAddressRegistry.resolve(ST0X_TOKEN_OWNER_SAFE_NAME);
-        _initializeV1(owner);
-        _initializeV2(owner);
+        _runMigrations(0, owner);
+    }
+
+    /// @notice Apply every migration step this proxy has not run, in order,
+    /// up to `LATEST_MIGRATION`. This is the one entry point for every
+    /// upgrade that adds state, now and later: a proxy three steps behind
+    /// catches up in one call, and a step can never be skipped because the
+    /// run always starts at what this proxy has actually recorded.
+    ///
+    /// Reverts `AlreadyMigrated` when there is nothing to do, so a repeat
+    /// call is a loud no-op rather than a silent one.
+    ///
+    /// @dev `admin` is the one argument the steps so far need, and is passed
+    /// rather than resolved from the address registry. This runs as its own
+    /// transaction against a deployed proxy, so a resolve would take whatever
+    /// the registry's root has bound by then — the point of use the registry
+    /// forbids reading at, and the moment a dormant root compromise would
+    /// choose. A step that needs something else gets its own parameter when
+    /// it is written; the signature is as upgradeable as the rest.
+    /// @param admin Address the admin-role steps grant their roles to.
+    function migrate(address admin) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256 from = _main().migration;
+        // A proxy that exists ran step 1, because step 1 is what `initialize`
+        // did and a proxy cannot be reached without it. So a stored zero is a
+        // proxy that predates the counter, not one that has run nothing, and
+        // the floor here is 1 rather than 0. Step 1 also cannot be replayed:
+        // it calls the inherited `onlyInitializing` module initialisers,
+        // which revert `NotInitializing` outside an initializer.
+        if (from < 1) {
+            from = 1;
+        }
+        if (from >= LATEST_MIGRATION) {
+            revert AlreadyMigrated(from);
+        }
+        _runMigrations(from, admin);
+    }
+
+    /// @notice How many migration steps this proxy has run. Equals
+    /// `LATEST_MIGRATION` on a proxy that needs nothing.
+    /// @return The recorded step count.
+    function migration() external view returns (uint256) {
+        return _main().migration;
+    }
+
+    /// @dev Run steps `from + 1` through `LATEST_MIGRATION` and record the
+    /// result. Every caller reaches the steps through here, so the recorded
+    /// count and the state are written by one path and cannot disagree.
+    ///
+    /// Adding a step is: write `_initializeV<N>`, add its `if` here, bump
+    /// `LATEST_MIGRATION`. Nothing else, and no new external function.
+    /// @param from The step count this proxy has already run.
+    /// @param admin Address the admin-role steps grant their roles to.
+    function _runMigrations(uint256 from, address admin) internal {
+        if (from < 1) {
+            _initializeV1(admin);
+        }
+        if (from < 2) {
+            _initializeV2(admin);
+        }
+        _main().migration = LATEST_MIGRATION;
     }
 
     /// @dev The state a proxy took at its original deployment: the
@@ -274,43 +357,6 @@ contract ST0xOrchestrator is
         _setRoleAdmin(BURN_ROLE, BURN_ADMIN_ROLE);
         _grantRole(EMERGENCY_ADMIN_ROLE, admin);
         _setRoleAdmin(EMERGENCY_ROLE, EMERGENCY_ADMIN_ROLE);
-    }
-
-    /// @notice Reconcile a proxy whose `initialize` ran against an
-    /// implementation that had none of the admin roles. Such a proxy holds
-    /// `MINT_ADMIN_ROLE`, `BURN_ADMIN_ROLE` and `EMERGENCY_ADMIN_ROLE` for
-    /// nobody and leaves `DEFAULT_ADMIN_ROLE` as the admin of all three
-    /// operating roles, so the mint caps and the mint weighting are
-    /// unsettable and the role split this contract documents holds on no
-    /// side. Runs `_initializeV2` and nothing else, which is the same
-    /// function `initialize` runs for the same purpose, so a proxy
-    /// reconciled here is indistinguishable from one initialised at this
-    /// version rather than merely intended to be.
-    ///
-    /// @dev A call refused on authorisation reverts in full, so it cannot
-    /// consume the proxy's one shot — the version write rolls back with
-    /// everything else, whichever modifier checks first.
-    ///
-    /// `reinitializer(2)` admits one call per proxy. A proxy initialised
-    /// by this implementation is already in the reconciled state yet still
-    /// sits at version 1, so the call is open on it too, where it can only
-    /// re-grant and re-delegate what is already there. Marking `initialize`
-    /// itself `reinitializer(2)` would close that at the cost of leaving an
-    /// ungated `initialize` callable on every version-1 proxy, which would
-    /// hand `DEFAULT_ADMIN_ROLE` to any caller.
-    ///
-    /// `admin` is an argument and deliberately not a registry read. This
-    /// runs as its own transaction against an already-deployed proxy, so a
-    /// resolve here would take whatever the registry's root has bound by
-    /// then — the point of use the registry's own rule forbids reading at.
-    /// A root compromise could otherwise sit dormant and be switched
-    /// immediately before this call, which is a moment the operator chooses
-    /// and nobody re-audits a binding at. The caller must already hold
-    /// `DEFAULT_ADMIN_ROLE`, so the authority is proven by state this proxy
-    /// holds, and the address it installs is stated rather than fetched.
-    /// @param admin Address granted the three admin roles.
-    function initializeV2(address admin) external onlyRole(DEFAULT_ADMIN_ROLE) reinitializer(2) {
-        _initializeV2(admin);
     }
 
     // ------------------------------------------------------------------ //

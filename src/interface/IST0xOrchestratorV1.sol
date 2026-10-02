@@ -104,6 +104,11 @@ interface IST0xOrchestratorV1 {
     event MintWeightingSet(address indexed sender, EvaluableV4 evaluable);
 
     error ZeroOwner();
+
+    /// @notice `migrate` was called on a proxy that has already run every
+    /// step the current implementation has.
+    /// @param migration The step count the proxy already holds.
+    error AlreadyMigrated(uint256 migration);
     error ZeroAmount();
     /// @notice `mint` was asked to send the shares to the minter itself. The
     /// sender and the recipient of a mint can never be the same address.
