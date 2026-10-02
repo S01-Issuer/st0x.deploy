@@ -36,6 +36,8 @@ import {
 import {LibNamespace} from "rainlang-interface-0.2.9/src/lib/ns/LibNamespace.sol";
 
 import {LibAddressRegistry} from "rain-deploy-0.1.10/src/lib/LibAddressRegistry.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.10/src/lib/LibMigrationRegistry.sol";
+import {Prerequisite, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.10/src/interface/IMigrationRegistryV2.sol";
 
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
@@ -51,6 +53,16 @@ import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
 // every address derived from it. Plain `//` because solc rejects natspec on a
 // file level constant.
 bytes32 constant ST0X_TOKEN_OWNER_SAFE_NAME = keccak256("st0x.token-owner-safe");
+
+// This repo's migration namespace. One per repo, as rain-deploy states, so
+// every migration line this codebase writes shares a head and an order.
+bytes32 constant ST0X_MIGRATION_NAMESPACE = keccak256("st0x.deploy");
+
+// The migration that installs the admin-role split: `MINT_ADMIN_ROLE`,
+// `BURN_ADMIN_ROLE` and `EMERGENCY_ADMIN_ROLE`, each administering its own
+// operating role. Named for the step rather than the release, because the id
+// is fixed the moment it is first applied and cannot be renamed afterwards.
+bytes32 constant ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES = keccak256("st0x.orchestrator.migration.admin-roles");
 
 /// @title ST0xOrchestrator
 /// @notice Singleton mint/burn proxy for the ST0x receipt-vault set. One
@@ -79,12 +91,14 @@ bytes32 constant ST0X_TOKEN_OWNER_SAFE_NAME = keccak256("st0x.token-owner-safe")
 /// `MINT_ADMIN_ROLE` does not grant `MINT_ROLE`, and `initialize` grants only
 /// the admin roles.
 ///
-/// **Migrations.** `initialize` records `LATEST_MIGRATION` on a new proxy.
-/// A proxy deployed by an earlier implementation carries only the state the
-/// steps it ran installed, and `migrate` applies the rest in order. The
-/// count lives in this contract's own storage so a run always starts from
-/// what the proxy has actually recorded, which is what makes a skipped step
-/// unrepresentable rather than merely discouraged.
+/// **Migrations.** Each step this contract adds is recorded in rain-deploy's
+/// `MigrationRegistry`, under this proxy as writer, in
+/// `ST0X_MIGRATION_NAMESPACE`. `initialize` installs and records the step for
+/// a new proxy; `migrate` installs and records it for a proxy that was
+/// initialised before the step existed. The registry keeps the order: every
+/// write names the head its line is at and is refused if that is not where
+/// the line actually is, so a skipped or repeated step is a revert rather
+/// than a divergence, and this contract keeps no counter of its own.
 ///
 /// **Mint recipient authorisation.** Every mint carries the recipient's own
 /// authorisation of `(token, to, amount, nonce)` as a `MintAuthV1`: either an
@@ -163,11 +177,6 @@ contract ST0xOrchestrator is
     /// that its holder may turn it.
     bytes32 public constant EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN");
     /// @notice EIP-712 typehash for a recipient's mint authorisation.
-    /// @notice How many migration steps the current implementation has.
-    /// `initialize` records this on a new proxy, and `migrate` brings an
-    /// older one up to it. Adding a step bumps this by one.
-    uint256 public constant LATEST_MIGRATION = 2;
-
     /// @notice EIP-712 typehash for a recipient's mint authorisation.
     bytes32 public constant MINT_AUTH_TYPEHASH =
         keccak256("MintAuth(address token,address recipient,uint256 amount,bytes32 nonce)");
@@ -188,24 +197,6 @@ contract ST0xOrchestrator is
         /// The mint weighting: the one expression that converts every mint
         /// into the charge on both buckets. A zero interpreter is unset.
         EvaluableV4 mintWeighting;
-        /// How many of this contract's migration steps this proxy has run.
-        /// `LATEST_MIGRATION` is what a proxy initialised by the current
-        /// implementation holds; anything lower is a proxy that predates a
-        /// step and `migrate` is what brings it up.
-        ///
-        /// This is the contract's own counter rather than `Initializable`'s
-        /// version latch, because the latch cannot express "apply the steps
-        /// this proxy is missing": `reinitializer(N)` admits any version
-        /// below `N`, so a proxy still on step 1 could take a step-3
-        /// reinitializer and skip step 2's state entirely. A counter the
-        /// contract reads before it writes can refuse that, and one entry
-        /// point can apply a run of steps in order.
-        ///
-        /// Zero means a proxy that predates this field. Such a proxy has still
-        /// run step 1 — `initialize` is how it came to exist — so `migrate`
-        /// floors a stored zero at 1 rather than replaying a step that
-        /// cannot be replayed.
-        uint256 migration;
     }
 
     /// @dev One cap: a policy and the bucket metered under it. A bucket is
@@ -268,66 +259,60 @@ contract ST0xOrchestrator is
     /// on an unbound name, so there is no zero owner to check for.
     function initialize() external initializer {
         address owner = LibAddressRegistry.resolve(ST0X_TOKEN_OWNER_SAFE_NAME);
-        _runMigrations(0, owner);
+        _initializeV1(owner);
+        _initializeV2(owner);
+        _recordAdminRolesMigration();
     }
 
-    /// @notice Apply every migration step this proxy has not run, in order,
-    /// up to `LATEST_MIGRATION`. This is the one entry point for every
-    /// upgrade that adds state, now and later: a proxy three steps behind
-    /// catches up in one call, and a step can never be skipped because the
-    /// run always starts at what this proxy has actually recorded.
+    /// @notice Install the admin-role split on a proxy that was initialised
+    /// by an implementation without it, and record that in the migration
+    /// registry.
     ///
-    /// Reverts `AlreadyMigrated` when there is nothing to do, so a repeat
-    /// call is a loud no-op rather than a silent one.
+    /// @dev There is no local guard against running this twice and no local
+    /// record of whether it has run, because the registry is both. A second
+    /// call presents `MIGRATION_HEAD_GENESIS` as its head while this proxy's
+    /// line has moved on to `ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES`, so it
+    /// reverts `UnexpectedMigrationHead` — the registry's refusals run
+    /// arguments, then the list, then the record, so a repeat is caught on
+    /// where the line is rather than on `MigrationAlreadyApplied`. The same
+    /// head check is what will refuse a later step applied to a proxy that
+    /// never got this one.
     ///
-    /// @dev `admin` is the one argument the steps so far need, and is passed
-    /// rather than resolved from the address registry. This runs as its own
-    /// transaction against a deployed proxy, so a resolve would take whatever
-    /// the registry's root has bound by then — the point of use the registry
-    /// forbids reading at, and the moment a dormant root compromise would
-    /// choose. A step that needs something else gets its own parameter when
-    /// it is written; the signature is as upgradeable as the rest.
-    /// @param admin Address the admin-role steps grant their roles to.
+    /// The writer is this proxy. A record is keyed by `msg.sender`, so this
+    /// line is one only this proxy can write, which is what makes it
+    /// authoritative for its own steps without any authority being
+    /// configured. Reading another writer's line would be reading a claim.
+    ///
+    /// `admin` is an argument rather than an address-registry read. This runs
+    /// as its own transaction against a deployed proxy, so a resolve would
+    /// take whatever the registry's root has bound by then, which is the
+    /// point of use the address registry forbids reading at and the moment a
+    /// dormant root compromise would pick.
+    /// @param admin Address granted the three admin roles.
     function migrate(address admin) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        uint256 from = _main().migration;
-        // A proxy that exists ran step 1, because step 1 is what `initialize`
-        // did and a proxy cannot be reached without it. So a stored zero is a
-        // proxy that predates the counter, not one that has run nothing, and
-        // the floor here is 1 rather than 0. Step 1 also cannot be replayed:
-        // it calls the inherited `onlyInitializing` module initialisers,
-        // which revert `NotInitializing` outside an initializer.
-        if (from < 1) {
-            from = 1;
-        }
-        if (from >= LATEST_MIGRATION) {
-            revert AlreadyMigrated(from);
-        }
-        _runMigrations(from, admin);
+        _initializeV2(admin);
+        _recordAdminRolesMigration();
     }
 
-    /// @notice How many migration steps this proxy has run. Equals
-    /// `LATEST_MIGRATION` on a proxy that needs nothing.
-    /// @return The recorded step count.
-    function migration() external view returns (uint256) {
-        return _main().migration;
-    }
-
-    /// @dev Run steps `from + 1` through `LATEST_MIGRATION` and record the
-    /// result. Every caller reaches the steps through here, so the recorded
-    /// count and the state are written by one path and cannot disagree.
+    /// @dev Record the admin-role migration under this proxy, last, after the
+    /// state it describes is installed. rain-deploy is explicit about the
+    /// order where the two cannot be one atomic unit: "a record that never
+    /// landed leaves a reader asserting the pre-migration state, which the
+    /// verification layer then catches loudly, and leaves a re-run possible.
+    /// A record that landed for a migration that did not is the harder state
+    /// to get out of." Here they are atomic anyway, and the order costs
+    /// nothing.
     ///
-    /// Adding a step is: write `_initializeV<N>`, add its `if` here, bump
-    /// `LATEST_MIGRATION`. Nothing else, and no new external function.
-    /// @param from The step count this proxy has already run.
-    /// @param admin Address the admin-role steps grant their roles to.
-    function _runMigrations(uint256 from, address admin) internal {
-        if (from < 1) {
-            _initializeV1(admin);
-        }
-        if (from < 2) {
-            _initializeV2(admin);
-        }
-        _main().migration = LATEST_MIGRATION;
+    /// The head alone is the whole list: this is the first migration in the
+    /// proxy's line and it waits on no other writer.
+    function _recordAdminRolesMigration() internal {
+        Prerequisite[] memory prerequisites = new Prerequisite[](1);
+        prerequisites[0] = Prerequisite({
+            writer: address(this), namespace: ST0X_MIGRATION_NAMESPACE, migration: MIGRATION_HEAD_GENESIS
+        });
+        LibMigrationRegistry.applyMigration(
+            ST0X_MIGRATION_NAMESPACE, ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES, prerequisites
+        );
     }
 
     /// @dev The state a proxy took at its original deployment: the

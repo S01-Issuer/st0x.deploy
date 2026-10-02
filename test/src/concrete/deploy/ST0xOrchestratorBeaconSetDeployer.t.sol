@@ -12,6 +12,7 @@ import {ST0xOrchestratorBeaconSetDeployer} from "../../../../src/concrete/deploy
 import {UpgradedImpl} from "./UpgradedImpl.sol";
 import {ST0xOrchestrator, ST0X_TOKEN_OWNER_SAFE_NAME} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {LibTestAddressRegistry} from "../../lib/LibTestAddressRegistry.sol";
+import {LibTestMigrationRegistry} from "../../lib/LibTestMigrationRegistry.sol";
 import {IAddressRegistryV1} from "rain-deploy-0.1.10/src/interface/IAddressRegistryV1.sol";
 import {IST0xVaultBeaconSet} from "../../../../src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
@@ -40,6 +41,9 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
         // `deploy` initialises the proxy, which runs the orchestrator's
         // vault-logic version guard — install passing mocks up front.
         _makeGuardPass();
+        // Every deploy records a migration, so the registry has to be present
+        // for all of them, not only the ones that bind an owner inline.
+        LibTestMigrationRegistry.etch(vm);
     }
 
     /// Make the orchestrator's vault-logic version guard PASS: the production
@@ -105,6 +109,7 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
         IBeacon beacon = d.iOrchestratorBeacon();
         LibTestAddressRegistry.etchAndBind(vm, ST0X_TOKEN_OWNER_SAFE_NAME, owner);
+        LibTestMigrationRegistry.etch(vm);
 
         vm.recordLogs();
         vm.prank(caller);

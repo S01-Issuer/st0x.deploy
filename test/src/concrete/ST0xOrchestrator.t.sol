@@ -2,7 +2,12 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {ST0xOrchestrator, ST0X_TOKEN_OWNER_SAFE_NAME} from "../../../src/concrete/ST0xOrchestrator.sol";
+import {
+    ST0xOrchestrator,
+    ST0X_TOKEN_OWNER_SAFE_NAME,
+    ST0X_MIGRATION_NAMESPACE,
+    ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES
+} from "../../../src/concrete/ST0xOrchestrator.sol";
 import {St0xAttestSubParserTest} from "./St0xAttestSubParserTest.sol";
 import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
 import {IST0xVaultBeaconSet} from "../../../src/interface/IST0xVaultBeaconSet.sol";
@@ -29,6 +34,10 @@ import {Mock1271} from "./Mock1271.sol";
 import {MockMintRecipient} from "./MockMintRecipient.sol";
 import {PreMintAdminOrchestrator} from "./PreMintAdminOrchestrator.sol";
 import {LibTestAddressRegistry} from "../lib/LibTestAddressRegistry.sol";
+import {LibTestMigrationRegistry} from "../lib/LibTestMigrationRegistry.sol";
+import {IMigrationRegistryV2, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.10/src/interface/IMigrationRegistryV2.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.10/src/lib/LibMigrationRegistry.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.10/src/lib/LibMigrationRegistryDeploy.sol";
 import {IAddressRegistryV1} from "rain-deploy-0.1.10/src/interface/IAddressRegistryV1.sol";
 import {LibAddressRegistry} from "rain-deploy-0.1.10/src/lib/LibAddressRegistry.sol";
 import {LibAddressRegistryDeploy} from "rain-deploy-0.1.10/src/lib/LibAddressRegistryDeploy.sol";
@@ -184,6 +193,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     /// call so a test can deploy proxies under different owners.
     function _deployProxy(address owner) internal returns (ST0xOrchestrator) {
         LibTestAddressRegistry.etchAndBind(vm, ST0X_TOKEN_OWNER_SAFE_NAME, owner);
+        LibTestMigrationRegistry.etch(vm);
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
         bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
         BeaconProxy proxy = new BeaconProxy(address(beacon), initData);
@@ -662,14 +672,77 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertTrue(o.hasRole(o.MINT_ADMIN_ROLE(), OWNER), "the refused call consumed the shot");
     }
 
-    /// One call per proxy.
-    /// A second run has nothing to apply and says so.
+    /// A second run is refused by the registry, on the head rather than on a
+    /// local guard: the line has moved to the migration id, so a call still
+    /// naming genesis is told where the line actually is. The registry checks
+    /// the list before the record, which is why this is
+    /// `UnexpectedMigrationHead` and not `MigrationAlreadyApplied`.
     function testMigrateTwiceReverts() external {
         ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
-        uint256 latest = o.LATEST_MIGRATION();
         vm.prank(OWNER);
         o.migrate(OWNER);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.AlreadyMigrated.selector, latest));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IMigrationRegistryV2.UnexpectedMigrationHead.selector,
+                address(o),
+                ST0X_MIGRATION_NAMESPACE,
+                ST0X_MIGRATION_NAMESPACE,
+                MIGRATION_HEAD_GENESIS,
+                ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES
+            )
+        );
+        vm.prank(OWNER);
+        o.migrate(OWNER);
+    }
+
+    /// The record is written under the proxy, not under the caller. That is
+    /// what makes the line one only this proxy can write, and therefore worth
+    /// reading.
+    function testMigrateRecordsUnderTheProxy() external {
+        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
+        IMigrationRegistryV2 registry =
+            IMigrationRegistryV2(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
+
+        assertEq(
+            registry.applied(address(o), ST0X_MIGRATION_NAMESPACE, ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES),
+            0,
+            "recorded before the call"
+        );
+
+        vm.prank(OWNER);
+        o.migrate(OWNER);
+
+        assertEq(
+            registry.applied(address(o), ST0X_MIGRATION_NAMESPACE, ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES),
+            block.timestamp,
+            "not recorded under the proxy"
+        );
+        assertEq(
+            registry.applied(OWNER, ST0X_MIGRATION_NAMESPACE, ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES),
+            0,
+            "recorded under the caller"
+        );
+        assertEq(
+            registry.head(address(o), ST0X_MIGRATION_NAMESPACE),
+            ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES,
+            "head did not move"
+        );
+    }
+
+    /// A chain without the registry cannot migrate, and fails on the code
+    /// hash rather than calling into whatever occupies the address.
+    function testMigrateWithoutARegistryReverts() external {
+        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
+        LibTestMigrationRegistry.unEtch(vm);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibMigrationRegistry.UnexpectedMigrationRegistryCodeHash.selector,
+                LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_CODEHASH,
+                bytes32(0)
+            )
+        );
         vm.prank(OWNER);
         o.migrate(OWNER);
     }
@@ -692,50 +765,6 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertTrue(o.hasRole(mintAdminRole, OWNER), "the refused call recorded the migration");
     }
 
-    /// A proxy initialised by this implementation has already run every step,
-    /// so there is nothing left to apply and `migrate` refuses. This is what
-    /// the contract's own counter buys over `reinitializer`, whose `< N` test
-    /// would have left the call open on a fresh proxy.
-    function testMigrateOnFreshProxyReverts() external {
-        ST0xOrchestrator o = _deployProxy(OWNER);
-        uint256 latest = o.LATEST_MIGRATION();
-
-        assertEq(o.migration(), latest, "a fresh proxy is not at the latest step");
-
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.AlreadyMigrated.selector, latest));
-        vm.prank(OWNER);
-        o.migrate(OWNER);
-    }
-
-    /// The latch lands on exactly 2, not on some higher version: a later
-    /// `reinitializer(3)` has to stay reachable, and nothing else here would
-    /// notice if this call foreclosed it. Read from `Initializable`'s own
-    /// ERC-7201 slot, where `_initialized` is the low 64 bits and
-    /// `_initializing` is false once the call has returned.
-    /// The counter is the contract's own, not `Initializable`'s latch. A
-    /// proxy from an implementation that predates the counter reads zero and
-    /// lands on `LATEST_MIGRATION`, and the `Initializable` version is left
-    /// where `initialize` put it — the two are independent, which is what
-    /// lets a later step run without spending an initializer version.
-    function testMigrateRecordsOnItsOwnCounter() external {
-        bytes32 initializableStorage = 0xf0c57e16840df040f15088dc2f81fe391c3923bec73e23a9662efc9c229c6a00;
-        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
-        uint256 latest = o.LATEST_MIGRATION();
-
-        assertEq(o.migration(), 0, "a pre-counter proxy does not read zero");
-        uint256 latchBefore = uint256(vm.load(address(o), initializableStorage)) & type(uint64).max;
-
-        vm.prank(OWNER);
-        o.migrate(OWNER);
-
-        assertEq(o.migration(), latest, "counter did not reach the latest step");
-        assertEq(
-            uint256(vm.load(address(o), initializableStorage)) & type(uint64).max,
-            latchBefore,
-            "migrating spent an Initializable version"
-        );
-    }
-
     /// Catching up is one call however far behind the proxy is, and it runs
     /// every missing step rather than only the newest. Here the proxy is at
     /// zero and both steps have to land.
@@ -751,6 +780,36 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertEq(o.getRoleAdmin(o.MINT_ROLE()), o.MINT_ADMIN_ROLE(), "step 2 mint leg did not run");
         assertEq(o.getRoleAdmin(o.BURN_ROLE()), o.BURN_ADMIN_ROLE(), "step 2 burn leg did not run");
         assertEq(o.getRoleAdmin(o.EMERGENCY_ROLE()), o.EMERGENCY_ADMIN_ROLE(), "step 2 emergency leg did not run");
+    }
+
+    /// A proxy that `initialize` built has already had the step installed and
+    /// recorded, so its line is at the migration and a `migrate` naming
+    /// genesis is refused. `initialize` recording is what makes a later step
+    /// able to name this one as its predecessor on every proxy, new or
+    /// migrated.
+    function testMigrateOnFreshProxyReverts() external {
+        ST0xOrchestrator o = _deployProxy(OWNER);
+        IMigrationRegistryV2 registry =
+            IMigrationRegistryV2(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
+
+        assertEq(
+            registry.head(address(o), ST0X_MIGRATION_NAMESPACE),
+            ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES,
+            "initialize did not record the step"
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IMigrationRegistryV2.UnexpectedMigrationHead.selector,
+                address(o),
+                ST0X_MIGRATION_NAMESPACE,
+                ST0X_MIGRATION_NAMESPACE,
+                MIGRATION_HEAD_GENESIS,
+                ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES
+            )
+        );
+        vm.prank(OWNER);
+        o.migrate(OWNER);
     }
 
     /// Unreachable on the raw implementation. The role check is the first

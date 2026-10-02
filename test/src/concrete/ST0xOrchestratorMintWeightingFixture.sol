@@ -13,6 +13,7 @@ import {EvaluableV4, SignedContextV1} from "rainlang-interface-0.2.9/src/interfa
 
 import {ST0xOrchestrator, ST0X_TOKEN_OWNER_SAFE_NAME} from "src/concrete/ST0xOrchestrator.sol";
 import {LibTestAddressRegistry} from "test/src/lib/LibTestAddressRegistry.sol";
+import {LibTestMigrationRegistry} from "test/src/lib/LibTestMigrationRegistry.sol";
 import {MintAuthV1} from "src/interface/IST0xOrchestratorV1.sol";
 import {IST0xVaultBeaconSet} from "src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployV4} from "src/generated/LibProdDeployV4.sol";
@@ -76,6 +77,7 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
         ST0xOrchestrator impl = new ST0xOrchestrator();
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
         LibTestAddressRegistry.etchAndBind(vm, ST0X_TOKEN_OWNER_SAFE_NAME, OWNER);
+        LibTestMigrationRegistry.etch(vm);
         BeaconProxy proxy = new BeaconProxy(address(beacon), abi.encodeCall(ST0xOrchestrator.initialize, ()));
         orchestrator = ST0xOrchestrator(payable(address(proxy)));
 

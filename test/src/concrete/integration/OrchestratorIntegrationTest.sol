@@ -23,6 +23,7 @@ import {EvaluableV4} from "rainlang-interface-0.2.9/src/interface/IInterpreterCa
 
 import {ST0xOrchestrator, ST0X_TOKEN_OWNER_SAFE_NAME} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {LibTestAddressRegistry} from "../../lib/LibTestAddressRegistry.sol";
+import {LibTestMigrationRegistry} from "../../lib/LibTestMigrationRegistry.sol";
 import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";
 import {MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV1.sol";
 import {StoxCorporateActionsFacet} from "../../../../src/concrete/StoxCorporateActionsFacet.sol";
@@ -208,6 +209,7 @@ abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
     function _deployOrchestrator(address owner) internal returns (ST0xOrchestrator) {
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
         LibTestAddressRegistry.etchAndBind(vm, ST0X_TOKEN_OWNER_SAFE_NAME, owner);
+        LibTestMigrationRegistry.etch(vm);
         bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
         BeaconProxy proxy = new BeaconProxy(address(beacon), initData);
         return ST0xOrchestrator(payable(address(proxy)));
