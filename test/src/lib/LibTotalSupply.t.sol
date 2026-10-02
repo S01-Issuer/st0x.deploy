@@ -162,7 +162,11 @@ contract LibTotalSupplyTest is Test {
         assertEq(h.effectiveTotalSupply(), 1800);
     }
 
-    /// `onMint(0)` and `onBurn(0)` leave every pot unchanged.
+    /// `onMint(0)` and `onBurn(0)` leave every pot unchanged. Both are
+    /// `unmigrated[latest] += amount` / `-= amount`, so zero is
+    /// mathematically inert — and a reshape to `unmigrated[latest] =
+    /// f(amount)` could corrupt the pot for zero-amount calls while every
+    /// non-zero-amount test still passed.
     function testOnMintOnBurnZeroAreNoOps() external {
         h.setOzTotalSupply(1000);
         h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
@@ -183,7 +187,10 @@ contract LibTotalSupplyTest is Test {
     }
 
     /// Cancelling a pending split does not move `totalSupplyLatestCursor`
-    /// from where the prior `fold()` left it.
+    /// from where the prior `fold()` left it. Once `fold()` has
+    /// advanced past a completed split, the cursor reflects per-pot state
+    /// already reified in the storage pots, so a later-scheduled pending
+    /// split has nothing to communicate back to fold's view of the past.
     function testCancelPendingDoesNotRewindFoldedCursor() external {
         h.setOzTotalSupply(1000);
 
@@ -196,7 +203,10 @@ contract LibTotalSupplyTest is Test {
 
         // Schedule a second split with future effectiveTime, then cancel
         // it before warping. Assert immediately after cancel, before a
-        // fold could re-derive the cursor.
+        // fold could re-derive the cursor: a regression that wrote
+        // `totalSupplyLatestCursor` from inside `cancel` surfaces here and
+        // is invisible to a post-fold assertion, because fold re-walks and
+        // lands on the same index either way.
         uint256 idB = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 5000, _splitParams(3));
         h.cancel(idB);
         assertEq(h.totalSupplyLatestCursor(), cursorAfterFirstFold, "cancel must not write totalSupplyLatestCursor");
@@ -212,8 +222,12 @@ contract LibTotalSupplyTest is Test {
         assertEq(h.effectiveTotalSupply(), 2000, "totalSupply unchanged after cancelling a pending split");
     }
 
-    /// `fold()` walks the linked list, so a cancelled (unlinked) node is
-    /// never landed on. Schedule A/B/C, fold past A, cancel B (still
+    /// `fold()` walks via `nextOfType`, so a cancelled node — `next =
+    /// NODE_NONE` after unlink — is unreachable from the walk. A switch to
+    /// raw array iteration (`current + 1`) would still see the cancelled
+    /// node's `actionType`, which cancel preserves, with `effectiveTime ==
+    /// 0` passing the COMPLETED filter, landing the cursor on a cancelled
+    /// index and breaking pot accounting on every later mint. Schedule A/B/C, fold past A, cancel B (still
     /// pending), warp past C, fold again: the cursor skips B and lands on C.
     function testFoldWalksAroundCancelledNode() external {
         h.setOzTotalSupply(1000);
@@ -256,6 +270,10 @@ contract LibTotalSupplyTest is Test {
     /// Fold mutates only `totalSupplyLatestCursor`, never a pot: with
     /// non-trivial pot values, a fold that advances the cursor leaves every
     /// pot unchanged.
+    /// This is step 1 of the pot-invariant inductive proof in
+    /// `LibTotalSupply`'s NatSpec. A pot write added inside fold — clearing
+    /// a pot, or rolling pots across folds — would desync the invariant from
+    /// the migration state without failing anything else.
     function testFoldDoesNotMutateAnyPot() external {
         h.setOzTotalSupply(1000);
 
@@ -414,7 +432,11 @@ contract LibTotalSupplyTest is Test {
     }
 
     /// `onBurn` reverts via Solidity 0.8 underflow panic when the burn
-    /// amount exceeds the current pot at `totalSupplyLatestCursor`.
+    /// amount exceeds the current pot at `totalSupplyLatestCursor`. Under
+    /// normal vault operation that state is unreachable, because every burn
+    /// is preceded by `migrateAccount(burner)` moving the burner's balance
+    /// into the latest pot first; the check is here so that wrapping the
+    /// subtraction in `unchecked` cannot quietly corrupt the pot.
     function testOnBurnUnderflowReverts() external {
         h.setOzTotalSupply(1000);
         h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));

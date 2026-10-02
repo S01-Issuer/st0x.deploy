@@ -128,7 +128,9 @@ contract StoxReceiptVaultSetAuthorizerGuardTest is Test {
     }
 
     /// On the happy path the installation lands: `authorizer()` returns the
-    /// new address.
+    /// new address. Without `super.setAuthorizer` the guard
+    /// could pass while the stored pointer stayed stale, so this pins the
+    /// call-through rather than just the guard.
     function testSetAuthorizerInstallsAuthorizerOnSuccess() external {
         OwnedStoxReceiptVault vault = new OwnedStoxReceiptVault(OWNER);
         StoxOffchainAssetReceiptVaultAuthorizerV1 good = _newCorporateActionsAuthorizer();
@@ -211,7 +213,10 @@ contract StoxReceiptVaultSetAuthorizerGuardTest is Test {
     }
 
     /// `address(0)` has no code, so `getRoleAdmin` reverts at staticcall
-    /// time: "install no authorizer" does not succeed.
+    /// time: "install no authorizer" does not succeed. Named
+    /// rather than left to the EOA fuzz that happens to include it, because
+    /// the zero address is the canonical "no authorizer" sentinel and
+    /// installing it must not silently succeed.
     function testSetAuthorizerRejectsZeroAddressAuthorizer() external {
         OwnedStoxReceiptVault vault = new OwnedStoxReceiptVault(OWNER);
         vm.prank(OWNER);
@@ -219,8 +224,11 @@ contract StoxReceiptVaultSetAuthorizerGuardTest is Test {
         vault.setAuthorizer(IAuthorizeV1(address(0)));
     }
 
-    /// The guard probes both role admins. `vm.expectCall` asserts on
-    /// call shape, not on downstream effects.
+    /// The guard probes BOTH role admins, not just one. A refactor that
+    /// collapses the two staticcalls into one, or skips the CANCEL check on
+    /// the assumption that SCHEDULE implies it, would silently widen the gap
+    /// the guard exists to close. `vm.expectCall` asserts on call shape, not
+    /// on downstream effects.
     function testSetAuthorizerCallsGetRoleAdminForBothRoles() external {
         OwnedStoxReceiptVault vault = new OwnedStoxReceiptVault(OWNER);
         StoxOffchainAssetReceiptVaultAuthorizerV1 good = _newCorporateActionsAuthorizer();
@@ -237,6 +245,9 @@ contract StoxReceiptVaultSetAuthorizerGuardTest is Test {
     /// A guard revert leaves the prior authorizer in place: install a
     /// valid authorizer, then try to install a bad one and assert the
     /// prior authorizer is still active.
+    /// The install is all-or-nothing, which means `super.setAuthorizer` runs
+    /// only after the guard returns cleanly; moving the guard's reverts
+    /// after the super call would fail this.
     function testSetAuthorizerKeepsPriorAuthorizerOnGuardRevert() external {
         OwnedStoxReceiptVault vault = new OwnedStoxReceiptVault(OWNER);
         StoxOffchainAssetReceiptVaultAuthorizerV1 good = _newCorporateActionsAuthorizer();
@@ -255,8 +266,11 @@ contract StoxReceiptVaultSetAuthorizerGuardTest is Test {
         assertEq(address(vault.authorizer()), address(good));
     }
 
-    /// The guard's predicate is `admin == bytes32(0)`: any non-zero
-    /// bytes32 passes.
+    /// The guard's predicate is exactly `admin == bytes32(0)` — not a
+    /// magnitude or range check — so any non-zero bytes32 passes: single
+    /// bit, high bit, all bits. Fuzzed at that boundary so a refactor to
+    /// `admin < someThreshold` breaks the test rather than silently widening
+    /// rejection.
     function testSetAuthorizerAcceptsAnyNonZeroRoleAdmin(bytes32 scheduleAdmin, bytes32 cancelAdmin) external {
         vm.assume(scheduleAdmin != bytes32(0));
         vm.assume(cancelAdmin != bytes32(0));
@@ -286,6 +300,9 @@ contract StoxReceiptVaultSetAuthorizerGuardTest is Test {
     /// The guard is additive on top of `super.setAuthorizer`: an
     /// authorizer that passes the role-admin guard but fails
     /// `supportsInterface(IAuthorizeV1)` reverts `IncompatibleAuthorizer`.
+    /// Without this pin, a refactor that dropped `super.setAuthorizer` in
+    /// favour of writing the storage slot directly would silently bypass the
+    /// ERC-165 check.
     function testSetAuthorizerStillEnforcesSuperInterfaceCheck() external {
         OwnedStoxReceiptVault vault = new OwnedStoxReceiptVault(OWNER);
         address mocked = makeAddr("interface-failing-authorizer");
@@ -316,7 +333,9 @@ contract StoxReceiptVaultSetAuthorizerGuardTest is Test {
         assertEq(address(vault.authorizer()), address(0));
     }
 
-    /// The guard's role constants are distinct and non-zero. A zero role
+    /// The guard's role constants are distinct and non-zero, and it depends
+    /// on both. Were they equal, one check could satisfy both without anyone
+    /// noticing. A zero role
     /// would make `getRoleAdmin` answer zero for an unconfigured admin and
     /// the guard probe its own failing condition.
     function testGuardRoleConstantsAreDistinctAndNonZero() external pure {
@@ -328,13 +347,19 @@ contract StoxReceiptVaultSetAuthorizerGuardTest is Test {
     /// The override has the same 4-byte selector as the parent's
     /// `setAuthorizer`; a signature mismatch would leave the unguarded
     /// parent function callable.
+    /// A different parameter type or name would shadow the parent rather
+    /// than override it, so selector equality is pinned here to make a
+    /// signature drift fail loudly.
     function testSetAuthorizerSelectorMatchesParent() external pure {
         assertEq(StoxReceiptVault.setAuthorizer.selector, OffchainAssetReceiptVault.setAuthorizer.selector);
     }
 
     /// The guard runs only at install time. If an installed authorizer
     /// renounces its role admins afterwards, `vault.authorizer()` still
-    /// returns it.
+    /// returns it. The guard has done its job at
+    /// the pairing point and is not re-checked, so an operator relying on
+    /// continuous validity has to monitor the authorizer itself. This test
+    /// documents that install-time-only contract rather than a defect.
     function testGuardIsInstallTimeOnlyNotPerCall() external {
         OwnedStoxReceiptVault vault = new OwnedStoxReceiptVault(OWNER);
         StoxOffchainAssetReceiptVaultAuthorizerV1 good = _newCorporateActionsAuthorizer();

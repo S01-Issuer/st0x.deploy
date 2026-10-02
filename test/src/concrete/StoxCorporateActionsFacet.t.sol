@@ -99,6 +99,12 @@ contract StoxCorporateActionsFacetTest is Test {
     /// `scheduleCorporateAction` calls the authorizer with the SCHEDULE
     /// permission and `abi.encode(typeHash, effectiveTime, parameters)` as
     /// the data argument, before the type hash is resolved.
+    ///
+    /// "Before" is what is actually under test, so the type hash is a
+    /// deliberately unknown one: `resolveActionType` then reverts AFTER the
+    /// authorize call, and `vm.expectCall` survives the downstream revert to
+    /// prove the call happened first. A known type hash would pass whether
+    /// the ordering held or not.
     function testScheduleCorporateActionForwardsContextToAuthorizer() external {
         bytes32 typeHash = keccak256("DefinitelyUnknownActionType");
         uint64 effectiveTime = 1500;
@@ -122,6 +128,11 @@ contract StoxCorporateActionsFacetTest is Test {
     /// `cancelCorporateAction` calls the authorizer with the CANCEL permission
     /// and `abi.encode(actionIndex)` as the data argument, before the index
     /// is checked to exist.
+    ///
+    /// Index 42 is not scheduled, so `cancel` reverts `ActionDoesNotExist`.
+    /// That is deliberate and the success flag is discarded: the assertion
+    /// is the surviving `vm.expectCall`, which says the authorize call
+    /// happened before the existence check.
     function testCancelCorporateActionForwardsContextToAuthorizer() external {
         uint256 actionIndex = 42;
 
@@ -268,7 +279,10 @@ contract StoxCorporateActionsFacetTest is Test {
 
     /// Multiple actions scheduled at the same effectiveTime are inserted in
     /// stable order: each new node lands after existing nodes with equal
-    /// effectiveTime.
+    /// effectiveTime. This rests on the `<=` comparison in
+    /// `LibCorporateAction.schedule`'s tail walk; flipping it to `<` would
+    /// silently reorder same-time actions and break time-stable iteration,
+    /// which is what this test is here to catch.
     function testScheduleTiedEffectiveTimeStableOrdering() external {
         uint256 first = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"01");
         uint256 second = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"02");
@@ -292,7 +306,9 @@ contract StoxCorporateActionsFacetTest is Test {
         assertEq(n3.next, NODE_NONE, "tail has no next");
 
         // Walk forward from the first user node (skipping bootstrap, which
-        // has empty parameters): parameters land in insertion order.
+        // has empty parameters): parameters land in insertion order. Walking
+        // rather than indexing is what defends against a walk-direction
+        // regression.
         uint256 cursor = first;
         bytes memory walked = "";
         while (cursor != NODE_NONE) {
@@ -515,6 +531,13 @@ contract StoxCorporateActionsFacetTest is Test {
     /// `ActionDoesNotExist` (the `effectiveTime == 0` guard in
     /// `LibCorporateAction.cancel`), and head/tail are unchanged after
     /// the revert.
+    ///
+    /// This is the regression test for that sentinel. Without the zero
+    /// assignment the first cancel makes, a second cancel would read
+    /// `prev = next = 0` — zeroed by the first — and blow away `s.head` and
+    /// `s.tail` while unlinking. The head/tail assertions after the revert
+    /// are the other half: a reverted call must leave no state corruption
+    /// behind.
     function testCancelAlreadyCancelledReverts() external {
         uint256 id = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
         uint256 id2 = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2000, "");
@@ -536,7 +559,15 @@ contract StoxCorporateActionsFacetTest is Test {
     /// its expected offset from `CORPORATE_ACTION_STORAGE_LOCATION`. Value
     /// fields are read raw via `vm.load`; mapping fields are written via
     /// `vm.store` at `keccak256(abi.encode(key, baseSlot))` and read back
-    /// through the library getter.
+    /// through the library getter, which proves the mapping is at the right
+    /// slot and exercises the key derivation at the same time.
+    ///
+    /// Any reorder or insertion in the MIDDLE of the struct breaks this
+    /// test, which is the point: the vaults are upgradeable behind a beacon
+    /// and a moved field silently reinterprets live storage. **This test
+    /// must be extended whenever a field is appended**, or the new field is
+    /// the one nothing pins. See the DO NOT REORDER comment on
+    /// `CorporateActionStorage`.
     function testStorageLayoutPin() external {
         // Two user actions on top of the bootstrap, so head (bootstrap,
         // idx 0) and tail (idx 2) hold distinct values.
