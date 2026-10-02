@@ -28,8 +28,10 @@ contract LibSafeOpsTest is Test {
     /// @notice Live Safe handle reset by each test's `selectBaseFork`.
     IGnosisSafe internal safe;
 
-    /// @notice Selects the Base fork at chain head, unpinned, so drift in the
-    /// live Safe surfaces on the next run.
+    /// @notice Selects the Base fork at chain head — deliberately unpinned.
+    /// Mirrors `LibSafeInvariants.t.sol::selectBaseFork` and
+    /// `StoxProdV2.t.sol::testProdDeployBaseV2`: any drift in the live Safe
+    /// surfaces immediately on the next CI run.
     function selectBaseFork() internal {
         vm.createSelectFork(LibRainDeploy.BASE);
         safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
@@ -43,8 +45,11 @@ contract LibSafeOpsTest is Test {
         });
     }
 
-    /// @notice `computeSafeTxHashViaSafe` returns the hash the live Safe's
-    /// `getTransactionHash` returns for the same parameters.
+    /// @notice `computeSafeTxHashViaSafe` returns the exact same hash the
+    /// live Safe returns when called with the same parameters. This is the
+    /// load-bearing assertion of the helper — if it ever returns a different
+    /// hash than `safe.getTransactionHash` we'd be asking owners to sign a
+    /// hash that doesn't match the on-chain verifier.
     function testHashMatchesLiveSafe() external {
         selectBaseFork();
         SafeTx memory txn = _buildThresholdTx();
@@ -58,8 +63,9 @@ contract LibSafeOpsTest is Test {
     }
 
     /// @notice `simulateSelfCall` applies the inner call against the
-    /// Safe's storage (threshold flips to 3) but does not advance the
-    /// Safe's nonce.
+    /// Safe's storage (threshold flips to 3) but does NOT advance the
+    /// Safe's nonce. The nonce is only advanced by a full `execTransaction`
+    /// path; we want the simulated post-state, not a nonce burn.
     function testSimulateSelfCallChangesThresholdButNotNonce() external {
         selectBaseFork();
         uint256 nonceBefore = safe.nonce();
@@ -86,7 +92,9 @@ contract LibSafeOpsTest is Test {
 
     /// @notice The JSON round-trip (`emit` then `parse`) yields a
     /// transactions array structurally identical to the input, with the
-    /// chain id and target Safe preserved.
+    /// chain id and target Safe preserved. Round-tripping is the load-
+    /// bearing property here because the signers ingest the emitted JSON
+    /// directly via the Tx Builder UI.
     function testEmitParseRoundtrip() external {
         selectBaseFork();
         SafeTx memory txn = _buildThresholdTx();
@@ -95,7 +103,10 @@ contract LibSafeOpsTest is Test {
 
         string memory json = LibSafeOps.emitTxBuilderJson(address(safe), block.chainid, "safe-threshold-test", txs);
 
-        // Round-trip through disk, the path the script uses.
+        // Write the emitted JSON through forge's writeFile cheatcode then
+        // re-read via parseTxBuilderJson. The on-disk hop ensures we
+        // exercise the same path the script uses (write-to-artifact +
+        // verify-from-artifact).
         string memory path = string.concat(vm.projectRoot(), "/out/test-tx-builder.json");
         vm.writeFile(path, json);
 
@@ -111,7 +122,9 @@ contract LibSafeOpsTest is Test {
 
     /// @notice The emitted JSON shape includes the expected top-level keys
     /// (`version`, `chainId`, `createdAt`, `meta`, `transactions`) and the
-    /// pinned `meta.txBuilderVersion`.
+    /// pinned `meta.txBuilderVersion`. Asserted by re-parsing the JSON
+    /// through forge cheatcodes — this is a fast structural check that
+    /// catches accidental schema regressions before the signer UI does.
     function testEmittedJsonShape() external {
         selectBaseFork();
         SafeTx[] memory txs = new SafeTx[](1);
@@ -122,9 +135,11 @@ contract LibSafeOpsTest is Test {
         string memory schemaVersion = vm.parseJsonString(json, ".version");
         string memory txBuilderVersion = vm.parseJsonString(json, ".meta.txBuilderVersion");
         string memory bundleName = vm.parseJsonString(json, ".meta.name");
-        // Forge's wildcard JSONPath returns the singular matched value for a
-        // single-element array, so entries are counted by index via
-        // `keyExistsJson`, as the parser does.
+        // The transactions array is an array of objects; forge's wildcard
+        // JSONPath returns the singular matched value for a single-element
+        // array (not a 1-length array), so we probe by index via
+        // `keyExistsJson` to count entries — the same trick the parser
+        // uses.
         bool hasFirst = vm.keyExistsJson(json, ".transactions[0].to");
         bool hasSecond = vm.keyExistsJson(json, ".transactions[1].to");
 
@@ -246,10 +261,12 @@ contract LibSafeOpsTest is Test {
     /// exact emit+parse round-trip passes silently, and each field an
     /// artifact could lie about — chain id, transaction count, first
     /// target, per-tx target, value, calldata — trips
-    /// `TxBuilderArtifactMismatch` naming that field. Each mismatch is
-    /// exercised with every other field intact. `operation` is not walked:
-    /// the JSON layer cannot represent a non-CALL (emit rejects it, parse
-    /// hardcodes zero).
+    /// `TxBuilderArtifactMismatch` naming exactly that field. Each mismatch
+    /// is exercised with every OTHER field intact, so deleting any single
+    /// comparison fails this test. `operation` is not walked: the JSON
+    /// layer cannot represent a non-CALL (emit rejects it, parse hardcodes
+    /// zero), so no artifact can reach that comparison — it guards
+    /// non-JSON callers handing in a `SafeTx[]` directly.
     function testAssertParsedTxsMatchWalksEveryField() external {
         ParseHarness harness = new ParseHarness();
         SafeTx[] memory expected = _multiTxBundle();
@@ -363,15 +380,22 @@ contract LibSafeOpsTest is Test {
     }
 
     /// @notice `simulateNPlus1Reversal` round-trips the Safe through a
-    /// forward state change (`changeThreshold(3)`, applied via `vm.prank`)
-    /// and back via the helper with `(oldThreshold = 1, newThreshold = 3)`.
-    /// Final state is the pinned pre-migration threshold.
+    /// forward state change (`changeThreshold(3)`) and back. We first
+    /// simulate the forward change via `vm.prank(safe) + changeThreshold(3)`
+    /// — modelling what the migration script does post-`assertAll` — then
+    /// invoke the helper with `(oldThreshold = 1, newThreshold = 3)`. The
+    /// helper's internal `expectRevert(GS020)` exercises the threshold
+    /// gate, and the successful `execTransaction` exercises the real
+    /// signature-verification path end-to-end. Final state must be back at
+    /// the pinned pre-migration threshold.
     function testSimulateNPlus1ReversalRoundTrip() external {
         selectBaseFork();
         uint256 oldThreshold = safe.getThreshold();
         assertEq(oldThreshold, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD, "pre-state threshold pin");
 
-        // Apply the forward state change.
+        // Simulate the forward state change the migration script makes.
+        // After this prank-call the Safe is in the "post-migration" state
+        // the helper is meant to prove is not stuck.
         uint256 newThreshold = 3;
         vm.prank(address(safe));
         safe.changeThreshold(newThreshold);
@@ -382,12 +406,17 @@ contract LibSafeOpsTest is Test {
         assertEq(safe.getThreshold(), oldThreshold, "threshold restored by n+1 reversal");
     }
 
-    /// @notice `simulateNPlus1Reversal` reverts if the Safe's owner count is
-    /// below `newThreshold`.
+    /// @notice `simulateNPlus1Reversal` reverts cleanly if the Safe's
+    /// owner count is below `newThreshold`. The require message protects
+    /// against a misuse where the helper is called with a threshold higher
+    /// than the live roster can satisfy, which would otherwise blow up
+    /// deep inside `approveHash`/`execTransaction` with a less-actionable
+    /// error.
     function testSimulateNPlus1ReversalFailsWithTooFewOwners() external {
         selectBaseFork();
-        // Mock the live Safe to expose only 2 owners, then ask for
-        // `newThreshold = 3`.
+        // Mock the live Safe to expose only 2 owners, then ask the helper
+        // for `newThreshold = 3`. The require in `simulateNPlus1Reversal`
+        // should fire before any prank/approve hit the Safe.
         address[] memory shortRoster = new address[](2);
         shortRoster[0] = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_OWNER_1;
         shortRoster[1] = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_OWNER_2;
@@ -430,7 +459,9 @@ contract LibSafeOpsTest is Test {
     }
 
     /// @notice `packApprovedHashSignatures` truncates the output to `count`
-    /// entries when `count < sortedSigners.length`.
+    /// entries when `count < sortedSigners.length`. Used by the negative
+    /// branch of `simulateNPlus1Reversal` to feed `execTransaction` a
+    /// deliberately-undersigned blob without reallocating the source array.
     function testPackApprovedHashSignaturesPartialCount() external pure {
         address[] memory signers = new address[](3);
         signers[0] = address(0x1);
@@ -455,7 +486,10 @@ contract LibSafeOpsTest is Test {
     }
 
     /// @notice `sortAddressesAscending` returns a fresh array whose entries
-    /// are the input addresses in strict ascending order.
+    /// are the input addresses in strict ascending order. Verified against
+    /// a hand-picked unsorted input (descending, with duplicates would only
+    /// matter if Safe accepted them — which it doesn't — so distinct values
+    /// suffice).
     function testSortAddressesAscending() external pure {
         address[] memory input = new address[](4);
         input[0] = address(0x000000000000000000000000000000000000bEEF);

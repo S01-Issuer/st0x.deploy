@@ -14,8 +14,13 @@ import {CompletionFilter, NODE_NONE} from "src/lib/LibCorporateActionNode.sol";
 import {InvalidMask} from "src/error/ErrCorporateAction.sol";
 
 /// @dev Mask covering every test-scheduled action type — `STOCK_SPLIT_V1` and
-/// `STABLES_DIVIDEND_V1` — without the bootstrap `ACTION_TYPE_INIT_V1` bit,
-/// so the bootstrap node at idx 1 stays out of these traversals.
+/// `STABLES_DIVIDEND_V1` — without the bootstrap `ACTION_TYPE_INIT_V1` bit.
+/// These tests exercise pure linked-list traversal over user-scheduled
+/// nodes; including INIT in the mask would surface the bootstrap node at
+/// idx 1, which is implementation detail of `LibCorporateAction.schedule`
+/// rather than the traversal API being tested. The lifecycle /
+/// effective-supply tests in `LibTotalSupply.t.sol` and `LibRebase.t.sol`
+/// do exercise the bootstrap node via `BALANCE_MIGRATION_TYPES_MASK`.
 uint256 constant USER_TYPES_TEST_MASK = ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1;
 
 contract LibCorporateActionNodeTest is Test {
@@ -77,8 +82,12 @@ contract LibCorporateActionNodeTest is Test {
         assertEq(cursor, NODE_NONE);
     }
 
-    /// On an empty list an invalid mask still reverts with `InvalidMask`:
-    /// the mask check fires before the empty-list early return.
+    /// On a pre-bootstrap empty list, an invalid mask must STILL revert with
+    /// `InvalidMask` — the mask check fires before the empty-list early
+    /// return. A regression that reordered the guards (length check first,
+    /// returning `NODE_NONE` for empty lists before even validating the
+    /// mask) would silently conflate "caller bug: invalid mask" with
+    /// "valid query, empty list". This pins the ordering.
     function testInvalidMaskOnEmptyListStillReverts() external {
         // No schedule call — list is empty (s.nodes.length == 0).
 
@@ -95,7 +104,11 @@ contract LibCorporateActionNodeTest is Test {
         h.prevOf(NODE_NONE, 0, CompletionFilter.ALL);
     }
 
-    /// Mask = 0 reverts with `InvalidMask` on every traversal primitive.
+    /// Mask = 0 can never match any node (every node's `actionType` has at
+    /// least one bit set, so `actionType & 0 == 0` for every node). The
+    /// traversal primitives revert with `InvalidMask` so a caller bug
+    /// surfaces rather than being silently conflated with an empty-list
+    /// "no match" result.
     function testMaskZeroReverts() external {
         h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
 
@@ -112,8 +125,13 @@ contract LibCorporateActionNodeTest is Test {
         h.prevOf(0, 0, CompletionFilter.ALL);
     }
 
-    /// A mask with `mask & VALID_ACTION_TYPES_MASK == 0` reverts. Mixed
-    /// masks (valid + undefined bits) pass and match on the valid bits.
+    /// Masks with only undefined bits reference no known action type.
+    /// `mask & VALID_ACTION_TYPES_MASK == 0` for these, so the traversal
+    /// reverts. Mixed masks (valid + undefined bits) pass — the valid bit
+    /// matches, and undefined bits contribute nothing because no node's
+    /// `actionType` has them set. The permissive handling of mixed masks
+    /// is intentional: a caller written against a future version that
+    /// adds new types still works against the current deployment.
     function testMaskWithOnlyUndefinedBitsReverts() external {
         h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
 
@@ -245,8 +263,10 @@ contract LibCorporateActionNodeTest is Test {
         assertEq(cursor, NODE_NONE, "no pending actions remain");
     }
 
-    /// After a middle node is cancelled, `nextActionOfType` and
-    /// `prevActionOfType` both skip the cancelled cursor.
+    /// After a middle node is cancelled, traversal re-links the list so
+    /// `nextActionOfType` skips the cancelled cursor and `prevActionOfType`
+    /// from the tail no longer touches it. Pins the linked-list integrity
+    /// under cancellation through the traversal API surface.
     function testCancelMiddleNodeRelinksTraversal() external {
         uint256 a1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
         uint256 a2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
