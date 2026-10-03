@@ -2,12 +2,13 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Script} from "forge-std-1.16.2/src/Script.sol";
 import {VmSafe} from "forge-std-1.16.2/src/Vm.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.37/src/lib/LibCodeGen.sol";
 import {LibFs, GENERATED_DIR} from "rain-sol-codegen-0.1.37/src/lib/LibFs.sol";
 import {LibGenParseMeta} from "rainlang-interface-0.2.9/src/lib/codegen/LibGenParseMeta.sol";
+import {BuildScript} from "rain-deploy-0.1.10/src/abstract/BuildScript.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
+import {LibRainDeploySnapshot} from "rain-deploy-0.1.10/src/lib/LibRainDeploySnapshot.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
@@ -30,8 +31,9 @@ import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {ST0xOrchestratorBeaconSetDeployer} from "../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
 import {St0xAttestSubParser} from "../src/concrete/St0xAttestSubParser.sol";
 import {LibSt0xAttestSubParser, PARSE_META_BUILD_DEPTH} from "../src/lib/LibSt0xAttestSubParser.sol";
+import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
 
-contract BuildPointers is Script {
+contract BuildPointers is BuildScript {
     /// @notice How many contracts `contractNames()` / `contractBases()`
     /// enumerate: every candidate-snapshot contract the deploy libs alias.
     uint256 constant CONTRACT_COUNT = 13;
@@ -72,30 +74,79 @@ contract BuildPointers is Script {
     /// @return deployed The Zoltu address the contract was deployed to, for a
     /// caller that reads pointer tables back off the live instance.
     function buildContractPointers(string memory name, bytes memory creationCode) internal returns (address deployed) {
-        deployed = LibRainDeploy.deployZoltu(creationCode);
-
-        vm.writeFile(
-            LibFs.pathForTaggedContract(deployTag(), name),
-            string.concat(
-                LibCodeGen.filePrefix(),
-                LibCodeGen.bytecodeHashConstantString(vm, deployed),
-                LibCodeGen.addressConstantString(
-                    vm,
-                    "/// @dev The deterministic deploy address of the contract when deployed via\n/// the Zoltu factory.",
-                    "DEPLOYED_ADDRESS",
-                    deployed
-                ),
-                LibCodeGen.bytesConstantString(
-                    vm, "/// @dev The creation bytecode of the contract.", "CREATION_CODE", creationCode
-                ),
-                LibCodeGen.bytesConstantString(
-                    vm, "/// @dev The runtime bytecode of the contract.", "RUNTIME_CODE", deployed.code
-                )
-            )
-        );
+        LibRainDeploySnapshot.writeSnapshot(vm, deployTag(), name, creationCode, snapshotDependencies(name));
+        // `writeSnapshot` has already Zoltu-deployed this creation code, and it
+        // returns the path it wrote rather than the address. Derive the address
+        // instead of deploying again: `deployZoltu` reverts `DeployFailed` on an
+        // address that already holds code, so a second call is not a no-op.
+        deployed = LibRainDeploy.zoltuAddress(creationCode);
     }
 
-    function run() external {
+    /// @notice The addresses that MUST already carry code on a network before
+    /// `name` can be broadcast there, recorded into its snapshot.
+    ///
+    /// Read off the constructors rather than assumed: the beacon-set deployers
+    /// bake their implementation's address at construction and the unified
+    /// deployer bakes the two beacon-set deployers, so broadcasting one onto a
+    /// network whose prerequisite is absent produces a deployer whose `deploy()`
+    /// cannot work. An empty list is a claim that nothing must pre-exist, so it
+    /// is only correct for the contracts that genuinely bake nothing — the
+    /// implementations, the beacon, the authorizers, the facet and the
+    /// subparser.
+    ///
+    /// The addresses come from `LibProdDeployCurrent`, which is the same
+    /// generated source the constructors read, so a dependency recorded here
+    /// and the address actually baked cannot diverge.
+    /// @param name The contract whose snapshot is being written.
+    /// @return The dependency addresses.
+    function snapshotDependencies(string memory name) internal pure returns (address[] memory) {
+        bytes32 key = keccak256(bytes(name));
+
+        if (key == keccak256("ST0xOrchestratorBeaconSetDeployer")) {
+            address[] memory deps = new address[](1);
+            deps[0] = LibProdDeployCurrent.ST0X_ORCHESTRATOR;
+            return deps;
+        }
+        if (key == keccak256("StoxWrappedTokenVaultBeaconSetDeployer")) {
+            address[] memory deps = new address[](1);
+            deps[0] = LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT_BEACON;
+            return deps;
+        }
+        if (key == keccak256("StoxOffchainAssetReceiptVaultBeaconSetDeployer")) {
+            address[] memory deps = new address[](2);
+            deps[0] = LibProdDeployCurrent.STOX_RECEIPT;
+            deps[1] = LibProdDeployCurrent.STOX_RECEIPT_VAULT;
+            return deps;
+        }
+        if (key == keccak256("StoxUnifiedDeployer")) {
+            address[] memory deps = new address[](2);
+            deps[0] = LibProdDeployCurrent.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER;
+            deps[1] = LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER;
+            return deps;
+        }
+        return new address[](0);
+    }
+
+    /// @inheritdoc BuildScript
+    /// @dev In declaration order, which is also build order: a deployer bakes
+    /// its implementation's address, so the implementation has to have been
+    /// Zoltu-deployed before the deployer's creation code is read.
+    function snapshotContractNames() internal pure override returns (string[] memory) {
+        string[CONTRACT_COUNT] memory fixedNames = contractNames();
+        string[] memory names = new string[](CONTRACT_COUNT);
+        for (uint256 i = 0; i < CONTRACT_COUNT; i++) {
+            names[i] = fixedNames[i];
+        }
+        return names;
+    }
+
+    /// @inheritdoc BuildScript
+    function regenerateLibs() internal override {
+        genProdLibs();
+    }
+
+    /// @inheritdoc BuildScript
+    function regenerateSnapshots() internal override {
         LibRainDeploy.etchZoltuFactory(vm);
 
         // Regenerate the rolling `candidate/` snapshot from current source.
@@ -135,9 +186,6 @@ contract BuildPointers is Script {
         // are read back off the instance just deployed, so the candidate
         // snapshot and the tables come from one build of the same source.
         buildSubParserPointers(buildContractPointers("St0xAttestSubParser", type(St0xAttestSubParser).creationCode));
-
-        // Regenerate the deploy libs from the (now-updated) per-tag snapshots.
-        genProdLibs();
     }
 
     /// @notice Generates `src/generated/St0xAttestSubParserPointers.sol`: the
