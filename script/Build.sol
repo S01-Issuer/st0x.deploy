@@ -116,7 +116,11 @@ contract Build is BuildScript {
         GeneratedContract[] memory contracts = generatedContracts();
         for (uint256 i = 0; i < contracts.length; i++) {
             LibRainDeploySnapshot.writeReleasedSuitesLib(
-                vm, LibRainDeploySnapshot.LIB_DIR, recordRoot(), contracts[i].contractName, releasedTemplate(contracts[i])
+                vm,
+                LibRainDeploySnapshot.LIB_DIR,
+                recordRoot(),
+                contracts[i].contractName,
+                releasedTemplate(contracts[i])
             );
         }
         LibRainDeploySnapshot.writeReleasedSuitesAggregate(vm, LibRainDeploySnapshot.LIB_DIR, snapshotContractNames());
