@@ -3,7 +3,13 @@
 # deploys (see issue #244). On merge, `rainix-autopublish` publishes this version
 # and bumps to the next, regenerating the deploy libs so the bump commit is born
 # clean. So this holds the next unpublished version, not the last published one.
-[package]
+#
+# `[external.package]` rather than a bare `[package]`: that is the form
+# `rain-deploy`'s `deployTag` reads (`.external.package.version`), so the tag a
+# release is frozen under comes from this table. rainix reads both, treating the
+# bare one as legacy, and forge warns on it at every invocation because a
+# top-level `[package]` is not a config section it knows.
+[external.package]
 name = "st0x-deploy"
 version = "0.1.30"
 

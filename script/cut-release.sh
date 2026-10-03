@@ -6,47 +6,27 @@
 #
 # Invoked by rainix-tag-release as its `snapshot-generate-cmd`, AFTER the
 # reusable has resolved the release version from the pushed `sol-vX.Y.Z` tag and
-# written it to `foundry.toml` `[package].version`. So the version is read from
-# `foundry.toml` here — the single source of truth at this point.
+# written it to `foundry.toml` `[external.package].version`.
 #
-# Model: `src/generated/candidate/` is the rolling snapshot of what the current
-# source compiles to (regenerated every BuildPointers run). A numbered snapshot
-# (`0_1_4/`, …) is a FROZEN copy of `candidate` taken at the instant a tag
-# releases it — it never changes again (the frozen-snapshots-append-only gate
-# enforces this). This script performs that copy, then re-runs BuildPointers so
-# the pointer libs pick up the new numbered alias set alongside `candidate`.
+# Everything this used to do by hand is `LibRainDeploySnapshot.freeze`, reached
+# through `BuildScript.cutRelease()`. It reads the version from
+# `[external.package].version` itself, and it refuses a release the shell could
+# not:
+#
+#   - a version that is not a strict `X.Y.Z` (`isStrictTriple`), which would
+#     otherwise freeze a `0_1_30-rc1` directory the tag filter ignores forever
+#   - a tag whose directory already exists (`SnapshotAlreadyFrozen`), so a
+#     re-cut cannot clobber an audited snapshot
+#   - a release with no contracts (`EmptyRelease`)
+#   - a rolling snapshot that is missing for some contract (`NothingToFreeze`)
+#   - a release that does not follow the record it is appended to
+#     (`checkReleaseFollowsRecord`) — the monotonic-ordering guard this script
+#     never had, so cutting 0.1.29 after 0.1.30 used to succeed
+#
+# It also reads every rolling snapshot before writing any of the frozen copy,
+# so a failure part-way cannot leave a half-frozen release behind — which a
+# `cp -r` can.
 set -euo pipefail
 
-VERSION="$(grep -m1 -E '^version = ' foundry.toml | sed -E 's/^version = "([^"]+)"/\1/')"
-if [ -z "$VERSION" ]; then
-  echo "cut-release: could not read [package].version from foundry.toml" >&2
-  exit 1
-fi
-# Strict X.Y.Z only: anything else (rc/pre-release suffixes, extra components)
-# would freeze a dir like `0_1_30-rc1` that the generator's numeric tag filter
-# ignores forever — an orphan snapshot. Refuse instead.
-if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "cut-release: version '${VERSION}' is not strict X.Y.Z — refusing to cut a snapshot the generator would ignore" >&2
-  exit 1
-fi
-TAG="${VERSION//./_}"
-
-if [ ! -d src/generated/candidate ]; then
-  echo "cut-release: src/generated/candidate is missing — nothing to freeze" >&2
-  exit 1
-fi
-
-# Frozen releases are append-only: re-cutting an existing version must fail
-# loudly rather than clobber a frozen (audited) snapshot with candidate.
-if [ -d "src/generated/${TAG}" ]; then
-  echo "cut-release: src/generated/${TAG} already exists — refusing to overwrite a frozen release snapshot" >&2
-  exit 1
-fi
-
-echo "cut-release: freezing candidate -> src/generated/${TAG}"
-cp -r src/generated/candidate "src/generated/${TAG}"
-
-# Regenerate candidate (idempotent — source unchanged) and the pointer libs,
-# which now emit the new numbered alias set in addition to `candidate`.
-forge script ./script/BuildPointers.sol
+forge script ./script/BuildPointers.sol --sig 'cutRelease()'
 forge fmt
