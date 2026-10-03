@@ -323,34 +323,16 @@ contract BuildPointers is Script {
 
     /// @notice The path a snapshot of `name` has inside `tag`.
     ///
-    /// The current spelling comes from `LibFs.pathForTaggedContract`, which is
-    /// where it is defined: `rain-deploy`'s `pathForSnapshot` delegates to that
-    /// same function rather than concatenating its own, so that the path a
-    /// release is frozen FROM is the one `LibFs` wrote TO. A third
-    /// concatenation here would be the copy those two avoid, and it would also
-    /// skip the `requireTag` and `requireIdentifier` that only the real
-    /// definition applies.
-    ///
-    /// Only the legacy fallback is local, because only this repo has it. Tags
-    /// frozen before the convention keep the `<Name>.pointers.sol` they were
-    /// frozen under: a frozen tag is an append-only record of what was
-    /// deployed, and rainix's `frozen-snapshots-append-only` check reads a
-    /// rename of one as a deletion. So both spellings are read and only the
-    /// current one is ever written.
+    /// `LibFs.pathForTaggedContract` is where this is defined, and
+    /// `rain-deploy`'s `pathForSnapshot` delegates to that same function rather
+    /// than concatenating its own, so that the path a release is frozen FROM is
+    /// the one `LibFs` wrote TO. There is one spelling, `<Name>.sol`, for every
+    /// tag including the frozen ones.
     /// @param tag The snapshot directory.
     /// @param name The contract name.
-    /// @return The path, or the current spelling's path when neither is
-    /// present.
-    function pointerPath(string memory tag, string memory name) internal view returns (string memory) {
-        string memory current = LibFs.pathForTaggedContract(tag, name);
-        if (vm.exists(current)) {
-            return current;
-        }
-        string memory frozen = string.concat(LibFs.dirForTag(tag), "/", name, ".pointers.sol");
-        if (vm.exists(frozen)) {
-            return frozen;
-        }
-        return current;
+    /// @return The path.
+    function pointerPath(string memory tag, string memory name) internal pure returns (string memory) {
+        return LibFs.pathForTaggedContract(tag, name);
     }
 
     /// @notice The file name, rather than the path, of that same snapshot — the
@@ -358,7 +340,7 @@ contract BuildPointers is Script {
     /// @param tag The snapshot directory.
     /// @param name The contract name.
     /// @return The final path segment.
-    function pointerFileName(string memory tag, string memory name) internal view returns (string memory) {
+    function pointerFileName(string memory tag, string memory name) internal pure returns (string memory) {
         return LibFs.lastPathSegment(pointerPath(tag, name));
     }
 
