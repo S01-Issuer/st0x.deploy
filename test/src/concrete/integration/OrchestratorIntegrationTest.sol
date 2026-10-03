@@ -6,7 +6,7 @@ import {IERC1155} from "@openzeppelin-contracts-5.6.1/token/ERC1155/IERC1155.sol
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "@openzeppelin-contracts-5.6.1/proxy/beacon/BeaconProxy.sol";
 import {CloneFactory} from "rain-factory-0.1.5/src/concrete/CloneFactory.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
 import {
     OffchainAssetReceiptVaultConfigV2,

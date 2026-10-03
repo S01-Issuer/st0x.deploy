@@ -3,9 +3,9 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.16.2/src/Test.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
-import {LibAddressRegistryDeploy} from "rain-deploy-0.1.11/src/lib/LibAddressRegistryDeploy.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.11/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
+import {LibAddressRegistryDeploy} from "rain-deploy-0.1.10/src/lib/LibAddressRegistryDeploy.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.10/src/lib/LibMigrationRegistryDeploy.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
 

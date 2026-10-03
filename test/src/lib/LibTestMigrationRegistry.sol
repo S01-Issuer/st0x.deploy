@@ -4,10 +4,10 @@ pragma solidity =0.8.25;
 
 import {Vm} from "forge-std-1.16.2/src/Vm.sol";
 
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.11/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.10/src/lib/LibMigrationRegistryDeploy.sol";
 import {
     RUNTIME_CODE as MIGRATION_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.11/src/generated/candidate/MigrationRegistry.sol";
+} from "rain-deploy-0.1.10/src/generated/candidate/MigrationRegistry.sol";
 
 /// @title LibTestMigrationRegistry
 /// @notice Puts the real `MigrationRegistry` at its real address on a local

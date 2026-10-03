@@ -4,12 +4,12 @@ pragma solidity =0.8.25;
 
 import {Vm} from "forge-std-1.16.2/src/Vm.sol";
 
-import {ADDRESS_REGISTRY_ROOT} from "rain-deploy-0.1.11/src/concrete/AddressRegistry.sol";
-import {IAddressRegistryV1} from "rain-deploy-0.1.11/src/interface/IAddressRegistryV1.sol";
-import {LibAddressRegistryDeploy} from "rain-deploy-0.1.11/src/lib/LibAddressRegistryDeploy.sol";
+import {ADDRESS_REGISTRY_ROOT} from "rain-deploy-0.1.10/src/concrete/AddressRegistry.sol";
+import {IAddressRegistryV1} from "rain-deploy-0.1.10/src/interface/IAddressRegistryV1.sol";
+import {LibAddressRegistryDeploy} from "rain-deploy-0.1.10/src/lib/LibAddressRegistryDeploy.sol";
 import {
     RUNTIME_CODE as ADDRESS_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.11/src/generated/candidate/AddressRegistry.sol";
+} from "rain-deploy-0.1.10/src/generated/candidate/AddressRegistry.sol";
 
 /// @title LibTestAddressRegistry
 /// @notice Puts the real `AddressRegistry` at its real address on a local
