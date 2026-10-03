@@ -8,7 +8,7 @@ import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/TimelockController.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
 
 import {DeployGovernanceTimelockHarness} from "./DeployGovernanceTimelockHarness.sol";
 import {

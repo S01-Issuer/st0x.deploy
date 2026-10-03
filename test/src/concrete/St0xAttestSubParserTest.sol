@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {OpTest} from "rainlang-0.2.11/test/abstract/OpTest.sol";
+import {OpTest} from "rainlang-0.2.12/test/abstract/OpTest.sol";
 import {Strings} from "@openzeppelin-contracts-5.6.1/utils/Strings.sol";
 import {MessageHashUtils} from "@openzeppelin-contracts-5.6.1/utils/cryptography/MessageHashUtils.sol";
 import {LibHashNoAlloc} from "rain-lib-hash-0.1.0/src/LibHashNoAlloc.sol";

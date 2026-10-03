@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 
 import {AuthoringMetaV2} from "rainlang-interface-0.2.9/src/interface/ISubParserV4.sol";
 import {OperandV2} from "rainlang-interface-0.2.9/src/interface/IInterpreterV4.sol";
-import {LibSubParse} from "rainlang-0.2.11/src/lib/parse/LibSubParse.sol";
+import {LibSubParse} from "rainlang-0.2.12/src/lib/parse/LibSubParse.sol";
 
 import {
     CONTEXT_ATTESTATION_ROW_PRICE,

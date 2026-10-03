@@ -6,9 +6,9 @@ import {VmSafe} from "forge-std-1.16.2/src/Vm.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.37/src/lib/LibCodeGen.sol";
 import {LibFs, GENERATED_DIR} from "rain-sol-codegen-0.1.37/src/lib/LibFs.sol";
 import {LibGenParseMeta} from "rainlang-interface-0.2.9/src/lib/codegen/LibGenParseMeta.sol";
-import {BuildScript} from "rain-deploy-0.1.10/src/abstract/BuildScript.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
-import {LibRainDeploySnapshot} from "rain-deploy-0.1.10/src/lib/LibRainDeploySnapshot.sol";
+import {BuildScript} from "rain-deploy-0.1.11/src/abstract/BuildScript.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
+import {LibRainDeploySnapshot} from "rain-deploy-0.1.11/src/lib/LibRainDeploySnapshot.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
@@ -102,18 +102,22 @@ contract Build is BuildScript {
     function regenerateSnapshots() internal override {
         LibRainDeploy.etchZoltuFactory(vm);
 
-        // Regenerate the rolling `candidate/` snapshot from current source.
-        // `vm.writeFile` won't create the dir, so ensure it exists first.
-        vm.createDir(LibFs.dirForTag(deployTag()), true);
-
         // One pass over `generatedContracts()`, in its order, which is why the
         // list is in build order: each entry's creation code is read after the
         // entries it bakes have been Zoltu-deployed.
         GeneratedContract[] memory contracts = generatedContracts();
         for (uint256 i = 0; i < contracts.length; i++) {
             address deployed = LibRainDeploy.zoltuAddress(contracts[i].creationCode);
+            // `writeSnapshot` creates the dir from the same root and tag it
+            // derives the path from, so there is no `createDir` here to
+            // disagree with it.
             LibRainDeploySnapshot.writeSnapshot(
-                vm, deployTag(), contracts[i].contractName, contracts[i].creationCode, contracts[i].dependencies
+                vm,
+                recordRoot(),
+                deployTag(),
+                contracts[i].contractName,
+                contracts[i].creationCode,
+                contracts[i].dependencies
             );
 
             // The subparser's parse meta and function pointer tables are read
@@ -326,7 +330,7 @@ contract Build is BuildScript {
     /// @param a The left tag.
     /// @param b The right tag.
     /// @return True when `a` precedes `b`.
-    function tagPrecedes(string memory a, string memory b) internal view returns (bool) {
+    function tagPrecedes(string memory a, string memory b) internal pure returns (bool) {
         if (keccak256(bytes(a)) == keccak256(bytes(LibRainDeploySnapshot.CANDIDATE))) {
             return false;
         }
@@ -416,7 +420,7 @@ contract Build is BuildScript {
 
     function v4ImportLine(string memory name, string memory base, string memory tag)
         internal
-        view
+        pure
         returns (string memory)
     {
         string memory suffix = tagSuffix(tag);

@@ -13,7 +13,7 @@ import {UpgradedImpl} from "./UpgradedImpl.sol";
 import {ST0xOrchestrator, ST0X_TOKEN_OWNER_SAFE_NAME} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {LibTestAddressRegistry} from "../../lib/LibTestAddressRegistry.sol";
 import {LibTestMigrationRegistry} from "../../lib/LibTestMigrationRegistry.sol";
-import {IAddressRegistryV1} from "rain-deploy-0.1.10/src/interface/IAddressRegistryV1.sol";
+import {IAddressRegistryV1} from "rain-deploy-0.1.11/src/interface/IAddressRegistryV1.sol";
 import {IST0xVaultBeaconSet} from "../../../../src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {IST0xOrchestratorBeaconSetDeployerV1} from "../../../../src/interface/IST0xOrchestratorBeaconSetDeployerV1.sol";
