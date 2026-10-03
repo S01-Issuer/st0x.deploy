@@ -37,13 +37,10 @@ struct TokenConfig {
 /// @dev Entries are in the same order as
 /// `LibTokenInvariants.productionTokensBase()` so the two tables pair by
 /// index as well as by `underlying` key; `LibProdTokenConfigTest` pins that
-/// alignment over every row Base carries. The table may run AHEAD of Base —
-/// a row is authored when a ticker is chosen and Base is pinned when its
-/// deploy lands, and `_selectMissing` reads only the rows Base carries — but
-/// never behind it. Strings are reproduced EXACTLY, including quirks that exist on
-/// Base — notably `SGOV`'s name has a leading space. Matching Base "exactly"
-/// means carrying that space forward; the parity pin would flag it as a
-/// divergence otherwise.
+/// alignment over every row Base carries. The table may run ahead of Base —
+/// `_selectMissing` reads only the rows Base carries — but never behind it.
+/// Strings are reproduced exactly, including `SGOV`'s leading space; the
+/// parity pin flags any divergence.
 library LibProdTokenConfig {
     /// @notice The 59 production token deploy configs, Base table order.
     /// @return configs The name/symbol table.
@@ -80,11 +77,11 @@ library LibProdTokenConfig {
         configs[27] = TokenConfig("TTWO", "Take-Two Interactive Software, Inc. ST0x", "tTTWO");
         configs[28] = TokenConfig("RKLB", "Rocket Lab USA Inc ST0x", "tRKLB");
         configs[29] = TokenConfig("GOOGL", "Alphabet Inc. Class A ST0x", "tGOOGL");
-        // tMETA — deployed 2026-07-27, never launched; recorded here, deliberately not in the table.
+        // tMETA: deployed, not launched; not in the table.
         // configs[..] = TokenConfig("META", "Meta Platforms, Inc. ST0x", "tMETA");
         configs[30] = TokenConfig("AAPL", "Apple Inc. ST0x", "tAAPL");
         configs[31] = TokenConfig("MSFT", "Microsoft Corporation ST0x", "tMSFT");
-        // tPLTR — deployed 2026-07-27, never launched, `owner()` still the deployer EOA; not in the table.
+        // tPLTR: deployed, not launched, `owner()` is the deployer EOA; not in the table.
         // configs[..] = TokenConfig("PLTR", "Palantir Technologies Inc. ST0x", "tPLTR");
         configs[32] = TokenConfig("LLY", "Eli Lilly and Company ST0x", "tLLY");
         configs[33] = TokenConfig("PTY", "PIMCO Corporate & Income Opportunity Fund ST0x", "tPTY");
@@ -98,8 +95,7 @@ library LibProdTokenConfig {
         configs[41] = TokenConfig("CBRS", "Cerebras Systems Inc. ST0x", "tCBRS");
         configs[42] = TokenConfig("AIR.PA", "Airbus SE ST0x", "tAIR.PA");
         configs[43] = TokenConfig("BMW.DE", "Bayerische Motoren Werke Aktiengesellschaft ST0x", "tBMW.DE");
-        // solc rejects a bare non-ASCII string literal; `unicode"..."` is the
-        // same bytes, and Base carries the ë — dropping it would break parity.
+        // `unicode"..."` because the name carries a non-ASCII ë, as on Base.
         configs[44] = TokenConfig("MC.PA", unicode"LVMH Moët Hennessy Louis Vuitton SE ST0x", "tMC.PA");
         configs[45] = TokenConfig("SIE.DE", "Siemens Aktiengesellschaft ST0x", "tSIE.DE");
         configs[46] = TokenConfig("MBG.DE", "Mercedes-Benz Group AG ST0x", "tMBG.DE");
@@ -108,7 +104,7 @@ library LibProdTokenConfig {
         configs[49] = TokenConfig("NKE", "NIKE, Inc. ST0x", "tNKE");
         configs[50] = TokenConfig("GRND", "Grindr Inc. ST0x", "tGRND");
         configs[51] = TokenConfig("DNUT", "Krispy Kreme, Inc. ST0x", "tDNUT");
-        // tGM — deployed 2026-09-06, swapped out for FGI before launch; recorded, deliberately not in the table.
+        // tGM: deployed, not launched; not in the table.
         // configs[..] = TokenConfig("GM", "General Motors Company ST0x", "tGM");
         configs[52] = TokenConfig("PLBY", "Playboy, Inc. ST0x", "tPLBY");
         configs[53] = TokenConfig("TR", "Tootsie Roll Industries, Inc. ST0x", "tTR");

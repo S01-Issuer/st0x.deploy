@@ -6,6 +6,7 @@ import {IST0xVaultBeaconSet} from "../../../../src/interface/IST0xVaultBeaconSet
 import {MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV1.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
+import {SignedContextV1} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
 
 /// @title GuardPassesAgainstRealV4BeaconsTest
 /// @notice Workflow: the orchestrator's hardcoded vault-version guard reads
@@ -33,11 +34,12 @@ contract GuardPassesAgainstRealV4BeaconsTest is OrchestratorIntegrationTest {
 
         // And a mint against the real vault goes through with the guard live.
         (address eoa, uint256 pk) = makeAddrAndKey("guard-recipient");
+        _allowRecipient(eoa);
         uint256 amount = 7e18;
         bytes32 nonce = keccak256("guard");
         MintAuthV1 memory auth = _signedMintAuth(address(vault), eoa, amount, nonce, pk);
         vm.prank(MM);
-        orchestrator.mint(address(vault), eoa, amount, auth, "");
+        orchestrator.mint(address(vault), eoa, amount, auth, "", new SignedContextV1[](0));
         assertEq(vault.balanceOf(eoa), amount, "mint delivered against the real vault");
     }
 }

@@ -5,8 +5,8 @@ pragma solidity =0.8.25;
 import {
     OffchainAssetReceiptVaultAuthorizerV1,
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
-import {ICLONEABLE_V2_SUCCESS} from "rain-factory-0.1.1/src/interface/ICloneableV2.sol";
+} from "rain-vats-0.2.1/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+import {ICLONEABLE_V2_SUCCESS} from "rain-factory-0.1.5/src/interface/ICloneableV2.sol";
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../lib/LibCorporateAction.sol";
 
 /// @dev Role admin for SCHEDULE_CORPORATE_ACTION.
@@ -16,12 +16,10 @@ bytes32 constant SCHEDULE_CORPORATE_ACTION_ADMIN = keccak256("SCHEDULE_CORPORATE
 bytes32 constant CANCEL_CORPORATE_ACTION_ADMIN = keccak256("CANCEL_CORPORATE_ACTION_ADMIN");
 
 /// @title StoxOffchainAssetReceiptVaultAuthorizerV1
-/// @notice Extends the base authorizer with corporate action role admin
-/// configuration. The base authorizer handles corporate action permissions
-/// via its generic RBAC path, but cannot grant them because no role admin is
-/// configured. This contract adds SCHEDULE_CORPORATE_ACTION_ADMIN and
-/// CANCEL_CORPORATE_ACTION_ADMIN roles following the same pattern as the
-/// existing role admin hierarchy.
+/// @notice Extends the base authorizer with admin roles for the corporate
+/// action roles: SCHEDULE_CORPORATE_ACTION_ADMIN and
+/// CANCEL_CORPORATE_ACTION_ADMIN, each its own admin, both granted to
+/// `initialAdmin`.
 contract StoxOffchainAssetReceiptVaultAuthorizerV1 is OffchainAssetReceiptVaultAuthorizerV1 {
     /// @inheritdoc OffchainAssetReceiptVaultAuthorizerV1
     function initialize(bytes memory data) public override initializer returns (bytes32) {

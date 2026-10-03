@@ -18,25 +18,20 @@ import {
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
-import {LibCloneFactoryDeploy} from "rain-factory-0.1.1/src/lib/LibCloneFactoryDeploy.sol";
+import {DEPLOYED_ADDRESS as PROD_CLONE_FACTORY} from "rain-factory-0.1.5/src/generated/0_1_3/CloneFactory.pointers.sol";
 
 /// @title LibAuthoriserInvariantsTest
 /// @notice Fork tests pinning the production V4 authoriser clone's state
 /// against the constants in `LibAuthoriserInvariants`. The positive case
 /// runs the lib's no-arg `assertAll()`, which checks the clone's codehash
 /// against the `LibProdDeployV4` pin and iterates the master
-/// `expectedGrants()` map against the live clone. Any drift (a grant
-/// missing on-chain, or the clone's bytecode changing) surfaces as a typed
-/// error here.
-/// @dev Uses unpinned head forks of each production chain (same precedent
-/// as the other prod-state drift detectors in this repo). Pinning would freeze the
-/// invariant assertions against a stale snapshot and let new drift slip
-/// through unnoticed.
+/// `expectedGrants()` map against the live clone.
+/// @dev Uses unpinned head forks of each production chain so drift
+/// surfaces on the next run.
 contract LibAuthoriserInvariantsTest is Test {
-    /// @notice Selects the Base fork at chain head — deliberately unpinned.
-    /// Live drift detector; see contract-level rationale.
+    /// @notice Selects the Base fork at chain head, unpinned.
     function selectBaseFork() internal {
         vm.createSelectFork(LibRainDeploy.BASE);
     }
@@ -50,11 +45,12 @@ contract LibAuthoriserInvariantsTest is Test {
     }
 
     /// @notice The four factory-derived clone pins are the first CREATE from
-    /// the canonical CloneFactory (nonce 1) on each chain, re-derived here so a
-    /// mistyped literal fails fork-free. Base's clone came from a factory with
-    /// history and is not derivable.
+    /// the CloneFactory (nonce 1) on each chain, re-derived here fork-free.
+    /// Base's clone came from a factory with history and is not derivable.
+    /// @dev The factory that cut the production clones is the frozen `0_1_3`
+    /// snapshot's, not the current `LibCloneFactoryDeploy` alias.
     function testClonePinsMatchTheFactoryNonceOneDerivation() external pure {
-        address derived = vm.computeCreateAddress(LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS, 1);
+        address derived = vm.computeCreateAddress(PROD_CLONE_FACTORY, 1);
         assertEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM, derived, "ethereum");
         assertEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM, derived, "hyperevm");
         assertEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD, derived, "robinhood");
@@ -129,9 +125,7 @@ contract LibAuthoriserInvariantsTest is Test {
 
     /// @notice The active fork's arm resolves to a live clone with the pinned
     /// EIP-1167 codehash, on the canonical grant map keyed to that chain's
-    /// Safe. Both resolve from `block.chainid`, as the scripts do, so a leg
-    /// forking the wrong chain or an arm pointing at the wrong slot fails
-    /// here. Live drift detector on an unpinned fork.
+    /// Safe. Both resolve from `block.chainid`, as the scripts do.
     function assertAuthoriserLiveOnCanonicalMap() internal view {
         LibAuthoriserInvariants.assertExpectedGrants(
             LibAuthoriserInvariants.activeChainAuthoriser(), LibSafeInvariants.safeForChainId(block.chainid)
@@ -206,8 +200,7 @@ contract LibAuthoriserInvariantsTest is Test {
     /// @notice The admin-holder parameterisation: the seven `_ADMIN` entries
     /// track `adminHolder`, the eight operational entries stay split between
     /// the Safe, the service signer and the orchestrator, and the narrower
-    /// overloads are exact collapses of the widest one (so no consumer can
-    /// drift from the single map).
+    /// overloads are collapses of the widest one.
     function testExpectedGrantsAdminHolderParameterisation() external pure {
         address safe = address(0x5AFE);
         address timelock = address(0x7135);
@@ -219,11 +212,9 @@ contract LibAuthoriserInvariantsTest is Test {
         for (uint256 i = 7; i < 10; i++) {
             assertEq(grants[i].grantee, safe, "operational Safe entries must track the Safe");
         }
-        // The service signer's three action roles are operational, not
-        // admin: they must track the signer regardless of who holds the
-        // `_ADMIN` slice, so the timelock migration never moves them. The
-        // retired signer has no rows at all — its revocation is asserted as
-        // an absence, not a grant.
+        // The service signer's three action roles track the signer
+        // regardless of who holds the `_ADMIN` slice. The retired signer has
+        // no rows; its revocation is asserted as an absence.
         for (uint256 i = 10; i < 13; i++) {
             assertEq(
                 grants[i].grantee,
@@ -249,11 +240,11 @@ contract LibAuthoriserInvariantsTest is Test {
     }
 
     /// @notice `assertExpectedGrants(authoriser, safe, adminHolder)` demands
-    /// the exact post-timelock-migration shape: it pinpoints the first
-    /// missing `_ADMIN` grant while the admin holder holds nothing, rejects
-    /// the dual-holder state where the Safe retains an `_ADMIN` copy
-    /// alongside the admin holder (an instant delay bypass), and passes only
-    /// once the seven `_ADMIN` roles sit exclusively on the admin holder.
+    /// the post-timelock-migration shape: it names the first missing
+    /// `_ADMIN` grant while the admin holder holds nothing, rejects the
+    /// dual-holder state where the Safe retains an `_ADMIN` copy alongside
+    /// the admin holder, and passes once the seven `_ADMIN` roles sit only
+    /// on the admin holder.
     function testAssertExpectedGrantsWithDistinctAdminHolder() external {
         selectBaseFork();
         address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
@@ -267,10 +258,8 @@ contract LibAuthoriserInvariantsTest is Test {
         vm.expectRevert(abi.encodeWithSelector(ExpectedGrantMissing.selector, clone, grants[0].role, timelock));
         harness.callAssertExpectedGrants(clone, safe, timelock);
 
-        // Mock the seven `_ADMIN` grants onto the timelock. The live fork's
-        // Safe still holds its `_ADMIN` copies, so this is the dual-holder
-        // state — the Safe could still mutate the grant map without the
-        // timelock's delay — and the assertion must reject it.
+        // Mock the seven `_ADMIN` grants onto the timelock while the live
+        // fork's Safe still holds its copies: the dual-holder state.
         for (uint256 i = 0; i < 7; i++) {
             vm.mockCall(
                 clone,
@@ -281,9 +270,8 @@ contract LibAuthoriserInvariantsTest is Test {
         vm.expectRevert(abi.encodeWithSelector(UnexpectedRetainedAdminGrant.selector, clone, grants[0].role, safe));
         harness.callAssertExpectedGrants(clone, safe, timelock);
 
-        // Mock the Safe's seven `_ADMIN` copies away — the renounces landing
-        // — and the full assertion passes: exclusive admin holding, with the
-        // operational entries already live on the fork.
+        // Mock the Safe's seven `_ADMIN` copies away and the full assertion
+        // passes.
         for (uint256 i = 0; i < 7; i++) {
             vm.mockCall(
                 clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, grants[i].role, safe), abi.encode(false)
@@ -292,9 +280,8 @@ contract LibAuthoriserInvariantsTest is Test {
         harness.callAssertExpectedGrants(clone, safe, timelock);
     }
 
-    /// @notice A re-grant to the retired signer is refused: the revocation
-    /// is pinned as an absence, so any action role landing back on
-    /// `GRANTEE_SERVICE_1C66` red-lines with `UnexpectedRetiredSignerGrant`
+    /// @notice Any action role landing on the retired signer
+    /// `GRANTEE_SERVICE_1C66` reverts with `UnexpectedRetiredSignerGrant`
     /// naming the role.
     function testAssertExpectedGrantsRefusesARetiredSignerRegrant() external {
         selectBaseFork();
@@ -312,11 +299,9 @@ contract LibAuthoriserInvariantsTest is Test {
         harness.callAssertExpectedGrants(clone);
     }
 
-    /// @notice The orchestrator rows are strict like every other row, under
-    /// every production chain id alike: a revoked orchestrator `WITHDRAW`
-    /// red-lines as `ExpectedGrantMissing` naming the orchestrator. Driven
-    /// on the Base fork with the chain id switched, so the row state is the
-    /// same under each id.
+    /// @notice Under every production chain id, a revoked orchestrator
+    /// `WITHDRAW` reverts with `ExpectedGrantMissing` naming the
+    /// orchestrator. Driven on the Base fork with the chain id switched.
     function testAssertExpectedGrantsRejectsARevokedOrchestratorGrant() external {
         selectBaseFork();
         address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
@@ -343,9 +328,8 @@ contract LibAuthoriserInvariantsTest is Test {
         }
     }
 
-    /// @notice The orchestrator is a pinned grantee, so it joins the
-    /// `DEFAULT_ADMIN_ROLE` negative: root admin on the orchestrator
-    /// red-lines as `UnexpectedDefaultAdmin` naming it.
+    /// @notice Root admin on the orchestrator reverts with
+    /// `UnexpectedDefaultAdmin` naming it.
     function testAssertExpectedGrantsRejectsOrchestratorDefaultAdmin() external {
         selectBaseFork();
         address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;

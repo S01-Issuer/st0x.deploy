@@ -6,6 +6,7 @@ import {IERC20} from "@openzeppelin-contracts-5.6.1/token/ERC20/IERC20.sol";
 
 import {IST0xOrchestratorV1, MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV1.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
+import {SignedContextV1} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
 
 /// @title ReceiptTransferInLowersPointerTest
 /// @notice Workflow (ops bootstrap): receipts exist at low ids held OUTSIDE
@@ -20,12 +21,13 @@ contract ReceiptTransferInLowersPointerTest is OrchestratorIntegrationTest {
 
     function testReceiptTransferInLowersPointerAndEnablesBurn() external {
         (address eoa, uint256 pk) = makeAddrAndKey("bootstrap-recipient");
+        _allowRecipient(eoa);
         address holder = makeAddr("receipt-holder");
 
         // Mint 10e18 to the EOA — receipt id 1 held by the orchestrator.
         MintAuthV1 memory authLow = _signedMintAuth(address(vault), eoa, 10e18, keccak256("b1"), pk);
         vm.prank(MM);
-        orchestrator.mint(address(vault), eoa, 10e18, authLow, "");
+        orchestrator.mint(address(vault), eoa, 10e18, authLow, "", new SignedContextV1[](0));
         uint256 lowId = vault.highwaterId();
         assertEq(lowId, 1, "first mint lands at id 1");
 
@@ -43,7 +45,7 @@ contract ReceiptTransferInLowersPointerTest is OrchestratorIntegrationTest {
         // consumes id 2 fully, and parks the pointer at 3 — above lowId.
         MintAuthV1 memory authHigh = _signedMintAuth(address(vault), eoa, 4e18, keccak256("b2"), pk);
         vm.prank(MM);
-        orchestrator.mint(address(vault), eoa, 4e18, authHigh, "");
+        orchestrator.mint(address(vault), eoa, 4e18, authHigh, "", new SignedContextV1[](0));
         uint256 highId = vault.highwaterId();
         // Burns pull from the caller: hand all of the EOA's shares to MM.
         vm.prank(eoa);

@@ -6,7 +6,7 @@ import {
     OffchainAssetReceiptVaultBeaconSetDeployer,
     OffchainAssetReceiptVaultConfigV2,
     OffchainAssetReceiptVault
-} from "rain-vats-0.1.6/src/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
+} from "rain-vats-0.2.1/src/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
 import {ERC165} from "@openzeppelin-contracts-5.6.1/utils/introspection/ERC165.sol";
 import {StoxWrappedTokenVaultBeaconSetDeployer} from "./StoxWrappedTokenVaultBeaconSetDeployer.sol";
 import {LibProdDeployCurrent} from "../../generated/LibProdDeployCurrent.sol";
@@ -16,8 +16,7 @@ import {IStoxUnifiedDeployerV1} from "../../interface/IStoxUnifiedDeployerV1.sol
 /// @title StoxUnifiedDeployer
 /// @notice Deploys a new OffchainAssetReceiptVault and a new
 /// StoxWrappedTokenVault linked to the OffchainAssetReceiptVault atomically.
-/// The beacon sets are hardcoded to simplify and harden deployment of this
-/// contract by providing an audit trail in git of any address modifications.
+/// The beacon set deployer addresses are hardcoded from `LibProdDeployCurrent`.
 contract StoxUnifiedDeployer is ERC165, IStoxUnifiedDeployerV1 {
     /// @inheritdoc ERC165
     function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
@@ -33,9 +32,10 @@ contract StoxUnifiedDeployer is ERC165, IStoxUnifiedDeployerV1 {
 
     /// @notice Deploys a new OffchainAssetReceiptVault and a new
     /// StoxWrappedTokenVault linked to the OffchainAssetReceiptVault.
-    /// @dev Reentrancy is not exploitable here because this contract is entirely
-    /// stateless — no storage, no balances. A reentrant call would just create
-    /// another independent vault pair.
+    /// @dev Reentrancy is not exploitable here: this contract is entirely
+    /// stateless — no storage, no balances — so a reentrant call creates
+    /// another independent vault pair and has nothing of this contract's to
+    /// corrupt.
     /// @param config The configuration for the OffchainAssetReceiptVault. The
     /// resulting asset address is used to deploy the StoxWrappedTokenVault.
     // slither-disable-next-line reentrancy-events

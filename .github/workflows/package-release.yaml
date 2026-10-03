@@ -16,7 +16,7 @@ jobs:
       contents: write
     # A DEPLOY repo is on the tag-release lifecycle, not autopublish. A release
     # is cut by pushing a `sol-vX.Y.Z` tag (never on merge); deployment is a
-    # separate manual step. `[package].version` is the LAST released version and
+    # separate manual step. `[external.package].version` is the LAST released version and
     # moves only at release, in lockstep with the frozen snapshot the tag cuts.
     # This is the counterpart to library repos, which use rainix-autopublish and
     # bump a next-version slot on every merge. Mirrors the rain.factory.deploy

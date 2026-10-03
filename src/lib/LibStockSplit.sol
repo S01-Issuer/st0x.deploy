@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {Float, LibDecimalFloat} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
 import {LibTOFUTokenDecimals} from "rain-tofu-erc20-decimals-0.1.1/src/lib/LibTOFUTokenDecimals.sol";
 import {InvalidSplitMultiplier, MultiplierTooSmall, MultiplierTooLarge} from "../error/ErrStockSplit.sol";
 
@@ -50,12 +50,6 @@ library LibStockSplit {
     ///    as a raw smallest-unit count (`fromFixedDecimal(10^decimals, 0)`) —
     ///    rejects near-saturation multipliers that risk overflow on
     ///    sequential application (`MultiplierTooLarge`).
-    ///
-    /// The bounds are deliberately conservative. The largest historical real
-    /// stock split was roughly 1000x (= 1e3), well inside the ceiling, and
-    /// the smallest realistic reverse split would be around 1/1000 (= 1e-3),
-    /// well above the floor.
-    ///
     /// @param multiplier The stock split multiplier as a Float.
     function validateMultiplierV1(Float multiplier) internal {
         // Reject zero and negative multipliers.

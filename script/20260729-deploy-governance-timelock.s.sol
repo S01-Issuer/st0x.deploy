@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {Script} from "forge-std-1.16.2/src/Script.sol";
 import {console2} from "forge-std-1.16.2/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
 
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
@@ -135,11 +135,14 @@ contract DeployGovernanceTimelock is Script {
     function run() external {
         string[] memory nets = networks();
         string memory manifest = "";
+        // Every fork is created before the first is selected, as
+        // `LibRainDeploy.deployToNetworks` does. Foundry seeds each fork
+        // created after the first selection with the pre-fork account set, so
+        // creating them inside the loop reads networks 2..N against the
+        // default EVM rather than against their own chain.
+        uint256[] memory forkIds = LibRainDeploy.createForks(vm, nets);
         for (uint256 i = 0; i < nets.length; i++) {
-            // The fork id is unused; bind it so the unused-return lint stays
-            // satisfied, matching `LibRainDeploy.deployToNetworks`.
-            uint256 forkId = vm.createSelectFork(nets[i]);
-            (forkId);
+            vm.selectFork(forkIds[i]);
             console2.log("==== NETWORK:", nets[i]);
             address timelock = _deployOnActiveChain();
             manifest = string.concat(

@@ -11,32 +11,22 @@ import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
 
 /// @title EthereumBeaconOwnershipTest
-/// @notice The forcing function for the Ethereum beacon-ownership migration.
-/// Ethereum's 3 production beacons are deployed but still owned by the deploy
-/// EOA (`LibProdDeployV1.BEACON_INITIAL_OWNER`, rainlang.eth). ST0x requires
-/// every chain's beacons to be owned by that chain's token-owner Safe (Base's
-/// were migrated in #253); until the Ethereum migration
-/// (`20260716-migrate-beacon-owners-ethereum`) runs, this invariant is RED by
-/// design — that is exactly what forces the migration to happen. It goes green
-/// the moment ownership lands on `STOX_TOKEN_OWNER_SAFE_ETHEREUM`, and stays
-/// green in CI thereafter (catching any later ownership drift).
+/// @notice Ethereum's leg of the per-chain beacon pin.
+/// @dev Forks Ethereum head unconditionally; needs `ETHEREUM_RPC_URL`.
 contract EthereumBeaconOwnershipTest is Test {
-    /// Every Ethereum beacon is owned by the Ethereum token-owner Safe (with
-    /// the OZ beacon codehash + its pinned impl unchanged). RED until the
-    /// migration transfers ownership from the deploy EOA to the Safe.
+    /// Every Ethereum beacon is owned by the Ethereum token-owner Safe,
+    /// carries the OZ beacon codehash, and points at its pinned impl.
     function testEthereumBeaconsAreSafeOwned() external {
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM;
 
         vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
         address[4] memory beacons = LibProdBeacons0_1_1.beacons();
         address[4] memory impls = LibProdBeacons0_1_1.implementations();
-        // Every expected implementation is named as an explicit pin. The
-        // wrapped-token-vault beacon serves the 0.1.1 impl its bootstrap
-        // baked; the receipt + receipt-vault beacons were moved onto 0.1.30
-        // by the fleet upgrade (20260825-upgrade-fleet-to-0-1-30), which has
-        // landed on every chain. Reading the beacon's own
-        // `implementation()` back as the expectation asserted only that the
-        // beacon agrees with itself, which no upgrade can ever break.
+        // The wrapped-token-vault beacon serves the 0.1.1 impl; the receipt
+        // and receipt-vault beacons serve 0.1.30. Every expectation
+        // here is an explicit pin, named in this repo. Reading the beacon's
+        // own `implementation()` back as the expectation would assert only
+        // that the beacon agrees with itself, which no upgrade can break.
         LibBeaconInvariants.assertBeaconInvariants(
             beacons[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX],
             safe,

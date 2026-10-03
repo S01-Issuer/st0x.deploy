@@ -3,10 +3,11 @@
 pragma solidity =0.8.25;
 
 import {IERC20} from "@openzeppelin-contracts-5.6.1/token/ERC20/IERC20.sol";
-import {LibDecimalFloat} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
+import {LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
 
 import {IST0xOrchestratorV1, MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV1.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
+import {SignedContextV1} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
 
 /// @title BurnFractionalSplitTruncationDustTest
 /// @notice Workflow: a 1:3 reverse split truncates the receipt side per-id
@@ -18,16 +19,17 @@ import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 contract BurnFractionalSplitTruncationDustTest is OrchestratorIntegrationTest {
     function testBurnAfterFractionalSplitRevertsOnTruncationDust() external {
         (address eoa, uint256 pkA) = makeAddrAndKey("frac-recipient");
+        _allowRecipient(eoa);
 
         // Two separate small receipts, each of which truncates on a 1/3
         // multiplier: trunc(5/3) == 1 per id, but trunc(10/3) == 3 for the
         // account-level share balance — a 1-unit gap.
         MintAuthV1 memory authA = _signedMintAuth(address(vault), eoa, 5, keccak256("fa"), pkA);
         vm.prank(MM);
-        orchestrator.mint(address(vault), eoa, 5, authA, "");
+        orchestrator.mint(address(vault), eoa, 5, authA, "", new SignedContextV1[](0));
         MintAuthV1 memory authB = _signedMintAuth(address(vault), eoa, 5, keccak256("fb"), pkA);
         vm.prank(MM);
-        orchestrator.mint(address(vault), eoa, 5, authB, "");
+        orchestrator.mint(address(vault), eoa, 5, authB, "", new SignedContextV1[](0));
         uint256 idA = 1;
         uint256 idB = 2;
         assertEq(vault.highwaterId(), idB, "two receipts minted");

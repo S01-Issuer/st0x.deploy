@@ -7,48 +7,43 @@ import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvarian
 import {LibMigrationInvariant} from "../../../../src/lib/LibMigrationInvariant.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibTokenInvariants} from "../../../../src/lib/LibTokenInvariants.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
 
 /// @title StoxProdV4PostSwapTest
 /// @notice Post-deploy + post-swap integrity pin for V4 on-chain state.
 /// Two pin layers:
 ///
-/// **Layer 1 — V4 bytecode integrity (per-network).** The deterministic V4
-/// receipt vault implementation and the V4 corporate-actions facet must exist
-/// at their post-rebuild Zoltu addresses with the audited V4 codehash on every
-/// EVM network the ST0x deploy targets. Since V4 is only Zoltu-deployed on
-/// Base today, the per-network check reads each address's `codehash` and
-/// gates it through `LibMigrationInvariant`: either `bytes32(0)` (impl
-/// undeployed) or the pinned V4 codehash is accepted until
-/// `V4_CROSS_NETWORK_DEPLOY_DEADLINE`; only the pinned codehash is
-/// accepted after. If the impl has not been redeployed on a network by the
-/// deadline, cron red-lines against that network.
+/// **Layer 1 — V4 bytecode integrity (per-network).** The V4 receipt vault
+/// implementation and the V4 corporate-actions facet at their Zoltu
+/// addresses: either `bytes32(0)` (undeployed) or the pinned V4 codehash is
+/// accepted until `V4_CROSS_NETWORK_DEPLOY_DEADLINE`; only the pinned
+/// codehash is accepted after.
 ///
-/// **Layer 2 — Authoriser swap window (Base only).** Every production
-/// receipt vault reports the V4 authoriser clone
+/// **Layer 2 — Authoriser (Base only).** Every production receipt vault
+/// reports the V4 authoriser clone
 /// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`), which
-/// `LibAuthoriserInvariants.STOX_PROD_AUTHORISER` aliases. Base-only
+/// `LibAuthoriserInvariants.STOX_PROD_AUTHORISER` aliases, and the clone
+/// itself passes `LibAuthoriserInvariants.assertAll()`. Base only,
 /// because no other network carries live production receipt vaults.
 ///
-/// When (and only when) the clone pin is hydrated the additional invariants
-/// on the clone itself — deployed codehash matches the pin, grant map
-/// matches `LibAuthoriserInvariants.expectedGrants()` — are enforced. That
-/// keeps the check from tautologically asserting on `address(0)` while the
-/// pin is still a placeholder.
+/// The clone's own invariants — deployed codehash against the pin, grant
+/// map against `expectedGrants()` — are enforced only once the clone pin is
+/// hydrated, so the check cannot tautologically assert on `address(0)` while
+/// that pin is still a placeholder.
 ///
-/// @dev Fork tests use an unpinned Base head fork so `block.timestamp` is
-/// real and cron picks up the deadline transition automatically.
+/// @dev Unpinned head forks so `block.timestamp` is real. A pinned block
+/// would freeze the deadline comparison to that block's timestamp, so cron
+/// would never see the transition.
 contract StoxProdV4PostSwapTest is Test {
-    /// @notice Unix timestamp past which every network the ST0x deploy
-    /// targets must carry the V4 receipt vault impl + corporate-actions
-    /// facet at their Zoltu addresses with the pinned codehash.
-    /// `2026-11-01T00:00:00Z`.
-    /// @dev PLACEHOLDER — set to the operator SLA for the cross-network V4
-    /// Zoltu redeploy. Adjust before merge if the intended cut-off is
-    /// different. The Base-side swap deadline lives in
-    /// `LibProdDeployV4.V4_SWAP_DEADLINE`, which no longer gates any
-    /// assertion now that the swap has executed and the authoriser leg
-    /// asserts the V4 clone outright.
+    /// @notice Unix timestamp (`2026-11-01T00:00:00Z`) past which every
+    /// network the ST0x deploy targets must carry the V4 receipt vault impl
+    /// + corporate-actions facet at their Zoltu addresses with the pinned
+    /// codehash.
+    /// @dev **PLACEHOLDER.** This is a guess at the operator SLA for the
+    /// cross-network V4 Zoltu redeploy, not a date anyone has agreed. It
+    /// needs confirming or changing before this merges, because once it
+    /// passes with the redeploy outstanding it red-lines cron on every
+    /// network that has not had one.
     uint256 internal constant V4_CROSS_NETWORK_DEPLOY_DEADLINE = 1_793_491_200;
 
     /// @notice Assert both V4 artifacts (receipt vault impl + corporate-
@@ -74,16 +69,10 @@ contract StoxProdV4PostSwapTest is Test {
         );
     }
 
-    /// @notice Assert the post-swap authoriser state on Base: every prod
-    /// receipt vault's `authorizer()` is the current production authoriser
-    /// (`LibAuthoriserInvariants.STOX_PROD_AUTHORISER` — the V4 clone), and
-    /// the clone itself validates via the shared invariant (codehash bound
-    /// to the audited 0.1.1 impl + the master `expectedGrants()` map).
-    /// Base-only.
-    /// @dev The swap has executed: every production receipt vault reports
-    /// the V4 clone. `LibAuthoriserInvariants.assertAll()` asserts the
-    /// clone's pinned codehash and its full grant map, so no
-    /// separate hydration guard or hand-listed admin sweep is needed here.
+    /// @notice Assert the authoriser state on Base: every prod receipt
+    /// vault's `authorizer()` is `LibAuthoriserInvariants.STOX_PROD_AUTHORISER`
+    /// (the V4 clone), and the clone passes `LibAuthoriserInvariants.assertAll()`
+    /// (pinned codehash + full `expectedGrants()` map).
     function checkPostSwapAuthoriserStateOnBase() internal view {
         LibTokenInvariants.assertUniformAuthoriser(LibAuthoriserInvariants.STOX_PROD_AUTHORISER);
         LibAuthoriserInvariants.assertAll();

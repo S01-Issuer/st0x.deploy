@@ -2,27 +2,28 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.2/src/Test.sol";
-
 import {IERC1155} from "@openzeppelin-contracts-5.6.1/token/ERC1155/IERC1155.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "@openzeppelin-contracts-5.6.1/proxy/beacon/BeaconProxy.sol";
-import {CloneFactory} from "rain-factory-0.1.1/src/concrete/CloneFactory.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
-import {Float} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
+import {CloneFactory} from "rain-factory-0.1.5/src/concrete/CloneFactory.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
 import {
     OffchainAssetReceiptVaultConfigV2,
     DEPOSIT,
     WITHDRAW,
     CERTIFY
-} from "rain-vats-0.1.6/src/concrete/vault/OffchainAssetReceiptVault.sol";
+} from "rain-vats-0.2.1/src/concrete/vault/OffchainAssetReceiptVault.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
-import {ReceiptVaultConfigV2} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
-import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
+} from "rain-vats-0.2.1/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+import {ReceiptVaultConfigV2} from "rain-vats-0.2.1/src/abstract/ReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.1/src/interface/IAuthorizeV1.sol";
+import {EvaluableV4} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
 
-import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
+import {ST0xOrchestrator, ST0X_TOKEN_OWNER_SAFE_NAME} from "../../../../src/concrete/ST0xOrchestrator.sol";
+import {LibTestAddressRegistry} from "../../lib/LibTestAddressRegistry.sol";
+import {LibTestMigrationRegistry} from "../../lib/LibTestMigrationRegistry.sol";
 import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";
 import {MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV1.sol";
 import {StoxCorporateActionsFacet} from "../../../../src/concrete/StoxCorporateActionsFacet.sol";
@@ -39,6 +40,7 @@ import {LibStockSplit} from "../../../../src/lib/LibStockSplit.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 import {LibTestTofu} from "../../../lib/LibTestTofu.sol";
+import {St0xAttestSubParserTest} from "../St0xAttestSubParserTest.sol";
 
 /// @title OrchestratorIntegrationTest
 /// @notice Shared base for the real-deployment integration tests of the
@@ -52,10 +54,24 @@ import {LibTestTofu} from "../../../lib/LibTestTofu.sol";
 /// (`onlyExpectedVaultLogic`) reads the genuine production beacons and passes
 /// (both at `initialize` and on every mint/burn). Every mint/burn then
 /// exercises the real mint/redeem/receipt/rebase machinery end-to-end.
-abstract contract OrchestratorIntegrationTest is Test {
+///
+/// The mint weighting is a real Rainlang too: the test interpreter, store
+/// and parser that `St0xAttestSubParserTest` binds, with the attest
+/// subparser beside them. The setUp installs the identity weighting
+/// (`_: mint-amount();`), so a workflow that is not about the weighting is
+/// charged the amount in whole tokens; the weighting workflows set their own.
+abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
     address internal constant ADMIN = address(uint160(uint256(keccak256("ADMIN"))));
     address internal constant OWNER = address(uint160(uint256(keccak256("OWNER"))));
     address internal constant MM = address(uint160(uint256(keccak256("MM"))));
+
+    /// A capacity no amount in these workflows comes near, granted as MM's
+    /// minter limit and as each recipient's limit so the workflows exercise
+    /// the vault machinery rather than the caps.
+    Float internal immutable UNBOUNDED_CAPACITY = LibDecimalFloat.packLossless(1, 60);
+
+    /// A zero leak rate: nothing here relies on a bucket refilling.
+    Float internal constant NO_LEAK = LibDecimalFloat.FLOAT_ZERO;
 
     /// Beacon owner for the OARV beacon set — the address the beacon-set
     /// deployer hands ownership to at construction. Needed to upgrade the
@@ -115,11 +131,45 @@ abstract contract OrchestratorIntegrationTest is Test {
         vm.prank(ADMIN);
         vault.certify(1_000_000, false, "");
 
+        // Parsed before the prank: `parse2` is an external call and would
+        // otherwise be the one the prank lands on.
+        EvaluableV4 memory identity = _identityWeighting();
+
         // MM is the permissioned mint/burn caller on the orchestrator.
         vm.startPrank(OWNER);
         orchestrator.grantRole(orchestrator.MINT_ROLE(), MM);
         orchestrator.grantRole(orchestrator.BURN_ROLE(), MM);
+        // No weighting means no mint. The identity weighting charges each
+        // mint its amount in whole tokens.
+        orchestrator.setMintWeighting(identity);
+        // Mint caps fail closed. Grant an unreachable capacity as MM's minter
+        // limit; each workflow allows its own recipient with
+        // `_allowRecipient`.
+        orchestrator.setMinterMintLimit(MM, UNBOUNDED_CAPACITY, NO_LEAK);
         vm.stopPrank();
+    }
+
+    /// Give `to` an unreachable recipient capacity on the shared orchestrator,
+    /// so a workflow that is not about the caps can mint to it.
+    function _allowRecipient(address to) internal {
+        vm.prank(OWNER);
+        orchestrator.setRecipientMintLimit(to, UNBOUNDED_CAPACITY, NO_LEAK);
+    }
+
+    /// The identity weighting on the test Rainlang: a mint is charged its
+    /// `mint-amount()`, the amount as a `Float` of whole tokens.
+    function _identityWeighting() internal view returns (EvaluableV4 memory) {
+        return _weighting("_: mint-amount();");
+    }
+
+    /// `rainlang`, with the subparser's pragma prepended, parsed by the test
+    /// deployer and bound to the test interpreter and store.
+    function _weighting(string memory rainlang) internal view returns (EvaluableV4 memory) {
+        return EvaluableV4({
+            interpreter: I_INTERPRETER,
+            store: I_STORE,
+            bytecode: I_DEPLOYER.parse2(bytes(string.concat(usingWords(), rainlang)))
+        });
     }
 
     // ------------------------------------------------------------------ //
@@ -148,15 +198,19 @@ abstract contract OrchestratorIntegrationTest is Test {
         StoxOffchainAssetReceiptVaultAuthorizerV1 authorizerImpl = new StoxOffchainAssetReceiptVaultAuthorizerV1();
         CloneFactory factory = new CloneFactory();
         return StoxOffchainAssetReceiptVaultAuthorizerV1(
-            factory.clone(
-                address(authorizerImpl), abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: ADMIN}))
+            factory.cloneDeterministic(
+                address(authorizerImpl),
+                abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: ADMIN})),
+                bytes32(0)
             )
         );
     }
 
     function _deployOrchestrator(address owner) internal returns (ST0xOrchestrator) {
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, (owner));
+        LibTestAddressRegistry.etchAndBind(vm, ST0X_TOKEN_OWNER_SAFE_NAME, owner);
+        LibTestMigrationRegistry.etch(vm);
+        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
         BeaconProxy proxy = new BeaconProxy(address(beacon), initData);
         return ST0xOrchestrator(payable(address(proxy)));
     }

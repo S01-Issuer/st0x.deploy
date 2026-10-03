@@ -3,11 +3,12 @@
 pragma solidity =0.8.25;
 
 import {IERC20} from "@openzeppelin-contracts-5.6.1/token/ERC20/IERC20.sol";
-import {Unauthorized} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
+import {Unauthorized} from "rain-vats-0.2.1/src/interface/IAuthorizeV1.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV1.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
+import {SignedContextV1} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
 
 /// @title MintWithEcdsaSignatureTest
 /// @notice Workflow: an EOA recipient authorises a mint with an ECDSA
@@ -21,6 +22,7 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
     /// the burn pointer: a fresh token's pointer starts (and stays) at 0.
     function testMintWithEcdsaSignatureDeliversShares() external {
         (address eoa, uint256 pk) = makeAddrAndKey("ecdsa-recipient");
+        _allowRecipient(eoa);
         uint256 amount = 123e18;
         bytes32 nonce = keccak256("ecdsa");
 
@@ -29,7 +31,7 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
 
         MintAuthV1 memory auth = _signedMintAuth(address(vault), eoa, amount, nonce, pk);
         vm.prank(MM);
-        orchestrator.mint(address(vault), eoa, amount, auth, "");
+        orchestrator.mint(address(vault), eoa, amount, auth, "", new SignedContextV1[](0));
 
         uint256 mintedId = vault.highwaterId();
         assertEq(mintedId, 1, "first mint lands at id 1");
@@ -46,11 +48,12 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
     /// the same nonce remains free for a different recipient.
     function testMintNonceReplayAcrossAmountsReverts() external {
         (address eoa, uint256 pk) = makeAddrAndKey("replay-recipient");
+        _allowRecipient(eoa);
         bytes32 nonce = keccak256("replay");
 
         MintAuthV1 memory auth = _signedMintAuth(address(vault), eoa, 10e18, nonce, pk);
         vm.prank(MM);
-        orchestrator.mint(address(vault), eoa, 10e18, auth, "");
+        orchestrator.mint(address(vault), eoa, 10e18, auth, "", new SignedContextV1[](0));
         assertTrue(orchestrator.nonceUsed(eoa, nonce), "nonce consumed");
 
         // A fresh, valid signature over a different amount cannot resurrect
@@ -58,14 +61,15 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
         MintAuthV1 memory replayAuth = _signedMintAuth(address(vault), eoa, 5e18, nonce, pk);
         vm.prank(MM);
         vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.NonceReplayed.selector, eoa, nonce));
-        orchestrator.mint(address(vault), eoa, 5e18, replayAuth, "");
+        orchestrator.mint(address(vault), eoa, 5e18, replayAuth, "", new SignedContextV1[](0));
 
         // The SAME nonce is still free for a different recipient.
         (address other, uint256 otherPk) = makeAddrAndKey("other-recipient");
+        _allowRecipient(other);
         assertFalse(orchestrator.nonceUsed(other, nonce), "nonce namespaced per recipient");
         MintAuthV1 memory otherAuth = _signedMintAuth(address(vault), other, 3e18, nonce, otherPk);
         vm.prank(MM);
-        orchestrator.mint(address(vault), other, 3e18, otherAuth, "");
+        orchestrator.mint(address(vault), other, 3e18, otherAuth, "", new SignedContextV1[](0));
         assertEq(vault.balanceOf(other), 3e18, "other recipient minted with the same nonce");
     }
 
@@ -75,11 +79,20 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
     function testMintRevertsWithoutVaultRoles() external {
         // Fresh orchestrator, never granted DEPOSIT/WITHDRAW on the authoriser.
         ST0xOrchestrator fresh = _deployOrchestrator(OWNER);
-        bytes32 mintRole = fresh.MINT_ROLE();
-        vm.prank(OWNER);
-        fresh.grantRole(mintRole, MM);
-
         (address eoa, uint256 pk) = makeAddrAndKey("norole-recipient");
+        bytes32 mintRole = fresh.MINT_ROLE();
+        vm.startPrank(OWNER);
+        fresh.grantRole(mintRole, MM);
+        // Mint caps fail closed: grant an unreachable capacity for MM and the
+        // recipient so the vault's missing `DEPOSIT` grant is the only thing
+        // that can fail.
+        fresh.setMinterMintLimit(MM, UNBOUNDED_CAPACITY, NO_LEAK);
+        fresh.setRecipientMintLimit(eoa, UNBOUNDED_CAPACITY, NO_LEAK);
+        // And a weighting: without one the mint is refused
+        // `MintWeightingUnset` before the vault leg.
+        fresh.setMintWeighting(_identityWeighting());
+        vm.stopPrank();
+
         uint256 amount = 1e18;
         bytes32 nonce = keccak256("norole");
         bytes32 digest = Digest.unwrap(fresh.mintAuthDigest(address(vault), eoa, amount, nonce));
@@ -88,6 +101,6 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
 
         vm.prank(MM);
         vm.expectPartialRevert(Unauthorized.selector);
-        fresh.mint(address(vault), eoa, amount, auth, "");
+        fresh.mint(address(vault), eoa, amount, auth, "", new SignedContextV1[](0));
     }
 }

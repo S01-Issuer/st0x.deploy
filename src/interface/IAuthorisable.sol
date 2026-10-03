@@ -4,9 +4,8 @@ pragma solidity ^0.8.25;
 
 /// @title IAuthorisable
 /// @notice Minimal authoriser-getter surface exposed by ST0x receipt vaults.
-/// Returns `address` rather than reusing the upstream `IAuthorizableV1` so
-/// the token-invariant checks carry a narrow surface and not the upstream's
-/// richer return type.
+/// Returns `address` rather than the upstream `IAuthorizableV1`'s richer
+/// return type.
 interface IAuthorisable {
     /// @notice The authoriser contract gating restricted vault operations.
     /// @return The authoriser address.

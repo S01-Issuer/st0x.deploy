@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {OffchainAssetReceiptVault} from "rain-vats-0.1.6/src/concrete/vault/OffchainAssetReceiptVault.sol";
-import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.1/src/concrete/vault/OffchainAssetReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.1/src/interface/IAuthorizeV1.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
 import {LibRebase} from "../lib/LibRebase.sol";
@@ -19,25 +19,21 @@ import {AuthorizerMissingCorporateActionAdmin} from "../error/ErrCorporateAction
 ///
 /// Migration is lazy: each account's stored balance is rasterized to the
 /// current rebase version on first interaction (transfer, mint, burn).
-/// Balance writes go directly to OZ's ERC20 storage via assembly — no
-/// mint/burn, no Transfer events, no totalSupply side effects.
+/// Balance writes go directly to OZ's ERC20 storage via assembly, with no
+/// Transfer events.
 ///
-/// totalSupply uses per-cursor pots so that account migrations genuinely
-/// improve precision. See LibTotalSupply for the full explanation.
+/// totalSupply uses per-cursor pots; see `LibTotalSupply`.
 ///
-/// @dev "Migration" here covers two distinct operations that usually happen
-/// together but MUST be treated separately:
-/// 1. **Balance rasterization** — rewriting `LibERC20Storage.underlyingBalance(account)`
+/// @dev "Migration" here covers two operations:
+/// 1. **Balance rasterization**: rewriting `LibERC20Storage.underlyingBalance(account)`
 ///    from its pre-rebase value to the post-rebase value.
-/// 2. **Cursor advancement** — updating `accountMigrationCursor[account]` to
+/// 2. **Cursor advancement**: updating `accountMigrationCursor[account]` to
 ///    the index of the latest completed split this account has now seen.
 ///
-/// For zero-balance accounts, (1) is a no-op but (2) still matters: without
-/// it a subsequent mint or transfer-in would land at a stale cursor and the
-/// next `balanceOf` read would erroneously re-apply completed multipliers to
-/// a balance that was already written at the post-rebase basis, silently
-/// inflating the recipient's balance. See `LibRebase.migratedBalance` and
-/// its zero-balance regression tests.
+/// For zero-balance accounts, (1) is a no-op and (2) still happens, so a
+/// later mint or transfer-in lands at the current cursor rather than a stale
+/// one that would re-apply completed multipliers on the next `balanceOf`
+/// read. See `LibRebase.migratedBalance`.
 contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// @notice Emitted whenever `migrateAccount` advances an account's
     /// migration cursor. The cursor itself is storage state, so the event
@@ -47,11 +43,8 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// applied.
     /// @param account The account whose migration state changed.
     /// @param fromActionId The action id the account's cursor was at
-    /// before this migration. The default 0 corresponds to the bootstrap
-    /// node (idx 0) — every fresh holder starts there because the cursor
-    /// mapping defaults to 0 and bootstrap is identity for splits, so "no
-    /// migration applied" and "migrated through the identity bootstrap"
-    /// are the same state.
+    /// before this migration. The default 0 is the bootstrap node (idx 0),
+    /// where every fresh holder starts.
     /// @param toActionId The action id the account's cursor is at
     /// after this migration.
     /// @param oldBalance The account's **stored** balance before rasterization
@@ -76,36 +69,32 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     function balanceOf(address account) public view virtual override returns (uint256) {
         uint256 stored = LibERC20Storage.underlyingBalance(account);
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        // The second return value is the new cursor — intentionally discarded
-        // here because `balanceOf` is a pure read that must not mutate state;
-        // the cursor advancement happens on the next `_update` touch via
-        // `migrateAccount`.
+        // The second return value is the new cursor, discarded because
+        // `balanceOf` is a read; cursor advancement happens on the next
+        // `_update` via `migrateAccount`.
         // slither-disable-next-line unused-return
         (uint256 balance,) = LibRebase.migratedBalance(stored, s.accountMigrationCursor[account]);
         return balance;
     }
 
     /// @notice Returns the effective total supply after applying every
-    /// completed corporate action's multiplier on top of the per-cursor pot
-    /// model tracked by `LibTotalSupply`. See `LibTotalSupply` for the full
-    /// explanation of the per-pot walking recurrence.
+    /// completed corporate action's multiplier on top of the per-cursor pots
+    /// tracked by `LibTotalSupply`.
     /// @return An upper bound on `sum(balanceOf)` that converges to exact
     /// equality once every holder sharing a pre-split cursor has migrated
     /// through the split. The walk applies each multiplier to the aggregate
-    /// pot, so for fractional multipliers `trunc(Σ aᵢ * m) ≥ Σ trunc(aᵢ * m)`
-    /// — the gap is the per-account truncation dust, and it disappears as
+    /// pot, so for fractional multipliers `trunc(Σ aᵢ * m) ≥ Σ trunc(aᵢ * m)`;
+    /// the gap is the per-account truncation dust, which disappears as
     /// accounts migrate.
     function totalSupply() public view virtual override returns (uint256) {
         return LibTotalSupply.effectiveTotalSupply();
     }
 
-    /// @dev Bootstraps totalSupply tracking, migrates both sender and
-    /// recipient, calls super, then tracks mint/burn deltas in the pot.
-    /// `onMint` / `onBurn` run AFTER `super._update` so OZ's own
-    /// validation (e.g. `ERC20InsufficientBalance` on an over-burn)
-    /// fires first. If these ran before super, a lone-holder over-burn
-    /// at `latestSplit` would underflow the pot with a raw arithmetic
-    /// panic rather than surfacing OZ's intended error.
+    /// @dev Folds the totalSupply cursor, migrates both sender and recipient,
+    /// calls super, then tracks mint/burn deltas in the pot. `onMint` /
+    /// `onBurn` run after `super._update` so OZ's own validation (e.g.
+    /// `ERC20InsufficientBalance` on an over-burn) fires first rather than
+    /// a pot underflow panic.
     function _update(address from, address to, uint256 amount) internal virtual override {
         LibTotalSupply.fold();
 
@@ -122,17 +111,14 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     }
 
     /// @dev Migrate a single account through every completed split that has
-    /// not yet been applied to it (i.e. completed split nodes whose index is
-    /// past the account's current `accountMigrationCursor`). This both
-    /// rasterizes the account's stored balance to the post-rebase basis and
-    /// advances the cursor; for zero-balance accounts the balance rewrite is
-    /// a no-op but the cursor advancement still matters — see
-    /// `LibRebase.migratedBalance` and its zero-balance regression tests for
-    /// the bug this prevents.
+    /// not yet been applied to it (completed split nodes whose index is past
+    /// the account's current `accountMigrationCursor`). This both rasterizes
+    /// the account's stored balance to the post-rebase basis and advances
+    /// the cursor; for zero-balance accounts the balance rewrite is a no-op
+    /// and the cursor still advances.
     ///
-    /// `internal` (rather than `private`) so test harnesses derived from this
-    /// contract can exercise the migration logic in isolation. The function is
-    /// only ever called from this contract's `_update` override.
+    /// `internal` so test harnesses derived from this contract can call it
+    /// directly. Only called from this contract's `_update` override.
     function migrateAccount(address account) internal {
         if (account == address(0)) return;
 
@@ -150,22 +136,15 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         if (newBalance != storedBalance) {
             LibERC20Storage.setUnderlyingBalance(account, newBalance);
 
-            // Rebasing rewrites `_balances` behind OZ's back, so apply the same
-            // delta to OZ's own `_totalSupply` accumulator and preserve its
-            // `_totalSupply == Σ _balances` invariant.
-            //
-            // The raw slot is not the reported supply — `totalSupply()` above
-            // is the rebase-aware `LibTotalSupply.effectiveTotalSupply()`, and
-            // the pot accounting in `onAccountMigrated` below is untouched by
-            // this write. But OZ's `_update` still subtracts from the raw slot
-            // **unchecked** on burn and adds to it **checked** on mint. Left
-            // stale, it drifts below the true balance sum, wraps to ~2**256 on
-            // the first burn that exceeds it, and from then on every mint
-            // reverts with `Panic(0x11)` — silently, because `totalSupply()`,
-            // `balanceOf()` and all events keep agreeing with each other. The
-            // slot has no write path other than mint/burn, so recovering from
-            // that state would need a beacon implementation upgrade.
-            //
+            // Rebasing rewrites `_balances` directly, so apply the same delta
+            // to OZ's own `_totalSupply` accumulator and preserve its
+            // `_totalSupply == Σ _balances` invariant. The raw slot is not the
+            // reported supply (`totalSupply()` above is
+            // `LibTotalSupply.effectiveTotalSupply()`) and the pot accounting
+            // in `onAccountMigrated` below is untouched by this write, but
+            // OZ's `_update` still subtracts from the raw slot unchecked on
+            // burn and adds to it checked on mint; see
+            // `LibERC20Storage.applyBalanceDeltaToTotalSupply`.
             LibERC20Storage.applyBalanceDeltaToTotalSupply(storedBalance, newBalance);
         }
         emit AccountMigrated(account, currentCursor, newCursor, storedBalance, newBalance);
@@ -177,24 +156,17 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// facet via delegatecall. The facet address is hardcoded to its
     /// deterministic Zoltu deploy address from `LibProdDeployCurrent`.
     ///
-    /// @dev Baking the facet address into the vault implementation bytecode
-    /// means upgrading the facet requires upgrading the vault implementation
-    /// too. This matches the existing pattern where deployers hardcode beacon
-    /// addresses (Option 1 from S01-Issuer/st0x.deploy#70).
+    /// @dev The facet address is baked into the vault implementation
+    /// bytecode, so upgrading the facet requires upgrading the vault
+    /// implementation too.
     ///
     /// Plain ETH transfers with empty calldata hit `receive()`, not this
-    /// function, so refunds continue to work without going through delegatecall.
+    /// function.
     ///
-    /// **Trust model.** The corporate-actions facet calls the vault's
-    /// `authorizer()` for any state-mutating entry point (schedule, cancel).
-    /// The authorizer is the canonical permission boundary — set by the
-    /// vault owner during initialization. A compromised authorizer can
-    /// already grant or deny any permission, so re-entrancy through the
-    /// authorizer adds no new attack surface beyond what a sequence of
-    /// authorized calls would already permit. No reentrancy guard is
-    /// applied here on that basis. See `StoxCorporateActionsFacet`'s
-    /// per-function comments for the per-method argument that the
-    /// linked-list and cursor writes remain consistent under re-entry.
+    /// The corporate-actions facet calls the vault's `authorizer()` for every
+    /// state-mutating entry point (schedule, cancel). No reentrancy guard is
+    /// applied: re-entry through the authorizer can do nothing a sequence of
+    /// authorized calls could not.
     fallback() external payable virtual override {
         address facet = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET;
         assembly ("memory-safe") {
@@ -207,14 +179,9 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         }
     }
 
-    /// @notice Reject authorizers that don't configure admin hierarchies
-    /// for the corporate-action roles. Without an explicit admin, the
-    /// role's admin resolves to the unassigned `DEFAULT_ADMIN_ROLE` and
-    /// the role becomes permanently ungrantable — silently disabling
-    /// corporate actions and drifting the vault away from the underlying
-    /// off-chain asset. Surfaces the misconfiguration at the pairing
-    /// point so the operator hears about it immediately, not on the
-    /// first attempted `scheduleCorporateAction` call months later.
+    /// @notice Reject authorizers without an admin for the corporate-action
+    /// roles. A role whose admin resolves to the unassigned
+    /// `DEFAULT_ADMIN_ROLE` is ungrantable.
     ///
     /// Reverts with `AuthorizerMissingCorporateActionAdmin` if either
     /// `SCHEDULE_CORPORATE_ACTION` or `CANCEL_CORPORATE_ACTION` resolves

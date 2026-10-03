@@ -10,6 +10,7 @@ import {IST0xOrchestratorV1, MintAuthV1} from "../../../../src/interface/IST0xOr
 import {IST0xVaultBeaconSet} from "../../../../src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
+import {SignedContextV1} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
 
 /// @title GuardHaltsAfterVaultBeaconUpgradeTest
 /// @notice Workflow: upgrading the OARV vault beacon to a different
@@ -33,6 +34,7 @@ contract GuardHaltsAfterVaultBeaconUpgradeTest is OrchestratorIntegrationTest {
         assertFalse(orchestrator.vaultLogicIsExpected(), "guard halts after the vault beacon upgrade");
 
         (address eoa, uint256 pk) = makeAddrAndKey("halt-recipient");
+        _allowRecipient(eoa);
         MintAuthV1 memory auth = _signedMintAuth(address(vault), eoa, 1e18, keccak256("halt"), pk);
         vm.prank(MM);
         vm.expectRevert(
@@ -40,7 +42,7 @@ contract GuardHaltsAfterVaultBeaconUpgradeTest is OrchestratorIntegrationTest {
                 IST0xOrchestratorV1.VaultLogicMismatch.selector, LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE, newImpl
             )
         );
-        orchestrator.mint(address(vault), eoa, 1e18, auth, "");
+        orchestrator.mint(address(vault), eoa, 1e18, auth, "", new SignedContextV1[](0));
 
         vm.prank(MM);
         vm.expectRevert(

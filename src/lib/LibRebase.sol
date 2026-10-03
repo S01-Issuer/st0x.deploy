@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {Float} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
+import {Float} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
 import {LibCorporateAction} from "./LibCorporateAction.sol";
 import {
     ACTION_TYPE_INIT_V1,
@@ -45,32 +45,17 @@ import {LibStockSplit} from "./LibStockSplit.sol";
 /// ```
 ///
 /// Final balance: **96**, not 100 and not 99. The collapsed-product
-/// answer would be `1/3 × 3 × 1/3 × 3 = 1`, giving 100 exactly —
-/// different from the sequential result. The difference isn't a bug:
-/// we must preserve the sequential result so that two accounts
-/// migrating through the same node list at different times arrive at
-/// identical values, otherwise dormant-account balances would drift
-/// relative to active-account balances and the core rebase invariant
-/// would break.
-///
-/// The `testSequentialPrecision` regression test
-/// (`test/src/lib/LibRebase.t.sol`) locks this exact input → 96
-/// relationship in place. Any change to Rain Float's precision
-/// characteristics will surface there first.
+/// answer would be `1/3 × 3 × 1/3 × 3 = 1`, giving 100 exactly. Two
+/// accounts migrating through the same node list at different times
+/// arrive at identical values.
 library LibRebase {
     /// @notice Calculate the migrated balance by walking completed stock split
     /// nodes from a cursor, applying each multiplier sequentially.
     ///
-    /// Cursor advancement is performed even when `storedBalance == 0`. Without
-    /// it, a fresh recipient of a mint or transfer-in would have its cursor
-    /// stuck at zero: a subsequent stored-balance write (via `super._update`
-    /// in the vault) would land at a stale cursor and the next read of
-    /// `balanceOf` would re-apply every completed multiplier to a balance
-    /// already written at the post-rebase basis — over-multiplying and
-    /// silently inflating the recipient's balance.
-    /// Regression tests: `testZeroBalanceAdvancesCursor*` in
-    /// `test/src/lib/LibRebase.t.sol`, and the fresh-recipient regression
-    /// tests in `test/src/concrete/StoxReceiptVault.t.sol`.
+    /// The cursor advances even when `storedBalance == 0`, so a later
+    /// stored-balance write for a fresh recipient lands at the current
+    /// cursor rather than a stale one that would re-apply every completed
+    /// multiplier on the next `balanceOf` read.
     ///
     /// @param storedBalance The account's raw stored balance.
     /// @param fromActionId The action id of the last node this account was
@@ -94,27 +79,18 @@ library LibRebase {
         while (nodeIndex != NODE_NONE) {
             toActionId = nodeIndex;
             // Skip the multiplier read and float math whenever the balance
-            // is already zero. This covers both dormant zero-balance accounts
-            // (never held / fully burned) and mid-iteration truncation to
-            // zero (e.g. `balance=1, multiplier=0.5` → 0 after one step),
-            // because every subsequent `trunc(0 × multiplier) = 0`. The
-            // cursor still advances on every pass — skipping the advancement
-            // would inflate fresh recipients' balances on their next write;
-            // see the function NatSpec for the mechanism.
+            // is already zero, whether dormant or truncated to zero
+            // mid-walk (e.g. `balance=1, multiplier=0.5` → 0), since every
+            // subsequent `trunc(0 × multiplier) = 0`. The cursor still
+            // advances on every pass.
             //
-            // Init nodes (`ACTION_TYPE_INIT_V1`) are also identity — the
-            // bootstrap step exists so every holder's cursor advances
-            // through index 0 once, replacing the special "before any
-            // action" state. No multiplier read, no float math.
+            // Init nodes (`ACTION_TYPE_INIT_V1`) are identity: no multiplier
+            // read, no float math.
             if (balance != 0 && s.nodes[nodeIndex].actionType == ACTION_TYPE_STOCK_SPLIT_V1) {
                 Float multiplier = LibStockSplit.decodeParametersV1(s.nodes[nodeIndex].parameters);
                 // Rasterize after each multiplier to match what storage
-                // writes would produce. This ensures dormant and active
-                // accounts converge to identical balances.
-                // `LibRebaseMath.applyMultiplier` is the shared primitive
-                // used by every rebase path in the codebase (share side,
-                // totalSupply, receipt side) — see `LibRebaseMath.sol` for
-                // the safety argument on the int256 cast.
+                // writes would produce, so dormant and active accounts
+                // converge to identical balances.
                 balance = LibRebaseMath.applyMultiplier(balance, multiplier);
             }
 

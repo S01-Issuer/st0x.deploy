@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {Float, LibDecimalFloat} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
 import {BalanceExceedsInt256Max} from "../error/ErrRebase.sol";
 
 /// @title LibRebaseMath
@@ -10,13 +10,8 @@ import {BalanceExceedsInt256Max} from "../error/ErrRebase.sol";
 /// `uint256` balance with rasterize-toward-zero truncation. The result is the
 /// canonical "apply one rebase step" operation reused by every consumer of
 /// the corporate-actions rebase system (share-side migration, per-cursor
-/// totalSupply pots, and receipt-side migration).
-///
-/// Having a single helper guarantees that every rebase path uses identical
-/// rounding characteristics: any future drift in Rain Float's precision
-/// surfaces in one place rather than several, and the per-regression tests
-/// (`testSequentialPrecision` across LibRebase / LibTotalSupply / the new
-/// LibReceiptRebase) all trip at once if the underlying primitive changes.
+/// totalSupply pots, and receipt-side migration), so every rebase path rounds
+/// identically.
 library LibRebaseMath {
     /// @notice Apply a single rebase multiplier to a stored balance. Reads as
     /// `trunc(balance × multiplier)` — integer truncation toward zero, same
@@ -32,10 +27,9 @@ library LibRebaseMath {
     function applyMultiplier(uint256 balance, Float multiplier) internal pure returns (uint256) {
         // forge-lint: disable-next-line(unsafe-typecast)
         if (balance > uint256(type(int256).max)) revert BalanceExceedsInt256Max(balance);
-        // The second return from `toFixedDecimalLossy` is the lossless flag,
-        // intentionally discarded — the whole point of this helper is to
-        // rasterize the Float to a uint256 via truncation toward zero, so
-        // "lossy" is the desired behaviour.
+        // The second return from `toFixedDecimalLossy` is the lossless flag;
+        // truncation toward zero is the intended behaviour, so it is
+        // discarded.
         // slither-disable-next-line unused-return
         (uint256 result,) = LibDecimalFloat.toFixedDecimalLossy(
             // Guarded above: balance fits in int256.

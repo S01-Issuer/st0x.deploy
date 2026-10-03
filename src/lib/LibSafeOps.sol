@@ -7,21 +7,18 @@ import {IGnosisSafe} from "../interface/IGnosisSafe.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 
 /// @notice Minimal `UpgradeableBeacon` surface used by the beacon n+1
-/// helper: the privileged `upgradeTo` mutator. Declared inline so
-/// `LibSafeOps` owns the only beacon selector it encodes rather than
-/// importing the full OZ `UpgradeableBeacon` type for a single `abi.encodeCall`.
+/// helper: the `upgradeTo` mutator.
 interface IUpgradeableBeacon {
     /// @notice Point the beacon at a new implementation. `onlyOwner` on the
-    /// OZ beacon; reachable here only because the n+1 helper routes the call
-    /// through the owning Safe's `execTransaction`.
+    /// OZ beacon; the n+1 helper routes the call through the owning Safe's
+    /// `execTransaction`.
     /// @param newImplementation The implementation address to set.
     function upgradeTo(address newImplementation) external;
 }
 
-/// @notice The parsed Tx Builder JSON has zero transactions. Empty bundles
-/// are never produced by `emitTxBuilderJson` and so a zero-length
-/// `transactions` array is treated as an invariant break rather than a
-/// no-op.
+/// @notice The parsed Tx Builder JSON has zero transactions.
+/// `emitTxBuilderJson` never produces an empty bundle, so a zero-length
+/// `transactions` array is an invariant break.
 error TxBuilderJsonNoTransactions();
 
 /// @notice `emitTxBuilderJson` was handed a transaction with a non-CALL
@@ -57,49 +54,37 @@ struct SafeTx {
 }
 
 /// @title LibSafeOps
-/// @notice Off-chain Safe transaction helpers shared between the multisig
-/// threshold migration script and its tests. Wraps the canonical
-/// `getTransactionHash` view, foundry-level simulation of self-calls and
-/// external calls, and the Safe Tx Builder JSON serialise/parse round-trip
-/// used to hand the bundle to signers via the Safe UI.
-/// @dev The library is `Vm`-aware: it pokes the foundry cheatcode address
-/// directly so callers can use it from non-Test contracts (notably the
-/// `MigrateMultisigThreshold` script). The JSON helpers hand-assemble the
-/// output rather than going through `vm.serializeJson` because the Tx
-/// Builder schema requires `transactions` to be a JSON array of objects —
-/// `vm.serializeString` keyed by index emits an object, not an array.
+/// @notice Off-chain Safe transaction helpers shared between the Safe
+/// scripts and their tests. Wraps the canonical `getTransactionHash` view,
+/// foundry-level simulation of self-calls and external calls, and the Safe
+/// Tx Builder JSON serialise/parse round-trip used to hand a bundle to
+/// signers via the Safe UI.
+/// @dev The library reads the foundry cheatcode address directly so callers
+/// can use it from non-Test contracts (scripts).
 library LibSafeOps {
-    /// @notice Reference to the foundry HEVM cheatcode address. Computed
-    /// the same way `forge-std` computes its own `vm` reference, but here
-    /// captured at library scope so non-Test callers (the script) can use
-    /// the simulation/JSON helpers without inheriting `Test`.
+    /// @notice The foundry HEVM cheatcode address, computed the same way
+    /// `forge-std` computes its own `vm` reference, at library scope so
+    /// non-Test callers can use the simulation/JSON helpers.
     Vm internal constant VM = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     /// @notice Safe Tx Builder version stamped into the `meta` block of
-    /// emitted JSON bundles. Currently pinned at `"1.16.5"` to match the
-    /// version produced by the public Safe Tx Builder app at the time
-    /// this library was authored.
+    /// emitted JSON bundles.
     string internal constant TX_BUILDER_VERSION = "1.16.5";
 
     /// @notice Tx Builder JSON schema version stamped into the top-level
-    /// `version` field. Pinned at `"1.0"` (the only version the public Tx
-    /// Builder UI currently accepts at the time this library was
-    /// authored).
+    /// `version` field.
     string internal constant TX_BUILDER_SCHEMA_VERSION = "1.0";
 
-    /// @notice The canonical Safe{Wallet} v1.4.1 `MultiSendCallOnly` — the
+    /// @notice The canonical Safe{Wallet} v1.4.1 `MultiSendCallOnly`, the
     /// contract the Transaction Builder delegatecalls to execute a batch of
-    /// transactions atomically. Performs only CALLs. Pinned alongside the
-    /// Safe v1.4.1 assumption enforced by `LibSafeInvariants`.
+    /// transactions atomically. Performs only CALLs.
     /// https://basescan.org/address/0x9641d764fc13c8B624c04430C7356C1C7C8102e2
     address internal constant MULTISEND_CALL_ONLY_1_4_1 = 0x9641d764fc13c8B624c04430C7356C1C7C8102e2;
 
-    /// @notice Wrapper around `getTransactionHash` on the live Safe.
-    /// Binds the hash to the Safe's own EIP-712 domain separator (chain id,
-    /// verifying contract) rather than recomputing it locally, so the
-    /// off-chain artifact and on-chain verification can't drift apart. The
-    /// inner-tx gas parameters are zeroed because the migration bundle does
-    /// not request a refund and the Safe Tx Builder defaults the same way.
+    /// @notice Wrapper around `getTransactionHash` on the live Safe, binding
+    /// the hash to the Safe's own EIP-712 domain separator (chain id,
+    /// verifying contract). The inner-tx gas parameters are zeroed; the Safe
+    /// Tx Builder defaults the same way.
     /// @param safe The Safe whose nonce/domain are bound into the hash.
     /// @param txn The transaction to be hashed.
     /// @param nonce The Safe nonce the transaction will consume on execute.
@@ -170,18 +155,15 @@ library LibSafeOps {
     /// inner `execTransaction` path does after signature verification, so
     /// post-state assertions (threshold, owners, etc.) made against the
     /// fork after this call reflect the on-chain post-exec state.
-    /// @dev The Safe's nonce is NOT advanced by this simulation — only
-    /// `execTransaction` advances the nonce, and we explicitly do not
-    /// invoke it because the goal is to assert the state the inner call
-    /// produces, not to model the wrapping exec.
+    /// @dev The Safe's nonce is not advanced by this simulation; only
+    /// `execTransaction` advances the nonce, and it is not invoked.
     /// @param safe The Safe to prank-call as.
     /// @param data The calldata to forward to the Safe.
     function simulateSelfCall(IGnosisSafe safe, bytes memory data) internal {
         address safeAddr = address(safe);
         VM.prank(safeAddr);
-        // The returndata is intentionally discarded: callers assert against
-        // post-state, not the inner return. If the inner call reverts we
-        // bubble the reason rather than swallowing a low-level failure.
+        // The returndata is discarded: callers assert against post-state. A
+        // revert bubbles its reason.
         // slither-disable-next-line low-level-calls
         (bool ok, bytes memory ret) = safeAddr.call(data);
         if (!ok) {
@@ -219,9 +201,8 @@ library LibSafeOps {
     /// - `createdAt`: `block.timestamp` of the producing run (number).
     /// - `meta.name`: the human-readable bundle name (passed through).
     /// - `meta.txBuilderVersion`: pinned at `TX_BUILDER_VERSION`.
-    /// - `meta.safeAddress`: echoes `safeAddr` so the bundle records
-    ///   which Safe it was authored against. The Tx Builder UI ignores
-    ///   unknown `meta` fields, so this is a forward-compatible pin.
+    /// - `meta.safeAddress`: echoes `safeAddr`, the Safe the bundle was
+    ///   authored against. The Tx Builder UI ignores unknown `meta` fields.
     /// - `transactions`: array of per-tx objects `{to, value, data}`.
     /// `value` is serialised as a decimal string to match the Tx Builder
     /// schema.
@@ -229,9 +210,8 @@ library LibSafeOps {
     /// Output is hand-assembled with `string.concat` rather than
     /// `vm.serializeJson` because the cheatcode emits index-keyed objects
     /// for arrays, which the Tx Builder schema does not accept.
-    /// @param safeAddr The Safe address the bundle targets. Echoed under
-    /// `meta.safeAddress` so a parsed bundle can be cross-checked against
-    /// the Safe an audit thinks it belongs to.
+    /// @param safeAddr The Safe address the bundle targets, echoed under
+    /// `meta.safeAddress`.
     /// @param chainId The chain id the bundle is scoped to.
     /// @param name The bundle name to embed in `meta.name`.
     /// @param txs The transactions to serialise.
@@ -241,9 +221,7 @@ library LibSafeOps {
         view
         returns (string memory)
     {
-        // Enforce the non-empty invariant the read side (parseTxBuilderJson)
-        // and TxBuilderJsonNoTransactions already assert: never serialise an
-        // empty bundle.
+        // Never serialise an empty bundle; `parseTxBuilderJson` rejects one.
         if (txs.length == 0) revert TxBuilderJsonNoTransactions();
         string memory transactions = "[";
         for (uint256 i = 0; i < txs.length; i++) {
@@ -264,9 +242,8 @@ library LibSafeOps {
         }
         transactions = string.concat(transactions, "]");
 
-        // Embed `safeAddr` under `meta.safeAddress` so the bundle records
-        // the Safe it was authored against. The Tx Builder UI ignores
-        // unknown `meta` fields, so this is a forward-compatible pin.
+        // `meta.safeAddress` records the Safe the bundle was authored
+        // against; the Tx Builder UI ignores unknown `meta` fields.
         string memory meta = string.concat(
             "{",
             _jsonField("name", _quote(name)),
@@ -314,11 +291,9 @@ library LibSafeOps {
 
         // The Tx Builder schema's `transactions` is an array of objects.
         // `parseJsonKeys` rejects arrays and `parseJsonAddressArray` with
-        // a wildcard path mis-decodes a single match, so we discover the
-        // array length by probing `.transactions[i]` via `keyExistsJson`
-        // until the index is no longer present. The cap is a defensive
-        // upper bound — the threshold migration bundle is single-tx, and the
-        // Tx Builder UI itself imposes a far smaller practical limit.
+        // a wildcard path mis-decodes a single match, so the array length is
+        // discovered by probing `.transactions[i]` via `keyExistsJson` until
+        // the index is absent. The cap bounds the probe.
         uint256 cap = 256;
         SafeTx[] memory scratch = new SafeTx[](cap);
         uint256 count = 0;
@@ -349,17 +324,12 @@ library LibSafeOps {
 
     /// @notice Signer-side integrity comparison shared by every script's
     /// `verify(string)`: parse the Tx Builder artifact at `jsonPath` and
-    /// assert it matches `expected` — the bundle the caller re-derived from
-    /// CURRENT live chain state — byte-exactly. Checks the artifact's chain
+    /// assert it matches `expected`, the bundle the caller re-derived from
+    /// current live chain state, byte-exactly. Checks the artifact's chain
     /// id against the active chain, the transaction count, the first
     /// target, and every transaction's `to` / `value` / `operation` /
     /// calldata. Reverts `TxBuilderArtifactMismatch` naming the first
     /// mismatching field; returns silently on an exact match.
-    /// @dev One shared comparison rather than one per script: two copies
-    /// had already drifted (one skipped `operation`) before this was
-    /// extracted, and the comparison is exactly the part of a `verify`
-    /// that must not vary per script — only the bundle re-derivation is
-    /// script-specific.
     /// @param expected The bundle derived from live state.
     /// @param jsonPath Filesystem path to the artifact under verification.
     function assertParsedTxsMatch(SafeTx[] memory expected, string memory jsonPath) internal view {
@@ -383,8 +353,7 @@ library LibSafeOps {
     /// @return The parsed unsigned integer.
     function _parseDecimalUint(string memory decimal) private pure returns (uint256) {
         bytes memory raw = bytes(decimal);
-        // A decimal field must contain at least one digit; an empty string is
-        // not a valid encoding of any number and the NatSpec forbids it.
+        // A decimal field must contain at least one digit.
         require(raw.length > 0, "LibSafeOps: empty decimal string");
         uint256 result = 0;
         for (uint256 i = 0; i < raw.length; i++) {
@@ -415,31 +384,21 @@ library LibSafeOps {
     ///    `getThreshold()` is now back at `oldThreshold`.
     ///
     /// The check uses pre-approved hashes (`approvedHashes` mapping +
-    /// `v=1` signature type) rather than ECDSA signatures, avoiding the
-    /// need for test private keys or owner-slot overwrites. The real
+    /// `v=1` signature type) rather than ECDSA signatures, so no test
+    /// private keys or owner-slot overwrites are needed. The real
     /// `checkSignatures` path is exercised end-to-end; only the source of
     /// the approval is the cheatcode prank.
     ///
-    /// Intended to be called from operational scripts as the final post-
-    /// state assertion, so every dry-run proves the new state is not a
-    /// dead-end. Generalises to other critical state changes (e.g.
-    /// authoriser swaps, role grants) by parameterising the inverse op
-    /// in a future variant.
-    ///
     /// @param safe The Safe whose post-mutation state to exercise.
-    /// @param oldThreshold The threshold the safe should return to after
-    /// the reversal executes. Must match the safe's threshold before the
+    /// @param oldThreshold The threshold the safe returns to after the
+    /// reversal executes. Must match the safe's threshold before the
     /// forward change.
     /// @param newThreshold The threshold the safe is currently in. Both
     /// the number of approvals collected and the number passed in the
     /// successful `execTransaction` call.
     function simulateNPlus1Reversal(IGnosisSafe safe, uint256 oldThreshold, uint256 newThreshold) internal {
-        // The inverse op is a self-call to `changeThreshold(oldThreshold)`:
-        // the simplest, most reversible follow-up, with no side effect other
-        // than the threshold mutation itself. Delegated to the generic
-        // `simulateNPlus1` so the signature mechanics live in one place; this
-        // wrapper keeps its original signature and behaviour so the
-        // threshold-migration tests continue to pass unchanged.
+        // The inverse op is a self-call to `changeThreshold(oldThreshold)`,
+        // with no side effect other than the threshold mutation itself.
         bytes memory inverseCalldata = abi.encodeCall(IGnosisSafe.changeThreshold, (oldThreshold));
         simulateNPlus1(safe, address(safe), inverseCalldata, newThreshold);
         require(safe.getThreshold() == oldThreshold, "LibSafeOps: n+1 did not restore the prior threshold");
@@ -455,26 +414,20 @@ library LibSafeOps {
     /// 2. The threshold gate rejects an undersigned attempt with `GS020`
     ///    (the negative case).
     ///
-    /// Together these prove the post-mutation state is genuinely exitable:
-    /// the owning Safe can still author and execute a transaction against
-    /// `target`, and the signature gate is doing its job. The follow-up call
-    /// is supplied as raw calldata so the same mechanics serve a Safe
-    /// self-call (threshold migration: `target == safe`), a beacon upgrade
-    /// (`target == beacon`, `upgradeTo(...)`), or any other critical state
-    /// change.
+    /// The follow-up call is supplied as raw calldata so the same mechanics
+    /// serve a Safe self-call (`target == safe`), a beacon upgrade
+    /// (`target == beacon`, `upgradeTo(...)`), or any other state change.
     ///
     /// As with `simulateNPlus1Reversal`, approvals are sourced via
     /// `approveHash` under `vm.prank` rather than ECDSA signatures, so no
     /// test private keys are needed; the real `checkSignatures` path is
-    /// exercised end-to-end. The Safe's nonce IS advanced by the successful
-    /// `execTransaction` (unlike `simulateSelfCall`), because this models the
-    /// full wrapping exec.
+    /// exercised end-to-end. The Safe's nonce is advanced by the successful
+    /// `execTransaction` (unlike `simulateSelfCall`).
     ///
-    /// @dev This helper asserts the follow-up executes and the gate rejects
-    /// undersigned attempts, but does NOT assert anything about the inner
-    /// call's effect — callers that need a specific post-condition (e.g. the
-    /// threshold rolled back to a prior value) assert it themselves after
-    /// this returns. `simulateNPlus1Reversal` is exactly such a caller.
+    /// @dev Asserts the follow-up executes and the gate rejects undersigned
+    /// attempts; asserts nothing about the inner call's effect. Callers that
+    /// need a post-condition assert it after this returns, as
+    /// `simulateNPlus1Reversal` does.
     /// @param safe The Safe whose post-mutation state to exercise.
     /// @param target The destination of the follow-up call. Pass
     /// `address(safe)` for a Safe self-call.
@@ -489,12 +442,8 @@ library LibSafeOps {
         uint256 followupNonce = safe.nonce();
         bytes32 followupHash = computeSafeTxHashViaSafe(safe, followup, followupNonce);
 
-        // Collect approvals from `threshold` owners. We always take the
-        // first `threshold` entries from `getOwners()` — the linked-list
-        // order is deterministic per-Safe so the choice is stable, and
-        // sorting the resulting array by address normalises against the
-        // arbitrary Safe-internal ordering before passing to
-        // `checkSignatures`.
+        // Collect approvals from the first `threshold` entries of
+        // `getOwners()`; the linked-list order is deterministic per Safe.
         address[] memory owners = safe.getOwners();
         require(owners.length >= threshold, "LibSafeOps: not enough owners for n+1");
         address[] memory approvers = new address[](threshold);
@@ -504,22 +453,17 @@ library LibSafeOps {
             safe.approveHash(followupHash);
         }
 
-        // Sort ascending by signer address — Safe v1.4.1's `checkSignatures`
-        // requires the packed signature blob to be ordered by signer to
-        // prevent the same signer counting twice.
+        // Sort ascending by signer address: Safe v1.4.1's `checkSignatures`
+        // requires the packed signature blob to be ordered by signer.
         address[] memory sortedSigners = sortAddressesAscending(approvers);
 
-        // Negative case: undersigned call must revert with `GS020`
-        // ("Signatures data too short"). This is what proves the threshold
-        // gate is doing its job — a follow-up tx is not magically waveable
-        // through just because the approvals exist; the packed blob has to
-        // contain at least `threshold` entries.
+        // Negative case: an undersigned call must revert with `GS020`
+        // ("Signatures data too short"); the packed blob has to contain at
+        // least `threshold` entries.
         bytes memory tooFewSigs = packApprovedHashSignatures(sortedSigners, threshold - 1);
         VM.expectRevert(bytes("GS020"));
-        // The return value is meaningless under `expectRevert` — the call
-        // must revert with the literal `GS020` reason, and the cheatcode
-        // bubbles a test failure if it does not. Discarding the return is
-        // therefore the correct behaviour.
+        // The return value is meaningless under `expectRevert`; the
+        // cheatcode fails the test if the call does not revert with `GS020`.
         //slither-disable-next-line unused-return
         safe.execTransaction(
             followup.to,
@@ -534,10 +478,7 @@ library LibSafeOps {
             tooFewSigs
         );
 
-        // Positive case: full `threshold`-many signatures must succeed. The
-        // success assertion proves the new state is genuinely exitable: the
-        // signature path verifies, the inner call executes, and the owning
-        // Safe could run another forward migration against `target`.
+        // Positive case: `threshold`-many signatures must succeed.
         bytes memory enoughSigs = packApprovedHashSignatures(sortedSigners, threshold);
         bool ok = safe.execTransaction(
             followup.to,
@@ -554,18 +495,13 @@ library LibSafeOps {
         require(ok, "LibSafeOps: n+1 execTransaction reverted unexpectedly");
     }
 
-    /// @notice Beacon-specific n+1 reversibility convenience. Proves the
-    /// owning Safe can act on `beacon` post-ownership-migration by running an
-    /// idempotent `upgradeTo(currentImpl)` as the follow-up op: the call
-    /// routes through the Safe's `execTransaction` (exercising the threshold
-    /// gate both ways) and re-sets the beacon to the implementation it
-    /// already points at, so there is no net state change.
-    /// @dev The idempotent `upgradeTo` is the inverse op recommended in the
-    /// design plan: it touches no real state (the beacon ends pointing at the
-    /// same implementation) yet proves the Safe -> beacon call path works
-    /// end-to-end through the signature-verified exec. Delegates to the
-    /// generic `simulateNPlus1` with the `upgradeTo(currentImpl)` calldata.
-    /// @param safe The Safe that owns the beacon after the migration.
+    /// @notice Beacon-specific n+1 reversibility check. Proves the owning
+    /// Safe can act on `beacon` by running an idempotent
+    /// `upgradeTo(currentImpl)` as the follow-up op: the call routes through
+    /// the Safe's `execTransaction` (exercising the threshold gate both ways)
+    /// and re-sets the beacon to the implementation it already points at, so
+    /// there is no net state change.
+    /// @param safe The Safe that owns the beacon.
     /// @param beacon The beacon to exercise.
     /// @param currentImpl The beacon's current implementation. Passed as the
     /// `upgradeTo` argument so the op is idempotent.
@@ -573,24 +509,17 @@ library LibSafeOps {
     function simulateBeaconNPlus1(IGnosisSafe safe, address beacon, address currentImpl, uint256 threshold) internal {
         bytes memory inverseCalldata = abi.encodeCall(IUpgradeableBeacon.upgradeTo, (currentImpl));
         simulateNPlus1(safe, beacon, inverseCalldata, threshold);
-        // Post-condition: the idempotent upgrade left the beacon pointing at
-        // the same implementation it started on, confirming the routed call
-        // actually executed against the beacon (not just that the Safe
-        // accepted the signatures).
+        // Post-condition: the beacon still points at the same implementation,
+        // so the routed call executed against the beacon.
         require(
             IBeacon(beacon).implementation() == currentImpl,
             "LibSafeOps: beacon n+1 did not preserve the implementation"
         );
     }
 
-    /// @notice Insertion-sort an in-memory address array ascending. Used to
-    /// satisfy Safe v1.4.1's requirement that packed signatures are ordered
-    /// by signer address before being passed to `checkSignatures`.
-    /// @dev Insertion sort is O(n^2) but the input is bounded by the Safe
-    /// owner count (single-digit in practice), so the constant factor wins
-    /// over any more elaborate algorithm. The function returns a fresh array
-    /// rather than sorting in place so callers can keep the original-order
-    /// approver list around if they need it.
+    /// @notice Insertion-sort an in-memory address array ascending, as Safe
+    /// v1.4.1's `checkSignatures` requires of packed signatures.
+    /// @dev Returns a fresh array rather than sorting in place.
     /// @param addrs The unsorted address array.
     /// @return The same addresses in ascending order, in a freshly-allocated
     /// array of the same length.
@@ -622,9 +551,8 @@ library LibSafeOps {
     /// ascending order — Safe's own ordering check rejects duplicates by
     /// requiring strict ascent.
     /// @param sortedSigners The signer addresses, sorted ascending.
-    /// @param count The number of leading entries to pack. Allows callers
-    /// to pack a deliberately-undersigned blob (for the negative branch of
-    /// `simulateNPlus1Reversal`) without rebuilding the input array.
+    /// @param count The number of leading entries to pack, so a caller can
+    /// pack an undersigned blob without rebuilding the input array.
     /// @return packed The packed signature bytes, `count * 65` bytes long.
     function packApprovedHashSignatures(address[] memory sortedSigners, uint256 count)
         internal
@@ -643,8 +571,7 @@ library LibSafeOps {
     /// is CALL (`0`). The Tx Builder JSON schema has no per-tx operation field
     /// and `MultiSendCallOnly` performs only CALLs, so a non-CALL op cannot be
     /// represented in either the emitted artifact or the batched multiSend
-    /// calldata. Shared by `emitTxBuilderJson` and `encodeMultiSend` so the two
-    /// paths cannot drift.
+    /// calldata. Shared by `emitTxBuilderJson` and `encodeMultiSend`.
     /// @param index The transaction index (surfaced in the revert).
     /// @param operation The operation to check.
     function _requireCallOperation(uint256 index, uint8 operation) private pure {
@@ -664,9 +591,9 @@ library LibSafeOps {
     }
 
     /// @notice Helper: wrap a raw string in JSON-quote delimiters. Does not
-    /// escape inner quotes/control characters — callers in this library
-    /// pass values from `vm.toString` (which never emits a quote) or
-    /// hard-coded literals, so the simpler implementation suffices.
+    /// escape inner quotes/control characters; callers in this library pass
+    /// values from `vm.toString` (which never emits a quote) or hard-coded
+    /// literals.
     /// @param raw The raw string.
     /// @return The quoted JSON string literal.
     function _quote(string memory raw) private pure returns (string memory) {

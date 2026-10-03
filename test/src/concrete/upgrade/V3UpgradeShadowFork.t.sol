@@ -20,43 +20,32 @@ import {
     VALID_ACTION_TYPES_MASK
 } from "../../../../src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "../../../../src/lib/LibCorporateActionNode.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
-import {IReceiptVaultV3} from "rain-vats-0.1.6/src/interface/IReceiptVaultV3.sol";
-import {IReceiptV3} from "rain-vats-0.1.6/src/interface/IReceiptV3.sol";
-import {IAuthorizableV1} from "rain-vats-0.1.6/src/interface/IAuthorizableV1.sol";
-import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
-import {ICertifiableV1} from "rain-vats-0.1.6/src/interface/ICertifiableV1.sol";
-import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1967BeaconProxy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
+import {IReceiptVaultV3} from "rain-vats-0.2.1/src/interface/IReceiptVaultV3.sol";
+import {IReceiptV3} from "rain-vats-0.2.1/src/interface/IReceiptV3.sol";
+import {IAuthorizableV1} from "rain-vats-0.2.1/src/interface/IAuthorizableV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.1/src/interface/IAuthorizeV1.sol";
+import {ICertifiableV1} from "rain-vats-0.2.1/src/interface/ICertifiableV1.sol";
+import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.14/src/lib/LibExtrospectERC1967BeaconProxy.sol";
 
 /// @title V3UpgradeShadowForkTest
 /// @notice Shadow-fork verification of the receipt vault V3 upgrade against
-/// LIVE production tokens. `setUp()` forks Base at head, applies the
-/// beacon-ownership migration (PR-A) and the V3 upgrade (PR-B) to the fork,
-/// then each test exercises a behaviour against a real on-chain receipt vault
-/// in the upgraded state.
+/// live production tokens. `setUp()` forks Base at head and applies the V3
+/// upgrade to the fork; each test then exercises a behaviour against a real
+/// on-chain receipt vault in the upgraded state: corporate-action fallback
+/// routing, backwards-compatible reads, authoriser wiring, receipt wiring and
+/// certification.
 ///
-/// This is the "ideally we'd run the current behaviour against real tokens
-/// with the upgrade applied" check: it targets the V3 deltas (corporate-action
-/// fallback routing) plus the critical user paths that must survive the
-/// upgrade (backwards-compat reads, authoriser wiring, receipt wiring,
-/// certification). It is deliberately NOT a full mixin that re-runs every
-/// existing test against the upgraded fork — that is a larger refactor worth
-/// building only if many upgrades accumulate.
+/// @dev The upgrade is applied to the fork in three steps:
 ///
-/// @dev The upgrade is applied to the fork via three cheatcode-driven steps,
-/// each simulating an operational action that has not yet executed on-chain:
-///
-/// 1. **Plant V3 bytecode** — the V3 receipt vault implementation and the
-///    corporate-actions facet are planted at their deterministic Zoltu
-///    addresses via `deployCodeTo`, which runs their real constructors at the
-///    target addresses. Running the facet's constructor at its production
-///    address is required so its `_SELF` immutable resolves to
-///    `STOX_CORPORATE_ACTIONS_FACET`; the vault's `fallback()` hardcodes that
-///    address as its delegatecall target.
-/// 2. **Beacon ownership** — the receipt vault beacon is transferred from the
-///    rainlang.eth EOA to the Safe (PR-A's effect).
-/// 3. **Upgrade** — `vm.prank(safe); beacon.upgradeTo(V3 impl)` upgrades the
-///    beacon. Every live receipt vault behind the beacon now runs V3 code.
+/// 1. The V3 receipt vault implementation and the corporate-actions facet
+///    are planted at their deterministic Zoltu addresses via `deployCodeTo`,
+///    which runs their constructors at the target addresses so the facet's
+///    `_SELF` immutable resolves to the address the vault's `fallback()`
+///    delegatecalls into.
+/// 2. The receipt vault beacon is asserted Safe-owned.
+/// 3. `vm.prank(safe); beacon.upgradeTo(V3 impl)` upgrades the beacon, so
+///    every live receipt vault behind it runs V3 code.
 contract V3UpgradeShadowForkTest is Test {
     /// @notice The receipt vault beacon upgraded to V3.
     address internal constant BEACON = LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1;
@@ -80,21 +69,14 @@ contract V3UpgradeShadowForkTest is Test {
         //    constructors there so the facet's `_SELF` and the vault's pinned
         //    facet target line up.
         deployCodeTo("src/concrete/StoxReceiptVault.sol:StoxReceiptVault", LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1);
-        // Plant the facet at the address the freshly-compiled vault actually
-        // pins, not at a hardcoded tag constant. The vault bakes
-        // `LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET` into its
-        // `fallback()`, so the two only line up if this address is read from
-        // the same source. They coincided while the facet's bytecode was
-        // unchanged since 0.1.1; lowering `optimizer_runs` moved the candidate
-        // facet address and the mismatch surfaced as a bare delegatecall
-        // revert into empty code.
+        // The vault bakes `LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET`
+        // into its `fallback()`, so the facet is planted at that address.
         deployCodeTo(
             "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
             LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET
         );
 
-        // 2. The beacon-ownership migration EXECUTED on Base (2026-07):
-        //    the live beacon is already Safe-owned, no simulation needed.
+        // 2. The live beacon is Safe-owned.
         assertEq(
             Ownable(BEACON).owner(),
             LibBeaconInvariants.PROD_BEACON_OWNER,
@@ -121,12 +103,10 @@ contract V3UpgradeShadowForkTest is Test {
         assertEq(beaconOf(LIVE_RECEIPT_VAULT), BEACON, "live vault behind the upgraded beacon");
     }
 
-    /// @notice Headline V3 change: corporate-action selectors on a LIVE
-    /// receipt vault route into the facet via the vault's fallback
-    /// delegatecall. `completedActionCount()` is not a selector on the vault
-    /// itself — it only resolves if the fallback forwards to the facet — so a
-    /// non-reverting read proves the wiring. A fresh-to-corporate-actions
-    /// live vault returns 0 completed actions.
+    /// @notice Corporate-action selectors on a live receipt vault route into
+    /// the facet via the vault's fallback delegatecall. `completedActionCount()`
+    /// is not a selector on the vault itself, so a non-reverting read proves
+    /// the wiring. A live vault with no corporate actions returns 0.
     function testCorporateActionsFacetWiredOnLiveVault() external view {
         uint256 completed = ICorporateActionsV1(LIVE_RECEIPT_VAULT).completedActionCount();
         assertEq(completed, 0, "live vault has no completed corporate actions post-upgrade");
@@ -192,8 +172,7 @@ contract V3UpgradeShadowForkTest is Test {
 
     /// @notice Receipt mint/burn wiring is preserved: the live vault's
     /// `receipt()` resolves to the paired ERC-1155, and that receipt's
-    /// `manager()` is the vault. If this drifted, every deposit (mint receipt)
-    /// and withdraw (burn receipt) on the live token would revert.
+    /// `manager()` is the vault.
     function testReceiptWiringPreservedOnLiveVault() external view {
         IReceiptV3 receipt = IReceiptVaultV3(payable(LIVE_RECEIPT_VAULT)).receipt();
         assertEq(address(receipt), LIVE_RECEIPT, "receipt address preserved");
@@ -201,9 +180,7 @@ contract V3UpgradeShadowForkTest is Test {
     }
 
     /// @notice Certification is unchanged by the upgrade: the live vault is
-    /// still within its certification window at the fork timestamp. The V3
-    /// upgrade does not touch certification storage, so an expired flag here
-    /// would signal the upgrade corrupted unrelated state.
+    /// still within its certification window at the fork timestamp.
     function testCertificationUnchangedOnLiveVault() external view {
         assertFalse(
             ICertifiableV1(LIVE_RECEIPT_VAULT).isCertificationExpired(),
@@ -211,11 +188,8 @@ contract V3UpgradeShadowForkTest is Test {
         );
     }
 
-    /// @notice The wrapped token vault wiring survives the upgrade: it still
-    /// reports the receipt vault as its ERC-4626 asset. The wrapped vault is
-    /// not upgraded (its beacon is untouched), but it depends on the receipt
-    /// vault, so this confirms the receipt vault upgrade did not break the
-    /// downstream wrapper's view of it.
+    /// @notice The wrapped token vault (not upgraded; its beacon is untouched)
+    /// still reports the receipt vault as its ERC-4626 asset.
     function testWrappedVaultStillReferencesReceiptVault() external view {
         assertEq(
             IReceiptVaultV3(payable(LIVE_WRAPPED_VAULT)).asset(),
@@ -223,17 +197,4 @@ contract V3UpgradeShadowForkTest is Test {
             "wrapped vault still references the receipt vault"
         );
     }
-
-    // -------------------------------------------------------------------------
-    // TODO(audit): enumerate v0.1.1 findings — pending report from Josh/DM.
-    //
-    // The v0.1.1 audit report is not in-repo at the time of writing. Once it
-    // lands, add one focused behavioural test per finding addressed in V3,
-    // hitting the specific path the finding relates to against the upgraded
-    // live state above. Until then this shadow-fork suite covers the
-    // structural and behavioural deltas (corporate-action fallback routing,
-    // backwards-compat reads, authoriser/receipt wiring, certification) but
-    // does NOT yet assert finding-by-finding remediation. Do not treat the
-    // absence of this section's tests as evidence the findings are fixed.
-    // -------------------------------------------------------------------------
 }

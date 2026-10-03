@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {Float} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
+import {Float} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
 import {LibCorporateAction} from "./LibCorporateAction.sol";
 import {
     ACTION_TYPE_INIT_V1,
@@ -18,22 +18,12 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 /// @notice Tracks totalSupply accurately through lazy account migration using
 /// per-cursor pots.
 ///
-/// ## Problem
+/// ## Per-cursor pots
 ///
-/// When a stock split completes, the correct totalSupply is the sum of every
-/// account's individually-rasterized balance. But lazily migrated accounts
-/// haven't been rasterized yet, so we can't compute that sum directly.
-///
-/// Applying the multiplier to the aggregate sum overestimates because
-/// `trunc(sum * m) >= sum(trunc(ai * m))`. A single unmigrated/migrated
-/// pair cannot improve precision through migration: subtracting and adding
-/// the same value leaves the sum unchanged.
-///
-/// ## Solution: per-cursor pots
-///
-/// Instead of one aggregate unmigrated number, we maintain a separate
-/// unmigrated sum for each cursor position (migration epoch). Each pot tracks
-/// the sum of stored balances for accounts at that cursor level.
+/// The totalSupply after a stock split is the sum of every account's
+/// individually-rasterized balance, and `trunc(sum * m) >= sum(trunc(ai * m))`,
+/// so the multiplier is not applied to one aggregate. A separate unmigrated
+/// sum is kept for each cursor position (migration epoch):
 ///
 ///   `unmigrated[k]` = sum of stored balances for accounts whose migration
 ///   cursor is `k`.
@@ -52,21 +42,20 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 ///   unmigrated[k] -= storedBalance
 ///   unmigrated[k'] += migratedBalance
 ///
-/// This genuinely improves precision: subtracting a raw balance from a
-/// pre-multiplier pot and adding the individually-rasterized balance to a
-/// post-multiplier pot replaces an aggregate estimate with an exact value.
+/// Subtracting a raw balance from a pre-multiplier pot and adding the
+/// individually-rasterized balance to a post-multiplier pot replaces an
+/// aggregate estimate with an exact value.
 ///
 /// ## Convergence
 ///
 /// When all accounts have migrated through every completed split,
 /// `unmigrated[0..latest-1]` are all zero and `unmigrated[latest]` equals the
-/// exact sum of all rasterized balances. The overestimate fully resolves.
+/// exact sum of all rasterized balances.
 ///
 /// ## Pots are not consolidated
 ///
-/// Unlike the two-bucket approach, pots are never merged or consolidated as
-/// new splits complete. The view walks all completed migration pots at read
-/// time and automatically picks up new multipliers.
+/// Pots are never merged as new splits complete. The view walks all
+/// completed migration pots at read time.
 ///
 /// ## Bootstrap as a real init node
 ///
@@ -76,10 +65,8 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 /// index 0 (`actionType = ACTION_TYPE_INIT_V1`, `effectiveTime =
 /// block.timestamp`); user-scheduled splits start at index 1. Every
 /// holder's `accountMigrationCursor` defaults to 0 (Solidity mapping
-/// default), which is the bootstrap node — "no migration applied yet"
-/// and "migrated through the identity bootstrap" are the same state, so
-/// the disambiguation between "cursor at index 0" and "cursor not yet
-/// set" disappears.
+/// default), which is the bootstrap node: "no migration applied yet"
+/// and "migrated through the identity bootstrap" are the same state.
 ///
 /// `fold()` advances `totalSupplyLatestCursor` through the bootstrap
 /// (idx 0) and every completed split using `BALANCE_MIGRATION_TYPES_MASK`,
@@ -156,10 +143,9 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 ///    Underflow safety: OZ's check in step 3 already enforced
 ///    `_balances[from] >= amount`. By IH at `_update` entry,
 ///    `unmigrated[latestCursor] >= _balances[from] >= amount`, so the
-///    subtraction cannot underflow. This is why `onBurn` runs AFTER
-///    `super._update` — if it ran before, a lone-holder over-burn would
-///    underflow the pot with a raw panic instead of surfacing OZ's
-///    `ERC20InsufficientBalance` error.
+///    subtraction cannot underflow. `onBurn` runs after `super._update` so
+///    a lone-holder over-burn surfaces OZ's `ERC20InsufficientBalance`
+///    rather than a pot underflow panic.
 ///
 /// Every `_update` call returns with the invariant intact; by induction
 /// the invariant holds at every `_update` boundary. Q.E.D.
@@ -182,10 +168,9 @@ library LibTotalSupply {
             return LibERC20Storage.underlyingTotalSupply();
         }
 
-        // The first iteration walks from the head (the bootstrap node, which
-        // is always completed). The bootstrap is identity, so it contributes
-        // `unmigrated[0]` without a multiplier read — equivalent to seeding
-        // `running = unmigrated[0]` and walking from the bootstrap forward.
+        // The walk starts from the head (the bootstrap node, which is always
+        // completed). The bootstrap is identity, so it contributes
+        // `unmigrated[0]` without a multiplier read.
         uint256 nodeIndex =
             LibCorporateActionNode.nextOfType(NODE_NONE, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
         uint256 running;
@@ -195,8 +180,8 @@ library LibTotalSupply {
             if (actionType == ACTION_TYPE_STOCK_SPLIT_V1) {
                 Float multiplier = LibStockSplit.decodeParametersV1(s.nodes[nodeIndex].parameters);
                 // Rasterize via the shared rebase primitive so every step of
-                // the totalSupply walk uses the same rounding characteristics
-                // as per-account migration. See `LibRebaseMath.applyMultiplier`.
+                // the totalSupply walk rounds the same way as per-account
+                // migration.
                 running = LibRebaseMath.applyMultiplier(running, multiplier);
             }
             // ACTION_TYPE_INIT_V1: identity, no multiplier read.
@@ -221,8 +206,7 @@ library LibTotalSupply {
 
         // Walk from the last known cursor to find newly completed migration
         // nodes (init or stock-split). Track the latest seen in a local and
-        // write once at the end — each loop-body SSTORE would otherwise be
-        // stomped by the next iteration.
+        // write once at the end.
         // `ensureBootstrap` initialises `totalSupplyLatestCursor` to
         // `NODE_NONE`, which `nextOfType` interprets as "from head
         // inclusive" so the first fold lands on the bootstrap.

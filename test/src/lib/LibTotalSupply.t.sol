@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test, stdError} from "forge-std-1.16.2/src/Test.sol";
-import {Float, LibDecimalFloat} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
 import {LibTotalSupplyHarness} from "./LibTotalSupplyHarness.sol";
 import {ACTION_TYPE_STOCK_SPLIT_V1} from "src/interface/ICorporateActionsV1.sol";
 import {LibStockSplit} from "src/lib/LibStockSplit.sol";
@@ -162,13 +162,11 @@ contract LibTotalSupplyTest is Test {
         assertEq(h.effectiveTotalSupply(), 1800);
     }
 
-    /// `onMint(0)` and `onBurn(0)` are pot-state-preserving no-ops.
-    /// Both implementations are `unmigrated[latest] += amount` /
-    /// `-= amount`, so zero is mathematically inert. A regression that
-    /// reshaped the implementation (e.g., `unmigrated[latest] =
-    /// f(amount)` instead of `+=`/`-=`) could silently corrupt the pot
-    /// for zero-amount calls without surfacing in any non-zero-amount
-    /// test.
+    /// `onMint(0)` and `onBurn(0)` leave every pot unchanged. Both are
+    /// `unmigrated[latest] += amount` / `-= amount`, so zero is
+    /// mathematically inert — and a reshape to `unmigrated[latest] =
+    /// f(amount)` could corrupt the pot for zero-amount calls while every
+    /// non-zero-amount test still passed.
     function testOnMintOnBurnZeroAreNoOps() external {
         h.setOzTotalSupply(1000);
         h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
@@ -188,13 +186,11 @@ contract LibTotalSupplyTest is Test {
         assertEq(h.effectiveTotalSupply(), supplyBefore, "onBurn(0) leaves totalSupply unchanged");
     }
 
-    /// Cancelling a pending split must not retroactively rewind
-    /// `totalSupplyLatestCursor`. Once `fold()` has advanced past a
-    /// completed split, that cursor reflects per-pot accounting state
-    /// that's already reified in the storage pots — cancelling a
-    /// later-scheduled pending split has no information to communicate
-    /// back to fold's view of the past, so the cursor must remain where
-    /// the prior fold left it.
+    /// Cancelling a pending split does not move `totalSupplyLatestCursor`
+    /// from where the prior `fold()` left it. Once `fold()` has
+    /// advanced past a completed split, the cursor reflects per-pot state
+    /// already reified in the storage pots, so a later-scheduled pending
+    /// split has nothing to communicate back to fold's view of the past.
     function testCancelPendingDoesNotRewindFoldedCursor() external {
         h.setOzTotalSupply(1000);
 
@@ -206,13 +202,11 @@ contract LibTotalSupplyTest is Test {
         assertEq(cursorAfterFirstFold, 1, "first fold lands on the completed user split (idx 1)");
 
         // Schedule a second split with future effectiveTime, then cancel
-        // it before warping. The cursor must still be at idx 1 — the
-        // cancellation of a pending node has no bearing on already-folded
-        // state. Assert immediately after cancel, before any subsequent
-        // fold could re-derive the value: a regression that wrote
-        // `totalSupplyLatestCursor` from inside `cancel` would surface
-        // here, while the same mutation is invisible to a post-fold
-        // assertion (fold re-walks and lands at the same idx).
+        // it before warping. Assert immediately after cancel, before a
+        // fold could re-derive the cursor: a regression that wrote
+        // `totalSupplyLatestCursor` from inside `cancel` surfaces here and
+        // is invisible to a post-fold assertion, because fold re-walks and
+        // lands on the same index either way.
         uint256 idB = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 5000, _splitParams(3));
         h.cancel(idB);
         assertEq(h.totalSupplyLatestCursor(), cursorAfterFirstFold, "cancel must not write totalSupplyLatestCursor");
@@ -228,17 +222,13 @@ contract LibTotalSupplyTest is Test {
         assertEq(h.effectiveTotalSupply(), 2000, "totalSupply unchanged after cancelling a pending split");
     }
 
-    /// `fold()` walks via `nextOfType` (linked list pointers), so cancelled
-    /// nodes — which have `next = NODE_NONE` after unlink — are unreachable
-    /// from the walk. A regression that switched fold to a raw array
-    /// iteration (`current + 1`) would still see the cancelled node's
-    /// `actionType` (cancel preserves type) with `effectiveTime == 0`,
-    /// passing the COMPLETED filter (0 <= block.timestamp). This would
-    /// land `totalSupplyLatestCursor` on a cancelled index, breaking pot
-    /// accounting on subsequent mints.
-    ///
-    /// Setup: schedule A/B/C, fold past A, cancel B (still pending), warp
-    /// past C, fold again. The cursor must skip B and land on C.
+    /// `fold()` walks via `nextOfType`, so a cancelled node — `next =
+    /// NODE_NONE` after unlink — is unreachable from the walk. A switch to
+    /// raw array iteration (`current + 1`) would still see the cancelled
+    /// node's `actionType`, which cancel preserves, with `effectiveTime ==
+    /// 0` passing the COMPLETED filter, landing the cursor on a cancelled
+    /// index and breaking pot accounting on every later mint. Schedule A/B/C, fold past A, cancel B (still
+    /// pending), warp past C, fold again: the cursor skips B and lands on C.
     function testFoldWalksAroundCancelledNode() external {
         h.setOzTotalSupply(1000);
 
@@ -277,17 +267,13 @@ contract LibTotalSupplyTest is Test {
         assertEq(h.unmigrated(0), 1000);
     }
 
-    /// Fold mutates only `totalSupplyLatestCursor` — never a pot. This
-    /// pins step 1 of the pot-invariant inductive proof
-    /// (LibTotalSupply.sol NatSpec): "fold mutates only
-    /// totalSupplyLatestCursor; no pot write and no balance write".
-    /// A regression where someone added a pot write inside fold (e.g.
-    /// `s.unmigrated[latest] = 0` to "clear" a pot, or accidentally
-    /// rolling pots across folds) would silently desync the pot
-    /// invariant from the migration state. This test sets up
-    /// non-trivial pot values, snapshots every pot, runs a fold that
-    /// MUST advance the cursor, then asserts every snapshotted pot is
-    /// unchanged.
+    /// Fold mutates only `totalSupplyLatestCursor`, never a pot: with
+    /// non-trivial pot values, a fold that advances the cursor leaves every
+    /// pot unchanged.
+    /// This is step 1 of the pot-invariant inductive proof in
+    /// `LibTotalSupply`'s NatSpec. A pot write added inside fold — clearing
+    /// a pot, or rolling pots across folds — would desync the invariant from
+    /// the migration state without failing anything else.
     function testFoldDoesNotMutateAnyPot() external {
         h.setOzTotalSupply(1000);
 
@@ -447,11 +433,10 @@ contract LibTotalSupplyTest is Test {
 
     /// `onBurn` reverts via Solidity 0.8 underflow panic when the burn
     /// amount exceeds the current pot at `totalSupplyLatestCursor`. Under
-    /// normal vault operation this state is unreachable (every burn is
-    /// preceded by `migrateAccount(burner)`, which moves the burner's
-    /// balance into the latest pot first), but wrapping the subtraction
-    /// in an `unchecked` block would silently skip the check and let a
-    /// refactor corrupt the pot.
+    /// normal vault operation that state is unreachable, because every burn
+    /// is preceded by `migrateAccount(burner)` moving the burner's balance
+    /// into the latest pot first; the check is here so that wrapping the
+    /// subtraction in `unchecked` cannot quietly corrupt the pot.
     function testOnBurnUnderflowReverts() external {
         h.setOzTotalSupply(1000);
         h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
@@ -464,8 +449,7 @@ contract LibTotalSupplyTest is Test {
         h.onBurn(1);
     }
 
-    /// Audit P2-3: the exact-boundary burn succeeds; burning one wei more
-    /// underflows.
+    /// The exact-boundary burn succeeds; burning one wei more underflows.
     function testOnBurnAtBoundarySucceedsOneBeyondReverts() external {
         h.setOzTotalSupply(1000);
         h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));

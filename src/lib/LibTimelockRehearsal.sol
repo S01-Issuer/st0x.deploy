@@ -7,41 +7,28 @@ import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/Timel
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 
 /// @title LibTimelockRehearsal
-/// @notice THE definition of the timelock rehearsal operation — the single
+/// @notice The definition of the timelock rehearsal operation — the single
 /// place the schedule script, the cancel script and the executor all read it
 /// from.
 ///
-/// The rehearsal exists so the governance timelock can be exercised
-/// end-to-end BEFORE any governance is handed to it: schedule, cancel,
-/// schedule again, then execute once the delay has run.
+/// The rehearsal exercises the governance timelock end-to-end: schedule,
+/// cancel, schedule again, then execute once the delay has run.
 ///
 /// The operation is `timelock.updateDelay(TIMELOCK_MIN_DELAY)` — re-setting
-/// the delay to the value it ALREADY holds. Chosen on three counts:
+/// the delay to the value it already holds, a no-op. OZ's `updateDelay`
+/// reverts unless the caller is the timelock itself, so it can only run
+/// through the full schedule → delay → execute loop, and it targets the
+/// timelock, never a production contract.
 ///
-/// 1. It is a genuine no-op. Even executed, nothing changes.
-/// 2. OZ's `updateDelay` reverts unless the caller is the timelock itself, so
-///    it CANNOT be performed except through the full schedule → delay →
-///    execute loop. Rehearsing it exercises the real mechanism, not a
-///    shortcut.
-/// 3. It targets the timelock, never a production contract, so a rehearsal
-///    abandoned half-way cannot touch vaults, beacons or the authoriser.
-///
-/// ONE-SHOT. `REHEARSAL_SALT` is a constant, so the operation id is a
+/// One-shot. `REHEARSAL_SALT` is a constant, so the operation id is a
 /// constant per chain, and OZ's `TimelockController` never deregisters an
 /// executed operation — `_execute` writes `DONE_TIMESTAMP` and `isOperation`
-/// reports any non-`Unset` state. So once the rehearsal has been EXECUTED on a
+/// reports any non-`Unset` state. Once the rehearsal has been executed on a
 /// chain, `schedule` reverts there forever and the schedule script's
 /// `RehearsalAlreadyScheduled` pre-flight refuses every later dispatch.
-/// `cancel` is the exception: it clears the timestamp outright, which is what
-/// makes the cancel → re-propose stage possible. Rehearsing again after an
-/// execution therefore needs a NEW salt, i.e. a new dated rehearsal, not a
-/// re-dispatch of this one.
-///
-/// @dev Centralised deliberately. The scripts derive an operation id from
-/// `(target, value, payload, predecessor, salt)`; if any one of them held its
-/// own copy and drifted, the executor would be unable to execute what the
-/// schedule script scheduled, and nothing else would catch it — the ids would
-/// simply never match.
+/// `cancel` clears the timestamp outright, which is what makes the cancel →
+/// re-propose stage possible. Rehearsing again after an execution needs a
+/// new salt.
 library LibTimelockRehearsal {
     /// @notice Salt distinguishing the rehearsal from any real governance
     /// operation, so the two can never collide on an id.

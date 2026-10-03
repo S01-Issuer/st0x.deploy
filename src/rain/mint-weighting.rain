@@ -1,0 +1,123 @@
+# SPDX-License-Identifier: LicenseRef-DCL-1.0
+# SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
+---
+/* An example mint weighting, kept under test. What
+ * `ST0xOrchestrator.setMintWeighting` installs is governance's; this file is
+ * not it.
+ *
+ * One expression: it checks the attestations that came with a mint and prices
+ * the mint, or reverts. Every attestation word is from the
+ * `St0xAttestSubParser`; everything else is standard Rainlang. The elided
+ * bindings below are per-deployment configuration, bound at compose time with
+ * `rain dotrain compose -e weighting -b <name>=<value>`. Nothing is per token:
+ * one composed expression serves every vault, deriving the ticker from the
+ * symbol of the vault being minted.
+ *
+ * Only the entrypoint `weighting` is composed. The mint amount is in whole
+ * tokens and the output is `mint-amount * lead-price`, the value the mint-cap
+ * buckets are charged with.
+ */
+
+#st0x-attest-subparser !The St0xAttestSubParser on this chain, the source of the attestation words.
+
+#lead-signer !The mandatory lead signer, S01 as issuer.
+#operator-1 !An allowlisted pool operator.
+#operator-2 !An allowlisted pool operator.
+#operator-3 !An allowlisted pool operator.
+#operator-4 !An allowlisted pool operator.
+#operator-5 !An allowlisted pool operator.
+#operator-6 !An allowlisted pool operator.
+
+#max-deviation !Proportional limit on how far apart the attested prices may be. 0.01 is 1%.
+#max-time-spread !How far apart the attested times and the chain clock may be, in seconds.
+#min-price !Absolute floor on the attested price.
+#max-price !Absolute ceiling on the attested price.
+
+#weighting
+using-words-from st0x-attest-subparser
+
+/* The lead is mandatory, and signs first. */
+:ensure(
+  binary-equal-to(lead() lead-signer)
+  "Lead attestation missing"
+),
+
+/* Both pool attestations come from the allowlist. */
+:ensure(
+  binary-in<2>(
+    attestor<0>() attestor<1>()
+    operator-1 operator-2 operator-3 operator-4 operator-5 operator-6
+  )
+  "Attestor not allowlisted"
+),
+
+/* No operator fills more than one seat, the lead included. */
+:ensure(
+  binary-unique(lead() attestor<0>() attestor<1>())
+  "Same operator twice"
+),
+
+/* Every attestation is for the ticker the vault being minted wraps. A vault's
+ * symbol is its ticker behind a fixed `t`, `tMSTR` for `MSTR`, so the ticker
+ * is the vault's symbol with its first character dropped.
+ *
+ * Symbols are IntOrAString V3 words: the string's bytes sit just above the
+ * low byte, which is `0xe0 | length`, and the first character is the highest
+ * of them. With `n = length`, `scale = 256^n`, and `low = 0xe0 | n`:
+ *
+ *   symbol  = first * scale + rest * 256 + low   where rest < 256^(n-1)
+ *   first   = symbol / scale                     (rest * 256 + low < scale)
+ *   ticker  = symbol - first * scale - 1         = rest * 256 + (0xe0 | n-1)
+ *
+ * which is the IntOrAString of the string less its first character: the
+ * same bytes, one byte shorter, the length byte one less. The arithmetic is
+ * integer: the words are bytes, not numbers. */
+vault-symbol: mint-symbol(),
+symbol-scale: uint256-power(0x0100 bitwise-and(vault-symbol 0x1f)),
+symbol-first: uint256-div(vault-symbol symbol-scale),
+
+/* The prefix is `t`, 0x74 in ASCII. A vault whose symbol does not carry it is
+ * refused. This runs before the ticker is taken, so an empty symbol is
+ * refused here: its `first` is the length byte 0xe0 itself, and the
+ * subtraction below would underflow. */
+:ensure(
+  binary-equal-to(symbol-first 0x74)
+  "Vault symbol has no t prefix"
+),
+ticker: uint256-sub(vault-symbol uint256-mul(symbol-first symbol-scale) 0x01),
+:ensure(
+  binary-equal-to(
+    lead-symbol() attested-symbol<0>() attested-symbol<1>()
+    ticker
+  )
+  "Attestation for another token"
+),
+
+/* The attested times and the chain clock all fall within max-time-spread of
+ * each other; the proportional tolerance is zero. */
+:ensure(
+  agree(
+    max-time-spread 0
+    now() lead-time() attested-time<0>() attested-time<1>()
+  )
+  "Times disagree"
+),
+
+/* Highest and lowest price no more than max-deviation apart; the absolute
+ * tolerance is zero. */
+:ensure(
+  agree(
+    0 max-deviation
+    lead-price() attested-price<0>() attested-price<1>()
+  )
+  "Attestors disagree"
+),
+
+/* Absolute bounds on the lead price, the price that gets used. */
+:ensure(
+  less-than-or-equal-to(min-price lead-price() max-price)
+  "Price outside bounds"
+),
+
+/* The requested mint amount weighted by the lead price. */
+value: mul(mint-amount() lead-price());

@@ -49,8 +49,8 @@ library LibCorporateActionReceipt {
     /// namespaced slot on an upgradeable beacon-proxy receipt. Reordering
     /// or inserting fields silently remaps live state on upgrade; the
     /// storage-layout pin test in `test/src/concrete/StoxReceipt.t.sol`
-    /// (`testReceiptStorageLayoutPin`) must be extended in every later PR
-    /// that appends a new field.
+    /// (`testReceiptStorageLayoutPin`) must be extended to cover every
+    /// appended field.
     struct CorporateActionReceiptStorage {
         /// Per-(holder, id) migration cursor — the action id of the last
         /// migration node this `(holder, id)` pair was migrated through,

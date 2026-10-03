@@ -3,10 +3,11 @@
 pragma solidity =0.8.25;
 
 import {IERC20} from "@openzeppelin-contracts-5.6.1/token/ERC20/IERC20.sol";
-import {LibDecimalFloat} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
+import {LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
 
 import {MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV1.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
+import {SignedContextV1} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
 
 /// @title BurnAfterForwardSplitTest
 /// @notice Workflow: a 3:1 forward split rebases the recipient's shares and
@@ -15,12 +16,13 @@ import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 contract BurnAfterForwardSplitTest is OrchestratorIntegrationTest {
     function testBurnAfterForwardSplitConsumesRebasedReceiptExactly() external {
         (address eoa, uint256 pk) = makeAddrAndKey("split-recipient");
+        _allowRecipient(eoa);
         uint256 minted = 90e18;
         bytes32 nonce = keccak256("fwd-split");
 
         MintAuthV1 memory auth = _signedMintAuth(address(vault), eoa, minted, nonce, pk);
         vm.prank(MM);
-        orchestrator.mint(address(vault), eoa, minted, auth, "");
+        orchestrator.mint(address(vault), eoa, minted, auth, "", new SignedContextV1[](0));
         uint256 mintedId = vault.highwaterId();
         assertEq(mintedId, 1, "first mint on a fresh vault lands at id 1");
 
