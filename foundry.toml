@@ -45,6 +45,9 @@ cbor_metadata = false
 
 fs_permissions = [
   { access = "read-write", path = "src/generated" },
+  # `regenerateLibs` writes the generated released-suites libs here, beside the
+  # hand-written libs, which is where `rain-deploy`'s `LIB_DIR` points.
+  { access = "read-write", path = "src/lib" },
   # `BuildAuthoringMeta` writes the subparser authoring meta under `meta/`;
   # `Build` (via `LibCodeGen.describedByMetaHashConstantString`) and
   # the `describedByMetaV1` test read the cbor meta `build-meta.sh` builds

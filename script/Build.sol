@@ -7,6 +7,7 @@ import {LibCodeGen} from "rain-sol-codegen-0.1.37/src/lib/LibCodeGen.sol";
 import {LibFs, GENERATED_DIR} from "rain-sol-codegen-0.1.37/src/lib/LibFs.sol";
 import {LibGenParseMeta} from "rainlang-interface-0.2.9/src/lib/codegen/LibGenParseMeta.sol";
 import {BuildScript} from "rain-deploy-0.1.11/src/abstract/BuildScript.sol";
+import {DeploySuite} from "rain-deploy-0.1.11/src/abstract/RainDeploySuitesBase.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
 import {LibRainDeploySnapshot} from "rain-deploy-0.1.11/src/lib/LibRainDeploySnapshot.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
@@ -43,11 +44,21 @@ import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
 /// @param dependencies The addresses that MUST already carry code on a network
 /// before this contract can be broadcast there. Empty is a claim that nothing
 /// must pre-exist, so it is only correct for a contract that bakes nothing.
+/// @param suiteKey The `DeploySuite` key, which `DEPLOYMENT_SUITE` selects and
+/// every verification failure names. Declared rather than cased down from
+/// `contractName`, because `checkSuiteKey` admits only `[a-z-]` before the
+/// optional `@tag` and four of these names carry a digit — `ST0x`, `St0x` and
+/// the two `V1` authorizers — so no casing rule reaches a legal key for them.
+/// @param artifactPath `<path>:<Name>`, for the explorer verification command.
+/// Declared because these contracts sit in three directories and a path is not
+/// recoverable from a contract name.
 struct GeneratedContract {
     string contractName;
     string constantPrefix;
     bytes creationCode;
     address[] dependencies;
+    string suiteKey;
+    string artifactPath;
 }
 
 contract Build is BuildScript {
@@ -94,8 +105,41 @@ contract Build is BuildScript {
     }
 
     /// @inheritdoc BuildScript
+    /// @dev `genProdLibs` emits this repo's own aggregate libs from the
+    /// candidate snapshots. The released-suites libs beside them are
+    /// `rain-deploy`'s own writers reading the FROZEN record, which is what
+    /// `releasedSuites()` has to be declared from: a released entry records
+    /// bytes already on chain, so current source cannot supply it.
     function regenerateLibs() internal override {
         genProdLibs();
+
+        GeneratedContract[] memory contracts = generatedContracts();
+        for (uint256 i = 0; i < contracts.length; i++) {
+            LibRainDeploySnapshot.writeReleasedSuitesLib(
+                vm, LibRainDeploySnapshot.LIB_DIR, recordRoot(), contracts[i].contractName, releasedTemplate(contracts[i])
+            );
+        }
+        LibRainDeploySnapshot.writeReleasedSuitesAggregate(vm, LibRainDeploySnapshot.LIB_DIR, snapshotContractNames());
+    }
+
+    /// @notice The template `writeReleasedSuitesLib` takes a released entry's
+    /// key and artifact path from.
+    ///
+    /// Only those two fields are read: every other field of a released suite
+    /// comes from the frozen record the writer is pointed at, so supplying one
+    /// here would be a second source for a value the record already fixes.
+    /// @param contract_ The entry whose key and artifact path to carry.
+    /// @return The template.
+    function releasedTemplate(GeneratedContract memory contract_) internal pure returns (DeploySuite memory) {
+        return DeploySuite({
+            suite: contract_.suiteKey,
+            creationCode: "",
+            storedDeployedAddress: address(0),
+            storedBytecodeHash: bytes32(0),
+            storedRuntimeCode: "",
+            artifactPath: contract_.artifactPath,
+            dependencies: new address[](0)
+        });
     }
 
     /// @inheritdoc BuildScript
@@ -214,48 +258,64 @@ contract Build is BuildScript {
 
         contracts[0] = GeneratedContract({
             contractName: "StoxCorporateActionsFacet",
+            suiteKey: "stox-corporate-actions-facet",
+            artifactPath: "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
             constantPrefix: "STOX_CORPORATE_ACTIONS_FACET",
             creationCode: type(StoxCorporateActionsFacet).creationCode,
             dependencies: new address[](0)
         });
         contracts[1] = GeneratedContract({
             contractName: "StoxReceipt",
+            suiteKey: "stox-receipt",
+            artifactPath: "src/concrete/StoxReceipt.sol:StoxReceipt",
             constantPrefix: "STOX_RECEIPT",
             creationCode: type(StoxReceipt).creationCode,
             dependencies: new address[](0)
         });
         contracts[2] = GeneratedContract({
             contractName: "StoxReceiptVault",
+            suiteKey: "stox-receipt-vault",
+            artifactPath: "src/concrete/StoxReceiptVault.sol:StoxReceiptVault",
             constantPrefix: "STOX_RECEIPT_VAULT",
             creationCode: type(StoxReceiptVault).creationCode,
             dependencies: new address[](0)
         });
         contracts[3] = GeneratedContract({
             contractName: "StoxWrappedTokenVault",
+            suiteKey: "stox-wrapped-token-vault",
+            artifactPath: "src/concrete/StoxWrappedTokenVault.sol:StoxWrappedTokenVault",
             constantPrefix: "STOX_WRAPPED_TOKEN_VAULT",
             creationCode: type(StoxWrappedTokenVault).creationCode,
             dependencies: new address[](0)
         });
         contracts[4] = GeneratedContract({
             contractName: "StoxWrappedTokenVaultBeacon",
+            suiteKey: "stox-wrapped-token-vault-beacon",
+            artifactPath: "src/concrete/StoxWrappedTokenVaultBeacon.sol:StoxWrappedTokenVaultBeacon",
             constantPrefix: "STOX_WRAPPED_TOKEN_VAULT_BEACON",
             creationCode: type(StoxWrappedTokenVaultBeacon).creationCode,
             dependencies: new address[](0)
         });
         contracts[5] = GeneratedContract({
             contractName: "StoxWrappedTokenVaultBeaconSetDeployer",
+            suiteKey: "stox-wrapped-token-vault-beacon-set-deployer",
+            artifactPath: "src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol:StoxWrappedTokenVaultBeaconSetDeployer",
             constantPrefix: "STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER",
             creationCode: type(StoxWrappedTokenVaultBeaconSetDeployer).creationCode,
             dependencies: dependsOn(LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT_BEACON)
         });
         contracts[6] = GeneratedContract({
             contractName: "StoxOffchainAssetReceiptVaultBeaconSetDeployer",
+            suiteKey: "stox-offchain-asset-receipt-vault-beacon-set-deployer",
+            artifactPath: "src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer",
             constantPrefix: "STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER",
             creationCode: type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode,
             dependencies: dependsOn(LibProdDeployCurrent.STOX_RECEIPT, LibProdDeployCurrent.STOX_RECEIPT_VAULT)
         });
         contracts[7] = GeneratedContract({
             contractName: "StoxUnifiedDeployer",
+            suiteKey: "stox-unified-deployer",
+            artifactPath: "src/concrete/deploy/StoxUnifiedDeployer.sol:StoxUnifiedDeployer",
             constantPrefix: "STOX_UNIFIED_DEPLOYER",
             creationCode: type(StoxUnifiedDeployer).creationCode,
             dependencies: dependsOn(
@@ -265,30 +325,40 @@ contract Build is BuildScript {
         });
         contracts[8] = GeneratedContract({
             contractName: "StoxOffchainAssetReceiptVaultAuthorizerV1",
+            suiteKey: "stox-offchain-asset-receipt-vault-authorizer",
+            artifactPath: "src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol:StoxOffchainAssetReceiptVaultAuthorizerV1",
             constantPrefix: "STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1",
             creationCode: type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode,
             dependencies: new address[](0)
         });
         contracts[9] = GeneratedContract({
             contractName: "StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1",
+            suiteKey: "stox-offchain-asset-receipt-vault-payment-mint-authorizer",
+            artifactPath: "src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol:StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1",
             constantPrefix: "STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1",
             creationCode: type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode,
             dependencies: new address[](0)
         });
         contracts[10] = GeneratedContract({
             contractName: "ST0xOrchestrator",
+            suiteKey: "stox-orchestrator",
+            artifactPath: "src/concrete/ST0xOrchestrator.sol:ST0xOrchestrator",
             constantPrefix: "ST0X_ORCHESTRATOR",
             creationCode: type(ST0xOrchestrator).creationCode,
             dependencies: new address[](0)
         });
         contracts[11] = GeneratedContract({
             contractName: "ST0xOrchestratorBeaconSetDeployer",
+            suiteKey: "stox-orchestrator-beacon-set-deployer",
+            artifactPath: "src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol:ST0xOrchestratorBeaconSetDeployer",
             constantPrefix: "ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER",
             creationCode: type(ST0xOrchestratorBeaconSetDeployer).creationCode,
             dependencies: dependsOn(LibProdDeployCurrent.ST0X_ORCHESTRATOR)
         });
         contracts[12] = GeneratedContract({
             contractName: "St0xAttestSubParser",
+            suiteKey: "stox-attest-sub-parser",
+            artifactPath: "src/concrete/St0xAttestSubParser.sol:St0xAttestSubParser",
             constantPrefix: "ST0X_ATTEST_SUB_PARSER",
             creationCode: type(St0xAttestSubParser).creationCode,
             dependencies: new address[](0)
