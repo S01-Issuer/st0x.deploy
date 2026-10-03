@@ -336,12 +336,28 @@ contract ST0xOrchestrator is
     /// `EMERGENCY_ADMIN_ROLE`.
     function _initializeV2(address admin) internal {
         if (admin == address(0)) revert ZeroOwner();
-        _grantRole(MINT_ADMIN_ROLE, admin);
+
+        // Each admin role administers its operating role and itself, as
+        // `rain-vats`' `OffchainAssetReceiptVaultAuthorizerV1` and this repo's
+        // corporate-actions authorizer both do. Self-administering lets an
+        // admin seat a peer, rotate itself out and revoke a compromised peer
+        // without the root, so the root stays rare.
+        //
+        // The cost: `DEFAULT_ADMIN_ROLE` can no longer `grantRole` an admin
+        // role, since it is no longer that role's admin. The internal grants
+        // below are the only way a first holder is seated, so losing every
+        // holder of an admin role takes an upgrade to recover.
         _setRoleAdmin(MINT_ROLE, MINT_ADMIN_ROLE);
-        _grantRole(BURN_ADMIN_ROLE, admin);
+        _setRoleAdmin(MINT_ADMIN_ROLE, MINT_ADMIN_ROLE);
+        _grantRole(MINT_ADMIN_ROLE, admin);
+
         _setRoleAdmin(BURN_ROLE, BURN_ADMIN_ROLE);
-        _grantRole(EMERGENCY_ADMIN_ROLE, admin);
+        _setRoleAdmin(BURN_ADMIN_ROLE, BURN_ADMIN_ROLE);
+        _grantRole(BURN_ADMIN_ROLE, admin);
+
         _setRoleAdmin(EMERGENCY_ROLE, EMERGENCY_ADMIN_ROLE);
+        _setRoleAdmin(EMERGENCY_ADMIN_ROLE, EMERGENCY_ADMIN_ROLE);
+        _grantRole(EMERGENCY_ADMIN_ROLE, admin);
     }
 
     // ------------------------------------------------------------------ //

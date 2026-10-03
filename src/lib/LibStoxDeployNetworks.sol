@@ -6,10 +6,8 @@ import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
 
 /// @title LibStoxDeployNetworks
 /// @notice The ST0x deploy network set: per-network name constants and the
-/// one list of networks ST0x deploys to. Each name is aliased from the
-/// `LibRainDeploy` constant for that network rather than re-spelled, so the
-/// alias a fork resolves here and the alias the deploy library forks are the
-/// same string by construction. Each matches its
+/// one list of networks ST0x deploys to. Each name is aliased from its
+/// `LibRainDeploy` constant rather than re-spelled, and matches its
 /// `[rpc_endpoints]` alias in `foundry.toml`, the same convention as every
 /// `LibRainDeploy` network constant. Consumed by the cross-chain fork tests.
 library LibStoxDeployNetworks {

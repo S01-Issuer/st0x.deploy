@@ -846,16 +846,103 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertTrue(orchestrator.EMERGENCY_ADMIN_ROLE() != orchestrator.BURN_ADMIN_ROLE());
     }
 
-    /// Every operating role answers to its own admin role, and each admin
-    /// role answers to `DEFAULT_ADMIN_ROLE` — which administers nothing else,
-    /// so it performs no operations.
+    /// Every operating role answers to its own admin role, and every admin
+    /// role answers to ITSELF, which is what
+    /// `OffchainAssetReceiptVaultAuthorizerV1` in `rain-vats` and this repo's
+    /// own corporate-actions authorizer both do for every permission they
+    /// carry.
+    ///
+    /// Self-administering is the difference between an authority and a
+    /// delegation. Under OpenZeppelin's default an admin role's admin is
+    /// `DEFAULT_ADMIN_ROLE`, so a mint admin could appoint minters but could
+    /// not appoint a second mint admin, rotate itself out, or revoke a
+    /// compromised peer — every one of those would go back through the root,
+    /// which makes the root an operational key rather than a rare one.
+    function testEveryAdminRoleAdministersItself() external view {
+        assertEq(
+            orchestrator.getRoleAdmin(orchestrator.MINT_ADMIN_ROLE()),
+            orchestrator.MINT_ADMIN_ROLE(),
+            "mint admin not self-administering"
+        );
+        assertEq(
+            orchestrator.getRoleAdmin(orchestrator.BURN_ADMIN_ROLE()),
+            orchestrator.BURN_ADMIN_ROLE(),
+            "burn admin not self-administering"
+        );
+        assertEq(
+            orchestrator.getRoleAdmin(orchestrator.EMERGENCY_ADMIN_ROLE()),
+            orchestrator.EMERGENCY_ADMIN_ROLE(),
+            "emergency admin not self-administering"
+        );
+    }
+
+    /// Every operating role answers to its own admin role.
     function testRoleAdminsOnAFreshProxy() external view {
         assertEq(orchestrator.getRoleAdmin(orchestrator.MINT_ROLE()), orchestrator.MINT_ADMIN_ROLE());
         assertEq(orchestrator.getRoleAdmin(orchestrator.BURN_ROLE()), orchestrator.BURN_ADMIN_ROLE());
         assertEq(orchestrator.getRoleAdmin(orchestrator.EMERGENCY_ROLE()), orchestrator.EMERGENCY_ADMIN_ROLE());
-        assertEq(orchestrator.getRoleAdmin(orchestrator.MINT_ADMIN_ROLE()), orchestrator.DEFAULT_ADMIN_ROLE());
-        assertEq(orchestrator.getRoleAdmin(orchestrator.BURN_ADMIN_ROLE()), orchestrator.DEFAULT_ADMIN_ROLE());
-        assertEq(orchestrator.getRoleAdmin(orchestrator.EMERGENCY_ADMIN_ROLE()), orchestrator.DEFAULT_ADMIN_ROLE());
+    }
+
+    /// Self-administration by its effect rather than by `getRoleAdmin`: a mint
+    /// admin seats a second mint admin without the root being involved.
+    ///
+    /// This is the capability the default `DEFAULT_ADMIN_ROLE` admin denies,
+    /// so it fails if the self-administering `_setRoleAdmin` is dropped.
+    function testMintAdminCanSeatAnotherMintAdmin() external {
+        bytes32 mintAdminRole = orchestrator.MINT_ADMIN_ROLE();
+        address secondAdmin = address(0xA11CE);
+
+        vm.prank(OWNER);
+        orchestrator.grantRole(mintAdminRole, secondAdmin);
+        assertTrue(orchestrator.hasRole(mintAdminRole, secondAdmin), "second mint admin not seated");
+
+        // And the seat is a real one: the new admin can seat minters.
+        bytes32 mintRole = orchestrator.MINT_ROLE();
+        address minter = address(0xB0B);
+        vm.prank(secondAdmin);
+        orchestrator.grantRole(mintRole, minter);
+        assertTrue(orchestrator.hasRole(mintRole, minter), "minter not seated by the second admin");
+    }
+
+    /// A mint admin can revoke a peer, which is what makes a compromised
+    /// co-admin recoverable without the root.
+    function testMintAdminCanRevokeAPeer() external {
+        bytes32 mintAdminRole = orchestrator.MINT_ADMIN_ROLE();
+        address peer = address(0xA11CE);
+
+        vm.prank(OWNER);
+        orchestrator.grantRole(mintAdminRole, peer);
+
+        vm.prank(peer);
+        orchestrator.revokeRole(mintAdminRole, OWNER);
+        assertFalse(orchestrator.hasRole(mintAdminRole, OWNER), "peer could not revoke the original admin");
+    }
+
+    /// `DEFAULT_ADMIN_ROLE` can no longer grant an admin role, because it is
+    /// no longer that role's admin.
+    ///
+    /// This is the cost of self-administration and is asserted rather than
+    /// left implicit: the root seats the first holder through the internal
+    /// `_grantRole` in `initialize`, and after that the admin line manages
+    /// itself. A root that could still grant would mean the admin role was
+    /// never self-administering.
+    function testDefaultAdminCannotGrantAnAdminRole() external {
+        bytes32 mintAdminRole = orchestrator.MINT_ADMIN_ROLE();
+        bytes32 defaultAdminRole = orchestrator.DEFAULT_ADMIN_ROLE();
+        address rootHolder = OWNER;
+        assertTrue(orchestrator.hasRole(defaultAdminRole, rootHolder), "owner is not the root");
+
+        // The root holds `MINT_ADMIN_ROLE` too, from `initialize`, so revoke
+        // that first: otherwise this would pass through the self-administering
+        // path and say nothing about `DEFAULT_ADMIN_ROLE`.
+        vm.prank(rootHolder);
+        orchestrator.renounceRole(mintAdminRole, rootHolder);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, rootHolder, mintAdminRole)
+        );
+        vm.prank(rootHolder);
+        orchestrator.grantRole(mintAdminRole, address(0xA11CE));
     }
 
     /// `initialize` hands the owner all three admin roles.

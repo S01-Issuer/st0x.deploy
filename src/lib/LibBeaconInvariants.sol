@@ -5,16 +5,9 @@ pragma solidity ^0.8.25;
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {LibMigrationInvariant} from "./LibMigrationInvariant.sol";
 import {LibProdBeaconsBase} from "./LibProdBeaconsBase.sol";
+import {IOwnable} from "rain-extrospection-0.1.14/src/interface/IOwnable.sol";
 import {LibProdBeacons0_1_1} from "./LibProdBeacons0_1_1.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
-
-/// @notice Minimal `Ownable`-like surface used to read a beacon's owner:
-/// the `owner()` getter every OpenZeppelin `UpgradeableBeacon` exposes.
-interface IOwnable {
-    /// @notice The current owner of the contract.
-    /// @return The owner address.
-    function owner() external view returns (address);
-}
 
 /// @notice The address supplied as a beacon has no runtime code. Checked
 /// first so later reads against the address are only attempted once it is

@@ -63,10 +63,8 @@ contract Build is BuildScript {
     /// so they track whatever the source currently compiles to, while numbered
     /// snapshots (`0_1_1`, …) stay frozen and are never regenerated here.
     ///
-    /// Aliased from `LibRainDeploySnapshot.CANDIDATE` rather than spelled
-    /// again: `freeze` reads the rolling snapshots from that directory name, so
-    /// a second spelling here is a repo whose build writes one directory and
-    /// whose release reads another.
+    /// Aliased from `LibRainDeploySnapshot.CANDIDATE`, which is the directory
+    /// `freeze` reads, so the build and the release cannot name different ones.
     function deployTag() internal pure returns (string memory) {
         return LibRainDeploySnapshot.CANDIDATE;
     }

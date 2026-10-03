@@ -9,7 +9,7 @@ import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {ERC1967Utils} from "@openzeppelin-contracts-5.6.1/proxy/ERC1967/ERC1967Utils.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
 import {IGnosisSafe} from "../../../../src/interface/IGnosisSafe.sol";
-import {IOwnable} from "../../../../src/interface/IOwnable.sol";
+import {IOwnable} from "rain-extrospection-0.1.14/src/interface/IOwnable.sol";
 import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV2BaseOverrides} from "../../../../src/lib/LibProdDeployV2BaseOverrides.sol";
 import {LibMigrationInvariant} from "../../../../src/lib/LibMigrationInvariant.sol";

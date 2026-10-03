@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {IOwnable} from "../interface/IOwnable.sol";
+import {IOwnable} from "rain-extrospection-0.1.14/src/interface/IOwnable.sol";
 import {IAuthorisable} from "../interface/IAuthorisable.sol";
 import {LibMigrationInvariant} from "./LibMigrationInvariant.sol";
 
