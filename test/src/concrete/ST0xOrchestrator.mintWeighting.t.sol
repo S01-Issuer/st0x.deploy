@@ -103,14 +103,14 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
     function testUnsetLimitIsRefusedBeforeTheWeighting() external {
         SignedContextV1[] memory attestations = _lead(TOKEN_SYMBOL, PRICE);
         _mockVaultMint(AMOUNT);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.MinterGlobalMintLimitUnset.selector, MINTER));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.MinterMintLimitUnset.selector, MINTER));
         vm.prank(MINTER);
         orchestrator.mint(
             TOKEN, address(recipient), AMOUNT, MintAuthV1({nonce: keccak256("a"), signature: ""}), "", attestations
         );
 
         vm.prank(OWNER);
-        orchestrator.setMinterGlobalMintLimit(MINTER, CAPACITY, NO_LEAK);
+        orchestrator.setMinterMintLimit(MINTER, CAPACITY, NO_LEAK);
         vm.expectRevert(
             abi.encodeWithSelector(IST0xOrchestratorV1.RecipientMintLimitUnset.selector, address(recipient))
         );
@@ -270,7 +270,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
 
         bytes memory reason = _mintReverts(AMOUNT, keccak256("over"), _lead(TOKEN_SYMBOL, PRICE));
         (address who, Float carriedCapacity, Float headroom, Float charge) =
-            _decodeCapExceeded(reason, IST0xOrchestratorV1.MinterGlobalMintCapExceeded.selector);
+            _decodeCapExceeded(reason, IST0xOrchestratorV1.MinterMintCapExceeded.selector);
         assertEq(who, MINTER, "minter");
         _assertFloatEq(carriedCapacity, capacity, "capacity");
         _assertFloatEq(headroom, _f(500 - VALUE, 0), "headroom after one mint");
@@ -327,7 +327,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
     function testAttestationsAreOutsideTheRecipientsAuthorisation() external {
         (address eoa, uint256 pk) = makeAddrAndKey("recipient");
         vm.startPrank(OWNER);
-        orchestrator.setMinterGlobalMintLimit(MINTER, CAPACITY, NO_LEAK);
+        orchestrator.setMinterMintLimit(MINTER, CAPACITY, NO_LEAK);
         orchestrator.setRecipientMintLimit(eoa, CAPACITY, NO_LEAK);
         vm.stopPrank();
         _setWeighting(PRICED);

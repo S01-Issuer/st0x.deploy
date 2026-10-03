@@ -447,7 +447,7 @@ contract ST0xOrchestrator is
         MintCapV1 storage minterCap = $.minterMintCaps[msg.sender];
         MintCapV1 storage recipientCap = $.recipientMintCaps[to];
         MintLimitV1 memory minterLimit = minterCap.limit;
-        if (!minterLimit.set) revert MinterGlobalMintLimitUnset(msg.sender);
+        if (!minterLimit.set) revert MinterMintLimitUnset(msg.sender);
         MintLimitV1 memory recipientLimit = recipientCap.limit;
         if (!recipientLimit.set) revert RecipientMintLimitUnset(to);
 
@@ -519,7 +519,7 @@ contract ST0xOrchestrator is
     {
         LeakyBucket memory bucket = _bucket(cap.bucket, limit);
         Float headroom = LibLeakyBucket.headroomAt(bucket, timestamp);
-        if (charge.gt(headroom)) revert MinterGlobalMintCapExceeded(msg.sender, limit.capacity, headroom, charge);
+        if (charge.gt(headroom)) revert MinterMintCapExceeded(msg.sender, limit.capacity, headroom, charge);
 
         (Float level, Float checkpoint) = LibLeakyBucket.fill(bucket, timestamp, charge);
         cap.bucket = MintBucketV1({level: level, timestamp: checkpoint});
@@ -651,16 +651,13 @@ contract ST0xOrchestrator is
     ///
     /// Only the policy is written; the bucket's level is left where the
     /// earlier mints put it, so a lowered capacity binds immediately.
-    function setMinterGlobalMintLimit(address minter, Float capacity, Float leakRate)
-        external
-        onlyRole(MINT_ADMIN_ROLE)
-    {
+    function setMinterMintLimit(address minter, Float capacity, Float leakRate) external onlyRole(MINT_ADMIN_ROLE) {
         _main().minterMintCaps[minter].limit = MintLimitV1({capacity: capacity, leakRate: leakRate, set: true});
-        emit MinterGlobalMintLimitSet(minter, capacity, leakRate);
+        emit MinterMintLimitSet(minter, capacity, leakRate);
     }
 
     /// @inheritdoc IST0xOrchestratorV1
-    /// @dev Same terms as `setMinterGlobalMintLimit`: the policy is written,
+    /// @dev Same terms as `setMinterMintLimit`: the policy is written,
     /// the bucket's level is left where the earlier mints put it.
     function setRecipientMintLimit(address recipient, Float capacity, Float leakRate)
         external
@@ -735,7 +732,7 @@ contract ST0xOrchestrator is
     }
 
     /// @inheritdoc IST0xOrchestratorV1
-    function minterGlobalMintLimit(address minter) external view returns (MintLimitV1 memory) {
+    function minterMintLimit(address minter) external view returns (MintLimitV1 memory) {
         return _main().minterMintCaps[minter].limit;
     }
 

@@ -66,7 +66,7 @@ abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
     address internal constant MM = address(uint160(uint256(keccak256("MM"))));
 
     /// A capacity no amount in these workflows comes near, granted as MM's
-    /// global limit and as each recipient's limit so the workflows exercise
+    /// minter limit and as each recipient's limit so the workflows exercise
     /// the vault machinery rather than the caps.
     Float internal immutable UNBOUNDED_CAPACITY = LibDecimalFloat.packLossless(1, 60);
 
@@ -142,10 +142,10 @@ abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
         // No weighting means no mint. The identity weighting charges each
         // mint its amount in whole tokens.
         orchestrator.setMintWeighting(identity);
-        // Mint caps fail closed. Grant an unreachable capacity as MM's global
+        // Mint caps fail closed. Grant an unreachable capacity as MM's minter
         // limit; each workflow allows its own recipient with
         // `_allowRecipient`.
-        orchestrator.setMinterGlobalMintLimit(MM, UNBOUNDED_CAPACITY, NO_LEAK);
+        orchestrator.setMinterMintLimit(MM, UNBOUNDED_CAPACITY, NO_LEAK);
         vm.stopPrank();
     }
 

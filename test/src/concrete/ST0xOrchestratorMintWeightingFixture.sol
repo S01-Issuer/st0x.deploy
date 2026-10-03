@@ -167,7 +167,7 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
     /// Set the minter's and the recipient's limits, as OWNER.
     function _setLimits(Float minterCapacity, Float recipientCapacity) internal {
         vm.startPrank(OWNER);
-        orchestrator.setMinterGlobalMintLimit(MINTER, minterCapacity, NO_LEAK);
+        orchestrator.setMinterMintLimit(MINTER, minterCapacity, NO_LEAK);
         orchestrator.setRecipientMintLimit(address(recipient), recipientCapacity, NO_LEAK);
         vm.stopPrank();
     }

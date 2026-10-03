@@ -83,12 +83,12 @@ interface IST0xOrchestratorV1 {
     /// @notice A foreign ERC-1155 (not a production receipt) was swept out via
     /// `sweepERC1155`.
     event ForeignERC1155Swept(address indexed erc1155, address indexed to, uint256 indexed id, uint256 amount);
-    /// @notice `MINT_ADMIN_ROLE` set `minter`'s global mint limit: the one
+    /// @notice `MINT_ADMIN_ROLE` set `minter`'s mint limit: the one
     /// bucket metering that minter across every token and recipient.
     /// @param minter The minter the limit applies to.
     /// @param capacity The burst.
     /// @param leakRate The sustained rate per second.
-    event MinterGlobalMintLimitSet(address indexed minter, Float capacity, Float leakRate);
+    event MinterMintLimitSet(address indexed minter, Float capacity, Float leakRate);
     /// @notice `MINT_ADMIN_ROLE` set `recipient`'s mint limit: the one bucket
     /// metering everything minted to that recipient, across every token and
     /// minter.
@@ -130,23 +130,23 @@ interface IST0xOrchestratorV1 {
     /// @notice The vault reported an assets amount different from the shares
     /// requested. The share ratio is 1:1.
     error VaultAmountMismatch(uint256 expected, uint256 actual);
-    /// @notice A mint was metered against a minter global limit that has never
+    /// @notice A mint was metered against a minter limit that has never
     /// been set. A limit set with zero capacity reverts
-    /// `MinterGlobalMintCapExceeded` instead.
-    /// @param minter The `MINT_ROLE` caller with no global limit.
-    error MinterGlobalMintLimitUnset(address minter);
+    /// `MinterMintCapExceeded` instead.
+    /// @param minter The `MINT_ROLE` caller with no minter limit.
+    error MinterMintLimitUnset(address minter);
     /// @notice A mint was metered against a recipient limit that has never
     /// been set. A limit set with zero capacity reverts
     /// `RecipientMintCapExceeded` instead.
     /// @param recipient The `to` of the mint, with no limit.
     error RecipientMintLimitUnset(address recipient);
-    /// @notice The mint did not fit the minter's global bucket, which meters
+    /// @notice The mint did not fit the minter's bucket, which meters
     /// the minter across every token and recipient.
-    /// @param minter The minter whose global bucket refused the mint.
-    /// @param capacity The global capacity in force, as stored.
-    /// @param headroom What the global bucket would have accepted.
+    /// @param minter The minter whose bucket refused the mint.
+    /// @param capacity The minter's capacity in force, as stored.
+    /// @param headroom What the minter's bucket would have accepted.
     /// @param charge What the mint was charged against the bucket.
-    error MinterGlobalMintCapExceeded(address minter, Float capacity, Float headroom, Float charge);
+    error MinterMintCapExceeded(address minter, Float capacity, Float headroom, Float charge);
     /// @notice The mint did not fit the recipient's bucket, which meters
     /// everything minted to that recipient across every token and minter.
     /// @param recipient The `to` whose bucket refused the mint.
@@ -170,10 +170,10 @@ interface IST0xOrchestratorV1 {
     /// `SenderIsRecipient`, checked before anything is metered or authorised.
     ///
     /// Metered by two leaky buckets, both of which must accept: the minter's
-    /// (`msg.sender`) global bucket and the recipient's (`to`) bucket. Nothing
+    /// (`msg.sender`) bucket and the recipient's (`to`) bucket. Nothing
     /// is metered per token. Either rejection reverts with
-    /// `MinterGlobalMintCapExceeded` or `RecipientMintCapExceeded`, or with
-    /// `MinterGlobalMintLimitUnset` / `RecipientMintLimitUnset` where the
+    /// `MinterMintCapExceeded` or `RecipientMintCapExceeded`, or with
+    /// `MinterMintLimitUnset` / `RecipientMintLimitUnset` where the
     /// limit was never set at all.
     ///
     /// What both buckets are charged is the value the mint weighting puts on
@@ -222,21 +222,21 @@ interface IST0xOrchestratorV1 {
     /// @notice `EMERGENCY_ROLE` escape hatch: rescue a foreign ERC-1155.
     function sweepERC1155(address erc1155, uint256 id, uint256 amount, address to) external;
 
-    /// @notice `MINT_ADMIN_ROLE` sets `minter`'s global mint limit: one bucket
+    /// @notice `MINT_ADMIN_ROLE` sets `minter`'s mint limit: one bucket
     /// covering every mint by `minter`, across all tokens and recipients.
     /// @param minter The `MINT_ROLE` holder the limit applies to.
     /// @param capacity Burst, in the units mints are charged in (see
     /// `MintLimitV1`). Stored as given; a negative one is refused by the
     /// bucket, not here.
     /// @param leakRate Sustained rate in those same units per second.
-    function setMinterGlobalMintLimit(address minter, Float capacity, Float leakRate) external;
+    function setMinterMintLimit(address minter, Float capacity, Float leakRate) external;
 
     /// @notice `MINT_ADMIN_ROLE` sets `recipient`'s mint limit: one bucket
     /// covering everything minted to `recipient`, across all tokens and
     /// minters. A zero `capacity` is a set limit that admits nothing, distinct
     /// from never having been set.
     /// @param recipient The mint `to` the limit applies to.
-    /// @param capacity Burst, as for `setMinterGlobalMintLimit`.
+    /// @param capacity Burst, as for `setMinterMintLimit`.
     /// @param leakRate Sustained rate in those same units per second.
     function setRecipientMintLimit(address recipient, Float capacity, Float leakRate) external;
 
@@ -267,8 +267,8 @@ interface IST0xOrchestratorV1 {
     /// `authorizeMint` callback) to authorise a mint.
     function mintAuthDigest(address token, address to, uint256 amount, bytes32 nonce) external view returns (Digest);
 
-    /// @notice `minter`'s global mint limit, as stored.
-    function minterGlobalMintLimit(address minter) external view returns (MintLimitV1 memory);
+    /// @notice `minter`'s mint limit, as stored.
+    function minterMintLimit(address minter) external view returns (MintLimitV1 memory);
 
     /// @notice `recipient`'s mint limit, as stored.
     function recipientMintLimit(address recipient) external view returns (MintLimitV1 memory);
@@ -279,7 +279,7 @@ interface IST0xOrchestratorV1 {
 
     /// @notice The largest charge a `mint(…, recipient, …)` by `minter` would
     /// accept at the current block timestamp, for any token: the smaller of
-    /// the minter's global headroom and the recipient's. Zero when either
+    /// the minter's headroom and the recipient's. Zero when either
     /// limit is unset. Reverts, as a mint would, on a limit whose capacity or
     /// leak rate is negative. Nothing in the enforcement path reads it.
     function mintHeadroom(address minter, address recipient) external view returns (Float);

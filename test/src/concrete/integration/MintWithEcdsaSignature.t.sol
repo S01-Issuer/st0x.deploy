@@ -86,7 +86,7 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
         // Mint caps fail closed: grant an unreachable capacity for MM and the
         // recipient so the vault's missing `DEPOSIT` grant is the only thing
         // that can fail.
-        fresh.setMinterGlobalMintLimit(MM, UNBOUNDED_CAPACITY, NO_LEAK);
+        fresh.setMinterMintLimit(MM, UNBOUNDED_CAPACITY, NO_LEAK);
         fresh.setRecipientMintLimit(eoa, UNBOUNDED_CAPACITY, NO_LEAK);
         // And a weighting: without one the mint is refused
         // `MintWeightingUnset` before the vault leg.
