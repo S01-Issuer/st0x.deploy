@@ -145,10 +145,8 @@ bytes32 constant ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES = keccak256("st0x.orche
 /// signer it names. State the expression writes is persisted to its store
 /// under the orchestrator's namespace.
 ///
-/// The bucket library refuses a negative capacity, a negative leak rate, a
-/// zero charge and a negative charge, at every read and every fill; the
-/// setters store what they are given. A weighting that evaluates to zero or
-/// below is a refused mint.
+/// The bucket library refuses a zero charge and a negative charge at every
+/// fill. A weighting that evaluates to zero or below is a refused mint.
 contract ST0xOrchestrator is
     IST0xOrchestratorV1,
     IInterpreterCallerV4,
@@ -543,6 +541,11 @@ contract ST0xOrchestrator is
         cap.bucket = MintBucketV1({level: level, timestamp: checkpoint});
     }
 
+    function _checkMintLimit(Float capacity, Float leakRate) internal pure {
+        if (capacity.lt(LibDecimalFloat.FLOAT_ZERO)) revert NegativeMintLimitCapacity(capacity);
+        if (leakRate.lt(LibDecimalFloat.FLOAT_ZERO)) revert NegativeMintLimitLeakRate(leakRate);
+    }
+
     /// @dev A stored bucket under a limit, as the library takes it.
     function _bucket(MintBucketV1 memory stored, MintLimitV1 memory limit) internal pure returns (LeakyBucket memory) {
         return LeakyBucket({
@@ -645,13 +648,10 @@ contract ST0xOrchestrator is
     // ------------------------------------------------------------------ //
 
     /// @inheritdoc IST0xOrchestratorV1
-    /// @dev Neither magnitude nor sign is checked here; the bucket library
-    /// refuses a negative capacity or leak rate at every read and fill, so a
-    /// policy written negative fails closed.
-    ///
-    /// Only the policy is written; the bucket's level is left where the
+    /// @dev Only the policy is written; the bucket's level is left where the
     /// earlier mints put it, so a lowered capacity binds immediately.
     function setMinterMintLimit(address minter, Float capacity, Float leakRate) external onlyRole(MINT_ADMIN_ROLE) {
+        _checkMintLimit(capacity, leakRate);
         _main().minterMintCaps[minter].limit = MintLimitV1({capacity: capacity, leakRate: leakRate, set: true});
         emit MinterMintLimitSet(minter, capacity, leakRate);
     }
@@ -663,6 +663,7 @@ contract ST0xOrchestrator is
         external
         onlyRole(MINT_ADMIN_ROLE)
     {
+        _checkMintLimit(capacity, leakRate);
         _main().recipientMintCaps[recipient].limit = MintLimitV1({capacity: capacity, leakRate: leakRate, set: true});
         emit RecipientMintLimitSet(recipient, capacity, leakRate);
     }

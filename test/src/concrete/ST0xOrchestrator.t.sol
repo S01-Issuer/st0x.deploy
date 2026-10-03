@@ -13,10 +13,6 @@ import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
 import {IST0xVaultBeaconSet} from "../../../src/interface/IST0xVaultBeaconSet.sol";
 import {IST0xOrchestratorV1, MintAuthV1, MintLimitV1, Digest} from "../../../src/interface/IST0xOrchestratorV1.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
-import {
-    LeakyBucketNegativeCapacity,
-    LeakyBucketNegativeLeakRate
-} from "rain-lib-leakybucket-0.4.1/src/lib/LibLeakyBucket.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {ICorporateActionsV1} from "../../../src/interface/ICorporateActionsV1.sol";
 
@@ -2715,46 +2711,81 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
     }
 
-    /// The bucket library refuses a negative capacity by name rather than
-    /// reading it as zero. The setter stores it as given; the refusal comes
-    /// from the read (`mintHeadroom`) and from the fill (`mint`) alike. Here
-    /// on the recipient bucket.
-    function testNegativeCapacityIsRefusedByTheBucket() external {
-        Float negative = _f(-1, 18);
-        _grantMintOn(orchestrator, MINTER_A);
+    function _negative(int224 coefficient, int32 exponent) internal pure returns (Float) {
+        return _f(bound(int256(coefficient), type(int224).min, -1), exponent);
+    }
+
+    function _nonNegative(int224 coefficient, int32 exponent) internal pure returns (Float) {
+        return _f(bound(int256(coefficient), 0, type(int224).max), exponent);
+    }
+
+    function testFuzzSetMinterMintLimitNegativeCapacity(int224 coefficient, int32 exponent, bytes32 leakRateWord)
+        external
+    {
+        Float capacity = _negative(coefficient, exponent);
+        MintLimitV1 memory before = orchestrator.minterMintLimit(MINTER_A);
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.NegativeMintLimitCapacity.selector, capacity));
         vm.prank(OWNER);
-        orchestrator.setRecipientMintLimit(address(capRecipient), negative, NO_LEAK);
-        _assertFloatEq(orchestrator.recipientMintLimit(address(capRecipient)).capacity, negative, "stored as given");
+        orchestrator.setMinterMintLimit(MINTER_A, capacity, Float.wrap(leakRateWord));
+        assertEq(abi.encode(orchestrator.minterMintLimit(MINTER_A)), abi.encode(before), "minter limit unchanged");
+    }
 
-        vm.expectRevert(abi.encodeWithSelector(LeakyBucketNegativeCapacity.selector, negative));
-        orchestrator.mintHeadroom(MINTER_A, address(capRecipient));
+    function testFuzzSetMinterMintLimitNegativeLeakRate(
+        int224 capacityCoefficient,
+        int32 capacityExponent,
+        int224 coefficient,
+        int32 exponent
+    ) external {
+        Float leakRate = _negative(coefficient, exponent);
+        MintLimitV1 memory before = orchestrator.minterMintLimit(MINTER_A);
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.NegativeMintLimitLeakRate.selector, leakRate));
+        vm.prank(OWNER);
+        orchestrator.setMinterMintLimit(MINTER_A, _nonNegative(capacityCoefficient, capacityExponent), leakRate);
+        assertEq(abi.encode(orchestrator.minterMintLimit(MINTER_A)), abi.encode(before), "minter limit unchanged");
+    }
 
-        _mockCapMint(orchestrator, TOKEN, 1);
-        vm.expectRevert(abi.encodeWithSelector(LeakyBucketNegativeCapacity.selector, negative));
-        vm.prank(MINTER_A);
-        orchestrator.mint(
-            TOKEN, address(capRecipient), 1, _auth("", keccak256("negative-capacity")), "", new SignedContextV1[](0)
+    function testFuzzSetRecipientMintLimitNegativeCapacity(int224 coefficient, int32 exponent, bytes32 leakRateWord)
+        external
+    {
+        Float capacity = _negative(coefficient, exponent);
+        MintLimitV1 memory before = orchestrator.recipientMintLimit(address(capRecipient));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.NegativeMintLimitCapacity.selector, capacity));
+        vm.prank(OWNER);
+        orchestrator.setRecipientMintLimit(address(capRecipient), capacity, Float.wrap(leakRateWord));
+        assertEq(
+            abi.encode(orchestrator.recipientMintLimit(address(capRecipient))),
+            abi.encode(before),
+            "recipient limit unchanged"
         );
     }
 
-    /// A negative leak rate is refused the same way — here on the global
-    /// bucket, so both buckets are shown to carry the library's domain check.
-    function testNegativeLeakRateIsRefusedByTheBucket() external {
-        Float negative = _f(-1, 0);
-        _grantMintOn(orchestrator, MINTER_A);
+    function testFuzzSetRecipientMintLimitNegativeLeakRate(
+        int224 capacityCoefficient,
+        int32 capacityExponent,
+        int224 coefficient,
+        int32 exponent
+    ) external {
+        Float leakRate = _negative(coefficient, exponent);
+        MintLimitV1 memory before = orchestrator.recipientMintLimit(address(capRecipient));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.NegativeMintLimitLeakRate.selector, leakRate));
         vm.prank(OWNER);
-        orchestrator.setMinterMintLimit(MINTER_A, _f(10e18), negative);
-        _assertFloatEq(orchestrator.minterMintLimit(MINTER_A).leakRate, negative, "stored as given");
-
-        vm.expectRevert(abi.encodeWithSelector(LeakyBucketNegativeLeakRate.selector, negative));
-        orchestrator.mintHeadroom(MINTER_A, address(capRecipient));
-
-        _mockCapMint(orchestrator, TOKEN, 1);
-        vm.expectRevert(abi.encodeWithSelector(LeakyBucketNegativeLeakRate.selector, negative));
-        vm.prank(MINTER_A);
-        orchestrator.mint(
-            TOKEN, address(capRecipient), 1, _auth("", keccak256("negative-leak")), "", new SignedContextV1[](0)
+        orchestrator.setRecipientMintLimit(
+            address(capRecipient), _nonNegative(capacityCoefficient, capacityExponent), leakRate
         );
+        assertEq(
+            abi.encode(orchestrator.recipientMintLimit(address(capRecipient))),
+            abi.encode(before),
+            "recipient limit unchanged"
+        );
+    }
+
+    function testSetMintLimitsAcceptZero() external {
+        vm.startPrank(OWNER);
+        orchestrator.setMinterMintLimit(MINTER_A, ZERO, ZERO);
+        orchestrator.setRecipientMintLimit(address(capRecipient), ZERO, ZERO);
+        vm.stopPrank();
+        assertTrue(orchestrator.minterMintLimit(MINTER_A).set, "minter limit set");
+        assertTrue(orchestrator.recipientMintLimit(address(capRecipient)).set, "recipient limit set");
     }
 
     // ------------------------------------------------------------------ //
@@ -2809,13 +2840,14 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         orchestrator.setRecipientMintLimit(address(capRecipient), UNBOUNDED_CAPACITY, NO_LEAK);
     }
 
-    /// The setters store the words they are given, whatever they spell: any
-    /// `Float`, of any sign, magnitude or scale, reads back and is emitted
-    /// bit for bit. There is no magnitude to refuse, and the sign is the
-    /// bucket's to refuse, at the read and the fill, not the setter's.
-    function testFuzzSetMinterMintLimitEmitsAndReads(bytes32 capacityWord, bytes32 leakRateWord) external {
-        Float capacity = Float.wrap(capacityWord);
-        Float leakRate = Float.wrap(leakRateWord);
+    function testFuzzSetMinterMintLimitEmitsAndReads(
+        int224 capacityCoefficient,
+        int32 capacityExponent,
+        int224 leakRateCoefficient,
+        int32 leakRateExponent
+    ) external {
+        Float capacity = _nonNegative(capacityCoefficient, capacityExponent);
+        Float leakRate = _nonNegative(leakRateCoefficient, leakRateExponent);
         vm.expectEmit(true, true, true, true, address(orchestrator));
         emit IST0xOrchestratorV1.MinterMintLimitSet(MINTER_A, capacity, leakRate);
         vm.prank(OWNER);
@@ -2823,15 +2855,19 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
         MintLimitV1 memory limit = orchestrator.minterMintLimit(MINTER_A);
         assertTrue(limit.set, "minter limit reads back as set");
-        assertEq(Float.unwrap(limit.capacity), capacityWord, "minter capacity");
-        assertEq(Float.unwrap(limit.leakRate), leakRateWord, "minter leak rate");
+        assertEq(Float.unwrap(limit.capacity), Float.unwrap(capacity), "minter capacity");
+        assertEq(Float.unwrap(limit.leakRate), Float.unwrap(leakRate), "minter leak rate");
     }
 
-    function testFuzzSetRecipientMintLimitEmitsAndReads(address recipient, bytes32 capacityWord, bytes32 leakRateWord)
-        external
-    {
-        Float capacity = Float.wrap(capacityWord);
-        Float leakRate = Float.wrap(leakRateWord);
+    function testFuzzSetRecipientMintLimitEmitsAndReads(
+        address recipient,
+        int224 capacityCoefficient,
+        int32 capacityExponent,
+        int224 leakRateCoefficient,
+        int32 leakRateExponent
+    ) external {
+        Float capacity = _nonNegative(capacityCoefficient, capacityExponent);
+        Float leakRate = _nonNegative(leakRateCoefficient, leakRateExponent);
         vm.expectEmit(true, true, true, true, address(orchestrator));
         emit IST0xOrchestratorV1.RecipientMintLimitSet(recipient, capacity, leakRate);
         vm.prank(OWNER);
@@ -2839,8 +2875,8 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
         MintLimitV1 memory limit = orchestrator.recipientMintLimit(recipient);
         assertTrue(limit.set, "recipient limit reads back as set");
-        assertEq(Float.unwrap(limit.capacity), capacityWord, "recipient capacity");
-        assertEq(Float.unwrap(limit.leakRate), leakRateWord, "recipient leak rate");
+        assertEq(Float.unwrap(limit.capacity), Float.unwrap(capacity), "recipient capacity");
+        assertEq(Float.unwrap(limit.leakRate), Float.unwrap(leakRate), "recipient leak rate");
     }
 
     /// Every non-negative capacity is a policy the bucket enforces, whatever

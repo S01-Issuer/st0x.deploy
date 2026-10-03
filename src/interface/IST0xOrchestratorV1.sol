@@ -29,12 +29,6 @@ struct MintAuthV1 {
 /// units of the mint weighting's output (see `setMintWeighting`), which is
 /// what fills the bucket. Nothing about the token's corporate-action state
 /// enters the cap path.
-///
-/// The setters store what they are given. The leaky-bucket library refuses a
-/// negative `capacity` (`LeakyBucketNegativeCapacity`) or a negative
-/// `leakRate` (`LeakyBucketNegativeLeakRate`) at every read and every fill,
-/// so a policy written that way fails closed at the first `mint` or
-/// `mintHeadroom`.
 /// @param capacity The burst. The most one `mint` can take under this policy,
 /// and the most that can be outstanding against it at one instant. Zero
 /// admits nothing.
@@ -154,6 +148,8 @@ interface IST0xOrchestratorV1 {
     /// @param headroom What the recipient's bucket would have accepted.
     /// @param charge What the mint was charged against the bucket.
     error RecipientMintCapExceeded(address recipient, Float capacity, Float headroom, Float charge);
+    error NegativeMintLimitCapacity(Float capacity);
+    error NegativeMintLimitLeakRate(Float leakRate);
     /// @notice A mint was requested before any mint weighting was set.
     error MintWeightingUnset();
     /// @notice The mint weighting evaluated to an empty stack, so there is no
@@ -226,8 +222,7 @@ interface IST0xOrchestratorV1 {
     /// covering every mint by `minter`, across all tokens and recipients.
     /// @param minter The `MINT_ROLE` holder the limit applies to.
     /// @param capacity Burst, in the units mints are charged in (see
-    /// `MintLimitV1`). Stored as given; a negative one is refused by the
-    /// bucket, not here.
+    /// `MintLimitV1`).
     /// @param leakRate Sustained rate in those same units per second.
     function setMinterMintLimit(address minter, Float capacity, Float leakRate) external;
 
@@ -280,8 +275,7 @@ interface IST0xOrchestratorV1 {
     /// @notice The largest charge a `mint(…, recipient, …)` by `minter` would
     /// accept at the current block timestamp, for any token: the smaller of
     /// the minter's headroom and the recipient's. Zero when either
-    /// limit is unset. Reverts, as a mint would, on a limit whose capacity or
-    /// leak rate is negative. Nothing in the enforcement path reads it.
+    /// limit is unset. Nothing in the enforcement path reads it.
     function mintHeadroom(address minter, address recipient) external view returns (Float);
 
     /// @notice True if the production vault + receipt beacons currently point
