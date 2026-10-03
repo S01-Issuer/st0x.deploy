@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {Script} from "forge-std-1.16.2/src/Script.sol";
 import {VmSafe} from "forge-std-1.16.2/src/Vm.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.37/src/lib/LibCodeGen.sol";
-import {LibFs} from "rain-sol-codegen-0.1.37/src/lib/LibFs.sol";
+import {LibFs, GENERATED_DIR} from "rain-sol-codegen-0.1.37/src/lib/LibFs.sol";
 import {LibGenParseMeta} from "rainlang-interface-0.2.9/src/lib/codegen/LibGenParseMeta.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
@@ -75,7 +75,7 @@ contract BuildPointers is Script {
         deployed = LibRainDeploy.deployZoltu(creationCode);
 
         vm.writeFile(
-            string.concat("src/generated/", deployTag(), "/", name, ".sol"),
+            LibFs.pathForTaggedContract(deployTag(), name),
             string.concat(
                 LibCodeGen.filePrefix(),
                 LibCodeGen.bytecodeHashConstantString(vm, deployed),
@@ -100,7 +100,7 @@ contract BuildPointers is Script {
 
         // Regenerate the rolling `candidate/` snapshot from current source.
         // `vm.writeFile` won't create the dir, so ensure it exists first.
-        vm.createDir(string.concat("src/generated/", deployTag()), true);
+        vm.createDir(LibFs.dirForTag(deployTag()), true);
 
         buildContractPointers("StoxCorporateActionsFacet", type(StoxCorporateActionsFacet).creationCode);
         buildContractPointers("StoxReceipt", type(StoxReceipt).creationCode);
@@ -176,8 +176,25 @@ contract BuildPointers is Script {
     // large enough to trip stack-too-deep (via_ir is off).
     // =========================================================================
 
-    string constant GEN_V4_PATH = "src/generated/LibProdDeployV4.sol";
-    string constant GEN_CURRENT_PATH = "src/generated/LibProdDeployCurrent.sol";
+    /// @notice The aggregate deploy lib's path, from `LibFs.pathForContract`
+    /// rather than spelled here.
+    ///
+    /// Functions rather than `constant`s because a `constant` cannot be
+    /// initialised from a function call, and the definition living in `LibFs`
+    /// is worth more than the storage-free spelling: these are the same
+    /// `GENERATED_DIR` the per-tag snapshots are written under, so a repo that
+    /// spelled them separately would have two places to move.
+    /// @return The path of `LibProdDeployV4.sol`.
+    function genV4Path() internal pure returns (string memory) {
+        return LibFs.pathForContract("LibProdDeployV4");
+    }
+
+    /// @notice The current-tag alias lib's path, on the same basis as
+    /// `genV4Path`.
+    /// @return The path of `LibProdDeployCurrent.sol`.
+    function genCurrentPath() internal pure returns (string memory) {
+        return LibFs.pathForContract("LibProdDeployCurrent");
+    }
     string constant GEN_OWNER = "0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b";
 
     // REUSE-IgnoreStart  (the two SPDX lines below are the header EMITTED into
@@ -277,7 +294,7 @@ contract BuildPointers is Script {
     /// (`readDir` order is unspecified, so an explicit sort keeps the
     /// generated output deterministic).
     function deployTags() internal view returns (string[] memory tags) {
-        VmSafe.DirEntry[] memory entries = vm.readDir("src/generated");
+        VmSafe.DirEntry[] memory entries = vm.readDir(GENERATED_DIR);
         string[] memory tmp = new string[](entries.length);
         uint256 n = 0;
         for (uint256 i = 0; i < entries.length; i++) {
@@ -304,31 +321,49 @@ contract BuildPointers is Script {
         }
     }
 
-    /// @notice The file name a snapshot of `name` has inside `tag`.
+    /// @notice The path a snapshot of `name` has inside `tag`.
     ///
-    /// New snapshots are written as `<Name>.sol`, which is the convention
-    /// `rain-deploy` writes its own record with. Tags frozen before that keep
-    /// the `<Name>.pointers.sol` they were frozen under: a frozen tag is an
-    /// append-only record of what was deployed, and rainix's
-    /// `frozen-snapshots-append-only` check reads a rename of one as a
-    /// deletion. So both spellings are read and only the new one is written.
+    /// The current spelling comes from `LibFs.pathForTaggedContract`, which is
+    /// where it is defined: `rain-deploy`'s `pathForSnapshot` delegates to that
+    /// same function rather than concatenating its own, so that the path a
+    /// release is frozen FROM is the one `LibFs` wrote TO. A third
+    /// concatenation here would be the copy those two avoid, and it would also
+    /// skip the `requireTag` and `requireIdentifier` that only the real
+    /// definition applies.
+    ///
+    /// Only the legacy fallback is local, because only this repo has it. Tags
+    /// frozen before the convention keep the `<Name>.pointers.sol` they were
+    /// frozen under: a frozen tag is an append-only record of what was
+    /// deployed, and rainix's `frozen-snapshots-append-only` check reads a
+    /// rename of one as a deletion. So both spellings are read and only the
+    /// current one is ever written.
     /// @param tag The snapshot directory.
     /// @param name The contract name.
-    /// @return The file name, or the new spelling when neither is present.
-    function pointerFileName(string memory tag, string memory name) internal view returns (string memory) {
-        string memory current = string.concat(name, ".sol");
-        if (vm.exists(string.concat("src/generated/", tag, "/", current))) {
+    /// @return The path, or the current spelling's path when neither is
+    /// present.
+    function pointerPath(string memory tag, string memory name) internal view returns (string memory) {
+        string memory current = LibFs.pathForTaggedContract(tag, name);
+        if (vm.exists(current)) {
             return current;
         }
-        string memory frozen = string.concat(name, ".pointers.sol");
-        if (vm.exists(string.concat("src/generated/", tag, "/", frozen))) {
+        string memory frozen = string.concat(LibFs.dirForTag(tag), "/", name, ".pointers.sol");
+        if (vm.exists(frozen)) {
             return frozen;
         }
         return current;
     }
 
+    /// @notice The file name, rather than the path, of that same snapshot — the
+    /// form a generated import line needs.
+    /// @param tag The snapshot directory.
+    /// @param name The contract name.
+    /// @return The final path segment.
+    function pointerFileName(string memory tag, string memory name) internal view returns (string memory) {
+        return LibFs.lastPathSegment(pointerPath(tag, name));
+    }
+
     function pointerExists(string memory tag, string memory name) internal view returns (bool) {
-        return vm.exists(string.concat("src/generated/", tag, "/", pointerFileName(tag, name)));
+        return vm.exists(pointerPath(tag, name));
     }
 
     function writeGeneratedHeader(string memory path) internal {
@@ -360,21 +395,21 @@ contract BuildPointers is Script {
     function emitV4Constants(string memory tag, string memory base) internal {
         string memory suffix = tagSuffix(tag);
         vm.writeLine(
-            GEN_V4_PATH,
+            genV4Path(),
             string.concat("address constant ", base, "_", suffix, " = ", base, "_ADDRESS_", suffix, "_GEN;")
         );
         vm.writeLine(
-            GEN_V4_PATH,
+            genV4Path(),
             string.concat("bytes32 constant ", base, "_CODEHASH_", suffix, " = ", base, "_CODEHASH_", suffix, "_GEN;")
         );
         vm.writeLine(
-            GEN_V4_PATH,
+            genV4Path(),
             string.concat(
                 "bytes constant ", base, "_CREATION_CODE_", suffix, " = ", base, "_CREATION_", suffix, "_GEN;"
             )
         );
         vm.writeLine(
-            GEN_V4_PATH,
+            genV4Path(),
             string.concat("bytes constant ", base, "_RUNTIME_CODE_", suffix, " = ", base, "_RUNTIME_", suffix, "_GEN;")
         );
     }
@@ -384,23 +419,23 @@ contract BuildPointers is Script {
         string[CONTRACT_COUNT] memory names = contractNames();
         string[CONTRACT_COUNT] memory bases = contractBases();
 
-        writeGeneratedHeader(GEN_V4_PATH);
+        writeGeneratedHeader(genV4Path());
         for (uint256 t = 0; t < tags.length; t++) {
             for (uint256 c = 0; c < CONTRACT_COUNT; c++) {
                 if (pointerExists(tags[t], names[c])) {
-                    vm.writeLine(GEN_V4_PATH, v4ImportLine(names[c], bases[c], tags[t]));
+                    vm.writeLine(genV4Path(), v4ImportLine(names[c], bases[c], tags[t]));
                 }
             }
         }
-        vm.writeLine(GEN_V4_PATH, "");
-        vm.writeLine(GEN_V4_PATH, "library LibProdDeployV4 {");
-        vm.writeLine(GEN_V4_PATH, string.concat("address constant BEACON_INITIAL_OWNER = address(", GEN_OWNER, ");"));
+        vm.writeLine(genV4Path(), "");
+        vm.writeLine(genV4Path(), "library LibProdDeployV4 {");
+        vm.writeLine(genV4Path(), string.concat("address constant BEACON_INITIAL_OWNER = address(", GEN_OWNER, ");"));
         vm.writeLine(
-            GEN_V4_PATH,
+            genV4Path(),
             "address constant STOX_PROD_AUTHORISER_V4_CLONE =" " address(0x315b16faa6eE413faBCa877d3851B3818369f0cD);"
         );
         vm.writeLine(
-            GEN_V4_PATH,
+            genV4Path(),
             "bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH ="
             " 0x2089950d3cc1112dd66a58adcfadeadc490b50053ac67be8bc676b4a2dcd1717;"
         );
@@ -412,11 +447,11 @@ contract BuildPointers is Script {
         // The address is NOT chain-unique — a different clone occupies it on
         // Base — so a consumer must match the codehash, not merely find code.
         vm.writeLine(
-            GEN_V4_PATH,
+            genV4Path(),
             "address constant STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);"
         );
         vm.writeLine(
-            GEN_V4_PATH,
+            genV4Path(),
             "address constant STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);"
         );
         // Robinhood Chain and BNB Smart Chain V4 authoriser clones: the logged
@@ -426,11 +461,11 @@ contract BuildPointers is Script {
         // fresh factory (nonce 1) lands at the Ethereum / HyperEVM address. The
         // impl plays no part, which is why Base, same impl and factory, differs.
         vm.writeLine(
-            GEN_V4_PATH,
+            genV4Path(),
             "address constant STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);"
         );
         vm.writeLine(
-            GEN_V4_PATH,
+            genV4Path(),
             "address constant STOX_PROD_AUTHORISER_V4_CLONE_BSC = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);"
         );
         // ST0x orchestrator beacon + production instance — CREATE-derived
@@ -444,11 +479,11 @@ contract BuildPointers is Script {
         // re-derive both from the deployer pin so a drifted literal fails a
         // test.
         vm.writeLine(
-            GEN_V4_PATH,
+            genV4Path(),
             "address constant ST0X_ORCHESTRATOR_BEACON = address(0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613);"
         );
         vm.writeLine(
-            GEN_V4_PATH,
+            genV4Path(),
             "address constant ST0X_ORCHESTRATOR_INSTANCE = address(0x3A7387a484d87Aa8bBA45E98AAB401Ce4FBF03E2);"
         );
         for (uint256 t = 0; t < tags.length; t++) {
@@ -458,7 +493,7 @@ contract BuildPointers is Script {
                 }
             }
         }
-        vm.writeLine(GEN_V4_PATH, "}");
+        vm.writeLine(genV4Path(), "}");
     }
 
     /// @notice Generate `LibProdDeployCurrent.sol`: unversioned aliases of the
@@ -466,39 +501,39 @@ contract BuildPointers is Script {
     function genCurrent() internal {
         string memory tag = deployTag();
         string memory suffix = tagSuffix(tag);
-        require(vm.exists(string.concat("src/generated/", tag)), "BuildPointers: current tag dir missing");
+        require(vm.exists(LibFs.dirForTag(tag)), "BuildPointers: current tag dir missing");
         string[CONTRACT_COUNT] memory names = contractNames();
         string[CONTRACT_COUNT] memory bases = contractBases();
 
-        writeGeneratedHeader(GEN_CURRENT_PATH);
-        vm.writeLine(GEN_CURRENT_PATH, 'import {LibProdDeployV4} from "./LibProdDeployV4.sol";');
-        vm.writeLine(GEN_CURRENT_PATH, "");
-        vm.writeLine(GEN_CURRENT_PATH, "library LibProdDeployCurrent {");
-        vm.writeLine(GEN_CURRENT_PATH, string.concat('string constant DEPLOY_TAG = "', tag, '";'));
-        vm.writeLine(GEN_CURRENT_PATH, "address constant BEACON_INITIAL_OWNER = LibProdDeployV4.BEACON_INITIAL_OWNER;");
+        writeGeneratedHeader(genCurrentPath());
+        vm.writeLine(genCurrentPath(), 'import {LibProdDeployV4} from "./LibProdDeployV4.sol";');
+        vm.writeLine(genCurrentPath(), "");
+        vm.writeLine(genCurrentPath(), "library LibProdDeployCurrent {");
+        vm.writeLine(genCurrentPath(), string.concat('string constant DEPLOY_TAG = "', tag, '";'));
+        vm.writeLine(genCurrentPath(), "address constant BEACON_INITIAL_OWNER = LibProdDeployV4.BEACON_INITIAL_OWNER;");
         vm.writeLine(
-            GEN_CURRENT_PATH,
+            genCurrentPath(),
             "address constant STOX_PROD_AUTHORISER_V4_CLONE = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;"
         );
         vm.writeLine(
-            GEN_CURRENT_PATH,
+            genCurrentPath(),
             "bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH;"
         );
         for (uint256 c = 0; c < CONTRACT_COUNT; c++) {
             if (!pointerExists(tag, names[c])) continue;
             string memory base = bases[c];
             vm.writeLine(
-                GEN_CURRENT_PATH,
+                genCurrentPath(),
                 string.concat("address constant ", base, " = LibProdDeployV4.", base, "_", suffix, ";")
             );
             vm.writeLine(
-                GEN_CURRENT_PATH,
+                genCurrentPath(),
                 string.concat(
                     "bytes32 constant ", base, "_CODEHASH = LibProdDeployV4.", base, "_CODEHASH_", suffix, ";"
                 )
             );
         }
-        vm.writeLine(GEN_CURRENT_PATH, "}");
+        vm.writeLine(genCurrentPath(), "}");
     }
 
     function genProdLibs() internal {
