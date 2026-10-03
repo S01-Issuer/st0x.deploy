@@ -286,56 +286,26 @@ contract BuildPointers is BuildScript {
         bases[12] = "ST0X_ATTEST_SUB_PARSER";
     }
 
-    /// @notice The last path segment of `path` (the basename).
-    function baseName(string memory path) internal pure returns (string memory) {
-        bytes memory b = bytes(path);
-        uint256 start = 0;
-        for (uint256 i = 0; i < b.length; i++) {
-            if (b[i] == "/") start = i + 1;
-        }
-        bytes memory out = new bytes(b.length - start);
-        for (uint256 i = start; i < b.length; i++) {
-            out[i - start] = b[i];
-        }
-        return string(out);
-    }
-
     /// @notice True if `name` matches `\d+_\d+_\d+` (a release-tag dir name).
-    function isTagName(string memory name) internal pure returns (bool) {
-        bytes memory b = bytes(name);
-        if (b.length == 0) return false;
-        uint256 underscores = 0;
-        bool prevDigit = false;
-        for (uint256 i = 0; i < b.length; i++) {
-            if (b[i] == "_") {
-                if (!prevDigit) return false;
-                underscores++;
-                prevDigit = false;
-            } else if (b[i] >= "0" && b[i] <= "9") {
-                prevDigit = true;
-            } else {
-                return false;
-            }
+    /// @notice True when `a` is a release tag that precedes release tag `b`.
+    ///
+    /// `LibRainDeploySnapshot.tagPrecedes` is the ordering, so a tag orders
+    /// here exactly as it does where a release is cut; this only adds where
+    /// `candidate` sits, which that function cannot answer because it parses
+    /// each component as a number. `candidate` is the rolling head and sorts
+    /// after every frozen tag, so it is never the lesser side of a comparison
+    /// and two candidates never meet.
+    /// @param a The left tag.
+    /// @param b The right tag.
+    /// @return True when `a` precedes `b`.
+    function tagPrecedes(string memory a, string memory b) internal view returns (bool) {
+        if (keccak256(bytes(a)) == keccak256(bytes(CANDIDATE_TAG))) {
+            return false;
         }
-        return underscores == 2 && prevDigit;
-    }
-
-    /// @notice A monotonic sort key for an `a_b_c` tag (each component < 1e6).
-    /// The non-numeric `candidate` tag sorts last (the rolling head after every
-    /// frozen numbered release).
-    function tagKey(string memory name) internal pure returns (uint256 key) {
-        if (keccak256(bytes(name)) == keccak256(bytes(CANDIDATE_TAG))) return type(uint256).max;
-        bytes memory b = bytes(name);
-        uint256 num = 0;
-        for (uint256 i = 0; i < b.length; i++) {
-            if (b[i] == "_") {
-                key = key * 1_000_000 + num;
-                num = 0;
-            } else {
-                num = num * 10 + (uint8(b[i]) - 48);
-            }
+        if (keccak256(bytes(b)) == keccak256(bytes(CANDIDATE_TAG))) {
+            return true;
         }
-        key = key * 1_000_000 + num;
+        return LibRainDeploySnapshot.tagPrecedes(vm, a, b);
     }
 
     /// @notice All release-tag dirs under `src/generated`, numeric-sorted
@@ -347,8 +317,8 @@ contract BuildPointers is BuildScript {
         uint256 n = 0;
         for (uint256 i = 0; i < entries.length; i++) {
             if (!entries[i].isDir) continue;
-            string memory name = baseName(entries[i].path);
-            if (isTagName(name) || keccak256(bytes(name)) == keccak256(bytes(CANDIDATE_TAG))) {
+            string memory name = LibFs.lastPathSegment(entries[i].path);
+            if (LibRainDeploySnapshot.isTag(name) || keccak256(bytes(name)) == keccak256(bytes(CANDIDATE_TAG))) {
                 tmp[n] = name;
                 n++;
             }
@@ -359,9 +329,8 @@ contract BuildPointers is BuildScript {
         }
         for (uint256 i = 1; i < n; i++) {
             string memory cur = tags[i];
-            uint256 curKey = tagKey(cur);
             uint256 j = i;
-            while (j > 0 && tagKey(tags[j - 1]) > curKey) {
+            while (j > 0 && tagPrecedes(cur, tags[j - 1])) {
                 tags[j] = tags[j - 1];
                 j--;
             }
