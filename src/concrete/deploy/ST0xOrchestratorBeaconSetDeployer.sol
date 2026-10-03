@@ -7,7 +7,7 @@ import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/Upgr
 import {BeaconProxy} from "@openzeppelin-contracts-5.6.1/proxy/beacon/BeaconProxy.sol";
 import {ERC165} from "@openzeppelin-contracts-5.6.1/utils/introspection/ERC165.sol";
 
-import {LibAddressRegistry} from "rain-deploy-0.1.10/src/lib/LibAddressRegistry.sol";
+import {LibAddressRegistry} from "rain-deploy-0.1.11/src/lib/LibAddressRegistry.sol";
 
 import {ST0xOrchestrator, ST0X_TOKEN_OWNER_SAFE_NAME} from "../ST0xOrchestrator.sol";
 import {LibProdDeployCurrent} from "../../generated/LibProdDeployCurrent.sol";

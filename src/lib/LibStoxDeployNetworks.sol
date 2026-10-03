@@ -2,11 +2,14 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
 
 /// @title LibStoxDeployNetworks
 /// @notice The ST0x deploy network set: per-network name constants and the
-/// one list of networks ST0x deploys to. Each name matches its
+/// one list of networks ST0x deploys to. Each name is aliased from the
+/// `LibRainDeploy` constant for that network rather than re-spelled, so the
+/// alias a fork resolves here and the alias the deploy library forks are the
+/// same string by construction. Each matches its
 /// `[rpc_endpoints]` alias in `foundry.toml`, the same convention as every
 /// `LibRainDeploy` network constant. Consumed by the cross-chain fork tests.
 library LibStoxDeployNetworks {
@@ -15,14 +18,14 @@ library LibStoxDeployNetworks {
     /// @dev The Zoltu factory is deployed on Ethereum mainnet at the
     /// canonical `LibRainDeploy.ZOLTU_FACTORY` address, so deterministic
     /// deploys work unchanged.
-    string internal constant ETHEREUM = "ethereum";
+    string internal constant ETHEREUM = LibRainDeploy.ETHEREUM;
 
     /// @notice HyperEVM mainnet network name, matching the `[rpc_endpoints]`
     /// alias in `foundry.toml` (resolved from `HYPEREVM_RPC_URL`).
     /// @dev The Zoltu factory is deployed on HyperEVM at the canonical
     /// `LibRainDeploy.ZOLTU_FACTORY` address, so deterministic deploys work
     /// unchanged.
-    string internal constant HYPEREVM = "hyperevm";
+    string internal constant HYPEREVM = LibRainDeploy.HYPEREVM;
 
     /// @notice Robinhood Chain mainnet (chain id 4663) network name, matching
     /// the `[rpc_endpoints]` alias in `foundry.toml` (resolved from
@@ -31,7 +34,7 @@ library LibStoxDeployNetworks {
     /// deployed there at the canonical `LibRainDeploy.ZOLTU_FACTORY` address
     /// with Base's exact runtime, so deterministic deploys land at the same
     /// addresses as on every other chain.
-    string internal constant ROBINHOOD = "robinhood";
+    string internal constant ROBINHOOD = LibRainDeploy.ROBINHOOD;
 
     /// @notice BNB Smart Chain mainnet (chain id 56) network name, matching
     /// the `[rpc_endpoints]` alias in `foundry.toml` (resolved from
@@ -40,7 +43,7 @@ library LibStoxDeployNetworks {
     /// `LibRainDeploy.ZOLTU_FACTORY` address with Base's exact runtime, so
     /// deterministic deploys land at the same addresses as on every other
     /// chain.
-    string internal constant BSC = "bsc";
+    string internal constant BSC = LibRainDeploy.BSC;
 
     /// @notice Every network ST0x deploys to, as `foundry.toml` rpc aliases.
     /// @dev The deploy scripts hand this whole list to

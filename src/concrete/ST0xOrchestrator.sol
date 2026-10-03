@@ -35,9 +35,9 @@ import {
 } from "rainlang-interface-0.2.9/src/interface/IInterpreterV4.sol";
 import {LibNamespace} from "rainlang-interface-0.2.9/src/lib/ns/LibNamespace.sol";
 
-import {LibAddressRegistry} from "rain-deploy-0.1.10/src/lib/LibAddressRegistry.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.10/src/lib/LibMigrationRegistry.sol";
-import {Prerequisite, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.10/src/interface/IMigrationRegistryV2.sol";
+import {LibAddressRegistry} from "rain-deploy-0.1.11/src/lib/LibAddressRegistry.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.11/src/lib/LibMigrationRegistry.sol";
+import {Prerequisite, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.11/src/interface/IMigrationRegistryV2.sol";
 
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";

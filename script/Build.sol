@@ -6,9 +6,9 @@ import {VmSafe} from "forge-std-1.16.2/src/Vm.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.37/src/lib/LibCodeGen.sol";
 import {LibFs, GENERATED_DIR} from "rain-sol-codegen-0.1.37/src/lib/LibFs.sol";
 import {LibGenParseMeta} from "rainlang-interface-0.2.9/src/lib/codegen/LibGenParseMeta.sol";
-import {BuildScript} from "rain-deploy-0.1.10/src/abstract/BuildScript.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
-import {LibRainDeploySnapshot} from "rain-deploy-0.1.10/src/lib/LibRainDeploySnapshot.sol";
+import {BuildScript} from "rain-deploy-0.1.11/src/abstract/BuildScript.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
+import {LibRainDeploySnapshot} from "rain-deploy-0.1.11/src/lib/LibRainDeploySnapshot.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
@@ -115,7 +115,12 @@ contract Build is BuildScript {
         for (uint256 i = 0; i < contracts.length; i++) {
             address deployed = LibRainDeploy.zoltuAddress(contracts[i].creationCode);
             LibRainDeploySnapshot.writeSnapshot(
-                vm, deployTag(), contracts[i].contractName, contracts[i].creationCode, contracts[i].dependencies
+                vm,
+                recordRoot(),
+                deployTag(),
+                contracts[i].contractName,
+                contracts[i].creationCode,
+                contracts[i].dependencies
             );
 
             // The subparser's parse meta and function pointer tables are read
