@@ -62,10 +62,13 @@ contract Build is BuildScript {
     /// self-references (`LibProdDeployCurrent`) always resolve to `candidate`,
     /// so they track whatever the source currently compiles to, while numbered
     /// snapshots (`0_1_1`, …) stay frozen and are never regenerated here.
-    string constant CANDIDATE_TAG = "candidate";
-
+    ///
+    /// Aliased from `LibRainDeploySnapshot.CANDIDATE` rather than spelled
+    /// again: `freeze` reads the rolling snapshots from that directory name, so
+    /// a second spelling here is a repo whose build writes one directory and
+    /// whose release reads another.
     function deployTag() internal pure returns (string memory) {
-        return CANDIDATE_TAG;
+        return LibRainDeploySnapshot.CANDIDATE;
     }
 
     /// @notice The constant-name suffix for a tag dir. Numbered tags use the tag
@@ -73,7 +76,7 @@ contract Build is BuildScript {
     /// generated constants read `STOX_RECEIPT_CANDIDATE` rather than the
     /// lowercase dir name.
     function tagSuffix(string memory tag) internal pure returns (string memory) {
-        if (keccak256(bytes(tag)) == keccak256(bytes(CANDIDATE_TAG))) return "CANDIDATE";
+        if (keccak256(bytes(tag)) == keccak256(bytes(LibRainDeploySnapshot.CANDIDATE))) return "CANDIDATE";
         return tag;
     }
 
@@ -181,14 +184,11 @@ contract Build is BuildScript {
     function genCurrentPath() internal pure returns (string memory) {
         return LibFs.pathForContract("LibProdDeployCurrent");
     }
-    string constant GEN_OWNER = "0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b";
-
-    // REUSE-IgnoreStart  (the two SPDX lines below are the header EMITTED into
-    // the generated files, not this script's own license — hide from reuse lint)
-    string constant GEN_SPDX_LICENSE = "// SPDX-License-Identifier: LicenseRef-DCL-1.0";
-    string constant GEN_SPDX_COPYRIGHT = "// SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd";
-
-    // REUSE-IgnoreEnd
+    /// @notice The owner every production beacon is handed at deploy, emitted
+    /// into the aggregate deploy lib. A real `address` rather than its text, so
+    /// `LibCodeGen.addressConstantString` emits the constant and the Solidity is
+    /// not hand-assembled here.
+    address constant GEN_OWNER = 0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b;
 
     /// @notice Every contract this repo generates deploy pins for: the ONE
     /// list, read by every hook.
@@ -329,10 +329,10 @@ contract Build is BuildScript {
     /// @param b The right tag.
     /// @return True when `a` precedes `b`.
     function tagPrecedes(string memory a, string memory b) internal view returns (bool) {
-        if (keccak256(bytes(a)) == keccak256(bytes(CANDIDATE_TAG))) {
+        if (keccak256(bytes(a)) == keccak256(bytes(LibRainDeploySnapshot.CANDIDATE))) {
             return false;
         }
-        if (keccak256(bytes(b)) == keccak256(bytes(CANDIDATE_TAG))) {
+        if (keccak256(bytes(b)) == keccak256(bytes(LibRainDeploySnapshot.CANDIDATE))) {
             return true;
         }
         return LibRainDeploySnapshot.tagPrecedes(vm, a, b);
@@ -348,7 +348,10 @@ contract Build is BuildScript {
         for (uint256 i = 0; i < entries.length; i++) {
             if (!entries[i].isDir) continue;
             string memory name = LibFs.lastPathSegment(entries[i].path);
-            if (LibRainDeploySnapshot.isTag(name) || keccak256(bytes(name)) == keccak256(bytes(CANDIDATE_TAG))) {
+            if (
+                LibRainDeploySnapshot.isTag(name)
+                    || keccak256(bytes(name)) == keccak256(bytes(LibRainDeploySnapshot.CANDIDATE))
+            ) {
                 tmp[n] = name;
                 n++;
             }
@@ -395,13 +398,22 @@ contract Build is BuildScript {
         return vm.exists(snapshotPath(tag, name));
     }
 
+    /// @notice Starts `path` with the header every generated file in this org
+    /// carries: the SPDX licence, the copyright and the pragma.
+    ///
+    /// `LibCodeGen.filePrefix()` is that header, built from
+    /// `RAIN_SPDX_LICENSE_IDENTIFIER` and `RAIN_COPYRIGHT_TEXT`. Spelling the
+    /// two SPDX lines here instead meant this repo had its own copy of the
+    /// org's licence text, which would keep emitting the old one after the
+    /// canonical constants changed, and the literals had to be fenced off with
+    /// `REUSE-IgnoreStart` so the licence lint did not read them as this
+    /// script's own header. The function carries that fence itself.
+    ///
+    /// Truncating rather than appending, so a regeneration replaces the file
+    /// instead of growing it.
+    /// @param path The file to start.
     function writeGeneratedHeader(string memory path) internal {
-        vm.writeFile(path, "");
-        vm.writeLine(path, GEN_SPDX_LICENSE);
-        vm.writeLine(path, GEN_SPDX_COPYRIGHT);
-        vm.writeLine(path, "pragma solidity ^0.8.25;");
-        vm.writeLine(path, "");
-        vm.writeLine(path, "// GENERATED by script/Build.sol. Do not edit.");
+        vm.writeFile(path, LibCodeGen.filePrefix());
     }
 
     function v4ImportLine(string memory name, string memory base, string memory tag)
@@ -459,7 +471,12 @@ contract Build is BuildScript {
         }
         vm.writeLine(genV4Path(), "");
         vm.writeLine(genV4Path(), "library LibProdDeployV4 {");
-        vm.writeLine(genV4Path(), string.concat("address constant BEACON_INITIAL_OWNER = address(", GEN_OWNER, ");"));
+        vm.writeLine(
+            genV4Path(),
+            LibCodeGen.addressConstantString(
+                vm, "/// @dev The owner every production beacon is deployed with.", "BEACON_INITIAL_OWNER", GEN_OWNER
+            )
+        );
         vm.writeLine(
             genV4Path(),
             "address constant STOX_PROD_AUTHORISER_V4_CLONE =" " address(0x315b16faa6eE413faBCa877d3851B3818369f0cD);"
