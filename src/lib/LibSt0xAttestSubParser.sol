@@ -214,7 +214,7 @@ library LibSt0xAttestSubParser {
 
     /// @notice The authoring meta for every word, in word index order.
     /// `script/BuildAuthoringMeta.sol` writes it to `meta/` and
-    /// `script/BuildPointers.sol` builds the parse meta from it.
+    /// `script/Build.sol` builds the parse meta from it.
     /// @return The ABI encoded `AuthoringMetaV2[]`.
     //slither-disable-next-line dead-code
     function authoringMetaV2() internal pure returns (bytes memory) {

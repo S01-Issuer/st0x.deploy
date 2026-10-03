@@ -28,5 +28,5 @@
 # `cp -r` can.
 set -euo pipefail
 
-forge script ./script/BuildPointers.sol --sig 'cutRelease()'
+forge script ./script/Build.sol --sig 'cutRelease()'
 forge fmt

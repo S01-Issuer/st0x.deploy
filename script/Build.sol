@@ -33,8 +33,25 @@ import {St0xAttestSubParser} from "../src/concrete/St0xAttestSubParser.sol";
 import {LibSt0xAttestSubParser, PARSE_META_BUILD_DEPTH} from "../src/lib/LibSt0xAttestSubParser.sol";
 import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
 
-contract BuildPointers is BuildScript {
-    /// @notice How many contracts `contractNames()` / `contractBases()`
+/// One contract's generated deploy pins.
+/// @param contractName The snapshot's filename without `.sol`, which
+/// `LibFs.pathForTaggedContract` places under `src/generated/<tag>/`, and the
+/// contract the artifact is read from.
+/// @param constantPrefix The prefix the emitted constants carry, e.g.
+/// `STOX_RECEIPT` for `STOX_RECEIPT_0_1_30`.
+/// @param creationCode `type(X).creationCode`, which fixes the Zoltu address.
+/// @param dependencies The addresses that MUST already carry code on a network
+/// before this contract can be broadcast there. Empty is a claim that nothing
+/// must pre-exist, so it is only correct for a contract that bakes nothing.
+struct GeneratedContract {
+    string contractName;
+    string constantPrefix;
+    bytes creationCode;
+    address[] dependencies;
+}
+
+contract Build is BuildScript {
+    /// @notice How many contracts `generatedContracts()`
     /// enumerate: every candidate-snapshot contract the deploy libs alias.
     uint256 constant CONTRACT_COUNT = 13;
 
@@ -60,82 +77,17 @@ contract BuildPointers is BuildScript {
         return tag;
     }
 
-    /// @notice Deploys a contract via the Zoltu factory and generates its
-    /// pointer file containing `DEPLOYED_ADDRESS`, `CREATION_CODE`, and
-    /// `RUNTIME_CODE` constants.
-    /// @param name Must exactly match the contract's Solidity filename (without
-    /// `.sol`), as it determines the generated pointer file path under
-    /// `src/generated/<tag>/` — the rolling `candidate` snapshot for the
-    /// current `deployTag()`. Numbered release snapshots are frozen and never
-    /// regenerated here; a release freezes a copy of `candidate` beside them
-    /// (see `script/cut-release.sh`).
-    /// @param creationCode The creation bytecode of the contract, typically
-    /// obtained via `type(ContractName).creationCode`.
-    /// @return deployed The Zoltu address the contract was deployed to, for a
-    /// caller that reads pointer tables back off the live instance.
-    function buildContractPointers(string memory name, bytes memory creationCode) internal returns (address deployed) {
-        LibRainDeploySnapshot.writeSnapshot(vm, deployTag(), name, creationCode, snapshotDependencies(name));
-        // `writeSnapshot` has already Zoltu-deployed this creation code, and it
-        // returns the path it wrote rather than the address. Derive the address
-        // instead of deploying again: `deployZoltu` reverts `DeployFailed` on an
-        // address that already holds code, so a second call is not a no-op.
-        deployed = LibRainDeploy.zoltuAddress(creationCode);
-    }
-
-    /// @notice The addresses that MUST already carry code on a network before
-    /// `name` can be broadcast there, recorded into its snapshot.
-    ///
-    /// Read off the constructors rather than assumed: the beacon-set deployers
-    /// bake their implementation's address at construction and the unified
-    /// deployer bakes the two beacon-set deployers, so broadcasting one onto a
-    /// network whose prerequisite is absent produces a deployer whose `deploy()`
-    /// cannot work. An empty list is a claim that nothing must pre-exist, so it
-    /// is only correct for the contracts that genuinely bake nothing — the
-    /// implementations, the beacon, the authorizers, the facet and the
-    /// subparser.
-    ///
-    /// The addresses come from `LibProdDeployCurrent`, which is the same
-    /// generated source the constructors read, so a dependency recorded here
-    /// and the address actually baked cannot diverge.
-    /// @param name The contract whose snapshot is being written.
-    /// @return The dependency addresses.
-    function snapshotDependencies(string memory name) internal pure returns (address[] memory) {
-        bytes32 key = keccak256(bytes(name));
-
-        if (key == keccak256("ST0xOrchestratorBeaconSetDeployer")) {
-            address[] memory deps = new address[](1);
-            deps[0] = LibProdDeployCurrent.ST0X_ORCHESTRATOR;
-            return deps;
-        }
-        if (key == keccak256("StoxWrappedTokenVaultBeaconSetDeployer")) {
-            address[] memory deps = new address[](1);
-            deps[0] = LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT_BEACON;
-            return deps;
-        }
-        if (key == keccak256("StoxOffchainAssetReceiptVaultBeaconSetDeployer")) {
-            address[] memory deps = new address[](2);
-            deps[0] = LibProdDeployCurrent.STOX_RECEIPT;
-            deps[1] = LibProdDeployCurrent.STOX_RECEIPT_VAULT;
-            return deps;
-        }
-        if (key == keccak256("StoxUnifiedDeployer")) {
-            address[] memory deps = new address[](2);
-            deps[0] = LibProdDeployCurrent.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER;
-            deps[1] = LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER;
-            return deps;
-        }
-        return new address[](0);
-    }
-
     /// @inheritdoc BuildScript
-    /// @dev In declaration order, which is also build order: a deployer bakes
-    /// its implementation's address, so the implementation has to have been
-    /// Zoltu-deployed before the deployer's creation code is read.
+    /// @dev Derived from `generatedContracts()` rather than restated, so a
+    /// contract that is built is a contract a release freezes. `freeze` reads
+    /// and writes each named snapshot independently, so the order is not
+    /// load-bearing here — it is build order because that is the one order the
+    /// list has to be in.
     function snapshotContractNames() internal pure override returns (string[] memory) {
-        string[CONTRACT_COUNT] memory fixedNames = contractNames();
-        string[] memory names = new string[](CONTRACT_COUNT);
-        for (uint256 i = 0; i < CONTRACT_COUNT; i++) {
-            names[i] = fixedNames[i];
+        GeneratedContract[] memory contracts = generatedContracts();
+        string[] memory names = new string[](contracts.length);
+        for (uint256 i = 0; i < contracts.length; i++) {
+            names[i] = contracts[i].contractName;
         }
         return names;
     }
@@ -153,39 +105,25 @@ contract BuildPointers is BuildScript {
         // `vm.writeFile` won't create the dir, so ensure it exists first.
         vm.createDir(LibFs.dirForTag(deployTag()), true);
 
-        buildContractPointers("StoxCorporateActionsFacet", type(StoxCorporateActionsFacet).creationCode);
-        buildContractPointers("StoxReceipt", type(StoxReceipt).creationCode);
-        buildContractPointers("StoxReceiptVault", type(StoxReceiptVault).creationCode);
-        buildContractPointers("StoxWrappedTokenVault", type(StoxWrappedTokenVault).creationCode);
-        // Beacon must be built before the deployer since the deployer imports
-        // the beacon's pointer file.
-        buildContractPointers("StoxWrappedTokenVaultBeacon", type(StoxWrappedTokenVaultBeacon).creationCode);
-        buildContractPointers(
-            "StoxWrappedTokenVaultBeaconSetDeployer", type(StoxWrappedTokenVaultBeaconSetDeployer).creationCode
-        );
-        // OARV deployer depends on StoxReceipt and StoxReceiptVault pointers.
-        buildContractPointers(
-            "StoxOffchainAssetReceiptVaultBeaconSetDeployer",
-            type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode
-        );
-        buildContractPointers("StoxUnifiedDeployer", type(StoxUnifiedDeployer).creationCode);
-        // Authorizers have no dependencies on other Stox contracts.
-        buildContractPointers(
-            "StoxOffchainAssetReceiptVaultAuthorizerV1", type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode
-        );
-        buildContractPointers(
-            "StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1",
-            type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode
-        );
-        // ST0x orchestrator. The beacon-set deployer's constructor bakes the
-        // orchestrator impl constant, so the impl must be built (and thus
-        // Zoltu-deployed at that address) before the deployer.
-        buildContractPointers("ST0xOrchestrator", type(ST0xOrchestrator).creationCode);
-        buildContractPointers("ST0xOrchestratorBeaconSetDeployer", type(ST0xOrchestratorBeaconSetDeployer).creationCode);
-        // The Rainlang subparser. Its parse meta and function pointer tables
-        // are read back off the instance just deployed, so the candidate
-        // snapshot and the tables come from one build of the same source.
-        buildSubParserPointers(buildContractPointers("St0xAttestSubParser", type(St0xAttestSubParser).creationCode));
+        // One pass over `generatedContracts()`, in its order, which is why the
+        // list is in build order: each entry's creation code is read after the
+        // entries it bakes have been Zoltu-deployed.
+        GeneratedContract[] memory contracts = generatedContracts();
+        for (uint256 i = 0; i < contracts.length; i++) {
+            address deployed = LibRainDeploy.zoltuAddress(contracts[i].creationCode);
+            LibRainDeploySnapshot.writeSnapshot(
+                vm, deployTag(), contracts[i].contractName, contracts[i].creationCode, contracts[i].dependencies
+            );
+
+            // The subparser's parse meta and function pointer tables are read
+            // back off the instance, so they come from the same build as the
+            // snapshot just written. Keyed off the entry rather than hoisted
+            // out of the loop, because the tables have to be written after its
+            // own snapshot and the loop is what guarantees that.
+            if (keccak256(bytes(contracts[i].contractName)) == keccak256("St0xAttestSubParser")) {
+                buildSubParserPointers(deployed);
+            }
+        }
     }
 
     /// @notice Generates `src/generated/St0xAttestSubParserPointers.sol`: the
@@ -195,7 +133,7 @@ contract BuildPointers is BuildScript {
     /// code embeds the tables and the candidate snapshot converges on the
     /// second run after a table changes. Run `script/build-meta.sh` first so
     /// the meta hash is of the current words.
-    /// @param subParser The subparser `buildContractPointers` deployed.
+    /// @param subParser The Zoltu address `regenerateSnapshots` wrote the snapshot for.
     function buildSubParserPointers(address subParser) internal {
         LibFs.buildFileForContract(
             vm,
@@ -252,38 +190,130 @@ contract BuildPointers is BuildScript {
 
     // REUSE-IgnoreEnd
 
-    /// @notice Pointer filenames (without `.sol`) in a fixed order.
-    function contractNames() internal pure returns (string[CONTRACT_COUNT] memory names) {
-        names[0] = "StoxReceipt";
-        names[1] = "StoxReceiptVault";
-        names[2] = "StoxWrappedTokenVault";
-        names[3] = "StoxUnifiedDeployer";
-        names[4] = "StoxWrappedTokenVaultBeacon";
-        names[5] = "StoxWrappedTokenVaultBeaconSetDeployer";
-        names[6] = "StoxOffchainAssetReceiptVaultBeaconSetDeployer";
-        names[7] = "StoxOffchainAssetReceiptVaultAuthorizerV1";
-        names[8] = "StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1";
-        names[9] = "StoxCorporateActionsFacet";
-        names[10] = "ST0xOrchestrator";
-        names[11] = "ST0xOrchestratorBeaconSetDeployer";
-        names[12] = "St0xAttestSubParser";
+    /// @notice Every contract this repo generates deploy pins for: the ONE
+    /// list, read by every hook.
+    ///
+    /// It replaces four structures that were keyed by the same thirteen
+    /// contracts and connected by nothing — a name list, a constant-prefix
+    /// list, the ordered sequence of build calls, and a `keccak256`-dispatched
+    /// dependency lookup. A fourteenth contract was four edits that had to
+    /// agree, and two of them had already drifted: `StoxUnifiedDeployer` was
+    /// fourth in the name list and eighth in the build, and
+    /// `StoxCorporateActionsFacet` tenth and first.
+    ///
+    /// **The order is build order**, which is the order with a real
+    /// constraint: a deployer bakes its implementation's address at
+    /// construction, so the implementation must already be Zoltu-deployed when
+    /// the deployer's creation code is read. The emitted constants follow this
+    /// order too, which is why adopting it reordered the generated libs.
+    /// @return The generated contracts.
+    function generatedContracts() internal pure returns (GeneratedContract[] memory) {
+        GeneratedContract[] memory contracts = new GeneratedContract[](CONTRACT_COUNT);
+
+        contracts[0] = GeneratedContract({
+            contractName: "StoxCorporateActionsFacet",
+            constantPrefix: "STOX_CORPORATE_ACTIONS_FACET",
+            creationCode: type(StoxCorporateActionsFacet).creationCode,
+            dependencies: new address[](0)
+        });
+        contracts[1] = GeneratedContract({
+            contractName: "StoxReceipt",
+            constantPrefix: "STOX_RECEIPT",
+            creationCode: type(StoxReceipt).creationCode,
+            dependencies: new address[](0)
+        });
+        contracts[2] = GeneratedContract({
+            contractName: "StoxReceiptVault",
+            constantPrefix: "STOX_RECEIPT_VAULT",
+            creationCode: type(StoxReceiptVault).creationCode,
+            dependencies: new address[](0)
+        });
+        contracts[3] = GeneratedContract({
+            contractName: "StoxWrappedTokenVault",
+            constantPrefix: "STOX_WRAPPED_TOKEN_VAULT",
+            creationCode: type(StoxWrappedTokenVault).creationCode,
+            dependencies: new address[](0)
+        });
+        contracts[4] = GeneratedContract({
+            contractName: "StoxWrappedTokenVaultBeacon",
+            constantPrefix: "STOX_WRAPPED_TOKEN_VAULT_BEACON",
+            creationCode: type(StoxWrappedTokenVaultBeacon).creationCode,
+            dependencies: new address[](0)
+        });
+        contracts[5] = GeneratedContract({
+            contractName: "StoxWrappedTokenVaultBeaconSetDeployer",
+            constantPrefix: "STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER",
+            creationCode: type(StoxWrappedTokenVaultBeaconSetDeployer).creationCode,
+            dependencies: dependsOn(LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT_BEACON)
+        });
+        contracts[6] = GeneratedContract({
+            contractName: "StoxOffchainAssetReceiptVaultBeaconSetDeployer",
+            constantPrefix: "STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER",
+            creationCode: type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode,
+            dependencies: dependsOn(LibProdDeployCurrent.STOX_RECEIPT, LibProdDeployCurrent.STOX_RECEIPT_VAULT)
+        });
+        contracts[7] = GeneratedContract({
+            contractName: "StoxUnifiedDeployer",
+            constantPrefix: "STOX_UNIFIED_DEPLOYER",
+            creationCode: type(StoxUnifiedDeployer).creationCode,
+            dependencies: dependsOn(
+                LibProdDeployCurrent.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER,
+                LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+            )
+        });
+        contracts[8] = GeneratedContract({
+            contractName: "StoxOffchainAssetReceiptVaultAuthorizerV1",
+            constantPrefix: "STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1",
+            creationCode: type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode,
+            dependencies: new address[](0)
+        });
+        contracts[9] = GeneratedContract({
+            contractName: "StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1",
+            constantPrefix: "STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1",
+            creationCode: type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode,
+            dependencies: new address[](0)
+        });
+        contracts[10] = GeneratedContract({
+            contractName: "ST0xOrchestrator",
+            constantPrefix: "ST0X_ORCHESTRATOR",
+            creationCode: type(ST0xOrchestrator).creationCode,
+            dependencies: new address[](0)
+        });
+        contracts[11] = GeneratedContract({
+            contractName: "ST0xOrchestratorBeaconSetDeployer",
+            constantPrefix: "ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER",
+            creationCode: type(ST0xOrchestratorBeaconSetDeployer).creationCode,
+            dependencies: dependsOn(LibProdDeployCurrent.ST0X_ORCHESTRATOR)
+        });
+        contracts[12] = GeneratedContract({
+            contractName: "St0xAttestSubParser",
+            constantPrefix: "ST0X_ATTEST_SUB_PARSER",
+            creationCode: type(St0xAttestSubParser).creationCode,
+            dependencies: new address[](0)
+        });
+
+        return contracts;
     }
 
-    /// @notice The constant BASE for each contract, in the same order.
-    function contractBases() internal pure returns (string[CONTRACT_COUNT] memory bases) {
-        bases[0] = "STOX_RECEIPT";
-        bases[1] = "STOX_RECEIPT_VAULT";
-        bases[2] = "STOX_WRAPPED_TOKEN_VAULT";
-        bases[3] = "STOX_UNIFIED_DEPLOYER";
-        bases[4] = "STOX_WRAPPED_TOKEN_VAULT_BEACON";
-        bases[5] = "STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER";
-        bases[6] = "STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER";
-        bases[7] = "STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1";
-        bases[8] = "STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1";
-        bases[9] = "STOX_CORPORATE_ACTIONS_FACET";
-        bases[10] = "ST0X_ORCHESTRATOR";
-        bases[11] = "ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER";
-        bases[12] = "ST0X_ATTEST_SUB_PARSER";
+    /// @notice A one-address dependency list, so an entry above reads as the
+    /// fact it states rather than three lines of array construction.
+    /// @param a The address that must already carry code.
+    /// @return The list.
+    function dependsOn(address a) internal pure returns (address[] memory) {
+        address[] memory deps = new address[](1);
+        deps[0] = a;
+        return deps;
+    }
+
+    /// @notice A two-address dependency list.
+    /// @param a The first address that must already carry code.
+    /// @param b The second.
+    /// @return The list.
+    function dependsOn(address a, address b) internal pure returns (address[] memory) {
+        address[] memory deps = new address[](2);
+        deps[0] = a;
+        deps[1] = b;
+        return deps;
     }
 
     /// @notice True if `name` matches `\d+_\d+_\d+` (a release-tag dir name).
@@ -348,7 +378,7 @@ contract BuildPointers is BuildScript {
     /// @param tag The snapshot directory.
     /// @param name The contract name.
     /// @return The path.
-    function pointerPath(string memory tag, string memory name) internal pure returns (string memory) {
+    function snapshotPath(string memory tag, string memory name) internal pure returns (string memory) {
         return LibFs.pathForTaggedContract(tag, name);
     }
 
@@ -357,12 +387,12 @@ contract BuildPointers is BuildScript {
     /// @param tag The snapshot directory.
     /// @param name The contract name.
     /// @return The final path segment.
-    function pointerFileName(string memory tag, string memory name) internal pure returns (string memory) {
-        return LibFs.lastPathSegment(pointerPath(tag, name));
+    function snapshotFileName(string memory tag, string memory name) internal pure returns (string memory) {
+        return LibFs.lastPathSegment(snapshotPath(tag, name));
     }
 
-    function pointerExists(string memory tag, string memory name) internal view returns (bool) {
-        return vm.exists(pointerPath(tag, name));
+    function snapshotExists(string memory tag, string memory name) internal view returns (bool) {
+        return vm.exists(snapshotPath(tag, name));
     }
 
     function writeGeneratedHeader(string memory path) internal {
@@ -371,7 +401,7 @@ contract BuildPointers is BuildScript {
         vm.writeLine(path, GEN_SPDX_COPYRIGHT);
         vm.writeLine(path, "pragma solidity ^0.8.25;");
         vm.writeLine(path, "");
-        vm.writeLine(path, "// GENERATED by script/BuildPointers.sol. Do not edit.");
+        vm.writeLine(path, "// GENERATED by script/Build.sol. Do not edit.");
     }
 
     function v4ImportLine(string memory name, string memory base, string memory tag)
@@ -386,7 +416,7 @@ contract BuildPointers is BuildScript {
             "_CODEHASH_", suffix, "_GEN, CREATION_CODE as ", base, "_CREATION_", suffix, "_GEN, RUNTIME_CODE as ", base
         );
         string memory tail =
-            string.concat("_RUNTIME_", suffix, '_GEN} from "./', tag, "/", pointerFileName(tag, name), '";');
+            string.concat("_RUNTIME_", suffix, '_GEN} from "./', tag, "/", snapshotFileName(tag, name), '";');
         return string.concat(head, mid, tail);
     }
 
@@ -415,14 +445,15 @@ contract BuildPointers is BuildScript {
 
     /// @notice Generate `LibProdDeployV4.sol`: one versioned alias set per tag.
     function genV4(string[] memory tags) internal {
-        string[CONTRACT_COUNT] memory names = contractNames();
-        string[CONTRACT_COUNT] memory bases = contractBases();
+        GeneratedContract[] memory contracts = generatedContracts();
 
         writeGeneratedHeader(genV4Path());
         for (uint256 t = 0; t < tags.length; t++) {
             for (uint256 c = 0; c < CONTRACT_COUNT; c++) {
-                if (pointerExists(tags[t], names[c])) {
-                    vm.writeLine(genV4Path(), v4ImportLine(names[c], bases[c], tags[t]));
+                if (snapshotExists(tags[t], contracts[c].contractName)) {
+                    vm.writeLine(
+                        genV4Path(), v4ImportLine(contracts[c].contractName, contracts[c].constantPrefix, tags[t])
+                    );
                 }
             }
         }
@@ -487,8 +518,8 @@ contract BuildPointers is BuildScript {
         );
         for (uint256 t = 0; t < tags.length; t++) {
             for (uint256 c = 0; c < CONTRACT_COUNT; c++) {
-                if (pointerExists(tags[t], names[c])) {
-                    emitV4Constants(tags[t], bases[c]);
+                if (snapshotExists(tags[t], contracts[c].contractName)) {
+                    emitV4Constants(tags[t], contracts[c].constantPrefix);
                 }
             }
         }
@@ -500,9 +531,8 @@ contract BuildPointers is BuildScript {
     function genCurrent() internal {
         string memory tag = deployTag();
         string memory suffix = tagSuffix(tag);
-        require(vm.exists(LibFs.dirForTag(tag)), "BuildPointers: current tag dir missing");
-        string[CONTRACT_COUNT] memory names = contractNames();
-        string[CONTRACT_COUNT] memory bases = contractBases();
+        require(vm.exists(LibFs.dirForTag(tag)), "Build: current tag dir missing");
+        GeneratedContract[] memory contracts = generatedContracts();
 
         writeGeneratedHeader(genCurrentPath());
         vm.writeLine(genCurrentPath(), 'import {LibProdDeployV4} from "./LibProdDeployV4.sol";');
@@ -519,8 +549,8 @@ contract BuildPointers is BuildScript {
             "bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH;"
         );
         for (uint256 c = 0; c < CONTRACT_COUNT; c++) {
-            if (!pointerExists(tag, names[c])) continue;
-            string memory base = bases[c];
+            if (!snapshotExists(tag, contracts[c].contractName)) continue;
+            string memory base = contracts[c].constantPrefix;
             vm.writeLine(
                 genCurrentPath(),
                 string.concat("address constant ", base, " = LibProdDeployV4.", base, "_", suffix, ";")

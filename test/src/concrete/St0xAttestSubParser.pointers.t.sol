@@ -22,7 +22,7 @@ import {
 } from "src/generated/St0xAttestSubParserPointers.sol";
 
 /// Every table the subparser dispatches on is a committed constant. These
-/// tests prove the constants are what `script/BuildPointers.sol` generates
+/// tests prove the constants are what `script/Build.sol` generates
 /// from the current source.
 contract St0xAttestSubParserPointersTest is Test {
     function testBytecodeHash() external {

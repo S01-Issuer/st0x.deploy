@@ -24,7 +24,7 @@ jobs:
       - name: Regenerate meta artifacts
         run: nix develop github:rainlanguage/rainix#sol-shell -c ./script/build-meta.sh
       - name: Regenerate pointer artifacts + deploy libs
-        run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildPointers.sol
+        run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/Build.sol
       - name: Format
         run: nix develop github:rainlanguage/rainix#sol-shell -c forge fmt
       - name: Assert committed artifacts match freshly built

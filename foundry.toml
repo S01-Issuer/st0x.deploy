@@ -46,11 +46,11 @@ cbor_metadata = false
 fs_permissions = [
   { access = "read-write", path = "src/generated" },
   # `BuildAuthoringMeta` writes the subparser authoring meta under `meta/`;
-  # `BuildPointers` (via `LibCodeGen.describedByMetaHashConstantString`) and
+  # `Build` (via `LibCodeGen.describedByMetaHashConstantString`) and
   # the `describedByMetaV1` test read the cbor meta `build-meta.sh` builds
   # from it.
   { access = "read-write", path = "meta" },
-  # `BuildPointers` reads the canonical release version from `[package].version`
+  # `Build` reads the canonical release version from `[external.package].version`
   # here to name the `src/generated/<tag>/` snapshot and generate the deploy tag.
   { access = "read", path = "foundry.toml" },
   # The `.rain` sources under `src/rain` are composed and parsed by the tests

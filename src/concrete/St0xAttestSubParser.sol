@@ -30,7 +30,7 @@ import {
 ///
 /// Every table the base contract dispatches on is a constant from
 /// `src/generated/St0xAttestSubParserPointers.sol`, which
-/// `script/BuildPointers.sol` regenerates from the `build*` functions below.
+/// `script/Build.sol` regenerates from the `build*` functions below.
 contract St0xAttestSubParser is BaseRainlangSubParser {
     /// @inheritdoc IDescribedByMetaV1
     function describedByMetaV1() external pure returns (bytes32) {
