@@ -10,6 +10,7 @@ import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
 
 import {DeployGovernanceTimelockHarness} from "./DeployGovernanceTimelockHarness.sol";
+import {PostMigrationProbeImpl} from "./PostMigrationProbeImpl.sol";
 import {MigrateGovernanceToTimelockHarness} from "./MigrateGovernanceToTimelockHarness.sol";
 import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
 import {LibSafeOps} from "../../src/lib/LibSafeOps.sol";
@@ -297,9 +298,3 @@ contract PostMigrationGovernanceTest is Test {
         _assertEscapeHatchSurvivesMigration(LibStoxDeployNetworks.BSC);
     }
 }
-
-/// An upgrade destination with no behaviour of its own. `UpgradeableBeacon`
-/// requires only that the new implementation is a contract, and the test needs
-/// an address that is provably NOT the one the beacon already points at — what
-/// the implementation does is irrelevant to proving the loop ran.
-contract PostMigrationProbeImpl {}
