@@ -9,6 +9,8 @@ import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
 
+import {DeployGovernanceTimelockHarness} from "./DeployGovernanceTimelockHarness.sol";
+import {MigrateGovernanceToTimelockHarness} from "./MigrateGovernanceToTimelockHarness.sol";
 import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
 import {LibSafeOps} from "../../src/lib/LibSafeOps.sol";
 import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
@@ -47,28 +49,45 @@ contract PostMigrationGovernanceTest is Test {
     function _assertGovernanceUsable(string memory network) internal {
         vm.createSelectFork(network);
 
-        // Deployed AFTER the fork switch: a contract deployed before it does
-        // not exist on the fork that is then selected.
-        probeImpl = new PostMigrationProbeImpl();
-
         address safeAddr = LibSafeInvariants.safeForChainId(block.chainid);
         address timelockAddr = LibTimelockInvariants.timelockForChainId(block.chainid);
-        IGnosisSafe safe = IGnosisSafe(safeAddr);
-        TimelockController controller = TimelockController(payable(timelockAddr));
 
         // EVERY in-use beacon, not a representative one. Upgrading these is the
         // escape hatch: if even one of the four cannot be driven through the
         // timelock, that surface is frozen for as long as the timelock owns it.
         address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
 
+        // Precondition: this chain HAS migrated. If it has not, this test
+        // reports that rather than passing — and the escape hatch for such a
+        // chain is proven by `_assertEscapeHatchSurvivesMigration`, which
+        // migrates on the fork first.
+        for (uint256 i = 0; i < beacons.length; i++) {
+            assertEq(Ownable(beacons[i]).owner(), timelockAddr, "beacon is not timelock-owned: chain has not migrated");
+        }
+
+        _driveBeaconUpgrades(IGnosisSafe(safeAddr), timelockAddr, beacons, "post-migration-loop");
+    }
+
+    /// Drive a real upgrade of EVERY beacon through the timelock, and assert
+    /// the Safe cannot do it directly. Shared by both entry points so the
+    /// already-migrated and migrate-on-fork paths cannot drift into proving
+    /// different things.
+    /// @param safe The chain's token-owner Safe.
+    /// @param timelockAddr The chain's governance timelock.
+    /// @param beacons Every in-use production beacon.
+    /// @param tag Salt discriminator, so two proofs on one chain cannot collide.
+    function _driveBeaconUpgrades(IGnosisSafe safe, address timelockAddr, address[4] memory beacons, string memory tag)
+        internal
+    {
+        // Deployed AFTER the fork switch: a contract deployed before it does
+        // not exist on the fork that is then selected.
+        probeImpl = new PostMigrationProbeImpl();
+
+        address safeAddr = address(safe);
+        TimelockController controller = TimelockController(payable(timelockAddr));
+
         for (uint256 i = 0; i < beacons.length; i++) {
             address beacon = beacons[i];
-
-            // (1) Precondition: this chain HAS migrated. If it has not, this
-            // test is being run against the wrong chain and must say so rather
-            // than pass.
-            assertEq(Ownable(beacon).owner(), timelockAddr, "beacon is not timelock-owned: chain has not migrated");
-
             address implBefore = IBeacon(beacon).implementation();
 
             // (2) The Safe lost the direct path. Asserted by calling as the Safe.
@@ -85,7 +104,7 @@ contract PostMigrationGovernanceTest is Test {
             // part of what is proven. The salt carries the index so four
             // operations on one chain cannot collide.
             bytes memory action = abi.encodeCall(UpgradeableBeacon.upgradeTo, (address(probeImpl)));
-            bytes32 salt = keccak256(abi.encodePacked("post-migration-loop", block.chainid, i));
+            bytes32 salt = keccak256(abi.encodePacked(tag, block.chainid, i));
             bytes32 id = controller.hashOperation(beacon, 0, action, bytes32(0), salt);
             LibSafeOps.simulateNPlus1(
                 safe,
@@ -117,6 +136,67 @@ contract PostMigrationGovernanceTest is Test {
             assertEq(IBeacon(beacon).implementation(), address(probeImpl), "implementation did not land");
             assertTrue(IBeacon(beacon).implementation() != implBefore, "implementation did not move");
         }
+    }
+
+    /// The escape hatch, proven on a chain that has NOT migrated yet.
+    ///
+    /// `_assertGovernanceUsable` can only speak for a chain whose bundle has
+    /// already executed — on every other chain it stops at the precondition,
+    /// which reports migration STATUS and proves nothing about whether the
+    /// upgrade path will work once the bundle lands. That is the wrong order
+    /// for a signing decision: the question "can we still upgrade all four
+    /// beacons after this executes" has to be answerable BEFORE signing, not
+    /// after.
+    ///
+    /// So: execute the real migration on the fork, then drive the full loop.
+    /// Nothing here is a mock — the migration is the production script's own
+    /// authoring, and the upgrades go through the deployed timelock and the
+    /// Safe's real signature-verified exec path at the production threshold.
+    ///
+    /// On an already-migrated chain the script authors an empty transfer set
+    /// and this reduces to the same proof `_assertGovernanceUsable` makes, so
+    /// the two agree rather than diverging by chain.
+    function _assertEscapeHatchSurvivesMigration(string memory network) internal {
+        vm.createSelectFork(network);
+
+        address safeAddr = LibSafeInvariants.safeForChainId(block.chainid);
+        // The timelock is already deployed on every production chain; this
+        // resolves to that same derived address and is a no-op there.
+        new DeployGovernanceTimelockHarness().callDeployOnActiveChain();
+        address timelockAddr = LibTimelockInvariants.expectedTimelockAddress(safeAddr);
+
+        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        address[4] memory implsBefore;
+        for (uint256 i = 0; i < beacons.length; i++) {
+            implsBefore[i] = IBeacon(beacons[i]).implementation();
+        }
+
+        // Execute the migration on this fork — but only where there is one to
+        // run. The script reverts `NothingToMigrate()` on a chain whose
+        // surfaces are already timelock-owned rather than authoring an empty
+        // bundle, so a chain that has migrated reaches the proof directly.
+        // Which branch a chain takes is incidental; both end at the same
+        // assertions below.
+        bool anyStillWithSafe = false;
+        for (uint256 i = 0; i < beacons.length; i++) {
+            if (Ownable(beacons[i]).owner() == safeAddr) {
+                anyStillWithSafe = true;
+            }
+        }
+        if (anyStillWithSafe) {
+            new MigrateGovernanceToTimelockHarness(timelockAddr).run();
+        }
+
+        // The migration landed: the timelock owns every beacon and none of
+        // them changed what they serve.
+        for (uint256 i = 0; i < beacons.length; i++) {
+            assertEq(Ownable(beacons[i]).owner(), timelockAddr, "beacon not timelock-owned after migrating");
+            assertEq(
+                IBeacon(beacons[i]).implementation(), implsBefore[i], "migration moved ownership, not implementation"
+            );
+        }
+
+        _driveBeaconUpgrades(IGnosisSafe(safeAddr), timelockAddr, beacons, "escape-hatch");
     }
 
     /// The Safe must also be able to VETO inside the window, or a mistaken
@@ -191,6 +271,30 @@ contract PostMigrationGovernanceTest is Test {
 
     function testCancelUsableOnBsc() external {
         _assertCancelUsable(LibStoxDeployNetworks.BSC);
+    }
+
+    // The escape hatch on every chain, migrated or not. These must pass
+    // EVERYWHERE: a chain whose bundle is still unsigned is exactly the one
+    // whose upgrade path needs answering before it is signed.
+
+    function testEscapeHatchSurvivesMigrationOnBase() external {
+        _assertEscapeHatchSurvivesMigration(LibRainDeploy.BASE);
+    }
+
+    function testEscapeHatchSurvivesMigrationOnEthereum() external {
+        _assertEscapeHatchSurvivesMigration(LibStoxDeployNetworks.ETHEREUM);
+    }
+
+    function testEscapeHatchSurvivesMigrationOnHyperevm() external {
+        _assertEscapeHatchSurvivesMigration(LibStoxDeployNetworks.HYPEREVM);
+    }
+
+    function testEscapeHatchSurvivesMigrationOnRobinhood() external {
+        _assertEscapeHatchSurvivesMigration(LibStoxDeployNetworks.ROBINHOOD);
+    }
+
+    function testEscapeHatchSurvivesMigrationOnBsc() external {
+        _assertEscapeHatchSurvivesMigration(LibStoxDeployNetworks.BSC);
     }
 }
 
