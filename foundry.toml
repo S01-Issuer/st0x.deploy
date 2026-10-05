@@ -103,8 +103,15 @@ flare = { key = "${CI_DEPLOY_FLARE_ETHERSCAN_API_KEY}" }
 # the same reason `ethereum` is above.
 hyperevm = { key = "${CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY}", chain = 999, url = "https://api.etherscan.io/v2/api?chainid=999" }
 polygon = { key = "${CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY}" }
-# Robinhood Chain (4663) has no `[etherscan]` entry on purpose: Etherscan's
-# multichain (v2) API does not index it, so an entry here would only make
-# foundry demand an API key it cannot use. Its explorer is Blockscout, which
-# imports Sourcify matches, and Sourcify supports 4663 — the `--verifier
-# sourcify` leg of `manual-broadcast.yaml` is the verification path.
+# Robinhood Chain (4663) is not indexed by Etherscan's multichain (v2) API. Its
+# Blockscout explorer speaks the Etherscan API, so the entry points there and
+# the key is whatever `CI_DEPLOY_ROBINHOOD_ETHERSCAN_API_KEY` carries —
+# Blockscout ignores it. This matches rain-deploy's own entry for the chain.
+#
+# Blockscout sits behind a browser challenge that has rejected non-browser
+# clients, so if `--verify` fails here after a broadcast, verify afterwards
+# through Sourcify, which supports 4663 and which Blockscout imports:
+# `forge verify-contract --verifier sourcify --chain 4663 ...`. That is the
+# `--verifier sourcify` leg of `manual-broadcast.yaml`, which remains the
+# verification path rather than a fallback.
+robinhood = { key = "${CI_DEPLOY_ROBINHOOD_ETHERSCAN_API_KEY}", chain = 4663, url = "https://robinhoodchain.blockscout.com/api" }
