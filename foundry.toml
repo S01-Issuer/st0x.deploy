@@ -103,7 +103,4 @@ flare = { key = "${CI_DEPLOY_FLARE_ETHERSCAN_API_KEY}" }
 # the same reason `ethereum` is above.
 hyperevm = { key = "${CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY}", chain = 999, url = "https://api.etherscan.io/v2/api?chainid=999" }
 polygon = { key = "${CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY}" }
-# Etherscan V2 does not index 4663. Blockscout speaks the Etherscan API and
-# ignores the key, so the entry points there. Verification still runs through
-# the `--verifier sourcify` leg of `manual-broadcast.yaml`.
 robinhood = { key = "${CI_DEPLOY_ROBINHOOD_ETHERSCAN_API_KEY}", chain = 4663, url = "https://robinhoodchain.blockscout.com/api" }
