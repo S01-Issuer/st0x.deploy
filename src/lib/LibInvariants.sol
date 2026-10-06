@@ -22,7 +22,8 @@ import {LibTokenInvariants, TokenInstance} from "./LibTokenInvariants.sol";
 /// need the full bundle.
 library LibInvariants {
     /// @notice Full production-state invariant bundle. Composes every
-    /// per-facet `assertAll`: Safe identity / config + token-side
+    /// per-facet `assertAll`: Safe identity / config + the governance
+    /// timelock's pinned configuration + token-side
     /// uniformity (every vault owned by Base's governance timelock and gated
     /// by the current production authoriser,
     /// `LibAuthoriserInvariants.STOX_PROD_AUTHORISER`) + the authoriser's
@@ -41,6 +42,7 @@ library LibInvariants {
     /// @param safe The Safe to validate against the pinned current truth.
     function assertAll(IGnosisSafe safe) internal view {
         LibSafeInvariants.assertAll(safe);
+        LibTimelockInvariants.assertTimelockState(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, address(safe));
         LibTokenInvariants.assertAll(
             LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, LibAuthoriserInvariants.STOX_PROD_AUTHORISER
         );
@@ -89,6 +91,7 @@ library LibInvariants {
     function assertProductionState(TokenInstance[] memory tokens, address authoriser) internal view {
         address safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        LibTimelockInvariants.assertTimelockState(timelock, safe);
         LibTokenInvariants.assertAll(tokens, timelock, authoriser);
         LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe, timelock);
     }
@@ -104,6 +107,7 @@ library LibInvariants {
     /// @param expectedOwners The expected owner set in `getOwners()` order.
     function assertAll(IGnosisSafe safe, uint256 expectedThreshold, address[] memory expectedOwners) internal view {
         LibSafeInvariants.assertAll(safe, expectedThreshold, expectedOwners);
+        LibTimelockInvariants.assertTimelockState(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, address(safe));
         LibTokenInvariants.assertAll(
             LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, LibAuthoriserInvariants.STOX_PROD_AUTHORISER
         );

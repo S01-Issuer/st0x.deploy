@@ -11,22 +11,13 @@ import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
 
 /// @title RobinhoodBeaconOwnershipTest
-/// @notice The forcing function for the Robinhood Chain beacon-ownership
-/// migration (`20260909-upgrade-and-migrate-token-beacons`), mirroring
-/// `HyperEvmBeaconOwnershipTest`: every chain's production beacons must be
-/// owned by that chain's governance timelock. RED from the moment the 0.1.1
-/// impl suites land on Robinhood Chain (beacons come up EOA-owned) until
-/// the migration runs; green thereafter, catching later ownership drift.
-///
-/// @dev The invariant runs unconditionally: the Robinhood Chain token-owner
-/// Safe is pinned in `LibSafeInvariants`, and CI supplies `ROBINHOOD_RPC_URL`
-/// to the shared rainix test workflow from the `RPC_URL_ROBINHOOD_FORK`
-/// secret, so the fork always resolves.
+/// @notice The Robinhood Chain leg of the per-chain beacon pin: every production
+/// beacon carries the OZ `UpgradeableBeacon` codehash, points at its pinned
+/// implementation, and is owned by the chain's governance timelock.
+/// @dev Unpinned head fork: the point is drift detection against live state.
 contract RobinhoodBeaconOwnershipTest is Test {
-    /// Every Robinhood Chain beacon is owned by the Robinhood Chain token-owner
-    /// Safe (with
-    /// the OZ beacon codehash + its pinned impl unchanged). RED until the
-    /// migration transfers ownership from the deploy EOA to the Safe.
+    /// Every Robinhood Chain beacon is owned by the Robinhood Chain governance timelock,
+    /// with the OZ beacon codehash and its pinned implementation unchanged.
     function testRobinhoodBeaconsAreTimelockOwned() external {
         address timelock = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ROBINHOOD;
 

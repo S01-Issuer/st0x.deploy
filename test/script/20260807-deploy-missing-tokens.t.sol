@@ -49,7 +49,7 @@ contract DeployMissingTokensTest is Test {
     address constant RECEIPT_VAULT = address(0x1A17);
     address constant WRAPPED = address(0x1A18);
     address constant AUTHORISER = address(0xA077);
-    address constant SAFE = address(0x5AFE);
+    address constant OWNER = address(0x7135);
     address constant STRAY = address(0xDEADBEEF);
 
     DeployMissingTokens internal script;
@@ -416,30 +416,30 @@ contract DeployMissingTokensTest is Test {
         assertEq(wrapped, WRAPPED, "wrong wrapped vault decoded");
     }
 
-    /// @notice Ownership that did not land on the Safe is caught: otherwise
+    /// @notice Ownership that did not land on the timelock is caught: otherwise
     /// the broadcast finishes "successfully" leaving a production vault owned
     /// by the CI deploy key.
     function testHandoffCaughtWhenOwnershipDidNotLand() external {
         vm.mockCall(RECEIPT_VAULT, abi.encodeWithSignature("authorizer()"), abi.encode(AUTHORISER));
         vm.mockCall(RECEIPT_VAULT, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(STRAY));
-        vm.expectRevert(abi.encodeWithSelector(OwnershipHandoffFailed.selector, RECEIPT_VAULT, SAFE, STRAY));
-        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, SAFE);
+        vm.expectRevert(abi.encodeWithSelector(OwnershipHandoffFailed.selector, RECEIPT_VAULT, OWNER, STRAY));
+        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, OWNER);
     }
 
     /// @notice A vault left on the wrong authoriser is caught — until
     /// `setAuthorizer` lands, every operation on the vault reverts.
     function testHandoffCaughtWhenAuthoriserNotWired() external {
         vm.mockCall(RECEIPT_VAULT, abi.encodeWithSignature("authorizer()"), abi.encode(STRAY));
-        vm.mockCall(RECEIPT_VAULT, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(SAFE));
+        vm.mockCall(RECEIPT_VAULT, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(OWNER));
         vm.expectRevert(abi.encodeWithSelector(AuthoriserNotWired.selector, RECEIPT_VAULT, AUTHORISER, STRAY));
-        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, SAFE);
+        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, OWNER);
     }
 
     /// @notice Both landed passes, so the two above are not vacuous.
     function testHandoffPassesWhenBothLanded() external {
         vm.mockCall(RECEIPT_VAULT, abi.encodeWithSignature("authorizer()"), abi.encode(AUTHORISER));
-        vm.mockCall(RECEIPT_VAULT, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(SAFE));
-        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, SAFE);
+        vm.mockCall(RECEIPT_VAULT, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(OWNER));
+        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, OWNER);
     }
 
     /// @notice A `Deployment(sender, asset, wrapper)` log as the unified

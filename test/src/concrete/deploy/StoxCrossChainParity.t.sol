@@ -179,7 +179,7 @@ contract StoxCrossChainParityTest is Test {
     /// codehash uniformity within the chain, and the single shared beacon.
     /// @dev The uniform owner + sole-authoriser checks are NOT here — the token
     /// leg in `assertChainLegs` asserts them via
-    /// `LibTokenInvariants.assertAll(tokens, safe, clone)`; this function adds
+    /// `LibTokenInvariants.assertAll(tokens, timelock, clone)`; this function adds
     /// only the per-token config snapshot + within-chain uniformity that the
     /// cross-chain comparison builds on.
     /// @param tokens The chain's token table.
@@ -482,10 +482,9 @@ contract StoxCrossChainParityTest is Test {
             );
             assertCleanV4Lineage(beacon);
             assertCleanV4Lineage(receiptBeacon);
-            // Each chain's beacons are owned by that chain's OWN token-owner
-            // Safe (migrated from the deploy key) — a per-chain check, not a
-            // cross-chain equality: the beacon addresses and their Safe owners
-            // both differ by chain. Cross-chain parity is on the impl the
+            // Each chain's beacons are owned by that chain's OWN governance
+            // timelock — a per-chain check, not a cross-chain equality: the
+            // beacon addresses and their timelock owners both differ by chain. Cross-chain parity is on the impl the
             // beacons point at, asserted below.
             assertEq(
                 IOwnable(beacon).owner(),

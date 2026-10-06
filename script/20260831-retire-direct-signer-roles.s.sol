@@ -61,10 +61,13 @@ error DirectSignerRolesAlreadyRetired();
 /// chain with no working mint path. Self-scoping; a retired chain refuses
 /// (`DirectSignerRolesAlreadyRetired`).
 ///
-/// Dispatch BEFORE `20260729-migrate-governance-to-timelock` executes on
-/// the chain: the revokes need the vault `_ADMIN`s the Safe holds today,
-/// which that migration hands to the timelock; afterwards this script
-/// refuses (`SafeMissingRoleAdminForRetire`).
+/// **SUPERSEDED.** The revokes need the vault `_ADMIN`s, and
+/// `20260729-migrate-governance-to-timelock` moved them to the timelock on
+/// every chain before this script was dispatched, so it now refuses
+/// (`SafeMissingRoleAdminForRetire`) everywhere. The retirement has to be
+/// authored as a timelock operation (Safe schedules the same two revokes,
+/// 48h, execute) in a new dated script. This one stays registered so its
+/// refusal can be re-derived.
 ///
 /// The post-execution pin PR removes the signer's `DEPOSIT`/`WITHDRAW`
 /// rows from the canonical grant map, pins their absence (the

@@ -144,9 +144,9 @@ library LibAuthoriserInvariants {
     /// are pinned by `testExpectedGrantsAdminHolderParameterisation`.
     uint256 internal constant ADMIN_ROLE_COUNT = 7;
 
-    /// @notice The ST0x token-owner Safe — holds every `_ADMIN` role on the
-    /// production authoriser and was later granted DEPOSIT, WITHDRAW and
-    /// CERTIFY as a privileged operator. Identical to
+    /// @notice The ST0x token-owner Safe — holds DEPOSIT, WITHDRAW and
+    /// CERTIFY on the production authoriser as a privileged operator; the
+    /// `_ADMIN` roles are on the governance timelock. Identical to
     /// `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE`; re-exported as a grantee
     /// constant for call-site clarity.
     address internal constant GRANTEE_TOKEN_OWNER_SAFE = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;

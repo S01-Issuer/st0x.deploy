@@ -15,6 +15,7 @@ import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {IStoxUnifiedDeployerV1} from "../src/interface/IStoxUnifiedDeployerV1.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
+import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibProdTokenConfig, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
@@ -65,10 +66,11 @@ error NoMissingTokens();
 /// @param underlying The token whose deployment could not be resolved.
 error DeploymentEventMissing(string underlying);
 
-/// @notice A freshly deployed vault did not end up owned by the Safe. A vault
-/// left on the deploy key is a production asset held by a CI secret.
+/// @notice A freshly deployed vault did not end up owned by the chain's
+/// governance timelock. A vault left on the deploy key is a production asset
+/// held by a CI secret; one left on the Safe is governed without the delay.
 /// @param receiptVault The vault whose handoff did not land.
-/// @param expected The Safe ownership was meant to land on.
+/// @param expected The timelock ownership was meant to land on.
 /// @param actual The owner actually read back.
 error OwnershipHandoffFailed(address receiptVault, address expected, address actual);
 
@@ -114,7 +116,7 @@ error AuthoriserNotWired(address receiptVault, address expected, address actual)
 /// Per token, identical to the scripts it replaces: deploy via the 0.1.1
 /// unified deployer (initialAdmin = deploy key) -> read back the ERC-1155
 /// receipt -> `setAuthorizer(target chain's V4 authoriser)` ->
-/// `transferOwnership(target chain's token-owner Safe)`. One deploy-key
+/// `transferOwnership(target chain's governance timelock)`. One deploy-key
 /// broadcast, no Safe signature. Logs each
 /// (underlying, receipt, receiptVault, wrapped) tuple for the pin.
 contract DeployMissingTokens is Script {
@@ -257,7 +259,7 @@ contract DeployMissingTokens is Script {
     }
 
     /// @notice Assert a freshly deployed vault ended up wired to the chain's
-    /// authoriser and owned by its Safe.
+    /// authoriser and owned by its governance timelock.
     /// @dev Each token is wired and handed over inside the same broadcast, so
     /// a silent miss leaves a live production vault either inoperable or owned
     /// by the CI deploy key, and nothing catches it until the pin PR's
@@ -266,15 +268,15 @@ contract DeployMissingTokens is Script {
     /// Mirrors `20260706-deploy-tokens-ethereum`'s check of the same name.
     /// @param receiptVault The vault just deployed.
     /// @param expectedAuthoriser The authoriser it must route to.
-    /// @param expectedSafe The Safe ownership must have landed on.
-    function assertHandoffLanded(address receiptVault, address expectedAuthoriser, address expectedSafe) public view {
+    /// @param expectedOwner The timelock ownership must have landed on.
+    function assertHandoffLanded(address receiptVault, address expectedAuthoriser, address expectedOwner) public view {
         address wiredAuthoriser = ISetAuthorizer(receiptVault).authorizer();
         if (wiredAuthoriser != expectedAuthoriser) {
             revert AuthoriserNotWired(receiptVault, expectedAuthoriser, wiredAuthoriser);
         }
         address landedOwner = Ownable(receiptVault).owner();
-        if (landedOwner != expectedSafe) {
-            revert OwnershipHandoffFailed(receiptVault, expectedSafe, landedOwner);
+        if (landedOwner != expectedOwner) {
+            revert OwnershipHandoffFailed(receiptVault, expectedOwner, landedOwner);
         }
     }
 
@@ -299,7 +301,7 @@ contract DeployMissingTokens is Script {
 
     /// @notice Deploy every Base token the active chain is missing via the
     /// 0.1.1 unified deployer, wire each onto that chain's V4 authoriser, and
-    /// hand ownership to its token-owner Safe — one deploy-key broadcast.
+    /// hand ownership to its governance timelock — one deploy-key broadcast.
     /// Logs each deployed tuple for the pin.
     function run() external {
         address unifiedDeployer = LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1;
@@ -309,6 +311,8 @@ contract DeployMissingTokens is Script {
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
         address authoriser = _assertAuthoriserReady();
         address safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        LibTimelockInvariants.assertTimelockState(timelock, safe);
 
         TokenConfig[] memory configs = _selectMissing(
             LibProdTokenConfig.productionTokenConfigs(), LibTokenInvariants.productionTokensBase(), _targetTokens()
@@ -321,15 +325,15 @@ contract DeployMissingTokens is Script {
         address deployer = msg.sender;
 
         console2.log("Copying", configs.length, "Base tokens onto chain id", block.chainid);
-        console2.log("initialAdmin (deploy key, handed to Safe):", deployer);
-        console2.log("token-owner Safe:", safe);
+        console2.log("initialAdmin (deploy key, handed to the timelock):", deployer);
+        console2.log("governance timelock:", timelock);
         console2.log("V4 authoriser:", authoriser);
 
         for (uint256 i = 0; i < configs.length; i++) {
             TokenConfig memory cfg = configs[i];
             OffchainAssetReceiptVaultConfigV2 memory vaultConfig = OffchainAssetReceiptVaultConfigV2({
                 // The deploy key is the transient owner: it setAuthorizer's the
-                // vault then hands ownership to the Safe, all below.
+                // vault then hands ownership to the timelock, all below.
                 initialAdmin: deployer,
                 receiptVaultConfig: ReceiptVaultConfigV2({
                     asset: address(0), name: cfg.name, symbol: cfg.symbol, receipt: address(0)
@@ -347,11 +351,11 @@ contract DeployMissingTokens is Script {
             address receipt = address(IReceiptVaultV3(payable(receiptVault)).receipt());
 
             // Wire onto the authoriser (deploy key is still owner), then
-            // relinquish ownership to the Safe. Order matters: `setAuthorizer`
+            // relinquish ownership to the timelock. Order matters: `setAuthorizer`
             // is `onlyOwner`, so it must precede the handoff.
             ISetAuthorizer(receiptVault).setAuthorizer(IAuthorizeV1(authoriser));
-            Ownable(receiptVault).transferOwnership(safe);
-            assertHandoffLanded(receiptVault, authoriser, safe);
+            Ownable(receiptVault).transferOwnership(timelock);
+            assertHandoffLanded(receiptVault, authoriser, timelock);
 
             console2.log("==== TOKEN DEPLOYED ====");
             console2.log("underlying:", cfg.underlying);
@@ -363,7 +367,7 @@ contract DeployMissingTokens is Script {
         vm.stopBroadcast();
 
         console2.log(
-            "All missing tokens deployed, authorised, and handed to the Safe."
+            "All missing tokens deployed, authorised, and handed to the governance timelock."
             " Pin the logged tuples into this chain's LibTokenInvariants table."
         );
     }

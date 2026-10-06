@@ -21,7 +21,7 @@ import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
 /// `authorizer()`.
 ///
 /// Both uniformity invariants currently hold on-chain (every vault is
-/// owned by `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE` and reports the V4
+/// owned by `LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK` and reports the V4
 /// authoriser clone `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`), so the
 /// positive cases pass against the live Base fork. The inverted
 /// ownership-drift case is also exercised here for full error-path coverage.

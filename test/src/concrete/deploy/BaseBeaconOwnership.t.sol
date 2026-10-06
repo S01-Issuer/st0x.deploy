@@ -15,7 +15,7 @@ import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.s
 /// alongside `Ethereum`/`HyperEvm`/`Robinhood`/`BscBeaconOwnershipTest`.
 /// Base was the one production chain with no `assertBeaconInvariants` caller:
 /// `StoxProdV4Test.testProdDeployBaseV4` asserts Base's in-use beacons are
-/// Safe-owned (via `assertProdBeaconsOwnedByChainTimelock`) but says nothing about
+/// timelock-owned (via `assertProdBeaconsOwnedByChainTimelock`) but says nothing about
 /// where they POINT, and the 0.1.1-address beacons it does check the
 /// implementations of are an unadopted Base deploy artifact. So the beacons
 /// production tokens on Base actually run on had their implementation

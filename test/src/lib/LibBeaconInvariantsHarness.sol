@@ -21,11 +21,4 @@ contract LibBeaconInvariantsHarness {
     function callAssertProdBeaconsOwnedByChainTimelock(uint256 chainId) external view {
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(chainId);
     }
-
-    function callAssertProdBeaconsOwnershipMigration(uint256 chainId, address pre, address post, uint256 deadline)
-        external
-        view
-    {
-        LibBeaconInvariants.assertProdBeaconsOwnershipMigration(chainId, pre, post, deadline);
-    }
 }

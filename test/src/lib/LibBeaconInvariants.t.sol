@@ -230,38 +230,6 @@ contract LibBeaconInvariantsTest is Test {
         harness.callAssertProdBeaconsOwnedByChainTimelock(LibSafeInvariants.BASE_CHAIN_ID);
     }
 
-    /// @notice The migration-window sweep applies the same trust order: a
-    /// look-alike beacon reporting an accepted owner (`post`, as if already
-    /// migrated) trips `BeaconCodehashMismatch` before the owner read is
-    /// consulted. The window variant is the cron-facing drift detector for
-    /// the surface, so a swapped beacon must surface as a codehash break,
-    /// not pass as migrated.
-    function testInvertedProdBeaconMigrationCodehashMismatch() external {
-        selectBaseFork();
-        // The live owner is the accepted pre-state, so the sweep reaches the
-        // look-alike at index 2 rather than drifting on an earlier beacon.
-        address pre = LibTimelockInvariants.timelockForChainId(LibSafeInvariants.BASE_CHAIN_ID);
-        address post = address(0x7157);
-        address beacon = LibProdBeaconsBase.beacons()[2];
-        vm.etch(beacon, hex"FE");
-        bytes32 mutatedCodehash;
-        assembly ("memory-safe") {
-            mutatedCodehash := extcodehash(beacon)
-        }
-        vm.mockCall(beacon, abi.encodeWithSelector(IOwnable.owner.selector), abi.encode(post));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                BeaconCodehashMismatch.selector,
-                beacon,
-                LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH,
-                mutatedCodehash
-            )
-        );
-        harness.callAssertProdBeaconsOwnershipMigration(
-            LibSafeInvariants.BASE_CHAIN_ID, pre, post, block.timestamp + 1 days
-        );
-    }
-
     /// @notice `UPGRADEABLE_BEACON_CODEHASH_0_1_30` is the runtime of a beacon
     /// this tree actually compiles, re-derived rather than transcribed.
     /// @dev The defect this exists to stop: the V1 pin was documented as "a

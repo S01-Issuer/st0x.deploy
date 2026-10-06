@@ -52,7 +52,12 @@ contract RetireDirectSignerRolesProdTest is Test {
         IAccessControl acl = IAccessControl(LibAuthoriserInvariants.activeChainAuthoriser());
         bool retired = !acl.hasRole(keccak256("DEPOSIT"), signer) && !acl.hasRole(keccak256("WITHDRAW"), signer);
         if (retired) {
-            // Retired steady state: the orchestrator is the signer's only path.
+            // Retired steady state: the orchestrator is the signer's only
+            // path, so it must be fully enabled.
+            if (!pathFullyEnabled(acl, orchestrator, signer)) {
+                (address holder, bytes32 role) = firstMissingGrant(acl, orchestrator, signer);
+                revert OrchestratorPathNotEnabled(holder, role);
+            }
             return;
         }
 
@@ -63,11 +68,7 @@ contract RetireDirectSignerRolesProdTest is Test {
             revert RetirementOverdue(label);
         }
 
-        bool pathEnabled = acl.hasRole(keccak256("DEPOSIT"), orchestrator)
-            && acl.hasRole(keccak256("WITHDRAW"), orchestrator)
-            && IAccessControl(orchestrator).hasRole(keccak256("MINT"), signer)
-            && IAccessControl(orchestrator).hasRole(keccak256("BURN"), signer);
-        if (!pathEnabled) {
+        if (!pathFullyEnabled(acl, orchestrator, signer)) {
             console2.log(string.concat("PENDING [", label, "]: orchestrator path not enabled - retirement gated"));
             (address holder, bytes32 role) = firstMissingGrant(acl, orchestrator, signer);
             vm.expectRevert(abi.encodeWithSelector(OrchestratorPathNotEnabled.selector, holder, role));
@@ -95,6 +96,15 @@ contract RetireDirectSignerRolesProdTest is Test {
         vm.stopPrank();
         assertFalse(acl.hasRole(keccak256("DEPOSIT"), signer), string.concat(label, ": signer direct DEPOSIT"));
         assertFalse(acl.hasRole(keccak256("WITHDRAW"), signer), string.concat(label, ": signer direct WITHDRAW"));
+    }
+
+    /// @notice Whether the orchestrator path is fully enabled: the
+    /// orchestrator holds both vault roles and the signer both orchestrator
+    /// roles.
+    function pathFullyEnabled(IAccessControl acl, address orchestrator, address signer) internal view returns (bool) {
+        return acl.hasRole(keccak256("DEPOSIT"), orchestrator) && acl.hasRole(keccak256("WITHDRAW"), orchestrator)
+            && IAccessControl(orchestrator).hasRole(keccak256("MINT"), signer)
+            && IAccessControl(orchestrator).hasRole(keccak256("BURN"), signer);
     }
 
     /// @notice The first (holder, role) the burn-in gate finds missing, in

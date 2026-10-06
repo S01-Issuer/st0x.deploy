@@ -12,19 +12,13 @@ import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
 
 /// @title EthereumBeaconOwnershipTest
-/// @notice The forcing function for the Ethereum beacon-ownership migration.
-/// Ethereum's 3 production beacons are deployed but still owned by the deploy
-/// EOA (`LibProdDeployV1.BEACON_INITIAL_OWNER`, rainlang.eth). ST0x requires
-/// every chain's beacons to be owned by that chain's governance timelock (Base's
-/// were migrated in #253); until the Ethereum migration
-/// (`20260716-migrate-beacon-owners-ethereum`) runs, this invariant is RED by
-/// design — that is exactly what forces the migration to happen. It goes green
-/// the moment ownership lands on `STOX_TOKEN_OWNER_SAFE_ETHEREUM`, and stays
-/// green in CI thereafter (catching any later ownership drift).
+/// @notice The Ethereum leg of the per-chain beacon pin: every production
+/// beacon carries the OZ `UpgradeableBeacon` codehash, points at its pinned
+/// implementation, and is owned by the chain's governance timelock.
+/// @dev Unpinned head fork: the point is drift detection against live state.
 contract EthereumBeaconOwnershipTest is Test {
-    /// Every Ethereum beacon is owned by the Ethereum governance timelock (with
-    /// the OZ beacon codehash + its pinned impl unchanged). RED until the
-    /// migration transfers ownership from the deploy EOA to the Safe.
+    /// Every Ethereum beacon is owned by the Ethereum governance timelock,
+    /// with the OZ beacon codehash and its pinned implementation unchanged.
     function testEthereumBeaconsAreTimelockOwned() external {
         address timelock = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ETHEREUM;
 
