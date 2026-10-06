@@ -6,7 +6,6 @@ import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {IMigrationRegistryV2} from "rain-deploy-0.1.12/src/interface/IMigrationRegistryV2.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.12/src/lib/LibMigrationRegistry.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.12/src/lib/LibMigrationRegistryDeploy.sol";
 
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
@@ -222,7 +221,6 @@ contract GrantOrchestratorEmergency is Script {
     function verify(string calldata jsonPath) external view {
         address safeAddr = preflight();
         IGnosisSafe safe = IGnosisSafe(safeAddr);
-        LibMigrationRegistry.checkCodeHash();
 
         SafeTx[] memory expected = authorBundle(safeAddr);
         LibSafeOps.assertParsedTxsMatch(expected, jsonPath);

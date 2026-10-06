@@ -146,14 +146,13 @@ contract GrantOrchestratorEmergencyTest is Test {
 
         string memory path = script.callArtifactPath();
         string memory json = vm.readFile(path);
-        string memory safeHex = vm.toLowercase(vm.toString(LibSafeInvariants.safeForChainId(block.chainid)));
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
         string memory tampered = vm.replace(
             json,
-            string.concat(
-                "0x2f2ff15d76b1a12ac8d9ed64de3c0f66c2a19b21c0a3f9a1afec3f75bcd45f7b0794a1de000000000000000000000000",
-                vm.replace(safeHex, "0x", "")
-            ),
-            "0x2f2ff15d76b1a12ac8d9ed64de3c0f66c2a19b21c0a3f9a1afec3f75bcd45f7b0794a1de000000000000000000000000000000000000000000000000000000000000dead"
+            vm.toString(abi.encodeCall(IAccessControl.grantRole, (LibOrchestratorInvariants.EMERGENCY_ROLE, safe))),
+            vm.toString(
+                abi.encodeCall(IAccessControl.grantRole, (LibOrchestratorInvariants.EMERGENCY_ROLE, address(0xdead)))
+            )
         );
         assertTrue(keccak256(bytes(tampered)) != keccak256(bytes(json)), "tamper did not apply");
         string memory tamperedPath = string.concat(path, ".tampered.json");
