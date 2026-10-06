@@ -18,6 +18,10 @@ After the migration executes, the timelock is:
   `CANCEL_CORPORATE_ACTION_ADMIN`) — so adding or removing grants on the
   authoriser is delay-gated.
 
+- the **sole holder of the orchestrator's `DEFAULT_ADMIN_ROLE`** (once
+  `20261006-orchestrator-admin-to-timelock` executes) — so granting or revoking
+  `MINT`, `BURN` and `EMERGENCY` on the orchestrator is delay-gated.
+
 **Why the beacons are in scope.** Every production token proxies through those
 beacons, and a beacon owner can `upgradeTo` a new implementation for all of them
 in a single transaction — a hostile implementation could re-take vault ownership
@@ -221,6 +225,33 @@ way to resolve it.
   `LibBeaconInvariants.assertProdBeaconsOwnedBy` /
   `GovernanceTimelockMigration.t.sol` — vault ownership, beacon ownership and
   exclusive `_ADMIN` holding on the timelock, per chain.
+
+## Orchestrator roles
+
+The orchestrator instance is governed through two dated scripts, each recorded
+by the Safe in `rain-deploy`'s `MigrationRegistry` (`LibStoxMigrations`), and
+`LibOrchestratorInvariants.assertInstance` asserts exactly the role state the
+records imply:
+
+1. `20261006-grant-orchestrator-emergency` — the Safe takes `EMERGENCY_ROLE`
+   while it still administers the orchestrator directly, and records the
+   governance-timelock migration (as history) and the grant.
+2. `20261006-orchestrator-admin-to-timelock` — `DEFAULT_ADMIN_ROLE` moves from
+   the Safe to the timelock, recorded onto the grant, so the registry refuses it
+   on a chain where step 1 has not executed.
+
+`MINT`, `BURN` and `EMERGENCY` are themselves operations and stay off the
+timelock; only who may hold them is delay-gated.
+
+**Per-role admin roles.** An orchestrator implementation that gives each
+operating role its own self-administered admin role (`MINT_ADMIN`, `BURN_ADMIN`,
+`EMERGENCY_ADMIN`), installed by a `migrate(admin)` callable only by
+`DEFAULT_ADMIN_ROLE`, changes what "admin on the timelock" means: the timelock
+must then hold `DEFAULT_ADMIN_ROLE` **and** each `*_ADMIN` role, and the Safe
+none of them. Because each `*_ADMIN` administers itself, `DEFAULT_ADMIN_ROLE`
+cannot take one back once granted, so `migrate` must be called with the timelock
+as `admin`. With step 2 executed first, the beacon upgrade and
+`migrate(timelock)` are both timelock operations and can be one `scheduleBatch`.
 
 ## Explicitly out of scope (follow-ups)
 
