@@ -306,7 +306,7 @@ contract DeployMissingTokens is Script {
         _assertDeployer(unifiedDeployer);
         _assertDeployer(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1);
         _assertDeployer(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1);
-        LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
+        LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
         address authoriser = _assertAuthoriserReady();
         address safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
 

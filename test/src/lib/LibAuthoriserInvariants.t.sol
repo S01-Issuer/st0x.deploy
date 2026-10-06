@@ -16,6 +16,7 @@ import {
     AuthoriserImplCodehashMismatch
 } from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
@@ -129,12 +130,14 @@ contract LibAuthoriserInvariantsTest is Test {
 
     /// @notice The active fork's arm resolves to a live clone with the pinned
     /// EIP-1167 codehash, on the canonical grant map keyed to that chain's
-    /// Safe. Both resolve from `block.chainid`, as the scripts do, so a leg
+    /// Safe and governance timelock. All resolve from `block.chainid`, as the scripts do, so a leg
     /// forking the wrong chain or an arm pointing at the wrong slot fails
     /// here. Live drift detector on an unpinned fork.
     function assertAuthoriserLiveOnCanonicalMap() internal view {
         LibAuthoriserInvariants.assertExpectedGrants(
-            LibAuthoriserInvariants.activeChainAuthoriser(), LibSafeInvariants.safeForChainId(block.chainid)
+            LibAuthoriserInvariants.activeChainAuthoriser(),
+            LibSafeInvariants.safeForChainId(block.chainid),
+            LibTimelockInvariants.timelockForChainId(block.chainid)
         );
     }
 
@@ -205,9 +208,9 @@ contract LibAuthoriserInvariantsTest is Test {
 
     /// @notice The admin-holder parameterisation: the seven `_ADMIN` entries
     /// track `adminHolder`, the eight operational entries stay split between
-    /// the Safe, the service signer and the orchestrator, and the narrower
-    /// overloads are exact collapses of the widest one (so no consumer can
-    /// drift from the single map).
+    /// the Safe, the service signer and the orchestrator, and the no-arg
+    /// Base map is exactly the widest one at Base's Safe and timelock (so no
+    /// consumer can drift from the single map).
     function testExpectedGrantsAdminHolderParameterisation() external pure {
         address safe = address(0x5AFE);
         address timelock = address(0x7135);
@@ -238,57 +241,46 @@ contract LibAuthoriserInvariantsTest is Test {
         assertEq(grants[14].role, keccak256("WITHDRAW"));
         assertEq(grants[14].grantee, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
 
-        // The two-arg overload is the adminHolder == Safe collapse.
-        RoleGrant[] memory collapsed = LibAuthoriserInvariants.expectedGrants(safe);
-        RoleGrant[] memory widened = LibAuthoriserInvariants.expectedGrants(safe, safe);
-        assertEq(collapsed.length, widened.length);
-        for (uint256 i = 0; i < collapsed.length; i++) {
-            assertEq(collapsed[i].role, widened[i].role);
-            assertEq(collapsed[i].grantee, widened[i].grantee);
+        // The no-arg overload is Base's Safe and Base's timelock.
+        RoleGrant[] memory base = LibAuthoriserInvariants.expectedGrants();
+        RoleGrant[] memory widened = LibAuthoriserInvariants.expectedGrants(
+            LibAuthoriserInvariants.GRANTEE_TOKEN_OWNER_SAFE, LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK
+        );
+        assertEq(base.length, widened.length);
+        for (uint256 i = 0; i < base.length; i++) {
+            assertEq(base[i].role, widened[i].role);
+            assertEq(base[i].grantee, widened[i].grantee);
         }
     }
 
     /// @notice `assertExpectedGrants(authoriser, safe, adminHolder)` demands
-    /// the exact post-timelock-migration shape: it pinpoints the first
-    /// missing `_ADMIN` grant while the admin holder holds nothing, rejects
-    /// the dual-holder state where the Safe retains an `_ADMIN` copy
-    /// alongside the admin holder (an instant delay bypass), and passes only
-    /// once the seven `_ADMIN` roles sit exclusively on the admin holder.
+    /// exclusive admin holding: the live Base clone passes with the seven
+    /// `_ADMIN` roles on the governance timelock; a retained `_ADMIN` copy on
+    /// the Safe (an instant delay bypass) is rejected; and a missing `_ADMIN`
+    /// on the timelock is pinpointed.
     function testAssertExpectedGrantsWithDistinctAdminHolder() external {
         selectBaseFork();
         address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
         address safe = LibAuthoriserInvariants.GRANTEE_TOKEN_OWNER_SAFE;
-        address timelock = address(0x7135);
+        address timelock = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
-
-        // Without the timelock holding anything, the first `_ADMIN` entry is
-        // reported missing for the timelock.
         RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
-        vm.expectRevert(abi.encodeWithSelector(ExpectedGrantMissing.selector, clone, grants[0].role, timelock));
+
         harness.callAssertExpectedGrants(clone, safe, timelock);
 
-        // Mock the seven `_ADMIN` grants onto the timelock. The live fork's
-        // Safe still holds its `_ADMIN` copies, so this is the dual-holder
-        // state — the Safe could still mutate the grant map without the
-        // timelock's delay — and the assertion must reject it.
-        for (uint256 i = 0; i < 7; i++) {
-            vm.mockCall(
-                clone,
-                abi.encodeWithSelector(IAccessControl.hasRole.selector, grants[i].role, timelock),
-                abi.encode(true)
-            );
-        }
+        // The Safe retaining one `_ADMIN` copy alongside the timelock.
+        vm.mockCall(
+            clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, grants[0].role, safe), abi.encode(true)
+        );
         vm.expectRevert(abi.encodeWithSelector(UnexpectedRetainedAdminGrant.selector, clone, grants[0].role, safe));
         harness.callAssertExpectedGrants(clone, safe, timelock);
+        vm.clearMockedCalls();
 
-        // Mock the Safe's seven `_ADMIN` copies away — the renounces landing
-        // — and the full assertion passes: exclusive admin holding, with the
-        // operational entries already live on the fork.
-        for (uint256 i = 0; i < 7; i++) {
-            vm.mockCall(
-                clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, grants[i].role, safe), abi.encode(false)
-            );
-        }
+        // The timelock missing one `_ADMIN`.
+        vm.mockCall(
+            clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, grants[0].role, timelock), abi.encode(false)
+        );
+        vm.expectRevert(abi.encodeWithSelector(ExpectedGrantMissing.selector, clone, grants[0].role, timelock));
         harness.callAssertExpectedGrants(clone, safe, timelock);
     }
 

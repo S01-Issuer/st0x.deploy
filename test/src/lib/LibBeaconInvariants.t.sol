@@ -13,6 +13,7 @@ import {
     UnsupportedChainForProdBeacons
 } from "../../../src/lib/LibBeaconInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibProdBeaconsBase} from "../../../src/lib/LibProdBeaconsBase.sol";
 import {LibProdBeacons0_1_1} from "../../../src/lib/LibProdBeacons0_1_1.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
@@ -166,9 +167,9 @@ contract LibBeaconInvariantsTest is Test {
         harness.callProdBeaconsForChainId(arbitrum);
     }
 
-    /// @notice `assertProdBeaconsOwnedByChainSafe` trips `BeaconOwnerMismatch`
+    /// @notice `assertProdBeaconsOwnedByChainTimelock` trips `BeaconOwnerMismatch`
     /// when an in-use beacon is held by anything other than the active chain's
-    /// token-owner Safe. Whoever owns an in-use beacon can repoint every
+    /// governance timelock. Whoever owns an in-use beacon can repoint every
     /// production vault proxy on the chain, so the rogue owner here stands in
     /// for the whole class of compromise this assert exists to catch.
     function testInvertedProdBeaconOwnerMismatch() external {
@@ -180,11 +181,11 @@ contract LibBeaconInvariantsTest is Test {
             abi.encodeWithSelector(
                 BeaconOwnerMismatch.selector,
                 beacon,
-                LibSafeInvariants.safeForChainId(LibSafeInvariants.BASE_CHAIN_ID),
+                LibTimelockInvariants.timelockForChainId(LibSafeInvariants.BASE_CHAIN_ID),
                 rogueOwner
             )
         );
-        harness.callAssertProdBeaconsOwnedByChainSafe(LibSafeInvariants.BASE_CHAIN_ID);
+        harness.callAssertProdBeaconsOwnedByChainTimelock(LibSafeInvariants.BASE_CHAIN_ID);
     }
 
     /// @notice An in-use beacon with no code trips `BeaconNotDeployed` rather
@@ -196,13 +197,13 @@ contract LibBeaconInvariantsTest is Test {
         address beacon = LibProdBeaconsBase.beacons()[0];
         vm.etch(beacon, "");
         vm.expectRevert(abi.encodeWithSelector(BeaconNotDeployed.selector, beacon));
-        harness.callAssertProdBeaconsOwnedByChainSafe(LibSafeInvariants.BASE_CHAIN_ID);
+        harness.callAssertProdBeaconsOwnedByChainTimelock(LibSafeInvariants.BASE_CHAIN_ID);
     }
 
     /// @notice An in-use beacon whose runtime code drifts from the pinned OZ
     /// `UpgradeableBeacon` bytecode trips `BeaconCodehashMismatch` BEFORE its
     /// `owner()` is read: the look-alike here mocks `owner()` to the expected
-    /// Safe, so only the codehash pin stands between it and a pass. Without
+    /// timelock, so only the codehash pin stands between it and a pass. Without
     /// the pin, a swapped beacon shadowing `owner()` satisfies the ownership
     /// sweep while serving arbitrary `upgradeTo` semantics.
     function testInvertedProdBeaconCodehashMismatch() external {
@@ -216,7 +217,7 @@ contract LibBeaconInvariantsTest is Test {
         vm.mockCall(
             beacon,
             abi.encodeWithSelector(IOwnable.owner.selector),
-            abi.encode(LibSafeInvariants.safeForChainId(LibSafeInvariants.BASE_CHAIN_ID))
+            abi.encode(LibTimelockInvariants.timelockForChainId(LibSafeInvariants.BASE_CHAIN_ID))
         );
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -226,7 +227,7 @@ contract LibBeaconInvariantsTest is Test {
                 mutatedCodehash
             )
         );
-        harness.callAssertProdBeaconsOwnedByChainSafe(LibSafeInvariants.BASE_CHAIN_ID);
+        harness.callAssertProdBeaconsOwnedByChainTimelock(LibSafeInvariants.BASE_CHAIN_ID);
     }
 
     /// @notice The migration-window sweep applies the same trust order: a
@@ -237,7 +238,9 @@ contract LibBeaconInvariantsTest is Test {
     /// not pass as migrated.
     function testInvertedProdBeaconMigrationCodehashMismatch() external {
         selectBaseFork();
-        address safe = LibSafeInvariants.safeForChainId(LibSafeInvariants.BASE_CHAIN_ID);
+        // The live owner is the accepted pre-state, so the sweep reaches the
+        // look-alike at index 2 rather than drifting on an earlier beacon.
+        address pre = LibTimelockInvariants.timelockForChainId(LibSafeInvariants.BASE_CHAIN_ID);
         address post = address(0x7157);
         address beacon = LibProdBeaconsBase.beacons()[2];
         vm.etch(beacon, hex"FE");
@@ -255,7 +258,7 @@ contract LibBeaconInvariantsTest is Test {
             )
         );
         harness.callAssertProdBeaconsOwnershipMigration(
-            LibSafeInvariants.BASE_CHAIN_ID, safe, post, block.timestamp + 1 days
+            LibSafeInvariants.BASE_CHAIN_ID, pre, post, block.timestamp + 1 days
         );
     }
 

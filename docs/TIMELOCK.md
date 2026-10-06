@@ -97,9 +97,8 @@ bytecode and that chain's Safe pin before any deploy —
 wrong or zeroed pin cannot survive CI. A zero pin is never a legitimate phase:
 every consumer (the deploy pre-flight, the migration authoring, the
 migration-window suite) refuses it as a reverted or never-hydrated arm rather
-than proceeding against a wrong address. The Base, Ethereum and HyperEVM
-timelocks are live at their pins; the Robinhood Chain and BNB Smart Chain pins
-are derived ahead of their deploys, per step 1 below.
+than proceeding against a wrong address. All five timelocks are live at their
+pins.
 
 ## Rollout (per chain: Base, Ethereum, HyperEVM, Robinhood Chain, BNB Smart Chain)
 
@@ -128,17 +127,16 @@ are derived ahead of their deploys, per step 1 below.
    to cross-check in the Safe UI. Then execute. The bundle is atomic: 7 `_ADMIN`
    grants to the timelock → N vault `transferOwnership` → 3 beacon
    `transferOwnership` → 7 Safe renounces.
-5. **Post-execution flip PR** — repoint the strict uniform-ownership invariants
-   (`LibInvariants.assertAll`, `LibTokenInvariants` consumers,
-   `StoxProdV2`/`LibInvariants` fork tests, cross-chain parity, and the
-   Safe-expecting beacon-owner asserts — the `StoxProdV4` and
-   `HyperEvmBeaconOwnership` fork tests plus the live deploy-script pre-flights
-   on `assertProdBeaconsOwnedByChainSafe`) from the Safe to the timelock, and
-   retire the spent branch of the migration-window suite.
+5. **Post-execution flip** — every production invariant asserts the timelock
+   exactly: vault owner (`LibTokenInvariants.assertAll` / `LibInvariants`),
+   beacon owner (`LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock`,
+   `LibOrchestratorInvariants.assertBeaconSet`) and `_ADMIN` holder
+   (`LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe, timelock)`).
+   The migration has executed on all five chains, so this is the current state.
 
-The forcing function: `GovernanceTimelockMigration.t.sol` accepts
-Safe-or-timelock per surface until **2026-10-01T00:00:00Z**, then demands the
-timelock. An unfinished rollout red-lines cron past that date.
+`GovernanceTimelockMigration.t.sol` pins the governed state on every chain. The
+migration script's own tests rewind each fork to the pre-migration state with
+the timelock's powers, so the script stays re-dispatchable and proven.
 
 ## Rehearsing the timelock
 
@@ -217,12 +215,12 @@ way to resolve it.
   timelock itself.
 - `LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe,
   timelock)` —
-  the single master grant map, parameterised on the admin holder; post-migration
+  the single master grant map, parameterised on the admin holder; production
   consumers pass the timelock.
-- `LibTokenInvariants.assertUniformOwnershipMigration` /
-  `LibBeaconInvariants.assertProdBeaconsOwnershipMigration` /
-  `GovernanceTimelockMigration.t.sol` — the migration window + deadline (see
-  above), over vault ownership, beacon ownership and `_ADMIN` holding.
+- `LibTokenInvariants.assertUniformOwnership` /
+  `LibBeaconInvariants.assertProdBeaconsOwnedBy` /
+  `GovernanceTimelockMigration.t.sol` — vault ownership, beacon ownership and
+  exclusive `_ADMIN` holding on the timelock, per chain.
 
 ## Explicitly out of scope (follow-ups)
 

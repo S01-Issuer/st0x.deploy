@@ -2358,38 +2358,33 @@ library LibTokenInvariants {
         }
     }
 
-    /// @notice Full token-side invariant bundle: every production receipt
-    /// vault reports the supplied Safe as its `owner()` AND the supplied
-    /// authoriser as its `authorizer()`. Pre-flight / post-state hook for
-    /// any script touching the production receipt vault set; consumers
-    /// asserting the full production state (Safe + token + authoriser)
-    /// compose this alongside `LibSafeInvariants.assertAll` and
-    /// `LibAuthoriserInvariants.assertAll` via `LibInvariants.assertAll`.
-    /// @dev Both legs run last in the composed bundle because each performs
-    /// one external call per production token instance and is only
-    /// meaningful once the Safe itself has been validated. The authoriser is
-    /// parameterised rather than hardcoded so this lib stays free of
-    /// cross-facet dependencies; the orchestrator supplies the pinned address.
-    /// @param safe The Safe address every production receipt vault is
-    /// expected to report as `owner()`.
+    /// @notice Full token-side invariant bundle: every Base production
+    /// receipt vault reports `owner` as its `owner()` AND the supplied
+    /// authoriser as its `authorizer()`. Composed into the full production
+    /// bundle by `LibInvariants.assertAll`.
+    /// @dev Each leg performs one external call per production token
+    /// instance. Both principals are parameterised so this lib stays free of
+    /// cross-facet dependencies; the orchestrator supplies the pinned
+    /// addresses (the governance timelock as owner in production).
+    /// @param owner The address every production receipt vault is expected
+    /// to report as `owner()`.
     /// @param expectedAuthoriser The authoriser address every production
     /// receipt vault is expected to report as `authorizer()`.
-    function assertAll(address safe, address expectedAuthoriser) internal view {
-        assertAll(productionTokensBase(), safe, expectedAuthoriser);
+    function assertAll(address owner, address expectedAuthoriser) internal view {
+        assertAll(productionTokensBase(), owner, expectedAuthoriser);
     }
 
     /// @notice Chain-parametric token-side bundle: every receipt vault in
-    /// the supplied table reports `safe` as `owner()` and
+    /// the supplied table reports `owner` as `owner()` and
     /// `expectedAuthoriser` as `authorizer()`. The Base overload delegates
     /// here with `productionTokensBase()`; `LibInvariants.assertProductionState`
-    /// calls this with each chain's own table so the full-production-state
-    /// pre-flight works on every chain.
+    /// calls this with each chain's own table.
     /// @param tokens The chain's token table.
-    /// @param safe The Safe every receipt vault must report as `owner()`.
+    /// @param owner The address every receipt vault must report as `owner()`.
     /// @param expectedAuthoriser The authoriser every receipt vault must
     /// report as `authorizer()`.
-    function assertAll(TokenInstance[] memory tokens, address safe, address expectedAuthoriser) internal view {
-        assertUniformOwnership(tokens, safe);
+    function assertAll(TokenInstance[] memory tokens, address owner, address expectedAuthoriser) internal view {
+        assertUniformOwnership(tokens, owner);
         assertUniformAuthoriser(tokens, expectedAuthoriser);
     }
 }

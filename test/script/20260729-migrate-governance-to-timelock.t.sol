@@ -33,8 +33,11 @@ import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 
 /// @title MigrateGovernanceToTimelockTest
-/// @notice Live Base head fork coverage for the governance migration
-/// authoring. The happy path stands up the real timelock (via the deploy
+/// @notice Live head fork coverage for the governance migration authoring.
+/// The migration has executed on every chain, so each fork is first rewound
+/// to the pre-migration state with the timelock's own powers
+/// (`rewindMigration`): the script stays re-dispatchable for audit, and its
+/// authoring path stays proven against real production contracts. The happy path stands up the real timelock (via the deploy
 /// script, at its derived Zoltu address), drives the full `run()` — bundle
 /// build, simulation, post-state, artifact, governance-loop proof — and
 /// then independently re-derives the expected bundle from the pre-run state
@@ -96,7 +99,44 @@ contract MigrateGovernanceToTimelockTest is Test {
     }
 
     function selectBaseFork() internal {
-        vm.createSelectFork(LibRainDeploy.BASE);
+        selectRewoundFork(LibRainDeploy.BASE);
+    }
+
+    /// @notice Fork `network` at head and rewind the executed migration.
+    function selectRewoundFork(string memory network) internal {
+        vm.createSelectFork(network);
+        rewindMigration();
+    }
+
+    /// @notice Put the active fork back in the pre-migration state: every
+    /// production vault and in-use beacon the timelock owns goes back to the
+    /// Safe, and the seven authoriser `_ADMIN` roles move from the timelock
+    /// back to the Safe. Uses only powers the timelock holds, so the rewound
+    /// state is one the real contracts admit.
+    function rewindMigration() internal {
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        IAccessControl authoriser = IAccessControl(_activeChainAuthoriser());
+
+        vm.startPrank(timelock);
+        TokenInstance[] memory tokens = _activeChainTokens();
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (Ownable(tokens[i].receiptVault).owner() == timelock) {
+                Ownable(tokens[i].receiptVault).transferOwnership(safe);
+            }
+        }
+        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        for (uint256 i = 0; i < beacons.length; i++) {
+            if (Ownable(beacons[i]).owner() == timelock) {
+                Ownable(beacons[i]).transferOwnership(safe);
+            }
+        }
+        RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
+        for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
+            authoriser.grantRole(grants[i].role, safe);
+            authoriser.renounceRole(grants[i].role, timelock);
+        }
+        vm.stopPrank();
     }
 
     /// @notice Deploy the real timelock on the fork at its derived address
@@ -130,7 +170,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// `RPC_URL_HYPEREVM_FORK` secret, so a missing RPC must fail at fork
     /// time rather than pass having asserted nothing.
     function testRunAuthorsFullMigrationOnHyperevm() external {
-        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
+        selectRewoundFork(LibStoxDeployNetworks.HYPEREVM);
         _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM);
     }
 
@@ -140,7 +180,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// authoriser clone, and chain-generic code is only proven generic by
     /// running it on every chain it claims.
     function testRunAuthorsFullMigrationOnEthereum() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
+        selectRewoundFork(LibStoxDeployNetworks.ETHEREUM);
         _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM);
     }
 

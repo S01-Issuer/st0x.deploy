@@ -18,8 +18,8 @@ contract LibBeaconInvariantsHarness {
         return LibBeaconInvariants.prodBeaconsForChainId(chainId);
     }
 
-    function callAssertProdBeaconsOwnedByChainSafe(uint256 chainId) external view {
-        LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(chainId);
+    function callAssertProdBeaconsOwnedByChainTimelock(uint256 chainId) external view {
+        LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(chainId);
     }
 
     function callAssertProdBeaconsOwnershipMigration(uint256 chainId, address pre, address post, uint256 deadline)

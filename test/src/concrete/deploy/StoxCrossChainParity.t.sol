@@ -17,6 +17,7 @@ import {FLEET_UPGRADE_DEADLINE} from "../../../lib/LibTestProd.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
+import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../../../src/lib/LibTokenInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "../../../../src/lib/LibProdTokenConfig.sol";
 
@@ -438,7 +439,9 @@ contract StoxCrossChainParityTest is Test {
             if (legs.safeLive) {
                 // The grant map is assertable as soon as the clone is up — its
                 // only blocker is the Safe, independent of the tokens.
-                LibAuthoriserInvariants.assertExpectedGrants(clone, safe);
+                LibAuthoriserInvariants.assertExpectedGrants(
+                    clone, safe, LibTimelockInvariants.timelockForChainId(block.chainid)
+                );
             }
         } else {
             emit log(string.concat("PARITY PENDING: ", label, " clone pin placeholder - authoriser leg skipped"));
@@ -451,8 +454,8 @@ contract StoxCrossChainParityTest is Test {
         );
         legs.tokenLegLive = legs.safeLive && legs.cloneLive && allTokens;
         if (legs.tokenLegLive) {
-            // Ownership (Safe) + sole authoriser (clone) across every vault.
-            LibTokenInvariants.assertAll(tokens, safe, clone);
+            // Ownership (timelock) + sole authoriser (clone) across every vault.
+            LibTokenInvariants.assertAll(tokens, LibTimelockInvariants.timelockForChainId(block.chainid), clone);
             address beacon;
             address receiptBeacon;
             (legs.tokenConfigs, beacon, receiptBeacon) = assertChainAndSnapshot(tokens);
@@ -486,13 +489,13 @@ contract StoxCrossChainParityTest is Test {
             // beacons point at, asserted below.
             assertEq(
                 IOwnable(beacon).owner(),
-                safe,
-                string.concat(label, " receipt-vault beacon not owned by the chain's Safe")
+                LibTimelockInvariants.timelockForChainId(block.chainid),
+                string.concat(label, " receipt-vault beacon not owned by the chain's timelock")
             );
             assertEq(
                 IOwnable(receiptBeacon).owner(),
-                safe,
-                string.concat(label, " receipt beacon not owned by the chain's Safe")
+                LibTimelockInvariants.timelockForChainId(block.chainid),
+                string.concat(label, " receipt beacon not owned by the chain's timelock")
             );
             legs.beaconImpl = IBeacon(beacon).implementation();
             legs.beaconImplCodehash = legs.beaconImpl.codehash;

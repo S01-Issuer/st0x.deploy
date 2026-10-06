@@ -11,6 +11,7 @@ import {
     ReceiptVaultOwnerMismatch
 } from "../../../src/lib/LibTokenInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariantsHarness} from "./LibTokenInvariantsHarness.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
 
@@ -41,11 +42,11 @@ contract LibTokenInvariantsTest is Test {
     }
 
     /// @notice Every production receipt vault reports
-    /// `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE` as its `owner()`. Passes against
+    /// `LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK` as its `owner()`. Passes against
     /// the live chain state: vault ownership is uniform.
     function testProdReceiptVaultsUniformOwnership() external {
         selectBaseFork();
-        LibTokenInvariants.assertUniformOwnership(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+        LibTokenInvariants.assertUniformOwnership(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
     }
 
     /// @notice Every production receipt vault reports the V4 authoriser clone

@@ -7,12 +7,17 @@ import {console2} from "forge-std-1.16.2/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
 
-import {RETIRE_DEADLINE, OrchestratorPathNotEnabled} from "../../script/20260831-retire-direct-signer-roles.s.sol";
+import {
+    RETIRE_DEADLINE,
+    OrchestratorPathNotEnabled,
+    SafeMissingRoleAdminForRetire
+} from "../../script/20260831-retire-direct-signer-roles.s.sol";
 import {RetireDirectSignerRolesHarness} from "./RetireDirectSignerRolesHarness.sol";
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
+import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
 /// @notice The retirement deadline passed with this chain still pending.
 /// Run the outstanding dispatches, extend the deadline, or delete the
@@ -22,22 +27,17 @@ error RetirementOverdue(string label);
 
 /// @title RetireDirectSignerRolesProdTest
 /// @notice PROD coverage for the direct-role retirement: what production IS
-/// on each chain, read from a real fork with no mocks, walking the states:
+/// on each chain, read from a real fork with no mocks.
 ///
-/// 1. **Burn-in pending** (every chain today: orchestrator live, path not
-///    fully enabled): the burn-in gate refuses — retirement can never
-///    strand a chain without a working mint path. The enable bundle is
-///    then applied as the Safe and `run()` driven end to end, so the
-///    retirement is proven against live state before either executes.
-/// 2. **Burn-in** (path enabled, direct roles still live): drives `run()`
-///    end to end — revokes authored and simulated, post-state and n+1
-///    proven. The window between states 2 and 3 is DELIBERATE: the
-///    fallback path stays until the orchestrator has proven itself.
-/// 3. **Retired**: the signer holds no direct vault roles; asserted
-///    directly.
+/// The authoriser's `_ADMIN` roles are on the governance timelock, so the
+/// Safe can no longer author the revokes this script bundles: until the
+/// signer's direct roles are gone, every chain must refuse with
+/// `SafeMissingRoleAdminForRetire`, and the retirement has to be scheduled
+/// through the timelock instead. A chain whose orchestrator path is not
+/// fully enabled refuses earlier, at the burn-in gate. Once retired, the
+/// signer holds no direct vault role.
 ///
-/// States 1–2 stop passing at `RETIRE_DEADLINE` (two weeks after the
-/// enable/fleet deadline, honouring the burn-in); state 3 is steady.
+/// Every not-yet-retired state stops passing at `RETIRE_DEADLINE`.
 contract RetireDirectSignerRolesProdTest is Test {
     /// @notice Walk the active fork's retirement state (see the contract
     /// NatSpec) and assert it.
@@ -50,61 +50,49 @@ contract RetireDirectSignerRolesProdTest is Test {
         address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
 
         IAccessControl acl = IAccessControl(LibAuthoriserInvariants.activeChainAuthoriser());
+        bool retired = !acl.hasRole(keccak256("DEPOSIT"), signer) && !acl.hasRole(keccak256("WITHDRAW"), signer);
+        if (retired) {
+            // Retired steady state: the orchestrator is the signer's only path.
+            return;
+        }
+
+        // A date on a rollout plan, not a race: the window is days wide, so the
+        // seconds a validator could skew cannot change which side of it we are on.
+        // forge-lint: disable-next-line(block-timestamp)
+        if (block.timestamp >= RETIRE_DEADLINE) {
+            revert RetirementOverdue(label);
+        }
+
         bool pathEnabled = acl.hasRole(keccak256("DEPOSIT"), orchestrator)
             && acl.hasRole(keccak256("WITHDRAW"), orchestrator)
             && IAccessControl(orchestrator).hasRole(keccak256("MINT"), signer)
             && IAccessControl(orchestrator).hasRole(keccak256("BURN"), signer);
         if (!pathEnabled) {
-            // A date on a rollout plan, not a race: the window is days wide, so the
-            // seconds a validator could skew cannot change which side of it we are on.
-            // forge-lint: disable-next-line(block-timestamp)
-            if (block.timestamp >= RETIRE_DEADLINE) {
-                revert RetirementOverdue(label);
-            }
             console2.log(string.concat("PENDING [", label, "]: orchestrator path not enabled - retirement gated"));
-            console2.log("-> execute 20260831-enable-orchestrator-roles (and its burn-in) first");
             (address holder, bytes32 role) = firstMissingGrant(acl, orchestrator, signer);
             vm.expectRevert(abi.encodeWithSelector(OrchestratorPathNotEnabled.selector, holder, role));
             script.run();
-
-            // The enable bundle (20260831-enable-orchestrator-roles) applied as
-            // the Safe, so the retirement is proven end to end against live
-            // state before either has executed.
-            console2.log(
-                string.concat("BURN-IN [", label, "]: simulating the enable bundle, then driving the retirement")
-            );
-            address safe = LibSafeInvariants.safeForChainId(block.chainid);
-            vm.startPrank(safe);
-            acl.grantRole(keccak256("DEPOSIT"), orchestrator);
-            acl.grantRole(keccak256("WITHDRAW"), orchestrator);
-            IAccessControl(orchestrator).grantRole(keccak256("MINT"), signer);
-            IAccessControl(orchestrator).grantRole(keccak256("BURN"), signer);
-            vm.stopPrank();
-            // The artifact outlives the state revert, so verify() reads it
-            // against the state a signer would see.
-            uint256 preRun = vm.snapshotState();
-            script.run();
-            assertFalse(acl.hasRole(keccak256("DEPOSIT"), signer), string.concat(label, ": signer direct DEPOSIT"));
-            assertFalse(acl.hasRole(keccak256("WITHDRAW"), signer), string.concat(label, ": signer direct WITHDRAW"));
-            vm.revertToState(preRun);
-            script.verify(script.callArtifactPath());
             return;
         }
 
-        bool retired = !acl.hasRole(keccak256("DEPOSIT"), signer) && !acl.hasRole(keccak256("WITHDRAW"), signer);
-        if (!retired) {
-            // A date on a rollout plan, not a race: the window is days wide, so the
-            // seconds a validator could skew cannot change which side of it we are on.
-            // forge-lint: disable-next-line(block-timestamp)
-            if (block.timestamp >= RETIRE_DEADLINE) {
-                revert RetirementOverdue(label);
-            }
-            console2.log(string.concat("BURN-IN [", label, "]: driving the retirement authoring end to end"));
-            script.run();
-            return;
-        }
+        console2.log(
+            string.concat(
+                "PENDING [",
+                label,
+                "]: signer's direct DEPOSIT/WITHDRAW still live; the Safe no longer holds the authoriser",
+                " _ADMIN roles, so the retirement must be scheduled through the governance timelock"
+            )
+        );
+        vm.expectRevert(abi.encodeWithSelector(SafeMissingRoleAdminForRetire.selector, keccak256("DEPOSIT_ADMIN")));
+        script.run();
 
-        // Retired steady state: the orchestrator is the signer's only path.
+        // The same revokes scheduled through the timelock land: the timelock
+        // administers both roles.
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        vm.startPrank(timelock);
+        acl.revokeRole(keccak256("DEPOSIT"), signer);
+        acl.revokeRole(keccak256("WITHDRAW"), signer);
+        vm.stopPrank();
         assertFalse(acl.hasRole(keccak256("DEPOSIT"), signer), string.concat(label, ": signer direct DEPOSIT"));
         assertFalse(acl.hasRole(keccak256("WITHDRAW"), signer), string.concat(label, ": signer direct WITHDRAW"));
     }
