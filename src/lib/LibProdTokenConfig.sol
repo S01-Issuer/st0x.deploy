@@ -24,7 +24,7 @@ struct TokenConfig {
 }
 
 /// @title LibProdTokenConfig
-/// @notice The canonical name/symbol table for the 59 ST0x production
+/// @notice The canonical name/symbol table for the 53 ST0x production
 /// tokens, captured verbatim from the live Base receipt vaults so a new
 /// chain's token set can be deployed byte-identical to Base. This is the
 /// deploy-input companion to `LibTokenInvariants` (which holds the deployed
@@ -45,10 +45,10 @@ struct TokenConfig {
 /// means carrying that space forward; the parity pin would flag it as a
 /// divergence otherwise.
 library LibProdTokenConfig {
-    /// @notice The 59 production token deploy configs, Base table order.
+    /// @notice The 53 production token deploy configs, Base table order.
     /// @return configs The name/symbol table.
     function productionTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
-        configs = new TokenConfig[](59);
+        configs = new TokenConfig[](53);
         configs[0] = TokenConfig("MSTR", "MicroStrategy Incorporated ST0x", "tMSTR");
         configs[1] = TokenConfig("TSLA", "Tesla Inc ST0x", "tTSLA");
         configs[2] = TokenConfig("COIN", "Coinbase Global Inc ST0x", "tCOIN");
@@ -96,33 +96,32 @@ library LibProdTokenConfig {
         configs[39] = TokenConfig("TQQQ", "ProShares UltraPro QQQ ST0x", "tTQQQ");
         configs[40] = TokenConfig("FTF", "Franklin Limited Duration Income Trust ST0x", "tFTF");
         configs[41] = TokenConfig("CBRS", "Cerebras Systems Inc. ST0x", "tCBRS");
-        configs[42] = TokenConfig("AIR.PA", "Airbus SE ST0x", "tAIR.PA");
-        configs[43] = TokenConfig("BMW.DE", "Bayerische Motoren Werke Aktiengesellschaft ST0x", "tBMW.DE");
-        // solc rejects a bare non-ASCII string literal; `unicode"..."` is the
-        // same bytes, and Base carries the ë — dropping it would break parity.
-        configs[44] = TokenConfig("MC.PA", unicode"LVMH Moët Hennessy Louis Vuitton SE ST0x", "tMC.PA");
-        configs[45] = TokenConfig("SIE.DE", "Siemens Aktiengesellschaft ST0x", "tSIE.DE");
-        configs[46] = TokenConfig("MBG.DE", "Mercedes-Benz Group AG ST0x", "tMBG.DE");
-        configs[47] = TokenConfig("RHM.DE", "Rheinmetall AG ST0x", "tRHM.DE");
-        configs[48] = TokenConfig("MCD", "McDonald's Corporation ST0x", "tMCD");
-        configs[49] = TokenConfig("NKE", "NIKE, Inc. ST0x", "tNKE");
-        configs[50] = TokenConfig("GRND", "Grindr Inc. ST0x", "tGRND");
-        configs[51] = TokenConfig("DNUT", "Krispy Kreme, Inc. ST0x", "tDNUT");
+        // The EU batch — discarded 2026-10-06, still on chain, deliberately not in the table
+        // (Base receipt vaults recorded as the commented-out `*_PA_*` / `*_DE_*` constants in
+        // `LibTokenInvariants`):
+        // AIR.PA "Airbus SE ST0x" (tAIR.PA), BMW.DE "Bayerische Motoren Werke Aktiengesellschaft ST0x"
+        // (tBMW.DE), MC.PA "LVMH Moët Hennessy Louis Vuitton SE ST0x" (tMC.PA), SIE.DE "Siemens
+        // Aktiengesellschaft ST0x" (tSIE.DE), MBG.DE "Mercedes-Benz Group AG ST0x" (tMBG.DE),
+        // RHM.DE "Rheinmetall AG ST0x" (tRHM.DE).
+        configs[42] = TokenConfig("MCD", "McDonald's Corporation ST0x", "tMCD");
+        configs[43] = TokenConfig("NKE", "NIKE, Inc. ST0x", "tNKE");
+        configs[44] = TokenConfig("GRND", "Grindr Inc. ST0x", "tGRND");
+        configs[45] = TokenConfig("DNUT", "Krispy Kreme, Inc. ST0x", "tDNUT");
         // tGM — deployed 2026-09-06, swapped out for FGI before launch; recorded, deliberately not in the table.
         // configs[..] = TokenConfig("GM", "General Motors Company ST0x", "tGM");
-        configs[52] = TokenConfig("PLBY", "Playboy, Inc. ST0x", "tPLBY");
-        configs[53] = TokenConfig("TR", "Tootsie Roll Industries, Inc. ST0x", "tTR");
-        configs[54] = TokenConfig("WEN", "The Wendy's Company ST0x", "tWEN");
-        configs[55] = TokenConfig("FGI", "FGI Industries Ltd. ST0x", "tFGI");
+        configs[46] = TokenConfig("PLBY", "Playboy, Inc. ST0x", "tPLBY");
+        configs[47] = TokenConfig("TR", "Tootsie Roll Industries, Inc. ST0x", "tTR");
+        configs[48] = TokenConfig("WEN", "The Wendy's Company ST0x", "tWEN");
+        configs[49] = TokenConfig("FGI", "FGI Industries Ltd. ST0x", "tFGI");
         // tBIRD — Smartbird, Inc. is the former Allbirds, Inc. (renamed 2026, same
         // Nasdaq listing); name derived the way sft-ops derives it
         // (`"<metadata.name> ST0x"`, `"t<code>"`) from sft-ops `metadata/bird.json`.
-        configs[56] = TokenConfig("BIRD", "Smartbird, Inc. ST0x", "tBIRD");
+        configs[50] = TokenConfig("BIRD", "Smartbird, Inc. ST0x", "tBIRD");
         // tSPY — name derived from sft-ops `metadata/spy.json` the way CD derives it
         // (`"<metadata.name> ST0x"`, `"t<code>"`); verified against the live Base vault.
-        configs[57] = TokenConfig("SPY", "State Street SPDR S&P 500 ETF Trust ST0x", "tSPY");
+        configs[51] = TokenConfig("SPY", "State Street SPDR S&P 500 ETF Trust ST0x", "tSPY");
         // tSNES — name derived from sft-ops `metadata/snes.json` the way CD derives it;
         // verified against the live Base vault.
-        configs[58] = TokenConfig("SNES", "SenesTech, Inc. ST0x", "tSNES");
+        configs[52] = TokenConfig("SNES", "SenesTech, Inc. ST0x", "tSNES");
     }
 }
