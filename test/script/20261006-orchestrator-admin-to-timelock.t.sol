@@ -19,6 +19,15 @@ import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTestSafeBundle} from "../lib/LibTestSafeBundle.sol";
 
+/// @notice The admin-move deadline passed with this chain still pending.
+/// Execute the bundle, extend the deadline, or delete the invariant.
+/// @param network The chain still pending.
+error AdminMoveOverdue(string network);
+
+/// @dev 2026-11-01T00:00:00Z: past this, a chain that has not moved the
+/// orchestrator admin red-lines cron instead of passing PENDING forever.
+uint256 constant ADMIN_MOVE_DEADLINE = 1_793_491_200;
+
 /// @title OrchestratorAdminToTimelockTest
 /// @notice The admin move on every deployment network at head, walking the
 /// line: before the EMERGENCY grant the script refuses; with the grant
@@ -40,6 +49,10 @@ contract OrchestratorAdminToTimelockTest is Test {
 
     function assertMove(string memory network) internal {
         vm.createSelectFork(network);
+        assertMoveOnActiveFork(network);
+    }
+
+    function assertMoveOnActiveFork(string memory network) internal {
         OrchestratorAdminToTimelockHarness script = new OrchestratorAdminToTimelockHarness();
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
@@ -58,9 +71,23 @@ contract OrchestratorAdminToTimelockTest is Test {
             console2.log(string.concat("PENDING [", network, "]: EMERGENCY grant not executed; move refused"));
             vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.head(safe)));
             script.callPreflight();
+            // Out of order on chain (Phase 2 signed at a lower nonce than
+            // Phase 1, or imported where Phase 1 is still queued): the
+            // registry refuses the record, so the whole bundle reverts and
+            // the admin does not move.
+            SafeTx[] memory early = script.callAuthorBundle(safe, timelock);
+            vm.expectRevert();
+            this.externalExecute(safe, early);
+            assertTrue(ORCHESTRATOR.hasRole(bytes32(0), safe), "out-of-order bundle moved the admin");
             executeEmergencyGrant(safe);
         }
 
+        // A date on a rollout plan, not a race: the window is days wide, so the
+        // seconds a validator could skew cannot change which side of it we are on.
+        // forge-lint: disable-next-line(block-timestamp)
+        if (block.timestamp >= ADMIN_MOVE_DEADLINE) {
+            revert AdminMoveOverdue(network);
+        }
         console2.log(string.concat("PENDING [", network, "]: authoring, verifying and executing the move"));
         uint256 preRun = vm.snapshotState();
         script.run();
@@ -145,5 +172,32 @@ contract OrchestratorAdminToTimelockTest is Test {
         vm.writeFile(tamperedPath, tampered);
         vm.expectPartialRevert(TxBuilderArtifactMismatch.selector);
         script.verify(tamperedPath);
+    }
+
+    /// @notice External shim: execute a bundle through the Safe so
+    /// `vm.expectRevert` can observe the revert.
+    function externalExecute(address safe, SafeTx[] memory txs) external {
+        LibTestSafeBundle.execute(IGnosisSafe(safe), txs, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
+    }
+
+    /// @notice A chain still pending at the deadline red-lines.
+    function testPendingPastDeadlineIsOverdue() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) != 0) {
+            console2.log("SPENT: the admin move has executed on this chain");
+            return;
+        }
+        if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0) {
+            executeEmergencyGrant(safe);
+        }
+        vm.warp(ADMIN_MOVE_DEADLINE);
+        vm.expectRevert(abi.encodeWithSelector(AdminMoveOverdue.selector, LibRainDeploy.BASE));
+        this.externalAssertMoveOnActiveFork(LibRainDeploy.BASE);
+    }
+
+    /// @notice External shim so `vm.expectRevert` can see the helper's revert.
+    function externalAssertMoveOnActiveFork(string memory network) external {
+        assertMoveOnActiveFork(network);
     }
 }

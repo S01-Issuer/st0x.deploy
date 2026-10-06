@@ -18,8 +18,10 @@ import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
 /// @notice The Safe's line in the migration registry is not at the
 /// orchestrator EMERGENCY grant, which this migration is applied onto:
-/// either the grant has not executed on this chain, or this bundle already
-/// has.
+/// the grant has not executed on this chain, this bundle already has, or
+/// another Safe-recorded migration has landed after the grant. In the last
+/// case this move can never apply onto the line as written and has to be
+/// re-authored onto the new head.
 /// @param head The line's head.
 error UnexpectedMigrationLine(bytes32 head);
 
@@ -73,10 +75,13 @@ error OrchestratorGovernanceNotProven(string reason);
 /// since revoked is the Safe. A third holder would keep immediate admin power
 /// after this move.
 ///
-/// **Execute on every chain before the per-role-admin orchestrator upgrade
-/// is scheduled.** If that upgrade lands first, this script refuses there and
-/// the Safe, still `DEFAULT_ADMIN_ROLE`, can call `migrate(safe)` directly
-/// (see `docs/TIMELOCK.md`).
+/// **Execute on every chain before any upgrade of the orchestrator, receipt
+/// vault or receipt beacon is scheduled.** The pre-flight pins the 0.1.30
+/// orchestrator implementation and the vault logic it was built against
+/// (`vaultLogicIsExpected`), so after any such upgrade this script refuses
+/// there; for the per-role-admin orchestrator upgrade the Safe, still
+/// `DEFAULT_ADMIN_ROLE`, can then call `migrate(safe)` directly (see
+/// `docs/TIMELOCK.md`).
 ///
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261006-orchestrator-admin-to-timelock` per chain, only after
@@ -197,6 +202,22 @@ contract OrchestratorAdminToTimelock is Script {
         }
 
         TimelockController controller = TimelockController(payable(timelock));
+        // The delay is the timelock's, not the script's: scheduling with less
+        // than the pinned minimum must revert.
+        if (controller.getMinDelay() != LibTimelockInvariants.TIMELOCK_MIN_DELAY) {
+            revert OrchestratorGovernanceNotProven("the timelock's minimum delay is not the pinned 48h");
+        }
+        vm.prank(address(safe));
+        // slither-disable-next-line low-level-calls
+        (bool shortOk,) = timelock.call(
+            abi.encodeCall(
+                TimelockController.schedule,
+                (orchestrator, 0, grant, bytes32(0), PROOF_SALT, LibTimelockInvariants.TIMELOCK_MIN_DELAY - 1)
+            )
+        );
+        if (shortOk) {
+            revert OrchestratorGovernanceNotProven("a grant schedules with less than the minimum delay");
+        }
         bytes32 id = controller.hashOperation(orchestrator, 0, grant, bytes32(0), PROOF_SALT);
         LibSafeOps.simulateNPlus1(
             safe,

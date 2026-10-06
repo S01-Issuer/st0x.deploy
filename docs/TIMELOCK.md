@@ -244,8 +244,11 @@ records imply:
 timelock; who may hold them is delay-gated, in both directions. Revoking a
 leaked `MINT` or `BURN` key is also a 48h timelock operation; the orchestrator
 has no pause, and `EMERGENCY` covers only withdraw, sweep and `setBurnIndex`.
-The one immediate lever is the key's own `renounceRole`, which the legitimate
-holder can still call.
+The immediate levers are the key's own `renounceRole`, which the legitimate
+holder can still call, and the Safe's direct `CERTIFY` on the authoriser:
+forcing a token's certification to expire blocks ordinary transfers of that
+token, which stops the orchestrator delivering mints of it, but it freezes every
+holder of that token too.
 
 The two steps are separate bundles by choice: the `EMERGENCY` grant is needed
 now and is signed on its own, while the admin move is a separate governance
@@ -270,11 +273,12 @@ none of them. Because each `*_ADMIN` administers itself, `DEFAULT_ADMIN_ROLE`
 cannot take one back once granted, so `migrate` must be called with the timelock
 as `admin`.
 
-- **Step 2 must execute on every chain before that upgrade is scheduled.** If
-  the upgrade lands first, step 2 refuses there (its pre-flight pins the 0.1.30
-  implementation and the current role admins), the Safe keeps
-  `DEFAULT_ADMIN_ROLE`, and it can call `migrate(safe)` directly, handing itself
-  the self-administered `*_ADMIN` roles.
+- **Step 2 must execute on every chain before that upgrade, or any upgrade of
+  the orchestrator, receipt-vault or receipt beacon, is scheduled.** If one
+  lands first, step 2 refuses there (its pre-flight pins the 0.1.30
+  implementation, the vault logic it was built against and the current role
+  admins), the Safe keeps `DEFAULT_ADMIN_ROLE`, and it can call `migrate(safe)`
+  directly, handing itself the self-administered `*_ADMIN` roles.
 - With step 2 executed, the beacon upgrade and `migrate(timelock)` are both
   timelock operations and go in one `scheduleBatch`. In that implementation
   `MINT_ADMIN` also sets the mint caps and the mint weighting, and `mint`
