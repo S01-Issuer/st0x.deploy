@@ -24,6 +24,7 @@ import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 import {LibProdTokenConfig, TokenConfig, Region} from "../../src/lib/LibProdTokenConfig.sol";
 import {DeployMissingTokensHarness} from "./DeployMissingTokensHarness.sol";
+import {EuAuthoriserNotReady} from "../../src/lib/LibEuAuthoriserInvariants.sol";
 
 /// @title DeployMissingTokensTest
 /// @notice Coverage for the unified token-copy script. The selection joins
@@ -455,6 +456,24 @@ contract DeployMissingTokensTest is Test {
         vm.mockCall(RECEIPT_VAULT, abi.encodeWithSignature("authorizer()"), abi.encode(AUTHORISER));
         vm.mockCall(RECEIPT_VAULT, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(OWNER));
         script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, OWNER);
+    }
+
+    function testAuthoriserForKeepsSharedAuthoriserForUsTokens() external view {
+        assertEq(harness.authoriserFor(Region.US, AUTHORISER), AUTHORISER);
+    }
+
+    function testAuthoriserForRefusesEuAssetWhileItsAuthoriserIsUnpinned() external {
+        uint256[4] memory chains = [
+            LibSafeInvariants.ETHEREUM_CHAIN_ID,
+            LibSafeInvariants.HYPEREVM_CHAIN_ID,
+            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
+            LibSafeInvariants.BSC_CHAIN_ID
+        ];
+        for (uint256 i = 0; i < chains.length; i++) {
+            vm.chainId(chains[i]);
+            vm.expectRevert(abi.encodeWithSelector(EuAuthoriserNotReady.selector, address(0)));
+            harness.authoriserFor(Region.EU, AUTHORISER);
+        }
     }
 
     /// @notice A `Deployment(sender, asset, wrapper)` log as the unified

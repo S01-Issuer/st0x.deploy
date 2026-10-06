@@ -4,6 +4,8 @@ pragma solidity ^0.8.25;
 
 import {IOwnable} from "../interface/IOwnable.sol";
 import {IAuthorisable} from "../interface/IAuthorisable.sol";
+import {LibEuAuthoriserInvariants, EuAuthoriserNotReady} from "./LibEuAuthoriserInvariants.sol";
+import {LibProdTokenConfig, Region} from "./LibProdTokenConfig.sol";
 
 /// @notice One production token's contract triple on a single chain, keyed
 /// by the underlying ticker. The underlying symbol (e.g. "MSTR", not
@@ -2345,11 +2347,17 @@ library LibTokenInvariants {
     /// table + that chain's authoriser clone.
     /// @param tokens The token table whose receipt vaults are checked.
     /// @param expected The authoriser every receipt vault must share.
+    /// @dev EU assets are expected on the EU assets authoriser.
     function assertUniformAuthoriser(TokenInstance[] memory tokens, address expected) internal view {
         for (uint256 i = 0; i < tokens.length; i++) {
+            address want = expected;
+            if (LibProdTokenConfig.regionOf(tokens[i].underlying) == Region.EU) {
+                want = LibEuAuthoriserInvariants.euAuthoriserForChainId(block.chainid);
+                if (want == address(0)) revert EuAuthoriserNotReady(want);
+            }
             address actual = IAuthorisable(tokens[i].receiptVault).authorizer();
-            if (actual != expected) {
-                revert ReceiptVaultAuthoriserMismatch(tokens[i].receiptVault, expected, actual);
+            if (actual != want) {
+                revert ReceiptVaultAuthoriserMismatch(tokens[i].receiptVault, want, actual);
             }
         }
     }

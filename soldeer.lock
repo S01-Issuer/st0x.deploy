@@ -41,6 +41,13 @@ checksum = "6b02e2b87983e196bc88cb8fb802a2720b252783429567864cd13336167c369d"
 integrity = "be6a3343d0ea247d8b495b584cd21c3bf64f0a1396ca21aaa8ce31715df29842"
 
 [[dependencies]]
+name = "rain-factory-deploy"
+version = "0.1.10"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-factory-deploy/0_1_10_21-08-2026_16:58:58_rain.factory.zip"
+checksum = "febc1e6d7e1af5792633c60859cd294896926675abcc671997b30d6efb3ed117"
+integrity = "a498f66035f73f537cb95a86e4add857a80a185f27e57cb9a14f97c628fbbfd1"
+
+[[dependencies]]
 name = "rain-math-fixedpoint"
 version = "0.2.0"
 url = "https://soldeer-revisions.s3.amazonaws.com/rain-math-fixedpoint/0_2_0_09-05-2026_21:16:31_rain.math.zip"

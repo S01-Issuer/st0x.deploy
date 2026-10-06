@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {DeployMissingTokens} from "../../script/20260807-deploy-missing-tokens.s.sol";
 import {TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
-import {TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
+import {TokenConfig, Region} from "../../src/lib/LibProdTokenConfig.sol";
 
 /// @dev Exposes the script's internals for the pure selection tests.
 contract DeployMissingTokensHarness is DeployMissingTokens {
@@ -35,6 +35,10 @@ contract DeployMissingTokensHarness is DeployMissingTokens {
     /// @return The validated authoriser for the active chain.
     function assertAuthoriserReady() external view returns (address) {
         return _assertAuthoriserReady();
+    }
+
+    function authoriserFor(Region region, address sharedAuthoriser) external view returns (address) {
+        return _authoriserFor(region, sharedAuthoriser);
     }
 
     /// @notice The script's `_readDeployment()`, externally callable.

@@ -5,6 +5,7 @@ pragma solidity ^0.8.25;
 import {IGnosisSafe} from "../interface/IGnosisSafe.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
+import {LibEuAuthoriserInvariants} from "./LibEuAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "./LibTokenInvariants.sol";
@@ -49,6 +50,9 @@ library LibInvariants {
             LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, LibAuthoriserInvariants.STOX_PROD_AUTHORISER
         );
         LibAuthoriserInvariants.assertAll();
+        LibEuAuthoriserInvariants.assertPinnedAuthoriser(
+            LibSafeInvariants.BASE_CHAIN_ID, address(safe), LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK
+        );
     }
 
     /// @notice Multichain full-production-state pre-flight — the
@@ -93,6 +97,7 @@ library LibInvariants {
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
         LibTokenInvariants.assertAll(tokens, timelock, authoriser);
         LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe, timelock);
+        LibEuAuthoriserInvariants.assertPinnedAuthoriser(block.chainid, safe, timelock);
     }
 
     /// @notice Full-args Base bundle. Use when overriding the Safe-side
@@ -112,5 +117,8 @@ library LibInvariants {
             LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, LibAuthoriserInvariants.STOX_PROD_AUTHORISER
         );
         LibAuthoriserInvariants.assertAll();
+        LibEuAuthoriserInvariants.assertPinnedAuthoriser(
+            LibSafeInvariants.BASE_CHAIN_ID, address(safe), LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK
+        );
     }
 }

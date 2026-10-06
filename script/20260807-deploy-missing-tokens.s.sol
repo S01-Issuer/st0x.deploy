@@ -17,8 +17,9 @@ import {IStoxUnifiedDeployerV1} from "../src/interface/IStoxUnifiedDeployerV1.so
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
-import {LibProdTokenConfig, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
+import {LibProdTokenConfig, TokenConfig, Region} from "../src/lib/LibProdTokenConfig.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
+import {LibEuAuthoriserInvariants} from "../src/lib/LibEuAuthoriserInvariants.sol";
 
 /// @notice Pre-flight failed: a required deployer contract has no runtime
 /// code at its pinned 0.1.1 address on the active fork.
@@ -119,6 +120,7 @@ error AuthoriserNotWired(address receiptVault, address expected, address actual)
 /// `transferOwnership(target chain's governance timelock)`. One deploy-key
 /// broadcast, no Safe signature. Logs each
 /// (underlying, receipt, receiptVault, wrapped) tuple for the pin.
+/// EU assets are wired to the EU assets authoriser instead.
 contract DeployMissingTokens is Script {
     /// @notice Assert a deployer contract is present at its pinned address.
     /// @param deployer The pinned deployer address to check.
@@ -172,6 +174,13 @@ contract DeployMissingTokens is Script {
         ) {
             revert AuthoriserNotReady(authoriser);
         }
+    }
+
+    function _authoriserFor(Region region, address sharedAuthoriser) internal view returns (address) {
+        if (region == Region.EU) {
+            return LibEuAuthoriserInvariants.activeChainEuAuthoriser();
+        }
+        return sharedAuthoriser;
     }
 
     /// @notice Select the tokens on Base that the target chain does not have,
@@ -318,6 +327,11 @@ contract DeployMissingTokens is Script {
             LibProdTokenConfig.productionTokenConfigs(), LibTokenInvariants.productionTokensBase(), _targetTokens()
         );
 
+        address[] memory authorisers = new address[](configs.length);
+        for (uint256 i = 0; i < configs.length; i++) {
+            authorisers[i] = _authoriserFor(configs[i].region, authoriser);
+        }
+
         vm.startBroadcast();
 
         // Deployer identity — inside `vm.startBroadcast()` msg.sender
@@ -353,15 +367,16 @@ contract DeployMissingTokens is Script {
             // Wire onto the authoriser (deploy key is still owner), then
             // relinquish ownership to the timelock. Order matters: `setAuthorizer`
             // is `onlyOwner`, so it must precede the handoff.
-            ISetAuthorizer(receiptVault).setAuthorizer(IAuthorizeV1(authoriser));
+            ISetAuthorizer(receiptVault).setAuthorizer(IAuthorizeV1(authorisers[i]));
             Ownable(receiptVault).transferOwnership(timelock);
-            assertHandoffLanded(receiptVault, authoriser, timelock);
+            assertHandoffLanded(receiptVault, authorisers[i], timelock);
 
             console2.log("==== TOKEN DEPLOYED ====");
             console2.log("underlying:", cfg.underlying);
             console2.log("receipt (ERC-1155):", vm.toString(receipt));
             console2.log("receiptVault:", vm.toString(receiptVault));
             console2.log("wrappedTokenVault:", vm.toString(wrapped));
+            console2.log("authoriser:", vm.toString(authorisers[i]));
         }
 
         vm.stopBroadcast();
