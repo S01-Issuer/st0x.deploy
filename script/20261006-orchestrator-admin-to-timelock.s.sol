@@ -57,9 +57,13 @@ error OrchestratorGovernanceNotProven(string reason);
 /// `grantRole(DEFAULT_ADMIN, x)` hands admin out with no further delay, and a
 /// `revokeRole(DEFAULT_ADMIN, timelock)` leaves the orchestrator without an
 /// admin. List them with
-/// `cast logs --address <timelock> 'CallScheduled(bytes32,uint256,address,uint256,bytes,bytes32,uint256)' --rpc-url <network>`,
-/// keep those whose `target` is the orchestrator, and cancel every one whose
-/// id is not `isOperationDone`.
+/// `cast logs --from-block <timelock deploy block> --address <timelock> 'CallScheduled(bytes32,uint256,address,uint256,bytes,bytes32,uint256)' --rpc-url <network>`
+/// (chunk the range on RPCs that limit `eth_getLogs`), keep those whose
+/// `target` is the orchestrator, dedupe the ids (a `scheduleBatch` logs its
+/// id once per call), and cancel exactly the ids for which
+/// `isOperationPending(id)` is true. A cancelled operation reads back as
+/// Unset and `cancel` reverts on anything not pending, so including a
+/// cancelled or done id reverts the whole Safe transaction.
 ///
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261006-orchestrator-admin-to-timelock` per chain, only after
