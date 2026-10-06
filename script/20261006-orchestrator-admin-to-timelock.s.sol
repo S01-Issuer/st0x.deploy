@@ -65,6 +65,19 @@ error OrchestratorGovernanceNotProven(string reason);
 /// Unset and `cancel` reverts on anything not pending, so including a
 /// cancelled or done id reverts the whole Safe transaction.
 ///
+/// **Before signing: confirm the Safe is the only `DEFAULT_ADMIN_ROLE`
+/// holder.** Membership is not enumerable, so the invariants check only the
+/// Safe and the timelock. List
+/// `cast logs --from-block <orchestrator deploy block> --address <orchestrator> 'RoleGranted(bytes32,address,address)' 0x0000000000000000000000000000000000000000000000000000000000000000 --rpc-url <network>`
+/// and the same for `RoleRevoked`, and check every account granted and not
+/// since revoked is the Safe. A third holder would keep immediate admin power
+/// after this move.
+///
+/// **Execute on every chain before the per-role-admin orchestrator upgrade
+/// is scheduled.** If that upgrade lands first, this script refuses there and
+/// the Safe, still `DEFAULT_ADMIN_ROLE`, can call `migrate(safe)` directly
+/// (see `docs/TIMELOCK.md`).
+///
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261006-orchestrator-admin-to-timelock` per chain, only after
 /// `20261006-grant-orchestrator-emergency` has executed there.
