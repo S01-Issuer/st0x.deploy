@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
+import {LibTokenInvariants} from "../../../src/lib/LibTokenInvariants.sol";
 
 /// @title LibTokenInvariantsHarness
 /// @notice External-call shim around the internal library so

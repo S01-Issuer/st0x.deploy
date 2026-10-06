@@ -3,9 +3,9 @@
 pragma solidity ^0.8.25;
 
 import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
-import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
+import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {IST0xOrchestratorV1} from "../interface/IST0xOrchestratorV1.sol";
 
@@ -25,12 +25,6 @@ error OrchestratorBeaconMismatch(address expected, address actual);
 /// @param expected The pinned 0.1.30 implementation.
 /// @param actual The implementation the beacon reports.
 error OrchestratorBeaconImplMismatch(address expected, address actual);
-
-/// @notice The orchestrator beacon is not owned by the chain's governance
-/// timelock.
-/// @param expected The chain's timelock.
-/// @param actual The beacon's owner.
-error OrchestratorBeaconOwnerMismatch(address expected, address actual);
 
 /// @notice The pinned orchestrator instance has no runtime code on the
 /// active chain.
@@ -96,16 +90,14 @@ library LibOrchestratorInvariants {
             revert OrchestratorBeaconMismatch(ST0X_ORCHESTRATOR_BEACON, beacon);
         }
 
-        address impl = IBeacon(beacon).implementation();
-        if (impl != LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30) {
-            revert OrchestratorBeaconImplMismatch(LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30, impl);
-        }
-
-        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        address owner = Ownable(beacon).owner();
-        if (owner != timelock) {
-            revert OrchestratorBeaconOwnerMismatch(timelock, owner);
-        }
+        // Codehash first, then owner (the chain's timelock) and implementation,
+        // through the shared beacon check.
+        LibBeaconInvariants.assertBeaconInvariants(
+            beacon,
+            LibTimelockInvariants.timelockForChainId(block.chainid),
+            LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30,
+            LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30
+        );
     }
 
     /// @notice Assert the pinned orchestrator instance on the active chain:

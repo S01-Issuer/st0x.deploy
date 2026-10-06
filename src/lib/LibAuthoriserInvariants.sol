@@ -245,8 +245,7 @@ library LibAuthoriserInvariants {
     /// `expectedGrants(tokenOwnerSafe, adminHolder)` is held on the supplied
     /// authoriser, that no named principal — the Safe, the admin holder,
     /// the service signer, the orchestrator — holds `DEFAULT_ADMIN_ROLE`,
-    /// and that when the admin holder is distinct from the Safe, the Safe
-    /// retains NO `_ADMIN`
+    /// and that the Safe holds NO `_ADMIN`
     /// entry (exclusive holding — a retained copy would let the Safe mutate
     /// the grant map without the admin holder's delay). This is the
     /// assertion surface every production consumer calls with the chain's
@@ -282,17 +281,16 @@ library LibAuthoriserInvariants {
                 revert ExpectedGrantMissing(authoriser, grants[i].role, grants[i].grantee);
             }
         }
-        // Exclusive `_ADMIN` holding: with a distinct admin holder, a Safe
-        // that retains any admin entry can grant or revoke action roles
-        // directly, bypassing the delay the admin holder exists to impose.
-        // The slice is positional (the map's leading `ADMIN_ROLE_COUNT`
-        // entries) rather than matched by grantee address, which would
-        // mis-slice if the admin holder aliased another grantee.
-        if (adminHolder != tokenOwnerSafe) {
-            for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
-                if (acl.hasRole(grants[i].role, tokenOwnerSafe)) {
-                    revert UnexpectedRetainedAdminGrant(authoriser, grants[i].role, tokenOwnerSafe);
-                }
+        // Exclusive `_ADMIN` holding: a Safe that holds any admin entry can
+        // grant or revoke action roles directly, bypassing the delay the admin
+        // holder exists to impose. Unconditional, so passing the Safe as the
+        // admin holder can never assert the pre-timelock state. The slice is
+        // positional (the map's leading `ADMIN_ROLE_COUNT` entries) rather
+        // than matched by grantee address, which would mis-slice if the admin
+        // holder aliased another grantee.
+        for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
+            if (acl.hasRole(grants[i].role, tokenOwnerSafe)) {
+                revert UnexpectedRetainedAdminGrant(authoriser, grants[i].role, tokenOwnerSafe);
             }
         }
     }

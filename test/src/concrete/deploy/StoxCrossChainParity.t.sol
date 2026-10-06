@@ -117,7 +117,7 @@ struct ChainLegs {
 ///    receipt + wrapped wiring is internally consistent
 ///    (`wrapped.asset() == receiptVault`); every receipt vault's
 ///    `authorizer()` is the chain's pinned V4 clone and its `owner()` is
-///    the chain's token-owner Safe; all of a chain's proxies share one
+///    the chain's governance timelock; all of a chain's proxies share one
 ///    runtime codehash per leg (beacon proxies — the codehash embeds the
 ///    beacon address, so it is uniform WITHIN a chain but legitimately
 ///    differs ACROSS chains; cross-chain implementation parity is asserted
@@ -409,7 +409,8 @@ contract StoxCrossChainParityTest is Test {
     ///    Safe): the clone codehash + the role-grant map. Assertable as soon as
     ///    the clone is up — it does NOT wait on the tokens.
     ///  - **Token leg** (needs Safe + clone + the full token table): ownership
-    ///    by the Safe, the clone as sole authoriser, config + beacon.
+    ///    by the governance timelock, the clone as sole authoriser, config +
+    ///    beacon.
     /// Skipping placeholder legs is what lets the whole stack merge green: an
     /// un-bootstrapped chain skips every leg, and each pin PR turns its leg on.
     /// @param label Human chain name, used in the PENDING logs.

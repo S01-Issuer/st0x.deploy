@@ -69,7 +69,7 @@ contract LibTokenInvariantsTest is Test {
     /// production receipt vaults).
     function testInvertedUniformOwnershipDrift() external {
         selectBaseFork();
-        address expectedOwner = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
+        address expectedOwner = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
         address rogueOwner = address(0xBADC0DE);
         address victim = LibTokenInvariants.MSTR_RECEIPT_VAULT;
         vm.mockCall(victim, abi.encodeWithSelector(IOwnable.owner.selector), abi.encode(rogueOwner));

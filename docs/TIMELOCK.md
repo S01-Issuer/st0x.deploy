@@ -95,8 +95,8 @@ Every pin is written with its chain arm, derived from the frozen creation
 bytecode and that chain's Safe pin before any deploy —
 `testPinsMatchDerivedAddresses` asserts each equality unconditionally, so a
 wrong or zeroed pin cannot survive CI. A zero pin is never a legitimate phase:
-every consumer (the deploy pre-flight, the migration authoring, the
-migration-window suite) refuses it as a reverted or never-hydrated arm rather
+every consumer (the deploy pre-flight, the migration authoring,
+`assertTimelockState`) refuses it as a reverted or never-hydrated arm rather
 than proceeding against a wrong address. All five timelocks are live at their
 pins.
 
