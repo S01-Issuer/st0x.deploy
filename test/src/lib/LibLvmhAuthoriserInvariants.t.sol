@@ -29,7 +29,7 @@ contract RoleOracle {
 }
 
 /// @title LibLvmhAuthoriserInvariantsTest
-/// @notice Fork-free coverage of the tLVMH role map: its exact shape, the
+/// @notice Fork-free coverage of the tMC role map: its exact shape, the
 /// exclusivity checks, and the unset-pin behaviour every consumer relies on.
 contract LibLvmhAuthoriserInvariantsTest is Test {
     address constant SAFE = address(0x5AFE);
@@ -74,8 +74,8 @@ contract LibLvmhAuthoriserInvariantsTest is Test {
         assertEq(g[12].grantee, LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C);
         for (uint256 i = 0; i < g.length; i++) {
             if (g[i].role == keccak256("DEPOSIT") || g[i].role == keccak256("WITHDRAW")) {
-                assertTrue(g[i].grantee != LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C, "3d0c mints tLVMH");
-                assertTrue(g[i].grantee != LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR, "orchestrator mints tLVMH");
+                assertTrue(g[i].grantee != LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C, "3d0c mints tMC");
+                assertTrue(g[i].grantee != LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR, "orchestrator mints tMC");
             }
         }
     }
@@ -209,7 +209,7 @@ contract LibLvmhAuthoriserInvariantsTest is Test {
     }
 
     /// @notice Every pin is unset until its broadcast lands, and an unset pin
-    /// is never "ready" — the copy script refuses tLVMH on it.
+    /// is never "ready" — the copy script refuses tMC on it.
     function testPinsUnsetAndNotReady() external {
         uint256[5] memory chains = [
             LibSafeInvariants.BASE_CHAIN_ID,
@@ -240,7 +240,7 @@ contract LibLvmhAuthoriserInvariantsTest is Test {
     }
 
     function testIsLvmh() external pure {
-        assertTrue(LibLvmhAuthoriserInvariants.isLvmh("LVMH"));
+        assertTrue(LibLvmhAuthoriserInvariants.isLvmh("MC"));
         assertFalse(LibLvmhAuthoriserInvariants.isLvmh("MC.PA"));
         assertFalse(LibLvmhAuthoriserInvariants.isLvmh("lvmh"));
     }
@@ -249,9 +249,9 @@ contract LibLvmhAuthoriserInvariantsTest is Test {
         LibTokenInvariants.assertUniformAuthoriser(tokens, expected);
     }
 
-    /// @notice The uniform-authoriser invariant expects a tLVMH row on the
-    /// chain's dedicated tLVMH authoriser and every other row on the shared
-    /// one — so a tLVMH vault wired to the SHARED authoriser is drift.
+    /// @notice The uniform-authoriser invariant expects a tMC row on the
+    /// chain's dedicated tMC authoriser and every other row on the shared
+    /// one — so a tMC vault wired to the SHARED authoriser is drift.
     function testUniformAuthoriserRoutesLvmhToItsOwnAuthoriser() external {
         vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         address shared = address(0x5AA4ED);
@@ -259,7 +259,7 @@ contract LibLvmhAuthoriserInvariantsTest is Test {
         address vaultL = address(0xA2);
         TokenInstance[] memory tokens = new TokenInstance[](2);
         tokens[0] = TokenInstance("SNES", address(0), vaultA, address(0));
-        tokens[1] = TokenInstance("LVMH", address(0), vaultL, address(0));
+        tokens[1] = TokenInstance("MC", address(0), vaultL, address(0));
         vm.mockCall(vaultA, abi.encodeWithSignature("authorizer()"), abi.encode(shared));
         vm.mockCall(vaultL, abi.encodeWithSignature("authorizer()"), abi.encode(shared));
         address want = LibLvmhAuthoriserInvariants.lvmhAuthoriserForChainId(block.chainid);

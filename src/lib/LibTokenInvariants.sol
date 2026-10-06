@@ -2199,8 +2199,8 @@ library LibTokenInvariants {
     /// table + that chain's authoriser clone.
     /// @param tokens The token table whose receipt vaults are checked.
     /// @param expected The authoriser every receipt vault must share.
-    /// @dev tLVMH is the one token NOT on the shared authoriser: its row is
-    /// expected on the active chain's dedicated tLVMH authoriser
+    /// @dev tMC is the one token NOT on the shared authoriser: its row is
+    /// expected on the active chain's dedicated tMC authoriser
     /// (`LibLvmhAuthoriserInvariants.lvmhAuthoriserForChainId(block.chainid)`).
     function assertUniformAuthoriser(TokenInstance[] memory tokens, address expected) internal view {
         for (uint256 i = 0; i < tokens.length; i++) {

@@ -17,7 +17,7 @@ import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
-/// @notice The active chain's tLVMH authoriser pin is already set. The script
+/// @notice The active chain's tMC authoriser pin is already set. The script
 /// deploys a NEW clone, so a second run would leave a clone nothing pins.
 /// @param pinned The hydrated pin.
 error LvmhAuthoriserPinAlreadyHydrated(address pinned);
@@ -38,7 +38,7 @@ error LvmhCloneFactoryNotReady(address factory);
 error LvmhDeployerStillHoldsRole(bytes32 role, address deployer);
 
 /// @title DeployLvmhAuthoriser
-/// @notice Deploys tLVMH's dedicated authoriser on the chain it is dispatched
+/// @notice Deploys tMC's dedicated authoriser on the chain it is dispatched
 /// against: a clone of the SAME audited 0.1.1 authoriser implementation the
 /// shared V4 authoriser clones, carrying the role map pinned in
 /// `LibLvmhAuthoriserInvariants.expectedGrants`.
@@ -48,7 +48,7 @@ error LvmhDeployerStillHoldsRole(bytes32 role, address deployer);
 ///
 ///   1. `CloneFactory.clone(impl, initialAdmin = deploy key)` — the 0.1.1
 ///      `initialize` grants the seven `_ADMIN` roles to the deploy key.
-///   2. Grant the six action grants: Safe DEPOSIT/WITHDRAW/CERTIFY, tLVMH
+///   2. Grant the six action grants: Safe DEPOSIT/WITHDRAW/CERTIFY, tMC
 ///      minter DEPOSIT/WITHDRAW, service signer 3d0c CERTIFY only.
 ///   3. Grant the seven `_ADMIN` roles to the chain's governance timelock
 ///      (`LibTimelockInvariants.timelockForChainId`) — the holder the shared
@@ -78,7 +78,7 @@ contract DeployLvmhAuthoriser is Script {
     function run() external {
         (address safe, address timelock, address impl, address factory) = preflight();
 
-        console2.log("Predicted tLVMH authoriser:", vm.toString(vm.computeCreateAddress(factory, vm.getNonce(factory))));
+        console2.log("Predicted tMC authoriser:", vm.toString(vm.computeCreateAddress(factory, vm.getNonce(factory))));
 
         vm.startBroadcast();
         // The broadcasting key, read from the cheatcode state rather than
@@ -90,7 +90,7 @@ contract DeployLvmhAuthoriser is Script {
 
         assertPostState(clone, deployer, safe, timelock);
 
-        console2.log("==== tLVMH AUTHORISER DEPLOYED ====");
+        console2.log("==== tMC AUTHORISER DEPLOYED ====");
         console2.log("chain id:", block.chainid);
         console2.log("authoriser:", vm.toString(clone));
         console2.log("codehash:", vm.toString(clone.codehash));

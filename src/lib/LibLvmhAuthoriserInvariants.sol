@@ -8,33 +8,33 @@ import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 
-/// @notice An expected `(role, grantee)` pair is missing on the tLVMH
+/// @notice An expected `(role, grantee)` pair is missing on the tMC
 /// authoriser.
 /// @param authoriser The authoriser inspected.
 /// @param role The role that should be held.
 /// @param grantee The grantee that should hold it.
 error LvmhExpectedGrantMissing(address authoriser, bytes32 role, address grantee);
 
-/// @notice A grantee holds a role the tLVMH map forbids it. This is the
+/// @notice A grantee holds a role the tMC map forbids it. This is the
 /// exclusivity check: the shared service minter and the orchestrator must
-/// not be able to mint or burn tLVMH, and only the admin holder may hold an
+/// not be able to mint or burn tMC, and only the admin holder may hold an
 /// `_ADMIN` role.
 /// @param authoriser The authoriser inspected.
 /// @param role The forbidden role.
 /// @param holder The grantee holding it.
 error LvmhForbiddenGrant(address authoriser, bytes32 role, address holder);
 
-/// @notice The active chain's tLVMH authoriser is not ready: unpinned, no
+/// @notice The active chain's tMC authoriser is not ready: unpinned, no
 /// code, or not an EIP-1167 clone of the audited 0.1.1 authoriser.
 /// @param authoriser The pinned address inspected.
 error LvmhAuthoriserNotReady(address authoriser);
 
-/// @notice The tLVMH authoriser pin was asked for on a chain without one.
+/// @notice The tMC authoriser pin was asked for on a chain without one.
 /// @param chainId The chain id.
 error UnsupportedChainForLvmhAuthoriser(uint256 chainId);
 
 /// @title LibLvmhAuthoriserInvariants
-/// @notice tLVMH is gated by its OWN authoriser on every chain rather than by
+/// @notice tMC is gated by its OWN authoriser on every chain rather than by
 /// the chain's shared V4 authoriser, so that a different minter can mint it
 /// and the shared service minter cannot. The authoriser is a clone of the
 /// same audited 0.1.1 implementation the shared authoriser clones (same
@@ -47,9 +47,9 @@ error UnsupportedChainForLvmhAuthoriser(uint256 chainId);
 ///   `20260729-migrate-governance-to-timelock` executed;
 /// - `DEPOSIT`, `WITHDRAW`, `CERTIFY`: the chain's token-owner Safe, mirroring
 ///   the shared authoriser;
-/// - `DEPOSIT`, `WITHDRAW`: the dedicated tLVMH minter;
+/// - `DEPOSIT`, `WITHDRAW`: the dedicated tMC minter;
 /// - `CERTIFY` only: the shared service signer `GRANTEE_SERVICE_3D0C`, so the
-///   sft-certify flow keeps certifying tLVMH like every other token.
+///   sft-certify flow keeps certifying tMC like every other token.
 ///
 /// Forbidden (`assertExpectedGrants` reverts `LvmhForbiddenGrant`):
 /// `DEPOSIT`/`WITHDRAW` on the service signer or the orchestrator, any action
@@ -57,18 +57,18 @@ error UnsupportedChainForLvmhAuthoriser(uint256 chainId);
 /// than the admin holder, the minter's `CERTIFY`, and `DEFAULT_ADMIN_ROLE` on
 /// every named principal.
 library LibLvmhAuthoriserInvariants {
-    /// @notice The `underlying` join key the token tables use for tLVMH.
-    string internal constant LVMH_UNDERLYING = "LVMH";
+    /// @notice The `underlying` join key the token tables use for tMC.
+    string internal constant LVMH_UNDERLYING = "MC";
 
-    /// @notice The dedicated tLVMH minter. Holds `DEPOSIT` and `WITHDRAW` on
-    /// the tLVMH authoriser only.
+    /// @notice The dedicated tMC minter. Holds `DEPOSIT` and `WITHDRAW` on
+    /// the tMC authoriser only.
     address internal constant GRANTEE_LVMH_MINTER = 0x0958d9E94D9D4139280947ACd86D4a50F13bfA8C;
 
     // -------------------------------------------------------------------------
     // Authoriser pins. TODO: hydrate each from the
     // `20261006-deploy-lvmh-authoriser` broadcast on that chain. Zero means
     // "not deployed yet": the deploy script refuses to run once a pin is set,
-    // and `20260807-deploy-missing-tokens` refuses to copy tLVMH while it is
+    // and `20260807-deploy-missing-tokens` refuses to copy tMC while it is
     // unset.
     //
     // The clone address is CREATE(CloneFactory, factory nonce). At the
@@ -80,28 +80,28 @@ library LibLvmhAuthoriserInvariants {
     // moves the address. Pin what the broadcast logs, not the prediction.
     // -------------------------------------------------------------------------
 
-    /// @notice tLVMH authoriser on Base. TODO: pin after broadcast.
+    /// @notice tMC authoriser on Base. TODO: pin after broadcast.
     address internal constant LVMH_AUTHORISER_BASE = address(0);
-    /// @notice tLVMH authoriser on Ethereum. TODO: pin after broadcast.
+    /// @notice tMC authoriser on Ethereum. TODO: pin after broadcast.
     address internal constant LVMH_AUTHORISER_ETHEREUM = address(0);
-    /// @notice tLVMH authoriser on HyperEVM. TODO: pin after broadcast.
+    /// @notice tMC authoriser on HyperEVM. TODO: pin after broadcast.
     address internal constant LVMH_AUTHORISER_HYPEREVM = address(0);
-    /// @notice tLVMH authoriser on Robinhood Chain. TODO: pin after broadcast.
+    /// @notice tMC authoriser on Robinhood Chain. TODO: pin after broadcast.
     address internal constant LVMH_AUTHORISER_ROBINHOOD = address(0);
-    /// @notice tLVMH authoriser on BNB Smart Chain. TODO: pin after broadcast.
+    /// @notice tMC authoriser on BNB Smart Chain. TODO: pin after broadcast.
     address internal constant LVMH_AUTHORISER_BSC = address(0);
 
     /// @notice Number of entries in `expectedGrants`.
     uint256 internal constant EXPECTED_GRANT_COUNT = 13;
 
-    /// @notice Whether `underlying` is tLVMH's join key.
+    /// @notice Whether `underlying` is tMC's join key.
     /// @param underlying The ticker to test.
-    /// @return True for "LVMH".
+    /// @return True for "MC".
     function isLvmh(string memory underlying) internal pure returns (bool) {
         return keccak256(bytes(underlying)) == keccak256(bytes(LVMH_UNDERLYING));
     }
 
-    /// @notice A chain's tLVMH authoriser pin, raw: zero until hydrated.
+    /// @notice A chain's tMC authoriser pin, raw: zero until hydrated.
     /// Reverts for a chain without a slot rather than falling back to the
     /// shared authoriser.
     /// @param chainId The chain id.
@@ -137,7 +137,7 @@ library LibLvmhAuthoriserInvariants {
         roles[2] = keccak256("CERTIFY");
     }
 
-    /// @notice The tLVMH authoriser's `(role, grantee)` map. The leading
+    /// @notice The tMC authoriser's `(role, grantee)` map. The leading
     /// seven entries are the `_ADMIN` slice; the rest are action grants and
     /// are what the deploy script grants before handing the admins over.
     /// @param tokenOwnerSafe The chain's token-owner Safe.
@@ -172,9 +172,9 @@ library LibLvmhAuthoriserInvariants {
         );
     }
 
-    /// @notice Assert the full tLVMH role map on `authoriser`: every expected
+    /// @notice Assert the full tMC role map on `authoriser`: every expected
     /// pair holds, and every forbidden pair does not.
-    /// @param authoriser The tLVMH authoriser.
+    /// @param authoriser The tMC authoriser.
     /// @param tokenOwnerSafe The chain's token-owner Safe.
     /// @param adminHolder The chain's `_ADMIN` holder.
     function assertExpectedGrants(address authoriser, address tokenOwnerSafe, address adminHolder) internal view {
@@ -192,7 +192,7 @@ library LibLvmhAuthoriserInvariants {
         address retired = LibAuthoriserInvariants.GRANTEE_SERVICE_1C66;
 
         // The point of the dedicated authoriser: neither the shared service
-        // minter nor the orchestrator can mint or burn tLVMH.
+        // minter nor the orchestrator can mint or burn tMC.
         _forbid(acl, authoriser, keccak256("DEPOSIT"), service);
         _forbid(acl, authoriser, keccak256("WITHDRAW"), service);
         _forbid(acl, authoriser, keccak256("DEPOSIT"), orchestrator);
@@ -236,8 +236,8 @@ library LibLvmhAuthoriserInvariants {
         }
     }
 
-    /// @notice The active chain's tLVMH authoriser, asserted hydrated, an
-    /// audited clone, and carrying exactly the tLVMH role map with this
+    /// @notice The active chain's tMC authoriser, asserted hydrated, an
+    /// audited clone, and carrying exactly the tMC role map with this
     /// chain's Safe and governance timelock.
     /// @return authoriser The validated authoriser.
     function activeChainLvmhAuthoriser() internal view returns (address authoriser) {

@@ -119,10 +119,10 @@ error AuthoriserNotWired(address receiptVault, address expected, address actual)
 /// broadcast, no Safe signature. Logs each
 /// (underlying, receipt, receiptVault, wrapped) tuple for the pin.
 ///
-/// tLVMH is the one exception to "the chain's V4 authoriser": it is wired to
+/// tMC is the one exception to "the chain's V4 authoriser": it is wired to
 /// its own dedicated authoriser (`LibLvmhAuthoriserInvariants`), whose minter
 /// is not the shared service signer. `_authoriserFor` resolves it before the
-/// broadcast, so a tLVMH copy refuses up front while that chain's dedicated
+/// broadcast, so a tMC copy refuses up front while that chain's dedicated
 /// authoriser is unpinned, undeployed, or carries the wrong role map.
 contract DeployMissingTokens is Script {
     /// @notice Assert a deployer contract is present at its pinned address.
@@ -179,10 +179,10 @@ contract DeployMissingTokens is Script {
         }
     }
 
-    /// @notice The authoriser a copied token is wired to: tLVMH's dedicated
+    /// @notice The authoriser a copied token is wired to: tMC's dedicated
     /// authoriser for `LVMH`, the chain's shared V4 authoriser for everything
     /// else.
-    /// @dev For tLVMH the dedicated authoriser is fully re-asserted (pin set,
+    /// @dev For tMC the dedicated authoriser is fully re-asserted (pin set,
     /// audited clone codehash, exact role map with this chain's Safe and
     /// timelock), reverting `LvmhAuthoriserNotReady` / `LvmhExpectedGrantMissing`
     /// / `LvmhForbiddenGrant` before anything is broadcast.

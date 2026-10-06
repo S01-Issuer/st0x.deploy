@@ -123,9 +123,9 @@ library LibProdTokenConfig {
         // tSNES — name derived from sft-ops `metadata/snes.json` the way CD derives it;
         // verified against the live Base vault.
         configs[52] = TokenConfig("SNES", "SenesTech, Inc. ST0x", "tSNES");
-        // tLVMH — authored ahead of its Base deploy (sft-ops CD). Same name as the
+        // tMC — authored ahead of its Base deploy (sft-ops CD). Same name as the
         // discarded tMC.PA; `unicode"..."` carries the ë. Gated by its own
         // authoriser (`LibLvmhAuthoriserInvariants`), not the shared one.
-        configs[53] = TokenConfig("LVMH", unicode"LVMH Moët Hennessy Louis Vuitton SE ST0x", "tLVMH");
+        configs[53] = TokenConfig("MC", unicode"LVMH Moët Hennessy Louis Vuitton SE ST0x", "tMC");
     }
 }

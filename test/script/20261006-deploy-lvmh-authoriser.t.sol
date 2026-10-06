@@ -76,11 +76,11 @@ contract DeployLvmhAuthoriserTest is Test {
         assertFalse(acl.hasRole(keccak256("CERTIFY"), minter), "minter CERTIFY");
 
         assertTrue(acl.hasRole(keccak256("CERTIFY"), service), "3d0c CERTIFY");
-        assertFalse(acl.hasRole(keccak256("DEPOSIT"), service), "3d0c must not DEPOSIT tLVMH");
-        assertFalse(acl.hasRole(keccak256("WITHDRAW"), service), "3d0c must not WITHDRAW tLVMH");
+        assertFalse(acl.hasRole(keccak256("DEPOSIT"), service), "3d0c must not DEPOSIT tMC");
+        assertFalse(acl.hasRole(keccak256("WITHDRAW"), service), "3d0c must not WITHDRAW tMC");
 
-        assertFalse(acl.hasRole(keccak256("DEPOSIT"), orchestrator), "orchestrator must not DEPOSIT tLVMH");
-        assertFalse(acl.hasRole(keccak256("WITHDRAW"), orchestrator), "orchestrator must not WITHDRAW tLVMH");
+        assertFalse(acl.hasRole(keccak256("DEPOSIT"), orchestrator), "orchestrator must not DEPOSIT tMC");
+        assertFalse(acl.hasRole(keccak256("WITHDRAW"), orchestrator), "orchestrator must not WITHDRAW tMC");
 
         address[5] memory named = [timelock, safe, minter, service, orchestrator];
         for (uint256 i = 0; i < named.length; i++) {
@@ -111,7 +111,7 @@ contract DeployLvmhAuthoriserTest is Test {
     }
 
     /// @notice A role-map drift after deploy — someone granting the shared
-    /// service signer DEPOSIT on the tLVMH authoriser via the timelock — is
+    /// service signer DEPOSIT on the tMC authoriser via the timelock — is
     /// caught by the invariant.
     function testInvariantCatchesServiceSignerDepositOnFork() external {
         address clone = _runOnFork(LibRainDeploy.BASE, LibSafeInvariants.BASE_CHAIN_ID);

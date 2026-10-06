@@ -443,7 +443,7 @@ contract DeployMissingTokensTest is Test {
         script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, SAFE);
     }
 
-    /// @notice Every token but tLVMH is wired to the chain's shared
+    /// @notice Every token but tMC is wired to the chain's shared
     /// authoriser, unchanged.
     function testAuthoriserForKeepsSharedAuthoriserForOtherTokens() external view {
         assertEq(
@@ -452,7 +452,7 @@ contract DeployMissingTokensTest is Test {
         assertEq(harness.authoriserFor("MC.PA", AUTHORISER), AUTHORISER, "only the LVMH key is special-cased");
     }
 
-    /// @notice tLVMH is never wired to the shared authoriser: while the
+    /// @notice tMC is never wired to the shared authoriser: while the
     /// chain's dedicated pin is unset the copy refuses before broadcasting.
     function testAuthoriserForRefusesLvmhWhileItsAuthoriserIsUnpinned() external {
         uint256[4] memory chains = [
@@ -464,7 +464,7 @@ contract DeployMissingTokensTest is Test {
         for (uint256 i = 0; i < chains.length; i++) {
             vm.chainId(chains[i]);
             vm.expectRevert(abi.encodeWithSelector(LvmhAuthoriserNotReady.selector, address(0)));
-            harness.authoriserFor("LVMH", AUTHORISER);
+            harness.authoriserFor("MC", AUTHORISER);
         }
     }
 
