@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensions/IERC20Metadata.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.12/src/lib/LibRainDeploy.sol";
-import {LibProdTokenConfig, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
+import {LibProdTokenConfig, TokenConfig, Region, UnknownUnderlying} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
 
 /// @title LibProdTokenConfigTest
@@ -92,5 +92,19 @@ contract LibProdTokenConfigTest is Test {
                 string.concat(configs[i].underlying, ": wrapped symbol derivation drift")
             );
         }
+    }
+
+    function testRegionOf() external pure {
+        assertEq(uint8(LibProdTokenConfig.regionOf("MC")), uint8(Region.EU));
+        assertEq(uint8(LibProdTokenConfig.regionOf("SNES")), uint8(Region.US));
+    }
+
+    function externalRegionOf(string memory underlying) external pure returns (Region) {
+        return LibProdTokenConfig.regionOf(underlying);
+    }
+
+    function testRegionOfUnknownUnderlyingReverts() external {
+        vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "MC.PA"));
+        this.externalRegionOf("MC.PA");
     }
 }
