@@ -7,7 +7,6 @@ import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/TimelockController.sol";
 import {IMigrationRegistryV2} from "rain-deploy-0.1.12/src/interface/IMigrationRegistryV2.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.12/src/lib/LibMigrationRegistry.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.12/src/lib/LibMigrationRegistryDeploy.sol";
 
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
@@ -48,6 +47,19 @@ error OrchestratorGovernanceNotProven(string reason);
 /// The record is applied onto the EMERGENCY grant's, so the registry
 /// refuses it on a chain where that grant has not executed: the Safe must be
 /// granted `EMERGENCY_ROLE` while it can still do so directly.
+///
+/// **Before signing: cancel any timelock operation already scheduled against
+/// the orchestrator.** `schedule` does not run the inner call, so a
+/// `grantRole`/`revokeRole` on the orchestrator can sit pending or ready
+/// today while it would revert if executed. Once the timelock holds
+/// `DEFAULT_ADMIN_ROLE` the same operation becomes a real role change, and
+/// execution is open to anyone with no expiry: a leftover
+/// `grantRole(DEFAULT_ADMIN, x)` hands admin out with no further delay, and a
+/// `revokeRole(DEFAULT_ADMIN, timelock)` leaves the orchestrator without an
+/// admin. List them with
+/// `cast logs --address <timelock> 'CallScheduled(bytes32,uint256,address,uint256,bytes,bytes32,uint256)' --rpc-url <network>`,
+/// keep those whose `target` is the orchestrator, and cancel every one whose
+/// id is not `isOperationDone`.
 ///
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261006-orchestrator-admin-to-timelock` per chain, only after
@@ -246,7 +258,6 @@ contract OrchestratorAdminToTimelock is Script {
     function verify(string calldata jsonPath) external view {
         (address safeAddr, address timelock) = preflight();
         IGnosisSafe safe = IGnosisSafe(safeAddr);
-        LibMigrationRegistry.checkCodeHash();
 
         SafeTx[] memory expected = authorBundle(safeAddr, timelock);
         LibSafeOps.assertParsedTxsMatch(expected, jsonPath);

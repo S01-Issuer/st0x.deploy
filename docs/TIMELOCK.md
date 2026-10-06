@@ -243,6 +243,13 @@ records imply:
 `MINT`, `BURN` and `EMERGENCY` are themselves operations and stay off the
 timelock; only who may hold them is delay-gated.
 
+The two steps are separate bundles by choice: the `EMERGENCY` grant is needed
+now and is signed on its own, while the admin move is a separate governance
+decision, signed once the grant has landed. Before signing step 2, cancel any
+timelock operation already scheduled against the orchestrator (see the script's
+NatSpec): once the timelock is admin, a leftover `grantRole` or `revokeRole`
+there becomes executable by anyone.
+
 **Per-role admin roles.** An orchestrator implementation that gives each
 operating role its own self-administered admin role (`MINT_ADMIN`, `BURN_ADMIN`,
 `EMERGENCY_ADMIN`), installed by a `migrate(admin)` callable only by
