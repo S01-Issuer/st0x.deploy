@@ -21,16 +21,23 @@ error NoGovernanceTimelockMigrationOnChain(uint256 chainId);
 /// last call of the same transaction, so the record and the change land
 /// atomically:
 ///
-/// - a migration the chain's token-owner Safe performs directly (every id
-///   here) records under the Safe, in the Safe's MultiSend;
+/// - a migration the chain's token-owner Safe performs directly records
+///   under the Safe, in the Safe's MultiSend (both orchestrator ids here);
 /// - a migration executed through the governance timelock records under the
 ///   timelock, as the last call of the scheduled batch, so it lands
 ///   atomically whoever executes the matured operation. Its invariant reads
 ///   the timelock's line.
 ///
-/// An invariant then asserts exactly the state the recorded migrations imply:
-/// `applied` answering zero means the migration has not run on this chain,
-/// and the pre-migration state must hold exactly.
+/// - a migration that ran before anything was recorded is recorded later as
+///   history, with the moment it executed (`GOVERNANCE_TIMELOCK`, written by
+///   the orchestrator EMERGENCY bundle). Until that record lands, `applied`
+///   answering zero does NOT mean it has not run, so no invariant branches
+///   on `GOVERNANCE_TIMELOCK`'s record.
+///
+/// For every id recorded with its change, an invariant asserts exactly the
+/// state the recorded migrations imply: `applied` answering zero means the
+/// migration has not run on this chain, and the pre-migration state must
+/// hold exactly.
 ///
 /// The records live in ONE registry instance: the address and code hash
 /// `LibMigrationRegistryDeploy` carries in the imported rain-deploy. A
@@ -82,31 +89,33 @@ library LibStoxMigrations {
         revert NoGovernanceTimelockMigrationOnChain(chainId);
     }
 
-    /// @notice When `safe` recorded `migration` in this repo's namespace, or
+    /// @notice When `writer` recorded `migration` in this repo's namespace, or
     /// zero if it never did. Verifies the registry's code hash first.
-    /// @param safe The writer: the chain's token-owner Safe.
+    /// @param writer The account that performed the migration: the chain's
+    /// Safe for a Safe-executed migration, its timelock for a
+    /// timelock-executed one.
     /// @param migration The migration id.
     /// @return The recorded moment, or zero.
-    function applied(address safe, bytes32 migration) internal view returns (uint256) {
-        return LibMigrationRegistry.applied(safe, NAMESPACE, migration);
+    function applied(address writer, bytes32 migration) internal view returns (uint256) {
+        return LibMigrationRegistry.applied(writer, NAMESPACE, migration);
     }
 
-    /// @notice The migration `safe`'s line in this repo's namespace was last
+    /// @notice The migration `writer`'s line in this repo's namespace was last
     /// applied onto, or `MIGRATION_HEAD_GENESIS` if it has recorded nothing.
-    /// @param safe The writer: the chain's token-owner Safe.
+    /// @param writer The account whose line to read.
     /// @return The head.
-    function head(address safe) internal view returns (bytes32) {
-        return LibMigrationRegistry.head(safe, NAMESPACE);
+    function head(address writer) internal view returns (bytes32) {
+        return LibMigrationRegistry.head(writer, NAMESPACE);
     }
 
-    /// @notice The prerequisite list for a migration applied onto `onto`
-    /// that waits on nothing outside the Safe's own line.
-    /// @param safe The writer: the chain's token-owner Safe.
+    /// @notice The prerequisite list for a migration applied onto
+    /// `headMigration` that waits on nothing outside the writer's own line.
+    /// @param writer The account writing the record.
     /// @param headMigration The head the migration is applied onto.
     /// @return prerequisites The single-entry list naming the head.
-    function onto(address safe, bytes32 headMigration) internal pure returns (Prerequisite[] memory prerequisites) {
+    function onto(address writer, bytes32 headMigration) internal pure returns (Prerequisite[] memory prerequisites) {
         prerequisites = new Prerequisite[](1);
-        prerequisites[0] = Prerequisite({writer: safe, namespace: NAMESPACE, migration: headMigration});
+        prerequisites[0] = Prerequisite({writer: writer, namespace: NAMESPACE, migration: headMigration});
     }
 
     /// @notice The genesis head, re-exported so consumers need not import
