@@ -17,9 +17,9 @@ error NoGovernanceTimelockMigrationOnChain(uint256 chainId);
 /// they applied in `rain-deploy`'s `MigrationRegistry`, and the reads the
 /// invariants branch on.
 ///
-/// A record is written by the account that performs the migration, as the
-/// last call of the same transaction, so the record and the change land
-/// atomically:
+/// A migration recorded with its change is recorded by the account that
+/// performs it, as the last call of the same transaction, so the record and
+/// the change land atomically:
 ///
 /// - a migration the chain's token-owner Safe performs directly records
 ///   under the Safe, in the Safe's MultiSend (both orchestrator ids here);
@@ -28,11 +28,11 @@ error NoGovernanceTimelockMigrationOnChain(uint256 chainId);
 ///   atomically whoever executes the matured operation. Its invariant reads
 ///   the timelock's line.
 ///
-/// - a migration that ran before anything was recorded is recorded later as
-///   history, with the moment it executed (`GOVERNANCE_TIMELOCK`, written by
-///   the orchestrator EMERGENCY bundle). Until that record lands, `applied`
-///   answering zero does NOT mean it has not run, so no invariant branches
-///   on `GOVERNANCE_TIMELOCK`'s record.
+/// The exception is a migration that ran before anything was recorded: it
+/// is recorded later as history, with the moment it executed
+/// (`GOVERNANCE_TIMELOCK`, written by the orchestrator EMERGENCY bundle).
+/// Until that record lands, `applied` answering zero does NOT mean it has
+/// not run, so no invariant branches on `GOVERNANCE_TIMELOCK`'s record.
 ///
 /// For every id recorded with its change, an invariant asserts exactly the
 /// state the recorded migrations imply: `applied` answering zero means the
