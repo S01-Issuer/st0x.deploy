@@ -4,10 +4,10 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
-import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.12/src/lib/LibRainDeploy.sol";
-import {IMigrationRegistryV2} from "rain-deploy-0.1.12/src/interface/IMigrationRegistryV2.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.12/src/lib/LibMigrationRegistryDeploy.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
+import {IMigrationRegistryV2} from "rain-deploy-0.1.15/src/interface/IMigrationRegistryV2.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.15/src/lib/LibMigrationRegistryDeploy.sol";
 
 import {
     EmergencyAlreadyGranted,
@@ -22,6 +22,16 @@ import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTestSafeBundle} from "../lib/LibTestSafeBundle.sol";
 
+/// @notice The grant deadline passed with this chain still pending: the Safe
+/// lacks `EMERGENCY_ROLE` there and the admin move cannot follow. Execute
+/// the bundle, extend the deadline, or delete the invariant.
+/// @param network The chain still pending.
+error GrantOverdue(string network);
+
+/// @dev 2026-11-01T00:00:00Z: past this, a chain that has not executed the
+/// grant red-lines cron instead of passing the PENDING branch forever.
+uint256 constant GRANT_DEADLINE = 1_793_491_200;
+
 /// @title GrantOrchestratorEmergencyTest
 /// @notice The grant on every deployment network at head. While the chain
 /// has not executed it, `run()` authors, simulates and proves the bundle,
@@ -35,6 +45,10 @@ contract GrantOrchestratorEmergencyTest is Test {
 
     function assertGrant(string memory network) internal {
         vm.createSelectFork(network);
+        assertGrantOnActiveFork(network);
+    }
+
+    function assertGrantOnActiveFork(string memory network) internal {
         GrantOrchestratorEmergencyHarness script = new GrantOrchestratorEmergencyHarness();
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
 
@@ -49,6 +63,12 @@ contract GrantOrchestratorEmergencyTest is Test {
             return;
         }
 
+        // A date on a rollout plan, not a race: the window is days wide, so the
+        // seconds a validator could skew cannot change which side of it we are on.
+        // forge-lint: disable-next-line(block-timestamp)
+        if (block.timestamp >= GRANT_DEADLINE) {
+            revert GrantOverdue(network);
+        }
         console2.log(string.concat("PENDING [", network, "]: authoring, verifying and executing the bundle"));
         uint256 preRun = vm.snapshotState();
         script.run();
@@ -164,5 +184,19 @@ contract GrantOrchestratorEmergencyTest is Test {
         vm.writeFile(tamperedPath, tampered);
         vm.expectPartialRevert(TxBuilderArtifactMismatch.selector);
         script.verify(tamperedPath);
+    }
+
+    /// @notice A chain still pending at the deadline red-lines.
+    function testPendingPastDeadlineIsOverdue() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        if (spent()) return;
+        vm.warp(GRANT_DEADLINE);
+        vm.expectRevert(abi.encodeWithSelector(GrantOverdue.selector, LibRainDeploy.BASE));
+        this.externalAssertGrantOnActiveFork(LibRainDeploy.BASE);
+    }
+
+    /// @notice External shim so `vm.expectRevert` can see the helper's revert.
+    function externalAssertGrantOnActiveFork(string memory network) external {
+        assertGrantOnActiveFork(network);
     }
 }
