@@ -10,8 +10,8 @@ After the migration executes, the timelock is:
 - the `owner()` of **every production receipt vault** — so `transferOwnership`,
   `setAuthorizer`, and every `onlyOwner` surface (including owner freezes) is
   delay-gated;
-- the `owner()` of the chain's **three in-use upgrade beacons** (receipt,
-  receipt vault, wrapped token vault) — so `upgradeTo` is delay-gated; and
+- the `owner()` of the chain's **four in-use upgrade beacons** (receipt, receipt
+  vault, wrapped token vault, orchestrator) — so `upgradeTo` is delay-gated; and
 - the **sole holder of the authoriser's seven `_ADMIN` roles** (`DEPOSIT_ADMIN`,
   `WITHDRAW_ADMIN`, `CERTIFY_ADMIN`, `CONFISCATE_SHARES_ADMIN`,
   `CONFISCATE_RECEIPT_ADMIN`, `SCHEDULE_CORPORATE_ACTION_ADMIN`,
@@ -19,12 +19,12 @@ After the migration executes, the timelock is:
   authoriser is delay-gated.
 
 **Why the beacons are in scope.** Every production token proxies through those
-three beacons, and a beacon owner can `upgradeTo` a new implementation for all
-of them in a single transaction — a hostile implementation could re-take vault
-ownership and rewrite the authoriser wiring outright. Timelocking
-`setAuthorizer` and vault ownership while leaving the beacons on the Safe would
-make the delay bypassable by design, so both surfaces move in the same atomic
-bundle and are forced by the same deadline.
+beacons, and a beacon owner can `upgradeTo` a new implementation for all of them
+in a single transaction — a hostile implementation could re-take vault ownership
+and rewrite the authoriser wiring outright. Timelocking `setAuthorizer` and
+vault ownership while leaving the beacons on the Safe would make the delay
+bypassable by design, so both surfaces move in the same atomic bundle and are
+forced by the same deadline.
 
 The Safe **keeps its three direct action roles** (`DEPOSIT`, `WITHDRAW`,
 `CERTIFY`) and the service signer keeps its operational grants: day-to-day
@@ -125,8 +125,8 @@ pins.
    — which re-derives the bundle from current chain state, asserts the artifact
    matches byte-exactly, and prints the MultiSend `SafeTxHash` at the live nonce
    to cross-check in the Safe UI. Then execute. The bundle is atomic: 7 `_ADMIN`
-   grants to the timelock → N vault `transferOwnership` → 3 beacon
-   `transferOwnership` → 7 Safe renounces.
+   grants to the timelock → N vault `transferOwnership` → one beacon
+   `transferOwnership` per in-use beacon (four) → 7 Safe renounces.
 5. **Post-execution flip** — every production invariant asserts the timelock
    exactly: vault owner (`LibTokenInvariants.assertAll` / `LibInvariants`),
    beacon owner (`LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock`,

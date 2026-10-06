@@ -127,8 +127,8 @@ struct ChainLegs {
 ///    serving the V4 impl. The beacon ADDRESSES are per-chain (they never get
 ///    upgraded — only the impl they point at does — so which deployer version
 ///    created them is irrelevant), and each is owned by THAT chain's
-///    token-owner Safe (a per-chain check; the addresses and Safe owners both
-///    differ by chain). Cross-chain parity is on where the beacons POINT:
+///    governance timelock (a per-chain check; the addresses and timelock
+///    owners both differ by chain). Cross-chain parity is on where the beacons POINT:
 ///    the receipt + receipt-vault beacon impls (address + codehash) are
 ///    asserted identical across chains, as is the authoriser clone impl.
 /// 4. **Role parity** — `LibAuthoriserInvariants.assertExpectedGrants` runs

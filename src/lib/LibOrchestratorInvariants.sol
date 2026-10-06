@@ -20,12 +20,6 @@ error OrchestratorSetDeployerMissing(address setDeployer);
 /// @param actual The beacon the set deployer reports.
 error OrchestratorBeaconMismatch(address expected, address actual);
 
-/// @notice The orchestrator beacon does not point at the audited 0.1.30
-/// orchestrator implementation.
-/// @param expected The pinned 0.1.30 implementation.
-/// @param actual The implementation the beacon reports.
-error OrchestratorBeaconImplMismatch(address expected, address actual);
-
 /// @notice The pinned orchestrator instance has no runtime code on the
 /// active chain.
 /// @param instance The pinned instance address.

@@ -20,6 +20,7 @@ import {
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
+import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 import {DeployMissingTokensHarness} from "./DeployMissingTokensHarness.sol";
@@ -457,5 +458,24 @@ contract DeployMissingTokensTest is Test {
         log.topics[0] = keccak256("Deployment(address,address,address)");
         log.data = abi.encode(address(0x5E11E4), receiptVault, wrapped);
         log.emitter = emitter;
+    }
+
+    /// @notice The handoff assertion against live production: on Robinhood
+    /// Chain every deployed vault is wired to the chain's V4 authoriser and
+    /// owned by its governance timelock, so the check passes for the timelock
+    /// and refuses the Safe — the owner this script handed vaults to before
+    /// the governance migration.
+    function testHandoffAgainstLiveTimelockOwnedVaults() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
+        DeployMissingTokensHarness forked = new DeployMissingTokensHarness();
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        address authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD;
+        LibTimelockInvariants.assertTimelockState(timelock, safe);
+        TokenInstance[] memory tokens = LibTokenInvariants.productionTokensRobinhood();
+        assertGt(tokens.length, 0, "Robinhood token table empty");
+        forked.assertHandoffLanded(tokens[0].receiptVault, authoriser, timelock);
+        vm.expectRevert(abi.encodeWithSelector(OwnershipHandoffFailed.selector, tokens[0].receiptVault, safe, timelock));
+        forked.assertHandoffLanded(tokens[0].receiptVault, authoriser, safe);
     }
 }
