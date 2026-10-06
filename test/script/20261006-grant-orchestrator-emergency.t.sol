@@ -17,7 +17,7 @@ import {GrantOrchestratorEmergencyHarness} from "./GrantOrchestratorEmergencyHar
 import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {SafeTx, TxBuilderArtifactMismatch} from "../../src/lib/LibSafeOps.sol";
+import {LibSafeOps, SafeTx, TxBuilderArtifactMismatch} from "../../src/lib/LibSafeOps.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTestSafeBundle} from "../lib/LibTestSafeBundle.sol";
@@ -140,13 +140,17 @@ contract GrantOrchestratorEmergencyTest is Test {
         vm.createSelectFork(LibRainDeploy.BASE);
         if (spent()) return;
         GrantOrchestratorEmergencyHarness script = new GrantOrchestratorEmergencyHarness();
-        uint256 preRun = vm.snapshotState();
-        script.run();
-        vm.revertToState(preRun);
-
-        string memory path = script.callArtifactPath();
-        string memory json = vm.readFile(path);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        // Built in memory and written to its own paths, so this test never
+        // reads the artifact `run()` writes for the other tests.
+        string memory json =
+            LibSafeOps.emitTxBuilderJson(safe, block.chainid, "tamper test", script.callAuthorBundle(safe));
+        string memory cleanPath =
+            string.concat("out/20261006-grant-orchestrator-emergency-clean-", vm.toString(block.chainid), ".json");
+        vm.writeFile(cleanPath, json);
+        // Control: the untampered artifact verifies, so the refusal below is
+        // the tamper's doing.
+        script.verify(cleanPath);
         string memory tampered = vm.replace(
             json,
             vm.toString(abi.encodeCall(IAccessControl.grantRole, (LibOrchestratorInvariants.EMERGENCY_ROLE, safe))),
@@ -155,7 +159,8 @@ contract GrantOrchestratorEmergencyTest is Test {
             )
         );
         assertTrue(keccak256(bytes(tampered)) != keccak256(bytes(json)), "tamper did not apply");
-        string memory tamperedPath = string.concat(path, ".tampered.json");
+        string memory tamperedPath =
+            string.concat("out/20261006-grant-orchestrator-emergency-tampered-", vm.toString(block.chainid), ".json");
         vm.writeFile(tamperedPath, tampered);
         vm.expectPartialRevert(TxBuilderArtifactMismatch.selector);
         script.verify(tamperedPath);
