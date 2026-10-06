@@ -18,6 +18,7 @@ import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibProdTokenConfig, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
+import {LibLvmhAuthoriserInvariants} from "../src/lib/LibLvmhAuthoriserInvariants.sol";
 
 /// @notice Pre-flight failed: a required deployer contract has no runtime
 /// code at its pinned 0.1.1 address on the active fork.
@@ -117,6 +118,12 @@ error AuthoriserNotWired(address receiptVault, address expected, address actual)
 /// `transferOwnership(target chain's token-owner Safe)`. One deploy-key
 /// broadcast, no Safe signature. Logs each
 /// (underlying, receipt, receiptVault, wrapped) tuple for the pin.
+///
+/// tLVMH is the one exception to "the chain's V4 authoriser": it is wired to
+/// its own dedicated authoriser (`LibLvmhAuthoriserInvariants`), whose minter
+/// is not the shared service signer. `_authoriserFor` resolves it before the
+/// broadcast, so a tLVMH copy refuses up front while that chain's dedicated
+/// authoriser is unpinned, undeployed, or carries the wrong role map.
 contract DeployMissingTokens is Script {
     /// @notice Assert a deployer contract is present at its pinned address.
     /// @param deployer The pinned deployer address to check.
@@ -170,6 +177,23 @@ contract DeployMissingTokens is Script {
         ) {
             revert AuthoriserNotReady(authoriser);
         }
+    }
+
+    /// @notice The authoriser a copied token is wired to: tLVMH's dedicated
+    /// authoriser for `LVMH`, the chain's shared V4 authoriser for everything
+    /// else.
+    /// @dev For tLVMH the dedicated authoriser is fully re-asserted (pin set,
+    /// audited clone codehash, exact role map with this chain's Safe and
+    /// timelock), reverting `LvmhAuthoriserNotReady` / `LvmhExpectedGrantMissing`
+    /// / `LvmhForbiddenGrant` before anything is broadcast.
+    /// @param underlying The token's join key.
+    /// @param sharedAuthoriser The chain's validated shared V4 authoriser.
+    /// @return The authoriser to wire.
+    function _authoriserFor(string memory underlying, address sharedAuthoriser) internal view returns (address) {
+        if (LibLvmhAuthoriserInvariants.isLvmh(underlying)) {
+            return LibLvmhAuthoriserInvariants.activeChainLvmhAuthoriser();
+        }
+        return sharedAuthoriser;
     }
 
     /// @notice Select the tokens on Base that the target chain does not have,
@@ -314,6 +338,13 @@ contract DeployMissingTokens is Script {
             LibProdTokenConfig.productionTokenConfigs(), LibTokenInvariants.productionTokensBase(), _targetTokens()
         );
 
+        // Resolved before the broadcast so a token whose authoriser is not
+        // ready aborts the run before any token lands.
+        address[] memory authorisers = new address[](configs.length);
+        for (uint256 i = 0; i < configs.length; i++) {
+            authorisers[i] = _authoriserFor(configs[i].underlying, authoriser);
+        }
+
         vm.startBroadcast();
 
         // Deployer identity — inside `vm.startBroadcast()` msg.sender
@@ -349,15 +380,16 @@ contract DeployMissingTokens is Script {
             // Wire onto the authoriser (deploy key is still owner), then
             // relinquish ownership to the Safe. Order matters: `setAuthorizer`
             // is `onlyOwner`, so it must precede the handoff.
-            ISetAuthorizer(receiptVault).setAuthorizer(IAuthorizeV1(authoriser));
+            ISetAuthorizer(receiptVault).setAuthorizer(IAuthorizeV1(authorisers[i]));
             Ownable(receiptVault).transferOwnership(safe);
-            assertHandoffLanded(receiptVault, authoriser, safe);
+            assertHandoffLanded(receiptVault, authorisers[i], safe);
 
             console2.log("==== TOKEN DEPLOYED ====");
             console2.log("underlying:", cfg.underlying);
             console2.log("receipt (ERC-1155):", vm.toString(receipt));
             console2.log("receiptVault:", vm.toString(receiptVault));
             console2.log("wrappedTokenVault:", vm.toString(wrapped));
+            console2.log("authoriser:", vm.toString(authorisers[i]));
         }
 
         vm.stopBroadcast();

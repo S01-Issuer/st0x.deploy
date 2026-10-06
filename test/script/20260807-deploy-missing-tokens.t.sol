@@ -23,6 +23,7 @@ import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 import {DeployMissingTokensHarness} from "./DeployMissingTokensHarness.sol";
+import {LvmhAuthoriserNotReady} from "../../src/lib/LibLvmhAuthoriserInvariants.sol";
 
 /// @title DeployMissingTokensTest
 /// @notice Coverage for the unified token-copy script. The selection joins
@@ -440,6 +441,31 @@ contract DeployMissingTokensTest is Test {
         vm.mockCall(RECEIPT_VAULT, abi.encodeWithSignature("authorizer()"), abi.encode(AUTHORISER));
         vm.mockCall(RECEIPT_VAULT, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(SAFE));
         script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, SAFE);
+    }
+
+    /// @notice Every token but tLVMH is wired to the chain's shared
+    /// authoriser, unchanged.
+    function testAuthoriserForKeepsSharedAuthoriserForOtherTokens() external view {
+        assertEq(
+            harness.authoriserFor("SNES", AUTHORISER), AUTHORISER, "non-LVMH token moved off the shared authoriser"
+        );
+        assertEq(harness.authoriserFor("MC.PA", AUTHORISER), AUTHORISER, "only the LVMH key is special-cased");
+    }
+
+    /// @notice tLVMH is never wired to the shared authoriser: while the
+    /// chain's dedicated pin is unset the copy refuses before broadcasting.
+    function testAuthoriserForRefusesLvmhWhileItsAuthoriserIsUnpinned() external {
+        uint256[4] memory chains = [
+            LibSafeInvariants.ETHEREUM_CHAIN_ID,
+            LibSafeInvariants.HYPEREVM_CHAIN_ID,
+            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
+            LibSafeInvariants.BSC_CHAIN_ID
+        ];
+        for (uint256 i = 0; i < chains.length; i++) {
+            vm.chainId(chains[i]);
+            vm.expectRevert(abi.encodeWithSelector(LvmhAuthoriserNotReady.selector, address(0)));
+            harness.authoriserFor("LVMH", AUTHORISER);
+        }
     }
 
     /// @notice A `Deployment(sender, asset, wrapper)` log as the unified

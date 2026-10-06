@@ -24,7 +24,7 @@ struct TokenConfig {
 }
 
 /// @title LibProdTokenConfig
-/// @notice The canonical name/symbol table for the 53 ST0x production
+/// @notice The canonical name/symbol table for the 54 ST0x production
 /// tokens, captured verbatim from the live Base receipt vaults so a new
 /// chain's token set can be deployed byte-identical to Base. This is the
 /// deploy-input companion to `LibTokenInvariants` (which holds the deployed
@@ -45,10 +45,10 @@ struct TokenConfig {
 /// means carrying that space forward; the parity pin would flag it as a
 /// divergence otherwise.
 library LibProdTokenConfig {
-    /// @notice The 53 production token deploy configs, Base table order.
+    /// @notice The 54 production token deploy configs, Base table order.
     /// @return configs The name/symbol table.
     function productionTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
-        configs = new TokenConfig[](53);
+        configs = new TokenConfig[](54);
         configs[0] = TokenConfig("MSTR", "MicroStrategy Incorporated ST0x", "tMSTR");
         configs[1] = TokenConfig("TSLA", "Tesla Inc ST0x", "tTSLA");
         configs[2] = TokenConfig("COIN", "Coinbase Global Inc ST0x", "tCOIN");
@@ -123,5 +123,9 @@ library LibProdTokenConfig {
         // tSNES — name derived from sft-ops `metadata/snes.json` the way CD derives it;
         // verified against the live Base vault.
         configs[52] = TokenConfig("SNES", "SenesTech, Inc. ST0x", "tSNES");
+        // tLVMH — authored ahead of its Base deploy (sft-ops CD). Same name as the
+        // discarded tMC.PA; `unicode"..."` carries the ë. Gated by its own
+        // authoriser (`LibLvmhAuthoriserInvariants`), not the shared one.
+        configs[53] = TokenConfig("LVMH", unicode"LVMH Moët Hennessy Louis Vuitton SE ST0x", "tLVMH");
     }
 }

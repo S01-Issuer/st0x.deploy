@@ -37,6 +37,14 @@ contract DeployMissingTokensHarness is DeployMissingTokens {
         return _assertAuthoriserReady();
     }
 
+    /// @notice The script's `_authoriserFor()`, externally callable.
+    /// @param underlying The token's join key.
+    /// @param sharedAuthoriser The chain's shared authoriser.
+    /// @return The authoriser the token would be wired to.
+    function authoriserFor(string memory underlying, address sharedAuthoriser) external view returns (address) {
+        return _authoriserFor(underlying, sharedAuthoriser);
+    }
+
     /// @notice The script's `_readDeployment()`, externally callable.
     /// @param logs The logs to resolve the deployed pair from.
     /// @param unifiedDeployer The deployer whose event is authoritative.

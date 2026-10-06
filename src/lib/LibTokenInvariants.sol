@@ -5,6 +5,7 @@ pragma solidity ^0.8.25;
 import {IOwnable} from "../interface/IOwnable.sol";
 import {IAuthorisable} from "../interface/IAuthorisable.sol";
 import {LibMigrationInvariant} from "./LibMigrationInvariant.sol";
+import {LibLvmhAuthoriserInvariants} from "./LibLvmhAuthoriserInvariants.sol";
 
 /// @notice One production token's contract triple on a single chain, keyed
 /// by the underlying ticker. The underlying symbol (e.g. "MSTR", not
@@ -2198,11 +2199,17 @@ library LibTokenInvariants {
     /// table + that chain's authoriser clone.
     /// @param tokens The token table whose receipt vaults are checked.
     /// @param expected The authoriser every receipt vault must share.
+    /// @dev tLVMH is the one token NOT on the shared authoriser: its row is
+    /// expected on the active chain's dedicated tLVMH authoriser
+    /// (`LibLvmhAuthoriserInvariants.lvmhAuthoriserForChainId(block.chainid)`).
     function assertUniformAuthoriser(TokenInstance[] memory tokens, address expected) internal view {
         for (uint256 i = 0; i < tokens.length; i++) {
+            address want = LibLvmhAuthoriserInvariants.isLvmh(tokens[i].underlying)
+                ? LibLvmhAuthoriserInvariants.lvmhAuthoriserForChainId(block.chainid)
+                : expected;
             address actual = IAuthorisable(tokens[i].receiptVault).authorizer();
-            if (actual != expected) {
-                revert ReceiptVaultAuthoriserMismatch(tokens[i].receiptVault, expected, actual);
+            if (actual != want) {
+                revert ReceiptVaultAuthoriserMismatch(tokens[i].receiptVault, want, actual);
             }
         }
     }
