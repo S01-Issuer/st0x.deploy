@@ -193,9 +193,12 @@ contract GrantOrchestratorEmergency is Script {
 
         // --- n+1 proof ----------------------------------------------------
 
-        // The Safe can still take the role back under the live threshold, so
-        // a mistaken grant is reversible without the timelock. Re-grant so
-        // the fork ends in the post-bundle state.
+        // The Safe can still revoke the role under the live threshold. The
+        // registry record is permanent, so a real revoke must ship with its
+        // own recorded migration (and a matching branch in
+        // `LibOrchestratorInvariants.assertInstance`), or every later
+        // `assertInstance` caller reverts. Re-grant so the fork ends in the
+        // post-bundle state.
         LibSafeOps.simulateNPlus1(
             safe,
             LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE,

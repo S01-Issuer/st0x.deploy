@@ -42,7 +42,9 @@ contract GrantOrchestratorEmergencyTest is Test {
             console2.log(string.concat("EXECUTED [", network, "]: asserting the post-grant state"));
             LibOrchestratorInvariants.assertInstance(safe);
             assertTrue(ORCHESTRATOR.hasRole(LibOrchestratorInvariants.EMERGENCY_ROLE, safe));
-            vm.expectRevert();
+            (uint256 timelockMigratedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
+            assertEq(LibStoxMigrations.applied(safe, LibStoxMigrations.GOVERNANCE_TIMELOCK), timelockMigratedAt);
+            vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.head(safe)));
             script.callPreflight();
             return;
         }
