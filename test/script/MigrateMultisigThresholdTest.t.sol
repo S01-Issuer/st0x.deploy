@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.2/src/Test.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {
     MigrateMultisigThreshold,
     VerifyMismatch,
@@ -15,7 +15,7 @@ import {LibSafeInvariants, SafeThresholdMismatch} from "../../src/lib/LibSafeInv
 import {IOwnable, ReceiptVaultOwnerMismatch} from "../../src/lib/LibTokenInvariants.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.12/src/lib/LibRainDeploy.sol";
 
 /// @title MigrateMultisigThresholdTest
 /// @notice End-to-end fork tests for the multisig threshold migration
