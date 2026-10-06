@@ -17,11 +17,26 @@ error NoGovernanceTimelockMigrationOnChain(uint256 chainId);
 /// they applied in `rain-deploy`'s `MigrationRegistry`, and the reads the
 /// invariants branch on.
 ///
-/// Every record is written by the chain's token-owner Safe, as one more call
-/// in the bundle that performs the migration, so the record and the change
-/// land atomically. An invariant then asserts exactly the state the recorded
-/// migrations imply: `applied` answering zero means the migration has not run
-/// on this chain, and the pre-migration state must hold exactly.
+/// A record is written by the account that performs the migration, as the
+/// last call of the same transaction, so the record and the change land
+/// atomically:
+///
+/// - a migration the chain's token-owner Safe performs directly (every id
+///   here) records under the Safe, in the Safe's MultiSend;
+/// - a migration executed through the governance timelock records under the
+///   timelock, as the last call of the scheduled batch, so it lands
+///   atomically whoever executes the matured operation. Its invariant reads
+///   the timelock's line.
+///
+/// An invariant then asserts exactly the state the recorded migrations imply:
+/// `applied` answering zero means the migration has not run on this chain,
+/// and the pre-migration state must hold exactly.
+///
+/// The records live in ONE registry instance: the address and code hash
+/// `LibMigrationRegistryDeploy` carries in the imported rain-deploy. A
+/// rain-deploy bump that moves the registry would read an empty line and
+/// fail every role invariant closed; `LibStoxMigrationsTest` pins the
+/// instance so such a bump fails there first.
 ///
 /// The registry is an index, not proof. It says which state an invariant must
 /// assert; the invariant still reads that state from the chain.

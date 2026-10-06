@@ -6,6 +6,7 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.12/src/lib/LibRainDeploy.sol";
 import {LibMigrationRegistry} from "rain-deploy-0.1.12/src/lib/LibMigrationRegistry.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.12/src/lib/LibMigrationRegistryDeploy.sol";
 
 import {LibOrchestratorInvariants} from "../../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
@@ -20,6 +21,23 @@ import {LibStoxMigrationsHarness} from "./LibStoxMigrationsHarness.sol";
 /// it: the block's timestamp, in the block that holds the orchestrator
 /// beacon's ownership transfer from the Safe to the timelock.
 contract LibStoxMigrationsTest is Test {
+    /// @notice The st0x.deploy records live at this registry instance. A
+    /// rain-deploy bump that moves it strands every record already written,
+    /// so it must fail here, with a reason, before it reaches the role
+    /// invariants.
+    function testRegistryInstancePinned() external pure {
+        assertEq(
+            LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
+            0xc89F95eC7e626CFBef37a1F502A69BaF2022F8A8,
+            "st0x.deploy migration records live at this registry instance; moving it strands them"
+        );
+        assertEq(
+            LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_CODEHASH,
+            0x7a67fcb1f620333d4214ee9a6674bcd505c72aad173a6e8579b8c1371db45684,
+            "st0x.deploy migration records live at this registry instance; moving it strands them"
+        );
+    }
+
     function testNamespace() external pure {
         assertEq(LibStoxMigrations.NAMESPACE, keccak256("st0x.deploy"));
     }
