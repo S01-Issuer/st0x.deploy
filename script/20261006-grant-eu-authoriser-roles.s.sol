@@ -17,6 +17,7 @@ import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.15/src/lib/LibMigratio
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibEuAuthoriserClone} from "../src/lib/LibEuAuthoriserClone.sol";
+import {LibEuAuthoriserMigration} from "../src/lib/LibEuAuthoriserMigration.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
@@ -36,10 +37,6 @@ error SafeMissingRoleAdmin(address clone, bytes32 role);
 /// nothing; writes Safe Tx Builder JSON and prints the MultiSend `SafeTxHash`.
 contract GrantEuAuthoriserRoles is Script {
     string internal constant BUNDLE_NAME = "ST0x EU assets authoriser: role map and admin handover to the timelock";
-
-    bytes32 internal constant EU_AUTHORISER_NAMESPACE = keccak256("st0x.eu-assets-authoriser");
-
-    bytes32 internal constant EU_AUTHORISER_MIGRATION = keccak256("st0x.eu-assets-authoriser.grant-and-handover");
 
     /// @notice Where the JSON is written, per chain.
     /// @return The artifact path.
@@ -100,14 +97,20 @@ contract GrantEuAuthoriserRoles is Script {
         txs = new SafeTx[](1 + grants.length + admins.length);
 
         Prerequisite[] memory prerequisites = new Prerequisite[](1);
-        prerequisites[0] =
-            Prerequisite({writer: safe, namespace: EU_AUTHORISER_NAMESPACE, migration: MIGRATION_HEAD_GENESIS});
+        prerequisites[0] = Prerequisite({
+            writer: safe, namespace: LibEuAuthoriserMigration.EU_AUTHORISER_NAMESPACE, migration: MIGRATION_HEAD_GENESIS
+        });
 
         txs[0] = SafeTx({
             to: LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
             value: 0,
             data: abi.encodeCall(
-                IMigrationRegistryV2.applyMigration, (EU_AUTHORISER_NAMESPACE, EU_AUTHORISER_MIGRATION, prerequisites)
+                IMigrationRegistryV2.applyMigration,
+                (
+                    LibEuAuthoriserMigration.EU_AUTHORISER_NAMESPACE,
+                    LibEuAuthoriserMigration.EU_AUTHORISER_MIGRATION,
+                    prerequisites
+                )
             ),
             operation: 0
         });
