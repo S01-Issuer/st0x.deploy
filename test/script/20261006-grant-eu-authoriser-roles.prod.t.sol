@@ -11,7 +11,7 @@ import {GrantEuAuthoriserRoles} from "../../script/20261006-grant-eu-authoriser-
 import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibEuAuthoriserClone} from "../../src/lib/LibEuAuthoriserClone.sol";
-import {LibEuAuthoriserMigration} from "../../src/lib/LibEuAuthoriserMigration.sol";
+import {LibRbacMigration} from "../../src/lib/LibRbacMigration.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibSafeOps, SafeTx} from "../../src/lib/LibSafeOps.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
@@ -42,7 +42,7 @@ contract GrantEuAuthoriserRolesProdTest is Test {
         address safe = LibSafeInvariants.safeForChainId(chainId);
 
         uint256 appliedAt = LibMigrationRegistry.applied(
-            safe, LibEuAuthoriserMigration.EU_AUTHORISER_NAMESPACE, LibEuAuthoriserMigration.EU_AUTHORISER_MIGRATION
+            safe, LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER
         );
         if (appliedAt != 0) {
             LibAuthoriserInvariants.assertExpectedGrants(
@@ -64,8 +64,8 @@ contract GrantEuAuthoriserRolesProdTest is Test {
     /// @param label Human chain name, surfaced in assertion messages.
     function assertWalkNeverUnholdsAnAdmin(string memory label) internal {
         GrantEuAuthoriserRoles script = new GrantEuAuthoriserRoles();
-        (address clone, address safe, address timelock) = script.preflight();
-        SafeTx[] memory txs = script.grantBundle(clone, safe, timelock);
+        (address clone, address safe, address timelock, bytes32 head) = script.preflight();
+        SafeTx[] memory txs = script.grantBundle(clone, safe, timelock, head);
         bytes32[7] memory admins = script.adminRoles();
         IAccessControl acl = IAccessControl(clone);
 
