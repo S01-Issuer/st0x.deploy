@@ -10,6 +10,7 @@ import {
 import {DeployDependency} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
 
 import {LibEuAuthoriserClone} from "../lib/LibEuAuthoriserClone.sol";
+import {LibStoxDeployNetworks} from "../lib/LibStoxDeployNetworks.sol";
 
 /// @title EuAuthoriserDeploySuites
 /// @notice The EU assets authoriser as a `rain-deploy` declaration, so the
@@ -25,6 +26,17 @@ import {LibEuAuthoriserClone} from "../lib/LibEuAuthoriserClone.sol";
 /// in `LibProdDeployV4` — which is the point of cloning rather than compiling
 /// a second authoriser.
 abstract contract EuAuthoriserDeploySuites is RainDeploySuitesBase {
+    /// @inheritdoc RainDeploySuitesBase
+    /// @dev The networks THIS repo deploys to, not the package's default nine.
+    /// It is declared here rather than on the deploy script so the script and
+    /// the chain-matrix verification cannot disagree: a narrower deploy than
+    /// the declaration would leave the matrix asserting the clone live on
+    /// chains nothing ever deployed it to. arbitrum, polygon, flare and base
+    /// sepolia carry no ST0x deployment at all.
+    function supportedNetworks() internal view virtual override returns (string[] memory) {
+        return LibStoxDeployNetworks.deploymentNetworks();
+    }
+
     /// @inheritdoc RainDeploySuitesBase
     /// @dev Nothing released: the clone is deployed by the factory, not frozen
     /// into this repo's record, so there is no released suite to describe.

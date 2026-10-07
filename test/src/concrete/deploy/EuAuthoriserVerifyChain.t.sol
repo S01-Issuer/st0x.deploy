@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {RainDeployVerifyChain} from "rain-deploy-0.1.15/src/abstract/RainDeployVerifyChain.sol";
+import {RainDeploySuitesBase} from "rain-deploy-0.1.15/src/abstract/RainDeploySuitesBase.sol";
 
 import {EuAuthoriserDeploySuites} from "../../../../src/abstract/EuAuthoriserDeploySuites.sol";
 
@@ -19,4 +20,19 @@ import {EuAuthoriserDeploySuites} from "../../../../src/abstract/EuAuthoriserDep
 /// Until the clone is broadcast these go red by design — the declaration
 /// names an address that is not on chain yet, which is exactly what the
 /// matrix is for.
-contract EuAuthoriserVerifyChainTest is EuAuthoriserDeploySuites, RainDeployVerifyChain {}
+contract EuAuthoriserVerifyChainTest is EuAuthoriserDeploySuites, RainDeployVerifyChain {
+    /// @inheritdoc RainDeploySuitesBase
+    /// @dev Both bases reach `RainDeploySuitesBase`, so solidity requires the
+    /// derived contract to name which `supportedNetworks` it means. It is the
+    /// declaration's — the five networks this repo deploys to — because a
+    /// matrix on the package's nine would assert the clone live on four chains
+    /// the deploy never touches.
+    function supportedNetworks()
+        internal
+        view
+        override(EuAuthoriserDeploySuites, RainDeploySuitesBase)
+        returns (string[] memory)
+    {
+        return EuAuthoriserDeploySuites.supportedNetworks();
+    }
+}

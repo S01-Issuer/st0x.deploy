@@ -32,9 +32,10 @@ error EuCloneAddressMismatch(address predicted, address deployed);
 /// put the proxy at a Zoltu-derived address with no record in the clone
 /// factory. The address this repo wants is the clone factory's own open-salt
 /// derivation, so the broadcast is that factory call. Everything else comes
-/// from the package: the declaration is `EuAuthoriserDeploySuites`, the
+/// from the package: the declaration is `EuAuthoriserDeploySuites` and the
 /// addresses and code hashes are `LibEuAuthoriserClone`'s derivations of
-/// `rain-factory`'s own helpers, and the networks are `LibRainDeploy`'s.
+/// `rain-factory`'s own helpers. The networks are this repo's, not the
+/// package's — see `supportedNetworks` below.
 ///
 /// Idempotent: a clone already at the predicted address is left alone, so a
 /// re-dispatch after a partial rollout only fills in the networks still
@@ -65,14 +66,23 @@ contract DeployEuAuthoriser is EuAuthoriserDeploySuites, Script {
 
         uint256[] memory forkIds = LibRainDeploy.createForks(vm, networks);
 
+        // Every network's factory is checked before any network is broadcast
+        // to, for the same reason every fork is created before any is
+        // selected: a factory missing on the last network would otherwise be
+        // found after the first four had already deployed, leaving the
+        // rollout half done and the refusal describing a state that no longer
+        // matches the chains.
+        for (uint256 i = 0; i < networks.length; i++) {
+            vm.selectFork(forkIds[i]);
+            if (factory.code.length == 0 || factory.codehash != LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_CODEHASH) {
+                revert EuCloneFactoryNotReady(factory);
+            }
+        }
+
         for (uint256 i = 0; i < networks.length; i++) {
             vm.selectFork(forkIds[i]);
             console2.log("Network:", networks[i]);
             console2.log("Block number:", block.number);
-
-            if (factory.code.length == 0 || factory.codehash != LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_CODEHASH) {
-                revert EuCloneFactoryNotReady(factory);
-            }
 
             if (clone.code.length == 0) {
                 vm.startBroadcast();
