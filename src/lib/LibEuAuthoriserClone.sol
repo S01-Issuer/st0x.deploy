@@ -12,9 +12,8 @@ import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 
 // The open salt for the EU assets authoriser. Open rather than namespaced so
-// the digest covers the implementation and the init data and NOT the caller:
-// one address on every network, and a frontrunner can only deploy the clone we
-// specified.
+// the digest covers the implementation and the init data and NOT the caller: a
+// frontrunner can only deploy the clone we specified.
 bytes32 constant EU_AUTHORISER_SALT = keccak256("st0x.eu-assets-authoriser");
 
 /// @title LibEuAuthoriserClone
@@ -24,6 +23,11 @@ bytes32 constant EU_AUTHORISER_SALT = keccak256("st0x.eu-assets-authoriser");
 /// The clone proxies the audited 0.1.1 authoriser pinned in `LibProdDeployV4`.
 /// Its init data is the initial admin alone — the minter is role state granted
 /// afterwards — so changing the minter cannot move the address.
+///
+/// The initial admin is the chain's own token-owner Safe, which differs between
+/// Base and the other four chains, so the clone address is per-chain. The
+/// creation code, runtime code and code hash depend only on the implementation
+/// and are the same everywhere.
 library LibEuAuthoriserClone {
     /// @notice The implementation the clone delegates into.
     /// @return The audited 0.1.1 authoriser.
@@ -32,10 +36,12 @@ library LibEuAuthoriserClone {
     }
 
     /// @notice The init data, and so half the open-salt digest.
-    /// @return The `abi.encode`d config: the token-owner Safe as initial admin.
-    function cloneData() internal pure returns (bytes memory) {
+    /// @param chainId The chain the clone is for.
+    /// @return The `abi.encode`d config: that chain's token-owner Safe as
+    /// initial admin.
+    function cloneData(uint256 chainId) internal pure returns (bytes memory) {
         return abi.encode(
-            OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: LibSafeInvariants.STOX_TOKEN_OWNER_SAFE})
+            OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: LibSafeInvariants.safeForChainId(chainId)})
         );
     }
 
@@ -64,13 +70,15 @@ library LibEuAuthoriserClone {
         return runtime;
     }
 
-    /// @notice The address the clone lands at, on every network.
+    /// @notice The address the clone lands at on one chain. The init data
+    /// carries that chain's Safe, so the address is per-chain.
+    /// @param chainId The chain the clone is for.
     /// @return The predicted clone address.
-    function cloneDeployedAddress() internal pure returns (address) {
+    function cloneDeployedAddress(uint256 chainId) internal pure returns (address) {
         return LibICloneableFactoryV4.predictCloneAddress(
             LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS,
             implementation(),
-            LibICloneableFactoryV4.effectiveOpenSalt(EU_AUTHORISER_SALT, cloneData())
+            LibICloneableFactoryV4.effectiveOpenSalt(EU_AUTHORISER_SALT, cloneData(chainId))
         );
     }
 

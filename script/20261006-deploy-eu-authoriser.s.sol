@@ -11,6 +11,7 @@ import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
 import {EuAuthoriserDeploySuites} from "../src/abstract/EuAuthoriserDeploySuites.sol";
 import {EU_AUTHORISER_SALT, LibEuAuthoriserClone} from "../src/lib/LibEuAuthoriserClone.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
+import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
 /// @notice The clone factory is not deployed, or does not carry the pinned
@@ -59,9 +60,7 @@ contract DeployEuAuthoriser is EuAuthoriserDeploySuites, Script {
     /// and some not.
     function run() external {
         string[] memory networks = supportedNetworks();
-        address clone = LibEuAuthoriserClone.cloneDeployedAddress();
         address implementation = LibEuAuthoriserClone.implementation();
-        bytes memory data = LibEuAuthoriserClone.cloneData();
         address factory = LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS;
 
         uint256[] memory forkIds = LibRainDeploy.createForks(vm, networks);
@@ -84,6 +83,9 @@ contract DeployEuAuthoriser is EuAuthoriserDeploySuites, Script {
             console2.log("Network:", networks[i]);
             console2.log("Block number:", block.number);
 
+            bytes memory data = LibEuAuthoriserClone.cloneData(block.chainid);
+            address clone = LibEuAuthoriserClone.cloneDeployedAddress(block.chainid);
+
             if (clone.code.length == 0) {
                 vm.startBroadcast();
                 address deployed =
@@ -95,11 +97,12 @@ contract DeployEuAuthoriser is EuAuthoriserDeploySuites, Script {
                 console2.log("Already deployed, skipped.");
             }
 
+            console2.log("EU assets authoriser:", vm.toString(clone));
+            console2.log("Initial admin:", vm.toString(LibSafeInvariants.safeForChainId(block.chainid)));
             console2.log("Admin holder for the seven _ADMIN roles:");
             console2.log(vm.toString(LibTimelockInvariants.timelockForChainId(block.chainid)));
         }
 
-        console2.log("EU assets authoriser:", vm.toString(clone));
         console2.log("Minter to be granted DEPOSIT and WITHDRAW (mint and redeem):");
         console2.log(vm.toString(LibAuthoriserInvariants.GRANTEE_EU_MINTER));
     }
