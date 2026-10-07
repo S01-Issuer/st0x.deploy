@@ -10,8 +10,8 @@ After the migration executes, the timelock is:
 - the `owner()` of **every production receipt vault** — so `transferOwnership`,
   `setAuthorizer`, and every `onlyOwner` surface (including owner freezes) is
   delay-gated;
-- the `owner()` of the chain's **three in-use upgrade beacons** (receipt,
-  receipt vault, wrapped token vault) — so `upgradeTo` is delay-gated; and
+- the `owner()` of the chain's **four in-use upgrade beacons** (receipt, receipt
+  vault, wrapped token vault, orchestrator) — so `upgradeTo` is delay-gated; and
 - the **sole holder of the authoriser's seven `_ADMIN` roles** (`DEPOSIT_ADMIN`,
   `WITHDRAW_ADMIN`, `CERTIFY_ADMIN`, `CONFISCATE_SHARES_ADMIN`,
   `CONFISCATE_RECEIPT_ADMIN`, `SCHEDULE_CORPORATE_ACTION_ADMIN`,
@@ -19,12 +19,12 @@ After the migration executes, the timelock is:
   authoriser is delay-gated.
 
 **Why the beacons are in scope.** Every production token proxies through those
-three beacons, and a beacon owner can `upgradeTo` a new implementation for all
-of them in a single transaction — a hostile implementation could re-take vault
-ownership and rewrite the authoriser wiring outright. Timelocking
-`setAuthorizer` and vault ownership while leaving the beacons on the Safe would
-make the delay bypassable by design, so both surfaces move in the same atomic
-bundle and are forced by the same deadline.
+beacons, and a beacon owner can `upgradeTo` a new implementation for all of them
+in a single transaction — a hostile implementation could re-take vault ownership
+and rewrite the authoriser wiring outright. Timelocking `setAuthorizer` and
+vault ownership while leaving the beacons on the Safe would make the delay
+bypassable by design, so both surfaces moved in the same atomic bundle, and
+`GovernanceTimelockMigration.t.sol` pins both on the timelock.
 
 The Safe **keeps its three direct action roles** (`DEPOSIT`, `WITHDRAW`,
 `CERTIFY`) and the service signer keeps its operational grants: day-to-day
@@ -95,11 +95,10 @@ Every pin is written with its chain arm, derived from the frozen creation
 bytecode and that chain's Safe pin before any deploy —
 `testPinsMatchDerivedAddresses` asserts each equality unconditionally, so a
 wrong or zeroed pin cannot survive CI. A zero pin is never a legitimate phase:
-every consumer (the deploy pre-flight, the migration authoring, the
-migration-window suite) refuses it as a reverted or never-hydrated arm rather
-than proceeding against a wrong address. The Base, Ethereum and HyperEVM
-timelocks are live at their pins; the Robinhood Chain and BNB Smart Chain pins
-are derived ahead of their deploys, per step 1 below.
+every consumer (the deploy pre-flight, the migration authoring,
+`assertTimelockState`) refuses it as a reverted or never-hydrated arm rather
+than proceeding against a wrong address. All five timelocks are live at their
+pins.
 
 ## Rollout (per chain: Base, Ethereum, HyperEVM, Robinhood Chain, BNB Smart Chain)
 
@@ -126,19 +125,18 @@ are derived ahead of their deploys, per step 1 below.
    — which re-derives the bundle from current chain state, asserts the artifact
    matches byte-exactly, and prints the MultiSend `SafeTxHash` at the live nonce
    to cross-check in the Safe UI. Then execute. The bundle is atomic: 7 `_ADMIN`
-   grants to the timelock → N vault `transferOwnership` → 3 beacon
-   `transferOwnership` → 7 Safe renounces.
-5. **Post-execution flip PR** — repoint the strict uniform-ownership invariants
-   (`LibInvariants.assertAll`, `LibTokenInvariants` consumers,
-   `StoxProdV2`/`LibInvariants` fork tests, cross-chain parity, and the
-   Safe-expecting beacon-owner asserts — the `StoxProdV4` and
-   `HyperEvmBeaconOwnership` fork tests plus the live deploy-script pre-flights
-   on `assertProdBeaconsOwnedByChainSafe`) from the Safe to the timelock, and
-   retire the spent branch of the migration-window suite.
+   grants to the timelock → N vault `transferOwnership` → one beacon
+   `transferOwnership` per in-use beacon (four) → 7 Safe renounces.
+5. **Post-execution flip** — every production invariant asserts the timelock
+   exactly: vault owner (`LibTokenInvariants.assertAll` / `LibInvariants`),
+   beacon owner (`LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock`,
+   `LibOrchestratorInvariants.assertBeaconSet`) and `_ADMIN` holder
+   (`LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe, timelock)`).
+   The migration has executed on all five chains, so this is the current state.
 
-The forcing function: `GovernanceTimelockMigration.t.sol` accepts
-Safe-or-timelock per surface until **2026-10-01T00:00:00Z**, then demands the
-timelock. An unfinished rollout red-lines cron past that date.
+`GovernanceTimelockMigration.t.sol` pins the governed state on every chain. The
+migration script's own tests rewind each fork to the pre-migration state with
+the timelock's powers, so the script stays re-dispatchable and proven.
 
 ## Rehearsing the timelock
 
@@ -217,13 +215,22 @@ way to resolve it.
   timelock itself.
 - `LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe,
   timelock)` —
-  the single master grant map, parameterised on the admin holder; post-migration
+  the single master grant map, parameterised on the admin holder; production
   consumers pass the timelock.
-- `LibTokenInvariants.assertUniformOwnershipMigration` /
-  `LibBeaconInvariants.assertProdBeaconsOwnershipMigration` /
-  `GovernanceTimelockMigration.t.sol` — the migration window + deadline (see
-  above), over vault ownership, beacon ownership and `_ADMIN` holding.
+- `LibTokenInvariants.assertUniformOwnership` /
+  `LibBeaconInvariants.assertProdBeaconsOwnedBy` /
+  `GovernanceTimelockMigration.t.sol` — vault ownership, beacon ownership and
+  exclusive `_ADMIN` holding on the timelock, per chain.
 
 ## Explicitly out of scope (follow-ups)
+
+- **The orchestrator instance's `DEFAULT_ADMIN_ROLE`** is on the Safe until its
+  own dated move executes. It administers `MINT`, `BURN` and `EMERGENCY` on the
+  orchestrator, which holds `DEPOSIT`/`WITHDRAW` on every vault, so until then
+  those grants are not delayed.
+- **New Base tokens** are deployed by the sft-ops CD pipeline, not by a script
+  here. It must hand each new vault to `STOX_GOVERNANCE_TIMELOCK`
+  (`transferOwnership`); a vault left on the Safe fails the token and governance
+  invariants as soon as it is pinned.
 
 - **Dedicated canceller** — see the role model above.

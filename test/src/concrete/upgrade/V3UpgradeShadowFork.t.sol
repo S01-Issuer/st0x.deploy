@@ -53,10 +53,10 @@ import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.1/src/lib/LibExtrospec
 ///    address is required so its `_SELF` immutable resolves to
 ///    `STOX_CORPORATE_ACTIONS_FACET`; the vault's `fallback()` hardcodes that
 ///    address as its delegatecall target.
-/// 2. **Beacon ownership** — the receipt vault beacon is transferred from the
-///    rainlang.eth EOA to the Safe (PR-A's effect).
-/// 3. **Upgrade** — `vm.prank(safe); beacon.upgradeTo(V3 impl)` upgrades the
-///    beacon. Every live receipt vault behind the beacon now runs V3 code.
+/// 2. **Beacon ownership** — the receipt vault beacon is owned by the
+///    governance timelock (`PROD_BEACON_OWNER`), asserted live.
+/// 3. **Upgrade** — `vm.prank(PROD_BEACON_OWNER); beacon.upgradeTo(V3 impl)`
+///    upgrades the beacon (in production a timelock operation). Every live receipt vault behind the beacon now runs V3 code.
 contract V3UpgradeShadowForkTest is Test {
     /// @notice The receipt vault beacon upgraded to V3.
     address internal constant BEACON = LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1;
@@ -93,15 +93,16 @@ contract V3UpgradeShadowForkTest is Test {
             LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET
         );
 
-        // 2. The beacon-ownership migration EXECUTED on Base (2026-07):
-        //    the live beacon is already Safe-owned, no simulation needed.
+        // 2. The live beacon is owned by the governance timelock.
         assertEq(
             Ownable(BEACON).owner(),
             LibBeaconInvariants.PROD_BEACON_OWNER,
-            "live beacon not Safe-owned - migration state regressed?"
+            "live beacon not timelock-owned - governance state regressed?"
         );
 
-        // 3. Apply the upgrade: the Safe points the beacon at the V3 impl.
+        // 3. Apply the upgrade: the beacon owner points the beacon at the V3
+        //    impl. In production this is a timelock operation; the shadow
+        //    fork exercises the upgrade's effect, not the delay.
         vm.prank(LibBeaconInvariants.PROD_BEACON_OWNER);
         IUpgradeableBeacon(BEACON).upgradeTo(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1);
     }
@@ -113,10 +114,10 @@ contract V3UpgradeShadowForkTest is Test {
     }
 
     /// @notice Sanity: the fork is in the upgraded state. The beacon is
-    /// Safe-owned, points at the V3 implementation, and the live receipt vault
+    /// timelock-owned, points at the V3 implementation, and the live receipt vault
     /// is still behind this beacon.
     function testForkIsInUpgradedState() external view {
-        assertEq(Ownable(BEACON).owner(), LibBeaconInvariants.PROD_BEACON_OWNER, "beacon Safe-owned");
+        assertEq(Ownable(BEACON).owner(), LibBeaconInvariants.PROD_BEACON_OWNER, "beacon timelock-owned");
         assertEq(IBeacon(BEACON).implementation(), LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1, "beacon at V3 impl");
         assertEq(beaconOf(LIVE_RECEIPT_VAULT), BEACON, "live vault behind the upgraded beacon");
     }

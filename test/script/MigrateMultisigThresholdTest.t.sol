@@ -13,6 +13,7 @@ import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibSafeOps, SafeTx} from "../../src/lib/LibSafeOps.sol";
 import {LibSafeInvariants, SafeThresholdMismatch} from "../../src/lib/LibSafeInvariants.sol";
 import {IOwnable, ReceiptVaultOwnerMismatch} from "../../src/lib/LibTokenInvariants.sol";
+import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
 
@@ -108,9 +109,8 @@ contract MigrateMultisigThresholdTest is Test {
 
     /// @notice Inverted: the pre-flight rejects vault-ownership drift.
     /// If even one receipt vault has its `owner()` pointing somewhere
-    /// other than the Safe, the migration must abort before producing an
-    /// artifact (the migration would otherwise lock the wrong Safe into
-    /// 3-of-6 without controlling the vaults).
+    /// other than the governance timelock, the migration must abort before
+    /// producing an artifact.
     function testRunRejectsVaultOwnershipDrift() external {
         selectBaseFork();
         address rogueOwner = address(0xBADC0DE);
@@ -120,7 +120,11 @@ contract MigrateMultisigThresholdTest is Test {
         address victim = LibTokenInvariants.MSTR_RECEIPT_VAULT;
         vm.mockCall(victim, abi.encodeWithSelector(IOwnable.owner.selector), abi.encode(rogueOwner));
 
-        vm.expectRevert(abi.encodeWithSelector(ReceiptVaultOwnerMismatch.selector, victim, address(safe), rogueOwner));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ReceiptVaultOwnerMismatch.selector, victim, LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, rogueOwner
+            )
+        );
         script.run();
     }
 
