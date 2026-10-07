@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 
 import {RetireDirectSignerRoles} from "../../script/20260831-retire-direct-signer-roles.s.sol";
 import {SafeTx} from "../../src/lib/LibSafeOps.sol";
