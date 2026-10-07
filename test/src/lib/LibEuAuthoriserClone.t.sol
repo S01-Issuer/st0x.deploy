@@ -73,16 +73,22 @@ contract LibEuAuthoriserCloneTest is Test {
     /// @notice The clone proxies the audited implementation: its runtime is
     /// the factory's own EIP-1167 layout over that address, so the code hash
     /// the declaration carries cannot match a proxy pointed anywhere else.
-    function testCloneRuntimeEmbedsTheAuditedImplementation() external pure {
-        bytes memory runtime = LibEuAuthoriserClone.cloneRuntimeCode();
-        bytes memory expected = LibICloneableFactoryV4.cloneCreationCode(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1
+    function testCloneCodehashMatchesTheLiveProductionClone() external pure {
+        // An EIP-1167 runtime is a function of the implementation address and
+        // nothing else, so two clones of one implementation are byte-identical.
+        // The production authoriser clone is already on chain proxying this
+        // same audited 0.1.1 implementation, and its code hash is pinned from
+        // that deployment — so it is an oracle this repo did not derive.
+        //
+        // A wrong prefix length, a wrong implementation, or a mis-assembled
+        // proxy all move this hash. Comparing the slice against the slice it
+        // was cut from could not catch any of them.
+        assertEq(
+            LibEuAuthoriserClone.cloneDeployedCodehash(),
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH,
+            "EU clone code hash equals the live production clone's"
         );
-        assertEq(runtime.length, expected.length - 10, "runtime is the initcode tail");
-        for (uint256 i = 0; i < runtime.length; i++) {
-            assertEq(runtime[i], expected[i + 10], "runtime byte");
-        }
-        assertEq(LibEuAuthoriserClone.cloneDeployedCodehash(), keccak256(runtime), "codehash is of the runtime");
+        assertEq(LibEuAuthoriserClone.cloneRuntimeCode().length, 45, "EIP-1167 runtime is 45 bytes");
     }
 
     /// @notice The address is derived from the implementation and the init
