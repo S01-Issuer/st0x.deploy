@@ -21,7 +21,7 @@ import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
-import {LibCloneFactoryDeploy} from "rain-factory-deploy-0.1.15/src/lib/LibCloneFactoryDeploy.sol";
+import {DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_1} from "rain-factory-deploy-0.1.15/src/generated/0_1_1/CloneFactory.sol";
 
 /// @title LibAuthoriserInvariantsTest
 /// @notice Fork tests pinning the production V4 authoriser clone's state
@@ -55,7 +55,7 @@ contract LibAuthoriserInvariantsTest is Test {
     /// mistyped literal fails fork-free. Base's clone came from a factory with
     /// history and is not derivable.
     function testClonePinsMatchTheFactoryNonceOneDerivation() external pure {
-        address derived = vm.computeCreateAddress(LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS, 1);
+        address derived = vm.computeCreateAddress(CLONE_FACTORY_0_1_1, 1);
         assertEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM, derived, "ethereum");
         assertEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM, derived, "hyperevm");
         assertEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD, derived, "robinhood");
