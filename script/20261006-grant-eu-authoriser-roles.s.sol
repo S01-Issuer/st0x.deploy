@@ -57,7 +57,7 @@ contract GrantEuAuthoriserRoles is Script {
         // bundle's run-once guard silently does not exist.
         LibMigrationRegistry.checkCodeHash();
 
-        clone = LibEuAuthoriserClone.cloneDeployedAddress();
+        clone = LibEuAuthoriserClone.cloneDeployedAddress(block.chainid);
         if (clone.code.length == 0 || clone.codehash != LibEuAuthoriserClone.cloneDeployedCodehash()) {
             revert EuAuthoriserNotDeployed(clone);
         }
