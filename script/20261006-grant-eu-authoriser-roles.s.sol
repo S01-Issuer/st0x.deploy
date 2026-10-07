@@ -11,6 +11,7 @@ import {
     MIGRATION_HEAD_GENESIS,
     Prerequisite
 } from "rain-deploy-0.1.15/src/interface/IMigrationRegistryV2.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.15/src/lib/LibMigrationRegistry.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.15/src/lib/LibMigrationRegistryDeploy.sol";
 
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
@@ -51,6 +52,11 @@ contract GrantEuAuthoriserRoles is Script {
     /// @return safe The chain's token-owner Safe.
     /// @return timelock The chain's governance timelock.
     function preflight() public view returns (address clone, address safe, address timelock) {
+        // MultiSendCallOnly raw-calls `txs[0]`, so a registry that is not on
+        // this chain records nothing and returns success. Without this the
+        // bundle's run-once guard silently does not exist.
+        LibMigrationRegistry.checkCodeHash();
+
         clone = LibEuAuthoriserClone.cloneDeployedAddress();
         if (clone.code.length == 0 || clone.codehash != LibEuAuthoriserClone.cloneDeployedCodehash()) {
             revert EuAuthoriserNotDeployed(clone);
