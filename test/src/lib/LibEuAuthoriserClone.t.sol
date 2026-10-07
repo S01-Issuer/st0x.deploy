@@ -103,6 +103,26 @@ contract LibEuAuthoriserCloneTest is Test {
         );
     }
 
+    /// @notice The pinned addresses are what the derivation produces, on every
+    /// chain. Either one drifting from the other is caught here rather than by
+    /// a live-state read against an address nothing deployed.
+    function testPinnedAddressesMatchTheDerivation() external pure {
+        uint256[5] memory chainIds = [
+            LibSafeInvariants.BASE_CHAIN_ID,
+            LibSafeInvariants.ETHEREUM_CHAIN_ID,
+            LibSafeInvariants.HYPEREVM_CHAIN_ID,
+            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
+            LibSafeInvariants.BSC_CHAIN_ID
+        ];
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            assertEq(
+                LibAuthoriserInvariants.euAuthoriserForChainId(chainIds[i]),
+                LibEuAuthoriserClone.cloneDeployedAddress(chainIds[i]),
+                "pin matches the derivation"
+            );
+        }
+    }
+
     /// @notice The clone proxies the audited implementation: its runtime is
     /// the factory's own EIP-1167 layout over that address, so the code hash
     /// the declaration carries cannot match a proxy pointed anywhere else.

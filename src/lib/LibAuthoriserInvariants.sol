@@ -63,6 +63,17 @@ error UnsupportedChainForAuthoriser(uint256 chainId);
 /// @param authoriser The authoriser address inspected.
 error AuthoriserNotReady(address authoriser);
 
+/// @notice The pinned EU assets authoriser clone has no code, or does not
+/// carry the EIP-1167 codehash that proves which implementation it proxies.
+/// @param clone The clone address inspected.
+error EuAuthoriserNotReady(address clone);
+
+/// @notice The EU minter holds an action role before the Safe bundle granted
+/// it, so something other than the bundle granted it.
+/// @param clone The clone inspected.
+/// @param role The action role the minter unexpectedly holds.
+error UnexpectedEuMinterGrant(address clone, bytes32 role);
+
 /// @title LibAuthoriserInvariants
 /// @notice Reusable invariants for the ST0x production authoriser on every
 /// chain:
@@ -106,6 +117,87 @@ library LibAuthoriserInvariants {
             return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC;
         }
         revert UnsupportedChainForAuthoriser(chainId);
+    }
+
+    /// @notice The EU assets authoriser clone on Base.
+    /// https://basescan.org/address/0xdb9152e46c1d140db6a6f814461f21c571f3275e
+    address internal constant STOX_EU_AUTHORISER_CLONE = address(0xDB9152e46c1D140DB6a6f814461f21c571F3275e);
+
+    /// @notice The EU assets authoriser clone on Ethereum. Shared with
+    /// HyperEVM, Robinhood Chain and BNB Smart Chain, which share the Safe
+    /// the clone's init data carries as initial admin.
+    address internal constant STOX_EU_AUTHORISER_CLONE_ETHEREUM = address(0x8Fc06579571A105C5a699FA11d95b9c73747f8eb);
+
+    /// @notice The EU assets authoriser clone on HyperEVM.
+    address internal constant STOX_EU_AUTHORISER_CLONE_HYPEREVM = STOX_EU_AUTHORISER_CLONE_ETHEREUM;
+
+    /// @notice The EU assets authoriser clone on Robinhood Chain.
+    address internal constant STOX_EU_AUTHORISER_CLONE_ROBINHOOD = STOX_EU_AUTHORISER_CLONE_ETHEREUM;
+
+    /// @notice The EU assets authoriser clone on BNB Smart Chain.
+    address internal constant STOX_EU_AUTHORISER_CLONE_BSC = STOX_EU_AUTHORISER_CLONE_ETHEREUM;
+
+    /// @notice A chain's EU assets authoriser clone pin. Reverts for a chain
+    /// without a slot rather than falling back to another chain's clone.
+    /// @param chainId The chain id.
+    /// @return The pinned clone.
+    function euAuthoriserForChainId(uint256 chainId) internal pure returns (address) {
+        if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
+            return STOX_EU_AUTHORISER_CLONE;
+        }
+        if (chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
+            return STOX_EU_AUTHORISER_CLONE_ETHEREUM;
+        }
+        if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
+            return STOX_EU_AUTHORISER_CLONE_HYPEREVM;
+        }
+        if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
+            return STOX_EU_AUTHORISER_CLONE_ROBINHOOD;
+        }
+        if (chainId == LibSafeInvariants.BSC_CHAIN_ID) {
+            return STOX_EU_AUTHORISER_CLONE_BSC;
+        }
+        revert UnsupportedChainForAuthoriser(chainId);
+    }
+
+    /// @notice Asserts a chain's pinned EU assets authoriser clone is deployed
+    /// and proxies the audited implementation. Role state is not asserted here:
+    /// it changes when the Safe bundle executes, and the deployment does not.
+    /// @param chainId The chain id.
+    function assertEuAuthoriserDeployed(uint256 chainId) internal view {
+        address clone = euAuthoriserForChainId(chainId);
+        if (clone.code.length == 0 || clone.codehash != LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH) {
+            revert EuAuthoriserNotReady(clone);
+        }
+    }
+
+    /// @notice Asserts a chain's EU clone is still in the state `initialize`
+    /// left it in: the chain's token-owner Safe holds every `_ADMIN` role, the
+    /// timelock holds none, and the EU minter holds neither action role. This
+    /// is the pre-state the Safe bundle moves off; it goes red once the bundle
+    /// executes, which is what the registry switch is for.
+    /// @param chainId The chain id.
+    function assertEuAuthoriserInitialState(uint256 chainId) internal view {
+        address clone = euAuthoriserForChainId(chainId);
+        address safe = LibSafeInvariants.safeForChainId(chainId);
+        address timelock = LibTimelockInvariants.timelockForChainId(chainId);
+
+        RoleGrant[] memory grants = expectedGrants(safe, timelock, GRANTEE_EU_MINTER);
+        for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
+            if (!IAccessControl(clone).hasRole(grants[i].role, safe)) {
+                revert ExpectedGrantMissing(clone, grants[i].role, safe);
+            }
+            if (IAccessControl(clone).hasRole(grants[i].role, timelock)) {
+                revert UnexpectedRetainedAdminGrant(clone, grants[i].role, timelock);
+            }
+        }
+
+        if (IAccessControl(clone).hasRole(keccak256("DEPOSIT"), GRANTEE_EU_MINTER)) {
+            revert UnexpectedEuMinterGrant(clone, keccak256("DEPOSIT"));
+        }
+        if (IAccessControl(clone).hasRole(keccak256("WITHDRAW"), GRANTEE_EU_MINTER)) {
+            revert UnexpectedEuMinterGrant(clone, keccak256("WITHDRAW"));
+        }
     }
 
     /// @notice The active chain's hydrated V4 authoriser clone, asserted
