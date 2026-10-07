@@ -63,6 +63,11 @@ error UnsupportedChainForAuthoriser(uint256 chainId);
 /// @param authoriser The authoriser address inspected.
 error AuthoriserNotReady(address authoriser);
 
+/// @notice The pinned EU assets authoriser clone has no code, or does not
+/// carry the EIP-1167 codehash that proves which implementation it proxies.
+/// @param clone The clone address inspected.
+error EuAuthoriserNotReady(address clone);
+
 /// @title LibAuthoriserInvariants
 /// @notice Reusable invariants for the ST0x production authoriser on every
 /// chain:
@@ -147,6 +152,17 @@ library LibAuthoriserInvariants {
             return STOX_EU_AUTHORISER_CLONE_BSC;
         }
         revert UnsupportedChainForAuthoriser(chainId);
+    }
+
+    /// @notice Asserts a chain's pinned EU assets authoriser clone is deployed
+    /// and proxies the audited implementation. Role state is not asserted here:
+    /// it changes when the Safe bundle executes, and the deployment does not.
+    /// @param chainId The chain id.
+    function assertEuAuthoriserDeployed(uint256 chainId) internal view {
+        address clone = euAuthoriserForChainId(chainId);
+        if (clone.code.length == 0 || clone.codehash != LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH) {
+            revert EuAuthoriserNotReady(clone);
+        }
     }
 
     /// @notice The active chain's hydrated V4 authoriser clone, asserted
