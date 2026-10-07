@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {LibMigrationRegistry} from "rain-deploy-0.1.12/src/lib/LibMigrationRegistry.sol";
-import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.12/src/interface/IMigrationRegistryV2.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.15/src/lib/LibMigrationRegistry.sol";
+import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.15/src/interface/IMigrationRegistryV2.sol";
 
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 

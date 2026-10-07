@@ -137,8 +137,9 @@ library LibOrchestratorInvariants {
     ///   is an operation, not admin power.
     /// - Neither principal holds `MINT_ROLE` or `BURN_ROLE`: those are the
     ///   service signers' operations.
-    /// - `MINT_ROLE`, `BURN_ROLE` and `EMERGENCY_ROLE` are administered by
-    ///   `DEFAULT_ADMIN_ROLE`, so whoever holds it decides every grant.
+    /// - `DEFAULT_ADMIN_ROLE`, `MINT_ROLE`, `BURN_ROLE` and `EMERGENCY_ROLE`
+    ///   are administered by `DEFAULT_ADMIN_ROLE`, so whoever holds it
+    ///   decides every grant.
     ///
     /// Role membership is not enumerable on the orchestrator, so only the
     /// two governance principals are checked; any other holder is invisible
@@ -181,6 +182,9 @@ library LibOrchestratorInvariants {
         assertDoesNotHold(acl, BURN_ROLE, chainSafe);
         assertDoesNotHold(acl, BURN_ROLE, timelock);
 
+        // `DEFAULT_ADMIN_ROLE` must administer itself, or a holder of its admin
+        // role could take it without the governance principal.
+        assertAdministeredByDefaultAdmin(acl, bytes32(0));
         assertAdministeredByDefaultAdmin(acl, MINT_ROLE);
         assertAdministeredByDefaultAdmin(acl, BURN_ROLE);
         assertAdministeredByDefaultAdmin(acl, EMERGENCY_ROLE);

@@ -3,11 +3,11 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
-import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.12/src/lib/LibRainDeploy.sol";
-import {IMigrationRegistryV2} from "rain-deploy-0.1.12/src/interface/IMigrationRegistryV2.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.12/src/lib/LibMigrationRegistryDeploy.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
+import {IMigrationRegistryV2} from "rain-deploy-0.1.15/src/interface/IMigrationRegistryV2.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.15/src/lib/LibMigrationRegistryDeploy.sol";
 
 import {
     LibOrchestratorInvariants,
@@ -284,7 +284,8 @@ contract LibOrchestratorInvariantsTest is Test {
     /// `DEFAULT_ADMIN_ROLE`; a different admin role changes who decides its
     /// grants, which is the question every check above answers.
     function testRoleAdminChangedTrips() external {
-        bytes32[3] memory roles = [
+        bytes32[4] memory roles = [
+            bytes32(0),
             LibOrchestratorInvariants.MINT_ROLE,
             LibOrchestratorInvariants.BURN_ROLE,
             LibOrchestratorInvariants.EMERGENCY_ROLE
@@ -324,5 +325,53 @@ contract LibOrchestratorInvariantsTest is Test {
                 harness.callAssertInstance(safe);
             }
         }
+    }
+
+    /// @notice After the admin move the timelock is the account that can
+    /// grant operating roles, so the drift checks must hold there too:
+    /// the timelock taking `EMERGENCY`, either principal taking `MINT` or
+    /// `BURN`, and the Safe losing `EMERGENCY` each trip.
+    function testPostMoveDriftTrips() external {
+        bytes32[3] memory roles = [
+            LibOrchestratorInvariants.EMERGENCY_ROLE,
+            LibOrchestratorInvariants.MINT_ROLE,
+            LibOrchestratorInvariants.BURN_ROLE
+        ];
+        for (uint256 r = 0; r < roles.length; r++) {
+            for (uint256 h = 0; h < 2; h++) {
+                if (roles[r] == LibOrchestratorInvariants.EMERGENCY_ROLE && h == 0) continue;
+                selectPostMoveScenario();
+                address holder = h == 0 ? safe : timelock;
+                vm.prank(timelock);
+                orchestrator.grantRole(roles[r], holder);
+                vm.expectRevert(
+                    abi.encodeWithSelector(
+                        OrchestratorUnexpectedRoleHolder.selector, address(orchestrator), roles[r], holder
+                    )
+                );
+                harness.callAssertInstance(safe);
+            }
+        }
+
+        selectPostMoveScenario();
+        vm.prank(timelock);
+        orchestrator.revokeRole(LibOrchestratorInvariants.EMERGENCY_ROLE, safe);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OrchestratorRoleMissing.selector, address(orchestrator), LibOrchestratorInvariants.EMERGENCY_ROLE, safe
+            )
+        );
+        harness.callAssertInstance(safe);
+    }
+
+    /// @notice The stand-in scenario after both stacked migrations: the
+    /// stand-in Safe holds `EMERGENCY`, the timelock holds admin, both are
+    /// recorded, and the invariant passes.
+    function selectPostMoveScenario() internal {
+        selectScenarioFork();
+        grantEmergencyToSafe();
+        moveAdminToTimelock();
+        record(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
+        harness.callAssertInstance(safe);
     }
 }
