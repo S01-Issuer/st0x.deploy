@@ -32,7 +32,7 @@ export function getOrCreateContract(
   block: BigInt,
 ): Contract {
   let existing = Contract.load(address);
-  if (existing != null) {
+  if (existing !== null) {
     return existing;
   }
   let contract = new Contract(address);
@@ -62,7 +62,7 @@ export function createDiscoveredContract(
   owner: Bytes | null,
   implementation: Bytes | null,
 ): boolean {
-  if (Contract.load(address) != null) {
+  if (Contract.load(address) !== null) {
     return false;
   }
   let contract = new Contract(address);
@@ -70,11 +70,11 @@ export function createDiscoveredContract(
   contract.firstIndexedBlock = block;
   contract.ownerFromLog = false;
   contract.implementationFromLog = false;
-  if (owner != null) {
+  if (owner !== null) {
     contract.owner = owner;
     contract.ownerAsOfBlock = block;
   }
-  if (implementation != null) {
+  if (implementation !== null) {
     contract.implementation = implementation;
     contract.implementationAsOfBlock = block;
   }

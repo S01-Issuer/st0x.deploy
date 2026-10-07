@@ -37,7 +37,7 @@ export function roleHolderId(
 function getOrCreateRole(contract: Contract, role: Bytes): Role {
   let id = roleId(contract.id, role);
   let existing = Role.load(id);
-  if (existing != null) {
+  if (existing !== null) {
     return existing;
   }
   let entity = new Role(id);
@@ -51,7 +51,7 @@ function getOrCreateRole(contract: Contract, role: Bytes): Role {
 
 function getOrNewRoleHolder(id: Bytes, role: Bytes, account: Bytes): RoleHolder {
   let existing = RoleHolder.load(id);
-  if (existing != null) {
+  if (existing !== null) {
     return existing;
   }
   let holder = new RoleHolder(id);

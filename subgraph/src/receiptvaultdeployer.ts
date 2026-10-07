@@ -42,12 +42,12 @@ export function handleReceiptVaultDeployment(event: Deployment): void {
   let deployer = OffchainAssetReceiptVaultBeaconSetDeployer.bind(event.address);
 
   let vaultBeacon = receiptVaultBeacon(deployer);
-  if (vaultBeacon != null) {
+  if (vaultBeacon !== null) {
     indexBeacon(vaultBeacon, event.block.number);
   }
 
   let receipt = receiptBeacon(deployer);
-  if (receipt != null) {
+  if (receipt !== null) {
     indexBeacon(receipt, event.block.number);
   }
 }
