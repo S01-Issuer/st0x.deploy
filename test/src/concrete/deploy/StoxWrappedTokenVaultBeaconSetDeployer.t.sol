@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test, Vm} from "forge-std-1.16.2/src/Test.sol";
+import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
 import {
     StoxWrappedTokenVaultBeaconSetDeployer,
     ZeroVaultAsset,
@@ -10,12 +10,12 @@ import {
 } from "../../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
 import {StoxWrappedTokenVault} from "../../../../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxWrappedTokenVaultBeacon} from "../../../../src/concrete/StoxWrappedTokenVaultBeacon.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
 import {MockERC20} from "../../../concrete/MockERC20.sol";
 import {BadInitializeVault} from "../../../concrete/BadInitializeVault.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
-import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 
 contract StoxWrappedTokenVaultBeaconSetDeployerTest is Test {
     /// newStoxWrappedTokenVault reverts with ZeroVaultAsset when asset is

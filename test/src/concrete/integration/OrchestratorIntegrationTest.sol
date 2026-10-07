@@ -2,25 +2,25 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.2/src/Test.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
 
-import {IERC1155} from "@openzeppelin-contracts-5.6.1/token/ERC1155/IERC1155.sol";
-import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
-import {BeaconProxy} from "@openzeppelin-contracts-5.6.1/proxy/beacon/BeaconProxy.sol";
-import {CloneFactory} from "rain-factory-0.1.1/src/concrete/CloneFactory.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
-import {Float} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
+import {IERC1155} from "@openzeppelin-contracts-5.7.0/token/ERC1155/IERC1155.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
+import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
+import {CloneFactory} from "rain-factory-deploy-0.1.15/src/concrete/CloneFactory.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
+import {Float} from "rain-math-float-0.2.22/src/lib/LibDecimalFloat.sol";
 import {
     OffchainAssetReceiptVaultConfigV2,
     DEPOSIT,
     WITHDRAW,
     CERTIFY
-} from "rain-vats-0.1.6/src/concrete/vault/OffchainAssetReceiptVault.sol";
+} from "rain-vats-0.2.4/src/concrete/vault/OffchainAssetReceiptVault.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
-import {ReceiptVaultConfigV2} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
-import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
+} from "rain-vats-0.2.4/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+import {ReceiptVaultConfigV2} from "rain-vats-0.2.4/src/abstract/ReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.4/src/interface/IAuthorizeV1.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";
@@ -148,8 +148,10 @@ abstract contract OrchestratorIntegrationTest is Test {
         StoxOffchainAssetReceiptVaultAuthorizerV1 authorizerImpl = new StoxOffchainAssetReceiptVaultAuthorizerV1();
         CloneFactory factory = new CloneFactory();
         return StoxOffchainAssetReceiptVaultAuthorizerV1(
-            factory.clone(
-                address(authorizerImpl), abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: ADMIN}))
+            factory.cloneDeterministic(
+                address(authorizerImpl),
+                abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: ADMIN})),
+                bytes32(uint256(uint160(address(authorizerImpl))))
             )
         );
     }

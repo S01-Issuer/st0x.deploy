@@ -2,18 +2,18 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.2/src/Test.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibProdDeployV2} from "../../../../src/lib/LibProdDeployV2.sol";
 import {LibProdDeployV2BaseOverrides} from "../../../../src/lib/LibProdDeployV2BaseOverrides.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibInvariants} from "../../../../src/lib/LibInvariants.sol";
 import {IGnosisSafe} from "../../../../src/interface/IGnosisSafe.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
-import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
-import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
-} from "rain-vats-0.1.6/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
+} from "rain-vats-0.2.4/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
 
 /// @title StoxProdV2Test
 /// @notice Fork tests verifying all V2 Zoltu deployments exist on all

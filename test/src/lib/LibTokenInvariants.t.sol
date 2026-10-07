@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.2/src/Test.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {
     LibTokenInvariants,
@@ -10,10 +10,11 @@ import {
     IOwnable,
     ReceiptVaultOwnerMismatch
 } from "../../../src/lib/LibTokenInvariants.sol";
+import {LibProdTokenConfig, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariantsHarness} from "./LibTokenInvariantsHarness.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
 
 /// @title LibTokenInvariantsTest
 /// @notice Fork tests for the token-side uniformity invariants: every
@@ -122,6 +123,21 @@ contract LibTokenInvariantsTest is Test {
         assertEq(bsc.length, base.length, "BNB Smart Chain token table length diverges from Base");
         for (uint256 i = 0; i < base.length; i++) {
             assertEq(bsc[i].underlying, base[i].underlying, "BNB Smart Chain token underlying diverges from Base");
+        }
+    }
+
+    function testDiscardedEuBatchIsNotListed() external pure {
+        string[6] memory discarded = ["AIR.PA", "BMW.DE", "MC.PA", "SIE.DE", "MBG.DE", "RHM.DE"];
+        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
+        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        for (uint256 d = 0; d < discarded.length; d++) {
+            bytes32 key = keccak256(bytes(discarded[d]));
+            for (uint256 i = 0; i < base.length; i++) {
+                assertTrue(keccak256(bytes(base[i].underlying)) != key, discarded[d]);
+            }
+            for (uint256 i = 0; i < configs.length; i++) {
+                assertTrue(keccak256(bytes(configs[i].underlying)) != key, discarded[d]);
+            }
         }
     }
 }

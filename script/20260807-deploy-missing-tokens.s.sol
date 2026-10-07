@@ -2,16 +2,16 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Script} from "forge-std-1.16.2/src/Script.sol";
-import {console2} from "forge-std-1.16.2/src/console2.sol";
-import {Vm} from "forge-std-1.16.2/src/Vm.sol";
+import {Script} from "forge-std-1.17.0/src/Script.sol";
+import {console2} from "forge-std-1.17.0/src/console2.sol";
+import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {
     OffchainAssetReceiptVaultConfigV2
-} from "rain-vats-0.1.6/src/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
-import {ReceiptVaultConfigV2} from "rain-vats-0.1.6/src/abstract/ReceiptVault.sol";
-import {IReceiptVaultV3} from "rain-vats-0.1.6/src/interface/IReceiptVaultV3.sol";
-import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
-import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
+} from "rain-vats-0.2.4/src/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
+import {ReceiptVaultConfigV2} from "rain-vats-0.2.4/src/abstract/ReceiptVault.sol";
+import {IReceiptVaultV3} from "rain-vats-0.2.4/src/interface/IReceiptVaultV3.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.4/src/interface/IAuthorizeV1.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {IStoxUnifiedDeployerV1} from "../src/interface/IStoxUnifiedDeployerV1.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";

@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Script} from "forge-std-1.16.2/src/Script.sol";
-import {console2} from "forge-std-1.16.2/src/console2.sol";
-import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
-import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/TimelockController.sol";
+import {Script} from "forge-std-1.17.0/src/Script.sol";
+import {console2} from "forge-std-1.17.0/src/console2.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
+import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";

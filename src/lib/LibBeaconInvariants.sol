@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {LibProdBeaconsBase} from "./LibProdBeaconsBase.sol";
 import {LibProdBeacons0_1_1} from "./LibProdBeacons0_1_1.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
