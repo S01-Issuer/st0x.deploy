@@ -289,10 +289,6 @@ as `admin`.
 
 ## Explicitly out of scope (follow-ups)
 
-- **The orchestrator instance's `DEFAULT_ADMIN_ROLE`** is on the Safe until its
-  own dated move executes. It administers `MINT`, `BURN` and `EMERGENCY` on the
-  orchestrator, which holds `DEPOSIT`/`WITHDRAW` on every vault, so until then
-  those grants are not delayed.
 - **New Base tokens** are deployed by the sft-ops CD pipeline, not by a script
   here. It must hand each new vault to `STOX_GOVERNANCE_TIMELOCK`
   (`transferOwnership`); a vault left on the Safe fails the token and governance

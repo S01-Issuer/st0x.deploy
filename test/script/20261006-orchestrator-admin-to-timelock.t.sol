@@ -4,8 +4,10 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
-import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.12/src/lib/LibRainDeploy.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
+import {IMigrationRegistryV2} from "rain-deploy-0.1.15/src/interface/IMigrationRegistryV2.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.15/src/lib/LibMigrationRegistryDeploy.sol";
 
 import {UnexpectedMigrationLine} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
@@ -73,12 +75,20 @@ contract OrchestratorAdminToTimelockTest is Test {
             script.callPreflight();
             // Out of order on chain (Phase 2 signed at a lower nonce than
             // Phase 1, or imported where Phase 1 is still queued): the
-            // registry refuses the record, so the whole bundle reverts and
-            // the admin does not move.
+            // registry refuses the record, so the whole bundle reverts. The
+            // Safe reports any inner failure as GS013, so the refuser is
+            // pinned by calling the record directly as the Safe.
             SafeTx[] memory early = script.callAuthorBundle(safe, timelock);
-            vm.expectRevert();
+            vm.expectRevert(bytes("GS013"));
             this.externalExecute(safe, early);
-            assertTrue(ORCHESTRATOR.hasRole(bytes32(0), safe), "out-of-order bundle moved the admin");
+            vm.prank(safe);
+            vm.expectPartialRevert(IMigrationRegistryV2.UnexpectedMigrationHead.selector);
+            IMigrationRegistryV2(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
+                .applyMigration(
+                    LibStoxMigrations.NAMESPACE,
+                    LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
+                    LibStoxMigrations.onto(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY)
+                );
             executeEmergencyGrant(safe);
         }
 
