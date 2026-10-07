@@ -80,12 +80,8 @@ library LibProdTokenConfig {
         configs[27] = TokenConfig("TTWO", "Take-Two Interactive Software, Inc. ST0x", "tTTWO");
         configs[28] = TokenConfig("RKLB", "Rocket Lab USA Inc ST0x", "tRKLB");
         configs[29] = TokenConfig("GOOGL", "Alphabet Inc. Class A ST0x", "tGOOGL");
-        // tMETA — deployed 2026-07-27, never launched; recorded here, deliberately not in the table.
-        // configs[..] = TokenConfig("META", "Meta Platforms, Inc. ST0x", "tMETA");
         configs[30] = TokenConfig("AAPL", "Apple Inc. ST0x", "tAAPL");
         configs[31] = TokenConfig("MSFT", "Microsoft Corporation ST0x", "tMSFT");
-        // tPLTR — deployed 2026-07-27, never launched, `owner()` still the deployer EOA; not in the table.
-        // configs[..] = TokenConfig("PLTR", "Palantir Technologies Inc. ST0x", "tPLTR");
         configs[32] = TokenConfig("LLY", "Eli Lilly and Company ST0x", "tLLY");
         configs[33] = TokenConfig("PTY", "PIMCO Corporate & Income Opportunity Fund ST0x", "tPTY");
         configs[34] = TokenConfig("INTC", "Intel Corporation ST0x", "tINTC");
@@ -108,8 +104,6 @@ library LibProdTokenConfig {
         configs[49] = TokenConfig("NKE", "NIKE, Inc. ST0x", "tNKE");
         configs[50] = TokenConfig("GRND", "Grindr Inc. ST0x", "tGRND");
         configs[51] = TokenConfig("DNUT", "Krispy Kreme, Inc. ST0x", "tDNUT");
-        // tGM — deployed 2026-09-06, swapped out for FGI before launch; recorded, deliberately not in the table.
-        // configs[..] = TokenConfig("GM", "General Motors Company ST0x", "tGM");
         configs[52] = TokenConfig("PLBY", "Playboy, Inc. ST0x", "tPLBY");
         configs[53] = TokenConfig("TR", "Tootsie Roll Industries, Inc. ST0x", "tTR");
         configs[54] = TokenConfig("WEN", "The Wendy's Company ST0x", "tWEN");

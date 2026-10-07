@@ -301,15 +301,6 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x6a2357Df4975C667B171bE53dA6FFe6deBf7030c
     address internal constant GOOGL_WRAPPED_TOKEN_VAULT = address(0x6a2357Df4975C667B171bE53dA6FFe6deBf7030c);
 
-    // ---- tMETA / wtMETA — Meta Platforms, Inc. ST0x ----
-    // Deployed 2026-07-27, never launched — absent from registry, logos and Turnkey set; recorded, not pinned.
-    // /// https://basescan.org/address/0xffcBEA042a0d55293f9ad0f050CE11f6331C9313
-    // address internal constant META_RECEIPT = address(0xffcBEA042a0d55293f9ad0f050CE11f6331C9313);
-    // /// https://basescan.org/address/0xAF07a843A6221d3E6540122Fa712DF8541B05E26
-    // address internal constant META_RECEIPT_VAULT = address(0xAF07a843A6221d3E6540122Fa712DF8541B05E26);
-    // /// https://basescan.org/address/0xd1ddE998d1Cd19B502242FBE14F6CC97bE601E30
-    // address internal constant META_WRAPPED_TOKEN_VAULT = address(0xd1ddE998d1Cd19B502242FBE14F6CC97bE601E30);
-
     // ---- tAAPL / wtAAPL — Apple Inc. ST0x ----
     /// https://basescan.org/address/0x3156EB08c9dd870979f1475C5CFe681b8f6A3b53
     address internal constant AAPL_RECEIPT = address(0x3156EB08c9dd870979f1475C5CFe681b8f6A3b53);
@@ -325,15 +316,6 @@ library LibTokenInvariants {
     address internal constant MSFT_RECEIPT_VAULT = address(0x6a071E25fa25653cF15d1ee320eA3df771926Aa0);
     /// https://basescan.org/address/0x515A3Ac2a6aB590bDFa970caFFFd7fAdC680886E
     address internal constant MSFT_WRAPPED_TOKEN_VAULT = address(0x515A3Ac2a6aB590bDFa970caFFFd7fAdC680886E);
-
-    // ---- tPLTR / wtPLTR — Palantir Technologies Inc. ST0x ----
-    // Deployed 2026-07-27, never launched — `owner()` is still the deployer EOA, not the Safe; recorded, not pinned.
-    // /// https://basescan.org/address/0x0fa01D10006486f042E55728f14A1A8f70ACa6a3
-    // address internal constant PLTR_RECEIPT = address(0x0fa01D10006486f042E55728f14A1A8f70ACa6a3);
-    // /// https://basescan.org/address/0xEAcB0EF8b160D0340578d8BA24311A5F7AD717F2
-    // address internal constant PLTR_RECEIPT_VAULT = address(0xEAcB0EF8b160D0340578d8BA24311A5F7AD717F2);
-    // /// https://basescan.org/address/0x842C2A838Bd005840Dea1EF62e82FC89533FF8f9
-    // address internal constant PLTR_WRAPPED_TOKEN_VAULT = address(0x842C2A838Bd005840Dea1EF62e82FC89533FF8f9);
 
     // ---- tLLY / wtLLY — Eli Lilly and Company ST0x ----
     /// https://basescan.org/address/0x7b345A02d56f989420EbEd4df647D1C673608F3C
@@ -495,15 +477,6 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x1db49Ff8BEe88ec73F82F395B0BEAd372BdcAdb7
     address internal constant DNUT_WRAPPED_TOKEN_VAULT = address(0x1db49Ff8BEe88ec73F82F395B0BEAd372BdcAdb7);
 
-    // ---- tGM / wtGM — General Motors Company ST0x ----
-    // Deployed 2026-09-06, never launched — swapped out for FGI before launch; recorded, not pinned.
-    // /// https://basescan.org/address/0x912193f95512480167B0894E20DDe5062105F3b7
-    // address internal constant GM_RECEIPT = address(0x912193f95512480167B0894E20DDe5062105F3b7);
-    // /// https://basescan.org/address/0x47C04A6f705f755C10641E975607ecE8f18BC60c
-    // address internal constant GM_RECEIPT_VAULT = address(0x47C04A6f705f755C10641E975607ecE8f18BC60c);
-    // /// https://basescan.org/address/0x761d56D1FE1E390A96A5ECf58dE69838A231A37c
-    // address internal constant GM_WRAPPED_TOKEN_VAULT = address(0x761d56D1FE1E390A96A5ECf58dE69838A231A37c);
-
     // ---- tPLBY / wtPLBY — Playboy, Inc. ST0x ----
     /// https://basescan.org/address/0x5978B2FA7B3DDA36847eb7D2003EC7AE112258AA
     address internal constant PLBY_RECEIPT = address(0x5978B2FA7B3DDA36847eb7D2003EC7AE112258AA);
@@ -602,22 +575,9 @@ library LibTokenInvariants {
         // token-owner Safe. All twelve were copied onto Ethereum and HyperEVM
         // by `20260807-deploy-missing-tokens`, so rows 29-41 exist on all
         // three chains, as does every row below them.
-        //
-        // tMETA and tPLTR are deliberately absent from the array: META is
-        // deployed but never launched (absent from the registry, the logos and
-        // the Turnkey token set), and PLTR's `owner()` is still the deployer
-        // EOA rather than the Safe, so pinning it would break
-        // `assertUniformOwnership`. Both are recorded as commented-out rows at
-        // the index they would occupy — see below — so their addresses are on
-        // the record without entering the array or
-        // `20260807-deploy-missing-tokens`' selection.
         tokens[29] = TokenInstance("GOOGL", GOOGL_RECEIPT, GOOGL_RECEIPT_VAULT, GOOGL_WRAPPED_TOKEN_VAULT);
-        // tMETA — deployed 2026-07-27, never launched; recorded here, deliberately not in the array.
-        // tokens[..] = TokenInstance("META", META_RECEIPT, META_RECEIPT_VAULT, META_WRAPPED_TOKEN_VAULT);
         tokens[30] = TokenInstance("AAPL", AAPL_RECEIPT, AAPL_RECEIPT_VAULT, AAPL_WRAPPED_TOKEN_VAULT);
         tokens[31] = TokenInstance("MSFT", MSFT_RECEIPT, MSFT_RECEIPT_VAULT, MSFT_WRAPPED_TOKEN_VAULT);
-        // tPLTR — deployed 2026-07-27, never launched, `owner()` still the deployer EOA; not in the array.
-        // tokens[..] = TokenInstance("PLTR", PLTR_RECEIPT, PLTR_RECEIPT_VAULT, PLTR_WRAPPED_TOKEN_VAULT);
         tokens[32] = TokenInstance("LLY", LLY_RECEIPT, LLY_RECEIPT_VAULT, LLY_WRAPPED_TOKEN_VAULT);
         tokens[33] = TokenInstance("PTY", PTY_RECEIPT, PTY_RECEIPT_VAULT, PTY_WRAPPED_TOKEN_VAULT);
         tokens[34] = TokenInstance("INTC", INTC_RECEIPT, INTC_RECEIPT_VAULT, INTC_WRAPPED_TOKEN_VAULT);
@@ -645,8 +605,6 @@ library LibTokenInvariants {
         tokens[49] = TokenInstance("NKE", NKE_RECEIPT, NKE_RECEIPT_VAULT, NKE_WRAPPED_TOKEN_VAULT);
         tokens[50] = TokenInstance("GRND", GRND_RECEIPT, GRND_RECEIPT_VAULT, GRND_WRAPPED_TOKEN_VAULT);
         tokens[51] = TokenInstance("DNUT", DNUT_RECEIPT, DNUT_RECEIPT_VAULT, DNUT_WRAPPED_TOKEN_VAULT);
-        // tGM — deployed 2026-09-06, swapped out for FGI before launch; recorded, deliberately not in the array.
-        // tokens[..] = TokenInstance("GM", GM_RECEIPT, GM_RECEIPT_VAULT, GM_WRAPPED_TOKEN_VAULT);
         tokens[52] = TokenInstance("PLBY", PLBY_RECEIPT, PLBY_RECEIPT_VAULT, PLBY_WRAPPED_TOKEN_VAULT);
         tokens[53] = TokenInstance("TR", TR_RECEIPT, TR_RECEIPT_VAULT, TR_WRAPPED_TOKEN_VAULT);
         tokens[54] = TokenInstance("WEN", WEN_RECEIPT, WEN_RECEIPT_VAULT, WEN_WRAPPED_TOKEN_VAULT);
