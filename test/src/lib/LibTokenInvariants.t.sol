@@ -14,7 +14,7 @@ import {LibProdTokenConfig, TokenConfig} from "../../../src/lib/LibProdTokenConf
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariantsHarness} from "./LibTokenInvariantsHarness.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.12/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
 
 /// @title LibTokenInvariantsTest
 /// @notice Fork tests for the token-side uniformity invariants: every
