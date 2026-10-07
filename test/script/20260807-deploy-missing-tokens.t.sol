@@ -20,8 +20,9 @@ import {
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
+import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
-import {LibProdTokenConfig, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
+import {LibProdTokenConfig, TokenConfig, Region} from "../../src/lib/LibProdTokenConfig.sol";
 import {DeployMissingTokensHarness} from "./DeployMissingTokensHarness.sol";
 
 /// @title DeployMissingTokensTest
@@ -49,7 +50,7 @@ contract DeployMissingTokensTest is Test {
     address constant RECEIPT_VAULT = address(0x1A17);
     address constant WRAPPED = address(0x1A18);
     address constant AUTHORISER = address(0xA077);
-    address constant SAFE = address(0x5AFE);
+    address constant OWNER = address(0x7135);
     address constant STRAY = address(0xDEADBEEF);
 
     DeployMissingTokens internal script;
@@ -112,7 +113,12 @@ contract DeployMissingTokensTest is Test {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
         TokenInstance[] memory placeholders = new TokenInstance[](base.length);
         for (uint256 i = 0; i < base.length; i++) {
-            placeholders[i] = TokenInstance(base[i].underlying, address(0), address(0), address(0));
+            placeholders[i] = TokenInstance({
+                underlying: base[i].underlying,
+                receipt: address(0),
+                receiptVault: address(0),
+                wrappedTokenVault: address(0)
+            });
         }
         TokenConfig[] memory missing =
             harness.selectMissing(LibProdTokenConfig.productionTokenConfigs(), base, placeholders);
@@ -128,7 +134,14 @@ contract DeployMissingTokensTest is Test {
         TokenInstance[] memory target = new TokenInstance[](base.length);
         uint256 deployed = 41;
         for (uint256 i = 0; i < base.length; i++) {
-            target[i] = i < deployed ? base[i] : TokenInstance(base[i].underlying, address(0), address(0), address(0));
+            target[i] = i < deployed
+                ? base[i]
+                : TokenInstance({
+                    underlying: base[i].underlying,
+                    receipt: address(0),
+                    receiptVault: address(0),
+                    wrappedTokenVault: address(0)
+                });
         }
         TokenConfig[] memory missing = harness.selectMissing(LibProdTokenConfig.productionTokenConfigs(), base, target);
         assertEq(missing.length, base.length - deployed, "expected every placeholder row and nothing else");
@@ -148,8 +161,10 @@ contract DeployMissingTokensTest is Test {
         for (uint256 i = 0; i < configs.length; i++) {
             ahead[i] = configs[i];
         }
-        ahead[configs.length] = TokenConfig("AAAA", "Ahead Of Base One ST0x", "tAAAA");
-        ahead[configs.length + 1] = TokenConfig("BBBB", "Ahead Of Base Two ST0x", "tBBBB");
+        ahead[configs.length] =
+            TokenConfig({underlying: "AAAA", name: "Ahead Of Base One ST0x", symbol: "tAAAA", region: Region.US});
+        ahead[configs.length + 1] =
+            TokenConfig({underlying: "BBBB", name: "Ahead Of Base Two ST0x", symbol: "tBBBB", region: Region.US});
 
         TokenConfig[] memory missing = harness.selectMissing(ahead, base, new TokenInstance[](0));
         assertEq(missing.length, base.length, "the un-deployed rows must not be selected");
@@ -416,30 +431,30 @@ contract DeployMissingTokensTest is Test {
         assertEq(wrapped, WRAPPED, "wrong wrapped vault decoded");
     }
 
-    /// @notice Ownership that did not land on the Safe is caught: otherwise
+    /// @notice Ownership that did not land on the timelock is caught: otherwise
     /// the broadcast finishes "successfully" leaving a production vault owned
     /// by the CI deploy key.
     function testHandoffCaughtWhenOwnershipDidNotLand() external {
         vm.mockCall(RECEIPT_VAULT, abi.encodeWithSignature("authorizer()"), abi.encode(AUTHORISER));
         vm.mockCall(RECEIPT_VAULT, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(STRAY));
-        vm.expectRevert(abi.encodeWithSelector(OwnershipHandoffFailed.selector, RECEIPT_VAULT, SAFE, STRAY));
-        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, SAFE);
+        vm.expectRevert(abi.encodeWithSelector(OwnershipHandoffFailed.selector, RECEIPT_VAULT, OWNER, STRAY));
+        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, OWNER);
     }
 
     /// @notice A vault left on the wrong authoriser is caught — until
     /// `setAuthorizer` lands, every operation on the vault reverts.
     function testHandoffCaughtWhenAuthoriserNotWired() external {
         vm.mockCall(RECEIPT_VAULT, abi.encodeWithSignature("authorizer()"), abi.encode(STRAY));
-        vm.mockCall(RECEIPT_VAULT, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(SAFE));
+        vm.mockCall(RECEIPT_VAULT, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(OWNER));
         vm.expectRevert(abi.encodeWithSelector(AuthoriserNotWired.selector, RECEIPT_VAULT, AUTHORISER, STRAY));
-        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, SAFE);
+        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, OWNER);
     }
 
     /// @notice Both landed passes, so the two above are not vacuous.
     function testHandoffPassesWhenBothLanded() external {
         vm.mockCall(RECEIPT_VAULT, abi.encodeWithSignature("authorizer()"), abi.encode(AUTHORISER));
-        vm.mockCall(RECEIPT_VAULT, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(SAFE));
-        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, SAFE);
+        vm.mockCall(RECEIPT_VAULT, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(OWNER));
+        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, OWNER);
     }
 
     /// @notice A `Deployment(sender, asset, wrapper)` log as the unified
@@ -457,5 +472,24 @@ contract DeployMissingTokensTest is Test {
         log.topics[0] = keccak256("Deployment(address,address,address)");
         log.data = abi.encode(address(0x5E11E4), receiptVault, wrapped);
         log.emitter = emitter;
+    }
+
+    /// @notice The handoff assertion against live production: on Robinhood
+    /// Chain every deployed vault is wired to the chain's V4 authoriser and
+    /// owned by its governance timelock, so the check passes for the timelock
+    /// and refuses the Safe — the owner this script handed vaults to before
+    /// the governance migration.
+    function testHandoffAgainstLiveTimelockOwnedVaults() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
+        DeployMissingTokensHarness forked = new DeployMissingTokensHarness();
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        address authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD;
+        LibTimelockInvariants.assertTimelockState(timelock, safe);
+        TokenInstance[] memory tokens = LibTokenInvariants.productionTokensRobinhood();
+        assertGt(tokens.length, 0, "Robinhood token table empty");
+        forked.assertHandoffLanded(tokens[0].receiptVault, authoriser, timelock);
+        vm.expectRevert(abi.encodeWithSelector(OwnershipHandoffFailed.selector, tokens[0].receiptVault, safe, timelock));
+        forked.assertHandoffLanded(tokens[0].receiptVault, authoriser, safe);
     }
 }
