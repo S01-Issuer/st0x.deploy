@@ -16,6 +16,17 @@ import {
   receiptVaultDeploymentLog,
 } from "./event-mocks.test";
 
+/**
+ * Matchstick keeps one data source registry per test file — a map per template,
+ * keyed by the created address — and builds it up across every test in the
+ * file. `clearStore` empties the entity store and leaves that map alone, and a
+ * `create` for an address already in it is not a second entry. So a
+ * `dataSourceCount` here is a fact about every test above it as well as its
+ * own, reading as the number of distinct addresses the file has created for
+ * that template so far, and it can never show a repeated `create` of one
+ * address. The entity store, which `afterEach(clearStore)` does empty, is what
+ * holds a handler to what it wrote on this event alone.
+ */
 const RECEIPT_VAULT_DEPLOYER = "0x2191981ca2477b745870cc307cbeb4cb2967ace3";
 const ORCHESTRATOR_DEPLOYER = "0x945d0faf6f268e805246907507ef1044e70e75d7";
 const VAULT = "0x00000000000000000000000000000000000000da";
@@ -228,16 +239,27 @@ describe("Receipt vault discovery", () => {
     assert.fieldEquals("Contract", OTHER_VAULT, "firstIndexedBlock", "2000");
   });
 
-  test("a replayed deployment creates one vault data source", () => {
+  test("a replayed deployment writes the vault and beacons once", () => {
     mockCamelCaseGetters();
     mockBothBeacons();
 
     deployVault(VAULT, 1000, 5);
     deployVault(VAULT, 1000, 5);
 
-    assert.dataSourceCount("ReceiptVault", 1);
-    assert.dataSourceCount("VaultBeacon", 2);
+    // A replay is the same log: the same `Contract` ids and the same history
+    // row keys. So what this holds the handler to is that the second pass is a
+    // no-op which neither traps nor leaves the store in another shape — three
+    // rows, the blocks they were first seen in, and no history invented for a
+    // beacon whose state was read rather than logged. Catching a `Contract`
+    // row being re-written needs a second event at a later block, which is the
+    // test above: it re-reaches these same two beacons at block 2000 and their
+    // `firstIndexedBlock` stays at 1000.
     assert.entityCount("Contract", 3);
+    assert.fieldEquals("Contract", VAULT, "firstIndexedBlock", "1000");
+    assert.fieldEquals("Contract", VAULT_BEACON, "firstIndexedBlock", "1000");
+    assert.fieldEquals("Contract", RECEIPT_BEACON, "firstIndexedBlock", "1000");
+    assert.entityCount("OwnershipTransfer", 0);
+    assert.entityCount("BeaconUpgrade", 0);
   });
 
   test("the vault is still indexed when no beacon getter answers", () => {
@@ -245,8 +267,11 @@ describe("Receipt vault discovery", () => {
 
     deployVault(VAULT, 1000, 5);
 
-    assert.dataSourceCount("ReceiptVault", 1);
-    assert.dataSourceCount("VaultBeacon", 0);
+    // The vault's row and nothing else. No getter answered, so `indexBeacon`
+    // never ran for either beacon and neither a `Contract` row nor a
+    // `VaultBeacon` data source was created for them — the two go up together,
+    // off the one return value, and the entity store is the half of that pair
+    // this test can see.
     assert.entityCount("Contract", 1);
     assert.fieldEquals("Contract", VAULT, "kind", "RECEIPT_VAULT");
   });
