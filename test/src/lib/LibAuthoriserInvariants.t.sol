@@ -284,6 +284,24 @@ contract LibAuthoriserInvariantsTest is Test {
         harness.callAssertExpectedGrants(clone, safe, timelock);
     }
 
+    /// @notice The exclusive `_ADMIN` check runs even when the Safe is passed
+    /// as the admin holder, so the pre-timelock state (Safe holding every
+    /// `_ADMIN`) can never pass by naming the Safe twice.
+    function testAssertExpectedGrantsRefusesSafeAsAdminHolder() external {
+        selectBaseFork();
+        address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        address safe = LibAuthoriserInvariants.GRANTEE_TOKEN_OWNER_SAFE;
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, safe);
+        for (uint256 i = 0; i < 7; i++) {
+            vm.mockCall(
+                clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, grants[i].role, safe), abi.encode(true)
+            );
+        }
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedRetainedAdminGrant.selector, clone, grants[0].role, safe));
+        harness.callAssertExpectedGrants(clone, safe, safe);
+    }
+
     /// @notice A re-grant to the retired signer is refused: the revocation
     /// is pinned as an absence, so any action role landing back on
     /// `GRANTEE_SERVICE_1C66` red-lines with `UnexpectedRetiredSignerGrant`

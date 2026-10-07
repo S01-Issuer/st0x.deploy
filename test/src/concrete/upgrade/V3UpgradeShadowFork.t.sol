@@ -53,10 +53,10 @@ import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.1/src/lib/LibExtrospec
 ///    address is required so its `_SELF` immutable resolves to
 ///    `STOX_CORPORATE_ACTIONS_FACET`; the vault's `fallback()` hardcodes that
 ///    address as its delegatecall target.
-/// 2. **Beacon ownership** — the receipt vault beacon is transferred from the
-///    rainlang.eth EOA to the Safe (PR-A's effect).
-/// 3. **Upgrade** — `vm.prank(safe); beacon.upgradeTo(V3 impl)` upgrades the
-///    beacon. Every live receipt vault behind the beacon now runs V3 code.
+/// 2. **Beacon ownership** — the receipt vault beacon is owned by the
+///    governance timelock (`PROD_BEACON_OWNER`), asserted live.
+/// 3. **Upgrade** — `vm.prank(PROD_BEACON_OWNER); beacon.upgradeTo(V3 impl)`
+///    upgrades the beacon (in production a timelock operation). Every live receipt vault behind the beacon now runs V3 code.
 contract V3UpgradeShadowForkTest is Test {
     /// @notice The receipt vault beacon upgraded to V3.
     address internal constant BEACON = LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1;

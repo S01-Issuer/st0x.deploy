@@ -174,14 +174,26 @@ contract MigrateGovernanceToTimelockTest is Test {
         _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM);
     }
 
-    /// @notice The same full authoring against live Ethereum state, so all
-    /// three governed chains carry the same proof — Ethereum shares
+    /// @notice The same full authoring against live Ethereum state — Ethereum shares
     /// HyperEVM's Safe and timelock but has its own token table and
     /// authoriser clone, and chain-generic code is only proven generic by
     /// running it on every chain it claims.
     function testRunAuthorsFullMigrationOnEthereum() external {
         selectRewoundFork(LibStoxDeployNetworks.ETHEREUM);
         _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM);
+    }
+
+    /// @notice The same full authoring against live Robinhood Chain state.
+    function testRunAuthorsFullMigrationOnRobinhood() external {
+        selectRewoundFork(LibStoxDeployNetworks.ROBINHOOD);
+        _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD);
+    }
+
+    /// @notice The same full authoring against live BNB Smart Chain state, so
+    /// all five governed chains carry the same proof.
+    function testRunAuthorsFullMigrationOnBsc() external {
+        selectRewoundFork(LibStoxDeployNetworks.BSC);
+        _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC);
     }
 
     /// @notice Drive the full authoring on whichever fork is selected and

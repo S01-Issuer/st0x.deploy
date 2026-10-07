@@ -23,8 +23,8 @@ beacons, and a beacon owner can `upgradeTo` a new implementation for all of them
 in a single transaction — a hostile implementation could re-take vault ownership
 and rewrite the authoriser wiring outright. Timelocking `setAuthorizer` and
 vault ownership while leaving the beacons on the Safe would make the delay
-bypassable by design, so both surfaces move in the same atomic bundle and are
-forced by the same deadline.
+bypassable by design, so both surfaces moved in the same atomic bundle, and
+`GovernanceTimelockMigration.t.sol` pins both on the timelock.
 
 The Safe **keeps its three direct action roles** (`DEPOSIT`, `WITHDRAW`,
 `CERTIFY`) and the service signer keeps its operational grants: day-to-day
