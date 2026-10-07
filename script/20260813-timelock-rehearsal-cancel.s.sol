@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
-import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/TimelockController.sol";
+import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";

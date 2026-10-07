@@ -15,7 +15,7 @@ import {MockERC20} from "../../../concrete/MockERC20.sol";
 import {BadInitializeVault} from "../../../concrete/BadInitializeVault.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
-import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 
 contract StoxWrappedTokenVaultBeaconSetDeployerTest is Test {
     /// newStoxWrappedTokenVault reverts with ZeroVaultAsset when asset is
