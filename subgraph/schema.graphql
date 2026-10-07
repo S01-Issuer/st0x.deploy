@@ -34,11 +34,16 @@ type Contract @entity {
   "What the contract is."
   kind: ContractKind!
   """
-  The lower bound of this contract's indexed event history — the earliest block
-  this subgraph could have seen a log from it. Static data sources start at the
-  `startBlock` in `networks.json`; a templated data source starts at the block
-  its template was created in, so anything the contract emitted before that
-  block is NOT in `ownershipTransfers` / `upgrades` / `roles` here.
+  The lower bound of this contract's indexed event history — the block this
+  subgraph first brought the contract into view. Nothing the contract emitted
+  before this block is in `ownershipTransfers` / `upgrades` / `roles` here.
+
+  For a contract found by discovery it is the block its data source template was
+  created in, and the cutoff is real. For a static data source it is the block
+  of the first log matched from it, which is a conservative bound rather than a
+  tight one: every `startBlock` in `networks.json` is 0, so that history is in
+  fact complete. See `ownerFromLog` and `implementationFromLog` for whether the
+  current values came from a log at all.
   """
   firstIndexedBlock: BigInt!
   """
