@@ -62,12 +62,65 @@ contract LibEuAuthoriserCloneTest is Test {
 
     /// @notice The init data is the initial admin alone, so the minter is role
     /// state granted afterwards and cannot move the clone's address.
-    function testCloneDataIsTheInitialAdminOnly() external pure {
-        assertEq(
-            LibEuAuthoriserClone.cloneData(),
-            abi.encode(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE),
-            "init data is one address"
+    function testCloneDataIsTheChainsOwnSafe() external pure {
+        uint256[5] memory chainIds = [
+            LibSafeInvariants.BASE_CHAIN_ID,
+            LibSafeInvariants.ETHEREUM_CHAIN_ID,
+            LibSafeInvariants.HYPEREVM_CHAIN_ID,
+            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
+            LibSafeInvariants.BSC_CHAIN_ID
+        ];
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            assertEq(
+                LibEuAuthoriserClone.cloneData(chainIds[i]),
+                abi.encode(LibSafeInvariants.safeForChainId(chainIds[i])),
+                "init data is the chain's own Safe"
+            );
+        }
+    }
+
+    /// Base's token-owner Safe is a different address from the other four
+    /// chains', and only exists on Base. Baking one of them into the init data
+    /// for every chain would leave four clones admined by an address with no
+    /// code, and the `_ADMIN` roles administer themselves, so those clones
+    /// could never be administered at all.
+    function testCloneAddressIsPerChain() external pure {
+        address base = LibEuAuthoriserClone.cloneDeployedAddress(LibSafeInvariants.BASE_CHAIN_ID);
+        address ethereum = LibEuAuthoriserClone.cloneDeployedAddress(LibSafeInvariants.ETHEREUM_CHAIN_ID);
+
+        assertTrue(
+            LibSafeInvariants.safeForChainId(LibSafeInvariants.BASE_CHAIN_ID)
+                != LibSafeInvariants.safeForChainId(LibSafeInvariants.ETHEREUM_CHAIN_ID),
+            "Base and Ethereum Safes differ"
         );
+        assertTrue(base != ethereum, "a different initial admin is a different clone address");
+
+        // The four non-Base chains share one Safe, so they share one address.
+        assertEq(
+            LibEuAuthoriserClone.cloneDeployedAddress(LibSafeInvariants.BSC_CHAIN_ID),
+            ethereum,
+            "chains sharing a Safe share an address"
+        );
+    }
+
+    /// @notice The pinned addresses are what the derivation produces, on every
+    /// chain. Either one drifting from the other is caught here rather than by
+    /// a live-state read against an address nothing deployed.
+    function testPinnedAddressesMatchTheDerivation() external pure {
+        uint256[5] memory chainIds = [
+            LibSafeInvariants.BASE_CHAIN_ID,
+            LibSafeInvariants.ETHEREUM_CHAIN_ID,
+            LibSafeInvariants.HYPEREVM_CHAIN_ID,
+            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
+            LibSafeInvariants.BSC_CHAIN_ID
+        ];
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            assertEq(
+                LibAuthoriserInvariants.euAuthoriserForChainId(chainIds[i]),
+                LibEuAuthoriserClone.cloneDeployedAddress(chainIds[i]),
+                "pin matches the derivation"
+            );
+        }
     }
 
     /// @notice The clone proxies the audited implementation: its runtime is
@@ -92,16 +145,16 @@ contract LibEuAuthoriserCloneTest is Test {
     }
 
     /// @notice The address is derived from the implementation and the init
-    /// data and NOT from a caller, which is what makes it the same on every
-    /// network and unfrontrunnable: a racer can only deploy this same clone.
+    /// data and NOT from a caller, which is what makes it unfrontrunnable: a
+    /// racer can only deploy this same clone.
     function testCloneAddressIsTheSaltAndDataNotTheCaller() external pure {
         address factory = LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS;
         address implementation = LibEuAuthoriserClone.implementation();
-        bytes memory data = LibEuAuthoriserClone.cloneData();
+        bytes memory data = LibEuAuthoriserClone.cloneData(LibSafeInvariants.BASE_CHAIN_ID);
 
         // The declaration's address, re-derived from the same three inputs.
         assertEq(
-            LibEuAuthoriserClone.cloneDeployedAddress(),
+            LibEuAuthoriserClone.cloneDeployedAddress(LibSafeInvariants.BASE_CHAIN_ID),
             LibICloneableFactoryV4.predictCloneAddress(
                 factory, implementation, LibICloneableFactoryV4.effectiveOpenSalt(EU_AUTHORISER_SALT, data)
             ),
@@ -112,7 +165,7 @@ contract LibEuAuthoriserCloneTest is Test {
         // a different address. The salt is load-bearing, so a copied salt
         // cannot silently collide with another clone of this implementation.
         assertTrue(
-            LibEuAuthoriserClone.cloneDeployedAddress()
+            LibEuAuthoriserClone.cloneDeployedAddress(LibSafeInvariants.BASE_CHAIN_ID)
                 != LibICloneableFactoryV4.predictCloneAddress(
                     factory, implementation, LibICloneableFactoryV4.effectiveOpenSalt(bytes32(0), data)
                 ),
