@@ -68,6 +68,12 @@ error AuthoriserNotReady(address authoriser);
 /// @param clone The clone address inspected.
 error EuAuthoriserNotReady(address clone);
 
+/// @notice The EU minter holds an action role before the Safe bundle granted
+/// it, so something other than the bundle granted it.
+/// @param clone The clone inspected.
+/// @param role The action role the minter unexpectedly holds.
+error UnexpectedEuMinterGrant(address clone, bytes32 role);
+
 /// @title LibAuthoriserInvariants
 /// @notice Reusable invariants for the ST0x production authoriser on every
 /// chain:
@@ -162,6 +168,35 @@ library LibAuthoriserInvariants {
         address clone = euAuthoriserForChainId(chainId);
         if (clone.code.length == 0 || clone.codehash != LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH) {
             revert EuAuthoriserNotReady(clone);
+        }
+    }
+
+    /// @notice Asserts a chain's EU clone is still in the state `initialize`
+    /// left it in: the chain's token-owner Safe holds every `_ADMIN` role, the
+    /// timelock holds none, and the EU minter holds neither action role. This
+    /// is the pre-state the Safe bundle moves off; it goes red once the bundle
+    /// executes, which is what the registry switch is for.
+    /// @param chainId The chain id.
+    function assertEuAuthoriserInitialState(uint256 chainId) internal view {
+        address clone = euAuthoriserForChainId(chainId);
+        address safe = LibSafeInvariants.safeForChainId(chainId);
+        address timelock = LibTimelockInvariants.timelockForChainId(chainId);
+
+        RoleGrant[] memory grants = expectedGrants(safe, timelock, GRANTEE_EU_MINTER);
+        for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
+            if (!IAccessControl(clone).hasRole(grants[i].role, safe)) {
+                revert ExpectedGrantMissing(clone, grants[i].role, safe);
+            }
+            if (IAccessControl(clone).hasRole(grants[i].role, timelock)) {
+                revert UnexpectedRetainedAdminGrant(clone, grants[i].role, timelock);
+            }
+        }
+
+        if (IAccessControl(clone).hasRole(keccak256("DEPOSIT"), GRANTEE_EU_MINTER)) {
+            revert UnexpectedEuMinterGrant(clone, keccak256("DEPOSIT"));
+        }
+        if (IAccessControl(clone).hasRole(keccak256("WITHDRAW"), GRANTEE_EU_MINTER)) {
+            revert UnexpectedEuMinterGrant(clone, keccak256("WITHDRAW"));
         }
     }
 

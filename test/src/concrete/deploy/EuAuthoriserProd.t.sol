@@ -15,10 +15,20 @@ import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.s
 contract EuAuthoriserProdTest is Test {
     function assertChainEuAuthoriser() internal view {
         LibAuthoriserInvariants.assertEuAuthoriserDeployed(block.chainid);
+        LibAuthoriserInvariants.assertEuAuthoriserInitialState(block.chainid);
+
+        address pinned = LibAuthoriserInvariants.euAuthoriserForChainId(block.chainid);
         assertEq(
-            LibAuthoriserInvariants.euAuthoriserForChainId(block.chainid),
-            LibEuAuthoriserClone.cloneDeployedAddress(block.chainid),
-            "pin matches the derivation on chain"
+            pinned, LibEuAuthoriserClone.cloneDeployedAddress(block.chainid), "pin matches the derivation on chain"
+        );
+        assertEq(
+            pinned.codehash,
+            LibEuAuthoriserClone.cloneDeployedCodehash(),
+            "the pinned clone carries the derived runtime"
+        );
+        assertTrue(
+            pinned != LibAuthoriserInvariants.authoriserForChainId(block.chainid),
+            "the EU clone is not the production clone"
         );
     }
 
