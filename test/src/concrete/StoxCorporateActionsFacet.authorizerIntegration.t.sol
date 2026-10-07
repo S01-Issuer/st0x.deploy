@@ -8,15 +8,15 @@ import {
     OffchainAssetReceiptVaultAuthorizerV1Config,
     CERTIFY,
     CERTIFY_ADMIN
-} from "rain-vats-0.1.6/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.2.4/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1,
     SCHEDULE_CORPORATE_ACTION_ADMIN,
     CANCEL_CORPORATE_ACTION_ADMIN
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
-import {Unauthorized} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
-import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
-import {CloneFactory} from "rain-factory-0.1.1/src/concrete/CloneFactory.sol";
+import {Unauthorized} from "rain-vats-0.2.4/src/interface/IAuthorizeV1.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
+import {CloneFactory} from "rain-factory-deploy-0.1.15/src/concrete/CloneFactory.sol";
 
 /// @title StoxCorporateActionsFacetAuthorizerIntegrationTest
 /// @notice Tests that the real OffchainAssetReceiptVaultAuthorizerV1 handles
@@ -30,8 +30,15 @@ contract StoxCorporateActionsFacetAuthorizerIntegrationTest is Test {
     function newAuthorizer() internal returns (StoxOffchainAssetReceiptVaultAuthorizerV1) {
         StoxOffchainAssetReceiptVaultAuthorizerV1 impl = new StoxOffchainAssetReceiptVaultAuthorizerV1();
         CloneFactory factory = new CloneFactory();
+        // The salt is the fresh implementation's own address. `ICloneableFactoryV4`
+        // replaced the unsalted `clone`, and a constant salt here would put a
+        // second call in one test at an address the first already took.
         return StoxOffchainAssetReceiptVaultAuthorizerV1(
-            factory.clone(address(impl), abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: ADMIN})))
+            factory.cloneDeterministic(
+                address(impl),
+                abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: ADMIN})),
+                bytes32(uint256(uint160(address(impl))))
+            )
         );
     }
 

@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibDecimalFloat} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
+import {LibDecimalFloat} from "rain-math-float-0.2.22/src/lib/LibDecimalFloat.sol";
 import {ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/interface/ICorporateActionsV1.sol";
 import {LibStockSplit} from "../../../src/lib/LibStockSplit.sol";
 import {TestStoxReceiptVault} from "./TestStoxReceiptVault.sol";

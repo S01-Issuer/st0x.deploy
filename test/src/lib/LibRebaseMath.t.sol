@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {Float, LibDecimalFloat} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.2.22/src/lib/LibDecimalFloat.sol";
 import {LibRebaseMathHarness} from "./LibRebaseMathHarness.sol";
 import {BalanceExceedsInt256Max} from "src/error/ErrRebase.sol";
 

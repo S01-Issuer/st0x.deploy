@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/TimelockController.sol";
-import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
+import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 
@@ -61,9 +61,9 @@ error TimelockUnexpectedRole(address timelock, bytes32 role, address account);
 /// governance timelock: an UNMODIFIED, pre-audited OpenZeppelin
 /// `TimelockController` (from the version-locked soldeer dependency this
 /// repo compiles against) that sits between the token-owner Safe and the
-/// privileged surfaces it governs. Post-migration the timelock is the
-/// `owner()` of every production receipt vault and the sole holder of the
-/// authoriser's seven `_ADMIN` roles, so every ownership action and every
+/// privileged surfaces it governs. The timelock is the `owner()` of every
+/// production receipt vault and of the four in-use upgrade beacons, and the
+/// sole holder of the authoriser's seven `_ADMIN` roles, so every ownership action and every
 /// grant-map change must be scheduled, wait out `TIMELOCK_MIN_DELAY`, and
 /// only then execute.
 ///

@@ -4,11 +4,11 @@ pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
-import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
-import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
-import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/TimelockController.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
+import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 
-import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
@@ -131,9 +131,9 @@ error GovernanceLoopNotProven(bytes32 id);
 ///   2. Transfers ownership of every production receipt vault from the
 ///      Safe to the timelock (`transferOwnership` — single-step
 ///      `OwnableUpgradeable`).
-///   3. Transfers ownership of the chain's three in-use upgrade beacons
-///      (receipt, receipt vault, wrapped token vault) from the Safe to the
-///      timelock (`transferOwnership` — single-step `Ownable`).
+///   3. Transfers ownership of the chain's in-use upgrade beacons
+///      (receipt, receipt vault, wrapped token vault, orchestrator) from the
+///      Safe to the timelock (`transferOwnership` — single-step `Ownable`).
 ///   4. Renounces the Safe's own copy of each `_ADMIN` role
 ///      (`renounceRole` — last, so the Safe stays fully empowered until
 ///      every grant and transfer has landed inside the same atomic batch).

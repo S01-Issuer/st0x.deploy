@@ -151,22 +151,9 @@ download the bundle directly from the run.
 
 ### Receipt vault V3 upgrade
 
-`script/UpgradeReceiptVaultToV3.s.sol` authors the Safe transaction that points
-`STOX_RECEIPT_VAULT_BEACON_V1` at the V3 receipt vault implementation (corporate
-actions). After execution every live receipt vault routes corporate-action
-selectors into the V3 facet via fallback delegatecall. The beacon must already
-be Safe-owned (run the beacon ownership migration first) and the V3
-implementation must already be deployed at its deterministic Zoltu address with
-the audited codehash. The script runs `assertAll(safe)` +
-`assertBeaconInvariants(beacon, safe, V1 impl)` as pre-flight, simulates the
-`upgradeTo`, asserts the post-state (`beacon -> V3 impl`, Safe unchanged), emits
-the Tx Builder JSON to `out/v3-upgrade.json`, prints the `SafeTxHash`, and
-proves n+1 reversibility back to the V1 implementation.
-
-```shell
-BASE_RPC_URL=https://base-rpc.publicnode.com \
-  forge script script/UpgradeReceiptVaultToV3.s.sol --rpc-url base
-```
+The receipt vault beacon points at the V3 implementation (corporate actions).
+The beacon is owned by the governance timelock, so any further upgrade is a
+timelock operation (`docs/TIMELOCK.md`).
 
 The post-upgrade behaviour of live tokens is verified by the shadow-fork suite
 `test/src/concrete/upgrade/V3UpgradeShadowFork.t.sol`, which applies the upgrade

@@ -8,13 +8,14 @@ import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {LibProdBeaconsBase} from "../../../../src/lib/LibProdBeaconsBase.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
+import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
 
 /// @title BaseBeaconOwnershipTest
 /// @notice Base's leg of the per-chain beacon pin, completing the set
 /// alongside `Ethereum`/`HyperEvm`/`Robinhood`/`BscBeaconOwnershipTest`.
 /// Base was the one production chain with no `assertBeaconInvariants` caller:
 /// `StoxProdV4Test.testProdDeployBaseV4` asserts Base's in-use beacons are
-/// Safe-owned (via `assertProdBeaconsOwnedByChainSafe`) but says nothing about
+/// timelock-owned (via `assertProdBeaconsOwnedByChainTimelock`) but says nothing about
 /// where they POINT, and the 0.1.1-address beacons it does check the
 /// implementations of are an unadopted Base deploy artifact. So the beacons
 /// production tokens on Base actually run on had their implementation
@@ -24,7 +25,7 @@ import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 /// freeze.
 contract BaseBeaconOwnershipTest is Test {
     /// @notice Base's three in-use token beacons carry the OZ
-    /// `UpgradeableBeacon` codehash, are owned by Base's token-owner Safe,
+    /// `UpgradeableBeacon` codehash, are owned by Base's governance timelock,
     /// and point at the implementations this repo pins.
     ///
     /// Base runs on the V1-generation beacon ADDRESSES (deployed at V1 and
@@ -36,24 +37,24 @@ contract BaseBeaconOwnershipTest is Test {
     /// own `implementation()`, so an unreviewed `upgradeTo` fails here.
     ///
     /// The orchestrator beacon is deliberately out of scope: its owner is
-    /// asserted by `assertProdBeaconsOwnedByChainSafe` and its build is a
+    /// asserted by `assertProdBeaconsOwnedByChainTimelock` and its build is a
     /// different codehash generation, covered by `LibOrchestratorInvariants`.
-    function testBaseBeaconsAreSafeOwnedAtTheirPinnedImpls() external {
-        address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
+    function testBaseBeaconsAreTimelockOwnedAtTheirPinnedImpls() external {
+        address timelock = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
 
         vm.createSelectFork(LibRainDeploy.BASE);
         address[4] memory beacons = LibProdBeaconsBase.beacons();
         address[4] memory impls = LibProdBeaconsBase.implementations();
         LibBeaconInvariants.assertBeaconInvariants(
             beacons[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX],
-            safe,
+            timelock,
             impls[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX]
         );
         LibBeaconInvariants.assertBeaconInvariants(
-            beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX], safe, LibProdDeployV4.STOX_RECEIPT_0_1_30
+            beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX], timelock, LibProdDeployV4.STOX_RECEIPT_0_1_30
         );
         LibBeaconInvariants.assertBeaconInvariants(
-            beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX], safe, LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30
+            beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX], timelock, LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30
         );
     }
 }

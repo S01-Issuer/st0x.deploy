@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
-import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
@@ -12,6 +12,7 @@ import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
+import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
 /// @dev Unix timestamp (2026-10-15T00:00:00Z) by which the retirement must
 /// have executed on every chain. Deliberately TWO WEEKS after the
@@ -60,10 +61,13 @@ error DirectSignerRolesAlreadyRetired();
 /// chain with no working mint path. Self-scoping; a retired chain refuses
 /// (`DirectSignerRolesAlreadyRetired`).
 ///
-/// Dispatch BEFORE `20260729-migrate-governance-to-timelock` executes on
-/// the chain: the revokes need the vault `_ADMIN`s the Safe holds today,
-/// which that migration hands to the timelock; afterwards this script
-/// refuses (`SafeMissingRoleAdminForRetire`).
+/// **SUPERSEDED.** The revokes need the vault `_ADMIN`s, and
+/// `20260729-migrate-governance-to-timelock` moved them to the timelock on
+/// every chain before this script was dispatched, so it now refuses
+/// (`SafeMissingRoleAdminForRetire`) everywhere. The retirement has to be
+/// authored as a timelock operation (Safe schedules the same two revokes,
+/// 48h, execute) in a new dated script. This one stays registered so its
+/// refusal can be re-derived.
 ///
 /// The post-execution pin PR removes the signer's `DEPOSIT`/`WITHDRAW`
 /// rows from the canonical grant map, pins their absence (the
@@ -162,7 +166,8 @@ contract RetireDirectSignerRoles is Script {
             !acl.hasRole(keccak256("DEPOSIT"), SERVICE_SIGNER) && !acl.hasRole(keccak256("WITHDRAW"), SERVICE_SIGNER),
             "RetireDirectSignerRoles: signer still holds a direct vault role"
         );
-        RoleGrant[] memory all = LibAuthoriserInvariants.expectedGrants(safeAddr);
+        RoleGrant[] memory all =
+            LibAuthoriserInvariants.expectedGrants(safeAddr, LibTimelockInvariants.timelockForChainId(block.chainid));
         for (uint256 i = 0; i < all.length; i++) {
             bool retiredRow = all[i].grantee == SERVICE_SIGNER
                 && (all[i].role == keccak256("DEPOSIT") || all[i].role == keccak256("WITHDRAW"));
@@ -186,7 +191,7 @@ contract RetireDirectSignerRoles is Script {
         address authoriser = LibAuthoriserInvariants.activeChainAuthoriser();
         IAccessControl acl = IAccessControl(authoriser);
 
-        LibOrchestratorInvariants.assertBeaconSet(safeAddr);
+        LibOrchestratorInvariants.assertBeaconSet();
         LibOrchestratorInvariants.assertInstance(safeAddr);
         address orchestrator = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
 
@@ -195,7 +200,9 @@ contract RetireDirectSignerRoles is Script {
         assertOrchestratorPathEnabled(acl, orchestrator);
 
         // The canonical map must hold exactly before rows leave it.
-        LibAuthoriserInvariants.assertExpectedGrants(authoriser, safeAddr);
+        LibAuthoriserInvariants.assertExpectedGrants(
+            authoriser, safeAddr, LibTimelockInvariants.timelockForChainId(block.chainid)
+        );
 
         // --- Build the bundle ----------------------------------------------
 
@@ -262,11 +269,13 @@ contract RetireDirectSignerRoles is Script {
         address safeAddr = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         IGnosisSafe safe = IGnosisSafe(safeAddr);
         address authoriser = LibAuthoriserInvariants.activeChainAuthoriser();
-        LibOrchestratorInvariants.assertBeaconSet(safeAddr);
+        LibOrchestratorInvariants.assertBeaconSet();
         LibOrchestratorInvariants.assertInstance(safeAddr);
         assertOrchestratorPathEnabled(IAccessControl(authoriser), LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
 
-        LibAuthoriserInvariants.assertExpectedGrants(authoriser, safeAddr);
+        LibAuthoriserInvariants.assertExpectedGrants(
+            authoriser, safeAddr, LibTimelockInvariants.timelockForChainId(block.chainid)
+        );
         SafeTx[] memory expected = authorBundle(authoriser, safeAddr);
         LibSafeOps.assertParsedTxsMatch(expected, jsonPath);
 

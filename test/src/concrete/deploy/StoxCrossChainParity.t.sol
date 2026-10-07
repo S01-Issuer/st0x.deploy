@@ -3,10 +3,10 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensions/IERC20Metadata.sol";
-import {IERC4626} from "@openzeppelin-contracts-5.6.1/interfaces/IERC4626.sol";
-import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
-import {ERC1967Utils} from "@openzeppelin-contracts-5.6.1/proxy/ERC1967/ERC1967Utils.sol";
+import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
+import {IERC4626} from "@openzeppelin-contracts-5.7.0/interfaces/IERC4626.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
+import {ERC1967Utils} from "@openzeppelin-contracts-5.7.0/proxy/ERC1967/ERC1967Utils.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
 import {IGnosisSafe} from "../../../../src/interface/IGnosisSafe.sol";
 import {IOwnable} from "../../../../src/interface/IOwnable.sol";
@@ -17,6 +17,7 @@ import {FLEET_UPGRADE_DEADLINE} from "../../../lib/LibTestProd.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
+import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../../../src/lib/LibTokenInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "../../../../src/lib/LibProdTokenConfig.sol";
 
@@ -116,7 +117,7 @@ struct ChainLegs {
 ///    receipt + wrapped wiring is internally consistent
 ///    (`wrapped.asset() == receiptVault`); every receipt vault's
 ///    `authorizer()` is the chain's pinned V4 clone and its `owner()` is
-///    the chain's token-owner Safe; all of a chain's proxies share one
+///    the chain's governance timelock; all of a chain's proxies share one
 ///    runtime codehash per leg (beacon proxies — the codehash embeds the
 ///    beacon address, so it is uniform WITHIN a chain but legitimately
 ///    differs ACROSS chains; cross-chain implementation parity is asserted
@@ -126,8 +127,8 @@ struct ChainLegs {
 ///    serving the V4 impl. The beacon ADDRESSES are per-chain (they never get
 ///    upgraded — only the impl they point at does — so which deployer version
 ///    created them is irrelevant), and each is owned by THAT chain's
-///    token-owner Safe (a per-chain check; the addresses and Safe owners both
-///    differ by chain). Cross-chain parity is on where the beacons POINT:
+///    governance timelock (a per-chain check; the addresses and timelock
+///    owners both differ by chain). Cross-chain parity is on where the beacons POINT:
 ///    the receipt + receipt-vault beacon impls (address + codehash) are
 ///    asserted identical across chains, as is the authoriser clone impl.
 /// 4. **Role parity** — `LibAuthoriserInvariants.assertExpectedGrants` runs
@@ -178,7 +179,7 @@ contract StoxCrossChainParityTest is Test {
     /// codehash uniformity within the chain, and the single shared beacon.
     /// @dev The uniform owner + sole-authoriser checks are NOT here — the token
     /// leg in `assertChainLegs` asserts them via
-    /// `LibTokenInvariants.assertAll(tokens, safe, clone)`; this function adds
+    /// `LibTokenInvariants.assertAll(tokens, timelock, clone)`; this function adds
     /// only the per-token config snapshot + within-chain uniformity that the
     /// cross-chain comparison builds on.
     /// @param tokens The chain's token table.
@@ -408,7 +409,8 @@ contract StoxCrossChainParityTest is Test {
     ///    Safe): the clone codehash + the role-grant map. Assertable as soon as
     ///    the clone is up — it does NOT wait on the tokens.
     ///  - **Token leg** (needs Safe + clone + the full token table): ownership
-    ///    by the Safe, the clone as sole authoriser, config + beacon.
+    ///    by the governance timelock, the clone as sole authoriser, config +
+    ///    beacon.
     /// Skipping placeholder legs is what lets the whole stack merge green: an
     /// un-bootstrapped chain skips every leg, and each pin PR turns its leg on.
     /// @param label Human chain name, used in the PENDING logs.
@@ -438,7 +440,9 @@ contract StoxCrossChainParityTest is Test {
             if (legs.safeLive) {
                 // The grant map is assertable as soon as the clone is up — its
                 // only blocker is the Safe, independent of the tokens.
-                LibAuthoriserInvariants.assertExpectedGrants(clone, safe);
+                LibAuthoriserInvariants.assertExpectedGrants(
+                    clone, safe, LibTimelockInvariants.timelockForChainId(block.chainid)
+                );
             }
         } else {
             emit log(string.concat("PARITY PENDING: ", label, " clone pin placeholder - authoriser leg skipped"));
@@ -451,8 +455,8 @@ contract StoxCrossChainParityTest is Test {
         );
         legs.tokenLegLive = legs.safeLive && legs.cloneLive && allTokens;
         if (legs.tokenLegLive) {
-            // Ownership (Safe) + sole authoriser (clone) across every vault.
-            LibTokenInvariants.assertAll(tokens, safe, clone);
+            // Ownership (timelock) + sole authoriser (clone) across every vault.
+            LibTokenInvariants.assertAll(tokens, LibTimelockInvariants.timelockForChainId(block.chainid), clone);
             address beacon;
             address receiptBeacon;
             (legs.tokenConfigs, beacon, receiptBeacon) = assertChainAndSnapshot(tokens);
@@ -479,20 +483,19 @@ contract StoxCrossChainParityTest is Test {
             );
             assertCleanV4Lineage(beacon);
             assertCleanV4Lineage(receiptBeacon);
-            // Each chain's beacons are owned by that chain's OWN token-owner
-            // Safe (migrated from the deploy key) — a per-chain check, not a
-            // cross-chain equality: the beacon addresses and their Safe owners
-            // both differ by chain. Cross-chain parity is on the impl the
+            // Each chain's beacons are owned by that chain's OWN governance
+            // timelock — a per-chain check, not a cross-chain equality: the
+            // beacon addresses and their timelock owners both differ by chain. Cross-chain parity is on the impl the
             // beacons point at, asserted below.
             assertEq(
                 IOwnable(beacon).owner(),
-                safe,
-                string.concat(label, " receipt-vault beacon not owned by the chain's Safe")
+                LibTimelockInvariants.timelockForChainId(block.chainid),
+                string.concat(label, " receipt-vault beacon not owned by the chain's timelock")
             );
             assertEq(
                 IOwnable(receiptBeacon).owner(),
-                safe,
-                string.concat(label, " receipt beacon not owned by the chain's Safe")
+                LibTimelockInvariants.timelockForChainId(block.chainid),
+                string.concat(label, " receipt beacon not owned by the chain's timelock")
             );
             legs.beaconImpl = IBeacon(beacon).implementation();
             legs.beaconImplCodehash = legs.beaconImpl.codehash;
