@@ -4,7 +4,6 @@ pragma solidity ^0.8.25;
 
 import {IOwnable} from "../interface/IOwnable.sol";
 import {IAuthorisable} from "../interface/IAuthorisable.sol";
-import {LibMigrationInvariant} from "./LibMigrationInvariant.sol";
 
 /// @notice One production token's contract triple on a single chain, keyed
 /// by the underlying ticker. The underlying symbol (e.g. "MSTR", not
@@ -2352,33 +2351,6 @@ library LibTokenInvariants {
             if (actual != expected) {
                 revert ReceiptVaultAuthoriserMismatch(tokens[i].receiptVault, expected, actual);
             }
-        }
-    }
-
-    /// @notice Migration-window variant of `assertUniformOwnership`: every
-    /// receipt vault in the supplied table must report `pre` OR `post` as
-    /// `owner()` before `deadline`, and exactly `post` at/after it. Lets
-    /// the governance-timelock ownership invariant merge alongside the
-    /// migration script instead of waiting for on-chain execution — both
-    /// sides of the transition are cron-covered, and a migration left
-    /// un-run past the deadline red-lines via `MigrationDeadlinePassed`.
-    /// @dev Each vault is asserted independently, so a half-landed
-    /// migration (some vaults on `pre`, some on `post`) passes before the
-    /// deadline — the bundle is atomic per Safe execution, but this leg
-    /// does not assume that. Any third owner trips `MigrationStateDrift`
-    /// immediately regardless of the deadline.
-    /// @param tokens The token table whose receipt vaults are checked.
-    /// @param pre The accepted owner before the migration runs.
-    /// @param post The accepted owner after the migration runs.
-    /// @param deadline Unix timestamp past which only `post` is accepted.
-    function assertUniformOwnershipMigration(TokenInstance[] memory tokens, address pre, address post, uint256 deadline)
-        internal
-        view
-    {
-        for (uint256 i = 0; i < tokens.length; i++) {
-            LibMigrationInvariant.assertMigration(
-                "receiptVault.owner()", IOwnable(tokens[i].receiptVault).owner(), pre, post, deadline
-            );
         }
     }
 

@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
+import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 
 /// @notice A pinned `(role, grantee)` pair on the production authoriser.
@@ -143,9 +144,9 @@ library LibAuthoriserInvariants {
     /// are pinned by `testExpectedGrantsAdminHolderParameterisation`.
     uint256 internal constant ADMIN_ROLE_COUNT = 7;
 
-    /// @notice The ST0x token-owner Safe — holds every `_ADMIN` role on the
-    /// production authoriser and was later granted DEPOSIT, WITHDRAW and
-    /// CERTIFY as a privileged operator. Identical to
+    /// @notice The ST0x token-owner Safe — holds DEPOSIT, WITHDRAW and
+    /// CERTIFY on the production authoriser as a privileged operator; the
+    /// `_ADMIN` roles are on the governance timelock. Identical to
     /// `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE`; re-exported as a grantee
     /// constant for call-site clarity.
     address internal constant GRANTEE_TOKEN_OWNER_SAFE = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
@@ -173,40 +174,23 @@ library LibAuthoriserInvariants {
     address internal constant GRANTEE_ORCHESTRATOR = LibProdDeployV4.ST0X_ORCHESTRATOR_INSTANCE;
 
     /// @notice The full `(role, grantee)` map in effect on the Base
-    /// production authoriser. Delegates to the Safe-parametric overload with
-    /// Base's token-owner Safe.
+    /// production authoriser: Base's token-owner Safe in the operational
+    /// slots, Base's governance timelock holding the seven `_ADMIN` roles.
     /// @return grants The pinned `(role, grantee)` pairs for Base.
     function expectedGrants() internal pure returns (RoleGrant[] memory grants) {
-        grants = expectedGrants(GRANTEE_TOKEN_OWNER_SAFE);
+        grants = expectedGrants(GRANTEE_TOKEN_OWNER_SAFE, LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
     }
 
-    /// @notice The canonical `(role, grantee)` map the current production
-    /// authoriser must carry, parameterised on the chain's token-owner Safe
-    /// (the STRUCTURE is chain-agnostic; service signers are shared across
-    /// chains, the Safe address is per-chain). The single source of truth
-    /// every live-state invariant asserts: a chain is red on any pair until
-    /// the operation that grants it executes there, and drift-guarded
-    /// thereafter.
-    /// @param tokenOwnerSafe The chain's token-owner Safe filling the Safe
-    /// grantee slots.
-    /// @return grants The `(role, grantee)` pairs for that chain.
-    function expectedGrants(address tokenOwnerSafe) internal pure returns (RoleGrant[] memory grants) {
-        grants = expectedGrants(tokenOwnerSafe, tokenOwnerSafe);
-    }
-
-    /// @notice The `(role, grantee)` map parameterised on BOTH the chain's
-    /// token-owner Safe AND the holder of the seven `_ADMIN` roles. Before
-    /// the governance-timelock migration the Safe is the admin holder (the
-    /// two-arg call sites above collapse the parameters); after the
-    /// migration the seven `_ADMIN` roles sit on the governance timelock
-    /// while the Safe keeps its three direct action roles. This overload is
-    /// the single map both states are expressed through, so the migration
-    /// script's post-state and the post-migration invariant surface assert
-    /// the same structure the pre-migration consumers do.
+    /// @notice The canonical `(role, grantee)` map the production authoriser
+    /// must carry, parameterised on the chain's token-owner Safe and the
+    /// holder of the seven `_ADMIN` roles — the chain's governance timelock
+    /// in production; the Safe keeps its three direct action roles. The
+    /// STRUCTURE is chain-agnostic: service signers are shared across chains,
+    /// the Safe and timelock are per-chain. The single source of truth every
+    /// live-state invariant asserts.
     /// @param tokenOwnerSafe The chain's token-owner Safe filling the
     /// operational Safe grantee slots.
-    /// @param adminHolder The holder of the seven `_ADMIN` roles (the Safe
-    /// pre-migration, the governance timelock post-migration).
+    /// @param adminHolder The holder of the seven `_ADMIN` roles.
     /// @return grants The `(role, grantee)` pairs for that chain.
     function expectedGrants(address tokenOwnerSafe, address adminHolder)
         internal
@@ -250,46 +234,21 @@ library LibAuthoriserInvariants {
         grants[14] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_ORCHESTRATOR);
     }
 
-    /// @notice Assert every pinned `(role, grantee)` pair in
-    /// `expectedGrants()` is held on the supplied authoriser, and that no
-    /// pinned grantee holds `DEFAULT_ADMIN_ROLE`. Reverts with
-    /// `UnexpectedDefaultAdmin` if a pinned grantee holds the root admin
-    /// role, or `ExpectedGrantMissing` on the first missing pair, surfacing
-    /// the exact role + grantee that broke the invariant.
-    /// @dev Parameterised on the authoriser address so the same assertion
-    /// can run against the pinned production clone AND against a
-    /// freshly-deployed clone (a script's pre-flight on a swap target)
-    /// without duplicating the iteration. The `DEFAULT_ADMIN_ROLE` check is
-    /// a negative assertion over the pinned grantees, not an exhaustive
-    /// scan (a plain `AccessControl` cannot enumerate members).
+    /// @notice Assert the Base map (`expectedGrants()`) on the supplied
+    /// authoriser. See the three-argument overload.
     /// @param authoriser The authoriser to validate.
     function assertExpectedGrants(address authoriser) internal view {
-        assertExpectedGrants(authoriser, GRANTEE_TOKEN_OWNER_SAFE);
-    }
-
-    /// @notice Assert every `(role, grantee)` pair from
-    /// `expectedGrants(tokenOwnerSafe)` is held on the supplied authoriser, and
-    /// that neither the Safe nor the service signer holds `DEFAULT_ADMIN_ROLE`.
-    /// Parameterised on the chain's token-owner Safe so the identical grant
-    /// STRUCTURE is asserted against each chain's authoriser with that chain's
-    /// Safe address (the service signer is shared).
-    /// @param authoriser The authoriser to validate.
-    /// @param tokenOwnerSafe The chain's token-owner Safe filling the Safe
-    /// grantee slots.
-    function assertExpectedGrants(address authoriser, address tokenOwnerSafe) internal view {
-        assertExpectedGrants(authoriser, tokenOwnerSafe, tokenOwnerSafe);
+        assertExpectedGrants(authoriser, GRANTEE_TOKEN_OWNER_SAFE, LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
     }
 
     /// @notice Assert every `(role, grantee)` pair from
     /// `expectedGrants(tokenOwnerSafe, adminHolder)` is held on the supplied
     /// authoriser, that no named principal — the Safe, the admin holder,
     /// the service signer, the orchestrator — holds `DEFAULT_ADMIN_ROLE`,
-    /// and that when the admin holder is distinct from the Safe, the Safe
-    /// retains NO `_ADMIN`
+    /// and that the Safe holds NO `_ADMIN`
     /// entry (exclusive holding — a retained copy would let the Safe mutate
     /// the grant map without the admin holder's delay). This is the
-    /// post-timelock-migration assertion surface: the migration script's
-    /// post-state and the migration-window invariants call it with the
+    /// assertion surface every production consumer calls with the chain's
     /// governance timelock as `adminHolder`.
     /// @param authoriser The authoriser to validate.
     /// @param tokenOwnerSafe The chain's token-owner Safe filling the
@@ -322,17 +281,16 @@ library LibAuthoriserInvariants {
                 revert ExpectedGrantMissing(authoriser, grants[i].role, grants[i].grantee);
             }
         }
-        // Exclusive `_ADMIN` holding: with a distinct admin holder, a Safe
-        // that retains any admin entry can grant or revoke action roles
-        // directly, bypassing the delay the admin holder exists to impose.
-        // The slice is positional (the map's leading `ADMIN_ROLE_COUNT`
-        // entries) rather than matched by grantee address, which would
-        // mis-slice if the admin holder aliased another grantee.
-        if (adminHolder != tokenOwnerSafe) {
-            for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
-                if (acl.hasRole(grants[i].role, tokenOwnerSafe)) {
-                    revert UnexpectedRetainedAdminGrant(authoriser, grants[i].role, tokenOwnerSafe);
-                }
+        // Exclusive `_ADMIN` holding: a Safe that holds any admin entry can
+        // grant or revoke action roles directly, bypassing the delay the admin
+        // holder exists to impose. Unconditional, so passing the Safe as the
+        // admin holder can never assert the pre-timelock state. The slice is
+        // positional (the map's leading `ADMIN_ROLE_COUNT` entries) rather
+        // than matched by grantee address, which would mis-slice if the admin
+        // holder aliased another grantee.
+        for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
+            if (acl.hasRole(grants[i].role, tokenOwnerSafe)) {
+                revert UnexpectedRetainedAdminGrant(authoriser, grants[i].role, tokenOwnerSafe);
             }
         }
     }

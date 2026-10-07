@@ -47,7 +47,7 @@ contract StoxProdV4Test is Test {
     /// Deliberately says nothing about beacon OWNERSHIP: that is live
     /// operational state, and it only matters for the beacons production
     /// tokens actually run on — asserted per chain via
-    /// `LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe` in the network
+    /// `LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock` in the network
     /// tests. On Base the 0.1.1-address beacons checked here are an unadopted
     /// deploy artifact whose owner is irrelevant; on Ethereum they ARE the
     /// in-use beacons and the per-chain assert covers them.
@@ -217,23 +217,22 @@ contract StoxProdV4Test is Test {
     /// adopt on-chain. The rolling `candidate` snapshot regenerates from source
     /// and is NEVER a deploy target, so its addresses are not checked on any fork;
     /// `testCandidateSelfConsistent` verifies candidate == current source locally
-    /// instead. The in-use beacons MUST be owned by Base's token-owner Safe.
+    /// instead. The in-use beacons MUST be owned by Base's governance timelock.
     function testProdDeployBaseV4() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         checkProd_0_1_1OnChain(false);
-        LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
+        LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
     }
 
     /// Only the audited 0.1.1 production set is shipped to Ethereum mainnet (the
     /// orchestrator and candidate rebuilds are Base-only), so the Ethereum fork is
     /// checked against the 0.1.1 set alone. On Ethereum the 0.1.1 beacons ARE
-    /// the in-use production beacons, and the beacon-ownership migration
-    /// (`20260716-migrate-beacon-owners-ethereum`) has transferred them to
-    /// Ethereum's token-owner Safe — asserted via the per-chain in-use pin.
+    /// the in-use production beacons, owned by Ethereum's governance
+    /// timelock — asserted via the per-chain in-use pin.
     function testProdDeployEthereumV4() external {
         vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
         checkProd_0_1_1OnChain(true);
-        LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
+        LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
     }
 
     /// Only the audited 0.1.1 production set ships to HyperEVM (the RAI-1511
@@ -242,31 +241,31 @@ contract StoxProdV4Test is Test {
     /// `RPC_URL_HYPEREVM_FORK` secret, so a missing RPC fails at fork time
     /// rather than passing having asserted nothing. RED if the audited 0.1.1
     /// suite is absent from HyperEVM or its in-use beacons are not owned by
-    /// the HyperEVM token-owner Safe; green otherwise, catching later drift.
+    /// the HyperEVM governance timelock; green otherwise, catching later drift.
     function testProdDeployHyperEvmV4() external {
         vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
         checkProd_0_1_1OnChain(true);
-        LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
+        LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
     }
 
     /// Only the audited 0.1.1 production set ships to Robinhood Chain (the
     /// RAI-2285 bootstrap), mirroring HyperEVM. Forks unconditionally from
     /// the `RPC_URL_ROBINHOOD_FORK` secret. RED until the audited 0.1.1
     /// suite lands on Robinhood Chain and its in-use beacons are owned by
-    /// the Robinhood Chain token-owner Safe; green thereafter, catching
+    /// the Robinhood Chain governance timelock; green thereafter, catching
     /// later drift.
     function testProdDeployRobinhoodV4() external {
         vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
         checkProd_0_1_1OnChain(true);
-        LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
+        LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
     }
 
     /// Same pin for BNB Smart Chain (RAI-2312): RED until the audited 0.1.1
     /// suite lands there and its in-use beacons are owned by the BNB Smart
-    /// Chain token-owner Safe.
+    /// Chain governance timelock.
     function testProdDeployBscV4() external {
         vm.createSelectFork(LibStoxDeployNetworks.BSC);
         checkProd_0_1_1OnChain(true);
-        LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(block.chainid);
+        LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
     }
 }

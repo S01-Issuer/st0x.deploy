@@ -4,7 +4,9 @@ pragma solidity ^0.8.25;
 
 import {IGnosisSafe} from "../interface/IGnosisSafe.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
+import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
+import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "./LibTokenInvariants.sol";
 
 /// @title LibInvariants
@@ -21,9 +23,12 @@ import {LibTokenInvariants, TokenInstance} from "./LibTokenInvariants.sol";
 /// need the full bundle.
 library LibInvariants {
     /// @notice Full production-state invariant bundle. Composes every
-    /// per-facet `assertAll`: Safe identity / config + token-side
-    /// owner/authoriser uniformity against the current production
-    /// authoriser (`LibAuthoriserInvariants.STOX_PROD_AUTHORISER`).
+    /// per-facet `assertAll`: Safe identity / config + the governance
+    /// timelock's pinned configuration + token-side
+    /// uniformity (every vault owned by Base's governance timelock and gated
+    /// by the current production authoriser,
+    /// `LibAuthoriserInvariants.STOX_PROD_AUTHORISER`) + the authoriser's
+    /// codehash and grant map.
     /// Pre-flight at the start of every migration script and prod-state
     /// fork test; if this passes silently the live system is in its
     /// current expected state across every pinned facet.
@@ -38,7 +43,11 @@ library LibInvariants {
     /// @param safe The Safe to validate against the pinned current truth.
     function assertAll(IGnosisSafe safe) internal view {
         LibSafeInvariants.assertAll(safe);
-        LibTokenInvariants.assertAll(address(safe), LibAuthoriserInvariants.STOX_PROD_AUTHORISER);
+        LibTimelockInvariants.assertTimelockState(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, address(safe));
+        LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(LibSafeInvariants.BASE_CHAIN_ID);
+        LibTokenInvariants.assertAll(
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, LibAuthoriserInvariants.STOX_PROD_AUTHORISER
+        );
         LibAuthoriserInvariants.assertAll();
     }
 
@@ -47,9 +56,9 @@ library LibInvariants {
     /// ACTIVE chain (`block.chainid`): the Safe carries the chain-agnostic
     /// token-owner policy (`assertTokenOwnerSafePolicy` — v1.4.1 identity,
     /// owner SET, threshold), the token-side uniformity (every vault in
-    /// `tokens` owned by that chain's Safe and gated by the single
-    /// `authoriser`), and the authoriser's role-grant map for that chain's
-    /// Safe. The Safe is resolved AND policy-asserted in one call via
+    /// `tokens` owned by that chain's governance timelock and gated by the
+    /// single `authoriser`), the in-use beacons owned by that timelock, and
+    /// the authoriser's role-grant map for that chain's Safe and timelock. The Safe is resolved AND policy-asserted in one call via
     /// `LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid)`,
     /// so the deploy artifacts that differ per chain — the Safe address, the
     /// token addresses, the authoriser clone address — are the only variation.
@@ -73,18 +82,17 @@ library LibInvariants {
     /// the clone-deploy script + cross-chain parity pin check); this bundle
     /// asserts live ROLE state + ownership.
     ///
-    /// Driven per chain by `LibInvariantsTest` against live Base, Ethereum
-    /// and HyperEVM forks — every chain whose token table is hydrated.
-    /// Robinhood Chain and BNB Smart Chain join when their tables do; until
-    /// then there is nothing on those chains for this bundle to assert, and
-    /// `StoxCrossChainParityTest` is what holds their pending legs to a
-    /// deadline.
+    /// Driven per chain by `LibInvariantsTest` against live forks of all five
+    /// governed chains.
     /// @param tokens The chain's production token table.
     /// @param authoriser The chain's live authoriser the vaults point at.
     function assertProductionState(TokenInstance[] memory tokens, address authoriser) internal view {
         address safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
-        LibTokenInvariants.assertAll(tokens, safe, authoriser);
-        LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        LibTimelockInvariants.assertTimelockState(timelock, safe);
+        LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
+        LibTokenInvariants.assertAll(tokens, timelock, authoriser);
+        LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe, timelock);
     }
 
     /// @notice Full-args Base bundle. Use when overriding the Safe-side
@@ -98,7 +106,11 @@ library LibInvariants {
     /// @param expectedOwners The expected owner set in `getOwners()` order.
     function assertAll(IGnosisSafe safe, uint256 expectedThreshold, address[] memory expectedOwners) internal view {
         LibSafeInvariants.assertAll(safe, expectedThreshold, expectedOwners);
-        LibTokenInvariants.assertAll(address(safe), LibAuthoriserInvariants.STOX_PROD_AUTHORISER);
+        LibTimelockInvariants.assertTimelockState(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, address(safe));
+        LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(LibSafeInvariants.BASE_CHAIN_ID);
+        LibTokenInvariants.assertAll(
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, LibAuthoriserInvariants.STOX_PROD_AUTHORISER
+        );
         LibAuthoriserInvariants.assertAll();
     }
 }
