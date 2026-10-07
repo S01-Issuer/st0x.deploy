@@ -301,10 +301,8 @@ library LibBeaconInvariants {
     /// the active chain's four IN-USE production beacons are deployed and
     /// owned by `expectedOwner`. Parameterised because the beacon owner is a
     /// principal an operational script deliberately mutates — the
-    /// governance-timelock migration moves it from the chain's Safe to the
-    /// chain's timelock — so the same iteration serves the pre-state
-    /// (Safe-owned), the post-state (timelock-owned), and the pre-flight of
-    /// the migration that moves it.
+    /// governance-timelock migration's authoring and tests assert it against
+    /// the timelock explicitly.
     /// Each beacon's runtime codehash is pinned to the OZ
     /// `UpgradeableBeacon` bytecode BEFORE its `owner()` read is trusted —
     /// the same trust order the migration script's selection applies, and

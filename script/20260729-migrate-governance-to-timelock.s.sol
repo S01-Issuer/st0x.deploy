@@ -131,9 +131,9 @@ error GovernanceLoopNotProven(bytes32 id);
 ///   2. Transfers ownership of every production receipt vault from the
 ///      Safe to the timelock (`transferOwnership` — single-step
 ///      `OwnableUpgradeable`).
-///   3. Transfers ownership of the chain's three in-use upgrade beacons
-///      (receipt, receipt vault, wrapped token vault) from the Safe to the
-///      timelock (`transferOwnership` — single-step `Ownable`).
+///   3. Transfers ownership of the chain's in-use upgrade beacons
+///      (receipt, receipt vault, wrapped token vault, orchestrator) from the
+///      Safe to the timelock (`transferOwnership` — single-step `Ownable`).
 ///   4. Renounces the Safe's own copy of each `_ADMIN` role
 ///      (`renounceRole` — last, so the Safe stays fully empowered until
 ///      every grant and transfer has landed inside the same atomic batch).

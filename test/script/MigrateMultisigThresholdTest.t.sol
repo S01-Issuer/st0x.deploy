@@ -109,9 +109,8 @@ contract MigrateMultisigThresholdTest is Test {
 
     /// @notice Inverted: the pre-flight rejects vault-ownership drift.
     /// If even one receipt vault has its `owner()` pointing somewhere
-    /// other than the Safe, the migration must abort before producing an
-    /// artifact (the migration would otherwise lock the wrong Safe into
-    /// 3-of-6 without controlling the vaults).
+    /// other than the governance timelock, the migration must abort before
+    /// producing an artifact.
     function testRunRejectsVaultOwnershipDrift() external {
         selectBaseFork();
         address rogueOwner = address(0xBADC0DE);
