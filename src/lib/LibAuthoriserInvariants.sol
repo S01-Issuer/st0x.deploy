@@ -108,6 +108,47 @@ library LibAuthoriserInvariants {
         revert UnsupportedChainForAuthoriser(chainId);
     }
 
+    /// @notice The EU assets authoriser clone on Base.
+    /// https://basescan.org/address/0xdb9152e46c1d140db6a6f814461f21c571f3275e
+    address internal constant STOX_EU_AUTHORISER_CLONE = address(0xDB9152e46c1D140DB6a6f814461f21c571F3275e);
+
+    /// @notice The EU assets authoriser clone on Ethereum. Shared with
+    /// HyperEVM, Robinhood Chain and BNB Smart Chain, which share the Safe
+    /// the clone's init data carries as initial admin.
+    address internal constant STOX_EU_AUTHORISER_CLONE_ETHEREUM = address(0x8Fc06579571A105C5a699FA11d95b9c73747f8eb);
+
+    /// @notice The EU assets authoriser clone on HyperEVM.
+    address internal constant STOX_EU_AUTHORISER_CLONE_HYPEREVM = STOX_EU_AUTHORISER_CLONE_ETHEREUM;
+
+    /// @notice The EU assets authoriser clone on Robinhood Chain.
+    address internal constant STOX_EU_AUTHORISER_CLONE_ROBINHOOD = STOX_EU_AUTHORISER_CLONE_ETHEREUM;
+
+    /// @notice The EU assets authoriser clone on BNB Smart Chain.
+    address internal constant STOX_EU_AUTHORISER_CLONE_BSC = STOX_EU_AUTHORISER_CLONE_ETHEREUM;
+
+    /// @notice A chain's EU assets authoriser clone pin. Reverts for a chain
+    /// without a slot rather than falling back to another chain's clone.
+    /// @param chainId The chain id.
+    /// @return The pinned clone.
+    function euAuthoriserForChainId(uint256 chainId) internal pure returns (address) {
+        if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
+            return STOX_EU_AUTHORISER_CLONE;
+        }
+        if (chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
+            return STOX_EU_AUTHORISER_CLONE_ETHEREUM;
+        }
+        if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
+            return STOX_EU_AUTHORISER_CLONE_HYPEREVM;
+        }
+        if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
+            return STOX_EU_AUTHORISER_CLONE_ROBINHOOD;
+        }
+        if (chainId == LibSafeInvariants.BSC_CHAIN_ID) {
+            return STOX_EU_AUTHORISER_CLONE_BSC;
+        }
+        revert UnsupportedChainForAuthoriser(chainId);
+    }
+
     /// @notice The active chain's hydrated V4 authoriser clone, asserted
     /// deployed with the shared EIP-1167 codehash.
     /// @return authoriser The validated authoriser address.
