@@ -22,7 +22,7 @@ import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
-import {LibProdTokenConfig, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
+import {LibProdTokenConfig, TokenConfig, Region} from "../../src/lib/LibProdTokenConfig.sol";
 import {DeployMissingTokensHarness} from "./DeployMissingTokensHarness.sol";
 
 /// @title DeployMissingTokensTest
@@ -113,7 +113,12 @@ contract DeployMissingTokensTest is Test {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
         TokenInstance[] memory placeholders = new TokenInstance[](base.length);
         for (uint256 i = 0; i < base.length; i++) {
-            placeholders[i] = TokenInstance(base[i].underlying, address(0), address(0), address(0));
+            placeholders[i] = TokenInstance({
+                underlying: base[i].underlying,
+                receipt: address(0),
+                receiptVault: address(0),
+                wrappedTokenVault: address(0)
+            });
         }
         TokenConfig[] memory missing =
             harness.selectMissing(LibProdTokenConfig.productionTokenConfigs(), base, placeholders);
@@ -129,7 +134,14 @@ contract DeployMissingTokensTest is Test {
         TokenInstance[] memory target = new TokenInstance[](base.length);
         uint256 deployed = 41;
         for (uint256 i = 0; i < base.length; i++) {
-            target[i] = i < deployed ? base[i] : TokenInstance(base[i].underlying, address(0), address(0), address(0));
+            target[i] = i < deployed
+                ? base[i]
+                : TokenInstance({
+                    underlying: base[i].underlying,
+                    receipt: address(0),
+                    receiptVault: address(0),
+                    wrappedTokenVault: address(0)
+                });
         }
         TokenConfig[] memory missing = harness.selectMissing(LibProdTokenConfig.productionTokenConfigs(), base, target);
         assertEq(missing.length, base.length - deployed, "expected every placeholder row and nothing else");
@@ -149,8 +161,10 @@ contract DeployMissingTokensTest is Test {
         for (uint256 i = 0; i < configs.length; i++) {
             ahead[i] = configs[i];
         }
-        ahead[configs.length] = TokenConfig("AAAA", "Ahead Of Base One ST0x", "tAAAA");
-        ahead[configs.length + 1] = TokenConfig("BBBB", "Ahead Of Base Two ST0x", "tBBBB");
+        ahead[configs.length] =
+            TokenConfig({underlying: "AAAA", name: "Ahead Of Base One ST0x", symbol: "tAAAA", region: Region.US});
+        ahead[configs.length + 1] =
+            TokenConfig({underlying: "BBBB", name: "Ahead Of Base Two ST0x", symbol: "tBBBB", region: Region.US});
 
         TokenConfig[] memory missing = harness.selectMissing(ahead, base, new TokenInstance[](0));
         assertEq(missing.length, base.length, "the un-deployed rows must not be selected");

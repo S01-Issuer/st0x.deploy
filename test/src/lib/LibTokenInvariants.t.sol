@@ -10,6 +10,7 @@ import {
     IOwnable,
     ReceiptVaultOwnerMismatch
 } from "../../../src/lib/LibTokenInvariants.sol";
+import {LibProdTokenConfig, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariantsHarness} from "./LibTokenInvariantsHarness.sol";
@@ -122,6 +123,21 @@ contract LibTokenInvariantsTest is Test {
         assertEq(bsc.length, base.length, "BNB Smart Chain token table length diverges from Base");
         for (uint256 i = 0; i < base.length; i++) {
             assertEq(bsc[i].underlying, base[i].underlying, "BNB Smart Chain token underlying diverges from Base");
+        }
+    }
+
+    function testDiscardedEuBatchIsNotListed() external pure {
+        string[6] memory discarded = ["AIR.PA", "BMW.DE", "MC.PA", "SIE.DE", "MBG.DE", "RHM.DE"];
+        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
+        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        for (uint256 d = 0; d < discarded.length; d++) {
+            bytes32 key = keccak256(bytes(discarded[d]));
+            for (uint256 i = 0; i < base.length; i++) {
+                assertTrue(keccak256(bytes(base[i].underlying)) != key, discarded[d]);
+            }
+            for (uint256 i = 0; i < configs.length; i++) {
+                assertTrue(keccak256(bytes(configs[i].underlying)) != key, discarded[d]);
+            }
         }
     }
 }
