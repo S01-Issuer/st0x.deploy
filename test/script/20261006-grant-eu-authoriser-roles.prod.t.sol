@@ -64,8 +64,8 @@ contract GrantEuAuthoriserRolesProdTest is Test {
     /// @param label Human chain name, surfaced in assertion messages.
     function assertWalkNeverUnholdsAnAdmin(string memory label) internal {
         GrantEuAuthoriserRoles script = new GrantEuAuthoriserRoles();
-        (address clone, address safe, address timelock, bytes32 head) = script.preflight();
-        SafeTx[] memory txs = script.grantBundle(clone, safe, timelock, head);
+        (address clone, address safe, address timelock) = script.preflight();
+        SafeTx[] memory txs = script.grantBundle(clone, safe, timelock);
         bytes32[7] memory admins = script.adminRoles();
         IAccessControl acl = IAccessControl(clone);
 

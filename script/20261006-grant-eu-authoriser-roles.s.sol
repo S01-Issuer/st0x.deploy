@@ -6,7 +6,11 @@ import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 
-import {IMigrationRegistryV2, Prerequisite} from "rain-deploy-0.1.15/src/interface/IMigrationRegistryV2.sol";
+import {
+    IMigrationRegistryV2,
+    MIGRATION_HEAD_GENESIS,
+    Prerequisite
+} from "rain-deploy-0.1.15/src/interface/IMigrationRegistryV2.sol";
 import {LibMigrationRegistry} from "rain-deploy-0.1.15/src/lib/LibMigrationRegistry.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.15/src/lib/LibMigrationRegistryDeploy.sol";
 
@@ -50,8 +54,7 @@ contract GrantEuAuthoriserRoles is Script {
     /// @return clone The EU authoriser clone.
     /// @return safe The chain's token-owner Safe.
     /// @return timelock The chain's governance timelock.
-    /// @return head The RBAC line's current head for this Safe.
-    function preflight() public view returns (address clone, address safe, address timelock, bytes32 head) {
+    function preflight() public view returns (address clone, address safe, address timelock) {
         // MultiSendCallOnly raw-calls `txs[0]`, so a registry that is not on
         // this chain records nothing and returns success. Without this the
         // bundle's run-once guard silently does not exist.
@@ -72,13 +75,6 @@ contract GrantEuAuthoriserRoles is Script {
                 revert SafeMissingRoleAdmin(clone, admins[i]);
             }
         }
-
-        // The RBAC namespace is shared by every role change, so the line's
-        // head moves as others land. Read it rather than assuming genesis:
-        // the registry refuses a first prerequisite that is not the caller at
-        // the actual head.
-        head = IMigrationRegistryV2(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
-            .head(safe, LibRbacMigration.STOX_RBAC_NAMESPACE);
     }
 
     /// @notice The seven `_ADMIN` roles, in map order.
@@ -98,22 +94,21 @@ contract GrantEuAuthoriserRoles is Script {
     /// @param clone The authoriser the roles are on.
     /// @param safe The Safe executing the bundle.
     /// @param timelock The admin holder the bundle hands governance to.
-    /// @param head The RBAC line's head the registration is applied onto.
     /// @return txs The transactions, in execution order.
-    function grantBundle(address clone, address safe, address timelock, bytes32 head)
-        public
-        pure
-        returns (SafeTx[] memory txs)
-    {
+    function grantBundle(address clone, address safe, address timelock) public pure returns (SafeTx[] memory txs) {
         RoleGrant[] memory grants =
             LibAuthoriserInvariants.expectedGrants(safe, timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER);
         bytes32[7] memory admins = adminRoles();
 
         txs = new SafeTx[](1 + grants.length + admins.length);
 
+        // Genesis, not the line's live head. A signed bundle names the state
+        // it was approved against, so another RBAC migration landing first
+        // must refuse this one rather than silently re-base onto it.
         Prerequisite[] memory prerequisites = new Prerequisite[](1);
-        prerequisites[0] =
-            Prerequisite({writer: safe, namespace: LibRbacMigration.STOX_RBAC_NAMESPACE, migration: head});
+        prerequisites[0] = Prerequisite({
+            writer: safe, namespace: LibRbacMigration.STOX_RBAC_NAMESPACE, migration: MIGRATION_HEAD_GENESIS
+        });
 
         txs[0] = SafeTx({
             to: LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
@@ -144,9 +139,9 @@ contract GrantEuAuthoriserRoles is Script {
     /// @notice Authors the bundle, simulates it, asserts the post-state, writes
     /// the JSON.
     function run() external {
-        (address clone, address safe, address timelock, bytes32 head) = preflight();
+        (address clone, address safe, address timelock) = preflight();
 
-        SafeTx[] memory txs = grantBundle(clone, safe, timelock, head);
+        SafeTx[] memory txs = grantBundle(clone, safe, timelock);
         IGnosisSafe gnosisSafe = IGnosisSafe(safe);
         uint256 nonce = gnosisSafe.nonce();
         bytes32 bundleSafeTxHash = LibSafeOps.computeMultiSendSafeTxHash(gnosisSafe, txs, nonce);
@@ -173,8 +168,8 @@ contract GrantEuAuthoriserRoles is Script {
     /// @notice Re-derives the bundle and checks a written artifact matches it.
     /// @param jsonPath The artifact to check.
     function verify(string calldata jsonPath) external view {
-        (address clone, address safe, address timelock, bytes32 head) = preflight();
-        SafeTx[] memory expected = grantBundle(clone, safe, timelock, head);
+        (address clone, address safe, address timelock) = preflight();
+        SafeTx[] memory expected = grantBundle(clone, safe, timelock);
         LibSafeOps.assertParsedTxsMatch(expected, jsonPath);
 
         // The transactions matching says nothing about which Safe the artifact
