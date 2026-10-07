@@ -80,10 +80,8 @@ contract GrantEuAuthoriserRoles is Script {
     /// @notice The seven `_ADMIN` roles, in map order.
     /// @return roles The `_ADMIN` roles.
     function adminRoles() public pure returns (bytes32[7] memory roles) {
-        RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(
-            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE,
-            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK,
-            LibAuthoriserInvariants.GRANTEE_EU_MINTER
+        RoleGrant[] memory grants = LibAuthoriserInvariants.expectedEuGrants(
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, LibAuthoriserInvariants.GRANTEE_EU_MINTER
         );
         for (uint256 i = 0; i < LibAuthoriserInvariants.ADMIN_ROLE_COUNT; i++) {
             roles[i] = grants[i].role;
@@ -97,7 +95,7 @@ contract GrantEuAuthoriserRoles is Script {
     /// @return txs The transactions, in execution order.
     function grantBundle(address clone, address safe, address timelock) public pure returns (SafeTx[] memory txs) {
         RoleGrant[] memory grants =
-            LibAuthoriserInvariants.expectedGrants(safe, timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER);
+            LibAuthoriserInvariants.expectedEuGrants(timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER);
         bytes32[7] memory admins = adminRoles();
 
         txs = new SafeTx[](1 + grants.length + admins.length);
@@ -150,7 +148,7 @@ contract GrantEuAuthoriserRoles is Script {
             LibSafeOps.simulateExternalCall(gnosisSafe, txs[i].to, txs[i].data);
         }
 
-        LibAuthoriserInvariants.assertExpectedGrants(clone, safe, timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER);
+        LibAuthoriserInvariants.assertExpectedEuGrants(clone, safe, timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER);
 
         string memory json = LibSafeOps.emitTxBuilderJson(safe, block.chainid, BUNDLE_NAME, txs);
         vm.writeFile(artifactPath(), json);

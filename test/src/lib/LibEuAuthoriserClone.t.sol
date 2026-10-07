@@ -16,44 +16,78 @@ import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol"
 /// @notice The EU assets authoriser is the production authoriser's own
 /// implementation with one grantee changed. These pin that, fork-free.
 contract LibEuAuthoriserCloneTest is Test {
-    /// @notice The EU map and the US map differ in exactly two pairs, both the
-    /// minter's, and in no other slot. This is what "the same authoriser with
-    /// a different minter" means, and it fails if a second map ever drifts
-    /// from the first.
-    function testEuMapDiffersFromUsMapOnlyInTheMinter() external pure {
+    /// @notice The EU map grants to this region's operators only. A US
+    /// operator appearing here would be a cross-region grant, which is the
+    /// defect this asserts against — the US map carries both of them.
+    function testEuMapGrantsNoUsOperator() external pure {
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         address timelock = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
 
-        RoleGrant[] memory us = LibAuthoriserInvariants.expectedGrants(safe, timelock);
         RoleGrant[] memory eu =
-            LibAuthoriserInvariants.expectedGrants(safe, timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER);
+            LibAuthoriserInvariants.expectedEuGrants(timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER);
 
-        assertEq(us.length, eu.length, "map length");
+        for (uint256 i = 0; i < eu.length; i++) {
+            assertTrue(eu[i].grantee != LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C, "US service signer in EU map");
+            assertTrue(eu[i].grantee != LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR, "US orchestrator in EU map");
+            assertTrue(
+                eu[i].grantee == safe || eu[i].grantee == timelock
+                    || eu[i].grantee == LibAuthoriserInvariants.GRANTEE_EU_MINTER,
+                "grantee is the Safe, the timelock or the EU minter"
+            );
+        }
 
-        uint256 differing = 0;
+        // The US map does carry them, so the loop above is discriminating
+        // rather than vacuously true on an empty grantee set.
+        RoleGrant[] memory us = LibAuthoriserInvariants.expectedGrants(safe, timelock);
+        uint256 usOperators = 0;
         for (uint256 i = 0; i < us.length; i++) {
-            assertEq(us[i].role, eu[i].role, "role order");
-            if (us[i].grantee != eu[i].grantee) {
-                differing++;
-                assertEq(eu[i].grantee, LibAuthoriserInvariants.GRANTEE_EU_MINTER, "differing grantee is the minter");
-                assertEq(us[i].grantee, LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C, "US grantee is the signer");
-                assertTrue(
-                    us[i].role == keccak256("DEPOSIT") || us[i].role == keccak256("WITHDRAW"),
-                    "differing role is mint or redeem"
-                );
+            if (
+                us[i].grantee == LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C
+                    || us[i].grantee == LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR
+            ) {
+                usOperators++;
             }
         }
-        assertEq(differing, 2, "exactly DEPOSIT and WITHDRAW differ");
+        // Three for the service signer, two for the orchestrator.
+        assertEq(usOperators, 5, "US map carries the five US operator grants");
     }
 
-    /// @notice The minter holds mint and redeem and never an `_ADMIN` role.
-    /// The admin slice tracks the admin holder; a minter inside it could grant
-    /// itself anything.
+    /// @notice Every operational role goes to the EU wallet and every `_ADMIN`
+    /// to the timelock: 7 + 7, with each operational role paired to the
+    /// `_ADMIN` that administers it on chain.
+    function testEuMinterHoldsEveryOperationalRole() external pure {
+        address timelock = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
+        RoleGrant[] memory eu =
+            LibAuthoriserInvariants.expectedEuGrants(timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER);
+
+        assertEq(eu.length, 14, "map is 7 admins + 7 operational");
+
+        string[7] memory names = [
+            "DEPOSIT",
+            "WITHDRAW",
+            "CERTIFY",
+            "CONFISCATE_SHARES",
+            "CONFISCATE_RECEIPT",
+            "SCHEDULE_CORPORATE_ACTION",
+            "CANCEL_CORPORATE_ACTION"
+        ];
+        for (uint256 i = 0; i < names.length; i++) {
+            assertEq(eu[i].role, keccak256(bytes(string.concat(names[i], "_ADMIN"))), "admin slice role");
+            assertEq(eu[i].grantee, timelock, "admin role goes to the timelock");
+
+            assertEq(eu[7 + i].role, keccak256(bytes(names[i])), "operational slice role");
+            assertEq(
+                eu[7 + i].grantee, LibAuthoriserInvariants.GRANTEE_EU_MINTER, "operational role goes to the EU wallet"
+            );
+        }
+    }
+
+    /// @notice The EU wallet holds no `_ADMIN` role. A grantee inside the
+    /// admin slice could grant itself anything, which is what handing the
+    /// admins to the timelock exists to prevent.
     function testMinterHoldsNoAdminRole() external pure {
-        RoleGrant[] memory eu = LibAuthoriserInvariants.expectedGrants(
-            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE,
-            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK,
-            LibAuthoriserInvariants.GRANTEE_EU_MINTER
+        RoleGrant[] memory eu = LibAuthoriserInvariants.expectedEuGrants(
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, LibAuthoriserInvariants.GRANTEE_EU_MINTER
         );
         for (uint256 i = 0; i < LibAuthoriserInvariants.ADMIN_ROLE_COUNT; i++) {
             assertTrue(eu[i].grantee != LibAuthoriserInvariants.GRANTEE_EU_MINTER, "minter in the admin slice");

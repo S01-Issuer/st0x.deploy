@@ -45,7 +45,7 @@ contract GrantEuAuthoriserRolesProdTest is Test {
             safe, LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER
         );
         if (appliedAt != 0) {
-            LibAuthoriserInvariants.assertExpectedGrants(
+            LibAuthoriserInvariants.assertExpectedEuGrants(
                 LibEuAuthoriserClone.cloneDeployedAddress(chainId),
                 safe,
                 LibTimelockInvariants.timelockForChainId(chainId),
@@ -79,7 +79,7 @@ contract GrantEuAuthoriserRolesProdTest is Test {
             }
         }
 
-        LibAuthoriserInvariants.assertExpectedGrants(clone, safe, timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER);
+        LibAuthoriserInvariants.assertExpectedEuGrants(clone, safe, timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER);
     }
 
     function testGrantBundleRolloutBase() external {

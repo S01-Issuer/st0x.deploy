@@ -74,6 +74,13 @@ error EuAuthoriserNotReady(address clone);
 /// @param role The action role the minter unexpectedly holds.
 error UnexpectedEuMinterGrant(address clone, bytes32 role);
 
+/// @notice An operator from another region holds an action role on this
+/// authoriser. A region's authoriser grants to that region's operators only.
+/// @param authoriser The authoriser inspected.
+/// @param role The action role held.
+/// @param grantee The out-of-region operator holding it.
+error UnexpectedCrossRegionGrant(address authoriser, bytes32 role, address grantee);
+
 /// @title LibAuthoriserInvariants
 /// @notice Reusable invariants for the ST0x production authoriser on every
 /// chain:
@@ -182,7 +189,7 @@ library LibAuthoriserInvariants {
         address safe = LibSafeInvariants.safeForChainId(chainId);
         address timelock = LibTimelockInvariants.timelockForChainId(chainId);
 
-        RoleGrant[] memory grants = expectedGrants(safe, timelock, GRANTEE_EU_MINTER);
+        RoleGrant[] memory grants = expectedEuGrants(timelock, GRANTEE_EU_MINTER);
         for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
             if (!IAccessControl(clone).hasRole(grants[i].role, safe)) {
                 revert ExpectedGrantMissing(clone, grants[i].role, safe);
@@ -296,25 +303,6 @@ library LibAuthoriserInvariants {
         pure
         returns (RoleGrant[] memory grants)
     {
-        grants = expectedGrants(tokenOwnerSafe, adminHolder, GRANTEE_SERVICE_3D0C);
-    }
-
-    /// @notice The same map parameterised on the minter — the holder of
-    /// `DEPOSIT` and `WITHDRAW`, which are mint and redeem. The US
-    /// authoriser's minter is the shared service signer; the EU assets
-    /// authoriser is the same implementation, cloned at its own salt, with
-    /// `GRANTEE_EU_MINTER` in that slot and nothing else changed. A second
-    /// map would let the two drift; one parameter cannot.
-    /// @param tokenOwnerSafe The chain's token-owner Safe filling the
-    /// operational Safe grantee slots.
-    /// @param adminHolder The holder of the seven `_ADMIN` roles.
-    /// @param minter The holder of `DEPOSIT` and `WITHDRAW`.
-    /// @return grants The `(role, grantee)` pairs for that authoriser.
-    function expectedGrants(address tokenOwnerSafe, address adminHolder, address minter)
-        internal
-        pure
-        returns (RoleGrant[] memory grants)
-    {
         grants = new RoleGrant[](15);
 
         // Init grants (block 41715184 on Base) — the admin holder receives
@@ -341,8 +329,8 @@ library LibAuthoriserInvariants {
         // Service signer, provisioned by the 20260723 bundle per chain. The
         // retired `GRANTEE_SERVICE_1C66` deliberately has no rows: its
         // revocation is asserted as an ABSENCE in `assertExpectedGrants`.
-        grants[10] = RoleGrant(keccak256("DEPOSIT"), minter);
-        grants[11] = RoleGrant(keccak256("WITHDRAW"), minter);
+        grants[10] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_3D0C);
+        grants[11] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_3D0C);
         grants[12] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_3D0C);
 
         // Orchestrator vault access, granted by the 20260831 enable bundle;
@@ -350,6 +338,43 @@ library LibAuthoriserInvariants {
         // executes.
         grants[13] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_ORCHESTRATOR);
         grants[14] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_ORCHESTRATOR);
+    }
+
+    /// @notice A region's authoriser map: every `_ADMIN` on the admin holder
+    /// and every operational role on that region's wallet. Distinct from the
+    /// US production map, which additionally grants to the shared service
+    /// signer and the orchestrator — a region's authoriser grants to that
+    /// region's operators only.
+    /// @param adminHolder The holder of the seven `_ADMIN` roles.
+    /// @param minter The region's wallet, holding all seven operational roles.
+    /// @return grants The `(role, grantee)` pairs for that authoriser.
+    function expectedEuGrants(address adminHolder, address minter) internal pure returns (RoleGrant[] memory grants) {
+        // Every `_ADMIN` on the admin holder, every operational role on the
+        // region's wallet, and nothing else. `tokenOwnerSafe` is the writer
+        // that executes the bundle, not a grantee: it holds the `_ADMIN`
+        // roles only until it has granted with them and renounced.
+        //
+        // The seven pairs are the ones the live clone reports: for each role
+        // below, `getRoleAdmin(role)` is the matching `_ADMIN`, checked on
+        // the deployed 0.1.1 implementation rather than read off 0.2.4's
+        // source, which declares only five of them.
+        grants = new RoleGrant[](14);
+
+        grants[0] = RoleGrant(keccak256("DEPOSIT_ADMIN"), adminHolder);
+        grants[1] = RoleGrant(keccak256("WITHDRAW_ADMIN"), adminHolder);
+        grants[2] = RoleGrant(keccak256("CERTIFY_ADMIN"), adminHolder);
+        grants[3] = RoleGrant(keccak256("CONFISCATE_SHARES_ADMIN"), adminHolder);
+        grants[4] = RoleGrant(keccak256("CONFISCATE_RECEIPT_ADMIN"), adminHolder);
+        grants[5] = RoleGrant(keccak256("SCHEDULE_CORPORATE_ACTION_ADMIN"), adminHolder);
+        grants[6] = RoleGrant(keccak256("CANCEL_CORPORATE_ACTION_ADMIN"), adminHolder);
+
+        grants[7] = RoleGrant(keccak256("DEPOSIT"), minter);
+        grants[8] = RoleGrant(keccak256("WITHDRAW"), minter);
+        grants[9] = RoleGrant(keccak256("CERTIFY"), minter);
+        grants[10] = RoleGrant(keccak256("CONFISCATE_SHARES"), minter);
+        grants[11] = RoleGrant(keccak256("CONFISCATE_RECEIPT"), minter);
+        grants[12] = RoleGrant(keccak256("SCHEDULE_CORPORATE_ACTION"), minter);
+        grants[13] = RoleGrant(keccak256("CANCEL_CORPORATE_ACTION"), minter);
     }
 
     /// @notice Assert the Base map (`expectedGrants()`) on the supplied
@@ -373,7 +398,60 @@ library LibAuthoriserInvariants {
     /// operational Safe grantee slots.
     /// @param adminHolder The holder of the seven `_ADMIN` roles.
     function assertExpectedGrants(address authoriser, address tokenOwnerSafe, address adminHolder) internal view {
-        assertExpectedGrants(authoriser, tokenOwnerSafe, adminHolder, GRANTEE_SERVICE_3D0C);
+        IAccessControl acl = IAccessControl(authoriser);
+        assertNoDefaultAdmins(acl, authoriser, tokenOwnerSafe, adminHolder);
+        assertRetiredSignerAbsent(acl, authoriser);
+
+        RoleGrant[] memory grants = expectedGrants(tokenOwnerSafe, adminHolder);
+        for (uint256 i = 0; i < grants.length; i++) {
+            if (!acl.hasRole(grants[i].role, grants[i].grantee)) {
+                revert ExpectedGrantMissing(authoriser, grants[i].role, grants[i].grantee);
+            }
+        }
+        assertAdminSliceHeldExclusively(acl, authoriser, grants, tokenOwnerSafe);
+    }
+
+    /// @notice No named principal holds `DEFAULT_ADMIN_ROLE`: the hierarchy
+    /// admins each action role by its own `<ROLE>_ADMIN`, so a root-admin
+    /// holder is an escalation path the pinned map does not sanction.
+    /// @param acl The authoriser as an `IAccessControl`.
+    /// @param authoriser The authoriser address, for the revert.
+    /// @param tokenOwnerSafe The chain's token-owner Safe.
+    /// @param adminHolder The holder of the seven `_ADMIN` roles.
+    function assertNoDefaultAdmins(IAccessControl acl, address authoriser, address tokenOwnerSafe, address adminHolder)
+        internal
+        view
+    {
+        address[5] memory principals =
+            [tokenOwnerSafe, adminHolder, GRANTEE_SERVICE_1C66, GRANTEE_SERVICE_3D0C, GRANTEE_ORCHESTRATOR];
+        for (uint256 i = 0; i < principals.length; i++) {
+            if (acl.hasRole(DEFAULT_ADMIN_ROLE, principals[i])) {
+                revert UnexpectedDefaultAdmin(authoriser, principals[i]);
+            }
+        }
+    }
+
+    /// @notice The Safe holds none of the map's leading `_ADMIN` entries. A
+    /// retained copy would let it mutate the grant map without the admin
+    /// holder's delay. The slice is positional rather than matched by
+    /// address, which would mis-slice if the admin holder aliased another
+    /// grantee.
+    /// @param acl The authoriser as an `IAccessControl`.
+    /// @param authoriser The authoriser address, for the revert.
+    /// @param grants The map whose leading `ADMIN_ROLE_COUNT` entries are the
+    /// `_ADMIN` slice.
+    /// @param tokenOwnerSafe The Safe that must hold none of them.
+    function assertAdminSliceHeldExclusively(
+        IAccessControl acl,
+        address authoriser,
+        RoleGrant[] memory grants,
+        address tokenOwnerSafe
+    ) internal view {
+        for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
+            if (acl.hasRole(grants[i].role, tokenOwnerSafe)) {
+                revert UnexpectedRetainedAdminGrant(authoriser, grants[i].role, tokenOwnerSafe);
+            }
+        }
     }
 
     /// @notice The same assertion parameterised on the minter, for an
@@ -384,34 +462,32 @@ library LibAuthoriserInvariants {
     /// @param tokenOwnerSafe The chain's token-owner Safe.
     /// @param adminHolder The holder of the seven `_ADMIN` roles.
     /// @param minter The holder of `DEPOSIT` and `WITHDRAW`.
-    function assertExpectedGrants(address authoriser, address tokenOwnerSafe, address adminHolder, address minter)
+    function assertExpectedEuGrants(address authoriser, address tokenOwnerSafe, address adminHolder, address minter)
         internal
         view
     {
         IAccessControl acl = IAccessControl(authoriser);
+        assertNoDefaultAdmins(acl, authoriser, tokenOwnerSafe, adminHolder);
         if (acl.hasRole(DEFAULT_ADMIN_ROLE, minter)) {
             revert UnexpectedDefaultAdmin(authoriser, minter);
         }
-        // No pinned grantee holds DEFAULT_ADMIN_ROLE: the hierarchy admins each
-        // action role by its own `<ROLE>_ADMIN`, so a root-admin holder would
-        // be an escalation path the pinned map does not sanction.
-        if (acl.hasRole(DEFAULT_ADMIN_ROLE, tokenOwnerSafe)) {
-            revert UnexpectedDefaultAdmin(authoriser, tokenOwnerSafe);
-        }
-        if (acl.hasRole(DEFAULT_ADMIN_ROLE, adminHolder)) {
-            revert UnexpectedDefaultAdmin(authoriser, adminHolder);
-        }
-        if (acl.hasRole(DEFAULT_ADMIN_ROLE, GRANTEE_SERVICE_1C66)) {
-            revert UnexpectedDefaultAdmin(authoriser, GRANTEE_SERVICE_1C66);
-        }
-        if (acl.hasRole(DEFAULT_ADMIN_ROLE, GRANTEE_SERVICE_3D0C)) {
-            revert UnexpectedDefaultAdmin(authoriser, GRANTEE_SERVICE_3D0C);
-        }
-        if (acl.hasRole(DEFAULT_ADMIN_ROLE, GRANTEE_ORCHESTRATOR)) {
-            revert UnexpectedDefaultAdmin(authoriser, GRANTEE_ORCHESTRATOR);
-        }
         assertRetiredSignerAbsent(acl, authoriser);
-        RoleGrant[] memory grants = expectedGrants(tokenOwnerSafe, adminHolder, minter);
+
+        RoleGrant[] memory grants = expectedEuGrants(adminHolder, minter);
+
+        // A region's authoriser grants to that region's operators. The map's
+        // omission of the US signer and orchestrator says nothing on its own,
+        // so their absence is asserted — across the operational slice the map
+        // itself defines, so a role added to the map is covered here too.
+        for (uint256 i = ADMIN_ROLE_COUNT; i < grants.length; i++) {
+            if (acl.hasRole(grants[i].role, GRANTEE_SERVICE_3D0C)) {
+                revert UnexpectedCrossRegionGrant(authoriser, grants[i].role, GRANTEE_SERVICE_3D0C);
+            }
+            if (acl.hasRole(grants[i].role, GRANTEE_ORCHESTRATOR)) {
+                revert UnexpectedCrossRegionGrant(authoriser, grants[i].role, GRANTEE_ORCHESTRATOR);
+            }
+        }
+
         for (uint256 i = 0; i < grants.length; i++) {
             if (!acl.hasRole(grants[i].role, grants[i].grantee)) {
                 revert ExpectedGrantMissing(authoriser, grants[i].role, grants[i].grantee);
