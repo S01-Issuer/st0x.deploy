@@ -1,0 +1,293 @@
+# The ST0x RBAC / ownership index.
+#
+# `AccessControl` exposes no member list, so a role's holders are not readable
+# by call — only the `RoleGranted` / `RoleRevoked` log stream has them. Public
+# RPCs cap `eth_getLogs` at 1000 blocks, so trawling that stream is impractical
+# on the chains ST0x deploys to. Hence this subgraph (issue #427).
+#
+# `network:` below is a placeholder on every data source and template:
+# `subgraph-build` and `subgraph-deploy` both run `graph ... --network <net>`
+# once per key in `networks.json`, which rewrites `network`, `source.address`
+# and `source.startBlock` from that file. `networks.json` is the per-chain
+# address table; the literals here are never deployed.
+#
+# `startBlock` is 0 on every network. No deploy block is recorded anywhere in
+# this repo, and 0 is the only lower bound that cannot silently drop grant or
+# revoke history. It costs a long initial sync, not correctness.
+specVersion: 0.0.5
+schema:
+  file: ./schema.graphql
+dataSources:
+  # The chain's production `OffchainAssetReceiptVaultAuthorizerV1` clone — the
+  # `AccessControl` every production receipt vault delegates its permissions
+  # to, so every vault action role (mint, burn, certify, confiscate,
+  # corporate-action) is granted here and nowhere else.
+  # `LibAuthoriserInvariants.authoriserForChainId` is the chain-to-clone table
+  # the addresses in `networks.json` come from.
+  - kind: ethereum/contract
+    name: Authorizer
+    network: base
+    source:
+      address: "0x315b16faa6eE413faBCa877d3851B3818369f0cD"
+      abi: AccessControl
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+        - Role
+        - RoleHolder
+        - RoleGrant
+        - RoleAdminChange
+      abis:
+        - name: AccessControl
+          file: ./abis/AccessControl.json
+      eventHandlers:
+        - event: RoleGranted(indexed bytes32,indexed address,indexed address)
+          handler: handleAuthorizerRoleGranted
+        - event: RoleRevoked(indexed bytes32,indexed address,indexed address)
+          handler: handleAuthorizerRoleRevoked
+        - event: RoleAdminChanged(indexed bytes32,indexed bytes32,indexed bytes32)
+          handler: handleAuthorizerRoleAdminChanged
+      file: ./src/authorizer.ts
+  # The chain's `TimelockController`. Every production `onlyOwner` / `_ADMIN`
+  # surface has been moved behind it, so its `PROPOSER_ROLE`,
+  # `EXECUTOR_ROLE` and `CANCELLER_ROLE` holders are the governance set.
+  # Addresses come from `LibTimelockInvariants.timelockForChainId`.
+  - kind: ethereum/contract
+    name: GovernanceTimelock
+    network: base
+    source:
+      address: "0x48ba1371A78E6cC54157c63721756ab444510DB3"
+      abi: AccessControl
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+        - Role
+        - RoleHolder
+        - RoleGrant
+        - RoleAdminChange
+      abis:
+        - name: AccessControl
+          file: ./abis/AccessControl.json
+      eventHandlers:
+        - event: RoleGranted(indexed bytes32,indexed address,indexed address)
+          handler: handleTimelockRoleGranted
+        - event: RoleRevoked(indexed bytes32,indexed address,indexed address)
+          handler: handleTimelockRoleRevoked
+        - event: RoleAdminChanged(indexed bytes32,indexed bytes32,indexed bytes32)
+          handler: handleTimelockRoleAdminChanged
+      file: ./src/timelock.ts
+  # `StoxWrappedTokenVaultBeacon`. A Zoltu deploy, so its address is a
+  # per-generation constant rather than a per-chain one: Base production runs
+  # the V1-generation beacon (`LibProdDeployV1`), the 0.1.1-bootstrap chains
+  # run the deterministic 0.1.1 one (`LibProdDeployV4`).
+  - kind: ethereum/contract
+    name: WrappedTokenVaultBeacon
+    network: base
+    source:
+      address: "0x4c2d2d3Bf1232bf0d3FB7123007A9B8444637bC8"
+      abi: UpgradeableBeacon
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+        - OwnershipTransfer
+        - BeaconUpgrade
+      abis:
+        - name: UpgradeableBeacon
+          file: ./abis/UpgradeableBeacon.json
+      eventHandlers:
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleWrappedTokenVaultBeaconOwnershipTransferred
+        - event: Upgraded(indexed address)
+          handler: handleWrappedTokenVaultBeaconUpgraded
+      file: ./src/wrappedtokenvaultbeacon.ts
+  # `ST0xOrchestratorBeacon` — `LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON`, the
+  # same address on every chain.
+  - kind: ethereum/contract
+    name: OrchestratorBeacon
+    network: base
+    source:
+      address: "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613"
+      abi: UpgradeableBeacon
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+        - OwnershipTransfer
+        - BeaconUpgrade
+      abis:
+        - name: UpgradeableBeacon
+          file: ./abis/UpgradeableBeacon.json
+      eventHandlers:
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleOrchestratorBeaconOwnershipTransferred
+        - event: Upgraded(indexed address)
+          handler: handleOrchestratorBeaconUpgraded
+      file: ./src/orchestratorbeacon.ts
+  # The `OffchainAssetReceiptVaultBeaconSetDeployer` that minted the chain's
+  # production tokens. It is the discovery root for two sets of contracts that
+  # are far too numerous (54 tokens a chain, and growing) to list by address:
+  #
+  #   - every receipt vault it has ever deployed, from the `Deployment` event;
+  #   - the receipt and receipt-vault beacons, which it creates in its own
+  #     constructor and exposes as immutable getters.
+  #
+  # Base runs the V1-generation deployer, the 0.1.1-bootstrap chains the
+  # deterministic 0.1.1 one. Later generations exist on Base but were never
+  # adopted by production (see `LibProdBeaconsBase`), so they are out of scope
+  # here along with the vaults and beacons they would carry.
+  #
+  # The deployer predating the `I_`-to-camelCase immutable rename is why the
+  # ABI carries both spellings of the two beacon getters; the `Deployment`
+  # event signature is unchanged across every generation.
+  - kind: ethereum/contract
+    name: ReceiptVaultDeployer
+    network: base
+    source:
+      address: "0x2191981Ca2477B745870cC307cbEB4cB2967ACe3"
+      abi: OffchainAssetReceiptVaultBeaconSetDeployer
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+      abis:
+        - name: OffchainAssetReceiptVaultBeaconSetDeployer
+          file: ./abis/OffchainAssetReceiptVaultBeaconSetDeployer.json
+        - name: UpgradeableBeacon
+          file: ./abis/UpgradeableBeacon.json
+      eventHandlers:
+        - event: Deployment(address,address,address)
+          handler: handleReceiptVaultDeployment
+      file: ./src/receiptvaultdeployer.ts
+  # `ST0xOrchestratorBeaconSetDeployer` — the deterministic 0.1.30 deploy, the
+  # same address on every chain. `deploy` is permissionless, so this discovers
+  # lookalike orchestrators as well as the production one; a consumer tells
+  # them apart by the `DEFAULT_ADMIN_ROLE` holder, which is the whole point of
+  # indexing it.
+  - kind: ethereum/contract
+    name: OrchestratorDeployer
+    network: base
+    source:
+      address: "0x945D0Faf6f268e805246907507ef1044e70E75D7"
+      abi: ST0xOrchestratorBeaconSetDeployer
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+      abis:
+        - name: ST0xOrchestratorBeaconSetDeployer
+          file: ./abis/ST0xOrchestratorBeaconSetDeployer.json
+      eventHandlers:
+        - event: Deployment(indexed address,indexed address,address)
+          handler: handleOrchestratorDeployment
+      file: ./src/orchestratordeployer.ts
+templates:
+  # A receipt vault, created by `handleReceiptVaultDeployment`. The vault is
+  # `Ownable` and holds no roles of its own — its permissions live on the
+  # authoriser — so ownership is all there is to index.
+  #
+  # The vault's `OwnershipTransferred(0 -> initialAdmin)` fires inside
+  # `initialize`, earlier in the very transaction that emits the `Deployment`
+  # this template is created from. graph-node re-matches the whole creating
+  # block against a newly created template, so that log is picked up and the
+  # vault's ownership history is complete from its first owner.
+  - kind: ethereum/contract
+    name: ReceiptVault
+    network: base
+    source:
+      abi: Ownable
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+        - OwnershipTransfer
+      abis:
+        - name: Ownable
+          file: ./abis/Ownable.json
+      eventHandlers:
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleReceiptVaultOwnershipTransferred
+      file: ./src/receiptvault.ts
+  # An `ST0xOrchestrator`, created by `handleOrchestratorDeployment`. Its
+  # `RoleGranted(DEFAULT_ADMIN_ROLE, owner)` is emitted from `initialize` in
+  # the same transaction as the `Deployment`, and is picked up for the same
+  # reason the receipt vault's first `OwnershipTransferred` is.
+  - kind: ethereum/contract
+    name: Orchestrator
+    network: base
+    source:
+      abi: AccessControl
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+        - Role
+        - RoleHolder
+        - RoleGrant
+        - RoleAdminChange
+      abis:
+        - name: AccessControl
+          file: ./abis/AccessControl.json
+      eventHandlers:
+        - event: RoleGranted(indexed bytes32,indexed address,indexed address)
+          handler: handleOrchestratorRoleGranted
+        - event: RoleRevoked(indexed bytes32,indexed address,indexed address)
+          handler: handleOrchestratorRoleRevoked
+        - event: RoleAdminChanged(indexed bytes32,indexed bytes32,indexed bytes32)
+          handler: handleOrchestratorRoleAdminChanged
+      file: ./src/orchestrator.ts
+  # The receipt and receipt-vault beacons, created by
+  # `handleReceiptVaultDeployment`. Unlike the two beacons above, these are
+  # created inside the beacon-set deployer's constructor, so their
+  # construction-time `OwnershipTransferred` and `Upgraded` are in a block
+  # that precedes the first `Deployment` and are NOT replayed into this
+  # template. `handleReceiptVaultDeployment` therefore reads `owner()` and
+  # `implementation()` at discovery to establish current state, records the
+  # discovery block as `Contract.firstIndexedBlock`, and leaves
+  # `ownerFromLog` / `implementationFromLog` false until a real log lands.
+  - kind: ethereum/contract
+    name: VaultBeacon
+    network: base
+    source:
+      abi: UpgradeableBeacon
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+        - OwnershipTransfer
+        - BeaconUpgrade
+      abis:
+        - name: UpgradeableBeacon
+          file: ./abis/UpgradeableBeacon.json
+      eventHandlers:
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleVaultBeaconOwnershipTransferred
+        - event: Upgraded(indexed address)
+          handler: handleVaultBeaconUpgraded
+      file: ./src/vaultbeacon.ts

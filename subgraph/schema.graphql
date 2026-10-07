@@ -1,0 +1,219 @@
+# The ST0x RBAC / ownership index.
+#
+# One subgraph is deployed per network (see `networks.json`), so every entity
+# here is implicitly scoped to a single chain and nothing carries a chain id.
+# "per contract per chain" from the issue therefore means "per `Contract` row in
+# the deployment for that chain".
+#
+# Role ids are the raw `bytes32` the contract emits, never a label: the
+# on-chain value is `keccak256("MINT")`-style and the preimage is not in the
+# log. A consumer that wants names hashes its own label list and matches.
+
+"What kind of contract a `Contract` row describes."
+enum ContractKind {
+  "An `OffchainAssetReceiptVaultAuthorizerV1` clone — the `AccessControl` that holds every vault action role."
+  AUTHORIZER
+  "The chain's `TimelockController` — the `AccessControl` that holds `PROPOSER_ROLE` / `EXECUTOR_ROLE` / `CANCELLER_ROLE`."
+  GOVERNANCE_TIMELOCK
+  "An `ST0xOrchestrator` beacon proxy — `AccessControl`, discovered from its deployer."
+  ORCHESTRATOR
+  "An `UpgradeableBeacon` — `Ownable`, and the only kind that emits `Upgraded`."
+  BEACON
+  "An `OffchainAssetReceiptVault` beacon proxy — `Ownable`, discovered from its deployer."
+  RECEIPT_VAULT
+}
+
+"""
+One indexed contract. Created the first time this subgraph sees the contract:
+for a static data source that is its first matching log, for a templated data
+source it is the handler that created the template.
+"""
+type Contract @entity {
+  "The contract address."
+  id: Bytes!
+  "What the contract is."
+  kind: ContractKind!
+  """
+  The lower bound of this contract's indexed event history — the earliest block
+  this subgraph could have seen a log from it. Static data sources start at the
+  `startBlock` in `networks.json`; a templated data source starts at the block
+  its template was created in, so anything the contract emitted before that
+  block is NOT in `ownershipTransfers` / `upgrades` / `roles` here.
+  """
+  firstIndexedBlock: BigInt!
+  """
+  The current owner, for an `Ownable` contract. Null means no owner has been
+  established: either the contract is not `Ownable`, or it is and no
+  `OwnershipTransferred` has been seen since `firstIndexedBlock`.
+  """
+  owner: Bytes
+  """
+  The block at which `owner` was established — the block of the
+  `OwnershipTransferred` that set it, or, for a beacon found by discovery, the
+  block whose state the discovery read `owner()` against.
+  """
+  ownerAsOfBlock: BigInt
+  "True when `owner` came from an `OwnershipTransferred` log rather than an `owner()` read at discovery."
+  ownerFromLog: Boolean!
+  "The current implementation, for a beacon. Null for every other kind."
+  implementation: Bytes
+  "The block at which `implementation` was established, same two sources as `ownerAsOfBlock`."
+  implementationAsOfBlock: BigInt
+  "True when `implementation` came from an `Upgraded` log rather than an `implementation()` read at discovery."
+  implementationFromLog: Boolean!
+  "Every role this contract has ever emitted an event for."
+  roles: [Role!]! @derivedFrom(field: "contract")
+  "Ownership history, oldest first by `blockNumber`."
+  ownershipTransfers: [OwnershipTransfer!]! @derivedFrom(field: "contract")
+  "Beacon implementation history, oldest first by `blockNumber`."
+  upgrades: [BeaconUpgrade!]! @derivedFrom(field: "contract")
+}
+
+"""
+One (contract, role) pair. Created the first time any event names the role, so
+a role nobody has ever been granted and whose admin has never been set has no
+row — `AccessControl` emits nothing for it.
+"""
+type Role @entity {
+  "`contract` address ++ the `bytes32` role."
+  id: Bytes!
+  "The contract the role is defined on."
+  contract: Contract!
+  "The raw `bytes32` role id, as emitted."
+  role: Bytes!
+  """
+  The role that currently administers this role. Seeded to `bytes32(0)` —
+  `DEFAULT_ADMIN_ROLE`, which is what OpenZeppelin `AccessControl` uses until
+  `_setRoleAdmin` is called, and which it emits no event for — then moved by
+  every `RoleAdminChanged`.
+  """
+  admin: Bytes!
+  "How many accounts hold the role right now."
+  holderCount: Int!
+  "Every account that has ever held the role. Filter on `held` for the current set."
+  holders: [RoleHolder!]! @derivedFrom(field: "role")
+  "Grant and revoke history, oldest first by `blockNumber`."
+  grantEvents: [RoleGrant!]! @derivedFrom(field: "role")
+  "Admin history, oldest first by `blockNumber`. Does not include the `bytes32(0)` seed, which is not an event."
+  adminChanges: [RoleAdminChange!]! @derivedFrom(field: "role")
+}
+
+"""
+One account's standing against one role. Kept after a revoke (with
+`held: false`) so the pair's history is reachable from the account side.
+"""
+type RoleHolder @entity {
+  "`contract` address ++ the `bytes32` role ++ `account`."
+  id: Bytes!
+  "The role held."
+  role: Role!
+  "The account holding it."
+  account: Bytes!
+  "Whether the account holds the role right now."
+  held: Boolean!
+  "Block of the most recent `RoleGranted` to this account for this role."
+  grantedAtBlock: BigInt
+  "Timestamp of the most recent `RoleGranted` to this account for this role."
+  grantedAtTimestamp: BigInt
+  "Block of the most recent `RoleRevoked`, null if never revoked."
+  revokedAtBlock: BigInt
+  "Timestamp of the most recent `RoleRevoked`, null if never revoked."
+  revokedAtTimestamp: BigInt
+}
+
+"One `RoleGranted` or `RoleRevoked` log."
+type RoleGrant @entity(immutable: true) {
+  "Transaction hash ++ log index."
+  id: Bytes!
+  "The role granted or revoked."
+  role: Role!
+  "The account it was granted to or revoked from."
+  account: Bytes!
+  "True for `RoleGranted`, false for `RoleRevoked`."
+  granted: Boolean!
+  """
+  The event's own `sender` param — the `msg.sender` that called `grantRole` /
+  `revokeRole` / `renounceRole`, which for a renounce is the account itself.
+  Not the same as `transactionFrom` when the call came through a Safe or the
+  timelock.
+  """
+  sender: Bytes!
+  "Block the log was emitted in."
+  blockNumber: BigInt!
+  "Timestamp of that block."
+  blockTimestamp: BigInt!
+  "Hash of the transaction the log was emitted in."
+  transactionHash: Bytes!
+  "`tx.origin`-side sender: the EOA or account that submitted the transaction."
+  transactionFrom: Bytes!
+  "Index of the log within its block."
+  logIndex: BigInt!
+}
+
+"""
+One `RoleAdminChanged` log. `AccessControl` emits this from `_setRoleAdmin`,
+including the initial wiring at construction or initialization, so the first row
+for a role usually has `previousAdminRole` of `bytes32(0)`.
+"""
+type RoleAdminChange @entity(immutable: true) {
+  "Transaction hash ++ log index."
+  id: Bytes!
+  "The role whose admin changed."
+  role: Role!
+  "The administering role before the change."
+  previousAdminRole: Bytes!
+  "The administering role after the change."
+  newAdminRole: Bytes!
+  "Block the log was emitted in."
+  blockNumber: BigInt!
+  "Timestamp of that block."
+  blockTimestamp: BigInt!
+  "Hash of the transaction the log was emitted in."
+  transactionHash: Bytes!
+  "The EOA or account that submitted the transaction. `RoleAdminChanged` carries no sender param."
+  transactionFrom: Bytes!
+  "Index of the log within its block."
+  logIndex: BigInt!
+}
+
+"One `OwnershipTransferred` log."
+type OwnershipTransfer @entity(immutable: true) {
+  "Transaction hash ++ log index."
+  id: Bytes!
+  "The contract whose owner changed."
+  contract: Contract!
+  "The owner before the transfer. `address(0)` for the transfer `Ownable`'s constructor emits."
+  previousOwner: Bytes!
+  "The owner after the transfer. `address(0)` for a `renounceOwnership`."
+  newOwner: Bytes!
+  "Block the log was emitted in."
+  blockNumber: BigInt!
+  "Timestamp of that block."
+  blockTimestamp: BigInt!
+  "Hash of the transaction the log was emitted in."
+  transactionHash: Bytes!
+  "The EOA or account that submitted the transaction. `OwnershipTransferred` carries no sender param."
+  transactionFrom: Bytes!
+  "Index of the log within its block."
+  logIndex: BigInt!
+}
+
+"One `Upgraded` log from a beacon."
+type BeaconUpgrade @entity(immutable: true) {
+  "Transaction hash ++ log index."
+  id: Bytes!
+  "The beacon that was upgraded."
+  contract: Contract!
+  "The implementation the beacon now serves."
+  implementation: Bytes!
+  "Block the log was emitted in."
+  blockNumber: BigInt!
+  "Timestamp of that block."
+  blockTimestamp: BigInt!
+  "Hash of the transaction the log was emitted in."
+  transactionHash: Bytes!
+  "The EOA or account that submitted the transaction. `Upgraded` carries no sender param."
+  transactionFrom: Bytes!
+  "Index of the log within its block."
+  logIndex: BigInt!
+}

@@ -1,0 +1,132 @@
+{
+  "base": {
+    "Authorizer": {
+      "address": "0x315b16faa6eE413faBCa877d3851B3818369f0cD",
+      "startBlock": 0
+    },
+    "GovernanceTimelock": {
+      "address": "0x48ba1371A78E6cC54157c63721756ab444510DB3",
+      "startBlock": 0
+    },
+    "WrappedTokenVaultBeacon": {
+      "address": "0x4c2d2d3Bf1232bf0d3FB7123007A9B8444637bC8",
+      "startBlock": 0
+    },
+    "OrchestratorBeacon": {
+      "address": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
+      "startBlock": 0
+    },
+    "ReceiptVaultDeployer": {
+      "address": "0x2191981Ca2477B745870cC307cbEB4cB2967ACe3",
+      "startBlock": 0
+    },
+    "OrchestratorDeployer": {
+      "address": "0x945D0Faf6f268e805246907507ef1044e70E75D7",
+      "startBlock": 0
+    }
+  },
+  "mainnet": {
+    "Authorizer": {
+      "address": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
+      "startBlock": 0
+    },
+    "GovernanceTimelock": {
+      "address": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+      "startBlock": 0
+    },
+    "WrappedTokenVaultBeacon": {
+      "address": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
+      "startBlock": 0
+    },
+    "OrchestratorBeacon": {
+      "address": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
+      "startBlock": 0
+    },
+    "ReceiptVaultDeployer": {
+      "address": "0xd64246e6b25F745f005E6233e050C9B879E660Dc",
+      "startBlock": 0
+    },
+    "OrchestratorDeployer": {
+      "address": "0x945D0Faf6f268e805246907507ef1044e70E75D7",
+      "startBlock": 0
+    }
+  },
+  "hyper-evm": {
+    "Authorizer": {
+      "address": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
+      "startBlock": 0
+    },
+    "GovernanceTimelock": {
+      "address": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+      "startBlock": 0
+    },
+    "WrappedTokenVaultBeacon": {
+      "address": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
+      "startBlock": 0
+    },
+    "OrchestratorBeacon": {
+      "address": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
+      "startBlock": 0
+    },
+    "ReceiptVaultDeployer": {
+      "address": "0xd64246e6b25F745f005E6233e050C9B879E660Dc",
+      "startBlock": 0
+    },
+    "OrchestratorDeployer": {
+      "address": "0x945D0Faf6f268e805246907507ef1044e70E75D7",
+      "startBlock": 0
+    }
+  },
+  "robinhood": {
+    "Authorizer": {
+      "address": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
+      "startBlock": 0
+    },
+    "GovernanceTimelock": {
+      "address": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+      "startBlock": 0
+    },
+    "WrappedTokenVaultBeacon": {
+      "address": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
+      "startBlock": 0
+    },
+    "OrchestratorBeacon": {
+      "address": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
+      "startBlock": 0
+    },
+    "ReceiptVaultDeployer": {
+      "address": "0xd64246e6b25F745f005E6233e050C9B879E660Dc",
+      "startBlock": 0
+    },
+    "OrchestratorDeployer": {
+      "address": "0x945D0Faf6f268e805246907507ef1044e70E75D7",
+      "startBlock": 0
+    }
+  },
+  "bsc": {
+    "Authorizer": {
+      "address": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
+      "startBlock": 0
+    },
+    "GovernanceTimelock": {
+      "address": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+      "startBlock": 0
+    },
+    "WrappedTokenVaultBeacon": {
+      "address": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
+      "startBlock": 0
+    },
+    "OrchestratorBeacon": {
+      "address": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
+      "startBlock": 0
+    },
+    "ReceiptVaultDeployer": {
+      "address": "0xd64246e6b25F745f005E6233e050C9B879E660Dc",
+      "startBlock": 0
+    },
+    "OrchestratorDeployer": {
+      "address": "0x945D0Faf6f268e805246907507ef1044e70E75D7",
+      "startBlock": 0
+    }
+  }
+}
