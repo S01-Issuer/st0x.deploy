@@ -173,6 +173,13 @@ library LibAuthoriserInvariants {
     /// and burn through it. Same address on every chain.
     address internal constant GRANTEE_ORCHESTRATOR = LibProdDeployV4.ST0X_ORCHESTRATOR_INSTANCE;
 
+    /// @notice The minter for the EU assets authoriser, holding `DEPOSIT` and
+    /// `WITHDRAW` — mint and redeem — where the shared service signer holds
+    /// them on the US authoriser. The EU clone is the same implementation at
+    /// the same role structure; this address is the only thing that differs,
+    /// which is why the map below is parameterised on it rather than restated.
+    address internal constant GRANTEE_EU_MINTER = 0x0958d9E94D9D4139280947ACd86D4a50F13bfA8C;
+
     /// @notice The full `(role, grantee)` map in effect on the Base
     /// production authoriser: Base's token-owner Safe in the operational
     /// slots, Base's governance timelock holding the seven `_ADMIN` roles.
@@ -193,6 +200,25 @@ library LibAuthoriserInvariants {
     /// @param adminHolder The holder of the seven `_ADMIN` roles.
     /// @return grants The `(role, grantee)` pairs for that chain.
     function expectedGrants(address tokenOwnerSafe, address adminHolder)
+        internal
+        pure
+        returns (RoleGrant[] memory grants)
+    {
+        grants = expectedGrants(tokenOwnerSafe, adminHolder, GRANTEE_SERVICE_3D0C);
+    }
+
+    /// @notice The same map parameterised on the minter — the holder of
+    /// `DEPOSIT` and `WITHDRAW`, which are mint and redeem. The US
+    /// authoriser's minter is the shared service signer; the EU assets
+    /// authoriser is the same implementation, cloned at its own salt, with
+    /// `GRANTEE_EU_MINTER` in that slot and nothing else changed. A second
+    /// map would let the two drift; one parameter cannot.
+    /// @param tokenOwnerSafe The chain's token-owner Safe filling the
+    /// operational Safe grantee slots.
+    /// @param adminHolder The holder of the seven `_ADMIN` roles.
+    /// @param minter The holder of `DEPOSIT` and `WITHDRAW`.
+    /// @return grants The `(role, grantee)` pairs for that authoriser.
+    function expectedGrants(address tokenOwnerSafe, address adminHolder, address minter)
         internal
         pure
         returns (RoleGrant[] memory grants)
@@ -223,8 +249,8 @@ library LibAuthoriserInvariants {
         // Service signer, provisioned by the 20260723 bundle per chain. The
         // retired `GRANTEE_SERVICE_1C66` deliberately has no rows: its
         // revocation is asserted as an ABSENCE in `assertExpectedGrants`.
-        grants[10] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_3D0C);
-        grants[11] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_3D0C);
+        grants[10] = RoleGrant(keccak256("DEPOSIT"), minter);
+        grants[11] = RoleGrant(keccak256("WITHDRAW"), minter);
         grants[12] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_3D0C);
 
         // Orchestrator vault access, granted by the 20260831 enable bundle;
@@ -255,7 +281,25 @@ library LibAuthoriserInvariants {
     /// operational Safe grantee slots.
     /// @param adminHolder The holder of the seven `_ADMIN` roles.
     function assertExpectedGrants(address authoriser, address tokenOwnerSafe, address adminHolder) internal view {
+        assertExpectedGrants(authoriser, tokenOwnerSafe, adminHolder, GRANTEE_SERVICE_3D0C);
+    }
+
+    /// @notice The same assertion parameterised on the minter, for an
+    /// authoriser whose `DEPOSIT`/`WITHDRAW` holder is not the shared service
+    /// signer — the EU assets clone. Every other check is identical, because
+    /// the clone proxies the same implementation at the same role structure.
+    /// @param authoriser The authoriser to validate.
+    /// @param tokenOwnerSafe The chain's token-owner Safe.
+    /// @param adminHolder The holder of the seven `_ADMIN` roles.
+    /// @param minter The holder of `DEPOSIT` and `WITHDRAW`.
+    function assertExpectedGrants(address authoriser, address tokenOwnerSafe, address adminHolder, address minter)
+        internal
+        view
+    {
         IAccessControl acl = IAccessControl(authoriser);
+        if (acl.hasRole(DEFAULT_ADMIN_ROLE, minter)) {
+            revert UnexpectedDefaultAdmin(authoriser, minter);
+        }
         // No pinned grantee holds DEFAULT_ADMIN_ROLE: the hierarchy admins each
         // action role by its own `<ROLE>_ADMIN`, so a root-admin holder would
         // be an escalation path the pinned map does not sanction.
@@ -275,7 +319,7 @@ library LibAuthoriserInvariants {
             revert UnexpectedDefaultAdmin(authoriser, GRANTEE_ORCHESTRATOR);
         }
         assertRetiredSignerAbsent(acl, authoriser);
-        RoleGrant[] memory grants = expectedGrants(tokenOwnerSafe, adminHolder);
+        RoleGrant[] memory grants = expectedGrants(tokenOwnerSafe, adminHolder, minter);
         for (uint256 i = 0; i < grants.length; i++) {
             if (!acl.hasRole(grants[i].role, grants[i].grantee)) {
                 revert ExpectedGrantMissing(authoriser, grants[i].role, grants[i].grantee);
