@@ -13,4 +13,8 @@ contract LibTokenInvariantsHarness {
     function callAssertUniformOwnership(address expectedOwner) external view {
         LibTokenInvariants.assertUniformOwnership(expectedOwner);
     }
+
+    function callAssertUniformAuthoriser(address expected) external view {
+        LibTokenInvariants.assertUniformAuthoriser(expected);
+    }
 }

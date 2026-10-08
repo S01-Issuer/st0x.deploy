@@ -6,7 +6,6 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {
-    AuthoriserNotReady,
     AuthoriserNotWired,
     DeployMissingTokens,
     DeployerNotDeployed,
@@ -17,10 +16,12 @@ import {
     TokenTableTooShort,
     UnsupportedTargetChain
 } from "../../script/20260807-deploy-missing-tokens.s.sol";
+import {AuthoriserNotReady} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
+import {LibAuthoriserInvariants, EuAuthoriserNotReady} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 import {LibProdTokenConfig, TokenConfig, Region} from "../../src/lib/LibProdTokenConfig.sol";
 import {DeployMissingTokensHarness} from "./DeployMissingTokensHarness.sol";
@@ -384,6 +385,93 @@ contract DeployMissingTokensTest is Test {
             LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM,
             "HyperEVM authoriser rejected"
         );
+    }
+
+    /// @dev An EIP-1167 clone of the 0.1.1 authoriser: the runtime every
+    /// authoriser pin (US and EU) is checked against.
+    function _auditedCloneRuntime() internal pure returns (bytes memory) {
+        return abi.encodePacked(hex"363d3d373d3d3d363d73", AUTHORISER_IMPL_0_1_1, hex"5af43d82803e903d91602b57fd5bf3");
+    }
+
+    /// @notice A US token is wired to the chain's V4 authoriser, an EU token
+    /// to the chain's EU assets authoriser, on every target chain.
+    function testAuthoriserForRoutesByRegion() external {
+        TokenConfig memory us = TokenConfig({underlying: "WMT", name: "n", symbol: "s", region: Region.US});
+        TokenConfig memory eu = TokenConfig({underlying: "MC", name: "n", symbol: "s", region: Region.EU});
+        uint256[4] memory chains = [
+            LibSafeInvariants.ETHEREUM_CHAIN_ID,
+            LibSafeInvariants.HYPEREVM_CHAIN_ID,
+            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
+            LibSafeInvariants.BSC_CHAIN_ID
+        ];
+        for (uint256 i = 0; i < chains.length; i++) {
+            vm.chainId(chains[i]);
+            address euClone = LibAuthoriserInvariants.euAuthoriserForChainId(chains[i]);
+            vm.etch(euClone, _auditedCloneRuntime());
+            assertEq(harness.authoriserFor(us, AUTHORISER), AUTHORISER, "US token left the V4 authoriser");
+            assertEq(harness.authoriserFor(eu, AUTHORISER), euClone, "EU token not routed to the EU authoriser");
+            assertTrue(euClone != AUTHORISER, "EU and US authorisers coincide");
+        }
+        assertEq(
+            LibAuthoriserInvariants.euAuthoriserForChainId(LibSafeInvariants.ETHEREUM_CHAIN_ID),
+            address(0x8Fc06579571A105C5a699FA11d95b9c73747f8eb),
+            "EU authoriser pin moved"
+        );
+    }
+
+    /// @notice An EU token is refused when the chain's EU clone is missing or
+    /// is not the audited clone, rather than falling back to the V4 one.
+    function testAuthoriserForRefusesAnEuTokenWithoutTheEuClone() external {
+        TokenConfig memory eu = TokenConfig({underlying: "MC", name: "n", symbol: "s", region: Region.EU});
+        vm.chainId(LibSafeInvariants.BSC_CHAIN_ID);
+        address euClone = LibAuthoriserInvariants.euAuthoriserForChainId(LibSafeInvariants.BSC_CHAIN_ID);
+        vm.expectRevert(abi.encodeWithSelector(EuAuthoriserNotReady.selector, euClone));
+        harness.authoriserFor(eu, AUTHORISER);
+
+        vm.etch(euClone, STUB_CODE);
+        vm.expectRevert(abi.encodeWithSelector(EuAuthoriserNotReady.selector, euClone));
+        harness.authoriserFor(eu, AUTHORISER);
+    }
+
+    /// @notice The canonical table routes tMC, and only tMC, to the EU
+    /// authoriser: every other production token stays on the V4 one.
+    function testCanonicalTableRoutesOnlyMcToTheEuAuthoriser() external {
+        vm.chainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
+        address euClone = LibAuthoriserInvariants.euAuthoriserForChainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
+        vm.etch(euClone, _auditedCloneRuntime());
+        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        uint256 euCount = 0;
+        for (uint256 i = 0; i < configs.length; i++) {
+            address routed = harness.authoriserFor(configs[i], AUTHORISER);
+            if (keccak256(bytes(configs[i].underlying)) == keccak256("MC")) {
+                assertEq(routed, euClone, "tMC not routed to the EU authoriser");
+                euCount++;
+            } else {
+                assertEq(routed, AUTHORISER, configs[i].underlying);
+            }
+        }
+        assertEq(euCount, 1, "tMC missing from the canonical table");
+    }
+
+    /// @notice Live acceptance: each target chain's EU clone is deployed with
+    /// the audited codehash, so an EU copy would not stop at the pre-flight.
+    function testEuAuthoriserReadyOnEveryTargetFork() external {
+        string[4] memory networks = [
+            LibStoxDeployNetworks.ETHEREUM,
+            LibStoxDeployNetworks.HYPEREVM,
+            LibStoxDeployNetworks.ROBINHOOD,
+            LibStoxDeployNetworks.BSC
+        ];
+        TokenConfig memory eu = TokenConfig({underlying: "MC", name: "n", symbol: "s", region: Region.EU});
+        for (uint256 i = 0; i < networks.length; i++) {
+            vm.createSelectFork(networks[i]);
+            DeployMissingTokensHarness forked = new DeployMissingTokensHarness();
+            assertEq(
+                forked.authoriserFor(eu, AUTHORISER),
+                LibAuthoriserInvariants.euAuthoriserForChainId(block.chainid),
+                "EU clone rejected on the live fork"
+            );
+        }
     }
 
     /// @notice A deploy call that emitted no `Deployment` event reverts named,

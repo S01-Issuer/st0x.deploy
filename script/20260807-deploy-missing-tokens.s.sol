@@ -17,7 +17,8 @@ import {IStoxUnifiedDeployerV1} from "../src/interface/IStoxUnifiedDeployerV1.so
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
-import {LibProdTokenConfig, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
+import {LibProdTokenConfig, TokenConfig, Region} from "../src/lib/LibProdTokenConfig.sol";
+import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 
 /// @notice Pre-flight failed: a required deployer contract has no runtime
@@ -30,11 +31,6 @@ error DeployerNotDeployed(address deployer);
 /// Base" is not a state this script can resolve.
 /// @param chainId The active chain id.
 error UnsupportedTargetChain(uint256 chainId);
-
-/// @notice Pre-flight failed: the active chain's V4 authoriser is not ready
-/// (unpinned, no code, or the wrong codehash).
-/// @param authoriser The authoriser address inspected.
-error AuthoriserNotReady(address authoriser);
 
 /// @notice The canonical name/symbol table and the Base token table have
 /// drifted out of row alignment. Every name/symbol this script deploys is
@@ -115,7 +111,8 @@ error AuthoriserNotWired(address receiptVault, address expected, address actual)
 ///
 /// Per token, identical to the scripts it replaces: deploy via the 0.1.1
 /// unified deployer (initialAdmin = deploy key) -> read back the ERC-1155
-/// receipt -> `setAuthorizer(target chain's V4 authoriser)` ->
+/// receipt -> `setAuthorizer(the token's authoriser: the target chain's V4
+/// authoriser for a US token, its EU assets authoriser for an EU one)` ->
 /// `transferOwnership(target chain's governance timelock)`. One deploy-key
 /// broadcast, no Safe signature. Logs each
 /// (underlying, receipt, receiptVault, wrapped) tuple for the pin.
@@ -150,28 +147,22 @@ contract DeployMissingTokens is Script {
         revert UnsupportedTargetChain(block.chainid);
     }
 
-    /// @notice The active chain's V4 authoriser clone, asserted deployed at
-    /// its pin with the shared EIP-1167 codehash.
-    /// @return authoriser The validated authoriser address.
-    function _assertAuthoriserReady() internal view returns (address authoriser) {
-        if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
-        } else if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM;
-        } else if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD;
-        } else if (block.chainid == LibSafeInvariants.BSC_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC;
-        } else {
-            revert UnsupportedTargetChain(block.chainid);
+    /// @notice The authoriser a copied token is wired to, by its region.
+    /// @dev An EU token goes onto the chain's EU assets authoriser, whose only
+    /// minter is the EU minter: wiring it to the shared authoriser, even
+    /// transiently, would let every US-fleet depositor mint it. The EU clone
+    /// is asserted deployed with the audited codehash. Its roles are not: the
+    /// token may land before the Safe's grant bundle executes, and until it
+    /// does nobody can mint it, which is the safe side.
+    /// @param cfg The token's canonical config.
+    /// @param usAuthoriser The chain's validated V4 authoriser.
+    /// @return The authoriser `cfg` must be wired to.
+    function _authoriserFor(TokenConfig memory cfg, address usAuthoriser) internal view returns (address) {
+        if (cfg.region == Region.EU) {
+            LibAuthoriserInvariants.assertEuAuthoriserDeployed(block.chainid);
+            return LibAuthoriserInvariants.euAuthoriserForChainId(block.chainid);
         }
-
-        if (
-            authoriser == address(0) || authoriser.code.length == 0
-                || authoriser.codehash != LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH
-        ) {
-            revert AuthoriserNotReady(authoriser);
-        }
+        return usAuthoriser;
     }
 
     /// @notice Select the tokens on Base that the target chain does not have,
@@ -309,7 +300,7 @@ contract DeployMissingTokens is Script {
         _assertDeployer(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1);
         _assertDeployer(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1);
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
-        address authoriser = _assertAuthoriserReady();
+        address authoriser = LibAuthoriserInvariants.activeChainAuthoriser();
         address safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock, safe);
@@ -327,7 +318,14 @@ contract DeployMissingTokens is Script {
         console2.log("Copying", configs.length, "Base tokens onto chain id", block.chainid);
         console2.log("initialAdmin (deploy key, handed to the timelock):", deployer);
         console2.log("governance timelock:", timelock);
-        console2.log("V4 authoriser:", authoriser);
+        console2.log("V4 authoriser (US tokens):", authoriser);
+
+        // Resolved for every token before the first deploy, so an EU clone
+        // missing on this chain stops the run with nothing broadcast.
+        address[] memory authorisers = new address[](configs.length);
+        for (uint256 i = 0; i < configs.length; i++) {
+            authorisers[i] = _authoriserFor(configs[i], authoriser);
+        }
 
         for (uint256 i = 0; i < configs.length; i++) {
             TokenConfig memory cfg = configs[i];
@@ -353,15 +351,16 @@ contract DeployMissingTokens is Script {
             // Wire onto the authoriser (deploy key is still owner), then
             // relinquish ownership to the timelock. Order matters: `setAuthorizer`
             // is `onlyOwner`, so it must precede the handoff.
-            ISetAuthorizer(receiptVault).setAuthorizer(IAuthorizeV1(authoriser));
+            ISetAuthorizer(receiptVault).setAuthorizer(IAuthorizeV1(authorisers[i]));
             Ownable(receiptVault).transferOwnership(timelock);
-            assertHandoffLanded(receiptVault, authoriser, timelock);
+            assertHandoffLanded(receiptVault, authorisers[i], timelock);
 
             console2.log("==== TOKEN DEPLOYED ====");
             console2.log("underlying:", cfg.underlying);
             console2.log("receipt (ERC-1155):", vm.toString(receipt));
             console2.log("receiptVault:", vm.toString(receiptVault));
             console2.log("wrappedTokenVault:", vm.toString(wrapped));
+            console2.log("authoriser:", vm.toString(authorisers[i]));
         }
 
         vm.stopBroadcast();
