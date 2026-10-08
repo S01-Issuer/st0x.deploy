@@ -81,7 +81,9 @@ contract GrantEuAuthoriserRoles is Script {
     /// @return roles The `_ADMIN` roles.
     function adminRoles() public pure returns (bytes32[7] memory roles) {
         RoleGrant[] memory grants = LibAuthoriserInvariants.expectedEuGrants(
-            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, LibAuthoriserInvariants.GRANTEE_EU_MINTER
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK,
+            LibAuthoriserInvariants.GRANTEE_EU_MINTER,
+            LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C
         );
         for (uint256 i = 0; i < LibAuthoriserInvariants.ADMIN_ROLE_COUNT; i++) {
             roles[i] = grants[i].role;
@@ -94,8 +96,9 @@ contract GrantEuAuthoriserRoles is Script {
     /// @param timelock The admin holder the bundle hands governance to.
     /// @return txs The transactions, in execution order.
     function grantBundle(address clone, address safe, address timelock) public pure returns (SafeTx[] memory txs) {
-        RoleGrant[] memory grants =
-            LibAuthoriserInvariants.expectedEuGrants(timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER);
+        RoleGrant[] memory grants = LibAuthoriserInvariants.expectedEuGrants(
+            timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER, LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C
+        );
         bytes32[7] memory admins = adminRoles();
 
         txs = new SafeTx[](1 + grants.length + admins.length);
