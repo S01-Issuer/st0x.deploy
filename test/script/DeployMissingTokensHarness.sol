@@ -50,4 +50,12 @@ contract DeployMissingTokensHarness is DeployMissingTokens {
     {
         return _readDeployment(logs, unifiedDeployer, underlying);
     }
+
+    /// @notice The script's `_authoriserFor()`, externally callable.
+    /// @param cfg The token's canonical config.
+    /// @param usAuthoriser The chain's US authoriser.
+    /// @return The authoriser the token is wired to.
+    function authoriserFor(TokenConfig memory cfg, address usAuthoriser) external view returns (address) {
+        return _authoriserFor(cfg, usAuthoriser);
+    }
 }

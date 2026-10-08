@@ -8,8 +8,11 @@ import {
     LibTokenInvariants,
     TokenInstance,
     IOwnable,
-    ReceiptVaultOwnerMismatch
+    ReceiptVaultOwnerMismatch,
+    ReceiptVaultAuthoriserMismatch
 } from "../../../src/lib/LibTokenInvariants.sol";
+import {IAuthorisable} from "../../../src/interface/IAuthorisable.sol";
+import {LibAuthoriserInvariants} from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
@@ -61,6 +64,33 @@ contract LibTokenInvariantsTest is Test {
     function testProdReceiptVaultsShareUniformAuthoriser() external {
         selectBaseFork();
         LibTokenInvariants.assertUniformAuthoriser(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE);
+    }
+
+    /// @notice tMC is held to the EU authoriser, not the V4 one: wiring it to
+    /// the shared authoriser would let every US-fleet depositor mint it, so
+    /// that state must trip the invariant.
+    function testInvertedEuTokenOnTheSharedAuthoriser() external {
+        selectBaseFork();
+        address v4 = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        address victim = LibTokenInvariants.MC_RECEIPT_VAULT;
+        vm.mockCall(victim, abi.encodeWithSelector(IAuthorisable.authorizer.selector), abi.encode(v4));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ReceiptVaultAuthoriserMismatch.selector, victim, LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE, v4
+            )
+        );
+        harness.callAssertUniformAuthoriser(v4);
+    }
+
+    /// @notice And the converse: a US token on the EU authoriser trips it.
+    function testInvertedUsTokenOnTheEuAuthoriser() external {
+        selectBaseFork();
+        address v4 = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        address eu = LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE;
+        address victim = LibTokenInvariants.WMT_RECEIPT_VAULT;
+        vm.mockCall(victim, abi.encodeWithSelector(IAuthorisable.authorizer.selector), abi.encode(eu));
+        vm.expectRevert(abi.encodeWithSelector(ReceiptVaultAuthoriserMismatch.selector, victim, v4, eu));
+        harness.callAssertUniformAuthoriser(v4);
     }
 
     /// @notice Token-side ownership drift trips `ReceiptVaultOwnerMismatch`.

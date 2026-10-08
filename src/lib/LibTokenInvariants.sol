@@ -4,6 +4,8 @@ pragma solidity ^0.8.25;
 
 import {IOwnable} from "../interface/IOwnable.sol";
 import {IAuthorisable} from "../interface/IAuthorisable.sol";
+import {LibProdTokenConfig, Region} from "./LibProdTokenConfig.sol";
+import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
 
 /// @notice One production token's contract triple on a single chain, keyed
 /// by the underlying ticker. The underlying symbol (e.g. "MSTR", not
@@ -492,14 +494,22 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0xc7370cb84159df9760F87ef7092B97cB850AD9d4
     address internal constant WMT_WRAPPED_TOKEN_VAULT = address(0xc7370cb84159df9760F87ef7092B97cB850AD9d4);
 
-    /// @notice Returns the 54 production token instance triples on Base, in
+    // ---- tMC / wtMC — LVMH Moët Hennessy Louis Vuitton SE ST0x ----
+    /// https://basescan.org/address/0xC3fD55A007CB7e4549A4b5064691c75609b1411b
+    address internal constant MC_RECEIPT = address(0xC3fD55A007CB7e4549A4b5064691c75609b1411b);
+    /// https://basescan.org/address/0x6eC2421d74F2AF61b7EE7bCCAE25A3b6a7961Aa0
+    address internal constant MC_RECEIPT_VAULT = address(0x6eC2421d74F2AF61b7EE7bCCAE25A3b6a7961Aa0);
+    /// https://basescan.org/address/0x378a04202D25659763A02dA5FE77c0a35e64Ce1D
+    address internal constant MC_WRAPPED_TOKEN_VAULT = address(0x378a04202D25659763A02dA5FE77c0a35e64Ce1D);
+
+    /// @notice Returns the 55 production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
     /// that need the receipt / wrapped-vault legs or the underlying join key
     /// (cross-chain parity, per-token config checks) iterate this instead.
-    /// @return tokens The 54 production token instances on Base.
+    /// @return tokens The 55 production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](54);
+        tokens = new TokenInstance[](55);
         tokens[0] = TokenInstance({
             underlying: "MSTR",
             receipt: MSTR_RECEIPT,
@@ -844,6 +854,15 @@ library LibTokenInvariants {
             receipt: WMT_RECEIPT,
             receiptVault: WMT_RECEIPT_VAULT,
             wrappedTokenVault: WMT_WRAPPED_TOKEN_VAULT
+        });
+        // tMC — deployed on Base 2026-10-08 by sft-ops CD (run 37753140808),
+        // wired onto the EU assets authoriser (not the V4 one) and handed to
+        // the Base token-owner Safe.
+        tokens[54] = TokenInstance({
+            underlying: "MC",
+            receipt: MC_RECEIPT,
+            receiptVault: MC_RECEIPT_VAULT,
+            wrappedTokenVault: MC_WRAPPED_TOKEN_VAULT
         });
     }
 
@@ -2399,13 +2418,21 @@ library LibTokenInvariants {
     /// authoriser. The Base overload delegates here with
     /// `productionTokensBase()`; a multichain caller passes another chain's
     /// table + that chain's authoriser clone.
+    /// @dev "Uniform" is per region: an EU token (`LibProdTokenConfig`
+    /// region EU) must instead report the active chain's EU assets
+    /// authoriser, so tMC sitting on the V4 authoriser fails here as surely
+    /// as a US token sitting on the EU one.
     /// @param tokens The token table whose receipt vaults are checked.
-    /// @param expected The authoriser every receipt vault must share.
+    /// @param expected The authoriser every US receipt vault must share.
     function assertUniformAuthoriser(TokenInstance[] memory tokens, address expected) internal view {
         for (uint256 i = 0; i < tokens.length; i++) {
+            address expectedForToken = expected;
+            if (LibProdTokenConfig.regionOf(tokens[i].underlying) == Region.EU) {
+                expectedForToken = LibAuthoriserInvariants.euAuthoriserForChainId(block.chainid);
+            }
             address actual = IAuthorisable(tokens[i].receiptVault).authorizer();
-            if (actual != expected) {
-                revert ReceiptVaultAuthoriserMismatch(tokens[i].receiptVault, expected, actual);
+            if (actual != expectedForToken) {
+                revert ReceiptVaultAuthoriserMismatch(tokens[i].receiptVault, expectedForToken, actual);
             }
         }
     }
