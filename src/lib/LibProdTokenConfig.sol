@@ -199,8 +199,7 @@ library LibProdTokenConfig {
         // tWMT — name derived from sft-ops `metadata/wmt.json` the way CD derives it;
         // verified against the live Base vault. Ahead of tMC because it reached
         // Base first (sft-ops CD run 37747102500); the tables pair by index.
-        configs[53] =
-            TokenConfig({underlying: "WMT", name: "Walmart Inc. ST0x", symbol: "tWMT", region: Region.US});
+        configs[53] = TokenConfig({underlying: "WMT", name: "Walmart Inc. ST0x", symbol: "tWMT", region: Region.US});
         configs[54] = TokenConfig({
             underlying: "MC", name: unicode"LVMH Moët Hennessy Louis Vuitton SE ST0x", symbol: "tMC", region: Region.EU
         });
