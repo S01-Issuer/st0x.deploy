@@ -75,7 +75,8 @@ error EuAuthoriserNotReady(address clone);
 error UnexpectedEuMinterGrant(address clone, bytes32 role);
 
 /// @notice An operator from another region holds an action role on this
-/// authoriser. A region's authoriser grants to that region's operators only.
+/// authoriser. A region's authoriser grants to that region's operators only,
+/// apart from CERTIFY on the US service signer (the fleet certifier).
 /// @param authoriser The authoriser inspected.
 /// @param role The action role held.
 /// @param grantee The out-of-region operator holding it.
@@ -340,17 +341,19 @@ library LibAuthoriserInvariants {
         grants[14] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_ORCHESTRATOR);
     }
 
-    /// @notice A region's authoriser map: every `_ADMIN` on the admin holder
-    /// and every operational role on that region's wallet. Distinct from the
-    /// US production map, which additionally grants to the shared service
-    /// signer and the orchestrator — a region's authoriser grants to that
-    /// region's operators only.
+    /// @notice A region's authoriser map: every `_ADMIN` on the admin holder,
+    /// every operational role on that region's wallet, and CERTIFY on the US
+    /// service signer so the fleet keeps one certifier. Distinct from the
+    /// US production map, which grants the shared service signer DEPOSIT and
+    /// WITHDRAW and grants to the orchestrator — on a region's authoriser only
+    /// that region's wallet can mint.
     /// @param adminHolder The holder of the seven `_ADMIN` roles.
     /// @param minter The region's wallet, holding all seven operational roles.
     /// @return grants The `(role, grantee)` pairs for that authoriser.
     function expectedEuGrants(address adminHolder, address minter) internal pure returns (RoleGrant[] memory grants) {
         // Every `_ADMIN` on the admin holder, every operational role on the
-        // region's wallet, and nothing else. `tokenOwnerSafe` is the writer
+        // region's wallet, CERTIFY on the fleet certifier, and nothing else.
+        // `tokenOwnerSafe` is the writer
         // that executes the bundle, not a grantee: it holds the `_ADMIN`
         // roles only until it has granted with them and renounced.
         //
@@ -358,7 +361,7 @@ library LibAuthoriserInvariants {
         // below, `getRoleAdmin(role)` is the matching `_ADMIN`, checked on
         // the deployed 0.1.1 implementation rather than read off 0.2.4's
         // source, which declares only five of them.
-        grants = new RoleGrant[](14);
+        grants = new RoleGrant[](15);
 
         grants[0] = RoleGrant(keccak256("DEPOSIT_ADMIN"), adminHolder);
         grants[1] = RoleGrant(keccak256("WITHDRAW_ADMIN"), adminHolder);
@@ -375,6 +378,12 @@ library LibAuthoriserInvariants {
         grants[11] = RoleGrant(keccak256("CONFISCATE_RECEIPT"), minter);
         grants[12] = RoleGrant(keccak256("SCHEDULE_CORPORATE_ACTION"), minter);
         grants[13] = RoleGrant(keccak256("CANCEL_CORPORATE_ACTION"), minter);
+
+        // The one cross-region grant: the US service signer also certifies,
+        // so EU tokens share the fleet's certifier. CERTIFY only moves the
+        // certification expiry; it cannot mint, burn or confiscate, so the
+        // EU minter's exclusive DEPOSIT/WITHDRAW is unaffected.
+        grants[14] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_3D0C);
     }
 
     /// @notice Assert the Base map (`expectedGrants()`) on the supplied
@@ -479,8 +488,9 @@ library LibAuthoriserInvariants {
         // omission of the US signer and orchestrator says nothing on its own,
         // so their absence is asserted — across the operational slice the map
         // itself defines, so a role added to the map is covered here too.
+        // The US signer's CERTIFY is the map's one deliberate exception.
         for (uint256 i = ADMIN_ROLE_COUNT; i < grants.length; i++) {
-            if (acl.hasRole(grants[i].role, GRANTEE_SERVICE_3D0C)) {
+            if (grants[i].role != keccak256("CERTIFY") && acl.hasRole(grants[i].role, GRANTEE_SERVICE_3D0C)) {
                 revert UnexpectedCrossRegionGrant(authoriser, grants[i].role, GRANTEE_SERVICE_3D0C);
             }
             if (acl.hasRole(grants[i].role, GRANTEE_ORCHESTRATOR)) {

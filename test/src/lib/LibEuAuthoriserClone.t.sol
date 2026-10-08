@@ -16,9 +16,10 @@ import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol"
 /// @notice The EU assets authoriser is the production authoriser's own
 /// implementation with one grantee changed. These pin that, fork-free.
 contract LibEuAuthoriserCloneTest is Test {
-    /// @notice The EU map grants to this region's operators only. A US
-    /// operator appearing here would be a cross-region grant, which is the
-    /// defect this asserts against — the US map carries both of them.
+    /// @notice The EU map grants to this region's operators only, except
+    /// CERTIFY on the US service signer (the fleet certifier). Any other US
+    /// operator grant would be a cross-region grant, which is the defect this
+    /// asserts against — the US map carries both of them.
     function testEuMapGrantsNoUsOperator() external pure {
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         address timelock = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
@@ -26,8 +27,15 @@ contract LibEuAuthoriserCloneTest is Test {
         RoleGrant[] memory eu =
             LibAuthoriserInvariants.expectedEuGrants(timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER);
 
+        uint256 signerGrants = 0;
         for (uint256 i = 0; i < eu.length; i++) {
-            assertTrue(eu[i].grantee != LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C, "US service signer in EU map");
+            if (eu[i].grantee == LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C) {
+                // The one exception: the fleet certifier also certifies EU
+                // tokens. CERTIFY cannot mint.
+                assertEq(eu[i].role, keccak256("CERTIFY"), "US service signer holds more than CERTIFY in EU map");
+                signerGrants++;
+                continue;
+            }
             assertTrue(eu[i].grantee != LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR, "US orchestrator in EU map");
             assertTrue(
                 eu[i].grantee == safe || eu[i].grantee == timelock
@@ -35,6 +43,7 @@ contract LibEuAuthoriserCloneTest is Test {
                 "grantee is the Safe, the timelock or the EU minter"
             );
         }
+        assertEq(signerGrants, 1, "US service signer certifies EU tokens, once");
 
         // The US map does carry them, so the loop above is discriminating
         // rather than vacuously true on an empty grantee set.
@@ -53,14 +62,16 @@ contract LibEuAuthoriserCloneTest is Test {
     }
 
     /// @notice Every operational role goes to the EU wallet and every `_ADMIN`
-    /// to the timelock: 7 + 7, with each operational role paired to the
+    /// to the timelock: 7 + 7 (+ the fleet certifier), with each operational role paired to the
     /// `_ADMIN` that administers it on chain.
     function testEuMinterHoldsEveryOperationalRole() external pure {
         address timelock = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
         RoleGrant[] memory eu =
             LibAuthoriserInvariants.expectedEuGrants(timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER);
 
-        assertEq(eu.length, 14, "map is 7 admins + 7 operational");
+        assertEq(eu.length, 15, "map is 7 admins + 7 operational + the fleet certifier");
+        assertEq(eu[14].role, keccak256("CERTIFY"), "fleet certifier slot");
+        assertEq(eu[14].grantee, LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C, "fleet certifier is 3d0c");
 
         string[7] memory names = [
             "DEPOSIT",
