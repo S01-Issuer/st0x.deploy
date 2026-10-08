@@ -34,7 +34,7 @@ enum Region {
 error UnknownUnderlying(string underlying);
 
 /// @title LibProdTokenConfig
-/// @notice The canonical name/symbol table for the 54 ST0x production
+/// @notice The canonical name/symbol table for the 55 ST0x production
 /// tokens, captured verbatim from the live Base receipt vaults so a new
 /// chain's token set can be deployed byte-identical to Base. This is the
 /// deploy-input companion to `LibTokenInvariants` (which holds the deployed
@@ -58,7 +58,7 @@ library LibProdTokenConfig {
     /// @notice The 54 production token deploy configs, Base table order.
     /// @return configs The name/symbol table.
     function productionTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
-        configs = new TokenConfig[](54);
+        configs = new TokenConfig[](55);
         configs[0] = TokenConfig({
             underlying: "MSTR", name: "MicroStrategy Incorporated ST0x", symbol: "tMSTR", region: Region.US
         });
@@ -196,7 +196,12 @@ library LibProdTokenConfig {
         // verified against the live Base vault.
         configs[52] =
             TokenConfig({underlying: "SNES", name: "SenesTech, Inc. ST0x", symbol: "tSNES", region: Region.US});
-        configs[53] = TokenConfig({
+        // tWMT — name derived from sft-ops `metadata/wmt.json` the way CD derives it;
+        // verified against the live Base vault. Ahead of tMC because it reached
+        // Base first (sft-ops CD run 37747102500); the tables pair by index.
+        configs[53] =
+            TokenConfig({underlying: "WMT", name: "Walmart Inc. ST0x", symbol: "tWMT", region: Region.US});
+        configs[54] = TokenConfig({
             underlying: "MC", name: unicode"LVMH Moët Hennessy Louis Vuitton SE ST0x", symbol: "tMC", region: Region.EU
         });
     }

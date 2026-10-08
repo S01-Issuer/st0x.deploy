@@ -484,14 +484,22 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x07234e86246fcDBa320E5d59f1Ccb618d765DbFb
     address internal constant SNES_WRAPPED_TOKEN_VAULT = address(0x07234e86246fcDBa320E5d59f1Ccb618d765DbFb);
 
-    /// @notice Returns the 53 production token instance triples on Base, in
+    // ---- tWMT / wtWMT — Walmart Inc. ST0x ----
+    /// https://basescan.org/address/0x223a69C7E4634cF4FF821719959E5a8d0063128a
+    address internal constant WMT_RECEIPT = address(0x223a69C7E4634cF4FF821719959E5a8d0063128a);
+    /// https://basescan.org/address/0x31F55e6dCF09E706Ba10e4cBB455dE0Fbf932BcA
+    address internal constant WMT_RECEIPT_VAULT = address(0x31F55e6dCF09E706Ba10e4cBB455dE0Fbf932BcA);
+    /// https://basescan.org/address/0xc7370cb84159df9760F87ef7092B97cB850AD9d4
+    address internal constant WMT_WRAPPED_TOKEN_VAULT = address(0xc7370cb84159df9760F87ef7092B97cB850AD9d4);
+
+    /// @notice Returns the 54 production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
     /// that need the receipt / wrapped-vault legs or the underlying join key
     /// (cross-chain parity, per-token config checks) iterate this instead.
-    /// @return tokens The 53 production token instances on Base.
+    /// @return tokens The 54 production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](53);
+        tokens = new TokenInstance[](54);
         tokens[0] = TokenInstance({
             underlying: "MSTR",
             receipt: MSTR_RECEIPT,
@@ -828,6 +836,14 @@ library LibTokenInvariants {
             receipt: SNES_RECEIPT,
             receiptVault: SNES_RECEIPT_VAULT,
             wrappedTokenVault: SNES_WRAPPED_TOKEN_VAULT
+        });
+        // tWMT — deployed on Base 2026-10-08 by sft-ops CD (run 37747102500),
+        // wired onto the V4 authoriser and handed to the Base token-owner Safe.
+        tokens[53] = TokenInstance({
+            underlying: "WMT",
+            receipt: WMT_RECEIPT,
+            receiptVault: WMT_RECEIPT_VAULT,
+            wrappedTokenVault: WMT_WRAPPED_TOKEN_VAULT
         });
     }
 
@@ -2275,13 +2291,13 @@ library LibTokenInvariants {
         });
     }
 
-    /// @notice Returns the 53 production receipt vault addresses on Base, in
+    /// @notice Returns the 54 production receipt vault addresses on Base, in
     /// the order they were deployed. Provided so consumers (e.g. invariant
     /// assertions, migration scripts) can iterate without hardcoding the
     /// list inline.
     /// @dev Derived from `productionTokensBase()` so the token table is the
     /// single source of truth and the two accessors cannot drift.
-    /// @return vaults The 53 production receipt vault addresses on Base.
+    /// @return vaults The 54 production receipt vault addresses on Base.
     function productionReceiptVaults() internal pure returns (address[] memory vaults) {
         TokenInstance[] memory tokens = productionTokensBase();
         vaults = new address[](tokens.length);
