@@ -189,7 +189,7 @@ library LibAuthoriserInvariants {
         address safe = LibSafeInvariants.safeForChainId(chainId);
         address timelock = LibTimelockInvariants.timelockForChainId(chainId);
 
-        RoleGrant[] memory grants = expectedEuGrants(timelock, GRANTEE_EU_MINTER);
+        RoleGrant[] memory grants = expectedEuGrants(timelock, GRANTEE_EU_MINTER, GRANTEE_SERVICE_3D0C);
         for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
             if (!IAccessControl(clone).hasRole(grants[i].role, safe)) {
                 revert ExpectedGrantMissing(clone, grants[i].role, safe);
@@ -347,8 +347,14 @@ library LibAuthoriserInvariants {
     /// region's operators only.
     /// @param adminHolder The holder of the seven `_ADMIN` roles.
     /// @param minter The region's wallet, holding all seven operational roles.
+    /// @param additionalCertifier A second `CERTIFY` holder alongside the
+    /// region's wallet.
     /// @return grants The `(role, grantee)` pairs for that authoriser.
-    function expectedEuGrants(address adminHolder, address minter) internal pure returns (RoleGrant[] memory grants) {
+    function expectedEuGrants(address adminHolder, address minter, address additionalCertifier)
+        internal
+        pure
+        returns (RoleGrant[] memory grants)
+    {
         // Every `_ADMIN` on the admin holder, every operational role on the
         // region's wallet, and nothing else. `tokenOwnerSafe` is the writer
         // that executes the bundle, not a grantee: it holds the `_ADMIN`
@@ -358,7 +364,7 @@ library LibAuthoriserInvariants {
         // below, `getRoleAdmin(role)` is the matching `_ADMIN`, checked on
         // the deployed 0.1.1 implementation rather than read off 0.2.4's
         // source, which declares only five of them.
-        grants = new RoleGrant[](14);
+        grants = new RoleGrant[](15);
 
         grants[0] = RoleGrant(keccak256("DEPOSIT_ADMIN"), adminHolder);
         grants[1] = RoleGrant(keccak256("WITHDRAW_ADMIN"), adminHolder);
@@ -375,6 +381,11 @@ library LibAuthoriserInvariants {
         grants[11] = RoleGrant(keccak256("CONFISCATE_RECEIPT"), minter);
         grants[12] = RoleGrant(keccak256("SCHEDULE_CORPORATE_ACTION"), minter);
         grants[13] = RoleGrant(keccak256("CANCEL_CORPORATE_ACTION"), minter);
+
+        // An additional certifier alongside the region's wallet. `CERTIFY` is
+        // the one operational role with a second holder; every other one is
+        // the minter's alone.
+        grants[14] = RoleGrant(keccak256("CERTIFY"), additionalCertifier);
     }
 
     /// @notice Assert the Base map (`expectedGrants()`) on the supplied
@@ -409,6 +420,44 @@ library LibAuthoriserInvariants {
             }
         }
         assertAdminSliceHeldExclusively(acl, authoriser, grants, tokenOwnerSafe);
+    }
+
+    /// @notice Whether the map assigns `role` to `grantee`.
+    /// @param grants The map.
+    /// @param role The role to look for.
+    /// @param grantee The grantee to look for.
+    /// @return Whether the pair is in the map.
+    function mapAssigns(RoleGrant[] memory grants, bytes32 role, address grantee) internal pure returns (bool) {
+        for (uint256 i = 0; i < grants.length; i++) {
+            if (grants[i].role == role && grants[i].grantee == grantee) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// @notice An operator holds no operational role the map does not assign
+    /// it. Checked against the map rather than a fixed role list, so adding a
+    /// row permits exactly that row: the additional certifier may hold
+    /// `CERTIFY` and still nothing else.
+    /// @param acl The authoriser as an `IAccessControl`.
+    /// @param authoriser The authoriser address, for the revert.
+    /// @param grants The map whose operational slice is checked.
+    /// @param operator The operator that must hold only what the map says.
+    function assertNoUnmappedOperatorGrant(
+        IAccessControl acl,
+        address authoriser,
+        RoleGrant[] memory grants,
+        address operator
+    ) internal view {
+        for (uint256 i = ADMIN_ROLE_COUNT; i < grants.length; i++) {
+            if (mapAssigns(grants, grants[i].role, operator)) {
+                continue;
+            }
+            if (acl.hasRole(grants[i].role, operator)) {
+                revert UnexpectedCrossRegionGrant(authoriser, grants[i].role, operator);
+            }
+        }
     }
 
     /// @notice No named principal holds `DEFAULT_ADMIN_ROLE`: the hierarchy
@@ -473,20 +522,10 @@ library LibAuthoriserInvariants {
         }
         assertRetiredSignerAbsent(acl, authoriser);
 
-        RoleGrant[] memory grants = expectedEuGrants(adminHolder, minter);
+        RoleGrant[] memory grants = expectedEuGrants(adminHolder, minter, GRANTEE_SERVICE_3D0C);
 
-        // A region's authoriser grants to that region's operators. The map's
-        // omission of the US signer and orchestrator says nothing on its own,
-        // so their absence is asserted — across the operational slice the map
-        // itself defines, so a role added to the map is covered here too.
-        for (uint256 i = ADMIN_ROLE_COUNT; i < grants.length; i++) {
-            if (acl.hasRole(grants[i].role, GRANTEE_SERVICE_3D0C)) {
-                revert UnexpectedCrossRegionGrant(authoriser, grants[i].role, GRANTEE_SERVICE_3D0C);
-            }
-            if (acl.hasRole(grants[i].role, GRANTEE_ORCHESTRATOR)) {
-                revert UnexpectedCrossRegionGrant(authoriser, grants[i].role, GRANTEE_ORCHESTRATOR);
-            }
-        }
+        assertNoUnmappedOperatorGrant(acl, authoriser, grants, GRANTEE_SERVICE_3D0C);
+        assertNoUnmappedOperatorGrant(acl, authoriser, grants, GRANTEE_ORCHESTRATOR);
 
         for (uint256 i = 0; i < grants.length; i++) {
             if (!acl.hasRole(grants[i].role, grants[i].grantee)) {

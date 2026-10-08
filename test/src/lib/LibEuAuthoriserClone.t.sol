@@ -23,18 +23,31 @@ contract LibEuAuthoriserCloneTest is Test {
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         address timelock = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
 
-        RoleGrant[] memory eu =
-            LibAuthoriserInvariants.expectedEuGrants(timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER);
+        RoleGrant[] memory eu = LibAuthoriserInvariants.expectedEuGrants(
+            timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER, LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C
+        );
 
         for (uint256 i = 0; i < eu.length; i++) {
-            assertTrue(eu[i].grantee != LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C, "US service signer in EU map");
             assertTrue(eu[i].grantee != LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR, "US orchestrator in EU map");
             assertTrue(
                 eu[i].grantee == safe || eu[i].grantee == timelock
-                    || eu[i].grantee == LibAuthoriserInvariants.GRANTEE_EU_MINTER,
-                "grantee is the Safe, the timelock or the EU minter"
+                    || eu[i].grantee == LibAuthoriserInvariants.GRANTEE_EU_MINTER
+                    || eu[i].grantee == LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C,
+                "grantee is the timelock, the EU minter or the additional certifier"
             );
         }
+
+        // The additional certifier holds CERTIFY and nothing else. Its one row
+        // is the whole of its authority here; a second row would be the
+        // wholesale inheritance this map exists to avoid.
+        uint256 certifierGrants = 0;
+        for (uint256 i = 0; i < eu.length; i++) {
+            if (eu[i].grantee == LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C) {
+                certifierGrants++;
+                assertEq(eu[i].role, keccak256("CERTIFY"), "additional certifier holds only CERTIFY");
+            }
+        }
+        assertEq(certifierGrants, 1, "additional certifier has exactly one row");
 
         // The US map does carry them, so the loop above is discriminating
         // rather than vacuously true on an empty grantee set.
@@ -57,10 +70,11 @@ contract LibEuAuthoriserCloneTest is Test {
     /// `_ADMIN` that administers it on chain.
     function testEuMinterHoldsEveryOperationalRole() external pure {
         address timelock = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
-        RoleGrant[] memory eu =
-            LibAuthoriserInvariants.expectedEuGrants(timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER);
+        RoleGrant[] memory eu = LibAuthoriserInvariants.expectedEuGrants(
+            timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER, LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C
+        );
 
-        assertEq(eu.length, 14, "map is 7 admins + 7 operational");
+        assertEq(eu.length, 15, "map is 7 admins + 7 operational + 1 additional certifier");
 
         string[7] memory names = [
             "DEPOSIT",
@@ -87,7 +101,9 @@ contract LibEuAuthoriserCloneTest is Test {
     /// admins to the timelock exists to prevent.
     function testMinterHoldsNoAdminRole() external pure {
         RoleGrant[] memory eu = LibAuthoriserInvariants.expectedEuGrants(
-            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, LibAuthoriserInvariants.GRANTEE_EU_MINTER
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK,
+            LibAuthoriserInvariants.GRANTEE_EU_MINTER,
+            LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C
         );
         for (uint256 i = 0; i < LibAuthoriserInvariants.ADMIN_ROLE_COUNT; i++) {
             assertTrue(eu[i].grantee != LibAuthoriserInvariants.GRANTEE_EU_MINTER, "minter in the admin slice");
