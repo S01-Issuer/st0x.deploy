@@ -6,6 +6,7 @@ import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {DeployMissingTokens} from "../../script/20260807-deploy-missing-tokens.s.sol";
 import {TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 import {TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
+import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 
 /// @dev Exposes the script's internals for the pure selection tests.
 contract DeployMissingTokensHarness is DeployMissingTokens {
@@ -31,10 +32,12 @@ contract DeployMissingTokensHarness is DeployMissingTokens {
         return _targetTokens();
     }
 
-    /// @notice The script's `_assertAuthoriserReady()`, externally callable.
+    /// @notice The V4 authoriser resolution the script uses, externally
+    /// callable. The script reads it from `LibAuthoriserInvariants` rather
+    /// than resolving it itself, so this wraps the lib directly.
     /// @return The validated authoriser for the active chain.
     function assertAuthoriserReady() external view returns (address) {
-        return _assertAuthoriserReady();
+        return LibAuthoriserInvariants.activeChainAuthoriser();
     }
 
     /// @notice The script's `_readDeployment()`, externally callable.

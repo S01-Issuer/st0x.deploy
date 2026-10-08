@@ -6,7 +6,6 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {
-    AuthoriserNotReady,
     AuthoriserNotWired,
     DeployMissingTokens,
     DeployerNotDeployed,
@@ -17,6 +16,7 @@ import {
     TokenTableTooShort,
     UnsupportedTargetChain
 } from "../../script/20260807-deploy-missing-tokens.s.sol";
+import {AuthoriserNotReady} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";

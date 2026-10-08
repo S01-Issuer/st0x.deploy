@@ -32,11 +32,6 @@ error DeployerNotDeployed(address deployer);
 /// @param chainId The active chain id.
 error UnsupportedTargetChain(uint256 chainId);
 
-/// @notice Pre-flight failed: the active chain's V4 authoriser is not ready
-/// (unpinned, no code, or the wrong codehash).
-/// @param authoriser The authoriser address inspected.
-error AuthoriserNotReady(address authoriser);
-
 /// @notice The canonical name/symbol table and the Base token table have
 /// drifted out of row alignment. Every name/symbol this script deploys is
 /// read from the config row at the Base row's index, so a misaligned pair
@@ -150,30 +145,6 @@ contract DeployMissingTokens is Script {
             return LibTokenInvariants.productionTokensBsc();
         }
         revert UnsupportedTargetChain(block.chainid);
-    }
-
-    /// @notice The active chain's V4 authoriser clone, asserted deployed at
-    /// its pin with the shared EIP-1167 codehash.
-    /// @return authoriser The validated authoriser address.
-    function _assertAuthoriserReady() internal view returns (address authoriser) {
-        if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
-        } else if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM;
-        } else if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD;
-        } else if (block.chainid == LibSafeInvariants.BSC_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC;
-        } else {
-            revert UnsupportedTargetChain(block.chainid);
-        }
-
-        if (
-            authoriser == address(0) || authoriser.code.length == 0
-                || authoriser.codehash != LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH
-        ) {
-            revert AuthoriserNotReady(authoriser);
-        }
     }
 
     /// @notice The authoriser a copied token is wired to, by its region.
@@ -329,7 +300,7 @@ contract DeployMissingTokens is Script {
         _assertDeployer(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1);
         _assertDeployer(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1);
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
-        address authoriser = _assertAuthoriserReady();
+        address authoriser = LibAuthoriserInvariants.activeChainAuthoriser();
         address safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock, safe);
