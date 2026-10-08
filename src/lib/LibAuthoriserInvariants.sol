@@ -422,6 +422,44 @@ library LibAuthoriserInvariants {
         assertAdminSliceHeldExclusively(acl, authoriser, grants, tokenOwnerSafe);
     }
 
+    /// @notice Whether the map assigns `role` to `grantee`.
+    /// @param grants The map.
+    /// @param role The role to look for.
+    /// @param grantee The grantee to look for.
+    /// @return Whether the pair is in the map.
+    function mapAssigns(RoleGrant[] memory grants, bytes32 role, address grantee) internal pure returns (bool) {
+        for (uint256 i = 0; i < grants.length; i++) {
+            if (grants[i].role == role && grants[i].grantee == grantee) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// @notice An operator holds no operational role the map does not assign
+    /// it. Checked against the map rather than a fixed role list, so adding a
+    /// row permits exactly that row: the additional certifier may hold
+    /// `CERTIFY` and still nothing else.
+    /// @param acl The authoriser as an `IAccessControl`.
+    /// @param authoriser The authoriser address, for the revert.
+    /// @param grants The map whose operational slice is checked.
+    /// @param operator The operator that must hold only what the map says.
+    function assertNoUnmappedOperatorGrant(
+        IAccessControl acl,
+        address authoriser,
+        RoleGrant[] memory grants,
+        address operator
+    ) internal view {
+        for (uint256 i = ADMIN_ROLE_COUNT; i < grants.length; i++) {
+            if (mapAssigns(grants, grants[i].role, operator)) {
+                continue;
+            }
+            if (acl.hasRole(grants[i].role, operator)) {
+                revert UnexpectedCrossRegionGrant(authoriser, grants[i].role, operator);
+            }
+        }
+    }
+
     /// @notice No named principal holds `DEFAULT_ADMIN_ROLE`: the hierarchy
     /// admins each action role by its own `<ROLE>_ADMIN`, so a root-admin
     /// holder is an escalation path the pinned map does not sanction.
@@ -486,30 +524,8 @@ library LibAuthoriserInvariants {
 
         RoleGrant[] memory grants = expectedEuGrants(adminHolder, minter, GRANTEE_SERVICE_3D0C);
 
-        // A grantee the map does not name holds nothing on the operational
-        // slice. Asserted against the map itself rather than a hardcoded
-        // grantee list, so adding a row — an additional certifier, say —
-        // permits exactly that row and nothing more. `GRANTEE_SERVICE_3D0C`
-        // and `GRANTEE_ORCHESTRATOR` are the US operators this covers; the
-        // map's silence about them would otherwise assert nothing.
-        address[2] memory outOfRegion = [GRANTEE_SERVICE_3D0C, GRANTEE_ORCHESTRATOR];
-        for (uint256 i = ADMIN_ROLE_COUNT; i < grants.length; i++) {
-            for (uint256 j = 0; j < outOfRegion.length; j++) {
-                if (grants[i].grantee == outOfRegion[j]) {
-                    continue;
-                }
-                bool granted = false;
-                for (uint256 k = ADMIN_ROLE_COUNT; k < grants.length; k++) {
-                    if (grants[k].role == grants[i].role && grants[k].grantee == outOfRegion[j]) {
-                        granted = true;
-                        break;
-                    }
-                }
-                if (!granted && acl.hasRole(grants[i].role, outOfRegion[j])) {
-                    revert UnexpectedCrossRegionGrant(authoriser, grants[i].role, outOfRegion[j]);
-                }
-            }
-        }
+        assertNoUnmappedOperatorGrant(acl, authoriser, grants, GRANTEE_SERVICE_3D0C);
+        assertNoUnmappedOperatorGrant(acl, authoriser, grants, GRANTEE_ORCHESTRATOR);
 
         for (uint256 i = 0; i < grants.length; i++) {
             if (!acl.hasRole(grants[i].role, grants[i].grantee)) {
