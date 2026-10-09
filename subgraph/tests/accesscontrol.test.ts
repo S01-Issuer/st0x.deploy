@@ -8,7 +8,16 @@ import {
 // The timelock's `RoleGranted` is a different AssemblyScript class from the
 // authoriser's even though the ABI is the same one — `graph codegen` emits a
 // class per (data source, ABI) pair, and `changetype` between them is rejected.
-import { RoleGranted as TimelockRoleGranted } from "../generated/GovernanceTimelock/AccessControl";
+import {
+  RoleAdminChanged as TimelockRoleAdminChanged,
+  RoleGranted as TimelockRoleGranted,
+  RoleRevoked as TimelockRoleRevoked,
+} from "../generated/GovernanceTimelock/AccessControl";
+import {
+  RoleAdminChanged as OrchestratorRoleAdminChanged,
+  RoleGranted as OrchestratorRoleGranted,
+  RoleRevoked as OrchestratorRoleRevoked,
+} from "../generated/templates/Orchestrator/AccessControl";
 import {
   RoleAdminChanged as EuRoleAdminChanged,
   RoleGranted as EuRoleGranted,
@@ -24,7 +33,16 @@ import {
   handleEuAuthorizerRoleGranted,
   handleEuAuthorizerRoleRevoked,
 } from "../src/euauthorizer";
-import { handleTimelockRoleGranted } from "../src/timelock";
+import {
+  handleTimelockRoleAdminChanged,
+  handleTimelockRoleGranted,
+  handleTimelockRoleRevoked,
+} from "../src/timelock";
+import {
+  handleOrchestratorRoleAdminChanged,
+  handleOrchestratorRoleGranted,
+  handleOrchestratorRoleRevoked,
+} from "../src/orchestrator";
 import { roleHolderId, roleId } from "../src/lib/accesscontrol";
 import {
   TX_FROM,
@@ -36,6 +54,7 @@ import {
 const AUTHORIZER = "0x315b16faa6ee413fabca877d3851b3818369f0cd";
 const TIMELOCK = "0x48ba1371a78e6cc54157c63721756ab444510db3";
 const EU_AUTHORIZER = "0x8fc06579571a105c5a699fa11d95b9c73747f8eb";
+const ORCHESTRATOR = "0x00000000000000000000000000000000000000c0";
 const ALICE = "0x00000000000000000000000000000000000000a1";
 const BOB = "0x00000000000000000000000000000000000000b0";
 const CALLER = "0x00000000000000000000000000000000000000ca";
@@ -459,6 +478,133 @@ describe("EU authoriser", () => {
 
     let role = roleKey(EU_AUTHORIZER, MINT_ROLE);
     assert.fieldEquals("Contract", EU_AUTHORIZER, "kind", "AUTHORIZER");
+    assert.fieldEquals("Role", role, "admin", BURN_ROLE);
+    assert.fieldEquals("RoleAdminChange", grantKey(2), "role", role);
+  });
+});
+
+describe("Orchestrator role events", () => {
+  afterEach(clearStore);
+
+  test("a grant then a revoke flips held and holderCount", () => {
+    handleOrchestratorRoleGranted(
+      changetype<OrchestratorRoleGranted>(
+        roleChangeLog(
+          Address.fromString(ORCHESTRATOR),
+          Bytes.fromHexString(MINT_ROLE),
+          Address.fromString(ALICE),
+          Address.fromString(CALLER),
+          100,
+          1,
+        ),
+      ),
+    );
+
+    let role = roleKey(ORCHESTRATOR, MINT_ROLE);
+    let holder = holderKey(ORCHESTRATOR, MINT_ROLE, ALICE);
+    assert.fieldEquals("Contract", ORCHESTRATOR, "kind", "ORCHESTRATOR");
+    assert.fieldEquals("Role", role, "holderCount", "1");
+    assert.fieldEquals("RoleHolder", holder, "held", "true");
+    assert.fieldEquals("RoleGrant", grantKey(1), "granted", "true");
+
+    handleOrchestratorRoleRevoked(
+      changetype<OrchestratorRoleRevoked>(
+        roleChangeLog(
+          Address.fromString(ORCHESTRATOR),
+          Bytes.fromHexString(MINT_ROLE),
+          Address.fromString(ALICE),
+          Address.fromString(CALLER),
+          200,
+          2,
+        ),
+      ),
+    );
+
+    assert.fieldEquals("Role", role, "holderCount", "0");
+    assert.fieldEquals("RoleHolder", holder, "held", "false");
+    assert.fieldEquals("RoleGrant", grantKey(1), "granted", "true");
+    assert.fieldEquals("RoleGrant", grantKey(2), "granted", "false");
+  });
+
+  test("an admin change moves Role.admin without adding a holder", () => {
+    handleOrchestratorRoleAdminChanged(
+      changetype<OrchestratorRoleAdminChanged>(
+        roleAdminChangedLog(
+          Address.fromString(ORCHESTRATOR),
+          Bytes.fromHexString(MINT_ROLE),
+          Bytes.fromHexString(DEFAULT_ADMIN_ROLE),
+          Bytes.fromHexString(BURN_ROLE),
+          100,
+          2,
+        ),
+      ),
+    );
+
+    let role = roleKey(ORCHESTRATOR, MINT_ROLE);
+    assert.fieldEquals("Contract", ORCHESTRATOR, "kind", "ORCHESTRATOR");
+    assert.fieldEquals("Role", role, "admin", BURN_ROLE);
+    assert.fieldEquals("Role", role, "holderCount", "0");
+    assert.fieldEquals("RoleAdminChange", grantKey(2), "role", role);
+  });
+});
+
+describe("Timelock role events", () => {
+  afterEach(clearStore);
+
+  test("a revoke flips held and holderCount on the timelock", () => {
+    handleTimelockRoleGranted(
+      changetype<TimelockRoleGranted>(
+        roleChangeLog(
+          Address.fromString(TIMELOCK),
+          Bytes.fromHexString(MINT_ROLE),
+          Address.fromString(ALICE),
+          Address.fromString(CALLER),
+          100,
+          1,
+        ),
+      ),
+    );
+
+    let role = roleKey(TIMELOCK, MINT_ROLE);
+    let holder = holderKey(TIMELOCK, MINT_ROLE, ALICE);
+    assert.fieldEquals("Contract", TIMELOCK, "kind", "GOVERNANCE_TIMELOCK");
+    assert.fieldEquals("Role", role, "holderCount", "1");
+    assert.fieldEquals("RoleGrant", grantKey(1), "granted", "true");
+
+    handleTimelockRoleRevoked(
+      changetype<TimelockRoleRevoked>(
+        roleChangeLog(
+          Address.fromString(TIMELOCK),
+          Bytes.fromHexString(MINT_ROLE),
+          Address.fromString(ALICE),
+          Address.fromString(CALLER),
+          200,
+          2,
+        ),
+      ),
+    );
+
+    assert.fieldEquals("Role", role, "holderCount", "0");
+    assert.fieldEquals("RoleHolder", holder, "held", "false");
+    assert.fieldEquals("RoleGrant", grantKey(2), "granted", "false");
+  });
+
+  test("an admin change moves Role.admin on the timelock", () => {
+    handleTimelockRoleAdminChanged(
+      changetype<TimelockRoleAdminChanged>(
+        roleAdminChangedLog(
+          Address.fromString(TIMELOCK),
+          Bytes.fromHexString(MINT_ROLE),
+          Bytes.fromHexString(DEFAULT_ADMIN_ROLE),
+          Bytes.fromHexString(BURN_ROLE),
+          100,
+          2,
+        ),
+      ),
+    );
+
+    let role = roleKey(TIMELOCK, MINT_ROLE);
+    assert.fieldEquals("Contract", TIMELOCK, "kind", "GOVERNANCE_TIMELOCK");
     assert.fieldEquals("Role", role, "admin", BURN_ROLE);
     assert.fieldEquals("RoleAdminChange", grantKey(2), "role", role);
   });

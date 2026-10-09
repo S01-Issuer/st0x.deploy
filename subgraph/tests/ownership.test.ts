@@ -6,9 +6,25 @@ import {
 } from "../generated/WrappedTokenVaultBeacon/UpgradeableBeacon";
 import { OwnershipTransferred as VaultOwnershipTransferred } from "../generated/templates/ReceiptVault/Ownable";
 import {
+  OwnershipTransferred as VaultBeaconOwnershipTransferred,
+  Upgraded as VaultBeaconUpgraded,
+} from "../generated/templates/VaultBeacon/UpgradeableBeacon";
+import {
+  OwnershipTransferred as OrchestratorBeaconOwnershipTransferred,
+  Upgraded as OrchestratorBeaconUpgraded,
+} from "../generated/OrchestratorBeacon/UpgradeableBeacon";
+import {
   handleWrappedTokenVaultBeaconOwnershipTransferred,
   handleWrappedTokenVaultBeaconUpgraded,
 } from "../src/wrappedtokenvaultbeacon";
+import {
+  handleVaultBeaconOwnershipTransferred,
+  handleVaultBeaconUpgraded,
+} from "../src/vaultbeacon";
+import {
+  handleOrchestratorBeaconOwnershipTransferred,
+  handleOrchestratorBeaconUpgraded,
+} from "../src/orchestratorbeacon";
 import { handleReceiptVaultOwnershipTransferred } from "../src/receiptvault";
 import {
   TX_FROM,
@@ -23,6 +39,8 @@ const ZERO = "0x0000000000000000000000000000000000000000";
 const ALICE = "0x00000000000000000000000000000000000000a1";
 const BOB = "0x00000000000000000000000000000000000000b0";
 const IMPLEMENTATION = "0x00000000000000000000000000000000000000e1";
+const VAULT_BEACON = "0x00000000000000000000000000000000000000b1";
+const ORCHESTRATOR_BEACON = "0x00000000000000000000000000000000000000b2";
 
 function transferBeaconOwnership(
   previousOwner: string,
@@ -171,5 +189,108 @@ describe("Beacon upgrades", () => {
     assert.fieldEquals("Contract", BEACON, "implementation", IMPLEMENTATION);
     assert.fieldEquals("Contract", BEACON, "implementationFromLog", "true");
     assert.fieldEquals("Contract", BEACON, "firstIndexedBlock", "50");
+  });
+});
+
+describe("Vault and orchestrator beacons", () => {
+  afterEach(clearStore);
+
+  test("a vault beacon transfer and upgrade share one BEACON row", () => {
+    handleVaultBeaconOwnershipTransferred(
+      changetype<VaultBeaconOwnershipTransferred>(
+        ownershipTransferredLog(
+          Address.fromString(VAULT_BEACON),
+          Address.fromString(ZERO),
+          Address.fromString(ALICE),
+          50,
+          0,
+        ),
+      ),
+    );
+
+    assert.fieldEquals("Contract", VAULT_BEACON, "kind", "BEACON");
+    assert.fieldEquals("Contract", VAULT_BEACON, "owner", ALICE);
+    assert.fieldEquals("Contract", VAULT_BEACON, "ownerFromLog", "true");
+    assert.fieldEquals(
+      "Contract",
+      VAULT_BEACON,
+      "implementationFromLog",
+      "false",
+    );
+
+    handleVaultBeaconUpgraded(
+      changetype<VaultBeaconUpgraded>(
+        upgradedLog(
+          Address.fromString(VAULT_BEACON),
+          Address.fromString(IMPLEMENTATION),
+          70,
+          1,
+        ),
+      ),
+    );
+
+    assert.entityCount("Contract", 1);
+    assert.fieldEquals(
+      "Contract",
+      VAULT_BEACON,
+      "implementation",
+      IMPLEMENTATION,
+    );
+    assert.fieldEquals(
+      "Contract",
+      VAULT_BEACON,
+      "implementationAsOfBlock",
+      "70",
+    );
+    assert.fieldEquals(
+      "Contract",
+      VAULT_BEACON,
+      "implementationFromLog",
+      "true",
+    );
+    assert.fieldEquals("Contract", VAULT_BEACON, "firstIndexedBlock", "50");
+    assert.fieldEquals("OwnershipTransfer", rowKey(0), "newOwner", ALICE);
+    assert.fieldEquals(
+      "BeaconUpgrade",
+      rowKey(1),
+      "implementation",
+      IMPLEMENTATION,
+    );
+  });
+
+  test("an orchestrator beacon is its own BEACON row", () => {
+    handleOrchestratorBeaconOwnershipTransferred(
+      changetype<OrchestratorBeaconOwnershipTransferred>(
+        ownershipTransferredLog(
+          Address.fromString(ORCHESTRATOR_BEACON),
+          Address.fromString(ZERO),
+          Address.fromString(BOB),
+          50,
+          0,
+        ),
+      ),
+    );
+    handleOrchestratorBeaconUpgraded(
+      changetype<OrchestratorBeaconUpgraded>(
+        upgradedLog(
+          Address.fromString(ORCHESTRATOR_BEACON),
+          Address.fromString(IMPLEMENTATION),
+          70,
+          1,
+        ),
+      ),
+    );
+    transferBeaconOwnership(ZERO, ALICE, 50, 2);
+
+    assert.entityCount("Contract", 2);
+    assert.fieldEquals("Contract", ORCHESTRATOR_BEACON, "kind", "BEACON");
+    assert.fieldEquals("Contract", ORCHESTRATOR_BEACON, "owner", BOB);
+    assert.fieldEquals(
+      "Contract",
+      ORCHESTRATOR_BEACON,
+      "implementation",
+      IMPLEMENTATION,
+    );
+    assert.fieldEquals("Contract", BEACON, "owner", ALICE);
   });
 });
