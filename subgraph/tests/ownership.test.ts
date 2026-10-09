@@ -294,3 +294,37 @@ describe("Vault and orchestrator beacons", () => {
     assert.fieldEquals("Contract", BEACON, "owner", ALICE);
   });
 });
+
+describe("An upgrade as a beacon's first sighting", () => {
+  afterEach(clearStore);
+
+  test("a vault beacon upgrade creates the row as a beacon", () => {
+    handleVaultBeaconUpgraded(
+      changetype<VaultBeaconUpgraded>(
+        upgradedLog(
+          Address.fromString(VAULT_BEACON),
+          Address.fromString(IMPLEMENTATION),
+          70,
+          1,
+        ),
+      ),
+    );
+
+    assert.entityCount("Contract", 1);
+    assert.fieldEquals("Contract", VAULT_BEACON, "kind", "BEACON");
+    assert.fieldEquals("Contract", VAULT_BEACON, "firstIndexedBlock", "70");
+    assert.fieldEquals(
+      "Contract",
+      VAULT_BEACON,
+      "implementation",
+      IMPLEMENTATION,
+    );
+    assert.fieldEquals(
+      "Contract",
+      VAULT_BEACON,
+      "implementationFromLog",
+      "true",
+    );
+    assert.fieldEquals("Contract", VAULT_BEACON, "ownerFromLog", "false");
+  });
+});

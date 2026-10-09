@@ -627,3 +627,29 @@ describe("Revoke with no prior grant", () => {
     assert.fieldEquals("RoleGrant", grantKey(1), "granted", "false");
   });
 });
+
+describe("Row ids", () => {
+  afterEach(clearStore);
+
+  // The ids here are written out from the schema's own definition — `Role.id`
+  // is the contract address followed by the `bytes32` role, and `RoleHolder.id`
+  // adds the account — rather than built by calling `roleId` / `roleHolderId`.
+  // Asking those helpers what they should return cannot catch them returning
+  // the wrong layout, because the question and the answer move together.
+  test("Role and RoleHolder ids are the documented byte layout", () => {
+    grant(AUTHORIZER, MINT_ROLE, ALICE, 100, 1);
+
+    assert.fieldEquals(
+      "Role",
+      "0x315b16faa6ee413fabca877d3851b3818369f0cd1111111111111111111111111111111111111111111111111111111111111111",
+      "holderCount",
+      "1",
+    );
+    assert.fieldEquals(
+      "RoleHolder",
+      "0x315b16faa6ee413fabca877d3851b3818369f0cd111111111111111111111111111111111111111111111111111111111111111100000000000000000000000000000000000000a1",
+      "held",
+      "true",
+    );
+  });
+});
