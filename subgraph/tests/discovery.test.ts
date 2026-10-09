@@ -6,14 +6,25 @@ import {
   describe,
   test,
 } from "matchstick-as";
-import { Address, ethereum } from "@graphprotocol/graph-ts";
+import { Address, Bytes, ethereum } from "@graphprotocol/graph-ts";
+import { Contract } from "../generated/schema";
 import { Deployment } from "../generated/ReceiptVaultDeployer/OffchainAssetReceiptVaultBeaconSetDeployer";
 import { Deployment as OrchestratorDeployment } from "../generated/OrchestratorDeployer/ST0xOrchestratorBeaconSetDeployer";
+import {
+  OwnershipTransferred as VaultBeaconOwnershipTransferred,
+  Upgraded as VaultBeaconUpgraded,
+} from "../generated/templates/VaultBeacon/UpgradeableBeacon";
 import { handleReceiptVaultDeployment } from "../src/receiptvaultdeployer";
 import { handleOrchestratorDeployment } from "../src/orchestratordeployer";
 import {
+  handleVaultBeaconOwnershipTransferred,
+  handleVaultBeaconUpgraded,
+} from "../src/vaultbeacon";
+import {
   orchestratorDeploymentLog,
+  ownershipTransferredLog,
   receiptVaultDeploymentLog,
+  upgradedLog,
 } from "./event-mocks.test";
 
 /**
@@ -40,6 +51,8 @@ const VAULT_IMPLEMENTATION = "0x0000000000000000000000000000000000000e01";
 const RECEIPT_IMPLEMENTATION = "0x0000000000000000000000000000000000000e02";
 const SENDER = "0x00000000000000000000000000000000000000ca";
 const OWNER = "0x00000000000000000000000000000000000000a2";
+const LOGGED_BEACON_OWNER = "0x00000000000000000000000000000000000000a3";
+const LOGGED_IMPLEMENTATION = "0x0000000000000000000000000000000000000e03";
 
 /**
  * Mock the beacon getters in the camelCase spelling the current deployer
@@ -365,5 +378,115 @@ describe("Orchestrator discovery", () => {
 
     assert.dataSourceCount("Orchestrator", 1);
     assert.entityCount("Contract", 1);
+  });
+});
+
+describe("Discovered beacon state", () => {
+  afterEach(clearStore);
+
+  test("a beacon whose implementation call reverts is indexed without one", () => {
+    mockCamelCaseGetters();
+    createMockedFunction(
+      Address.fromString(VAULT_BEACON),
+      "owner",
+      "owner():(address)",
+    ).returns([
+      ethereum.Value.fromAddress(Address.fromString(BEACON_OWNER)),
+    ]);
+    createMockedFunction(
+      Address.fromString(VAULT_BEACON),
+      "implementation",
+      "implementation():(address)",
+    ).reverts();
+    mockBeaconState(RECEIPT_BEACON, BEACON_OWNER, RECEIPT_IMPLEMENTATION);
+
+    deployVault(VAULT, 1000, 5);
+
+    assert.fieldEquals("Contract", VAULT_BEACON, "kind", "BEACON");
+    assert.fieldEquals("Contract", VAULT_BEACON, "owner", BEACON_OWNER);
+    // An unset field is absent from the entity rather than holding a null, so
+    // `fieldEquals` cannot ask this and the row has to be loaded.
+    let beacon = Contract.load(Bytes.fromHexString(VAULT_BEACON));
+    if (beacon == null) {
+      throw new Error("the beacon was not indexed at all");
+    }
+    assert.assertTrue(beacon.implementation === null);
+    assert.assertTrue(beacon.implementationAsOfBlock === null);
+    assert.fieldEquals(
+      "Contract",
+      VAULT_BEACON,
+      "implementationFromLog",
+      "false",
+    );
+    // The other beacon's getters both answered, so a revert on one must not
+    // cost the other its implementation.
+    assert.fieldEquals(
+      "Contract",
+      RECEIPT_BEACON,
+      "implementation",
+      RECEIPT_IMPLEMENTATION,
+    );
+  });
+
+  test("a log on a discovered beacon overrides what discovery read", () => {
+    mockCamelCaseGetters();
+    mockBothBeacons();
+    deployVault(VAULT, 1000, 5);
+
+    assert.fieldEquals("Contract", VAULT_BEACON, "owner", BEACON_OWNER);
+    assert.fieldEquals("Contract", VAULT_BEACON, "ownerFromLog", "false");
+    assert.fieldEquals(
+      "Contract",
+      VAULT_BEACON,
+      "implementationFromLog",
+      "false",
+    );
+
+    handleVaultBeaconOwnershipTransferred(
+      changetype<VaultBeaconOwnershipTransferred>(
+        ownershipTransferredLog(
+          Address.fromString(VAULT_BEACON),
+          Address.fromString(BEACON_OWNER),
+          Address.fromString(LOGGED_BEACON_OWNER),
+          1500,
+          0,
+        ),
+      ),
+    );
+    handleVaultBeaconUpgraded(
+      changetype<VaultBeaconUpgraded>(
+        upgradedLog(
+          Address.fromString(VAULT_BEACON),
+          Address.fromString(LOGGED_IMPLEMENTATION),
+          1600,
+          1,
+        ),
+      ),
+    );
+
+    assert.fieldEquals("Contract", VAULT_BEACON, "owner", LOGGED_BEACON_OWNER);
+    assert.fieldEquals("Contract", VAULT_BEACON, "ownerAsOfBlock", "1500");
+    assert.fieldEquals("Contract", VAULT_BEACON, "ownerFromLog", "true");
+    assert.fieldEquals(
+      "Contract",
+      VAULT_BEACON,
+      "implementation",
+      LOGGED_IMPLEMENTATION,
+    );
+    assert.fieldEquals(
+      "Contract",
+      VAULT_BEACON,
+      "implementationAsOfBlock",
+      "1600",
+    );
+    assert.fieldEquals(
+      "Contract",
+      VAULT_BEACON,
+      "implementationFromLog",
+      "true",
+    );
+    // Discovery set the lower bound of this beacon's history and a later log
+    // does not move it forward.
+    assert.fieldEquals("Contract", VAULT_BEACON, "firstIndexedBlock", "1000");
   });
 });

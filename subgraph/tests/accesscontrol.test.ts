@@ -609,3 +609,21 @@ describe("Timelock role events", () => {
     assert.fieldEquals("RoleAdminChange", grantKey(2), "role", role);
   });
 });
+
+describe("Revoke with no prior grant", () => {
+  afterEach(clearStore);
+
+  test("holderCount stays at zero and the row reads as never held", () => {
+    revoke(AUTHORIZER, MINT_ROLE, ALICE, 200, 1);
+
+    let role = roleKey(AUTHORIZER, MINT_ROLE);
+    assert.fieldEquals("Role", role, "holderCount", "0");
+    assert.fieldEquals(
+      "RoleHolder",
+      holderKey(AUTHORIZER, MINT_ROLE, ALICE),
+      "held",
+      "false",
+    );
+    assert.fieldEquals("RoleGrant", grantKey(1), "granted", "false");
+  });
+});
