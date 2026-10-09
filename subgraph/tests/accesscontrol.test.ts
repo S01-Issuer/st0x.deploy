@@ -10,10 +10,20 @@ import {
 // class per (data source, ABI) pair, and `changetype` between them is rejected.
 import { RoleGranted as TimelockRoleGranted } from "../generated/GovernanceTimelock/AccessControl";
 import {
+  RoleAdminChanged as EuRoleAdminChanged,
+  RoleGranted as EuRoleGranted,
+  RoleRevoked as EuRoleRevoked,
+} from "../generated/EuAuthorizer/AccessControl";
+import {
   handleAuthorizerRoleAdminChanged,
   handleAuthorizerRoleGranted,
   handleAuthorizerRoleRevoked,
 } from "../src/authorizer";
+import {
+  handleEuAuthorizerRoleAdminChanged,
+  handleEuAuthorizerRoleGranted,
+  handleEuAuthorizerRoleRevoked,
+} from "../src/euauthorizer";
 import { handleTimelockRoleGranted } from "../src/timelock";
 import { roleHolderId, roleId } from "../src/lib/accesscontrol";
 import {
@@ -25,6 +35,7 @@ import {
 
 const AUTHORIZER = "0x315b16faa6ee413fabca877d3851b3818369f0cd";
 const TIMELOCK = "0x48ba1371a78e6cc54157c63721756ab444510db3";
+const EU_AUTHORIZER = "0x8fc06579571a105c5a699fa11d95b9c73747f8eb";
 const ALICE = "0x00000000000000000000000000000000000000a1";
 const BOB = "0x00000000000000000000000000000000000000b0";
 const CALLER = "0x00000000000000000000000000000000000000ca";
@@ -358,5 +369,97 @@ describe("Role admin changes", () => {
       "held",
       "true",
     );
+  });
+});
+
+describe("EU authoriser", () => {
+  afterEach(clearStore);
+
+  test("a grant then a revoke flips held and holderCount", () => {
+    handleEuAuthorizerRoleGranted(
+      changetype<EuRoleGranted>(
+        roleChangeLog(
+          Address.fromString(EU_AUTHORIZER),
+          Bytes.fromHexString(MINT_ROLE),
+          Address.fromString(ALICE),
+          Address.fromString(CALLER),
+          100,
+          1,
+        ),
+      ),
+    );
+
+    let role = roleKey(EU_AUTHORIZER, MINT_ROLE);
+    let holder = holderKey(EU_AUTHORIZER, MINT_ROLE, ALICE);
+    assert.fieldEquals("Contract", EU_AUTHORIZER, "kind", "AUTHORIZER");
+    assert.fieldEquals("Role", role, "holderCount", "1");
+    assert.fieldEquals("RoleHolder", holder, "held", "true");
+    assert.fieldEquals("RoleGrant", grantKey(1), "granted", "true");
+
+    handleEuAuthorizerRoleRevoked(
+      changetype<EuRoleRevoked>(
+        roleChangeLog(
+          Address.fromString(EU_AUTHORIZER),
+          Bytes.fromHexString(MINT_ROLE),
+          Address.fromString(ALICE),
+          Address.fromString(CALLER),
+          200,
+          2,
+        ),
+      ),
+    );
+
+    assert.fieldEquals("Role", role, "holderCount", "0");
+    assert.fieldEquals("RoleHolder", holder, "held", "false");
+    assert.fieldEquals("RoleGrant", grantKey(1), "granted", "true");
+    assert.fieldEquals("RoleGrant", grantKey(2), "granted", "false");
+  });
+
+  test("the EU authoriser is a row of its own alongside the USA one", () => {
+    grant(AUTHORIZER, MINT_ROLE, ALICE, 100, 1);
+    handleEuAuthorizerRoleGranted(
+      changetype<EuRoleGranted>(
+        roleChangeLog(
+          Address.fromString(EU_AUTHORIZER),
+          Bytes.fromHexString(MINT_ROLE),
+          Address.fromString(ALICE),
+          Address.fromString(CALLER),
+          100,
+          2,
+        ),
+      ),
+    );
+
+    assert.entityCount("Contract", 2);
+    assert.entityCount("Role", 2);
+    assert.entityCount("RoleHolder", 2);
+    assert.fieldEquals("Contract", AUTHORIZER, "kind", "AUTHORIZER");
+    assert.fieldEquals("Contract", EU_AUTHORIZER, "kind", "AUTHORIZER");
+    assert.fieldEquals(
+      "Role",
+      roleKey(EU_AUTHORIZER, MINT_ROLE),
+      "contract",
+      EU_AUTHORIZER,
+    );
+  });
+
+  test("an admin change moves Role.admin on the EU authoriser", () => {
+    handleEuAuthorizerRoleAdminChanged(
+      changetype<EuRoleAdminChanged>(
+        roleAdminChangedLog(
+          Address.fromString(EU_AUTHORIZER),
+          Bytes.fromHexString(MINT_ROLE),
+          Bytes.fromHexString(DEFAULT_ADMIN_ROLE),
+          Bytes.fromHexString(BURN_ROLE),
+          100,
+          2,
+        ),
+      ),
+    );
+
+    let role = roleKey(EU_AUTHORIZER, MINT_ROLE);
+    assert.fieldEquals("Contract", EU_AUTHORIZER, "kind", "AUTHORIZER");
+    assert.fieldEquals("Role", role, "admin", BURN_ROLE);
+    assert.fieldEquals("RoleAdminChange", grantKey(2), "role", role);
   });
 });
