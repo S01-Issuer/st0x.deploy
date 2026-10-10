@@ -1,0 +1,25 @@
+[
+  {
+    "timestamp": "2026-10-09T16:05:00Z",
+    "commit": "c3f2d1e83eaaefa90ade88e32e886e929204d862",
+    "testsAfterCommit": "7877e3257c8ba6749a4b1c45ea1a3fad6604dfd7",
+    "publishedTag": null,
+    "commitsAheadOfTag": null,
+    "scope": "subgraph/src/** mapping sources on PR #428 (branch 2026-10-07-issue-427-rbac-subgraph). Two full passes: BEFORE at c3f2d1e, the suite as it stood before any test from this run, 46 of the 48 mutants (subgraph/src/euauthorizer.ts does not exist there, so its 2 mutants had nothing to target); AFTER at d69ee6af1f0c109d7bdce2af1d546433c8d2f6e1, all 48. The two passes exist because tests had been written before the first probe, which forfeits attribution; diffing the matrices recovers which killer is pre-existing and which is new. No published tag shares history with this branch, so both tag fields are null rather than zero.",
+    "tool": "adversarial-mutation-test",
+    "skillVersion": "0.35.0",
+    "summary": {
+      "behaviours": 48,
+      "candidates": 2,
+      "confirmed": 2,
+      "testsBefore": 24,
+      "testsAfter": 38,
+      "filed": ["#447", "#448"],
+      "killedBefore": 38,
+      "survivedBefore": 8,
+      "killedAfter": 47,
+      "survivedAfter": 1,
+      "notes": "BEFORE 38/46 killed. The 8 survivors there were M15 and M16 (roleId / roleHolderId byte layout), M20 (createDiscoveredContract return contract), M41 and M42 (timelock and orchestrator grant polarity), M44 and M46 (vault and orchestrator beacon transfer kind), M45 (vault beacon upgrade kind). Seven are now killed by tests this run added; M20 is not closable with matchstick, whose data source registry is an address-keyed map that cannot distinguish one create of an address from two, so the behaviour stays unpinned and is filed as #448. One verdict in the first AFTER pass was a flake: M14 scored SURVIVED and kills when run by hand. A stale compile cache was ruled out by experiment (pristine run, then the same mutation with only src changed and the test file mtime pinned backwards, which still killed), leaving container reuse by `docker compose up`; the probe wrapper now tears the container down per probe and the whole pass was re-run under it. The first matrix is discarded and none of its numbers appear here."
+    }
+  }
+]
