@@ -16,10 +16,12 @@ import {
 } from "../generated/templates/VaultBeacon/UpgradeableBeacon";
 import { handleReceiptVaultDeployment } from "../src/receiptvaultdeployer";
 import { handleOrchestratorDeployment } from "../src/orchestratordeployer";
+import { OwnershipTransferred as WrappedBeaconOwnershipTransferred } from "../generated/WrappedTokenVaultBeacon/UpgradeableBeacon";
 import {
   handleVaultBeaconOwnershipTransferred,
   handleVaultBeaconUpgraded,
 } from "../src/vaultbeacon";
+import { handleWrappedTokenVaultBeaconOwnershipTransferred } from "../src/wrappedtokenvaultbeacon";
 import {
   orchestratorDeploymentLog,
   ownershipTransferredLog,
@@ -53,6 +55,26 @@ const SENDER = "0x00000000000000000000000000000000000000ca";
 const OWNER = "0x00000000000000000000000000000000000000a2";
 const LOGGED_BEACON_OWNER = "0x00000000000000000000000000000000000000a3";
 const LOGGED_IMPLEMENTATION = "0x0000000000000000000000000000000000000e03";
+const LOG_FIRST_BEACON = "0x0000000000000000000000000000000000000f03";
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+/**
+ * Answer the vault beacon getter with `beacon` and leave the receipt beacon on
+ * its usual address, for a case that needs discovery to resolve one specific
+ * address.
+ */
+function mockVaultBeaconGetterReturning(beacon: string): void {
+  createMockedFunction(
+    Address.fromString(RECEIPT_VAULT_DEPLOYER),
+    "iOffchainAssetReceiptVaultBeacon",
+    "iOffchainAssetReceiptVaultBeacon():(address)",
+  ).returns([ethereum.Value.fromAddress(Address.fromString(beacon))]);
+  createMockedFunction(
+    Address.fromString(RECEIPT_VAULT_DEPLOYER),
+    "iReceiptBeacon",
+    "iReceiptBeacon():(address)",
+  ).returns([ethereum.Value.fromAddress(Address.fromString(RECEIPT_BEACON))]);
+}
 
 /**
  * Mock the beacon getters in the camelCase spelling the current deployer
@@ -487,6 +509,56 @@ describe("Discovered beacon state", () => {
     );
     // Discovery set the lower bound of this beacon's history and a later log
     // does not move it forward.
+    assert.fieldEquals("Contract", VAULT_BEACON, "firstIndexedBlock", "1000");
+  });
+});
+
+describe("Template creation versus the row existing", () => {
+  afterEach(clearStore);
+
+  test("a beacon already known from a log still gets its template", () => {
+    // The row is created by a log reaching a static data source, which creates
+    // no template. Discovery resolving the same address must still create one,
+    // or nothing is listening to the contract.
+    handleWrappedTokenVaultBeaconOwnershipTransferred(
+      changetype<WrappedBeaconOwnershipTransferred>(
+        ownershipTransferredLog(
+          Address.fromString(LOG_FIRST_BEACON),
+          Address.fromString(ZERO_ADDRESS),
+          Address.fromString(BEACON_OWNER),
+          900,
+          0,
+        ),
+      ),
+    );
+
+    assert.fieldEquals("Contract", LOG_FIRST_BEACON, "templateCreated", "false");
+    assert.fieldEquals("Contract", LOG_FIRST_BEACON, "ownerFromLog", "true");
+
+    mockVaultBeaconGetterReturning(LOG_FIRST_BEACON);
+    mockBeaconState(LOG_FIRST_BEACON, BEACON_OWNER, VAULT_IMPLEMENTATION);
+    mockBeaconState(RECEIPT_BEACON, BEACON_OWNER, RECEIPT_IMPLEMENTATION);
+
+    deployVault(VAULT, 1000, 5);
+
+    assert.dataSourceExists("VaultBeacon", LOG_FIRST_BEACON);
+    assert.fieldEquals("Contract", LOG_FIRST_BEACON, "templateCreated", "true");
+    // The log's owner outranks a call at discovery, so neither the value nor
+    // its provenance is downgraded by being discovered afterwards.
+    assert.fieldEquals("Contract", LOG_FIRST_BEACON, "ownerFromLog", "true");
+    assert.fieldEquals("Contract", LOG_FIRST_BEACON, "firstIndexedBlock", "900");
+  });
+
+  test("a discovered beacon is not templated twice", () => {
+    mockCamelCaseGetters();
+    mockBothBeacons();
+
+    deployVault(VAULT, 1000, 5);
+    assert.fieldEquals("Contract", VAULT_BEACON, "templateCreated", "true");
+
+    deployVault(OTHER_VAULT, 2000, 1);
+
+    assert.fieldEquals("Contract", VAULT_BEACON, "templateCreated", "true");
     assert.fieldEquals("Contract", VAULT_BEACON, "firstIndexedBlock", "1000");
   });
 });
