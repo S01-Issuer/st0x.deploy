@@ -40,6 +40,7 @@ export function getOrCreateContract(
   contract.firstIndexedBlock = block;
   contract.ownerFromLog = false;
   contract.implementationFromLog = false;
+  contract.templateCreated = false;
   contract.save();
   return contract;
 }
@@ -51,9 +52,16 @@ export function getOrCreateContract(
  * `implementationFromLog` stay false, so a consumer can tell a value read at
  * discovery from one a log established.
  *
- * Returns false, having written nothing, when the row already exists. A caller
- * that also creates a data source template keys that off the return value:
- * creating the template twice would index the same contract twice.
+ * Returns whether the caller should create this contract's data source
+ * template, and records that it is about to. False means a template already
+ * exists, so creating a second one would index the same contract twice.
+ *
+ * A row already existing is not that question. It also happens when one of the
+ * contract's own logs reached a static data source first, and then no template
+ * was ever created — answering false there would leave the contract indexed but
+ * unwatched, with nothing listening for its later logs. `templateCreated` is
+ * what separates the two, and the existing row's read state is left alone
+ * because a log is a better source than a call at discovery.
  */
 export function createDiscoveredContract(
   address: Bytes,
@@ -62,14 +70,21 @@ export function createDiscoveredContract(
   owner: Bytes | null,
   implementation: Bytes | null,
 ): boolean {
-  if (Contract.load(address) !== null) {
-    return false;
+  let existing = Contract.load(address);
+  if (existing !== null) {
+    if (existing.templateCreated) {
+      return false;
+    }
+    existing.templateCreated = true;
+    existing.save();
+    return true;
   }
   let contract = new Contract(address);
   contract.kind = kind;
   contract.firstIndexedBlock = block;
   contract.ownerFromLog = false;
   contract.implementationFromLog = false;
+  contract.templateCreated = true;
   if (owner !== null) {
     contract.owner = owner;
     contract.ownerAsOfBlock = block;

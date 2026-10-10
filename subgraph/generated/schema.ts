@@ -172,6 +172,19 @@ export class Contract extends Entity {
     this.set("implementationFromLog", Value.fromBoolean(value));
   }
 
+  get templateCreated(): boolean {
+    let value = this.get("templateCreated");
+    if (!value || value.kind == ValueKind.NULL) {
+      return false;
+    } else {
+      return value.toBoolean();
+    }
+  }
+
+  set templateCreated(value: boolean) {
+    this.set("templateCreated", Value.fromBoolean(value));
+  }
+
   get roles(): RoleLoader {
     return new RoleLoader(
       "Contract",

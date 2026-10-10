@@ -67,6 +67,17 @@ type Contract @entity {
   implementationAsOfBlock: BigInt
   "True when `implementation` came from an `Upgraded` log rather than an `implementation()` read at discovery."
   implementationFromLog: Boolean!
+  """
+  Whether a data source template has been created for this contract, so its own
+  later logs reach a handler.
+
+  False for a contract whose row exists only because one of its logs matched a
+  static data source: that row's existence says nothing about whether anything
+  is listening to the address. Discovery keys template creation off this rather
+  than off the row existing, because those are different questions and
+  conflating them silently leaves a contract indexed but unwatched.
+  """
+  templateCreated: Boolean!
   "Every role this contract has ever emitted an event for."
   roles: [Role!]! @derivedFrom(field: "contract")
   "Ownership history, oldest first by `blockNumber`."
@@ -96,7 +107,17 @@ type Role @entity {
   admin: Bytes!
   "How many accounts hold the role right now."
   holderCount: Int!
-  "Every account that has ever held the role. Filter on `held` for the current set."
+  """
+  Every account this subgraph has seen a grant or a revoke name for this role.
+  Filter on `held` for the current set.
+
+  An account can appear here with `grantedAtBlock` null: a revoke is indexed
+  whether or not the matching grant was, so a role whose grant predates
+  `Contract.firstIndexedBlock` still produces a row when it is revoked. The null
+  grant stamp is the marker for that, and it is the reason this is not worded as
+  "every account that has ever held the role" — on chain that is true of such an
+  account, but the grant proving it is outside the indexed range.
+  """
   holders: [RoleHolder!]! @derivedFrom(field: "role")
   "Grant and revoke history, oldest first by `blockNumber`."
   grantEvents: [RoleGrant!]! @derivedFrom(field: "role")
