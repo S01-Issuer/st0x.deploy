@@ -1,0 +1,152 @@
+{
+  "base": {
+    "Authorizer": {
+      "address": "0x315b16faa6eE413faBCa877d3851B3818369f0cD",
+      "startBlock": 48660294
+    },
+    "GovernanceTimelock": {
+      "address": "0x48ba1371A78E6cC54157c63721756ab444510DB3",
+      "startBlock": 49872773
+    },
+    "WrappedTokenVaultBeacon": {
+      "address": "0x4c2d2d3Bf1232bf0d3FB7123007A9B8444637bC8",
+      "startBlock": 41064406
+    },
+    "OrchestratorBeacon": {
+      "address": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
+      "startBlock": 50563762
+    },
+    "ReceiptVaultDeployer": {
+      "address": "0x2191981Ca2477B745870cC307cbEB4cB2967ACe3",
+      "startBlock": 39975787
+    },
+    "OrchestratorDeployer": {
+      "address": "0x945D0Faf6f268e805246907507ef1044e70E75D7",
+      "startBlock": 50563762
+    },
+    "EuAuthorizer": {
+      "address": "0xDB9152e46c1D140DB6a6f814461f21c571F3275e",
+      "startBlock": 52312053
+    }
+  },
+  "mainnet": {
+    "Authorizer": {
+      "address": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
+      "startBlock": 25587106
+    },
+    "GovernanceTimelock": {
+      "address": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+      "startBlock": 25738726
+    },
+    "WrappedTokenVaultBeacon": {
+      "address": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
+      "startBlock": 25545935
+    },
+    "OrchestratorBeacon": {
+      "address": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
+      "startBlock": 25853473
+    },
+    "ReceiptVaultDeployer": {
+      "address": "0xd64246e6b25F745f005E6233e050C9B879E660Dc",
+      "startBlock": 25545998
+    },
+    "OrchestratorDeployer": {
+      "address": "0x945D0Faf6f268e805246907507ef1044e70E75D7",
+      "startBlock": 25853473
+    },
+    "EuAuthorizer": {
+      "address": "0x8Fc06579571A105C5a699FA11d95b9c73747f8eb",
+      "startBlock": 26143611
+    }
+  },
+  "hyper-evm": {
+    "Authorizer": {
+      "address": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
+      "startBlock": 41325390
+    },
+    "GovernanceTimelock": {
+      "address": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+      "startBlock": 42984015
+    },
+    "WrappedTokenVaultBeacon": {
+      "address": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
+      "startBlock": 41323987
+    },
+    "OrchestratorBeacon": {
+      "address": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
+      "startBlock": 44388411
+    },
+    "ReceiptVaultDeployer": {
+      "address": "0xd64246e6b25F745f005E6233e050C9B879E660Dc",
+      "startBlock": 41324719
+    },
+    "OrchestratorDeployer": {
+      "address": "0x945D0Faf6f268e805246907507ef1044e70E75D7",
+      "startBlock": 44388411
+    },
+    "EuAuthorizer": {
+      "address": "0x8Fc06579571A105C5a699FA11d95b9c73747f8eb",
+      "startBlock": 47942864
+    }
+  },
+  "robinhood": {
+    "Authorizer": {
+      "address": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
+      "startBlock": 59731165
+    },
+    "GovernanceTimelock": {
+      "address": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+      "startBlock": 59818983
+    },
+    "WrappedTokenVaultBeacon": {
+      "address": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
+      "startBlock": 59699489
+    },
+    "OrchestratorBeacon": {
+      "address": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
+      "startBlock": 59728819
+    },
+    "ReceiptVaultDeployer": {
+      "address": "0xd64246e6b25F745f005E6233e050C9B879E660Dc",
+      "startBlock": 59711968
+    },
+    "OrchestratorDeployer": {
+      "address": "0x945D0Faf6f268e805246907507ef1044e70E75D7",
+      "startBlock": 59728819
+    },
+    "EuAuthorizer": {
+      "address": "0x8Fc06579571A105C5a699FA11d95b9c73747f8eb",
+      "startBlock": 82838690
+    }
+  },
+  "bsc": {
+    "Authorizer": {
+      "address": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
+      "startBlock": 0
+    },
+    "GovernanceTimelock": {
+      "address": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+      "startBlock": 0
+    },
+    "WrappedTokenVaultBeacon": {
+      "address": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
+      "startBlock": 0
+    },
+    "OrchestratorBeacon": {
+      "address": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
+      "startBlock": 0
+    },
+    "ReceiptVaultDeployer": {
+      "address": "0xd64246e6b25F745f005E6233e050C9B879E660Dc",
+      "startBlock": 0
+    },
+    "OrchestratorDeployer": {
+      "address": "0x945D0Faf6f268e805246907507ef1044e70E75D7",
+      "startBlock": 0
+    },
+    "EuAuthorizer": {
+      "address": "0x8Fc06579571A105C5a699FA11d95b9c73747f8eb",
+      "startBlock": 0
+    }
+  }
+}
