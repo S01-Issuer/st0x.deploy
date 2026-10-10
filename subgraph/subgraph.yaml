@@ -1,0 +1,246 @@
+specVersion: 0.0.5
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum/contract
+    name: Authorizer
+    network: robinhood
+    source:
+      abi: AccessControl
+      address: "0x66566cc91dEAf818859bD4b09B7903ac48998157"
+      startBlock: 59731165
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+        - Role
+        - RoleHolder
+        - RoleGrant
+        - RoleAdminChange
+      abis:
+        - name: AccessControl
+          file: ./abis/AccessControl.json
+      eventHandlers:
+        - event: RoleGranted(indexed bytes32,indexed address,indexed address)
+          handler: handleAuthorizerRoleGranted
+        - event: RoleRevoked(indexed bytes32,indexed address,indexed address)
+          handler: handleAuthorizerRoleRevoked
+        - event: RoleAdminChanged(indexed bytes32,indexed bytes32,indexed bytes32)
+          handler: handleAuthorizerRoleAdminChanged
+      file: ./src/authorizer.ts
+  - kind: ethereum/contract
+    name: EuAuthorizer
+    network: robinhood
+    source:
+      abi: AccessControl
+      address: "0x8Fc06579571A105C5a699FA11d95b9c73747f8eb"
+      startBlock: 82838690
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+        - Role
+        - RoleHolder
+        - RoleGrant
+        - RoleAdminChange
+      abis:
+        - name: AccessControl
+          file: ./abis/AccessControl.json
+      eventHandlers:
+        - event: RoleGranted(indexed bytes32,indexed address,indexed address)
+          handler: handleEuAuthorizerRoleGranted
+        - event: RoleRevoked(indexed bytes32,indexed address,indexed address)
+          handler: handleEuAuthorizerRoleRevoked
+        - event: RoleAdminChanged(indexed bytes32,indexed bytes32,indexed bytes32)
+          handler: handleEuAuthorizerRoleAdminChanged
+      file: ./src/euauthorizer.ts
+  - kind: ethereum/contract
+    name: GovernanceTimelock
+    network: robinhood
+    source:
+      abi: AccessControl
+      address: "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B"
+      startBlock: 59818983
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+        - Role
+        - RoleHolder
+        - RoleGrant
+        - RoleAdminChange
+      abis:
+        - name: AccessControl
+          file: ./abis/AccessControl.json
+      eventHandlers:
+        - event: RoleGranted(indexed bytes32,indexed address,indexed address)
+          handler: handleTimelockRoleGranted
+        - event: RoleRevoked(indexed bytes32,indexed address,indexed address)
+          handler: handleTimelockRoleRevoked
+        - event: RoleAdminChanged(indexed bytes32,indexed bytes32,indexed bytes32)
+          handler: handleTimelockRoleAdminChanged
+      file: ./src/timelock.ts
+  - kind: ethereum/contract
+    name: WrappedTokenVaultBeacon
+    network: robinhood
+    source:
+      abi: UpgradeableBeacon
+      address: "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2"
+      startBlock: 59699489
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+        - OwnershipTransfer
+        - BeaconUpgrade
+      abis:
+        - name: UpgradeableBeacon
+          file: ./abis/UpgradeableBeacon.json
+      eventHandlers:
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleWrappedTokenVaultBeaconOwnershipTransferred
+        - event: Upgraded(indexed address)
+          handler: handleWrappedTokenVaultBeaconUpgraded
+      file: ./src/wrappedtokenvaultbeacon.ts
+  - kind: ethereum/contract
+    name: OrchestratorBeacon
+    network: robinhood
+    source:
+      abi: UpgradeableBeacon
+      address: "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613"
+      startBlock: 59728819
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+        - OwnershipTransfer
+        - BeaconUpgrade
+      abis:
+        - name: UpgradeableBeacon
+          file: ./abis/UpgradeableBeacon.json
+      eventHandlers:
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleOrchestratorBeaconOwnershipTransferred
+        - event: Upgraded(indexed address)
+          handler: handleOrchestratorBeaconUpgraded
+      file: ./src/orchestratorbeacon.ts
+  - kind: ethereum/contract
+    name: ReceiptVaultDeployer
+    network: robinhood
+    source:
+      abi: OffchainAssetReceiptVaultBeaconSetDeployer
+      address: "0xd64246e6b25F745f005E6233e050C9B879E660Dc"
+      startBlock: 59711968
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+      abis:
+        - name: OffchainAssetReceiptVaultBeaconSetDeployer
+          file: ./abis/OffchainAssetReceiptVaultBeaconSetDeployer.json
+        - name: UpgradeableBeacon
+          file: ./abis/UpgradeableBeacon.json
+      eventHandlers:
+        - event: Deployment(address,address,address)
+          handler: handleReceiptVaultDeployment
+      file: ./src/receiptvaultdeployer.ts
+  - kind: ethereum/contract
+    name: OrchestratorDeployer
+    network: robinhood
+    source:
+      abi: ST0xOrchestratorBeaconSetDeployer
+      address: "0x945D0Faf6f268e805246907507ef1044e70E75D7"
+      startBlock: 59728819
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+      abis:
+        - name: ST0xOrchestratorBeaconSetDeployer
+          file: ./abis/ST0xOrchestratorBeaconSetDeployer.json
+      eventHandlers:
+        - event: Deployment(indexed address,indexed address,address)
+          handler: handleOrchestratorDeployment
+      file: ./src/orchestratordeployer.ts
+templates:
+  - kind: ethereum/contract
+    name: ReceiptVault
+    network: robinhood
+    source:
+      abi: Ownable
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+        - OwnershipTransfer
+      abis:
+        - name: Ownable
+          file: ./abis/Ownable.json
+      eventHandlers:
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleReceiptVaultOwnershipTransferred
+      file: ./src/receiptvault.ts
+  - kind: ethereum/contract
+    name: Orchestrator
+    network: robinhood
+    source:
+      abi: AccessControl
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+        - Role
+        - RoleHolder
+        - RoleGrant
+        - RoleAdminChange
+      abis:
+        - name: AccessControl
+          file: ./abis/AccessControl.json
+      eventHandlers:
+        - event: RoleGranted(indexed bytes32,indexed address,indexed address)
+          handler: handleOrchestratorRoleGranted
+        - event: RoleRevoked(indexed bytes32,indexed address,indexed address)
+          handler: handleOrchestratorRoleRevoked
+        - event: RoleAdminChanged(indexed bytes32,indexed bytes32,indexed bytes32)
+          handler: handleOrchestratorRoleAdminChanged
+      file: ./src/orchestrator.ts
+  - kind: ethereum/contract
+    name: VaultBeacon
+    network: robinhood
+    source:
+      abi: UpgradeableBeacon
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+        - OwnershipTransfer
+        - BeaconUpgrade
+      abis:
+        - name: UpgradeableBeacon
+          file: ./abis/UpgradeableBeacon.json
+      eventHandlers:
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleVaultBeaconOwnershipTransferred
+        - event: Upgraded(indexed address)
+          handler: handleVaultBeaconUpgraded
+      file: ./src/vaultbeacon.ts
