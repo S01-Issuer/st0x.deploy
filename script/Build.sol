@@ -33,6 +33,7 @@ import {ST0xOrchestratorBeaconSetDeployer} from "../src/concrete/deploy/ST0xOrch
 import {St0xAttestSubParser} from "../src/concrete/St0xAttestSubParser.sol";
 import {LibSt0xAttestSubParser, PARSE_META_BUILD_DEPTH} from "../src/lib/LibSt0xAttestSubParser.sol";
 import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
+import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 
 /// One contract's generated deploy pins.
 /// @param contractName The snapshot's filename without `.sol`, which
@@ -149,6 +150,11 @@ contract Build is BuildScript {
     /// @inheritdoc BuildScript
     function regenerateSnapshots() internal override {
         LibRainDeploy.etchZoltuFactory(vm);
+        // `ST0xOrchestratorBeaconSetDeployer`'s constructor hands its beacon
+        // to the active chain's governance timelock and reverts on a chain
+        // without one. The bytecode is the same on every chain, so build on
+        // one that has a timelock.
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
 
         // One pass over `generatedContracts()`, in its order, which is why the
         // list is in build order: each entry's creation code is read after the

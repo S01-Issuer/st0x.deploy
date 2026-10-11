@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.16.2/src/Test.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
 import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.14/src/lib/LibExtrospectERC1167Proxy.sol";
+import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
 import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
@@ -182,9 +183,11 @@ contract LibProdDeployV4Test is Test {
     // --- ST0xOrchestratorBeaconSetDeployer (its constructor bakes a beacon
     // over the candidate orchestrator impl, so the current source compiles to
     // the candidate deployer. Needs the candidate orchestrator impl deployed
-    // first so the beacon's impl-has-code check passes). ---
+    // first so the beacon's impl-has-code check passes, and a chain with a
+    // governance timelock, which the constructor hands the beacon to). ---
 
     function testDeployAddressST0xOrchestratorBeaconSetDeployer() external {
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(type(ST0xOrchestrator).creationCode);
         address deployed = LibRainDeploy.deployZoltu(type(ST0xOrchestratorBeaconSetDeployer).creationCode);
@@ -683,6 +686,7 @@ contract LibProdDeployV4Test is Test {
     /// Its constructor builds an `UpgradeableBeacon` over the orchestrator impl,
     /// so the impl is deployed (frozen, at its candidate address) first.
     function testFrozenRedeployST0xOrchestratorBeaconSetDeployer_CANDIDATE() external {
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_CANDIDATE);
         _assertFrozenRedeploy(

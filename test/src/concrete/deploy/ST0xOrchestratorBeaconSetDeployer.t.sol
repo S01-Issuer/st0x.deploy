@@ -78,13 +78,25 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
         return new ST0xOrchestratorBeaconSetDeployer();
     }
 
-    /// The no-arg constructor bakes the beacon owner + implementation from
-    /// `LibProdDeployV4`.
-    function testConstructorSuccess() external {
+    /// The no-arg constructor bakes the beacon implementation from
+    /// `LibProdDeployV4` and hands the beacon to the chain's timelock: the
+    /// deploy key never owns it.
+    function testFuzzConstructorSuccess(uint256 chainIndex) external {
+        (uint256 chainId, address timelock) = _chain(chainIndex);
+        vm.chainId(chainId);
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
         IBeacon beacon = d.iOrchestratorBeacon();
         assertEq(beacon.implementation(), LibProdDeployV4.ST0X_ORCHESTRATOR_CANDIDATE, "beacon impl");
-        assertEq(Ownable(address(beacon)).owner(), LibProdDeployV4.BEACON_INITIAL_OWNER, "beacon owner");
+        assertEq(Ownable(address(beacon)).owner(), timelock, "beacon owner");
+        assertTrue(timelock != LibProdDeployV4.BEACON_INITIAL_OWNER, "not the deploy key");
+    }
+
+    /// A chain with no pinned timelock has no beacon owner, so the deployer
+    /// cannot be constructed there.
+    function testConstructorRevertsOnAChainWithNoTimelock() external {
+        vm.chainId(1337);
+        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForGovernanceTimelock.selector, uint256(1337)));
+        new ST0xOrchestratorBeaconSetDeployer();
     }
 
     /// The chains with a pinned governance timelock, each paired with it.
@@ -166,8 +178,8 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
         address orchestrator = d.deploy();
 
         UpgradedImpl newImpl = new UpgradedImpl();
-        // The beacon owner is the fixed production owner, not a deploy param.
-        vm.prank(LibProdDeployV4.BEACON_INITIAL_OWNER);
+        // The beacon owner is the chain's timelock, not a deploy param.
+        vm.prank(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
         UpgradeableBeacon(address(beacon)).upgradeTo(address(newImpl));
 
         // Call through the proxy proves live delegation to the new impl.
@@ -175,7 +187,7 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     }
 
     function testFuzzBeaconUpgradeUnauthorised(address notOwner) external {
-        vm.assume(notOwner != LibProdDeployV4.BEACON_INITIAL_OWNER && notOwner != address(0));
+        vm.assume(notOwner != LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK && notOwner != address(0));
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
         IBeacon beacon = d.iOrchestratorBeacon();
         UpgradedImpl newImpl = new UpgradedImpl();
