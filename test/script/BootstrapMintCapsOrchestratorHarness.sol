@@ -11,6 +11,14 @@ import {
     MintCapEntry
 } from "../../script/20261011-bootstrap-mint-caps-orchestrator.s.sol";
 
+/// @notice `configure` was given address zero for the minter, which would
+/// seat a minter cap on, and grant `MINT_ROLE`/`BURN_ROLE` to, no account.
+error HarnessMinterZero();
+
+/// @notice `configure` was given address zero for the recipient, which would
+/// seat a recipient cap on no account.
+error HarnessRecipientZero();
+
 /// @notice The bootstrap script with a config the test sets: one account
 /// that mints and burns, one recipient, one policy for both caps.
 contract BootstrapMintCapsOrchestratorHarness is BootstrapMintCapsOrchestrator {
@@ -23,6 +31,8 @@ contract BootstrapMintCapsOrchestratorHarness is BootstrapMintCapsOrchestrator {
     function configure(EvaluableV4 memory weighting, address minter, address recipient, Float capacity, Float leakRate)
         external
     {
+        if (minter == address(0)) revert HarnessMinterZero();
+        if (recipient == address(0)) revert HarnessRecipientZero();
         sWeighting = weighting;
         sMinter = minter;
         sRecipient = recipient;
