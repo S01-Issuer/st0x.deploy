@@ -175,7 +175,6 @@ contract ST0xOrchestrator is
     /// that its holder may turn it.
     bytes32 public constant EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN");
     /// @notice EIP-712 typehash for a recipient's mint authorisation.
-    /// @notice EIP-712 typehash for a recipient's mint authorisation.
     bytes32 public constant MINT_AUTH_TYPEHASH =
         keccak256("MintAuth(address token,address recipient,uint256 amount,bytes32 nonce)");
 
