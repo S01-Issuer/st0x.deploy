@@ -8,7 +8,7 @@ import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFl
 import {SignedContextV1} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
 
 import {LibTestDotrain, DotrainBinding} from "test/lib/LibTestDotrain.sol";
-import {IST0xOrchestratorV1} from "src/interface/IST0xOrchestratorV1.sol";
+import {IST0xOrchestratorV2} from "src/interface/IST0xOrchestratorV2.sol";
 import {ST0xOrchestratorMintWeightingFixture} from "test/src/concrete/ST0xOrchestratorMintWeightingFixture.sol";
 
 /// @title MintWeightingTest
@@ -369,7 +369,7 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
             _refused(
                 ANY_TOKEN,
                 _quorumFor("X"),
-                abi.encodeWithSelector(IST0xOrchestratorV1.MintSymbolTooLong.selector, ANY_TOKEN, lengths[i])
+                abi.encodeWithSelector(IST0xOrchestratorV2.MintSymbolTooLong.selector, ANY_TOKEN, lengths[i])
             );
         }
     }

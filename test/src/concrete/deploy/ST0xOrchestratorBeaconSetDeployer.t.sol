@@ -16,7 +16,7 @@ import {LibTestMigrationRegistry} from "../../lib/LibTestMigrationRegistry.sol";
 import {IAddressRegistryV1} from "rain-deploy-0.1.11/src/interface/IAddressRegistryV1.sol";
 import {IST0xVaultBeaconSet} from "../../../../src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
-import {IST0xOrchestratorBeaconSetDeployerV1} from "../../../../src/interface/IST0xOrchestratorBeaconSetDeployerV1.sol";
+import {IST0xOrchestratorBeaconSetDeployerV2} from "../../../../src/interface/IST0xOrchestratorBeaconSetDeployerV2.sol";
 
 contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     // ERC-1967 beacon slot.
@@ -183,7 +183,7 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     function testSupportsInterface() external {
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
         // Both advertised interfaces report true.
-        assertTrue(d.supportsInterface(type(IST0xOrchestratorBeaconSetDeployerV1).interfaceId), "V1");
+        assertTrue(d.supportsInterface(type(IST0xOrchestratorBeaconSetDeployerV2).interfaceId), "V2");
         assertTrue(d.supportsInterface(type(IERC165).interfaceId), "IERC165");
         // ERC-165 requires the 0xffffffff sentinel to always be unsupported.
         assertFalse(d.supportsInterface(0xffffffff), "0xffffffff");
@@ -192,7 +192,7 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     /// No false positives: every interface id other than the two advertised
     /// ones must report unsupported.
     function testFuzzSupportsInterfaceRejectsOthers(bytes4 badInterfaceId) external {
-        vm.assume(badInterfaceId != type(IST0xOrchestratorBeaconSetDeployerV1).interfaceId);
+        vm.assume(badInterfaceId != type(IST0xOrchestratorBeaconSetDeployerV2).interfaceId);
         vm.assume(badInterfaceId != type(IERC165).interfaceId);
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
         assertFalse(d.supportsInterface(badInterfaceId), "no false positive");

@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {IERC20} from "@openzeppelin-contracts-5.6.1/token/ERC20/IERC20.sol";
 
-import {IST0xOrchestratorV1, MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV1.sol";
+import {IST0xOrchestratorV2, MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 import {SignedContextV1} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
 
@@ -36,7 +36,7 @@ contract BurnHappyPathTest is OrchestratorIntegrationTest {
         // The walk starts at 0 (skipping the zero-balance id 0) and ends one
         // past the consumed id, so the consumed range is [0, mintedId + 1).
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(MM, address(vault), amount, 0, mintedId + 1);
+        emit IST0xOrchestratorV2.Burned(MM, address(vault), amount, 0, mintedId + 1);
         vm.prank(MM);
         orchestrator.burn(address(vault), amount, "");
 

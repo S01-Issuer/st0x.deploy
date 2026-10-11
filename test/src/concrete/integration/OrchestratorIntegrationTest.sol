@@ -25,7 +25,7 @@ import {ST0xOrchestrator, ST0X_TOKEN_OWNER_SAFE_NAME} from "../../../../src/conc
 import {LibTestAddressRegistry} from "../../lib/LibTestAddressRegistry.sol";
 import {LibTestMigrationRegistry} from "../../lib/LibTestMigrationRegistry.sol";
 import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";
-import {MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV1.sol";
+import {MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {StoxCorporateActionsFacet} from "../../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {StoxReceiptVault} from "../../../../src/concrete/StoxReceiptVault.sol";
 import {

@@ -6,7 +6,7 @@ import {IERC20} from "@openzeppelin-contracts-5.6.1/token/ERC20/IERC20.sol";
 import {Unauthorized} from "rain-vats-0.2.1/src/interface/IAuthorizeV1.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
-import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV1.sol";
+import {IST0xOrchestratorV2, MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 import {SignedContextV1} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
 
@@ -60,7 +60,7 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
         // the nonce for the same recipient.
         MintAuthV1 memory replayAuth = _signedMintAuth(address(vault), eoa, 5e18, nonce, pk);
         vm.prank(MM);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.NonceReplayed.selector, eoa, nonce));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NonceReplayed.selector, eoa, nonce));
         orchestrator.mint(address(vault), eoa, 5e18, replayAuth, "", new SignedContextV1[](0));
 
         // The SAME nonce is still free for a different recipient.

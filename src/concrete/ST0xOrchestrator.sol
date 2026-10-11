@@ -42,7 +42,7 @@ import {Prerequisite, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.11/src/inter
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
 import {IST0xVaultBeaconSet} from "../interface/IST0xVaultBeaconSet.sol";
-import {IST0xOrchestratorV1, MintAuthV1, MintLimitV1, MintBucketV1, Digest} from "../interface/IST0xOrchestratorV1.sol";
+import {IST0xOrchestratorV2, MintAuthV1, MintLimitV1, MintBucketV1, Digest} from "../interface/IST0xOrchestratorV2.sol";
 import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
 
 // The address-registry name the orchestrator resolves its owner under: the
@@ -148,7 +148,7 @@ bytes32 constant ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES = keccak256("st0x.orche
 /// The bucket library refuses a zero charge and a negative charge at every
 /// fill. A weighting that evaluates to zero or below is a refused mint.
 contract ST0xOrchestrator is
-    IST0xOrchestratorV1,
+    IST0xOrchestratorV2,
     IInterpreterCallerV4,
     Initializable,
     AccessControlUpgradeable,
@@ -386,7 +386,7 @@ contract ST0xOrchestrator is
         }
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     function vaultLogicIsExpected() external view returns (bool) {
         IST0xVaultBeaconSet beaconSet =
             IST0xVaultBeaconSet(LibProdDeployCurrent.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
@@ -398,7 +398,7 @@ contract ST0xOrchestrator is
     //                       Mint / Burn entrypoints                      //
     // ------------------------------------------------------------------ //
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     // The nonce write in `_consumeMintAuth` follows the weighting's store
     // write and the recipient callback; `nonReentrant` holds the
     // ReentrancyGuardTransient lock for the whole entrypoint.
@@ -579,7 +579,7 @@ contract ST0xOrchestrator is
         _verifyRecipientAuth(to, _mintAuthDigest(token, to, amount, auth.nonce), auth.signature);
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     function burn(address token, uint256 amount, bytes calldata burnInfo)
         external
         onlyRole(BURN_ROLE)
@@ -638,7 +638,7 @@ contract ST0xOrchestrator is
     //                          Pointer management                        //
     // ------------------------------------------------------------------ //
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     /// @dev O(gap) hazard, both directions: set too low and the next `burn`
     /// pays one external rebased `balanceOf` per id to cross the gap in a
     /// single tx; set too high and held receipts behind the pointer are
@@ -657,7 +657,7 @@ contract ST0xOrchestrator is
     //                            Mint caps                               //
     // ------------------------------------------------------------------ //
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     /// @dev The bucket is settled at the outgoing rate up to now, then the new
     /// policy is written (`LibLeakyBucket.setPolicy`), so each rate is charged
     /// only for the time it was in force. A lowered capacity binds
@@ -667,7 +667,7 @@ contract ST0xOrchestrator is
         emit MinterMintLimitSet(minter, capacity, leakRate);
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     /// @dev Same terms as `setMinterMintLimit`: the bucket is settled at the
     /// outgoing rate, then the new policy is written.
     function setRecipientMintLimit(address recipient, Float capacity, Float leakRate)
@@ -678,7 +678,7 @@ contract ST0xOrchestrator is
         emit RecipientMintLimitSet(recipient, capacity, leakRate);
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     /// @dev Stored as given. Nothing is validated here: the bytecode is judged
     /// by the interpreter at the first mint. The buckets are left where the
     /// earlier mints put them; a new weighting changes what the next mint is
@@ -692,7 +692,7 @@ contract ST0xOrchestrator is
     //                           Emergency sweeps                         //
     // ------------------------------------------------------------------ //
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     function withdrawReceipt(address token, uint256 id, uint256 amount, address to)
         external
         onlyRole(EMERGENCY_ROLE)
@@ -703,7 +703,7 @@ contract ST0xOrchestrator is
         emit ReceiptsWithdrawn(token, to, id, amount);
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     /// @dev The receiver hooks accept all senders, so this is the recovery
     /// path for a foreign ERC-1155 that lands here.
     function sweepERC1155(address erc1155, uint256 id, uint256 amount, address to)
@@ -715,7 +715,7 @@ contract ST0xOrchestrator is
         emit ForeignERC1155Swept(erc1155, to, id, amount);
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     /// @dev Sweeps tStocks stranded on the orchestrator (sent directly to it,
     /// or rebase-truncation dust after fractional splits).
     function withdrawShares(address token, uint256 amount, address to) external onlyRole(EMERGENCY_ROLE) nonReentrant {
@@ -727,37 +727,37 @@ contract ST0xOrchestrator is
     //                              Views                                 //
     // ------------------------------------------------------------------ //
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     function nextBurnReceiptId(address token) external view returns (uint256) {
         return _main().nextBurnReceiptId[token];
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     function nonceUsed(address to, bytes32 nonce) external view returns (bool) {
         return _main().usedNonce[to][nonce];
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     function mintAuthDigest(address token, address to, uint256 amount, bytes32 nonce) external view returns (Digest) {
         return _mintAuthDigest(token, to, amount, nonce);
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     function minterMintLimit(address minter) external view returns (MintLimitV1 memory) {
         return _main().minterMintCaps[minter].limit;
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     function recipientMintLimit(address recipient) external view returns (MintLimitV1 memory) {
         return _main().recipientMintCaps[recipient].limit;
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     function mintWeighting() external view returns (EvaluableV4 memory) {
         return _main().mintWeighting;
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     /// @dev Zero for an unset limit, matching what a mint would do: an unset
     /// limit admits nothing.
     function mintHeadroom(address minter, address recipient) external view returns (Float) {
@@ -777,13 +777,13 @@ contract ST0xOrchestrator is
         return LibDecimalFloat.min(minterHeadroom, recipientHeadroom);
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     function minterMintLevel(address minter) external view returns (Float) {
         MintCapV1 storage cap = _main().minterMintCaps[minter];
         return LibLeakyBucket.levelAt(_bucket(cap.bucket, cap.limit), _now());
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     function recipientMintLevel(address recipient) external view returns (Float) {
         MintCapV1 storage cap = _main().recipientMintCaps[recipient];
         return LibLeakyBucket.levelAt(_bucket(cap.bucket, cap.limit), _now());
@@ -882,7 +882,7 @@ contract ST0xOrchestrator is
         override(AccessControlUpgradeable, IERC165)
         returns (bool)
     {
-        return interfaceId == type(IERC1155Receiver).interfaceId || interfaceId == type(IST0xOrchestratorV1).interfaceId
+        return interfaceId == type(IERC1155Receiver).interfaceId || interfaceId == type(IST0xOrchestratorV2).interfaceId
             || super.supportsInterface(interfaceId);
     }
 

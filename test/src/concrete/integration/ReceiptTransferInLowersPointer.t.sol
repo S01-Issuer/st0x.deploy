@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {IERC20} from "@openzeppelin-contracts-5.6.1/token/ERC20/IERC20.sol";
 
-import {IST0xOrchestratorV1, MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV1.sol";
+import {IST0xOrchestratorV2, MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 import {SignedContextV1} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
 
@@ -60,7 +60,7 @@ contract ReceiptTransferInLowersPointerTest is OrchestratorIntegrationTest {
         // at or above the pointer.
         vm.prank(MM);
         vm.expectRevert(
-            abi.encodeWithSelector(IST0xOrchestratorV1.InsufficientReceipts.selector, address(vault), 10e18)
+            abi.encodeWithSelector(IST0xOrchestratorV2.InsufficientReceipts.selector, address(vault), 10e18)
         );
         orchestrator.burn(address(vault), 10e18, "");
 
@@ -68,7 +68,7 @@ contract ReceiptTransferInLowersPointerTest is OrchestratorIntegrationTest {
         // recognises the genuine production receipt and lowers the pointer to
         // the arriving id — no setBurnIndex.
         vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV1.BurnIndexLowered(address(vault), highId + 1, lowId);
+        emit IST0xOrchestratorV2.BurnIndexLowered(address(vault), highId + 1, lowId);
         vm.prank(holder);
         receipt.safeTransferFrom(holder, address(orchestrator), lowId, 10e18, "");
         assertEq(orchestrator.nextBurnReceiptId(address(vault)), lowId, "pointer auto-lowered to the transferred id");

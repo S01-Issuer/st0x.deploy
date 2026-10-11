@@ -6,7 +6,7 @@ import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
-import {IST0xOrchestratorV1, MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV1.sol";
+import {IST0xOrchestratorV2, MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {IST0xVaultBeaconSet} from "../../../../src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
@@ -39,7 +39,7 @@ contract GuardHaltsAfterVaultBeaconUpgradeTest is OrchestratorIntegrationTest {
         vm.prank(MM);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.VaultLogicMismatch.selector, LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE, newImpl
+                IST0xOrchestratorV2.VaultLogicMismatch.selector, LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE, newImpl
             )
         );
         orchestrator.mint(address(vault), eoa, 1e18, auth, "", new SignedContextV1[](0));
@@ -47,7 +47,7 @@ contract GuardHaltsAfterVaultBeaconUpgradeTest is OrchestratorIntegrationTest {
         vm.prank(MM);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.VaultLogicMismatch.selector, LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE, newImpl
+                IST0xOrchestratorV2.VaultLogicMismatch.selector, LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE, newImpl
             )
         );
         orchestrator.burn(address(vault), 1e18, "");
