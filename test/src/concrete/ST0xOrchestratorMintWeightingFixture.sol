@@ -14,7 +14,7 @@ import {EvaluableV4, SignedContextV1} from "rainlang-interface-0.2.9/src/interfa
 import {ST0xOrchestrator} from "src/concrete/ST0xOrchestrator.sol";
 import {LibSafeInvariants} from "src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "src/lib/LibTimelockInvariants.sol";
-import {MintAuthV1} from "src/interface/IST0xOrchestratorV1.sol";
+import {MintAuthV1} from "src/interface/IST0xOrchestratorV2.sol";
 import {IST0xVaultBeaconSet} from "src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployV4} from "src/generated/LibProdDeployV4.sol";
 import {St0xAttestSubParserTest} from "test/src/concrete/St0xAttestSubParserTest.sol";

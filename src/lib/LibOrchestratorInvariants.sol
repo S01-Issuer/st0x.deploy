@@ -8,6 +8,7 @@ import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessContro
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibMigrationInvariant} from "./LibMigrationInvariant.sol";
 import {IST0xOrchestratorV1} from "../interface/IST0xOrchestratorV1.sol";
+import {IST0xOrchestratorV2} from "../interface/IST0xOrchestratorV2.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
@@ -227,7 +228,7 @@ library LibOrchestratorInvariants {
         if (instance.code.length == 0) {
             revert OrchestratorInstanceMissing(instance);
         }
-        if (!IST0xOrchestratorV1(instance).vaultLogicIsExpected()) {
+        if (!IST0xOrchestratorV2(instance).vaultLogicIsExpected()) {
             revert OrchestratorVaultLogicUnexpected(instance);
         }
 
@@ -296,8 +297,8 @@ library LibOrchestratorInvariants {
 }
 
 /// @dev Local mirror of the set deployer's `iOrchestratorBeacon` immutable
-/// getter; `IST0xOrchestratorBeaconSetDeployerV1` carries only the `deploy`
-/// surface.
+/// getter; `IST0xOrchestratorBeaconSetDeployerV1` and `V2` carry only the
+/// `deploy` surface.
 interface ST0xOrchestratorBeaconSetDeployerLike {
     function iOrchestratorBeacon() external view returns (IBeacon);
 }

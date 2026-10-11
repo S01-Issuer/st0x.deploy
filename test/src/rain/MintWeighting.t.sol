@@ -8,6 +8,7 @@ import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFl
 import {SignedContextV1} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
 
 import {LibTestDotrain, DotrainBinding} from "test/lib/LibTestDotrain.sol";
+import {IST0xOrchestratorV2} from "src/interface/IST0xOrchestratorV2.sol";
 import {ST0xOrchestratorMintWeightingFixture} from "test/src/concrete/ST0xOrchestratorMintWeightingFixture.sol";
 
 /// @title MintWeightingTest
@@ -348,6 +349,28 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
         for (uint256 i = 0; i < tickers.length; i++) {
             _mockToken(ANY_TOKEN, string.concat("t", tickers[i]));
             _accepted(ANY_TOKEN, _quorumFor(tickers[i]), _f(VALUE, 0));
+        }
+    }
+
+    /// A symbol longer than the 31 bytes an IntOrAString holds is refused by
+    /// the orchestrator before the expression runs, never truncated. Every
+    /// symbol here starts `tX` and is padded, so the 34-byte one truncated
+    /// mod 32 would be `tX` and mint against `X` attestations.
+    function testASymbolLongerThan31BytesIsRefused() external {
+        uint256[5] memory lengths = [uint256(32), 33, 34, 63, 64];
+        for (uint256 i = 0; i < lengths.length; i++) {
+            bytes memory symbol = new bytes(lengths[i]);
+            symbol[0] = "t";
+            symbol[1] = "X";
+            for (uint256 j = 2; j < symbol.length; j++) {
+                symbol[j] = "A";
+            }
+            _mockToken(ANY_TOKEN, string(symbol));
+            _refused(
+                ANY_TOKEN,
+                _quorumFor("X"),
+                abi.encodeWithSelector(IST0xOrchestratorV2.MintSymbolTooLong.selector, ANY_TOKEN, lengths[i])
+            );
         }
     }
 

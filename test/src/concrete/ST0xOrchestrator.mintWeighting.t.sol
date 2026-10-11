@@ -14,7 +14,7 @@ import {StateNamespace} from "rainlang-interface-0.2.9/src/interface/IInterprete
 import {LibNamespace} from "rainlang-interface-0.2.9/src/lib/ns/LibNamespace.sol";
 import {InvalidSignature} from "rainlang-interface-0.2.9/src/lib/caller/LibContext.sol";
 
-import {IST0xOrchestratorV1, MintAuthV1, Digest} from "src/interface/IST0xOrchestratorV1.sol";
+import {IST0xOrchestratorV2, MintAuthV1, Digest} from "src/interface/IST0xOrchestratorV2.sol";
 import {LibSt0xAttestContext} from "src/lib/LibSt0xAttestContext.sol";
 import {ST0xOrchestratorMintWeightingFixture} from "test/src/concrete/ST0xOrchestratorMintWeightingFixture.sol";
 
@@ -66,7 +66,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
     function testSetMintWeightingEmitsAndReads() external {
         EvaluableV4 memory evaluable = _weighting(PRICED);
         vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV1.MintWeightingSet(OWNER, evaluable);
+        emit IST0xOrchestratorV2.MintWeightingSet(OWNER, evaluable);
         vm.prank(OWNER);
         orchestrator.setMintWeighting(evaluable);
 
@@ -91,7 +91,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
         _setLimits(CAPACITY, CAPACITY);
         SignedContextV1[] memory attestations = _lead(TOKEN_SYMBOL, PRICE);
         _mockVaultMint(AMOUNT);
-        vm.expectRevert(IST0xOrchestratorV1.MintWeightingUnset.selector);
+        vm.expectRevert(IST0xOrchestratorV2.MintWeightingUnset.selector);
         vm.prank(MINTER);
         orchestrator.mint(
             TOKEN, address(recipient), AMOUNT, MintAuthV1({nonce: keccak256("unset"), signature: ""}), "", attestations
@@ -103,7 +103,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
     function testUnsetLimitIsRefusedBeforeTheWeighting() external {
         SignedContextV1[] memory attestations = _lead(TOKEN_SYMBOL, PRICE);
         _mockVaultMint(AMOUNT);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.MinterMintLimitUnset.selector, MINTER));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.MinterMintLimitUnset.selector, MINTER));
         vm.prank(MINTER);
         orchestrator.mint(
             TOKEN, address(recipient), AMOUNT, MintAuthV1({nonce: keccak256("a"), signature: ""}), "", attestations
@@ -112,7 +112,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
         vm.prank(OWNER);
         orchestrator.setMinterMintLimit(MINTER, CAPACITY, NO_LEAK);
         vm.expectRevert(
-            abi.encodeWithSelector(IST0xOrchestratorV1.RecipientMintLimitUnset.selector, address(recipient))
+            abi.encodeWithSelector(IST0xOrchestratorV2.RecipientMintLimitUnset.selector, address(recipient))
         );
         vm.prank(MINTER);
         orchestrator.mint(
@@ -126,7 +126,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
         _setWeighting(":ensure(1 \"x\");");
         SignedContextV1[] memory attestations = _lead(TOKEN_SYMBOL, PRICE);
         _mockVaultMint(AMOUNT);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.UnsupportedMintWeightingOutputs.selector, 0));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.UnsupportedMintWeightingOutputs.selector, 0));
         vm.prank(MINTER);
         orchestrator.mint(
             TOKEN, address(recipient), AMOUNT, MintAuthV1({nonce: keccak256("none"), signature: ""}), "", attestations
@@ -254,7 +254,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
 
         bytes memory reason = _mintReverts(AMOUNT, keccak256("over"), _lead(TOKEN_SYMBOL, PRICE));
         (address who, Float carriedCapacity, Float headroom, Float charge) =
-            _decodeCapExceeded(reason, IST0xOrchestratorV1.RecipientMintCapExceeded.selector);
+            _decodeCapExceeded(reason, IST0xOrchestratorV2.RecipientMintCapExceeded.selector);
         assertEq(who, address(recipient), "recipient");
         _assertFloatEq(carriedCapacity, capacity, "capacity");
         _assertFloatEq(headroom, _f(500 - VALUE, 0), "headroom after one mint");
@@ -270,7 +270,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
 
         bytes memory reason = _mintReverts(AMOUNT, keccak256("over"), _lead(TOKEN_SYMBOL, PRICE));
         (address who, Float carriedCapacity, Float headroom, Float charge) =
-            _decodeCapExceeded(reason, IST0xOrchestratorV1.MinterMintCapExceeded.selector);
+            _decodeCapExceeded(reason, IST0xOrchestratorV2.MinterMintCapExceeded.selector);
         assertEq(who, MINTER, "minter");
         _assertFloatEq(carriedCapacity, capacity, "capacity");
         _assertFloatEq(headroom, _f(500 - VALUE, 0), "headroom after one mint");

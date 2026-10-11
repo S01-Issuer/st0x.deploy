@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
 import {EvaluableV4, SignedContextV1} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
 
-import {MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV1.sol";
+import {MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 
 /// @title MintChargedByWeightingTest
