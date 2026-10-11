@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {IST0xOrchestratorV1} from "../../../src/interface/IST0xOrchestratorV1.sol";
+import {IST0xOrchestratorV2} from "../../../src/interface/IST0xOrchestratorV2.sol";
 
 /// @dev Malicious "vault" used to pin `burn`'s reentrancy lock. It plays
 /// every role the burn walk touches (ERC-20 shares, vault topology, ERC-1155
@@ -13,7 +13,7 @@ import {IST0xOrchestratorV1} from "../../../src/interface/IST0xOrchestratorV1.so
 /// outer burn then completes normally (the hook swallows the revert and
 /// returns true).
 contract ReentrantBurnVault {
-    IST0xOrchestratorV1 public immutable ORCHESTRATOR;
+    IST0xOrchestratorV2 public immutable ORCHESTRATOR;
 
     /// True once the nested `burn` attempt has been made.
     bool public reentryAttempted;
@@ -22,7 +22,7 @@ contract ReentrantBurnVault {
     /// Raw revert data of the nested `burn` call (empty if it succeeded).
     bytes public reentryRevertData;
 
-    constructor(IST0xOrchestratorV1 orchestrator) {
+    constructor(IST0xOrchestratorV2 orchestrator) {
         ORCHESTRATOR = orchestrator;
     }
 

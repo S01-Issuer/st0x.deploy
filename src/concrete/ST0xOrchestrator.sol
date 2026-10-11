@@ -20,7 +20,7 @@ import {ReceiptVault} from "rain-vats-0.2.1/src/abstract/ReceiptVault.sol";
 
 import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
 import {LibLeakyBucket, LeakyBucket} from "rain-lib-leakybucket-0.4.4/src/lib/LibLeakyBucket.sol";
-import {LibIntOrAString, IntOrAString} from "rain-intorastring-0.1.0/src/lib/LibIntOrAString.sol";
+import {LibIntOrAString, IntOrAString, LENGTH_MASK_V3} from "rain-intorastring-0.1.0/src/lib/LibIntOrAString.sol";
 import {
     IInterpreterCallerV4,
     EvaluableV4,
@@ -38,7 +38,7 @@ import {LibNamespace} from "rainlang-interface-0.2.9/src/lib/ns/LibNamespace.sol
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
 import {IST0xVaultBeaconSet} from "../interface/IST0xVaultBeaconSet.sol";
-import {IST0xOrchestratorV1, MintAuthV1, MintLimitV1, MintBucketV1, Digest} from "../interface/IST0xOrchestratorV1.sol";
+import {IST0xOrchestratorV2, MintAuthV1, MintLimitV1, MintBucketV1, Digest} from "../interface/IST0xOrchestratorV2.sol";
 import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
 import {LibTimelockInvariants} from "../lib/LibTimelockInvariants.sol";
 
@@ -59,17 +59,19 @@ bytes32 constant ORCHESTRATOR_EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN"
 /// vault-side `DEPOSIT` + `WITHDRAW` roles and owns every receipt; callers
 /// never touch one.
 ///
-/// **Roles.** Every role that does something has its own admin role, and
-/// `DEFAULT_ADMIN_ROLE` administers only those admin roles — it performs no
-/// operations at all.
-///  - `MINT_ADMIN_ROLE` — grant `MINT_ROLE`, set the mint caps and the mint
-///    weighting.
+/// **Roles.** Every role that does something has its own admin role, and each
+/// admin role administers both its operating role and itself (see
+/// `initialize`). `DEFAULT_ADMIN_ROLE` administers none of them and performs
+/// no operations at all.
+///  - `MINT_ADMIN_ROLE` — grant `MINT_ROLE` and `MINT_ADMIN_ROLE`, set the mint
+///    caps and the mint weighting.
 ///  - `MINT_ROLE` — call `mint`.
-///  - `BURN_ADMIN_ROLE` — grant `BURN_ROLE`. The burn side has no policy to
-///    set, so that is the whole of it.
+///  - `BURN_ADMIN_ROLE` — grant `BURN_ROLE` and `BURN_ADMIN_ROLE`. The burn side
+///    has no policy to set, so that is the whole of it.
 ///  - `BURN_ROLE` — call `burn`.
-///  - `EMERGENCY_ADMIN_ROLE` — grant `EMERGENCY_ROLE`, and nothing else.
-///    Saying who may hold the recovery key is not holding it.
+///  - `EMERGENCY_ADMIN_ROLE` — grant `EMERGENCY_ROLE` and
+///    `EMERGENCY_ADMIN_ROLE`, and nothing else. Saying who may hold the
+///    recovery key is not holding it.
 ///  - `EMERGENCY_ROLE` — recovery ops (`setBurnIndex`, `withdrawReceipt`,
 ///    `withdrawShares`, `sweepERC1155`). Deliberately separate from
 ///    mint/burn, so the key that can reposition pointers or sweep assets can
@@ -133,7 +135,7 @@ bytes32 constant ORCHESTRATOR_EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN"
 /// The bucket library refuses a zero charge and a negative charge at every
 /// fill. A weighting that evaluates to zero or below is a refused mint.
 contract ST0xOrchestrator is
-    IST0xOrchestratorV1,
+    IST0xOrchestratorV2,
     IInterpreterCallerV4,
     Initializable,
     AccessControlUpgradeable,
@@ -159,7 +161,6 @@ contract ST0xOrchestrator is
     /// `EMERGENCY_ROLE`: it says who may be handed the recovery key, never
     /// that its holder may turn it.
     bytes32 public constant EMERGENCY_ADMIN_ROLE = ORCHESTRATOR_EMERGENCY_ADMIN_ROLE;
-    /// @notice EIP-712 typehash for a recipient's mint authorisation.
     /// @notice EIP-712 typehash for a recipient's mint authorisation.
     bytes32 public constant MINT_AUTH_TYPEHASH =
         keccak256("MintAuth(address token,address recipient,uint256 amount,bytes32 nonce)");
@@ -295,7 +296,7 @@ contract ST0xOrchestrator is
         }
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     function vaultLogicIsExpected() external view returns (bool) {
         IST0xVaultBeaconSet beaconSet =
             IST0xVaultBeaconSet(LibProdDeployCurrent.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
@@ -307,7 +308,7 @@ contract ST0xOrchestrator is
     //                       Mint / Burn entrypoints                      //
     // ------------------------------------------------------------------ //
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     // The nonce write in `_consumeMintAuth` follows the weighting's store
     // write and the recipient callback; `nonReentrant` holds the
     // ReentrancyGuardTransient lock for the whole entrypoint.
@@ -367,9 +368,10 @@ contract ST0xOrchestrator is
 
     /// @dev Evaluate the mint weighting over this mint and its attestations
     /// and return the charge. Reverts `MintWeightingUnset` if no expression
-    /// has been set, `UnsupportedMintWeightingOutputs` if the expression left
-    /// nothing on its stack, and with whatever the expression itself reverts
-    /// with.
+    /// has been set, `MintSymbolTooLong` if the token's symbol is longer
+    /// than the 31 bytes an `IntOrAString` holds,
+    /// `UnsupportedMintWeightingOutputs` if the expression left nothing on its
+    /// stack, and with whatever the expression itself reverts with.
     ///
     /// The context is the grid of `LibSt0xAttestContext`: the token's symbol
     /// as an `IntOrAString`, and the amount as a `Float` in whole tokens per
@@ -387,8 +389,12 @@ contract ST0xOrchestrator is
         EvaluableV4 memory evaluable = $.mintWeighting;
         if (address(evaluable.interpreter) == address(0)) revert MintWeightingUnset();
 
+        string memory symbol = IERC20Metadata(token).symbol();
+        // `fromStringV3` keeps the length mod 32, so a longer symbol would
+        // encode as a different, shorter one.
+        if (bytes(symbol).length > LENGTH_MASK_V3) revert MintSymbolTooLong(token, bytes(symbol).length);
         bytes32[][] memory context = LibSt0xAttestContext.build(
-            bytes32(IntOrAString.unwrap(LibIntOrAString.fromStringV3(IERC20Metadata(token).symbol()))),
+            bytes32(IntOrAString.unwrap(LibIntOrAString.fromStringV3(symbol))),
             Float.unwrap(LibDecimalFloat.fromFixedDecimalLosslessPacked(amount, IERC20Metadata(token).decimals())),
             attestations
         );
@@ -483,7 +489,7 @@ contract ST0xOrchestrator is
         _verifyRecipientAuth(to, _mintAuthDigest(token, to, amount, auth.nonce), auth.signature);
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     function burn(address token, uint256 amount, bytes calldata burnInfo)
         external
         onlyRole(BURN_ROLE)
@@ -542,7 +548,7 @@ contract ST0xOrchestrator is
     //                          Pointer management                        //
     // ------------------------------------------------------------------ //
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     /// @dev O(gap) hazard, both directions: set too low and the next `burn`
     /// pays one external rebased `balanceOf` per id to cross the gap in a
     /// single tx; set too high and held receipts behind the pointer are
@@ -561,7 +567,7 @@ contract ST0xOrchestrator is
     //                            Mint caps                               //
     // ------------------------------------------------------------------ //
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     /// @dev The bucket is settled at the outgoing rate up to now, then the new
     /// policy is written (`LibLeakyBucket.setPolicy`), so each rate is charged
     /// only for the time it was in force. A lowered capacity binds
@@ -571,7 +577,7 @@ contract ST0xOrchestrator is
         emit MinterMintLimitSet(minter, capacity, leakRate);
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     /// @dev Same terms as `setMinterMintLimit`: the bucket is settled at the
     /// outgoing rate, then the new policy is written.
     function setRecipientMintLimit(address recipient, Float capacity, Float leakRate)
@@ -582,7 +588,7 @@ contract ST0xOrchestrator is
         emit RecipientMintLimitSet(recipient, capacity, leakRate);
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     /// @dev Stored as given. Nothing is validated here: the bytecode is judged
     /// by the interpreter at the first mint. The buckets are left where the
     /// earlier mints put them; a new weighting changes what the next mint is
@@ -596,7 +602,7 @@ contract ST0xOrchestrator is
     //                           Emergency sweeps                         //
     // ------------------------------------------------------------------ //
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     function withdrawReceipt(address token, uint256 id, uint256 amount, address to)
         external
         onlyRole(EMERGENCY_ROLE)
@@ -607,7 +613,7 @@ contract ST0xOrchestrator is
         emit ReceiptsWithdrawn(token, to, id, amount);
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     /// @dev The receiver hooks accept all senders, so this is the recovery
     /// path for a foreign ERC-1155 that lands here.
     function sweepERC1155(address erc1155, uint256 id, uint256 amount, address to)
@@ -619,7 +625,7 @@ contract ST0xOrchestrator is
         emit ForeignERC1155Swept(erc1155, to, id, amount);
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     /// @dev Sweeps tStocks stranded on the orchestrator (sent directly to it,
     /// or rebase-truncation dust after fractional splits).
     function withdrawShares(address token, uint256 amount, address to) external onlyRole(EMERGENCY_ROLE) nonReentrant {
@@ -631,37 +637,37 @@ contract ST0xOrchestrator is
     //                              Views                                 //
     // ------------------------------------------------------------------ //
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     function nextBurnReceiptId(address token) external view returns (uint256) {
         return _main().nextBurnReceiptId[token];
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     function nonceUsed(address to, bytes32 nonce) external view returns (bool) {
         return _main().usedNonce[to][nonce];
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     function mintAuthDigest(address token, address to, uint256 amount, bytes32 nonce) external view returns (Digest) {
         return _mintAuthDigest(token, to, amount, nonce);
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     function minterMintLimit(address minter) external view returns (MintLimitV1 memory) {
         return _main().minterMintCaps[minter].limit;
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     function recipientMintLimit(address recipient) external view returns (MintLimitV1 memory) {
         return _main().recipientMintCaps[recipient].limit;
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     function mintWeighting() external view returns (EvaluableV4 memory) {
         return _main().mintWeighting;
     }
 
-    /// @inheritdoc IST0xOrchestratorV1
+    /// @inheritdoc IST0xOrchestratorV2
     /// @dev Zero for an unset limit, matching what a mint would do: an unset
     /// limit admits nothing.
     function mintHeadroom(address minter, address recipient) external view returns (Float) {
@@ -679,6 +685,18 @@ contract ST0xOrchestrator is
         Float recipientHeadroom = LibLeakyBucket.headroomAt(_bucket(recipientCap.bucket, recipientLimit), timestamp);
 
         return LibDecimalFloat.min(minterHeadroom, recipientHeadroom);
+    }
+
+    /// @inheritdoc IST0xOrchestratorV2
+    function minterMintLevel(address minter) external view returns (Float) {
+        MintCapV1 storage cap = _main().minterMintCaps[minter];
+        return LibLeakyBucket.levelAt(_bucket(cap.bucket, cap.limit), _now());
+    }
+
+    /// @inheritdoc IST0xOrchestratorV2
+    function recipientMintLevel(address recipient) external view returns (Float) {
+        MintCapV1 storage cap = _main().recipientMintCaps[recipient];
+        return LibLeakyBucket.levelAt(_bucket(cap.bucket, cap.limit), _now());
     }
 
     // ------------------------------------------------------------------ //
@@ -774,7 +792,7 @@ contract ST0xOrchestrator is
         override(AccessControlUpgradeable, IERC165)
         returns (bool)
     {
-        return interfaceId == type(IERC1155Receiver).interfaceId || interfaceId == type(IST0xOrchestratorV1).interfaceId
+        return interfaceId == type(IERC1155Receiver).interfaceId || interfaceId == type(IST0xOrchestratorV2).interfaceId
             || super.supportsInterface(interfaceId);
     }
 

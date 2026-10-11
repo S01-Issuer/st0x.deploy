@@ -8,7 +8,7 @@ import {LibTimelockInvariants, UnsupportedChainForGovernanceTimelock} from "../.
 import {St0xAttestSubParserTest} from "./St0xAttestSubParserTest.sol";
 import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
 import {IST0xVaultBeaconSet} from "../../../src/interface/IST0xVaultBeaconSet.sol";
-import {IST0xOrchestratorV1, MintAuthV1, MintLimitV1, Digest} from "../../../src/interface/IST0xOrchestratorV1.sol";
+import {IST0xOrchestratorV2, MintAuthV1, MintLimitV1, Digest} from "../../../src/interface/IST0xOrchestratorV2.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {ICorporateActionsV1} from "../../../src/interface/ICorporateActionsV1.sol";
@@ -402,7 +402,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD)
+                IST0xOrchestratorV2.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD)
             )
         );
         new BeaconProxy(address(beacon), initData);
@@ -415,7 +415,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.ReceiptLogicMismatch.selector, EXPECTED_RECEIPT_IMPL, address(0xDEAD)
+                IST0xOrchestratorV2.ReceiptLogicMismatch.selector, EXPECTED_RECEIPT_IMPL, address(0xDEAD)
             )
         );
         new BeaconProxy(address(beacon), initData);
@@ -731,7 +731,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         vm.expectCall(TOKEN, abi.encodeWithSelector(IERC20.transfer.selector, eoa, amount));
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Minted(address(this), TOKEN, eoa, amount, nonce);
+        emit IST0xOrchestratorV2.Minted(address(this), TOKEN, eoa, amount, nonce);
         orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), info, new SignedContextV1[](0));
     }
 
@@ -749,7 +749,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         bytes memory sig = hex"deadbeef";
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Minted(address(this), TOKEN, address(recipient), amount, nonce);
+        emit IST0xOrchestratorV2.Minted(address(this), TOKEN, address(recipient), amount, nonce);
         orchestrator.mint(TOKEN, address(recipient), amount, _auth(sig, nonce), info, new SignedContextV1[](0));
     }
 
@@ -758,7 +758,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         Mock1271 recipient = new Mock1271(false);
         _allowRecipient(address(recipient));
         _prepMint(TOKEN, "");
-        vm.expectRevert(IST0xOrchestratorV1.BadRecipientSignature.selector);
+        vm.expectRevert(IST0xOrchestratorV2.BadRecipientSignature.selector);
         orchestrator.mint(
             TOKEN, address(recipient), 100, _auth(hex"deadbeef", keccak256("x")), "", new SignedContextV1[](0)
         );
@@ -779,7 +779,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         vm.expectCall(address(recipient), abi.encodeWithSelector(IMintRecipient.authorizeMint.selector, digest));
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Minted(address(this), TOKEN, address(recipient), amount, nonce);
+        emit IST0xOrchestratorV2.Minted(address(this), TOKEN, address(recipient), amount, nonce);
         orchestrator.mint(TOKEN, address(recipient), amount, _auth("", nonce), info, new SignedContextV1[](0));
     }
 
@@ -789,7 +789,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _allowRecipient(address(recipient));
         _prepMint(TOKEN, "");
         vm.expectRevert(
-            abi.encodeWithSelector(IST0xOrchestratorV1.RecipientCallbackRejected.selector, address(recipient))
+            abi.encodeWithSelector(IST0xOrchestratorV2.RecipientCallbackRejected.selector, address(recipient))
         );
         orchestrator.mint(TOKEN, address(recipient), 100, _auth("", keccak256("x")), "", new SignedContextV1[](0));
     }
@@ -806,13 +806,13 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
         bytes memory sig = _sign(wrongPk, TOKEN, eoa, amount, nonce);
 
-        vm.expectRevert(IST0xOrchestratorV1.BadRecipientSignature.selector);
+        vm.expectRevert(IST0xOrchestratorV2.BadRecipientSignature.selector);
         orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), "", new SignedContextV1[](0));
     }
 
     function testMintZeroAmountReverts() external {
         _grant(orchestrator.MINT_ROLE(), address(this));
-        vm.expectRevert(IST0xOrchestratorV1.ZeroAmount.selector);
+        vm.expectRevert(IST0xOrchestratorV2.ZeroAmount.selector);
         orchestrator.mint(TOKEN, BOB, 0, _auth("", bytes32(0)), "", new SignedContextV1[](0));
     }
 
@@ -835,7 +835,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockCapMint(orchestrator, TOKEN, amount);
 
         vm.prank(minter);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.SenderIsRecipient.selector, minter));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.SenderIsRecipient.selector, minter));
         orchestrator.mint(TOKEN, minter, amount, _auth("", keccak256("self")), "", new SignedContextV1[](0));
         assertFalse(orchestrator.nonceUsed(minter, keccak256("self")), "self-mint must not consume the nonce");
 
@@ -845,7 +845,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         orchestrator.setRecipientMintLimit(address(other), UNBOUNDED_CAPACITY, NO_LEAK);
         vm.prank(minter);
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Minted(minter, TOKEN, address(other), amount, keccak256("other"));
+        emit IST0xOrchestratorV2.Minted(minter, TOKEN, address(other), amount, keccak256("other"));
         orchestrator.mint(TOKEN, address(other), amount, _auth("", keccak256("other")), "", new SignedContextV1[](0));
     }
 
@@ -863,7 +863,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), "", new SignedContextV1[](0));
         assertTrue(orchestrator.nonceUsed(eoa, nonce));
 
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.NonceReplayed.selector, eoa, nonce));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NonceReplayed.selector, eoa, nonce));
         orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), "", new SignedContextV1[](0));
     }
 
@@ -884,7 +884,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
         // Same nonce, amount 600, correctly signed → still NonceReplayed.
         bytes memory sig = _sign(pk, TOKEN, eoa, 600, nonce);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.NonceReplayed.selector, eoa, nonce));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NonceReplayed.selector, eoa, nonce));
         orchestrator.mint(TOKEN, eoa, 600, _auth(sig, nonce), "", new SignedContextV1[](0));
     }
 
@@ -903,7 +903,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
 
         bytes memory sig = _sign(pk, TOKEN2, eoa, 500, nonce);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.NonceReplayed.selector, eoa, nonce));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NonceReplayed.selector, eoa, nonce));
         orchestrator.mint(TOKEN2, eoa, 500, _auth(sig, nonce), "", new SignedContextV1[](0));
     }
 
@@ -947,7 +947,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _makeGuardFailVault();
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD)
+                IST0xOrchestratorV2.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD)
             )
         );
         orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV1[](0));
@@ -958,7 +958,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _makeGuardFailReceipt();
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.ReceiptLogicMismatch.selector, EXPECTED_RECEIPT_IMPL, address(0xDEAD)
+                IST0xOrchestratorV2.ReceiptLogicMismatch.selector, EXPECTED_RECEIPT_IMPL, address(0xDEAD)
             )
         );
         orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV1[](0));
@@ -992,7 +992,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
     function testBurnZeroAmountReverts() external {
         _grant(orchestrator.BURN_ROLE(), address(this));
-        vm.expectRevert(IST0xOrchestratorV1.ZeroAmount.selector);
+        vm.expectRevert(IST0xOrchestratorV2.ZeroAmount.selector);
         orchestrator.burn(TOKEN, 0, "");
     }
 
@@ -1010,7 +1010,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
             abi.encodeWithSelector(ReceiptVault.mint.selector, amount, address(orchestrator), uint256(0), bytes("")),
             abi.encode(amount - 1)
         );
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.VaultAmountMismatch.selector, amount, amount - 1));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.VaultAmountMismatch.selector, amount, amount - 1));
         orchestrator.mint(TOKEN, eoa, amount, _auth(sig, keccak256("vam-mint")), "", new SignedContextV1[](0));
     }
 
@@ -1098,7 +1098,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         bytes memory sig = abi.encodePacked(r, s, v);
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Minted(address(this), TOKEN, eoa, amount, nonce);
+        emit IST0xOrchestratorV2.Minted(address(this), TOKEN, eoa, amount, nonce);
         orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), info, new SignedContextV1[](0));
     }
 
@@ -1159,7 +1159,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
             ),
             abi.encode(amount - 1)
         );
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.VaultAmountMismatch.selector, amount, amount - 1));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.VaultAmountMismatch.selector, amount, amount - 1));
         orchestrator.burn(TOKEN, amount, "");
     }
 
@@ -1168,7 +1168,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _makeGuardFailVault();
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD)
+                IST0xOrchestratorV2.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD)
             )
         );
         orchestrator.burn(TOKEN, 1, "");
@@ -1195,7 +1195,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
             )
         );
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, amount, 0, 1);
+        emit IST0xOrchestratorV2.Burned(address(this), TOKEN, amount, 0, 1);
         orchestrator.burn(TOKEN, amount, "");
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 1);
     }
@@ -1213,7 +1213,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockRedeem(TOKEN, amount, 2, "");
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, amount, 0, 3);
+        emit IST0xOrchestratorV2.Burned(address(this), TOKEN, amount, 0, 3);
         orchestrator.burn(TOKEN, amount, "");
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 3);
     }
@@ -1242,7 +1242,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
             )
         );
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, 300, 0, 2);
+        emit IST0xOrchestratorV2.Burned(address(this), TOKEN, 300, 0, 2);
         orchestrator.burn(TOKEN, 300, "");
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 2);
     }
@@ -1258,7 +1258,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockRedeem(TOKEN, 200, 0, "");
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, 200, 0, 0);
+        emit IST0xOrchestratorV2.Burned(address(this), TOKEN, 200, 0, 0);
         orchestrator.burn(TOKEN, 200, "");
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 0, "pointer parked at partially-drained id");
     }
@@ -1273,7 +1273,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockERC20(TOKEN);
         _mockHighwater(TOKEN, 0);
 
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.InsufficientReceipts.selector, TOKEN, amount));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.InsufficientReceipts.selector, TOKEN, amount));
         orchestrator.burn(TOKEN, amount, "");
 
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 1, "pointer untouched by reverted burn");
@@ -1293,7 +1293,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockBalance(RECEIPT_ADDR, 1, 30); // covers 30, leaves 20 unburnable
         _mockRedeem(TOKEN, 30, 1, "");
 
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.InsufficientReceipts.selector, TOKEN, 20));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.InsufficientReceipts.selector, TOKEN, 20));
         orchestrator.burn(TOKEN, amount, "");
 
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 0, "pointer untouched by reverted burn");
@@ -1329,7 +1329,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockRedeem(TOKEN, amount, startIdx, "");
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, amount, startIdx, startIdx + 1);
+        emit IST0xOrchestratorV2.Burned(address(this), TOKEN, amount, startIdx, startIdx + 1);
         orchestrator.burn(TOKEN, amount, "");
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), startIdx + 1);
     }
@@ -1341,12 +1341,12 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     function testFuzzSetBurnIndex(uint256 first, uint256 second) external {
         _grant(orchestrator.EMERGENCY_ROLE(), address(this));
         vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV1.BurnIndexSet(TOKEN, 0, first);
+        emit IST0xOrchestratorV2.BurnIndexSet(TOKEN, 0, first);
         orchestrator.setBurnIndex(TOKEN, first);
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), first);
 
         vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV1.BurnIndexSet(TOKEN, first, second);
+        emit IST0xOrchestratorV2.BurnIndexSet(TOKEN, first, second);
         orchestrator.setBurnIndex(TOKEN, second);
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), second);
     }
@@ -1364,7 +1364,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
             abi.encodeWithSelector(IERC1155.safeTransferFrom.selector, address(orchestrator), to, id, amount, "")
         );
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.ReceiptsWithdrawn(TOKEN, to, id, amount);
+        emit IST0xOrchestratorV2.ReceiptsWithdrawn(TOKEN, to, id, amount);
         orchestrator.withdrawReceipt(TOKEN, id, amount, to);
     }
 
@@ -1385,7 +1385,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         vm.mockCall(TOKEN, abi.encodeWithSelector(IERC20.transfer.selector), abi.encode(true));
         vm.expectCall(TOKEN, abi.encodeWithSelector(IERC20.transfer.selector, to, amount));
         vm.expectEmit(true, true, false, true, address(orchestrator));
-        emit IST0xOrchestratorV1.SharesWithdrawn(TOKEN, to, amount);
+        emit IST0xOrchestratorV2.SharesWithdrawn(TOKEN, to, amount);
         orchestrator.withdrawShares(TOKEN, amount, to);
     }
 
@@ -1399,7 +1399,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
             abi.encodeWithSelector(IERC1155.safeTransferFrom.selector, address(orchestrator), to, id, amount, "")
         );
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.ForeignERC1155Swept(erc1155, to, id, amount);
+        emit IST0xOrchestratorV2.ForeignERC1155Swept(erc1155, to, id, amount);
         orchestrator.sweepERC1155(erc1155, id, amount, to);
     }
 
@@ -1475,7 +1475,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockManager(RECEIPT_ADDR, TOKEN);
 
         vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV1.BurnIndexLowered(TOKEN, 10, 5);
+        emit IST0xOrchestratorV2.BurnIndexLowered(TOKEN, 10, 5);
         vm.prank(RECEIPT_ADDR);
         bytes4 ret = orchestrator.onERC1155Received(address(this), BOB, 5, 1, "");
         assertEq(ret, IERC1155Receiver.onERC1155Received.selector);
@@ -1528,9 +1528,9 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
         // Each qualifying id lowers in turn: 10 → 7 → 3.
         vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV1.BurnIndexLowered(TOKEN, 10, 7);
+        emit IST0xOrchestratorV2.BurnIndexLowered(TOKEN, 10, 7);
         vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV1.BurnIndexLowered(TOKEN, 7, 3);
+        emit IST0xOrchestratorV2.BurnIndexLowered(TOKEN, 7, 3);
         vm.prank(RECEIPT_ADDR);
         bytes4 ret = orchestrator.onERC1155BatchReceived(address(this), BOB, ids, values, "");
         assertEq(ret, IERC1155Receiver.onERC1155BatchReceived.selector);
@@ -1566,7 +1566,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         values[1] = 1;
 
         vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV1.BurnIndexLowered(TOKEN, 10, 6);
+        emit IST0xOrchestratorV2.BurnIndexLowered(TOKEN, 10, 6);
         vm.prank(RECEIPT_ADDR);
         bytes4 ret = orchestrator.onERC1155BatchReceived(address(this), BOB, ids, values, "");
         assertEq(ret, IERC1155Receiver.onERC1155BatchReceived.selector);
@@ -1577,7 +1577,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
     function testSupportsInterface() external view {
         assertTrue(orchestrator.supportsInterface(type(IERC1155Receiver).interfaceId));
-        assertTrue(orchestrator.supportsInterface(type(IST0xOrchestratorV1).interfaceId));
+        assertTrue(orchestrator.supportsInterface(type(IST0xOrchestratorV2).interfaceId));
         assertTrue(orchestrator.supportsInterface(type(IERC165).interfaceId));
         assertTrue(orchestrator.supportsInterface(type(IAccessControl).interfaceId));
         assertFalse(orchestrator.supportsInterface(0xffffffff), "erc165 sentinel");
@@ -1585,7 +1585,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
     function testFuzzSupportsInterfaceFalse(bytes4 interfaceId) external view {
         vm.assume(interfaceId != type(IERC1155Receiver).interfaceId);
-        vm.assume(interfaceId != type(IST0xOrchestratorV1).interfaceId);
+        vm.assume(interfaceId != type(IST0xOrchestratorV2).interfaceId);
         vm.assume(interfaceId != type(IERC165).interfaceId);
         vm.assume(interfaceId != type(IAccessControl).interfaceId);
         vm.assume(interfaceId != 0xffffffff);
@@ -1635,7 +1635,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
             )
         );
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, amount, 0, 1);
+        emit IST0xOrchestratorV2.Burned(address(this), TOKEN, amount, 0, 1);
         orchestrator.burn(TOKEN, amount, burnInfo);
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 1);
     }
@@ -1652,7 +1652,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _grant(orchestrator.BURN_ROLE(), address(attacker));
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(address(this), address(attacker), 100, 0, 0);
+        emit IST0xOrchestratorV2.Burned(address(this), address(attacker), 100, 0, 0);
         orchestrator.burn(address(attacker), 100, "");
 
         assertTrue(attacker.reentryAttempted(), "attacker must have attempted reentry");
@@ -1809,7 +1809,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
 
         _mockCapMint(fresh, TOKEN, 1e18);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.MinterMintLimitUnset.selector, MINTER_A));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.MinterMintLimitUnset.selector, MINTER_A));
         vm.prank(MINTER_A);
         fresh.mint(
             TOKEN, address(capRecipient), 1e18, _auth("", keccak256("minter-unset")), "", new SignedContextV1[](0)
@@ -1834,7 +1834,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
         _mockCapMint(fresh, TOKEN, 1e18);
         vm.expectRevert(
-            abi.encodeWithSelector(IST0xOrchestratorV1.RecipientMintLimitUnset.selector, address(capRecipient))
+            abi.encodeWithSelector(IST0xOrchestratorV2.RecipientMintLimitUnset.selector, address(capRecipient))
         );
         vm.prank(MINTER_A);
         fresh.mint(
@@ -1862,7 +1862,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockCapMint(orchestrator, TOKEN, 1e18);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), ZERO, headroom, _f(1e18)
+                IST0xOrchestratorV2.RecipientMintCapExceeded.selector, address(capRecipient), ZERO, headroom, _f(1e18)
             )
         );
         vm.prank(MINTER_A);
@@ -1873,7 +1873,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockCapMint(orchestrator, TOKEN2, 1e18);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), ZERO, headroom, _f(1e18)
+                IST0xOrchestratorV2.RecipientMintCapExceeded.selector, address(capRecipient), ZERO, headroom, _f(1e18)
             )
         );
         vm.prank(MINTER_B);
@@ -1901,7 +1901,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockCapMint(orchestrator, TOKEN, capacity + 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector,
+                IST0xOrchestratorV2.RecipientMintCapExceeded.selector,
                 address(capRecipient),
                 _f(capacity),
                 headroom,
@@ -1923,7 +1923,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockCapMint(orchestrator, TOKEN, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector,
+                IST0xOrchestratorV2.RecipientMintCapExceeded.selector,
                 address(capRecipient),
                 _f(capacity),
                 headroom,
@@ -1977,6 +1977,41 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _capMintTo(orchestrator, MINTER_A, TOKEN, address(capRecipient2), capacity, keccak256("recipient2-full"));
     }
 
+    /// Each bucket's level is readable on its own, leaked to the current
+    /// block: the minter's and the recipient's diverge once they leak at
+    /// different rates and another minter fills the recipient's, and
+    /// `mintHeadroom` only ever shows the smaller headroom of the two.
+    function testMintLevelReadsEachBucketLeakedToNow() external {
+        _grantMintOn(orchestrator, MINTER_A);
+        _grantMintOn(orchestrator, MINTER_B);
+        vm.startPrank(OWNER);
+        orchestrator.setMinterMintLimit(MINTER_A, _f(10e18), _f(1e18));
+        orchestrator.setRecipientMintLimit(address(capRecipient), _f(20e18), _f(2e18));
+        vm.stopPrank();
+
+        _assertFloatEq(orchestrator.minterMintLevel(MINTER_A), ZERO, "minter starts empty");
+        _assertFloatEq(orchestrator.recipientMintLevel(address(capRecipient)), ZERO, "recipient starts empty");
+
+        _capMint(orchestrator, MINTER_A, TOKEN, 6e18, keccak256("level-a"));
+        _assertFloatEq(orchestrator.minterMintLevel(MINTER_A), _f(6e18), "minter filled");
+        _assertFloatEq(orchestrator.recipientMintLevel(address(capRecipient)), _f(6e18), "recipient filled");
+
+        vm.warp(block.timestamp + 2);
+        _assertFloatEq(orchestrator.minterMintLevel(MINTER_A), _f(4e18), "minter leaks 1e18 a second");
+        _assertFloatEq(
+            orchestrator.recipientMintLevel(address(capRecipient)), _f(2e18), "recipient leaks 2e18 a second"
+        );
+
+        _capMint(orchestrator, MINTER_B, TOKEN, 1e18, keccak256("level-b"));
+        _assertFloatEq(orchestrator.minterMintLevel(MINTER_A), _f(4e18), "B's mint leaves A's bucket");
+        _assertFloatEq(orchestrator.minterMintLevel(MINTER_B), _f(1e18), "B's own bucket");
+        _assertFloatEq(orchestrator.recipientMintLevel(address(capRecipient)), _f(3e18), "recipient takes both minters");
+
+        // A never-filled bucket reads zero, set or not.
+        _assertFloatEq(orchestrator.minterMintLevel(address(0xDEAD)), ZERO, "unset minter");
+        _assertFloatEq(orchestrator.recipientMintLevel(address(0xDEAD)), ZERO, "unset recipient");
+    }
+
     /// Nothing is metered per token: a recipient's one bucket is a plain sum
     /// of amounts across tokens. `6e18` of one token and `4e18` of another
     /// spend a `10e18` recipient cap exactly, and the next unit of either is
@@ -1994,7 +2029,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockCapMint(orchestrator, TOKEN, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), _f(10e18), headroom, _f(1)
+                IST0xOrchestratorV2.RecipientMintCapExceeded.selector, address(capRecipient), _f(10e18), headroom, _f(1)
             )
         );
         vm.prank(MINTER_A);
@@ -2005,7 +2040,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockCapMint(orchestrator, TOKEN2, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), _f(10e18), headroom, _f(1)
+                IST0xOrchestratorV2.RecipientMintCapExceeded.selector, address(capRecipient), _f(10e18), headroom, _f(1)
             )
         );
         vm.prank(MINTER_A);
@@ -2039,7 +2074,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockCapMint(orchestrator, TOKEN, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector,
+                IST0xOrchestratorV2.RecipientMintCapExceeded.selector,
                 address(capRecipient),
                 _f(10e18),
                 headroomA,
@@ -2054,7 +2089,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockCapMint(orchestrator, TOKEN, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector,
+                IST0xOrchestratorV2.RecipientMintCapExceeded.selector,
                 address(capRecipient),
                 _f(10e18),
                 headroomB,
@@ -2105,7 +2140,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockCapMint(orchestrator, TOKEN, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.MinterMintCapExceeded.selector, MINTER_A, _f(minterCapacity), headroom, _f(1)
+                IST0xOrchestratorV2.MinterMintCapExceeded.selector, MINTER_A, _f(minterCapacity), headroom, _f(1)
             )
         );
         vm.prank(MINTER_A);
@@ -2135,7 +2170,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockCapMint(orchestrator, TOKEN, leaked + 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector,
+                IST0xOrchestratorV2.RecipientMintCapExceeded.selector,
                 address(capRecipient),
                 _f(capacity),
                 headroom,
@@ -2174,7 +2209,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockCapMint(orchestrator, TOKEN, leaked + 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.MinterMintCapExceeded.selector,
+                IST0xOrchestratorV2.MinterMintCapExceeded.selector,
                 MINTER_A,
                 _f(minterCapacity),
                 headroom,
@@ -2236,7 +2271,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockCapMint(orchestrator, TOKEN, capacity + 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector,
+                IST0xOrchestratorV2.RecipientMintCapExceeded.selector,
                 address(capRecipient),
                 _f(capacity),
                 headroom,
@@ -2288,7 +2323,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockCapMint(orchestrator, TOKEN, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), _f(2e18), headroom, _f(1)
+                IST0xOrchestratorV2.RecipientMintCapExceeded.selector, address(capRecipient), _f(2e18), headroom, _f(1)
             )
         );
         vm.prank(MINTER_A);
@@ -2312,7 +2347,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockCapMint(orchestrator, TOKEN, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.MinterMintCapExceeded.selector, MINTER_A, _f(2e18), headroom, _f(1)
+                IST0xOrchestratorV2.MinterMintCapExceeded.selector, MINTER_A, _f(2e18), headroom, _f(1)
             )
         );
         vm.prank(MINTER_A);
@@ -2426,7 +2461,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockCapMint(orchestrator, TOKEN, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.MinterMintCapExceeded.selector, MINTER_A, _f(capacity), headroom, _f(1)
+                IST0xOrchestratorV2.MinterMintCapExceeded.selector, MINTER_A, _f(capacity), headroom, _f(1)
             )
         );
         vm.prank(MINTER_A);
@@ -2448,7 +2483,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     {
         Float capacity = _negative(coefficient, exponent);
         MintLimitV1 memory before = orchestrator.minterMintLimit(MINTER_A);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.NegativeMintLimitCapacity.selector, capacity));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NegativeMintLimitCapacity.selector, capacity));
         vm.prank(OWNER);
         orchestrator.setMinterMintLimit(MINTER_A, capacity, Float.wrap(leakRateWord));
         assertEq(abi.encode(orchestrator.minterMintLimit(MINTER_A)), abi.encode(before), "minter limit unchanged");
@@ -2462,7 +2497,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     ) external {
         Float leakRate = _negative(coefficient, exponent);
         MintLimitV1 memory before = orchestrator.minterMintLimit(MINTER_A);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.NegativeMintLimitLeakRate.selector, leakRate));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NegativeMintLimitLeakRate.selector, leakRate));
         vm.prank(OWNER);
         orchestrator.setMinterMintLimit(MINTER_A, _nonNegative(capacityCoefficient, capacityExponent), leakRate);
         assertEq(abi.encode(orchestrator.minterMintLimit(MINTER_A)), abi.encode(before), "minter limit unchanged");
@@ -2473,7 +2508,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     {
         Float capacity = _negative(coefficient, exponent);
         MintLimitV1 memory before = orchestrator.recipientMintLimit(address(capRecipient));
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.NegativeMintLimitCapacity.selector, capacity));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NegativeMintLimitCapacity.selector, capacity));
         vm.prank(OWNER);
         orchestrator.setRecipientMintLimit(address(capRecipient), capacity, Float.wrap(leakRateWord));
         assertEq(
@@ -2491,7 +2526,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     ) external {
         Float leakRate = _negative(coefficient, exponent);
         MintLimitV1 memory before = orchestrator.recipientMintLimit(address(capRecipient));
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.NegativeMintLimitLeakRate.selector, leakRate));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NegativeMintLimitLeakRate.selector, leakRate));
         vm.prank(OWNER);
         orchestrator.setRecipientMintLimit(
             address(capRecipient), _nonNegative(capacityCoefficient, capacityExponent), leakRate
@@ -2573,7 +2608,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         Float capacity = _nonNegative(capacityCoefficient, capacityExponent);
         Float leakRate = _nonNegative(leakRateCoefficient, leakRateExponent);
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.MinterMintLimitSet(MINTER_A, capacity, leakRate);
+        emit IST0xOrchestratorV2.MinterMintLimitSet(MINTER_A, capacity, leakRate);
         vm.prank(OWNER);
         orchestrator.setMinterMintLimit(MINTER_A, capacity, leakRate);
 
@@ -2593,7 +2628,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         Float capacity = _nonNegative(capacityCoefficient, capacityExponent);
         Float leakRate = _nonNegative(leakRateCoefficient, leakRateExponent);
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.RecipientMintLimitSet(recipient, capacity, leakRate);
+        emit IST0xOrchestratorV2.RecipientMintLimitSet(recipient, capacity, leakRate);
         vm.prank(OWNER);
         orchestrator.setRecipientMintLimit(recipient, capacity, leakRate);
 
@@ -2673,7 +2708,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockCapMint(orchestrator, TOKEN2, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.MinterMintCapExceeded.selector, MINTER_A, _f(200e18), headroom, _f(1)
+                IST0xOrchestratorV2.MinterMintCapExceeded.selector, MINTER_A, _f(200e18), headroom, _f(1)
             )
         );
         vm.prank(MINTER_A);
@@ -2700,7 +2735,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _assertFloatEq(headroom, ZERO, "a zero capacity offers nothing");
         _mockCapMint(fresh, TOKEN, 1);
         vm.expectRevert(
-            abi.encodeWithSelector(IST0xOrchestratorV1.MinterMintCapExceeded.selector, MINTER_A, ZERO, headroom, _f(1))
+            abi.encodeWithSelector(IST0xOrchestratorV2.MinterMintCapExceeded.selector, MINTER_A, ZERO, headroom, _f(1))
         );
         vm.prank(MINTER_A);
         fresh.mint(TOKEN, address(capRecipient), 1, _auth("", keccak256("zero-minter")), "", new SignedContextV1[](0));
@@ -2725,7 +2760,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _mockCapMint(fresh, TOKEN, 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.RecipientMintCapExceeded.selector, address(capRecipient), ZERO, headroom, _f(1)
+                IST0xOrchestratorV2.RecipientMintCapExceeded.selector, address(capRecipient), ZERO, headroom, _f(1)
             )
         );
         vm.prank(MINTER_A);

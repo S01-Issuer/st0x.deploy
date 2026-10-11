@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {IST0xVaultBeaconSet} from "../../../../src/interface/IST0xVaultBeaconSet.sol";
-import {MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV1.sol";
+import {MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 import {SignedContextV1} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
