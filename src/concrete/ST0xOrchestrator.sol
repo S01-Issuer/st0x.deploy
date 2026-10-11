@@ -20,7 +20,7 @@ import {ReceiptVault} from "rain-vats-0.2.1/src/abstract/ReceiptVault.sol";
 
 import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
 import {LibLeakyBucket, LeakyBucket} from "rain-lib-leakybucket-0.4.4/src/lib/LibLeakyBucket.sol";
-import {LibIntOrAString, IntOrAString} from "rain-intorastring-0.1.0/src/lib/LibIntOrAString.sol";
+import {LibIntOrAString, IntOrAString, LENGTH_MASK_V3} from "rain-intorastring-0.1.0/src/lib/LibIntOrAString.sol";
 import {
     IInterpreterCallerV4,
     EvaluableV4,
@@ -458,9 +458,10 @@ contract ST0xOrchestrator is
 
     /// @dev Evaluate the mint weighting over this mint and its attestations
     /// and return the charge. Reverts `MintWeightingUnset` if no expression
-    /// has been set, `UnsupportedMintWeightingOutputs` if the expression left
-    /// nothing on its stack, and with whatever the expression itself reverts
-    /// with.
+    /// has been set, `MintSymbolTooLong` if the token's symbol is longer
+    /// than the 31 bytes an `IntOrAString` holds,
+    /// `UnsupportedMintWeightingOutputs` if the expression left nothing on its
+    /// stack, and with whatever the expression itself reverts with.
     ///
     /// The context is the grid of `LibSt0xAttestContext`: the token's symbol
     /// as an `IntOrAString`, and the amount as a `Float` in whole tokens per
@@ -478,8 +479,12 @@ contract ST0xOrchestrator is
         EvaluableV4 memory evaluable = $.mintWeighting;
         if (address(evaluable.interpreter) == address(0)) revert MintWeightingUnset();
 
+        string memory symbol = IERC20Metadata(token).symbol();
+        // `fromStringV3` keeps the length mod 32, so a longer symbol would
+        // encode as a different, shorter one.
+        if (bytes(symbol).length > LENGTH_MASK_V3) revert MintSymbolTooLong(token, bytes(symbol).length);
         bytes32[][] memory context = LibSt0xAttestContext.build(
-            bytes32(IntOrAString.unwrap(LibIntOrAString.fromStringV3(IERC20Metadata(token).symbol()))),
+            bytes32(IntOrAString.unwrap(LibIntOrAString.fromStringV3(symbol))),
             Float.unwrap(LibDecimalFloat.fromFixedDecimalLosslessPacked(amount, IERC20Metadata(token).decimals())),
             attestations
         );
