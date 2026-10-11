@@ -16,7 +16,7 @@ import {
     NODE_NONE
 } from "../lib/LibCorporateActionNode.sol";
 import {LibStockSplit} from "../lib/LibStockSplit.sol";
-import {Float, LibDecimalFloat} from "rain-math-float-0.2.22/src/lib/LibDecimalFloat.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.2.45/src/lib/LibDecimalFloat.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.4/src/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVault} from "rain-vats-0.2.4/src/concrete/vault/OffchainAssetReceiptVault.sol";
 
