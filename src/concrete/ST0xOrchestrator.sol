@@ -42,6 +42,16 @@ import {IST0xOrchestratorV1, MintAuthV1, MintLimitV1, MintBucketV1, Digest} from
 import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
 import {LibTimelockInvariants} from "../lib/LibTimelockInvariants.sol";
 
+/// @dev The orchestrator's role ids at file level, so a library can name them:
+/// a contract's `public constant` is not reachable as `ST0xOrchestrator.X`.
+/// `ST0xOrchestrator` exposes each as its `*_ROLE` getter.
+bytes32 constant ORCHESTRATOR_MINT_ROLE = keccak256("MINT");
+bytes32 constant ORCHESTRATOR_MINT_ADMIN_ROLE = keccak256("MINT_ADMIN");
+bytes32 constant ORCHESTRATOR_BURN_ROLE = keccak256("BURN");
+bytes32 constant ORCHESTRATOR_BURN_ADMIN_ROLE = keccak256("BURN_ADMIN");
+bytes32 constant ORCHESTRATOR_EMERGENCY_ROLE = keccak256("EMERGENCY");
+bytes32 constant ORCHESTRATOR_EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN");
+
 /// @title ST0xOrchestrator
 /// @notice Singleton mint/burn proxy for the ST0x receipt-vault set. One
 /// instance (behind a beacon proxy) serves every token; all per-token state
@@ -134,21 +144,21 @@ contract ST0xOrchestrator is
     using SafeERC20 for IERC20;
     using LibDecimalFloat for Float;
 
-    bytes32 public constant MINT_ROLE = keccak256("MINT");
+    bytes32 public constant MINT_ROLE = ORCHESTRATOR_MINT_ROLE;
     /// @notice Administers `MINT_ROLE` and sets the mint caps and the mint
     /// weighting.
-    bytes32 public constant MINT_ADMIN_ROLE = keccak256("MINT_ADMIN");
-    bytes32 public constant BURN_ROLE = keccak256("BURN");
+    bytes32 public constant MINT_ADMIN_ROLE = ORCHESTRATOR_MINT_ADMIN_ROLE;
+    bytes32 public constant BURN_ROLE = ORCHESTRATOR_BURN_ROLE;
     /// @notice Administers `BURN_ROLE`. The burn side carries no policy to
     /// set, so granting and revoking `BURN_ROLE` is all this role does — the
     /// burn-pointer repair is `EMERGENCY_ROLE`'s, deliberately apart from
     /// both.
-    bytes32 public constant BURN_ADMIN_ROLE = keccak256("BURN_ADMIN");
-    bytes32 public constant EMERGENCY_ROLE = keccak256("EMERGENCY");
+    bytes32 public constant BURN_ADMIN_ROLE = ORCHESTRATOR_BURN_ADMIN_ROLE;
+    bytes32 public constant EMERGENCY_ROLE = ORCHESTRATOR_EMERGENCY_ROLE;
     /// @notice Administers `EMERGENCY_ROLE`. Holding this is not holding
     /// `EMERGENCY_ROLE`: it says who may be handed the recovery key, never
     /// that its holder may turn it.
-    bytes32 public constant EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN");
+    bytes32 public constant EMERGENCY_ADMIN_ROLE = ORCHESTRATOR_EMERGENCY_ADMIN_ROLE;
     /// @notice EIP-712 typehash for a recipient's mint authorisation.
     /// @notice EIP-712 typehash for a recipient's mint authorisation.
     bytes32 public constant MINT_AUTH_TYPEHASH =
