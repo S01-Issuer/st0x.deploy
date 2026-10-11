@@ -23,7 +23,7 @@ import {OffchainAssetReceiptVault} from "rain-vats-0.2.1/src/concrete/vault/Offc
 
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {St0xAttestSubParser} from "../../src/concrete/St0xAttestSubParser.sol";
-import {MintAuthV1, Digest} from "../../src/interface/IST0xOrchestratorV1.sol";
+import {MintAuthV1, Digest} from "../../src/interface/IST0xOrchestratorV2.sol";
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
