@@ -59,17 +59,19 @@ bytes32 constant ORCHESTRATOR_EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN"
 /// vault-side `DEPOSIT` + `WITHDRAW` roles and owns every receipt; callers
 /// never touch one.
 ///
-/// **Roles.** Every role that does something has its own admin role, and
-/// `DEFAULT_ADMIN_ROLE` administers only those admin roles — it performs no
-/// operations at all.
-///  - `MINT_ADMIN_ROLE` — grant `MINT_ROLE`, set the mint caps and the mint
-///    weighting.
+/// **Roles.** Every role that does something has its own admin role, and each
+/// admin role administers both its operating role and itself (see
+/// `initialize`). `DEFAULT_ADMIN_ROLE` administers none of them and performs
+/// no operations at all.
+///  - `MINT_ADMIN_ROLE` — grant `MINT_ROLE` and `MINT_ADMIN_ROLE`, set the mint
+///    caps and the mint weighting.
 ///  - `MINT_ROLE` — call `mint`.
-///  - `BURN_ADMIN_ROLE` — grant `BURN_ROLE`. The burn side has no policy to
-///    set, so that is the whole of it.
+///  - `BURN_ADMIN_ROLE` — grant `BURN_ROLE` and `BURN_ADMIN_ROLE`. The burn side
+///    has no policy to set, so that is the whole of it.
 ///  - `BURN_ROLE` — call `burn`.
-///  - `EMERGENCY_ADMIN_ROLE` — grant `EMERGENCY_ROLE`, and nothing else.
-///    Saying who may hold the recovery key is not holding it.
+///  - `EMERGENCY_ADMIN_ROLE` — grant `EMERGENCY_ROLE` and
+///    `EMERGENCY_ADMIN_ROLE`, and nothing else. Saying who may hold the
+///    recovery key is not holding it.
 ///  - `EMERGENCY_ROLE` — recovery ops (`setBurnIndex`, `withdrawReceipt`,
 ///    `withdrawShares`, `sweepERC1155`). Deliberately separate from
 ///    mint/burn, so the key that can reposition pointers or sweep assets can
