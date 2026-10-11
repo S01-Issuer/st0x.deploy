@@ -2341,6 +2341,41 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _capMintTo(orchestrator, MINTER_A, TOKEN, address(capRecipient2), capacity, keccak256("recipient2-full"));
     }
 
+    /// Each bucket's level is readable on its own, leaked to the current
+    /// block: the minter's and the recipient's diverge once they leak at
+    /// different rates and another minter fills the recipient's, and
+    /// `mintHeadroom` only ever shows the smaller headroom of the two.
+    function testMintLevelReadsEachBucketLeakedToNow() external {
+        _grantMintOn(orchestrator, MINTER_A);
+        _grantMintOn(orchestrator, MINTER_B);
+        vm.startPrank(OWNER);
+        orchestrator.setMinterMintLimit(MINTER_A, _f(10e18), _f(1e18));
+        orchestrator.setRecipientMintLimit(address(capRecipient), _f(20e18), _f(2e18));
+        vm.stopPrank();
+
+        _assertFloatEq(orchestrator.minterMintLevel(MINTER_A), ZERO, "minter starts empty");
+        _assertFloatEq(orchestrator.recipientMintLevel(address(capRecipient)), ZERO, "recipient starts empty");
+
+        _capMint(orchestrator, MINTER_A, TOKEN, 6e18, keccak256("level-a"));
+        _assertFloatEq(orchestrator.minterMintLevel(MINTER_A), _f(6e18), "minter filled");
+        _assertFloatEq(orchestrator.recipientMintLevel(address(capRecipient)), _f(6e18), "recipient filled");
+
+        vm.warp(block.timestamp + 2);
+        _assertFloatEq(orchestrator.minterMintLevel(MINTER_A), _f(4e18), "minter leaks 1e18 a second");
+        _assertFloatEq(
+            orchestrator.recipientMintLevel(address(capRecipient)), _f(2e18), "recipient leaks 2e18 a second"
+        );
+
+        _capMint(orchestrator, MINTER_B, TOKEN, 1e18, keccak256("level-b"));
+        _assertFloatEq(orchestrator.minterMintLevel(MINTER_A), _f(4e18), "B's mint leaves A's bucket");
+        _assertFloatEq(orchestrator.minterMintLevel(MINTER_B), _f(1e18), "B's own bucket");
+        _assertFloatEq(orchestrator.recipientMintLevel(address(capRecipient)), _f(3e18), "recipient takes both minters");
+
+        // A never-filled bucket reads zero, set or not.
+        _assertFloatEq(orchestrator.minterMintLevel(address(0xDEAD)), ZERO, "unset minter");
+        _assertFloatEq(orchestrator.recipientMintLevel(address(0xDEAD)), ZERO, "unset recipient");
+    }
+
     /// Nothing is metered per token: a recipient's one bucket is a plain sum
     /// of amounts across tokens. `6e18` of one token and `4e18` of another
     /// spend a `10e18` recipient cap exactly, and the next unit of either is

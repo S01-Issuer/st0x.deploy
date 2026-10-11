@@ -777,6 +777,18 @@ contract ST0xOrchestrator is
         return LibDecimalFloat.min(minterHeadroom, recipientHeadroom);
     }
 
+    /// @inheritdoc IST0xOrchestratorV1
+    function minterMintLevel(address minter) external view returns (Float) {
+        MintCapV1 storage cap = _main().minterMintCaps[minter];
+        return LibLeakyBucket.levelAt(_bucket(cap.bucket, cap.limit), _now());
+    }
+
+    /// @inheritdoc IST0xOrchestratorV1
+    function recipientMintLevel(address recipient) external view returns (Float) {
+        MintCapV1 storage cap = _main().recipientMintCaps[recipient];
+        return LibLeakyBucket.levelAt(_bucket(cap.bucket, cap.limit), _now());
+    }
+
     // ------------------------------------------------------------------ //
     //                            Internals                               //
     // ------------------------------------------------------------------ //

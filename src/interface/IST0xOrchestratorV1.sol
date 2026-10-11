@@ -284,6 +284,16 @@ interface IST0xOrchestratorV1 {
     /// limit is unset. Nothing in the enforcement path reads it.
     function mintHeadroom(address minter, address recipient) external view returns (Float);
 
+    /// @notice The level outstanding in `minter`'s bucket at the current block
+    /// timestamp, after leak at the stored rate. Zero for a bucket never
+    /// filled, set or not.
+    function minterMintLevel(address minter) external view returns (Float);
+
+    /// @notice The level outstanding in `recipient`'s bucket at the current
+    /// block timestamp, after leak at the stored rate. Zero for a bucket never
+    /// filled, set or not.
+    function recipientMintLevel(address recipient) external view returns (Float);
+
     /// @notice True if the production vault + receipt beacons currently point
     /// at the implementations this orchestrator expects, so `mint`/`burn` are
     /// not version-locked.
