@@ -21,9 +21,9 @@ import {ReceiptVaultConfigV2} from "rain-vats-0.2.1/src/abstract/ReceiptVault.so
 import {IAuthorizeV1} from "rain-vats-0.2.1/src/interface/IAuthorizeV1.sol";
 import {EvaluableV4} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
 
-import {ST0xOrchestrator, ST0X_TOKEN_OWNER_SAFE_NAME} from "../../../../src/concrete/ST0xOrchestrator.sol";
-import {LibTestAddressRegistry} from "../../lib/LibTestAddressRegistry.sol";
-import {LibTestMigrationRegistry} from "../../lib/LibTestMigrationRegistry.sol";
+import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
+import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
+import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
 import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";
 import {MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV1.sol";
 import {StoxCorporateActionsFacet} from "../../../../src/concrete/StoxCorporateActionsFacet.sol";
@@ -62,7 +62,9 @@ import {St0xAttestSubParserTest} from "../St0xAttestSubParserTest.sol";
 /// charged the amount in whole tokens; the weighting workflows set their own.
 abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
     address internal constant ADMIN = address(uint160(uint256(keccak256("ADMIN"))));
-    address internal constant OWNER = address(uint160(uint256(keccak256("OWNER"))));
+    /// The orchestrator admin `initialize` seats: the Base governance
+    /// timelock, since `setUp` runs on Base's chain id.
+    address internal constant OWNER = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
     address internal constant MM = address(uint160(uint256(keccak256("MM"))));
 
     /// A capacity no amount in these workflows comes near, granted as MM's
@@ -86,6 +88,9 @@ abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
 
     function setUp() public {
         vm.warp(1000);
+        // `initialize` seats the chain's timelock; the default test chain id
+        // has none.
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
 
         // TOFU singleton first — stock-split multiplier validation reads the
         // vault's decimals through it at schedule time.
@@ -112,9 +117,9 @@ abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
         vault.setAuthorizer(IAuthorizeV1(address(authorizer)));
 
         // Orchestrator impl behind a real UpgradeableBeacon + BeaconProxy,
-        // initialised with OWNER as DEFAULT_ADMIN_ROLE.
+        // initialised on Base, so OWNER (the Base timelock) is its admin.
         impl = new ST0xOrchestrator();
-        orchestrator = _deployOrchestrator(OWNER);
+        orchestrator = _deployOrchestrator();
 
         // Grant the orchestrator DEPOSIT + WITHDRAW on the vault through the
         // authoriser's admin — real grants, no storage pokes.
@@ -206,10 +211,8 @@ abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
         );
     }
 
-    function _deployOrchestrator(address owner) internal returns (ST0xOrchestrator) {
+    function _deployOrchestrator() internal returns (ST0xOrchestrator) {
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        LibTestAddressRegistry.etchAndBind(vm, ST0X_TOKEN_OWNER_SAFE_NAME, owner);
-        LibTestMigrationRegistry.etch(vm);
         bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
         BeaconProxy proxy = new BeaconProxy(address(beacon), initData);
         return ST0xOrchestrator(payable(address(proxy)));

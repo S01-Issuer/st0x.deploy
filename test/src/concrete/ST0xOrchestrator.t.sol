@@ -2,12 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {
-    ST0xOrchestrator,
-    ST0X_TOKEN_OWNER_SAFE_NAME,
-    ST0X_MIGRATION_NAMESPACE,
-    ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES
-} from "../../../src/concrete/ST0xOrchestrator.sol";
+import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
+import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {LibTimelockInvariants, UnsupportedChainForGovernanceTimelock} from "../../../src/lib/LibTimelockInvariants.sol";
 import {St0xAttestSubParserTest} from "./St0xAttestSubParserTest.sol";
 import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
 import {IST0xVaultBeaconSet} from "../../../src/interface/IST0xVaultBeaconSet.sol";
@@ -28,15 +25,6 @@ import {BeaconProxy} from "@openzeppelin-contracts-5.6.1/proxy/beacon/BeaconProx
 import {IERC1271} from "@openzeppelin-contracts-5.6.1/interfaces/IERC1271.sol";
 import {Mock1271} from "./Mock1271.sol";
 import {MockMintRecipient} from "./MockMintRecipient.sol";
-import {PreMintAdminOrchestrator} from "./PreMintAdminOrchestrator.sol";
-import {LibTestAddressRegistry} from "../lib/LibTestAddressRegistry.sol";
-import {LibTestMigrationRegistry} from "../lib/LibTestMigrationRegistry.sol";
-import {IMigrationRegistryV2, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.11/src/interface/IMigrationRegistryV2.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.11/src/lib/LibMigrationRegistry.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.11/src/lib/LibMigrationRegistryDeploy.sol";
-import {IAddressRegistryV1} from "rain-deploy-0.1.11/src/interface/IAddressRegistryV1.sol";
-import {LibAddressRegistry} from "rain-deploy-0.1.11/src/lib/LibAddressRegistry.sol";
-import {LibAddressRegistryDeploy} from "rain-deploy-0.1.11/src/lib/LibAddressRegistryDeploy.sol";
 import {ReentrantMintRecipient} from "./ReentrantMintRecipient.sol";
 import {ReentrantBurnVault} from "./ReentrantBurnVault.sol";
 import {MockManagerRevert1155} from "./MockManagerRevert1155.sol";
@@ -87,8 +75,9 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     address internal constant MINTER_A = address(0x111A);
     address internal constant MINTER_B = address(0x222B);
 
-    /// Default admin passed to `initialize`.
-    address internal constant OWNER = address(0x0FFCE);
+    /// The admin `initialize` seats: the Base governance timelock, since
+    /// `setUp` runs on Base's chain id.
+    address internal constant OWNER = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
 
     /// The vault-version guard reads these fixed production addresses. The
     /// orchestrator's `_checkVaultLogic` reads the current-release (candidate) pins,
@@ -128,13 +117,16 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     MockMintRecipient internal capRecipient2;
 
     function setUp() public {
+        // `initialize` seats the chain's timelock; the default test chain id
+        // has none.
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         capRecipient = new MockMintRecipient(true);
         capRecipient2 = new MockMintRecipient(true);
         impl = new ST0xOrchestrator();
         // `initialize` runs the vault-logic guard, so the guard mocks must be
         // in place before the proxy is deployed.
         _makeGuardPass();
-        orchestrator = _deployProxy(OWNER);
+        orchestrator = _deployProxy();
         _setIdentityWeighting(orchestrator);
         _mockVaultTopology(TOKEN, RECEIPT_ADDR, "tAA17");
         _mockVaultTopology(TOKEN2, RECEIPT_ADDR2, "tBB28");
@@ -182,14 +174,10 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     //                            Test helpers                            //
     // ------------------------------------------------------------------ //
 
-    /// Deploy a fresh beacon + proxy pair pointing at `impl`, initialised
-    /// with `owner`. The guard mocks must already pass.
-    /// `initialize` resolves its owner from the address registry, so `owner`
-    /// is bound there rather than passed in. The binding is rewritten per
-    /// call so a test can deploy proxies under different owners.
-    function _deployProxy(address owner) internal returns (ST0xOrchestrator) {
-        LibTestAddressRegistry.etchAndBind(vm, ST0X_TOKEN_OWNER_SAFE_NAME, owner);
-        LibTestMigrationRegistry.etch(vm);
+    /// Deploy a fresh beacon + proxy pair pointing at `impl`, initialised on
+    /// the current chain id, so its admin is that chain's timelock. The guard
+    /// mocks must already pass.
+    function _deployProxy() internal returns (ST0xOrchestrator) {
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
         bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
         BeaconProxy proxy = new BeaconProxy(address(beacon), initData);
@@ -395,41 +383,13 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertTrue(orchestrator.hasRole(orchestrator.DEFAULT_ADMIN_ROLE(), OWNER), "owner missing admin role");
     }
 
-    /// The zero-owner check is gone because a zero owner is no longer
-    /// reachable: the registry refuses to bind the zero address and its read
-    /// reverts on an unbound name, so the two ways to arrive at one are both
-    /// refused before `initialize` has an owner at all. Both are pinned here
-    /// rather than left as an argument about the dependency's behaviour.
-    function testInitializeUnboundNameReverts() external {
-        LibTestAddressRegistry.unbind(vm, ST0X_TOKEN_OWNER_SAFE_NAME);
+    /// A chain with no pinned timelock has no owner to seat, so the proxy
+    /// cannot be built there at all.
+    function testInitializeOnAChainWithNoTimelockReverts() external {
+        vm.chainId(1337);
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
         bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
-        vm.expectRevert(
-            abi.encodeWithSelector(IAddressRegistryV1.NameNotRegistered.selector, ST0X_TOKEN_OWNER_SAFE_NAME)
-        );
-        new BeaconProxy(address(beacon), initData);
-    }
-
-    /// Root cannot bind the zero address in the first place.
-    function testRegistryRefusesAZeroOwner() external {
-        LibTestAddressRegistry.etch(vm);
-        vm.expectRevert(abi.encodeWithSelector(IAddressRegistryV1.ZeroAccount.selector, ST0X_TOKEN_OWNER_SAFE_NAME));
-        LibTestAddressRegistry.bind(vm, ST0X_TOKEN_OWNER_SAFE_NAME, address(0));
-    }
-
-    /// A chain with no registry at the pinned address fails loudly on the
-    /// code hash rather than calling into whatever is there.
-    function testInitializeWithoutARegistryReverts() external {
-        UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
-        vm.etch(LibAddressRegistryDeploy.ADDRESS_REGISTRY_DEPLOYED_ADDRESS, hex"");
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                LibAddressRegistry.UnexpectedAddressRegistryCodeHash.selector,
-                LibAddressRegistryDeploy.ADDRESS_REGISTRY_DEPLOYED_CODEHASH,
-                bytes32(0)
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForGovernanceTimelock.selector, uint256(1337)));
         new BeaconProxy(address(beacon), initData);
     }
 
@@ -466,357 +426,33 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         orchestrator.initialize();
     }
 
-    function testFuzzInitializeGrantsAdmin(address owner) external {
-        vm.assume(owner != address(0));
-        ST0xOrchestrator o = _deployProxy(owner);
-        assertTrue(o.hasRole(o.DEFAULT_ADMIN_ROLE(), owner));
-    }
+    /// On every chain with a pinned timelock, `initialize` seats that chain's
+    /// timelock as `DEFAULT_ADMIN_ROLE` and all three admin roles, and the
+    /// deploying account holds nothing.
+    function testFuzzInitializeSeatsTheChainTimelock(uint256 chainIndex) external {
+        uint256[5] memory chainIds = [
+            LibSafeInvariants.BASE_CHAIN_ID,
+            LibSafeInvariants.ETHEREUM_CHAIN_ID,
+            LibSafeInvariants.HYPEREVM_CHAIN_ID,
+            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
+            LibSafeInvariants.BSC_CHAIN_ID
+        ];
+        uint256 chainId = chainIds[chainIndex % chainIds.length];
+        vm.chainId(chainId);
+        address timelock = LibTimelockInvariants.timelockForChainId(chainId);
+        ST0xOrchestrator o = _deployProxy();
 
-    // ------------------------------------------------------------------ //
-    //                           migrate                             //
-    // ------------------------------------------------------------------ //
-
-    /// A proxy as a live one stands: initialised against the implementation
-    /// that had no `MINT_ADMIN_ROLE`, then rolled onto this one by a beacon
-    /// upgrade. The beacon is owned by the test contract, so the upgrade
-    /// needs no prank.
-    function _deployUpgradedPreMintAdminProxy(address owner) internal returns (ST0xOrchestrator) {
-        PreMintAdminOrchestrator legacy = new PreMintAdminOrchestrator();
-        UpgradeableBeacon beacon = new UpgradeableBeacon(address(legacy), address(this));
-        bytes memory initData = abi.encodeCall(PreMintAdminOrchestrator.initialize, (owner));
-        BeaconProxy proxy = new BeaconProxy(address(beacon), initData);
-        beacon.upgradeTo(address(impl));
-        return ST0xOrchestrator(payable(address(proxy)));
-    }
-
-    /// The upgrade alone leaves the role split uninstalled, and
-    /// `migrate` installs both halves of it. The pre-call assertions are
-    /// what separate "the call worked" from "the state was already right".
-    function testMigrateInstallsMintAdminAndDelegation() external {
-        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
-
-        assertFalse(o.hasRole(o.MINT_ADMIN_ROLE(), OWNER), "mint admin granted before the call");
-        assertEq(o.getRoleAdmin(o.MINT_ROLE()), o.DEFAULT_ADMIN_ROLE(), "mint role already delegated");
-
-        vm.prank(OWNER);
-        o.migrate(OWNER);
-
-        assertTrue(o.hasRole(o.MINT_ADMIN_ROLE(), OWNER), "mint admin not granted");
-        assertEq(o.getRoleAdmin(o.MINT_ROLE()), o.MINT_ADMIN_ROLE(), "mint role not delegated");
-    }
-
-    /// The burn half of the same reconcile. Separate from the mint half so a
-    /// call that installed only one is not reported as a pass.
-    function testMigrateInstallsBurnAdminAndDelegation() external {
-        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
-
-        assertFalse(o.hasRole(o.BURN_ADMIN_ROLE(), OWNER), "burn admin granted before the call");
-        assertEq(o.getRoleAdmin(o.BURN_ROLE()), o.DEFAULT_ADMIN_ROLE(), "burn role already delegated");
-
-        vm.prank(OWNER);
-        o.migrate(OWNER);
-
-        assertTrue(o.hasRole(o.BURN_ADMIN_ROLE(), OWNER), "burn admin not granted");
-        assertEq(o.getRoleAdmin(o.BURN_ROLE()), o.BURN_ADMIN_ROLE(), "burn role not delegated");
-    }
-
-    /// The burn delegation by its effect: `BURN_ADMIN_ROLE` can add a burner
-    /// afterwards, where before only `DEFAULT_ADMIN_ROLE` could.
-    function testMigrateMovesBurnGrantingToBurnAdmin() external {
-        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
-        bytes32 burnAdminRole = o.BURN_ADMIN_ROLE();
-        bytes32 burnRole = o.BURN_ROLE();
-
-        vm.startPrank(OWNER);
-        o.migrate(OWNER);
-        o.grantRole(burnAdminRole, BOB);
-        o.revokeRole(burnAdminRole, OWNER);
-        vm.stopPrank();
-
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, OWNER, burnAdminRole)
-        );
-        vm.prank(OWNER);
-        o.grantRole(burnRole, MINTER_A);
-
-        vm.prank(BOB);
-        o.grantRole(burnRole, MINTER_A);
-        assertTrue(o.hasRole(burnRole, MINTER_A), "burn admin could not add a burner");
-    }
-
-    /// The emergency half of the same reconcile.
-    function testMigrateInstallsEmergencyAdminAndDelegation() external {
-        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
-
-        assertFalse(o.hasRole(o.EMERGENCY_ADMIN_ROLE(), OWNER), "emergency admin granted before the call");
-        assertEq(o.getRoleAdmin(o.EMERGENCY_ROLE()), o.DEFAULT_ADMIN_ROLE(), "emergency already delegated");
-
-        vm.prank(OWNER);
-        o.migrate(OWNER);
-
-        assertTrue(o.hasRole(o.EMERGENCY_ADMIN_ROLE(), OWNER), "emergency admin not granted");
-        assertEq(o.getRoleAdmin(o.EMERGENCY_ROLE()), o.EMERGENCY_ADMIN_ROLE(), "emergency not delegated");
-    }
-
-    /// The emergency delegation by its effect: `EMERGENCY_ADMIN_ROLE` can
-    /// hand out the recovery key afterwards, where before only
-    /// `DEFAULT_ADMIN_ROLE` could — and holding the admin role is still not
-    /// holding the key.
-    function testMigrateMovesEmergencyGrantingToEmergencyAdmin() external {
-        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
-        bytes32 emergencyAdminRole = o.EMERGENCY_ADMIN_ROLE();
-        bytes32 emergencyRole = o.EMERGENCY_ROLE();
-
-        vm.startPrank(OWNER);
-        o.migrate(OWNER);
-        o.grantRole(emergencyAdminRole, BOB);
-        o.revokeRole(emergencyAdminRole, OWNER);
-        vm.stopPrank();
-
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, OWNER, emergencyAdminRole)
-        );
-        vm.prank(OWNER);
-        o.grantRole(emergencyRole, MINTER_A);
-
-        assertFalse(o.hasRole(emergencyRole, BOB), "emergency admin holds the key itself");
-        vm.prank(BOB);
-        o.grantRole(emergencyRole, MINTER_A);
-        assertTrue(o.hasRole(emergencyRole, MINTER_A), "emergency admin could not hand out the key");
-    }
-
-    /// What the grant is for: the mint caps are unsettable on an upgraded
-    /// proxy until `migrate` runs, and settable after. Reads the limit
-    /// back rather than trusting the call not to revert.
-    function testMigrateMakesMintLimitsSettable() external {
-        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
-        // Read ahead of the prank: a role getter is an external call, so
-        // reading it inside the `expectRevert` argument would spend the prank.
-        bytes32 mintAdminRole = o.MINT_ADMIN_ROLE();
-
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, OWNER, mintAdminRole)
-        );
-        vm.prank(OWNER);
-        o.setMinterMintLimit(MINTER_A, UNBOUNDED_CAPACITY, NO_LEAK);
-
-        vm.prank(OWNER);
-        o.migrate(OWNER);
-
-        vm.prank(OWNER);
-        o.setMinterMintLimit(MINTER_A, UNBOUNDED_CAPACITY, NO_LEAK);
-        assertTrue(o.minterMintLimit(MINTER_A).set, "limit not written");
-    }
-
-    /// The delegation is the half that governance cannot reach without this
-    /// call, so it is pinned by its effect too: `MINT_ADMIN_ROLE` can add a
-    /// minter afterwards, where before only `DEFAULT_ADMIN_ROLE` could.
-    function testMigrateMovesMinterGrantingToMintAdmin() external {
-        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
-        bytes32 mintAdminRole = o.MINT_ADMIN_ROLE();
-        bytes32 mintRole = o.MINT_ROLE();
-
-        vm.startPrank(OWNER);
-        o.migrate(OWNER);
-        o.grantRole(mintAdminRole, BOB);
-        o.revokeRole(mintAdminRole, OWNER);
-        vm.stopPrank();
-
-        // OWNER keeps DEFAULT_ADMIN_ROLE and has lost the authority to add a
-        // minter; BOB holds only MINT_ADMIN_ROLE and has it.
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, OWNER, mintAdminRole)
-        );
-        vm.prank(OWNER);
-        o.grantRole(mintRole, MINTER_A);
-
-        vm.prank(BOB);
-        o.grantRole(mintRole, MINTER_A);
-        assertTrue(o.hasRole(mintRole, MINTER_A), "mint admin could not add a minter");
-    }
-
-    /// The admin is the argument, not the caller. OWNER holds
-    /// `DEFAULT_ADMIN_ROLE` and so may make the call, but the roles land on
-    /// BOB — which is what distinguishes a parameter from `msg.sender`.
-    function testMigrateInstallsTheArgumentNotTheCaller() external {
-        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
-
-        vm.prank(OWNER);
-        o.migrate(BOB);
-
-        assertTrue(o.hasRole(o.MINT_ADMIN_ROLE(), BOB), "argument did not take mint admin");
-        assertTrue(o.hasRole(o.BURN_ADMIN_ROLE(), BOB), "argument did not take burn admin");
-        assertTrue(o.hasRole(o.EMERGENCY_ADMIN_ROLE(), BOB), "argument did not take emergency admin");
-        assertFalse(o.hasRole(o.MINT_ADMIN_ROLE(), OWNER), "caller took mint admin");
-        assertFalse(o.hasRole(o.BURN_ADMIN_ROLE(), OWNER), "caller took burn admin");
-        assertFalse(o.hasRole(o.EMERGENCY_ADMIN_ROLE(), OWNER), "caller took emergency admin");
-    }
-
-    /// A zero admin would burn the proxy's one shot while granting the admin
-    /// roles to nobody, leaving the operating roles delegated to a role no
-    /// account holds — unrecoverable without another upgrade. Refused.
-    function testMigrateZeroAdminReverts() external {
-        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
-
-        vm.expectRevert(IST0xOrchestratorV1.ZeroOwner.selector);
-        vm.prank(OWNER);
-        o.migrate(address(0));
-
-        // The refused call left the shot intact.
-        vm.prank(OWNER);
-        o.migrate(OWNER);
-        assertTrue(o.hasRole(o.MINT_ADMIN_ROLE(), OWNER), "the refused call consumed the shot");
-    }
-
-    /// A second run is refused by the registry, on the head rather than on a
-    /// local guard: the line has moved to the migration id, so a call still
-    /// naming genesis is told where the line actually is. The registry checks
-    /// the list before the record, which is why this is
-    /// `UnexpectedMigrationHead` and not `MigrationAlreadyApplied`.
-    function testMigrateTwiceReverts() external {
-        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
-        vm.prank(OWNER);
-        o.migrate(OWNER);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IMigrationRegistryV2.UnexpectedMigrationHead.selector,
-                address(o),
-                ST0X_MIGRATION_NAMESPACE,
-                ST0X_MIGRATION_NAMESPACE,
-                MIGRATION_HEAD_GENESIS,
-                ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES
-            )
-        );
-        vm.prank(OWNER);
-        o.migrate(OWNER);
-    }
-
-    /// The record is written under the proxy, not under the caller. That is
-    /// what makes the line one only this proxy can write, and therefore worth
-    /// reading.
-    function testMigrateRecordsUnderTheProxy() external {
-        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
-        IMigrationRegistryV2 registry =
-            IMigrationRegistryV2(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
-
-        assertEq(
-            registry.applied(address(o), ST0X_MIGRATION_NAMESPACE, ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES),
-            0,
-            "recorded before the call"
-        );
-
-        vm.prank(OWNER);
-        o.migrate(OWNER);
-
-        assertEq(
-            registry.applied(address(o), ST0X_MIGRATION_NAMESPACE, ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES),
-            block.timestamp,
-            "not recorded under the proxy"
-        );
-        assertEq(
-            registry.applied(OWNER, ST0X_MIGRATION_NAMESPACE, ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES),
-            0,
-            "recorded under the caller"
-        );
-        assertEq(
-            registry.head(address(o), ST0X_MIGRATION_NAMESPACE),
-            ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES,
-            "head did not move"
-        );
-    }
-
-    /// A chain without the registry cannot migrate, and fails on the code
-    /// hash rather than calling into whatever occupies the address.
-    function testMigrateWithoutARegistryReverts() external {
-        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
-        LibTestMigrationRegistry.unEtch(vm);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                LibMigrationRegistry.UnexpectedMigrationRegistryCodeHash.selector,
-                LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_CODEHASH,
-                bytes32(0)
-            )
-        );
-        vm.prank(OWNER);
-        o.migrate(OWNER);
-    }
-
-    /// Only `DEFAULT_ADMIN_ROLE` migrates, and a refused call records
-    /// nothing, so the work is still pending afterwards.
-    function testMigrateNonAdminRevertsWithoutRecording() external {
-        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
-        bytes32 adminRole = o.DEFAULT_ADMIN_ROLE();
-        bytes32 mintAdminRole = o.MINT_ADMIN_ROLE();
-
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, BOB, adminRole)
-        );
-        vm.prank(BOB);
-        o.migrate(OWNER);
-
-        vm.prank(OWNER);
-        o.migrate(OWNER);
-        assertTrue(o.hasRole(mintAdminRole, OWNER), "the refused call recorded the migration");
-    }
-
-    /// Catching up is one call however far behind the proxy is, and it runs
-    /// every missing step rather than only the newest. Here the proxy is at
-    /// zero and both steps have to land.
-    function testMigrateRunsEveryMissingStep() external {
-        ST0xOrchestrator o = _deployUpgradedPreMintAdminProxy(OWNER);
-
-        vm.prank(OWNER);
-        o.migrate(OWNER);
-
-        // Step 1's state.
-        assertTrue(o.hasRole(o.DEFAULT_ADMIN_ROLE(), OWNER), "step 1 did not run");
-        // Step 2's state, on all three legs.
-        assertEq(o.getRoleAdmin(o.MINT_ROLE()), o.MINT_ADMIN_ROLE(), "step 2 mint leg did not run");
-        assertEq(o.getRoleAdmin(o.BURN_ROLE()), o.BURN_ADMIN_ROLE(), "step 2 burn leg did not run");
-        assertEq(o.getRoleAdmin(o.EMERGENCY_ROLE()), o.EMERGENCY_ADMIN_ROLE(), "step 2 emergency leg did not run");
-    }
-
-    /// A proxy that `initialize` built has already had the step installed and
-    /// recorded, so its line is at the migration and a `migrate` naming
-    /// genesis is refused. `initialize` recording is what makes a later step
-    /// able to name this one as its predecessor on every proxy, new or
-    /// migrated.
-    function testMigrateOnFreshProxyReverts() external {
-        ST0xOrchestrator o = _deployProxy(OWNER);
-        IMigrationRegistryV2 registry =
-            IMigrationRegistryV2(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
-
-        assertEq(
-            registry.head(address(o), ST0X_MIGRATION_NAMESPACE),
-            ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES,
-            "initialize did not record the step"
-        );
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IMigrationRegistryV2.UnexpectedMigrationHead.selector,
-                address(o),
-                ST0X_MIGRATION_NAMESPACE,
-                ST0X_MIGRATION_NAMESPACE,
-                MIGRATION_HEAD_GENESIS,
-                ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES
-            )
-        );
-        vm.prank(OWNER);
-        o.migrate(OWNER);
-    }
-
-    /// Unreachable on the raw implementation. The role check is the first
-    /// modifier, so the implementation — where nobody holds any role —
-    /// refuses on authorisation rather than on the version.
-    function testMigrateOnImplementationReverts() external {
-        ST0xOrchestrator raw = new ST0xOrchestrator();
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), bytes32(0))
-        );
-        raw.migrate(OWNER);
+        bytes32[4] memory adminRoles =
+            [o.DEFAULT_ADMIN_ROLE(), o.MINT_ADMIN_ROLE(), o.BURN_ADMIN_ROLE(), o.EMERGENCY_ADMIN_ROLE()];
+        for (uint256 i = 0; i < adminRoles.length; i++) {
+            assertTrue(o.hasRole(adminRoles[i], timelock), "timelock missing an admin role");
+            assertFalse(o.hasRole(adminRoles[i], address(this)), "deployer holds an admin role");
+        }
+        bytes32[3] memory operatingRoles = [o.MINT_ROLE(), o.BURN_ROLE(), o.EMERGENCY_ROLE()];
+        for (uint256 i = 0; i < operatingRoles.length; i++) {
+            assertFalse(o.hasRole(operatingRoles[i], timelock), "timelock holds an operating role");
+            assertFalse(o.hasRole(operatingRoles[i], address(this)), "deployer holds an operating role");
+        }
     }
 
     // ------------------------------------------------------------------ //
@@ -2152,7 +1788,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     /// identity weighting, since the cap-exceeded checks run after the
     /// weighting is evaluated.
     function _unconfiguredOrchestrator() internal returns (ST0xOrchestrator) {
-        ST0xOrchestrator fresh = _deployProxy(OWNER);
+        ST0xOrchestrator fresh = _deployProxy();
         _setIdentityWeighting(fresh);
         return fresh;
     }

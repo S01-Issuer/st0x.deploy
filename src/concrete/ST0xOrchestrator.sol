@@ -35,34 +35,12 @@ import {
 } from "rainlang-interface-0.2.9/src/interface/IInterpreterV4.sol";
 import {LibNamespace} from "rainlang-interface-0.2.9/src/lib/ns/LibNamespace.sol";
 
-import {LibAddressRegistry} from "rain-deploy-0.1.11/src/lib/LibAddressRegistry.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.11/src/lib/LibMigrationRegistry.sol";
-import {Prerequisite, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.11/src/interface/IMigrationRegistryV2.sol";
-
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
 import {IST0xVaultBeaconSet} from "../interface/IST0xVaultBeaconSet.sol";
 import {IST0xOrchestratorV1, MintAuthV1, MintLimitV1, MintBucketV1, Digest} from "../interface/IST0xOrchestratorV1.sol";
 import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
-
-// The address-registry name the orchestrator resolves its owner under: the
-// chain's ST0x token-owner Safe. The registry constrains nothing about how a
-// name is derived, so this is an agreement with the registry's root rather
-// than anything the registry checks. It is part of this contract's creation
-// code, so changing it moves the implementation's deterministic address and
-// every address derived from it. Plain `//` because solc rejects natspec on a
-// file level constant.
-bytes32 constant ST0X_TOKEN_OWNER_SAFE_NAME = keccak256("st0x.token-owner-safe");
-
-// This repo's migration namespace. One per repo, as rain-deploy states, so
-// every migration line this codebase writes shares a head and an order.
-bytes32 constant ST0X_MIGRATION_NAMESPACE = keccak256("st0x.deploy");
-
-// The migration that installs the admin-role split: `MINT_ADMIN_ROLE`,
-// `BURN_ADMIN_ROLE` and `EMERGENCY_ADMIN_ROLE`, each administering its own
-// operating role. Named for the step rather than the release, because the id
-// is fixed the moment it is first applied and cannot be renamed afterwards.
-bytes32 constant ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES = keccak256("st0x.orchestrator.migration.admin-roles");
+import {LibTimelockInvariants} from "../lib/LibTimelockInvariants.sol";
 
 /// @title ST0xOrchestrator
 /// @notice Singleton mint/burn proxy for the ST0x receipt-vault set. One
@@ -91,14 +69,11 @@ bytes32 constant ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES = keccak256("st0x.orche
 /// `MINT_ADMIN_ROLE` does not grant `MINT_ROLE`, and `initialize` grants only
 /// the admin roles.
 ///
-/// **Migrations.** Each step this contract adds is recorded in rain-deploy's
-/// `MigrationRegistry`, under this proxy as writer, in
-/// `ST0X_MIGRATION_NAMESPACE`. `initialize` installs and records the step for
-/// a new proxy; `migrate` installs and records it for a proxy that was
-/// initialised before the step existed. The registry keeps the order: every
-/// write names the head its line is at and is refused if that is not where
-/// the line actually is, so a skipped or repeated step is a revert rather
-/// than a divergence, and this contract keeps no counter of its own.
+/// **Custody.** `initialize` seats `DEFAULT_ADMIN_ROLE` and the three admin
+/// roles on the chain's governance timelock
+/// (`LibTimelockInvariants.timelockForChainId`), so every grant, cap and
+/// weighting change is scheduled and waits out the timelock delay. No
+/// operating role is held until the timelock grants it.
 ///
 /// **Mint recipient authorisation.** Every mint carries the recipient's own
 /// authorisation of `(token, to, amount, nonce)` as a `MintAuthV1`: either an
@@ -237,103 +212,26 @@ contract ST0xOrchestrator is
         _disableInitializers();
     }
 
-    /// @notice Initialise the singleton. Resolves the owner from the address
-    /// registry and grants it `DEFAULT_ADMIN_ROLE`, `MINT_ADMIN_ROLE`,
-    /// `BURN_ADMIN_ROLE` and `EMERGENCY_ADMIN_ROLE`, then delegates each
-    /// operating role to its own admin. `MINT_ROLE`, `BURN_ROLE` and
-    /// `EMERGENCY_ROLE` are granted separately. Reverts unless the
-    /// vault-logic version lock passes.
+    /// @notice Initialise the singleton. Grants the chain's governance
+    /// timelock `DEFAULT_ADMIN_ROLE`, `MINT_ADMIN_ROLE`, `BURN_ADMIN_ROLE` and
+    /// `EMERGENCY_ADMIN_ROLE`, then delegates each operating role to its own
+    /// admin. `MINT_ROLE`, `BURN_ROLE` and `EMERGENCY_ROLE` are granted
+    /// separately. Reverts unless the vault-logic version lock passes, and
+    /// reverts `UnsupportedChainForGovernanceTimelock` on a chain with no
+    /// pinned timelock.
     ///
-    /// @dev The registry is read here rather than taken as an argument, and
-    /// here rather than in the constructor. The constructor runs on the
-    /// implementation, which is Zoltu-deployed to one address on every chain,
-    /// so resolving there would write a per-chain value into shared runtime
-    /// code and give the implementation a different code hash per chain.
-    /// This runs inside the proxy's own construction — the beacon-set
-    /// deployer passes it as the `BeaconProxy` constructor's init data — so
-    /// the value is settled the moment the proxy exists and no later
-    /// re-binding can move it, which is the registry's stated requirement.
-    /// `resolve` verifies the registry's code hash and the registry reverts
-    /// on an unbound name, so there is no zero owner to check for.
+    /// @dev The timelock is looked up rather than taken as an argument, so a
+    /// caller of the permissionless beacon-set deployer cannot seat an admin
+    /// of its own. The lookup keys a table compiled into the code by
+    /// `block.chainid`, so the implementation's runtime code is the same on
+    /// every chain.
     function initialize() external initializer {
-        address owner = LibAddressRegistry.resolve(ST0X_TOKEN_OWNER_SAFE_NAME);
-        _initializeV1(owner);
-        _initializeV2(owner);
-        _recordAdminRolesMigration();
-    }
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
 
-    /// @notice Install the admin-role split on a proxy that was initialised
-    /// by an implementation without it, and record that in the migration
-    /// registry.
-    ///
-    /// @dev There is no local guard against running this twice and no local
-    /// record of whether it has run, because the registry is both. A second
-    /// call presents `MIGRATION_HEAD_GENESIS` as its head while this proxy's
-    /// line has moved on to `ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES`, so it
-    /// reverts `UnexpectedMigrationHead` — the registry's refusals run
-    /// arguments, then the list, then the record, so a repeat is caught on
-    /// where the line is rather than on `MigrationAlreadyApplied`. The same
-    /// head check is what will refuse a later step applied to a proxy that
-    /// never got this one.
-    ///
-    /// The writer is this proxy. A record is keyed by `msg.sender`, so this
-    /// line is one only this proxy can write, which is what makes it
-    /// authoritative for its own steps without any authority being
-    /// configured. Reading another writer's line would be reading a claim.
-    ///
-    /// `admin` is an argument rather than an address-registry read. This runs
-    /// as its own transaction against a deployed proxy, so a resolve would
-    /// take whatever the registry's root has bound by then, which is the
-    /// point of use the address registry forbids reading at and the moment a
-    /// dormant root compromise would pick.
-    /// @param admin Address granted the three admin roles.
-    function migrate(address admin) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _initializeV2(admin);
-        _recordAdminRolesMigration();
-    }
-
-    /// @dev Record the admin-role migration under this proxy, last, after the
-    /// state it describes is installed. rain-deploy is explicit about the
-    /// order where the two cannot be one atomic unit: "a record that never
-    /// landed leaves a reader asserting the pre-migration state, which the
-    /// verification layer then catches loudly, and leaves a re-run possible.
-    /// A record that landed for a migration that did not is the harder state
-    /// to get out of." Here they are atomic anyway, and the order costs
-    /// nothing.
-    ///
-    /// The head alone is the whole list: this is the first migration in the
-    /// proxy's line and it waits on no other writer.
-    function _recordAdminRolesMigration() internal {
-        Prerequisite[] memory prerequisites = new Prerequisite[](1);
-        prerequisites[0] = Prerequisite({
-            writer: address(this), namespace: ST0X_MIGRATION_NAMESPACE, migration: MIGRATION_HEAD_GENESIS
-        });
-        LibMigrationRegistry.applyMigration(
-            ST0X_MIGRATION_NAMESPACE, ST0X_ORCHESTRATOR_MIGRATION_ADMIN_ROLES, prerequisites
-        );
-    }
-
-    /// @dev The state a proxy took at its original deployment: the
-    /// vault-logic lock, the inherited module initialisers, and
-    /// `DEFAULT_ADMIN_ROLE`. A proxy already carrying this is every proxy
-    /// that exists, which is why nothing re-runs it.
-    /// @param owner Address granted `DEFAULT_ADMIN_ROLE`.
-    function _initializeV1(address owner) internal {
         _checkVaultLogic();
         __AccessControl_init();
         __EIP712_init("ST0xOrchestrator", "1");
-        _grantRole(DEFAULT_ADMIN_ROLE, owner);
-    }
-
-    /// @dev The admin-role split: each admin role granted to `admin`, and
-    /// each operating role delegated to its own admin. Held apart from
-    /// `_initializeV1` because a proxy deployed before these roles existed
-    /// needs exactly this and nothing else — `initialize` runs both,
-    /// `initializeV2` runs only this one.
-    /// @param admin Address granted `MINT_ADMIN_ROLE`, `BURN_ADMIN_ROLE` and
-    /// `EMERGENCY_ADMIN_ROLE`.
-    function _initializeV2(address admin) internal {
-        if (admin == address(0)) revert ZeroOwner();
+        _grantRole(DEFAULT_ADMIN_ROLE, timelock);
 
         // Each admin role administers its operating role and itself, as
         // `rain-vats`' `OffchainAssetReceiptVaultAuthorizerV1` and this repo's
@@ -342,20 +240,20 @@ contract ST0xOrchestrator is
         // without the root, so the root stays rare.
         //
         // The cost: `DEFAULT_ADMIN_ROLE` can no longer `grantRole` an admin
-        // role, since it is no longer that role's admin. The internal grants
-        // below are the only way a first holder is seated, so losing every
-        // holder of an admin role takes an upgrade to recover.
+        // role, since it is no longer that role's admin. The grants below are
+        // the only way a first holder is seated, so losing every holder of an
+        // admin role takes an upgrade to recover.
         _setRoleAdmin(MINT_ROLE, MINT_ADMIN_ROLE);
         _setRoleAdmin(MINT_ADMIN_ROLE, MINT_ADMIN_ROLE);
-        _grantRole(MINT_ADMIN_ROLE, admin);
+        _grantRole(MINT_ADMIN_ROLE, timelock);
 
         _setRoleAdmin(BURN_ROLE, BURN_ADMIN_ROLE);
         _setRoleAdmin(BURN_ADMIN_ROLE, BURN_ADMIN_ROLE);
-        _grantRole(BURN_ADMIN_ROLE, admin);
+        _grantRole(BURN_ADMIN_ROLE, timelock);
 
         _setRoleAdmin(EMERGENCY_ROLE, EMERGENCY_ADMIN_ROLE);
         _setRoleAdmin(EMERGENCY_ADMIN_ROLE, EMERGENCY_ADMIN_ROLE);
-        _grantRole(EMERGENCY_ADMIN_ROLE, admin);
+        _grantRole(EMERGENCY_ADMIN_ROLE, timelock);
     }
 
     // ------------------------------------------------------------------ //

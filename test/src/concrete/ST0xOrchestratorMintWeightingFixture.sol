@@ -11,9 +11,9 @@ import {ReceiptVault} from "rain-vats-0.2.1/src/abstract/ReceiptVault.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
 import {EvaluableV4, SignedContextV1} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
 
-import {ST0xOrchestrator, ST0X_TOKEN_OWNER_SAFE_NAME} from "src/concrete/ST0xOrchestrator.sol";
-import {LibTestAddressRegistry} from "test/src/lib/LibTestAddressRegistry.sol";
-import {LibTestMigrationRegistry} from "test/src/lib/LibTestMigrationRegistry.sol";
+import {ST0xOrchestrator} from "src/concrete/ST0xOrchestrator.sol";
+import {LibSafeInvariants} from "src/lib/LibSafeInvariants.sol";
+import {LibTimelockInvariants} from "src/lib/LibTimelockInvariants.sol";
 import {MintAuthV1} from "src/interface/IST0xOrchestratorV1.sol";
 import {IST0xVaultBeaconSet} from "src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployV4} from "src/generated/LibProdDeployV4.sol";
@@ -34,10 +34,11 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
     address internal constant TOKEN = address(0xA11E);
     address internal constant RECEIPT_ADDR = address(0xEEC1);
 
-    /// The one `MINT_ROLE` holder, and the admin `initialize` hands
-    /// `MINT_ADMIN_ROLE` to.
+    /// The one `MINT_ROLE` holder.
     address internal constant MINTER = address(0x111A);
-    address internal constant OWNER = address(0x0FFCE);
+    /// The admin `initialize` seats: the Base governance timelock, since
+    /// `setUp` runs on Base's chain id.
+    address internal constant OWNER = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
 
     /// The vault-version guard reads these fixed production addresses.
     address internal constant DEPLOYER =
@@ -72,12 +73,11 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
     function tokenSymbol() internal pure virtual returns (string memory);
 
     function setUp() public virtual {
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         recipient = new MockMintRecipient(true);
         _makeGuardPass();
         ST0xOrchestrator impl = new ST0xOrchestrator();
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        LibTestAddressRegistry.etchAndBind(vm, ST0X_TOKEN_OWNER_SAFE_NAME, OWNER);
-        LibTestMigrationRegistry.etch(vm);
         BeaconProxy proxy = new BeaconProxy(address(beacon), abi.encodeCall(ST0xOrchestrator.initialize, ()));
         orchestrator = ST0xOrchestrator(payable(address(proxy)));
 

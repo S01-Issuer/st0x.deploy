@@ -18,8 +18,9 @@ interface IST0xOrchestratorBeaconSetDeployerV1 {
     /// @param owner The address granted `DEFAULT_ADMIN_ROLE`.
     event Deployment(address indexed sender, address indexed orchestrator, address owner);
 
-    /// @notice Deploy an `ST0xOrchestrator` singleton. The owner is resolved
-    /// from the address registry by `initialize`, not supplied by the caller.
+    /// @notice Deploy an `ST0xOrchestrator` singleton. The owner is the
+    /// chain's governance timelock, seated by `initialize`, not supplied by
+    /// the caller.
     /// The resolved owner appears on `Deployment`.
     /// @return The address of the deployed orchestrator `BeaconProxy`.
     function deploy() external returns (address);

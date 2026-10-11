@@ -78,7 +78,7 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
     /// reverts the rain-vats `Unauthorized`.
     function testMintRevertsWithoutVaultRoles() external {
         // Fresh orchestrator, never granted DEPOSIT/WITHDRAW on the authoriser.
-        ST0xOrchestrator fresh = _deployOrchestrator(OWNER);
+        ST0xOrchestrator fresh = _deployOrchestrator();
         (address eoa, uint256 pk) = makeAddrAndKey("norole-recipient");
         bytes32 mintRole = fresh.MINT_ROLE();
         vm.startPrank(OWNER);

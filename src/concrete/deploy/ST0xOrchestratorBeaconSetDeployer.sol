@@ -7,9 +7,9 @@ import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/Upgr
 import {BeaconProxy} from "@openzeppelin-contracts-5.6.1/proxy/beacon/BeaconProxy.sol";
 import {ERC165} from "@openzeppelin-contracts-5.6.1/utils/introspection/ERC165.sol";
 
-import {LibAddressRegistry} from "rain-deploy-0.1.11/src/lib/LibAddressRegistry.sol";
+import {LibTimelockInvariants} from "../../lib/LibTimelockInvariants.sol";
 
-import {ST0xOrchestrator, ST0X_TOKEN_OWNER_SAFE_NAME} from "../ST0xOrchestrator.sol";
+import {ST0xOrchestrator} from "../ST0xOrchestrator.sol";
 import {LibProdDeployCurrent} from "../../generated/LibProdDeployCurrent.sol";
 import {IST0xOrchestratorBeaconSetDeployerV1} from "../../interface/IST0xOrchestratorBeaconSetDeployerV1.sol";
 
@@ -32,16 +32,16 @@ contract ST0xOrchestratorBeaconSetDeployer is ERC165, IST0xOrchestratorBeaconSet
     }
 
     /// @notice Deploy an `ST0xOrchestrator` singleton. Callable by anyone,
-    /// and the caller does not choose the owner: `initialize` resolves it
-    /// from the address registry inside this same transaction, so the
-    /// deployed instance is governed by whoever the registry names and
-    /// nothing here can point it elsewhere. The resolved owner is emitted so
-    /// the value the proxy took is on the log rather than only in storage.
+    /// and the caller does not choose the owner: `initialize` seats the
+    /// chain's governance timelock inside this same transaction, so nothing
+    /// here can point the instance elsewhere. The timelock is emitted as
+    /// `owner` so the value the proxy took is on the log rather than only in
+    /// storage.
     function deploy() external returns (address) {
         bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
         BeaconProxy proxy = new BeaconProxy(address(iOrchestratorBeacon), initData);
 
-        address owner = LibAddressRegistry.resolve(ST0X_TOKEN_OWNER_SAFE_NAME);
+        address owner = LibTimelockInvariants.timelockForChainId(block.chainid);
         emit Deployment(msg.sender, address(proxy), owner);
         return address(proxy);
     }
