@@ -19,7 +19,7 @@ import {IReceiptV3} from "rain-vats-0.2.1/src/interface/IReceiptV3.sol";
 import {ReceiptVault} from "rain-vats-0.2.1/src/abstract/ReceiptVault.sol";
 
 import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
-import {LibLeakyBucket, LeakyBucket} from "rain-lib-leakybucket-0.4.1/src/lib/LibLeakyBucket.sol";
+import {LibLeakyBucket, LeakyBucket} from "rain-lib-leakybucket-0.4.4/src/lib/LibLeakyBucket.sol";
 import {LibIntOrAString, IntOrAString} from "rain-intorastring-0.1.0/src/lib/LibIntOrAString.sol";
 import {
     IInterpreterCallerV4,
@@ -541,9 +541,15 @@ contract ST0xOrchestrator is
         cap.bucket = MintBucketV1({level: level, timestamp: checkpoint});
     }
 
-    function _checkMintLimit(Float capacity, Float leakRate) internal pure {
+    /// @dev Settle `cap`'s bucket at its stored rate up to now, then store the
+    /// new policy. An unset limit holds a zero rate, so a first limit starts
+    /// from the level the bucket already holds.
+    function _setMintLimit(MintCapV1 storage cap, Float capacity, Float leakRate) internal {
         if (capacity.lt(LibDecimalFloat.FLOAT_ZERO)) revert NegativeMintLimitCapacity(capacity);
         if (leakRate.lt(LibDecimalFloat.FLOAT_ZERO)) revert NegativeMintLimitLeakRate(leakRate);
+        LeakyBucket memory bucket = LibLeakyBucket.setPolicy(_bucket(cap.bucket, cap.limit), _now(), capacity, leakRate);
+        cap.bucket = MintBucketV1({level: bucket.level, timestamp: bucket.timestamp});
+        cap.limit = MintLimitV1({capacity: bucket.capacity, leakRate: bucket.leakRate, set: true});
     }
 
     /// @dev A stored bucket under a limit, as the library takes it.
@@ -648,23 +654,23 @@ contract ST0xOrchestrator is
     // ------------------------------------------------------------------ //
 
     /// @inheritdoc IST0xOrchestratorV1
-    /// @dev Only the policy is written; the bucket's level is left where the
-    /// earlier mints put it, so a lowered capacity binds immediately.
+    /// @dev The bucket is settled at the outgoing rate up to now, then the new
+    /// policy is written (`LibLeakyBucket.setPolicy`), so each rate is charged
+    /// only for the time it was in force. A lowered capacity binds
+    /// immediately against the settled level.
     function setMinterMintLimit(address minter, Float capacity, Float leakRate) external onlyRole(MINT_ADMIN_ROLE) {
-        _checkMintLimit(capacity, leakRate);
-        _main().minterMintCaps[minter].limit = MintLimitV1({capacity: capacity, leakRate: leakRate, set: true});
+        _setMintLimit(_main().minterMintCaps[minter], capacity, leakRate);
         emit MinterMintLimitSet(minter, capacity, leakRate);
     }
 
     /// @inheritdoc IST0xOrchestratorV1
-    /// @dev Same terms as `setMinterMintLimit`: the policy is written,
-    /// the bucket's level is left where the earlier mints put it.
+    /// @dev Same terms as `setMinterMintLimit`: the bucket is settled at the
+    /// outgoing rate, then the new policy is written.
     function setRecipientMintLimit(address recipient, Float capacity, Float leakRate)
         external
         onlyRole(MINT_ADMIN_ROLE)
     {
-        _checkMintLimit(capacity, leakRate);
-        _main().recipientMintCaps[recipient].limit = MintLimitV1({capacity: capacity, leakRate: leakRate, set: true});
+        _setMintLimit(_main().recipientMintCaps[recipient], capacity, leakRate);
         emit RecipientMintLimitSet(recipient, capacity, leakRate);
     }
 

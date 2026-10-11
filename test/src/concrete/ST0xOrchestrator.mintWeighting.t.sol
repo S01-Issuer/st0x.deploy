@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
-import {LeakyBucketZeroAmount, LeakyBucketNegativeAmount} from "rain-lib-leakybucket-0.4.1/src/lib/LibLeakyBucket.sol";
+import {LeakyBucketZeroAmount, LeakyBucketNegativeAmount} from "rain-lib-leakybucket-0.4.4/src/lib/LibLeakyBucket.sol";
 import {
     IInterpreterCallerV4,
     EvaluableV4,

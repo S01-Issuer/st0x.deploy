@@ -2685,6 +2685,94 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
     }
 
+    /// Raising a recipient's leak rate applies from the moment it is set: the
+    /// time the full bucket spent at the old zero rate leaks nothing, so the
+    /// raise grants no headroom at once, then leaks at the new rate.
+    function testRaisingRecipientLeakRateAppliesFromNowOnly() external {
+        _grantMintOn(orchestrator, MINTER_A);
+        vm.prank(OWNER);
+        orchestrator.setRecipientMintLimit(address(capRecipient), _f(10e18), NO_LEAK);
+        _capMint(orchestrator, MINTER_A, TOKEN, 10e18, keccak256("before-raise"));
+
+        vm.warp(block.timestamp + 5);
+        vm.prank(OWNER);
+        orchestrator.setRecipientMintLimit(address(capRecipient), _f(10e18), _f(1e18));
+        _assertFloatEq(
+            orchestrator.mintHeadroom(MINTER_A, address(capRecipient)),
+            ZERO,
+            "frozen time is not leaked at the new rate"
+        );
+
+        vm.warp(block.timestamp + 2);
+        _assertFloatEq(
+            orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), _f(2e18), "two seconds at the new rate"
+        );
+    }
+
+    /// Lowering a recipient's leak rate keeps the leak that already happened:
+    /// the time under the old rate is settled at the old rate, and only the
+    /// time after the change is leaked at the new one.
+    function testLoweringRecipientLeakRateKeepsPastLeak() external {
+        _grantMintOn(orchestrator, MINTER_A);
+        vm.prank(OWNER);
+        orchestrator.setRecipientMintLimit(address(capRecipient), _f(10e18), _f(2e18));
+        _capMint(orchestrator, MINTER_A, TOKEN, 10e18, keccak256("before-lower"));
+
+        vm.warp(block.timestamp + 3);
+        vm.prank(OWNER);
+        orchestrator.setRecipientMintLimit(address(capRecipient), _f(10e18), _f(1e18));
+        _assertFloatEq(
+            orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), _f(6e18), "three seconds at the old rate"
+        );
+
+        vm.warp(block.timestamp + 2);
+        _assertFloatEq(
+            orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), _f(8e18), "then two seconds at the new rate"
+        );
+    }
+
+    /// The same raise for the minter's bucket.
+    function testRaisingMinterLeakRateAppliesFromNowOnly() external {
+        _grantMintOn(orchestrator, MINTER_A);
+        vm.prank(OWNER);
+        orchestrator.setMinterMintLimit(MINTER_A, _f(10e18), NO_LEAK);
+        _capMint(orchestrator, MINTER_A, TOKEN, 10e18, keccak256("before-raise"));
+
+        vm.warp(block.timestamp + 5);
+        vm.prank(OWNER);
+        orchestrator.setMinterMintLimit(MINTER_A, _f(10e18), _f(1e18));
+        _assertFloatEq(
+            orchestrator.mintHeadroom(MINTER_A, address(capRecipient)),
+            ZERO,
+            "frozen time is not leaked at the new rate"
+        );
+
+        vm.warp(block.timestamp + 2);
+        _assertFloatEq(
+            orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), _f(2e18), "two seconds at the new rate"
+        );
+    }
+
+    /// The same lowering for the minter's bucket.
+    function testLoweringMinterLeakRateKeepsPastLeak() external {
+        _grantMintOn(orchestrator, MINTER_A);
+        vm.prank(OWNER);
+        orchestrator.setMinterMintLimit(MINTER_A, _f(10e18), _f(2e18));
+        _capMint(orchestrator, MINTER_A, TOKEN, 10e18, keccak256("before-lower"));
+
+        vm.warp(block.timestamp + 3);
+        vm.prank(OWNER);
+        orchestrator.setMinterMintLimit(MINTER_A, _f(10e18), _f(1e18));
+        _assertFloatEq(
+            orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), _f(6e18), "three seconds at the old rate"
+        );
+
+        vm.warp(block.timestamp + 2);
+        _assertFloatEq(
+            orchestrator.mintHeadroom(MINTER_A, address(capRecipient)), _f(8e18), "then two seconds at the new rate"
+        );
+    }
+
     /// A `Float` capacity has no ceiling the bucket cannot enforce: `1e60`
     /// fills to the last unit and refuses the unit after it, in both buckets.
     function testMintCapacityBeyondTheOldWordIsEnforcedToTheUnit() external {

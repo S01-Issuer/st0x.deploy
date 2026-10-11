@@ -63,10 +63,10 @@ integrity = "91f5f679a0a27f096fdbc1e41195dd9f42cacfab15735efeb1101cc1b9215b47"
 
 [[dependencies]]
 name = "rain-lib-leakybucket"
-version = "0.4.1"
-url = "https://soldeer-revisions.s3.amazonaws.com/rain-lib-leakybucket/0_4_1_30-09-2026_16:01:13_rain.lib.zip"
-checksum = "8fdb25cd31f9d86b83325c943c6e0dbc743ac3a51050e8ff2db2d6d50271a9d4"
-integrity = "e2983a14a030afb9d02825453472ec9ccbe6ccfaa6d155dfe8e7d84bf481fa76"
+version = "0.4.4"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-lib-leakybucket/0_4_4_04-10-2026_10:31:46_rain.lib.zip"
+checksum = "9b86e7348ad818d234e30f8e9675509d6f2e9bf5a700c847d00274a09f52a7f4"
+integrity = "aa24ef60d568b4362d735436b930cae5abf17ef1aa3bf92f107340c2fd4b90ed"
 
 [[dependencies]]
 name = "rain-lib-memkv"
