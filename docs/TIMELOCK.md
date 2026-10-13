@@ -192,9 +192,12 @@ Every admin action becomes two Safe transactions separated by ≥48h:
    `authoriser.grantRole(DEPOSIT, newSigner)`,
    `vault.setAuthorizer(newAuthoriser)`, `vault.transferOwnership(newOwner)`).
    Batch multiple calls with `scheduleBatch`.
-2. **Wait** out the delay. Anyone can watch pending operations via
-   `CallScheduled` events; the Safe (or the dedicated canceller, once
-   provisioned) can `cancel(id)` during the window.
+2. **Wait** out the delay. Anyone can watch pending operations on the
+   rain-org-health dashboard's Role changes tab,
+   <https://rainlanguage.github.io/rain-org-health/deployments.html>, which
+   reads each network's timelock operations live from this repo's RBAC subgraph
+   (`st0x-rbac-<network>`, version `prod`); the Safe (or the dedicated
+   canceller, once provisioned) can `cancel(id)` during the window.
 3. **Execute**: Safe → `timelock.execute(target, 0, data, 0, salt)` (or
    `executeBatch`) with the identical arguments.
 
@@ -248,21 +251,27 @@ The immediate levers are the key's own `renounceRole`, which the legitimate
 holder can still call, and the Safe's direct `CERTIFY` on the authoriser:
 forcing a token's certification to expire blocks ordinary transfers of that
 token, which stops the orchestrator delivering mints of it, but it freezes every
-holder of that token too.
+holder of that token too. The `CERTIFY` lever holds only while the leaked key
+cannot certify the token again: the service signer holds `CERTIFY` on the
+authoriser as well as `MINT` and `BURN` on the orchestrator, and revoking that
+`CERTIFY` is itself a timelock operation. Schedule the timelock revokes (`MINT`
+/ `BURN` on the orchestrator, and `CERTIFY` on the authoriser when the leaked
+key holds it) at the same time as the Safe expires the certification.
 
 The two steps are separate bundles by choice: the `EMERGENCY` grant is needed
 now and is signed on its own, while the admin move is a separate governance
-decision, signed once the grant has landed. Before signing step 2, on each chain
-(see the script's NatSpec for the commands):
+decision, signed once the grant has landed. Before signing step 2, on each
+chain, read the rain-org-health dashboard's Role changes tab
+(<https://rainlanguage.github.io/rain-org-health/deployments.html>; the
+equivalent subgraph queries are in the script's NatSpec):
 
 - cancel every timelock operation still pending against the orchestrator: once
   the timelock is admin, a leftover `grantRole` or `revokeRole` there becomes
   executable by anyone;
-- confirm from the orchestrator's `RoleGranted`/`RoleRevoked` events for role
-  `0x00` that the Safe is the only current `DEFAULT_ADMIN_ROLE` holder. Role
-  membership is not enumerable on chain, so the invariants check only the Safe
-  and the timelock; a third holder would survive the move with immediate admin
-  power.
+- confirm the Safe is the orchestrator's only current `DEFAULT_ADMIN_ROLE`
+  holder. Role membership is not enumerable on chain, so the invariants check
+  only the Safe and the timelock; a third holder would survive the move with
+  immediate admin power.
 
 **Per-role admin roles.** An orchestrator implementation that gives each
 operating role its own self-administered admin role (`MINT_ADMIN`, `BURN_ADMIN`,

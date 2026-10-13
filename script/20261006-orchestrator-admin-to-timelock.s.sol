@@ -59,22 +59,24 @@ error OrchestratorGovernanceNotProven(string reason);
 /// execution is open to anyone with no expiry: a leftover
 /// `grantRole(DEFAULT_ADMIN, x)` hands admin out with no further delay, and a
 /// `revokeRole(DEFAULT_ADMIN, timelock)` leaves the orchestrator without an
-/// admin. List them with
-/// `cast logs --from-block <timelock deploy block> --address <timelock> 'CallScheduled(bytes32,uint256,address,uint256,bytes,bytes32,uint256)' --rpc-url <network>`
-/// (chunk the range on RPCs that limit `eth_getLogs`), keep those whose
-/// `target` is the orchestrator, dedupe the ids (a `scheduleBatch` logs its
-/// id once per call), and cancel exactly the ids for which
-/// `isOperationPending(id)` is true. A cancelled operation reads back as
-/// Unset and `cancel` reverts on anything not pending, so including a
-/// cancelled or done id reverts the whole Safe transaction.
+/// admin. Read them on the rain-org-health dashboard's Role changes tab,
+/// https://rainlanguage.github.io/rain-org-health/deployments.html, which
+/// shows per network the governance timelock's pending operations, read live
+/// from this repo's RBAC subgraph (`st0x-rbac-<network>`, version `prod`).
+/// Check the network's index reads as current, then cancel exactly the
+/// pending operations with a call targeting the orchestrator. The same read
+/// against the subgraph:
+/// `{ timelockOperations(where: {timelock: "<timelock>", status: PENDING, targets_contains: ["<orchestrator>"]}) { operationId readyAt calls { target data } } }`.
+/// `cancel` reverts on anything not pending, so including a cancelled or
+/// done id reverts the whole Safe transaction.
 ///
 /// **Before signing: confirm the Safe is the only `DEFAULT_ADMIN_ROLE`
-/// holder.** Membership is not enumerable, so the invariants check only the
-/// Safe and the timelock. List
-/// `cast logs --from-block <orchestrator deploy block> --address <orchestrator> 'RoleGranted(bytes32,address,address)' 0x0000000000000000000000000000000000000000000000000000000000000000 --rpc-url <network>`
-/// and the same for `RoleRevoked`, and check every account granted and not
-/// since revoked is the Safe. A third holder would keep immediate admin power
-/// after this move.
+/// holder.** Membership is not enumerable on chain, so the invariants check
+/// only the Safe and the timelock. On the same tab, the orchestrator's
+/// current `DEFAULT_ADMIN_ROLE` holders must be exactly the Safe. The same
+/// read against the subgraph:
+/// `{ roleHolders(where: {role_: {contract: "<orchestrator>", role: "0x0000000000000000000000000000000000000000000000000000000000000000"}, held: true}) { account } }`.
+/// A third holder would keep immediate admin power after this move.
 ///
 /// **Execute on every chain before any upgrade of the orchestrator, receipt
 /// vault or receipt beacon is scheduled.** The pre-flight pins the 0.1.30
@@ -96,20 +98,20 @@ contract OrchestratorAdminToTimelock is Script {
     bytes32 internal constant PROOF_SALT = keccak256("st0x.orchestrator-admin-to-timelock.proof");
 
     /// @notice Chain-suffixed artifact path.
-    /// @return path The artifact path for the ACTIVE chain.
-    function artifactPath() internal view virtual returns (string memory path) {
-        path = string.concat("out/20261006-orchestrator-admin-to-timelock-", vm.toString(block.chainid), ".json");
+    /// @return The artifact path for the ACTIVE chain.
+    function artifactPath() internal view virtual returns (string memory) {
+        return string.concat("out/20261006-orchestrator-admin-to-timelock-", vm.toString(block.chainid), ".json");
     }
 
     /// @notice Pre-flight live state: the Safe, the timelock and the
     /// orchestrator are what this repo pins, the Safe's registry line is at
     /// the EMERGENCY grant, and the orchestrator's roles are exactly what
     /// that implies (Safe admin, Safe EMERGENCY, nothing on the timelock).
-    /// @return safe The chain's token-owner Safe.
-    /// @return timelock The chain's governance timelock.
-    function preflight() internal view returns (address safe, address timelock) {
-        safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
-        timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+    /// @return The chain's token-owner Safe.
+    /// @return The chain's governance timelock.
+    function preflight() internal view returns (address, address) {
+        address safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock, safe);
         LibOrchestratorInvariants.assertBeaconSet();
 
@@ -118,15 +120,16 @@ contract OrchestratorAdminToTimelock is Script {
             revert UnexpectedMigrationLine(head);
         }
         LibOrchestratorInvariants.assertInstance(safe);
+        return (safe, timelock);
     }
 
     /// @notice The bundle for the active chain.
     /// @param safe The chain's token-owner Safe.
     /// @param timelock The chain's governance timelock.
-    /// @return txs The grant, the renounce, then the record.
-    function authorBundle(address safe, address timelock) internal pure returns (SafeTx[] memory txs) {
+    /// @return The grant, the renounce, then the record.
+    function authorBundle(address safe, address timelock) internal pure returns (SafeTx[] memory) {
         address orchestrator = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
-        txs = new SafeTx[](3);
+        SafeTx[] memory txs = new SafeTx[](3);
         txs[0] = SafeTx({
             to: orchestrator,
             value: 0,
@@ -152,6 +155,7 @@ contract OrchestratorAdminToTimelock is Script {
             ),
             operation: 0
         });
+        return txs;
     }
 
     /// @notice Assert the post-bundle state on the active fork.
