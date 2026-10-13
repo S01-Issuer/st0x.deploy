@@ -11,7 +11,6 @@ import {SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
 
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
-import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
@@ -146,7 +145,8 @@ contract GrantOrchestratorEmergency is SafeBundleScript {
 
     /// @inheritdoc SafeBundleScript
     /// @dev The records are exactly the two this bundle writes, the
-    /// orchestrator's roles are what they imply, and the Safe is unchanged.
+    /// orchestrator's roles are what they imply, and the Safe still carries the
+    /// token-owner policy.
     function assertPostState() internal view override {
         address chainSafe = address(safe());
         (uint256 executedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
@@ -167,8 +167,7 @@ contract GrantOrchestratorEmergency is SafeBundleScript {
             revert LineHeadMismatch(head);
         }
         LibOrchestratorInvariants.assertInstance(chainSafe);
-        LibSafeInvariants.assertImmutableInvariants(IGnosisSafe(chainSafe));
-        LibSafeInvariants.assertThreshold(IGnosisSafe(chainSafe), LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
+        LibSafeInvariants.assertTokenOwnerSafePolicy(safe());
     }
 
     /// @inheritdoc SafeBundleScript
