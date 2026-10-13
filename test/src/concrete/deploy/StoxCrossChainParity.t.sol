@@ -632,10 +632,12 @@ contract StoxCrossChainParityTest is Test {
 
     /// @notice Legs with every leg live.
     /// @return legs Every `*Live` flag set.
-    function allLiveLegs() internal pure returns (ChainLegs memory legs) {
+    function allLiveLegs() internal pure returns (ChainLegs memory) {
+        ChainLegs memory legs;
         legs.safeLive = true;
         legs.cloneLive = true;
         legs.tokenLegLive = true;
+        return legs;
     }
 
     /// @notice A chain whose every leg was live passes.
