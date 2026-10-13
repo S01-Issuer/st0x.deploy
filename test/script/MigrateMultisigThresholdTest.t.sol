@@ -15,7 +15,7 @@ import {LibSafeInvariants, SafeThresholdMismatch} from "../../src/lib/LibSafeInv
 import {IOwnable, ReceiptVaultOwnerMismatch} from "../../src/lib/LibTokenInvariants.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 
 /// @title MigrateMultisigThresholdTest
 /// @notice End-to-end fork tests for the multisig threshold migration
