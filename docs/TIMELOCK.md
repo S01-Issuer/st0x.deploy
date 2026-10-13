@@ -18,6 +18,10 @@ After the migration executes, the timelock is:
   `CANCEL_CORPORATE_ACTION_ADMIN`) — so adding or removing grants on the
   authoriser is delay-gated.
 
+- the **sole holder of the orchestrator's `DEFAULT_ADMIN_ROLE`** (once
+  `20261006-orchestrator-admin-to-timelock` executes) — so granting or revoking
+  `MINT`, `BURN` and `EMERGENCY` on the orchestrator is delay-gated.
+
 **Why the beacons are in scope.** Every production token proxies through those
 beacons, and a beacon owner can `upgradeTo` a new implementation for all of them
 in a single transaction — a hostile implementation could re-take vault ownership
@@ -188,9 +192,12 @@ Every admin action becomes two Safe transactions separated by ≥48h:
    `authoriser.grantRole(DEPOSIT, newSigner)`,
    `vault.setAuthorizer(newAuthoriser)`, `vault.transferOwnership(newOwner)`).
    Batch multiple calls with `scheduleBatch`.
-2. **Wait** out the delay. Anyone can watch pending operations via
-   `CallScheduled` events; the Safe (or the dedicated canceller, once
-   provisioned) can `cancel(id)` during the window.
+2. **Wait** out the delay. Anyone can watch pending operations on the
+   rain-org-health dashboard's Role changes tab,
+   <https://rainlanguage.github.io/rain-org-health/deployments.html>, which
+   reads each network's timelock operations live from this repo's RBAC subgraph
+   (`st0x-rbac-<network>`, version `prod`); the Safe (or the dedicated
+   canceller, once provisioned) can `cancel(id)` during the window.
 3. **Execute**: Safe → `timelock.execute(target, 0, data, 0, salt)` (or
    `executeBatch`) with the identical arguments.
 
@@ -222,12 +229,75 @@ way to resolve it.
   `GovernanceTimelockMigration.t.sol` — vault ownership, beacon ownership and
   exclusive `_ADMIN` holding on the timelock, per chain.
 
+## Orchestrator roles
+
+The orchestrator instance is governed through two dated scripts, each recorded
+by the Safe in `rain-deploy`'s `MigrationRegistry` (`LibStoxMigrations`), and
+`LibOrchestratorInvariants.assertInstance` asserts exactly the role state the
+records imply:
+
+1. `20261006-grant-orchestrator-emergency` — the Safe takes `EMERGENCY_ROLE`
+   while it still administers the orchestrator directly, and records the
+   governance-timelock migration (as history) and the grant.
+2. `20261006-orchestrator-admin-to-timelock` — `DEFAULT_ADMIN_ROLE` moves from
+   the Safe to the timelock, recorded onto the grant, so the registry refuses it
+   on a chain where step 1 has not executed.
+
+`MINT`, `BURN` and `EMERGENCY` are themselves operations and stay off the
+timelock; who may hold them is delay-gated, in both directions. Revoking a
+leaked `MINT` or `BURN` key is also a 48h timelock operation; the orchestrator
+has no pause, and `EMERGENCY` covers only withdraw, sweep and `setBurnIndex`.
+The immediate levers are the key's own `renounceRole`, which the legitimate
+holder can still call, and the Safe's direct `CERTIFY` on the authoriser:
+forcing a token's certification to expire blocks ordinary transfers of that
+token, which stops the orchestrator delivering mints of it, but it freezes every
+holder of that token too. The `CERTIFY` lever holds only while the leaked key
+cannot certify the token again: the service signer holds `CERTIFY` on the
+authoriser as well as `MINT` and `BURN` on the orchestrator, and revoking that
+`CERTIFY` is itself a timelock operation. Schedule the timelock revokes (`MINT`
+/ `BURN` on the orchestrator, and `CERTIFY` on the authoriser when the leaked
+key holds it) at the same time as the Safe expires the certification.
+
+The two steps are separate bundles by choice: the `EMERGENCY` grant is needed
+now and is signed on its own, while the admin move is a separate governance
+decision, signed once the grant has landed. Before signing step 2, on each
+chain, read the rain-org-health dashboard's Role changes tab
+(<https://rainlanguage.github.io/rain-org-health/deployments.html>; the
+equivalent subgraph queries are in the script's NatSpec):
+
+- cancel every timelock operation still pending against the orchestrator: once
+  the timelock is admin, a leftover `grantRole` or `revokeRole` there becomes
+  executable by anyone;
+- confirm the Safe is the orchestrator's only current `DEFAULT_ADMIN_ROLE`
+  holder. Role membership is not enumerable on chain, so the invariants check
+  only the Safe and the timelock; a third holder would survive the move with
+  immediate admin power.
+
+**Per-role admin roles.** An orchestrator implementation that gives each
+operating role its own self-administered admin role (`MINT_ADMIN`, `BURN_ADMIN`,
+`EMERGENCY_ADMIN`), installed by a `migrate(admin)` callable only by
+`DEFAULT_ADMIN_ROLE`, changes what "admin on the timelock" means: the timelock
+must then hold `DEFAULT_ADMIN_ROLE` **and** each `*_ADMIN` role, and the Safe
+none of them. Because each `*_ADMIN` administers itself, `DEFAULT_ADMIN_ROLE`
+cannot take one back once granted, so `migrate` must be called with the timelock
+as `admin`.
+
+- **Step 2 must execute on every chain before that upgrade, or any upgrade of
+  the orchestrator, receipt-vault or receipt beacon, is scheduled.** If one
+  lands first, step 2 refuses there (its pre-flight pins the 0.1.30
+  implementation, the vault logic it was built against and the current role
+  admins), the Safe keeps `DEFAULT_ADMIN_ROLE`, and it can call `migrate(safe)`
+  directly, handing itself the self-administered `*_ADMIN` roles.
+- With step 2 executed, the beacon upgrade and `migrate(timelock)` are both
+  timelock operations and go in one `scheduleBatch`. In that implementation
+  `MINT_ADMIN` also sets the mint caps and the mint weighting, and `mint`
+  reverts while either is unset, so the same batch must set them; otherwise
+  minting halts until a second timelock operation lands at least 48h later. Each
+  new mint recipient's limit is likewise a 48h timelock operation before its
+  first mint.
+
 ## Explicitly out of scope (follow-ups)
 
-- **The orchestrator instance's `DEFAULT_ADMIN_ROLE`** is on the Safe until its
-  own dated move executes. It administers `MINT`, `BURN` and `EMERGENCY` on the
-  orchestrator, which holds `DEPOSIT`/`WITHDRAW` on every vault, so until then
-  those grants are not delayed.
 - **New Base tokens** are deployed by the sft-ops CD pipeline, not by a script
   here. It must hand each new vault to `STOX_GOVERNANCE_TIMELOCK`
   (`transferOwnership`); a vault left on the Safe fails the token and governance
