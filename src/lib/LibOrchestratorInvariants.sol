@@ -9,6 +9,7 @@ import {LibStoxMigrations} from "./LibStoxMigrations.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {IST0xOrchestratorV1} from "../interface/IST0xOrchestratorV1.sol";
+import {ST0xOrchestrator} from "../concrete/ST0xOrchestrator.sol";
 
 /// @notice The orchestrator beacon-set deployer has no runtime code at its
 /// pinned 0.1.30 address on the active chain.
@@ -90,15 +91,6 @@ library LibOrchestratorInvariants {
     /// of truth, emitted by `BuildPointers`).
     address internal constant ST0X_ORCHESTRATOR_INSTANCE = LibProdDeployV4.ST0X_ORCHESTRATOR_INSTANCE;
 
-    /// @notice `keccak256("MINT")`, the orchestrator's mint role.
-    bytes32 internal constant MINT_ROLE = keccak256("MINT");
-
-    /// @notice `keccak256("BURN")`, the orchestrator's burn role.
-    bytes32 internal constant BURN_ROLE = keccak256("BURN");
-
-    /// @notice `keccak256("EMERGENCY")`, the orchestrator's recovery role.
-    bytes32 internal constant EMERGENCY_ROLE = keccak256("EMERGENCY");
-
     /// @notice Assert the orchestrator beacon set on the active chain: the
     /// 0.1.30 beacon-set deployer is live, reports the pinned beacon, the
     /// beacon points at the audited 0.1.30 orchestrator implementation, and
@@ -158,6 +150,12 @@ library LibOrchestratorInvariants {
         IAccessControl acl = IAccessControl(instance);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
 
+        // The role ids are the orchestrator's own constants, read from the
+        // instance so they are the ones the deployed implementation enforces.
+        bytes32 mintRole = ST0xOrchestrator(payable(instance)).MINT_ROLE();
+        bytes32 burnRole = ST0xOrchestrator(payable(instance)).BURN_ROLE();
+        bytes32 emergencyRole = ST0xOrchestrator(payable(instance)).EMERGENCY_ROLE();
+
         // DEFAULT_ADMIN_ROLE is 0x00 in OZ AccessControl.
         bool adminMoved = LibStoxMigrations.applied(chainSafe, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) != 0;
         if (adminMoved) {
@@ -169,25 +167,25 @@ library LibOrchestratorInvariants {
         }
 
         if (LibStoxMigrations.applied(chainSafe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) != 0) {
-            assertHolds(acl, EMERGENCY_ROLE, chainSafe);
+            assertHolds(acl, emergencyRole, chainSafe);
         } else {
-            assertDoesNotHold(acl, EMERGENCY_ROLE, chainSafe);
+            assertDoesNotHold(acl, emergencyRole, chainSafe);
         }
-        assertDoesNotHold(acl, EMERGENCY_ROLE, timelock);
+        assertDoesNotHold(acl, emergencyRole, timelock);
 
         // Minting and burning are the service signers' operations; neither
         // governance principal ever holds them.
-        assertDoesNotHold(acl, MINT_ROLE, chainSafe);
-        assertDoesNotHold(acl, MINT_ROLE, timelock);
-        assertDoesNotHold(acl, BURN_ROLE, chainSafe);
-        assertDoesNotHold(acl, BURN_ROLE, timelock);
+        assertDoesNotHold(acl, mintRole, chainSafe);
+        assertDoesNotHold(acl, mintRole, timelock);
+        assertDoesNotHold(acl, burnRole, chainSafe);
+        assertDoesNotHold(acl, burnRole, timelock);
 
         // `DEFAULT_ADMIN_ROLE` must administer itself, or a holder of its admin
         // role could take it without the governance principal.
         assertAdministeredByDefaultAdmin(acl, bytes32(0));
-        assertAdministeredByDefaultAdmin(acl, MINT_ROLE);
-        assertAdministeredByDefaultAdmin(acl, BURN_ROLE);
-        assertAdministeredByDefaultAdmin(acl, EMERGENCY_ROLE);
+        assertAdministeredByDefaultAdmin(acl, mintRole);
+        assertAdministeredByDefaultAdmin(acl, burnRole);
+        assertAdministeredByDefaultAdmin(acl, emergencyRole);
     }
 
     /// @notice Revert unless `holder` holds `role` on the instance.
