@@ -63,10 +63,10 @@ integrity = "7a311375a8aa65ca50e11f19413ae2bfe9103d9efdda27a67f08f25cd7022ff8"
 
 [[dependencies]]
 name = "rain-math-float"
-version = "0.2.45"
-url = "https://soldeer-revisions.s3.amazonaws.com/rain-math-float/0_2_45_11-10-2026_17:52:20_rain.math.zip"
-checksum = "a80ef5827834b68580c40570f14ec87c76525805c307bf5c15fd8f6d631e7128"
-integrity = "fb4ec397ac7c9d15d376766d19969912609ab3d49e49c2012e7b39b6b8f3ac1b"
+version = "0.2.56"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-math-float/0_2_56_13-10-2026_17:49:20_rain.math.zip"
+checksum = "d2db7cbcb6a5ab272a6bd4a60d5ddea281a57e0ab628e010f1fa9682dbfdfac4"
+integrity = "f27e674edb71a3a3f7b0118db54033367b4b43e31b68f41872f69f1f258b707d"
 
 [[dependencies]]
 name = "rain-sol-codegen"
@@ -91,10 +91,10 @@ integrity = "f10dc50978061fb2a92fb9ba907c2cbe678d24198faabf060f699d36f1e8e4a0"
 
 [[dependencies]]
 name = "rain-vats"
-version = "0.2.4"
-url = "https://soldeer-revisions.s3.amazonaws.com/rain-vats/0_2_4_03-10-2026_13:51:38_rain.zip"
-checksum = "876df762920e4627575f9b35cdf2cd35e01966f6a3303944484e7cce93add3cf"
-integrity = "403d6d974e5835955f961690b8497e4e7de7c6ed3fe737b86075ac73325f272f"
+version = "0.2.5"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-vats/0_2_5_11-10-2026_19:45:32_rain.zip"
+checksum = "121971a3314a41ad52d2e4120c4881d14a88a64fbc5c0d04d8284f20996345e2"
+integrity = "3b5d0e9d9f28a5e724fcd9ea63e3bb569b0074b4e0868e51b9ea6d5ba9b17dd0"
 
 [[dependencies]]
 name = "rain-verify-interface"
