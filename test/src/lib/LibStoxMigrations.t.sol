@@ -5,6 +5,12 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {LibMigrationRegistry} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistry.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {
+    IMigrationRegistryV2,
+    MIGRATION_HEAD_GENESIS,
+    Prerequisite
+} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistryDeploy.sol";
 
 import {LibOrchestratorInvariants} from "../../../src/lib/LibOrchestratorInvariants.sol";
@@ -102,5 +108,46 @@ contract LibStoxMigrationsTest is Test {
         for (uint256 i = 0; i < networks.length; i++) {
             assertExecution(networks[i]);
         }
+    }
+
+    /// @notice The registry call binds this repo's namespace and targets the
+    /// pinned registry.
+    function testApplyMigrationCallBindsTheNamespace() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        address writer = makeAddr("writer");
+        Prerequisite[] memory prerequisites = LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS);
+
+        (address to, bytes memory data) =
+            LibStoxMigrations.applyMigrationCall(LibStoxMigrations.ORCHESTRATOR_EMERGENCY, prerequisites);
+
+        assertEq(to, LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
+        assertEq(
+            data,
+            abi.encodeCall(
+                IMigrationRegistryV2.applyMigration,
+                (LibStoxMigrations.NAMESPACE, LibStoxMigrations.ORCHESTRATOR_EMERGENCY, prerequisites)
+            )
+        );
+    }
+
+    /// @notice The history call binds this repo's namespace, carries the
+    /// moment and targets the pinned registry.
+    function testApplyMigrationHistoryCallBindsTheNamespace() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        address writer = makeAddr("writer");
+        Prerequisite[] memory prerequisites = LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS);
+
+        (address to, bytes memory data) = LibStoxMigrations.applyMigrationHistoryCall(
+            LibStoxMigrations.GOVERNANCE_TIMELOCK, 1_791_056_759, prerequisites
+        );
+
+        assertEq(to, LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
+        assertEq(
+            data,
+            abi.encodeCall(
+                IMigrationRegistryV2.applyMigrationHistory,
+                (LibStoxMigrations.NAMESPACE, LibStoxMigrations.GOVERNANCE_TIMELOCK, 1_791_056_759, prerequisites)
+            )
+        );
     }
 }
