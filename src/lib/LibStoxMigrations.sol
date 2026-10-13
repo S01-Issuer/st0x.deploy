@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {LibMigrationRegistry} from "rain-deploy-0.1.15/src/lib/LibMigrationRegistry.sol";
-import {Prerequisite} from "rain-deploy-0.1.15/src/interface/IMigrationRegistryV2.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistry.sol";
+import {Prerequisite} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 
 import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
 
@@ -115,14 +115,43 @@ library LibStoxMigrations {
         return LibMigrationRegistry.head(writer, NAMESPACE);
     }
 
+    /// @notice The registry call that records `migration` under the caller
+    /// in this repo's namespace, after `prerequisites`: the `to` and `data`
+    /// of a Safe bundle entry. Verifies the registry's code hash first.
+    /// @param migration The migration id.
+    /// @param prerequisites What it is applied after.
+    /// @return The registry.
+    /// @return The calldata.
+    function applyMigrationCall(bytes32 migration, Prerequisite[] memory prerequisites)
+        internal
+        view
+        returns (address, bytes memory)
+    {
+        return LibMigrationRegistry.applyMigrationCall(NAMESPACE, migration, prerequisites);
+    }
+
+    /// @notice The registry call that records `migration` under the caller
+    /// in this repo's namespace as history, at `appliedAt`, after
+    /// `prerequisites`. Verifies the registry's code hash first.
+    /// @param migration The migration id.
+    /// @param appliedAt When the migration executed, unix seconds.
+    /// @param prerequisites What it is applied after.
+    /// @return The registry.
+    /// @return The calldata.
+    function applyMigrationHistoryCall(bytes32 migration, uint256 appliedAt, Prerequisite[] memory prerequisites)
+        internal
+        view
+        returns (address, bytes memory)
+    {
+        return LibMigrationRegistry.applyMigrationHistoryCall(NAMESPACE, migration, appliedAt, prerequisites);
+    }
+
     /// @notice The prerequisite list for a migration applied onto
     /// `headMigration` that waits on nothing outside the writer's own line.
     /// @param writer The account writing the record.
     /// @param headMigration The head the migration is applied onto.
     /// @return The single-entry list naming the head.
     function onto(address writer, bytes32 headMigration) internal pure returns (Prerequisite[] memory) {
-        Prerequisite[] memory prerequisites = new Prerequisite[](1);
-        prerequisites[0] = Prerequisite({writer: writer, namespace: NAMESPACE, migration: headMigration});
-        return prerequisites;
+        return LibMigrationRegistry.onto(writer, NAMESPACE, headMigration);
     }
 }
