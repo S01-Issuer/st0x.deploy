@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {LibMigrationRegistry} from "rain-deploy-0.1.15/src/lib/LibMigrationRegistry.sol";
-import {Prerequisite} from "rain-deploy-0.1.15/src/interface/IMigrationRegistryV2.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.17/src/lib/LibMigrationRegistry.sol";
+import {Prerequisite} from "rain-deploy-0.1.17/src/interface/IMigrationRegistryV2.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.17/src/lib/LibRainDeploy.sol";
 
 import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
 
@@ -121,8 +121,6 @@ library LibStoxMigrations {
     /// @param headMigration The head the migration is applied onto.
     /// @return The single-entry list naming the head.
     function onto(address writer, bytes32 headMigration) internal pure returns (Prerequisite[] memory) {
-        Prerequisite[] memory prerequisites = new Prerequisite[](1);
-        prerequisites[0] = Prerequisite({writer: writer, namespace: NAMESPACE, migration: headMigration});
-        return prerequisites;
+        return LibMigrationRegistry.onto(writer, NAMESPACE, headMigration);
     }
 }
