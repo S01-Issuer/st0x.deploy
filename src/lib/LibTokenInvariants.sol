@@ -51,7 +51,7 @@ error ReceiptVaultAuthoriserMismatch(address vault, address expected, address ac
 /// @dev These are token-side prod invariants: a receipt vault's owner and
 /// authoriser uniformity is a property of the token deployment, not of the
 /// Safe multisig. `LibInvariants.assertAll` composes this lib's `assertAll`
-/// alongside `LibSafeInvariants.assertAll` so consumers asserting the full
+/// alongside the Safe-side checks in `LibInvariants.assertAll` so consumers asserting the full
 /// production state get both. Individual asserts are also callable
 /// standalone for focused drift detection.
 library LibTokenInvariants {

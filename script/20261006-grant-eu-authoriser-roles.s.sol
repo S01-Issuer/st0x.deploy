@@ -14,12 +14,15 @@ import {
 import {LibMigrationRegistry} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistry.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistryDeploy.sol";
 
-import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibEuAuthoriserClone} from "../src/lib/LibEuAuthoriserClone.sol";
 import {LibRbacMigration} from "../src/lib/LibRbacMigration.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
-import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
+import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJson.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
 /// @notice The EU authoriser clone is absent or carries the wrong code hash.
@@ -30,12 +33,6 @@ error EuAuthoriserNotDeployed(address clone);
 /// @param clone The clone inspected.
 /// @param role The missing role.
 error SafeMissingRoleAdmin(address clone, bytes32 role);
-
-/// @notice The artifact was authored for a different Safe than the active
-/// chain's, so its transactions cannot be the ones this Safe should sign.
-/// @param expected The active chain's token-owner Safe.
-/// @param authoredFor The Safe the artifact's `meta.safeAddress` names.
-error ArtifactSafeMismatch(address expected, address authoredFor);
 
 /// @title GrantEuAuthoriserRoles
 /// @notice Authors the Safe bundle that applies the pinned role map to the EU
@@ -118,7 +115,7 @@ contract GrantEuAuthoriserRoles is Script {
                 IMigrationRegistryV2.applyMigration,
                 (LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER, prerequisites)
             ),
-            operation: 0
+            operation: Enum.Operation.Call
         });
 
         for (uint256 i = 0; i < grants.length; i++) {
@@ -126,13 +123,16 @@ contract GrantEuAuthoriserRoles is Script {
                 to: clone,
                 value: 0,
                 data: abi.encodeCall(IAccessControl.grantRole, (grants[i].role, grants[i].grantee)),
-                operation: 0
+                operation: Enum.Operation.Call
             });
         }
 
         for (uint256 i = 0; i < admins.length; i++) {
             txs[1 + grants.length + i] = SafeTx({
-                to: clone, value: 0, data: abi.encodeCall(IAccessControl.renounceRole, (admins[i], safe)), operation: 0
+                to: clone,
+                value: 0,
+                data: abi.encodeCall(IAccessControl.renounceRole, (admins[i], safe)),
+                operation: Enum.Operation.Call
             });
         }
     }
@@ -143,17 +143,17 @@ contract GrantEuAuthoriserRoles is Script {
         (address clone, address safe, address timelock) = preflight();
 
         SafeTx[] memory txs = grantBundle(clone, safe, timelock);
-        IGnosisSafe gnosisSafe = IGnosisSafe(safe);
+        Safe gnosisSafe = Safe(payable(safe));
         uint256 nonce = gnosisSafe.nonce();
-        bytes32 bundleSafeTxHash = LibSafeOps.computeMultiSendSafeTxHash(gnosisSafe, txs, nonce);
+        bytes32 bundleSafeTxHash = LibSafeTx.multiSendSafeTxHash(gnosisSafe, txs, nonce);
 
         for (uint256 i = 0; i < txs.length; i++) {
-            LibSafeOps.simulateExternalCall(gnosisSafe, txs[i].to, txs[i].data);
+            LibSafeFork.simulateCall(vm, gnosisSafe, txs[i].to, txs[i].data);
         }
 
         LibAuthoriserInvariants.assertExpectedEuGrants(clone, safe, timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER);
 
-        string memory json = LibSafeOps.emitTxBuilderJson(safe, block.chainid, BUNDLE_NAME, txs);
+        string memory json = LibSafeTxBuilderJson.toJson(vm, safe, block.chainid, BUNDLE_NAME, txs);
         vm.writeFile(artifactPath(), json);
 
         console2.log("==== TX BUILDER JSON BEGIN ====");
@@ -171,23 +171,12 @@ contract GrantEuAuthoriserRoles is Script {
     function verify(string calldata jsonPath) external view {
         (address clone, address safe, address timelock) = preflight();
         SafeTx[] memory expected = grantBundle(clone, safe, timelock);
-        LibSafeOps.assertParsedTxsMatch(expected, jsonPath);
-
-        // The transactions matching says nothing about which Safe the artifact
-        // was authored for, and an artifact for another Safe would otherwise
-        // verify clean here.
-        bytes memory raw = bytes(vm.readFile(jsonPath));
-        if (vm.keyExistsJson(string(raw), ".meta.safeAddress")) {
-            address authoredFor = vm.parseJsonAddress(string(raw), ".meta.safeAddress");
-            if (authoredFor != safe) {
-                revert ArtifactSafeMismatch(safe, authoredFor);
-            }
-        }
+        LibSafeTxBuilderJson.requireMatches(vm, vm.readFile(jsonPath), safe, expected);
 
         console2.log("Artifact verified against live state.");
         console2.log(
             "Bundle MultiSend SafeTxHash:",
-            vm.toString(LibSafeOps.computeMultiSendSafeTxHash(IGnosisSafe(safe), expected, IGnosisSafe(safe).nonce()))
+            vm.toString(LibSafeTx.multiSendSafeTxHash(Safe(payable(safe)), expected, Safe(payable(safe)).nonce()))
         );
     }
 }
