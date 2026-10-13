@@ -5,9 +5,10 @@ pragma solidity =0.8.25;
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
-import {IMigrationRegistryV2} from "rain-deploy-0.1.15/src/interface/IMigrationRegistryV2.sol";
+import {IMigrationRegistryV2, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.15/src/interface/IMigrationRegistryV2.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.15/src/lib/LibMigrationRegistryDeploy.sol";
 
+import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
@@ -53,6 +54,10 @@ error EmergencyAlreadyGranted();
 /// `script = 20261006-grant-orchestrator-emergency` per chain. Refuses once
 /// the Safe's line has moved off genesis (`UnexpectedMigrationLine`).
 contract GrantOrchestratorEmergency is Script {
+    /// @notice The orchestrator instance, typed for its role-id getters.
+    ST0xOrchestrator internal constant ORCHESTRATOR =
+        ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
+
     /// @notice Signer-visible `meta.name` for the emitted bundle.
     string internal constant BUNDLE_NAME = "ST0x orchestrator: grant EMERGENCY_ROLE to the token-owner Safe";
 
@@ -73,11 +78,10 @@ contract GrantOrchestratorEmergency is Script {
         LibOrchestratorInvariants.assertBeaconSet();
 
         bytes32 head = LibStoxMigrations.head(safe);
-        if (head != LibStoxMigrations.genesis()) {
+        if (head != MIGRATION_HEAD_GENESIS) {
             revert UnexpectedMigrationLine(head);
         }
-        if (IAccessControl(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE)
-                .hasRole(LibOrchestratorInvariants.EMERGENCY_ROLE, safe)) {
+        if (ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), safe)) {
             revert EmergencyAlreadyGranted();
         }
         // With the line at genesis, this asserts the pre-grant state exactly.
@@ -95,7 +99,7 @@ contract GrantOrchestratorEmergency is Script {
         txs[0] = SafeTx({
             to: LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE,
             value: 0,
-            data: abi.encodeCall(IAccessControl.grantRole, (LibOrchestratorInvariants.EMERGENCY_ROLE, safe)),
+            data: abi.encodeCall(IAccessControl.grantRole, (ORCHESTRATOR.EMERGENCY_ROLE(), safe)),
             operation: 0
         });
         txs[1] = SafeTx({
@@ -107,7 +111,7 @@ contract GrantOrchestratorEmergency is Script {
                     LibStoxMigrations.NAMESPACE,
                     LibStoxMigrations.GOVERNANCE_TIMELOCK,
                     executedAt,
-                    LibStoxMigrations.onto(safe, LibStoxMigrations.genesis())
+                    LibStoxMigrations.onto(safe, MIGRATION_HEAD_GENESIS)
                 )
             ),
             operation: 0
@@ -201,12 +205,11 @@ contract GrantOrchestratorEmergency is Script {
         LibSafeOps.simulateNPlus1(
             safe,
             LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE,
-            abi.encodeCall(IAccessControl.revokeRole, (LibOrchestratorInvariants.EMERGENCY_ROLE, safeAddr)),
+            abi.encodeCall(IAccessControl.revokeRole, (ORCHESTRATOR.EMERGENCY_ROLE(), safeAddr)),
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD
         );
         require(
-            !IAccessControl(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE)
-                .hasRole(LibOrchestratorInvariants.EMERGENCY_ROLE, safeAddr),
+            !ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), safeAddr),
             "GrantOrchestratorEmergency: n+1 revoke did not remove the role"
         );
         LibSafeOps.simulateExternalCall(safe, txs[0].to, txs[0].data);
