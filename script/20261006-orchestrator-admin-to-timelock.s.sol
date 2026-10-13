@@ -184,8 +184,9 @@ contract OrchestratorAdminToTimelock is Script {
     /// @param timelock The chain's governance timelock.
     function proveGovernance(IGnosisSafe safe, address timelock) internal {
         address orchestrator = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
-        bytes memory grant =
-            abi.encodeCall(IAccessControl.grantRole, (ST0xOrchestrator(payable(orchestrator)).EMERGENCY_ROLE(), address(safe)));
+        bytes memory grant = abi.encodeCall(
+            IAccessControl.grantRole, (ST0xOrchestrator(payable(orchestrator)).EMERGENCY_ROLE(), address(safe))
+        );
 
         vm.prank(address(safe));
         // slither-disable-next-line low-level-calls
