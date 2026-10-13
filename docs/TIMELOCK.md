@@ -209,11 +209,10 @@ way to resolve it.
 
 - `LibTimelockInvariants.assertTimelockState(timelock, safe)` — rain-deploy's
   `LibTimelockController.assertTimelockState` at the 48h delay: codehash
-  (against the `TimelockController` record of the rain-deploy release this
-  repo pins, so the expectation moves only with a deliberate rain-deploy
-  bump, which `testPinsMatchDerivedAddresses` then holds to the live
-  addresses), the full role model above, no open roles, no root admin outside
-  the timelock itself.
+  (against the `TimelockController` record of the rain-deploy release this repo
+  pins, so the expectation moves only with a deliberate rain-deploy bump, which
+  `testPinsMatchDerivedAddresses` then holds to the live addresses), the full
+  role model above, no open roles, no root admin outside the timelock itself.
 - `LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe,
   timelock)` —
   the single master grant map, parameterised on the admin holder; production
