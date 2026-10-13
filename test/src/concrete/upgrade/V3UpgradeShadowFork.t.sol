@@ -13,7 +13,7 @@ import {LibProdDeployCurrent} from "../../../../src/generated/LibProdDeployCurre
 import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibTokenInvariants} from "../../../../src/lib/LibTokenInvariants.sol";
-import {LibSafeOps, IUpgradeableBeacon} from "../../../../src/lib/LibSafeOps.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {
     ICorporateActionsV1,
     ACTION_TYPE_STOCK_SPLIT_V1,
@@ -104,7 +104,7 @@ contract V3UpgradeShadowForkTest is Test {
         //    impl. In production this is a timelock operation; the shadow
         //    fork exercises the upgrade's effect, not the delay.
         vm.prank(LibBeaconInvariants.PROD_BEACON_OWNER);
-        IUpgradeableBeacon(BEACON).upgradeTo(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1);
+        UpgradeableBeacon(BEACON).upgradeTo(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1);
     }
 
     /// @notice Read the EIP-1967 beacon address from a proxy contract. Mirrors

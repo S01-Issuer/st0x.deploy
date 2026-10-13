@@ -8,7 +8,7 @@ import {IERC4626} from "@openzeppelin-contracts-5.7.0/interfaces/IERC4626.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {ERC1967Utils} from "@openzeppelin-contracts-5.7.0/proxy/ERC1967/ERC1967Utils.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
-import {IGnosisSafe} from "../../../../src/interface/IGnosisSafe.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {IOwnable} from "../../../../src/interface/IOwnable.sol";
 import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV2BaseOverrides} from "../../../../src/lib/LibProdDeployV2BaseOverrides.sol";
@@ -414,9 +414,9 @@ contract StoxCrossChainParityTest is Test {
         // --- Safe leg (needs: Safe) ---
         legs.safeLive = safe != address(0);
         if (legs.safeLive) {
-            LibSafeInvariants.assertTokenOwnerSafePolicy(IGnosisSafe(safe));
-            legs.owners = IGnosisSafe(safe).getOwners();
-            legs.threshold = IGnosisSafe(safe).getThreshold();
+            LibSafeInvariants.assertTokenOwnerSafePolicy(Safe(payable(safe)));
+            legs.owners = Safe(payable(safe)).getOwners();
+            legs.threshold = Safe(payable(safe)).getThreshold();
         } else {
             emit log(string.concat("PARITY PENDING: ", label, " Safe pin placeholder - Safe leg skipped"));
         }

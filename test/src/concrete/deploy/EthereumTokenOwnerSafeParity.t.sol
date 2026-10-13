@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {IGnosisSafe} from "../../../../src/interface/IGnosisSafe.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
 
@@ -44,6 +44,6 @@ contract EthereumTokenOwnerSafeParityTest is Test {
         // matters: v1.4.1 identity, owner set (order-insensitive), threshold.
         // Base is asserted against the same pins, so this transitively proves
         // parity with Base.
-        LibSafeInvariants.assertTokenOwnerSafePolicy(IGnosisSafe(ethSafe));
+        LibSafeInvariants.assertTokenOwnerSafePolicy(Safe(payable(ethSafe)));
     }
 }

@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
-import {IGnosisSafe} from "../../../src/interface/IGnosisSafe.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibInvariants} from "../../../src/lib/LibInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
@@ -30,7 +30,7 @@ contract LibInvariantsTest is Test {
     /// against live Base, identically to the Base no-arg overload it backs.
     function testAssertProductionStateBasePassesLive() external {
         vm.createSelectFork(LibRainDeploy.BASE);
-        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+        Safe safe = Safe(payable(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE));
 
         // Both forms must return silently. `assertProductionState` asserts the
         // shared token-owner Safe + shared grant map, so only the token table

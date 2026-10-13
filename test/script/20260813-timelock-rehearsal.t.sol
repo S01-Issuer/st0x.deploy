@@ -18,7 +18,8 @@ import {
     OperationNotExecutable
 } from "../../script/20260813-execute-timelock-operations.s.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {LibSafeOps, SafeTx} from "../../src/lib/LibSafeOps.sol";
+import {SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJson.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTimelockRehearsal} from "../../src/lib/LibTimelockRehearsal.sol";
 
@@ -132,20 +133,21 @@ contract TimelockRehearsalTest is Test {
         if (rehearsalIsRegisteredOnChain()) return;
         scheduleScript.run();
 
-        (uint256 chainId, address firstTarget, SafeTx[] memory txs) = LibSafeOps.parseTxBuilderJson(
-            string.concat("out/20260813-timelock-rehearsal-schedule-", vm.toString(block.chainid), ".json")
+        (uint256 chainId, address artifactSafe, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(
+            vm,
+            vm.readFile(string.concat("out/20260813-timelock-rehearsal-schedule-", vm.toString(block.chainid), ".json"))
         );
         assertEq(chainId, LibSafeInvariants.BASE_CHAIN_ID);
-        assertEq(firstTarget, address(timelock()), "the rehearsal targets the timelock itself");
+        assertEq(artifactSafe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, "the artifact is for Base's Safe");
         assertEq(txs.length, 1, "scheduling is a single call");
+        assertEq(txs[0].to, address(timelock()), "the rehearsal targets the timelock itself");
         // The rehearsal moves no ether. `value` survives the Tx Builder
         // round-trip, so a bundle that asked the Safe to fund the timelock
-        // would be caught here. `operation` does NOT survive it — the schema
-        // carries no such field and `parseTxBuilderJson` writes 0
-        // unconditionally — so CALL-vs-DELEGATECALL is pinned where it is
-        // actually observable: `LibSafeOps._requireCallOperation` refuses to
-        // serialise a non-CALL op at all, which is why `run()` above cannot
-        // have emitted one.
+        // would be caught here. `operation` does NOT survive it: the schema
+        // carries no such field and `fromJson` reads every entry back as a
+        // CALL. CALL-vs-DELEGATECALL is pinned where it is observable:
+        // `LibSafeTxBuilderJson.toJson` refuses to serialise a non-CALL entry,
+        // which is why `run()` above cannot have emitted one.
         assertEq(txs[0].value, 0, "the rehearsal sends no value");
         assertEq(
             txs[0].data,
@@ -216,8 +218,9 @@ contract TimelockRehearsalTest is Test {
         assertFalse(timelock().isOperation(id), "cancel clears the operation");
 
         scheduleScript.run();
-        (,, SafeTx[] memory txs) = LibSafeOps.parseTxBuilderJson(
-            string.concat("out/20260813-timelock-rehearsal-schedule-", vm.toString(block.chainid), ".json")
+        (,, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(
+            vm,
+            vm.readFile(string.concat("out/20260813-timelock-rehearsal-schedule-", vm.toString(block.chainid), ".json"))
         );
         assertEq(txs.length, 1);
         assertEq(txs[0].to, address(timelock()));
