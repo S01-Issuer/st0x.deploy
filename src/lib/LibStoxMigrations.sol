@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {LibMigrationRegistry} from "rain-deploy-0.1.17/src/lib/LibMigrationRegistry.sol";
-import {Prerequisite} from "rain-deploy-0.1.17/src/interface/IMigrationRegistryV2.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.17/src/lib/LibRainDeploy.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistry.sol";
+import {Prerequisite} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 
 import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
 
