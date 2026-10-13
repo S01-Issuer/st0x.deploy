@@ -7,7 +7,7 @@ import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensio
 import {IERC4626} from "@openzeppelin-contracts-5.7.0/interfaces/IERC4626.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {ERC1967Utils} from "@openzeppelin-contracts-5.7.0/proxy/ERC1967/ERC1967Utils.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.17/src/lib/LibRainDeploy.sol";
 import {IGnosisSafe} from "../../../../src/interface/IGnosisSafe.sol";
 import {IOwnable} from "../../../../src/interface/IOwnable.sol";
 import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
