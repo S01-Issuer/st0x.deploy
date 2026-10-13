@@ -62,7 +62,7 @@ dataSources:
     name: GovernanceTimelock
     network: robinhood
     source:
-      abi: AccessControl
+      abi: TimelockController
       address: "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B"
       startBlock: 59818983
     mapping:
@@ -75,9 +75,12 @@ dataSources:
         - RoleHolder
         - RoleGrant
         - RoleAdminChange
+        - TimelockOperationKey
+        - TimelockOperation
+        - TimelockCall
       abis:
-        - name: AccessControl
-          file: ./abis/AccessControl.json
+        - name: TimelockController
+          file: ./abis/TimelockController.json
       eventHandlers:
         - event: RoleGranted(indexed bytes32,indexed address,indexed address)
           handler: handleTimelockRoleGranted
@@ -85,6 +88,14 @@ dataSources:
           handler: handleTimelockRoleRevoked
         - event: RoleAdminChanged(indexed bytes32,indexed bytes32,indexed bytes32)
           handler: handleTimelockRoleAdminChanged
+        - event: CallScheduled(indexed bytes32,indexed uint256,address,uint256,bytes,bytes32,uint256)
+          handler: handleTimelockCallScheduled
+        - event: CallSalt(indexed bytes32,bytes32)
+          handler: handleTimelockCallSalt
+        - event: CallExecuted(indexed bytes32,indexed uint256,address,uint256,bytes)
+          handler: handleTimelockCallExecuted
+        - event: Cancelled(indexed bytes32)
+          handler: handleTimelockCancelled
       file: ./src/timelock.ts
   - kind: ethereum/contract
     name: WrappedTokenVaultBeacon
