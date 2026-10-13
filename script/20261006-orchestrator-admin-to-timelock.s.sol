@@ -204,7 +204,7 @@ contract OrchestratorAdminToTimelock is SafeBundleScript {
 
     /// @inheritdoc SafeBundleScript
     /// @dev The record is this bundle's, the orchestrator's roles are what it
-    /// implies, and the Safe is unchanged.
+    /// implies, and the Safe still carries the token-owner policy.
     function assertPostState() internal view override {
         address chainSafe = address(safe());
         // The registry stamps the block the record lands in, which on the
@@ -220,8 +220,7 @@ contract OrchestratorAdminToTimelock is SafeBundleScript {
             revert LineHeadMismatch(head);
         }
         LibOrchestratorInvariants.assertInstance(chainSafe);
-        LibSafeInvariants.assertImmutableInvariants(IGnosisSafe(chainSafe));
-        LibSafeInvariants.assertThreshold(IGnosisSafe(chainSafe), LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
+        LibSafeInvariants.assertTokenOwnerSafePolicy(IGnosisSafe(chainSafe));
     }
 
     /// @inheritdoc SafeBundleScript
