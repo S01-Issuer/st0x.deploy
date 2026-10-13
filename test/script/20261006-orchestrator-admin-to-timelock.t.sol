@@ -102,6 +102,9 @@ contract OrchestratorAdminToTimelockTest is Test {
         console2.log(string.concat("PENDING [", network, "]: authoring, verifying and executing the move"));
         uint256 preRun = vm.snapshotState();
         script.run();
+        // The governance proof's timelock-executed re-grant leaves the
+        // post-move state exactly as the invariants demand.
+        LibOrchestratorInvariants.assertInstance(safe);
         vm.revertToState(preRun);
 
         script.verify(script.callArtifactPath());
