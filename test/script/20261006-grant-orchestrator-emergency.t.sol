@@ -154,6 +154,25 @@ contract GrantOrchestratorEmergencyTest is Test {
         script.callPreflight();
     }
 
+    /// @notice The n+1 proof refuses a revoke that executes but leaves the
+    /// Safe holding `EMERGENCY`: the orchestrator's `revokeRole` for exactly
+    /// that role and holder is mocked to a silent no-op.
+    function testRefusesNPlus1RevokeThatLeavesTheRole() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        if (spent()) return;
+        GrantOrchestratorEmergencyHarness script = new GrantOrchestratorEmergencyHarness();
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        bytes32 emergencyRole = ORCHESTRATOR.EMERGENCY_ROLE();
+        vm.mockCall(address(ORCHESTRATOR), abi.encodeCall(IAccessControl.revokeRole, (emergencyRole, safe)), "");
+        // `run()` arms its own `vm.expectRevert` for the undersigned n+1 case,
+        // so the refusal is caught rather than expected.
+        try script.run() {
+            revert("n+1 accepted a revoke that left the role");
+        } catch Error(string memory reason) {
+            assertEq(reason, "GrantOrchestratorEmergency: n+1 revoke did not remove the role");
+        }
+    }
+
     /// @notice `verify` refuses an artifact that differs from the re-derived
     /// bundle: here, one that grants the role to a different address.
     function testVerifyRefusesTamperedArtifact() external {
