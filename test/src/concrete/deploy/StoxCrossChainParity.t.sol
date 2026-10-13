@@ -622,4 +622,48 @@ contract StoxCrossChainParityTest is Test {
         assertAllLegsLive("Robinhood Chain", robinhood);
         assertAllLegsLive("BNB Smart Chain", bsc);
     }
+
+    /// @notice External shim so `vm.expectRevert` can see the helper's revert.
+    /// @param label Human chain name, used in the assertion messages.
+    /// @param legs The legs to check.
+    function externalAssertAllLegsLive(string memory label, ChainLegs memory legs) external pure {
+        assertAllLegsLive(label, legs);
+    }
+
+    /// @notice Legs with every leg live.
+    /// @return legs Every `*Live` flag set.
+    function allLiveLegs() internal pure returns (ChainLegs memory legs) {
+        legs.safeLive = true;
+        legs.cloneLive = true;
+        legs.tokenLegLive = true;
+    }
+
+    /// @notice A chain whose every leg was live passes.
+    function testAllLegsLivePasses() external view {
+        this.externalAssertAllLegsLive("Ethereum", allLiveLegs());
+    }
+
+    /// @notice A pending Safe leg fails the suite.
+    function testPendingSafeLegFailsTheSuite() external {
+        ChainLegs memory legs = allLiveLegs();
+        legs.safeLive = false;
+        vm.expectRevert(bytes("Ethereum Safe leg reported pending - parity comparisons are disabled"));
+        this.externalAssertAllLegsLive("Ethereum", legs);
+    }
+
+    /// @notice A pending authoriser leg fails the suite.
+    function testPendingAuthoriserLegFailsTheSuite() external {
+        ChainLegs memory legs = allLiveLegs();
+        legs.cloneLive = false;
+        vm.expectRevert(bytes("Ethereum authoriser leg reported pending - parity comparisons are disabled"));
+        this.externalAssertAllLegsLive("Ethereum", legs);
+    }
+
+    /// @notice A pending token leg fails the suite.
+    function testPendingTokenLegFailsTheSuite() external {
+        ChainLegs memory legs = allLiveLegs();
+        legs.tokenLegLive = false;
+        vm.expectRevert(bytes("Ethereum token leg reported pending - parity comparisons are disabled"));
+        this.externalAssertAllLegsLive("Ethereum", legs);
+    }
 }
