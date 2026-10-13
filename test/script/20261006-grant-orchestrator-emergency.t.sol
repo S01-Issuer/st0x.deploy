@@ -5,52 +5,47 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
-import {IMigrationRegistryV2, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.15/src/interface/IMigrationRegistryV2.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.15/src/lib/LibMigrationRegistryDeploy.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {IMigrationRegistryV2, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistryDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJson.sol";
 
 import {
     EmergencyAlreadyGranted,
+    EmergencyNotRevoked,
     UnexpectedMigrationLine
 } from "../../script/20261006-grant-orchestrator-emergency.s.sol";
 import {GrantOrchestratorEmergencyHarness} from "./GrantOrchestratorEmergencyHarness.sol";
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
-import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {LibSafeOps, SafeTx, TxBuilderArtifactMismatch} from "../../src/lib/LibSafeOps.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
-import {LibTestSafeBundle} from "../lib/LibTestSafeBundle.sol";
 
-/// @notice The grant deadline passed with this chain still pending: the Safe
-/// lacks `EMERGENCY_ROLE` there and the admin move cannot follow. Execute
-/// the bundle, extend the deadline, or delete the invariant.
+/// @notice The grant is required on this chain and its record is not on
+/// chain: the Safe lacks `EMERGENCY_ROLE` there and the admin move cannot
+/// follow. Execute the bundle.
 /// @param network The chain still pending.
-error GrantOverdue(string network);
-
-/// @dev 2026-11-01T00:00:00Z: past this, a chain that has not executed the
-/// grant red-lines cron instead of passing the PENDING branch forever.
-uint256 constant GRANT_DEADLINE = 1_793_491_200;
+error EmergencyGrantNotApplied(string network);
 
 /// @title GrantOrchestratorEmergencyTest
-/// @notice The grant on every deployment network at head. While the chain
-/// has not executed it, `run()` authors, simulates and proves the bundle,
-/// `verify` accepts the artifact, and the exact bundle executed through the
-/// Safe's own MultiSend leaves the state the invariants demand and makes a
-/// re-dispatch refuse. Once executed, the chain must be in that state and
-/// the script must refuse.
+/// @notice The grant on every deployment network at head, in two parts per
+/// network. The bundle: while the chain has not executed it, `run()`
+/// executes it through the Safe, proves it and writes the artifact, `verify`
+/// accepts that artifact, and the artifact executed by the owners leaves the
+/// state the invariants demand and makes a re-dispatch refuse; once executed,
+/// the chain must be in that state and the script must refuse. The
+/// requirement: the grant's record is on chain, red until it is.
 contract GrantOrchestratorEmergencyTest is Test {
     ST0xOrchestrator internal constant ORCHESTRATOR =
         ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
 
-    function assertGrant(string memory network) internal {
+    function assertBundle(string memory network) internal {
         vm.createSelectFork(network);
-        assertGrantOnActiveFork(network);
-    }
-
-    function assertGrantOnActiveFork(string memory network) internal {
-        GrantOrchestratorEmergencyHarness script = new GrantOrchestratorEmergencyHarness();
+        GrantOrchestratorEmergencyHarness script = new GrantOrchestratorEmergencyHarness(network);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
 
         if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) != 0) {
@@ -64,22 +59,20 @@ contract GrantOrchestratorEmergencyTest is Test {
             return;
         }
 
-        // A date on a rollout plan, not a race: the window is days wide, so the
-        // seconds a validator could skew cannot change which side of it we are on.
-        // forge-lint: disable-next-line(block-timestamp)
-        if (block.timestamp >= GRANT_DEADLINE) {
-            revert GrantOverdue(network);
-        }
         console2.log(string.concat("PENDING [", network, "]: authoring, verifying and executing the bundle"));
         uint256 preRun = vm.snapshotState();
         script.run();
         assertTrue(ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), safe), "run: EMERGENCY");
         vm.revertToState(preRun);
 
-        script.verify(script.callArtifactPath());
+        string memory artifactPath = script.callArtifactPath();
+        script.verify(artifactPath);
 
-        SafeTx[] memory txs = script.callAuthorBundle(safe);
-        LibTestSafeBundle.execute(IGnosisSafe(safe), txs, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
+        // The artifact a signer loads, executed by the owners as the Safe UI
+        // executes it, not the bundle re-derived in memory.
+        (, address artifactSafe, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(vm, vm.readFile(artifactPath));
+        assertEq(artifactSafe, safe, "artifact Safe");
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), txs);
 
         assertTrue(ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), safe), "exec: EMERGENCY");
         assertEq(LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY), block.timestamp);
@@ -94,24 +87,52 @@ contract GrantOrchestratorEmergencyTest is Test {
         script.callPreflight();
     }
 
-    function testGrantBase() external {
-        assertGrant(LibRainDeploy.BASE);
+    function assertApplied(string memory network) internal {
+        vm.createSelectFork(network);
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0) {
+            revert EmergencyGrantNotApplied(network);
+        }
     }
 
-    function testGrantEthereum() external {
-        assertGrant(LibStoxDeployNetworks.ETHEREUM);
+    function testGrantBundleBase() external {
+        assertBundle(LibRainDeploy.BASE);
     }
 
-    function testGrantHyperEvm() external {
-        assertGrant(LibStoxDeployNetworks.HYPEREVM);
+    function testGrantBundleEthereum() external {
+        assertBundle(LibStoxDeployNetworks.ETHEREUM);
     }
 
-    function testGrantRobinhood() external {
-        assertGrant(LibStoxDeployNetworks.ROBINHOOD);
+    function testGrantBundleHyperEvm() external {
+        assertBundle(LibStoxDeployNetworks.HYPEREVM);
     }
 
-    function testGrantBsc() external {
-        assertGrant(LibStoxDeployNetworks.BSC);
+    function testGrantBundleRobinhood() external {
+        assertBundle(LibStoxDeployNetworks.ROBINHOOD);
+    }
+
+    function testGrantBundleBsc() external {
+        assertBundle(LibStoxDeployNetworks.BSC);
+    }
+
+    function testGrantAppliedBase() external {
+        assertApplied(LibRainDeploy.BASE);
+    }
+
+    function testGrantAppliedEthereum() external {
+        assertApplied(LibStoxDeployNetworks.ETHEREUM);
+    }
+
+    function testGrantAppliedHyperEvm() external {
+        assertApplied(LibStoxDeployNetworks.HYPEREVM);
+    }
+
+    function testGrantAppliedRobinhood() external {
+        assertApplied(LibStoxDeployNetworks.ROBINHOOD);
+    }
+
+    function testGrantAppliedBsc() external {
+        assertApplied(LibStoxDeployNetworks.BSC);
     }
 
     /// @notice Whether the grant has executed on the active chain. The
@@ -131,7 +152,7 @@ contract GrantOrchestratorEmergencyTest is Test {
     function testRefusesUnrecordedGrant() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         if (spent()) return;
-        GrantOrchestratorEmergencyHarness script = new GrantOrchestratorEmergencyHarness();
+        GrantOrchestratorEmergencyHarness script = new GrantOrchestratorEmergencyHarness("unrecorded");
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         bytes32 emergencyRole = ORCHESTRATOR.EMERGENCY_ROLE();
         vm.prank(safe);
@@ -144,7 +165,7 @@ contract GrantOrchestratorEmergencyTest is Test {
     function testRefusesLineOffGenesis() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         if (spent()) return;
-        GrantOrchestratorEmergencyHarness script = new GrantOrchestratorEmergencyHarness();
+        GrantOrchestratorEmergencyHarness script = new GrantOrchestratorEmergencyHarness("off-genesis");
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         bytes32 other = keccak256("some other migration");
         vm.prank(safe);
@@ -156,21 +177,18 @@ contract GrantOrchestratorEmergencyTest is Test {
 
     /// @notice The n+1 proof refuses a revoke that executes but leaves the
     /// Safe holding `EMERGENCY`: the orchestrator's `revokeRole` for exactly
-    /// that role and holder is mocked to a silent no-op.
+    /// that role and holder is mocked to a silent no-op. The refusal comes
+    /// before the artifact is written, so none is.
     function testRefusesNPlus1RevokeThatLeavesTheRole() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         if (spent()) return;
-        GrantOrchestratorEmergencyHarness script = new GrantOrchestratorEmergencyHarness();
+        GrantOrchestratorEmergencyHarness script = new GrantOrchestratorEmergencyHarness("n-plus-1");
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         bytes32 emergencyRole = ORCHESTRATOR.EMERGENCY_ROLE();
         vm.mockCall(address(ORCHESTRATOR), abi.encodeCall(IAccessControl.revokeRole, (emergencyRole, safe)), "");
-        // `run()` arms its own `vm.expectRevert` for the undersigned n+1 case,
-        // so the refusal is caught rather than expected.
-        try script.run() {
-            revert("n+1 accepted a revoke that left the role");
-        } catch Error(string memory reason) {
-            assertEq(reason, "GrantOrchestratorEmergency: n+1 revoke did not remove the role");
-        }
+        vm.expectRevert(EmergencyNotRevoked.selector);
+        script.run();
+        assertFalse(vm.exists(script.callArtifactPath()), "a refused bundle left an artifact");
     }
 
     /// @notice `verify` refuses an artifact that differs from the re-derived
@@ -178,12 +196,12 @@ contract GrantOrchestratorEmergencyTest is Test {
     function testVerifyRefusesTamperedArtifact() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         if (spent()) return;
-        GrantOrchestratorEmergencyHarness script = new GrantOrchestratorEmergencyHarness();
+        GrantOrchestratorEmergencyHarness script = new GrantOrchestratorEmergencyHarness("tamper");
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         // Built in memory and written to its own paths, so this test never
         // reads the artifact `run()` writes for the other tests.
         string memory json =
-            LibSafeOps.emitTxBuilderJson(safe, block.chainid, "tamper test", script.callAuthorBundle(safe));
+            LibSafeTxBuilderJson.toJson(vm, safe, block.chainid, "tamper test", script.callAuthorBundle());
         string memory cleanPath =
             string.concat("out/20261006-grant-orchestrator-emergency-clean-", vm.toString(block.chainid), ".json");
         vm.writeFile(cleanPath, json);
@@ -199,21 +217,7 @@ contract GrantOrchestratorEmergencyTest is Test {
         string memory tamperedPath =
             string.concat("out/20261006-grant-orchestrator-emergency-tampered-", vm.toString(block.chainid), ".json");
         vm.writeFile(tamperedPath, tampered);
-        vm.expectPartialRevert(TxBuilderArtifactMismatch.selector);
+        vm.expectRevert(abi.encodeWithSelector(LibSafeTxBuilderJson.ArtifactMismatch.selector, "data"));
         script.verify(tamperedPath);
-    }
-
-    /// @notice A chain still pending at the deadline red-lines.
-    function testPendingPastDeadlineIsOverdue() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
-        if (spent()) return;
-        vm.warp(GRANT_DEADLINE);
-        vm.expectRevert(abi.encodeWithSelector(GrantOverdue.selector, LibRainDeploy.BASE));
-        this.externalAssertGrantOnActiveFork(LibRainDeploy.BASE);
-    }
-
-    /// @notice External shim so `vm.expectRevert` can see the helper's revert.
-    function externalAssertGrantOnActiveFork(string memory network) external {
-        assertGrantOnActiveFork(network);
     }
 }

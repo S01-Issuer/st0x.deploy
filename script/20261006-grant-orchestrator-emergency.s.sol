@@ -2,17 +2,18 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Script} from "forge-std-1.17.0/src/Script.sol";
-import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
-import {IMigrationRegistryV2, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.15/src/interface/IMigrationRegistryV2.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.15/src/lib/LibMigrationRegistryDeploy.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
+import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.18/src/abstract/SafeBundleScript.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
+import {SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
 
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
-import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
@@ -26,6 +27,22 @@ error UnexpectedMigrationLine(bytes32 head);
 /// @notice The Safe already holds `EMERGENCY_ROLE` without the record this
 /// script writes: it was granted outside a recorded migration.
 error EmergencyAlreadyGranted();
+
+/// @notice After the bundle, a migration's record is not the one the bundle
+/// wrote.
+/// @param migration The migration.
+/// @param expected The moment the bundle records.
+/// @param actual The moment the registry answers.
+error RecordMismatch(bytes32 migration, uint256 expected, uint256 actual);
+
+/// @notice After the bundle, the Safe's line does not end at this script's
+/// record.
+/// @param head The line's head.
+error LineHeadMismatch(bytes32 head);
+
+/// @notice The n+1 revoke executed through the Safe and the Safe still
+/// holds `EMERGENCY_ROLE`.
+error EmergencyNotRevoked();
 
 /// @title GrantOrchestratorEmergency
 /// @notice Authors the per-chain Safe Tx Builder bundle that grants the
@@ -50,191 +67,134 @@ error EmergencyAlreadyGranted();
 /// `LibOrchestratorInvariants.assertInstance` reads the record: before it,
 /// the Safe must not hold `EMERGENCY_ROLE`; after it, the Safe must.
 ///
+/// `run()` and `verify()` are `SafeBundleScript`'s: `run()` executes the
+/// bundle through the Safe on the fork, requires the post-state, proves the
+/// Safe can revoke the role again under its live threshold and writes the
+/// artifact; `verify(path)` holds a downloaded artifact to the bundle
+/// re-derived from live state.
+///
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261006-grant-orchestrator-emergency` per chain. Refuses once
 /// the Safe's line has moved off genesis (`UnexpectedMigrationLine`).
-contract GrantOrchestratorEmergency is Script {
+contract GrantOrchestratorEmergency is SafeBundleScript {
     /// @notice The orchestrator instance, typed for its role-id getters.
     ST0xOrchestrator internal constant ORCHESTRATOR =
         ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
 
-    /// @notice Signer-visible `meta.name` for the emitted bundle.
-    string internal constant BUNDLE_NAME = "ST0x orchestrator: grant EMERGENCY_ROLE to the token-owner Safe";
+    /// @inheritdoc SafeBundleScript
+    function bundleName() internal pure override returns (string memory) {
+        return "ST0x orchestrator: grant EMERGENCY_ROLE to the token-owner Safe";
+    }
 
-    /// @notice Chain-suffixed artifact path.
-    /// @return The artifact path for the ACTIVE chain.
-    function artifactPath() internal view virtual returns (string memory) {
+    /// @inheritdoc SafeBundleScript
+    /// @dev Chain-suffixed, for the ACTIVE chain.
+    function artifactPath() internal view virtual override returns (string memory) {
         return string.concat("out/20261006-grant-orchestrator-emergency-", vm.toString(block.chainid), ".json");
     }
 
-    /// @notice Pre-flight live state: the Safe, the timelock and the
-    /// orchestrator are what this repo pins, the Safe's registry line is at
-    /// genesis, and the Safe does not yet hold `EMERGENCY_ROLE`.
-    /// @return The chain's token-owner Safe.
-    function preflight() internal view returns (address) {
-        address safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+    /// @inheritdoc SafeBundleScript
+    /// @dev The chain's token-owner Safe. `preflight` proves it in policy.
+    function safe() internal view override returns (Safe) {
+        return Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
+    }
+
+    /// @inheritdoc SafeBundleScript
+    /// @dev The Safe, the timelock and the orchestrator are what this repo
+    /// pins, the Safe's registry line is at genesis, and the Safe does not yet
+    /// hold `EMERGENCY_ROLE`.
+    function preflight() internal view override {
+        address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        LibTimelockInvariants.assertTimelockState(timelock, safe);
+        LibTimelockInvariants.assertTimelockState(timelock, chainSafe);
         LibOrchestratorInvariants.assertBeaconSet();
 
-        bytes32 head = LibStoxMigrations.head(safe);
+        bytes32 head = LibStoxMigrations.head(chainSafe);
         if (head != MIGRATION_HEAD_GENESIS) {
             revert UnexpectedMigrationLine(head);
         }
-        if (ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), safe)) {
+        if (ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), chainSafe)) {
             revert EmergencyAlreadyGranted();
         }
         // With the line at genesis, this asserts the pre-grant state exactly.
-        LibOrchestratorInvariants.assertInstance(safe);
-        return safe;
+        LibOrchestratorInvariants.assertInstance(chainSafe);
     }
 
-    /// @notice The bundle for the active chain.
-    /// @param safe The chain's token-owner Safe.
-    /// @return The grant, then the two records.
-    function authorBundle(address safe) internal view returns (SafeTx[] memory) {
+    /// @inheritdoc SafeBundleScript
+    /// @dev The grant, then the two records.
+    function authorBundle() internal view override returns (SafeTx[] memory) {
+        address chainSafe = address(safe());
         (uint256 executedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
-        address registry = LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS;
 
         SafeTx[] memory txs = new SafeTx[](3);
         txs[0] = SafeTx({
-            to: LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE,
+            to: address(ORCHESTRATOR),
             value: 0,
-            data: abi.encodeCall(IAccessControl.grantRole, (ORCHESTRATOR.EMERGENCY_ROLE(), safe)),
-            operation: 0
+            data: abi.encodeCall(IAccessControl.grantRole, (ORCHESTRATOR.EMERGENCY_ROLE(), chainSafe)),
+            operation: Enum.Operation.Call
         });
-        txs[1] = SafeTx({
-            to: registry,
-            value: 0,
-            data: abi.encodeCall(
-                IMigrationRegistryV2.applyMigrationHistory,
-                (
-                    LibStoxMigrations.NAMESPACE,
-                    LibStoxMigrations.GOVERNANCE_TIMELOCK,
-                    executedAt,
-                    LibStoxMigrations.onto(safe, MIGRATION_HEAD_GENESIS)
-                )
-            ),
-            operation: 0
-        });
-        txs[2] = SafeTx({
-            to: registry,
-            value: 0,
-            data: abi.encodeCall(
-                IMigrationRegistryV2.applyMigration,
-                (
-                    LibStoxMigrations.NAMESPACE,
-                    LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
-                    LibStoxMigrations.onto(safe, LibStoxMigrations.GOVERNANCE_TIMELOCK)
-                )
-            ),
-            operation: 0
-        });
+        (address historyTo, bytes memory historyData) = LibStoxMigrations.applyMigrationHistoryCall(
+            LibStoxMigrations.GOVERNANCE_TIMELOCK, executedAt, LibStoxMigrations.onto(chainSafe, MIGRATION_HEAD_GENESIS)
+        );
+        txs[1] = SafeTx({to: historyTo, value: 0, data: historyData, operation: Enum.Operation.Call});
+        (address recordTo, bytes memory recordData) = LibStoxMigrations.applyMigrationCall(
+            LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
+            LibStoxMigrations.onto(chainSafe, LibStoxMigrations.GOVERNANCE_TIMELOCK)
+        );
+        txs[2] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
         return txs;
     }
 
-    /// @notice Assert the post-bundle state on the active fork: the records
-    /// are exactly the two this bundle writes, and the orchestrator's roles
-    /// are what they imply.
-    /// @param safe The chain's token-owner Safe.
-    function assertPostState(address safe) internal view {
+    /// @inheritdoc SafeBundleScript
+    /// @dev The records are exactly the two this bundle writes, the
+    /// orchestrator's roles are what they imply, and the Safe is unchanged.
+    function assertPostState() internal view override {
+        address chainSafe = address(safe());
         (uint256 executedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
-        require(
-            LibStoxMigrations.applied(safe, LibStoxMigrations.GOVERNANCE_TIMELOCK) == executedAt,
-            "GrantOrchestratorEmergency: governance-timelock record"
-        );
+        uint256 timelockRecord = LibStoxMigrations.applied(chainSafe, LibStoxMigrations.GOVERNANCE_TIMELOCK);
+        if (timelockRecord != executedAt) {
+            revert RecordMismatch(LibStoxMigrations.GOVERNANCE_TIMELOCK, executedAt, timelockRecord);
+        }
         // The registry stamps the block the record lands in, which on the
         // fork is this block: an equality with a known value, not a window.
-        require(
+        uint256 emergencyRecord = LibStoxMigrations.applied(chainSafe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
+        // forge-lint: disable-next-line(block-timestamp)
+        if (emergencyRecord != block.timestamp) {
             // forge-lint: disable-next-line(block-timestamp)
-            LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == block.timestamp,
-            "GrantOrchestratorEmergency: emergency record"
-        );
-        require(
-            LibStoxMigrations.head(safe) == LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
-            "GrantOrchestratorEmergency: line head"
-        );
-        LibOrchestratorInvariants.assertInstance(safe);
-    }
-
-    /// @notice Author the bundle for the active chain. Does not broadcast:
-    /// execution happens in the Safe UI from the emitted artifact.
-    function run() external {
-        // --- Pre-flight ---------------------------------------------------
-
-        address safeAddr = preflight();
-        IGnosisSafe safe = IGnosisSafe(safeAddr);
-
-        // --- Build the bundle ----------------------------------------------
-
-        SafeTx[] memory txs = authorBundle(safeAddr);
-        uint256 nonce = safe.nonce();
-        bytes32 bundleSafeTxHash = LibSafeOps.computeMultiSendSafeTxHash(safe, txs, nonce);
-
-        // --- Simulate -----------------------------------------------------
-
-        for (uint256 i = 0; i < txs.length; i++) {
-            LibSafeOps.simulateExternalCall(safe, txs[i].to, txs[i].data);
+            revert RecordMismatch(LibStoxMigrations.ORCHESTRATOR_EMERGENCY, block.timestamp, emergencyRecord);
         }
-
-        // --- Post-state ---------------------------------------------------
-
-        assertPostState(safeAddr);
-        LibSafeInvariants.assertImmutableInvariants(safe);
-        LibSafeInvariants.assertThreshold(safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
-
-        // --- Artifact -----------------------------------------------------
-
-        string memory json = LibSafeOps.emitTxBuilderJson(safeAddr, block.chainid, BUNDLE_NAME, txs);
-        vm.writeFile(artifactPath(), json);
-
-        console2.log("==== TX BUILDER JSON BEGIN ====");
-        console2.log(json);
-        console2.log("==== TX BUILDER JSON END ====");
-        console2.log("Bundle MultiSend SafeTxHash:", vm.toString(bundleSafeTxHash));
-        console2.log("Nonce:", nonce);
-        console2.log("Bundle item count:", txs.length);
-        console2.log("Chain:", block.chainid);
-
-        // --- n+1 proof ----------------------------------------------------
-
-        // The Safe can still revoke the role under the live threshold. The
-        // registry record is permanent, so a real revoke must ship with its
-        // own recorded migration (and a matching branch in
-        // `LibOrchestratorInvariants.assertInstance`), or every later
-        // `assertInstance` caller reverts. Re-grant so the fork ends in the
-        // post-bundle state.
-        LibSafeOps.simulateNPlus1(
-            safe,
-            LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE,
-            abi.encodeCall(IAccessControl.revokeRole, (ORCHESTRATOR.EMERGENCY_ROLE(), safeAddr)),
-            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD
-        );
-        require(
-            !ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), safeAddr),
-            "GrantOrchestratorEmergency: n+1 revoke did not remove the role"
-        );
-        LibSafeOps.simulateExternalCall(safe, txs[0].to, txs[0].data);
-        console2.log("n+1 check passed: the Safe can revoke (and re-grant) EMERGENCY under the live threshold");
+        bytes32 head = LibStoxMigrations.head(chainSafe);
+        if (head != LibStoxMigrations.ORCHESTRATOR_EMERGENCY) {
+            revert LineHeadMismatch(head);
+        }
+        LibOrchestratorInvariants.assertInstance(chainSafe);
+        LibSafeInvariants.assertImmutableInvariants(IGnosisSafe(chainSafe));
+        LibSafeInvariants.assertThreshold(IGnosisSafe(chainSafe), LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
     }
 
-    /// @notice Signer-side integrity check for a CI-authored artifact, run
-    /// LOCALLY against a live fork before signing: re-derives the bundle
-    /// from current chain state, asserts the artifact matches it exactly,
-    /// and prints the MultiSend `SafeTxHash` at the live nonce.
-    /// @param jsonPath Filesystem path to the downloaded Tx Builder JSON.
-    function verify(string calldata jsonPath) external view {
-        address safeAddr = preflight();
-        IGnosisSafe safe = IGnosisSafe(safeAddr);
-
-        SafeTx[] memory expected = authorBundle(safeAddr);
-        LibSafeOps.assertParsedTxsMatch(expected, jsonPath);
-
-        uint256 nonce = safe.nonce();
-        console2.log("Artifact verified against live state.");
-        console2.log(
-            "Bundle MultiSend SafeTxHash:", vm.toString(LibSafeOps.computeMultiSendSafeTxHash(safe, expected, nonce))
+    /// @inheritdoc SafeBundleScript
+    /// @dev The Safe can still revoke the role under the live threshold. The
+    /// registry record is permanent, so a real revoke must ship with its own
+    /// recorded migration (and a matching branch in
+    /// `LibOrchestratorInvariants.assertInstance`), or every later
+    /// `assertInstance` caller reverts. Re-grants so the fork ends in the
+    /// post-bundle state.
+    function assertReversible() internal override {
+        Safe chainSafe = safe();
+        bytes32 emergencyRole = ORCHESTRATOR.EMERGENCY_ROLE();
+        LibSafeFork.simulateNPlus1(
+            vm,
+            chainSafe,
+            address(ORCHESTRATOR),
+            abi.encodeCall(IAccessControl.revokeRole, (emergencyRole, address(chainSafe)))
         );
-        console2.log("Nonce:", nonce);
+        if (ORCHESTRATOR.hasRole(emergencyRole, address(chainSafe))) {
+            revert EmergencyNotRevoked();
+        }
+        LibSafeFork.simulateCall(
+            vm,
+            chainSafe,
+            address(ORCHESTRATOR),
+            abi.encodeCall(IAccessControl.grantRole, (emergencyRole, address(chainSafe)))
+        );
     }
 }

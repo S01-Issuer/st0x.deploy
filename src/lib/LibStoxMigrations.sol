@@ -115,6 +115,37 @@ library LibStoxMigrations {
         return LibMigrationRegistry.head(writer, NAMESPACE);
     }
 
+    /// @notice The registry call that records `migration` under the caller
+    /// in this repo's namespace, after `prerequisites`: the `to` and `data`
+    /// of a Safe bundle entry. Verifies the registry's code hash first.
+    /// @param migration The migration id.
+    /// @param prerequisites What it is applied after.
+    /// @return The registry.
+    /// @return The calldata.
+    function applyMigrationCall(bytes32 migration, Prerequisite[] memory prerequisites)
+        internal
+        view
+        returns (address, bytes memory)
+    {
+        return LibMigrationRegistry.applyMigrationCall(NAMESPACE, migration, prerequisites);
+    }
+
+    /// @notice The registry call that records `migration` under the caller
+    /// in this repo's namespace as history, at `appliedAt`, after
+    /// `prerequisites`. Verifies the registry's code hash first.
+    /// @param migration The migration id.
+    /// @param appliedAt When the migration executed, unix seconds.
+    /// @param prerequisites What it is applied after.
+    /// @return The registry.
+    /// @return The calldata.
+    function applyMigrationHistoryCall(bytes32 migration, uint256 appliedAt, Prerequisite[] memory prerequisites)
+        internal
+        view
+        returns (address, bytes memory)
+    {
+        return LibMigrationRegistry.applyMigrationHistoryCall(NAMESPACE, migration, appliedAt, prerequisites);
+    }
+
     /// @notice The prerequisite list for a migration applied onto
     /// `headMigration` that waits on nothing outside the writer's own line.
     /// @param writer The account writing the record.
