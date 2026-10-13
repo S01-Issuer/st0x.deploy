@@ -4,7 +4,6 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
 import {LibMigrationRegistry} from "rain-deploy-0.1.15/src/lib/LibMigrationRegistry.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.15/src/lib/LibMigrationRegistryDeploy.sol";
 
@@ -61,10 +60,18 @@ contract LibStoxMigrationsTest is Test {
         assertTrue(LibStoxMigrations.GOVERNANCE_TIMELOCK != LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
     }
 
-    function testUnknownChainReverts() external {
+    /// @notice A catalogued network ST0x does not deploy to has no moment.
+    function testUndeployedCataloguedChainReverts() external {
         LibStoxMigrationsHarness ext = new LibStoxMigrationsHarness();
         vm.expectRevert(abi.encodeWithSelector(NoGovernanceTimelockMigrationOnChain.selector, uint256(42161)));
         ext.governanceTimelockExecution(42161);
+    }
+
+    /// @notice A chain id the catalogue does not name has no moment.
+    function testUncataloguedChainReverts() external {
+        LibStoxMigrationsHarness ext = new LibStoxMigrationsHarness();
+        vm.expectRevert(abi.encodeWithSelector(NoGovernanceTimelockMigrationOnChain.selector, uint256(31337)));
+        ext.governanceTimelockExecution(31337);
     }
 
     function assertExecution(string memory network) internal {
@@ -88,23 +95,12 @@ contract LibStoxMigrationsTest is Test {
         assertEq(block.timestamp, appliedAt, string.concat(network, ": timestamp"));
     }
 
-    function testGovernanceTimelockExecutionBase() external {
-        assertExecution(LibRainDeploy.BASE);
-    }
-
-    function testGovernanceTimelockExecutionEthereum() external {
-        assertExecution(LibStoxDeployNetworks.ETHEREUM);
-    }
-
-    function testGovernanceTimelockExecutionHyperEvm() external {
-        assertExecution(LibStoxDeployNetworks.HYPEREVM);
-    }
-
-    function testGovernanceTimelockExecutionRobinhood() external {
-        assertExecution(LibStoxDeployNetworks.ROBINHOOD);
-    }
-
-    function testGovernanceTimelockExecutionBsc() external {
-        assertExecution(LibStoxDeployNetworks.BSC);
+    /// @notice Every network ST0x deploys to has a pinned execution moment,
+    /// and it is the chain's own record of the migration.
+    function testGovernanceTimelockExecutionOnEveryDeploymentNetwork() external {
+        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        for (uint256 i = 0; i < networks.length; i++) {
+            assertExecution(networks[i]);
+        }
     }
 }

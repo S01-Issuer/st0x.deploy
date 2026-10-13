@@ -3,9 +3,10 @@
 pragma solidity ^0.8.25;
 
 import {LibMigrationRegistry} from "rain-deploy-0.1.15/src/lib/LibMigrationRegistry.sol";
-import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.15/src/interface/IMigrationRegistryV2.sol";
+import {Prerequisite} from "rain-deploy-0.1.15/src/interface/IMigrationRegistryV2.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
 
-import {LibSafeInvariants} from "./LibSafeInvariants.sol";
+import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
 
 /// @notice No execution moment is pinned for the governance-timelock
 /// migration on this chain.
@@ -71,6 +72,11 @@ library LibStoxMigrations {
     /// governance-timelock migration on `chainId`: the block in which the
     /// orchestrator beacon's `OwnershipTransferred(safe, timelock)` was
     /// emitted.
+    ///
+    /// `chainId` resolves to a network through `rain-deploy`'s catalogue
+    /// entries for `LibStoxDeployNetworks.deploymentNetworks()`, so chain ids
+    /// are stated once, in the catalogue; the moments are pinned per network
+    /// name.
     /// @param chainId The chain id.
     /// @return appliedAt The execution moment, unix seconds.
     /// @return blockNumber The block the migration executed in.
@@ -79,13 +85,18 @@ library LibStoxMigrations {
         pure
         returns (uint256 appliedAt, uint256 blockNumber)
     {
-        if (chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
-            return (1_791_056_759, 26_113_992);
+        SupportedNetwork[] memory networks =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        for (uint256 i = 0; i < networks.length; i++) {
+            if (networks[i].chainId == chainId) {
+                bytes32 name = keccak256(bytes(networks[i].name));
+                if (name == keccak256(bytes(LibRainDeploy.ETHEREUM))) return (1_791_056_759, 26_113_992);
+                if (name == keccak256(bytes(LibRainDeploy.HYPEREVM))) return (1_791_062_016, 47_585_501);
+                if (name == keccak256(bytes(LibRainDeploy.BSC))) return (1_791_109_807, 125_660_540);
+                if (name == keccak256(bytes(LibRainDeploy.ROBINHOOD))) return (1_791_131_389, 80_078_305);
+                if (name == keccak256(bytes(LibRainDeploy.BASE))) return (1_791_142_369, 52_176_511);
+            }
         }
-        if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) return (1_791_062_016, 47_585_501);
-        if (chainId == LibSafeInvariants.BSC_CHAIN_ID) return (1_791_109_807, 125_660_540);
-        if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) return (1_791_131_389, 80_078_305);
-        if (chainId == LibSafeInvariants.BASE_CHAIN_ID) return (1_791_142_369, 52_176_511);
         revert NoGovernanceTimelockMigrationOnChain(chainId);
     }
 
@@ -116,12 +127,5 @@ library LibStoxMigrations {
     function onto(address writer, bytes32 headMigration) internal pure returns (Prerequisite[] memory prerequisites) {
         prerequisites = new Prerequisite[](1);
         prerequisites[0] = Prerequisite({writer: writer, namespace: NAMESPACE, migration: headMigration});
-    }
-
-    /// @notice The genesis head, re-exported so consumers need not import
-    /// the registry interface for it.
-    /// @return `MIGRATION_HEAD_GENESIS`.
-    function genesis() internal pure returns (bytes32) {
-        return MIGRATION_HEAD_GENESIS;
     }
 }
