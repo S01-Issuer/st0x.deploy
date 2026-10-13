@@ -62,17 +62,17 @@ contract GrantOrchestratorEmergency is Script {
     string internal constant BUNDLE_NAME = "ST0x orchestrator: grant EMERGENCY_ROLE to the token-owner Safe";
 
     /// @notice Chain-suffixed artifact path.
-    /// @return path The artifact path for the ACTIVE chain.
-    function artifactPath() internal view virtual returns (string memory path) {
-        path = string.concat("out/20261006-grant-orchestrator-emergency-", vm.toString(block.chainid), ".json");
+    /// @return The artifact path for the ACTIVE chain.
+    function artifactPath() internal view virtual returns (string memory) {
+        return string.concat("out/20261006-grant-orchestrator-emergency-", vm.toString(block.chainid), ".json");
     }
 
     /// @notice Pre-flight live state: the Safe, the timelock and the
     /// orchestrator are what this repo pins, the Safe's registry line is at
     /// genesis, and the Safe does not yet hold `EMERGENCY_ROLE`.
-    /// @return safe The chain's token-owner Safe.
-    function preflight() internal view returns (address safe) {
-        safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+    /// @return The chain's token-owner Safe.
+    function preflight() internal view returns (address) {
+        address safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock, safe);
         LibOrchestratorInvariants.assertBeaconSet();
@@ -86,16 +86,17 @@ contract GrantOrchestratorEmergency is Script {
         }
         // With the line at genesis, this asserts the pre-grant state exactly.
         LibOrchestratorInvariants.assertInstance(safe);
+        return safe;
     }
 
     /// @notice The bundle for the active chain.
     /// @param safe The chain's token-owner Safe.
-    /// @return txs The grant, then the two records.
-    function authorBundle(address safe) internal view returns (SafeTx[] memory txs) {
+    /// @return The grant, then the two records.
+    function authorBundle(address safe) internal view returns (SafeTx[] memory) {
         (uint256 executedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
         address registry = LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS;
 
-        txs = new SafeTx[](3);
+        SafeTx[] memory txs = new SafeTx[](3);
         txs[0] = SafeTx({
             to: LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE,
             value: 0,
@@ -129,6 +130,7 @@ contract GrantOrchestratorEmergency is Script {
             ),
             operation: 0
         });
+        return txs;
     }
 
     /// @notice Assert the post-bundle state on the active fork: the records
