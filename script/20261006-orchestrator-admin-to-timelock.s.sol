@@ -12,7 +12,6 @@ import {SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
 
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
-import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
@@ -220,7 +219,7 @@ contract OrchestratorAdminToTimelock is SafeBundleScript {
             revert LineHeadMismatch(head);
         }
         LibOrchestratorInvariants.assertInstance(chainSafe);
-        LibSafeInvariants.assertTokenOwnerSafePolicy(IGnosisSafe(chainSafe));
+        LibSafeInvariants.assertTokenOwnerSafePolicy(safe());
     }
 
     /// @inheritdoc SafeBundleScript
