@@ -59,7 +59,7 @@
       "startBlock": 26143611
     }
   },
-  "hyper-evm": {
+  "hyperevm": {
     "Authorizer": {
       "address": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
       "startBlock": 41325390
