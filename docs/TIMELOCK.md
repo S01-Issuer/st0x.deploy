@@ -207,12 +207,13 @@ way to resolve it.
 
 ## Invariants
 
-- `LibTimelockInvariants.assertTimelockState(timelock, safe)` — codehash
-  (against the pinned `TIMELOCK_RUNTIME_CODEHASH` literal of the frozen
-  `TIMELOCK_CREATION_CODE` generation, so a compiler-settings or dependency
-  change cannot drift the expectation away from the live deployment), 48h min
-  delay, the full role model above, no open roles, no root admin outside the
-  timelock itself.
+- `LibTimelockInvariants.assertTimelockState(timelock, safe)` — rain-deploy's
+  `LibTimelockController.assertTimelockState` at the 48h delay: codehash
+  (against the `TimelockController` record of the rain-deploy release this
+  repo pins, so the expectation moves only with a deliberate rain-deploy
+  bump, which `testPinsMatchDerivedAddresses` then holds to the live
+  addresses), the full role model above, no open roles, no root admin outside
+  the timelock itself.
 - `LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe,
   timelock)` —
   the single master grant map, parameterised on the admin holder; production
