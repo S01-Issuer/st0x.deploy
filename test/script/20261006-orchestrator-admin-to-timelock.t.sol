@@ -12,6 +12,7 @@ import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.15/src/lib/LibMigratio
 import {UnexpectedMigrationLine} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {GrantOrchestratorEmergencyHarness} from "./GrantOrchestratorEmergencyHarness.sol";
+import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
@@ -39,8 +40,8 @@ uint256 constant ADMIN_MOVE_DEADLINE = 1_793_491_200;
 /// invariants demand, and a re-dispatch refuses. Once executed on chain, the
 /// chain must be in that state.
 contract OrchestratorAdminToTimelockTest is Test {
-    IAccessControl internal constant ORCHESTRATOR =
-        IAccessControl(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
+    ST0xOrchestrator internal constant ORCHESTRATOR =
+        ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
 
     function executeEmergencyGrant(address safe) internal {
         GrantOrchestratorEmergencyHarness grant = new GrantOrchestratorEmergencyHarness();
@@ -110,17 +111,18 @@ contract OrchestratorAdminToTimelockTest is Test {
 
         assertTrue(ORCHESTRATOR.hasRole(bytes32(0), timelock), "exec: timelock admin");
         assertFalse(ORCHESTRATOR.hasRole(bytes32(0), safe), "exec: Safe admin");
-        assertTrue(ORCHESTRATOR.hasRole(LibOrchestratorInvariants.EMERGENCY_ROLE, safe), "exec: Safe EMERGENCY");
+        assertTrue(ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), safe), "exec: Safe EMERGENCY");
         assertEq(LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK), block.timestamp);
         assertEq(LibStoxMigrations.head(safe), LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
         LibOrchestratorInvariants.assertInstance(safe);
 
         // The Safe can no longer grant directly.
+        bytes32 mintRole = ORCHESTRATOR.MINT_ROLE();
         vm.prank(safe);
         vm.expectRevert(
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, safe, bytes32(0))
         );
-        ORCHESTRATOR.grantRole(LibOrchestratorInvariants.MINT_ROLE, safe);
+        ORCHESTRATOR.grantRole(mintRole, safe);
 
         vm.expectRevert(
             abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK)

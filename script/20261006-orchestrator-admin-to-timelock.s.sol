@@ -9,6 +9,7 @@ import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/Timel
 import {IMigrationRegistryV2} from "rain-deploy-0.1.15/src/interface/IMigrationRegistryV2.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.15/src/lib/LibMigrationRegistryDeploy.sol";
 
+import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
@@ -184,7 +185,7 @@ contract OrchestratorAdminToTimelock is Script {
     function proveGovernance(IGnosisSafe safe, address timelock) internal {
         address orchestrator = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
         bytes memory grant =
-            abi.encodeCall(IAccessControl.grantRole, (LibOrchestratorInvariants.EMERGENCY_ROLE, address(safe)));
+            abi.encodeCall(IAccessControl.grantRole, (ST0xOrchestrator(payable(orchestrator)).EMERGENCY_ROLE(), address(safe)));
 
         vm.prank(address(safe));
         // slither-disable-next-line low-level-calls
