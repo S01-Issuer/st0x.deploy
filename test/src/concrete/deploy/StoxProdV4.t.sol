@@ -3,8 +3,6 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibMigrationInvariant} from "../../../../src/lib/LibMigrationInvariant.sol";
-import {FLEET_UPGRADE_DEADLINE} from "../../../lib/LibTestProd.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
@@ -178,22 +176,18 @@ contract StoxProdV4Test is Test {
         IBeacon vaultBeacon = oarvDeployer.iOffchainAssetReceiptVaultBeacon();
         if (oarvBeaconsAreInUse) {
             // On the bootstrap chains these ARE the in-use production
-            // beacons, so they ride the fleet-upgrade migration window
-            // (20260825-upgrade-fleet-to-0-1-30): 0.1.1 OR 0.1.30 until the
-            // deadline, 0.1.30 only after.
-            LibMigrationInvariant.assertMigration(
-                "OARV receipt beacon implementation()",
+            // beacons, and the fleet upgrade
+            // (`20260825-upgrade-fleet-to-0-1-30`) has moved every one of
+            // them onto the 0.1.30 impls.
+            assertEq(
                 receiptBeacon.implementation(),
-                LibProdDeployV4.STOX_RECEIPT_0_1_1,
                 LibProdDeployV4.STOX_RECEIPT_0_1_30,
-                FLEET_UPGRADE_DEADLINE
+                "V4 OARV receipt beacon implementation mismatch"
             );
-            LibMigrationInvariant.assertMigration(
-                "OARV vault beacon implementation()",
+            assertEq(
                 vaultBeacon.implementation(),
-                LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1,
                 LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30,
-                FLEET_UPGRADE_DEADLINE
+                "V4 OARV vault beacon implementation mismatch"
             );
         } else {
             // On Base these beacons are unadopted deploy artifacts
