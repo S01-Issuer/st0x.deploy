@@ -258,7 +258,7 @@ contract LibProdDeployV4Test is Test {
     /// the literal here means an accidental edit to the generator's
     /// hardcoded value fails a test rather than silently re-routing every
     /// consumer of the pin. The live-chain codehash cross-check runs in
-    /// `StoxProdV4PostSwap.t.sol`'s hydrated-clone block.
+    /// `StoxProdV4PostSwapTest.testBasePostSwapAuthoriserState`.
     function testAuthoriserV4ClonePin() external pure {
         assertEq(
             LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE,
