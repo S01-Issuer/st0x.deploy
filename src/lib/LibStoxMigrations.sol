@@ -127,7 +127,9 @@ library LibStoxMigrations {
         view
         returns (address, bytes memory)
     {
-        return LibMigrationRegistry.applyMigrationCall(NAMESPACE, migration, prerequisites);
+        (address registry, bytes memory data) =
+            LibMigrationRegistry.applyMigrationCall(NAMESPACE, migration, prerequisites);
+        return (registry, data);
     }
 
     /// @notice The registry call that records `migration` under the caller
@@ -143,7 +145,9 @@ library LibStoxMigrations {
         view
         returns (address, bytes memory)
     {
-        return LibMigrationRegistry.applyMigrationHistoryCall(NAMESPACE, migration, appliedAt, prerequisites);
+        (address registry, bytes memory data) =
+            LibMigrationRegistry.applyMigrationHistoryCall(NAMESPACE, migration, appliedAt, prerequisites);
+        return (registry, data);
     }
 
     /// @notice The prerequisite list for a migration applied onto
