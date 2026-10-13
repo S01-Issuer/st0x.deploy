@@ -236,6 +236,17 @@ contract OrchestratorAdminToTimelock is SafeBundleScript {
     /// timelock administers the role, because `grantRole` checks the
     /// caller's admin role before it checks membership.
     function assertReversible() internal override {
+        // The proof warps past the delay and executes a timelock operation.
+        // `run()` writes the artifact from the fork this returns to, so it
+        // returns to the post-bundle state rather than 48h later.
+        uint256 postBundle = vm.snapshotState();
+        proveGovernance();
+        vm.revertToState(postBundle);
+    }
+
+    /// @notice The governance proof `assertReversible` runs: the Safe's direct
+    /// grant refused, then schedule → 48h → execute through the timelock.
+    function proveGovernance() internal {
         Safe chainSafe = safe();
         address controllerAddress = timelock();
         bytes memory grant =

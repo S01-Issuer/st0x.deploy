@@ -88,10 +88,18 @@ contract OrchestratorAdminToTimelockTest is Test {
 
         console2.log(string.concat("PENDING [", network, "]: authoring, verifying and executing the move"));
         uint256 preRun = vm.snapshotState();
+        uint256 runAt = block.timestamp;
         script.run();
-        // The governance proof's timelock-executed re-grant leaves the
-        // post-move state exactly as the invariants demand.
+        // The governance proof runs on a snapshot, so the fork is left in the
+        // post-move state the invariants demand, at the time `run()` started,
+        // and the artifact is dated then rather than after the proof's warp.
         LibOrchestratorInvariants.assertInstance(safe);
+        assertEq(block.timestamp, runAt, "the governance proof's warp leaked");
+        assertEq(
+            vm.parseJsonUint(vm.readFile(script.callArtifactPath()), ".createdAt"),
+            runAt * 1000,
+            "artifact dated after the governance proof's warp"
+        );
         vm.revertToState(preRun);
 
         string memory artifactPath = script.callArtifactPath();
