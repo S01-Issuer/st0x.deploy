@@ -6,7 +6,7 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
-import {IMigrationRegistryV2} from "rain-deploy-0.1.15/src/interface/IMigrationRegistryV2.sol";
+import {IMigrationRegistryV2, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.15/src/interface/IMigrationRegistryV2.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.15/src/lib/LibMigrationRegistryDeploy.sol";
 
 import {
@@ -22,6 +22,7 @@ import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol"
 import {LibStoxMigrations} from "../../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibOrchestratorInvariantsHarness} from "./LibOrchestratorInvariantsHarness.sol";
+import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 
 /// @title LibOrchestratorInvariantsTest
 /// @notice The orchestrator invariants against every deployment network at
@@ -37,6 +38,9 @@ contract LibOrchestratorInvariantsTest is Test {
     LibOrchestratorInvariantsHarness internal harness;
     address internal safe;
     address internal timelock;
+    bytes32 internal mintRole;
+    bytes32 internal burnRole;
+    bytes32 internal emergencyRole;
     IAccessControl internal orchestrator = IAccessControl(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
     IMigrationRegistryV2 internal registry =
         IMigrationRegistryV2(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
@@ -46,6 +50,9 @@ contract LibOrchestratorInvariantsTest is Test {
         harness = new LibOrchestratorInvariantsHarness();
         safe = LibSafeInvariants.safeForChainId(block.chainid);
         timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        mintRole = ST0xOrchestrator(payable(address(orchestrator))).MINT_ROLE();
+        burnRole = ST0xOrchestrator(payable(address(orchestrator))).BURN_ROLE();
+        emergencyRole = ST0xOrchestrator(payable(address(orchestrator))).EMERGENCY_ROLE();
     }
 
     /// @notice Fork Base and stand in a fresh Safe: it becomes the sole
@@ -67,17 +74,13 @@ contract LibOrchestratorInvariantsTest is Test {
             vm.prank(timelock);
             orchestrator.renounceRole(bytes32(0), timelock);
         }
-        bytes32[3] memory roles = [
-            LibOrchestratorInvariants.EMERGENCY_ROLE,
-            LibOrchestratorInvariants.MINT_ROLE,
-            LibOrchestratorInvariants.BURN_ROLE
-        ];
+        bytes32[3] memory roles = [emergencyRole, mintRole, burnRole];
         vm.startPrank(safe);
         for (uint256 i = 0; i < roles.length; i++) {
             orchestrator.revokeRole(roles[i], timelock);
         }
         vm.stopPrank();
-        assertEq(LibStoxMigrations.head(safe), LibStoxMigrations.genesis(), "stand-in line not at genesis");
+        assertEq(LibStoxMigrations.head(safe), MIGRATION_HEAD_GENESIS, "stand-in line not at genesis");
     }
 
     /// @notice Record the chain's migrations up to and including `upTo`, as
@@ -85,12 +88,12 @@ contract LibOrchestratorInvariantsTest is Test {
     function record(bytes32 upTo) internal {
         (uint256 executedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
         vm.startPrank(safe);
-        if (LibStoxMigrations.head(safe) == LibStoxMigrations.genesis()) {
+        if (LibStoxMigrations.head(safe) == MIGRATION_HEAD_GENESIS) {
             registry.applyMigrationHistory(
                 LibStoxMigrations.NAMESPACE,
                 LibStoxMigrations.GOVERNANCE_TIMELOCK,
                 executedAt,
-                LibStoxMigrations.onto(safe, LibStoxMigrations.genesis())
+                LibStoxMigrations.onto(safe, MIGRATION_HEAD_GENESIS)
             );
         }
         if (
@@ -114,9 +117,9 @@ contract LibOrchestratorInvariantsTest is Test {
     }
 
     function grantEmergencyToSafe() internal {
-        if (!orchestrator.hasRole(LibOrchestratorInvariants.EMERGENCY_ROLE, safe)) {
+        if (!orchestrator.hasRole(emergencyRole, safe)) {
             vm.prank(safe);
-            orchestrator.grantRole(LibOrchestratorInvariants.EMERGENCY_ROLE, safe);
+            orchestrator.grantRole(emergencyRole, safe);
         }
     }
 
@@ -127,30 +130,14 @@ contract LibOrchestratorInvariantsTest is Test {
         vm.stopPrank();
     }
 
-    function assertLive(string memory network) internal {
-        selectFork(network);
-        harness.callAssertBeaconSet();
-        harness.callAssertInstance(safe);
-    }
-
-    function testLiveBase() external {
-        assertLive(LibRainDeploy.BASE);
-    }
-
-    function testLiveEthereum() external {
-        assertLive(LibStoxDeployNetworks.ETHEREUM);
-    }
-
-    function testLiveHyperEvm() external {
-        assertLive(LibStoxDeployNetworks.HYPEREVM);
-    }
-
-    function testLiveRobinhood() external {
-        assertLive(LibStoxDeployNetworks.ROBINHOOD);
-    }
-
-    function testLiveBsc() external {
-        assertLive(LibStoxDeployNetworks.BSC);
+    /// @notice The invariants hold at head on every network ST0x deploys to.
+    function testLiveOnEveryDeploymentNetwork() external {
+        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        for (uint256 i = 0; i < networks.length; i++) {
+            selectFork(networks[i]);
+            harness.callAssertBeaconSet();
+            harness.callAssertInstance(safe);
+        }
     }
 
     /// @notice The beacon owner must be the chain's timelock exactly; the
@@ -183,10 +170,7 @@ contract LibOrchestratorInvariantsTest is Test {
         grantEmergencyToSafe();
         vm.expectRevert(
             abi.encodeWithSelector(
-                OrchestratorUnexpectedRoleHolder.selector,
-                address(orchestrator),
-                LibOrchestratorInvariants.EMERGENCY_ROLE,
-                safe
+                OrchestratorUnexpectedRoleHolder.selector, address(orchestrator), emergencyRole, safe
             )
         );
         harness.callAssertInstance(safe);
@@ -198,9 +182,7 @@ contract LibOrchestratorInvariantsTest is Test {
         selectScenarioFork();
         record(LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                OrchestratorRoleMissing.selector, address(orchestrator), LibOrchestratorInvariants.EMERGENCY_ROLE, safe
-            )
+            abi.encodeWithSelector(OrchestratorRoleMissing.selector, address(orchestrator), emergencyRole, safe)
         );
         harness.callAssertInstance(safe);
     }
@@ -211,13 +193,10 @@ contract LibOrchestratorInvariantsTest is Test {
         grantEmergencyToSafe();
         record(LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
         vm.prank(safe);
-        orchestrator.grantRole(LibOrchestratorInvariants.EMERGENCY_ROLE, timelock);
+        orchestrator.grantRole(emergencyRole, timelock);
         vm.expectRevert(
             abi.encodeWithSelector(
-                OrchestratorUnexpectedRoleHolder.selector,
-                address(orchestrator),
-                LibOrchestratorInvariants.EMERGENCY_ROLE,
-                timelock
+                OrchestratorUnexpectedRoleHolder.selector, address(orchestrator), emergencyRole, timelock
             )
         );
         harness.callAssertInstance(safe);
@@ -284,13 +263,8 @@ contract LibOrchestratorInvariantsTest is Test {
     /// `DEFAULT_ADMIN_ROLE`; a different admin role changes who decides its
     /// grants, which is the question every check above answers.
     function testRoleAdminChangedTrips() external {
-        bytes32[4] memory roles = [
-            bytes32(0),
-            LibOrchestratorInvariants.MINT_ROLE,
-            LibOrchestratorInvariants.BURN_ROLE,
-            LibOrchestratorInvariants.EMERGENCY_ROLE
-        ];
         selectScenarioFork();
+        bytes32[4] memory roles = [bytes32(0), mintRole, burnRole, emergencyRole];
         for (uint256 i = 0; i < roles.length; i++) {
             vm.clearMockedCalls();
             vm.mockCall(
@@ -310,7 +284,8 @@ contract LibOrchestratorInvariantsTest is Test {
     /// @notice Neither governance principal ever holds `MINT_ROLE` or
     /// `BURN_ROLE`, recorded or not.
     function testPrincipalHoldingMintOrBurnTrips() external {
-        bytes32[2] memory roles = [LibOrchestratorInvariants.MINT_ROLE, LibOrchestratorInvariants.BURN_ROLE];
+        selectFork(LibRainDeploy.BASE);
+        bytes32[2] memory roles = [mintRole, burnRole];
         for (uint256 i = 0; i < roles.length; i++) {
             for (uint256 j = 0; j < 2; j++) {
                 selectScenarioFork();
@@ -332,14 +307,11 @@ contract LibOrchestratorInvariantsTest is Test {
     /// the timelock taking `EMERGENCY`, either principal taking `MINT` or
     /// `BURN`, and the Safe losing `EMERGENCY` each trip.
     function testPostMoveDriftTrips() external {
-        bytes32[3] memory roles = [
-            LibOrchestratorInvariants.EMERGENCY_ROLE,
-            LibOrchestratorInvariants.MINT_ROLE,
-            LibOrchestratorInvariants.BURN_ROLE
-        ];
+        selectFork(LibRainDeploy.BASE);
+        bytes32[3] memory roles = [emergencyRole, mintRole, burnRole];
         for (uint256 r = 0; r < roles.length; r++) {
             for (uint256 h = 0; h < 2; h++) {
-                if (roles[r] == LibOrchestratorInvariants.EMERGENCY_ROLE && h == 0) continue;
+                if (roles[r] == emergencyRole && h == 0) continue;
                 selectPostMoveScenario();
                 address holder = h == 0 ? safe : timelock;
                 vm.prank(timelock);
@@ -355,11 +327,9 @@ contract LibOrchestratorInvariantsTest is Test {
 
         selectPostMoveScenario();
         vm.prank(timelock);
-        orchestrator.revokeRole(LibOrchestratorInvariants.EMERGENCY_ROLE, safe);
+        orchestrator.revokeRole(emergencyRole, safe);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                OrchestratorRoleMissing.selector, address(orchestrator), LibOrchestratorInvariants.EMERGENCY_ROLE, safe
-            )
+            abi.encodeWithSelector(OrchestratorRoleMissing.selector, address(orchestrator), emergencyRole, safe)
         );
         harness.callAssertInstance(safe);
     }
