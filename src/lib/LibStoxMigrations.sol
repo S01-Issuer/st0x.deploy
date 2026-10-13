@@ -78,13 +78,9 @@ library LibStoxMigrations {
     /// are stated once, in the catalogue; the moments are pinned per network
     /// name.
     /// @param chainId The chain id.
-    /// @return appliedAt The execution moment, unix seconds.
-    /// @return blockNumber The block the migration executed in.
-    function governanceTimelockExecution(uint256 chainId)
-        internal
-        pure
-        returns (uint256 appliedAt, uint256 blockNumber)
-    {
+    /// @return The execution moment, unix seconds.
+    /// @return The block the migration executed in.
+    function governanceTimelockExecution(uint256 chainId) internal pure returns (uint256, uint256) {
         SupportedNetwork[] memory networks =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         for (uint256 i = 0; i < networks.length; i++) {
@@ -123,9 +119,10 @@ library LibStoxMigrations {
     /// `headMigration` that waits on nothing outside the writer's own line.
     /// @param writer The account writing the record.
     /// @param headMigration The head the migration is applied onto.
-    /// @return prerequisites The single-entry list naming the head.
-    function onto(address writer, bytes32 headMigration) internal pure returns (Prerequisite[] memory prerequisites) {
-        prerequisites = new Prerequisite[](1);
+    /// @return The single-entry list naming the head.
+    function onto(address writer, bytes32 headMigration) internal pure returns (Prerequisite[] memory) {
+        Prerequisite[] memory prerequisites = new Prerequisite[](1);
         prerequisites[0] = Prerequisite({writer: writer, namespace: NAMESPACE, migration: headMigration});
+        return prerequisites;
     }
 }
