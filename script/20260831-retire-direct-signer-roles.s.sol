@@ -117,7 +117,7 @@ contract RetireDirectSignerRoles is Script {
     }
 
     /// @notice Pre-flight the principals and self-scope the bundle: one
-    /// `revokeRole` per direct role the signer still holds. Refuses when
+    /// `revokeRole` per `retiringGrants()` pair still held. Refuses when
     /// the Safe lacks an `_ADMIN` it needs or when nothing remains
     /// (`DirectSignerRolesAlreadyRetired`).
     /// @param authoriser The chain's authoriser clone.
@@ -133,15 +133,15 @@ contract RetireDirectSignerRoles is Script {
             revert SafeMissingRoleAdminForRetire(keccak256("WITHDRAW_ADMIN"));
         }
 
-        SafeTx[] memory candidates = new SafeTx[](2);
+        RoleGrant[] memory retiring = LibAuthoriserInvariants.retiringGrants();
+        SafeTx[] memory candidates = new SafeTx[](retiring.length);
         uint256 count = 0;
-        bytes32[2] memory roles = [keccak256("DEPOSIT"), keccak256("WITHDRAW")];
-        for (uint256 i = 0; i < roles.length; i++) {
-            if (acl.hasRole(roles[i], SERVICE_SIGNER)) {
+        for (uint256 i = 0; i < retiring.length; i++) {
+            if (acl.hasRole(retiring[i].role, retiring[i].grantee)) {
                 candidates[count++] = SafeTx({
                     to: authoriser,
                     value: 0,
-                    data: abi.encodeCall(IAccessControl.revokeRole, (roles[i], SERVICE_SIGNER)),
+                    data: abi.encodeCall(IAccessControl.revokeRole, (retiring[i].role, retiring[i].grantee)),
                     operation: Enum.Operation.Call
                 });
             }
@@ -166,16 +166,17 @@ contract RetireDirectSignerRoles is Script {
     /// @param orchestrator The orchestrator instance.
     /// @param safeAddr The chain's token-owner Safe.
     function assertPostRetireState(IAccessControl acl, address orchestrator, address safeAddr) internal view {
-        require(
-            !acl.hasRole(keccak256("DEPOSIT"), SERVICE_SIGNER) && !acl.hasRole(keccak256("WITHDRAW"), SERVICE_SIGNER),
-            "RetireDirectSignerRoles: signer still holds a direct vault role"
-        );
+        RoleGrant[] memory retiring = LibAuthoriserInvariants.retiringGrants();
+        for (uint256 i = 0; i < retiring.length; i++) {
+            require(
+                !acl.hasRole(retiring[i].role, retiring[i].grantee),
+                "RetireDirectSignerRoles: signer still holds a direct vault role"
+            );
+        }
         RoleGrant[] memory all =
             LibAuthoriserInvariants.expectedGrants(safeAddr, LibTimelockInvariants.timelockForChainId(block.chainid));
         for (uint256 i = 0; i < all.length; i++) {
-            bool retiredRow = all[i].grantee == SERVICE_SIGNER
-                && (all[i].role == keccak256("DEPOSIT") || all[i].role == keccak256("WITHDRAW"));
-            if (retiredRow) continue;
+            if (LibAuthoriserInvariants.mapAssigns(retiring, all[i].role, all[i].grantee)) continue;
             require(
                 acl.hasRole(all[i].role, all[i].grantee),
                 "RetireDirectSignerRoles: retirement disturbed an unrelated grant"
