@@ -95,10 +95,9 @@ jobs:
       group: manual-broadcast-${{ inputs.script }}-${{ (inputs.script == '20260729-deploy-governance-timelock' || inputs.script == '20261006-deploy-eu-authoriser') && 'all-chains' || inputs.network }}
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: rainlanguage/rainix/.github/actions/nix-cachix-setup@main
         with:
-          persist-credentials: false
-      - uses: DeterminateSystems/nix-installer-action@21a544727d0c62386e78b4befe52d19ad12692e3 # v17
+          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
       - name: Install Soldeer dependencies
         run: nix develop --command forge soldeer install
       - name: Broadcast script
@@ -176,7 +175,7 @@ jobs:
           HYPEREVM_RPC_URL: ${{ secrets.RPC_URL_HYPEREVM_FORK }}
         run: |
           MANIFEST=out/20260729-governance-timelock-deployments.json
-          CONTRACT=dependencies/@openzeppelin-contracts-5.6.1/governance/TimelockController.sol:TimelockController
+          CONTRACT=dependencies/@openzeppelin-contracts-5.7.0/governance/TimelockController.sol:TimelockController
           jq -c '.[]' "${MANIFEST}" | while read -r entry; do
             CHAIN=$(echo "${entry}" | jq -r '.chainId')
             NET=$(echo "${entry}" | jq -r '.network')
