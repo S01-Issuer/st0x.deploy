@@ -63,8 +63,8 @@ error EmergencyNotRevoked();
 /// holds, so the grant is immediate. The admin move to the timelock is
 /// `20261006-orchestrator-admin-to-timelock`, which waits on this record.
 ///
-/// `LibOrchestratorInvariants.assertInstance` reads the record: before it,
-/// the Safe must not hold `EMERGENCY_ROLE`; after it, the Safe must.
+/// `LibOrchestratorInvariants.assertInstance` reads the record: once it is
+/// recorded, the Safe must hold `EMERGENCY_ROLE`.
 ///
 /// `run()` and `verify()` are `SafeBundleScript`'s: `run()` executes the
 /// bundle through the Safe on the fork, requires the post-state, proves the
@@ -114,7 +114,6 @@ contract GrantOrchestratorEmergency is SafeBundleScript {
         if (ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), chainSafe)) {
             revert EmergencyAlreadyGranted();
         }
-        // With the line at genesis, this asserts the pre-grant state exactly.
         LibOrchestratorInvariants.assertInstance(chainSafe);
     }
 

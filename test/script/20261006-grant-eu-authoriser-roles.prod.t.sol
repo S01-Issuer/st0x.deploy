@@ -48,7 +48,6 @@ contract GrantEuAuthoriserRolesProdTest is Test {
         if (appliedAt != 0) {
             LibAuthoriserInvariants.assertExpectedEuGrants(
                 LibEuAuthoriserClone.cloneDeployedAddress(chainId),
-                safe,
                 LibTimelockInvariants.timelockForChainId(chainId),
                 LibAuthoriserInvariants.GRANTEE_EU_MINTER
             );
@@ -61,7 +60,8 @@ contract GrantEuAuthoriserRolesProdTest is Test {
     /// the order `grantBundle` puts them in, as the Safe, asserting after
     /// each one that every `_ADMIN` role is still held by the Safe or the
     /// timelock — the only two principals the bundle moves them between —
-    /// and the pinned map once the walk is done.
+    /// and, once the walk is done, the pinned map with every `_ADMIN`
+    /// renounced by the Safe.
     /// @param label Human chain name, surfaced in assertion messages.
     function assertWalkNeverUnholdsAnAdmin(string memory label) internal {
         GrantEuAuthoriserRoles script = new GrantEuAuthoriserRoles();
@@ -80,7 +80,10 @@ contract GrantEuAuthoriserRolesProdTest is Test {
             }
         }
 
-        LibAuthoriserInvariants.assertExpectedEuGrants(clone, safe, timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER);
+        LibAuthoriserInvariants.assertExpectedEuGrants(clone, timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER);
+        for (uint256 j = 0; j < admins.length; j++) {
+            assertFalse(acl.hasRole(admins[j], safe), string.concat(label, ": safe kept admin ", vm.toString(j)));
+        }
     }
 
     function testGrantBundleRolloutBase() external {
