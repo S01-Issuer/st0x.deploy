@@ -19,8 +19,8 @@ import {ReceiptVault} from "rain-vats-0.2.4/src/abstract/ReceiptVault.sol";
 
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
-import {IST0xVaultBeaconSet} from "../interface/IST0xVaultBeaconSet.sol";
 import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../interface/IST0xOrchestratorV1.sol";
+import {LibVaultLogicLock} from "../lib/LibVaultLogicLock.sol";
 
 /// @title ST0xOrchestrator
 /// @notice Singleton mint/burn proxy for the whole ST0x receipt-vault set.
@@ -52,12 +52,12 @@ import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../interface/IST0xOrchest
 ///
 /// **Vault-logic version lock.** So much of the burn/mint logic depends on
 /// the exact behaviour of the current receipt-vault implementation that
-/// `initialize` and `mint`/`burn` refuse to run unless the production vault +
-/// receipt beacons still point at the implementations this orchestrator was
-/// built against (`LibProdDeployCurrent`). If the vault is upgraded, the
-/// orchestrator halts until its own implementation is upgraded in lockstep.
-/// This mirrors the vault baking the corporate-actions facet address into its
-/// own bytecode.
+/// `mint`/`burn` refuse to run unless the token and its receipt are proxies of
+/// this chain's production beacons and those beacons serve the implementations
+/// this orchestrator was built against (`LibProdDeployCurrent`). An
+/// orchestrator deployed ahead of a fleet upgrade stays inert until the
+/// beacons move, and a later fleet upgrade halts it until its own
+/// implementation is upgraded in lockstep.
 ///
 /// **Burn walk.** `burn` walks a per-token `nextBurnReceiptId` pointer over
 /// the orchestrator's own rebased receipt balances. Burning more than the
@@ -115,13 +115,10 @@ contract ST0xOrchestrator is
     /// @notice Initialise the singleton. Grants `DEFAULT_ADMIN_ROLE` to
     /// `owner` (the owner multisig). Operational roles (`MINT_ROLE`,
     /// `BURN_ROLE`, `EMERGENCY_ROLE`) are granted separately by the admin.
-    /// Reverts unless the vault-logic version lock passes, so an orchestrator
-    /// can never be initialised against vault logic it wasn't built for.
     /// @param owner Address granted `DEFAULT_ADMIN_ROLE` — the role admin
     /// only; it performs no mint/burn/recovery operations itself.
     function initialize(address owner) external initializer {
         if (owner == address(0)) revert ZeroOwner();
-        _checkVaultLogic();
         __AccessControl_init();
         __EIP712_init("ST0xOrchestrator", "1");
         _grantRole(DEFAULT_ADMIN_ROLE, owner);
@@ -131,41 +128,21 @@ contract ST0xOrchestrator is
     //                       Vault-logic version lock                     //
     // ------------------------------------------------------------------ //
 
-    /// @dev Revert unless the shared production vault + receipt beacons still
-    /// point at the implementations pinned in `LibProdDeployCurrent`. Every
-    /// production token is a `BeaconProxy` of these two beacons, so this one
-    /// check version-locks the orchestrator against every production token at
-    /// once. NOTE: it checks the shared beacons, not the specific `token`
-    /// argument — a `token` that is NOT a proxy of the shared set is not
-    /// covered by the lock. That is not a hazard: such a token has not
-    /// granted the orchestrator `DEPOSIT`/`WITHDRAW`, so mint/burn on it
-    /// revert at the vault authoriser, and its shares/receipts are its own
-    /// (they can never back or drain a real token). The orchestrator is only
-    /// ever wired to the production tokens on the shared beacon set.
-    modifier onlyExpectedVaultLogic() {
-        _checkVaultLogic();
+    modifier onlyExpectedVaultLogic(address token) {
+        _checkVaultLogic(token);
         _;
     }
 
-    function _checkVaultLogic() internal view {
-        IST0xVaultBeaconSet beaconSet =
-            IST0xVaultBeaconSet(LibProdDeployCurrent.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
-        address vaultImpl = beaconSet.iOffchainAssetReceiptVaultBeacon().implementation();
-        if (vaultImpl != LibProdDeployCurrent.STOX_RECEIPT_VAULT) {
-            revert VaultLogicMismatch(LibProdDeployCurrent.STOX_RECEIPT_VAULT, vaultImpl);
-        }
-        address receiptImpl = beaconSet.iReceiptBeacon().implementation();
-        if (receiptImpl != LibProdDeployCurrent.STOX_RECEIPT) {
-            revert ReceiptLogicMismatch(LibProdDeployCurrent.STOX_RECEIPT, receiptImpl);
-        }
+    function _checkVaultLogic(address token) internal view {
+        LibVaultLogicLock.checkToken(token, LibProdDeployCurrent.STOX_RECEIPT_VAULT, LibProdDeployCurrent.STOX_RECEIPT);
     }
 
     /// @inheritdoc IST0xOrchestratorV1
     function vaultLogicIsExpected() external view returns (bool) {
-        IST0xVaultBeaconSet beaconSet =
-            IST0xVaultBeaconSet(LibProdDeployCurrent.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
-        return beaconSet.iOffchainAssetReceiptVaultBeacon().implementation() == LibProdDeployCurrent.STOX_RECEIPT_VAULT
-            && beaconSet.iReceiptBeacon().implementation() == LibProdDeployCurrent.STOX_RECEIPT;
+        return
+            LibVaultLogicLock.prodBeaconsServe(
+                LibProdDeployCurrent.STOX_RECEIPT_VAULT, LibProdDeployCurrent.STOX_RECEIPT
+            );
     }
 
     // ------------------------------------------------------------------ //
@@ -179,7 +156,7 @@ contract ST0xOrchestrator is
         uint256 amount,
         MintAuthV1 calldata auth,
         bytes calldata receiptInformation
-    ) external onlyRole(MINT_ROLE) onlyExpectedVaultLogic nonReentrant {
+    ) external onlyRole(MINT_ROLE) nonReentrant onlyExpectedVaultLogic(token) {
         if (amount == 0) revert ZeroAmount();
         _consumeMintAuth(token, to, amount, auth);
 
@@ -205,8 +182,8 @@ contract ST0xOrchestrator is
     function burn(address token, uint256 amount, bytes calldata burnInfo)
         external
         onlyRole(BURN_ROLE)
-        onlyExpectedVaultLogic
         nonReentrant
+        onlyExpectedVaultLogic(token)
     {
         if (amount == 0) revert ZeroAmount();
 

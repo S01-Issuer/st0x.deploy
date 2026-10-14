@@ -89,4 +89,20 @@ library LibProdBeacons0_1_1 {
             LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30
         ];
     }
+
+    /// @notice Runtime codehash of every production receipt `BeaconProxy` on
+    /// the 0.1.1 chains.
+    bytes32 internal constant RECEIPT_PROXY_CODEHASH =
+        0x593cc7f1842a4949ceca65cfd7ff2884192406c61fe9ca51735030021ffd62ee;
+
+    /// @notice Runtime codehash of every production receipt-vault
+    /// `BeaconProxy` on the 0.1.1 chains.
+    bytes32 internal constant RECEIPT_VAULT_PROXY_CODEHASH =
+        0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e;
+
+    /// @notice `RECEIPT_PROXY_CODEHASH` and `RECEIPT_VAULT_PROXY_CODEHASH`,
+    /// indexed like `beacons()`.
+    function proxyCodehashes() internal pure returns (bytes32[2] memory) {
+        return [RECEIPT_PROXY_CODEHASH, RECEIPT_VAULT_PROXY_CODEHASH];
+    }
 }

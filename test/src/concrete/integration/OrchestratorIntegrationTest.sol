@@ -7,6 +7,7 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {IERC1155} from "@openzeppelin-contracts-5.7.0/token/ERC1155/IERC1155.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
+import {ERC1967Utils} from "@openzeppelin-contracts-5.7.0/proxy/ERC1967/ERC1967Utils.sol";
 import {CloneFactory} from "rain-factory-deploy-0.1.15/src/concrete/CloneFactory.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 import {Float} from "rain-math-float-0.2.22/src/lib/LibDecimalFloat.sol";
@@ -37,21 +38,23 @@ import {ICorporateActionsV1} from "../../../../src/interface/ICorporateActionsV1
 import {SCHEDULE_CORPORATE_ACTION, STOCK_SPLIT_V1_TYPE_HASH} from "../../../../src/lib/LibCorporateAction.sol";
 import {LibStockSplit} from "../../../../src/lib/LibStockSplit.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
+import {LibProdDeployV1} from "../../../../src/lib/LibProdDeployV1.sol";
+import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 import {LibTestTofu} from "../../../lib/LibTestTofu.sol";
 
 /// @title OrchestratorIntegrationTest
 /// @notice Shared base for the real-deployment integration tests of the
 /// SINGLETON `ST0xOrchestrator` — one workflow per concrete file in this
-/// folder. Nothing vault-side is mocked. The setUp builds the full local V4
-/// substrate — TOFU singleton, the real `StoxReceipt` + `StoxReceiptVault`
-/// implementations and their beacon-set deployer Zoltu-deployed to the
-/// deterministic addresses `LibProdDeployV4` pins, a real vault+receipt
-/// beacon-proxy pair, a real corporate-actions facet, and a real authoriser
-/// clone — so the orchestrator's hardcoded vault-version guard
-/// (`onlyExpectedVaultLogic`) reads the genuine production beacons and passes
-/// (both at `initialize` and on every mint/burn). Every mint/burn then
-/// exercises the real mint/redeem/receipt/rebase machinery end-to-end.
+/// folder. Nothing vault-side is mocked. The setUp runs on Base's chain id and
+/// builds the full local substrate — TOFU singleton, the real `StoxReceipt` +
+/// `StoxReceiptVault` implementations Zoltu-deployed to their deterministic
+/// addresses, a real vault+receipt beacon-proxy pair re-homed onto Base's
+/// production beacon addresses (so the pair is byte-identical to a production
+/// token), a real corporate-actions facet, and a real authoriser clone — so
+/// the orchestrator's vault-logic lock passes on every mint/burn. Every
+/// mint/burn then exercises the real mint/redeem/receipt/rebase machinery
+/// end-to-end.
 abstract contract OrchestratorIntegrationTest is Test {
     address internal constant ADMIN = address(uint160(uint256(keccak256("ADMIN"))));
     address internal constant OWNER = address(uint160(uint256(keccak256("OWNER"))));
@@ -70,14 +73,14 @@ abstract contract OrchestratorIntegrationTest is Test {
 
     function setUp() public {
         vm.warp(1000);
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
 
         // TOFU singleton first — stock-split multiplier validation reads the
         // vault's decimals through it at schedule time.
         LibTestTofu.deployTofu(vm);
 
         // Real receipt + vault implementations and their beacon-set deployer
-        // at the deterministic Zoltu addresses the guard reads. MUST precede
-        // the orchestrator proxy: `initialize` runs the vault-logic guard.
+        // at their deterministic Zoltu addresses.
         LibTestDeploy.deployOffchainAssetReceiptVaultBeaconSet(vm);
 
         // Real corporate-actions facet at the deterministic address the
@@ -85,10 +88,12 @@ abstract contract OrchestratorIntegrationTest is Test {
         address facet = LibRainDeploy.deployZoltu(type(StoxCorporateActionsFacet).creationCode);
         require(facet == LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE, "facet address mismatch");
 
-        // A real vault + receipt beacon-proxy pair via the deterministic
-        // deployer the guard version-locks against.
+        // A real vault + receipt beacon-proxy pair, re-homed onto Base's
+        // production beacons.
         vault = _newVault();
         receipt = IERC1155(address(vault.receipt()));
+        _rehome(address(vault), LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1);
+        _rehome(address(receipt), LibProdDeployV1.STOX_RECEIPT_BEACON_V1);
 
         // Real authoriser clone paired with the vault by its owner.
         authorizer = _newAuthorizer();
@@ -142,6 +147,18 @@ abstract contract OrchestratorIntegrationTest is Test {
                         )
                 ))
         );
+    }
+
+    /// Move `proxy` onto `prodBeacon`: the production beacon address takes
+    /// over the proxy's current beacon (code and storage), and the proxy takes
+    /// the runtime that bakes `prodBeacon` in.
+    function _rehome(address proxy, address prodBeacon) internal {
+        address localBeacon = address(uint160(uint256(vm.load(proxy, ERC1967Utils.BEACON_SLOT))));
+        vm.etch(prodBeacon, localBeacon.code);
+        vm.store(prodBeacon, bytes32(0), vm.load(localBeacon, bytes32(0)));
+        vm.store(prodBeacon, bytes32(uint256(1)), vm.load(localBeacon, bytes32(uint256(1))));
+        vm.etch(proxy, address(new BeaconProxy(prodBeacon, "")).code);
+        vm.store(proxy, ERC1967Utils.BEACON_SLOT, bytes32(uint256(uint160(prodBeacon))));
     }
 
     function _newAuthorizer() internal returns (StoxOffchainAssetReceiptVaultAuthorizerV1) {
