@@ -14,6 +14,7 @@ path = [
   "audit/**/",
   "docs/**/",
   "flake.lock",
+  ".prettierignore",
   "flake.nix",
   "foundry.toml",
   "ideal-roles.json",
