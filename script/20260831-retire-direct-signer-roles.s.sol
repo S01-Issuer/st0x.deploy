@@ -18,14 +18,6 @@ import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJ
 import {LibSafe} from "rain-deploy-0.1.18/src/lib/LibSafe.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
-/// @dev Unix timestamp (2026-10-15T00:00:00Z) by which the retirement must
-/// have executed on every chain. Deliberately TWO WEEKS after the
-/// fleet/enable deadline: the whole point of the enable/retire split is a
-/// burn-in window where the orchestrator path and the signer's direct path
-/// run in parallel, so the direct path can serve as an emergency fallback
-/// while the orchestrator proves itself off-chain.
-uint256 constant RETIRE_DEADLINE = 1_792_022_400;
-
 /// @notice The orchestrator mint/burn path is not fully enabled on this
 /// chain — retiring the signer's direct roles now would leave NO working
 /// mint/burn path. Execute `20260831-enable-orchestrator-roles` (and give
