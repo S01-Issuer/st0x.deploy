@@ -717,6 +717,23 @@ contract ST0xOrchestratorTest is Test {
         orchestrator.burn(TOKEN, 1, "");
     }
 
+    function testNonProductionTokenRefusedBeforeVaultLogic() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        _makeGuardFailVault();
+        address token = _lookalikeVaultProxy();
+        _expectVaultProxyRefused(token);
+        orchestrator.mint(token, BOB, 1, _auth("", bytes32(0)), "");
+    }
+
+    function testNonProductionReceiptRefusedBeforeReceiptLogic() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        _makeGuardFailReceipt();
+        address fakeReceipt = _lookalikeReceiptProxy();
+        _mockVaultTopology(TOKEN, fakeReceipt);
+        _expectReceiptProxyRefused(fakeReceipt);
+        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "");
+    }
+
     function testMintUnsupportedChainReverts(uint64 chainId) external {
         _assumeUnsupportedChain(chainId);
         _grant(orchestrator.MINT_ROLE(), address(this));
