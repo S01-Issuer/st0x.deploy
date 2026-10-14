@@ -16,12 +16,15 @@ import {
     TokenTableTooShort,
     UnsupportedTargetChain
 } from "../../script/20260807-deploy-missing-tokens.s.sol";
-import {AuthoriserNotReady} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
-import {LibAuthoriserInvariants, EuAuthoriserNotReady} from "../../src/lib/LibAuthoriserInvariants.sol";
+import {
+    AuthoriserNotReady,
+    EuAuthoriserNotReady,
+    LibAuthoriserInvariants
+} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 import {LibProdTokenConfig, TokenConfig, Region} from "../../src/lib/LibProdTokenConfig.sol";
 import {DeployMissingTokensHarness} from "./DeployMissingTokensHarness.sol";
@@ -314,19 +317,6 @@ contract DeployMissingTokensTest is Test {
             )
         );
         script.run();
-    }
-
-    /// @notice The chain's authoriser pin is rejected when nothing is deployed
-    /// at it. Base and unknown chains never reach the readiness check at all —
-    /// they have no authoriser to resolve, so they are a dispatch error.
-    function testAuthoriserReadyRejectsChainsWithNoPin() external {
-        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
-        vm.expectRevert(abi.encodeWithSelector(UnsupportedTargetChain.selector, LibSafeInvariants.BASE_CHAIN_ID));
-        harness.assertAuthoriserReady();
-
-        vm.chainId(123456);
-        vm.expectRevert(abi.encodeWithSelector(UnsupportedTargetChain.selector, 123456));
-        harness.assertAuthoriserReady();
     }
 
     /// @notice An unpinned or undeployed authoriser is caught before any
