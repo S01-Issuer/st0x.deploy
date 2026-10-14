@@ -25,6 +25,7 @@ import {Mock1271} from "./Mock1271.sol";
 import {MockMintRecipient} from "./MockMintRecipient.sol";
 import {ReentrantMintRecipient} from "./ReentrantMintRecipient.sol";
 import {ReentrantBurnVault} from "./ReentrantBurnVault.sol";
+import {ReceiptReentrantVault} from "./ReceiptReentrantVault.sol";
 import {MockManagerRevert1155} from "./MockManagerRevert1155.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin-contracts-5.7.0/utils/ReentrancyGuardTransient.sol";
 import {OffchainAssetReceiptVault} from "rain-vats-0.2.4/src/concrete/vault/OffchainAssetReceiptVault.sol";
@@ -325,7 +326,7 @@ contract ST0xOrchestratorTest is Test {
         assertEq(orchestrator.EMERGENCY_ROLE(), keccak256("EMERGENCY"));
     }
 
-    function testFuzzMintUnauthorized(address caller) external {
+    function testFuzzMintUnauthorized(address caller, address token) external {
         vm.assume(!orchestrator.hasRole(orchestrator.MINT_ROLE(), caller));
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -333,10 +334,10 @@ contract ST0xOrchestratorTest is Test {
             )
         );
         vm.prank(caller);
-        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "");
+        orchestrator.mint(token, BOB, 1, _auth("", bytes32(0)), "");
     }
 
-    function testFuzzBurnUnauthorized(address caller) external {
+    function testFuzzBurnUnauthorized(address caller, address token) external {
         vm.assume(!orchestrator.hasRole(orchestrator.BURN_ROLE(), caller));
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -344,7 +345,7 @@ contract ST0xOrchestratorTest is Test {
             )
         );
         vm.prank(caller);
-        orchestrator.burn(TOKEN, 1, "");
+        orchestrator.burn(token, 1, "");
     }
 
     function testFuzzSetBurnIndexUnauthorized(address caller, uint256 newIndex) external {
@@ -1462,6 +1463,29 @@ contract ST0xOrchestratorTest is Test {
             abi.encodeWithSelector(ReentrancyGuardTransient.ReentrancyGuardReentrantCall.selector),
             "nested burn must revert ReentrancyGuardReentrantCall"
         );
+    }
+
+    function _receiptReentrantToken(bool reenterMint) internal returns (address) {
+        vm.etch(EXPECTED_VAULT_IMPL, address(new ReceiptReentrantVault(orchestrator, reenterMint)).code);
+        address token = address(0xA77AD);
+        _etchProxy(token, VAULT_BEACON);
+        _grant(orchestrator.MINT_ROLE(), token);
+        _grant(orchestrator.BURN_ROLE(), token);
+        return token;
+    }
+
+    function testMintReentryFromVaultLogicLockReverts() external {
+        address token = _receiptReentrantToken(true);
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        vm.expectRevert(ReentrancyGuardTransient.ReentrancyGuardReentrantCall.selector);
+        orchestrator.mint(token, BOB, 1, _auth("", bytes32(0)), "");
+    }
+
+    function testBurnReentryFromVaultLogicLockReverts() external {
+        address token = _receiptReentrantToken(false);
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        vm.expectRevert(ReentrancyGuardTransient.ReentrancyGuardReentrantCall.selector);
+        orchestrator.burn(token, 1, "");
     }
 
     /// A sender whose `manager()` probe REVERTS with exactly 32 bytes of
