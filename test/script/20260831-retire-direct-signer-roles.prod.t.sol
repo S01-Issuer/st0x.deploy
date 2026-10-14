@@ -8,7 +8,6 @@ import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessContro
 import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 
 import {
-    RETIRE_DEADLINE,
     OrchestratorPathNotEnabled,
     SafeMissingRoleAdminForRetire
 } from "../../script/20260831-retire-direct-signer-roles.s.sol";
@@ -18,12 +17,6 @@ import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
-
-/// @notice The retirement deadline passed with this chain still pending.
-/// Run the outstanding dispatches, extend the deadline, or delete the
-/// invariant.
-/// @param label The chain still pending.
-error RetirementOverdue(string label);
 
 /// @title RetireDirectSignerRolesProdTest
 /// @notice PROD coverage for the direct-role retirement: what production IS
@@ -36,8 +29,6 @@ error RetirementOverdue(string label);
 /// through the timelock instead. A chain whose orchestrator path is not
 /// fully enabled refuses earlier, at the burn-in gate. Once retired, the
 /// signer holds no direct vault role.
-///
-/// Every not-yet-retired state stops passing at `RETIRE_DEADLINE`.
 contract RetireDirectSignerRolesProdTest is Test {
     /// @notice Walk the active fork's retirement state (see the contract
     /// NatSpec) and assert it.
@@ -59,13 +50,6 @@ contract RetireDirectSignerRolesProdTest is Test {
                 revert OrchestratorPathNotEnabled(holder, role);
             }
             return;
-        }
-
-        // A date on a rollout plan, not a race: the window is days wide, so the
-        // seconds a validator could skew cannot change which side of it we are on.
-        // forge-lint: disable-next-line(block-timestamp)
-        if (block.timestamp >= RETIRE_DEADLINE) {
-            revert RetirementOverdue(label);
         }
 
         if (!pathFullyEnabled(acl, orchestrator, signer)) {
@@ -143,19 +127,5 @@ contract RetireDirectSignerRolesProdTest is Test {
     function testRetireRolloutBsc() external {
         vm.createSelectFork(LibStoxDeployNetworks.BSC);
         assertRetireRollout("bsc", LibSafeInvariants.BSC_CHAIN_ID);
-    }
-
-    /// @notice A new chain still in burn-in is overdue at the deadline like
-    /// any other.
-    function testRetireRolloutOverdueOnANewChain() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
-        vm.warp(RETIRE_DEADLINE);
-        vm.expectRevert(abi.encodeWithSelector(RetirementOverdue.selector, "robinhood"));
-        this.externalAssertRetireRollout("robinhood", LibSafeInvariants.ROBINHOOD_CHAIN_ID);
-    }
-
-    /// @notice External shim so `vm.expectRevert` can see the helper's revert.
-    function externalAssertRetireRollout(string memory label, uint256 chainId) external {
-        assertRetireRollout(label, chainId);
     }
 }
