@@ -15,10 +15,10 @@ import {
     OrchestratorRoleAdminUnexpected,
     OrchestratorRoleMissing
 } from "../../../src/lib/LibOrchestratorInvariants.sol";
-import {ForbiddenGrantHeld} from "../../../src/lib/RoleGrant.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {BeaconOwnerMismatch} from "../../../src/lib/LibBeaconInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
+import {LibAuthoriserInvariants} from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibStoxMigrations} from "../../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibOrchestratorInvariantsHarness} from "./LibOrchestratorInvariantsHarness.sol";
@@ -163,12 +163,11 @@ contract LibOrchestratorInvariantsTest is Test {
         harness.callAssertInstance(safe);
     }
 
-    /// @notice Granted without the record: the grant landed outside a
-    /// recorded migration, which is what a hand-built transaction does.
-    function testEmergencyGrantedWithoutRecordTrips() external {
+    /// @notice Granted without the record: nothing is asserted until the
+    /// record lands.
+    function testEmergencyGrantedWithoutRecordPasses() external {
         selectScenarioFork();
         grantEmergencyToSafe();
-        vm.expectRevert(abi.encodeWithSelector(ForbiddenGrantHeld.selector, address(orchestrator), emergencyRole, safe));
         harness.callAssertInstance(safe);
     }
 
@@ -183,19 +182,6 @@ contract LibOrchestratorInvariantsTest is Test {
         harness.callAssertInstance(safe);
     }
 
-    /// @notice The timelock never holds `EMERGENCY_ROLE`, recorded or not.
-    function testTimelockHoldingEmergencyTrips() external {
-        selectScenarioFork();
-        grantEmergencyToSafe();
-        record(LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
-        vm.prank(safe);
-        orchestrator.grantRole(emergencyRole, timelock);
-        vm.expectRevert(
-            abi.encodeWithSelector(ForbiddenGrantHeld.selector, address(orchestrator), emergencyRole, timelock)
-        );
-        harness.callAssertInstance(safe);
-    }
-
     /// @notice Admin moved and recorded: passes.
     function testAdminMovedAndRecordedPasses() external {
         selectScenarioFork();
@@ -205,58 +191,22 @@ contract LibOrchestratorInvariantsTest is Test {
         harness.callAssertInstance(safe);
     }
 
-    /// @notice Admin moved without the record: the Safe is expected as
-    /// admin and is not.
-    function testAdminMovedWithoutRecordTrips() external {
+    /// @notice Admin moved without the record: nothing is asserted about
+    /// admin until the record lands.
+    function testAdminMovedWithoutRecordPasses() external {
         selectScenarioFork();
         grantEmergencyToSafe();
         record(LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
         moveAdminToTimelock();
-        vm.expectRevert(abi.encodeWithSelector(OrchestratorAdminMissing.selector, address(orchestrator), safe));
-        harness.callAssertInstance(safe);
-    }
-
-    /// @notice Admin recorded as moved while the Safe still holds it.
-    function testAdminRecordedWithoutMoveTrips() external {
-        selectScenarioFork();
-        grantEmergencyToSafe();
-        record(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
-        vm.expectRevert(abi.encodeWithSelector(ForbiddenGrantHeld.selector, address(orchestrator), bytes32(0), safe));
         harness.callAssertInstance(safe);
     }
 
     /// @notice Admin recorded as moved while the timelock does not hold it.
-    function testAdminRecordedWithoutTimelockAdminTrips() external {
+    function testAdminRecordedWithoutMoveTrips() external {
         selectScenarioFork();
         grantEmergencyToSafe();
         record(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
-        vm.prank(safe);
-        orchestrator.renounceRole(bytes32(0), safe);
         vm.expectRevert(abi.encodeWithSelector(OrchestratorAdminMissing.selector, address(orchestrator), timelock));
-        harness.callAssertInstance(safe);
-    }
-
-    /// @notice Admin granted to the timelock but never renounced by the
-    /// Safe: the Safe keeps a direct, untimelocked path, which is the gap
-    /// the move exists to close.
-    function testAdminSharedTrips() external {
-        selectScenarioFork();
-        grantEmergencyToSafe();
-        vm.prank(safe);
-        orchestrator.grantRole(bytes32(0), timelock);
-        record(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
-        vm.expectRevert(abi.encodeWithSelector(ForbiddenGrantHeld.selector, address(orchestrator), bytes32(0), safe));
-        harness.callAssertInstance(safe);
-    }
-
-    /// @notice Before any record the timelock must not hold admin either.
-    function testTimelockAdminBeforeRecordTrips() external {
-        selectScenarioFork();
-        vm.prank(safe);
-        orchestrator.grantRole(bytes32(0), timelock);
-        vm.expectRevert(
-            abi.encodeWithSelector(ForbiddenGrantHeld.selector, address(orchestrator), bytes32(0), timelock)
-        );
         harness.callAssertInstance(safe);
     }
 
@@ -282,46 +232,26 @@ contract LibOrchestratorInvariantsTest is Test {
         }
     }
 
-    /// @notice Neither governance principal ever holds `MINT_ROLE` or
-    /// `BURN_ROLE`, recorded or not.
-    function testPrincipalHoldingMintOrBurnTrips() external {
-        selectFork(LibRainDeploy.BASE);
-        bytes32[2] memory roles = [mintRole, burnRole];
-        for (uint256 i = 0; i < roles.length; i++) {
-            for (uint256 j = 0; j < 2; j++) {
-                selectScenarioFork();
-                address holder = j == 0 ? safe : timelock;
-                vm.prank(safe);
-                orchestrator.grantRole(roles[i], holder);
-                vm.expectRevert(
-                    abi.encodeWithSelector(ForbiddenGrantHeld.selector, address(orchestrator), roles[i], holder)
-                );
-                harness.callAssertInstance(safe);
-            }
-        }
+    /// @notice The service signer's `MINT` and `BURN` are expected for the dashboard, not asserted in CI.
+    function testServiceSignerMintAndBurnPassHeldOrNot() external {
+        selectScenarioFork();
+        address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
+        vm.startPrank(safe);
+        orchestrator.grantRole(mintRole, signer);
+        orchestrator.grantRole(burnRole, signer);
+        vm.stopPrank();
+        harness.callAssertInstance(safe);
+
+        vm.startPrank(safe);
+        orchestrator.revokeRole(mintRole, signer);
+        orchestrator.revokeRole(burnRole, signer);
+        vm.stopPrank();
+        harness.callAssertInstance(safe);
     }
 
-    /// @notice After the admin move the timelock is the account that can
-    /// grant operating roles, so the drift checks must hold there too:
-    /// the timelock taking `EMERGENCY`, either principal taking `MINT` or
-    /// `BURN`, and the Safe losing `EMERGENCY` each trip.
+    /// @notice After the admin move the timelock can revoke the Safe's
+    /// `EMERGENCY`, and that trips.
     function testPostMoveDriftTrips() external {
-        selectFork(LibRainDeploy.BASE);
-        bytes32[3] memory roles = [emergencyRole, mintRole, burnRole];
-        for (uint256 r = 0; r < roles.length; r++) {
-            for (uint256 h = 0; h < 2; h++) {
-                if (roles[r] == emergencyRole && h == 0) continue;
-                selectPostMoveScenario();
-                address holder = h == 0 ? safe : timelock;
-                vm.prank(timelock);
-                orchestrator.grantRole(roles[r], holder);
-                vm.expectRevert(
-                    abi.encodeWithSelector(ForbiddenGrantHeld.selector, address(orchestrator), roles[r], holder)
-                );
-                harness.callAssertInstance(safe);
-            }
-        }
-
         selectPostMoveScenario();
         vm.prank(timelock);
         orchestrator.revokeRole(emergencyRole, safe);

@@ -64,10 +64,6 @@ error DirectSignerRolesAlreadyRetired();
 /// authored as a timelock operation (Safe schedules the same two revokes,
 /// 48h, execute) in a new dated script. This one stays registered so its
 /// refusal can be re-derived.
-///
-/// The post-execution pin PR removes the signer's `DEPOSIT`/`WITHDRAW`
-/// rows from the canonical grant map, pins their absence (the
-/// Fireblocks-revocation lifecycle), and retires this script's fixtures.
 contract RetireDirectSignerRoles is Script {
     /// @notice The service signer whose direct vault access retires.
     address internal constant SERVICE_SIGNER = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
@@ -109,13 +105,13 @@ contract RetireDirectSignerRoles is Script {
     }
 
     /// @notice Pre-flight the principals and self-scope the bundle: one
-    /// `revokeRole` per `retiringGrants()` pair still held. Refuses when
+    /// `revokeRole` per direct role the signer still holds. Refuses when
     /// the Safe lacks an `_ADMIN` it needs or when nothing remains
     /// (`DirectSignerRolesAlreadyRetired`).
     /// @param authoriser The chain's authoriser clone.
     /// @param safeAddr The chain's token-owner Safe.
-    /// @return txs The self-scoped revoke transactions.
-    function authorBundle(address authoriser, address safeAddr) internal view returns (SafeTx[] memory txs) {
+    /// @return The self-scoped revoke transactions.
+    function authorBundle(address authoriser, address safeAddr) internal view returns (SafeTx[] memory) {
         IAccessControl acl = IAccessControl(authoriser);
 
         if (!acl.hasRole(keccak256("DEPOSIT_ADMIN"), safeAddr)) {
@@ -125,15 +121,15 @@ contract RetireDirectSignerRoles is Script {
             revert SafeMissingRoleAdminForRetire(keccak256("WITHDRAW_ADMIN"));
         }
 
-        RoleGrant[] memory retiring = LibAuthoriserInvariants.retiringGrants();
-        SafeTx[] memory candidates = new SafeTx[](retiring.length);
+        SafeTx[] memory candidates = new SafeTx[](2);
         uint256 count = 0;
-        for (uint256 i = 0; i < retiring.length; i++) {
-            if (acl.hasRole(retiring[i].role, retiring[i].grantee)) {
+        bytes32[2] memory roles = [keccak256("DEPOSIT"), keccak256("WITHDRAW")];
+        for (uint256 i = 0; i < roles.length; i++) {
+            if (acl.hasRole(roles[i], SERVICE_SIGNER)) {
                 candidates[count++] = SafeTx({
                     to: authoriser,
                     value: 0,
-                    data: abi.encodeCall(IAccessControl.revokeRole, (retiring[i].role, retiring[i].grantee)),
+                    data: abi.encodeCall(IAccessControl.revokeRole, (roles[i], SERVICE_SIGNER)),
                     operation: Enum.Operation.Call
                 });
             }
@@ -141,10 +137,11 @@ contract RetireDirectSignerRoles is Script {
         if (count == 0) {
             revert DirectSignerRolesAlreadyRetired();
         }
-        txs = new SafeTx[](count);
+        SafeTx[] memory txs = new SafeTx[](count);
         for (uint256 i = 0; i < count; i++) {
             txs[i] = candidates[i];
         }
+        return txs;
     }
 
     /// @notice Assert the post-retirement state on the active fork: the
@@ -154,13 +151,10 @@ contract RetireDirectSignerRoles is Script {
     /// @param orchestrator The orchestrator instance.
     /// @param safeAddr The chain's token-owner Safe.
     function assertPostRetireState(IAccessControl acl, address orchestrator, address safeAddr) internal view {
-        RoleGrant[] memory retiring = LibAuthoriserInvariants.retiringGrants();
-        for (uint256 i = 0; i < retiring.length; i++) {
-            require(
-                !acl.hasRole(retiring[i].role, retiring[i].grantee),
-                "RetireDirectSignerRoles: signer still holds a direct vault role"
-            );
-        }
+        require(
+            !acl.hasRole(keccak256("DEPOSIT"), SERVICE_SIGNER) && !acl.hasRole(keccak256("WITHDRAW"), SERVICE_SIGNER),
+            "RetireDirectSignerRoles: signer still holds a direct vault role"
+        );
         RoleGrant[] memory all =
             LibAuthoriserInvariants.expectedGrants(safeAddr, LibTimelockInvariants.timelockForChainId(block.chainid));
         for (uint256 i = 0; i < all.length; i++) {
@@ -191,7 +185,6 @@ contract RetireDirectSignerRoles is Script {
         // orchestrator path.
         assertOrchestratorPathEnabled(acl, orchestrator);
 
-        // The canonical map must hold exactly before rows leave it.
         LibAuthoriserInvariants.assertExpectedGrants(
             authoriser, safeAddr, LibTimelockInvariants.timelockForChainId(block.chainid)
         );

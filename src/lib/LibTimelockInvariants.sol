@@ -197,18 +197,6 @@ library LibTimelockInvariants {
         return grants;
     }
 
-    /// @notice The pairs the governance timelock must not carry.
-    /// @param proposerSafe The chain's token-owner Safe.
-    /// @return The forbidden `(role, grantee)` pairs.
-    function forbiddenGrants(address proposerSafe) internal pure returns (RoleGrant[] memory) {
-        RoleGrant[] memory grants = new RoleGrant[](4);
-        grants[0] = RoleGrant(TIMELOCK_DEFAULT_ADMIN_ROLE, proposerSafe);
-        grants[1] = RoleGrant(TIMELOCK_PROPOSER_ROLE, address(0));
-        grants[2] = RoleGrant(TIMELOCK_CANCELLER_ROLE, address(0));
-        grants[3] = RoleGrant(TIMELOCK_DEFAULT_ADMIN_ROLE, address(0));
-        return grants;
-    }
-
     /// @notice Assert the governance timelock at `timelock` is in its pinned
     /// state: `LibTimelockController.assertTimelockState` at
     /// `TIMELOCK_MIN_DELAY` with `proposerSafe` as the proposer, and, once

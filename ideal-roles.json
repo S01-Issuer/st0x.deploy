@@ -9,38 +9,84 @@
           "name": "STOX_PROD_AUTHORISER_V4_CLONE",
           "kind": "AUTHORIZER",
           "expected": [
-            {"role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02", "roleName": "DEPOSIT_ADMIN", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"},
-            {"role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3", "roleName": "WITHDRAW_ADMIN", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"},
-            {"role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b", "roleName": "CERTIFY_ADMIN", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"},
-            {"role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c", "roleName": "CONFISCATE_SHARES_ADMIN", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"},
-            {"role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d", "roleName": "CONFISCATE_RECEIPT_ADMIN", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"},
-            {"role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2", "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"},
-            {"role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373", "roleName": "CANCEL_CORPORATE_ACTION_ADMIN", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"}
-          ],
-          "forbidden": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02", "roleName": "DEPOSIT_ADMIN", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3", "roleName": "WITHDRAW_ADMIN", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b", "roleName": "CERTIFY_ADMIN", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c", "roleName": "CONFISCATE_SHARES_ADMIN", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d", "roleName": "CONFISCATE_RECEIPT_ADMIN", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2", "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373", "roleName": "CANCEL_CORPORATE_ACTION_ADMIN", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"}
+            {
+              "role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02",
+              "roleName": "DEPOSIT_ADMIN",
+              "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK"
+            },
+            {
+              "role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3",
+              "roleName": "WITHDRAW_ADMIN",
+              "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK"
+            },
+            {
+              "role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b",
+              "roleName": "CERTIFY_ADMIN",
+              "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK"
+            },
+            {
+              "role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c",
+              "roleName": "CONFISCATE_SHARES_ADMIN",
+              "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK"
+            },
+            {
+              "role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d",
+              "roleName": "CONFISCATE_RECEIPT_ADMIN",
+              "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK"
+            },
+            {
+              "role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2",
+              "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN",
+              "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK"
+            },
+            {
+              "role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373",
+              "roleName": "CANCEL_CORPORATE_ACTION_ADMIN",
+              "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK"
+            },
+            {
+              "role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821",
+              "roleName": "DEPOSIT",
+              "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE"
+            },
+            {
+              "role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869",
+              "roleName": "WITHDRAW",
+              "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE"
+            },
+            {
+              "role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+              "roleName": "CERTIFY",
+              "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE"
+            },
+            {
+              "role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+              "roleName": "CERTIFY",
+              "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae",
+              "granteeName": "GRANTEE_SERVICE_3D0C"
+            },
+            {
+              "role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821",
+              "roleName": "DEPOSIT",
+              "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2",
+              "granteeName": "GRANTEE_ORCHESTRATOR"
+            },
+            {
+              "role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869",
+              "roleName": "WITHDRAW",
+              "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2",
+              "granteeName": "GRANTEE_ORCHESTRATOR"
+            }
           ]
         },
         {
@@ -48,52 +94,96 @@
           "name": "STOX_EU_AUTHORISER_CLONE",
           "kind": "AUTHORIZER",
           "expected": [
-            {"role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02", "roleName": "DEPOSIT_ADMIN", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"},
-            {"role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3", "roleName": "WITHDRAW_ADMIN", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"},
-            {"role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b", "roleName": "CERTIFY_ADMIN", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"},
-            {"role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c", "roleName": "CONFISCATE_SHARES_ADMIN", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"},
-            {"role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d", "roleName": "CONFISCATE_RECEIPT_ADMIN", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"},
-            {"role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2", "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"},
-            {"role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373", "roleName": "CANCEL_CORPORATE_ACTION_ADMIN", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x54f0af3716c79b30b8c228679d31d77a1a5f526c16af3262730e0a8de4363fed", "roleName": "CONFISCATE_SHARES", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x3dd35eca0ca8a128757fa464a5dfa4ad6cc4853cad96dce4e90fdbea4f0a52e3", "roleName": "CONFISCATE_RECEIPT", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0xfc0b9a47b723baf66339577301d13949cab2da29c3baeaa9cfc1f36c513e8f89", "roleName": "SCHEDULE_CORPORATE_ACTION", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x921a3c774c4abecc1bddc4f7beb397fdb2cde7806021d9571086abb74cd023e7", "roleName": "CANCEL_CORPORATE_ACTION", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"}
-          ],
-          "forbidden": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02", "roleName": "DEPOSIT_ADMIN", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3", "roleName": "WITHDRAW_ADMIN", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b", "roleName": "CERTIFY_ADMIN", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c", "roleName": "CONFISCATE_SHARES_ADMIN", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d", "roleName": "CONFISCATE_RECEIPT_ADMIN", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2", "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373", "roleName": "CANCEL_CORPORATE_ACTION_ADMIN", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x54f0af3716c79b30b8c228679d31d77a1a5f526c16af3262730e0a8de4363fed", "roleName": "CONFISCATE_SHARES", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x54f0af3716c79b30b8c228679d31d77a1a5f526c16af3262730e0a8de4363fed", "roleName": "CONFISCATE_SHARES", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x3dd35eca0ca8a128757fa464a5dfa4ad6cc4853cad96dce4e90fdbea4f0a52e3", "roleName": "CONFISCATE_RECEIPT", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x3dd35eca0ca8a128757fa464a5dfa4ad6cc4853cad96dce4e90fdbea4f0a52e3", "roleName": "CONFISCATE_RECEIPT", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0xfc0b9a47b723baf66339577301d13949cab2da29c3baeaa9cfc1f36c513e8f89", "roleName": "SCHEDULE_CORPORATE_ACTION", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0xfc0b9a47b723baf66339577301d13949cab2da29c3baeaa9cfc1f36c513e8f89", "roleName": "SCHEDULE_CORPORATE_ACTION", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x921a3c774c4abecc1bddc4f7beb397fdb2cde7806021d9571086abb74cd023e7", "roleName": "CANCEL_CORPORATE_ACTION", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x921a3c774c4abecc1bddc4f7beb397fdb2cde7806021d9571086abb74cd023e7", "roleName": "CANCEL_CORPORATE_ACTION", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"}
+            {
+              "role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02",
+              "roleName": "DEPOSIT_ADMIN",
+              "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK"
+            },
+            {
+              "role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3",
+              "roleName": "WITHDRAW_ADMIN",
+              "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK"
+            },
+            {
+              "role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b",
+              "roleName": "CERTIFY_ADMIN",
+              "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK"
+            },
+            {
+              "role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c",
+              "roleName": "CONFISCATE_SHARES_ADMIN",
+              "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK"
+            },
+            {
+              "role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d",
+              "roleName": "CONFISCATE_RECEIPT_ADMIN",
+              "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK"
+            },
+            {
+              "role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2",
+              "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN",
+              "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK"
+            },
+            {
+              "role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373",
+              "roleName": "CANCEL_CORPORATE_ACTION_ADMIN",
+              "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK"
+            },
+            {
+              "role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821",
+              "roleName": "DEPOSIT",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869",
+              "roleName": "WITHDRAW",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+              "roleName": "CERTIFY",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x54f0af3716c79b30b8c228679d31d77a1a5f526c16af3262730e0a8de4363fed",
+              "roleName": "CONFISCATE_SHARES",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x3dd35eca0ca8a128757fa464a5dfa4ad6cc4853cad96dce4e90fdbea4f0a52e3",
+              "roleName": "CONFISCATE_RECEIPT",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0xfc0b9a47b723baf66339577301d13949cab2da29c3baeaa9cfc1f36c513e8f89",
+              "roleName": "SCHEDULE_CORPORATE_ACTION",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x921a3c774c4abecc1bddc4f7beb397fdb2cde7806021d9571086abb74cd023e7",
+              "roleName": "CANCEL_CORPORATE_ACTION",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+              "roleName": "CERTIFY",
+              "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae",
+              "granteeName": "GRANTEE_SERVICE_3D0C"
+            }
           ]
         },
         {
@@ -101,18 +191,30 @@
           "name": "ST0X_ORCHESTRATOR_INSTANCE",
           "kind": "ORCHESTRATOR",
           "expected": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"},
-            {"role": "0x76b1a12ac8d9ed64de3c0f66c2a19b21c0a3f9a1afec3f75bcd45f7b0794a1de", "roleName": "EMERGENCY_ROLE", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0xfdf81848136595c31bb5f76217767372bc4bf906663038eb38381131ea27ecba", "roleName": "MINT_ROLE", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x04c6a47ae7910ef8b295215a97e8495a9eaf57b7b05bfd8bf951edb3fd4a16a3", "roleName": "BURN_ROLE", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"}
-          ],
-          "forbidden": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0x76b1a12ac8d9ed64de3c0f66c2a19b21c0a3f9a1afec3f75bcd45f7b0794a1de", "roleName": "EMERGENCY_ROLE", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"},
-            {"role": "0xfdf81848136595c31bb5f76217767372bc4bf906663038eb38381131ea27ecba", "roleName": "MINT_ROLE", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0xfdf81848136595c31bb5f76217767372bc4bf906663038eb38381131ea27ecba", "roleName": "MINT_ROLE", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"},
-            {"role": "0x04c6a47ae7910ef8b295215a97e8495a9eaf57b7b05bfd8bf951edb3fd4a16a3", "roleName": "BURN_ROLE", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0x04c6a47ae7910ef8b295215a97e8495a9eaf57b7b05bfd8bf951edb3fd4a16a3", "roleName": "BURN_ROLE", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"}
+            {
+              "role": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "roleName": "DEFAULT_ADMIN_ROLE",
+              "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK"
+            },
+            {
+              "role": "0x76b1a12ac8d9ed64de3c0f66c2a19b21c0a3f9a1afec3f75bcd45f7b0794a1de",
+              "roleName": "EMERGENCY_ROLE",
+              "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE"
+            },
+            {
+              "role": "0xfdf81848136595c31bb5f76217767372bc4bf906663038eb38381131ea27ecba",
+              "roleName": "MINT_ROLE",
+              "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae",
+              "granteeName": "GRANTEE_SERVICE_3D0C"
+            },
+            {
+              "role": "0x04c6a47ae7910ef8b295215a97e8495a9eaf57b7b05bfd8bf951edb3fd4a16a3",
+              "roleName": "BURN_ROLE",
+              "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae",
+              "granteeName": "GRANTEE_SERVICE_3D0C"
+            }
           ]
         },
         {
@@ -120,16 +222,30 @@
           "name": "STOX_GOVERNANCE_TIMELOCK",
           "kind": "GOVERNANCE_TIMELOCK",
           "expected": [
-            {"role": "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1", "roleName": "PROPOSER_ROLE", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0xfd643c72710c63c0180259aba6b2d05451e3591a24e58b62239378085726f783", "roleName": "CANCELLER_ROLE", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3", "granteeName": "STOX_GOVERNANCE_TIMELOCK"},
-            {"role": "0xd8aa0f3194971a2a116679f7c2090f6939c8d4e01a2a8d7e41d55e5351469e63", "roleName": "EXECUTOR_ROLE", "grantee": "0x0000000000000000000000000000000000000000", "granteeName": "address(0)"}
-          ],
-          "forbidden": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611", "granteeName": "STOX_TOKEN_OWNER_SAFE"},
-            {"role": "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1", "roleName": "PROPOSER_ROLE", "grantee": "0x0000000000000000000000000000000000000000", "granteeName": "address(0)"},
-            {"role": "0xfd643c72710c63c0180259aba6b2d05451e3591a24e58b62239378085726f783", "roleName": "CANCELLER_ROLE", "grantee": "0x0000000000000000000000000000000000000000", "granteeName": "address(0)"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x0000000000000000000000000000000000000000", "granteeName": "address(0)"}
+            {
+              "role": "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1",
+              "roleName": "PROPOSER_ROLE",
+              "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE"
+            },
+            {
+              "role": "0xfd643c72710c63c0180259aba6b2d05451e3591a24e58b62239378085726f783",
+              "roleName": "CANCELLER_ROLE",
+              "grantee": "0xe70d821f3462a074e63b42d0aac6523faae1d611",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE"
+            },
+            {
+              "role": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "roleName": "DEFAULT_ADMIN_ROLE",
+              "grantee": "0x48ba1371a78e6cc54157c63721756ab444510db3",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK"
+            },
+            {
+              "role": "0xd8aa0f3194971a2a116679f7c2090f6939c8d4e01a2a8d7e41d55e5351469e63",
+              "roleName": "EXECUTOR_ROLE",
+              "grantee": "0x0000000000000000000000000000000000000000",
+              "granteeName": "address(0)"
+            }
           ]
         }
       ]
@@ -142,38 +258,84 @@
           "name": "STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM",
           "kind": "AUTHORIZER",
           "expected": [
-            {"role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02", "roleName": "DEPOSIT_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"},
-            {"role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3", "roleName": "WITHDRAW_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"},
-            {"role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b", "roleName": "CERTIFY_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"},
-            {"role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c", "roleName": "CONFISCATE_SHARES_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"},
-            {"role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d", "roleName": "CONFISCATE_RECEIPT_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"},
-            {"role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2", "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"},
-            {"role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373", "roleName": "CANCEL_CORPORATE_ACTION_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"}
-          ],
-          "forbidden": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02", "roleName": "DEPOSIT_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3", "roleName": "WITHDRAW_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b", "roleName": "CERTIFY_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c", "roleName": "CONFISCATE_SHARES_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d", "roleName": "CONFISCATE_RECEIPT_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2", "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373", "roleName": "CANCEL_CORPORATE_ACTION_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"}
+            {
+              "role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02",
+              "roleName": "DEPOSIT_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"
+            },
+            {
+              "role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3",
+              "roleName": "WITHDRAW_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"
+            },
+            {
+              "role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b",
+              "roleName": "CERTIFY_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"
+            },
+            {
+              "role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c",
+              "roleName": "CONFISCATE_SHARES_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"
+            },
+            {
+              "role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d",
+              "roleName": "CONFISCATE_RECEIPT_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"
+            },
+            {
+              "role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2",
+              "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"
+            },
+            {
+              "role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373",
+              "roleName": "CANCEL_CORPORATE_ACTION_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"
+            },
+            {
+              "role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821",
+              "roleName": "DEPOSIT",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"
+            },
+            {
+              "role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869",
+              "roleName": "WITHDRAW",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"
+            },
+            {
+              "role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+              "roleName": "CERTIFY",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"
+            },
+            {
+              "role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+              "roleName": "CERTIFY",
+              "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae",
+              "granteeName": "GRANTEE_SERVICE_3D0C"
+            },
+            {
+              "role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821",
+              "roleName": "DEPOSIT",
+              "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2",
+              "granteeName": "GRANTEE_ORCHESTRATOR"
+            },
+            {
+              "role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869",
+              "roleName": "WITHDRAW",
+              "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2",
+              "granteeName": "GRANTEE_ORCHESTRATOR"
+            }
           ]
         },
         {
@@ -181,52 +343,96 @@
           "name": "STOX_EU_AUTHORISER_CLONE_ETHEREUM",
           "kind": "AUTHORIZER",
           "expected": [
-            {"role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02", "roleName": "DEPOSIT_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"},
-            {"role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3", "roleName": "WITHDRAW_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"},
-            {"role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b", "roleName": "CERTIFY_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"},
-            {"role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c", "roleName": "CONFISCATE_SHARES_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"},
-            {"role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d", "roleName": "CONFISCATE_RECEIPT_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"},
-            {"role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2", "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"},
-            {"role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373", "roleName": "CANCEL_CORPORATE_ACTION_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x54f0af3716c79b30b8c228679d31d77a1a5f526c16af3262730e0a8de4363fed", "roleName": "CONFISCATE_SHARES", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x3dd35eca0ca8a128757fa464a5dfa4ad6cc4853cad96dce4e90fdbea4f0a52e3", "roleName": "CONFISCATE_RECEIPT", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0xfc0b9a47b723baf66339577301d13949cab2da29c3baeaa9cfc1f36c513e8f89", "roleName": "SCHEDULE_CORPORATE_ACTION", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x921a3c774c4abecc1bddc4f7beb397fdb2cde7806021d9571086abb74cd023e7", "roleName": "CANCEL_CORPORATE_ACTION", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"}
-          ],
-          "forbidden": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02", "roleName": "DEPOSIT_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3", "roleName": "WITHDRAW_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b", "roleName": "CERTIFY_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c", "roleName": "CONFISCATE_SHARES_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d", "roleName": "CONFISCATE_RECEIPT_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2", "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373", "roleName": "CANCEL_CORPORATE_ACTION_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x54f0af3716c79b30b8c228679d31d77a1a5f526c16af3262730e0a8de4363fed", "roleName": "CONFISCATE_SHARES", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x54f0af3716c79b30b8c228679d31d77a1a5f526c16af3262730e0a8de4363fed", "roleName": "CONFISCATE_SHARES", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x3dd35eca0ca8a128757fa464a5dfa4ad6cc4853cad96dce4e90fdbea4f0a52e3", "roleName": "CONFISCATE_RECEIPT", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x3dd35eca0ca8a128757fa464a5dfa4ad6cc4853cad96dce4e90fdbea4f0a52e3", "roleName": "CONFISCATE_RECEIPT", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0xfc0b9a47b723baf66339577301d13949cab2da29c3baeaa9cfc1f36c513e8f89", "roleName": "SCHEDULE_CORPORATE_ACTION", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0xfc0b9a47b723baf66339577301d13949cab2da29c3baeaa9cfc1f36c513e8f89", "roleName": "SCHEDULE_CORPORATE_ACTION", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x921a3c774c4abecc1bddc4f7beb397fdb2cde7806021d9571086abb74cd023e7", "roleName": "CANCEL_CORPORATE_ACTION", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x921a3c774c4abecc1bddc4f7beb397fdb2cde7806021d9571086abb74cd023e7", "roleName": "CANCEL_CORPORATE_ACTION", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"}
+            {
+              "role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02",
+              "roleName": "DEPOSIT_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"
+            },
+            {
+              "role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3",
+              "roleName": "WITHDRAW_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"
+            },
+            {
+              "role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b",
+              "roleName": "CERTIFY_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"
+            },
+            {
+              "role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c",
+              "roleName": "CONFISCATE_SHARES_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"
+            },
+            {
+              "role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d",
+              "roleName": "CONFISCATE_RECEIPT_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"
+            },
+            {
+              "role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2",
+              "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"
+            },
+            {
+              "role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373",
+              "roleName": "CANCEL_CORPORATE_ACTION_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"
+            },
+            {
+              "role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821",
+              "roleName": "DEPOSIT",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869",
+              "roleName": "WITHDRAW",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+              "roleName": "CERTIFY",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x54f0af3716c79b30b8c228679d31d77a1a5f526c16af3262730e0a8de4363fed",
+              "roleName": "CONFISCATE_SHARES",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x3dd35eca0ca8a128757fa464a5dfa4ad6cc4853cad96dce4e90fdbea4f0a52e3",
+              "roleName": "CONFISCATE_RECEIPT",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0xfc0b9a47b723baf66339577301d13949cab2da29c3baeaa9cfc1f36c513e8f89",
+              "roleName": "SCHEDULE_CORPORATE_ACTION",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x921a3c774c4abecc1bddc4f7beb397fdb2cde7806021d9571086abb74cd023e7",
+              "roleName": "CANCEL_CORPORATE_ACTION",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+              "roleName": "CERTIFY",
+              "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae",
+              "granteeName": "GRANTEE_SERVICE_3D0C"
+            }
           ]
         },
         {
@@ -234,18 +440,30 @@
           "name": "ST0X_ORCHESTRATOR_INSTANCE",
           "kind": "ORCHESTRATOR",
           "expected": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"},
-            {"role": "0x76b1a12ac8d9ed64de3c0f66c2a19b21c0a3f9a1afec3f75bcd45f7b0794a1de", "roleName": "EMERGENCY_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0xfdf81848136595c31bb5f76217767372bc4bf906663038eb38381131ea27ecba", "roleName": "MINT_ROLE", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x04c6a47ae7910ef8b295215a97e8495a9eaf57b7b05bfd8bf951edb3fd4a16a3", "roleName": "BURN_ROLE", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"}
-          ],
-          "forbidden": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0x76b1a12ac8d9ed64de3c0f66c2a19b21c0a3f9a1afec3f75bcd45f7b0794a1de", "roleName": "EMERGENCY_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"},
-            {"role": "0xfdf81848136595c31bb5f76217767372bc4bf906663038eb38381131ea27ecba", "roleName": "MINT_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0xfdf81848136595c31bb5f76217767372bc4bf906663038eb38381131ea27ecba", "roleName": "MINT_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"},
-            {"role": "0x04c6a47ae7910ef8b295215a97e8495a9eaf57b7b05bfd8bf951edb3fd4a16a3", "roleName": "BURN_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0x04c6a47ae7910ef8b295215a97e8495a9eaf57b7b05bfd8bf951edb3fd4a16a3", "roleName": "BURN_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"}
+            {
+              "role": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "roleName": "DEFAULT_ADMIN_ROLE",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"
+            },
+            {
+              "role": "0x76b1a12ac8d9ed64de3c0f66c2a19b21c0a3f9a1afec3f75bcd45f7b0794a1de",
+              "roleName": "EMERGENCY_ROLE",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"
+            },
+            {
+              "role": "0xfdf81848136595c31bb5f76217767372bc4bf906663038eb38381131ea27ecba",
+              "roleName": "MINT_ROLE",
+              "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae",
+              "granteeName": "GRANTEE_SERVICE_3D0C"
+            },
+            {
+              "role": "0x04c6a47ae7910ef8b295215a97e8495a9eaf57b7b05bfd8bf951edb3fd4a16a3",
+              "roleName": "BURN_ROLE",
+              "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae",
+              "granteeName": "GRANTEE_SERVICE_3D0C"
+            }
           ]
         },
         {
@@ -253,16 +471,30 @@
           "name": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM",
           "kind": "GOVERNANCE_TIMELOCK",
           "expected": [
-            {"role": "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1", "roleName": "PROPOSER_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0xfd643c72710c63c0180259aba6b2d05451e3591a24e58b62239378085726f783", "roleName": "CANCELLER_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"},
-            {"role": "0xd8aa0f3194971a2a116679f7c2090f6939c8d4e01a2a8d7e41d55e5351469e63", "roleName": "EXECUTOR_ROLE", "grantee": "0x0000000000000000000000000000000000000000", "granteeName": "address(0)"}
-          ],
-          "forbidden": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"},
-            {"role": "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1", "roleName": "PROPOSER_ROLE", "grantee": "0x0000000000000000000000000000000000000000", "granteeName": "address(0)"},
-            {"role": "0xfd643c72710c63c0180259aba6b2d05451e3591a24e58b62239378085726f783", "roleName": "CANCELLER_ROLE", "grantee": "0x0000000000000000000000000000000000000000", "granteeName": "address(0)"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x0000000000000000000000000000000000000000", "granteeName": "address(0)"}
+            {
+              "role": "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1",
+              "roleName": "PROPOSER_ROLE",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"
+            },
+            {
+              "role": "0xfd643c72710c63c0180259aba6b2d05451e3591a24e58b62239378085726f783",
+              "roleName": "CANCELLER_ROLE",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_ETHEREUM"
+            },
+            {
+              "role": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "roleName": "DEFAULT_ADMIN_ROLE",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ETHEREUM"
+            },
+            {
+              "role": "0xd8aa0f3194971a2a116679f7c2090f6939c8d4e01a2a8d7e41d55e5351469e63",
+              "roleName": "EXECUTOR_ROLE",
+              "grantee": "0x0000000000000000000000000000000000000000",
+              "granteeName": "address(0)"
+            }
           ]
         }
       ]
@@ -275,38 +507,84 @@
           "name": "STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM",
           "kind": "AUTHORIZER",
           "expected": [
-            {"role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02", "roleName": "DEPOSIT_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"},
-            {"role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3", "roleName": "WITHDRAW_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"},
-            {"role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b", "roleName": "CERTIFY_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"},
-            {"role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c", "roleName": "CONFISCATE_SHARES_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"},
-            {"role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d", "roleName": "CONFISCATE_RECEIPT_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"},
-            {"role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2", "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"},
-            {"role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373", "roleName": "CANCEL_CORPORATE_ACTION_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"}
-          ],
-          "forbidden": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02", "roleName": "DEPOSIT_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3", "roleName": "WITHDRAW_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b", "roleName": "CERTIFY_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c", "roleName": "CONFISCATE_SHARES_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d", "roleName": "CONFISCATE_RECEIPT_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2", "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373", "roleName": "CANCEL_CORPORATE_ACTION_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"}
+            {
+              "role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02",
+              "roleName": "DEPOSIT_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"
+            },
+            {
+              "role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3",
+              "roleName": "WITHDRAW_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"
+            },
+            {
+              "role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b",
+              "roleName": "CERTIFY_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"
+            },
+            {
+              "role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c",
+              "roleName": "CONFISCATE_SHARES_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"
+            },
+            {
+              "role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d",
+              "roleName": "CONFISCATE_RECEIPT_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"
+            },
+            {
+              "role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2",
+              "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"
+            },
+            {
+              "role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373",
+              "roleName": "CANCEL_CORPORATE_ACTION_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"
+            },
+            {
+              "role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821",
+              "roleName": "DEPOSIT",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"
+            },
+            {
+              "role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869",
+              "roleName": "WITHDRAW",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"
+            },
+            {
+              "role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+              "roleName": "CERTIFY",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"
+            },
+            {
+              "role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+              "roleName": "CERTIFY",
+              "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae",
+              "granteeName": "GRANTEE_SERVICE_3D0C"
+            },
+            {
+              "role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821",
+              "roleName": "DEPOSIT",
+              "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2",
+              "granteeName": "GRANTEE_ORCHESTRATOR"
+            },
+            {
+              "role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869",
+              "roleName": "WITHDRAW",
+              "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2",
+              "granteeName": "GRANTEE_ORCHESTRATOR"
+            }
           ]
         },
         {
@@ -314,52 +592,96 @@
           "name": "STOX_EU_AUTHORISER_CLONE_HYPEREVM",
           "kind": "AUTHORIZER",
           "expected": [
-            {"role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02", "roleName": "DEPOSIT_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"},
-            {"role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3", "roleName": "WITHDRAW_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"},
-            {"role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b", "roleName": "CERTIFY_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"},
-            {"role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c", "roleName": "CONFISCATE_SHARES_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"},
-            {"role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d", "roleName": "CONFISCATE_RECEIPT_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"},
-            {"role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2", "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"},
-            {"role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373", "roleName": "CANCEL_CORPORATE_ACTION_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x54f0af3716c79b30b8c228679d31d77a1a5f526c16af3262730e0a8de4363fed", "roleName": "CONFISCATE_SHARES", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x3dd35eca0ca8a128757fa464a5dfa4ad6cc4853cad96dce4e90fdbea4f0a52e3", "roleName": "CONFISCATE_RECEIPT", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0xfc0b9a47b723baf66339577301d13949cab2da29c3baeaa9cfc1f36c513e8f89", "roleName": "SCHEDULE_CORPORATE_ACTION", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x921a3c774c4abecc1bddc4f7beb397fdb2cde7806021d9571086abb74cd023e7", "roleName": "CANCEL_CORPORATE_ACTION", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"}
-          ],
-          "forbidden": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02", "roleName": "DEPOSIT_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3", "roleName": "WITHDRAW_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b", "roleName": "CERTIFY_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c", "roleName": "CONFISCATE_SHARES_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d", "roleName": "CONFISCATE_RECEIPT_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2", "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373", "roleName": "CANCEL_CORPORATE_ACTION_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x54f0af3716c79b30b8c228679d31d77a1a5f526c16af3262730e0a8de4363fed", "roleName": "CONFISCATE_SHARES", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x54f0af3716c79b30b8c228679d31d77a1a5f526c16af3262730e0a8de4363fed", "roleName": "CONFISCATE_SHARES", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x3dd35eca0ca8a128757fa464a5dfa4ad6cc4853cad96dce4e90fdbea4f0a52e3", "roleName": "CONFISCATE_RECEIPT", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x3dd35eca0ca8a128757fa464a5dfa4ad6cc4853cad96dce4e90fdbea4f0a52e3", "roleName": "CONFISCATE_RECEIPT", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0xfc0b9a47b723baf66339577301d13949cab2da29c3baeaa9cfc1f36c513e8f89", "roleName": "SCHEDULE_CORPORATE_ACTION", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0xfc0b9a47b723baf66339577301d13949cab2da29c3baeaa9cfc1f36c513e8f89", "roleName": "SCHEDULE_CORPORATE_ACTION", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x921a3c774c4abecc1bddc4f7beb397fdb2cde7806021d9571086abb74cd023e7", "roleName": "CANCEL_CORPORATE_ACTION", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x921a3c774c4abecc1bddc4f7beb397fdb2cde7806021d9571086abb74cd023e7", "roleName": "CANCEL_CORPORATE_ACTION", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"}
+            {
+              "role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02",
+              "roleName": "DEPOSIT_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"
+            },
+            {
+              "role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3",
+              "roleName": "WITHDRAW_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"
+            },
+            {
+              "role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b",
+              "roleName": "CERTIFY_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"
+            },
+            {
+              "role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c",
+              "roleName": "CONFISCATE_SHARES_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"
+            },
+            {
+              "role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d",
+              "roleName": "CONFISCATE_RECEIPT_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"
+            },
+            {
+              "role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2",
+              "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"
+            },
+            {
+              "role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373",
+              "roleName": "CANCEL_CORPORATE_ACTION_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"
+            },
+            {
+              "role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821",
+              "roleName": "DEPOSIT",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869",
+              "roleName": "WITHDRAW",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+              "roleName": "CERTIFY",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x54f0af3716c79b30b8c228679d31d77a1a5f526c16af3262730e0a8de4363fed",
+              "roleName": "CONFISCATE_SHARES",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x3dd35eca0ca8a128757fa464a5dfa4ad6cc4853cad96dce4e90fdbea4f0a52e3",
+              "roleName": "CONFISCATE_RECEIPT",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0xfc0b9a47b723baf66339577301d13949cab2da29c3baeaa9cfc1f36c513e8f89",
+              "roleName": "SCHEDULE_CORPORATE_ACTION",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x921a3c774c4abecc1bddc4f7beb397fdb2cde7806021d9571086abb74cd023e7",
+              "roleName": "CANCEL_CORPORATE_ACTION",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+              "roleName": "CERTIFY",
+              "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae",
+              "granteeName": "GRANTEE_SERVICE_3D0C"
+            }
           ]
         },
         {
@@ -367,18 +689,30 @@
           "name": "ST0X_ORCHESTRATOR_INSTANCE",
           "kind": "ORCHESTRATOR",
           "expected": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"},
-            {"role": "0x76b1a12ac8d9ed64de3c0f66c2a19b21c0a3f9a1afec3f75bcd45f7b0794a1de", "roleName": "EMERGENCY_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0xfdf81848136595c31bb5f76217767372bc4bf906663038eb38381131ea27ecba", "roleName": "MINT_ROLE", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x04c6a47ae7910ef8b295215a97e8495a9eaf57b7b05bfd8bf951edb3fd4a16a3", "roleName": "BURN_ROLE", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"}
-          ],
-          "forbidden": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0x76b1a12ac8d9ed64de3c0f66c2a19b21c0a3f9a1afec3f75bcd45f7b0794a1de", "roleName": "EMERGENCY_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"},
-            {"role": "0xfdf81848136595c31bb5f76217767372bc4bf906663038eb38381131ea27ecba", "roleName": "MINT_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0xfdf81848136595c31bb5f76217767372bc4bf906663038eb38381131ea27ecba", "roleName": "MINT_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"},
-            {"role": "0x04c6a47ae7910ef8b295215a97e8495a9eaf57b7b05bfd8bf951edb3fd4a16a3", "roleName": "BURN_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0x04c6a47ae7910ef8b295215a97e8495a9eaf57b7b05bfd8bf951edb3fd4a16a3", "roleName": "BURN_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"}
+            {
+              "role": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "roleName": "DEFAULT_ADMIN_ROLE",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"
+            },
+            {
+              "role": "0x76b1a12ac8d9ed64de3c0f66c2a19b21c0a3f9a1afec3f75bcd45f7b0794a1de",
+              "roleName": "EMERGENCY_ROLE",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"
+            },
+            {
+              "role": "0xfdf81848136595c31bb5f76217767372bc4bf906663038eb38381131ea27ecba",
+              "roleName": "MINT_ROLE",
+              "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae",
+              "granteeName": "GRANTEE_SERVICE_3D0C"
+            },
+            {
+              "role": "0x04c6a47ae7910ef8b295215a97e8495a9eaf57b7b05bfd8bf951edb3fd4a16a3",
+              "roleName": "BURN_ROLE",
+              "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae",
+              "granteeName": "GRANTEE_SERVICE_3D0C"
+            }
           ]
         },
         {
@@ -386,16 +720,30 @@
           "name": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM",
           "kind": "GOVERNANCE_TIMELOCK",
           "expected": [
-            {"role": "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1", "roleName": "PROPOSER_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0xfd643c72710c63c0180259aba6b2d05451e3591a24e58b62239378085726f783", "roleName": "CANCELLER_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"},
-            {"role": "0xd8aa0f3194971a2a116679f7c2090f6939c8d4e01a2a8d7e41d55e5351469e63", "roleName": "EXECUTOR_ROLE", "grantee": "0x0000000000000000000000000000000000000000", "granteeName": "address(0)"}
-          ],
-          "forbidden": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"},
-            {"role": "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1", "roleName": "PROPOSER_ROLE", "grantee": "0x0000000000000000000000000000000000000000", "granteeName": "address(0)"},
-            {"role": "0xfd643c72710c63c0180259aba6b2d05451e3591a24e58b62239378085726f783", "roleName": "CANCELLER_ROLE", "grantee": "0x0000000000000000000000000000000000000000", "granteeName": "address(0)"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x0000000000000000000000000000000000000000", "granteeName": "address(0)"}
+            {
+              "role": "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1",
+              "roleName": "PROPOSER_ROLE",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"
+            },
+            {
+              "role": "0xfd643c72710c63c0180259aba6b2d05451e3591a24e58b62239378085726f783",
+              "roleName": "CANCELLER_ROLE",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_HYPEREVM"
+            },
+            {
+              "role": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "roleName": "DEFAULT_ADMIN_ROLE",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_HYPEREVM"
+            },
+            {
+              "role": "0xd8aa0f3194971a2a116679f7c2090f6939c8d4e01a2a8d7e41d55e5351469e63",
+              "roleName": "EXECUTOR_ROLE",
+              "grantee": "0x0000000000000000000000000000000000000000",
+              "granteeName": "address(0)"
+            }
           ]
         }
       ]
@@ -408,38 +756,84 @@
           "name": "STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD",
           "kind": "AUTHORIZER",
           "expected": [
-            {"role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02", "roleName": "DEPOSIT_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"},
-            {"role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3", "roleName": "WITHDRAW_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"},
-            {"role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b", "roleName": "CERTIFY_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"},
-            {"role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c", "roleName": "CONFISCATE_SHARES_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"},
-            {"role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d", "roleName": "CONFISCATE_RECEIPT_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"},
-            {"role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2", "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"},
-            {"role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373", "roleName": "CANCEL_CORPORATE_ACTION_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"}
-          ],
-          "forbidden": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02", "roleName": "DEPOSIT_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3", "roleName": "WITHDRAW_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b", "roleName": "CERTIFY_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c", "roleName": "CONFISCATE_SHARES_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d", "roleName": "CONFISCATE_RECEIPT_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2", "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373", "roleName": "CANCEL_CORPORATE_ACTION_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"}
+            {
+              "role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02",
+              "roleName": "DEPOSIT_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"
+            },
+            {
+              "role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3",
+              "roleName": "WITHDRAW_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"
+            },
+            {
+              "role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b",
+              "roleName": "CERTIFY_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"
+            },
+            {
+              "role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c",
+              "roleName": "CONFISCATE_SHARES_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"
+            },
+            {
+              "role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d",
+              "roleName": "CONFISCATE_RECEIPT_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"
+            },
+            {
+              "role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2",
+              "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"
+            },
+            {
+              "role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373",
+              "roleName": "CANCEL_CORPORATE_ACTION_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"
+            },
+            {
+              "role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821",
+              "roleName": "DEPOSIT",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"
+            },
+            {
+              "role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869",
+              "roleName": "WITHDRAW",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"
+            },
+            {
+              "role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+              "roleName": "CERTIFY",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"
+            },
+            {
+              "role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+              "roleName": "CERTIFY",
+              "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae",
+              "granteeName": "GRANTEE_SERVICE_3D0C"
+            },
+            {
+              "role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821",
+              "roleName": "DEPOSIT",
+              "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2",
+              "granteeName": "GRANTEE_ORCHESTRATOR"
+            },
+            {
+              "role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869",
+              "roleName": "WITHDRAW",
+              "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2",
+              "granteeName": "GRANTEE_ORCHESTRATOR"
+            }
           ]
         },
         {
@@ -447,52 +841,96 @@
           "name": "STOX_EU_AUTHORISER_CLONE_ROBINHOOD",
           "kind": "AUTHORIZER",
           "expected": [
-            {"role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02", "roleName": "DEPOSIT_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"},
-            {"role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3", "roleName": "WITHDRAW_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"},
-            {"role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b", "roleName": "CERTIFY_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"},
-            {"role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c", "roleName": "CONFISCATE_SHARES_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"},
-            {"role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d", "roleName": "CONFISCATE_RECEIPT_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"},
-            {"role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2", "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"},
-            {"role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373", "roleName": "CANCEL_CORPORATE_ACTION_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x54f0af3716c79b30b8c228679d31d77a1a5f526c16af3262730e0a8de4363fed", "roleName": "CONFISCATE_SHARES", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x3dd35eca0ca8a128757fa464a5dfa4ad6cc4853cad96dce4e90fdbea4f0a52e3", "roleName": "CONFISCATE_RECEIPT", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0xfc0b9a47b723baf66339577301d13949cab2da29c3baeaa9cfc1f36c513e8f89", "roleName": "SCHEDULE_CORPORATE_ACTION", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x921a3c774c4abecc1bddc4f7beb397fdb2cde7806021d9571086abb74cd023e7", "roleName": "CANCEL_CORPORATE_ACTION", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"}
-          ],
-          "forbidden": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02", "roleName": "DEPOSIT_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3", "roleName": "WITHDRAW_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b", "roleName": "CERTIFY_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c", "roleName": "CONFISCATE_SHARES_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d", "roleName": "CONFISCATE_RECEIPT_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2", "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373", "roleName": "CANCEL_CORPORATE_ACTION_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x54f0af3716c79b30b8c228679d31d77a1a5f526c16af3262730e0a8de4363fed", "roleName": "CONFISCATE_SHARES", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x54f0af3716c79b30b8c228679d31d77a1a5f526c16af3262730e0a8de4363fed", "roleName": "CONFISCATE_SHARES", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x3dd35eca0ca8a128757fa464a5dfa4ad6cc4853cad96dce4e90fdbea4f0a52e3", "roleName": "CONFISCATE_RECEIPT", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x3dd35eca0ca8a128757fa464a5dfa4ad6cc4853cad96dce4e90fdbea4f0a52e3", "roleName": "CONFISCATE_RECEIPT", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0xfc0b9a47b723baf66339577301d13949cab2da29c3baeaa9cfc1f36c513e8f89", "roleName": "SCHEDULE_CORPORATE_ACTION", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0xfc0b9a47b723baf66339577301d13949cab2da29c3baeaa9cfc1f36c513e8f89", "roleName": "SCHEDULE_CORPORATE_ACTION", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x921a3c774c4abecc1bddc4f7beb397fdb2cde7806021d9571086abb74cd023e7", "roleName": "CANCEL_CORPORATE_ACTION", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x921a3c774c4abecc1bddc4f7beb397fdb2cde7806021d9571086abb74cd023e7", "roleName": "CANCEL_CORPORATE_ACTION", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"}
+            {
+              "role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02",
+              "roleName": "DEPOSIT_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"
+            },
+            {
+              "role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3",
+              "roleName": "WITHDRAW_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"
+            },
+            {
+              "role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b",
+              "roleName": "CERTIFY_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"
+            },
+            {
+              "role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c",
+              "roleName": "CONFISCATE_SHARES_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"
+            },
+            {
+              "role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d",
+              "roleName": "CONFISCATE_RECEIPT_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"
+            },
+            {
+              "role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2",
+              "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"
+            },
+            {
+              "role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373",
+              "roleName": "CANCEL_CORPORATE_ACTION_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"
+            },
+            {
+              "role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821",
+              "roleName": "DEPOSIT",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869",
+              "roleName": "WITHDRAW",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+              "roleName": "CERTIFY",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x54f0af3716c79b30b8c228679d31d77a1a5f526c16af3262730e0a8de4363fed",
+              "roleName": "CONFISCATE_SHARES",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x3dd35eca0ca8a128757fa464a5dfa4ad6cc4853cad96dce4e90fdbea4f0a52e3",
+              "roleName": "CONFISCATE_RECEIPT",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0xfc0b9a47b723baf66339577301d13949cab2da29c3baeaa9cfc1f36c513e8f89",
+              "roleName": "SCHEDULE_CORPORATE_ACTION",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x921a3c774c4abecc1bddc4f7beb397fdb2cde7806021d9571086abb74cd023e7",
+              "roleName": "CANCEL_CORPORATE_ACTION",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+              "roleName": "CERTIFY",
+              "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae",
+              "granteeName": "GRANTEE_SERVICE_3D0C"
+            }
           ]
         },
         {
@@ -500,18 +938,30 @@
           "name": "ST0X_ORCHESTRATOR_INSTANCE",
           "kind": "ORCHESTRATOR",
           "expected": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"},
-            {"role": "0x76b1a12ac8d9ed64de3c0f66c2a19b21c0a3f9a1afec3f75bcd45f7b0794a1de", "roleName": "EMERGENCY_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0xfdf81848136595c31bb5f76217767372bc4bf906663038eb38381131ea27ecba", "roleName": "MINT_ROLE", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x04c6a47ae7910ef8b295215a97e8495a9eaf57b7b05bfd8bf951edb3fd4a16a3", "roleName": "BURN_ROLE", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"}
-          ],
-          "forbidden": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0x76b1a12ac8d9ed64de3c0f66c2a19b21c0a3f9a1afec3f75bcd45f7b0794a1de", "roleName": "EMERGENCY_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"},
-            {"role": "0xfdf81848136595c31bb5f76217767372bc4bf906663038eb38381131ea27ecba", "roleName": "MINT_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0xfdf81848136595c31bb5f76217767372bc4bf906663038eb38381131ea27ecba", "roleName": "MINT_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"},
-            {"role": "0x04c6a47ae7910ef8b295215a97e8495a9eaf57b7b05bfd8bf951edb3fd4a16a3", "roleName": "BURN_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0x04c6a47ae7910ef8b295215a97e8495a9eaf57b7b05bfd8bf951edb3fd4a16a3", "roleName": "BURN_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"}
+            {
+              "role": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "roleName": "DEFAULT_ADMIN_ROLE",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"
+            },
+            {
+              "role": "0x76b1a12ac8d9ed64de3c0f66c2a19b21c0a3f9a1afec3f75bcd45f7b0794a1de",
+              "roleName": "EMERGENCY_ROLE",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"
+            },
+            {
+              "role": "0xfdf81848136595c31bb5f76217767372bc4bf906663038eb38381131ea27ecba",
+              "roleName": "MINT_ROLE",
+              "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae",
+              "granteeName": "GRANTEE_SERVICE_3D0C"
+            },
+            {
+              "role": "0x04c6a47ae7910ef8b295215a97e8495a9eaf57b7b05bfd8bf951edb3fd4a16a3",
+              "roleName": "BURN_ROLE",
+              "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae",
+              "granteeName": "GRANTEE_SERVICE_3D0C"
+            }
           ]
         },
         {
@@ -519,16 +969,30 @@
           "name": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD",
           "kind": "GOVERNANCE_TIMELOCK",
           "expected": [
-            {"role": "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1", "roleName": "PROPOSER_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0xfd643c72710c63c0180259aba6b2d05451e3591a24e58b62239378085726f783", "roleName": "CANCELLER_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"},
-            {"role": "0xd8aa0f3194971a2a116679f7c2090f6939c8d4e01a2a8d7e41d55e5351469e63", "roleName": "EXECUTOR_ROLE", "grantee": "0x0000000000000000000000000000000000000000", "granteeName": "address(0)"}
-          ],
-          "forbidden": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"},
-            {"role": "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1", "roleName": "PROPOSER_ROLE", "grantee": "0x0000000000000000000000000000000000000000", "granteeName": "address(0)"},
-            {"role": "0xfd643c72710c63c0180259aba6b2d05451e3591a24e58b62239378085726f783", "roleName": "CANCELLER_ROLE", "grantee": "0x0000000000000000000000000000000000000000", "granteeName": "address(0)"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x0000000000000000000000000000000000000000", "granteeName": "address(0)"}
+            {
+              "role": "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1",
+              "roleName": "PROPOSER_ROLE",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"
+            },
+            {
+              "role": "0xfd643c72710c63c0180259aba6b2d05451e3591a24e58b62239378085726f783",
+              "roleName": "CANCELLER_ROLE",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_ROBINHOOD"
+            },
+            {
+              "role": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "roleName": "DEFAULT_ADMIN_ROLE",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_ROBINHOOD"
+            },
+            {
+              "role": "0xd8aa0f3194971a2a116679f7c2090f6939c8d4e01a2a8d7e41d55e5351469e63",
+              "roleName": "EXECUTOR_ROLE",
+              "grantee": "0x0000000000000000000000000000000000000000",
+              "granteeName": "address(0)"
+            }
           ]
         }
       ]
@@ -541,38 +1005,84 @@
           "name": "STOX_PROD_AUTHORISER_V4_CLONE_BSC",
           "kind": "AUTHORIZER",
           "expected": [
-            {"role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02", "roleName": "DEPOSIT_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"},
-            {"role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3", "roleName": "WITHDRAW_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"},
-            {"role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b", "roleName": "CERTIFY_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"},
-            {"role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c", "roleName": "CONFISCATE_SHARES_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"},
-            {"role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d", "roleName": "CONFISCATE_RECEIPT_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"},
-            {"role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2", "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"},
-            {"role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373", "roleName": "CANCEL_CORPORATE_ACTION_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"}
-          ],
-          "forbidden": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02", "roleName": "DEPOSIT_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3", "roleName": "WITHDRAW_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b", "roleName": "CERTIFY_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c", "roleName": "CONFISCATE_SHARES_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d", "roleName": "CONFISCATE_RECEIPT_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2", "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373", "roleName": "CANCEL_CORPORATE_ACTION_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"}
+            {
+              "role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02",
+              "roleName": "DEPOSIT_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"
+            },
+            {
+              "role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3",
+              "roleName": "WITHDRAW_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"
+            },
+            {
+              "role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b",
+              "roleName": "CERTIFY_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"
+            },
+            {
+              "role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c",
+              "roleName": "CONFISCATE_SHARES_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"
+            },
+            {
+              "role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d",
+              "roleName": "CONFISCATE_RECEIPT_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"
+            },
+            {
+              "role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2",
+              "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"
+            },
+            {
+              "role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373",
+              "roleName": "CANCEL_CORPORATE_ACTION_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"
+            },
+            {
+              "role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821",
+              "roleName": "DEPOSIT",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"
+            },
+            {
+              "role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869",
+              "roleName": "WITHDRAW",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"
+            },
+            {
+              "role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+              "roleName": "CERTIFY",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"
+            },
+            {
+              "role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+              "roleName": "CERTIFY",
+              "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae",
+              "granteeName": "GRANTEE_SERVICE_3D0C"
+            },
+            {
+              "role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821",
+              "roleName": "DEPOSIT",
+              "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2",
+              "granteeName": "GRANTEE_ORCHESTRATOR"
+            },
+            {
+              "role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869",
+              "roleName": "WITHDRAW",
+              "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2",
+              "granteeName": "GRANTEE_ORCHESTRATOR"
+            }
           ]
         },
         {
@@ -580,52 +1090,96 @@
           "name": "STOX_EU_AUTHORISER_CLONE_BSC",
           "kind": "AUTHORIZER",
           "expected": [
-            {"role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02", "roleName": "DEPOSIT_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"},
-            {"role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3", "roleName": "WITHDRAW_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"},
-            {"role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b", "roleName": "CERTIFY_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"},
-            {"role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c", "roleName": "CONFISCATE_SHARES_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"},
-            {"role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d", "roleName": "CONFISCATE_RECEIPT_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"},
-            {"role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2", "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"},
-            {"role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373", "roleName": "CANCEL_CORPORATE_ACTION_ADMIN", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x54f0af3716c79b30b8c228679d31d77a1a5f526c16af3262730e0a8de4363fed", "roleName": "CONFISCATE_SHARES", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x3dd35eca0ca8a128757fa464a5dfa4ad6cc4853cad96dce4e90fdbea4f0a52e3", "roleName": "CONFISCATE_RECEIPT", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0xfc0b9a47b723baf66339577301d13949cab2da29c3baeaa9cfc1f36c513e8f89", "roleName": "SCHEDULE_CORPORATE_ACTION", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x921a3c774c4abecc1bddc4f7beb397fdb2cde7806021d9571086abb74cd023e7", "roleName": "CANCEL_CORPORATE_ACTION", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"}
-          ],
-          "forbidden": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c", "granteeName": "GRANTEE_EU_MINTER"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x1c66d6708914c40239d54919320b4c48cae3d1a9", "granteeName": "GRANTEE_SERVICE_1C66"},
-            {"role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02", "roleName": "DEPOSIT_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3", "roleName": "WITHDRAW_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b", "roleName": "CERTIFY_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c", "roleName": "CONFISCATE_SHARES_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d", "roleName": "CONFISCATE_RECEIPT_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2", "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373", "roleName": "CANCEL_CORPORATE_ACTION_ADMIN", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821", "roleName": "DEPOSIT", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869", "roleName": "WITHDRAW", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391", "roleName": "CERTIFY", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x54f0af3716c79b30b8c228679d31d77a1a5f526c16af3262730e0a8de4363fed", "roleName": "CONFISCATE_SHARES", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x54f0af3716c79b30b8c228679d31d77a1a5f526c16af3262730e0a8de4363fed", "roleName": "CONFISCATE_SHARES", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x3dd35eca0ca8a128757fa464a5dfa4ad6cc4853cad96dce4e90fdbea4f0a52e3", "roleName": "CONFISCATE_RECEIPT", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x3dd35eca0ca8a128757fa464a5dfa4ad6cc4853cad96dce4e90fdbea4f0a52e3", "roleName": "CONFISCATE_RECEIPT", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0xfc0b9a47b723baf66339577301d13949cab2da29c3baeaa9cfc1f36c513e8f89", "roleName": "SCHEDULE_CORPORATE_ACTION", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0xfc0b9a47b723baf66339577301d13949cab2da29c3baeaa9cfc1f36c513e8f89", "roleName": "SCHEDULE_CORPORATE_ACTION", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x921a3c774c4abecc1bddc4f7beb397fdb2cde7806021d9571086abb74cd023e7", "roleName": "CANCEL_CORPORATE_ACTION", "grantee": "0x3a7387a484d87aa8bba45e98aab401ce4fbf03e2", "granteeName": "GRANTEE_ORCHESTRATOR"},
-            {"role": "0x921a3c774c4abecc1bddc4f7beb397fdb2cde7806021d9571086abb74cd023e7", "roleName": "CANCEL_CORPORATE_ACTION", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"}
+            {
+              "role": "0x1ae915b310cb86de75afe5db1721d474dd0a8617151f7524866025476454bc02",
+              "roleName": "DEPOSIT_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"
+            },
+            {
+              "role": "0xa0f4a7675effb97b81a0c9d5b53b44a73019f25c5ec8fda76d7c1ad3920851d3",
+              "roleName": "WITHDRAW_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"
+            },
+            {
+              "role": "0x48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b",
+              "roleName": "CERTIFY_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"
+            },
+            {
+              "role": "0xe5c740c26fb65f0a8de546defe3fe0011d5f2292abe6c4e6c3833916f4d8f76c",
+              "roleName": "CONFISCATE_SHARES_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"
+            },
+            {
+              "role": "0x4fa4167c411e3d3edd62f8bf767cb8c66f94f891502ddab57e7c55ca1d7d891d",
+              "roleName": "CONFISCATE_RECEIPT_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"
+            },
+            {
+              "role": "0xd6075ca92e18a15ce0e8ecaaae57a112072844045d11beeb264aac5f85e0daf2",
+              "roleName": "SCHEDULE_CORPORATE_ACTION_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"
+            },
+            {
+              "role": "0xe25ff801c3c463dad5f8999289b7b43090e0f6f5039ae7c220cbb762fe8ff373",
+              "roleName": "CANCEL_CORPORATE_ACTION_ADMIN",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"
+            },
+            {
+              "role": "0x87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f821",
+              "roleName": "DEPOSIT",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869",
+              "roleName": "WITHDRAW",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+              "roleName": "CERTIFY",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x54f0af3716c79b30b8c228679d31d77a1a5f526c16af3262730e0a8de4363fed",
+              "roleName": "CONFISCATE_SHARES",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x3dd35eca0ca8a128757fa464a5dfa4ad6cc4853cad96dce4e90fdbea4f0a52e3",
+              "roleName": "CONFISCATE_RECEIPT",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0xfc0b9a47b723baf66339577301d13949cab2da29c3baeaa9cfc1f36c513e8f89",
+              "roleName": "SCHEDULE_CORPORATE_ACTION",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x921a3c774c4abecc1bddc4f7beb397fdb2cde7806021d9571086abb74cd023e7",
+              "roleName": "CANCEL_CORPORATE_ACTION",
+              "grantee": "0x0958d9e94d9d4139280947acd86d4a50f13bfa8c",
+              "granteeName": "GRANTEE_EU_MINTER"
+            },
+            {
+              "role": "0x50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+              "roleName": "CERTIFY",
+              "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae",
+              "granteeName": "GRANTEE_SERVICE_3D0C"
+            }
           ]
         },
         {
@@ -633,18 +1187,30 @@
           "name": "ST0X_ORCHESTRATOR_INSTANCE",
           "kind": "ORCHESTRATOR",
           "expected": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"},
-            {"role": "0x76b1a12ac8d9ed64de3c0f66c2a19b21c0a3f9a1afec3f75bcd45f7b0794a1de", "roleName": "EMERGENCY_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0xfdf81848136595c31bb5f76217767372bc4bf906663038eb38381131ea27ecba", "roleName": "MINT_ROLE", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"},
-            {"role": "0x04c6a47ae7910ef8b295215a97e8495a9eaf57b7b05bfd8bf951edb3fd4a16a3", "roleName": "BURN_ROLE", "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae", "granteeName": "GRANTEE_SERVICE_3D0C"}
-          ],
-          "forbidden": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0x76b1a12ac8d9ed64de3c0f66c2a19b21c0a3f9a1afec3f75bcd45f7b0794a1de", "roleName": "EMERGENCY_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"},
-            {"role": "0xfdf81848136595c31bb5f76217767372bc4bf906663038eb38381131ea27ecba", "roleName": "MINT_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0xfdf81848136595c31bb5f76217767372bc4bf906663038eb38381131ea27ecba", "roleName": "MINT_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"},
-            {"role": "0x04c6a47ae7910ef8b295215a97e8495a9eaf57b7b05bfd8bf951edb3fd4a16a3", "roleName": "BURN_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0x04c6a47ae7910ef8b295215a97e8495a9eaf57b7b05bfd8bf951edb3fd4a16a3", "roleName": "BURN_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"}
+            {
+              "role": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "roleName": "DEFAULT_ADMIN_ROLE",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"
+            },
+            {
+              "role": "0x76b1a12ac8d9ed64de3c0f66c2a19b21c0a3f9a1afec3f75bcd45f7b0794a1de",
+              "roleName": "EMERGENCY_ROLE",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"
+            },
+            {
+              "role": "0xfdf81848136595c31bb5f76217767372bc4bf906663038eb38381131ea27ecba",
+              "roleName": "MINT_ROLE",
+              "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae",
+              "granteeName": "GRANTEE_SERVICE_3D0C"
+            },
+            {
+              "role": "0x04c6a47ae7910ef8b295215a97e8495a9eaf57b7b05bfd8bf951edb3fd4a16a3",
+              "roleName": "BURN_ROLE",
+              "grantee": "0x3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae",
+              "granteeName": "GRANTEE_SERVICE_3D0C"
+            }
           ]
         },
         {
@@ -652,16 +1218,30 @@
           "name": "STOX_GOVERNANCE_TIMELOCK_BSC",
           "kind": "GOVERNANCE_TIMELOCK",
           "expected": [
-            {"role": "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1", "roleName": "PROPOSER_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0xfd643c72710c63c0180259aba6b2d05451e3591a24e58b62239378085726f783", "roleName": "CANCELLER_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b", "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"},
-            {"role": "0xd8aa0f3194971a2a116679f7c2090f6939c8d4e01a2a8d7e41d55e5351469e63", "roleName": "EXECUTOR_ROLE", "grantee": "0x0000000000000000000000000000000000000000", "granteeName": "address(0)"}
-          ],
-          "forbidden": [
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329", "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"},
-            {"role": "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1", "roleName": "PROPOSER_ROLE", "grantee": "0x0000000000000000000000000000000000000000", "granteeName": "address(0)"},
-            {"role": "0xfd643c72710c63c0180259aba6b2d05451e3591a24e58b62239378085726f783", "roleName": "CANCELLER_ROLE", "grantee": "0x0000000000000000000000000000000000000000", "granteeName": "address(0)"},
-            {"role": "0x0000000000000000000000000000000000000000000000000000000000000000", "roleName": "DEFAULT_ADMIN_ROLE", "grantee": "0x0000000000000000000000000000000000000000", "granteeName": "address(0)"}
+            {
+              "role": "0xb09aa5aeb3702cfd50b6b62bc4532604938f21248a27a1d5ca736082b6819cc1",
+              "roleName": "PROPOSER_ROLE",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"
+            },
+            {
+              "role": "0xfd643c72710c63c0180259aba6b2d05451e3591a24e58b62239378085726f783",
+              "roleName": "CANCELLER_ROLE",
+              "grantee": "0x3840aedaec8e82f79d8f6a8f6adca271e13e0329",
+              "granteeName": "STOX_TOKEN_OWNER_SAFE_BSC"
+            },
+            {
+              "role": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "roleName": "DEFAULT_ADMIN_ROLE",
+              "grantee": "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b",
+              "granteeName": "STOX_GOVERNANCE_TIMELOCK_BSC"
+            },
+            {
+              "role": "0xd8aa0f3194971a2a116679f7c2090f6939c8d4e01a2a8d7e41d55e5351469e63",
+              "roleName": "EXECUTOR_ROLE",
+              "grantee": "0x0000000000000000000000000000000000000000",
+              "granteeName": "address(0)"
+            }
           ]
         }
       ]

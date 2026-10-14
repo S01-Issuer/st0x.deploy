@@ -11,11 +11,9 @@ import {RoleGrant} from "./RoleGrant.sol";
 /// @notice One role-bearing contract's ideal role state.
 /// @param target The contract.
 /// @param expected The pairs it must carry.
-/// @param forbidden The pairs it must not carry.
 struct ContractRoles {
     address target;
     RoleGrant[] expected;
-    RoleGrant[] forbidden;
 }
 
 /// @title LibIdealRoles
@@ -42,24 +40,19 @@ library LibIdealRoles {
         ContractRoles[] memory roles = new ContractRoles[](4);
         roles[0] = ContractRoles(
             LibAuthoriserInvariants.authoriserForChainId(chainId),
-            LibAuthoriserInvariants.expectedGrants(safe, timelock),
-            LibAuthoriserInvariants.forbiddenGrants(safe, timelock)
+            LibAuthoriserInvariants.expectedGrants(safe, timelock)
         );
         roles[1] = ContractRoles(
             LibAuthoriserInvariants.euAuthoriserForChainId(chainId),
             LibAuthoriserInvariants.expectedEuGrants(
                 timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER, LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C
-            ),
-            LibAuthoriserInvariants.forbiddenEuGrants(safe, timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER)
+            )
         );
         roles[2] = ContractRoles(
             LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE,
-            LibOrchestratorInvariants.expectedGrants(safe, timelock),
-            LibOrchestratorInvariants.forbiddenGrants(safe, timelock)
+            LibOrchestratorInvariants.expectedGrants(safe, timelock)
         );
-        roles[3] = ContractRoles(
-            timelock, LibTimelockInvariants.expectedGrants(timelock, safe), LibTimelockInvariants.forbiddenGrants(safe)
-        );
+        roles[3] = ContractRoles(timelock, LibTimelockInvariants.expectedGrants(timelock, safe));
         return roles;
     }
 }

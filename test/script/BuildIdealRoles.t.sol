@@ -67,7 +67,9 @@ contract BuildIdealRolesTest is Test {
                 string memory entry = index(at, i);
                 assertEq(vm.parseJsonAddress(json, string.concat(entry, ".address")), roles[i].target);
                 assertLowercase(vm.parseJsonString(json, string.concat(entry, ".address")));
-                assertEq(named(ids[c], vm.parseJsonString(json, string.concat(entry, ".name"))), roles[i].target);
+                assertEq(
+                    contractNamed(ids[c], vm.parseJsonString(json, string.concat(entry, ".name"))), roles[i].target
+                );
                 assertEq(vm.parseJsonString(json, string.concat(entry, ".kind")), kinds[i]);
             }
         }
@@ -81,7 +83,6 @@ contract BuildIdealRolesTest is Test {
             for (uint256 i = 0; i < roles.length; i++) {
                 string memory at = index(string.concat(".chains.", vm.toString(ids[c]), ".contracts"), i);
                 assertRows(json, ids[c], string.concat(at, ".expected"), roles[i].expected);
-                assertRows(json, ids[c], string.concat(at, ".forbidden"), roles[i].forbidden);
             }
         }
     }
@@ -135,13 +136,15 @@ contract BuildIdealRolesTest is Test {
             assertEq(roleNamed(vm.parseJsonString(json, string.concat(row, ".roleName"))), grants[j].role);
             assertEq(vm.parseJsonAddress(json, string.concat(row, ".grantee")), grants[j].grantee);
             assertLowercase(vm.parseJsonString(json, string.concat(row, ".grantee")));
-            assertEq(named(chainId, vm.parseJsonString(json, string.concat(row, ".granteeName"))), grants[j].grantee);
+            assertEq(
+                granteeNamed(chainId, vm.parseJsonString(json, string.concat(row, ".granteeName"))), grants[j].grantee
+            );
         }
     }
 
     function roleNamed(string memory name) internal pure returns (bytes32) {
         bytes32 key = keccak256(bytes(name));
-        if (key == keccak256("DEFAULT_ADMIN_ROLE")) return LibAuthoriserInvariants.DEFAULT_ADMIN_ROLE;
+        if (key == keccak256("DEFAULT_ADMIN_ROLE")) return LibTimelockInvariants.TIMELOCK_DEFAULT_ADMIN_ROLE;
         if (key == keccak256("DEPOSIT")) return DEPOSIT;
         if (key == keccak256("WITHDRAW")) return WITHDRAW;
         if (key == keccak256("CERTIFY")) return CERTIFY;
@@ -165,50 +168,75 @@ contract BuildIdealRolesTest is Test {
         revert(string.concat("no role constant named ", name));
     }
 
-    function named(uint256 chainId, string memory name) internal pure returns (address) {
-        Named[] memory table = new Named[](10);
-        table[0] = Named("ST0X_ORCHESTRATOR_INSTANCE", LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
-        table[1] = Named("GRANTEE_SERVICE_1C66", LibAuthoriserInvariants.GRANTEE_SERVICE_1C66);
+    function perChain(uint256 chainId) internal pure returns (Named[4] memory) {
+        if (chainId == 8453) {
+            return [
+                Named("STOX_PROD_AUTHORISER_V4_CLONE", LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE),
+                Named("STOX_EU_AUTHORISER_CLONE", LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE),
+                Named("STOX_TOKEN_OWNER_SAFE", LibSafeInvariants.STOX_TOKEN_OWNER_SAFE),
+                Named("STOX_GOVERNANCE_TIMELOCK", LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK)
+            ];
+        }
+        if (chainId == 1) {
+            return [
+                Named("STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM", LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM),
+                Named("STOX_EU_AUTHORISER_CLONE_ETHEREUM", LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE_ETHEREUM),
+                Named("STOX_TOKEN_OWNER_SAFE_ETHEREUM", LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM),
+                Named("STOX_GOVERNANCE_TIMELOCK_ETHEREUM", LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ETHEREUM)
+            ];
+        }
+        if (chainId == 999) {
+            return [
+                Named("STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM", LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM),
+                Named("STOX_EU_AUTHORISER_CLONE_HYPEREVM", LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE_HYPEREVM),
+                Named("STOX_TOKEN_OWNER_SAFE_HYPEREVM", LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM),
+                Named("STOX_GOVERNANCE_TIMELOCK_HYPEREVM", LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_HYPEREVM)
+            ];
+        }
+        if (chainId == 4663) {
+            return [
+                Named(
+                    "STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD", LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD
+                ),
+                Named("STOX_EU_AUTHORISER_CLONE_ROBINHOOD", LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE_ROBINHOOD),
+                Named("STOX_TOKEN_OWNER_SAFE_ROBINHOOD", LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD),
+                Named("STOX_GOVERNANCE_TIMELOCK_ROBINHOOD", LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ROBINHOOD)
+            ];
+        }
+        if (chainId == 56) {
+            return [
+                Named("STOX_PROD_AUTHORISER_V4_CLONE_BSC", LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC),
+                Named("STOX_EU_AUTHORISER_CLONE_BSC", LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE_BSC),
+                Named("STOX_TOKEN_OWNER_SAFE_BSC", LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC),
+                Named("STOX_GOVERNANCE_TIMELOCK_BSC", LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_BSC)
+            ];
+        }
+        revert(string.concat("no constants for chain ", vm.toString(chainId)));
+    }
+
+    function contractNamed(uint256 chainId, string memory name) internal pure returns (address) {
+        Named[4] memory chain = perChain(chainId);
+        Named[] memory table = new Named[](4);
+        table[0] = chain[0];
+        table[1] = chain[1];
+        table[2] = Named("ST0X_ORCHESTRATOR_INSTANCE", LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
+        table[3] = chain[3];
+        return lookup(table, chainId, name);
+    }
+
+    function granteeNamed(uint256 chainId, string memory name) internal pure returns (address) {
+        Named[4] memory chain = perChain(chainId);
+        Named[] memory table = new Named[](6);
+        table[0] = chain[2];
+        table[1] = chain[3];
         table[2] = Named("GRANTEE_SERVICE_3D0C", LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C);
         table[3] = Named("GRANTEE_ORCHESTRATOR", LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
         table[4] = Named("GRANTEE_EU_MINTER", LibAuthoriserInvariants.GRANTEE_EU_MINTER);
         table[5] = Named("address(0)", address(0));
-        if (chainId == 8453) {
-            table[6] = Named("STOX_PROD_AUTHORISER_V4_CLONE", LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE);
-            table[7] = Named("STOX_EU_AUTHORISER_CLONE", LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE);
-            table[8] = Named("STOX_TOKEN_OWNER_SAFE", LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
-            table[9] = Named("STOX_GOVERNANCE_TIMELOCK", LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
-        } else if (chainId == 1) {
-            table[6] =
-                Named("STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM", LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM);
-            table[7] =
-                Named("STOX_EU_AUTHORISER_CLONE_ETHEREUM", LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE_ETHEREUM);
-            table[8] = Named("STOX_TOKEN_OWNER_SAFE_ETHEREUM", LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM);
-            table[9] =
-                Named("STOX_GOVERNANCE_TIMELOCK_ETHEREUM", LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ETHEREUM);
-        } else if (chainId == 999) {
-            table[6] =
-                Named("STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM", LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM);
-            table[7] =
-                Named("STOX_EU_AUTHORISER_CLONE_HYPEREVM", LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE_HYPEREVM);
-            table[8] = Named("STOX_TOKEN_OWNER_SAFE_HYPEREVM", LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM);
-            table[9] =
-                Named("STOX_GOVERNANCE_TIMELOCK_HYPEREVM", LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_HYPEREVM);
-        } else if (chainId == 4663) {
-            table[6] = Named(
-                "STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD", LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD
-            );
-            table[7] =
-                Named("STOX_EU_AUTHORISER_CLONE_ROBINHOOD", LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE_ROBINHOOD);
-            table[8] = Named("STOX_TOKEN_OWNER_SAFE_ROBINHOOD", LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD);
-            table[9] =
-                Named("STOX_GOVERNANCE_TIMELOCK_ROBINHOOD", LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ROBINHOOD);
-        } else if (chainId == 56) {
-            table[6] = Named("STOX_PROD_AUTHORISER_V4_CLONE_BSC", LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC);
-            table[7] = Named("STOX_EU_AUTHORISER_CLONE_BSC", LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE_BSC);
-            table[8] = Named("STOX_TOKEN_OWNER_SAFE_BSC", LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC);
-            table[9] = Named("STOX_GOVERNANCE_TIMELOCK_BSC", LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_BSC);
-        }
+        return lookup(table, chainId, name);
+    }
+
+    function lookup(Named[] memory table, uint256 chainId, string memory name) internal pure returns (address) {
         for (uint256 i = 0; i < table.length; i++) {
             if (keccak256(bytes(table[i].name)) == keccak256(bytes(name))) return table[i].value;
         }

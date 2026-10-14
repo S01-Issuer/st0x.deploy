@@ -162,8 +162,7 @@ contract OrchestratorAdminToTimelock is SafeBundleScript {
     /// @inheritdoc SafeBundleScript
     /// @dev The Safe, the timelock and the orchestrator are what this repo
     /// pins, the Safe's registry line is at the EMERGENCY grant, and the
-    /// orchestrator's roles are exactly what that implies (Safe admin, Safe
-    /// EMERGENCY, nothing on the timelock).
+    /// orchestrator carries what that record implies: Safe EMERGENCY.
     function preflight() internal view override {
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);

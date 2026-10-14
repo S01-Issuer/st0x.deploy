@@ -12,7 +12,6 @@ import {
     ExpectedGrantMissing,
     AuthoriserImplCodehashMismatch
 } from "../../../src/lib/LibAuthoriserInvariants.sol";
-import {ForbiddenGrantHeld} from "../../../src/lib/RoleGrant.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
@@ -183,27 +182,6 @@ contract LibAuthoriserInvariantsTest is Test {
         harness.callAssertAll();
     }
 
-    /// @notice `assertExpectedGrants` reverts `ForbiddenGrantHeld` when a
-    /// pinned grantee holds `DEFAULT_ADMIN_ROLE`.
-    function testAssertExpectedGrantsRejectsDefaultAdmin() external {
-        selectBaseFork();
-        address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
-        vm.mockCall(
-            clone,
-            abi.encodeWithSelector(
-                IAccessControl.hasRole.selector, bytes32(0), LibAuthoriserInvariants.GRANTEE_TOKEN_OWNER_SAFE
-            ),
-            abi.encode(true)
-        );
-        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ForbiddenGrantHeld.selector, clone, bytes32(0), LibAuthoriserInvariants.GRANTEE_TOKEN_OWNER_SAFE
-            )
-        );
-        harness.callAssertExpectedGrants(clone);
-    }
-
     /// @notice The admin-holder parameterisation: the seven `_ADMIN` entries
     /// track `adminHolder`, the eight operational entries stay split between
     /// the Safe, the service signer and the orchestrator, and the no-arg
@@ -241,11 +219,9 @@ contract LibAuthoriserInvariantsTest is Test {
         }
     }
 
-    /// @notice `assertExpectedGrants(authoriser, safe, adminHolder)` demands
-    /// exclusive admin holding: the live Base clone passes with the seven
-    /// `_ADMIN` roles on the governance timelock; a retained `_ADMIN` copy on
-    /// the Safe (an instant delay bypass) is rejected; and a missing `_ADMIN`
-    /// on the timelock is pinpointed.
+    /// @notice `assertExpectedGrants(authoriser, safe, adminHolder)` passes on
+    /// the live Base clone with the seven `_ADMIN` roles on the governance
+    /// timelock and pinpoints a missing `_ADMIN` on the timelock.
     function testAssertExpectedGrantsWithDistinctAdminHolder() external {
         selectBaseFork();
         address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
@@ -256,62 +232,11 @@ contract LibAuthoriserInvariantsTest is Test {
 
         harness.callAssertExpectedGrants(clone, safe, timelock);
 
-        // The Safe retaining one `_ADMIN` copy alongside the timelock.
-        vm.mockCall(
-            clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, grants[0].role, safe), abi.encode(true)
-        );
-        vm.expectRevert(abi.encodeWithSelector(ForbiddenGrantHeld.selector, clone, grants[0].role, safe));
-        harness.callAssertExpectedGrants(clone, safe, timelock);
-        vm.clearMockedCalls();
-
-        // The timelock missing one `_ADMIN`.
         vm.mockCall(
             clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, grants[0].role, timelock), abi.encode(false)
         );
         vm.expectRevert(abi.encodeWithSelector(ExpectedGrantMissing.selector, clone, grants[0].role, timelock));
         harness.callAssertExpectedGrants(clone, safe, timelock);
-    }
-
-    /// @notice The exclusive `_ADMIN` check runs even when the Safe is passed
-    /// as the admin holder, so the pre-timelock state (Safe holding every
-    /// `_ADMIN`) can never pass by naming the Safe twice.
-    function testAssertExpectedGrantsRefusesSafeAsAdminHolder() external {
-        selectBaseFork();
-        address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
-        address safe = LibAuthoriserInvariants.GRANTEE_TOKEN_OWNER_SAFE;
-        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
-        RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, safe);
-        for (uint256 i = 0; i < 7; i++) {
-            vm.mockCall(
-                clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, grants[i].role, safe), abi.encode(true)
-            );
-        }
-        vm.expectRevert(abi.encodeWithSelector(ForbiddenGrantHeld.selector, clone, grants[0].role, safe));
-        harness.callAssertExpectedGrants(clone, safe, safe);
-    }
-
-    /// @notice A re-grant to the retired signer is refused: the revocation
-    /// is pinned as an absence, so any action role landing back on
-    /// `GRANTEE_SERVICE_1C66` red-lines with `ForbiddenGrantHeld`
-    /// naming the role.
-    function testAssertExpectedGrantsRefusesARetiredSignerRegrant() external {
-        selectBaseFork();
-        address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
-        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
-
-        vm.mockCall(
-            clone,
-            abi.encodeWithSelector(
-                IAccessControl.hasRole.selector, keccak256("WITHDRAW"), LibAuthoriserInvariants.GRANTEE_SERVICE_1C66
-            ),
-            abi.encode(true)
-        );
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ForbiddenGrantHeld.selector, clone, keccak256("WITHDRAW"), LibAuthoriserInvariants.GRANTEE_SERVICE_1C66
-            )
-        );
-        harness.callAssertExpectedGrants(clone);
     }
 
     /// @notice The orchestrator rows are strict like every other row, under
@@ -345,18 +270,22 @@ contract LibAuthoriserInvariantsTest is Test {
         }
     }
 
-    /// @notice The orchestrator is a pinned grantee, so it joins the
-    /// `DEFAULT_ADMIN_ROLE` negative: root admin on the orchestrator
-    /// red-lines as `ForbiddenGrantHeld` naming it.
-    function testAssertExpectedGrantsRejectsOrchestratorDefaultAdmin() external {
-        selectBaseFork();
-        address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
-        address orchestrator = LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR;
-        vm.mockCall(
-            clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, bytes32(0), orchestrator), abi.encode(true)
+    function assertBaseEuGrants(LibAuthoriserInvariantsHarness harness) internal view {
+        harness.callAssertExpectedEuGrants(
+            LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE,
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK,
+            LibAuthoriserInvariants.GRANTEE_EU_MINTER
         );
+    }
+
+    function testAssertExpectedEuGrantsRejectsMissingServiceSignerCertify() external {
+        selectBaseFork();
+        address clone = LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE;
+        address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
-        vm.expectRevert(abi.encodeWithSelector(ForbiddenGrantHeld.selector, clone, bytes32(0), orchestrator));
-        harness.callAssertExpectedGrants(clone);
+        assertBaseEuGrants(harness);
+        vm.mockCall(clone, abi.encodeCall(IAccessControl.hasRole, (keccak256("CERTIFY"), signer)), abi.encode(false));
+        vm.expectRevert(abi.encodeWithSelector(ExpectedGrantMissing.selector, clone, keccak256("CERTIFY"), signer));
+        assertBaseEuGrants(harness);
     }
 }

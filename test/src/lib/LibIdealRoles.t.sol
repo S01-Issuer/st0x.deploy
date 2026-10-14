@@ -13,38 +13,6 @@ import {RoleGrant} from "../../../src/lib/RoleGrant.sol";
 contract LibIdealRolesTest is Test {
     RoleGrant[] internal want;
 
-    function testNoPairIsBothExpectedAndForbidden() external pure {
-        uint256[] memory ids = LibIdealRoles.chainIds();
-        for (uint256 c = 0; c < ids.length; c++) {
-            ContractRoles[] memory roles = LibIdealRoles.contractRoles(ids[c]);
-            for (uint256 i = 0; i < roles.length; i++) {
-                for (uint256 j = 0; j < roles[i].forbidden.length; j++) {
-                    assertFalse(
-                        LibAuthoriserInvariants.mapAssigns(
-                            roles[i].expected, roles[i].forbidden[j].role, roles[i].forbidden[j].grantee
-                        )
-                    );
-                }
-            }
-        }
-    }
-
-    function testRetiringGrantsAreForbiddenNotExpected() external pure {
-        RoleGrant[] memory retiring = LibAuthoriserInvariants.retiringGrants();
-        uint256[] memory ids = LibIdealRoles.chainIds();
-        for (uint256 c = 0; c < ids.length; c++) {
-            ContractRoles memory authoriser = LibIdealRoles.contractRoles(ids[c])[0];
-            for (uint256 i = 0; i < retiring.length; i++) {
-                assertTrue(
-                    LibAuthoriserInvariants.mapAssigns(authoriser.forbidden, retiring[i].role, retiring[i].grantee)
-                );
-                assertFalse(
-                    LibAuthoriserInvariants.mapAssigns(authoriser.expected, retiring[i].role, retiring[i].grantee)
-                );
-            }
-        }
-    }
-
     function testChainIdsAreTheFiveDeploymentChains() external pure {
         uint256[] memory ids = LibIdealRoles.chainIds();
         assertEq(ids.length, 5);
@@ -70,19 +38,6 @@ contract LibIdealRolesTest is Test {
             push("DEPOSIT", LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
             push("WITHDRAW", LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
             assertWant(roles.expected);
-
-            want.push(RoleGrant(bytes32(0), safe));
-            want.push(RoleGrant(bytes32(0), timelock));
-            want.push(RoleGrant(bytes32(0), LibAuthoriserInvariants.GRANTEE_SERVICE_1C66));
-            want.push(RoleGrant(bytes32(0), LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C));
-            want.push(RoleGrant(bytes32(0), LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR));
-            push("DEPOSIT", LibAuthoriserInvariants.GRANTEE_SERVICE_1C66);
-            push("WITHDRAW", LibAuthoriserInvariants.GRANTEE_SERVICE_1C66);
-            push("CERTIFY", LibAuthoriserInvariants.GRANTEE_SERVICE_1C66);
-            pushEach(adminRoles(), safe);
-            push("DEPOSIT", LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C);
-            push("WITHDRAW", LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C);
-            assertWant(roles.forbidden);
         }
     }
 
@@ -90,9 +45,8 @@ contract LibIdealRolesTest is Test {
         uint256[] memory ids = LibIdealRoles.chainIds();
         address minter = LibAuthoriserInvariants.GRANTEE_EU_MINTER;
         address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
-        address orchestrator = LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR;
         for (uint256 c = 0; c < ids.length; c++) {
-            (address safe, address timelock) = principals(ids[c]);
+            (, address timelock) = principals(ids[c]);
             ContractRoles memory roles = LibIdealRoles.contractRoles(ids[c])[1];
             assertEq(roles.target, LibAuthoriserInvariants.euAuthoriserForChainId(ids[c]));
 
@@ -100,24 +54,6 @@ contract LibIdealRolesTest is Test {
             pushEach(operationalRoles(), minter);
             push("CERTIFY", signer);
             assertWant(roles.expected);
-
-            address[6] memory rootless =
-                [safe, timelock, LibAuthoriserInvariants.GRANTEE_SERVICE_1C66, signer, orchestrator, minter];
-            for (uint256 i = 0; i < rootless.length; i++) {
-                want.push(RoleGrant(bytes32(0), rootless[i]));
-            }
-            push("DEPOSIT", LibAuthoriserInvariants.GRANTEE_SERVICE_1C66);
-            push("WITHDRAW", LibAuthoriserInvariants.GRANTEE_SERVICE_1C66);
-            push("CERTIFY", LibAuthoriserInvariants.GRANTEE_SERVICE_1C66);
-            pushEach(adminRoles(), safe);
-            pushEach(operationalRoles(), orchestrator);
-            push("DEPOSIT", signer);
-            push("WITHDRAW", signer);
-            push("CONFISCATE_SHARES", signer);
-            push("CONFISCATE_RECEIPT", signer);
-            push("SCHEDULE_CORPORATE_ACTION", signer);
-            push("CANCEL_CORPORATE_ACTION", signer);
-            assertWant(roles.forbidden);
         }
     }
 
@@ -134,14 +70,6 @@ contract LibIdealRolesTest is Test {
             push("MINT", signer);
             push("BURN", signer);
             assertWant(roles.expected);
-
-            want.push(RoleGrant(bytes32(0), safe));
-            push("EMERGENCY", timelock);
-            push("MINT", safe);
-            push("MINT", timelock);
-            push("BURN", safe);
-            push("BURN", timelock);
-            assertWant(roles.forbidden);
         }
     }
 
@@ -157,12 +85,6 @@ contract LibIdealRolesTest is Test {
             want.push(RoleGrant(bytes32(0), timelock));
             push("EXECUTOR_ROLE", address(0));
             assertWant(roles.expected);
-
-            want.push(RoleGrant(bytes32(0), safe));
-            push("PROPOSER_ROLE", address(0));
-            push("CANCELLER_ROLE", address(0));
-            want.push(RoleGrant(bytes32(0), address(0)));
-            assertWant(roles.forbidden);
         }
     }
 

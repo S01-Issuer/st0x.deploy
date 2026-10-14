@@ -7,9 +7,3 @@ struct RoleGrant {
     bytes32 role;
     address grantee;
 }
-
-/// @notice `target` carries a `(role, grantee)` pair it must not.
-/// @param target The `AccessControl` contract inspected.
-/// @param role The role held.
-/// @param grantee The grantee holding it.
-error ForbiddenGrantHeld(address target, bytes32 role, address grantee);

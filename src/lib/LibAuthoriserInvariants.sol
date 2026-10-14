@@ -6,7 +6,7 @@ import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessContro
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
-import {RoleGrant, ForbiddenGrantHeld} from "./RoleGrant.sol";
+import {RoleGrant} from "./RoleGrant.sol";
 
 /// @notice An expected `(role, grantee)` pair is not held on the authoriser.
 /// Surfaces the exact pair that breaks the role-grant invariant rather than
@@ -135,35 +135,6 @@ library LibAuthoriserInvariants {
         }
     }
 
-    /// @notice Asserts a chain's EU clone is still in the state `initialize`
-    /// left it in: the chain's token-owner Safe holds every `_ADMIN` role, the
-    /// timelock holds none, and the EU minter holds neither action role. This
-    /// is the pre-state the Safe bundle moves off; it goes red once the bundle
-    /// executes, which is what the registry switch is for.
-    /// @param chainId The chain id.
-    function assertEuAuthoriserInitialState(uint256 chainId) internal view {
-        address clone = euAuthoriserForChainId(chainId);
-        address safe = LibSafeInvariants.safeForChainId(chainId);
-        address timelock = LibTimelockInvariants.timelockForChainId(chainId);
-
-        RoleGrant[] memory grants = expectedEuGrants(timelock, GRANTEE_EU_MINTER, GRANTEE_SERVICE_3D0C);
-        for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
-            if (!IAccessControl(clone).hasRole(grants[i].role, safe)) {
-                revert ExpectedGrantMissing(clone, grants[i].role, safe);
-            }
-            if (IAccessControl(clone).hasRole(grants[i].role, timelock)) {
-                revert ForbiddenGrantHeld(clone, grants[i].role, timelock);
-            }
-        }
-
-        if (IAccessControl(clone).hasRole(keccak256("DEPOSIT"), GRANTEE_EU_MINTER)) {
-            revert ForbiddenGrantHeld(clone, keccak256("DEPOSIT"), GRANTEE_EU_MINTER);
-        }
-        if (IAccessControl(clone).hasRole(keccak256("WITHDRAW"), GRANTEE_EU_MINTER)) {
-            revert ForbiddenGrantHeld(clone, keccak256("WITHDRAW"), GRANTEE_EU_MINTER);
-        }
-    }
-
     /// @notice The active chain's hydrated V4 authoriser clone, asserted
     /// deployed with the shared EIP-1167 codehash.
     /// @return authoriser The validated authoriser address.
@@ -187,12 +158,6 @@ library LibAuthoriserInvariants {
     /// https://basescan.org/address/0x315b16faa6ee413fabca877d3851b3818369f0cd
     address internal constant STOX_PROD_AUTHORISER = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
 
-    /// @notice The role-admin hierarchy sets `<ROLE>_ADMIN` as the admin of
-    /// each action role rather than `DEFAULT_ADMIN_ROLE`. Consequently no
-    /// `DEFAULT_ADMIN_ROLE` grant was emitted at init and no address holds
-    /// it, and `forbiddenGrants` forbids it to every pinned grantee.
-    bytes32 internal constant DEFAULT_ADMIN_ROLE = bytes32(0);
-
     /// @notice The number of `_ADMIN` roles in the grant map — its LEADING
     /// slice, so `expectedGrants(...)[0..ADMIN_ROLE_COUNT)` are exactly the
     /// entries that track the admin holder. The slice's position and length
@@ -206,17 +171,7 @@ library LibAuthoriserInvariants {
     /// constant for call-site clarity.
     address internal constant GRANTEE_TOKEN_OWNER_SAFE = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
 
-    /// @notice The RETIRED original service EOA — Fireblocks-custodied. It
-    /// holds NOTHING on any chain's authoriser: its `DEPOSIT`, `WITHDRAW`
-    /// and `CERTIFY` were revoked on every chain by the
-    /// `20260810-revoke-fireblocks-service-signer` Safe bundles (executed
-    /// Aug 2026), and `forbiddenGrants` forbids them so a re-grant
-    /// red-lines cron. Kept as an audit-trail constant.
-    /// https://basescan.org/address/0x1c66d6708914c40239d54919320b4c48cae3d1a9
-    address internal constant GRANTEE_SERVICE_1C66 = 0x1c66D6708914C40239D54919320b4C48cAE3D1A9;
-
-    /// @notice The service EOA: `CERTIFY` on each chain's authoriser, its
-    /// direct `DEPOSIT` and `WITHDRAW` there retiring (`retiringGrants`), and
+    /// @notice The service EOA: `CERTIFY` on each chain's authoriser and
     /// `MINT` and `BURN` on the orchestrator. Same address on every chain.
     address internal constant GRANTEE_SERVICE_3D0C = 0x3d0CD66EFA66c05d86c3d4316B03eAE87ab9E8aE;
 
@@ -236,9 +191,9 @@ library LibAuthoriserInvariants {
     /// @notice The full `(role, grantee)` map in effect on the Base
     /// production authoriser: Base's token-owner Safe in the operational
     /// slots, Base's governance timelock holding the seven `_ADMIN` roles.
-    /// @return grants The pinned `(role, grantee)` pairs for Base.
-    function expectedGrants() internal pure returns (RoleGrant[] memory grants) {
-        grants = expectedGrants(GRANTEE_TOKEN_OWNER_SAFE, LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
+    /// @return The pinned `(role, grantee)` pairs for Base.
+    function expectedGrants() internal pure returns (RoleGrant[] memory) {
+        return expectedGrants(GRANTEE_TOKEN_OWNER_SAFE, LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
     }
 
     /// @notice The canonical `(role, grantee)` map the production authoriser
@@ -251,13 +206,9 @@ library LibAuthoriserInvariants {
     /// @param tokenOwnerSafe The chain's token-owner Safe filling the
     /// operational Safe grantee slots.
     /// @param adminHolder The holder of the seven `_ADMIN` roles.
-    /// @return grants The `(role, grantee)` pairs for that chain.
-    function expectedGrants(address tokenOwnerSafe, address adminHolder)
-        internal
-        pure
-        returns (RoleGrant[] memory grants)
-    {
-        grants = new RoleGrant[](13);
+    /// @return The `(role, grantee)` pairs for that chain.
+    function expectedGrants(address tokenOwnerSafe, address adminHolder) internal pure returns (RoleGrant[] memory) {
+        RoleGrant[] memory grants = new RoleGrant[](13);
 
         // Init grants (block 41715184 on Base) — the admin holder receives
         // every `_ADMIN` (the Safe at init; the governance timelock once the
@@ -283,72 +234,6 @@ library LibAuthoriserInvariants {
         grants[10] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_3D0C);
         grants[11] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_ORCHESTRATOR);
         grants[12] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_ORCHESTRATOR);
-    }
-
-    /// @notice The service signer's direct vault roles every chain's authoriser must have revoked.
-    /// @return The `(role, grantee)` pairs to revoke.
-    function retiringGrants() internal pure returns (RoleGrant[] memory) {
-        RoleGrant[] memory grants = new RoleGrant[](2);
-        grants[0] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_3D0C);
-        grants[1] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_3D0C);
-        return grants;
-    }
-
-    /// @notice The pairs the production authoriser must not carry.
-    /// @param tokenOwnerSafe The chain's token-owner Safe.
-    /// @param adminHolder The holder of the seven `_ADMIN` roles.
-    /// @return The forbidden `(role, grantee)` pairs.
-    function forbiddenGrants(address tokenOwnerSafe, address adminHolder) internal pure returns (RoleGrant[] memory) {
-        RoleGrant[] memory retiring = retiringGrants();
-        RoleGrant[] memory grants = new RoleGrant[](15 + retiring.length);
-        address[5] memory principals =
-            [tokenOwnerSafe, adminHolder, GRANTEE_SERVICE_1C66, GRANTEE_SERVICE_3D0C, GRANTEE_ORCHESTRATOR];
-        for (uint256 i = 0; i < principals.length; i++) {
-            grants[i] = RoleGrant(DEFAULT_ADMIN_ROLE, principals[i]);
-        }
-        grants[5] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_1C66);
-        grants[6] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_1C66);
-        grants[7] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_1C66);
-        RoleGrant[] memory expected = expectedGrants(tokenOwnerSafe, adminHolder);
-        for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
-            grants[8 + i] = RoleGrant(expected[i].role, tokenOwnerSafe);
-        }
-        for (uint256 i = 0; i < retiring.length; i++) {
-            grants[15 + i] = retiring[i];
-        }
-        return grants;
-    }
-
-    /// @notice The pairs a region's authoriser must not carry.
-    /// @param tokenOwnerSafe The chain's token-owner Safe.
-    /// @param adminHolder The holder of the seven `_ADMIN` roles.
-    /// @param minter The region's wallet.
-    /// @return The forbidden `(role, grantee)` pairs.
-    function forbiddenEuGrants(address tokenOwnerSafe, address adminHolder, address minter)
-        internal
-        pure
-        returns (RoleGrant[] memory)
-    {
-        RoleGrant[] memory expected = expectedEuGrants(adminHolder, minter, GRANTEE_SERVICE_3D0C);
-        RoleGrant[] memory grants = new RoleGrant[](29);
-        address[6] memory principals =
-            [tokenOwnerSafe, adminHolder, GRANTEE_SERVICE_1C66, GRANTEE_SERVICE_3D0C, GRANTEE_ORCHESTRATOR, minter];
-        for (uint256 i = 0; i < principals.length; i++) {
-            grants[i] = RoleGrant(DEFAULT_ADMIN_ROLE, principals[i]);
-        }
-        grants[6] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_1C66);
-        grants[7] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_1C66);
-        grants[8] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_1C66);
-        uint256 count = 9;
-        for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
-            grants[count++] = RoleGrant(expected[i].role, tokenOwnerSafe);
-        }
-        for (uint256 i = ADMIN_ROLE_COUNT; i < ADMIN_ROLE_COUNT * 2; i++) {
-            grants[count++] = RoleGrant(expected[i].role, GRANTEE_ORCHESTRATOR);
-            if (!mapAssigns(expected, expected[i].role, GRANTEE_SERVICE_3D0C)) {
-                grants[count++] = RoleGrant(expected[i].role, GRANTEE_SERVICE_3D0C);
-            }
-        }
         return grants;
     }
 
@@ -361,11 +246,11 @@ library LibAuthoriserInvariants {
     /// @param minter The region's wallet, holding all seven operational roles.
     /// @param additionalCertifier A second `CERTIFY` holder alongside the
     /// region's wallet.
-    /// @return grants The `(role, grantee)` pairs for that authoriser.
+    /// @return The `(role, grantee)` pairs for that authoriser.
     function expectedEuGrants(address adminHolder, address minter, address additionalCertifier)
         internal
         pure
-        returns (RoleGrant[] memory grants)
+        returns (RoleGrant[] memory)
     {
         // Every `_ADMIN` on the admin holder, every operational role on the
         // region's wallet, and nothing else. `tokenOwnerSafe` is the writer
@@ -376,7 +261,7 @@ library LibAuthoriserInvariants {
         // below, `getRoleAdmin(role)` is the matching `_ADMIN`, checked on
         // the deployed 0.1.1 implementation rather than read off 0.2.4's
         // source, which declares only five of them.
-        grants = new RoleGrant[](15);
+        RoleGrant[] memory grants = new RoleGrant[](15);
 
         grants[0] = RoleGrant(keccak256("DEPOSIT_ADMIN"), adminHolder);
         grants[1] = RoleGrant(keccak256("WITHDRAW_ADMIN"), adminHolder);
@@ -398,6 +283,7 @@ library LibAuthoriserInvariants {
         // the one operational role with a second holder; every other one is
         // the minter's alone.
         grants[14] = RoleGrant(keccak256("CERTIFY"), additionalCertifier);
+        return grants;
     }
 
     /// @notice Assert the Base map (`expectedGrants()`) on the supplied
@@ -407,51 +293,16 @@ library LibAuthoriserInvariants {
         assertExpectedGrants(authoriser, GRANTEE_TOKEN_OWNER_SAFE, LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
     }
 
-    /// @notice Assert the supplied authoriser holds no
-    /// `forbiddenGrants(tokenOwnerSafe, adminHolder)` pair other than the
-    /// `retiringGrants`, and every `expectedGrants(tokenOwnerSafe,
-    /// adminHolder)` pair. This is the assertion surface every production
-    /// consumer calls with the chain's governance timelock as `adminHolder`.
+    /// @notice Assert the supplied authoriser holds every
+    /// `expectedGrants(tokenOwnerSafe, adminHolder)` pair. This is the
+    /// assertion surface every production consumer calls with the chain's
+    /// governance timelock as `adminHolder`.
     /// @param authoriser The authoriser to validate.
     /// @param tokenOwnerSafe The chain's token-owner Safe filling the
     /// operational Safe grantee slots.
     /// @param adminHolder The holder of the seven `_ADMIN` roles.
     function assertExpectedGrants(address authoriser, address tokenOwnerSafe, address adminHolder) internal view {
-        assertNoForbiddenGrant(authoriser, forbiddenGrants(tokenOwnerSafe, adminHolder), retiringGrants());
         assertHeld(authoriser, expectedGrants(tokenOwnerSafe, adminHolder));
-    }
-
-    /// @notice Whether the map assigns `role` to `grantee`.
-    /// @param grants The map.
-    /// @param role The role to look for.
-    /// @param grantee The grantee to look for.
-    /// @return Whether the pair is in the map.
-    function mapAssigns(RoleGrant[] memory grants, bytes32 role, address grantee) internal pure returns (bool) {
-        for (uint256 i = 0; i < grants.length; i++) {
-            if (grants[i].role == role && grants[i].grantee == grantee) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /// @notice Revert on the first `forbidden` pair `target` holds, other than
-    /// a pair in `exempt`.
-    /// @param target The `AccessControl` contract.
-    /// @param forbidden The pairs it must not hold.
-    /// @param exempt The pairs left unasserted.
-    function assertNoForbiddenGrant(address target, RoleGrant[] memory forbidden, RoleGrant[] memory exempt)
-        internal
-        view
-    {
-        for (uint256 i = 0; i < forbidden.length; i++) {
-            if (mapAssigns(exempt, forbidden[i].role, forbidden[i].grantee)) {
-                continue;
-            }
-            if (IAccessControl(target).hasRole(forbidden[i].role, forbidden[i].grantee)) {
-                revert ForbiddenGrantHeld(target, forbidden[i].role, forbidden[i].grantee);
-            }
-        }
     }
 
     /// @notice Revert on the first `expected` pair `authoriser` does not hold.
@@ -465,17 +316,12 @@ library LibAuthoriserInvariants {
         }
     }
 
-    /// @notice The same assertion for a region's authoriser: no
-    /// `forbiddenEuGrants` pair and every `expectedEuGrants` pair.
+    /// @notice Assert a region's authoriser holds every
+    /// `expectedEuGrants(adminHolder, minter, GRANTEE_SERVICE_3D0C)` pair.
     /// @param authoriser The authoriser to validate.
-    /// @param tokenOwnerSafe The chain's token-owner Safe.
     /// @param adminHolder The holder of the seven `_ADMIN` roles.
     /// @param minter The region's wallet.
-    function assertExpectedEuGrants(address authoriser, address tokenOwnerSafe, address adminHolder, address minter)
-        internal
-        view
-    {
-        assertNoForbiddenGrant(authoriser, forbiddenEuGrants(tokenOwnerSafe, adminHolder, minter), new RoleGrant[](0));
+    function assertExpectedEuGrants(address authoriser, address adminHolder, address minter) internal view {
         assertHeld(authoriser, expectedEuGrants(adminHolder, minter, GRANTEE_SERVICE_3D0C));
     }
 

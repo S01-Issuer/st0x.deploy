@@ -81,7 +81,6 @@ contract BuildIdealRoles is Script {
         if (grantee == LibTimelockInvariants.timelockForChainId(chainId)) {
             return string.concat("STOX_GOVERNANCE_TIMELOCK", suffix(chainId));
         }
-        if (grantee == LibAuthoriserInvariants.GRANTEE_SERVICE_1C66) return "GRANTEE_SERVICE_1C66";
         if (grantee == LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C) return "GRANTEE_SERVICE_3D0C";
         if (grantee == LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR) return "GRANTEE_ORCHESTRATOR";
         if (grantee == LibAuthoriserInvariants.GRANTEE_EU_MINTER) return "GRANTEE_EU_MINTER";
@@ -111,15 +110,15 @@ contract BuildIdealRoles is Script {
             json = string.concat(
                 json,
                 i == 0 ? "\n" : ",\n",
-                "            {\"role\": \"",
+                "            {\n              \"role\": \"",
                 vm.toString(grants[i].role),
-                "\", \"roleName\": \"",
+                "\",\n              \"roleName\": \"",
                 roleName(grants[i].role),
-                "\", \"grantee\": \"",
+                "\",\n              \"grantee\": \"",
                 hex20(grants[i].grantee),
-                "\", \"granteeName\": \"",
+                "\",\n              \"granteeName\": \"",
                 granteeName(chainId, grants[i].grantee),
-                "\"}"
+                "\"\n            }"
             );
         }
         return string.concat(json, grants.length == 0 ? "]" : "\n          ]");
@@ -142,8 +141,6 @@ contract BuildIdealRoles is Script {
                 contractKind(i),
                 "\",\n          \"expected\": ",
                 grantsJson(chainId, roles[i].expected),
-                ",\n          \"forbidden\": ",
-                grantsJson(chainId, roles[i].forbidden),
                 "\n        }"
             );
         }

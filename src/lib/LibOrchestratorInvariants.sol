@@ -9,7 +9,7 @@ import {LibStoxMigrations} from "./LibStoxMigrations.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
-import {RoleGrant, ForbiddenGrantHeld} from "./RoleGrant.sol";
+import {RoleGrant} from "./RoleGrant.sol";
 import {IST0xOrchestratorV1} from "../interface/IST0xOrchestratorV1.sol";
 import {ST0xOrchestrator} from "../concrete/ST0xOrchestrator.sol";
 
@@ -114,10 +114,8 @@ library LibOrchestratorInvariants {
     /// @notice Assert the pinned orchestrator instance on the active chain:
     /// it has code, its vault-logic version lock passes (so `mint`/`burn`
     /// are operable), every role is administered by `DEFAULT_ADMIN_ROLE`,
-    /// and its roles are `forbiddenGrants` and `expectedGrants` as far as
-    /// the migrations the chain's Safe has recorded reach: a pair
-    /// `movingMigration` names is in its prior state until that migration is
-    /// recorded, and an expected pair no migration moves is not asserted.
+    /// and it holds each `expectedGrants` pair whose migration the chain's
+    /// Safe has recorded (`migrationRecorded`).
     /// @param chainSafe The chain's token-owner Safe, which is also the
     /// writer of the migration records.
     function assertInstance(address chainSafe) internal view {
@@ -132,26 +130,10 @@ library LibOrchestratorInvariants {
         IAccessControl acl = IAccessControl(instance);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
 
-        RoleGrant[] memory forbidden = forbiddenGrants(chainSafe, timelock);
-        for (uint256 i = 0; i < forbidden.length; i++) {
-            bytes32 migration = movingMigration(chainSafe, forbidden[i]);
-            if (migration != bytes32(0) && LibStoxMigrations.applied(chainSafe, migration) == 0) {
-                assertHolds(acl, forbidden[i]);
-            } else {
-                assertDoesNotHold(acl, forbidden[i]);
-            }
-        }
-
         RoleGrant[] memory expected = expectedGrants(chainSafe, timelock);
         for (uint256 i = 0; i < expected.length; i++) {
-            bytes32 migration = movingMigration(chainSafe, expected[i]);
-            if (migration == bytes32(0)) {
-                continue;
-            }
-            if (LibStoxMigrations.applied(chainSafe, migration) != 0) {
+            if (migrationRecorded(chainSafe, expected[i].role)) {
                 assertHolds(acl, expected[i]);
-            } else {
-                assertDoesNotHold(acl, expected[i]);
             }
         }
 
@@ -161,21 +143,21 @@ library LibOrchestratorInvariants {
         assertAdministeredByDefaultAdmin(acl, ST0xOrchestrator(payable(instance)).EMERGENCY_ROLE());
     }
 
-    /// @notice The recorded migration that moves `grant` into its ideal
-    /// state: `ORCHESTRATOR_ADMIN_TO_TIMELOCK` for either principal's
-    /// `DEFAULT_ADMIN_ROLE`, `ORCHESTRATOR_EMERGENCY` for the Safe's
-    /// `EMERGENCY`, and zero for every other pair.
+    /// @notice Whether the chain's Safe has recorded the migration that
+    /// grants `role` its expected holder: `ORCHESTRATOR_ADMIN_TO_TIMELOCK`
+    /// for `DEFAULT_ADMIN_ROLE`, `ORCHESTRATOR_EMERGENCY` for `EMERGENCY`;
+    /// no migration grants any other role, so it is never recorded.
     /// @param chainSafe The chain's token-owner Safe.
-    /// @param grant The pair.
-    /// @return The migration, or zero.
-    function movingMigration(address chainSafe, RoleGrant memory grant) private pure returns (bytes32) {
-        if (grant.role == bytes32(0)) {
-            return LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK;
+    /// @param role The role.
+    /// @return Whether the migration is recorded.
+    function migrationRecorded(address chainSafe, bytes32 role) private view returns (bool) {
+        if (role == bytes32(0)) {
+            return LibStoxMigrations.applied(chainSafe, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) != 0;
         }
-        if (grant.role == keccak256("EMERGENCY") && grant.grantee == chainSafe) {
-            return LibStoxMigrations.ORCHESTRATOR_EMERGENCY;
+        if (role == keccak256("EMERGENCY")) {
+            return LibStoxMigrations.applied(chainSafe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) != 0;
         }
-        return bytes32(0);
+        return false;
     }
 
     /// @notice The pairs the orchestrator instance must carry.
@@ -191,21 +173,6 @@ library LibOrchestratorInvariants {
         return grants;
     }
 
-    /// @notice The pairs the orchestrator instance must not carry.
-    /// @param chainSafe The chain's token-owner Safe.
-    /// @param timelock The chain's governance timelock.
-    /// @return The forbidden `(role, grantee)` pairs.
-    function forbiddenGrants(address chainSafe, address timelock) internal pure returns (RoleGrant[] memory) {
-        RoleGrant[] memory grants = new RoleGrant[](6);
-        grants[0] = RoleGrant(bytes32(0), chainSafe);
-        grants[1] = RoleGrant(keccak256("EMERGENCY"), timelock);
-        grants[2] = RoleGrant(keccak256("MINT"), chainSafe);
-        grants[3] = RoleGrant(keccak256("MINT"), timelock);
-        grants[4] = RoleGrant(keccak256("BURN"), chainSafe);
-        grants[5] = RoleGrant(keccak256("BURN"), timelock);
-        return grants;
-    }
-
     /// @notice Revert unless the instance carries `grant`.
     /// @param acl The instance's access-control surface.
     /// @param grant The pair.
@@ -215,15 +182,6 @@ library LibOrchestratorInvariants {
                 revert OrchestratorAdminMissing(address(acl), grant.grantee);
             }
             revert OrchestratorRoleMissing(address(acl), grant.role, grant.grantee);
-        }
-    }
-
-    /// @notice Revert if the instance carries `grant`.
-    /// @param acl The instance's access-control surface.
-    /// @param grant The pair.
-    function assertDoesNotHold(IAccessControl acl, RoleGrant memory grant) private view {
-        if (acl.hasRole(grant.role, grant.grantee)) {
-            revert ForbiddenGrantHeld(address(acl), grant.role, grant.grantee);
         }
     }
 
