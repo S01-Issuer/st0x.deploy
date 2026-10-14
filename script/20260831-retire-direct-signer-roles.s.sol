@@ -150,10 +150,6 @@ contract RetireDirectSignerRoles is Script {
     /// @notice Assert the post-retirement state on the active fork: the
     /// signer holds neither direct vault role, its `CERTIFY` and every
     /// other canonical row survive, and the orchestrator path is intact.
-    /// @dev The map-wide `assertExpectedGrants` cannot be used: the map
-    /// pins what production IS until this bundle executes (the signer's
-    /// rows are still in it). Row-by-row with the retired rows negated;
-    /// the post-execution pin PR moves this shape into the invariant lib.
     /// @param acl The authoriser's access-control surface.
     /// @param orchestrator The orchestrator instance.
     /// @param safeAddr The chain's token-owner Safe.
@@ -168,7 +164,6 @@ contract RetireDirectSignerRoles is Script {
         RoleGrant[] memory all =
             LibAuthoriserInvariants.expectedGrants(safeAddr, LibTimelockInvariants.timelockForChainId(block.chainid));
         for (uint256 i = 0; i < all.length; i++) {
-            if (LibAuthoriserInvariants.mapAssigns(retiring, all[i].role, all[i].grantee)) continue;
             require(
                 acl.hasRole(all[i].role, all[i].grantee),
                 "RetireDirectSignerRoles: retirement disturbed an unrelated grant"

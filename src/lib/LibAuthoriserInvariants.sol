@@ -6,12 +6,7 @@ import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessContro
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
-
-/// @notice A pinned `(role, grantee)` pair on the production authoriser.
-struct RoleGrant {
-    bytes32 role;
-    address grantee;
-}
+import {RoleGrant} from "./RoleGrant.sol";
 
 /// @notice An expected `(role, grantee)` pair is not held on the authoriser.
 /// Surfaces the exact pair that breaks the role-grant invariant rather than
@@ -303,7 +298,7 @@ library LibAuthoriserInvariants {
         pure
         returns (RoleGrant[] memory grants)
     {
-        grants = new RoleGrant[](15);
+        grants = new RoleGrant[](13);
 
         // Init grants (block 41715184 on Base) — the admin holder receives
         // every `_ADMIN` (the Safe at init; the governance timelock once the
@@ -326,18 +321,9 @@ library LibAuthoriserInvariants {
         grants[8] = RoleGrant(keccak256("WITHDRAW"), tokenOwnerSafe);
         grants[9] = RoleGrant(keccak256("CERTIFY"), tokenOwnerSafe);
 
-        // Service signer, provisioned by the 20260723 bundle per chain. The
-        // retired `GRANTEE_SERVICE_1C66` deliberately has no rows: its
-        // revocation is asserted as an ABSENCE in `assertExpectedGrants`.
-        grants[10] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_3D0C);
-        grants[11] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_3D0C);
-        grants[12] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_3D0C);
-
-        // Orchestrator vault access, granted by the 20260831 enable bundle;
-        // the signer's direct rows above stay until the retire bundle
-        // executes.
-        grants[13] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_ORCHESTRATOR);
-        grants[14] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_ORCHESTRATOR);
+        grants[10] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_3D0C);
+        grants[11] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_ORCHESTRATOR);
+        grants[12] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_ORCHESTRATOR);
     }
 
     /// @notice The service signer's direct vault roles every chain's authoriser must have revoked.
@@ -346,6 +332,64 @@ library LibAuthoriserInvariants {
         RoleGrant[] memory grants = new RoleGrant[](2);
         grants[0] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_3D0C);
         grants[1] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_3D0C);
+        return grants;
+    }
+
+    /// @notice The pairs the production authoriser must not carry.
+    /// @param tokenOwnerSafe The chain's token-owner Safe.
+    /// @param adminHolder The holder of the seven `_ADMIN` roles.
+    /// @return The forbidden `(role, grantee)` pairs.
+    function forbiddenGrants(address tokenOwnerSafe, address adminHolder) internal pure returns (RoleGrant[] memory) {
+        RoleGrant[] memory retiring = retiringGrants();
+        RoleGrant[] memory grants = new RoleGrant[](15 + retiring.length);
+        address[5] memory principals =
+            [tokenOwnerSafe, adminHolder, GRANTEE_SERVICE_1C66, GRANTEE_SERVICE_3D0C, GRANTEE_ORCHESTRATOR];
+        for (uint256 i = 0; i < principals.length; i++) {
+            grants[i] = RoleGrant(DEFAULT_ADMIN_ROLE, principals[i]);
+        }
+        grants[5] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_1C66);
+        grants[6] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_1C66);
+        grants[7] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_1C66);
+        RoleGrant[] memory expected = expectedGrants(tokenOwnerSafe, adminHolder);
+        for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
+            grants[8 + i] = RoleGrant(expected[i].role, tokenOwnerSafe);
+        }
+        for (uint256 i = 0; i < retiring.length; i++) {
+            grants[15 + i] = retiring[i];
+        }
+        return grants;
+    }
+
+    /// @notice The pairs a region's authoriser must not carry.
+    /// @param tokenOwnerSafe The chain's token-owner Safe.
+    /// @param adminHolder The holder of the seven `_ADMIN` roles.
+    /// @param minter The region's wallet.
+    /// @return The forbidden `(role, grantee)` pairs.
+    function forbiddenEuGrants(address tokenOwnerSafe, address adminHolder, address minter)
+        internal
+        pure
+        returns (RoleGrant[] memory)
+    {
+        RoleGrant[] memory expected = expectedEuGrants(adminHolder, minter, GRANTEE_SERVICE_3D0C);
+        RoleGrant[] memory grants = new RoleGrant[](29);
+        address[6] memory principals =
+            [tokenOwnerSafe, adminHolder, GRANTEE_SERVICE_1C66, GRANTEE_SERVICE_3D0C, GRANTEE_ORCHESTRATOR, minter];
+        for (uint256 i = 0; i < principals.length; i++) {
+            grants[i] = RoleGrant(DEFAULT_ADMIN_ROLE, principals[i]);
+        }
+        grants[6] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_1C66);
+        grants[7] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_1C66);
+        grants[8] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_1C66);
+        uint256 count = 9;
+        for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
+            grants[count++] = RoleGrant(expected[i].role, tokenOwnerSafe);
+        }
+        for (uint256 i = ADMIN_ROLE_COUNT; i < ADMIN_ROLE_COUNT * 2; i++) {
+            grants[count++] = RoleGrant(expected[i].role, GRANTEE_ORCHESTRATOR);
+            if (!mapAssigns(expected, expected[i].role, GRANTEE_SERVICE_3D0C)) {
+                grants[count++] = RoleGrant(expected[i].role, GRANTEE_SERVICE_3D0C);
+            }
+        }
         return grants;
     }
 

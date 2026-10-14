@@ -215,31 +215,21 @@ contract LibAuthoriserInvariantsTest is Test {
         address safe = address(0x5AFE);
         address timelock = address(0x7135);
         RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
-        assertEq(grants.length, 15);
+        assertEq(grants.length, 13);
         for (uint256 i = 0; i < 7; i++) {
             assertEq(grants[i].grantee, timelock, "admin entries must track adminHolder");
         }
         for (uint256 i = 7; i < 10; i++) {
             assertEq(grants[i].grantee, safe, "operational Safe entries must track the Safe");
         }
-        // The service signer's three action roles are operational, not
-        // admin: they must track the signer regardless of who holds the
-        // `_ADMIN` slice, so the timelock migration never moves them. The
-        // retired signer has no rows at all — its revocation is asserted as
-        // an absence, not a grant.
-        for (uint256 i = 10; i < 13; i++) {
-            assertEq(
-                grants[i].grantee,
-                LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C,
-                "service signer entries must be independent of adminHolder"
-            );
-        }
+        assertEq(grants[10].role, keccak256("CERTIFY"));
+        assertEq(grants[10].grantee, LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C);
         // The orchestrator's vault access: DEPOSIT and WITHDRAW only (no
         // CERTIFY surface), independent of both parameters.
-        assertEq(grants[13].role, keccak256("DEPOSIT"));
-        assertEq(grants[13].grantee, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
-        assertEq(grants[14].role, keccak256("WITHDRAW"));
-        assertEq(grants[14].grantee, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
+        assertEq(grants[11].role, keccak256("DEPOSIT"));
+        assertEq(grants[11].grantee, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
+        assertEq(grants[12].role, keccak256("WITHDRAW"));
+        assertEq(grants[12].grantee, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
 
         // The no-arg overload is Base's Safe and Base's timelock.
         RoleGrant[] memory base = LibAuthoriserInvariants.expectedGrants();

@@ -8,6 +8,8 @@ import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibStoxMigrations} from "./LibStoxMigrations.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
+import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
+import {RoleGrant} from "./RoleGrant.sol";
 import {IST0xOrchestratorV1} from "../interface/IST0xOrchestratorV1.sol";
 import {ST0xOrchestrator} from "../concrete/ST0xOrchestrator.sol";
 
@@ -186,6 +188,34 @@ library LibOrchestratorInvariants {
         assertAdministeredByDefaultAdmin(acl, mintRole);
         assertAdministeredByDefaultAdmin(acl, burnRole);
         assertAdministeredByDefaultAdmin(acl, emergencyRole);
+    }
+
+    /// @notice The pairs the orchestrator instance must carry.
+    /// @param chainSafe The chain's token-owner Safe.
+    /// @param timelock The chain's governance timelock.
+    /// @return The expected `(role, grantee)` pairs.
+    function expectedGrants(address chainSafe, address timelock) internal pure returns (RoleGrant[] memory) {
+        RoleGrant[] memory grants = new RoleGrant[](4);
+        grants[0] = RoleGrant(bytes32(0), timelock);
+        grants[1] = RoleGrant(keccak256("EMERGENCY"), chainSafe);
+        grants[2] = RoleGrant(keccak256("MINT"), LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C);
+        grants[3] = RoleGrant(keccak256("BURN"), LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C);
+        return grants;
+    }
+
+    /// @notice The pairs the orchestrator instance must not carry.
+    /// @param chainSafe The chain's token-owner Safe.
+    /// @param timelock The chain's governance timelock.
+    /// @return The forbidden `(role, grantee)` pairs.
+    function forbiddenGrants(address chainSafe, address timelock) internal pure returns (RoleGrant[] memory) {
+        RoleGrant[] memory grants = new RoleGrant[](6);
+        grants[0] = RoleGrant(bytes32(0), chainSafe);
+        grants[1] = RoleGrant(keccak256("EMERGENCY"), timelock);
+        grants[2] = RoleGrant(keccak256("MINT"), chainSafe);
+        grants[3] = RoleGrant(keccak256("MINT"), timelock);
+        grants[4] = RoleGrant(keccak256("BURN"), chainSafe);
+        grants[5] = RoleGrant(keccak256("BURN"), timelock);
+        return grants;
     }
 
     /// @notice Revert unless `holder` holds `role` on the instance.
