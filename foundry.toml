@@ -14,7 +14,11 @@ libs = ['dependencies']
 
 solc = "0.8.25"
 optimizer = true
-# 1666 is the highest value that fits StoxReceiptVault under EIP-170 on float 0.3.3: 24,030 B, 546 B spare.
+# Highest value that keeps StoxReceiptVault under EIP-170 (see CHANGELOG); re-check
+# `forge build --sizes` on vault or dependency changes. via_ir makes the vault larger.
+# Changing it moves every Zoltu address: the vault pins the facet and the orchestrator
+# pins vault + receipt, so all three deploy in lockstep. Dependency-pinned bytecode
+# (rain-deploy's TimelockController, 2000 runs) does not reproduce under this profile.
 optimizer_runs = 1666
 
 evm_version = "cancun"

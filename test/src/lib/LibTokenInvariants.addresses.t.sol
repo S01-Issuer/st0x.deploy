@@ -24,7 +24,7 @@ import {LibExtrospectBytecode} from "rain-extrospection-0.1.14/src/lib/LibExtros
 import {LibExtrospectMetamorphic} from "rain-extrospection-0.1.14/src/lib/LibExtrospectMetamorphic.sol";
 import {EVM_OP_CREATE, EVM_OP_DELEGATECALL} from "rain-extrospection-0.1.14/src/lib/EVMOpcodes.sol";
 import {IExtrospectV1} from "rain-extrospection-0.1.14/src/interface/IExtrospectV1.sol";
-import {LibExtrospectDeploy} from "rain-extrospection-deploy-0.1.0/src/lib/LibExtrospectDeploy.sol";
+import {DEPLOYED_ADDRESS as EXTROSPECT_0_1_0} from "rain-extrospection-deploy-0.1.0/src/generated/0_1_0/Extrospect.sol";
 import {IBeacon} from "rain-extrospection-0.1.14/src/interface/IBeacon.sol";
 
 /// @title LibTokenInvariantsAddressesTest
@@ -249,7 +249,7 @@ contract LibTokenInvariantsAddressesTest is Test {
     /// library-internal and inlines into the test contract, so a
     /// same-depth revert wouldn't satisfy `vm.expectRevert`. The
     /// concrete contract provides the external call hop and is on Base
-    /// at `LibExtrospectDeploy.EXTROSPECT_DEPLOYED_ADDRESS`.
+    /// at `EXTROSPECT_0_1_0`.
     function testCheckNoSolidityCBORMetadataDetectsCBORTrailer() external {
         LibTestProd.createSelectForkBase(vm);
         bytes memory bytecode = abi.encodePacked(
@@ -270,7 +270,7 @@ contract LibTokenInvariantsAddressesTest is Test {
         vm.etch(sentinel, bytecode);
 
         vm.expectRevert(bytes4(keccak256("UnexpectedMetadata()")));
-        IExtrospectV1(LibExtrospectDeploy.EXTROSPECT_DEPLOYED_ADDRESS).checkNoSolidityCBORMetadata(sentinel);
+        IExtrospectV1(EXTROSPECT_0_1_0).checkNoSolidityCBORMetadata(sentinel);
     }
 
     /// Pin the metamorphic-risk surface of the prod V1 implementations.
