@@ -20,90 +20,55 @@ import {LibTokenInvariants} from "../src/lib/LibTokenInvariants.sol";
 contract BuildPrivilegedAddresses is Script {
     string internal constant PATH = "privileged-addresses.json";
 
-    function hex20(address a) internal pure returns (string memory) {
-        return vm.toLowercase(vm.toString(a));
-    }
-
-    function addressList(address[] memory list, string memory pad) internal pure returns (string memory) {
-        string memory json = "[";
-        for (uint256 i = 0; i < list.length; i++) {
-            json = string.concat(json, i == 0 ? "\n" : ",\n", pad, "  \"", hex20(list[i]), "\"");
-        }
-        return string.concat(json, list.length == 0 ? "]" : string.concat("\n", pad, "]"));
-    }
-
-    function beaconsJson(uint256 chainId) internal pure returns (string memory) {
+    function beaconsJson(uint256 chainId, string memory key) internal returns (string[] memory) {
         address[4] memory pinned = LibBeaconInvariants.prodPinnedBeaconsForChainId(chainId);
         address[4] memory implementations = LibBeaconInvariants.prodImplementationsForChainId(chainId);
         address[4] memory v1 = LibBeaconInvariants.prodV1ImplementationsForChainId(chainId);
-        string memory json = "[";
+        string[] memory rows = new string[](pinned.length);
         for (uint256 i = 0; i < pinned.length; i++) {
-            json = string.concat(
-                json,
-                i == 0 ? "\n" : ",\n",
-                "        {\n          \"beacon\": \"",
-                hex20(pinned[i]),
-                "\",\n          \"implementation\": \"",
-                hex20(implementations[i]),
-                "\",\n          \"v1Implementation\": \"",
-                hex20(v1[i]),
-                "\"\n        }"
-            );
+            string memory row = string.concat(key, ".beacon.", vm.toString(i));
+            vm.serializeAddress(row, "beacon", pinned[i]);
+            vm.serializeAddress(row, "implementation", implementations[i]);
+            rows[i] = vm.serializeAddress(row, "v1Implementation", v1[i]);
         }
-        return string.concat(json, "\n      ]");
+        return rows;
     }
 
-    function chainJson(SupportedNetwork memory network) internal pure returns (string memory) {
+    function chainJson(SupportedNetwork memory network) internal returns (string memory) {
         uint256 chainId = network.chainId;
-        string memory json = string.concat(
-            "    \"",
-            vm.toString(chainId),
-            "\": {\n      \"network\": \"",
-            network.name,
-            "\",\n      \"safe\": \"",
-            hex20(LibSafeInvariants.safeForChainId(chainId)),
-            "\",\n      \"timelock\": \"",
-            hex20(LibTimelockInvariants.timelockForChainId(chainId)),
-            "\",\n      \"authoriser\": \"",
-            hex20(LibAuthoriserInvariants.authoriserForChainId(chainId))
-        );
-        return string.concat(
-            json,
-            "\",\n      \"beaconSetDeployer\": \"",
-            hex20(LibBeaconInvariants.prodBeaconSetDeployerForChainId(chainId)),
-            "\",\n      \"beacons\": ",
-            beaconsJson(chainId),
-            ",\n      \"receiptVaults\": ",
-            addressList(LibTokenInvariants.productionReceiptVaultsForChainId(chainId), "      "),
-            "\n    }"
-        );
+        string memory key = vm.toString(chainId);
+        vm.serializeString(key, "network", network.name);
+        vm.serializeAddress(key, "safe", LibSafeInvariants.safeForChainId(chainId));
+        vm.serializeAddress(key, "timelock", LibTimelockInvariants.timelockForChainId(chainId));
+        vm.serializeAddress(key, "authoriser", LibAuthoriserInvariants.authoriserForChainId(chainId));
+        vm.serializeAddress(key, "beaconSetDeployer", LibBeaconInvariants.prodBeaconSetDeployerForChainId(chainId));
+        vm.serializeString(key, "beacons", beaconsJson(chainId, key));
+        return vm.serializeAddress(key, "receiptVaults", LibTokenInvariants.productionReceiptVaultsForChainId(chainId));
     }
 
-    function render() public pure returns (string memory) {
-        string memory out = string.concat(
-            "{\n  \"version\": 1,\n  \"safePolicy\": {\n    \"threshold\": ",
-            vm.toString(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD),
-            ",\n    \"owners\": ",
-            addressList(LibSafeInvariants.expectedOwners(), "    "),
-            "\n  },\n  \"authoriserImplementation\": \"",
-            hex20(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1),
-            "\",\n  \"beaconOwners\": {\n    \"initial\": \"",
-            hex20(LibProdDeployV1.BEACON_INITIAL_OWNER),
-            "\",\n    \"v2BaseReceipt\": \"",
-            hex20(LibProdDeployV2BaseOverrides.RECEIPT_BEACON_OWNER),
-            "\",\n    \"v2BaseVault\": \"",
-            hex20(LibProdDeployV2BaseOverrides.VAULT_BEACON_OWNER),
-            "\"\n  },\n  \"chains\": {"
-        );
+    function render() public returns (string memory) {
+        vm.serializeUint("safePolicy", "threshold", LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
+        string memory safePolicy = vm.serializeAddress("safePolicy", "owners", LibSafeInvariants.expectedOwners());
+        vm.serializeAddress("beaconOwners", "initial", LibProdDeployV1.BEACON_INITIAL_OWNER);
+        vm.serializeAddress("beaconOwners", "v2BaseReceipt", LibProdDeployV2BaseOverrides.RECEIPT_BEACON_OWNER);
+        string memory beaconOwners =
+            vm.serializeAddress("beaconOwners", "v2BaseVault", LibProdDeployV2BaseOverrides.VAULT_BEACON_OWNER);
         SupportedNetwork[] memory networks =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        string memory chains;
         for (uint256 i = 0; i < networks.length; i++) {
-            out = string.concat(out, i == 0 ? "\n" : ",\n", chainJson(networks[i]));
+            chains = vm.serializeString("chains", vm.toString(networks[i].chainId), chainJson(networks[i]));
         }
-        return string.concat(out, "\n  }\n}\n");
+        vm.serializeUint("root", "version", 1);
+        vm.serializeString("root", "safePolicy", safePolicy);
+        vm.serializeAddress(
+            "root", "authoriserImplementation", LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1
+        );
+        vm.serializeString("root", "beaconOwners", beaconOwners);
+        return vm.serializeString("root", "chains", chains);
     }
 
     function run() external {
-        vm.writeFile(PATH, render());
+        vm.writeJson(render(), PATH);
     }
 }

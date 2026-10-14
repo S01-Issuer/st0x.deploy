@@ -23,35 +23,35 @@ contract BuildPrivilegedAddressesTest is Test {
         return LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
     }
 
-    function testVersionIsOne() external view {
+    function testVersionIsOne() external {
         assertEq(vm.parseJsonUint(build.render(), ".version"), 1);
     }
 
-    function testSafePolicyIsThePinnedThresholdAndOwners() external view {
+    function testSafePolicyIsThePinnedThresholdAndOwners() external {
         string memory json = build.render();
         assertEq(vm.parseJsonUint(json, ".safePolicy.threshold"), LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
         assertAddresses(json, ".safePolicy.owners", LibSafeInvariants.expectedOwners());
     }
 
-    function testAuthoriserImplementationIsTheV4Pin() external view {
-        assertAddress(
-            vm.parseJsonString(build.render(), ".authoriserImplementation"),
+    function testAuthoriserImplementationIsTheV4Pin() external {
+        assertEq(
+            vm.parseJsonAddress(build.render(), ".authoriserImplementation"),
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1
         );
     }
 
-    function testBeaconOwnersAreTheV1AndV2Pins() external view {
+    function testBeaconOwnersAreTheV1AndV2Pins() external {
         string memory json = build.render();
-        assertAddress(vm.parseJsonString(json, ".beaconOwners.initial"), LibProdDeployV1.BEACON_INITIAL_OWNER);
-        assertAddress(
-            vm.parseJsonString(json, ".beaconOwners.v2BaseReceipt"), LibProdDeployV2BaseOverrides.RECEIPT_BEACON_OWNER
+        assertEq(vm.parseJsonAddress(json, ".beaconOwners.initial"), LibProdDeployV1.BEACON_INITIAL_OWNER);
+        assertEq(
+            vm.parseJsonAddress(json, ".beaconOwners.v2BaseReceipt"), LibProdDeployV2BaseOverrides.RECEIPT_BEACON_OWNER
         );
-        assertAddress(
-            vm.parseJsonString(json, ".beaconOwners.v2BaseVault"), LibProdDeployV2BaseOverrides.VAULT_BEACON_OWNER
+        assertEq(
+            vm.parseJsonAddress(json, ".beaconOwners.v2BaseVault"), LibProdDeployV2BaseOverrides.VAULT_BEACON_OWNER
         );
     }
 
-    function testChainsAreTheDeploymentNetworksKeyedByChainId() external view {
+    function testChainsAreTheDeploymentNetworksKeyedByChainId() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         assertEq(vm.parseJsonKeys(json, ".chains").length, nets.length);
@@ -60,31 +60,31 @@ contract BuildPrivilegedAddressesTest is Test {
         }
     }
 
-    function testChainPrincipalsAreTheChainsPins() external view {
+    function testChainPrincipalsAreTheChainsPins() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < nets.length; i++) {
             uint256 id = nets[i].chainId;
             string memory at = chain(nets[i]);
-            assertAddress(vm.parseJsonString(json, string.concat(at, ".safe")), LibSafeInvariants.safeForChainId(id));
-            assertAddress(
-                vm.parseJsonString(json, string.concat(at, ".timelock")), LibTimelockInvariants.timelockForChainId(id)
+            assertEq(vm.parseJsonAddress(json, string.concat(at, ".safe")), LibSafeInvariants.safeForChainId(id));
+            assertEq(
+                vm.parseJsonAddress(json, string.concat(at, ".timelock")), LibTimelockInvariants.timelockForChainId(id)
             );
-            assertAddress(
-                vm.parseJsonString(json, string.concat(at, ".authoriser")),
+            assertEq(
+                vm.parseJsonAddress(json, string.concat(at, ".authoriser")),
                 LibAuthoriserInvariants.authoriserForChainId(id)
             );
         }
     }
 
-    function testBeaconsAreTheChainsProductionSet() external view {
+    function testBeaconsAreTheChainsProductionSet() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
             uint256 id = nets[c].chainId;
             string memory at = chain(nets[c]);
-            assertAddress(
-                vm.parseJsonString(json, string.concat(at, ".beaconSetDeployer")),
+            assertEq(
+                vm.parseJsonAddress(json, string.concat(at, ".beaconSetDeployer")),
                 LibBeaconInvariants.prodBeaconSetDeployerForChainId(id)
             );
             address[4] memory pinned = LibBeaconInvariants.prodPinnedBeaconsForChainId(id);
@@ -94,9 +94,9 @@ contract BuildPrivilegedAddressesTest is Test {
             assertFalse(vm.keyExistsJson(json, index(list, pinned.length)));
             for (uint256 i = 0; i < pinned.length; i++) {
                 string memory row = index(list, i);
-                assertAddress(vm.parseJsonString(json, string.concat(row, ".beacon")), pinned[i]);
-                assertAddress(vm.parseJsonString(json, string.concat(row, ".implementation")), implementations[i]);
-                assertAddress(vm.parseJsonString(json, string.concat(row, ".v1Implementation")), v1[i]);
+                assertEq(vm.parseJsonAddress(json, string.concat(row, ".beacon")), pinned[i]);
+                assertEq(vm.parseJsonAddress(json, string.concat(row, ".implementation")), implementations[i]);
+                assertEq(vm.parseJsonAddress(json, string.concat(row, ".v1Implementation")), v1[i]);
             }
         }
     }
@@ -129,7 +129,7 @@ contract BuildPrivilegedAddressesTest is Test {
         }
     }
 
-    function testReceiptVaultsAreEachChainsTokenTable() external view {
+    function testReceiptVaultsAreEachChainsTokenTable() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < nets.length; i++) {
@@ -144,7 +144,9 @@ contract BuildPrivilegedAddressesTest is Test {
     function testRunWritesTheRender() external {
         vm.removeFile("privileged-addresses.json");
         build.run();
-        assertEq(vm.readFile("privileged-addresses.json"), build.render());
+        assertEq(
+            keccak256(vm.parseJson(vm.readFile("privileged-addresses.json"))), keccak256(vm.parseJson(build.render()))
+        );
     }
 
     function chain(SupportedNetwork memory network) internal pure returns (string memory) {
@@ -155,15 +157,10 @@ contract BuildPrivilegedAddressesTest is Test {
         return string.concat(at, "[", vm.toString(i), "]");
     }
 
-    function assertAddress(string memory value, address expected) internal pure {
-        assertEq(vm.parseAddress(value), expected);
-        assertEq(value, vm.toLowercase(value));
-    }
-
     function assertAddresses(string memory json, string memory at, address[] memory expected) internal view {
         assertFalse(vm.keyExistsJson(json, index(at, expected.length)));
         for (uint256 i = 0; i < expected.length; i++) {
-            assertAddress(vm.parseJsonString(json, index(at, i)), expected[i]);
+            assertEq(vm.parseJsonAddress(json, index(at, i)), expected[i]);
         }
     }
 }
