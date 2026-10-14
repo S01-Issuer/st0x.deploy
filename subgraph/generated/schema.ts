@@ -208,6 +208,14 @@ export class Contract extends Entity {
       "upgrades",
     );
   }
+
+  get timelockOperations(): TimelockOperationLoader {
+    return new TimelockOperationLoader(
+      "Contract",
+      this.get("id")!.toBytes().toHexString(),
+      "timelockOperations",
+    );
+  }
 }
 
 export class Role extends Entity {
@@ -1071,6 +1079,615 @@ export class BeaconUpgrade extends Entity {
   }
 }
 
+export class TimelockOperationKey extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save TimelockOperationKey entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type TimelockOperationKey must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set("TimelockOperationKey", id.toBytes().toHexString(), this);
+    }
+  }
+
+  static loadInBlock(id: Bytes): TimelockOperationKey | null {
+    return changetype<TimelockOperationKey | null>(
+      store.get_in_block("TimelockOperationKey", id.toHexString()),
+    );
+  }
+
+  static load(id: Bytes): TimelockOperationKey | null {
+    return changetype<TimelockOperationKey | null>(
+      store.get("TimelockOperationKey", id.toHexString()),
+    );
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get timelock(): Bytes {
+    let value = this.get("timelock");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set timelock(value: Bytes) {
+    this.set("timelock", Value.fromBytes(value));
+  }
+
+  get operationId(): Bytes {
+    let value = this.get("operationId");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set operationId(value: Bytes) {
+    this.set("operationId", Value.fromBytes(value));
+  }
+
+  get scheduleCount(): i32 {
+    let value = this.get("scheduleCount");
+    if (!value || value.kind == ValueKind.NULL) {
+      return 0;
+    } else {
+      return value.toI32();
+    }
+  }
+
+  set scheduleCount(value: i32) {
+    this.set("scheduleCount", Value.fromI32(value));
+  }
+
+  get latest(): Bytes {
+    let value = this.get("latest");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set latest(value: Bytes) {
+    this.set("latest", Value.fromBytes(value));
+  }
+
+  get operations(): TimelockOperationLoader {
+    return new TimelockOperationLoader(
+      "TimelockOperationKey",
+      this.get("id")!.toBytes().toHexString(),
+      "operations",
+    );
+  }
+}
+
+export class TimelockOperation extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save TimelockOperation entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type TimelockOperation must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set("TimelockOperation", id.toBytes().toHexString(), this);
+    }
+  }
+
+  static loadInBlock(id: Bytes): TimelockOperation | null {
+    return changetype<TimelockOperation | null>(
+      store.get_in_block("TimelockOperation", id.toHexString()),
+    );
+  }
+
+  static load(id: Bytes): TimelockOperation | null {
+    return changetype<TimelockOperation | null>(
+      store.get("TimelockOperation", id.toHexString()),
+    );
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get timelock(): Bytes {
+    let value = this.get("timelock");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set timelock(value: Bytes) {
+    this.set("timelock", Value.fromBytes(value));
+  }
+
+  get key(): Bytes {
+    let value = this.get("key");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set key(value: Bytes) {
+    this.set("key", Value.fromBytes(value));
+  }
+
+  get operationId(): Bytes {
+    let value = this.get("operationId");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set operationId(value: Bytes) {
+    this.set("operationId", Value.fromBytes(value));
+  }
+
+  get schedulingIndex(): i32 {
+    let value = this.get("schedulingIndex");
+    if (!value || value.kind == ValueKind.NULL) {
+      return 0;
+    } else {
+      return value.toI32();
+    }
+  }
+
+  set schedulingIndex(value: i32) {
+    this.set("schedulingIndex", Value.fromI32(value));
+  }
+
+  get status(): string {
+    let value = this.get("status");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toString();
+    }
+  }
+
+  set status(value: string) {
+    this.set("status", Value.fromString(value));
+  }
+
+  get callCount(): i32 {
+    let value = this.get("callCount");
+    if (!value || value.kind == ValueKind.NULL) {
+      return 0;
+    } else {
+      return value.toI32();
+    }
+  }
+
+  set callCount(value: i32) {
+    this.set("callCount", Value.fromI32(value));
+  }
+
+  get calls(): TimelockCallLoader {
+    return new TimelockCallLoader(
+      "TimelockOperation",
+      this.get("id")!.toBytes().toHexString(),
+      "calls",
+    );
+  }
+
+  get targets(): Array<Bytes> {
+    let value = this.get("targets");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytesArray();
+    }
+  }
+
+  set targets(value: Array<Bytes>) {
+    this.set("targets", Value.fromBytesArray(value));
+  }
+
+  get predecessor(): Bytes {
+    let value = this.get("predecessor");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set predecessor(value: Bytes) {
+    this.set("predecessor", Value.fromBytes(value));
+  }
+
+  get salt(): Bytes {
+    let value = this.get("salt");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set salt(value: Bytes) {
+    this.set("salt", Value.fromBytes(value));
+  }
+
+  get delay(): BigInt {
+    let value = this.get("delay");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set delay(value: BigInt) {
+    this.set("delay", Value.fromBigInt(value));
+  }
+
+  get readyAt(): BigInt {
+    let value = this.get("readyAt");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set readyAt(value: BigInt) {
+    this.set("readyAt", Value.fromBigInt(value));
+  }
+
+  get scheduledAtBlock(): BigInt {
+    let value = this.get("scheduledAtBlock");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set scheduledAtBlock(value: BigInt) {
+    this.set("scheduledAtBlock", Value.fromBigInt(value));
+  }
+
+  get scheduledAtTimestamp(): BigInt {
+    let value = this.get("scheduledAtTimestamp");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set scheduledAtTimestamp(value: BigInt) {
+    this.set("scheduledAtTimestamp", Value.fromBigInt(value));
+  }
+
+  get scheduledTransactionHash(): Bytes {
+    let value = this.get("scheduledTransactionHash");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set scheduledTransactionHash(value: Bytes) {
+    this.set("scheduledTransactionHash", Value.fromBytes(value));
+  }
+
+  get scheduledTransactionFrom(): Bytes {
+    let value = this.get("scheduledTransactionFrom");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set scheduledTransactionFrom(value: Bytes) {
+    this.set("scheduledTransactionFrom", Value.fromBytes(value));
+  }
+
+  get scheduledLogIndex(): BigInt {
+    let value = this.get("scheduledLogIndex");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set scheduledLogIndex(value: BigInt) {
+    this.set("scheduledLogIndex", Value.fromBigInt(value));
+  }
+
+  get executedAtBlock(): BigInt | null {
+    let value = this.get("executedAtBlock");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set executedAtBlock(value: BigInt | null) {
+    if (!value) {
+      this.unset("executedAtBlock");
+    } else {
+      this.set("executedAtBlock", Value.fromBigInt(<BigInt>value));
+    }
+  }
+
+  get executedAtTimestamp(): BigInt | null {
+    let value = this.get("executedAtTimestamp");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set executedAtTimestamp(value: BigInt | null) {
+    if (!value) {
+      this.unset("executedAtTimestamp");
+    } else {
+      this.set("executedAtTimestamp", Value.fromBigInt(<BigInt>value));
+    }
+  }
+
+  get executedTransactionHash(): Bytes | null {
+    let value = this.get("executedTransactionHash");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set executedTransactionHash(value: Bytes | null) {
+    if (!value) {
+      this.unset("executedTransactionHash");
+    } else {
+      this.set("executedTransactionHash", Value.fromBytes(<Bytes>value));
+    }
+  }
+
+  get executedTransactionFrom(): Bytes | null {
+    let value = this.get("executedTransactionFrom");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set executedTransactionFrom(value: Bytes | null) {
+    if (!value) {
+      this.unset("executedTransactionFrom");
+    } else {
+      this.set("executedTransactionFrom", Value.fromBytes(<Bytes>value));
+    }
+  }
+
+  get cancelledAtBlock(): BigInt | null {
+    let value = this.get("cancelledAtBlock");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set cancelledAtBlock(value: BigInt | null) {
+    if (!value) {
+      this.unset("cancelledAtBlock");
+    } else {
+      this.set("cancelledAtBlock", Value.fromBigInt(<BigInt>value));
+    }
+  }
+
+  get cancelledAtTimestamp(): BigInt | null {
+    let value = this.get("cancelledAtTimestamp");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set cancelledAtTimestamp(value: BigInt | null) {
+    if (!value) {
+      this.unset("cancelledAtTimestamp");
+    } else {
+      this.set("cancelledAtTimestamp", Value.fromBigInt(<BigInt>value));
+    }
+  }
+
+  get cancelledTransactionHash(): Bytes | null {
+    let value = this.get("cancelledTransactionHash");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set cancelledTransactionHash(value: Bytes | null) {
+    if (!value) {
+      this.unset("cancelledTransactionHash");
+    } else {
+      this.set("cancelledTransactionHash", Value.fromBytes(<Bytes>value));
+    }
+  }
+
+  get cancelledTransactionFrom(): Bytes | null {
+    let value = this.get("cancelledTransactionFrom");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set cancelledTransactionFrom(value: Bytes | null) {
+    if (!value) {
+      this.unset("cancelledTransactionFrom");
+    } else {
+      this.set("cancelledTransactionFrom", Value.fromBytes(<Bytes>value));
+    }
+  }
+}
+
+export class TimelockCall extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save TimelockCall entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type TimelockCall must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set("TimelockCall", id.toBytes().toHexString(), this);
+    }
+  }
+
+  static loadInBlock(id: Bytes): TimelockCall | null {
+    return changetype<TimelockCall | null>(
+      store.get_in_block("TimelockCall", id.toHexString()),
+    );
+  }
+
+  static load(id: Bytes): TimelockCall | null {
+    return changetype<TimelockCall | null>(
+      store.get("TimelockCall", id.toHexString()),
+    );
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get operation(): Bytes {
+    let value = this.get("operation");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set operation(value: Bytes) {
+    this.set("operation", Value.fromBytes(value));
+  }
+
+  get index(): i32 {
+    let value = this.get("index");
+    if (!value || value.kind == ValueKind.NULL) {
+      return 0;
+    } else {
+      return value.toI32();
+    }
+  }
+
+  set index(value: i32) {
+    this.set("index", Value.fromI32(value));
+  }
+
+  get target(): Bytes {
+    let value = this.get("target");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set target(value: Bytes) {
+    this.set("target", Value.fromBytes(value));
+  }
+
+  get value(): BigInt {
+    let value = this.get("value");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set value(value: BigInt) {
+    this.set("value", Value.fromBigInt(value));
+  }
+
+  get data(): Bytes {
+    let value = this.get("data");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set data(value: Bytes) {
+    this.set("data", Value.fromBytes(value));
+  }
+}
+
 export class RoleLoader extends Entity {
   _entity: string;
   _field: string;
@@ -1125,6 +1742,24 @@ export class BeaconUpgradeLoader extends Entity {
   }
 }
 
+export class TimelockOperationLoader extends Entity {
+  _entity: string;
+  _field: string;
+  _id: string;
+
+  constructor(entity: string, id: string, field: string) {
+    super();
+    this._entity = entity;
+    this._id = id;
+    this._field = field;
+  }
+
+  load(): TimelockOperation[] {
+    let value = store.loadRelated(this._entity, this._id, this._field);
+    return changetype<TimelockOperation[]>(value);
+  }
+}
+
 export class RoleHolderLoader extends Entity {
   _entity: string;
   _field: string;
@@ -1176,5 +1811,23 @@ export class RoleAdminChangeLoader extends Entity {
   load(): RoleAdminChange[] {
     let value = store.loadRelated(this._entity, this._id, this._field);
     return changetype<RoleAdminChange[]>(value);
+  }
+}
+
+export class TimelockCallLoader extends Entity {
+  _entity: string;
+  _field: string;
+  _id: string;
+
+  constructor(entity: string, id: string, field: string) {
+    super();
+    this._entity = entity;
+    this._id = id;
+    this._field = field;
+  }
+
+  load(): TimelockCall[] {
+    let value = store.loadRelated(this._entity, this._id, this._field);
+    return changetype<TimelockCall[]>(value);
   }
 }

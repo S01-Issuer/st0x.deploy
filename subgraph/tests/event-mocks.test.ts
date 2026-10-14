@@ -152,3 +152,95 @@ export function orchestratorDeploymentLog(
     new ethereum.EventParam("owner", ethereum.Value.fromAddress(owner)),
   ]);
 }
+
+/**
+ * `CallScheduled(bytes32,uint256,address,uint256,bytes,bytes32,uint256)` from
+ * the governance timelock. `scheduleBatch` emits one per call, all with the same
+ * `id` and an `index` counting up from zero.
+ */
+export function callScheduledLog(
+  timelock: Address,
+  id: Bytes,
+  index: i32,
+  target: Address,
+  value: i32,
+  data: Bytes,
+  predecessor: Bytes,
+  delay: i32,
+  blockNumber: i32,
+  logIndex: i32,
+): ethereum.Event {
+  return mockLog(timelock, blockNumber, logIndex, [
+    new ethereum.EventParam("id", ethereum.Value.fromFixedBytes(id)),
+    new ethereum.EventParam(
+      "index",
+      ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(index)),
+    ),
+    new ethereum.EventParam("target", ethereum.Value.fromAddress(target)),
+    new ethereum.EventParam(
+      "value",
+      ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(value)),
+    ),
+    new ethereum.EventParam("data", ethereum.Value.fromBytes(data)),
+    new ethereum.EventParam(
+      "predecessor",
+      ethereum.Value.fromFixedBytes(predecessor),
+    ),
+    new ethereum.EventParam(
+      "delay",
+      ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(delay)),
+    ),
+  ]);
+}
+
+/** `CallExecuted(bytes32,uint256,address,uint256,bytes)`, one per call executed. */
+export function callExecutedLog(
+  timelock: Address,
+  id: Bytes,
+  index: i32,
+  target: Address,
+  value: i32,
+  data: Bytes,
+  blockNumber: i32,
+  logIndex: i32,
+): ethereum.Event {
+  return mockLog(timelock, blockNumber, logIndex, [
+    new ethereum.EventParam("id", ethereum.Value.fromFixedBytes(id)),
+    new ethereum.EventParam(
+      "index",
+      ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(index)),
+    ),
+    new ethereum.EventParam("target", ethereum.Value.fromAddress(target)),
+    new ethereum.EventParam(
+      "value",
+      ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(value)),
+    ),
+    new ethereum.EventParam("data", ethereum.Value.fromBytes(data)),
+  ]);
+}
+
+/** `CallSalt(bytes32,bytes32)`, emitted once per scheduling with a non-zero salt. */
+export function callSaltLog(
+  timelock: Address,
+  id: Bytes,
+  salt: Bytes,
+  blockNumber: i32,
+  logIndex: i32,
+): ethereum.Event {
+  return mockLog(timelock, blockNumber, logIndex, [
+    new ethereum.EventParam("id", ethereum.Value.fromFixedBytes(id)),
+    new ethereum.EventParam("salt", ethereum.Value.fromFixedBytes(salt)),
+  ]);
+}
+
+/** `Cancelled(bytes32)`. */
+export function cancelledLog(
+  timelock: Address,
+  id: Bytes,
+  blockNumber: i32,
+  logIndex: i32,
+): ethereum.Event {
+  return mockLog(timelock, blockNumber, logIndex, [
+    new ethereum.EventParam("id", ethereum.Value.fromFixedBytes(id)),
+  ]);
+}

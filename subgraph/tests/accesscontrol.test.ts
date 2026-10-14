@@ -12,7 +12,7 @@ import {
   RoleAdminChanged as TimelockRoleAdminChanged,
   RoleGranted as TimelockRoleGranted,
   RoleRevoked as TimelockRoleRevoked,
-} from "../generated/GovernanceTimelock/AccessControl";
+} from "../generated/GovernanceTimelock/TimelockController";
 import {
   RoleAdminChanged as OrchestratorRoleAdminChanged,
   RoleGranted as OrchestratorRoleGranted,

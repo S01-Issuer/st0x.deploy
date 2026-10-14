@@ -59,7 +59,7 @@
       "startBlock": 26143611
     }
   },
-  "hyper-evm": {
+  "hyperevm": {
     "Authorizer": {
       "address": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
       "startBlock": 41325390
@@ -122,31 +122,31 @@
   "bsc": {
     "Authorizer": {
       "address": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
-      "startBlock": 0
+      "startBlock": 121144118
     },
     "GovernanceTimelock": {
       "address": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
-      "startBlock": 0
+      "startBlock": 121163215
     },
     "WrappedTokenVaultBeacon": {
       "address": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
-      "startBlock": 0
+      "startBlock": 121136429
     },
     "OrchestratorBeacon": {
       "address": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
-      "startBlock": 0
+      "startBlock": 121143012
     },
     "ReceiptVaultDeployer": {
       "address": "0xd64246e6b25F745f005E6233e050C9B879E660Dc",
-      "startBlock": 0
+      "startBlock": 121139233
     },
     "OrchestratorDeployer": {
       "address": "0x945D0Faf6f268e805246907507ef1044e70E75D7",
-      "startBlock": 0
+      "startBlock": 121143012
     },
     "EuAuthorizer": {
       "address": "0x8Fc06579571A105C5a699FA11d95b9c73747f8eb",
-      "startBlock": 0
+      "startBlock": 126335162
     }
   }
 }

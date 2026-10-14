@@ -8,14 +8,17 @@ import {
     VerifyMismatch,
     VerifyExpectedSingleTx
 } from "../../script/MigrateMultisigThreshold.s.sol";
-import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
+import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {LibSafeOps, SafeTx} from "../../src/lib/LibSafeOps.sol";
-import {LibSafeInvariants, SafeThresholdMismatch} from "../../src/lib/LibSafeInvariants.sol";
+import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
+import {SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJson.sol";
+import {LibSafe} from "rain-deploy-0.1.18/src/lib/LibSafe.sol";
 import {IOwnable, ReceiptVaultOwnerMismatch} from "../../src/lib/LibTokenInvariants.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 
 /// @title MigrateMultisigThresholdTest
 /// @notice End-to-end fork tests for the multisig threshold migration
@@ -28,7 +31,7 @@ contract MigrateMultisigThresholdTest is Test {
     MigrateMultisigThreshold internal script;
 
     /// @notice Live Safe handle.
-    IGnosisSafe internal safe;
+    Safe internal safe;
 
     /// @notice Selects the Base fork at chain head — deliberately
     /// unpinned. Same precedent as
@@ -36,7 +39,7 @@ contract MigrateMultisigThresholdTest is Test {
     function selectBaseFork() internal {
         vm.createSelectFork(LibRainDeploy.BASE);
         script = new MigrateMultisigThreshold();
-        safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+        safe = Safe(payable(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE));
     }
 
     /// @notice `run()` dry-run completes against the live pre-state,
@@ -101,9 +104,11 @@ contract MigrateMultisigThresholdTest is Test {
         // Mock the Safe's threshold away from the pinned current value (3)
         // to simulate drift; the pre-flight rejects before producing an
         // artifact.
-        vm.mockCall(address(safe), abi.encodeWithSelector(IGnosisSafe.getThreshold.selector), abi.encode(uint256(1)));
+        vm.mockCall(address(safe), abi.encodeCall(OwnerManager.getThreshold, ()), abi.encode(uint256(1)));
 
-        vm.expectRevert(abi.encodeWithSelector(SafeThresholdMismatch.selector, address(safe), uint256(3), uint256(1)));
+        vm.expectRevert(
+            abi.encodeWithSelector(LibSafe.SafeThresholdMismatch.selector, address(safe), uint256(3), uint256(1))
+        );
         script.run();
     }
 
@@ -137,14 +142,17 @@ contract MigrateMultisigThresholdTest is Test {
         // chainId. Tx Builder schema serialises `chainId` as a decimal
         // string.
         SafeTx memory txn = SafeTx({
-            to: address(safe), value: 0, data: abi.encodeCall(IGnosisSafe.changeThreshold, (uint256(3))), operation: 0
+            to: address(safe),
+            value: 0,
+            data: abi.encodeCall(OwnerManager.changeThreshold, (uint256(3))),
+            operation: Enum.Operation.Call
         });
         SafeTx[] memory txs = new SafeTx[](1);
         txs[0] = txn;
         // Emit a bundle that claims to be for a different chain id by
         // bypassing the live `block.chainid` and passing `block.chainid + 1`.
         string memory json =
-            LibSafeOps.emitTxBuilderJson(address(safe), block.chainid + 1, "safe-verify-wrong-chain", txs);
+            LibSafeTxBuilderJson.toJson(vm, address(safe), block.chainid + 1, "safe-verify-wrong-chain", txs);
         string memory path = string.concat(vm.projectRoot(), "/out/safe-verify-wrong-chain.json");
         vm.writeFile(path, json);
 
@@ -158,11 +166,14 @@ contract MigrateMultisigThresholdTest is Test {
         selectBaseFork();
         address impostor = address(0xCAFEBABE);
         SafeTx memory txn = SafeTx({
-            to: impostor, value: 0, data: abi.encodeCall(IGnosisSafe.changeThreshold, (uint256(3))), operation: 0
+            to: impostor,
+            value: 0,
+            data: abi.encodeCall(OwnerManager.changeThreshold, (uint256(3))),
+            operation: Enum.Operation.Call
         });
         SafeTx[] memory txs = new SafeTx[](1);
         txs[0] = txn;
-        string memory json = LibSafeOps.emitTxBuilderJson(impostor, block.chainid, "safe-verify-wrong-safe", txs);
+        string memory json = LibSafeTxBuilderJson.toJson(vm, impostor, block.chainid, "safe-verify-wrong-safe", txs);
         string memory path = string.concat(vm.projectRoot(), "/out/safe-verify-wrong-safe.json");
         vm.writeFile(path, json);
 
@@ -175,12 +186,15 @@ contract MigrateMultisigThresholdTest is Test {
     function testVerifyRejectsWrongThresholdData() external {
         selectBaseFork();
         SafeTx memory txn = SafeTx({
-            to: address(safe), value: 0, data: abi.encodeCall(IGnosisSafe.changeThreshold, (uint256(4))), operation: 0
+            to: address(safe),
+            value: 0,
+            data: abi.encodeCall(OwnerManager.changeThreshold, (uint256(4))),
+            operation: Enum.Operation.Call
         });
         SafeTx[] memory txs = new SafeTx[](1);
         txs[0] = txn;
         string memory json =
-            LibSafeOps.emitTxBuilderJson(address(safe), block.chainid, "safe-verify-wrong-threshold", txs);
+            LibSafeTxBuilderJson.toJson(vm, address(safe), block.chainid, "safe-verify-wrong-threshold", txs);
         string memory path = string.concat(vm.projectRoot(), "/out/safe-verify-wrong-threshold.json");
         vm.writeFile(path, json);
 
