@@ -340,14 +340,13 @@ library LibAuthoriserInvariants {
         grants[14] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_ORCHESTRATOR);
     }
 
-    /// @notice The `(role, grantee)` pairs every chain's authoriser must have
-    /// revoked: the service signer's direct vault roles, superseded by the
-    /// orchestrator path.
-    /// @return grants The pairs to revoke.
-    function retiringGrants() internal pure returns (RoleGrant[] memory grants) {
-        grants = new RoleGrant[](2);
+    /// @notice The service signer's direct vault roles every chain's authoriser must have revoked.
+    /// @return The `(role, grantee)` pairs to revoke.
+    function retiringGrants() internal pure returns (RoleGrant[] memory) {
+        RoleGrant[] memory grants = new RoleGrant[](2);
         grants[0] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_3D0C);
         grants[1] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_3D0C);
+        return grants;
     }
 
     /// @notice A region's authoriser map: every `_ADMIN` on the admin holder
