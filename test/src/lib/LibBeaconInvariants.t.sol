@@ -258,4 +258,53 @@ contract LibBeaconInvariantsTest is Test {
             "generation pins collapsed into one value"
         );
     }
+
+    function testProdProxyCodehashesForChainIdBase() external {
+        harness = new LibBeaconInvariantsHarness();
+        bytes32[2] memory codehashes = harness.callProdProxyCodehashesForChainId(LibSafeInvariants.BASE_CHAIN_ID);
+        assertEq(
+            codehashes[LibBeaconInvariants.RECEIPT_BEACON_INDEX],
+            LibProdDeployV1.PROD_STOX_RECEIPT_PROXY_BASE_CODEHASH_V1,
+            "receipt proxy"
+        );
+        assertEq(
+            codehashes[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX],
+            LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_PROXY_BASE_CODEHASH_V1,
+            "receipt vault proxy"
+        );
+    }
+
+    function testProdProxyCodehashesForChainId011Chains() external {
+        harness = new LibBeaconInvariantsHarness();
+        uint256[4] memory chainIds = [
+            LibSafeInvariants.ETHEREUM_CHAIN_ID,
+            LibSafeInvariants.HYPEREVM_CHAIN_ID,
+            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
+            LibSafeInvariants.BSC_CHAIN_ID
+        ];
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            bytes32[2] memory codehashes = harness.callProdProxyCodehashesForChainId(chainIds[i]);
+            assertEq(
+                codehashes[LibBeaconInvariants.RECEIPT_BEACON_INDEX],
+                LibProdBeacons0_1_1.RECEIPT_PROXY_CODEHASH,
+                "receipt proxy"
+            );
+            assertEq(
+                codehashes[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX],
+                LibProdBeacons0_1_1.RECEIPT_VAULT_PROXY_CODEHASH,
+                "receipt vault proxy"
+            );
+        }
+    }
+
+    function testProdProxyCodehashesForChainIdRevertsForUnpinnedChain(uint256 chainId) external {
+        vm.assume(chainId != LibSafeInvariants.BASE_CHAIN_ID);
+        vm.assume(chainId != LibSafeInvariants.ETHEREUM_CHAIN_ID);
+        vm.assume(chainId != LibSafeInvariants.HYPEREVM_CHAIN_ID);
+        vm.assume(chainId != LibSafeInvariants.ROBINHOOD_CHAIN_ID);
+        vm.assume(chainId != LibSafeInvariants.BSC_CHAIN_ID);
+        harness = new LibBeaconInvariantsHarness();
+        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForProdBeacons.selector, chainId));
+        harness.callProdProxyCodehashesForChainId(chainId);
+    }
 }
