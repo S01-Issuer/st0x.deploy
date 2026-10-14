@@ -19,18 +19,6 @@ struct ContractRoles {
 /// @title LibIdealRoles
 /// @notice The ideal role state of every role-bearing contract st0x runs, per chain.
 library LibIdealRoles {
-    /// @notice Every chain st0x runs on.
-    /// @return The chain ids.
-    function chainIds() internal pure returns (uint256[] memory) {
-        uint256[] memory ids = new uint256[](5);
-        ids[0] = LibSafeInvariants.BASE_CHAIN_ID;
-        ids[1] = LibSafeInvariants.ETHEREUM_CHAIN_ID;
-        ids[2] = LibSafeInvariants.HYPEREVM_CHAIN_ID;
-        ids[3] = LibSafeInvariants.ROBINHOOD_CHAIN_ID;
-        ids[4] = LibSafeInvariants.BSC_CHAIN_ID;
-        return ids;
-    }
-
     /// @notice The V4 authoriser, EU authoriser, orchestrator and governance timelock on a chain, in that order.
     /// @param chainId The chain id.
     /// @return The contracts' ideal role state.

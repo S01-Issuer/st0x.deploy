@@ -3,32 +3,29 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 import {LibAuthoriserInvariants} from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibIdealRoles, ContractRoles} from "../../../src/lib/LibIdealRoles.sol";
 import {LibOrchestratorInvariants} from "../../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {RoleGrant} from "../../../src/lib/RoleGrant.sol";
 
 contract LibIdealRolesTest is Test {
     RoleGrant[] internal want;
 
-    function testChainIdsAreTheFiveDeploymentChains() external pure {
-        uint256[] memory ids = LibIdealRoles.chainIds();
-        assertEq(ids.length, 5);
-        assertEq(ids[0], 8453);
-        assertEq(ids[1], 1);
-        assertEq(ids[2], 999);
-        assertEq(ids[3], 4663);
-        assertEq(ids[4], 56);
+    function networks() internal pure returns (SupportedNetwork[] memory) {
+        return LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
     }
 
     function testV4AuthoriserLists() external {
-        uint256[] memory ids = LibIdealRoles.chainIds();
-        for (uint256 c = 0; c < ids.length; c++) {
-            (address safe, address timelock) = principals(ids[c]);
-            ContractRoles memory roles = LibIdealRoles.contractRoles(ids[c])[0];
-            assertEq(roles.target, LibAuthoriserInvariants.authoriserForChainId(ids[c]));
+        SupportedNetwork[] memory nets = networks();
+        for (uint256 c = 0; c < nets.length; c++) {
+            (address safe, address timelock) = principals(nets[c].chainId);
+            ContractRoles memory roles = LibIdealRoles.contractRoles(nets[c].chainId)[0];
+            assertEq(roles.target, LibAuthoriserInvariants.authoriserForChainId(nets[c].chainId));
 
             pushEach(adminRoles(), timelock);
             push("DEPOSIT", safe);
@@ -42,13 +39,13 @@ contract LibIdealRolesTest is Test {
     }
 
     function testEuAuthoriserLists() external {
-        uint256[] memory ids = LibIdealRoles.chainIds();
+        SupportedNetwork[] memory nets = networks();
         address minter = LibAuthoriserInvariants.GRANTEE_EU_MINTER;
         address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
-        for (uint256 c = 0; c < ids.length; c++) {
-            (, address timelock) = principals(ids[c]);
-            ContractRoles memory roles = LibIdealRoles.contractRoles(ids[c])[1];
-            assertEq(roles.target, LibAuthoriserInvariants.euAuthoriserForChainId(ids[c]));
+        for (uint256 c = 0; c < nets.length; c++) {
+            (, address timelock) = principals(nets[c].chainId);
+            ContractRoles memory roles = LibIdealRoles.contractRoles(nets[c].chainId)[1];
+            assertEq(roles.target, LibAuthoriserInvariants.euAuthoriserForChainId(nets[c].chainId));
 
             pushEach(adminRoles(), timelock);
             pushEach(operationalRoles(), minter);
@@ -58,11 +55,11 @@ contract LibIdealRolesTest is Test {
     }
 
     function testOrchestratorLists() external {
-        uint256[] memory ids = LibIdealRoles.chainIds();
+        SupportedNetwork[] memory nets = networks();
         address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
-        for (uint256 c = 0; c < ids.length; c++) {
-            (address safe, address timelock) = principals(ids[c]);
-            ContractRoles memory roles = LibIdealRoles.contractRoles(ids[c])[2];
+        for (uint256 c = 0; c < nets.length; c++) {
+            (address safe, address timelock) = principals(nets[c].chainId);
+            ContractRoles memory roles = LibIdealRoles.contractRoles(nets[c].chainId)[2];
             assertEq(roles.target, LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
 
             want.push(RoleGrant(bytes32(0), timelock));
@@ -74,10 +71,10 @@ contract LibIdealRolesTest is Test {
     }
 
     function testTimelockLists() external {
-        uint256[] memory ids = LibIdealRoles.chainIds();
-        for (uint256 c = 0; c < ids.length; c++) {
-            (address safe, address timelock) = principals(ids[c]);
-            ContractRoles memory roles = LibIdealRoles.contractRoles(ids[c])[3];
+        SupportedNetwork[] memory nets = networks();
+        for (uint256 c = 0; c < nets.length; c++) {
+            (address safe, address timelock) = principals(nets[c].chainId);
+            ContractRoles memory roles = LibIdealRoles.contractRoles(nets[c].chainId)[3];
             assertEq(roles.target, timelock);
 
             push("PROPOSER_ROLE", safe);
@@ -85,6 +82,20 @@ contract LibIdealRolesTest is Test {
             want.push(RoleGrant(bytes32(0), timelock));
             push("EXECUTOR_ROLE", address(0));
             assertWant(roles.expected);
+        }
+    }
+
+    function testOrchestratorRoleIdsAreTheInstanceGetters() external {
+        SupportedNetwork[] memory nets = networks();
+        address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
+        for (uint256 c = 0; c < nets.length; c++) {
+            vm.createSelectFork(nets[c].name);
+            ST0xOrchestrator instance = ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
+            (address safe,) = principals(nets[c].chainId);
+            RoleGrant[] memory expected = LibIdealRoles.contractRoles(nets[c].chainId)[2].expected;
+            assertTrue(contains(expected, RoleGrant(instance.MINT_ROLE(), signer)));
+            assertTrue(contains(expected, RoleGrant(instance.BURN_ROLE(), signer)));
+            assertTrue(contains(expected, RoleGrant(instance.EMERGENCY_ROLE(), safe)));
         }
     }
 
