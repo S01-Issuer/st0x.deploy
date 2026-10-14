@@ -4,6 +4,9 @@ on:
     paths:
       - 'foundry.toml'
       - 'soldeer.lock'
+      - 'remappings.txt'
+      - 'flake.nix'
+      - 'flake.lock'
       - 'script/timelock-verify.sh'
       - '.github/workflows/timelock-verify-check.yaml'
       - '.github/workflows/manual-broadcast.yaml'
