@@ -38,7 +38,9 @@ contract ST0xOrchestratorProdTest is Test {
         assertTrue(tokens.length > 0, "no production tokens");
         for (uint256 i = 0; i < tokens.length; i++) {
             vm.expectRevert(err);
-            orchestrator.mint(tokens[i].receiptVault, address(this), 0, MintAuthV1({nonce: bytes32(i), signature: ""}), "");
+            orchestrator.mint(
+                tokens[i].receiptVault, address(this), 0, MintAuthV1({nonce: bytes32(i), signature: ""}), ""
+            );
             vm.expectRevert(err);
             orchestrator.burn(tokens[i].receiptVault, 0, "");
         }
@@ -79,9 +81,7 @@ contract ST0xOrchestratorProdTest is Test {
         _upgradeBeacon(beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX], LibProdDeployCurrent.STOX_RECEIPT);
 
         assertTrue(orchestrator.vaultLogicIsExpected(), "live after lockstep upgrade");
-        _assertEveryTokenReverts(
-            orchestrator, tokens, abi.encodeWithSelector(IST0xOrchestratorV1.ZeroAmount.selector)
-        );
+        _assertEveryTokenReverts(orchestrator, tokens, abi.encodeWithSelector(IST0xOrchestratorV1.ZeroAmount.selector));
     }
 
     function testBaseInertUntilLockstepUpgrade() external {

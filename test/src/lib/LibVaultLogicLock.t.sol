@@ -39,7 +39,9 @@ contract LibVaultLogicLockTest is Test {
         assertTrue(tokens.length > 0, "no production tokens");
         for (uint256 i = 0; i < tokens.length; i++) {
             assertEq(
-                address(ReceiptVault(payable(tokens[i].receiptVault)).receipt()), tokens[i].receipt, tokens[i].underlying
+                address(ReceiptVault(payable(tokens[i].receiptVault)).receipt()),
+                tokens[i].receipt,
+                tokens[i].underlying
             );
             harness.checkToken(tokens[i].receiptVault, VAULT_IMPL, RECEIPT_IMPL);
         }
@@ -51,8 +53,9 @@ contract LibVaultLogicLockTest is Test {
     }
 
     function _assertRefusals(TokenInstance memory token) internal {
-        bytes32 vaultPin =
-            LibBeaconInvariants.prodProxyCodehashesForChainId(block.chainid)[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX];
+        bytes32 vaultPin = LibBeaconInvariants.prodProxyCodehashesForChainId(
+            block.chainid
+        )[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX];
         address[2] memory notVaults = [token.wrappedTokenVault, token.receipt];
         for (uint256 i = 0; i < notVaults.length; i++) {
             vm.expectRevert(
