@@ -98,7 +98,7 @@ type Role @entity {
   admin: Bytes!
   "How many accounts hold the role right now."
   holderCount: Int!
-  "Every account that has ever held the role. Filter on `held` for the current set."
+  "Every account a grant or revoke named for this role; `grantedAtBlock` is null when the grant predates indexing. Filter on `held` for the current set."
   holders: [RoleHolder!]! @derivedFrom(field: "role")
   "Grant and revoke history, oldest first by `blockNumber`."
   grantEvents: [RoleGrant!]! @derivedFrom(field: "role")
