@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {IGnosisSafe} from "../interface/IGnosisSafe.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
+import {LibSafe} from "rain-deploy-0.1.18/src/lib/LibSafe.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
@@ -41,8 +42,10 @@ library LibInvariants {
     /// post-state re-check after it has simulated `changeThreshold`); the
     /// no-arg overload fills in the `LibSafeInvariants`-pinned defaults.
     /// @param safe The Safe to validate against the pinned current truth.
-    function assertAll(IGnosisSafe safe) internal view {
-        LibSafeInvariants.assertAll(safe);
+    function assertAll(Safe safe) internal view {
+        LibSafe.assertLockedDown(safe);
+        LibSafe.assertOwnersInOrder(safe, LibSafeInvariants.expectedOwners());
+        LibSafe.assertThreshold(safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
         LibTimelockInvariants.assertTimelockState(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, address(safe));
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(LibSafeInvariants.BASE_CHAIN_ID);
         LibTokenInvariants.assertAll(
@@ -104,8 +107,10 @@ library LibInvariants {
     /// @param safe The Safe to validate.
     /// @param expectedThreshold The expected signature threshold.
     /// @param expectedOwners The expected owner set in `getOwners()` order.
-    function assertAll(IGnosisSafe safe, uint256 expectedThreshold, address[] memory expectedOwners) internal view {
-        LibSafeInvariants.assertAll(safe, expectedThreshold, expectedOwners);
+    function assertAll(Safe safe, uint256 expectedThreshold, address[] memory expectedOwners) internal view {
+        LibSafe.assertLockedDown(safe);
+        LibSafe.assertOwnersInOrder(safe, expectedOwners);
+        LibSafe.assertThreshold(safe, expectedThreshold);
         LibTimelockInvariants.assertTimelockState(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, address(safe));
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(LibSafeInvariants.BASE_CHAIN_ID);
         LibTokenInvariants.assertAll(

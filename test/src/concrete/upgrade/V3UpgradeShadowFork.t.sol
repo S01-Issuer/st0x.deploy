@@ -13,14 +13,14 @@ import {LibProdDeployCurrent} from "../../../../src/generated/LibProdDeployCurre
 import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibTokenInvariants} from "../../../../src/lib/LibTokenInvariants.sol";
-import {LibSafeOps, IUpgradeableBeacon} from "../../../../src/lib/LibSafeOps.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {
     ICorporateActionsV1,
     ACTION_TYPE_STOCK_SPLIT_V1,
     VALID_ACTION_TYPES_MASK
 } from "../../../../src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "../../../../src/lib/LibCorporateActionNode.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 import {IReceiptVaultV3} from "rain-vats-0.2.4/src/interface/IReceiptVaultV3.sol";
 import {IReceiptV3} from "rain-vats-0.2.4/src/interface/IReceiptV3.sol";
 import {IAuthorizableV1} from "rain-vats-0.2.4/src/interface/IAuthorizableV1.sol";
@@ -104,7 +104,7 @@ contract V3UpgradeShadowForkTest is Test {
         //    impl. In production this is a timelock operation; the shadow
         //    fork exercises the upgrade's effect, not the delay.
         vm.prank(LibBeaconInvariants.PROD_BEACON_OWNER);
-        IUpgradeableBeacon(BEACON).upgradeTo(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1);
+        UpgradeableBeacon(BEACON).upgradeTo(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1);
     }
 
     /// @notice Read the EIP-1967 beacon address from a proxy contract. Mirrors
