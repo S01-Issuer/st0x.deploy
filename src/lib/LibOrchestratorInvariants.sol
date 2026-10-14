@@ -9,7 +9,7 @@ import {LibStoxMigrations} from "./LibStoxMigrations.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
-import {RoleGrant} from "./RoleGrant.sol";
+import {RoleGrant, ForbiddenGrantHeld} from "./RoleGrant.sol";
 import {IST0xOrchestratorV1} from "../interface/IST0xOrchestratorV1.sol";
 import {ST0xOrchestrator} from "../concrete/ST0xOrchestrator.sol";
 
@@ -34,13 +34,6 @@ error OrchestratorInstanceMissing(address instance);
 /// @param instance The orchestrator instance inspected.
 /// @param expectedAdmin The address that must hold `DEFAULT_ADMIN_ROLE`.
 error OrchestratorAdminMissing(address instance, address expectedAdmin);
-
-/// @notice An address holds a role on the orchestrator instance that the
-/// recorded migrations say it must not.
-/// @param instance The orchestrator instance inspected.
-/// @param role The role.
-/// @param holder The address that holds it.
-error OrchestratorUnexpectedRoleHolder(address instance, bytes32 role, address holder);
 
 /// @notice An address the recorded migrations say holds a role on the
 /// orchestrator instance does not.
@@ -120,24 +113,11 @@ library LibOrchestratorInvariants {
 
     /// @notice Assert the pinned orchestrator instance on the active chain:
     /// it has code, its vault-logic version lock passes (so `mint`/`burn`
-    /// are operable), and its roles are exactly what the migrations the
-    /// chain's Safe has recorded imply:
-    ///
-    /// - `DEFAULT_ADMIN_ROLE` is held by the governance timelock and not the
-    ///   Safe once `ORCHESTRATOR_ADMIN_TO_TIMELOCK` is recorded, and by the
-    ///   Safe and not the timelock before.
-    /// - `EMERGENCY_ROLE` is held by the Safe once `ORCHESTRATOR_EMERGENCY`
-    ///   is recorded, and not before. The timelock never holds it: recovery
-    ///   is an operation, not admin power.
-    /// - Neither principal holds `MINT_ROLE` or `BURN_ROLE`: those are the
-    ///   service signers' operations.
-    /// - `DEFAULT_ADMIN_ROLE`, `MINT_ROLE`, `BURN_ROLE` and `EMERGENCY_ROLE`
-    ///   are administered by `DEFAULT_ADMIN_ROLE`, so whoever holds it
-    ///   decides every grant.
-    ///
-    /// Role membership is not enumerable on the orchestrator, so only the
-    /// two governance principals are checked; any other holder is invisible
-    /// here.
+    /// are operable), every role is administered by `DEFAULT_ADMIN_ROLE`,
+    /// and its roles are `forbiddenGrants` and `expectedGrants` as far as
+    /// the migrations the chain's Safe has recorded reach: a pair
+    /// `movingMigration` names is in its prior state until that migration is
+    /// recorded, and an expected pair no migration moves is not asserted.
     /// @param chainSafe The chain's token-owner Safe, which is also the
     /// writer of the migration records.
     function assertInstance(address chainSafe) internal view {
@@ -152,42 +132,50 @@ library LibOrchestratorInvariants {
         IAccessControl acl = IAccessControl(instance);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
 
-        // The role ids are the orchestrator's own constants, read from the
-        // instance so they are the ones the deployed implementation enforces.
-        bytes32 mintRole = ST0xOrchestrator(payable(instance)).MINT_ROLE();
-        bytes32 burnRole = ST0xOrchestrator(payable(instance)).BURN_ROLE();
-        bytes32 emergencyRole = ST0xOrchestrator(payable(instance)).EMERGENCY_ROLE();
-
-        // DEFAULT_ADMIN_ROLE is 0x00 in OZ AccessControl.
-        bool adminMoved = LibStoxMigrations.applied(chainSafe, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) != 0;
-        if (adminMoved) {
-            assertHolds(acl, bytes32(0), timelock);
-            assertDoesNotHold(acl, bytes32(0), chainSafe);
-        } else {
-            assertHolds(acl, bytes32(0), chainSafe);
-            assertDoesNotHold(acl, bytes32(0), timelock);
+        RoleGrant[] memory forbidden = forbiddenGrants(chainSafe, timelock);
+        for (uint256 i = 0; i < forbidden.length; i++) {
+            bytes32 migration = movingMigration(chainSafe, forbidden[i]);
+            if (migration != bytes32(0) && LibStoxMigrations.applied(chainSafe, migration) == 0) {
+                assertHolds(acl, forbidden[i]);
+            } else {
+                assertDoesNotHold(acl, forbidden[i]);
+            }
         }
 
-        if (LibStoxMigrations.applied(chainSafe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) != 0) {
-            assertHolds(acl, emergencyRole, chainSafe);
-        } else {
-            assertDoesNotHold(acl, emergencyRole, chainSafe);
+        RoleGrant[] memory expected = expectedGrants(chainSafe, timelock);
+        for (uint256 i = 0; i < expected.length; i++) {
+            bytes32 migration = movingMigration(chainSafe, expected[i]);
+            if (migration == bytes32(0)) {
+                continue;
+            }
+            if (LibStoxMigrations.applied(chainSafe, migration) != 0) {
+                assertHolds(acl, expected[i]);
+            } else {
+                assertDoesNotHold(acl, expected[i]);
+            }
         }
-        assertDoesNotHold(acl, emergencyRole, timelock);
 
-        // Minting and burning are the service signers' operations; neither
-        // governance principal ever holds them.
-        assertDoesNotHold(acl, mintRole, chainSafe);
-        assertDoesNotHold(acl, mintRole, timelock);
-        assertDoesNotHold(acl, burnRole, chainSafe);
-        assertDoesNotHold(acl, burnRole, timelock);
-
-        // `DEFAULT_ADMIN_ROLE` must administer itself, or a holder of its admin
-        // role could take it without the governance principal.
         assertAdministeredByDefaultAdmin(acl, bytes32(0));
-        assertAdministeredByDefaultAdmin(acl, mintRole);
-        assertAdministeredByDefaultAdmin(acl, burnRole);
-        assertAdministeredByDefaultAdmin(acl, emergencyRole);
+        assertAdministeredByDefaultAdmin(acl, ST0xOrchestrator(payable(instance)).MINT_ROLE());
+        assertAdministeredByDefaultAdmin(acl, ST0xOrchestrator(payable(instance)).BURN_ROLE());
+        assertAdministeredByDefaultAdmin(acl, ST0xOrchestrator(payable(instance)).EMERGENCY_ROLE());
+    }
+
+    /// @notice The recorded migration that moves `grant` into its ideal
+    /// state: `ORCHESTRATOR_ADMIN_TO_TIMELOCK` for either principal's
+    /// `DEFAULT_ADMIN_ROLE`, `ORCHESTRATOR_EMERGENCY` for the Safe's
+    /// `EMERGENCY`, and zero for every other pair.
+    /// @param chainSafe The chain's token-owner Safe.
+    /// @param grant The pair.
+    /// @return The migration, or zero.
+    function movingMigration(address chainSafe, RoleGrant memory grant) private pure returns (bytes32) {
+        if (grant.role == bytes32(0)) {
+            return LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK;
+        }
+        if (grant.role == keccak256("EMERGENCY") && grant.grantee == chainSafe) {
+            return LibStoxMigrations.ORCHESTRATOR_EMERGENCY;
+        }
+        return bytes32(0);
     }
 
     /// @notice The pairs the orchestrator instance must carry.
@@ -218,26 +206,24 @@ library LibOrchestratorInvariants {
         return grants;
     }
 
-    /// @notice Revert unless `holder` holds `role` on the instance.
+    /// @notice Revert unless the instance carries `grant`.
     /// @param acl The instance's access-control surface.
-    /// @param role The role.
-    /// @param holder The address that must hold it.
-    function assertHolds(IAccessControl acl, bytes32 role, address holder) private view {
-        if (!acl.hasRole(role, holder)) {
-            if (role == bytes32(0)) {
-                revert OrchestratorAdminMissing(address(acl), holder);
+    /// @param grant The pair.
+    function assertHolds(IAccessControl acl, RoleGrant memory grant) private view {
+        if (!acl.hasRole(grant.role, grant.grantee)) {
+            if (grant.role == bytes32(0)) {
+                revert OrchestratorAdminMissing(address(acl), grant.grantee);
             }
-            revert OrchestratorRoleMissing(address(acl), role, holder);
+            revert OrchestratorRoleMissing(address(acl), grant.role, grant.grantee);
         }
     }
 
-    /// @notice Revert if `holder` holds `role` on the instance.
+    /// @notice Revert if the instance carries `grant`.
     /// @param acl The instance's access-control surface.
-    /// @param role The role.
-    /// @param holder The address that must not hold it.
-    function assertDoesNotHold(IAccessControl acl, bytes32 role, address holder) private view {
-        if (acl.hasRole(role, holder)) {
-            revert OrchestratorUnexpectedRoleHolder(address(acl), role, holder);
+    /// @param grant The pair.
+    function assertDoesNotHold(IAccessControl acl, RoleGrant memory grant) private view {
+        if (acl.hasRole(grant.role, grant.grantee)) {
+            revert ForbiddenGrantHeld(address(acl), grant.role, grant.grantee);
         }
     }
 

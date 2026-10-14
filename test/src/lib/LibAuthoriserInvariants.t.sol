@@ -10,11 +10,9 @@ import {
     AuthoriserNotReady,
     UnsupportedChainForAuthoriser,
     ExpectedGrantMissing,
-    UnexpectedDefaultAdmin,
-    UnexpectedRetainedAdminGrant,
-    UnexpectedRetiredSignerGrant,
     AuthoriserImplCodehashMismatch
 } from "../../../src/lib/LibAuthoriserInvariants.sol";
+import {ForbiddenGrantHeld} from "../../../src/lib/RoleGrant.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
@@ -185,7 +183,7 @@ contract LibAuthoriserInvariantsTest is Test {
         harness.callAssertAll();
     }
 
-    /// @notice `assertExpectedGrants` reverts `UnexpectedDefaultAdmin` when a
+    /// @notice `assertExpectedGrants` reverts `ForbiddenGrantHeld` when a
     /// pinned grantee holds `DEFAULT_ADMIN_ROLE`.
     function testAssertExpectedGrantsRejectsDefaultAdmin() external {
         selectBaseFork();
@@ -200,7 +198,7 @@ contract LibAuthoriserInvariantsTest is Test {
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
         vm.expectRevert(
             abi.encodeWithSelector(
-                UnexpectedDefaultAdmin.selector, clone, LibAuthoriserInvariants.GRANTEE_TOKEN_OWNER_SAFE
+                ForbiddenGrantHeld.selector, clone, bytes32(0), LibAuthoriserInvariants.GRANTEE_TOKEN_OWNER_SAFE
             )
         );
         harness.callAssertExpectedGrants(clone);
@@ -262,7 +260,7 @@ contract LibAuthoriserInvariantsTest is Test {
         vm.mockCall(
             clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, grants[0].role, safe), abi.encode(true)
         );
-        vm.expectRevert(abi.encodeWithSelector(UnexpectedRetainedAdminGrant.selector, clone, grants[0].role, safe));
+        vm.expectRevert(abi.encodeWithSelector(ForbiddenGrantHeld.selector, clone, grants[0].role, safe));
         harness.callAssertExpectedGrants(clone, safe, timelock);
         vm.clearMockedCalls();
 
@@ -288,13 +286,13 @@ contract LibAuthoriserInvariantsTest is Test {
                 clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, grants[i].role, safe), abi.encode(true)
             );
         }
-        vm.expectRevert(abi.encodeWithSelector(UnexpectedRetainedAdminGrant.selector, clone, grants[0].role, safe));
+        vm.expectRevert(abi.encodeWithSelector(ForbiddenGrantHeld.selector, clone, grants[0].role, safe));
         harness.callAssertExpectedGrants(clone, safe, safe);
     }
 
     /// @notice A re-grant to the retired signer is refused: the revocation
     /// is pinned as an absence, so any action role landing back on
-    /// `GRANTEE_SERVICE_1C66` red-lines with `UnexpectedRetiredSignerGrant`
+    /// `GRANTEE_SERVICE_1C66` red-lines with `ForbiddenGrantHeld`
     /// naming the role.
     function testAssertExpectedGrantsRefusesARetiredSignerRegrant() external {
         selectBaseFork();
@@ -308,7 +306,11 @@ contract LibAuthoriserInvariantsTest is Test {
             ),
             abi.encode(true)
         );
-        vm.expectRevert(abi.encodeWithSelector(UnexpectedRetiredSignerGrant.selector, clone, keccak256("WITHDRAW")));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ForbiddenGrantHeld.selector, clone, keccak256("WITHDRAW"), LibAuthoriserInvariants.GRANTEE_SERVICE_1C66
+            )
+        );
         harness.callAssertExpectedGrants(clone);
     }
 
@@ -345,7 +347,7 @@ contract LibAuthoriserInvariantsTest is Test {
 
     /// @notice The orchestrator is a pinned grantee, so it joins the
     /// `DEFAULT_ADMIN_ROLE` negative: root admin on the orchestrator
-    /// red-lines as `UnexpectedDefaultAdmin` naming it.
+    /// red-lines as `ForbiddenGrantHeld` naming it.
     function testAssertExpectedGrantsRejectsOrchestratorDefaultAdmin() external {
         selectBaseFork();
         address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
@@ -354,7 +356,7 @@ contract LibAuthoriserInvariantsTest is Test {
             clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, bytes32(0), orchestrator), abi.encode(true)
         );
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
-        vm.expectRevert(abi.encodeWithSelector(UnexpectedDefaultAdmin.selector, clone, orchestrator));
+        vm.expectRevert(abi.encodeWithSelector(ForbiddenGrantHeld.selector, clone, bytes32(0), orchestrator));
         harness.callAssertExpectedGrants(clone);
     }
 }

@@ -9,7 +9,8 @@ import {LibMigrationRegistry} from "rain-deploy-0.1.18/src/lib/LibMigrationRegis
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistryDeploy.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 
-import {LibAuthoriserInvariants, UnexpectedRetainedAdminGrant} from "../../../../src/lib/LibAuthoriserInvariants.sol";
+import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
+import {ForbiddenGrantHeld} from "../../../../src/lib/RoleGrant.sol";
 import {LibEuAuthoriserClone} from "../../../../src/lib/LibEuAuthoriserClone.sol";
 import {LibRbacMigration} from "../../../../src/lib/LibRbacMigration.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
@@ -97,7 +98,7 @@ contract EuAuthoriserProdTest is Test {
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         bytes32 role = keccak256("DEPOSIT_ADMIN");
         vm.mockCall(clone, abi.encodeCall(IAccessControl.hasRole, (role, safe)), abi.encode(true));
-        vm.expectRevert(abi.encodeWithSelector(UnexpectedRetainedAdminGrant.selector, clone, role, safe));
+        vm.expectRevert(abi.encodeWithSelector(ForbiddenGrantHeld.selector, clone, role, safe));
         this.externalAssertChainEuAuthoriser();
     }
 

@@ -13,9 +13,9 @@ import {
     LibOrchestratorInvariants,
     OrchestratorAdminMissing,
     OrchestratorRoleAdminUnexpected,
-    OrchestratorRoleMissing,
-    OrchestratorUnexpectedRoleHolder
+    OrchestratorRoleMissing
 } from "../../../src/lib/LibOrchestratorInvariants.sol";
+import {ForbiddenGrantHeld} from "../../../src/lib/RoleGrant.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {BeaconOwnerMismatch} from "../../../src/lib/LibBeaconInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
@@ -168,11 +168,7 @@ contract LibOrchestratorInvariantsTest is Test {
     function testEmergencyGrantedWithoutRecordTrips() external {
         selectScenarioFork();
         grantEmergencyToSafe();
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                OrchestratorUnexpectedRoleHolder.selector, address(orchestrator), emergencyRole, safe
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(ForbiddenGrantHeld.selector, address(orchestrator), emergencyRole, safe));
         harness.callAssertInstance(safe);
     }
 
@@ -195,9 +191,7 @@ contract LibOrchestratorInvariantsTest is Test {
         vm.prank(safe);
         orchestrator.grantRole(emergencyRole, timelock);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                OrchestratorUnexpectedRoleHolder.selector, address(orchestrator), emergencyRole, timelock
-            )
+            abi.encodeWithSelector(ForbiddenGrantHeld.selector, address(orchestrator), emergencyRole, timelock)
         );
         harness.callAssertInstance(safe);
     }
@@ -227,6 +221,17 @@ contract LibOrchestratorInvariantsTest is Test {
         selectScenarioFork();
         grantEmergencyToSafe();
         record(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
+        vm.expectRevert(abi.encodeWithSelector(ForbiddenGrantHeld.selector, address(orchestrator), bytes32(0), safe));
+        harness.callAssertInstance(safe);
+    }
+
+    /// @notice Admin recorded as moved while the timelock does not hold it.
+    function testAdminRecordedWithoutTimelockAdminTrips() external {
+        selectScenarioFork();
+        grantEmergencyToSafe();
+        record(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
+        vm.prank(safe);
+        orchestrator.renounceRole(bytes32(0), safe);
         vm.expectRevert(abi.encodeWithSelector(OrchestratorAdminMissing.selector, address(orchestrator), timelock));
         harness.callAssertInstance(safe);
     }
@@ -240,9 +245,7 @@ contract LibOrchestratorInvariantsTest is Test {
         vm.prank(safe);
         orchestrator.grantRole(bytes32(0), timelock);
         record(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
-        vm.expectRevert(
-            abi.encodeWithSelector(OrchestratorUnexpectedRoleHolder.selector, address(orchestrator), bytes32(0), safe)
-        );
+        vm.expectRevert(abi.encodeWithSelector(ForbiddenGrantHeld.selector, address(orchestrator), bytes32(0), safe));
         harness.callAssertInstance(safe);
     }
 
@@ -252,9 +255,7 @@ contract LibOrchestratorInvariantsTest is Test {
         vm.prank(safe);
         orchestrator.grantRole(bytes32(0), timelock);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                OrchestratorUnexpectedRoleHolder.selector, address(orchestrator), bytes32(0), timelock
-            )
+            abi.encodeWithSelector(ForbiddenGrantHeld.selector, address(orchestrator), bytes32(0), timelock)
         );
         harness.callAssertInstance(safe);
     }
@@ -293,9 +294,7 @@ contract LibOrchestratorInvariantsTest is Test {
                 vm.prank(safe);
                 orchestrator.grantRole(roles[i], holder);
                 vm.expectRevert(
-                    abi.encodeWithSelector(
-                        OrchestratorUnexpectedRoleHolder.selector, address(orchestrator), roles[i], holder
-                    )
+                    abi.encodeWithSelector(ForbiddenGrantHeld.selector, address(orchestrator), roles[i], holder)
                 );
                 harness.callAssertInstance(safe);
             }
@@ -317,9 +316,7 @@ contract LibOrchestratorInvariantsTest is Test {
                 vm.prank(timelock);
                 orchestrator.grantRole(roles[r], holder);
                 vm.expectRevert(
-                    abi.encodeWithSelector(
-                        OrchestratorUnexpectedRoleHolder.selector, address(orchestrator), roles[r], holder
-                    )
+                    abi.encodeWithSelector(ForbiddenGrantHeld.selector, address(orchestrator), roles[r], holder)
                 );
                 harness.callAssertInstance(safe);
             }
