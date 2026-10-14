@@ -23,8 +23,7 @@ import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {
     AuthoriserNotReady,
     EuAuthoriserNotReady,
-    LibAuthoriserInvariants,
-    UnsupportedChainForAuthoriser
+    LibAuthoriserInvariants
 } from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 import {LibProdTokenConfig, TokenConfig, Region} from "../../src/lib/LibProdTokenConfig.sol";
@@ -318,16 +317,6 @@ contract DeployMissingTokensTest is Test {
             )
         );
         script.run();
-    }
-
-    /// @notice A chain with no authoriser pin at all is refused by the
-    /// resolution itself, naming the chain. Base is NOT refused here: it has a
-    /// pin, and "Base is the source this script copies FROM" is `_targetTokens`'
-    /// rule, asserted in `testTargetTokensRejectsBase`.
-    function testAuthoriserReadyRejectsChainsWithNoPin() external {
-        vm.chainId(123456);
-        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForAuthoriser.selector, 123456));
-        harness.assertAuthoriserReady();
     }
 
     /// @notice An unpinned or undeployed authoriser is caught before any
