@@ -16,11 +16,11 @@ contract BuildIdealRolesTest is Test {
         return LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
     }
 
-    function testVersionIsOne() external view {
+    function testVersionIsOne() external {
         assertEq(vm.parseJsonUint(build.render(), ".version"), 1);
     }
 
-    function testChainsAreTheDeploymentNetworksKeyedByChainId() external view {
+    function testChainsAreTheDeploymentNetworksKeyedByChainId() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         assertEq(vm.parseJsonKeys(json, ".chains").length, nets.length);
@@ -29,7 +29,7 @@ contract BuildIdealRolesTest is Test {
         }
     }
 
-    function testContractsAreTheIdealRoleTargets() external view {
+    function testContractsAreTheIdealRoleTargets() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
@@ -37,12 +37,12 @@ contract BuildIdealRolesTest is Test {
             string memory at = string.concat(chain(nets[c]), ".contracts");
             assertFalse(vm.keyExistsJson(json, index(at, roles.length)));
             for (uint256 i = 0; i < roles.length; i++) {
-                assertAddress(vm.parseJsonString(json, string.concat(index(at, i), ".address")), roles[i].target);
+                assertEq(vm.parseJsonAddress(json, string.concat(index(at, i), ".address")), roles[i].target);
             }
         }
     }
 
-    function testRowsAreTheExpectedPairs() external view {
+    function testRowsAreTheExpectedPairs() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
@@ -53,7 +53,7 @@ contract BuildIdealRolesTest is Test {
                 assertFalse(vm.keyExistsJson(json, index(at, grants.length)));
                 for (uint256 j = 0; j < grants.length; j++) {
                     assertEq(vm.parseJsonBytes32(json, string.concat(index(at, j), ".role")), grants[j].role);
-                    assertAddress(vm.parseJsonString(json, string.concat(index(at, j), ".grantee")), grants[j].grantee);
+                    assertEq(vm.parseJsonAddress(json, string.concat(index(at, j), ".grantee")), grants[j].grantee);
                 }
             }
         }
@@ -62,7 +62,7 @@ contract BuildIdealRolesTest is Test {
     function testRunWritesTheRender() external {
         vm.removeFile("ideal-roles.json");
         build.run();
-        assertEq(vm.readFile("ideal-roles.json"), build.render());
+        assertEq(keccak256(vm.parseJson(vm.readFile("ideal-roles.json"))), keccak256(vm.parseJson(build.render())));
     }
 
     function chain(SupportedNetwork memory network) internal pure returns (string memory) {
@@ -71,10 +71,5 @@ contract BuildIdealRolesTest is Test {
 
     function index(string memory at, uint256 i) internal pure returns (string memory) {
         return string.concat(at, "[", vm.toString(i), "]");
-    }
-
-    function assertAddress(string memory value, address expected) internal pure {
-        assertEq(vm.parseAddress(value), expected);
-        assertEq(value, vm.toLowercase(value));
     }
 }

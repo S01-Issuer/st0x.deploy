@@ -13,60 +13,42 @@ import {RoleGrant} from "../src/lib/RoleGrant.sol";
 contract BuildIdealRoles is Script {
     string internal constant PATH = "ideal-roles.json";
 
-    function hex20(address a) internal pure returns (string memory) {
-        return vm.toLowercase(vm.toString(a));
-    }
-
-    function grantsJson(RoleGrant[] memory grants) internal pure returns (string memory) {
-        string memory json = "[";
+    function grantsJson(string memory key, RoleGrant[] memory grants) internal returns (string[] memory) {
+        string[] memory rows = new string[](grants.length);
         for (uint256 i = 0; i < grants.length; i++) {
-            json = string.concat(
-                json,
-                i == 0 ? "\n" : ",\n",
-                "            {\n              \"role\": \"",
-                vm.toString(grants[i].role),
-                "\",\n              \"grantee\": \"",
-                hex20(grants[i].grantee),
-                "\"\n            }"
-            );
+            string memory row = string.concat(key, ".", vm.toString(i));
+            vm.serializeBytes32(row, "role", grants[i].role);
+            rows[i] = vm.serializeAddress(row, "grantee", grants[i].grantee);
         }
-        return string.concat(json, grants.length == 0 ? "]" : "\n          ]");
+        return rows;
     }
 
-    function chainJson(SupportedNetwork memory network) internal pure returns (string memory) {
+    function chainJson(SupportedNetwork memory network) internal returns (string memory) {
         ContractRoles[] memory roles = LibIdealRoles.contractRoles(network.chainId);
-        string memory json = string.concat(
-            "    \"",
-            vm.toString(network.chainId),
-            "\": {\n      \"network\": \"",
-            network.name,
-            "\",\n      \"contracts\": ["
-        );
+        string memory key = vm.toString(network.chainId);
+        string[] memory contracts = new string[](roles.length);
         for (uint256 i = 0; i < roles.length; i++) {
-            json = string.concat(
-                json,
-                i == 0 ? "\n" : ",\n",
-                "        {\n          \"address\": \"",
-                hex20(roles[i].target),
-                "\",\n          \"expected\": ",
-                grantsJson(roles[i].expected),
-                "\n        }"
-            );
+            string memory contractKey = string.concat(key, ".", vm.toString(i));
+            vm.serializeAddress(contractKey, "address", roles[i].target);
+            string[] memory rows = grantsJson(contractKey, roles[i].expected);
+            contracts[i] = vm.serializeString(contractKey, "expected", rows);
         }
-        return string.concat(json, "\n      ]\n    }");
+        vm.serializeString(key, "network", network.name);
+        return vm.serializeString(key, "contracts", contracts);
     }
 
-    function render() public pure returns (string memory) {
+    function render() public returns (string memory) {
         SupportedNetwork[] memory networks =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
-        string memory out = "{\n  \"version\": 1,\n  \"chains\": {";
+        string memory chains;
         for (uint256 i = 0; i < networks.length; i++) {
-            out = string.concat(out, i == 0 ? "\n" : ",\n", chainJson(networks[i]));
+            chains = vm.serializeString("chains", vm.toString(networks[i].chainId), chainJson(networks[i]));
         }
-        return string.concat(out, "\n  }\n}\n");
+        vm.serializeUint("root", "version", 1);
+        return vm.serializeString("root", "chains", chains);
     }
 
     function run() external {
-        vm.writeFile(PATH, render());
+        vm.writeJson(render(), PATH);
     }
 }
