@@ -5,7 +5,9 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
-import {IST0xVaultBeaconSet} from "../../../src/interface/IST0xVaultBeaconSet.sol";
+import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
+import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {UnsupportedChainForProdBeacons} from "../../../src/lib/LibBeaconInvariants.sol";
 import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../../../src/interface/IST0xOrchestratorV1.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 
@@ -23,6 +25,7 @@ import {Mock1271} from "./Mock1271.sol";
 import {MockMintRecipient} from "./MockMintRecipient.sol";
 import {ReentrantMintRecipient} from "./ReentrantMintRecipient.sol";
 import {ReentrantBurnVault} from "./ReentrantBurnVault.sol";
+import {ReceiptReentrantVault} from "./ReceiptReentrantVault.sol";
 import {MockManagerRevert1155} from "./MockManagerRevert1155.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin-contracts-5.7.0/utils/ReentrancyGuardTransient.sol";
 import {OffchainAssetReceiptVault} from "rain-vats-0.2.4/src/concrete/vault/OffchainAssetReceiptVault.sol";
@@ -61,13 +64,10 @@ contract ST0xOrchestratorTest is Test {
     /// Default admin passed to `initialize`.
     address internal constant OWNER = address(0x0FFCE);
 
-    /// The vault-version guard reads these fixed production addresses. The
-    /// orchestrator's `_checkVaultLogic` reads the current-release (candidate) pins,
-    /// so the mocks target the candidate deployer and impls.
-    address internal constant DEPLOYER =
-        LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE;
-    address internal constant VAULT_BEACON = address(0xBEAC04);
-    address internal constant RECEIPT_BEACON = address(0xBEAC12);
+    /// The tests run on Base, so the vault-logic lock reads Base's production
+    /// beacons and expects the current-release (candidate) impls.
+    address internal constant VAULT_BEACON = LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1;
+    address internal constant RECEIPT_BEACON = LibProdDeployV1.STOX_RECEIPT_BEACON_V1;
     address internal constant EXPECTED_VAULT_IMPL = LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE;
     address internal constant EXPECTED_RECEIPT_IMPL = LibProdDeployV4.STOX_RECEIPT_CANDIDATE;
 
@@ -79,11 +79,18 @@ contract ST0xOrchestratorTest is Test {
     ST0xOrchestrator internal orchestrator;
 
     function setUp() public {
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         impl = new ST0xOrchestrator();
-        // `initialize` runs the vault-logic guard, so the guard mocks must be
-        // in place BEFORE the proxy is deployed.
-        _makeGuardPass();
         orchestrator = _deployProxy(OWNER);
+        vm.etch(VAULT_BEACON, hex"00");
+        vm.etch(RECEIPT_BEACON, hex"00");
+        vm.etch(EXPECTED_VAULT_IMPL, hex"00");
+        vm.etch(EXPECTED_RECEIPT_IMPL, hex"00");
+        _makeGuardPass();
+        _etchProxy(TOKEN, VAULT_BEACON);
+        _etchProxy(TOKEN2, VAULT_BEACON);
+        _etchProxy(RECEIPT_ADDR, RECEIPT_BEACON);
+        _etchProxy(RECEIPT_ADDR2, RECEIPT_BEACON);
         _mockVaultTopology(TOKEN, RECEIPT_ADDR);
         _mockVaultTopology(TOKEN2, RECEIPT_ADDR2);
     }
@@ -101,17 +108,15 @@ contract ST0xOrchestratorTest is Test {
         return ST0xOrchestrator(payable(address(proxy)));
     }
 
-    /// Make the vault-logic version guard PASS: the deployer resolves each
-    /// beacon and each beacon reports the expected implementation.
+    /// Put a `BeaconProxy` of `beacon` at `at`, byte-identical to a
+    /// production proxy when `beacon` is a production beacon.
+    function _etchProxy(address at, address beacon) internal {
+        vm.etch(at, address(new BeaconProxy(beacon, "")).code);
+    }
+
+    /// Make the vault-logic version guard PASS: each production beacon
+    /// reports the expected implementation.
     function _makeGuardPass() internal {
-        vm.mockCall(
-            DEPLOYER,
-            abi.encodeWithSelector(IST0xVaultBeaconSet.iOffchainAssetReceiptVaultBeacon.selector),
-            abi.encode(VAULT_BEACON)
-        );
-        vm.mockCall(
-            DEPLOYER, abi.encodeWithSelector(IST0xVaultBeaconSet.iReceiptBeacon.selector), abi.encode(RECEIPT_BEACON)
-        );
         vm.mockCall(
             VAULT_BEACON, abi.encodeWithSelector(IBeacon.implementation.selector), abi.encode(EXPECTED_VAULT_IMPL)
         );
@@ -287,32 +292,14 @@ contract ST0xOrchestratorTest is Test {
         new BeaconProxy(address(beacon), initData);
     }
 
-    /// `initialize` runs the vault-logic guard, so a fresh proxy cannot be
-    /// deployed against unexpected vault logic — the `BeaconProxy`
-    /// constructor bubbles `VaultLogicMismatch` from the init delegatecall.
-    function testInitializeVaultGuardFailReverts() external {
+    /// An orchestrator deployed ahead of a fleet upgrade must initialise
+    /// against beacons serving other logic, and on a chain with no pins.
+    function testInitializeIgnoresVaultLogic() external {
         _makeGuardFailVault();
-        UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, (OWNER));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IST0xOrchestratorV1.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD)
-            )
-        );
-        new BeaconProxy(address(beacon), initData);
-    }
-
-    /// Same for the receipt leg of the guard.
-    function testInitializeReceiptGuardFailReverts() external {
         _makeGuardFailReceipt();
-        UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, (OWNER));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IST0xOrchestratorV1.ReceiptLogicMismatch.selector, EXPECTED_RECEIPT_IMPL, address(0xDEAD)
-            )
-        );
-        new BeaconProxy(address(beacon), initData);
+        assertTrue(_deployProxy(OWNER).hasRole(orchestrator.DEFAULT_ADMIN_ROLE(), OWNER), "mismatched beacons");
+        vm.chainId(31337);
+        assertTrue(_deployProxy(OWNER).hasRole(orchestrator.DEFAULT_ADMIN_ROLE(), OWNER), "unsupported chain");
     }
 
     function testDoubleInitializeReverts() external {
@@ -339,7 +326,7 @@ contract ST0xOrchestratorTest is Test {
         assertEq(orchestrator.EMERGENCY_ROLE(), keccak256("EMERGENCY"));
     }
 
-    function testFuzzMintUnauthorized(address caller) external {
+    function testFuzzMintUnauthorized(address caller, address token) external {
         vm.assume(!orchestrator.hasRole(orchestrator.MINT_ROLE(), caller));
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -347,10 +334,10 @@ contract ST0xOrchestratorTest is Test {
             )
         );
         vm.prank(caller);
-        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "");
+        orchestrator.mint(token, BOB, 1, _auth("", bytes32(0)), "");
     }
 
-    function testFuzzBurnUnauthorized(address caller) external {
+    function testFuzzBurnUnauthorized(address caller, address token) external {
         vm.assume(!orchestrator.hasRole(orchestrator.BURN_ROLE(), caller));
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -358,7 +345,7 @@ contract ST0xOrchestratorTest is Test {
             )
         );
         vm.prank(caller);
-        orchestrator.burn(TOKEN, 1, "");
+        orchestrator.burn(token, 1, "");
     }
 
     function testFuzzSetBurnIndexUnauthorized(address caller, uint256 newIndex) external {
@@ -648,6 +635,129 @@ contract ST0xOrchestratorTest is Test {
         orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "");
     }
 
+    /// A `BeaconProxy` of a lookalike beacon serving the expected vault logic.
+    function _lookalikeVaultProxy() internal returns (address) {
+        UpgradeableBeacon lookalike = new UpgradeableBeacon(EXPECTED_VAULT_IMPL, address(this));
+        address token = address(new BeaconProxy(address(lookalike), ""));
+        _mockVaultTopology(token, RECEIPT_ADDR);
+        return token;
+    }
+
+    /// A `BeaconProxy` of a lookalike beacon serving the expected receipt logic.
+    function _lookalikeReceiptProxy() internal returns (address) {
+        UpgradeableBeacon lookalike = new UpgradeableBeacon(EXPECTED_RECEIPT_IMPL, address(this));
+        return address(new BeaconProxy(address(lookalike), ""));
+    }
+
+    function _expectVaultProxyRefused(address token) internal {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IST0xOrchestratorV1.VaultProxyCodehashMismatch.selector,
+                token,
+                LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_PROXY_BASE_CODEHASH_V1,
+                token.codehash
+            )
+        );
+    }
+
+    function _expectReceiptProxyRefused(address receipt_) internal {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IST0xOrchestratorV1.ReceiptProxyCodehashMismatch.selector,
+                receipt_,
+                LibProdDeployV1.PROD_STOX_RECEIPT_PROXY_BASE_CODEHASH_V1,
+                receipt_.codehash
+            )
+        );
+    }
+
+    function testMintNonProductionTokenReverts() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        address token = _lookalikeVaultProxy();
+        _expectVaultProxyRefused(token);
+        orchestrator.mint(token, BOB, 1, _auth("", bytes32(0)), "");
+    }
+
+    function testBurnNonProductionTokenReverts() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        address token = _lookalikeVaultProxy();
+        _expectVaultProxyRefused(token);
+        orchestrator.burn(token, 1, "");
+    }
+
+    function testFuzzMintCodelessTokenReverts(address token) external {
+        assumeNotPrecompile(token);
+        vm.assume(token.code.length == 0);
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        _expectVaultProxyRefused(token);
+        orchestrator.mint(token, BOB, 1, _auth("", bytes32(0)), "");
+    }
+
+    function testFuzzBurnCodelessTokenReverts(address token) external {
+        assumeNotPrecompile(token);
+        vm.assume(token.code.length == 0);
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        _expectVaultProxyRefused(token);
+        orchestrator.burn(token, 1, "");
+    }
+
+    function testMintNonProductionReceiptReverts() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        address fakeReceipt = _lookalikeReceiptProxy();
+        _mockVaultTopology(TOKEN, fakeReceipt);
+        _expectReceiptProxyRefused(fakeReceipt);
+        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "");
+    }
+
+    function testBurnNonProductionReceiptReverts() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        address fakeReceipt = _lookalikeReceiptProxy();
+        _mockVaultTopology(TOKEN, fakeReceipt);
+        _expectReceiptProxyRefused(fakeReceipt);
+        orchestrator.burn(TOKEN, 1, "");
+    }
+
+    function testNonProductionTokenRefusedBeforeVaultLogic() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        _makeGuardFailVault();
+        address token = _lookalikeVaultProxy();
+        _expectVaultProxyRefused(token);
+        orchestrator.mint(token, BOB, 1, _auth("", bytes32(0)), "");
+    }
+
+    function testNonProductionReceiptRefusedBeforeReceiptLogic() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        _makeGuardFailReceipt();
+        address fakeReceipt = _lookalikeReceiptProxy();
+        _mockVaultTopology(TOKEN, fakeReceipt);
+        _expectReceiptProxyRefused(fakeReceipt);
+        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "");
+    }
+
+    function testMintUnsupportedChainReverts(uint64 chainId) external {
+        _assumeUnsupportedChain(chainId);
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        vm.chainId(chainId);
+        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForProdBeacons.selector, uint256(chainId)));
+        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "");
+    }
+
+    function testBurnUnsupportedChainReverts(uint64 chainId) external {
+        _assumeUnsupportedChain(chainId);
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        vm.chainId(chainId);
+        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForProdBeacons.selector, uint256(chainId)));
+        orchestrator.burn(TOKEN, 1, "");
+    }
+
+    function _assumeUnsupportedChain(uint64 chainId) internal pure {
+        vm.assume(chainId != LibSafeInvariants.BASE_CHAIN_ID);
+        vm.assume(chainId != LibSafeInvariants.ETHEREUM_CHAIN_ID);
+        vm.assume(chainId != LibSafeInvariants.HYPEREVM_CHAIN_ID);
+        vm.assume(chainId != LibSafeInvariants.ROBINHOOD_CHAIN_ID);
+        vm.assume(chainId != LibSafeInvariants.BSC_CHAIN_ID);
+    }
+
     /// Mint never touches the burn pointer — no seeding, no walk.
     function testMintLeavesBurnPointerUntouched() external {
         (address eoa, uint256 pk) = makeAddrAndKey("recipient");
@@ -846,6 +956,17 @@ contract ST0xOrchestratorTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(
                 IST0xOrchestratorV1.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD)
+            )
+        );
+        orchestrator.burn(TOKEN, 1, "");
+    }
+
+    function testBurnReceiptGuardFailReverts() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        _makeGuardFailReceipt();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IST0xOrchestratorV1.ReceiptLogicMismatch.selector, EXPECTED_RECEIPT_IMPL, address(0xDEAD)
             )
         );
         orchestrator.burn(TOKEN, 1, "");
@@ -1296,6 +1417,18 @@ contract ST0xOrchestratorTest is Test {
         assertFalse(orchestrator.vaultLogicIsExpected());
     }
 
+    function testVaultLogicIsExpectedFalseOnReceipt() external {
+        _makeGuardFailReceipt();
+        assertFalse(orchestrator.vaultLogicIsExpected());
+    }
+
+    function testVaultLogicIsExpectedUnsupportedChainReverts(uint64 chainId) external {
+        _assumeUnsupportedChain(chainId);
+        vm.chainId(chainId);
+        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForProdBeacons.selector, uint256(chainId)));
+        orchestrator.vaultLogicIsExpected();
+    }
+
     /// `burnInfo` is forwarded VERBATIM to `vault.redeem` as the audit-trail
     /// `receiptInformation`: the interface promises it, indexers rely on it.
     function testBurnForwardsBurnInfoToRedeem() external {
@@ -1326,7 +1459,11 @@ contract ST0xOrchestratorTest is Test {
     /// after external calls in `_burnWalk` is only safe under this lock),
     /// while the outer burn completes normally.
     function testBurnReentrantCallReverts() external {
-        ReentrantBurnVault attacker = new ReentrantBurnVault(orchestrator);
+        vm.etch(EXPECTED_VAULT_IMPL, address(new ReentrantBurnVault(orchestrator)).code);
+        ReentrantBurnVault attacker = ReentrantBurnVault(address(0xA77AC));
+        _etchProxy(address(attacker), VAULT_BEACON);
+        _mockVaultTopology(address(attacker), RECEIPT_ADDR);
+        _mockBalance(RECEIPT_ADDR, 0, type(uint256).max);
         _grant(orchestrator.BURN_ROLE(), address(this));
         // The nested call comes FROM the attacker, so it passes the role
         // check and reaches the reentrancy guard.
@@ -1343,6 +1480,29 @@ contract ST0xOrchestratorTest is Test {
             abi.encodeWithSelector(ReentrancyGuardTransient.ReentrancyGuardReentrantCall.selector),
             "nested burn must revert ReentrancyGuardReentrantCall"
         );
+    }
+
+    function _receiptReentrantToken(bool reenterMint) internal returns (address) {
+        vm.etch(EXPECTED_VAULT_IMPL, address(new ReceiptReentrantVault(orchestrator, reenterMint)).code);
+        address token = address(0xA77AD);
+        _etchProxy(token, VAULT_BEACON);
+        _grant(orchestrator.MINT_ROLE(), token);
+        _grant(orchestrator.BURN_ROLE(), token);
+        return token;
+    }
+
+    function testMintReentryFromVaultLogicLockReverts() external {
+        address token = _receiptReentrantToken(true);
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        vm.expectRevert(ReentrancyGuardTransient.ReentrancyGuardReentrantCall.selector);
+        orchestrator.mint(token, BOB, 1, _auth("", bytes32(0)), "");
+    }
+
+    function testBurnReentryFromVaultLogicLockReverts() external {
+        address token = _receiptReentrantToken(false);
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        vm.expectRevert(ReentrancyGuardTransient.ReentrancyGuardReentrantCall.selector);
+        orchestrator.burn(token, 1, "");
     }
 
     /// A sender whose `manager()` probe REVERTS with exactly 32 bytes of

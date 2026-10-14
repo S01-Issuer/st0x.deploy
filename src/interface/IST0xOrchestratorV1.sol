@@ -71,6 +71,10 @@ interface IST0xOrchestratorV1 {
     /// @notice The production receipt beacon no longer points at the
     /// implementation this orchestrator was built against.
     error ReceiptLogicMismatch(address expected, address actual);
+    /// @notice `token` is not a production receipt-vault proxy on this chain.
+    error VaultProxyCodehashMismatch(address token, bytes32 expected, bytes32 actual);
+    /// @notice `receipt` is not a production receipt proxy on this chain.
+    error ReceiptProxyCodehashMismatch(address receipt, bytes32 expected, bytes32 actual);
     /// @notice The burn walk exhausted the orchestrator's held receipts for
     /// `token` with `shortfall` still unburned. Burning more than the
     /// orchestrator holds is an anomaly (interest-accrual overrun, mis-set
@@ -132,8 +136,9 @@ interface IST0xOrchestratorV1 {
     /// `authorizeMint` callback) to authorise a mint.
     function mintAuthDigest(address token, address to, uint256 amount, bytes32 nonce) external view returns (Digest);
 
-    /// @notice True if the production vault + receipt beacons currently point
-    /// at the implementations this orchestrator expects (i.e. mint/burn are
-    /// live rather than version-locked). Offchain convenience.
+    /// @notice True if this chain's production vault + receipt beacons
+    /// currently point at the implementations this orchestrator expects.
+    /// Offchain convenience: mint/burn additionally check that the token and
+    /// its receipt are proxies of those beacons.
     function vaultLogicIsExpected() external view returns (bool);
 }

@@ -284,6 +284,30 @@ library LibBeaconInvariants {
         revert UnsupportedChainForProdBeacons(chainId);
     }
 
+    /// @notice The production receipt and receipt-vault `BeaconProxy`
+    /// codehashes on `chainId`, indexed by `RECEIPT_BEACON_INDEX` and
+    /// `RECEIPT_VAULT_BEACON_INDEX`. A proxy bakes its beacon into its runtime,
+    /// so a matching codehash proves the proxy runs on that chain's production
+    /// beacon.
+    function prodProxyCodehashesForChainId(uint256 chainId) internal pure returns (bytes32[2] memory) {
+        if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
+            return LibProdBeaconsBase.proxyCodehashes();
+        }
+        if (chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
+            return LibProdBeacons0_1_1.proxyCodehashes();
+        }
+        if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
+            return LibProdBeacons0_1_1.proxyCodehashes();
+        }
+        if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
+            return LibProdBeacons0_1_1.proxyCodehashes();
+        }
+        if (chainId == LibSafeInvariants.BSC_CHAIN_ID) {
+            return LibProdBeacons0_1_1.proxyCodehashes();
+        }
+        revert UnsupportedChainForProdBeacons(chainId);
+    }
+
     /// @notice Assert the active chain's four IN-USE production beacons are
     /// deployed and owned by THAT chain's governance timelock. This is the
     /// ownership invariant that matters operationally: whoever owns an in-use

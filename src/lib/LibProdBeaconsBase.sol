@@ -58,4 +58,13 @@ library LibProdBeaconsBase {
             LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30
         ];
     }
+
+    /// @notice Runtime codehash of every production receipt and receipt-vault
+    /// `BeaconProxy`, indexed like `beacons()`.
+    function proxyCodehashes() internal pure returns (bytes32[2] memory) {
+        return [
+            LibProdDeployV1.PROD_STOX_RECEIPT_PROXY_BASE_CODEHASH_V1,
+            LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_PROXY_BASE_CODEHASH_V1
+        ];
+    }
 }
