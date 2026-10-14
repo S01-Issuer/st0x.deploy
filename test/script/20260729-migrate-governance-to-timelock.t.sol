@@ -8,7 +8,7 @@ import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 
 import {DeployGovernanceTimelockHarness} from "./DeployGovernanceTimelockHarness.sol";
 import {
@@ -27,8 +27,10 @@ import {OffchainAssetReceiptVault} from "rain-vats-0.2.5/src/concrete/vault/Offc
 import {IAuthorizeV1} from "rain-vats-0.2.5/src/interface/IAuthorizeV1.sol";
 
 import {IAuthorisable} from "../../src/interface/IAuthorisable.sol";
-import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
-import {LibSafeOps, SafeTx, TxBuilderArtifactMismatch} from "../../src/lib/LibSafeOps.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
+import {SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJson.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 
@@ -330,11 +332,15 @@ contract MigrateGovernanceToTimelockTest is Test {
         address authoriser = _activeChainAuthoriser();
         RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
 
-        (uint256 chainId, address firstTarget, SafeTx[] memory txs) = LibSafeOps.parseTxBuilderJson(
-            string.concat("out/20260729-governance-timelock-migration-", vm.toString(block.chainid), ".json")
+        (uint256 chainId, address artifactSafe, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(
+            vm,
+            vm.readFile(
+                string.concat("out/20260729-governance-timelock-migration-", vm.toString(block.chainid), ".json")
+            )
         );
         assertEq(chainId, block.chainid, "artifact must be authored for the active chain");
-        assertEq(firstTarget, authoriser, "bundle must open with the authoriser grants");
+        assertEq(artifactSafe, safe, "artifact must be authored for the chain's Safe");
+        assertEq(txs[0].to, authoriser, "bundle must open with the authoriser grants");
         assertEq(txs.length, ADMIN_ROLE_COUNT + vaultTargets.length + beaconTargets.length + ADMIN_ROLE_COUNT);
 
         for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
@@ -529,13 +535,13 @@ contract MigrateGovernanceToTimelockTest is Test {
         verifier.verify(path);
 
         // Tamper one call's payload and re-emit: verify pinpoints the field.
-        (,, SafeTx[] memory txs) = LibSafeOps.parseTxBuilderJson(path);
+        (,, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(vm, vm.readFile(path));
         txs[0].data = abi.encodeCall(IAccessControl.grantRole, (bytes32(uint256(1)), address(0xBAD)));
         vm.writeFile(
             "out/tampered-migration.json",
-            LibSafeOps.emitTxBuilderJson(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, block.chainid, "tampered", txs)
+            LibSafeTxBuilderJson.toJson(vm, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, block.chainid, "tampered", txs)
         );
-        vm.expectRevert(abi.encodeWithSelector(TxBuilderArtifactMismatch.selector, "data"));
+        vm.expectRevert(abi.encodeWithSelector(LibSafeTxBuilderJson.ArtifactMismatch.selector, "data"));
         verifier.verify("out/tampered-migration.json");
     }
 
@@ -549,24 +555,24 @@ contract MigrateGovernanceToTimelockTest is Test {
         bytes32 salt = keccak256(abi.encode("migrate-away-proof", target, data));
         bytes32 id = controller.hashOperation(target, 0, data, bytes32(0), salt);
 
-        LibSafeOps.simulateNPlus1(
-            IGnosisSafe(safe),
+        LibSafeFork.simulateNPlus1(
+            vm,
+            Safe(payable(safe)),
             timelock,
             abi.encodeCall(
                 TimelockController.schedule,
                 (target, 0, data, bytes32(0), salt, LibTimelockInvariants.TIMELOCK_MIN_DELAY)
-            ),
-            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD
+            )
         );
         assertTrue(controller.isOperationPending(id), "leg must be pending after schedule");
         assertFalse(controller.isOperationReady(id), "leg must not be executable inside the delay");
 
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
-        LibSafeOps.simulateNPlus1(
-            IGnosisSafe(safe),
+        LibSafeFork.simulateNPlus1(
+            vm,
+            Safe(payable(safe)),
             timelock,
-            abi.encodeCall(TimelockController.execute, (target, 0, data, bytes32(0), salt)),
-            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD
+            abi.encodeCall(TimelockController.execute, (target, 0, data, bytes32(0), salt))
         );
         assertTrue(controller.isOperationDone(id), "leg must complete after the delay");
     }

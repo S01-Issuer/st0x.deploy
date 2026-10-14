@@ -24,19 +24,6 @@ import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvari
 // The version-suffixed name mirrors the lib under test.
 // slither-disable-next-line naming-convention
 contract LibProdBeacons0_1_1Test is Test {
-    /// @notice Unix timestamp past which Robinhood Chain's token table must
-    /// be hydrated — `2026-12-01T00:00:00Z`, the same date and the same
-    /// forcing function as `StoxCrossChainParityTest.ROBINHOOD_PARITY_DEADLINE`
-    /// applies to the same table. Before it, an all-placeholder table is the
-    /// expected mid-bootstrap state (the 41-token deploy is in flight); after
-    /// it, a table that never hydrated is a chain this pin asserts nothing
-    /// about, so it fails loudly instead.
-    uint256 internal constant ROBINHOOD_TOKEN_TABLE_DEADLINE = 1_796_083_200;
-
-    /// @notice The same deadline for BNB Smart Chain's token table, matching
-    /// `StoxCrossChainParityTest.BSC_PARITY_DEADLINE`.
-    uint256 internal constant BSC_TOKEN_TABLE_DEADLINE = 1_796_083_200;
-
     /// @notice The beacon a `BeaconProxy` delegates to, read from its EIP-1967
     /// slot rather than a getter, so a proxy that does not expose one is still
     /// checkable.
@@ -44,25 +31,6 @@ contract LibProdBeacons0_1_1Test is Test {
     /// @return The beacon it delegates to.
     function beaconOf(address proxy) internal view returns (address) {
         return address(uint160(uint256(vm.load(proxy, ERC1967_BEACON_SLOT))));
-    }
-
-    /// @notice Whether a token table is fully hydrated, and whether any of it
-    /// is. A partially hydrated table is a pin PR that landed a triple at a
-    /// time and is caught by the caller — the deploy lands every token in one
-    /// broadcast, so partial is drift, not a phase.
-    /// @param tokens The table to inspect.
-    /// @return anySet Any address in the table is non-zero.
-    /// @return allSet Every address in the table is non-zero.
-    function tokenTableState(TokenInstance[] memory tokens) internal pure returns (bool anySet, bool allSet) {
-        allSet = true;
-        for (uint256 i = 0; i < tokens.length; i++) {
-            bool entrySet = tokens[i].receipt != address(0) && tokens[i].receiptVault != address(0)
-                && tokens[i].wrappedTokenVault != address(0);
-            bool entryClear = tokens[i].receipt == address(0) && tokens[i].receiptVault == address(0)
-                && tokens[i].wrappedTokenVault == address(0);
-            anySet = anySet || !entryClear;
-            allSet = allSet && entrySet;
-        }
     }
 
     /// @notice Every production token's receipt, receipt vault and wrapped
@@ -96,37 +64,6 @@ contract LibProdBeacons0_1_1Test is Test {
         }
     }
 
-    /// @notice As `assertTokensRunOnPinnedBeacons`, for a chain whose token
-    /// table may still be an all-placeholder mid-bootstrap state: skipped
-    /// with a loud PENDING log before `deadline`, failed after it. Gated on
-    /// exactly the terms `StoxCrossChainParityTest` gates its token leg on,
-    /// because it is gated on the same table.
-    /// @param label Human chain name, used in the log and assertion messages.
-    /// @param tokens The chain's production token table.
-    /// @param deadline Unix timestamp past which a placeholder table fails.
-    function assertTokensRunOnPinnedBeaconsOrPending(
-        string memory label,
-        TokenInstance[] memory tokens,
-        uint256 deadline
-    ) internal {
-        (bool anySet, bool allSet) = tokenTableState(tokens);
-        assertTrue(
-            !anySet || allSet, string.concat(label, " token table partially hydrated - pin all triples together")
-        );
-        if (!allSet) {
-            assertLt(
-                block.timestamp,
-                deadline,
-                string.concat(
-                    label, " token table still a placeholder past the deadline - the beacon pin asserts nothing"
-                )
-            );
-            emit log(string.concat("PENDING: ", label, " token table placeholder - beacon-slot pin skipped"));
-            return;
-        }
-        assertTokensRunOnPinnedBeacons(label, tokens);
-    }
-
     /// @notice Ethereum's production tokens run on the pinned beacons.
     function testEthereumTokensRunOnTheseBeacons() external {
         vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
@@ -139,22 +76,16 @@ contract LibProdBeacons0_1_1Test is Test {
         assertTokensRunOnPinnedBeacons("HyperEVM", LibTokenInvariants.productionTokensHyperEvm());
     }
 
-    /// @notice Robinhood Chain's production tokens run on the pinned beacons
-    /// once its table hydrates; PENDING until the 41-token deploy lands.
+    /// @notice Robinhood Chain's production tokens run on the pinned beacons.
     function testRobinhoodTokensRunOnTheseBeacons() external {
         vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
-        assertTokensRunOnPinnedBeaconsOrPending(
-            "Robinhood Chain", LibTokenInvariants.productionTokensRobinhood(), ROBINHOOD_TOKEN_TABLE_DEADLINE
-        );
+        assertTokensRunOnPinnedBeacons("Robinhood Chain", LibTokenInvariants.productionTokensRobinhood());
     }
 
-    /// @notice BNB Smart Chain's production tokens run on the pinned beacons
-    /// once its table hydrates; PENDING until the 41-token deploy lands.
+    /// @notice BNB Smart Chain's production tokens run on the pinned beacons.
     function testBscTokensRunOnTheseBeacons() external {
         vm.createSelectFork(LibStoxDeployNetworks.BSC);
-        assertTokensRunOnPinnedBeaconsOrPending(
-            "BNB Smart Chain", LibTokenInvariants.productionTokensBsc(), BSC_TOKEN_TABLE_DEADLINE
-        );
+        assertTokensRunOnPinnedBeacons("BNB Smart Chain", LibTokenInvariants.productionTokensBsc());
     }
 
     /// @notice The four beacons are distinct. Index-aligned lists invite a

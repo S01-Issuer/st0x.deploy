@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.15/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.14/src/lib/LibExtrospectERC1167Proxy.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
@@ -258,7 +258,7 @@ contract LibProdDeployV4Test is Test {
     /// the literal here means an accidental edit to the generator's
     /// hardcoded value fails a test rather than silently re-routing every
     /// consumer of the pin. The live-chain codehash cross-check runs in
-    /// `StoxProdV4PostSwap.t.sol`'s hydrated-clone block.
+    /// `StoxProdV4PostSwapTest.testBasePostSwapAuthoriserState`.
     function testAuthoriserV4ClonePin() external pure {
         assertEq(
             LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE,

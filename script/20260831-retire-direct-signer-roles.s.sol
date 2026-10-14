@@ -6,12 +6,16 @@ import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 
-import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
-import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
+import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJson.sol";
+import {LibSafe} from "rain-deploy-0.1.18/src/lib/LibSafe.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
 /// @dev Unix timestamp (2026-10-15T00:00:00Z) by which the retirement must
@@ -138,7 +142,7 @@ contract RetireDirectSignerRoles is Script {
                     to: authoriser,
                     value: 0,
                     data: abi.encodeCall(IAccessControl.revokeRole, (roles[i], SERVICE_SIGNER)),
-                    operation: 0
+                    operation: Enum.Operation.Call
                 });
             }
         }
@@ -187,7 +191,7 @@ contract RetireDirectSignerRoles is Script {
         // --- Pre-flight ---------------------------------------------------
 
         address safeAddr = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
-        IGnosisSafe safe = IGnosisSafe(safeAddr);
+        Safe safe = Safe(payable(safeAddr));
         address authoriser = LibAuthoriserInvariants.activeChainAuthoriser();
         IAccessControl acl = IAccessControl(authoriser);
 
@@ -209,23 +213,23 @@ contract RetireDirectSignerRoles is Script {
         SafeTx[] memory txs = authorBundle(authoriser, safeAddr);
 
         uint256 nonce = safe.nonce();
-        bytes32 bundleSafeTxHash = LibSafeOps.computeMultiSendSafeTxHash(safe, txs, nonce);
+        bytes32 bundleSafeTxHash = LibSafeTx.multiSendSafeTxHash(safe, txs, nonce);
 
         // --- Simulate -----------------------------------------------------
 
         for (uint256 i = 0; i < txs.length; i++) {
-            LibSafeOps.simulateExternalCall(safe, txs[i].to, txs[i].data);
+            LibSafeFork.simulateCall(vm, safe, txs[i].to, txs[i].data);
         }
 
         // --- Post-state ---------------------------------------------------
 
         assertPostRetireState(acl, orchestrator, safeAddr);
-        LibSafeInvariants.assertImmutableInvariants(safe);
-        LibSafeInvariants.assertThreshold(safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
+        LibSafe.assertLockedDown(safe);
+        LibSafe.assertThreshold(safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
 
         // --- Artifact -----------------------------------------------------
 
-        string memory json = LibSafeOps.emitTxBuilderJson(safeAddr, block.chainid, BUNDLE_NAME, txs);
+        string memory json = LibSafeTxBuilderJson.toJson(vm, safeAddr, block.chainid, BUNDLE_NAME, txs);
         vm.writeFile(artifactPath(), json);
 
         console2.log("==== TX BUILDER JSON BEGIN ====");
@@ -242,18 +246,15 @@ contract RetireDirectSignerRoles is Script {
         // The retirement is fully reversible under the `_ADMIN`s the Safe
         // holds: prove the re-grant clears the live threshold, then
         // re-revoke so the fork ends retired.
-        LibSafeOps.simulateNPlus1(
-            safe,
-            authoriser,
-            abi.encodeCall(IAccessControl.grantRole, (keccak256("DEPOSIT"), SERVICE_SIGNER)),
-            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD
+        LibSafeFork.simulateNPlus1(
+            vm, safe, authoriser, abi.encodeCall(IAccessControl.grantRole, (keccak256("DEPOSIT"), SERVICE_SIGNER))
         );
         require(
             acl.hasRole(keccak256("DEPOSIT"), SERVICE_SIGNER),
             "RetireDirectSignerRoles: n+1 re-grant did not restore the role"
         );
-        LibSafeOps.simulateExternalCall(
-            safe, authoriser, abi.encodeCall(IAccessControl.revokeRole, (keccak256("DEPOSIT"), SERVICE_SIGNER))
+        LibSafeFork.simulateCall(
+            vm, safe, authoriser, abi.encodeCall(IAccessControl.revokeRole, (keccak256("DEPOSIT"), SERVICE_SIGNER))
         );
         console2.log(
             "n+1 reversal check passed: the Safe can restore (and re-retire) the fallback under the live threshold"
@@ -267,7 +268,7 @@ contract RetireDirectSignerRoles is Script {
     /// @param jsonPath Filesystem path to the downloaded Tx Builder JSON.
     function verify(string calldata jsonPath) external view {
         address safeAddr = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
-        IGnosisSafe safe = IGnosisSafe(safeAddr);
+        Safe safe = Safe(payable(safeAddr));
         address authoriser = LibAuthoriserInvariants.activeChainAuthoriser();
         LibOrchestratorInvariants.assertBeaconSet();
         LibOrchestratorInvariants.assertInstance(safeAddr);
@@ -277,13 +278,11 @@ contract RetireDirectSignerRoles is Script {
             authoriser, safeAddr, LibTimelockInvariants.timelockForChainId(block.chainid)
         );
         SafeTx[] memory expected = authorBundle(authoriser, safeAddr);
-        LibSafeOps.assertParsedTxsMatch(expected, jsonPath);
+        LibSafeTxBuilderJson.requireMatches(vm, vm.readFile(jsonPath), safeAddr, expected);
 
         uint256 nonce = safe.nonce();
         console2.log("Artifact verified against live state.");
-        console2.log(
-            "Bundle MultiSend SafeTxHash:", vm.toString(LibSafeOps.computeMultiSendSafeTxHash(safe, expected, nonce))
-        );
+        console2.log("Bundle MultiSend SafeTxHash:", vm.toString(LibSafeTx.multiSendSafeTxHash(safe, expected, nonce)));
         console2.log("Nonce:", nonce);
     }
 }
