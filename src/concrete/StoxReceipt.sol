@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Receipt} from "rain.vats/concrete/receipt/Receipt.sol";
-import {ERC1155Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/token/ERC1155/ERC1155Upgradeable.sol";
-import {IERC1155} from "openzeppelin-contracts/contracts/token/ERC1155/IERC1155.sol";
+import {Receipt} from "rain-vats-0.2.4/src/concrete/receipt/Receipt.sol";
+import {ERC1155Upgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/token/ERC1155/ERC1155Upgradeable.sol";
+import {IERC1155} from "@openzeppelin-contracts-5.7.0/token/ERC1155/IERC1155.sol";
 import {RebaseMigratable} from "../abstract/RebaseMigratable.sol";
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
 import {LibCorporateActionReceipt} from "../lib/LibCorporateActionReceipt.sol";
@@ -62,11 +62,11 @@ import {LibReceiptRebase} from "../lib/LibReceiptRebase.sol";
 /// `testZeroBalanceAdvancesCursor` regression in both `LibRebase.t.sol` and
 /// `LibReceiptRebase.t.sol`.
 contract StoxReceipt is Receipt, RebaseMigratable {
-    /// @notice Emitted whenever `_migrateHolderId` advances a `(account, id)`
+    /// @notice Emitted whenever `migrate` advances a `(account, id)`
     /// pair's migration cursor. The cursor itself is storage state, so the
     /// event fires on every cursor advance regardless of whether
     /// `oldBalance == newBalance`. Fires from `_update` via
-    /// `_migrateHolderId`, before the mint / burn / transfer delta is
+    /// `migrate`, before the mint / burn / transfer delta is
     /// applied.
     /// @param account The holder whose `(account, id)` migration state changed.
     /// @param id The receipt id.
@@ -100,7 +100,7 @@ contract StoxReceipt is Receipt, RebaseMigratable {
         override(ERC1155Upgradeable, IERC1155)
         returns (uint256)
     {
-        return _balanceOf(account, id, _vault());
+        return balanceOfFor(account, id, getVault());
     }
 
     /// @notice Batch-aware `balanceOf`. OZ's default `balanceOfBatch` reads
@@ -119,10 +119,10 @@ contract StoxReceipt is Receipt, RebaseMigratable {
         if (accounts.length != ids.length) {
             revert ERC1155InvalidArrayLength(ids.length, accounts.length);
         }
-        ICorporateActionsV1 vault = _vault();
+        ICorporateActionsV1 vault = getVault();
         uint256[] memory batchBalances = new uint256[](accounts.length);
         for (uint256 i = 0; i < accounts.length; ++i) {
-            batchBalances[i] = _balanceOf(accounts[i], ids[i], vault);
+            batchBalances[i] = balanceOfFor(accounts[i], ids[i], vault);
         }
         return batchBalances;
     }
@@ -131,13 +131,13 @@ contract StoxReceipt is Receipt, RebaseMigratable {
     /// vault as a parameter so callers inside a loop (`balanceOfBatch`)
     /// can fetch it once and pass it in, avoiding an external self-call
     /// per iteration.
-    function _balanceOf(address account, uint256 id, ICorporateActionsV1 vault) internal view returns (uint256) {
+    function balanceOfFor(address account, uint256 id, ICorporateActionsV1 vault) internal view returns (uint256) {
         uint256 stored = LibERC1155Storage.underlyingBalance(account, id);
         uint256 cursor = LibCorporateActionReceipt.getStorage().accountIdCursor[account][id];
         // The second return value is the new cursor — intentionally discarded
         // here because this is a pure read that must not mutate state;
         // cursor advancement happens on the next `_update` via
-        // `_migrateHolderId`.
+        // `migrate`.
         // slither-disable-next-line unused-return
         (uint256 effective,) = LibReceiptRebase.migratedBalance(stored, cursor, vault);
         return effective;
@@ -158,18 +158,27 @@ contract StoxReceipt is Receipt, RebaseMigratable {
     /// is no window for reentrancy to observe inconsistent data.
     /// If a future refactor moves ANY state mutation after `super._update`,
     /// this analysis is invalidated and reentrancy risk must be re-evaluated.
+    ///
+    /// **Vault trust:** migration walks `vault.nextOfType` /
+    /// `vault.getActionParameters` per node without snapshotting; the loop
+    /// trusts each STATICCALL return individually. A malicious vault
+    /// implementation installed via beacon upgrade could serve
+    /// inconsistent answers across iterations and inflate, zero, or drift
+    /// any first-touched balance. The protocol relies on
+    /// `BEACON_INITIAL_OWNER = rainlang.eth` only installing audited
+    /// vault implementations behind every receipt's manager pointer.
+    /// Beacon upgrade authority is the trust root.
     /// @inheritdoc ERC1155Upgradeable
     function _update(address from, address to, uint256[] memory ids, uint256[] memory amounts)
         internal
         virtual
         override
     {
-        // Migrate each (account, id) pair before the transfer executes.
-        // `_migrate` short-circuits on `address(0)` so mint (from == 0)
-        // and burn (to == 0) pass straight through to super._update.
+        // `migrate` short-circuits on `address(0)` so mint (from == 0) and
+        // burn (to == 0) pass straight through to super._update.
         for (uint256 i = 0; i < ids.length; i++) {
-            _migrate(from, ids[i]);
-            _migrate(to, ids[i]);
+            migrate(from, ids[i]);
+            migrate(to, ids[i]);
         }
 
         // Now that both sides are rasterized to the current cursor, run
@@ -178,43 +187,27 @@ contract StoxReceipt is Receipt, RebaseMigratable {
         super._update(from, to, ids, amounts);
     }
 
-    // -----------------------------------------------------------------------
-    // RebaseMigratable plug-points (receipt-side)
-    // -----------------------------------------------------------------------
-
-    /// @inheritdoc RebaseMigratable
-    function _readCursor(address account, uint256 id) internal view override returns (uint256) {
+    function readCursor(address account, uint256 id) internal view override returns (uint256) {
         return LibCorporateActionReceipt.getStorage().accountIdCursor[account][id];
     }
 
-    /// @inheritdoc RebaseMigratable
-    function _writeCursor(address account, uint256 id, uint256 cursor) internal override {
+    function writeCursor(address account, uint256 id, uint256 cursor) internal override {
         LibCorporateActionReceipt.getStorage().accountIdCursor[account][id] = cursor;
     }
 
-    /// @inheritdoc RebaseMigratable
-    function _readStoredBalance(address account, uint256 id) internal view override returns (uint256) {
+    function readStoredBalance(address account, uint256 id) internal view override returns (uint256) {
         return LibERC1155Storage.underlyingBalance(account, id);
     }
 
-    /// @inheritdoc RebaseMigratable
-    function _writeStoredBalance(address account, uint256 id, uint256 balance) internal override {
-        LibERC1155Storage.setUnderlyingBalance(account, id, balance);
+    function writeStoredBalance(address account, uint256 id, uint256, uint256 newBalance) internal override {
+        LibERC1155Storage.setUnderlyingBalance(account, id, newBalance);
     }
 
-    /// @inheritdoc RebaseMigratable
-    /// @dev `_vault()` is an external self-call (`this.manager()`); the
-    /// previous shape cached the result once per `_update` and passed it
-    /// down. Under the unified `RebaseMigratable._migrate` shape, the
-    /// vault is fetched per pair instead. Per-call cost is one extra
-    /// CALL opcode against `address(this).manager()`, paid for each
-    /// `_migrate` invocation in the batch.
-    function _walkRebase(uint256 storedBalance, uint256 cursor) internal view override returns (uint256, uint256) {
-        return LibReceiptRebase.migratedBalance(storedBalance, cursor, _vault());
+    function walkRebase(uint256 storedBalance, uint256 cursor) internal view override returns (uint256, uint256) {
+        return LibReceiptRebase.migratedBalance(storedBalance, cursor, getVault());
     }
 
-    /// @inheritdoc RebaseMigratable
-    function _emitMigrated(
+    function emitMigrated(
         address account,
         uint256 id,
         uint256 fromActionId,
@@ -225,20 +218,14 @@ contract StoxReceipt is Receipt, RebaseMigratable {
         emit ReceiptAccountMigrated(account, id, fromActionId, toActionId, oldBalance, newBalance);
     }
 
-    /// @inheritdoc RebaseMigratable
-    /// @dev Receipt side has no per-cursor pot accounting; the share side
-    /// (`StoxReceiptVault`) drives the totalSupply pots via
-    /// `LibTotalSupply.onAccountMigrated` from its own override. This
-    /// hook is intentionally empty.
-    function _postMigrate(uint256, uint256, uint256, uint256) internal override {}
+    function postMigrate(uint256, uint256, uint256, uint256) internal override {}
 
-    /// @dev Cached / fresh read of the configured vault address, cast to
-    /// the corporate-actions read interface. Uses `this.manager()` (an
-    /// external self-call) to avoid hardcoding the rain.vats
-    /// `Receipt7201Storage` slot literal in this file — the cost is one
-    /// CALL opcode per `_update`, which is amortized across every
-    /// `(account, id)` pair the batch touches.
-    function _vault() internal view returns (ICorporateActionsV1) {
+    /// @dev The configured vault, cast to the corporate-actions read
+    /// interface. rain.vats `Receipt` exposes the manager only as an external
+    /// view, so every call is an external self-call: `balanceOfBatch` pays it
+    /// once per batch, `_update` once per `(account, id)` pair with a non-zero
+    /// account.
+    function getVault() internal view returns (ICorporateActionsV1) {
         return ICorporateActionsV1(this.manager());
     }
 }

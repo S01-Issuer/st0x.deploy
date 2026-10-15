@@ -2,46 +2,14 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std/Test.sol";
-import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/token/ERC20/ERC20Upgradeable.sol";
-import {LibERC20Storage} from "src/lib/LibERC20Storage.sol";
-
-/// @dev A minimal `ERC20Upgradeable` subclass that exposes `_mint` / `_burn`
-/// and the `LibERC20Storage` helpers as external methods. The library uses
-/// `internal` functions so they get inlined into this contract and read /
-/// write its own storage at the OZ ERC-7201 namespaced slot — exactly the
-/// invariant being tested.
-contract TestERC20 is ERC20Upgradeable {
-    constructor() initializer {
-        __ERC20_init("Test", "TST");
-    }
-
-    function mint(address to, uint256 amount) external {
-        _mint(to, amount);
-    }
-
-    function burn(address from, uint256 amount) external {
-        _burn(from, amount);
-    }
-
-    function libBalanceOf(address account) external view returns (uint256) {
-        return LibERC20Storage.underlyingBalance(account);
-    }
-
-    function libTotalSupply() external view returns (uint256) {
-        return LibERC20Storage.underlyingTotalSupply();
-    }
-
-    function libSetBalance(address account, uint256 newBalance) external {
-        LibERC20Storage.setUnderlyingBalance(account, newBalance);
-    }
-}
+import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {TestERC20} from "./TestERC20.sol";
 
 /// @dev Regression / drift-detection tests for `LibERC20Storage`. The library
 /// reads and writes OZ `ERC20Upgradeable` storage at hardcoded ERC-7201 slot
 /// offsets (`_balances` at +0, `_totalSupply` at +2). If a future
-/// `forge update` of `openzeppelin-contracts-upgradeable` reorders the struct
-/// or moves the namespace, every assertion in this file diverges.
+/// `forge soldeer update` of `openzeppelin-contracts-upgradeable` reorders the
+/// struct or moves the namespace, every assertion in this file diverges.
 contract LibERC20StorageTest is Test {
     TestERC20 internal token;
 
@@ -136,6 +104,37 @@ contract LibERC20StorageTest is Test {
         assertEq(token.balanceOf(a), writeA, "account a updated");
         assertEq(token.balanceOf(b), uint256(amountB), "account b untouched");
         assertEq(token.libBalanceOf(b), uint256(amountB), "Lib read of b untouched");
+    }
+
+    /// LibERC20Storage.setUnderlyingTotalSupply writes a value that
+    /// ERC20Upgradeable.totalSupply observes. Pins the `+2` offset in the write
+    /// direction — `underlyingTotalSupply` alone only pins it for reads.
+    function testSetTotalSupplyVisibleToOzTotalSupply() external {
+        token.mint(ALICE, 100);
+        token.libSetTotalSupply(999);
+        assertEq(token.totalSupply(), 999, "OZ totalSupply must reflect the direct write");
+        assertEq(token.libTotalSupply(), 999, "Lib read must match Lib write");
+    }
+
+    /// Writing `_totalSupply` must not disturb any `_balances` slot — i.e. the
+    /// `+2` offset really is a distinct slot from the balances mapping base.
+    function testSetTotalSupplyLeavesBalancesUntouched() external {
+        token.mint(ALICE, 100);
+        token.mint(BOB, 200);
+        token.libSetTotalSupply(12345);
+        assertEq(token.balanceOf(ALICE), 100, "Alice's balance untouched");
+        assertEq(token.balanceOf(BOB), 200, "Bob's balance untouched");
+        assertEq(token.totalSupply(), 12345, "only totalSupply moved");
+    }
+
+    /// Round trip: write via OZ, read via Lib, write via Lib, read via OZ.
+    function testFuzzTotalSupplyRoundTrip(uint128 mintAmount, uint256 directWrite) external {
+        token.mint(ALICE, uint256(mintAmount));
+        assertEq(token.libTotalSupply(), token.totalSupply());
+
+        token.libSetTotalSupply(directWrite);
+        assertEq(token.totalSupply(), directWrite, "OZ must reflect Lib write");
+        assertEq(token.libTotalSupply(), directWrite, "Lib read must match Lib write");
     }
 
     /// Fuzz: totalSupply reflects multiple mints across randomized accounts.

@@ -2,13 +2,16 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetReceiptVault.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.4/src/concrete/vault/OffchainAssetReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.4/src/interface/IAuthorizeV1.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {RebaseMigratable} from "../abstract/RebaseMigratable.sol";
-import {LibCorporateAction} from "../lib/LibCorporateAction.sol";
+import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
 import {LibRebase} from "../lib/LibRebase.sol";
 import {LibTotalSupply} from "../lib/LibTotalSupply.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
-import {LibProdDeployV3} from "../lib/LibProdDeployV3.sol";
+import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
+import {AuthorizerMissingCorporateActionAdmin} from "../error/ErrCorporateAction.sol";
 
 /// @title StoxReceiptVault
 /// @notice An OffchainAssetReceiptVault that supports corporate actions such
@@ -37,11 +40,11 @@ import {LibProdDeployV3} from "../lib/LibProdDeployV3.sol";
 /// inflating the recipient's balance. See `LibRebase.migratedBalance` and
 /// its zero-balance regression tests.
 contract StoxReceiptVault is OffchainAssetReceiptVault, RebaseMigratable {
-    /// @notice Emitted whenever `_migrateAccount` advances an account's
+    /// @notice Emitted whenever `migrate` advances an account's
     /// migration cursor. The cursor itself is storage state, so the event
     /// fires on every cursor advance regardless of whether
     /// `oldBalance == newBalance`. Fires from `_update` via
-    /// `_migrateAccount`, before the mint / burn / transfer delta is
+    /// `migrate`, before the mint / burn / transfer delta is
     /// applied.
     /// @param account The account whose migration state changed.
     /// @param fromActionId The action id the account's cursor was at
@@ -77,7 +80,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault, RebaseMigratable {
         // The second return value is the new cursor — intentionally discarded
         // here because `balanceOf` is a pure read that must not mutate state;
         // the cursor advancement happens on the next `_update` touch via
-        // `_migrateAccount`.
+        // `migrate`.
         // slither-disable-next-line unused-return
         (uint256 balance,) = LibRebase.migratedBalance(stored, s.accountMigrationCursor[account]);
         return balance;
@@ -107,12 +110,8 @@ contract StoxReceiptVault is OffchainAssetReceiptVault, RebaseMigratable {
     function _update(address from, address to, uint256 amount) internal virtual override {
         LibTotalSupply.fold();
 
-        // Share-side migration uses `id = 0` — the share has no ERC-1155
-        // token id concept; the parameter is part of the unified
-        // `RebaseMigratable._migrate` shape and the share-side overrides
-        // ignore it. See `RebaseMigratable` NatSpec.
-        _migrate(from, 0);
-        _migrate(to, 0);
+        migrate(from, 0);
+        migrate(to, 0);
 
         super._update(from, to, amount);
 
@@ -123,37 +122,44 @@ contract StoxReceiptVault is OffchainAssetReceiptVault, RebaseMigratable {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // RebaseMigratable plug-points (share-side)
-    // -----------------------------------------------------------------------
-
-    /// @inheritdoc RebaseMigratable
-    function _readCursor(address account, uint256) internal view override returns (uint256) {
+    function readCursor(address account, uint256) internal view override returns (uint256) {
         return LibCorporateAction.getStorage().accountMigrationCursor[account];
     }
 
-    /// @inheritdoc RebaseMigratable
-    function _writeCursor(address account, uint256, uint256 cursor) internal override {
+    function writeCursor(address account, uint256, uint256 cursor) internal override {
         LibCorporateAction.getStorage().accountMigrationCursor[account] = cursor;
     }
 
-    /// @inheritdoc RebaseMigratable
-    function _readStoredBalance(address account, uint256) internal view override returns (uint256) {
+    function readStoredBalance(address account, uint256) internal view override returns (uint256) {
         return LibERC20Storage.underlyingBalance(account);
     }
 
-    /// @inheritdoc RebaseMigratable
-    function _writeStoredBalance(address account, uint256, uint256 balance) internal override {
-        LibERC20Storage.setUnderlyingBalance(account, balance);
+    function writeStoredBalance(address account, uint256, uint256 oldBalance, uint256 newBalance) internal override {
+        LibERC20Storage.setUnderlyingBalance(account, newBalance);
+
+        // Rebasing rewrites `_balances` behind OZ's back, so apply the same
+        // delta to OZ's own `_totalSupply` accumulator and preserve its
+        // `_totalSupply == Σ _balances` invariant.
+        //
+        // The raw slot is not the reported supply — `totalSupply()` above
+        // is the rebase-aware `LibTotalSupply.effectiveTotalSupply()`, and
+        // the pot accounting in `postMigrate` below is untouched by
+        // this write. But OZ's `_update` still subtracts from the raw slot
+        // **unchecked** on burn and adds to it **checked** on mint. Left
+        // stale, it drifts below the true balance sum, wraps to ~2**256 on
+        // the first burn that exceeds it, and from then on every mint
+        // reverts with `Panic(0x11)` — silently, because `totalSupply()`,
+        // `balanceOf()` and all events keep agreeing with each other. The
+        // slot has no write path other than mint/burn, so recovering from
+        // that state would need a beacon implementation upgrade.
+        LibERC20Storage.applyBalanceDeltaToTotalSupply(oldBalance, newBalance);
     }
 
-    /// @inheritdoc RebaseMigratable
-    function _walkRebase(uint256 storedBalance, uint256 cursor) internal view override returns (uint256, uint256) {
+    function walkRebase(uint256 storedBalance, uint256 cursor) internal view override returns (uint256, uint256) {
         return LibRebase.migratedBalance(storedBalance, cursor);
     }
 
-    /// @inheritdoc RebaseMigratable
-    function _emitMigrated(
+    function emitMigrated(
         address account,
         uint256,
         uint256 fromActionId,
@@ -164,8 +170,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault, RebaseMigratable {
         emit AccountMigrated(account, fromActionId, toActionId, oldBalance, newBalance);
     }
 
-    /// @inheritdoc RebaseMigratable
-    function _postMigrate(uint256 fromActionId, uint256 toActionId, uint256 oldBalance, uint256 newBalance)
+    function postMigrate(uint256 fromActionId, uint256 toActionId, uint256 oldBalance, uint256 newBalance)
         internal
         override
     {
@@ -174,7 +179,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault, RebaseMigratable {
 
     /// @notice Routes calls with non-matching selectors to the corporate actions
     /// facet via delegatecall. The facet address is hardcoded to its
-    /// deterministic Zoltu deploy address from `LibProdDeployV3`.
+    /// deterministic Zoltu deploy address from `LibProdDeployCurrent`.
     ///
     /// @dev Baking the facet address into the vault implementation bytecode
     /// means upgrading the facet requires upgrading the vault implementation
@@ -195,7 +200,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault, RebaseMigratable {
     /// per-function comments for the per-method argument that the
     /// linked-list and cursor writes remain consistent under re-entry.
     fallback() external payable virtual override {
-        address facet = LibProdDeployV3.STOX_CORPORATE_ACTIONS_FACET;
+        address facet = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET;
         assembly ("memory-safe") {
             calldatacopy(0, 0, calldatasize())
             let success := delegatecall(gas(), facet, 0, calldatasize(), 0, 0)
@@ -204,5 +209,31 @@ contract StoxReceiptVault is OffchainAssetReceiptVault, RebaseMigratable {
             case 0 { revert(0, returndatasize()) }
             default { return(0, returndatasize()) }
         }
+    }
+
+    /// @notice Reject authorizers that don't configure admin hierarchies
+    /// for the corporate-action roles. Without an explicit admin, the
+    /// role's admin resolves to the unassigned `DEFAULT_ADMIN_ROLE` and
+    /// the role becomes permanently ungrantable — silently disabling
+    /// corporate actions and drifting the vault away from the underlying
+    /// off-chain asset. Surfaces the misconfiguration at the pairing
+    /// point so the operator hears about it immediately, not on the
+    /// first attempted `scheduleCorporateAction` call months later.
+    ///
+    /// Reverts with `AuthorizerMissingCorporateActionAdmin` if either
+    /// `SCHEDULE_CORPORATE_ACTION` or `CANCEL_CORPORATE_ACTION` resolves
+    /// to `DEFAULT_ADMIN_ROLE` on the supplied authorizer. Requires the
+    /// authorizer to implement `IAccessControl`.
+    /// @inheritdoc OffchainAssetReceiptVault
+    function setAuthorizer(IAuthorizeV1 newAuthorizer) public override {
+        bytes32 scheduleAdmin = IAccessControl(address(newAuthorizer)).getRoleAdmin(SCHEDULE_CORPORATE_ACTION);
+        if (scheduleAdmin == bytes32(0)) {
+            revert AuthorizerMissingCorporateActionAdmin(address(newAuthorizer), SCHEDULE_CORPORATE_ACTION);
+        }
+        bytes32 cancelAdmin = IAccessControl(address(newAuthorizer)).getRoleAdmin(CANCEL_CORPORATE_ACTION);
+        if (cancelAdmin == bytes32(0)) {
+            revert AuthorizerMissingCorporateActionAdmin(address(newAuthorizer), CANCEL_CORPORATE_ACTION);
+        }
+        super.setAuthorizer(newAuthorizer);
     }
 }

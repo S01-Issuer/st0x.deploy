@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std/Test.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {
@@ -10,12 +10,13 @@ import {
     ACTION_TYPE_INIT_V1,
     ACTION_TYPE_STOCK_SPLIT_V1
 } from "../../../src/interface/ICorporateActionsV1.sol";
-import {LibProdDeployV3} from "../../../src/lib/LibProdDeployV3.sol";
+import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {STOCK_SPLIT_V1_TYPE_HASH, UnknownActionType} from "../../../src/lib/LibCorporateAction.sol";
 import {CompletionFilter, NODE_NONE} from "../../../src/lib/LibCorporateActionNode.sol";
-import {IAuthorizeV1, Unauthorized} from "rain.vats/interface/IAuthorizeV1.sol";
-import {Float, LibDecimalFloat} from "rain.math.float/lib/LibDecimalFloat.sol";
+import {IAuthorizeV1, Unauthorized} from "rain-vats-0.2.4/src/interface/IAuthorizeV1.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.2.22/src/lib/LibDecimalFloat.sol";
 import {LibTestTofu} from "../../lib/LibTestTofu.sol";
+import {PermissiveAuthorizer} from "./PermissiveAuthorizer.sol";
 
 /// @dev Slot 0 of the OffchainAssetReceiptVault ERC-7201 namespace
 /// ("rain.storage.offchain-asset-receipt-vault.1") holds the authorizer
@@ -24,41 +25,16 @@ import {LibTestTofu} from "../../lib/LibTestTofu.sol";
 bytes32 constant OFFCHAIN_ASSET_RECEIPT_VAULT_STORAGE_LOCATION =
     0xba9f160a0257aef2aa878e698d5363429ea67cc3c427f23f7cb9c3069b67bd00;
 
-/// @dev Permissive authorizer used by the fallback routing tests. Records the
-/// most recent call and allows every permission by default so we can exercise
-/// the forward-to-facet path without reproducing the full ethgild auth setup.
-contract PermissiveAuthorizer is IAuthorizeV1 {
-    address public lastUser;
-    bytes32 public lastPermission;
-    bytes public lastData;
-    uint256 public callCount;
-    bool public denyMode;
-
-    function setDenyMode(bool deny) external {
-        denyMode = deny;
-    }
-
-    function authorize(address user, bytes32 permission, bytes memory data) external override {
-        callCount++;
-        lastUser = user;
-        lastPermission = permission;
-        lastData = data;
-        if (denyMode) {
-            revert Unauthorized(user, permission, data);
-        }
-    }
-}
-
 /// Fallback routing tests for `StoxReceiptVault`. The vault's `fallback()`
 /// override delegatecalls into `StoxCorporateActionsFacet` at the deterministic
-/// `LibProdDeployV3.STOX_CORPORATE_ACTIONS_FACET` address.
+/// `LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE` address.
 ///
 /// The facet's `onlyDelegatecalled` modifier relies on an immutable `_SELF`
 /// captured in the constructor. `vm.etch` would leave `_SELF` pointing at the
 /// original temporary deploy address, so the "direct call reverts" assertion
 /// would not exercise the real guard. We use `vm.deployCodeTo` instead which
 /// runs the constructor at the target address, so the facet's `_SELF` matches
-/// the `LibProdDeployV3` constant exactly.
+/// the `LibProdDeployV4` constant exactly.
 contract StoxReceiptVaultFallbackRoutingTest is Test {
     StoxReceiptVault internal vault;
     PermissiveAuthorizer internal mockAuthorizer;
@@ -74,7 +50,7 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
         // constructor there so `_SELF` resolves to `STOX_CORPORATE_ACTIONS_FACET`.
         deployCodeTo(
             "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
-            LibProdDeployV3.STOX_CORPORATE_ACTIONS_FACET
+            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE
         );
 
         vault = new StoxReceiptVault();
@@ -144,7 +120,7 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
     /// Pins that the fallback delegatecall path returns idx 0 for this,
     /// not silently rewriting it through some sentinel translation layer.
     function testNextOfTypeHeadInclusiveReturnsBootstrap() external {
-        // Schedule a user action so `_ensureBootstrap` fires; bootstrap
+        // Schedule a user action so `ensureBootstrap` fires; bootstrap
         // is at idx 0, user action at idx 1.
         bytes memory params = abi.encode(LibDecimalFloat.packLossless(2, 0));
         vm.prank(ALICE);
@@ -162,10 +138,10 @@ contract StoxReceiptVaultFallbackRoutingTest is Test {
 
     /// Direct calls to the facet at its production address revert with
     /// `FacetMustBeDelegatecalled`. Because we used `vm.deployCodeTo`, the
-    /// facet's `_SELF` immutable is the `LibProdDeployV3` constant and
+    /// facet's `_SELF` immutable is the `LibProdDeployV4` constant and
     /// `address(this) == _SELF` on a direct call, firing the guard.
     function testDirectCallToFacetRevertsWithFacetMustBeDelegatecalled() external {
-        ICorporateActionsV1 facetDirect = ICorporateActionsV1(LibProdDeployV3.STOX_CORPORATE_ACTIONS_FACET);
+        ICorporateActionsV1 facetDirect = ICorporateActionsV1(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE);
         vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
         facetDirect.completedActionCount();
     }

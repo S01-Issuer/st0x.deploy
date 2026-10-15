@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {Float} from "rain.math.float/lib/LibDecimalFloat.sol";
+import {Float} from "rain-math-float-0.2.22/src/lib/LibDecimalFloat.sol";
 import {
     ICorporateActionsV1,
     ACTION_TYPE_INIT_V1,
@@ -45,6 +45,16 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 /// view calls (`nextOfType` + `getActionParameters`). Stock splits are
 /// expected to be rare (O(10) over a contract's lifetime) so the
 /// per-receipt-holder migration cost is bounded and acceptable.
+///
+/// **Trust model.** The walk has no defence against a malicious vault
+/// implementation serving inconsistent answers across `nextOfType` /
+/// `getActionParameters` iterations — such an implementation could
+/// inflate, zero, or arbitrarily drift balances on first-touch. The
+/// receipt assumes the beacon owner (`BEACON_INITIAL_OWNER =
+/// rainlang.eth`) only installs audited vault implementations behind
+/// every receipt's manager pointer. Beacon upgrade authority is the
+/// trust root; if that key is compromised, every downstream balance
+/// derived from this walk is compromised.
 library LibReceiptRebase {
     /// @notice Walk the vault's completed stock split list from
     /// `fromActionId` forward, returning the rebased balance and the
@@ -66,9 +76,9 @@ library LibReceiptRebase {
     function migratedBalance(uint256 storedBalance, uint256 fromActionId, ICorporateActionsV1 vault)
         internal
         view
-        returns (uint256, uint256 toActionId)
+        returns (uint256, uint256)
     {
-        toActionId = fromActionId;
+        uint256 toActionId = fromActionId;
 
         // Discard effectiveTime — only nextActionId and actionType are used
         // for the walk. The mask covers init and stock-split nodes;

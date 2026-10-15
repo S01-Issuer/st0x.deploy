@@ -1,46 +1,113 @@
+# Soldeer package identity. `version` here is the NEXT, in-development release —
+# the version this branch's work generates into `src/generated/<tag>/` and
+# deploys (see issue #244). On merge, `rainix-autopublish` publishes this version
+# and bumps to the next, regenerating the deploy libs so the bump commit is born
+# clean. So this holds the next unpublished version, not the last published one.
+[package]
+name = "st0x-deploy"
+version = "0.1.30"
+
 [profile.default]
+libs = ['dependencies']
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
 
 solc = "0.8.25"
 optimizer = true
-# `optimizer_runs` is a runtime-gas vs deploy-bytecode tradeoff: high values
-# inline aggressively for fast runtime at the cost of deployed bytecode size.
-# StoxReceiptVault is at the EIP-170 24,576-byte limit. 24483 is the highest
-# value found by empirical binary search (legacy pipeline; via_ir was tried
-# in #144 and made the vault larger) where StoxReceiptVault stays under
-# EIP-170. 24484 trips the limit. Re-run the search if vault source changes
-# or the dependency tree's bytecode shifts under us; the boundary is
-# sensitive and not stable across compiler versions or refactors.
-optimizer_runs = 24483
+# `optimizer_runs` is a runtime-gas vs deploy-bytecode tradeoff: higher values
+# inline aggressively for faster runtime at the cost of larger deployed
+# bytecode. StoxReceiptVault is the contract that binds against the EIP-170
+# 24,576-byte runtime limit; 2000 leaves it at 24,037 (539 bytes spare) while
+# the rest of the suite stays well clear. This was lowered from 5000, which
+# left only a 6-byte margin (24,570) and could not fit the audit-H01
+# `_totalSupply` sync — see CHANGELOG. The margin is still sensitive to vault
+# source changes and dependency-tree bytecode shifts — re-check
+# StoxReceiptVault's `forge build --sizes` runtime margin on any such change.
+#
+# Changing this value moves EVERY contract's deterministic Zoltu address, which
+# is a coordinated-release event, NOT a drive-by: StoxReceiptVault pins the
+# corporate-actions facet address, and ST0xOrchestrator's version lock pins the
+# vault + receipt implementations, so all three must be deployed in lockstep.
+# via_ir is OFF (tried in #144, made the vault larger for this inheritance
+# shape).
+optimizer_runs = 2000
 
 evm_version = "cancun"
 
 bytecode_hash = "none"
 cbor_metadata = false
 
-fs_permissions = [{ access = "read-write", path = "src/generated" }]
-
-remappings = [
-  "rain.vats/=lib/rain.vats/src/",
-  "rain.factory/=lib/rain.vats/lib/rain.factory/src/",
-  "openzeppelin-contracts-upgradeable/=lib/rain.vats/lib/openzeppelin-contracts-upgradeable/",
-  "rain.deploy/=lib/rain.deploy/src/",
-  "rain.sol.codegen/=lib/rain.vats/lib/rain.flare/lib/rain.interpreter/lib/rain.interpreter.interface/lib/rain.sol.codegen/src/",
-  "rain.math.float/=lib/rain.vats/lib/rain.flare/lib/rain.interpreter/lib/rain.interpreter.interface/lib/rain.math.float/src/",
-  "rain.tofu.erc20-decimals/=lib/rain.tofu.erc20-decimals/src/",
+fs_permissions = [
+  { access = "read-write", path = "src/generated" },
+  # `BuildPointers` reads the canonical release version from `[package].version`
+  # here to name the `src/generated/<tag>/` snapshot and generate the deploy tag.
+  { access = "read", path = "foundry.toml" },
+  # `out` is needed by the RAI-296 multisig migration script and its tests:
+  # the script writes the Safe Tx Builder JSON artifact under `out/`, and
+  # the LibSafeOps round-trip tests round-trip the JSON through disk.
+  { access = "read-write", path = "out" },
+  { access = "read-write", path = "ideal-roles.json" },
 ]
 
+remappings = [
+  # Third-party soldeer dep whose own source uses unversioned import
+  # prefixes; bridge to its actual install location so transitive
+  # resolution works. Tracked upstream:
+  # - OpenZeppelin/openzeppelin-contracts-upgradeable#232
+  "@openzeppelin/contracts/=dependencies/@openzeppelin-contracts-5.7.0/",
+]
+
+[dependencies]
+forge-std = "1.17.0"
+"@openzeppelin-contracts" = "5.7.0"
+"@openzeppelin-contracts-upgradeable" = "5.7.0"
+"rain-deploy" = "0.1.18"
+safe-global-safe-smart-account = "1.4.1-3"
+"rain-extrospection" = "0.1.1"
+"rain-factory" = "0.1.30"
+"rain-factory-deploy" = "0.1.15"
+"rain-math-fixedpoint" = "0.2.2"
+"rain-math-float" = "0.2.22"
+"rain-sol-codegen" = "0.1.39"
+"rain-solmem" = "0.1.3"
+"rain-tofu-erc20-decimals" = "0.1.1"
+"rain-vats" = "0.2.4"
+"rain-verify-interface" = "0.1.0"
+
+[soldeer]
+recursive_deps = false
+
 [rpc_endpoints]
-arbitrum = "${CI_DEPLOY_ARBITRUM_RPC_URL}"
-base = "${CI_DEPLOY_BASE_RPC_URL}"
-base_sepolia = "${CI_DEPLOY_BASE_SEPOLIA_RPC_URL}"
-flare = "${CI_DEPLOY_FLARE_RPC_URL}"
-polygon = "${CI_DEPLOY_POLYGON_RPC_URL}"
+arbitrum = "${ARBITRUM_RPC_URL}"
+base = "${BASE_RPC_URL}"
+base_sepolia = "${BASE_SEPOLIA_RPC_URL}"
+bsc = "${BSC_RPC_URL}"
+ethereum = "${ETHEREUM_RPC_URL}"
+flare = "${FLARE_RPC_URL}"
+hyperevm = "${HYPEREVM_RPC_URL}"
+polygon = "${POLYGON_RPC_URL}"
+robinhood = "${ROBINHOOD_RPC_URL}"
 
 [etherscan]
 arbitrum = { key = "${CI_DEPLOY_ARBITRUM_ETHERSCAN_API_KEY}" }
 base = { key = "${CI_DEPLOY_BASE_ETHERSCAN_API_KEY}" }
 base_sepolia = { key = "${CI_DEPLOY_BASE_SEPOLIA_ETHERSCAN_API_KEY}" }
+# `bsc` is not a built-in foundry chain alias either, so the chain id is pinned.
+# Etherscan V2 covers 56 (BscScan), so this is the ordinary keyed entry.
+bsc = { key = "${CI_DEPLOY_BSC_ETHERSCAN_API_KEY}", chain = 56 }
+# `ethereum` is not a built-in foundry chain alias (foundry's canonical name for
+# chain 1 is `mainnet`), so the chain id is pinned explicitly. Without it,
+# verification fails with "unknown alias `ethereum`".
+ethereum = { key = "${CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY}", chain = 1 }
 flare = { key = "${CI_DEPLOY_FLARE_ETHERSCAN_API_KEY}" }
+# HyperEVM has no dedicated *scan deployment; it is served by Etherscan's
+# multichain (v2) API, so the api url pins the chainid explicitly. `hyperevm`
+# is not a built-in foundry chain alias either, so the chain id is pinned for
+# the same reason `ethereum` is above.
+hyperevm = { key = "${CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY}", chain = 999, url = "https://api.etherscan.io/v2/api?chainid=999" }
 polygon = { key = "${CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY}" }
+# Robinhood Chain (4663) has no `[etherscan]` entry on purpose: Etherscan's
+# multichain (v2) API does not index it, so an entry here would only make
+# foundry demand an API key it cannot use. Its explorer is Blockscout, which
+# imports Sourcify matches, and Sourcify supports 4663 — the `--verifier
+# sourcify` leg of `manual-broadcast.yaml` is the verification path.

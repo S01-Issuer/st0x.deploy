@@ -2,11 +2,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
-import {IERC165} from "openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
+import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
+import {ERC165} from "@openzeppelin-contracts-5.7.0/utils/introspection/ERC165.sol";
 import {StoxWrappedTokenVault} from "../StoxWrappedTokenVault.sol";
-import {ICLONEABLE_V2_SUCCESS} from "rain.factory/interface/ICloneableV2.sol";
-import {LibProdDeployV3} from "../../lib/LibProdDeployV3.sol";
+import {ICLONEABLE_V2_SUCCESS} from "rain-factory-0.1.30/src/interface/ICloneableV2.sol";
+import {LibProdDeployCurrent} from "../../generated/LibProdDeployCurrent.sol";
 import {IStoxWrappedTokenVaultBeaconSetDeployerV1} from "../../interface/IStoxWrappedTokenVaultBeaconSetDeployerV1.sol";
 
 /// @dev Error raised when the StoxWrappedTokenVault initialization fails.
@@ -24,11 +24,11 @@ error ZeroVaultAsset();
 /// OffchainAssetReceiptVaultBeaconSetDeployer is error prone and tedious as it
 /// is not atomic, so the StoxUnifiedDeployer contract should be used instead
 /// for most use cases.
-contract StoxWrappedTokenVaultBeaconSetDeployer is IERC165, IStoxWrappedTokenVaultBeaconSetDeployerV1 {
-    /// @inheritdoc IERC165
-    function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
+contract StoxWrappedTokenVaultBeaconSetDeployer is ERC165, IStoxWrappedTokenVaultBeaconSetDeployerV1 {
+    /// @inheritdoc ERC165
+    function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
         return interfaceId == type(IStoxWrappedTokenVaultBeaconSetDeployerV1).interfaceId
-            || interfaceId == type(IERC165).interfaceId;
+            || super.supportsInterface(interfaceId);
     }
 
     /// Emitted when a new deployment is successfully initialized.
@@ -50,7 +50,7 @@ contract StoxWrappedTokenVaultBeaconSetDeployer is IERC165, IStoxWrappedTokenVau
         }
 
         StoxWrappedTokenVault stoxWrappedTokenVault =
-            StoxWrappedTokenVault(address(new BeaconProxy(LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON, "")));
+            StoxWrappedTokenVault(address(new BeaconProxy(LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT_BEACON, "")));
 
         emit Deployment(msg.sender, address(stoxWrappedTokenVault));
 

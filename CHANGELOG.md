@@ -1,5 +1,195 @@
 # Changelog
 
+## V4 (rain.vats 0.1.6)
+
+### StoxReceiptVault
+
+- **Fix (audit H01): keep OZ's `_totalSupply` in step with rebased balances.**
+  `migrateAccount` rewrites `_balances` directly via `LibERC20Storage`, so
+  before this change OZ's own `_totalSupply` accumulator was never adjusted for
+  a stock split and drifted below the true balance sum. OZ subtracts from that
+  accumulator **unchecked** on burn and adds to it **checked** on mint, so the
+  first burn exceeding the stale value wrapped the slot to ~`2**256` and every
+  subsequent mint reverted with `Panic(0x11)` — permanently capping issuance,
+  with no external symptom because `totalSupply()`, `balanceOf()` and all events
+  stayed mutually consistent. The slot has no write path other than mint/burn,
+  so recovery would have required a beacon implementation upgrade.
+  `migrateAccount` now applies the balance delta to the raw slot as well, via
+  the new `LibERC20Storage.applyBalanceDeltaToTotalSupply`. Reported supply is
+  unchanged: `totalSupply()` remains `LibTotalSupply.effectiveTotalSupply()` and
+  the per-cursor pot accounting is untouched. Reported by Protofire as H01 in
+  the `st0x.deploy 5.0` report (July 2026, audited at `ed767bf2`).
+
+- **`optimizer_runs` lowered 5000 → 2000 to fit the H01 fix under EIP-170.**
+  `StoxReceiptVault` had only a 6-byte runtime margin (24,570 of 24,576) at 5000
+  runs, and the smallest correct form of the H01 fix costs ~148 bytes. Measured
+  with the fix applied: `runs=5000` → 24,718 (over by 142); `runs=3000` →
+  24,456; `runs=2000` → 24,037 (**539 spare**); `runs=1000` → 22,936. Two
+  in-vault alternatives were measured and rejected: hoisting the supply sync to
+  a single call site in `_update` costs _more_ than the duplicated inline
+  (24,809), and `unchecked` arithmetic recovers only 18 bytes (24,700).
+
+  This changes the compiled bytecode — and therefore the deterministic Zoltu
+  address — of **every** contract, not just the vault. Consequences:
+
+  - No user-facing address moves. Every per-token contract is a `BeaconProxy`,
+    so token addresses, beacon addresses and roles are all unaffected.
+  - ⚠️ **This is a coordinated multi-contract release, not a single vault
+    upgrade.** Three singletons must be deployed and pointed at in lockstep:
+    - `StoxReceiptVault` — the H01 fix itself; requires the vault beacon to be
+      repointed.
+    - `StoxCorporateActionsFacet` — the vault bakes
+      `LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET` into its `fallback()`.
+      That address moved, so a vault built from this source delegatecalls into
+      empty code until the facet is deployed at its new address. This coupling
+      was previously invisible because the facet's bytecode had been unchanged
+      since 0.1.1, making the candidate and 0.1.1 addresses coincide.
+    - `StoxReceipt` — `ST0xOrchestrator`'s vault-logic version lock compares the
+      live vault and receipt beacon implementations against
+      `LibProdDeployCurrent`. The receipt's address moved even though its source
+      did not, so the orchestrator halts mint/burn until a new receipt
+      implementation is deployed and its beacon repointed.
+
+    Only the first of these is required by the H01 fix; the other two are
+    consequences of the optimizer change.
+  - The `testDeployAddress*` assertions for `StoxReceipt`,
+    `StoxWrappedTokenVault`, `StoxWrappedTokenVaultBeacon` and both authorizers
+    are re-pointed from the frozen `_0_1_1` pins to `_CANDIDATE`, matching what
+    `StoxReceiptVault` already did. `0_1_1` stays as the frozen historical
+    record of what is live on Base; `testFrozenRedeploy*` keeps proving those
+    snapshots redeploy reproducibly, independent of the current optimizer
+    setting, and the on-chain fork codehash tests still compare live code to the
+    unchanged `0_1_1` pins.
+  - The property given up is "a fresh build of current source reproduces the
+    _previously released_ artifacts". Verifying those against the repo now means
+    using the frozen snapshot rather than a fresh build. Deploying the stack to
+    a **new chain** must likewise use the frozen creation code to keep addresses
+    identical to Base.
+  - Runtime gas rises across all contracts. `.gas-snapshot` is stale as a
+    result; it is not gate-checked by CI (`rainix-sol-test` is just
+    `forge test -vvv`) and should be regenerated in CI, where the fork-test RPC
+    secrets are available.
+
+### Deploy scripts
+
+- **The per-chain "deploy missing tokens" scripts are merged into one.**
+  `20260722-deploy-missing-tokens-ethereum` and `-hyperevm` were byte-identical
+  apart from the chain each hardcoded; both are replaced by
+  `20260807-deploy-missing-tokens`, which resolves the target chain's token
+  table, authoriser and Safe from `block.chainid`. Adding a target chain is now
+  a table plus an authoriser pin rather than a new copy of the script.
+- **"Missing" is now defined against Base, not against the canonical config.** A
+  token is missing when its `underlying` appears in `productionTokensBase()` and
+  not in the target chain's table, matched by key rather than by index. Base is
+  the source of truth for what the token set is — a ticker is deployed there
+  first, pinned, then copied outward — so the target chain's table simply lags
+  Base until the script runs. Matching by key is what lets the two tables carry
+  different lengths in that window; the previous index-join required every table
+  to be the same length at all times. Cross-chain parity is red between the Base
+  pin and the copy, which is accurate: the chains genuinely differ until the
+  copy lands.
+- Dispatching the script against Base, or any chain without a token table,
+  reverts `UnsupportedTargetChain` rather than resolving to an empty table and
+  reading as "copy everything".
+- **The canonical config table is allowed to run ahead of Base.** A row is
+  authored when a ticker is chosen and Base is pinned when it is deployed, so
+  the config table leads in that window; only the rows Base carries are read, so
+  the excess is inert. The genuine error is a config table SHORTER than Base — a
+  deployed Base row with no name/symbol to deploy under — which reverts
+  `TokenTableTooShort(configsLength, baseLength)`. Row-for-row key drift between
+  the two tables still reverts `TokenTableMisaligned`.
+- **Three checks the gap-fill scripts had dropped are back, matching
+  `20260706-deploy-tokens-ethereum`.** Each deployed vault is now read back
+  before the loop moves on — `AuthoriserNotWired` if it is not routed to the
+  chain's authoriser, `OwnershipHandoffFailed` if ownership did not land on the
+  Safe — so a silent miss cannot finish the broadcast leaving a production vault
+  inoperable or owned by the CI deploy key. A deploy call that emitted no
+  `Deployment` event reverts `DeploymentEventMissing(underlying)` rather than
+  carrying a zero address into the receipt readback.
+- The two per-chain scripts' broadcast run ids are pinned into the token tables
+  their runs produced, so deleting the scripts does not delete the record of
+  what deployed each chain's set. `manual-broadcast.yaml`'s append-only rule now
+  states the exception the deletion was made under: an entry may be dropped only
+  when a named successor listed there covers its pre-flight at least as
+  strongly, and the run id has been carried into the pin.
+- **One dispatch ships a suite to every network.** Both `DeployProdV4_0_1_1` and
+  `DeployProdV4_0_1_30` built a one-element `string[]` for
+  `LibRainDeploy.deployAndBroadcast`, which takes a list and loops it, so the
+  six-suite 0.1.30 rollout cost one dispatch per (suite, network) pair. Both now
+  hand it `LibStoxDeployNetworks.deploymentNetworks` — Base, Ethereum, HyperEVM
+  — which the loop forks in turn, skipping any that already has code at the
+  expected address, so a repeat dispatch is a no-op where the suite landed and a
+  retry where it did not. Picking a network is gone with it: the
+  `DEPLOYMENT_NETWORK` env var, the `network` choice on both workflows and the
+  per-script supported-network lists are all removed, leaving one declaration of
+  the set in `LibStoxDeployNetworks`. 0.1.1 no longer excludes Base — the whole
+  audited 0.1.1 set already has code at its pinned addresses there, as
+  `StoxProdV4Test` asserts per chain, so the exclusion had nothing left to
+  express and the run is a no-op on all three. Both workflows now pass
+  `legacy: true` unconditionally: `--legacy` is one flag over the whole
+  `forge script` run, so it cannot vary per network within a run, and type-0 is
+  valid on every network these scripts ship to.
+
+### New contracts
+
+- **ST0xOrchestrator**: Singleton mint/burn proxy for the whole ST0x
+  receipt-vault set (Initializable, one instance behind a `BeaconProxy`; all
+  per-token state keyed by the token's vault address). Holds the vault's
+  `DEPOSIT` + `WITHDRAW` roles and owns every ERC-1155 receipt; callers never
+  touch one. Roles are split: `MINT_ROLE` mints, `BURN_ROLE` burns, and
+  `EMERGENCY_ROLE` handles recovery (`setBurnIndex`, `withdrawReceipt`,
+  `withdrawShares`, `sweepERC1155`) — deliberately separate so the key that can
+  reposition pointers or sweep assets can never also mint. Every mint carries
+  the recipient's own `MintAuthV1` authorisation of `(token, to, amount, nonce)`
+  — an EIP-712 signature (ECDSA or EIP-1271) or, absent one, an
+  `IMintRecipient.authorizeMint` callback on `to` — with replay protection
+  namespaced by recipient: `(to, nonce)` is single-use. Burn walks a per-token
+  sequential receipt-id pointer and reverts `InsufficientReceipts` on a
+  shortfall — it NEVER mints to cover an overrun; recovery is manual (transfer
+  receipts in, which auto-lower the pointer via the ERC-1155 receiver hook, or
+  `EMERGENCY_ROLE` `setBurnIndex`). A vault-logic version lock makes
+  `initialize` and `mint`/`burn` refuse to run unless the production vault +
+  receipt beacons still point at the implementations pinned in
+  `LibProdDeployV4`, halting the orchestrator until it is upgraded in lockstep
+  with any vault-logic upgrade.
+- **ST0xOrchestratorBeaconSetDeployer**: Deploys the `ST0xOrchestrator`
+  singleton as a `BeaconProxy` behind a shared `UpgradeableBeacon` owned by the
+  owner multisig. Config-in-constructor base; the Zoltu-deployable concrete
+  subclass with hardcoded `LibProdDeploy*` config lands with the deploy wiring.
+
+### Subgraph
+
+- **`subgraph/` indexes role holders, role admins and ownership.**
+  `AccessControl` exposes no member list, so a role's current holders exist
+  nowhere on chain as readable state — only the `RoleGranted` / `RoleRevoked`
+  log stream has them, and public RPCs cap `eth_getLogs` at 1000 blocks, which
+  makes trawling that stream impractical on the chains ST0x deploys to. The
+  subgraph answers, per contract per chain: current holders of a role and the
+  count, the full grant/revoke history with both the event `sender` and the
+  transaction submitter, the current role admin and its history, and the current
+  owner and its history — plus the current implementation and upgrade history of
+  each beacon. One deployment per network, built and deployed by the rainix
+  subgraph tooling to Ormi (`.github/workflows/subgraph-test.yaml`,
+  `.github/workflows/deploy-subgraph.yaml`).
+
+  The indexed set is the five networks in
+  `LibStoxDeployNetworks.deploymentNetworks()`. Six static data sources — the
+  authoriser clone, the governance timelock, the wrapped-token-vault beacon, the
+  orchestrator beacon and the two beacon-set deployers — plus three templates.
+  Receipt vaults and orchestrators are discovered from their deployers'
+  `Deployment` events rather than enumerated, because listing 54 tokens a chain
+  by address would take roughly 61 data sources per network.
+
+  Two caveats are deliberate. `startBlock` is 0 on every network: no deploy
+  block is recorded anywhere in this repo, and 0 is the only lower bound that
+  cannot silently drop grant or revoke history — it costs initial sync time, not
+  correctness. And the receipt and receipt-vault beacons are created in the
+  beacon-set deployer's constructor, in a block that precedes any `Deployment`,
+  so their construction-time logs are not reachable from the template that
+  discovers them; their owner and implementation are read by call at discovery
+  instead, which `Contract.ownerFromLog` / `Contract.implementationFromLog`
+  report per row.
+
 ## V3 (corporate actions)
 
 V3 introduces the corporate-actions diamond facet and wires it into the receipt

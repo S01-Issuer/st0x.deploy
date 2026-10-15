@@ -9,6 +9,12 @@ pragma solidity ^0.8.25;
 bytes32 constant ERC20_STORAGE_LOCATION =
     keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.ERC20")) - 1)) & ~bytes32(uint256(0xff));
 
+/// @dev The slot holding OZ's raw `_totalSupply`: offset 2 from the ERC-7201
+/// root, per the `ERC20Upgradeable` struct layout documented on
+/// `LibERC20Storage`. Every read and write of the accumulator goes through
+/// this constant.
+bytes32 constant ERC20_TOTAL_SUPPLY_SLOT = bytes32(uint256(ERC20_STORAGE_LOCATION) + 2);
+
 /// @title LibERC20Storage
 /// @notice Direct storage access to OpenZeppelin ERC20Upgradeable internals.
 /// Used by the rebase migration system to write balances and totalSupply
@@ -26,25 +32,29 @@ library LibERC20Storage {
     /// `keccak256(account || ERC20_STORAGE_LOCATION)` per Solidity's
     /// mapping slot rule with the base at offset 0 of the namespaced
     /// struct.
-    function balanceSlot(address account) private pure returns (bytes32 slot) {
+    function balanceSlot(address account) private pure returns (bytes32) {
         bytes32 base = ERC20_STORAGE_LOCATION;
+        bytes32 slot;
         assembly ("memory-safe") {
             mstore(0x00, account)
             mstore(0x20, base)
             slot := keccak256(0x00, 0x40)
         }
+        return slot;
     }
 
     /// @notice Read the account's raw underlying balance at OZ's ERC-7201
     /// `_balances` slot. This is whatever value OZ's `_update` has last
     /// written — no semantic overlay is applied here.
     /// @param account The account to read.
-    /// @return result The raw value of `_balances[account]`.
-    function underlyingBalance(address account) internal view returns (uint256 result) {
+    /// @return The raw value of `_balances[account]`.
+    function underlyingBalance(address account) internal view returns (uint256) {
         bytes32 slot = balanceSlot(account);
+        uint256 result;
         assembly ("memory-safe") {
             result := sload(slot)
         }
+        return result;
     }
 
     /// @notice Write the account's raw underlying balance at OZ's ERC-7201
@@ -63,11 +73,57 @@ library LibERC20Storage {
     /// This is whatever value OZ's `_update` has last written; no semantic
     /// overlay is applied here. Consumers that need a rebase-aware or
     /// otherwise-derived supply figure must compute it themselves.
-    /// @return supply The raw value of OZ's `_totalSupply`.
-    function underlyingTotalSupply() internal view returns (uint256 supply) {
-        bytes32 slot = ERC20_STORAGE_LOCATION;
+    /// @return The raw value of OZ's `_totalSupply`.
+    function underlyingTotalSupply() internal view returns (uint256) {
+        bytes32 slot = ERC20_TOTAL_SUPPLY_SLOT;
+        uint256 supply;
         assembly ("memory-safe") {
-            supply := sload(add(slot, 2))
+            supply := sload(slot)
         }
+        return supply;
+    }
+
+    /// @notice Write the raw underlying `_totalSupply` at OZ's ERC-7201 slot.
+    /// Bypasses OZ's `_update` entirely — no `Transfer` event, no balance
+    /// adjustment.
+    ///
+    /// @dev This slot is NOT the reported supply: `StoxReceiptVault.totalSupply()`
+    /// is the rebase-aware `LibTotalSupply.effectiveTotalSupply()`. Writing
+    /// here keeps OZ's internals self-consistent and does not change what the
+    /// token reports.
+    ///
+    /// @param newTotalSupply The new value to write to `_totalSupply`.
+    function setUnderlyingTotalSupply(uint256 newTotalSupply) internal {
+        bytes32 slot = ERC20_TOTAL_SUPPLY_SLOT;
+        assembly ("memory-safe") {
+            sstore(slot, newTotalSupply)
+        }
+    }
+
+    /// @notice Shift OZ's raw `_totalSupply` by the delta a rebase applied to
+    /// one account's balance, preserving OZ's own `_totalSupply == Σ _balances`
+    /// invariant.
+    ///
+    /// @dev The lazy rebase migration rewrites `_balances` behind OZ's back.
+    /// OZ's `_update` still subtracts from the raw slot **unchecked** on burn
+    /// and adds to it **checked** on mint, so a slot left stale by a rebase
+    /// drifts below the true balance sum, wraps to ~`2**256` on the first burn
+    /// that exceeds it, and from then on reverts every mint with `Panic(0x11)`
+    /// — silently, because `totalSupply()`, `balanceOf()` and all events keep
+    /// agreeing with each other. The slot has no write path other than
+    /// mint/burn, so recovery would need a beacon implementation upgrade.
+    /// See `StoxReceiptVaultRawTotalSupplyTest` (Protofire H01).
+    ///
+    /// Arithmetic is checked. `supply >= oldBalance` always holds (the account's
+    /// balance is one of the summands of the supply), so the only reachable
+    /// revert is an overflow on `supply + newBalance`, which means the split
+    /// multiplier has pushed supply past `uint256` — `LibRebaseMath` would
+    /// already have hit that on the individual balance, and failing closed is
+    /// the correct outcome.
+    ///
+    /// @param oldBalance The account's stored balance before rasterization.
+    /// @param newBalance The account's stored balance after rasterization.
+    function applyBalanceDeltaToTotalSupply(uint256 oldBalance, uint256 newBalance) internal {
+        setUnderlyingTotalSupply(underlyingTotalSupply() + newBalance - oldBalance);
     }
 }

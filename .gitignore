@@ -1,6 +1,12 @@
 cache
 out
+dependencies
+.pre-commit-config.yaml
 
 .env
 .fixes
-.claude/scheduled_tasks.lock
+.claude/scheduled_tasks.lockbroadcast
+
+# Foundry writes dry-run and broadcast receipts here; they are run
+# artefacts, not source.
+broadcast/

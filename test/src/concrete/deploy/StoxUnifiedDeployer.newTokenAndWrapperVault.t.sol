@@ -2,14 +2,14 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test, Vm} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
 import {
     OffchainAssetReceiptVaultConfigV2
-} from "rain.vats/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
-import {ReceiptVaultConfigV2} from "rain.vats/abstract/ReceiptVault.sol";
+} from "rain-vats-0.2.4/src/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
+import {ReceiptVaultConfigV2} from "rain-vats-0.2.4/src/abstract/ReceiptVault.sol";
 import {StoxUnifiedDeployer} from "../../../../src/concrete/deploy/StoxUnifiedDeployer.sol";
 import {StoxWrappedTokenVault} from "../../../../src/concrete/StoxWrappedTokenVault.sol";
-import {LibProdDeployV3} from "../../../../src/lib/LibProdDeployV3.sol";
+import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 
 /// @title StoxUnifiedDeployerIntegrationTest
@@ -19,7 +19,7 @@ contract StoxUnifiedDeployerIntegrationTest is Test {
     /// Deploy full V2 stack via Zoltu and call newTokenAndWrapperVault.
     function testNewTokenAndWrapperVaultV2Integration() external {
         LibTestDeploy.deployAll(vm);
-        StoxUnifiedDeployer unifiedDeployer = StoxUnifiedDeployer(LibProdDeployV3.STOX_UNIFIED_DEPLOYER);
+        StoxUnifiedDeployer unifiedDeployer = StoxUnifiedDeployer(LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CANDIDATE);
 
         OffchainAssetReceiptVaultConfigV2 memory config = OffchainAssetReceiptVaultConfigV2({
             initialAdmin: address(this),

@@ -2,7 +2,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
+import {
+    ICorporateActionsV1,
+    ACTION_TYPE_STOCK_SPLIT_V1,
+    BALANCE_MIGRATION_TYPES_MASK
+} from "../interface/ICorporateActionsV1.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
 import {ActionDoesNotExist} from "../error/ErrCorporateAction.sol";
 import {
@@ -11,8 +15,10 @@ import {
     LibCorporateActionNode,
     NODE_NONE
 } from "../lib/LibCorporateActionNode.sol";
-import {IAuthorizeV1} from "rain.vats/interface/IAuthorizeV1.sol";
-import {OffchainAssetReceiptVault} from "rain.vats/concrete/vault/OffchainAssetReceiptVault.sol";
+import {LibStockSplit} from "../lib/LibStockSplit.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.2.22/src/lib/LibDecimalFloat.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.4/src/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.4/src/concrete/vault/OffchainAssetReceiptVault.sol";
 
 /// @title StoxCorporateActionsFacet
 /// @notice Diamond facet implementing the corporate action linked list.
@@ -77,23 +83,24 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         external
         override
         onlyDelegatecalled
-        returns (uint256 actionId)
+        returns (uint256)
     {
-        _authorize(msg.sender, SCHEDULE_CORPORATE_ACTION, abi.encode(typeHash, effectiveTime, parameters));
+        authorizeAction(msg.sender, SCHEDULE_CORPORATE_ACTION, abi.encode(typeHash, effectiveTime, parameters));
         uint256 actionType = LibCorporateAction.resolveActionType(typeHash, parameters);
-        actionId = LibCorporateAction.schedule(actionType, effectiveTime, parameters);
+        uint256 actionId = LibCorporateAction.schedule(actionType, effectiveTime, parameters);
         emit CorporateActionScheduled(msg.sender, actionId, actionType, effectiveTime);
+        return actionId;
     }
 
     /// @inheritdoc ICorporateActionsV1
     // Same trust model as `scheduleCorporateAction`. The outer call's
-    // `actionId` is captured from calldata before `_authorize`, so a
+    // `actionId` is captured from calldata before `authorizeAction`, so a
     // re-entrant cancel during the authorizer callback can only act on
     // whatever index the (trusted) authorizer chooses to cancel — it
     // cannot redirect the outer call's target.
     // slither-disable-next-line reentrancy-events
     function cancelCorporateAction(uint256 actionId) external override onlyDelegatecalled {
-        _authorize(msg.sender, CANCEL_CORPORATE_ACTION, abi.encode(actionId));
+        authorizeAction(msg.sender, CANCEL_CORPORATE_ACTION, abi.encode(actionId));
         LibCorporateAction.cancel(actionId);
         emit CorporateActionCancelled(msg.sender, actionId);
     }
@@ -104,7 +111,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         view
         override
         onlyDelegatecalled
-        returns (uint256 actionId, uint256 actionType, uint64 effectiveTime)
+        returns (uint256, uint256, uint64)
     {
         // False positive: tuple pass-through — `return lib.tupleFn(...)` re-emits every
         // component as this function's own return, nothing is discarded.
@@ -118,7 +125,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         view
         override
         onlyDelegatecalled
-        returns (uint256 actionId, uint256 actionType, uint64 effectiveTime)
+        returns (uint256, uint256, uint64)
     {
         // False positive: tuple pass-through — `return lib.tupleFn(...)` re-emits every
         // component as this function's own return, nothing is discarded.
@@ -132,7 +139,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         view
         override
         onlyDelegatecalled
-        returns (uint256 nextActionId, uint256 actionType, uint64 effectiveTime)
+        returns (uint256, uint256, uint64)
     {
         // False positive: tuple pass-through — `return lib.tupleFn(...)` re-emits every
         // component as this function's own return, nothing is discarded.
@@ -146,7 +153,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
         view
         override
         onlyDelegatecalled
-        returns (uint256 prevActionId, uint256 actionType, uint64 effectiveTime)
+        returns (uint256, uint256, uint64)
     {
         // False positive: tuple pass-through — `return lib.tupleFn(...)` re-emits every
         // component as this function's own return, nothing is discarded.
@@ -155,19 +162,41 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     }
 
     /// @inheritdoc ICorporateActionsV1
-    function getActionParameters(uint256 actionId)
-        external
-        view
-        override
-        onlyDelegatecalled
-        returns (bytes memory parameters)
-    {
+    function getActionParameters(uint256 actionId) external view override onlyDelegatecalled returns (bytes memory) {
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
         // Bounds check covers `NODE_NONE` (= type(uint256).max) implicitly:
         // `s.nodes.length` is bounded by realistic schedule cadence, so any
         // sentinel value comparable to max uint256 is >= length.
         if (actionId >= s.nodes.length) revert ActionDoesNotExist(actionId);
-        parameters = s.nodes[actionId].parameters;
+        // `effectiveTime == 0` means the slot was never populated or the
+        // action was cancelled; both are surfaced as nonexistent so the
+        // facet's view of the schedule matches what list walks see.
+        if (s.nodes[actionId].effectiveTime == 0) revert ActionDoesNotExist(actionId);
+        return s.nodes[actionId].parameters;
+    }
+
+    /// @inheritdoc ICorporateActionsV1
+    function cumulativeBalanceMultiplierSinceGenesis() external view override onlyDelegatecalled returns (Float) {
+        LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
+        // Identity: the canonical one exported by rain-math-float.
+        Float cumulative = LibDecimalFloat.FLOAT_ONE;
+        // Same selection as `LibRebase.migratedBalance`: completed
+        // balance-migration nodes only, in chronological order from the
+        // head of the list (`NODE_NONE` start is head-inclusive, so the
+        // bootstrap node is visited — it is identity and skipped below).
+        uint256 nodeIndex =
+            LibCorporateActionNode.nextOfType(NODE_NONE, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
+        while (nodeIndex != NODE_NONE) {
+            // Init nodes are identity for balance migration; only stock
+            // splits carry a multiplier payload.
+            if (s.nodes[nodeIndex].actionType == ACTION_TYPE_STOCK_SPLIT_V1) {
+                cumulative =
+                    LibDecimalFloat.mul(cumulative, LibStockSplit.decodeParametersV1(s.nodes[nodeIndex].parameters));
+            }
+            nodeIndex =
+                LibCorporateActionNode.nextOfType(nodeIndex, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
+        }
+        return cumulative;
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is
@@ -180,7 +209,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
     /// @param data ABI-encoded action context. For schedule:
     /// `abi.encode(bytes32 typeHash, uint64 effectiveTime, bytes parameters)`.
     /// For cancel: `abi.encode(uint256 actionId)`.
-    function _authorize(address user, bytes32 permission, bytes memory data) internal {
+    function authorizeAction(address user, bytes32 permission, bytes memory data) internal {
         IAuthorizeV1 auth = OffchainAssetReceiptVault(payable(address(this))).authorizer();
         auth.authorize(user, permission, data);
     }

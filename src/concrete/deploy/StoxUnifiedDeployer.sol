@@ -6,10 +6,10 @@ import {
     OffchainAssetReceiptVaultBeaconSetDeployer,
     OffchainAssetReceiptVaultConfigV2,
     OffchainAssetReceiptVault
-} from "rain.vats/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
-import {IERC165} from "openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
+} from "rain-vats-0.2.4/src/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
+import {ERC165} from "@openzeppelin-contracts-5.7.0/utils/introspection/ERC165.sol";
 import {StoxWrappedTokenVaultBeaconSetDeployer} from "./StoxWrappedTokenVaultBeaconSetDeployer.sol";
-import {LibProdDeployV3} from "../../lib/LibProdDeployV3.sol";
+import {LibProdDeployCurrent} from "../../generated/LibProdDeployCurrent.sol";
 import {StoxWrappedTokenVault} from "../StoxWrappedTokenVault.sol";
 import {IStoxUnifiedDeployerV1} from "../../interface/IStoxUnifiedDeployerV1.sol";
 
@@ -18,10 +18,10 @@ import {IStoxUnifiedDeployerV1} from "../../interface/IStoxUnifiedDeployerV1.sol
 /// StoxWrappedTokenVault linked to the OffchainAssetReceiptVault atomically.
 /// The beacon sets are hardcoded to simplify and harden deployment of this
 /// contract by providing an audit trail in git of any address modifications.
-contract StoxUnifiedDeployer is IERC165, IStoxUnifiedDeployerV1 {
-    /// @inheritdoc IERC165
-    function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
-        return interfaceId == type(IStoxUnifiedDeployerV1).interfaceId || interfaceId == type(IERC165).interfaceId;
+contract StoxUnifiedDeployer is ERC165, IStoxUnifiedDeployerV1 {
+    /// @inheritdoc ERC165
+    function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
+        return interfaceId == type(IStoxUnifiedDeployerV1).interfaceId || super.supportsInterface(interfaceId);
     }
 
     /// Emitted when a new OffchainAssetReceiptVault and StoxWrappedTokenVault
@@ -41,10 +41,10 @@ contract StoxUnifiedDeployer is IERC165, IStoxUnifiedDeployerV1 {
     // slither-disable-next-line reentrancy-events
     function newTokenAndWrapperVault(OffchainAssetReceiptVaultConfigV2 memory config) external {
         OffchainAssetReceiptVault asset = OffchainAssetReceiptVaultBeaconSetDeployer(
-                LibProdDeployV3.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+                LibProdDeployCurrent.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
             ).newOffchainAssetReceiptVault(config);
         StoxWrappedTokenVault wrappedTokenVault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+                LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
             ).newStoxWrappedTokenVault(address(asset));
 
         emit Deployment(msg.sender, address(asset), address(wrappedTokenVault));

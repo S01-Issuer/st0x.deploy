@@ -2,21 +2,15 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std/Test.sol";
-import {LibCorporateAction} from "src/lib/LibCorporateAction.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {TraversalHarness} from "./TraversalHarness.sol";
 import {
-    ACTION_TYPE_INIT_V1,
     ACTION_TYPE_STOCK_SPLIT_V1,
     ACTION_TYPE_STABLES_DIVIDEND_V1,
     VALID_ACTION_TYPES_MASK
 } from "src/interface/ICorporateActionsV1.sol";
 
-import {
-    CompletionFilter,
-    CorporateActionNode,
-    LibCorporateActionNode,
-    NODE_NONE
-} from "src/lib/LibCorporateActionNode.sol";
+import {CompletionFilter, NODE_NONE} from "src/lib/LibCorporateActionNode.sol";
 import {InvalidMask} from "src/error/ErrCorporateAction.sol";
 
 /// @dev Mask covering every test-scheduled action type — `STOCK_SPLIT_V1` and
@@ -28,58 +22,6 @@ import {InvalidMask} from "src/error/ErrCorporateAction.sol";
 /// effective-supply tests in `LibTotalSupply.t.sol` and `LibRebase.t.sol`
 /// do exercise the bootstrap node via `BALANCE_MIGRATION_TYPES_MASK`.
 uint256 constant USER_TYPES_TEST_MASK = ACTION_TYPE_STOCK_SPLIT_V1 | ACTION_TYPE_STABLES_DIVIDEND_V1;
-
-/// @dev Thin harness: exposes the four tuple-returning traversal getters via
-/// external calls so the library functions can be exercised directly (not
-/// through the facet). Also schedules actions into the harness's own storage
-/// namespace so there is no ambient state between tests.
-contract TraversalHarness {
-    function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters) external returns (uint256) {
-        return LibCorporateAction.schedule(actionType, effectiveTime, parameters);
-    }
-
-    function cancel(uint256 actionIndex) external {
-        LibCorporateAction.cancel(actionIndex);
-    }
-
-    function latest(uint256 mask, CompletionFilter filter)
-        external
-        view
-        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
-    {
-        return LibCorporateActionNode.latestActionOfType(mask, filter);
-    }
-
-    function earliest(uint256 mask, CompletionFilter filter)
-        external
-        view
-        returns (uint256 cursor, uint256 actionType, uint64 effectiveTime)
-    {
-        return LibCorporateActionNode.earliestActionOfType(mask, filter);
-    }
-
-    function nextOf(uint256 cursor, uint256 mask, CompletionFilter filter)
-        external
-        view
-        returns (uint256 nextCursor, uint256 actionType, uint64 effectiveTime)
-    {
-        return LibCorporateActionNode.nextActionOfType(cursor, mask, filter);
-    }
-
-    function prevOf(uint256 cursor, uint256 mask, CompletionFilter filter)
-        external
-        view
-        returns (uint256 prevCursor, uint256 actionType, uint64 effectiveTime)
-    {
-        return LibCorporateActionNode.prevActionOfType(cursor, mask, filter);
-    }
-
-    function nodeAt(uint256 index) external view returns (uint256 actionType, uint64 effectiveTime) {
-        CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[index];
-        actionType = node.actionType;
-        effectiveTime = node.effectiveTime;
-    }
-}
 
 contract LibCorporateActionNodeTest is Test {
     TraversalHarness internal h;
@@ -296,27 +238,27 @@ contract LibCorporateActionNodeTest is Test {
     /// matches are PENDING, after the first completes `latest(COMPLETED)`
     /// resolves to it and `earliest(PENDING)` advances to the remaining one.
     function testFilterTracksEffectiveTimeTransitions() external {
-        uint256 id1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
-        uint256 id2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
+        uint256 a1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 a2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
 
         // Pre-1500: both pending.
         (uint256 cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
         assertEq(cursor, NODE_NONE);
         (cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
-        assertEq(cursor, id1);
+        assertEq(cursor, a1);
 
-        // Warp past id1's effective time only.
+        // Warp past a1's effective time only.
         vm.warp(2000);
 
         (cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
-        assertEq(cursor, id1, "only id1 has completed");
+        assertEq(cursor, a1, "only a1 has completed");
         (cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
-        assertEq(cursor, id2, "only id2 still pending");
+        assertEq(cursor, a2, "only a2 still pending");
 
         // Warp past both.
         vm.warp(3000);
         (cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.COMPLETED);
-        assertEq(cursor, id2, "tail becomes latest completed");
+        assertEq(cursor, a2, "tail becomes latest completed");
         (cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.PENDING);
         assertEq(cursor, NODE_NONE, "no pending actions remain");
     }
@@ -326,56 +268,56 @@ contract LibCorporateActionNodeTest is Test {
     /// from the tail no longer touches it. Pins the linked-list integrity
     /// under cancellation through the traversal API surface.
     function testCancelMiddleNodeRelinksTraversal() external {
-        uint256 id1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
-        uint256 id2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
-        uint256 id3 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, hex"");
+        uint256 a1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 a2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
+        uint256 a3 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, hex"");
 
-        h.cancel(id2);
+        h.cancel(a2);
 
-        // nextActionOfType from id1 now skips past id2 to id3.
-        (uint256 cursor,,) = h.nextOf(id1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
-        assertEq(cursor, id3, "next(id1) must skip cancelled id2");
+        // nextActionOfType from a1 now skips past a2 to a3.
+        (uint256 cursor,,) = h.nextOf(a1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        assertEq(cursor, a3, "next(a1) must skip cancelled a2");
 
-        // prevActionOfType from id3 now skips id2 back to id1.
-        (cursor,,) = h.prevOf(id3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
-        assertEq(cursor, id1, "prev(id3) must skip cancelled id2");
+        // prevActionOfType from a3 now skips a2 back to a1.
+        (cursor,,) = h.prevOf(a3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        assertEq(cursor, a1, "prev(a3) must skip cancelled a2");
 
-        // earliest + latest remain unchanged — id2 was never at either end.
+        // earliest + latest remain unchanged — a2 was never at either end.
         (cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
-        assertEq(cursor, id1, "earliest is still id1");
+        assertEq(cursor, a1, "earliest is still a1");
         (cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
-        assertEq(cursor, id3, "latest is still id3");
+        assertEq(cursor, a3, "latest is still a3");
     }
 
     /// Cancelling the head advances `earliestActionOfType` to the next node.
     /// Verifies the head pointer updates and traversal from the new head
     /// works.
     function testCancelHeadAdvancesEarliest() external {
-        uint256 id1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
-        uint256 id2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
+        uint256 a1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 a2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
 
-        h.cancel(id1);
+        h.cancel(a1);
 
         (uint256 cursor,,) = h.earliest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
-        assertEq(cursor, id2, "earliest advances to id2 after id1 cancelled");
+        assertEq(cursor, a2, "earliest advances to a2 after a1 cancelled");
 
         // Walking prev from the new earliest returns 0 (head has no prev).
-        (cursor,,) = h.prevOf(id2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        (cursor,,) = h.prevOf(a2, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, NODE_NONE, "prev of new head is 0");
     }
 
     /// Cancelling the tail moves `latestActionOfType` back to the prior node.
     /// Verifies the tail pointer updates.
     function testCancelTailRetreatsLatest() external {
-        uint256 id1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
-        uint256 id2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
+        uint256 a1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 a2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
 
-        h.cancel(id2);
+        h.cancel(a2);
 
         (uint256 cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
-        assertEq(cursor, id1, "latest retreats to id1 after id2 cancelled");
+        assertEq(cursor, a1, "latest retreats to a1 after a2 cancelled");
 
-        (cursor,,) = h.nextOf(id1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        (cursor,,) = h.nextOf(a1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, NODE_NONE, "next of new tail is 0");
     }
 
@@ -383,24 +325,24 @@ contract LibCorporateActionNodeTest is Test {
     /// a cursor. Verify they skip masks that don't match and report the
     /// neighbouring node.
     function testNextAndPrevFromSpecificCursor() external {
-        uint256 id1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
-        uint256 id2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
-        uint256 id3 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, hex"");
+        uint256 a1 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
+        uint256 a2 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
+        uint256 a3 = h.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, hex"");
 
-        // next from id1 → id2.
-        (uint256 cursor,,) = h.nextOf(id1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
-        assertEq(cursor, id2);
+        // next from a1 → a2.
+        (uint256 cursor,,) = h.nextOf(a1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        assertEq(cursor, a2);
 
-        // next from id3 → none (tail).
-        (cursor,,) = h.nextOf(id3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        // next from a3 → none (tail).
+        (cursor,,) = h.nextOf(a3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, NODE_NONE);
 
-        // prev from id3 → id2.
-        (cursor,,) = h.prevOf(id3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
-        assertEq(cursor, id2);
+        // prev from a3 → a2.
+        (cursor,,) = h.prevOf(a3, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        assertEq(cursor, a2);
 
-        // prev from id1 → none (head).
-        (cursor,,) = h.prevOf(id1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
+        // prev from a1 → none (head).
+        (cursor,,) = h.prevOf(a1, ACTION_TYPE_STOCK_SPLIT_V1, CompletionFilter.ALL);
         assertEq(cursor, NODE_NONE);
     }
 
@@ -754,7 +696,13 @@ contract LibCorporateActionNodeTest is Test {
                 for (uint256 i = 0; i < nodeCount; i++) {
                     (uint256 actionType, uint64 effectiveTime) = h.nodeAt(ids[i]);
                     if (actionType & masks[m] == 0) continue;
+                    // The test's own oracle, re-deriving the complete/pending split from the
+                    // same rule the library uses. Skew would move both sides together.
+                    // forge-lint: disable-next-line(block-timestamp)
                     if (filters[f] == CompletionFilter.COMPLETED && effectiveTime > block.timestamp) continue;
+                    // The test's own oracle, re-deriving the complete/pending split from the
+                    // same rule the library uses. Skew would move both sides together.
+                    // forge-lint: disable-next-line(block-timestamp)
                     if (filters[f] == CompletionFilter.PENDING && effectiveTime <= block.timestamp) continue;
                     anyMatch = true;
                     break;
@@ -898,7 +846,13 @@ contract LibCorporateActionNodeTest is Test {
                     if (cancelled[i]) continue;
                     (uint256 actionType, uint64 effectiveTime) = h.nodeAt(ids[i]);
                     if (actionType & masks[m] == 0) continue;
+                    // The test's own oracle, re-deriving the complete/pending split from the
+                    // same rule the library uses. Skew would move both sides together.
+                    // forge-lint: disable-next-line(block-timestamp)
                     if (filters[f] == CompletionFilter.COMPLETED && effectiveTime > block.timestamp) continue;
+                    // The test's own oracle, re-deriving the complete/pending split from the
+                    // same rule the library uses. Skew would move both sides together.
+                    // forge-lint: disable-next-line(block-timestamp)
                     if (filters[f] == CompletionFilter.PENDING && effectiveTime <= block.timestamp) continue;
                     anyMatch = true;
                     break;
@@ -958,8 +912,14 @@ contract LibCorporateActionNodeTest is Test {
         assertTrue(actionType & mask != 0, "returned cursor's actionType matches mask");
 
         if (filter == CompletionFilter.COMPLETED) {
+            // The test's own oracle, re-deriving the complete/pending split from the
+            // same rule the library uses. Skew would move both sides together.
+            // forge-lint: disable-next-line(block-timestamp)
             assertTrue(effectiveTime <= block.timestamp, "COMPLETED cursor is at or past effectiveTime");
         } else if (filter == CompletionFilter.PENDING) {
+            // The test's own oracle, re-deriving the complete/pending split from the
+            // same rule the library uses. Skew would move both sides together.
+            // forge-lint: disable-next-line(block-timestamp)
             assertTrue(effectiveTime > block.timestamp, "PENDING cursor is in the future");
         }
     }
@@ -1021,43 +981,43 @@ contract LibCorporateActionNodeTest is Test {
         assertEq(cursor, NODE_NONE, "backward cursor not terminated");
     }
 
-    function cursors1(uint256 a) internal pure returns (uint256[] memory r) {
-        r = new uint256[](1);
+    function cursors1(uint256 a) internal pure returns (uint256[] memory) {
+        uint256[] memory r = new uint256[](1);
         r[0] = a;
+        return r;
     }
 
-    function cursors2(uint256 a, uint256 b) internal pure returns (uint256[] memory r) {
-        r = new uint256[](2);
+    function cursors2(uint256 a, uint256 b) internal pure returns (uint256[] memory) {
+        uint256[] memory r = new uint256[](2);
         r[0] = a;
         r[1] = b;
+        return r;
     }
 
-    function cursors3(uint256 a, uint256 b, uint256 c) internal pure returns (uint256[] memory r) {
-        r = new uint256[](3);
+    function cursors3(uint256 a, uint256 b, uint256 c) internal pure returns (uint256[] memory) {
+        uint256[] memory r = new uint256[](3);
         r[0] = a;
         r[1] = b;
         r[2] = c;
+        return r;
     }
 
-    function cursors5(uint256 a, uint256 b, uint256 c, uint256 d, uint256 e)
-        internal
-        pure
-        returns (uint256[] memory r)
-    {
-        r = new uint256[](5);
+    function cursors5(uint256 a, uint256 b, uint256 c, uint256 d, uint256 e) internal pure returns (uint256[] memory) {
+        uint256[] memory r = new uint256[](5);
         r[0] = a;
         r[1] = b;
         r[2] = c;
         r[3] = d;
         r[4] = e;
+        return r;
     }
 
     function cursors8(uint256 a, uint256 b, uint256 c, uint256 d, uint256 e, uint256 f, uint256 g, uint256 h_)
         internal
         pure
-        returns (uint256[] memory r)
+        returns (uint256[] memory)
     {
-        r = new uint256[](8);
+        uint256[] memory r = new uint256[](8);
         r[0] = a;
         r[1] = b;
         r[2] = c;
@@ -1066,5 +1026,6 @@ contract LibCorporateActionNodeTest is Test {
         r[5] = f;
         r[6] = g;
         r[7] = h_;
+        return r;
     }
 }

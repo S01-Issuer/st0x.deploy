@@ -2,13 +2,13 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test, Vm} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
 import {StoxWrappedTokenVault, ZeroAsset} from "../../../src/concrete/StoxWrappedTokenVault.sol";
 import {
     StoxWrappedTokenVaultBeaconSetDeployer,
     ZeroVaultAsset
 } from "../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
-import {LibProdDeployV3} from "../../../src/lib/LibProdDeployV3.sol";
+import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {MockERC20} from "../../concrete/MockERC20.sol";
 
@@ -20,7 +20,7 @@ contract StoxWrappedTokenVaultV2Test is Test {
     function testV2ZeroAssetReverts() external {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         vm.expectRevert(abi.encodeWithSelector(ZeroVaultAsset.selector));
-        StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER)
+        StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CANDIDATE)
             .newStoxWrappedTokenVault(address(0));
     }
 
@@ -31,7 +31,7 @@ contract StoxWrappedTokenVaultV2Test is Test {
         MockERC20 asset = new MockERC20();
 
         vm.recordLogs();
-        StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER)
+        StoxWrappedTokenVaultBeaconSetDeployer(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CANDIDATE)
             .newStoxWrappedTokenVault(address(asset));
 
         Vm.Log[] memory logs = vm.getRecordedLogs();
@@ -64,7 +64,7 @@ contract StoxWrappedTokenVaultV2Test is Test {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         MockERC20 asset = new MockERC20();
         StoxWrappedTokenVault vault = StoxWrappedTokenVaultBeaconSetDeployer(
-                LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CANDIDATE
             ).newStoxWrappedTokenVault(address(asset));
 
         assertEq(vault.asset(), address(asset));

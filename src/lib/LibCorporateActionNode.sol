@@ -148,6 +148,11 @@ library LibCorporateActionNode {
     ) private view returns (uint256) {
         while (current != NODE_NONE) {
             CorporateActionNode storage node = s.nodes[current];
+            // `effectiveTime` is the schedule this list is ordered by, so comparing it
+            // to the clock IS the definition of complete versus pending. There is no
+            // advantage to skew here: moving the clock a few seconds only reclassifies
+            // an action that was already at its boundary.
+            // forge-lint: disable-next-line(block-timestamp)
             if (node.effectiveTime > block.timestamp) break;
             if (node.actionType & mask != 0) return current;
             current = node.next;
@@ -163,6 +168,11 @@ library LibCorporateActionNode {
         view
         returns (uint256)
     {
+        // `effectiveTime` is the schedule this list is ordered by, so comparing it
+        // to the clock IS the definition of complete versus pending. There is no
+        // advantage to skew here: moving the clock a few seconds only reclassifies
+        // an action that was already at its boundary.
+        // forge-lint: disable-next-line(block-timestamp)
         while (current != NODE_NONE && s.nodes[current].effectiveTime <= block.timestamp) {
             current = s.nodes[current].next;
         }
@@ -195,6 +205,11 @@ library LibCorporateActionNode {
     ) private view returns (uint256) {
         while (current != NODE_NONE) {
             CorporateActionNode storage node = s.nodes[current];
+            // `effectiveTime` is the schedule this list is ordered by, so comparing it
+            // to the clock IS the definition of complete versus pending. There is no
+            // advantage to skew here: moving the clock a few seconds only reclassifies
+            // an action that was already at its boundary.
+            // forge-lint: disable-next-line(block-timestamp)
             if (node.effectiveTime <= block.timestamp) break;
             if (node.actionType & mask != 0) return current;
             current = node.prev;
@@ -210,6 +225,11 @@ library LibCorporateActionNode {
         view
         returns (uint256)
     {
+        // `effectiveTime` is the schedule this list is ordered by, so comparing it
+        // to the clock IS the definition of complete versus pending. There is no
+        // advantage to skew here: moving the clock a few seconds only reclassifies
+        // an action that was already at its boundary.
+        // forge-lint: disable-next-line(block-timestamp)
         while (current != NODE_NONE && s.nodes[current].effectiveTime > block.timestamp) {
             current = s.nodes[current].prev;
         }
@@ -220,51 +240,55 @@ library LibCorporateActionNode {
     /// `(0, 0)` when `actionId == NODE_NONE` without touching storage, so
     /// callers can thread "none found" results through without a branch of
     /// their own.
-    function resolve(uint256 actionId) private view returns (uint256 actionType, uint64 effectiveTime) {
-        if (actionId != NODE_NONE) {
-            CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[actionId];
-            actionType = node.actionType;
-            effectiveTime = node.effectiveTime;
+    function resolve(uint256 actionId) private view returns (uint256, uint64) {
+        if (actionId == NODE_NONE) {
+            return (0, 0);
         }
+        CorporateActionNode storage node = LibCorporateAction.getStorage().nodes[actionId];
+        return (node.actionType, node.effectiveTime);
     }
 
     /// @notice Latest action matching `mask` and `filter`, resolved with metadata.
     function latestActionOfType(uint256 mask, CompletionFilter filter)
         internal
         view
-        returns (uint256 actionId, uint256 actionType, uint64 effectiveTime)
+        returns (uint256, uint256, uint64)
     {
-        actionId = prevOfType(NODE_NONE, mask, filter);
-        (actionType, effectiveTime) = resolve(actionId);
+        uint256 actionId = prevOfType(NODE_NONE, mask, filter);
+        (uint256 actionType, uint64 effectiveTime) = resolve(actionId);
+        return (actionId, actionType, effectiveTime);
     }
 
     /// @notice Earliest action matching `mask` and `filter`, resolved with metadata.
     function earliestActionOfType(uint256 mask, CompletionFilter filter)
         internal
         view
-        returns (uint256 actionId, uint256 actionType, uint64 effectiveTime)
+        returns (uint256, uint256, uint64)
     {
-        actionId = nextOfType(NODE_NONE, mask, filter);
-        (actionType, effectiveTime) = resolve(actionId);
+        uint256 actionId = nextOfType(NODE_NONE, mask, filter);
+        (uint256 actionType, uint64 effectiveTime) = resolve(actionId);
+        return (actionId, actionType, effectiveTime);
     }
 
     /// @notice Next matching action after `fromId`, resolved with metadata.
     function nextActionOfType(uint256 fromId, uint256 mask, CompletionFilter filter)
         internal
         view
-        returns (uint256 actionId, uint256 actionType, uint64 effectiveTime)
+        returns (uint256, uint256, uint64)
     {
-        actionId = nextOfType(fromId, mask, filter);
-        (actionType, effectiveTime) = resolve(actionId);
+        uint256 actionId = nextOfType(fromId, mask, filter);
+        (uint256 actionType, uint64 effectiveTime) = resolve(actionId);
+        return (actionId, actionType, effectiveTime);
     }
 
     /// @notice Previous matching action before `fromId`, resolved with metadata.
     function prevActionOfType(uint256 fromId, uint256 mask, CompletionFilter filter)
         internal
         view
-        returns (uint256 actionId, uint256 actionType, uint64 effectiveTime)
+        returns (uint256, uint256, uint64)
     {
-        actionId = prevOfType(fromId, mask, filter);
-        (actionType, effectiveTime) = resolve(actionId);
+        uint256 actionId = prevOfType(fromId, mask, filter);
+        (uint256 actionType, uint64 effectiveTime) = resolve(actionId);
+        return (actionId, actionType, effectiveTime);
     }
 }

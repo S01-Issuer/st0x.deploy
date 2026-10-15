@@ -2,20 +2,20 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test, Vm} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
 import {
     OffchainAssetReceiptVaultBeaconSetDeployer,
     OffchainAssetReceiptVaultConfigV2,
     OffchainAssetReceiptVault
-} from "rain.vats/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
+} from "rain-vats-0.2.4/src/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
 import {StoxUnifiedDeployer} from "../../../../src/concrete/deploy/StoxUnifiedDeployer.sol";
-import {LibProdDeployV3} from "../../../../src/lib/LibProdDeployV3.sol";
+import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {StoxWrappedTokenVault} from "../../../../src/concrete/StoxWrappedTokenVault.sol";
 import {
     StoxWrappedTokenVaultBeaconSetDeployer
 } from "../../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
-import {ReceiptVaultConfigV2} from "rain.vats/abstract/ReceiptVault.sol";
+import {ReceiptVaultConfigV2} from "rain-vats-0.2.4/src/abstract/ReceiptVault.sol";
 import {MockERC20} from "../../../concrete/MockERC20.sol";
 
 contract StoxUnifiedDeployerTest is Test {
@@ -27,13 +27,13 @@ contract StoxUnifiedDeployerTest is Test {
         StoxUnifiedDeployer unifiedDeployer = new StoxUnifiedDeployer();
 
         vm.etch(
-            LibProdDeployV3.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,
             vm.getCode(
                 "StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer"
             )
         );
         vm.mockCall(
-            LibProdDeployV3.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,
             abi.encodeWithSelector(
                 OffchainAssetReceiptVaultBeaconSetDeployer.newOffchainAssetReceiptVault.selector, config
             ),
@@ -41,11 +41,11 @@ contract StoxUnifiedDeployerTest is Test {
         );
 
         vm.etch(
-            LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,
             vm.getCode("StoxWrappedTokenVaultBeaconSetDeployer.sol:StoxWrappedTokenVaultBeaconSetDeployer")
         );
         vm.mockCall(
-            LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,
             abi.encodeWithSelector(StoxWrappedTokenVaultBeaconSetDeployer.newStoxWrappedTokenVault.selector, asset),
             abi.encode(address(vault))
         );
@@ -60,13 +60,13 @@ contract StoxUnifiedDeployerTest is Test {
         StoxUnifiedDeployer unifiedDeployer = new StoxUnifiedDeployer();
 
         vm.etch(
-            LibProdDeployV3.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,
             vm.getCode(
                 "StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer"
             )
         );
         vm.mockCallRevert(
-            LibProdDeployV3.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,
             abi.encodeWithSelector(
                 OffchainAssetReceiptVaultBeaconSetDeployer.newOffchainAssetReceiptVault.selector, config
             ),
@@ -86,13 +86,13 @@ contract StoxUnifiedDeployerTest is Test {
         StoxUnifiedDeployer unifiedDeployer = new StoxUnifiedDeployer();
 
         vm.etch(
-            LibProdDeployV3.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,
             vm.getCode(
                 "StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer"
             )
         );
         vm.mockCall(
-            LibProdDeployV3.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER,
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,
             abi.encodeWithSelector(
                 OffchainAssetReceiptVaultBeaconSetDeployer.newOffchainAssetReceiptVault.selector, config
             ),
@@ -100,11 +100,11 @@ contract StoxUnifiedDeployerTest is Test {
         );
 
         vm.etch(
-            LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,
             vm.getCode("StoxWrappedTokenVaultBeaconSetDeployer.sol:StoxWrappedTokenVaultBeaconSetDeployer")
         );
         vm.mockCallRevert(
-            LibProdDeployV3.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CANDIDATE,
             abi.encodeWithSelector(StoxWrappedTokenVaultBeaconSetDeployer.newStoxWrappedTokenVault.selector, asset),
             abi.encodeWithSignature("ZeroVaultAsset()")
         );

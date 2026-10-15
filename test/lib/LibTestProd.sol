@@ -2,12 +2,13 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {Vm} from "forge-std/StdCheats.sol";
+import {Vm} from "forge-std-1.17.0/src/StdCheats.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 
-uint256 constant PROD_TEST_BLOCK_NUMBER_BASE = 44600000;
+uint256 constant PROD_TEST_BLOCK_NUMBER_BASE = 47842154;
 
 library LibTestProd {
     function createSelectForkBase(Vm vm) internal {
-        vm.createSelectFork(vm.envString("RPC_URL_BASE_FORK"), PROD_TEST_BLOCK_NUMBER_BASE);
+        vm.createSelectFork(LibRainDeploy.BASE, PROD_TEST_BLOCK_NUMBER_BASE);
     }
 }

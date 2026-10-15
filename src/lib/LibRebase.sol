@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {Float} from "rain.math.float/lib/LibDecimalFloat.sol";
+import {Float} from "rain-math-float-0.2.22/src/lib/LibDecimalFloat.sol";
 import {LibCorporateAction} from "./LibCorporateAction.sol";
 import {
     ACTION_TYPE_INIT_V1,
@@ -82,12 +82,8 @@ library LibRebase {
     /// @return toActionId The action id of the last completed split node
     /// visited. Equals `fromActionId` if there were no further completed
     /// splits.
-    function migratedBalance(uint256 storedBalance, uint256 fromActionId)
-        internal
-        view
-        returns (uint256, uint256 toActionId)
-    {
-        toActionId = fromActionId;
+    function migratedBalance(uint256 storedBalance, uint256 fromActionId) internal view returns (uint256, uint256) {
+        uint256 toActionId = fromActionId;
 
         LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
 

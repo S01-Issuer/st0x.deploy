@@ -31,7 +31,7 @@ bytes32 constant SCHEDULE_CORPORATE_ACTION = keccak256("SCHEDULE_CORPORATE_ACTIO
 bytes32 constant CANCEL_CORPORATE_ACTION = keccak256("CANCEL_CORPORATE_ACTION");
 
 /// @dev External identifier for V1 vault initialisation. INIT is
-/// system-created via `_ensureBootstrap`; users cannot schedule it via
+/// system-created via `ensureBootstrap`; users cannot schedule it via
 /// `scheduleCorporateAction` (the dispatch in `resolveActionType` rejects
 /// the hash). The constant exists so every `ACTION_TYPE_*_V<N>` has a
 /// matching `*_V<N>_TYPE_HASH` per the action-type convention — indexers
@@ -56,7 +56,7 @@ bytes32 constant STABLES_DIVIDEND_V1_TYPE_HASH = keccak256("st0x.corporate-actio
 ///
 /// Nodes are stored in a dynamic array. Index 0, when the array is non-empty,
 /// is always the `ACTION_TYPE_INIT_V1` bootstrap node lazily created by
-/// `_ensureBootstrap` on the first `schedule` call. User-scheduled actions
+/// `ensureBootstrap` on the first `schedule` call. User-scheduled actions
 /// start at index 1. The null encoding for `prev`, `next`, and the "from
 /// head/tail inclusive" sentinel for `nextOfType`/`prevOfType` is
 /// `NODE_NONE` — value-level disambiguation, not positional, so a
@@ -76,7 +76,7 @@ library LibCorporateAction {
     /// the new field's offset.
     struct CorporateActionStorage {
         /// @param head Head of the list (earliest effectiveTime). After
-        /// `_ensureBootstrap` has fired this is always 0 (the bootstrap
+        /// `ensureBootstrap` has fired this is always 0 (the bootstrap
         /// node, which has the smallest effectiveTime by construction);
         /// before any schedule call `nodes.length == 0` and head/tail
         /// must not be read.
@@ -99,14 +99,14 @@ library LibCorporateAction {
         mapping(address => uint256) accountMigrationCursor;
         /// Per-cursor unmigrated supply. Maps cursor position (node index)
         /// to the sum of stored balances for accounts at that cursor level.
-        /// Index 0 is the bootstrap pot — captured by `_ensureBootstrap`
+        /// Index 0 is the bootstrap pot — captured by `ensureBootstrap`
         /// from OZ's `_totalSupply` at the moment the first action is
         /// scheduled. When an account migrates from cursor k to cursor k',
         /// storedBalance is subtracted from unmigrated[k] and the migrated
         /// balance is added to unmigrated[k'].
         mapping(uint256 => uint256) unmigrated;
         /// Index of the latest completed init-or-stock-split node seen by
-        /// `fold()`. `_ensureBootstrap` writes `NODE_NONE` here as
+        /// `fold()`. `ensureBootstrap` writes `NODE_NONE` here as
         /// the "no fold has run yet" sentinel so the first `fold()` call
         /// walks the head-inclusive range. Mint/burn amounts route to
         /// `unmigrated[totalSupplyLatestCursor]` after the first fold.
@@ -114,19 +114,21 @@ library LibCorporateAction {
     }
 
     /// @dev Accessor for corporate action storage at the ERC-7201 slot.
-    function getStorage() internal pure returns (CorporateActionStorage storage s) {
+    function getStorage() internal pure returns (CorporateActionStorage storage) {
         bytes32 position = CORPORATE_ACTION_STORAGE_LOCATION;
+        CorporateActionStorage storage s;
         assembly ("memory-safe") {
             s.slot := position
         }
+        return s;
     }
 
     /// @notice Map an external type identifier to its internal bitmap and
     /// validate parameters. Reverts if the type hash is not recognised.
     /// @param typeHash External identifier, e.g. keccak256("st0x.corporate-actions.stock-split.1").
     /// @param parameters ABI-encoded parameters for the action type.
-    /// @return actionType The internal bitmap for this type.
-    function resolveActionType(bytes32 typeHash, bytes calldata parameters) internal returns (uint256 actionType) {
+    /// @return The internal bitmap for this type.
+    function resolveActionType(bytes32 typeHash, bytes calldata parameters) internal returns (uint256) {
         if (typeHash == STOCK_SPLIT_V1_TYPE_HASH) {
             LibStockSplit.validateMultiplierV1(LibStockSplit.decodeParametersV1(parameters));
             return ACTION_TYPE_STOCK_SPLIT_V1;
@@ -136,23 +138,25 @@ library LibCorporateAction {
 
     /// @notice Insert a node into the list maintaining time ordering.
     /// effectiveTime must be strictly in the future.
-    /// @return actionId The array index of the new node. Index 0 is the
-    /// bootstrap node, so user-scheduled actions have index >= 1.
-    function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters)
-        internal
-        returns (uint256 actionId)
-    {
+    /// @return The array index of the new node. Index 0 is the bootstrap
+    /// node, so user-scheduled actions have index >= 1.
+    function schedule(uint256 actionType, uint64 effectiveTime, bytes memory parameters) internal returns (uint256) {
+        // `effectiveTime` is the schedule this list is ordered by, so comparing it
+        // to the clock IS the definition of complete versus pending. There is no
+        // advantage to skew here: moving the clock a few seconds only reclassifies
+        // an action that was already at its boundary.
+        // forge-lint: disable-next-line(block-timestamp)
         if (effectiveTime <= block.timestamp) {
             revert EffectiveTimeInPast(effectiveTime, block.timestamp);
         }
 
         CorporateActionStorage storage s = getStorage();
 
-        _ensureBootstrap(s);
+        ensureBootstrap(s);
 
         // Push new node — its array position is the actionId.
         s.nodes.push();
-        actionId = s.nodes.length - 1;
+        uint256 actionId = s.nodes.length - 1;
 
         CorporateActionNode storage node = s.nodes[actionId];
         node.actionType = actionType;
@@ -164,7 +168,8 @@ library LibCorporateAction {
         node.prev = NODE_NONE;
         node.next = NODE_NONE;
 
-        _insertOrdered(s, actionId, effectiveTime);
+        insertOrdered(s, actionId, effectiveTime);
+        return actionId;
     }
 
     /// @dev Lazily create the index-0 init/bootstrap node on first `schedule`
@@ -187,7 +192,7 @@ library LibCorporateAction {
     /// - `unmigrated[0] = LibERC20Storage.underlyingTotalSupply()` captures
     ///   the pre-action total supply into pot 0. The pot invariant `I(0)`
     ///   holds at this moment because schedule() does not touch balances and
-    ///   no `_migrateAccount` has fired yet — so OZ's `_totalSupply == Σ
+    ///   no `migrate` has fired yet — so OZ's `_totalSupply == Σ
     ///   _balances` equality is intact, and every account's
     ///   `accountMigrationCursor` is still 0 (= bootstrap).
     ///
@@ -195,7 +200,7 @@ library LibCorporateAction {
     /// creation time, so any `cancel(0)` call reverts immediately with
     /// `ActionAlreadyComplete` (the standard guard) — no special-casing
     /// needed in `cancel`.
-    function _ensureBootstrap(CorporateActionStorage storage s) private {
+    function ensureBootstrap(CorporateActionStorage storage s) internal {
         if (s.nodes.length != 0) return;
 
         // Index 0 — bootstrap node.
@@ -239,10 +244,10 @@ library LibCorporateAction {
     /// @param newIndex The array index of the node being inserted.
     /// @param effectiveTime The node's effective time (cached from storage
     /// so the loop doesn't re-read it on every step).
-    function _insertOrdered(CorporateActionStorage storage s, uint256 newIndex, uint64 effectiveTime) private {
+    function insertOrdered(CorporateActionStorage storage s, uint256 newIndex, uint64 effectiveTime) private {
         CorporateActionNode storage node = s.nodes[newIndex];
 
-        // Walk backwards from tail to find correct position. `_ensureBootstrap`
+        // Walk backwards from tail to find correct position. `ensureBootstrap`
         // guarantees the list always contains at least the bootstrap node, so
         // the walk always terminates at the bootstrap (whose effectiveTime is
         // <= every user node's effectiveTime).
@@ -264,32 +269,33 @@ library LibCorporateAction {
         }
     }
 
-    /// @notice Unlink a scheduled node from the list. Reverts if the action
-    /// is already complete or does not exist.
+    /// @notice Unlink a scheduled node from the list and clear its storage.
+    /// Reverts if the action is already complete or does not exist.
     ///
-    /// @dev **Orphaned node data.** This function unlinks the node from the
-    /// doubly linked list and zeroes `prev`, `next`, and `effectiveTime`, but
-    /// deliberately leaves `actionType` and `parameters` untouched. The node
-    /// is no longer reachable via head/tail traversal and every correct
-    /// consumer (balanceOf, totalSupply, the `*OfType` getters, `fold`)
-    /// walks the list rather than indexing `s.nodes[i]` directly, so ghost
-    /// data is invisible. Any future consumer that needs to look up a node
-    /// by its array index MUST check `node.effectiveTime != 0` before
-    /// trusting any field on the node; an `effectiveTime == 0` node is
-    /// either never-used (array slot was never populated) or cancelled
-    /// (unlinked here).
+    /// @dev **Fully cleared on cancel.** This function unlinks the node from
+    /// the doubly linked list, resets `prev`/`next` to `NODE_NONE`, and
+    /// zeroes the payload fields `effectiveTime`, `actionType`, `parameters`.
+    /// After cancellation a raw array-indexed lookup `s.nodes[i]` is
+    /// indistinguishable from a slot that was never populated — same
+    /// defaults, same sentinel (`effectiveTime == 0`). Consumers that index
+    /// by array slot still gate on `effectiveTime != 0` before reading
+    /// other fields; clearing the rest aligns array-indexed reads (e.g.
+    /// `getActionParameters`) with what list walks see and removes a class
+    /// of cancelled-payload leaks from any future indexer that forgets the
+    /// gate.
     ///
-    /// @dev `node.effectiveTime = 0` below is the double-cancel guard. A
-    /// second call to `cancel(actionId)` on an already-cancelled node
-    /// is caught by the `node.effectiveTime == 0` check at the top of
-    /// this function. Without the zero-assignment, a double-cancel would:
-    /// (1) pass the effectiveTime-in-past check because the original
-    /// future time is still set; (2) read `prevId = node.prev = 0` and
-    /// `nextId = node.next = 0` (both zeroed by the first cancel); (3)
-    /// blow away `s.head` and `s.tail` by writing `nextId = 0` into both.
-    /// Catastrophic, silent state corruption.
-    /// `testCancelAlreadyCancelledReverts` pins the guard — do not remove
-    /// the test or the zero assignment together.
+    /// @dev `node.effectiveTime = 0` below is the double-cancel guard.
+    /// A second call to `cancel(actionId)` on an already-cancelled node is
+    /// caught by the `node.effectiveTime == 0` check at the top of this
+    /// function. Without that zero-assignment, a double-cancel would: (1)
+    /// pass the effectiveTime-in-past check because the original future
+    /// time is still set; (2) read `prevId = node.prev = NODE_NONE` and
+    /// `nextId = node.next = NODE_NONE` (both reset to the sentinel by
+    /// the first cancel) — both fall through to the head/tail branches
+    /// and (3) overwrite `s.head` and `s.tail` with `NODE_NONE`, making
+    /// every other live node unreachable. Catastrophic, silent state
+    /// corruption. `testCancelAlreadyCancelledReverts` pins the guard —
+    /// do not remove the test or the zero assignment together.
     function cancel(uint256 actionId) internal {
         CorporateActionStorage storage s = getStorage();
         if (actionId >= s.nodes.length) revert ActionDoesNotExist(actionId);
@@ -299,6 +305,11 @@ library LibCorporateAction {
         if (node.effectiveTime == 0) revert ActionDoesNotExist(actionId);
         // Bootstrap (idx 0) has effectiveTime == block.timestamp at creation,
         // so this guard rejects `cancel(0)` without a special case.
+        // `effectiveTime` is the schedule this list is ordered by, so comparing it
+        // to the clock IS the definition of complete versus pending. There is no
+        // advantage to skew here: moving the clock a few seconds only reclassifies
+        // an action that was already at its boundary.
+        // forge-lint: disable-next-line(block-timestamp)
         if (node.effectiveTime <= block.timestamp) revert ActionAlreadyComplete(actionId);
 
         uint256 prevId = node.prev;
@@ -316,25 +327,28 @@ library LibCorporateAction {
             s.tail = prevId;
         }
 
-        // Unlink only — do NOT delete actionType/parameters from storage.
-        // The `effectiveTime = 0` assignment below is the double-cancel
-        // guard — see the @dev block above before touching it.
+        // Fully clear the node. `effectiveTime = 0` also serves as the
+        // double-cancel guard — see the @dev block above before touching it.
         node.prev = NODE_NONE;
         node.next = NODE_NONE;
         node.effectiveTime = 0;
+        node.actionType = 0;
+        delete node.parameters;
     }
 
     /// @notice Count completed user-scheduled actions by walking from the
     /// head. The init/bootstrap node is excluded — `completedActionCount`
     /// reports actions a scheduler created via `scheduleCorporateAction`,
     /// not internal infrastructure.
-    function countCompleted() internal view returns (uint256 count) {
+    function countCompleted() internal view returns (uint256) {
         if (getStorage().nodes.length == 0) return 0;
         uint256 mask = VALID_ACTION_TYPES_MASK & ~ACTION_TYPE_INIT_V1;
+        uint256 count = 0;
         uint256 current = LibCorporateActionNode.nextOfType(NODE_NONE, mask, CompletionFilter.COMPLETED);
         while (current != NODE_NONE) {
             count++;
             current = LibCorporateActionNode.nextOfType(current, mask, CompletionFilter.COMPLETED);
         }
+        return count;
     }
 }
