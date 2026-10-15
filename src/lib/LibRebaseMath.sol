@@ -26,6 +26,9 @@ library LibRebaseMath {
     /// — such a balance would wrap to a negative `int256` and produce a
     /// silently incorrect Float coefficient.
     ///
+    /// Reverts with `LossyConversionToFloat(balance, 0)` if `balance` is above
+    /// `type(int224).max` and no Float holds it exactly.
+    ///
     /// @param balance The stored balance in wei.
     /// @param multiplier The Rain Float multiplier to apply.
     /// @return The rasterized balance after a single multiplier step.
