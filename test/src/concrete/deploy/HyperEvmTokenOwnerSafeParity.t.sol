@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {IGnosisSafe} from "../../../../src/interface/IGnosisSafe.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
 
@@ -23,6 +23,6 @@ contract HyperEvmTokenOwnerSafeParityTest is Test {
         address hyperevmSafe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM;
 
         vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
-        LibSafeInvariants.assertTokenOwnerSafePolicy(IGnosisSafe(hyperevmSafe));
+        LibSafeInvariants.assertTokenOwnerSafePolicy(Safe(payable(hyperevmSafe)));
     }
 }

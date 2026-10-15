@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {IGnosisSafe} from "../../../../src/interface/IGnosisSafe.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
 
@@ -22,18 +22,13 @@ import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.s
 /// future divergence — Base rotates an owner, the Ethereum Safe is reconfigured
 /// — turns it red until the two match again.
 ///
-/// Until the address is pinned the check is PENDING (logged loudly, not a
-/// silent skip): there is no live Safe to assert against yet.
+/// The Ethereum Safe pin is hydrated, so the suite runs unconditionally:
+/// there is no un-pinned phase left to skip past.
 contract EthereumTokenOwnerSafeParityTest is Test {
     /// The pinned Ethereum Safe carries Base's policy in every way that
     /// matters, and is a distinct address from Base's Safe.
     function testEthereumSafeMatchesBasePolicy() external {
         address ethSafe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM;
-
-        if (ethSafe == address(0)) {
-            emit log("PENDING: Ethereum token-owner Safe address not yet pinned - deploy the Safe (clean v1.4.1, Base's owners + threshold) and hydrate STOX_TOKEN_OWNER_SAFE_ETHEREUM");
-            return;
-        }
 
         // The matched-address approach was abandoned, so the Ethereum Safe must
         // be a DISTINCT per-chain address — never Base's. Guards against a
@@ -49,6 +44,6 @@ contract EthereumTokenOwnerSafeParityTest is Test {
         // matters: v1.4.1 identity, owner set (order-insensitive), threshold.
         // Base is asserted against the same pins, so this transitively proves
         // parity with Base.
-        LibSafeInvariants.assertTokenOwnerSafePolicy(IGnosisSafe(ethSafe));
+        LibSafeInvariants.assertTokenOwnerSafePolicy(Safe(payable(ethSafe)));
     }
 }

@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibProdBeaconsBase} from "../../../src/lib/LibProdBeaconsBase.sol";
 import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1967BeaconProxy.sol";
 
 /// @title LibProdBeaconsBaseTest
@@ -34,7 +34,7 @@ contract LibProdBeaconsBaseTest is Test {
     /// satisfies them just as well as the right one.
     function testProductionTokensRunOnTheseBeacons() external {
         vm.createSelectFork(LibRainDeploy.BASE);
-        address[3] memory beacons = LibProdBeaconsBase.beacons();
+        address[4] memory beacons = LibProdBeaconsBase.beacons();
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensBase();
         assertTrue(tokens.length > 0, "no production tokens to check");
         for (uint256 i = 0; i < tokens.length; i++) {
@@ -57,7 +57,7 @@ contract LibProdBeaconsBaseTest is Test {
     /// pass every ownership check while quietly asserting nothing about the
     /// slot it displaced.
     function testTheThreeBeaconsAreDistinct() external pure {
-        address[3] memory beacons = LibProdBeaconsBase.beacons();
+        address[4] memory beacons = LibProdBeaconsBase.beacons();
         assertTrue(beacons[0] != beacons[1], "receipt == receipt vault");
         assertTrue(beacons[1] != beacons[2], "receipt vault == wrapped vault");
         assertTrue(beacons[0] != beacons[2], "receipt == wrapped vault");

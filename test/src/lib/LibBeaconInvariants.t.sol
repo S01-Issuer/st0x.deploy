@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {
     LibBeaconInvariants,
     IOwnable,
@@ -13,13 +13,15 @@ import {
     UnsupportedChainForProdBeacons
 } from "../../../src/lib/LibBeaconInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibProdBeaconsBase} from "../../../src/lib/LibProdBeaconsBase.sol";
 import {LibProdBeacons0_1_1} from "../../../src/lib/LibProdBeacons0_1_1.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibBeaconInvariantsHarness} from "./LibBeaconInvariantsHarness.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
-import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 
 /// @title LibBeaconInvariantsTest
 /// @notice Inverted fork tests that exercise each invariant in
@@ -94,9 +96,8 @@ contract LibBeaconInvariantsTest is Test {
     /// when the beacon's `implementation()` differs from the expected
     /// implementation. Simulated by mocking `implementation()` on the live
     /// receipt vault beacon to a rogue address. The expected owner is the
-    /// Safe — the live owner since the beacon-ownership migration executed
-    /// (2026-07) — so the owner check passes and the revert is specifically
-    /// the implementation gate.
+    /// governance timelock — the live owner — so the owner check passes and
+    /// the revert is specifically the implementation gate.
     function testInvertedBeaconImplementationMismatch() external {
         selectBaseFork();
         address beacon = LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1;
@@ -132,7 +133,7 @@ contract LibBeaconInvariantsTest is Test {
     /// nothing runs on while leaving the live beacons unpinned.
     function testProdBeaconsForChainIdBaseIsTheV1Generation() external {
         selectBaseFork();
-        address[3] memory beacons = harness.callProdBeaconsForChainId(LibSafeInvariants.BASE_CHAIN_ID);
+        address[4] memory beacons = harness.callProdBeaconsForChainId(LibSafeInvariants.BASE_CHAIN_ID);
         assertEq(beacons[0], LibProdDeployV1.STOX_RECEIPT_BEACON_V1, "receipt beacon");
         assertEq(beacons[1], LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1, "receipt vault beacon");
         assertEq(beacons[2], LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1, "wrapped vault beacon");
@@ -145,8 +146,8 @@ contract LibBeaconInvariantsTest is Test {
     function testProdBeaconsForChainIdEthereumIsThe011Set() external {
         vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
         harness = new LibBeaconInvariantsHarness();
-        address[3] memory beacons = harness.callProdBeaconsForChainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
-        address[3] memory expected = LibProdBeacons0_1_1.beacons();
+        address[4] memory beacons = harness.callProdBeaconsForChainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
+        address[4] memory expected = LibProdBeacons0_1_1.beacons();
         assertEq(beacons[0], expected[0], "receipt beacon");
         assertEq(beacons[1], expected[1], "receipt vault beacon");
         assertEq(beacons[2], expected[2], "wrapped vault beacon");
@@ -165,9 +166,9 @@ contract LibBeaconInvariantsTest is Test {
         harness.callProdBeaconsForChainId(arbitrum);
     }
 
-    /// @notice `assertProdBeaconsOwnedByChainSafe` trips `BeaconOwnerMismatch`
+    /// @notice `assertProdBeaconsOwnedByChainTimelock` trips `BeaconOwnerMismatch`
     /// when an in-use beacon is held by anything other than the active chain's
-    /// token-owner Safe. Whoever owns an in-use beacon can repoint every
+    /// governance timelock. Whoever owns an in-use beacon can repoint every
     /// production vault proxy on the chain, so the rogue owner here stands in
     /// for the whole class of compromise this assert exists to catch.
     function testInvertedProdBeaconOwnerMismatch() external {
@@ -179,11 +180,11 @@ contract LibBeaconInvariantsTest is Test {
             abi.encodeWithSelector(
                 BeaconOwnerMismatch.selector,
                 beacon,
-                LibSafeInvariants.safeForChainId(LibSafeInvariants.BASE_CHAIN_ID),
+                LibTimelockInvariants.timelockForChainId(LibSafeInvariants.BASE_CHAIN_ID),
                 rogueOwner
             )
         );
-        harness.callAssertProdBeaconsOwnedByChainSafe(LibSafeInvariants.BASE_CHAIN_ID);
+        harness.callAssertProdBeaconsOwnedByChainTimelock(LibSafeInvariants.BASE_CHAIN_ID);
     }
 
     /// @notice An in-use beacon with no code trips `BeaconNotDeployed` rather
@@ -195,13 +196,13 @@ contract LibBeaconInvariantsTest is Test {
         address beacon = LibProdBeaconsBase.beacons()[0];
         vm.etch(beacon, "");
         vm.expectRevert(abi.encodeWithSelector(BeaconNotDeployed.selector, beacon));
-        harness.callAssertProdBeaconsOwnedByChainSafe(LibSafeInvariants.BASE_CHAIN_ID);
+        harness.callAssertProdBeaconsOwnedByChainTimelock(LibSafeInvariants.BASE_CHAIN_ID);
     }
 
     /// @notice An in-use beacon whose runtime code drifts from the pinned OZ
     /// `UpgradeableBeacon` bytecode trips `BeaconCodehashMismatch` BEFORE its
     /// `owner()` is read: the look-alike here mocks `owner()` to the expected
-    /// Safe, so only the codehash pin stands between it and a pass. Without
+    /// timelock, so only the codehash pin stands between it and a pass. Without
     /// the pin, a swapped beacon shadowing `owner()` satisfies the ownership
     /// sweep while serving arbitrary `upgradeTo` semantics.
     function testInvertedProdBeaconCodehashMismatch() external {
@@ -215,7 +216,7 @@ contract LibBeaconInvariantsTest is Test {
         vm.mockCall(
             beacon,
             abi.encodeWithSelector(IOwnable.owner.selector),
-            abi.encode(LibSafeInvariants.safeForChainId(LibSafeInvariants.BASE_CHAIN_ID))
+            abi.encode(LibTimelockInvariants.timelockForChainId(LibSafeInvariants.BASE_CHAIN_ID))
         );
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -225,36 +226,36 @@ contract LibBeaconInvariantsTest is Test {
                 mutatedCodehash
             )
         );
-        harness.callAssertProdBeaconsOwnedByChainSafe(LibSafeInvariants.BASE_CHAIN_ID);
+        harness.callAssertProdBeaconsOwnedByChainTimelock(LibSafeInvariants.BASE_CHAIN_ID);
     }
 
-    /// @notice The migration-window sweep applies the same trust order: a
-    /// look-alike beacon reporting an accepted owner (`post`, as if already
-    /// migrated) trips `BeaconCodehashMismatch` before the owner read is
-    /// consulted. The window variant is the cron-facing drift detector for
-    /// the surface, so a swapped beacon must surface as a codehash break,
-    /// not pass as migrated.
-    function testInvertedProdBeaconMigrationCodehashMismatch() external {
-        selectBaseFork();
-        address safe = LibSafeInvariants.safeForChainId(LibSafeInvariants.BASE_CHAIN_ID);
-        address post = address(0x7157);
-        address beacon = LibProdBeaconsBase.beacons()[2];
-        vm.etch(beacon, hex"FE");
-        bytes32 mutatedCodehash;
-        assembly ("memory-safe") {
-            mutatedCodehash := extcodehash(beacon)
-        }
-        vm.mockCall(beacon, abi.encodeWithSelector(IOwnable.owner.selector), abi.encode(post));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                BeaconCodehashMismatch.selector,
-                beacon,
-                LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH,
-                mutatedCodehash
-            )
+    /// @notice `UPGRADEABLE_BEACON_CODEHASH_0_1_30` is the runtime of a beacon
+    /// this tree actually compiles, re-derived rather than transcribed.
+    /// @dev The defect this exists to stop: the V1 pin was documented as "a
+    /// property of the OZ bytecode rather than of any one deployment
+    /// generation" and reused for the orchestrator beacon, which OZ 5.6.1 at
+    /// `optimizer_runs = 2000` builds 130 bytes shorter. Nothing compared the
+    /// two, so `MigrateOrchestratorBeaconOwner.run()` reverted
+    /// `BeaconCodehashMismatch` in pre-flight on every chain while the suite
+    /// stayed green. Constructing the beacon here means an OZ bump or an
+    /// optimizer change fails at build time instead of at a broadcast.
+    function testOrchestratorBeaconCodehashPin() external {
+        UpgradeableBeacon beacon = new UpgradeableBeacon(address(this), address(this));
+        assertEq(
+            address(beacon).codehash,
+            LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30,
+            "0.1.30 beacon pin no longer matches a beacon this tree compiles"
         );
-        harness.callAssertProdBeaconsOwnershipMigration(
-            LibSafeInvariants.BASE_CHAIN_ID, safe, post, block.timestamp + 1 days
+    }
+
+    /// @notice The two generation pins are distinct, and the V1 pin cannot be
+    /// used for a beacon this tree builds.
+    /// @dev Guards the shortcut of "fixing" a mismatch by repointing the V1
+    /// constant, which the live V1 fleet is still asserted against.
+    function testBeaconCodehashPinsAreDistinct() external pure {
+        assertTrue(
+            LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH != LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30,
+            "generation pins collapsed into one value"
         );
     }
 }

@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 
 import {DeployerHoldsTimelockRole, TimelockNotPinned} from "../../script/20260729-deploy-governance-timelock.s.sol";
 import {UnpinnedDeployGovernanceTimelockHarness} from "./UnpinnedDeployGovernanceTimelockHarness.sol";
@@ -13,10 +13,13 @@ import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
 /// @title DeployGovernanceTimelockTest
-/// @notice Live-fork coverage for the governance-timelock deploy broadcast.
-/// The deploy is deterministic (Zoltu CREATE2 over pinned init code) and
-/// idempotent per chain, so each chain is driven on its own fork and asserted
-/// with the same checks the production broadcast makes.
+/// @notice Live-fork coverage for the governance-timelock deploy broadcast,
+/// on every chain in `networks()`. The deploy is deterministic (Zoltu CREATE2
+/// over pinned init code) and idempotent per chain, so each chain is driven on
+/// its own fork and asserted with the same checks the production broadcast
+/// makes. Base / Ethereum / HyperEVM already carry the timelock and so
+/// exercise the verify-and-skip path; Robinhood Chain and BNB Smart Chain do
+/// not yet, and so exercise the deploy path on live chain state.
 /// @dev Per-chain rather than through `run()`: `run()` creates its own fork
 /// per network, and deployments written inside those forks are not visible to
 /// a fork a test creates afterwards. The tests therefore select a fork and
@@ -40,10 +43,12 @@ contract DeployGovernanceTimelockTest is Test {
     /// body, which the per-chain tests below exercise.
     function testNetworksCoversEveryProductionChain() external {
         string[] memory nets = new DeployGovernanceTimelockHarness().callNetworks();
-        assertEq(nets.length, 3);
+        assertEq(nets.length, 5);
         assertEq(nets[0], LibRainDeploy.BASE);
         assertEq(nets[1], LibStoxDeployNetworks.ETHEREUM);
         assertEq(nets[2], LibStoxDeployNetworks.HYPEREVM);
+        assertEq(nets[3], LibStoxDeployNetworks.ROBINHOOD);
+        assertEq(nets[4], LibStoxDeployNetworks.BSC);
     }
 
     /// @notice A chain outside the allowlist refuses at pre-flight — the
@@ -89,6 +94,23 @@ contract DeployGovernanceTimelockTest is Test {
         deployOnSelectedFork(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM);
     }
 
+    /// @notice The deploy lands at the derived address on Robinhood Chain.
+    /// The timelock is not on-chain there yet (the dispatch is pending), so
+    /// unlike the Base / Ethereum / HyperEVM legs this drives the DEPLOY
+    /// rather than the idempotent skip — which is the half of the script a
+    /// chain that already carries the timelock can no longer exercise.
+    function testDeploysOnRobinhoodFork() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
+        deployOnSelectedFork(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD);
+    }
+
+    /// @notice The deploy lands at the derived address on BNB Smart Chain,
+    /// on the same terms as the Robinhood Chain leg.
+    function testDeploysOnBscFork() external {
+        vm.createSelectFork(LibStoxDeployNetworks.BSC);
+        deployOnSelectedFork(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC);
+    }
+
     /// @notice A chain that already carries the timelock is verified and
     /// skipped rather than redeployed or reverted — the property that makes a
     /// re-dispatch a safe no-op and lets a partial rollout finish in one run.
@@ -109,6 +131,16 @@ contract DeployGovernanceTimelockTest is Test {
     function testEthereumAndHyperevmShareADerivedAddress() external pure {
         assertEq(
             LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM),
+            LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM)
+        );
+        // Robinhood Chain's Safe is the same CREATE2 address again, so its
+        // derived timelock joins the shared address.
+        assertEq(
+            LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD),
+            LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM)
+        );
+        assertEq(
+            LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC),
             LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM)
         );
         assertNotEq(

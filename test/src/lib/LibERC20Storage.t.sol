@@ -2,14 +2,14 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.1/src/Test.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {TestERC20} from "./TestERC20.sol";
 
 /// @dev Regression / drift-detection tests for `LibERC20Storage`. The library
 /// reads and writes OZ `ERC20Upgradeable` storage at hardcoded ERC-7201 slot
 /// offsets (`_balances` at +0, `_totalSupply` at +2). If a future
-/// `forge update` of `openzeppelin-contracts-upgradeable` reorders the struct
-/// or moves the namespace, every assertion in this file diverges.
+/// `forge soldeer update` of `openzeppelin-contracts-upgradeable` reorders the
+/// struct or moves the namespace, every assertion in this file diverges.
 contract LibERC20StorageTest is Test {
     TestERC20 internal token;
 

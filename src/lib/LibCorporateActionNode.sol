@@ -148,6 +148,11 @@ library LibCorporateActionNode {
     ) private view returns (uint256) {
         while (current != NODE_NONE) {
             CorporateActionNode storage node = s.nodes[current];
+            // `effectiveTime` is the schedule this list is ordered by, so comparing it
+            // to the clock IS the definition of complete versus pending. There is no
+            // advantage to skew here: moving the clock a few seconds only reclassifies
+            // an action that was already at its boundary.
+            // forge-lint: disable-next-line(block-timestamp)
             if (node.effectiveTime > block.timestamp) break;
             if (node.actionType & mask != 0) return current;
             current = node.next;
@@ -163,6 +168,11 @@ library LibCorporateActionNode {
         view
         returns (uint256)
     {
+        // `effectiveTime` is the schedule this list is ordered by, so comparing it
+        // to the clock IS the definition of complete versus pending. There is no
+        // advantage to skew here: moving the clock a few seconds only reclassifies
+        // an action that was already at its boundary.
+        // forge-lint: disable-next-line(block-timestamp)
         while (current != NODE_NONE && s.nodes[current].effectiveTime <= block.timestamp) {
             current = s.nodes[current].next;
         }
@@ -195,6 +205,11 @@ library LibCorporateActionNode {
     ) private view returns (uint256) {
         while (current != NODE_NONE) {
             CorporateActionNode storage node = s.nodes[current];
+            // `effectiveTime` is the schedule this list is ordered by, so comparing it
+            // to the clock IS the definition of complete versus pending. There is no
+            // advantage to skew here: moving the clock a few seconds only reclassifies
+            // an action that was already at its boundary.
+            // forge-lint: disable-next-line(block-timestamp)
             if (node.effectiveTime <= block.timestamp) break;
             if (node.actionType & mask != 0) return current;
             current = node.prev;
@@ -210,6 +225,11 @@ library LibCorporateActionNode {
         view
         returns (uint256)
     {
+        // `effectiveTime` is the schedule this list is ordered by, so comparing it
+        // to the clock IS the definition of complete versus pending. There is no
+        // advantage to skew here: moving the clock a few seconds only reclassifies
+        // an action that was already at its boundary.
+        // forge-lint: disable-next-line(block-timestamp)
         while (current != NODE_NONE && s.nodes[current].effectiveTime > block.timestamp) {
             current = s.nodes[current].prev;
         }

@@ -20,6 +20,9 @@ contract ReentrantMintRecipient is IMintRecipient {
 
     bool public entered;
 
+    // A test double storing the collaborator it is handed. Rejecting zero here
+    // would only stop the suite exercising the zero case.
+    // forge-lint: disable-next-line(missing-zero-check)
     constructor(IST0xOrchestratorV1 orchestrator, address token, uint256 reenterAmount, bytes32 reenterNonce) {
         ORCHESTRATOR = orchestrator;
         TOKEN = token;
