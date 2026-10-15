@@ -88,35 +88,35 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
 
     /// @notice The tStock symbol, built from the underlying ticker by
     /// `StoxCorporateActionsFacet.receiptVaultSymbol`, e.g. "tNVDA".
-    /// @return symbol_ The token symbol.
-    // `returnFacetView` ends the call with the facet view's return data.
-    // slither-disable-next-line incorrect-return
-    function symbol() public view virtual override returns (string memory symbol_) {
-        returnFacetView(StoxCorporateActionsFacet.receiptVaultSymbol.selector);
+    /// @return The token symbol.
+    function symbol() public view virtual override returns (string memory) {
+        return facetString(StoxCorporateActionsFacet.receiptVaultSymbol.selector);
     }
 
     /// @notice The tStock name, built from the underlying name by
     /// `StoxCorporateActionsFacet.receiptVaultName`, e.g.
     /// "NVIDIA Corporation (ST0x)".
-    /// @return name_ The token name.
-    // `returnFacetView` ends the call with the facet view's return data.
-    // slither-disable-next-line incorrect-return
-    function name() public view virtual override returns (string memory name_) {
-        returnFacetView(StoxCorporateActionsFacet.receiptVaultName.selector);
+    /// @return The token name.
+    function name() public view virtual override returns (string memory) {
+        return facetString(StoxCorporateActionsFacet.receiptVaultName.selector);
     }
 
-    /// @dev Ends the current call with the result of the zero-argument facet
-    /// view `selector`, reached by a static self-call that `fallback()`
-    /// routes to the facet. Keeps the formatting out of the vault's bytecode,
-    /// which has no room for it under EIP-170. Never returns to its caller.
-    /// @param selector The facet view to answer the current call with.
-    function returnFacetView(bytes4 selector) private view {
+    /// @dev Reads the zero-argument `string` view `selector` from the facet
+    /// through a static self-call that `fallback()` routes to it, bubbling
+    /// any revert. Keeps the formatting out of the vault's bytecode, which has
+    /// no room for it under EIP-170. The facet is the vault's own pinned code,
+    /// so its return data is a single ABI-encoded string and is used in place.
+    /// @param selector The facet view to read.
+    /// @return value The string the facet view returned.
+    function facetString(bytes4 selector) private view returns (string memory value) {
         assembly ("memory-safe") {
             mstore(0, selector)
             let success := staticcall(gas(), address(), 0, 4, 0, 0)
-            returndatacopy(0, 0, returndatasize())
-            if iszero(success) { revert(0, returndatasize()) }
-            return(0, returndatasize())
+            let ptr := mload(0x40)
+            returndatacopy(ptr, 0, returndatasize())
+            if iszero(success) { revert(ptr, returndatasize()) }
+            value := add(ptr, mload(ptr))
+            mstore(0x40, add(ptr, returndatasize()))
         }
     }
 

@@ -19,6 +19,9 @@ import {MockERC20} from "../../concrete/MockERC20.sol";
 import {MockUnderlyingERC20, RevertingUnderlyingERC20, RawReturnERC20} from "../../concrete/MockUnderlyingERC20.sol";
 import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibUnderlying.sol";
 
+/// @dev "NVDA" left-aligned in a word, as ABI-encoded string data.
+bytes32 constant NVDA_WORD = 0x4e56444100000000000000000000000000000000000000000000000000000000;
+
 contract StoxWrappedTokenVaultTest is Test {
     /// Constructor disables initializers on the implementation.
     function testConstructorDisablesInitializers() external {
@@ -181,7 +184,7 @@ contract StoxWrappedTokenVaultTest is Test {
     /// A string offset other than 0x20 falls back.
     function testBadOffsetFallsBack() external {
         RawReturnERC20 asset = new RawReturnERC20();
-        asset.setRaw(abi.encode(uint256(0x40), uint256(4), bytes32("NVDA")));
+        asset.setRaw(abi.encode(uint256(0x40), uint256(4), NVDA_WORD));
         StoxWrappedTokenVault vault = newWrapper(address(asset));
         assertEq(vault.symbol(), "wTT");
     }
@@ -190,7 +193,7 @@ contract StoxWrappedTokenVaultTest is Test {
     function testOverlongLengthFallsBack(uint256 length) external {
         length = bound(length, 33, type(uint256).max);
         RawReturnERC20 asset = new RawReturnERC20();
-        asset.setRaw(abi.encode(uint256(0x20), length, bytes32("NVDA")));
+        asset.setRaw(abi.encode(uint256(0x20), length, NVDA_WORD));
         StoxWrappedTokenVault vault = newWrapper(address(asset));
         assertEq(vault.symbol(), "wTT");
         assertEq(vault.name(), "Wrapped Test Token");

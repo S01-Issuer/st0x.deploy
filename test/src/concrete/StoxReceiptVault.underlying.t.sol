@@ -52,10 +52,13 @@ contract StoxReceiptVaultUnderlyingTest is Test {
     function testStorageLayoutPin() external {
         vm.prank(OWNER);
         underlying().setUnderlying("NVDA", "NVIDIA");
-        assertEq(vm.load(address(vault), UNDERLYING_STORAGE_LOCATION), bytes32("NVDA") | bytes32(uint256(8)));
+        assertEq(
+            vm.load(address(vault), UNDERLYING_STORAGE_LOCATION),
+            bytes32(0x4e56444100000000000000000000000000000000000000000000000000000008)
+        );
         assertEq(
             vm.load(address(vault), bytes32(uint256(UNDERLYING_STORAGE_LOCATION) + 1)),
-            bytes32("NVIDIA") | bytes32(uint256(12))
+            bytes32(0x4e5649444941000000000000000000000000000000000000000000000000000c)
         );
     }
 
