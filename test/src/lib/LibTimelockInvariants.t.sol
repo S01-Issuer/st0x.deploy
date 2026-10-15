@@ -63,18 +63,17 @@ contract LibTimelockInvariantsTest is Test {
     /// runtime bytecode is identical (delay is storage, not code), so only
     /// the `getMinDelay` pin catches it.
     function testAssertRejectsWrongMinDelay() external {
-        address[] memory principals = new address[](1);
-        principals[0] = SAFE;
-        TimelockController wrongDelay = new TimelockController(1 hours, principals, principals, address(0));
+        LibRainDeploy.etchZoltuFactory(vm);
+        address wrongDelay = LibRainDeploy.deployZoltu(LibTimelockController.timelockInitCode(1 hours, SAFE));
         vm.expectRevert(
             abi.encodeWithSelector(
                 LibTimelockController.TimelockMinDelayMismatch.selector,
-                address(wrongDelay),
+                wrongDelay,
                 LibTimelockInvariants.TIMELOCK_MIN_DELAY,
                 1 hours
             )
         );
-        harness.callAssertTimelockState(address(wrongDelay), SAFE);
+        harness.callAssertTimelockState(wrongDelay, SAFE);
     }
 
     /// @notice Chain selection returns the per-chain pin for the supported
