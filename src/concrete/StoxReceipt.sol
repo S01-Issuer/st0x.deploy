@@ -204,6 +204,7 @@ contract StoxReceipt is Receipt, RebaseMigratable {
     }
 
     function walkRebase(uint256 storedBalance, uint256 cursor) internal view override returns (uint256, uint256) {
+        // slither-disable-next-line unused-return
         return LibReceiptRebase.migratedBalance(storedBalance, cursor, getVault());
     }
 
@@ -226,6 +227,7 @@ contract StoxReceipt is Receipt, RebaseMigratable {
     /// once per batch, `_update` once per `(account, id)` pair with a non-zero
     /// account.
     function getVault() internal view returns (ICorporateActionsV1) {
+        // slither-disable-next-line calls-loop
         return ICorporateActionsV1(this.manager());
     }
 }

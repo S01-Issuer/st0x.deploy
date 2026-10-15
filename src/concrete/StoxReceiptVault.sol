@@ -156,6 +156,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault, RebaseMigratable {
     }
 
     function walkRebase(uint256 storedBalance, uint256 cursor) internal view override returns (uint256, uint256) {
+        // slither-disable-next-line unused-return
         return LibRebase.migratedBalance(storedBalance, cursor);
     }
 
