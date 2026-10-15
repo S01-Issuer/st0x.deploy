@@ -3,10 +3,37 @@
 pragma solidity ^0.8.25;
 
 import {LibMigrationRegistry} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistry.sol";
-import {Prerequisite} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
+import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 
+import {LibRbacMigration} from "./LibRbacMigration.sol";
+import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
+import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
+
+/// @notice The account that records a migration, by role: its address
+/// differs per chain.
+enum MigrationWriter {
+    Safe,
+    Timelock
+}
+
+/// @notice `Prerequisite` with the writer named by role.
+struct MigrationPrerequisite {
+    MigrationWriter writer;
+    bytes32 namespace;
+    bytes32 migration;
+}
+
+/// @notice A migration a script in this repo performs. `namespace` and `id`
+/// are zero for one the registry holds no record of.
+struct Migration {
+    string script;
+    bytes32 namespace;
+    bytes32 id;
+    MigrationWriter writer;
+    MigrationPrerequisite[] prerequisites;
+}
 
 /// @notice No execution moment is pinned for the governance-timelock
 /// migration on this chain.
@@ -67,6 +94,100 @@ library LibStoxMigrations {
     /// governance timelock.
     bytes32 internal constant ORCHESTRATOR_ADMIN_TO_TIMELOCK =
         keccak256("script/20261006-orchestrator-admin-to-timelock.s.sol");
+
+    /// @notice Every migration a script in `script/` performs, in path order.
+    /// @return The migrations.
+    function migrations() internal pure returns (Migration[] memory) {
+        Migration[] memory list = new Migration[](6);
+        list[0] = safeOnto(
+            "script/20260729-migrate-governance-to-timelock.s.sol",
+            NAMESPACE,
+            GOVERNANCE_TIMELOCK,
+            MIGRATION_HEAD_GENESIS
+        );
+        list[1] = unrecorded("script/20260831-retire-direct-signer-roles.s.sol");
+        list[2] = safeOnto(
+            "script/20261006-grant-eu-authoriser-roles.s.sol",
+            LibRbacMigration.STOX_RBAC_NAMESPACE,
+            LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER,
+            MIGRATION_HEAD_GENESIS
+        );
+        list[3] = safeOnto(
+            "script/20261006-grant-orchestrator-emergency.s.sol", NAMESPACE, ORCHESTRATOR_EMERGENCY, GOVERNANCE_TIMELOCK
+        );
+        list[4] = safeOnto(
+            "script/20261006-orchestrator-admin-to-timelock.s.sol",
+            NAMESPACE,
+            ORCHESTRATOR_ADMIN_TO_TIMELOCK,
+            ORCHESTRATOR_EMERGENCY
+        );
+        list[5] = unrecorded("script/MigrateMultisigThreshold.s.sol");
+        return list;
+    }
+
+    function safeOnto(string memory script, bytes32 namespace, bytes32 id, bytes32 headMigration)
+        private
+        pure
+        returns (Migration memory)
+    {
+        MigrationPrerequisite[] memory prerequisites = new MigrationPrerequisite[](1);
+        prerequisites[0] =
+            MigrationPrerequisite({writer: MigrationWriter.Safe, namespace: namespace, migration: headMigration});
+        return Migration({
+            script: script, namespace: namespace, id: id, writer: MigrationWriter.Safe, prerequisites: prerequisites
+        });
+    }
+
+    function unrecorded(string memory script) private pure returns (Migration memory) {
+        return Migration({
+            script: script,
+            namespace: bytes32(0),
+            id: bytes32(0),
+            writer: MigrationWriter.Safe,
+            prerequisites: new MigrationPrerequisite[](0)
+        });
+    }
+
+    /// @notice The address `writer` is on `chainId`.
+    /// @param writer The role.
+    /// @param chainId The chain id.
+    /// @return The address.
+    function writerForChainId(MigrationWriter writer, uint256 chainId) internal pure returns (address) {
+        if (writer == MigrationWriter.Timelock) return LibTimelockInvariants.timelockForChainId(chainId);
+        return LibSafeInvariants.safeForChainId(chainId);
+    }
+
+    /// @notice What `migration` is recorded after on `chainId`, as its write
+    /// takes the list.
+    /// @param migration The migration.
+    /// @param chainId The chain id.
+    /// @return The prerequisites.
+    function prerequisitesForChainId(Migration memory migration, uint256 chainId)
+        internal
+        pure
+        returns (Prerequisite[] memory)
+    {
+        Prerequisite[] memory prerequisites = new Prerequisite[](migration.prerequisites.length);
+        for (uint256 i = 0; i < prerequisites.length; i++) {
+            prerequisites[i] = Prerequisite({
+                writer: writerForChainId(migration.prerequisites[i].writer, chainId),
+                namespace: migration.prerequisites[i].namespace,
+                migration: migration.prerequisites[i].migration
+            });
+        }
+        return prerequisites;
+    }
+
+    /// @notice When a migration recorded as history executed on `chainId`;
+    /// zero for one recorded with its change, whose record is the moment.
+    /// @param migration The migration id.
+    /// @param chainId The chain id.
+    /// @return The moment, unix seconds, or zero.
+    function historyMoment(bytes32 migration, uint256 chainId) internal pure returns (uint256) {
+        if (migration != GOVERNANCE_TIMELOCK) return 0;
+        (uint256 executedAt,) = governanceTimelockExecution(chainId);
+        return executedAt;
+    }
 
     /// @notice The block timestamp of the Safe transaction that executed the
     /// governance-timelock migration on `chainId`: the block in which the
