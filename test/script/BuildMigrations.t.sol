@@ -95,12 +95,11 @@ contract BuildMigrationsTest is Test {
         assertEq(keccak256(vm.parseJson(vm.readFile("migrations.json"))), keccak256(vm.parseJson(build.render())));
     }
 
-    function assertJsonNull(string memory json, string memory key) internal view {
-        bytes memory nullValue = vm.parseJson("{\"v\":null}", ".v");
-        assertNotEq(nullValue, vm.parseJson("{\"v\":\"null\"}", ".v"));
-        assertNotEq(nullValue, abi.encode(bytes32(0)));
-        assertTrue(vm.keyExistsJson(json, key), key);
-        assertEq(vm.parseJson(json, key), nullValue, key);
+    /// @dev A null parses as `bytes32(0)` and stringifies as `null`; no string
+    /// or hex value does both.
+    function assertJsonNull(string memory json, string memory key) internal pure {
+        assertEq(vm.parseJson(json, key), abi.encode(bytes32(0)), key);
+        assertEq(vm.parseJsonString(json, key), "null", key);
     }
 
     function index(string memory at, uint256 i) internal pure returns (string memory) {
