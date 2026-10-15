@@ -18,7 +18,7 @@ contract LibBeaconInvariantsPerChainTest is Test {
         return LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
     }
 
-    function testBaseRunsItsV1SetAndEveryOtherDeploymentChainThe011Set() external view {
+    function testBaseRunsItsV1SetAndEveryOtherDeploymentChainThe011Set() external pure {
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < nets.length; i++) {
             assertEq(
