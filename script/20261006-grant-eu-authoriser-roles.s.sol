@@ -151,7 +151,7 @@ contract GrantEuAuthoriserRoles is Script {
             LibSafeFork.simulateCall(vm, gnosisSafe, txs[i].to, txs[i].data);
         }
 
-        LibAuthoriserInvariants.assertExpectedEuGrants(clone, safe, timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER);
+        LibAuthoriserInvariants.assertExpectedEuGrants(clone, timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER);
 
         string memory json = LibSafeTxBuilderJson.toJson(vm, safe, block.chainid, BUNDLE_NAME, txs);
         vm.writeFile(artifactPath(), json);

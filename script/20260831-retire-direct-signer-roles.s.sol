@@ -18,14 +18,6 @@ import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJ
 import {LibSafe} from "rain-deploy-0.1.18/src/lib/LibSafe.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
-/// @dev Unix timestamp (2026-10-15T00:00:00Z) by which the retirement must
-/// have executed on every chain. Deliberately TWO WEEKS after the
-/// fleet/enable deadline: the whole point of the enable/retire split is a
-/// burn-in window where the orchestrator path and the signer's direct path
-/// run in parallel, so the direct path can serve as an emergency fallback
-/// while the orchestrator proves itself off-chain.
-uint256 constant RETIRE_DEADLINE = 1_792_022_400;
-
 /// @notice The orchestrator mint/burn path is not fully enabled on this
 /// chain — retiring the signer's direct roles now would leave NO working
 /// mint/burn path. Execute `20260831-enable-orchestrator-roles` (and give
@@ -72,10 +64,6 @@ error DirectSignerRolesAlreadyRetired();
 /// authored as a timelock operation (Safe schedules the same two revokes,
 /// 48h, execute) in a new dated script. This one stays registered so its
 /// refusal can be re-derived.
-///
-/// The post-execution pin PR removes the signer's `DEPOSIT`/`WITHDRAW`
-/// rows from the canonical grant map, pins their absence (the
-/// Fireblocks-revocation lifecycle), and retires this script's fixtures.
 contract RetireDirectSignerRoles is Script {
     /// @notice The service signer whose direct vault access retires.
     address internal constant SERVICE_SIGNER = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
@@ -122,8 +110,8 @@ contract RetireDirectSignerRoles is Script {
     /// (`DirectSignerRolesAlreadyRetired`).
     /// @param authoriser The chain's authoriser clone.
     /// @param safeAddr The chain's token-owner Safe.
-    /// @return txs The self-scoped revoke transactions.
-    function authorBundle(address authoriser, address safeAddr) internal view returns (SafeTx[] memory txs) {
+    /// @return The self-scoped revoke transactions.
+    function authorBundle(address authoriser, address safeAddr) internal view returns (SafeTx[] memory) {
         IAccessControl acl = IAccessControl(authoriser);
 
         if (!acl.hasRole(keccak256("DEPOSIT_ADMIN"), safeAddr)) {
@@ -149,19 +137,16 @@ contract RetireDirectSignerRoles is Script {
         if (count == 0) {
             revert DirectSignerRolesAlreadyRetired();
         }
-        txs = new SafeTx[](count);
+        SafeTx[] memory txs = new SafeTx[](count);
         for (uint256 i = 0; i < count; i++) {
             txs[i] = candidates[i];
         }
+        return txs;
     }
 
     /// @notice Assert the post-retirement state on the active fork: the
     /// signer holds neither direct vault role, its `CERTIFY` and every
     /// other canonical row survive, and the orchestrator path is intact.
-    /// @dev The map-wide `assertExpectedGrants` cannot be used: the map
-    /// pins what production IS until this bundle executes (the signer's
-    /// rows are still in it). Row-by-row with the retired rows negated;
-    /// the post-execution pin PR moves this shape into the invariant lib.
     /// @param acl The authoriser's access-control surface.
     /// @param orchestrator The orchestrator instance.
     /// @param safeAddr The chain's token-owner Safe.
@@ -173,9 +158,6 @@ contract RetireDirectSignerRoles is Script {
         RoleGrant[] memory all =
             LibAuthoriserInvariants.expectedGrants(safeAddr, LibTimelockInvariants.timelockForChainId(block.chainid));
         for (uint256 i = 0; i < all.length; i++) {
-            bool retiredRow = all[i].grantee == SERVICE_SIGNER
-                && (all[i].role == keccak256("DEPOSIT") || all[i].role == keccak256("WITHDRAW"));
-            if (retiredRow) continue;
             require(
                 acl.hasRole(all[i].role, all[i].grantee),
                 "RetireDirectSignerRoles: retirement disturbed an unrelated grant"
@@ -203,7 +185,6 @@ contract RetireDirectSignerRoles is Script {
         // orchestrator path.
         assertOrchestratorPathEnabled(acl, orchestrator);
 
-        // The canonical map must hold exactly before rows leave it.
         LibAuthoriserInvariants.assertExpectedGrants(
             authoriser, safeAddr, LibTimelockInvariants.timelockForChainId(block.chainid)
         );

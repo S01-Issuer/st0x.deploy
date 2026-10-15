@@ -28,4 +28,8 @@ contract LibAuthoriserInvariantsHarness {
     function callAssertExpectedGrants(address authoriser, address tokenOwnerSafe, address adminHolder) external view {
         LibAuthoriserInvariants.assertExpectedGrants(authoriser, tokenOwnerSafe, adminHolder);
     }
+
+    function callAssertExpectedEuGrants(address authoriser, address adminHolder, address minter) external view {
+        LibAuthoriserInvariants.assertExpectedEuGrants(authoriser, adminHolder, minter);
+    }
 }
