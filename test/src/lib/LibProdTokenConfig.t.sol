@@ -94,6 +94,16 @@ contract LibProdTokenConfigTest is Test {
         }
     }
 
+    /// tDIS metadata matches the strings the Base deployment reports, so a
+    /// typo cannot be copied onto another chain without a fork run.
+    function testDisMetadataMatchesDeployment() external pure {
+        TokenConfig memory disney = LibProdTokenConfig.productionTokenConfigs()[55];
+        assertEq(disney.underlying, "DIS");
+        assertEq(disney.name, "The Walt Disney Company ST0x");
+        assertEq(disney.symbol, "tDIS");
+        assertEq(uint8(disney.region), uint8(Region.US));
+    }
+
     function testRegionOf() external pure {
         assertEq(uint8(LibProdTokenConfig.regionOf("MC")), uint8(Region.EU));
         assertEq(uint8(LibProdTokenConfig.regionOf("SNES")), uint8(Region.US));
