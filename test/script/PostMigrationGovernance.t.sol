@@ -2,18 +2,17 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.2/src/Test.sol";
-import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/TimelockController.sol";
-import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
-import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
-import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {LibSafe} from "rain-deploy-0.1.18/src/lib/LibSafe.sol";
+import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 
-import {DeployGovernanceTimelockHarness} from "./DeployGovernanceTimelockHarness.sol";
 import {PostMigrationProbeImpl} from "./PostMigrationProbeImpl.sol";
-import {MigrateGovernanceToTimelockHarness} from "./MigrateGovernanceToTimelockHarness.sol";
-import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
-import {LibSafeOps} from "../../src/lib/LibSafeOps.sol";
 import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
@@ -23,13 +22,13 @@ import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 /// @notice The governance loop, proven against the CURRENT state of a chain the
 /// migration has already executed on.
 ///
-/// Every existing proof of the loop runs from the PRE-migration state: the
+/// Every other proof of the loop runs from the PRE-migration state: the
 /// migration script's own `_proveGovernanceLoop` fires while authoring, and
-/// `testBeaconUpgradeRunsThroughTimelock` and friends fork Base, which has not
-/// migrated. None of them answer the question that matters once the bundle has
-/// landed: with the timelock now holding the beacons and the `_ADMIN` roles, can
-/// the Safe still drive an upgrade through it, and can it no longer drive one
-/// directly?
+/// `testBeaconUpgradeRunsThroughTimelock` and friends rewind the executed
+/// migration before driving it. None of them answer the question that matters
+/// once the bundle has landed: with the timelock now holding the beacons and
+/// the `_ADMIN` roles, can the Safe still drive an upgrade through it, and can
+/// it no longer drive one directly?
 ///
 /// Forks are taken at `latest`, so these assert what is true NOW rather than at
 /// a pinned block. That is the point — a pinned block could not have observed
@@ -59,25 +58,21 @@ contract PostMigrationGovernanceTest is Test {
         address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
 
         // Precondition: this chain HAS migrated. If it has not, this test
-        // reports that rather than passing — and the escape hatch for such a
-        // chain is proven by `_assertEscapeHatchSurvivesMigration`, which
-        // migrates on the fork first.
+        // reports that rather than passing.
         for (uint256 i = 0; i < beacons.length; i++) {
             assertEq(Ownable(beacons[i]).owner(), timelockAddr, "beacon is not timelock-owned: chain has not migrated");
         }
 
-        _driveBeaconUpgrades(IGnosisSafe(safeAddr), timelockAddr, beacons, "post-migration-loop");
+        _driveBeaconUpgrades(Safe(payable(safeAddr)), timelockAddr, beacons, "post-migration-loop");
     }
 
     /// Drive a real upgrade of EVERY beacon through the timelock, and assert
-    /// the Safe cannot do it directly. Shared by both entry points so the
-    /// already-migrated and migrate-on-fork paths cannot drift into proving
-    /// different things.
+    /// the Safe cannot do it directly.
     /// @param safe The chain's token-owner Safe.
     /// @param timelockAddr The chain's governance timelock.
     /// @param beacons Every in-use production beacon.
     /// @param tag Salt discriminator, so two proofs on one chain cannot collide.
-    function _driveBeaconUpgrades(IGnosisSafe safe, address timelockAddr, address[4] memory beacons, string memory tag)
+    function _driveBeaconUpgrades(Safe safe, address timelockAddr, address[4] memory beacons, string memory tag)
         internal
     {
         // Deployed AFTER the fork switch: a contract deployed before it does
@@ -86,6 +81,10 @@ contract PostMigrationGovernanceTest is Test {
 
         address safeAddr = address(safe);
         TimelockController controller = TimelockController(payable(timelockAddr));
+
+        // `simulateNPlus1` gates on the Safe's LIVE threshold, so pin it first:
+        // the 3-of-6 gate is part of what is proven.
+        LibSafe.assertThreshold(safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
 
         for (uint256 i = 0; i < beacons.length; i++) {
             address beacon = beacons[i];
@@ -107,14 +106,14 @@ contract PostMigrationGovernanceTest is Test {
             bytes memory action = abi.encodeCall(UpgradeableBeacon.upgradeTo, (address(probeImpl)));
             bytes32 salt = keccak256(abi.encodePacked(tag, block.chainid, i));
             bytes32 id = controller.hashOperation(beacon, 0, action, bytes32(0), salt);
-            LibSafeOps.simulateNPlus1(
+            LibSafeFork.simulateNPlus1(
+                vm,
                 safe,
                 timelockAddr,
                 abi.encodeCall(
                     TimelockController.schedule,
                     (beacon, 0, action, bytes32(0), salt, LibTimelockInvariants.TIMELOCK_MIN_DELAY)
-                ),
-                LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD
+                )
             );
 
             // (4) Inside the window: pending, and NOT executable. A timelock
@@ -125,11 +124,11 @@ contract PostMigrationGovernanceTest is Test {
             // (5) After the delay: executable, and the execution lands.
             vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
             assertTrue(controller.isOperationReady(id), "not executable after the delay");
-            LibSafeOps.simulateNPlus1(
+            LibSafeFork.simulateNPlus1(
+                vm,
                 safe,
                 timelockAddr,
-                abi.encodeCall(TimelockController.execute, (beacon, 0, action, bytes32(0), salt)),
-                LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD
+                abi.encodeCall(TimelockController.execute, (beacon, 0, action, bytes32(0), salt))
             );
             assertTrue(controller.isOperationDone(id), "operation did not complete");
             // The beacon MOVED. Asserting it still equals `implBefore` would
@@ -139,98 +138,34 @@ contract PostMigrationGovernanceTest is Test {
         }
     }
 
-    /// The escape hatch, proven on a chain that has NOT migrated yet.
-    ///
-    /// `_assertGovernanceUsable` can only speak for a chain whose bundle has
-    /// already executed — on every other chain it stops at the precondition,
-    /// which reports migration STATUS and proves nothing about whether the
-    /// upgrade path will work once the bundle lands. That is the wrong order
-    /// for a signing decision: the question "can we still upgrade all four
-    /// beacons after this executes" has to be answerable BEFORE signing, not
-    /// after.
-    ///
-    /// So: execute the real migration on the fork, then drive the full loop.
-    /// Nothing here is a mock — the migration is the production script's own
-    /// authoring, and the upgrades go through the deployed timelock and the
-    /// Safe's real signature-verified exec path at the production threshold.
-    ///
-    /// On an already-migrated chain the script authors an empty transfer set
-    /// and this reduces to the same proof `_assertGovernanceUsable` makes, so
-    /// the two agree rather than diverging by chain.
-    function _assertEscapeHatchSurvivesMigration(string memory network) internal {
-        vm.createSelectFork(network);
-
-        address safeAddr = LibSafeInvariants.safeForChainId(block.chainid);
-        // The timelock is already deployed on every production chain; this
-        // resolves to that same derived address and is a no-op there.
-        new DeployGovernanceTimelockHarness().callDeployOnActiveChain();
-        address timelockAddr = LibTimelockInvariants.expectedTimelockAddress(safeAddr);
-
-        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
-        address[4] memory implsBefore;
-        for (uint256 i = 0; i < beacons.length; i++) {
-            implsBefore[i] = IBeacon(beacons[i]).implementation();
-        }
-
-        // Execute the migration on this fork — but only where there is one to
-        // run. The script reverts `NothingToMigrate()` on a chain whose
-        // surfaces are already timelock-owned rather than authoring an empty
-        // bundle, so a chain that has migrated reaches the proof directly.
-        // Which branch a chain takes is incidental; both end at the same
-        // assertions below.
-        bool anyStillWithSafe = false;
-        for (uint256 i = 0; i < beacons.length; i++) {
-            if (Ownable(beacons[i]).owner() == safeAddr) {
-                anyStillWithSafe = true;
-            }
-        }
-        if (anyStillWithSafe) {
-            new MigrateGovernanceToTimelockHarness(timelockAddr).run();
-        }
-
-        // The migration landed: the timelock owns every beacon and none of
-        // them changed what they serve.
-        for (uint256 i = 0; i < beacons.length; i++) {
-            assertEq(Ownable(beacons[i]).owner(), timelockAddr, "beacon not timelock-owned after migrating");
-            assertEq(
-                IBeacon(beacons[i]).implementation(), implsBefore[i], "migration moved ownership, not implementation"
-            );
-        }
-
-        _driveBeaconUpgrades(IGnosisSafe(safeAddr), timelockAddr, beacons, "escape-hatch");
-    }
-
     /// The Safe must also be able to VETO inside the window, or a mistaken
     /// schedule is unstoppable for 48h.
     function _assertCancelUsable(string memory network) internal {
         vm.createSelectFork(network);
         address safeAddr = LibSafeInvariants.safeForChainId(block.chainid);
         address timelockAddr = LibTimelockInvariants.timelockForChainId(block.chainid);
-        IGnosisSafe safe = IGnosisSafe(safeAddr);
+        Safe safe = Safe(payable(safeAddr));
         TimelockController controller = TimelockController(payable(timelockAddr));
         address beacon =
             LibBeaconInvariants.prodBeaconsForChainId(block.chainid)[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX];
 
+        LibSafe.assertThreshold(safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
+
         bytes memory action = abi.encodeCall(UpgradeableBeacon.upgradeTo, (IBeacon(beacon).implementation()));
         bytes32 salt = keccak256(abi.encodePacked("post-migration-cancel", block.chainid));
         bytes32 id = controller.hashOperation(beacon, 0, action, bytes32(0), salt);
-        LibSafeOps.simulateNPlus1(
+        LibSafeFork.simulateNPlus1(
+            vm,
             safe,
             timelockAddr,
             abi.encodeCall(
                 TimelockController.schedule,
                 (beacon, 0, action, bytes32(0), salt, LibTimelockInvariants.TIMELOCK_MIN_DELAY)
-            ),
-            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD
+            )
         );
         assertTrue(controller.isOperationPending(id), "schedule did not register");
 
-        LibSafeOps.simulateNPlus1(
-            safe,
-            timelockAddr,
-            abi.encodeCall(TimelockController.cancel, (id)),
-            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD
-        );
+        LibSafeFork.simulateNPlus1(vm, safe, timelockAddr, abi.encodeCall(TimelockController.cancel, (id)));
         assertFalse(controller.isOperationPending(id), "cancel did not clear the operation");
     }
 
@@ -272,29 +207,5 @@ contract PostMigrationGovernanceTest is Test {
 
     function testCancelUsableOnBsc() external {
         _assertCancelUsable(LibStoxDeployNetworks.BSC);
-    }
-
-    // The escape hatch on every chain, migrated or not. These must pass
-    // EVERYWHERE: a chain whose bundle is still unsigned is exactly the one
-    // whose upgrade path needs answering before it is signed.
-
-    function testEscapeHatchSurvivesMigrationOnBase() external {
-        _assertEscapeHatchSurvivesMigration(LibRainDeploy.BASE);
-    }
-
-    function testEscapeHatchSurvivesMigrationOnEthereum() external {
-        _assertEscapeHatchSurvivesMigration(LibStoxDeployNetworks.ETHEREUM);
-    }
-
-    function testEscapeHatchSurvivesMigrationOnHyperevm() external {
-        _assertEscapeHatchSurvivesMigration(LibStoxDeployNetworks.HYPEREVM);
-    }
-
-    function testEscapeHatchSurvivesMigrationOnRobinhood() external {
-        _assertEscapeHatchSurvivesMigration(LibStoxDeployNetworks.ROBINHOOD);
-    }
-
-    function testEscapeHatchSurvivesMigrationOnBsc() external {
-        _assertEscapeHatchSurvivesMigration(LibStoxDeployNetworks.BSC);
     }
 }
