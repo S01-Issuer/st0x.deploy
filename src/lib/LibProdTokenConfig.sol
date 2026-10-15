@@ -34,7 +34,7 @@ enum Region {
 error UnknownUnderlying(string underlying);
 
 /// @title LibProdTokenConfig
-/// @notice The canonical name/symbol table for the 55 ST0x production
+/// @notice The canonical name/symbol table for the 56 ST0x production
 /// tokens, captured verbatim from the live Base receipt vaults so a new
 /// chain's token set can be deployed byte-identical to Base. This is the
 /// deploy-input companion to `LibTokenInvariants` (which holds the deployed
