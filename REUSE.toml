@@ -18,6 +18,7 @@ path = [
   "flake.nix",
   "foundry.toml",
   "privileged-addresses.json",
+  "ideal-roles.json",
   "REUSE.toml",
   "slither.config.json",
   "subgraph/**/",

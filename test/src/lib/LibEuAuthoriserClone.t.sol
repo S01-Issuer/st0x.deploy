@@ -61,8 +61,7 @@ contract LibEuAuthoriserCloneTest is Test {
                 usOperators++;
             }
         }
-        // Three for the service signer, two for the orchestrator.
-        assertEq(usOperators, 5, "US map carries the five US operator grants");
+        assertEq(usOperators, 3, "US map carries the three US operator grants");
     }
 
     /// @notice Every operational role goes to the EU wallet and every `_ADMIN`

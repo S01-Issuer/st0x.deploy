@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 
 import {LibTimelockController} from "rain-deploy-0.1.18/src/lib/LibTimelockController.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
+import {RoleGrant} from "./RoleGrant.sol";
 
 /// @notice No ST0x governance timelock address is pinned for the active
 /// chain. Deliberately a typed revert rather than a silent fallback to
@@ -178,6 +179,22 @@ library LibTimelockInvariants {
     /// @return The deterministic timelock address for that Safe.
     function expectedTimelockAddress(address proposerSafe) internal pure returns (address) {
         return LibTimelockController.expectedTimelockAddress(TIMELOCK_MIN_DELAY, proposerSafe);
+    }
+
+    /// @notice The pairs the governance timelock must carry.
+    /// @param timelock The timelock.
+    /// @param proposerSafe The chain's token-owner Safe.
+    /// @return The expected `(role, grantee)` pairs.
+    function expectedGrants(address timelock, address proposerSafe) internal pure returns (RoleGrant[] memory) {
+        RoleGrant[] memory grants = new RoleGrant[](TIMELOCK_CANCELLER == address(0) ? 4 : 5);
+        grants[0] = RoleGrant(TIMELOCK_PROPOSER_ROLE, proposerSafe);
+        grants[1] = RoleGrant(TIMELOCK_CANCELLER_ROLE, proposerSafe);
+        grants[2] = RoleGrant(TIMELOCK_DEFAULT_ADMIN_ROLE, timelock);
+        grants[3] = RoleGrant(TIMELOCK_EXECUTOR_ROLE, address(0));
+        if (TIMELOCK_CANCELLER != address(0)) {
+            grants[4] = RoleGrant(TIMELOCK_CANCELLER_ROLE, TIMELOCK_CANCELLER);
+        }
+        return grants;
     }
 
     /// @notice Assert the governance timelock at `timelock` is in its pinned
