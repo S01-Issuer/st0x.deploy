@@ -18,14 +18,13 @@ on:
         required: true
         type: string
       networks:
-        # Etherscan-family chains only. Robinhood Chain (4663) is not
-        # indexed by Etherscan v2 and has no `[etherscan]` entry in
-        # foundry.toml; verify there through Sourcify instead
-        # (`forge verify-contract --verifier sourcify --chain 4663 ...`).
+        # Robinhood Chain (4663) is served by its Blockscout, which speaks the
+        # Etherscan API; the reusable retries through Sourcify when an
+        # explorer rejects the submission.
         description: 'Whitespace separated foundry chain ids or names'
         required: true
         type: string
-        default: '8453 1 999 56'
+        default: '8453 1 999 56 4663'
 jobs:
   verify:
     uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-verify.yaml@main
@@ -45,4 +44,5 @@ jobs:
       CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY }}
       CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY }}
       CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY }}
+      CI_DEPLOY_ROBINHOOD_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_ROBINHOOD_ETHERSCAN_API_KEY }}
       CI_DEPLOY_FLARE_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_FLARE_ETHERSCAN_API_KEY }}
