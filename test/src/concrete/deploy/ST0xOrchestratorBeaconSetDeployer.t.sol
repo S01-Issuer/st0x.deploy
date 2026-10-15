@@ -169,7 +169,7 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
         address orchestrator = d.deploy(address(0xA11CE));
 
         UpgradedImpl newImpl = new UpgradedImpl();
-        // The beacon owner is the chain's token-owner Safe, not a deploy param.
+        // The beacon owner is the chain's governance timelock, not a deploy param.
         vm.prank(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
         UpgradeableBeacon(address(beacon)).upgradeTo(address(newImpl));
 

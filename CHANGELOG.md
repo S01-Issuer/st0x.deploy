@@ -91,6 +91,29 @@
     `forge test -vvv`) and should be regenerated in CI, where the fork-test RPC
     secrets are available.
 
+- **`optimizer_runs` lowered 2000 → 1666 to fit the rain-math-float bump under
+  EIP-170.** Float 0.2.22 → 0.3.3 (0.2.61 and 0.3.3 compile to identical
+  bytecode) grows `StoxReceiptVault` to 24,757 at 2000 runs (over by 181).
+  Measured: `runs=2000` → 24,757; `runs=1800` → 24,607 (over by 31); `runs=1667`
+  → 24,580 (over by 4); `runs=1666` → 24,030 (**546 spare**); `runs=1000` →
+  23,728.
+
+  As with 5000 → 2000, this moves the bytecode and deterministic Zoltu address
+  of every contract; all 12 `src/generated/candidate/` pins are regenerated.
+
+  - No user-facing address moves.
+  - ⚠️ **This is a coordinated multi-contract release.** `StoxReceiptVault`,
+    `StoxCorporateActionsFacet` and `StoxReceipt` deploy in lockstep, for the
+    reasons given under 5000 → 2000 above.
+  - The frozen `0_1_1` and `0_1_30` snapshots are untouched and
+    `testFrozenRedeploy*` still redeploys them.
+  - rain-deploy's `TimelockController` creation code was built at 2000 runs, so
+    it no longer reproduces under this profile. Tests build timelocks from that
+    pinned creation code, and the governance-timelock verify step in
+    `manual-broadcast.yaml` compiles with rain-deploy's settings via
+    `script/timelock-verify.sh`, whose `check` (CI: `timelock-verify-check`)
+    proves that compile reproduces the pinned creation and runtime code.
+
 ### Deploy scripts
 
 - **The per-chain "deploy missing tokens" scripts are merged into one.**

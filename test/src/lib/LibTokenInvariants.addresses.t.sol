@@ -10,22 +10,22 @@ import {LibTestProd} from "../../lib/LibTestProd.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC4626} from "@openzeppelin-contracts-5.7.0/interfaces/IERC4626.sol";
-import {IReceiptVaultV3} from "rain-vats-0.2.4/src/interface/IReceiptVaultV3.sol";
-import {IReceiptV3} from "rain-vats-0.2.4/src/interface/IReceiptV3.sol";
+import {IReceiptVaultV3} from "rain-vats-0.2.5/src/interface/IReceiptVaultV3.sol";
+import {IReceiptV3} from "rain-vats-0.2.5/src/interface/IReceiptV3.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
-} from "rain-vats-0.2.4/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
-import {ICertifiableV1} from "rain-vats-0.2.4/src/interface/ICertifiableV1.sol";
+} from "rain-vats-0.2.5/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
+import {ICertifiableV1} from "rain-vats-0.2.5/src/interface/ICertifiableV1.sol";
 import {
     ERC1967_BEACON_SLOT,
     LibExtrospectERC1967BeaconProxy
-} from "rain-extrospection-0.1.1/src/lib/LibExtrospectERC1967BeaconProxy.sol";
-import {LibExtrospectBytecode} from "rain-extrospection-0.1.1/src/lib/LibExtrospectBytecode.sol";
-import {LibExtrospectMetamorphic} from "rain-extrospection-0.1.1/src/lib/LibExtrospectMetamorphic.sol";
-import {EVM_OP_CREATE, EVM_OP_DELEGATECALL} from "rain-extrospection-0.1.1/src/lib/EVMOpcodes.sol";
-import {IExtrospectV1} from "rain-extrospection-0.1.1/src/interface/IExtrospectV1.sol";
-import {EXTROSPECT_ZOLTU_ADDRESS_V1} from "rain-extrospection-0.1.1/src/concrete/Extrospect.sol";
-import {IBeacon} from "rain-extrospection-0.1.1/src/interface/IBeacon.sol";
+} from "rain-extrospection-0.1.14/src/lib/LibExtrospectERC1967BeaconProxy.sol";
+import {LibExtrospectBytecode} from "rain-extrospection-0.1.14/src/lib/LibExtrospectBytecode.sol";
+import {LibExtrospectMetamorphic} from "rain-extrospection-0.1.14/src/lib/LibExtrospectMetamorphic.sol";
+import {EVM_OP_CREATE, EVM_OP_DELEGATECALL} from "rain-extrospection-0.1.14/src/lib/EVMOpcodes.sol";
+import {IExtrospectV1} from "rain-extrospection-0.1.14/src/interface/IExtrospectV1.sol";
+import {DEPLOYED_ADDRESS as EXTROSPECT_0_1_0} from "rain-extrospection-deploy-0.1.0/src/generated/0_1_0/Extrospect.sol";
+import {IBeacon} from "rain-extrospection-0.1.14/src/interface/IBeacon.sol";
 
 /// @title LibTokenInvariantsAddressesTest
 /// @notice Fork tests verifying production token instances on Base.
@@ -249,7 +249,7 @@ contract LibTokenInvariantsAddressesTest is Test {
     /// library-internal and inlines into the test contract, so a
     /// same-depth revert wouldn't satisfy `vm.expectRevert`. The
     /// concrete contract provides the external call hop and is on Base
-    /// at `EXTROSPECT_ZOLTU_ADDRESS_V1`.
+    /// at `EXTROSPECT_0_1_0`.
     function testCheckNoSolidityCBORMetadataDetectsCBORTrailer() external {
         LibTestProd.createSelectForkBase(vm);
         bytes memory bytecode = abi.encodePacked(
@@ -270,7 +270,7 @@ contract LibTokenInvariantsAddressesTest is Test {
         vm.etch(sentinel, bytecode);
 
         vm.expectRevert(bytes4(keccak256("UnexpectedMetadata()")));
-        IExtrospectV1(EXTROSPECT_ZOLTU_ADDRESS_V1).checkNoSolidityCBORMetadata(sentinel);
+        IExtrospectV1(EXTROSPECT_0_1_0).checkNoSolidityCBORMetadata(sentinel);
     }
 
     /// Pin the metamorphic-risk surface of the prod V1 implementations.
