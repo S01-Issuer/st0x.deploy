@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {LibCorporateAction} from "../../../src/lib/LibCorporateAction.sol";
-import {IAuthorizeV1} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.4/src/interface/IAuthorizeV1.sol";
 
 /// @dev Minimal harness that delegates calls to a facet. Also exposes an
 /// `authorizer()` function so the facet's `OffchainAssetReceiptVault(address
@@ -14,6 +14,9 @@ contract DelegatecallHarness {
     IAuthorizeV1 public authorizer;
     uint8 public constant decimals = 18;
 
+    // A test double storing the collaborator it is handed. Rejecting zero here
+    // would only stop the suite exercising the zero case.
+    // forge-lint: disable-next-line(missing-zero-check)
     constructor(address facet_) {
         FACET = facet_;
     }

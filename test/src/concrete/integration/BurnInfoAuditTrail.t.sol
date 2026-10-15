@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {IERC20} from "@openzeppelin-contracts-5.6.1/token/ERC20/IERC20.sol";
-import {IReceiptVaultV1} from "rain-vats-0.1.6/src/interface/deprecated/IReceiptVaultV1.sol";
-import {IReceiptV3} from "rain-vats-0.1.6/src/interface/IReceiptV3.sol";
+import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
+import {IReceiptVaultV1} from "rain-vats-0.2.4/src/interface/deprecated/IReceiptVaultV1.sol";
+import {IReceiptV3} from "rain-vats-0.2.4/src/interface/IReceiptV3.sol";
 
 import {IST0xOrchestratorV1, MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV1.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";

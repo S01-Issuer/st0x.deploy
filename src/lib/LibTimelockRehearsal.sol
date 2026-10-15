@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/TimelockController.sol";
+import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 
@@ -56,7 +56,7 @@ library LibTimelockRehearsal {
     /// @notice The rehearsal operation's id on the supplied timelock.
     /// @param timelock The chain's governance timelock.
     /// @return The operation id.
-    function operationId(address timelock) internal view returns (bytes32) {
+    function operationId(address timelock) internal pure returns (bytes32) {
         return TimelockController(payable(timelock)).hashOperation(timelock, 0, payload(), bytes32(0), REHEARSAL_SALT);
     }
 
@@ -73,7 +73,7 @@ library LibTimelockRehearsal {
     /// @notice Calldata for the Safe to cancel the rehearsal.
     /// @param timelock The chain's governance timelock.
     /// @return The `cancel` calldata.
-    function cancelCalldata(address timelock) internal view returns (bytes memory) {
+    function cancelCalldata(address timelock) internal pure returns (bytes memory) {
         return abi.encodeCall(TimelockController.cancel, (operationId(timelock)));
     }
 }

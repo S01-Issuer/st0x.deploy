@@ -93,11 +93,11 @@
   reading as "copy everything".
 - **The canonical config table is allowed to run ahead of Base.** A row is
   authored when a ticker is chosen and Base is pinned when it is deployed, so
-  the config table leads in that window; only the rows Base carries are read,
-  so the excess is inert. The genuine error is a config table SHORTER than
-  Base — a deployed Base row with no name/symbol to deploy under — which
-  reverts `TokenTableTooShort(configsLength, baseLength)`. Row-for-row key
-  drift between the two tables still reverts `TokenTableMisaligned`.
+  the config table leads in that window; only the rows Base carries are read, so
+  the excess is inert. The genuine error is a config table SHORTER than Base — a
+  deployed Base row with no name/symbol to deploy under — which reverts
+  `TokenTableTooShort(configsLength, baseLength)`. Row-for-row key drift between
+  the two tables still reverts `TokenTableMisaligned`.
 - **Three checks the gap-fill scripts had dropped are back, matching
   `20260706-deploy-tokens-ethereum`.** Each deployed vault is now read back
   before the loop moves on — `AuthoriserNotWired` if it is not routed to the
@@ -112,6 +112,23 @@
   states the exception the deletion was made under: an entry may be dropped only
   when a named successor listed there covers its pre-flight at least as
   strongly, and the run id has been carried into the pin.
+- **One dispatch ships a suite to every network.** Both `DeployProdV4_0_1_1` and
+  `DeployProdV4_0_1_30` built a one-element `string[]` for
+  `LibRainDeploy.deployAndBroadcast`, which takes a list and loops it, so the
+  six-suite 0.1.30 rollout cost one dispatch per (suite, network) pair. Both now
+  hand it `LibStoxDeployNetworks.deploymentNetworks` — Base, Ethereum, HyperEVM
+  — which the loop forks in turn, skipping any that already has code at the
+  expected address, so a repeat dispatch is a no-op where the suite landed and a
+  retry where it did not. Picking a network is gone with it: the
+  `DEPLOYMENT_NETWORK` env var, the `network` choice on both workflows and the
+  per-script supported-network lists are all removed, leaving one declaration of
+  the set in `LibStoxDeployNetworks`. 0.1.1 no longer excludes Base — the whole
+  audited 0.1.1 set already has code at its pinned addresses there, as
+  `StoxProdV4Test` asserts per chain, so the exclusion had nothing left to
+  express and the run is a no-op on all three. Both workflows now pass
+  `legacy: true` unconditionally: `--legacy` is one flag over the whole
+  `forge script` run, so it cannot vary per network within a run, and type-0 is
+  valid on every network these scripts ship to.
 
 ### New contracts
 
@@ -139,6 +156,39 @@
   singleton as a `BeaconProxy` behind a shared `UpgradeableBeacon` owned by the
   owner multisig. Config-in-constructor base; the Zoltu-deployable concrete
   subclass with hardcoded `LibProdDeploy*` config lands with the deploy wiring.
+
+### Subgraph
+
+- **`subgraph/` indexes role holders, role admins and ownership.**
+  `AccessControl` exposes no member list, so a role's current holders exist
+  nowhere on chain as readable state — only the `RoleGranted` / `RoleRevoked`
+  log stream has them, and public RPCs cap `eth_getLogs` at 1000 blocks, which
+  makes trawling that stream impractical on the chains ST0x deploys to. The
+  subgraph answers, per contract per chain: current holders of a role and the
+  count, the full grant/revoke history with both the event `sender` and the
+  transaction submitter, the current role admin and its history, and the current
+  owner and its history — plus the current implementation and upgrade history of
+  each beacon. One deployment per network, built and deployed by the rainix
+  subgraph tooling to Ormi (`.github/workflows/subgraph-test.yaml`,
+  `.github/workflows/deploy-subgraph.yaml`).
+
+  The indexed set is the five networks in
+  `LibStoxDeployNetworks.deploymentNetworks()`. Six static data sources — the
+  authoriser clone, the governance timelock, the wrapped-token-vault beacon, the
+  orchestrator beacon and the two beacon-set deployers — plus three templates.
+  Receipt vaults and orchestrators are discovered from their deployers'
+  `Deployment` events rather than enumerated, because listing 54 tokens a chain
+  by address would take roughly 61 data sources per network.
+
+  Two caveats are deliberate. `startBlock` is 0 on every network: no deploy
+  block is recorded anywhere in this repo, and 0 is the only lower bound that
+  cannot silently drop grant or revoke history — it costs initial sync time, not
+  correctness. And the receipt and receipt-vault beacons are created in the
+  beacon-set deployer's constructor, in a block that precedes any `Deployment`,
+  so their construction-time logs are not reachable from the template that
+  discovers them; their owner and implementation are read by call at discovery
+  instead, which `Contract.ownerFromLog` / `Contract.implementationFromLog`
+  report per row.
 
 ## V3 (corporate actions)
 

@@ -13,11 +13,23 @@ contract LibAuthoriserInvariantsHarness {
         LibAuthoriserInvariants.assertAll();
     }
 
+    function callAuthoriserForChainId(uint256 chainId) external pure returns (address) {
+        return LibAuthoriserInvariants.authoriserForChainId(chainId);
+    }
+
+    function callActiveChainAuthoriser() external view returns (address) {
+        return LibAuthoriserInvariants.activeChainAuthoriser();
+    }
+
     function callAssertExpectedGrants(address authoriser) external view {
         LibAuthoriserInvariants.assertExpectedGrants(authoriser);
     }
 
     function callAssertExpectedGrants(address authoriser, address tokenOwnerSafe, address adminHolder) external view {
         LibAuthoriserInvariants.assertExpectedGrants(authoriser, tokenOwnerSafe, adminHolder);
+    }
+
+    function callAssertExpectedEuGrants(address authoriser, address adminHolder, address minter) external view {
+        LibAuthoriserInvariants.assertExpectedEuGrants(authoriser, adminHolder, minter);
     }
 }

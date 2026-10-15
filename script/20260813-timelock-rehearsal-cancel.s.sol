@@ -2,13 +2,16 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Script} from "forge-std-1.16.1/src/Script.sol";
-import {console2} from "forge-std-1.16.1/src/console2.sol";
-import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/TimelockController.sol";
+import {Script} from "forge-std-1.17.0/src/Script.sol";
+import {console2} from "forge-std-1.17.0/src/console2.sol";
+import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 
-import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
-import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
+import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJson.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTimelockRehearsal} from "../src/lib/LibTimelockRehearsal.sol";
 
@@ -23,7 +26,7 @@ error CancelTimelockNotPinned(uint256 chainId);
 error RehearsalNotScheduled(bytes32 id);
 
 /// @title TimelockRehearsalCancel
-/// @notice **PENDING.** Authors the Safe bundle that CANCELS the scheduled
+/// @notice Authors the Safe bundle that CANCELS the scheduled
 /// timelock rehearsal — see `LibTimelockRehearsal` for the operation.
 ///
 /// This is the stage that demonstrates the veto: a scheduled operation can be
@@ -42,7 +45,7 @@ error RehearsalNotScheduled(bytes32 id);
 contract TimelockRehearsalCancel is Script {
     /// @notice Author the cancel bundle for the active chain.
     function run() external {
-        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid));
+        Safe safe = Safe(payable(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid)));
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         if (timelock == address(0)) revert CancelTimelockNotPinned(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock, address(safe));
@@ -52,12 +55,14 @@ contract TimelockRehearsalCancel is Script {
         if (!controller.isOperationPending(id)) revert RehearsalNotScheduled(id);
 
         SafeTx[] memory txs = new SafeTx[](1);
-        txs[0] = SafeTx({to: timelock, value: 0, data: LibTimelockRehearsal.cancelCalldata(timelock), operation: 0});
+        txs[0] = SafeTx({
+            to: timelock, value: 0, data: LibTimelockRehearsal.cancelCalldata(timelock), operation: Enum.Operation.Call
+        });
 
         uint256 nonce = safe.nonce();
-        bytes32 safeTxHash = LibSafeOps.computeSafeTxHashViaSafe(safe, txs[0], nonce);
+        bytes32 safeTxHash = LibSafeTx.safeTxHash(safe, txs[0], nonce);
 
-        LibSafeOps.simulateExternalCall(safe, txs[0].to, txs[0].data);
+        LibSafeFork.simulateCall(vm, safe, txs[0].to, txs[0].data);
 
         // Fully deregistered: not pending, and not known to the timelock at
         // all — which is what lets the same operation be scheduled again.
@@ -66,8 +71,8 @@ contract TimelockRehearsalCancel is Script {
 
         string memory artifactPath =
             string.concat("out/20260813-timelock-rehearsal-cancel-", vm.toString(block.chainid), ".json");
-        string memory json = LibSafeOps.emitTxBuilderJson(
-            address(safe), block.chainid, "ST0x timelock rehearsal: cancel the no-op", txs
+        string memory json = LibSafeTxBuilderJson.toJson(
+            vm, address(safe), block.chainid, "ST0x timelock rehearsal: cancel the no-op", txs
         );
         vm.writeFile(artifactPath, json);
 
