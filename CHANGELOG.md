@@ -93,6 +93,38 @@
     `script/timelock-verify.sh`, whose `check` (CI: `timelock-verify-check`)
     proves that compile reproduces the pinned creation and runtime code.
 
+### Underlying ticker and name
+
+- **`IStoxUnderlyingV1`: each receipt vault stores its underlying ticker and
+  name.** `StoxCorporateActionsFacet` implements `underlyingSymbol()`,
+  `underlyingName()` and `setUnderlying(symbol, name)`, with the values in a new
+  ERC-7201 namespace `rain.storage.underlying.1` (`LibUnderlying`). The setter
+  is `onlyOwner`-equivalent (it checks the vault's `owner()`, so on live chains
+  it goes through the governance timelock), rejects empty values with
+  `EmptyUnderlyingSymbol` / `EmptyUnderlyingName`, emits `UnderlyingSet` with
+  the old and new values, and can be called again when a listing is renamed.
+- **Token metadata is built from those values.** Once set, `StoxReceiptVault`
+  reports `symbol() = "t" + ticker` and `name() = name + " (ST0x)"`, and
+  `StoxWrappedTokenVault` reports `symbol() = ticker + "s"` and
+  `name() = name + " (ST0x)"` — e.g. `tNVDA` / `NVDAs`, both named
+  `NVIDIA Corporation (ST0x)`. The suffix is the single constant
+  `ST0X_NAME_SUFFIX`. While unset, the vault reports the name and symbol it was
+  initialized with and the wrapper `"Wrapped " + name` / `"w" + symbol`, so
+  nothing changes on chain until the values are set.
+- **The wrapper never reverts on its asset's behalf.** It reads the underlying
+  values with a `staticcall` and falls back to the asset's ERC-20 metadata if
+  the call fails, returns data that is not a well-formed `string`, or returns an
+  empty value, so assets that are not ST0x receipt vaults still wrap.
+- **`StoxReceiptVault.symbol()` / `name()` are answered by the facet.** The
+  vault forwards them, through a static self-call into its own `fallback()`, to
+  the facet views `receiptVaultSymbol()` / `receiptVaultName()`, which hold the
+  formatting and read the initialized values through OZ's own `ERC20Storage`
+  struct (`LibERC20Storage.getStorage`). Formatting in the vault itself would
+  put it over EIP-170; forwarding brings it to 23,871 bytes (705 spare).
+- As with every vault/facet change, the vault, facet, wrapper and the contracts
+  that pin them move to new Zoltu addresses; the `candidate/` pins are
+  regenerated.
+
 ### Deploy scripts
 
 - **The per-chain "deploy missing tokens" scripts are merged into one.**

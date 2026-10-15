@@ -8,8 +8,8 @@ between the token-owner Safe and the privileged surfaces of the ST0x deployment.
 After the migration executes, the timelock is:
 
 - the `owner()` of **every production receipt vault** — so `transferOwnership`,
-  `setAuthorizer`, and every `onlyOwner` surface (including owner freezes) is
-  delay-gated;
+  `setAuthorizer`, `setUnderlying`, and every `onlyOwner` surface (including
+  owner freezes) is delay-gated;
 - the `owner()` of the chain's **four in-use upgrade beacons** (receipt, receipt
   vault, wrapped token vault, orchestrator) — so `upgradeTo` is delay-gated; and
 - the **sole holder of the authoriser's seven `_ADMIN` roles** (`DEPOSIT_ADMIN`,

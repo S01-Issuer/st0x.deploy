@@ -71,10 +71,10 @@ contract LibProdTokenConfigTest is Test {
     }
 
     /// The wrapped vault's derived name/symbol on Base are exactly
-    /// `"Wrapped " + name` / `"w" + symbol` — pinning the derivation the
-    /// deploy relies on (the wrapped leg takes no name/symbol input, so if
-    /// this derivation ever changed the config table would be insufficient
-    /// to reproduce Base's wrapped tokens).
+    /// `"Wrapped " + name` / `"w" + symbol` — the derivation that applies
+    /// while the receipt vault's underlying ticker and name are unset. The
+    /// wrapped leg takes no name/symbol input, so this pins that the config
+    /// table alone reproduces Base's wrapped tokens in that state.
     function testWrappedDerivationHoldsOnBase() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();

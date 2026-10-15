@@ -9,6 +9,7 @@ import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} 
 import {LibRebase} from "../lib/LibRebase.sol";
 import {LibTotalSupply} from "../lib/LibTotalSupply.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
+import {StoxCorporateActionsFacet} from "./StoxCorporateActionsFacet.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {AuthorizerMissingCorporateActionAdmin} from "../error/ErrCorporateAction.sol";
 
@@ -83,6 +84,40 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         // slither-disable-next-line unused-return
         (uint256 balance,) = LibRebase.migratedBalance(stored, s.accountMigrationCursor[account]);
         return balance;
+    }
+
+    /// @notice The tStock symbol, built from the underlying ticker by
+    /// `StoxCorporateActionsFacet.receiptVaultSymbol`, e.g. "tNVDA".
+    /// @return symbol_ The token symbol.
+    // `returnFacetView` ends the call with the facet view's return data.
+    // slither-disable-next-line incorrect-return
+    function symbol() public view virtual override returns (string memory symbol_) {
+        returnFacetView(StoxCorporateActionsFacet.receiptVaultSymbol.selector);
+    }
+
+    /// @notice The tStock name, built from the underlying name by
+    /// `StoxCorporateActionsFacet.receiptVaultName`, e.g.
+    /// "NVIDIA Corporation (ST0x)".
+    /// @return name_ The token name.
+    // `returnFacetView` ends the call with the facet view's return data.
+    // slither-disable-next-line incorrect-return
+    function name() public view virtual override returns (string memory name_) {
+        returnFacetView(StoxCorporateActionsFacet.receiptVaultName.selector);
+    }
+
+    /// @dev Ends the current call with the result of the zero-argument facet
+    /// view `selector`, reached by a static self-call that `fallback()`
+    /// routes to the facet. Keeps the formatting out of the vault's bytecode,
+    /// which has no room for it under EIP-170. Never returns to its caller.
+    /// @param selector The facet view to answer the current call with.
+    function returnFacetView(bytes4 selector) private view {
+        assembly ("memory-safe") {
+            mstore(0, selector)
+            let success := staticcall(gas(), address(), 0, 4, 0, 0)
+            returndatacopy(0, 0, returndatasize())
+            if iszero(success) { revert(0, returndatasize()) }
+            return(0, returndatasize())
+        }
     }
 
     /// @notice Returns the effective total supply after applying every

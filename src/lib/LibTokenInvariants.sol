@@ -9,14 +9,14 @@ import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
 
 /// @notice One production token's contract triple on a single chain, keyed
 /// by the underlying ticker. The underlying symbol (e.g. "MSTR", not
-/// "tMSTR" / "wtMSTR") is the chain-agnostic join key: it matches the
+/// "tMSTR" / "MSTRs") is the chain-agnostic join key: it matches the
 /// issuer-side asset identity, so cross-chain checks pair instances by
 /// `underlying` and then compare the on-chain `name()` / `symbol()` /
 /// `decimals()` read from each chain's contracts.
 /// @param underlying The underlying ticker the token set wraps.
 /// @param receipt The ERC-1155 receipt contract.
 /// @param receiptVault The ERC-20 receipt vault (tStock).
-/// @param wrappedTokenVault The ERC-4626 wrapped token vault (wtStock).
+/// @param wrappedTokenVault The ERC-4626 wrapped token vault (e.g. MSTRs).
 struct TokenInstance {
     string underlying;
     address receipt;
@@ -62,7 +62,7 @@ library LibTokenInvariants {
     // receipt vault (ERC-20), and a wrapped token vault (ERC-4626).
     // =========================================================================
 
-    // ---- tMSTR / wtMSTR — MicroStrategy Incorporated ST0x ----
+    // ---- tMSTR / MSTRs — MicroStrategy Incorporated ST0x ----
     /// https://basescan.org/address/0x1c1fEF6f7b8e576219554b1d11c8aF29D00C0cEC
     address internal constant MSTR_RECEIPT = address(0x1c1fEF6f7b8e576219554b1d11c8aF29D00C0cEC);
     /// https://basescan.org/address/0x013b782F402d61aa1004CCA95b9f5Bb402c9d5FE
@@ -70,7 +70,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0xFF05E1bD696900dc6A52CA35Ca61Bb1024eDa8e2
     address internal constant MSTR_WRAPPED_TOKEN_VAULT = address(0xFF05E1bD696900dc6A52CA35Ca61Bb1024eDa8e2);
 
-    // ---- tTSLA / wtTSLA — Tesla Inc ST0x ----
+    // ---- tTSLA / TSLAs — Tesla Inc ST0x ----
     /// https://basescan.org/address/0x660923230fAA859622711a5fC80f532dd588b125
     address internal constant TSLA_RECEIPT = address(0x660923230fAA859622711a5fC80f532dd588b125);
     /// https://basescan.org/address/0x4E169cD2Ab4f82640a8c65C68feD55863866fDB0
@@ -78,7 +78,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x219A8d384a10BF19b9f24cB5cC53F79Dd0e5A03D
     address internal constant TSLA_WRAPPED_TOKEN_VAULT = address(0x219A8d384a10BF19b9f24cB5cC53F79Dd0e5A03D);
 
-    // ---- tCOIN / wtCOIN — Coinbase Global Inc ST0x ----
+    // ---- tCOIN / COINs — Coinbase Global Inc ST0x ----
     /// https://basescan.org/address/0xBA1B8836A5510815e96103F067715b7CCC7c2E0E
     address internal constant COIN_RECEIPT = address(0xBA1B8836A5510815e96103F067715b7CCC7c2E0E);
     /// https://basescan.org/address/0x626757e6F50675D17fcAd312E82f989aE7A23d38
@@ -86,7 +86,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x5cDa0E1CA4ce2af96315f7F8963C85399c172204
     address internal constant COIN_WRAPPED_TOKEN_VAULT = address(0x5cDa0E1CA4ce2af96315f7F8963C85399c172204);
 
-    // ---- tSPYM / wtSPYM — State Street SPDR Portfolio S&P 500 ETF ST0x ----
+    // ---- tSPYM / SPYMs — State Street SPDR Portfolio S&P 500 ETF ST0x ----
     /// https://basescan.org/address/0x957056dD6e2E594742E36675e8AA5A567163E5bd
     address internal constant SPYM_RECEIPT = address(0x957056dD6e2E594742E36675e8AA5A567163E5bd);
     /// https://basescan.org/address/0x8Fdf41116F755771Bfe0747D5F8C3711D5DEbfBb
@@ -94,7 +94,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x31C2C14134e6E3B7ef9478297F199331133Fc2d8
     address internal constant SPYM_WRAPPED_TOKEN_VAULT = address(0x31C2C14134e6E3B7ef9478297F199331133Fc2d8);
 
-    // ---- tSIVR / wtSIVR — abrdn Physical Silver Shares ETF ST0x ----
+    // ---- tSIVR / SIVRs — abrdn Physical Silver Shares ETF ST0x ----
     /// https://basescan.org/address/0x053F52109a3439b4F292056D2DceC0486B544e82
     address internal constant SIVR_RECEIPT = address(0x053F52109a3439b4F292056D2DceC0486B544e82);
     /// https://basescan.org/address/0x58cE5024B89B4f73C27814C0f0aBbEa331C99Be8
@@ -102,7 +102,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0xEB7F3E4093C9d68253b6104FbbfF561F3eC0442F
     address internal constant SIVR_WRAPPED_TOKEN_VAULT = address(0xEB7F3E4093C9d68253b6104FbbfF561F3eC0442F);
 
-    // ---- tCRCL / wtCRCL — Circle Internet Group Inc ST0x ----
+    // ---- tCRCL / CRCLs — Circle Internet Group Inc ST0x ----
     /// https://basescan.org/address/0xd508B97975fBE04E62bFf18959549b046bD8FA78
     address internal constant CRCL_RECEIPT = address(0xd508B97975fBE04E62bFf18959549b046bD8FA78);
     /// https://basescan.org/address/0x38Eb797892ED71Da69bDc27A456A7c83Ff813b52
@@ -110,7 +110,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x8AFba81DEc38DE0A18E2Df5E1967a7493651eebf
     address internal constant CRCL_WRAPPED_TOKEN_VAULT = address(0x8AFba81DEc38DE0A18E2Df5E1967a7493651eebf);
 
-    // ---- tNVDA / wtNVDA — NVIDIA Corporation ST0x ----
+    // ---- tNVDA / NVDAs — NVIDIA Corporation ST0x ----
     /// https://basescan.org/address/0x8Dd4c6f08E446075879310AFae8167CC4DE2f805
     address internal constant NVDA_RECEIPT = address(0x8Dd4c6f08E446075879310AFae8167CC4DE2f805);
     /// https://basescan.org/address/0x7271A3C91Bb6070eD09333B84a815949D4f16d14
@@ -118,7 +118,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0xFb5B41acdbA20a3230F84BE995173CFb98b8D6E7
     address internal constant NVDA_WRAPPED_TOKEN_VAULT = address(0xFb5B41acdbA20a3230F84BE995173CFb98b8D6E7);
 
-    // ---- tIAU / wtIAU — iShares Gold Trust ST0x ----
+    // ---- tIAU / IAUs — iShares Gold Trust ST0x ----
     /// https://basescan.org/address/0x9E128159ff53Ce113df52D760C032DD65DDb0E64
     address internal constant IAU_RECEIPT = address(0x9E128159ff53Ce113df52D760C032DD65DDb0E64);
     /// https://basescan.org/address/0x9A507314EA2a6C5686C0D07BfecB764dCF324dFF
@@ -126,7 +126,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x1E46d7eFef64A833AFB1CD49299a7AD5B439f4d8
     address internal constant IAU_WRAPPED_TOKEN_VAULT = address(0x1E46d7eFef64A833AFB1CD49299a7AD5B439f4d8);
 
-    // ---- tPPLT / wtPPLT — abrdn Physical Platinum Shares ETF ST0x ----
+    // ---- tPPLT / PPLTs — abrdn Physical Platinum Shares ETF ST0x ----
     /// https://basescan.org/address/0x61b5a0424cD3adcd3b312619fC58B6fCeFA1ECb6
     address internal constant PPLT_RECEIPT = address(0x61b5a0424cD3adcd3b312619fC58B6fCeFA1ECb6);
     /// https://basescan.org/address/0x1f17523b147CcC2A2328c0F014f6d49c479ea063
@@ -134,7 +134,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x82f5BAEE1076334357a34A19E04f7c282D51cE47
     address internal constant PPLT_WRAPPED_TOKEN_VAULT = address(0x82f5BAEE1076334357a34A19E04f7c282D51cE47);
 
-    // ---- tAMZN / wtAMZN — Amazon.com Inc ST0x ----
+    // ---- tAMZN / AMZNs — Amazon.com Inc ST0x ----
     /// https://basescan.org/address/0x3C4895df971e5c1fDCa81bF74aDb8eeE94F24721
     address internal constant AMZN_RECEIPT = address(0x3C4895df971e5c1fDCa81bF74aDb8eeE94F24721);
     /// https://basescan.org/address/0x466CB2e46Fa1AfC0AB5e22274B34d0391db18eFd
@@ -142,7 +142,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x997baE3EC193a249596d3708C3fAB7C501Bb8a53
     address internal constant AMZN_WRAPPED_TOKEN_VAULT = address(0x997baE3EC193a249596d3708C3fAB7C501Bb8a53);
 
-    // ---- tBMNR / wtBMNR — Bitmine Immersion Technologies, Inc ST0x ----
+    // ---- tBMNR / BMNRs — Bitmine Immersion Technologies, Inc ST0x ----
     /// https://basescan.org/address/0x67aeAFD8c274F62933fEc34E8c0724189AaD01fc
     address internal constant BMNR_RECEIPT = address(0x67aeAFD8c274F62933fEc34E8c0724189AaD01fc);
     /// https://basescan.org/address/0xfBde45dF60249203b12148452fC77C3B5F811eB2
@@ -150,7 +150,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x2512EC661f0bA089c275EA105E31bAD6FcFcf319
     address internal constant BMNR_WRAPPED_TOKEN_VAULT = address(0x2512EC661f0bA089c275EA105E31bAD6FcFcf319);
 
-    // ---- tIBHG / wtIBHG — iShares iBonds 2027 Term High Yield and Income ETF ST0x ----
+    // ---- tIBHG / IBHGs — iShares iBonds 2027 Term High Yield and Income ETF ST0x ----
     /// https://basescan.org/address/0xE603De6450555cEf32be7e666eEd70fddDa13e1e
     address internal constant IBHG_RECEIPT = address(0xE603De6450555cEf32be7e666eEd70fddDa13e1e);
     /// https://basescan.org/address/0x3c0F093aa1eD511910279b2C8d56eF5c96f1a6cF
@@ -158,7 +158,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0xf73894603e92d6f91b1f156e98cca38fd1f78dbf
     address internal constant IBHG_WRAPPED_TOKEN_VAULT = address(0xF73894603e92D6f91B1f156e98Cca38Fd1F78dBf);
 
-    // ---- tSGOV / wtSGOV — iShares 0-3 Month Treasury Bond ETF ST0x ----
+    // ---- tSGOV / SGOVs — iShares 0-3 Month Treasury Bond ETF ST0x ----
     /// https://basescan.org/address/0x5c28F1Dd98dC2D61F289545c3be85cafdb4cB111
     address internal constant SGOV_RECEIPT = address(0x5c28F1Dd98dC2D61F289545c3be85cafdb4cB111);
     /// https://basescan.org/address/0xc941C1506B7555Ba8C506Fb6c9b9CC259902d612
@@ -166,7 +166,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x78c31580c97101694c70022c83d570150c11e935
     address internal constant SGOV_WRAPPED_TOKEN_VAULT = address(0x78c31580c97101694C70022c83D570150c11e935);
 
-    // ---- tQQQM / wtQQQM — Invesco NASDAQ 100 ETF ST0x ----
+    // ---- tQQQM / QQQMs — Invesco NASDAQ 100 ETF ST0x ----
     /// https://basescan.org/address/0x6Dcca0af274EB97f15ECc22d01a4F980f23F5E56
     address internal constant QQQM_RECEIPT = address(0x6Dcca0af274EB97f15ECc22d01a4F980f23F5E56);
     /// https://basescan.org/address/0x09ee803ba675052e10a54bfc8e18c0f67793056b
@@ -174,7 +174,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x823FF7Bbde2869aAe73A6CD53e7f614442836757
     address internal constant QQQM_WRAPPED_TOKEN_VAULT = address(0x823FF7Bbde2869aAe73A6CD53e7f614442836757);
 
-    // ---- tVWO / wtVWO — Vanguard Emerging Markets Stock Index Fund ST0x ----
+    // ---- tVWO / VWOs — Vanguard Emerging Markets Stock Index Fund ST0x ----
     /// https://basescan.org/address/0x3EC7C053Fd515353Df294B43F4c4d81F76eF0924
     address internal constant VWO_RECEIPT = address(0x3EC7C053Fd515353Df294B43F4c4d81F76eF0924);
     /// https://basescan.org/address/0x0acfea6833c4a3f41bf2fbd736aa9eea547d90ee
@@ -182,7 +182,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x23ec6886b49D7ab123E9ee8e474D2fa7AB6Cbc2d
     address internal constant VWO_WRAPPED_TOKEN_VAULT = address(0x23ec6886b49D7ab123E9ee8e474D2fa7AB6Cbc2d);
 
-    // ---- tARKK / wtARKK — ARK Innovation ETF ST0x ----
+    // ---- tARKK / ARKKs — ARK Innovation ETF ST0x ----
     /// https://basescan.org/address/0x5C497a52857b71538a7b57E6f57322877eD792B2
     address internal constant ARKK_RECEIPT = address(0x5C497a52857b71538a7b57E6f57322877eD792B2);
     /// https://basescan.org/address/0x323804af6f3bb463d688b854667c6870a0fc06ad
@@ -190,7 +190,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x9FfF48B4535AF3765Ac9E1b164720EDc01DF8EE7
     address internal constant ARKK_WRAPPED_TOKEN_VAULT = address(0x9FfF48B4535AF3765Ac9E1b164720EDc01DF8EE7);
 
-    // ---- tSPCX / wtSPCX — Space Exploration Technologies Corp. ST0x ----
+    // ---- tSPCX / SPCXs — Space Exploration Technologies Corp. ST0x ----
     /// https://basescan.org/address/0xba81B21F8a22bD99900E00Ed1373EC77C0772F55
     address internal constant SPCX_RECEIPT = address(0xba81B21F8a22bD99900E00Ed1373EC77C0772F55);
     /// https://basescan.org/address/0xc585AeB8B76c5F5e4215470A7625258e86ED7746
@@ -198,7 +198,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x19F89aaEf8a93f38A974beca9776f09aB844887F
     address internal constant SPCX_WRAPPED_TOKEN_VAULT = address(0x19F89aaEf8a93f38A974beca9776f09aB844887F);
 
-    // ---- tCEG / wtCEG — Constellation Energy Corporation ST0x ----
+    // ---- tCEG / CEGs — Constellation Energy Corporation ST0x ----
     /// https://basescan.org/address/0xc6bc19DF197cCd0DB4c02cCd6AAFf7B2Ce698e08
     address internal constant CEG_RECEIPT = address(0xc6bc19DF197cCd0DB4c02cCd6AAFf7B2Ce698e08);
     /// https://basescan.org/address/0x9a5D3cAeC90b0332b18C0B93fEF42F3F8C918289
@@ -206,7 +206,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x3aF952888Cd89DAD3e8AF67cf4b7E740B36829C3
     address internal constant CEG_WRAPPED_TOKEN_VAULT = address(0x3aF952888Cd89DAD3e8AF67cf4b7E740B36829C3);
 
-    // ---- tDRAM / wtDRAM — Roundhill Memory ETF ST0x ----
+    // ---- tDRAM / DRAMs — Roundhill Memory ETF ST0x ----
     /// https://basescan.org/address/0x728734768a772c137A5364b10e61943De13921C4
     address internal constant DRAM_RECEIPT = address(0x728734768a772c137A5364b10e61943De13921C4);
     /// https://basescan.org/address/0x96DE077262609298CD891E4Ab21bd34837dE33aB
@@ -214,7 +214,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x1A91Df4a970EBaB1bB4AF32Eb6d10509028eE4b8
     address internal constant DRAM_WRAPPED_TOKEN_VAULT = address(0x1A91Df4a970EBaB1bB4AF32Eb6d10509028eE4b8);
 
-    // ---- tTSM / wtTSM — Taiwan Semiconductor Manufacturing Company ST0x ----
+    // ---- tTSM / TSMs — Taiwan Semiconductor Manufacturing Company ST0x ----
     /// https://basescan.org/address/0x6553f9A5352ec3ca808138eaB56FE4cC496eA5A9
     address internal constant TSM_RECEIPT = address(0x6553f9A5352ec3ca808138eaB56FE4cC496eA5A9);
     /// https://basescan.org/address/0x7001e2974F775f0Fd73a3D2e5914e591f3EC3fBB
@@ -222,7 +222,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x71C66449d2528E23514A9c197BFD55Ae9DB3B714
     address internal constant TSM_WRAPPED_TOKEN_VAULT = address(0x71C66449d2528E23514A9c197BFD55Ae9DB3B714);
 
-    // ---- tSKHY / wtSKHY — SK hynix Inc. ADR ST0x ----
+    // ---- tSKHY / SKHYs — SK hynix Inc. ADR ST0x ----
     /// https://basescan.org/address/0xE26105d49e57cEd5Ce83d20Ca5f04C3B0dCC876C
     address internal constant SKHY_RECEIPT = address(0xE26105d49e57cEd5Ce83d20Ca5f04C3B0dCC876C);
     /// https://basescan.org/address/0x4DBA41f0feb390F208a85e96168fF5d8aC2b6F5c
@@ -230,7 +230,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0xFcD17aC4c4BF6a72c93018096F3fC09e66573Ff9
     address internal constant SKHY_WRAPPED_TOKEN_VAULT = address(0xFcD17aC4c4BF6a72c93018096F3fC09e66573Ff9);
 
-    // ---- tASML / wtASML — ASML Holding N.V. New York Registry Shares ST0x ----
+    // ---- tASML / ASMLs — ASML Holding N.V. New York Registry Shares ST0x ----
     /// https://basescan.org/address/0x17021e305D28c4CfA8ec02817ad22B2ef432dC85
     address internal constant ASML_RECEIPT = address(0x17021e305D28c4CfA8ec02817ad22B2ef432dC85);
     /// https://basescan.org/address/0x722Cb373f1871A176fb5DC3953046f2EAE22F619
@@ -238,7 +238,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x8200c6d9AB9E02A25D7F2099244C476d99a085ef
     address internal constant ASML_WRAPPED_TOKEN_VAULT = address(0x8200c6d9AB9E02A25D7F2099244C476d99a085ef);
 
-    // ---- tMU / wtMU — Micron Technology, Inc. ST0x ----
+    // ---- tMU / MUs — Micron Technology, Inc. ST0x ----
     /// https://basescan.org/address/0x0CC8b07E5bb99Ef8C227a6C995c907b8448ED9A8
     address internal constant MU_RECEIPT = address(0x0CC8b07E5bb99Ef8C227a6C995c907b8448ED9A8);
     /// https://basescan.org/address/0x7d89a2DFfDaF9f48A64337C725D925381b431aE2
@@ -246,7 +246,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x89EcfE9E0728D6b3c5eb0EE7236f8C6F806C7B56
     address internal constant MU_WRAPPED_TOKEN_VAULT = address(0x89EcfE9E0728D6b3c5eb0EE7236f8C6F806C7B56);
 
-    // ---- tAMD / wtAMD — Advanced Micro Devices, Inc. ST0x ----
+    // ---- tAMD / AMDs — Advanced Micro Devices, Inc. ST0x ----
     /// https://basescan.org/address/0x9A06e971B71334f1003bF7E601E3e1E398fa82A6
     address internal constant AMD_RECEIPT = address(0x9A06e971B71334f1003bF7E601E3e1E398fa82A6);
     /// https://basescan.org/address/0x50b5225409A55B873fD6C2Fd5880AF5a11acE9b1
@@ -254,7 +254,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x648042Acd8638E12fEfd51C2b25A9f993f21a612
     address internal constant AMD_WRAPPED_TOKEN_VAULT = address(0x648042Acd8638E12fEfd51C2b25A9f993f21a612);
 
-    // ---- tAVGO / wtAVGO — Broadcom Inc. ST0x ----
+    // ---- tAVGO / AVGOs — Broadcom Inc. ST0x ----
     /// https://basescan.org/address/0x36e3612554857751c78FC70A31a9a40B130168c4
     address internal constant AVGO_RECEIPT = address(0x36e3612554857751c78FC70A31a9a40B130168c4);
     /// https://basescan.org/address/0x6088F8ef741AE1f5A61882866f130631b41617E2
@@ -262,7 +262,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x70A182f481AEF05836666B6CfDbe84dCBCE8AC19
     address internal constant AVGO_WRAPPED_TOKEN_VAULT = address(0x70A182f481AEF05836666B6CfDbe84dCBCE8AC19);
 
-    // ---- tAMAT / wtAMAT — Applied Materials, Inc. ST0x ----
+    // ---- tAMAT / AMATs — Applied Materials, Inc. ST0x ----
     /// https://basescan.org/address/0xB50Cf64462C87545e89Eeb6Da020ebf5dC971612
     address internal constant AMAT_RECEIPT = address(0xB50Cf64462C87545e89Eeb6Da020ebf5dC971612);
     /// https://basescan.org/address/0x98C02B58b7E65EF5a4262d9536162949e3B2E141
@@ -270,7 +270,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x522DC65c89C9Af4f410BAe01bbf53aF75854a9f9
     address internal constant AMAT_WRAPPED_TOKEN_VAULT = address(0x522DC65c89C9Af4f410BAe01bbf53aF75854a9f9);
 
-    // ---- tLRCX / wtLRCX — Lam Research Corporation ST0x ----
+    // ---- tLRCX / LRCXs — Lam Research Corporation ST0x ----
     /// https://basescan.org/address/0xDa588aceE0E45F29dfF1E48988D5108122491388
     address internal constant LRCX_RECEIPT = address(0xDa588aceE0E45F29dfF1E48988D5108122491388);
     /// https://basescan.org/address/0xDdE9346107609A05439A0B59Ab6eD4f7F81a1FBF
@@ -278,7 +278,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x328B9aFFa511fE26673edBb4fEa37eDaF908A3bc
     address internal constant LRCX_WRAPPED_TOKEN_VAULT = address(0x328B9aFFa511fE26673edBb4fEa37eDaF908A3bc);
 
-    // ---- tTTWO / wtTTWO — Take-Two Interactive Software, Inc. ST0x ----
+    // ---- tTTWO / TTWOs — Take-Two Interactive Software, Inc. ST0x ----
     /// https://basescan.org/address/0x0162Bd328D45fae647FdA01C33Be54709b314c48
     address internal constant TTWO_RECEIPT = address(0x0162Bd328D45fae647FdA01C33Be54709b314c48);
     /// https://basescan.org/address/0x1a29eD11DF8295D5F3B5F59849FD94caD615E024
@@ -286,7 +286,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x045Fb493D970f94a54FeaF931033622fC82192e6
     address internal constant TTWO_WRAPPED_TOKEN_VAULT = address(0x045Fb493D970f94a54FeaF931033622fC82192e6);
 
-    // ---- tRKLB / wtRKLB — Rocket Lab USA Inc ST0x ----
+    // ---- tRKLB / RKLBs — Rocket Lab USA Inc ST0x ----
     /// https://basescan.org/address/0x34Bf3d8DFaa92e554FBCf48135E5d814210DA1dd
     address internal constant RKLB_RECEIPT = address(0x34Bf3d8DFaa92e554FBCf48135E5d814210DA1dd);
     /// https://basescan.org/address/0xf6744Fd94e27c2f58F6110aa9fDC77A87e41766B
@@ -294,7 +294,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0xF4f8c66085910d583c01f3b4e44Bf731D4e2c565
     address internal constant RKLB_WRAPPED_TOKEN_VAULT = address(0xF4f8c66085910d583c01f3b4e44Bf731D4e2c565);
 
-    // ---- tGOOGL / wtGOOGL — Alphabet Inc. Class A ST0x ----
+    // ---- tGOOGL / GOOGLs — Alphabet Inc. Class A ST0x ----
     /// https://basescan.org/address/0x85ac79F639C692B2f1290d0994c79eEffF350D00
     address internal constant GOOGL_RECEIPT = address(0x85ac79F639C692B2f1290d0994c79eEffF350D00);
     /// https://basescan.org/address/0x15De944Cd020A18C8E5626fB0F81b36e73956199
@@ -302,7 +302,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x6a2357Df4975C667B171bE53dA6FFe6deBf7030c
     address internal constant GOOGL_WRAPPED_TOKEN_VAULT = address(0x6a2357Df4975C667B171bE53dA6FFe6deBf7030c);
 
-    // ---- tAAPL / wtAAPL — Apple Inc. ST0x ----
+    // ---- tAAPL / AAPLs — Apple Inc. ST0x ----
     /// https://basescan.org/address/0x3156EB08c9dd870979f1475C5CFe681b8f6A3b53
     address internal constant AAPL_RECEIPT = address(0x3156EB08c9dd870979f1475C5CFe681b8f6A3b53);
     /// https://basescan.org/address/0xD36056a4a03707D3743fCE4e9C08852820ADcfdC
@@ -310,7 +310,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x1020EC8Aa3f709a1f3D8705cdBa89b950451bd88
     address internal constant AAPL_WRAPPED_TOKEN_VAULT = address(0x1020EC8Aa3f709a1f3D8705cdBa89b950451bd88);
 
-    // ---- tMSFT / wtMSFT — Microsoft Corporation ST0x ----
+    // ---- tMSFT / MSFTs — Microsoft Corporation ST0x ----
     /// https://basescan.org/address/0x6862e34dE9AFE099ca19934fC768A8eB9a906b90
     address internal constant MSFT_RECEIPT = address(0x6862e34dE9AFE099ca19934fC768A8eB9a906b90);
     /// https://basescan.org/address/0x6a071E25fa25653cF15d1ee320eA3df771926Aa0
@@ -318,7 +318,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x515A3Ac2a6aB590bDFa970caFFFd7fAdC680886E
     address internal constant MSFT_WRAPPED_TOKEN_VAULT = address(0x515A3Ac2a6aB590bDFa970caFFFd7fAdC680886E);
 
-    // ---- tLLY / wtLLY — Eli Lilly and Company ST0x ----
+    // ---- tLLY / LLYs — Eli Lilly and Company ST0x ----
     /// https://basescan.org/address/0x7b345A02d56f989420EbEd4df647D1C673608F3C
     address internal constant LLY_RECEIPT = address(0x7b345A02d56f989420EbEd4df647D1C673608F3C);
     /// https://basescan.org/address/0xA41Ce7B8255A01062ED1AF23ea5E8137B9300554
@@ -326,7 +326,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x892CcF5E75f4a7Ee6402971a1587F65BEE4d52bd
     address internal constant LLY_WRAPPED_TOKEN_VAULT = address(0x892CcF5E75f4a7Ee6402971a1587F65BEE4d52bd);
 
-    // ---- tPTY / wtPTY — PIMCO Corporate & Income Opportunity Fund ST0x ----
+    // ---- tPTY / PTYs — PIMCO Corporate & Income Opportunity Fund ST0x ----
     /// https://basescan.org/address/0x019Ea210a98f5E74F03376712BDAab3801079b7F
     address internal constant PTY_RECEIPT = address(0x019Ea210a98f5E74F03376712BDAab3801079b7F);
     /// https://basescan.org/address/0xb6021810971714cD48572af527307Acc324ecF61
@@ -334,7 +334,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0xb6D779A79E7493ed821a65D52bA419F0F6D5dD0a
     address internal constant PTY_WRAPPED_TOKEN_VAULT = address(0xb6D779A79E7493ed821a65D52bA419F0F6D5dD0a);
 
-    // ---- tINTC / wtINTC — Intel Corporation ST0x ----
+    // ---- tINTC / INTCs — Intel Corporation ST0x ----
     /// https://basescan.org/address/0xAFEd850e458d331EF2A13569547258A84e2e42D2
     address internal constant INTC_RECEIPT = address(0xAFEd850e458d331EF2A13569547258A84e2e42D2);
     /// https://basescan.org/address/0xBDC237Aa3B67cC3088adAf117913F30Bf08157a3
@@ -342,7 +342,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0xf567652fC2d7Db8D5469fD06AEbe8C9c4372d722
     address internal constant INTC_WRAPPED_TOKEN_VAULT = address(0xf567652fC2d7Db8D5469fD06AEbe8C9c4372d722);
 
-    // ---- tHOOD / wtHOOD — Robinhood Markets, Inc. ST0x ----
+    // ---- tHOOD / HOODs — Robinhood Markets, Inc. ST0x ----
     /// https://basescan.org/address/0x942639370E1c095ECCe2BdffebFB295d0B3e384e
     address internal constant HOOD_RECEIPT = address(0x942639370E1c095ECCe2BdffebFB295d0B3e384e);
     /// https://basescan.org/address/0x5cEfd886dD05001c2Fc32c313E05360D07f37d8f
@@ -350,7 +350,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0xd50f561322fe3235DBc9Ec8b3aB7693383d8A425
     address internal constant HOOD_WRAPPED_TOKEN_VAULT = address(0xd50f561322fe3235DBc9Ec8b3aB7693383d8A425);
 
-    // ---- tORCL / wtORCL — Oracle Corporation ST0x ----
+    // ---- tORCL / ORCLs — Oracle Corporation ST0x ----
     /// https://basescan.org/address/0xBaf83f5D1dbC8CF4D5F5BCb93EfE23d0E333223f
     address internal constant ORCL_RECEIPT = address(0xBaf83f5D1dbC8CF4D5F5BCb93EfE23d0E333223f);
     /// https://basescan.org/address/0x57573351f3fdD20a57dEE4a7f836de1cE9900d4B
@@ -358,7 +358,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0xCB9571aB96aA47374eF30D8E9ACCC1cD51064726
     address internal constant ORCL_WRAPPED_TOKEN_VAULT = address(0xCB9571aB96aA47374eF30D8E9ACCC1cD51064726);
 
-    // ---- tSMCI / wtSMCI — Super Micro Computer, Inc. ST0x ----
+    // ---- tSMCI / SMCIs — Super Micro Computer, Inc. ST0x ----
     /// https://basescan.org/address/0xC23aC719988d2ABeffEE8AC75C790E328c44Fe79
     address internal constant SMCI_RECEIPT = address(0xC23aC719988d2ABeffEE8AC75C790E328c44Fe79);
     /// https://basescan.org/address/0x8518931497d2A8f07Bc607D1D3295b398D065A65
@@ -366,7 +366,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0xA759FAbbD866e6DB8bF76613C35825dC2e380bf0
     address internal constant SMCI_WRAPPED_TOKEN_VAULT = address(0xA759FAbbD866e6DB8bF76613C35825dC2e380bf0);
 
-    // ---- tBABA / wtBABA — Alibaba Group Holding Limited ADR ST0x ----
+    // ---- tBABA / BABAs — Alibaba Group Holding Limited ADR ST0x ----
     /// https://basescan.org/address/0x635983387673B0Da01f70a94985c6F88BfAf78c2
     address internal constant BABA_RECEIPT = address(0x635983387673B0Da01f70a94985c6F88BfAf78c2);
     /// https://basescan.org/address/0x6B8fa7288dBEc7C1c62BfE59Cbd7Bec7EBF846C5
@@ -374,7 +374,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x7e5cc7eAe0455A07Ab4abf354E0f5657BA2888BD
     address internal constant BABA_WRAPPED_TOKEN_VAULT = address(0x7e5cc7eAe0455A07Ab4abf354E0f5657BA2888BD);
 
-    // ---- tTQQQ / wtTQQQ — ProShares UltraPro QQQ ST0x ----
+    // ---- tTQQQ / TQQQs — ProShares UltraPro QQQ ST0x ----
     /// https://basescan.org/address/0x81eFD642eBb942D725C4B035e7C3Cad154a37FAF
     address internal constant TQQQ_RECEIPT = address(0x81eFD642eBb942D725C4B035e7C3Cad154a37FAF);
     /// https://basescan.org/address/0xcA1A378F9a250131A2fE51c10f120FeF7EDCa56E
@@ -382,7 +382,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x295e9eCAb319006900a53b3f8D6Fcb0C131F4ada
     address internal constant TQQQ_WRAPPED_TOKEN_VAULT = address(0x295e9eCAb319006900a53b3f8D6Fcb0C131F4ada);
 
-    // ---- tFTF / wtFTF — Franklin Limited Duration Income Trust ST0x ----
+    // ---- tFTF / FTFs — Franklin Limited Duration Income Trust ST0x ----
     /// https://basescan.org/address/0x4CA18bF0DcCCBbD80CeF238f4c9399eFBDE3927b
     address internal constant FTF_RECEIPT = address(0x4CA18bF0DcCCBbD80CeF238f4c9399eFBDE3927b);
     /// https://basescan.org/address/0x51D5C8C8040358686952A30fAC116aAC32390d6A
@@ -390,7 +390,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x9bDe199Ac6E7E050334306D9267c93e3D6d38333
     address internal constant FTF_WRAPPED_TOKEN_VAULT = address(0x9bDe199Ac6E7E050334306D9267c93e3D6d38333);
 
-    // ---- tCBRS / wtCBRS — Cerebras Systems Inc. ST0x ----
+    // ---- tCBRS / CBRSs — Cerebras Systems Inc. ST0x ----
     /// https://basescan.org/address/0xAe8aD2340aa19749A0b935C7F2245823fC4F14FB
     address internal constant CBRS_RECEIPT = address(0xAe8aD2340aa19749A0b935C7F2245823fC4F14FB);
     /// https://basescan.org/address/0xBeB0c2011bd5520A0998b69132E9245E39Ac5D1D
@@ -398,7 +398,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0xB457cfBF31995d3aAAa704dA9999cC0b011820ca
     address internal constant CBRS_WRAPPED_TOKEN_VAULT = address(0xB457cfBF31995d3aAAa704dA9999cC0b011820ca);
 
-    // ---- tMCD / wtMCD — McDonald's Corporation ST0x ----
+    // ---- tMCD / MCDs — McDonald's Corporation ST0x ----
     /// https://basescan.org/address/0x1Cfa3Af9DcEc40dCa8f8588c7b7FCE5a1BA6eC3f
     address internal constant MCD_RECEIPT = address(0x1Cfa3Af9DcEc40dCa8f8588c7b7FCE5a1BA6eC3f);
     /// https://basescan.org/address/0x6363657E19A82ABE0E210e9b8c88Ea61d96eceaB
@@ -406,7 +406,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x7ecAE30Ed8ee4F72653ada7b0941bDE7a0a8eE8d
     address internal constant MCD_WRAPPED_TOKEN_VAULT = address(0x7ecAE30Ed8ee4F72653ada7b0941bDE7a0a8eE8d);
 
-    // ---- tNKE / wtNKE — NIKE, Inc. ST0x ----
+    // ---- tNKE / NKEs — NIKE, Inc. ST0x ----
     /// https://basescan.org/address/0x8A0037757d67084f5431c02eE2A352593eFe2957
     address internal constant NKE_RECEIPT = address(0x8A0037757d67084f5431c02eE2A352593eFe2957);
     /// https://basescan.org/address/0x88C3F4E2E0a977Fed97ed246c70BFD7A01070246
@@ -414,7 +414,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x0883f32d23Ed5535057a4B5E3eB1970FE08606AF
     address internal constant NKE_WRAPPED_TOKEN_VAULT = address(0x0883f32d23Ed5535057a4B5E3eB1970FE08606AF);
 
-    // ---- tGRND / wtGRND — Grindr Inc. ST0x ----
+    // ---- tGRND / GRNDs — Grindr Inc. ST0x ----
     /// https://basescan.org/address/0xca4495d2fe8e82951DEbda1102A1dCf09DB7Bba6
     address internal constant GRND_RECEIPT = address(0xca4495d2fe8e82951DEbda1102A1dCf09DB7Bba6);
     /// https://basescan.org/address/0xA4178410216F5f00C718BE88C2fF8AC24de192bc
@@ -422,7 +422,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x1197E6FA778c4D13E47875bD1761c68C22c928e0
     address internal constant GRND_WRAPPED_TOKEN_VAULT = address(0x1197E6FA778c4D13E47875bD1761c68C22c928e0);
 
-    // ---- tDNUT / wtDNUT — Krispy Kreme, Inc. ST0x ----
+    // ---- tDNUT / DNUTs — Krispy Kreme, Inc. ST0x ----
     /// https://basescan.org/address/0xE06eD5d80Db468a10fCfadF27ee9771DD73C7e35
     address internal constant DNUT_RECEIPT = address(0xE06eD5d80Db468a10fCfadF27ee9771DD73C7e35);
     /// https://basescan.org/address/0x6C2b6Ed57d4d9e93F3E4975FAc70eE4B180F4Eb9
@@ -430,7 +430,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x1db49Ff8BEe88ec73F82F395B0BEAd372BdcAdb7
     address internal constant DNUT_WRAPPED_TOKEN_VAULT = address(0x1db49Ff8BEe88ec73F82F395B0BEAd372BdcAdb7);
 
-    // ---- tPLBY / wtPLBY — Playboy, Inc. ST0x ----
+    // ---- tPLBY / PLBYs — Playboy, Inc. ST0x ----
     /// https://basescan.org/address/0x5978B2FA7B3DDA36847eb7D2003EC7AE112258AA
     address internal constant PLBY_RECEIPT = address(0x5978B2FA7B3DDA36847eb7D2003EC7AE112258AA);
     /// https://basescan.org/address/0xe9bc7eF69f123cA2bcA1021D1BE30224271a9217
@@ -438,7 +438,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x35fDe767dBFAa610D12cf99914bCd6CFEda73B7B
     address internal constant PLBY_WRAPPED_TOKEN_VAULT = address(0x35fDe767dBFAa610D12cf99914bCd6CFEda73B7B);
 
-    // ---- tTR / wtTR — Tootsie Roll Industries, Inc. ST0x ----
+    // ---- tTR / TRs — Tootsie Roll Industries, Inc. ST0x ----
     /// https://basescan.org/address/0xf5e5d2d3b6be819Ff65cB364F4178252C9dbf5B7
     address internal constant TR_RECEIPT = address(0xf5e5d2d3b6be819Ff65cB364F4178252C9dbf5B7);
     /// https://basescan.org/address/0xeF935b17d5BE5b7ecA803158a845A08A7A9383f2
@@ -446,7 +446,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x433fd2Fc0964B07E9820e4cd01774eDE59D1F002
     address internal constant TR_WRAPPED_TOKEN_VAULT = address(0x433fd2Fc0964B07E9820e4cd01774eDE59D1F002);
 
-    // ---- tWEN / wtWEN — The Wendy's Company ST0x ----
+    // ---- tWEN / WENs — The Wendy's Company ST0x ----
     /// https://basescan.org/address/0x6c26044FAa1Ea4459a03c3760F4aAA1826a1e392
     address internal constant WEN_RECEIPT = address(0x6c26044FAa1Ea4459a03c3760F4aAA1826a1e392);
     /// https://basescan.org/address/0xedA4df511dEA07b6529db2196998B30E03791d87
@@ -454,7 +454,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x31Fa821F8B1BDea7Db357ec9622d1A2f6aFE903d
     address internal constant WEN_WRAPPED_TOKEN_VAULT = address(0x31Fa821F8B1BDea7Db357ec9622d1A2f6aFE903d);
 
-    // ---- tFGI / wtFGI — FGI Industries Ltd. ST0x ----
+    // ---- tFGI / FGIs — FGI Industries Ltd. ST0x ----
     /// https://basescan.org/address/0x46b25F089fFf268E28286C0d7A837c2f13Ad0952
     address internal constant FGI_RECEIPT = address(0x46b25F089fFf268E28286C0d7A837c2f13Ad0952);
     /// https://basescan.org/address/0x785BD77B8e92866f87E01416D1022d729975D529
@@ -462,7 +462,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x6aed8b1aCfb04F4e0e6db580F12fF41438a394e5
     address internal constant FGI_WRAPPED_TOKEN_VAULT = address(0x6aed8b1aCfb04F4e0e6db580F12fF41438a394e5);
 
-    // ---- tBIRD / wtBIRD — Smartbird, Inc. ST0x ----
+    // ---- tBIRD / BIRDs — Smartbird, Inc. ST0x ----
     /// https://basescan.org/address/0x5ae4611fD6944613E2947A44fd76ad4B48551F6A
     address internal constant BIRD_RECEIPT = address(0x5ae4611fD6944613E2947A44fd76ad4B48551F6A);
     /// https://basescan.org/address/0x22E99389f5ef6FA110317e2Aec0a95d8AA39eFD4
@@ -470,7 +470,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x95d46fC0faf4141C508D037469F472366093415a
     address internal constant BIRD_WRAPPED_TOKEN_VAULT = address(0x95d46fC0faf4141C508D037469F472366093415a);
 
-    // ---- tSPY / wtSPY — State Street SPDR S&P 500 ETF Trust ST0x ----
+    // ---- tSPY / SPYs — State Street SPDR S&P 500 ETF Trust ST0x ----
     /// https://basescan.org/address/0x1113A5DCAe56f5C7320024780079C9c79767DDb8
     address internal constant SPY_RECEIPT = address(0x1113A5DCAe56f5C7320024780079C9c79767DDb8);
     /// https://basescan.org/address/0xdA2E8d6e2A7D0a38A6b39a274D6911476062298B
@@ -478,7 +478,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x9Aa9c5a24e976096A6A7aB44986DAE8230fa5b27
     address internal constant SPY_WRAPPED_TOKEN_VAULT = address(0x9Aa9c5a24e976096A6A7aB44986DAE8230fa5b27);
 
-    // ---- tSNES / wtSNES — SenesTech, Inc. ST0x ----
+    // ---- tSNES / SNESs — SenesTech, Inc. ST0x ----
     /// https://basescan.org/address/0x977A4e0784075421EB71f62c871414073ce03b65
     address internal constant SNES_RECEIPT = address(0x977A4e0784075421EB71f62c871414073ce03b65);
     /// https://basescan.org/address/0x6c5C451672e9D0ceF8728cb511C01e5Cdd096563
@@ -486,7 +486,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x07234e86246fcDBa320E5d59f1Ccb618d765DbFb
     address internal constant SNES_WRAPPED_TOKEN_VAULT = address(0x07234e86246fcDBa320E5d59f1Ccb618d765DbFb);
 
-    // ---- tWMT / wtWMT — Walmart Inc. ST0x ----
+    // ---- tWMT / WMTs — Walmart Inc. ST0x ----
     /// https://basescan.org/address/0x223a69C7E4634cF4FF821719959E5a8d0063128a
     address internal constant WMT_RECEIPT = address(0x223a69C7E4634cF4FF821719959E5a8d0063128a);
     /// https://basescan.org/address/0x31F55e6dCF09E706Ba10e4cBB455dE0Fbf932BcA
@@ -494,7 +494,7 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0xc7370cb84159df9760F87ef7092B97cB850AD9d4
     address internal constant WMT_WRAPPED_TOKEN_VAULT = address(0xc7370cb84159df9760F87ef7092B97cB850AD9d4);
 
-    // ---- tMC / wtMC — LVMH Moët Hennessy Louis Vuitton SE ST0x ----
+    // ---- tMC / MCs — LVMH Moët Hennessy Louis Vuitton SE ST0x ----
     /// https://basescan.org/address/0xC3fD55A007CB7e4549A4b5064691c75609b1411b
     address internal constant MC_RECEIPT = address(0xC3fD55A007CB7e4549A4b5064691c75609b1411b);
     /// https://basescan.org/address/0x6eC2421d74F2AF61b7EE7bCCAE25A3b6a7961Aa0

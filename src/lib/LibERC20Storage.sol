@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
+import {ERC20Upgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/token/ERC20/ERC20Upgradeable.sol";
+
 /// @dev The ERC-7201 namespaced storage root for OpenZeppelin's
 /// `ERC20Upgradeable`, computed in-source from the spec formula rather than
 /// hardcoded as a hex literal. The compiler evaluates this at deploy time,
@@ -125,5 +127,18 @@ library LibERC20Storage {
     /// @param newBalance The account's stored balance after rasterization.
     function applyBalanceDeltaToTotalSupply(uint256 oldBalance, uint256 newBalance) internal {
         setUnderlyingTotalSupply(underlyingTotalSupply() + newBalance - oldBalance);
+    }
+
+    /// @notice OZ's own `ERC20Storage` struct at its ERC-7201 root, typed with
+    /// OZ's declaration so the `_name` / `_symbol` offsets follow OZ rather
+    /// than a local mirror. Used by code that runs in the vault's storage
+    /// context without inheriting `ERC20Upgradeable` (the delegatecalled
+    /// facet) to read the name and symbol stored at initialization.
+    /// @return s Storage reference to OZ's `ERC20Storage` struct.
+    function getStorage() internal pure returns (ERC20Upgradeable.ERC20Storage storage s) {
+        bytes32 position = ERC20_STORAGE_LOCATION;
+        assembly ("memory-safe") {
+            s.slot := position
+        }
     }
 }
