@@ -55,10 +55,10 @@ error UnknownUnderlying(string underlying);
 /// means carrying that space forward; the parity pin would flag it as a
 /// divergence otherwise.
 library LibProdTokenConfig {
-    /// @notice The 54 production token deploy configs, Base table order.
+    /// @notice The 56 production token deploy configs, Base table order.
     /// @return configs The name/symbol table.
     function productionTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
-        configs = new TokenConfig[](55);
+        configs = new TokenConfig[](56);
         configs[0] = TokenConfig({
             underlying: "MSTR", name: "MicroStrategy Incorporated ST0x", symbol: "tMSTR", region: Region.US
         });
@@ -203,6 +203,10 @@ library LibProdTokenConfig {
         configs[54] = TokenConfig({
             underlying: "MC", name: unicode"LVMH Moët Hennessy Louis Vuitton SE ST0x", symbol: "tMC", region: Region.EU
         });
+        // tDIS — name derived from sft-ops `metadata/dis.json` the way CD derives it
+        // (`"<metadata.name> ST0x"`, `"t<code>"`); verified against the live Base vault.
+        configs[55] =
+            TokenConfig({underlying: "DIS", name: "The Walt Disney Company ST0x", symbol: "tDIS", region: Region.US});
     }
 
     function regionOf(string memory underlying) internal pure returns (Region) {

@@ -502,14 +502,22 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x378a04202D25659763A02dA5FE77c0a35e64Ce1D
     address internal constant MC_WRAPPED_TOKEN_VAULT = address(0x378a04202D25659763A02dA5FE77c0a35e64Ce1D);
 
-    /// @notice Returns the 55 production token instance triples on Base, in
+    // ---- tDIS / wtDIS — The Walt Disney Company ST0x ----
+    /// https://basescan.org/address/0xc53b863791d8E1de96CA547CF8F3C740e770FAE1
+    address internal constant DIS_RECEIPT = address(0xc53b863791d8E1de96CA547CF8F3C740e770FAE1);
+    /// https://basescan.org/address/0x40584fBad768FF46f299Cf50cAe5b3D437E213Fa
+    address internal constant DIS_RECEIPT_VAULT = address(0x40584fBad768FF46f299Cf50cAe5b3D437E213Fa);
+    /// https://basescan.org/address/0x8EA3c97D23872eC4FAe1cA3189039056b77bc703
+    address internal constant DIS_WRAPPED_TOKEN_VAULT = address(0x8EA3c97D23872eC4FAe1cA3189039056b77bc703);
+
+    /// @notice Returns the 56 production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
     /// that need the receipt / wrapped-vault legs or the underlying join key
     /// (cross-chain parity, per-token config checks) iterate this instead.
-    /// @return tokens The 55 production token instances on Base.
+    /// @return tokens The 56 production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](55);
+        tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance({
             underlying: "MSTR",
             receipt: MSTR_RECEIPT,
@@ -863,6 +871,14 @@ library LibTokenInvariants {
             receipt: MC_RECEIPT,
             receiptVault: MC_RECEIPT_VAULT,
             wrappedTokenVault: MC_WRAPPED_TOKEN_VAULT
+        });
+        // tDIS — deployed on Base 2026-10-15 by sft-ops CD (run 38763592908),
+        // wired onto the V4 authoriser and handed to the Base token-owner Safe.
+        tokens[55] = TokenInstance({
+            underlying: "DIS",
+            receipt: DIS_RECEIPT,
+            receiptVault: DIS_RECEIPT_VAULT,
+            wrappedTokenVault: DIS_WRAPPED_TOKEN_VAULT
         });
     }
 
