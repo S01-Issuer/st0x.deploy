@@ -103,7 +103,8 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
 
     /// @dev Reads the zero-argument `string` view `selector` from the facet
     /// through a static self-call that `fallback()` routes to it, bubbling
-    /// any revert. Keeps the formatting out of the vault's bytecode, which has
+    /// any revert and reverting when the call returns less than a string head
+    /// (no facet code at the pinned address). Keeps the formatting out of the vault's bytecode, which has
     /// no room for it under EIP-170. The facet is the vault's own pinned code,
     /// so its return data is a single ABI-encoded string and is used in place.
     /// @param selector The facet view to read.
@@ -114,7 +115,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
             let success := staticcall(gas(), address(), 0, 4, 0, 0)
             let ptr := mload(0x40)
             returndatacopy(ptr, 0, returndatasize())
-            if iszero(success) { revert(ptr, returndatasize()) }
+            if or(iszero(success), lt(returndatasize(), 0x40)) { revert(ptr, returndatasize()) }
             value := add(ptr, mload(ptr))
             mstore(0x40, add(ptr, returndatasize()))
         }
