@@ -82,8 +82,7 @@ contract PostMigrationGovernanceTest is Test {
         address safeAddr = address(safe);
         TimelockController controller = TimelockController(payable(timelockAddr));
 
-        // `simulateNPlus1` gates on the Safe's LIVE threshold, so pin it first:
-        // the 3-of-6 gate is part of what is proven.
+        // `simulateNPlus1` gates on the Safe's live threshold, so pin it.
         LibSafe.assertThreshold(safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
 
         for (uint256 i = 0; i < beacons.length; i++) {
@@ -100,8 +99,8 @@ contract PostMigrationGovernanceTest is Test {
             assertTrue(address(probeImpl) != implBefore, "probe impl collided with the incumbent");
 
             // (3) Schedule through the Safe's real signature-verified exec path,
-            // at the production threshold — not a prank, so the 3-of-6 gate is
-            // part of what is proven. The salt carries the index so four
+            // at the production threshold — not a prank, so the threshold gate
+            // is part of what is proven. The salt carries the index so four
             // operations on one chain cannot collide.
             bytes memory action = abi.encodeCall(UpgradeableBeacon.upgradeTo, (address(probeImpl)));
             bytes32 salt = keccak256(abi.encodePacked(tag, block.chainid, i));
