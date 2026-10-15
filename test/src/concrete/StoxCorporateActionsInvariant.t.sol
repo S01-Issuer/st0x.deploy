@@ -142,7 +142,7 @@ contract StoxCorporateActionsInvariantTest is Test {
     }
 
     /// Invariant 4 is a POST-CALL property, not a resting invariant:
-    /// after `migrateAccount(account)` returns inside `_update`, that
+    /// after `migrate(account, 0)` returns inside `_update`, that
     /// specific account's cursor equals `totalSupplyLatestCursor`. It does
     /// NOT hold for every actor at every moment — an actor touched before
     /// a later split completes legitimately sits at the older cursor until

@@ -127,12 +127,12 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.migrationCursor(fresh), 0, "fresh account cursor defaults to 0 (= bootstrap)");
     }
 
-    /// `migrateAccount` is a complete no-op when no completed splits
+    /// `migrate` is a complete no-op when no completed splits
     /// exist past the holder's cursor. Fresh holder (cursor 0 = bootstrap),
     /// only bootstrap fired, no user splits completed: a touch must not
     /// emit `AccountMigrated` and must not write to `accountMigrationCursor`
     /// (it stays at the default 0). The cursor-advance early-return inside
-    /// `migrateAccount` (`if (newCursor == currentCursor) return;`) is what
+    /// `migrate` (`if (newCursor == currentCursor) return;`) is what
     /// suppresses both. A regression that emitted unconditionally or that
     /// wrote the cursor before the early-return would surface here.
     function testMigrateAccountNoOpWhenAtLatest() external {
@@ -382,7 +382,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// Already-migrated complement of #81's always-emit semantics: an
     /// account at the latest cursor that gets touched again (no new
     /// completed splits in between) must NOT re-emit `AccountMigrated`.
-    /// The `newCursor == currentCursor` early return in `migrateAccount`
+    /// The `newCursor == currentCursor` early return in `migrate`
     /// suppresses the spurious event. Pins that "every cursor advance
     /// emits" reads as "iff cursor advances".
     function testAccountMigratedDoesNotReEmitWhenAlreadyAtLatest() external {
@@ -412,7 +412,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
     /// Event ordering pin: `AccountMigrated` must fire BEFORE the
     /// corresponding ERC-20 `Transfer` event in the same `_update` call,
-    /// because `migrateAccount` runs before `super._update`. Indexers
+    /// because `migrate` runs before `super._update`. Indexers
     /// rely on this ordering to compute pre-transfer rasterized balances
     /// from the migration log before applying the transfer delta.
     function testAccountMigratedOrderedBeforeTransfer() external {
@@ -642,7 +642,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         // is at idx 0 and completed at schedule time, so `fold()` advances
         // `totalSupplyLatestCursor` to the bootstrap (idx 0). BOB's cursor
         // default is already 0 (= bootstrap), and there are no completed
-        // splits past it, so `migrateAccount` is a no-op for him. Then
+        // splits past it, so `migrate` is a no-op for him. Then
         // super._update mints 100 into _balances[BOB], and onMint adds
         // 100 to `unmigrated[0]` (the latest pot).
         vault.publicUpdate(address(0), BOB, 100);
@@ -737,7 +737,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     // -----------------------------------------------------------------------
     // Cursor / totalSupplyLatestCursor invariant.
     //
-    // After `migrateAccount(account)` returns inside `_update` (which runs
+    // After `migrate(account, 0)` returns inside `_update` (which runs
     // after `fold()`), `accountMigrationCursor[account]` equals
     // `s.totalSupplyLatestCursor`. `LibTotalSupply.onBurn` subtracts the
     // burn amount from `unmigrated[totalSupplyLatestCursor]`. If the
@@ -774,7 +774,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
         // Now burn some from Bob. Inside `_update`, fold() advances
         // totalSupplyLatestCursor to 2 (the second split), then
-        // migrateAccount(BOB) walks Bob's cursor from 1 to 2, rasterizing
+        // migrate(BOB, 0) walks Bob's cursor from 1 to 2, rasterizing
         // the balance to 6000. Then onBurn(500) subtracts 500 from
         // unmigrated[2]. If the cursor invariant held, this succeeds; if
         // it didn't, onBurn would underflow.
@@ -873,7 +873,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(
             vault.migrationCursor(account),
             vault.totalSupplyLatestCursor(),
-            "migrationCursor must equal totalSupplyLatestCursor after migrateAccount"
+            "migrationCursor must equal totalSupplyLatestCursor after migrate"
         );
     }
 
@@ -891,11 +891,11 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// they'll diverge and the pot accounting will break silently. This test
     /// fails fast in that scenario:
     ///
-    ///   - If `migrateAccount` starts walking the new type without
+    ///   - If `migrate` starts walking the new type without
     ///     `LibTotalSupply.fold()` doing the same, the first assertion here
     ///     fails because `migrationCursor` advances past the synthetic node
     ///     but `totalSupplyLatestCursor` does not.
-    ///   - If `fold()` starts walking the new type without `migrateAccount`
+    ///   - If `fold()` starts walking the new type without `migrate`
     ///     doing the same, the inverse failure mode triggers.
     ///
     /// When that happens, DO NOT just update the assertions — the failure is
@@ -911,14 +911,14 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         // lands at idx 2.
         vault.publicSchedule(ACTION_TYPE_STABLES_DIVIDEND_V1, 1500, abi.encode(uint256(0)));
 
-        // Give Bob a pre-existing balance so migrateAccount has something
+        // Give Bob a pre-existing balance so migrate has something
         // to rasterize if it ever starts walking the dividend node.
         vault.publicUpdate(address(0), BOB, 1000);
 
         // Warp past the dividend's effective time so it counts as completed.
         vm.warp(2000);
 
-        // Touch Bob to drive fold() + migrateAccount.
+        // Touch Bob to drive fold() + migrate.
         vault.publicUpdate(BOB, BOB, 0);
 
         // Bootstrap (idx 0, type INIT) is the default cursor and IS in the
@@ -1062,7 +1062,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// simultaneously to pin the migrate+burn interaction in one test.
     ///
     /// INTENT: a future regression that, for example, decoupled
-    /// `onBurn` from `migrateAccount`'s ordering would leave one of
+    /// `onBurn` from `migrate`'s ordering would leave one of
     /// the pots or the stored balance inconsistent with the others.
     /// Asserting all four quantities at once makes such a regression
     /// visible in a single test failure rather than having to correlate
@@ -1385,7 +1385,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     /// split chain, repeated touches with no new splits must not change
     /// cursor, stored balance, or view balance, and must not re-emit
     /// `AccountMigrated`. Guards the `newCursor == currentCursor` early
-    /// return in `migrateAccount`.
+    /// return in `migrate`.
     function testFuzzMigrationIdempotentAcrossRepeatedTouches(
         uint32 initialBalance,
         uint8 numSplits,
@@ -1554,7 +1554,7 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
     uint256 internal constant OP_COUNT = 4;
 
     /// Three deterministic regression tests below pin the invariants that
-    /// `StoxReceiptVault.migrateAccount`'s `if (account == address(0)) return;`
+    /// `RebaseMigratable.migrate`'s `if (account == address(0)) return;`
     /// short-circuit preserves. The skip is sound only because OZ
     /// `ERC20Upgradeable` routes mints/burns through `_totalSupply`, never
     /// through `_balances[address(0)]` — if a future refactor (or a new facet)

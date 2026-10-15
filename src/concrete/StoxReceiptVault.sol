@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {OffchainAssetReceiptVault} from "rain-vats-0.2.4/src/concrete/vault/OffchainAssetReceiptVault.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.4/src/interface/IAuthorizeV1.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
+import {RebaseMigratable} from "../abstract/RebaseMigratable.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
 import {LibRebase} from "../lib/LibRebase.sol";
 import {LibTotalSupply} from "../lib/LibTotalSupply.sol";
@@ -38,12 +39,12 @@ import {AuthorizerMissingCorporateActionAdmin} from "../error/ErrCorporateAction
 /// a balance that was already written at the post-rebase basis, silently
 /// inflating the recipient's balance. See `LibRebase.migratedBalance` and
 /// its zero-balance regression tests.
-contract StoxReceiptVault is OffchainAssetReceiptVault {
-    /// @notice Emitted whenever `migrateAccount` advances an account's
+contract StoxReceiptVault is OffchainAssetReceiptVault, RebaseMigratable {
+    /// @notice Emitted whenever `migrate` advances an account's
     /// migration cursor. The cursor itself is storage state, so the event
     /// fires on every cursor advance regardless of whether
     /// `oldBalance == newBalance`. Fires from `_update` via
-    /// `migrateAccount`, before the mint / burn / transfer delta is
+    /// `migrate`, before the mint / burn / transfer delta is
     /// applied.
     /// @param account The account whose migration state changed.
     /// @param fromActionId The action id the account's cursor was at
@@ -79,7 +80,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         // The second return value is the new cursor — intentionally discarded
         // here because `balanceOf` is a pure read that must not mutate state;
         // the cursor advancement happens on the next `_update` touch via
-        // `migrateAccount`.
+        // `migrate`.
         // slither-disable-next-line unused-return
         (uint256 balance,) = LibRebase.migratedBalance(stored, s.accountMigrationCursor[account]);
         return balance;
@@ -109,8 +110,8 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     function _update(address from, address to, uint256 amount) internal virtual override {
         LibTotalSupply.fold();
 
-        migrateAccount(from);
-        migrateAccount(to);
+        migrate(from, 0);
+        migrate(to, 0);
 
         super._update(from, to, amount);
 
@@ -121,56 +122,59 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         }
     }
 
-    /// @dev Migrate a single account through every completed split that has
-    /// not yet been applied to it (i.e. completed split nodes whose index is
-    /// past the account's current `accountMigrationCursor`). This both
-    /// rasterizes the account's stored balance to the post-rebase basis and
-    /// advances the cursor; for zero-balance accounts the balance rewrite is
-    /// a no-op but the cursor advancement still matters — see
-    /// `LibRebase.migratedBalance` and its zero-balance regression tests for
-    /// the bug this prevents.
-    ///
-    /// `internal` (rather than `private`) so test harnesses derived from this
-    /// contract can exercise the migration logic in isolation. The function is
-    /// only ever called from this contract's `_update` override.
-    function migrateAccount(address account) internal {
-        if (account == address(0)) return;
+    function readCursor(address account, uint256) internal view override returns (uint256) {
+        return LibCorporateAction.getStorage().accountMigrationCursor[account];
+    }
 
-        LibCorporateAction.CorporateActionStorage storage s = LibCorporateAction.getStorage();
-        uint256 currentCursor = s.accountMigrationCursor[account];
-        uint256 storedBalance = LibERC20Storage.underlyingBalance(account);
+    function writeCursor(address account, uint256, uint256 cursor) internal override {
+        LibCorporateAction.getStorage().accountMigrationCursor[account] = cursor;
+    }
 
-        (uint256 newBalance, uint256 newCursor) = LibRebase.migratedBalance(storedBalance, currentCursor);
+    function readStoredBalance(address account, uint256) internal view override returns (uint256) {
+        return LibERC20Storage.underlyingBalance(account);
+    }
 
-        if (newCursor == currentCursor) return;
+    function writeStoredBalance(address account, uint256, uint256 oldBalance, uint256 newBalance) internal override {
+        LibERC20Storage.setUnderlyingBalance(account, newBalance);
 
-        s.accountMigrationCursor[account] = newCursor;
+        // Rebasing rewrites `_balances` behind OZ's back, so apply the same
+        // delta to OZ's own `_totalSupply` accumulator and preserve its
+        // `_totalSupply == Σ _balances` invariant.
+        //
+        // The raw slot is not the reported supply — `totalSupply()` above
+        // is the rebase-aware `LibTotalSupply.effectiveTotalSupply()`, and
+        // the pot accounting in `postMigrate` below is untouched by
+        // this write. But OZ's `_update` still subtracts from the raw slot
+        // **unchecked** on burn and adds to it **checked** on mint. Left
+        // stale, it drifts below the true balance sum, wraps to ~2**256 on
+        // the first burn that exceeds it, and from then on every mint
+        // reverts with `Panic(0x11)` — silently, because `totalSupply()`,
+        // `balanceOf()` and all events keep agreeing with each other. The
+        // slot has no write path other than mint/burn, so recovering from
+        // that state would need a beacon implementation upgrade.
+        LibERC20Storage.applyBalanceDeltaToTotalSupply(oldBalance, newBalance);
+    }
 
-        // Skip the SSTORE when the rasterized balance is unchanged.
-        if (newBalance != storedBalance) {
-            LibERC20Storage.setUnderlyingBalance(account, newBalance);
+    function walkRebase(uint256 storedBalance, uint256 cursor) internal view override returns (uint256, uint256) {
+        return LibRebase.migratedBalance(storedBalance, cursor);
+    }
 
-            // Rebasing rewrites `_balances` behind OZ's back, so apply the same
-            // delta to OZ's own `_totalSupply` accumulator and preserve its
-            // `_totalSupply == Σ _balances` invariant.
-            //
-            // The raw slot is not the reported supply — `totalSupply()` above
-            // is the rebase-aware `LibTotalSupply.effectiveTotalSupply()`, and
-            // the pot accounting in `onAccountMigrated` below is untouched by
-            // this write. But OZ's `_update` still subtracts from the raw slot
-            // **unchecked** on burn and adds to it **checked** on mint. Left
-            // stale, it drifts below the true balance sum, wraps to ~2**256 on
-            // the first burn that exceeds it, and from then on every mint
-            // reverts with `Panic(0x11)` — silently, because `totalSupply()`,
-            // `balanceOf()` and all events keep agreeing with each other. The
-            // slot has no write path other than mint/burn, so recovering from
-            // that state would need a beacon implementation upgrade.
-            //
-            LibERC20Storage.applyBalanceDeltaToTotalSupply(storedBalance, newBalance);
-        }
-        emit AccountMigrated(account, currentCursor, newCursor, storedBalance, newBalance);
+    function emitMigrated(
+        address account,
+        uint256,
+        uint256 fromActionId,
+        uint256 toActionId,
+        uint256 oldBalance,
+        uint256 newBalance
+    ) internal override {
+        emit AccountMigrated(account, fromActionId, toActionId, oldBalance, newBalance);
+    }
 
-        LibTotalSupply.onAccountMigrated(currentCursor, storedBalance, newCursor, newBalance);
+    function postMigrate(uint256 fromActionId, uint256 toActionId, uint256 oldBalance, uint256 newBalance)
+        internal
+        override
+    {
+        LibTotalSupply.onAccountMigrated(fromActionId, oldBalance, toActionId, newBalance);
     }
 
     /// @notice Routes calls with non-matching selectors to the corporate actions

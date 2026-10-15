@@ -280,7 +280,7 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         assertEq(receipt.rawStoredBalance(ALICE, ID_A), 50);
     }
 
-    /// `migrateHolderId(address(0), ...)` short-circuits. After a
+    /// `migrate(address(0), id)` short-circuits. After a
     /// completed split, calling it for address(0) must leave address(0)'s
     /// cursor and balance at their zero-initialized values (no state
     /// pollution on the zero address).
@@ -585,7 +585,7 @@ contract StoxReceiptRebaseIntegrationTest is Test {
     // Issue #81: receipt-side always-emit semantics.
     //
     // Mirrors the share-side test matrix on `StoxReceiptVault.t.sol`.
-    // `migrateHolderId` must emit `ReceiptAccountMigrated` on every
+    // `migrate` must emit `ReceiptAccountMigrated` on every
     // cursor advance, regardless of whether the rasterized balance equals
     // the pre-rebase balance. Four phenomena drive a balance-equal
     // cursor advance: zero balance, single-step truncation collision,
@@ -663,7 +663,7 @@ contract StoxReceiptRebaseIntegrationTest is Test {
     /// Already-migrated complement: a `(holder, id)` pair at the latest
     /// cursor that gets touched again with no new completed splits in
     /// between must NOT re-emit `ReceiptAccountMigrated`. Pins the
-    /// `newCursor == currentCursor` early return in `migrateHolderId`.
+    /// `newCursor == currentCursor` early return in `migrate`.
     function testReceiptAccountMigratedDoesNotReEmitWhenAlreadyAtLatest() external {
         _mint(ALICE, ID_A, 100);
         _splitParams(2);
@@ -690,7 +690,7 @@ contract StoxReceiptRebaseIntegrationTest is Test {
 
     /// Event ordering pin: `ReceiptAccountMigrated` must fire BEFORE the
     /// corresponding ERC-1155 `TransferSingle` event in the same `_update`
-    /// call, because `migrateHolderId` runs before the receipt's base
+    /// call, because `migrate` runs before the receipt's base
     /// `_update`. Indexers rely on this ordering to compute pre-transfer
     /// rasterized balances from the migration log.
     function testReceiptAccountMigratedOrderedBeforeTransferSingle() external {

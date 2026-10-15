@@ -14,7 +14,7 @@ import {LibTotalSupply} from "../../../src/lib/LibTotalSupply.sol";
 /// standing up the full rain.vats auth/freeze infrastructure (admin grants,
 /// authorizer wiring, certify state, etc).
 ///
-/// The test class re-overrides `_update` to call `migrateAccount` for both
+/// The test class re-overrides `_update` to call `migrate` for both
 /// sides and then call `ERC20Upgradeable._update` directly, skipping the
 /// `OffchainAssetReceiptVault._update` middle layer. The migration semantics
 /// being tested live entirely in `StoxReceiptVault` and the libraries it calls,
@@ -25,8 +25,8 @@ contract TestStoxReceiptVault is StoxReceiptVault {
         // bypassing the OffchainAssetReceiptVault authorizer/freeze layer.
         LibTotalSupply.fold();
 
-        migrateAccount(from);
-        migrateAccount(to);
+        migrate(from, 0);
+        migrate(to, 0);
 
         ERC20Upgradeable._update(from, to, amount);
 

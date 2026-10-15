@@ -84,7 +84,7 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 /// `fold()` advances `totalSupplyLatestCursor` through the bootstrap
 /// (idx 0) and every completed split using `BALANCE_MIGRATION_TYPES_MASK`,
 /// so mint/burn deltas always route to the same pot every account's
-/// `migrateAccount` lands them in.
+/// `migrate` lands them in.
 ///
 /// ## Pot invariant
 ///
@@ -113,7 +113,7 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 ///
 /// **Inductive step.** Assume `I(k)` holds for all `k` on entry to an
 /// `_update` call. Show it holds again on exit. The sequence is
-/// `fold → migrateAccount(from) → migrateAccount(to) → super._update →
+/// `fold → migrate(from, 0) → migrate(to, 0) → super._update →
 /// (onMint | onBurn if from/to == 0)`. The invariant can be temporarily
 /// violated in between these steps — we only claim it holds at entry
 /// and exit.
@@ -121,7 +121,7 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 /// 1. `fold()` mutates only `totalSupplyLatestCursor`; no pot write and no
 ///    balance write. I(k) unchanged.
 ///
-/// 2. `migrateAccount(account)` advancing the cursor from `c` to `c'`
+/// 2. `migrate(account, 0)` advancing the cursor from `c` to `c'`
 ///    with stored balance `b` rasterizing to `b'`:
 ///    - Writes `cursor(account) = c'` and `underlyingBalance(account) = b'`.
 ///    - Calls `onAccountMigrated`, which does `unmigrated[c] -= b;

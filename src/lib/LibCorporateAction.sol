@@ -192,7 +192,7 @@ library LibCorporateAction {
     /// - `unmigrated[0] = LibERC20Storage.underlyingTotalSupply()` captures
     ///   the pre-action total supply into pot 0. The pot invariant `I(0)`
     ///   holds at this moment because schedule() does not touch balances and
-    ///   no `migrateAccount` has fired yet — so OZ's `_totalSupply == Σ
+    ///   no `migrate` has fired yet — so OZ's `_totalSupply == Σ
     ///   _balances` equality is intact, and every account's
     ///   `accountMigrationCursor` is still 0 (= bootstrap).
     ///

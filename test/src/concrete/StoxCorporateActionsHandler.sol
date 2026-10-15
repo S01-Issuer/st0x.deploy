@@ -205,7 +205,7 @@ contract StoxCorporateActionsHandler is Test {
         assertEq(
             VAULT.migrationCursor(a),
             VAULT.totalSupplyLatestCursor(),
-            "invariant 4: cursor(actor) == totalSupplyLatestCursor after migrateAccount"
+            "invariant 4: cursor(actor) == totalSupplyLatestCursor after migrate"
         );
     }
 
@@ -233,7 +233,7 @@ contract StoxCorporateActionsHandler is Test {
         assertEq(
             RECEIPT.holderIdCursor(a, id),
             VAULT.totalSupplyLatestCursor(),
-            "receipt invariant: holderIdCursor == totalSupplyLatestCursor after migrateHolderId"
+            "receipt invariant: holderIdCursor == totalSupplyLatestCursor after migrate"
         );
     }
 

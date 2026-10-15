@@ -3,7 +3,6 @@
 pragma solidity =0.8.25;
 
 import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
-import {ICorporateActionsV1} from "../../../src/interface/ICorporateActionsV1.sol";
 import {LibCorporateActionReceipt} from "../../../src/lib/LibCorporateActionReceipt.sol";
 import {LibERC1155Storage} from "../../../src/lib/LibERC1155Storage.sol";
 
@@ -36,6 +35,6 @@ contract TestStoxReceipt is StoxReceipt {
     /// Expose internal migration so tests can exercise the zero-address
     /// short-circuit directly.
     function publicMigrateHolderId(address account, uint256 id) external {
-        migrateHolderId(account, id, ICorporateActionsV1(this.manager()));
+        migrate(account, id);
     }
 }

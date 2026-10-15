@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {Receipt} from "rain-vats-0.2.4/src/concrete/receipt/Receipt.sol";
 import {ERC1155Upgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/token/ERC1155/ERC1155Upgradeable.sol";
 import {IERC1155} from "@openzeppelin-contracts-5.7.0/token/ERC1155/IERC1155.sol";
+import {RebaseMigratable} from "../abstract/RebaseMigratable.sol";
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
 import {LibCorporateActionReceipt} from "../lib/LibCorporateActionReceipt.sol";
 import {LibERC1155Storage} from "../lib/LibERC1155Storage.sol";
@@ -60,12 +61,12 @@ import {LibReceiptRebase} from "../lib/LibReceiptRebase.sol";
 /// written post-rebase balance, silently inflating the position. See the
 /// `testZeroBalanceAdvancesCursor` regression in both `LibRebase.t.sol` and
 /// `LibReceiptRebase.t.sol`.
-contract StoxReceipt is Receipt {
-    /// @notice Emitted whenever `migrateHolderId` advances a `(account, id)`
+contract StoxReceipt is Receipt, RebaseMigratable {
+    /// @notice Emitted whenever `migrate` advances a `(account, id)`
     /// pair's migration cursor. The cursor itself is storage state, so the
     /// event fires on every cursor advance regardless of whether
     /// `oldBalance == newBalance`. Fires from `_update` via
-    /// `migrateHolderId`, before the mint / burn / transfer delta is
+    /// `migrate`, before the mint / burn / transfer delta is
     /// applied.
     /// @param account The holder whose `(account, id)` migration state changed.
     /// @param id The receipt id.
@@ -136,7 +137,7 @@ contract StoxReceipt is Receipt {
         // The second return value is the new cursor — intentionally discarded
         // here because this is a pure read that must not mutate state;
         // cursor advancement happens on the next `_update` via
-        // `migrateHolderId`.
+        // `migrate`.
         // slither-disable-next-line unused-return
         (uint256 effective,) = LibReceiptRebase.migratedBalance(stored, cursor, vault);
         return effective;
@@ -173,17 +174,11 @@ contract StoxReceipt is Receipt {
         virtual
         override
     {
-        // Snapshot the vault once so we don't pay the external self-call
-        // per iteration. `manager()` is the external view on Receipt that
-        // returns the configured vault address from Receipt7201Storage.
-        ICorporateActionsV1 vault = getVault();
-
-        // Migrate each (account, id) pair before the transfer executes.
-        // `migrateHolderId` short-circuits on `address(0)` so mint (from ==
-        // 0) and burn (to == 0) pass straight through to super._update.
+        // `migrate` short-circuits on `address(0)` so mint (from == 0) and
+        // burn (to == 0) pass straight through to super._update.
         for (uint256 i = 0; i < ids.length; i++) {
-            migrateHolderId(from, ids[i], vault);
-            migrateHolderId(to, ids[i], vault);
+            migrate(from, ids[i]);
+            migrate(to, ids[i]);
         }
 
         // Now that both sides are rasterized to the current cursor, run
@@ -192,41 +187,44 @@ contract StoxReceipt is Receipt {
         super._update(from, to, ids, amounts);
     }
 
-    /// @dev Migrate a single `(account, id)` pair through every completed
-    /// stock split the pair has not yet been migrated through. Both the
-    /// balance rasterization and the cursor advancement happen here; for
-    /// zero-balance pairs the rewrite is a no-op but the cursor advancement
-    /// still matters — see contract-level NatSpec for the inflation bug this
-    /// prevents.
-    ///
-    /// `internal` so test harnesses derived from this contract can exercise
-    /// the migration logic in isolation.
-    function migrateHolderId(address account, uint256 id, ICorporateActionsV1 vault) internal {
-        if (account == address(0)) return;
-
-        LibCorporateActionReceipt.CorporateActionReceiptStorage storage s = LibCorporateActionReceipt.getStorage();
-        uint256 currentCursor = s.accountIdCursor[account][id];
-        uint256 storedBalance = LibERC1155Storage.underlyingBalance(account, id);
-
-        (uint256 newBalance, uint256 newCursor) = LibReceiptRebase.migratedBalance(storedBalance, currentCursor, vault);
-
-        if (newCursor == currentCursor) return;
-
-        s.accountIdCursor[account][id] = newCursor;
-
-        // Skip the SSTORE when the rasterized balance is unchanged.
-        if (newBalance != storedBalance) {
-            LibERC1155Storage.setUnderlyingBalance(account, id, newBalance);
-        }
-        emit ReceiptAccountMigrated(account, id, currentCursor, newCursor, storedBalance, newBalance);
+    function readCursor(address account, uint256 id) internal view override returns (uint256) {
+        return LibCorporateActionReceipt.getStorage().accountIdCursor[account][id];
     }
 
-    /// @dev Cached / fresh read of the configured vault address, cast to
-    /// the corporate-actions read interface. Uses `this.manager()` (an
-    /// external self-call) to avoid hardcoding the rain.vats
-    /// `Receipt7201Storage` slot literal in this file — the cost is one
-    /// CALL opcode per `_update`, which is amortized across every
-    /// `(account, id)` pair the batch touches.
+    function writeCursor(address account, uint256 id, uint256 cursor) internal override {
+        LibCorporateActionReceipt.getStorage().accountIdCursor[account][id] = cursor;
+    }
+
+    function readStoredBalance(address account, uint256 id) internal view override returns (uint256) {
+        return LibERC1155Storage.underlyingBalance(account, id);
+    }
+
+    function writeStoredBalance(address account, uint256 id, uint256, uint256 newBalance) internal override {
+        LibERC1155Storage.setUnderlyingBalance(account, id, newBalance);
+    }
+
+    function walkRebase(uint256 storedBalance, uint256 cursor) internal view override returns (uint256, uint256) {
+        return LibReceiptRebase.migratedBalance(storedBalance, cursor, getVault());
+    }
+
+    function emitMigrated(
+        address account,
+        uint256 id,
+        uint256 fromActionId,
+        uint256 toActionId,
+        uint256 oldBalance,
+        uint256 newBalance
+    ) internal override {
+        emit ReceiptAccountMigrated(account, id, fromActionId, toActionId, oldBalance, newBalance);
+    }
+
+    function postMigrate(uint256, uint256, uint256, uint256) internal override {}
+
+    /// @dev The configured vault, cast to the corporate-actions read
+    /// interface. rain.vats `Receipt` exposes the manager only as an external
+    /// view, so every call is an external self-call: `balanceOfBatch` pays it
+    /// once per batch, `_update` once per `(account, id)` pair with a non-zero
+    /// account.
     function getVault() internal view returns (ICorporateActionsV1) {
         return ICorporateActionsV1(this.manager());
     }
