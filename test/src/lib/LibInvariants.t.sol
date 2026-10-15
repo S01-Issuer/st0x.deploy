@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.2/src/Test.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.10/src/lib/LibRainDeploy.sol";
-import {IGnosisSafe} from "../../../src/interface/IGnosisSafe.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibInvariants} from "../../../src/lib/LibInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
@@ -20,12 +20,9 @@ import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 /// could revert, or resolve the wrong Safe, on every chain but the one
 /// tested, and nothing would say so.
 ///
-/// So: Base runs both forms and they must agree, and Ethereum and HyperEVM
-/// run the multichain form with their own tables and clones. Robinhood Chain
-/// and BNB Smart Chain are deliberately absent — their token tables are still
-/// placeholders, so there is nothing live for the bundle to assert; the
-/// forcing function that holds those chains to a date is
-/// `StoxCrossChainParityTest`'s per-chain deadline, not this suite.
+/// So: Base runs both forms and they must agree, and Ethereum, HyperEVM,
+/// Robinhood Chain and BNB Smart Chain run the multichain form with their own
+/// tables and clones.
 /// @dev Unpinned head forks: this is a live-state pre-flight, so a pinned
 /// block would freeze what it reports.
 contract LibInvariantsTest is Test {
@@ -33,7 +30,7 @@ contract LibInvariantsTest is Test {
     /// against live Base, identically to the Base no-arg overload it backs.
     function testAssertProductionStateBasePassesLive() external {
         vm.createSelectFork(LibRainDeploy.BASE);
-        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+        Safe safe = Safe(payable(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE));
 
         // Both forms must return silently. `assertProductionState` asserts the
         // shared token-owner Safe + shared grant map, so only the token table
@@ -63,6 +60,22 @@ contract LibInvariantsTest is Test {
         vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
         LibInvariants.assertProductionState(
             LibTokenInvariants.productionTokensHyperEvm(), LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM
+        );
+    }
+
+    /// The same orchestrator against live Robinhood Chain.
+    function testAssertProductionStateRobinhoodPassesLive() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
+        LibInvariants.assertProductionState(
+            LibTokenInvariants.productionTokensRobinhood(), LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD
+        );
+    }
+
+    /// The same orchestrator against live BNB Smart Chain.
+    function testAssertProductionStateBscPassesLive() external {
+        vm.createSelectFork(LibStoxDeployNetworks.BSC);
+        LibInvariants.assertProductionState(
+            LibTokenInvariants.productionTokensBsc(), LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC
         );
     }
 }

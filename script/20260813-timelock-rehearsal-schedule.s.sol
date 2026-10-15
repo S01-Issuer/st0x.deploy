@@ -2,13 +2,16 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Script} from "forge-std-1.16.2/src/Script.sol";
-import {console2} from "forge-std-1.16.2/src/console2.sol";
-import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/TimelockController.sol";
+import {Script} from "forge-std-1.17.0/src/Script.sol";
+import {console2} from "forge-std-1.17.0/src/console2.sol";
+import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 
-import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
-import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
+import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJson.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTimelockRehearsal} from "../src/lib/LibTimelockRehearsal.sol";
 
@@ -55,7 +58,7 @@ error RehearsalChangedMinDelay(uint256 expected, uint256 actual);
 contract TimelockRehearsalSchedule is Script {
     /// @notice Author the schedule bundle for the active chain.
     function run() external {
-        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid));
+        Safe safe = Safe(payable(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid)));
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         if (timelock == address(0)) revert RehearsalTimelockNotPinned(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock, address(safe));
@@ -65,13 +68,18 @@ contract TimelockRehearsalSchedule is Script {
         if (controller.isOperation(id)) revert RehearsalAlreadyScheduled(id);
 
         SafeTx[] memory txs = new SafeTx[](1);
-        txs[0] = SafeTx({to: timelock, value: 0, data: LibTimelockRehearsal.scheduleCalldata(timelock), operation: 0});
+        txs[0] = SafeTx({
+            to: timelock,
+            value: 0,
+            data: LibTimelockRehearsal.scheduleCalldata(timelock),
+            operation: Enum.Operation.Call
+        });
 
         uint256 nonce = safe.nonce();
-        bytes32 safeTxHash = LibSafeOps.computeSafeTxHashViaSafe(safe, txs[0], nonce);
+        bytes32 safeTxHash = LibSafeTx.safeTxHash(safe, txs[0], nonce);
 
         uint256 delayBefore = controller.getMinDelay();
-        LibSafeOps.simulateExternalCall(safe, txs[0].to, txs[0].data);
+        LibSafeFork.simulateCall(vm, safe, txs[0].to, txs[0].data);
 
         // Pending, and NOT executable until the delay has run.
         require(controller.isOperationPending(id), "TimelockRehearsalSchedule: operation not registered");
@@ -89,8 +97,8 @@ contract TimelockRehearsalSchedule is Script {
 
         string memory artifactPath =
             string.concat("out/20260813-timelock-rehearsal-schedule-", vm.toString(block.chainid), ".json");
-        string memory json = LibSafeOps.emitTxBuilderJson(
-            address(safe), block.chainid, "ST0x timelock rehearsal: schedule the no-op", txs
+        string memory json = LibSafeTxBuilderJson.toJson(
+            vm, address(safe), block.chainid, "ST0x timelock rehearsal: schedule the no-op", txs
         );
         vm.writeFile(artifactPath, json);
 

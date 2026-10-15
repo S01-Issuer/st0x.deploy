@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {IERC1271} from "@openzeppelin-contracts-5.6.1/interfaces/IERC1271.sol";
+import {IERC1271} from "@openzeppelin-contracts-5.7.0/interfaces/IERC1271.sol";
 
 /// @dev EIP-1271 recipient mock. Returns the magic value when `accept`.
 contract Mock1271 is IERC1271 {

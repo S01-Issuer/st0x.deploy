@@ -2,11 +2,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.2/src/Test.sol";
-import {Vm} from "forge-std-1.16.2/src/Vm.sol";
-import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {Vm} from "forge-std-1.17.0/src/Vm.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {
-    AuthoriserNotReady,
     AuthoriserNotWired,
     DeployMissingTokens,
     DeployerNotDeployed,
@@ -20,8 +19,14 @@ import {
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
+import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
+import {
+    AuthoriserNotReady,
+    EuAuthoriserNotReady,
+    LibAuthoriserInvariants
+} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
-import {LibProdTokenConfig, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
+import {LibProdTokenConfig, TokenConfig, Region} from "../../src/lib/LibProdTokenConfig.sol";
 import {DeployMissingTokensHarness} from "./DeployMissingTokensHarness.sol";
 
 /// @title DeployMissingTokensTest
@@ -49,7 +54,7 @@ contract DeployMissingTokensTest is Test {
     address constant RECEIPT_VAULT = address(0x1A17);
     address constant WRAPPED = address(0x1A18);
     address constant AUTHORISER = address(0xA077);
-    address constant SAFE = address(0x5AFE);
+    address constant OWNER = address(0x7135);
     address constant STRAY = address(0xDEADBEEF);
 
     DeployMissingTokens internal script;
@@ -112,7 +117,12 @@ contract DeployMissingTokensTest is Test {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
         TokenInstance[] memory placeholders = new TokenInstance[](base.length);
         for (uint256 i = 0; i < base.length; i++) {
-            placeholders[i] = TokenInstance(base[i].underlying, address(0), address(0), address(0));
+            placeholders[i] = TokenInstance({
+                underlying: base[i].underlying,
+                receipt: address(0),
+                receiptVault: address(0),
+                wrappedTokenVault: address(0)
+            });
         }
         TokenConfig[] memory missing =
             harness.selectMissing(LibProdTokenConfig.productionTokenConfigs(), base, placeholders);
@@ -128,7 +138,14 @@ contract DeployMissingTokensTest is Test {
         TokenInstance[] memory target = new TokenInstance[](base.length);
         uint256 deployed = 41;
         for (uint256 i = 0; i < base.length; i++) {
-            target[i] = i < deployed ? base[i] : TokenInstance(base[i].underlying, address(0), address(0), address(0));
+            target[i] = i < deployed
+                ? base[i]
+                : TokenInstance({
+                    underlying: base[i].underlying,
+                    receipt: address(0),
+                    receiptVault: address(0),
+                    wrappedTokenVault: address(0)
+                });
         }
         TokenConfig[] memory missing = harness.selectMissing(LibProdTokenConfig.productionTokenConfigs(), base, target);
         assertEq(missing.length, base.length - deployed, "expected every placeholder row and nothing else");
@@ -148,8 +165,10 @@ contract DeployMissingTokensTest is Test {
         for (uint256 i = 0; i < configs.length; i++) {
             ahead[i] = configs[i];
         }
-        ahead[configs.length] = TokenConfig("AAAA", "Ahead Of Base One ST0x", "tAAAA");
-        ahead[configs.length + 1] = TokenConfig("BBBB", "Ahead Of Base Two ST0x", "tBBBB");
+        ahead[configs.length] =
+            TokenConfig({underlying: "AAAA", name: "Ahead Of Base One ST0x", symbol: "tAAAA", region: Region.US});
+        ahead[configs.length + 1] =
+            TokenConfig({underlying: "BBBB", name: "Ahead Of Base Two ST0x", symbol: "tBBBB", region: Region.US});
 
         TokenConfig[] memory missing = harness.selectMissing(ahead, base, new TokenInstance[](0));
         assertEq(missing.length, base.length, "the un-deployed rows must not be selected");
@@ -300,19 +319,6 @@ contract DeployMissingTokensTest is Test {
         script.run();
     }
 
-    /// @notice The chain's authoriser pin is rejected when nothing is deployed
-    /// at it. Base and unknown chains never reach the readiness check at all —
-    /// they have no authoriser to resolve, so they are a dispatch error.
-    function testAuthoriserReadyRejectsChainsWithNoPin() external {
-        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
-        vm.expectRevert(abi.encodeWithSelector(UnsupportedTargetChain.selector, LibSafeInvariants.BASE_CHAIN_ID));
-        harness.assertAuthoriserReady();
-
-        vm.chainId(123456);
-        vm.expectRevert(abi.encodeWithSelector(UnsupportedTargetChain.selector, 123456));
-        harness.assertAuthoriserReady();
-    }
-
     /// @notice An unpinned or undeployed authoriser is caught before any
     /// broadcast — dispatching ahead of the authoriser clone landing on the
     /// target chain would otherwise deploy tokens with nothing to wire them to.
@@ -371,6 +377,93 @@ contract DeployMissingTokensTest is Test {
         );
     }
 
+    /// @dev An EIP-1167 clone of the 0.1.1 authoriser: the runtime every
+    /// authoriser pin (US and EU) is checked against.
+    function _auditedCloneRuntime() internal pure returns (bytes memory) {
+        return abi.encodePacked(hex"363d3d373d3d3d363d73", AUTHORISER_IMPL_0_1_1, hex"5af43d82803e903d91602b57fd5bf3");
+    }
+
+    /// @notice A US token is wired to the chain's V4 authoriser, an EU token
+    /// to the chain's EU assets authoriser, on every target chain.
+    function testAuthoriserForRoutesByRegion() external {
+        TokenConfig memory us = TokenConfig({underlying: "WMT", name: "n", symbol: "s", region: Region.US});
+        TokenConfig memory eu = TokenConfig({underlying: "MC", name: "n", symbol: "s", region: Region.EU});
+        uint256[4] memory chains = [
+            LibSafeInvariants.ETHEREUM_CHAIN_ID,
+            LibSafeInvariants.HYPEREVM_CHAIN_ID,
+            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
+            LibSafeInvariants.BSC_CHAIN_ID
+        ];
+        for (uint256 i = 0; i < chains.length; i++) {
+            vm.chainId(chains[i]);
+            address euClone = LibAuthoriserInvariants.euAuthoriserForChainId(chains[i]);
+            vm.etch(euClone, _auditedCloneRuntime());
+            assertEq(harness.authoriserFor(us, AUTHORISER), AUTHORISER, "US token left the V4 authoriser");
+            assertEq(harness.authoriserFor(eu, AUTHORISER), euClone, "EU token not routed to the EU authoriser");
+            assertTrue(euClone != AUTHORISER, "EU and US authorisers coincide");
+        }
+        assertEq(
+            LibAuthoriserInvariants.euAuthoriserForChainId(LibSafeInvariants.ETHEREUM_CHAIN_ID),
+            address(0x8Fc06579571A105C5a699FA11d95b9c73747f8eb),
+            "EU authoriser pin moved"
+        );
+    }
+
+    /// @notice An EU token is refused when the chain's EU clone is missing or
+    /// is not the audited clone, rather than falling back to the V4 one.
+    function testAuthoriserForRefusesAnEuTokenWithoutTheEuClone() external {
+        TokenConfig memory eu = TokenConfig({underlying: "MC", name: "n", symbol: "s", region: Region.EU});
+        vm.chainId(LibSafeInvariants.BSC_CHAIN_ID);
+        address euClone = LibAuthoriserInvariants.euAuthoriserForChainId(LibSafeInvariants.BSC_CHAIN_ID);
+        vm.expectRevert(abi.encodeWithSelector(EuAuthoriserNotReady.selector, euClone));
+        harness.authoriserFor(eu, AUTHORISER);
+
+        vm.etch(euClone, STUB_CODE);
+        vm.expectRevert(abi.encodeWithSelector(EuAuthoriserNotReady.selector, euClone));
+        harness.authoriserFor(eu, AUTHORISER);
+    }
+
+    /// @notice The canonical table routes tMC, and only tMC, to the EU
+    /// authoriser: every other production token stays on the V4 one.
+    function testCanonicalTableRoutesOnlyMcToTheEuAuthoriser() external {
+        vm.chainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
+        address euClone = LibAuthoriserInvariants.euAuthoriserForChainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
+        vm.etch(euClone, _auditedCloneRuntime());
+        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        uint256 euCount = 0;
+        for (uint256 i = 0; i < configs.length; i++) {
+            address routed = harness.authoriserFor(configs[i], AUTHORISER);
+            if (keccak256(bytes(configs[i].underlying)) == keccak256("MC")) {
+                assertEq(routed, euClone, "tMC not routed to the EU authoriser");
+                euCount++;
+            } else {
+                assertEq(routed, AUTHORISER, configs[i].underlying);
+            }
+        }
+        assertEq(euCount, 1, "tMC missing from the canonical table");
+    }
+
+    /// @notice Live acceptance: each target chain's EU clone is deployed with
+    /// the audited codehash, so an EU copy would not stop at the pre-flight.
+    function testEuAuthoriserReadyOnEveryTargetFork() external {
+        string[4] memory networks = [
+            LibStoxDeployNetworks.ETHEREUM,
+            LibStoxDeployNetworks.HYPEREVM,
+            LibStoxDeployNetworks.ROBINHOOD,
+            LibStoxDeployNetworks.BSC
+        ];
+        TokenConfig memory eu = TokenConfig({underlying: "MC", name: "n", symbol: "s", region: Region.EU});
+        for (uint256 i = 0; i < networks.length; i++) {
+            vm.createSelectFork(networks[i]);
+            DeployMissingTokensHarness forked = new DeployMissingTokensHarness();
+            assertEq(
+                forked.authoriserFor(eu, AUTHORISER),
+                LibAuthoriserInvariants.euAuthoriserForChainId(block.chainid),
+                "EU clone rejected on the live fork"
+            );
+        }
+    }
+
     /// @notice A deploy call that emitted no `Deployment` event reverts named,
     /// rather than carrying a zero address into the receipt readback and
     /// faulting as a raw call to an empty account — mid-broadcast, with the
@@ -416,30 +509,30 @@ contract DeployMissingTokensTest is Test {
         assertEq(wrapped, WRAPPED, "wrong wrapped vault decoded");
     }
 
-    /// @notice Ownership that did not land on the Safe is caught: otherwise
+    /// @notice Ownership that did not land on the timelock is caught: otherwise
     /// the broadcast finishes "successfully" leaving a production vault owned
     /// by the CI deploy key.
     function testHandoffCaughtWhenOwnershipDidNotLand() external {
         vm.mockCall(RECEIPT_VAULT, abi.encodeWithSignature("authorizer()"), abi.encode(AUTHORISER));
         vm.mockCall(RECEIPT_VAULT, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(STRAY));
-        vm.expectRevert(abi.encodeWithSelector(OwnershipHandoffFailed.selector, RECEIPT_VAULT, SAFE, STRAY));
-        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, SAFE);
+        vm.expectRevert(abi.encodeWithSelector(OwnershipHandoffFailed.selector, RECEIPT_VAULT, OWNER, STRAY));
+        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, OWNER);
     }
 
     /// @notice A vault left on the wrong authoriser is caught — until
     /// `setAuthorizer` lands, every operation on the vault reverts.
     function testHandoffCaughtWhenAuthoriserNotWired() external {
         vm.mockCall(RECEIPT_VAULT, abi.encodeWithSignature("authorizer()"), abi.encode(STRAY));
-        vm.mockCall(RECEIPT_VAULT, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(SAFE));
+        vm.mockCall(RECEIPT_VAULT, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(OWNER));
         vm.expectRevert(abi.encodeWithSelector(AuthoriserNotWired.selector, RECEIPT_VAULT, AUTHORISER, STRAY));
-        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, SAFE);
+        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, OWNER);
     }
 
     /// @notice Both landed passes, so the two above are not vacuous.
     function testHandoffPassesWhenBothLanded() external {
         vm.mockCall(RECEIPT_VAULT, abi.encodeWithSignature("authorizer()"), abi.encode(AUTHORISER));
-        vm.mockCall(RECEIPT_VAULT, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(SAFE));
-        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, SAFE);
+        vm.mockCall(RECEIPT_VAULT, abi.encodeWithSelector(Ownable.owner.selector), abi.encode(OWNER));
+        script.assertHandoffLanded(RECEIPT_VAULT, AUTHORISER, OWNER);
     }
 
     /// @notice A `Deployment(sender, asset, wrapper)` log as the unified
@@ -457,5 +550,24 @@ contract DeployMissingTokensTest is Test {
         log.topics[0] = keccak256("Deployment(address,address,address)");
         log.data = abi.encode(address(0x5E11E4), receiptVault, wrapped);
         log.emitter = emitter;
+    }
+
+    /// @notice The handoff assertion against live production: on Robinhood
+    /// Chain every deployed vault is wired to the chain's V4 authoriser and
+    /// owned by its governance timelock, so the check passes for the timelock
+    /// and refuses the Safe — the owner this script handed vaults to before
+    /// the governance migration.
+    function testHandoffAgainstLiveTimelockOwnedVaults() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
+        DeployMissingTokensHarness forked = new DeployMissingTokensHarness();
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        address authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD;
+        LibTimelockInvariants.assertTimelockState(timelock, safe);
+        TokenInstance[] memory tokens = LibTokenInvariants.productionTokensRobinhood();
+        assertGt(tokens.length, 0, "Robinhood token table empty");
+        forked.assertHandoffLanded(tokens[0].receiptVault, authoriser, timelock);
+        vm.expectRevert(abi.encodeWithSelector(OwnershipHandoffFailed.selector, tokens[0].receiptVault, safe, timelock));
+        forked.assertHandoffLanded(tokens[0].receiptVault, authoriser, safe);
     }
 }

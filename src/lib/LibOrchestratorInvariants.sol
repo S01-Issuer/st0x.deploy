@@ -2,12 +2,16 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
-import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
-import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
-import {LibMigrationInvariant} from "./LibMigrationInvariant.sol";
+import {LibStoxMigrations} from "./LibStoxMigrations.sol";
+import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
+import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
+import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
+import {RoleGrant} from "./RoleGrant.sol";
 import {IST0xOrchestratorV1} from "../interface/IST0xOrchestratorV1.sol";
+import {ST0xOrchestrator} from "../concrete/ST0xOrchestrator.sol";
 
 /// @notice The orchestrator beacon-set deployer has no runtime code at its
 /// pinned 0.1.30 address on the active chain.
@@ -20,23 +24,30 @@ error OrchestratorSetDeployerMissing(address setDeployer);
 /// @param actual The beacon the set deployer reports.
 error OrchestratorBeaconMismatch(address expected, address actual);
 
-/// @notice The orchestrator beacon does not point at the audited 0.1.30
-/// orchestrator implementation.
-/// @param expected The pinned 0.1.30 implementation.
-/// @param actual The implementation the beacon reports.
-error OrchestratorBeaconImplMismatch(address expected, address actual);
-
 /// @notice The pinned orchestrator instance has no runtime code on the
 /// active chain.
 /// @param instance The pinned instance address.
 error OrchestratorInstanceMissing(address instance);
 
 /// @notice The expected admin does not hold `DEFAULT_ADMIN_ROLE` on the
-/// orchestrator instance. An instance without the chain's Safe as admin is
-/// ungovernable (or governed by the wrong key).
+/// orchestrator instance: it is ungovernable, or governed by the wrong key.
 /// @param instance The orchestrator instance inspected.
 /// @param expectedAdmin The address that must hold `DEFAULT_ADMIN_ROLE`.
 error OrchestratorAdminMissing(address instance, address expectedAdmin);
+
+/// @notice An address the recorded migrations say holds a role on the
+/// orchestrator instance does not.
+/// @param instance The orchestrator instance inspected.
+/// @param role The role.
+/// @param holder The address that must hold it.
+error OrchestratorRoleMissing(address instance, bytes32 role, address holder);
+
+/// @notice An operating role on the orchestrator is administered by a role
+/// other than `DEFAULT_ADMIN_ROLE`.
+/// @param instance The orchestrator instance inspected.
+/// @param role The operating role.
+/// @param adminRole The role that administers it.
+error OrchestratorRoleAdminUnexpected(address instance, bytes32 role, bytes32 adminRole);
 
 /// @notice The orchestrator instance's vault-logic version lock does not
 /// pass: the OARV beacon-set deployer it was built against reports
@@ -75,22 +86,11 @@ library LibOrchestratorInvariants {
     /// of truth, emitted by `BuildPointers`).
     address internal constant ST0X_ORCHESTRATOR_INSTANCE = LibProdDeployV4.ST0X_ORCHESTRATOR_INSTANCE;
 
-    /// @notice Unix timestamp (2026-10-01T00:00:00Z) by which
-    /// `20260818-migrate-orchestrator-beacon-owner` must have moved the
-    /// orchestrator beacon's owner from the deploy EOA to the chain's
-    /// token-owner Safe. Until then either owner passes; after it only the
-    /// Safe does (see `LibMigrationInvariant`).
-    uint256 internal constant ST0X_ORCHESTRATOR_BEACON_OWNER_MIGRATION_DEADLINE = 1_790_812_800;
-
     /// @notice Assert the orchestrator beacon set on the active chain: the
-    /// 0.1.30 beacon-set deployer is live, reports the pinned beacon, and the
-    /// beacon points at the audited 0.1.30 orchestrator implementation. The
-    /// beacon's owner is asserted through the owner-migration window: the
-    /// deploy EOA (`BEACON_INITIAL_OWNER`, pre) or `chainSafe` (post) until
-    /// the migration deadline, only `chainSafe` after it.
-    /// @param chainSafe The chain's token-owner Safe — the post-migration
-    /// beacon owner.
-    function assertBeaconSet(address chainSafe) internal view {
+    /// 0.1.30 beacon-set deployer is live, reports the pinned beacon, the
+    /// beacon points at the audited 0.1.30 orchestrator implementation, and
+    /// the chain's governance timelock owns the beacon.
+    function assertBeaconSet() internal view {
         address setDeployer = LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_30;
         if (setDeployer.code.length == 0) {
             revert OrchestratorSetDeployerMissing(setDeployer);
@@ -101,36 +101,97 @@ library LibOrchestratorInvariants {
             revert OrchestratorBeaconMismatch(ST0X_ORCHESTRATOR_BEACON, beacon);
         }
 
-        address impl = IBeacon(beacon).implementation();
-        if (impl != LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30) {
-            revert OrchestratorBeaconImplMismatch(LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30, impl);
-        }
-
-        LibMigrationInvariant.assertMigration(
-            "ST0X_ORCHESTRATOR_BEACON.owner()",
-            Ownable(beacon).owner(),
-            LibProdDeployV4.BEACON_INITIAL_OWNER,
-            chainSafe,
-            ST0X_ORCHESTRATOR_BEACON_OWNER_MIGRATION_DEADLINE
+        // Codehash first, then owner (the chain's timelock) and implementation,
+        // through the shared beacon check.
+        LibBeaconInvariants.assertBeaconInvariants(
+            beacon,
+            LibTimelockInvariants.timelockForChainId(block.chainid),
+            LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30,
+            LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30
         );
     }
 
     /// @notice Assert the pinned orchestrator instance on the active chain:
-    /// it has code, `expectedAdmin` holds `DEFAULT_ADMIN_ROLE`, and its
-    /// vault-logic version lock passes (so `mint`/`burn` are operable).
-    /// @param expectedAdmin The address that must hold `DEFAULT_ADMIN_ROLE`
-    /// — the chain's token-owner Safe.
-    function assertInstance(address expectedAdmin) internal view {
+    /// it has code, its vault-logic version lock passes (so `mint`/`burn`
+    /// are operable), every role is administered by `DEFAULT_ADMIN_ROLE`,
+    /// and it holds each `expectedGrants` pair whose migration the chain's
+    /// Safe has recorded (`migrationRecorded`).
+    /// @param chainSafe The chain's token-owner Safe, which is also the
+    /// writer of the migration records.
+    function assertInstance(address chainSafe) internal view {
         address instance = ST0X_ORCHESTRATOR_INSTANCE;
         if (instance.code.length == 0) {
             revert OrchestratorInstanceMissing(instance);
         }
-        // DEFAULT_ADMIN_ROLE is 0x00 in OZ AccessControl.
-        if (!IAccessControl(instance).hasRole(bytes32(0), expectedAdmin)) {
-            revert OrchestratorAdminMissing(instance, expectedAdmin);
-        }
         if (!IST0xOrchestratorV1(instance).vaultLogicIsExpected()) {
             revert OrchestratorVaultLogicUnexpected(instance);
+        }
+
+        IAccessControl acl = IAccessControl(instance);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+
+        RoleGrant[] memory expected = expectedGrants(chainSafe, timelock);
+        for (uint256 i = 0; i < expected.length; i++) {
+            if (migrationRecorded(chainSafe, expected[i].role)) {
+                assertHolds(acl, expected[i]);
+            }
+        }
+
+        assertAdministeredByDefaultAdmin(acl, bytes32(0));
+        assertAdministeredByDefaultAdmin(acl, ST0xOrchestrator(payable(instance)).MINT_ROLE());
+        assertAdministeredByDefaultAdmin(acl, ST0xOrchestrator(payable(instance)).BURN_ROLE());
+        assertAdministeredByDefaultAdmin(acl, ST0xOrchestrator(payable(instance)).EMERGENCY_ROLE());
+    }
+
+    /// @notice Whether the chain's Safe has recorded the migration that
+    /// grants `role` its expected holder: `ORCHESTRATOR_ADMIN_TO_TIMELOCK`
+    /// for `DEFAULT_ADMIN_ROLE`, `ORCHESTRATOR_EMERGENCY` for `EMERGENCY`;
+    /// no migration grants any other role, so it is never recorded.
+    /// @param chainSafe The chain's token-owner Safe.
+    /// @param role The role.
+    /// @return Whether the migration is recorded.
+    function migrationRecorded(address chainSafe, bytes32 role) private view returns (bool) {
+        if (role == bytes32(0)) {
+            return LibStoxMigrations.applied(chainSafe, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) != 0;
+        }
+        if (role == keccak256("EMERGENCY")) {
+            return LibStoxMigrations.applied(chainSafe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) != 0;
+        }
+        return false;
+    }
+
+    /// @notice The pairs the orchestrator instance must carry.
+    /// @param chainSafe The chain's token-owner Safe.
+    /// @param timelock The chain's governance timelock.
+    /// @return The expected `(role, grantee)` pairs.
+    function expectedGrants(address chainSafe, address timelock) internal pure returns (RoleGrant[] memory) {
+        RoleGrant[] memory grants = new RoleGrant[](4);
+        grants[0] = RoleGrant(bytes32(0), timelock);
+        grants[1] = RoleGrant(keccak256("EMERGENCY"), chainSafe);
+        grants[2] = RoleGrant(keccak256("MINT"), LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C);
+        grants[3] = RoleGrant(keccak256("BURN"), LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C);
+        return grants;
+    }
+
+    /// @notice Revert unless the instance carries `grant`.
+    /// @param acl The instance's access-control surface.
+    /// @param grant The pair.
+    function assertHolds(IAccessControl acl, RoleGrant memory grant) private view {
+        if (!acl.hasRole(grant.role, grant.grantee)) {
+            if (grant.role == bytes32(0)) {
+                revert OrchestratorAdminMissing(address(acl), grant.grantee);
+            }
+            revert OrchestratorRoleMissing(address(acl), grant.role, grant.grantee);
+        }
+    }
+
+    /// @notice Revert unless `role` is administered by `DEFAULT_ADMIN_ROLE`.
+    /// @param acl The instance's access-control surface.
+    /// @param role The operating role.
+    function assertAdministeredByDefaultAdmin(IAccessControl acl, bytes32 role) private view {
+        bytes32 adminRole = acl.getRoleAdmin(role);
+        if (adminRole != bytes32(0)) {
+            revert OrchestratorRoleAdminUnexpected(address(acl), role, adminRole);
         }
     }
 }

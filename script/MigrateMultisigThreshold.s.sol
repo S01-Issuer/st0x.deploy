@@ -2,16 +2,20 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Script} from "forge-std-1.16.2/src/Script.sol";
-import {console2} from "forge-std-1.16.2/src/console2.sol";
+import {Script} from "forge-std-1.17.0/src/Script.sol";
+import {console2} from "forge-std-1.17.0/src/console2.sol";
 
-import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
+import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibInvariants} from "../src/lib/LibInvariants.sol";
-import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
+import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJson.sol";
 
 /// @notice A previously emitted Tx Builder JSON artifact (parsed via
-/// `LibSafeOps.parseTxBuilderJson`) does not match the bundle the live
+/// `LibSafeTxBuilderJson.fromJson`) does not match the bundle the live
 /// pre-flight would emit. Surfaces the first field that drifts, so a
 /// signer can pinpoint where the off-chain artifact diverged from the
 /// on-chain state at verification time.
@@ -73,7 +77,7 @@ contract MigrateMultisigThreshold is Script {
     /// verification in production and we explicitly simulate via
     /// `vm.prank`.
     function run() external {
-        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+        Safe safe = Safe(payable(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE));
         // Pre-flight: every immutable invariant plus the pinned 6-owner
         // roster plus the pinned current threshold. Defaults from
         // `LibSafeInvariants` (no-arg overload). Reverts with the relevant
@@ -84,15 +88,15 @@ contract MigrateMultisigThreshold is Script {
         SafeTx memory txn = SafeTx({
             to: address(safe),
             value: 0,
-            data: abi.encodeCall(IGnosisSafe.changeThreshold, (TARGET_THRESHOLD)),
-            operation: 0
+            data: abi.encodeCall(OwnerManager.changeThreshold, (TARGET_THRESHOLD)),
+            operation: Enum.Operation.Call
         });
 
         // Capture the nonce before any simulation. `simulateSelfCall`
         // doesn't advance the nonce, so the hash binds correctly to the
         // current Safe state.
         uint256 nonce = safe.nonce();
-        bytes32 safeTxHash = LibSafeOps.computeSafeTxHashViaSafe(safe, txn, nonce);
+        bytes32 safeTxHash = LibSafeTx.safeTxHash(safe, txn, nonce);
 
         // Simulate the inner call and re-assert post-state via the
         // full-args bundle. Overrides only the threshold (the
@@ -103,13 +107,13 @@ contract MigrateMultisigThreshold is Script {
         // The bundle re-check guards against a `changeThreshold`
         // implementation that secretly mutates the owner roster, modules,
         // or fallback handler as a side effect.
-        LibSafeOps.simulateSelfCall(safe, txn.data);
+        LibSafeFork.simulateCall(vm, safe, address(safe), txn.data);
         LibInvariants.assertAll(safe, TARGET_THRESHOLD, LibSafeInvariants.expectedOwners());
 
         // Emit the Tx Builder JSON artifact and write it under `out/`.
         SafeTx[] memory txs = new SafeTx[](1);
         txs[0] = txn;
-        string memory json = LibSafeOps.emitTxBuilderJson(address(safe), block.chainid, BUNDLE_NAME, txs);
+        string memory json = LibSafeTxBuilderJson.toJson(vm, address(safe), block.chainid, BUNDLE_NAME, txs);
         vm.writeFile(ARTIFACT_PATH, json);
 
         // Log the artifact with explicit BEGIN/END markers so CI can
@@ -133,7 +137,7 @@ contract MigrateMultisigThreshold is Script {
         // forward migration (`changeThreshold(3)`) rather than the
         // reversal. The reversal exists only as a fork-local simulation;
         // signers never see it.
-        LibSafeOps.simulateNPlus1Reversal(safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD, TARGET_THRESHOLD);
+        LibSafeFork.simulateThresholdNPlus1(vm, safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
         console2.log("n+1 reversibility check passed: threshold reverted to", safe.getThreshold());
     }
 
@@ -143,13 +147,14 @@ contract MigrateMultisigThreshold is Script {
     /// integrity before signing.
     /// @param jsonPath Filesystem path to the Tx Builder JSON to verify.
     function verify(string calldata jsonPath) external view {
-        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+        Safe safe = Safe(payable(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE));
         // Same pre-flight bundle as `run()`. If the live state has drifted
         // since the artifact was authored, the typed error bubbles before
         // we even open the file.
         LibInvariants.assertAll(safe);
 
-        (uint256 parsedChainId, address parsedSafe, SafeTx[] memory parsedTxs) = LibSafeOps.parseTxBuilderJson(jsonPath);
+        (uint256 parsedChainId, address parsedSafe, SafeTx[] memory parsedTxs) =
+            LibSafeTxBuilderJson.fromJson(vm, vm.readFile(jsonPath));
 
         if (parsedChainId != block.chainid) revert VerifyMismatch("chainId");
         if (parsedSafe != address(safe)) revert VerifyMismatch("safeAddress");
@@ -158,8 +163,8 @@ contract MigrateMultisigThreshold is Script {
         SafeTx memory expected = SafeTx({
             to: address(safe),
             value: 0,
-            data: abi.encodeCall(IGnosisSafe.changeThreshold, (TARGET_THRESHOLD)),
-            operation: 0
+            data: abi.encodeCall(OwnerManager.changeThreshold, (TARGET_THRESHOLD)),
+            operation: Enum.Operation.Call
         });
 
         if (parsedTxs[0].to != expected.to) revert VerifyMismatch("to");
@@ -171,8 +176,8 @@ contract MigrateMultisigThreshold is Script {
         // is the strongest signal that the artifact is stale: a nonce bump
         // (some other Safe tx executed in between) will cause this to
         // flag, which is the desired safety property.
-        bytes32 liveHash = LibSafeOps.computeSafeTxHashViaSafe(safe, expected, safe.nonce());
-        bytes32 artifactHash = LibSafeOps.computeSafeTxHashViaSafe(safe, parsedTxs[0], safe.nonce());
+        bytes32 liveHash = LibSafeTx.safeTxHash(safe, expected, safe.nonce());
+        bytes32 artifactHash = LibSafeTx.safeTxHash(safe, parsedTxs[0], safe.nonce());
         if (liveHash != artifactHash) revert VerifyMismatch("safeTxHash");
     }
 }

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Float} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
+import {Float} from "rain-math-float-0.2.22/src/lib/LibDecimalFloat.sol";
 import {LibRebaseMath} from "src/lib/LibRebaseMath.sol";
 
 contract LibRebaseMathHarness {
