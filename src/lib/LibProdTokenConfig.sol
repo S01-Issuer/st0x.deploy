@@ -11,8 +11,18 @@ pragma solidity ^0.8.25;
 /// `initialAdmin` is the target chain's Safe (supplied by the deploy
 /// script, not the table), `decimals` is fixed by the shared vault
 /// implementation bytecode, and the wrapped token vault derives its own
-/// name/symbol on-chain (`"Wrapped " + name`, `"w" + symbol`). So the
-/// receipt vault's `name` + `symbol` are the ONLY free deploy inputs.
+/// name/symbol on-chain from the receipt vault. So the receipt vault's
+/// `name` + `symbol` are the ONLY free initialization inputs, and this table
+/// holds exactly those.
+///
+/// The underlying ticker and name are not deploy inputs: the vault owner sets
+/// them after deployment with `IStoxUnderlyingV1.setUnderlying`. The ticker
+/// is this table's `underlying` key (every row's `symbol` is
+/// `"t" + underlying`); the underlying name is not carried here. Once both are
+/// set, the receipt vault reports `"t" + ticker` / `name + " (ST0x)"` and the
+/// wrapped token vault `ticker + "s"` / the receipt vault's name. Until then
+/// the receipt vault reports the `name` + `symbol` it was initialized with,
+/// and the wrapped token vault `"Wrapped " + name` / `"w" + symbol`.
 /// @param underlying The chain-agnostic ticker join key, matching
 /// `LibTokenInvariants.TokenInstance.underlying`.
 /// @param name The receipt vault's ERC-20 `name()`, verbatim from Base.

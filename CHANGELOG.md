@@ -18,6 +18,53 @@
   `address(0)`, so the inherited symbol read reverted, and with it `uri`, which
   the vault checks at `initialize`.
 
+### Underlying ticker and name
+
+- **`IStoxUnderlyingV1`: each receipt vault stores its underlying ticker and
+  name.** `StoxCorporateActionsFacet` implements `underlyingSymbol()`,
+  `underlyingName()` and `setUnderlying(symbol, name)`, with the values in a new
+  ERC-7201 namespace `rain.storage.underlying.1` (`LibUnderlying`). The setter
+  is `onlyOwner`-equivalent (it checks the vault's `owner()`, so on live chains
+  it goes through the governance timelock), rejects empty values with
+  `EmptyUnderlyingSymbol` / `EmptyUnderlyingName`, emits `UnderlyingSet` with
+  the old and new values, and can be called again when a listing is renamed.
+- **Token metadata is built from those values.** Once set, `StoxReceiptVault`
+  reports `symbol() = "t" + ticker` and `name() = name + " (ST0x)"`, and
+  `StoxWrappedTokenVault` reports `symbol() = ticker + "s"` and the vault's
+  `name()` — e.g. `tNVDA` / `NVDAs`, both named `NVIDIA Corporation (ST0x)`. The
+  suffix is the single constant `ST0X_NAME_SUFFIX`. While unset, the vault
+  reports the name and symbol it was initialized with and the wrapper
+  `"Wrapped " + name` / `"w" + symbol`, so nothing changes on chain until the
+  values are set.
+- **The wrapper does not revert because of its asset's underlying getters.** It
+  reads the underlying values with a `staticcall` and falls back to the asset's
+  ERC-20 metadata if the call fails, returns data that is not a well-formed
+  `string`, or returns an empty value, so assets that are not ST0x receipt
+  vaults still wrap. The asset's own `name()` / `symbol()` are called directly,
+  as before, and a revert there still reverts the wrapper's view.
+- **`setUnderlying` writes the vault's ERC-20 name and symbol once.** Besides
+  the underlying values, it writes `"t" + ticker` and `name + " (ST0x)"` into
+  OZ's own `ERC20Storage` (`LibERC20Storage.getStorage`), so the vault keeps
+  OZ's plain storage-reading `symbol()` / `name()` and reading them never
+  touches the facet. The formatting lives only in the facet. The vault has no
+  room under EIP-170 for read-time formatting (main leaves 158 bytes); this
+  design adds 26 bytes, the facet-presence check below, for 24,444 bytes (132
+  spare). The initialized name and symbol are overwritten; they stay on record
+  in the vault's initialization event. A later name-format change means calling
+  `setUnderlying` again on each token.
+- **The vault's `fallback()` reverts with `CorporateActionsFacetNotDeployed`
+  when the pinned facet address has no code**, so a facet call (a corporate
+  action, `setUnderlying`) made before the facet is deployed fails instead of
+  succeeding as a no-op.
+- **The wrapper's name is its asset's own name once the asset reports an
+  underlying name**, so the name format lives only in the facet and a format
+  change needs no wrapper upgrade.
+- **Rollout order:** deploy the facet, upgrade the wrapper beacon, upgrade the
+  receipt-vault beacon, then call `setUnderlying` (`docs/TIMELOCK.md`).
+- As with every vault/facet change, the vault, facet, wrapper and the contracts
+  that pin them move to new Zoltu addresses; the `candidate/` pins are
+  regenerated.
+
 ## V4 (rain.vats 0.1.6)
 
 ### StoxReceiptVault

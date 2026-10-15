@@ -8,8 +8,8 @@ between the token-owner Safe and the privileged surfaces of the ST0x deployment.
 After the migration executes, the timelock is:
 
 - the `owner()` of **every production receipt vault** — so `transferOwnership`,
-  `setAuthorizer`, and every `onlyOwner` surface (including owner freezes) is
-  delay-gated;
+  `setAuthorizer`, `setUnderlying`, and every `onlyOwner` surface (including
+  owner freezes) is delay-gated;
 - the `owner()` of the chain's **four in-use upgrade beacons** (receipt, receipt
   vault, wrapped token vault, orchestrator) — so `upgradeTo` is delay-gated; and
 - the **sole holder of the authoriser's seven `_ADMIN` roles** (`DEPOSIT_ADMIN`,
@@ -211,6 +211,43 @@ the same warp-and-execute loop proof the migration script uses.
 targeting those surfaces must target the timelock instead, and
 `LibTimelockInvariants.timelockForChainId(block.chainid)` is the only sanctioned
 way to resolve it.
+
+**Upgrading the receipt vault.** The vault delegatecalls the corporate-actions
+facet at `LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET`, a constant built
+into its bytecode. A vault implementation whose facet is not deployed keeps its
+ERC-20 metadata, but every facet call, `setUnderlying` included, reverts with
+`CorporateActionsFacetNotDeployed`. A batch executed before the facet exists
+therefore reverts as a whole instead of completing without renaming anything.
+The order on every chain is:
+
+1. Deploy the three implementations at their Zoltu addresses (permissionless):
+   the facet at `LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET`, the receipt
+   vault at `LibProdDeployCurrent.STOX_RECEIPT_VAULT` and the wrapped token
+   vault at `LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT`. Check each codehash
+   against its `LibProdDeployCurrent` `*_CODEHASH` pin before scheduling, and
+   the facet again on chain right before executing. `upgradeTo` rejects an
+   implementation with no code, so a missing vault or wrapper makes the beacon
+   batch revert at execution and costs a full delay.
+2. Upgrade the chain's in-use wrapped-token-vault beacon
+   (`LibBeaconInvariants.prodBeaconsForChainId`). It keeps its current name and
+   symbol while the vault has no underlying set.
+3. Upgrade the chain's in-use receipt-vault beacon.
+4. Call `setUnderlying(ticker, underlyingName)` on each vault, where `ticker` is
+   `TokenConfig.underlying` (e.g. `NVDA`) and `underlyingName` is the issuer's
+   name without any ST0x suffix (e.g. `NVIDIA Corporation`), never
+   `TokenConfig.symbol` / `TokenConfig.name`, which hold the initialized ERC-20
+   values. Both tokens rename at this step, together: the wrapper goes from
+   `wt<TICKER>` to `<TICKER>s`. **Precondition:** do not schedule this step
+   until st0x.liquidity, st0x.pricing and st0x-oracle-server accept both
+   `wt<TICKER>` and `<TICKER>s` in production. Services that match the `wt`
+   prefix would otherwise reject every renamed token. A rename cannot be
+   reverted to the initialized metadata: `setUnderlying` overwrites the stored
+   ERC-20 name and symbol and rejects empty values.
+
+Steps 2 and 3 change no visible metadata and can be scheduled as one batch.
+Schedule step 4 as its own operation, so it can be cancelled during the delay
+without touching the beacon upgrades. `UnderlyingNamingUpgradeShadowFork.t.sol`
+runs this order against live Base state.
 
 ## Invariants
 
