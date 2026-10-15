@@ -157,6 +157,39 @@
   owner multisig. Config-in-constructor base; the Zoltu-deployable concrete
   subclass with hardcoded `LibProdDeploy*` config lands with the deploy wiring.
 
+### Subgraph
+
+- **`subgraph/` indexes role holders, role admins and ownership.**
+  `AccessControl` exposes no member list, so a role's current holders exist
+  nowhere on chain as readable state — only the `RoleGranted` / `RoleRevoked`
+  log stream has them, and public RPCs cap `eth_getLogs` at 1000 blocks, which
+  makes trawling that stream impractical on the chains ST0x deploys to. The
+  subgraph answers, per contract per chain: current holders of a role and the
+  count, the full grant/revoke history with both the event `sender` and the
+  transaction submitter, the current role admin and its history, and the current
+  owner and its history — plus the current implementation and upgrade history of
+  each beacon. One deployment per network, built and deployed by the rainix
+  subgraph tooling to Ormi (`.github/workflows/subgraph-test.yaml`,
+  `.github/workflows/deploy-subgraph.yaml`).
+
+  The indexed set is the five networks in
+  `LibStoxDeployNetworks.deploymentNetworks()`. Six static data sources — the
+  authoriser clone, the governance timelock, the wrapped-token-vault beacon, the
+  orchestrator beacon and the two beacon-set deployers — plus three templates.
+  Receipt vaults and orchestrators are discovered from their deployers'
+  `Deployment` events rather than enumerated, because listing 54 tokens a chain
+  by address would take roughly 61 data sources per network.
+
+  Two caveats are deliberate. `startBlock` is 0 on every network: no deploy
+  block is recorded anywhere in this repo, and 0 is the only lower bound that
+  cannot silently drop grant or revoke history — it costs initial sync time, not
+  correctness. And the receipt and receipt-vault beacons are created in the
+  beacon-set deployer's constructor, in a block that precedes any `Deployment`,
+  so their construction-time logs are not reachable from the template that
+  discovers them; their owner and implementation are read by call at discovery
+  instead, which `Contract.ownerFromLog` / `Contract.implementationFromLog`
+  report per row.
+
 ## V3 (corporate actions)
 
 V3 introduces the corporate-actions diamond facet and wires it into the receipt
