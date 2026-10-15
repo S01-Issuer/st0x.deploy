@@ -18,13 +18,10 @@ on:
         required: true
         type: string
       networks:
-        # Robinhood Chain (4663) is served by its Blockscout, which speaks the
-        # Etherscan API; the reusable retries through Sourcify when an
-        # explorer rejects the submission.
         description: 'Whitespace separated foundry chain ids or names'
         required: true
         type: string
-        default: '8453 1 999 56 4663'
+        default: '8453 1 999 56'
 jobs:
   verify:
     uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-verify.yaml@main
