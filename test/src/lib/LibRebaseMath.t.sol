@@ -3,9 +3,10 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {Float, LibDecimalFloat} from "rain-math-float-0.2.22/src/lib/LibDecimalFloat.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.3/src/lib/LibDecimalFloat.sol";
 import {LibRebaseMathHarness} from "./LibRebaseMathHarness.sol";
 import {BalanceExceedsInt256Max} from "src/error/ErrRebase.sol";
+import {LossyConversionToFloat} from "rain-math-float-0.3.3/src/error/ErrDecimalFloat.sol";
 
 contract LibRebaseMathTest is Test {
     LibRebaseMathHarness internal h;
@@ -58,5 +59,24 @@ contract LibRebaseMathTest is Test {
         balance = bound(balance, 0, uint256(uint224(type(int224).max)));
         Float one = LibDecimalFloat.packLossless(1, 0);
         assertEq(h.applyMultiplier(balance, one), balance);
+    }
+
+    /// Balance above type(int224).max that no Float holds exactly reverts
+    /// with LossyConversionToFloat from packLossless.
+    function testApplyAboveInt224MaxNonRoundReverts() external {
+        // forge-lint: disable-next-line(unsafe-typecast)
+        uint256 balance = uint256(uint224(type(int224).max)) + 2;
+        // forge-lint: disable-next-line(unsafe-typecast)
+        vm.expectRevert(abi.encodeWithSelector(LossyConversionToFloat.selector, int256(balance), int256(0)));
+        h.applyMultiplier(balance, LibDecimalFloat.FLOAT_ONE);
+    }
+
+    /// Fuzz: a multiple of ten above type(int224).max packs losslessly at
+    /// exponent 1, so 1x returns it unchanged.
+    function testFuzzApplyAboveInt224MaxRoundTensSucceeds(uint256 tens) external view {
+        // forge-lint: disable-next-line(unsafe-typecast)
+        tens = bound(tens, uint256(uint224(type(int224).max)) / 10 + 1, uint256(uint224(type(int224).max)));
+        uint256 balance = tens * 10;
+        assertEq(h.applyMultiplier(balance, LibDecimalFloat.FLOAT_ONE), balance);
     }
 }

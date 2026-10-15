@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
-import {LibDecimalFloat} from "rain-math-float-0.2.22/src/lib/LibDecimalFloat.sol";
+import {LibDecimalFloat} from "rain-math-float-0.3.3/src/lib/LibDecimalFloat.sol";
 
 import {IST0xOrchestratorV1, MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV1.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
