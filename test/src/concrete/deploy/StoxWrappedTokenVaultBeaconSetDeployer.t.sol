@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test, Vm} from "forge-std-1.16.1/src/Test.sol";
+import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
 import {
     StoxWrappedTokenVaultBeaconSetDeployer,
     ZeroVaultAsset,
@@ -10,13 +10,13 @@ import {
 } from "../../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
 import {StoxWrappedTokenVault} from "../../../../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxWrappedTokenVaultBeacon} from "../../../../src/concrete/StoxWrappedTokenVaultBeacon.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 import {MockERC20} from "../../../concrete/MockERC20.sol";
 import {BadInitializeVault} from "../../../concrete/BadInitializeVault.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
-import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
+import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
-import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 
 contract StoxWrappedTokenVaultBeaconSetDeployerTest is Test {
     /// newStoxWrappedTokenVault reverts with ZeroVaultAsset when asset is
@@ -61,7 +61,7 @@ contract StoxWrappedTokenVaultBeaconSetDeployerTest is Test {
     function testNewVaultInitializeVaultFailed() external {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         BadInitializeVault badImpl = new BadInitializeVault();
-        vm.prank(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+        vm.prank(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
         UpgradeableBeacon(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CANDIDATE).upgradeTo(address(badImpl));
 
         vm.expectRevert(abi.encodeWithSelector(InitializeVaultFailed.selector));

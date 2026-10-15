@@ -14,10 +14,13 @@ path = [
   "audit/**/",
   "docs/**/",
   "flake.lock",
+  ".prettierignore",
   "flake.nix",
   "foundry.toml",
+  "ideal-roles.json",
   "REUSE.toml",
   "slither.config.json",
+  "subgraph/**/",
 ]
 SPDX-FileCopyrightText = "Copyright (c) 2020 Rain Open Source Software Ltd"
 SPDX-License-Identifier = "LicenseRef-DCL-1.0"

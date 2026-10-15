@@ -6,9 +6,10 @@ import {IST0xVaultBeaconSet} from "../interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 
 /// @title LibProdBeacons0_1_1
-/// @notice The three ST0x production beacons of the deterministic **0.1.1**
-/// deployment and the implementations they point at — every address traced
-/// to the generated `0_1_1` pins rather than re-pasted as fresh literals.
+/// @notice The four ST0x production beacons of the deterministic **0.1.1**
+/// deployment and the implementations they were BOOTSTRAPPED with — every
+/// address traced to the generated `0_1_1` pins rather than re-pasted as
+/// fresh literals.
 /// The whole set is Zoltu-deterministic, so these are the SAME addresses on
 /// every chain that bootstraps at 0.1.1 (Ethereum mainnet; HyperEVM per
 /// RAI-1511).
@@ -31,10 +32,12 @@ import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 ///    NOT emitted as individual generated pointers — they are created by, and
 ///    read live from, the generated `0_1_1` beacon-set-deployer
 ///    (`STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1`) via its
-///    `iReceiptBeacon()` / `iOffchainAssetReceiptVaultBeacon()` getters. So all
-///    three beacon addresses resolve from `0_1_1` pins, none are hand-pasted.
+///    `iReceiptBeacon()` / `iOffchainAssetReceiptVaultBeacon()` getters. The
+///    orchestrator beacon is its own generated pin
+///    (`ST0X_ORCHESTRATOR_BEACON`). So all four beacon addresses resolve from
+///    generated pins, none are hand-pasted.
 ///
-/// As deployed, all three beacons are owned by
+/// As deployed, all four beacons are owned by
 /// `LibProdDeployV1.BEACON_INITIAL_OWNER` (rainlang.eth, the deploy EOA). The
 /// Ethereum migration (`20260716-migrate-beacon-owners-ethereum`) transfers
 /// them to `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM`, mirroring what
@@ -43,13 +46,15 @@ import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 // this lib exists to trace; CapWords would obscure the version.
 // slither-disable-next-line naming-convention
 library LibProdBeacons0_1_1 {
-    /// @notice The three production beacons, in a fixed order (receipt,
-    /// receipt vault, wrapped token vault) — index-aligned with
-    /// `implementations()`. The receipt / receipt-vault beacons are read from
-    /// the `0_1_1` beacon-set-deployer's getters; the wrapped beacon is its
-    /// generated `0_1_1` pin. `view` because the first two are live reads from
-    /// the deployer (which is why callers run against an Ethereum fork).
-    /// @return The three Ethereum beacon addresses.
+    /// @notice The four production beacons, in a fixed order (receipt,
+    /// receipt vault, wrapped token vault, orchestrator) — index-aligned with
+    /// `implementations()` and with `LibBeaconInvariants`' `*_BEACON_INDEX`
+    /// constants. The receipt / receipt-vault beacons are read from the
+    /// `0_1_1` beacon-set-deployer's getters; the wrapped and orchestrator
+    /// beacons are their generated pins. `view` because the first two are
+    /// live reads from the deployer (which is why callers run against a
+    /// bootstrapped chain's fork).
+    /// @return The four beacon addresses.
     function beacons() internal view returns (address[4] memory) {
         IST0xVaultBeaconSet deployer =
             IST0xVaultBeaconSet(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1);
@@ -61,11 +66,21 @@ library LibProdBeacons0_1_1 {
         ];
     }
 
-    /// @notice The implementation each beacon points at, index-aligned with
-    /// `beacons()`. Referenced from the generated `0_1_1` impl pins — the same
-    /// deterministic addresses on every chain, so no separate Ethereum copy.
-    /// Asserted unchanged across the ownership transfer.
-    /// @return The three implementation addresses.
+    /// @notice The implementation each beacon is BOOTSTRAPPED with, index-
+    /// aligned with `beacons()`. Referenced from the generated `0_1_1` impl
+    /// pins — the same deterministic addresses on every chain, so no separate
+    /// per-chain copy.
+    /// @dev **These are the bootstrap-time implementations, not the live
+    /// ones.** A fresh chain comes up serving them, and
+    /// `script/20260909-upgrade-and-migrate-token-beacons.s.sol` pre-flights
+    /// against exactly this state before moving the receipt and receipt-vault
+    /// beacons onto 0.1.30. Every chain has since run that upgrade, so on a
+    /// live fork only the wrapped-token-vault entry still matches what its
+    /// beacon serves. Do NOT "correct" the receipt / receipt-vault entries to
+    /// the live 0.1.30 impls: that would break the upgrade script's
+    /// pre-flight on the next chain to bootstrap. A caller wanting the LIVE
+    /// implementation names the `0_1_30` pin explicitly instead.
+    /// @return The four bootstrap-time implementation addresses.
     function implementations() internal pure returns (address[4] memory) {
         return [
             LibProdDeployV4.STOX_RECEIPT_0_1_1,

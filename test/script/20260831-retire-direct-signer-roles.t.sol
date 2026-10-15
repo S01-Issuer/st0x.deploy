@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 
 import {
     OrchestratorPathNotEnabled,
@@ -14,7 +14,7 @@ import {RetireDirectSignerRolesHarness} from "./RetireDirectSignerRolesHarness.s
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {SafeTx} from "../../src/lib/LibSafeOps.sol";
+import {SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
 
 /// @title RetireDirectSignerRolesTest
 /// @notice Guard coverage for `20260831-retire-direct-signer-roles` without

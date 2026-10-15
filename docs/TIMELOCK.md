@@ -10,21 +10,25 @@ After the migration executes, the timelock is:
 - the `owner()` of **every production receipt vault** — so `transferOwnership`,
   `setAuthorizer`, and every `onlyOwner` surface (including owner freezes) is
   delay-gated;
-- the `owner()` of the chain's **three in-use upgrade beacons** (receipt,
-  receipt vault, wrapped token vault) — so `upgradeTo` is delay-gated; and
+- the `owner()` of the chain's **four in-use upgrade beacons** (receipt, receipt
+  vault, wrapped token vault, orchestrator) — so `upgradeTo` is delay-gated; and
 - the **sole holder of the authoriser's seven `_ADMIN` roles** (`DEPOSIT_ADMIN`,
   `WITHDRAW_ADMIN`, `CERTIFY_ADMIN`, `CONFISCATE_SHARES_ADMIN`,
   `CONFISCATE_RECEIPT_ADMIN`, `SCHEDULE_CORPORATE_ACTION_ADMIN`,
   `CANCEL_CORPORATE_ACTION_ADMIN`) — so adding or removing grants on the
   authoriser is delay-gated.
 
+- the **sole holder of the orchestrator's `DEFAULT_ADMIN_ROLE`** (once
+  `20261006-orchestrator-admin-to-timelock` executes) — so granting or revoking
+  `MINT`, `BURN` and `EMERGENCY` on the orchestrator is delay-gated.
+
 **Why the beacons are in scope.** Every production token proxies through those
-three beacons, and a beacon owner can `upgradeTo` a new implementation for all
-of them in a single transaction — a hostile implementation could re-take vault
-ownership and rewrite the authoriser wiring outright. Timelocking
-`setAuthorizer` and vault ownership while leaving the beacons on the Safe would
-make the delay bypassable by design, so both surfaces move in the same atomic
-bundle and are forced by the same deadline.
+beacons, and a beacon owner can `upgradeTo` a new implementation for all of them
+in a single transaction — a hostile implementation could re-take vault ownership
+and rewrite the authoriser wiring outright. Timelocking `setAuthorizer` and
+vault ownership while leaving the beacons on the Safe would make the delay
+bypassable by design, so both surfaces moved in the same atomic bundle, and
+`GovernanceTimelockMigration.t.sol` pins both on the timelock.
 
 The Safe **keeps its three direct action roles** (`DEPOSIT`, `WITHDRAW`,
 `CERTIFY`) and the service signer keeps its operational grants: day-to-day
@@ -82,23 +86,25 @@ precomputable address —
 Constants (in `src/lib/LibTimelockInvariants.sol`) that future scripts and
 invariants target:
 
-| Constant                            | Holds                                     |
-| ----------------------------------- | ----------------------------------------- |
-| `STOX_GOVERNANCE_TIMELOCK`          | the Base timelock                         |
-| `STOX_GOVERNANCE_TIMELOCK_ETHEREUM` | the Ethereum timelock                     |
-| `STOX_GOVERNANCE_TIMELOCK_HYPEREVM` | the HyperEVM timelock                     |
-| `TIMELOCK_CANCELLER`                | the dedicated canceller, once provisioned |
+| Constant                             | Holds                                     |
+| ------------------------------------ | ----------------------------------------- |
+| `STOX_GOVERNANCE_TIMELOCK`           | the Base timelock                         |
+| `STOX_GOVERNANCE_TIMELOCK_ETHEREUM`  | the Ethereum timelock                     |
+| `STOX_GOVERNANCE_TIMELOCK_HYPEREVM`  | the HyperEVM timelock                     |
+| `STOX_GOVERNANCE_TIMELOCK_ROBINHOOD` | the Robinhood Chain timelock              |
+| `STOX_GOVERNANCE_TIMELOCK_BSC`       | the BNB Smart Chain timelock              |
+| `TIMELOCK_CANCELLER`                 | the dedicated canceller, once provisioned |
 
 Every pin is written with its chain arm, derived from the frozen creation
 bytecode and that chain's Safe pin before any deploy —
 `testPinsMatchDerivedAddresses` asserts each equality unconditionally, so a
 wrong or zeroed pin cannot survive CI. A zero pin is never a legitimate phase:
-every consumer (the deploy pre-flight, the migration authoring, the
-migration-window suite) refuses it as a reverted or never-hydrated arm rather
-than proceeding against a wrong address. All three pins are hydrated and their
-timelocks live.
+every consumer (the deploy pre-flight, the migration authoring,
+`assertTimelockState`) refuses it as a reverted or never-hydrated arm rather
+than proceeding against a wrong address. All five timelocks are live at their
+pins.
 
-## Rollout (per chain: Base, Ethereum, HyperEVM)
+## Rollout (per chain: Base, Ethereum, HyperEVM, Robinhood Chain, BNB Smart Chain)
 
 1. **Chain arm + pin** — a governed chain's `LibTimelockInvariants` arm is added
    WITH its pin, derived from the frozen creation bytecode and the chain's Safe
@@ -111,7 +117,7 @@ timelocks live.
    landing at its derived address, fully configured by its constructor.
 3. **Author the migration bundle** — Actions → `run-script` →
    `20260729-migrate-governance-to-timelock`, network `base` / `ethereum` /
-   `hyperevm`. Emits the Safe Tx Builder JSON
+   `hyperevm` / `robinhood` / `bsc`. Emits the Safe Tx Builder JSON
    (`out/20260729-governance-timelock-migration-<chainid>.json`) after a full
    pre-flight, simulation, post-state assertion, and an end-to-end schedule →
    48h → execute proof on the fork. The logged MultiSend `SafeTxHash` is the
@@ -123,19 +129,18 @@ timelocks live.
    — which re-derives the bundle from current chain state, asserts the artifact
    matches byte-exactly, and prints the MultiSend `SafeTxHash` at the live nonce
    to cross-check in the Safe UI. Then execute. The bundle is atomic: 7 `_ADMIN`
-   grants to the timelock → N vault `transferOwnership` → 3 beacon
-   `transferOwnership` → 7 Safe renounces.
-5. **Post-execution flip PR** — repoint the strict uniform-ownership invariants
-   (`LibInvariants.assertAll`, `LibTokenInvariants` consumers,
-   `StoxProdV2`/`LibInvariants` fork tests, cross-chain parity, and the
-   Safe-expecting beacon-owner asserts — the `StoxProdV4` and
-   `HyperEvmBeaconOwnership` fork tests plus the live deploy-script pre-flights
-   on `assertProdBeaconsOwnedByChainSafe`) from the Safe to the timelock, and
-   retire the spent branch of the migration-window suite.
+   grants to the timelock → N vault `transferOwnership` → one beacon
+   `transferOwnership` per in-use beacon (four) → 7 Safe renounces.
+5. **Post-execution flip** — every production invariant asserts the timelock
+   exactly: vault owner (`LibTokenInvariants.assertAll` / `LibInvariants`),
+   beacon owner (`LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock`,
+   `LibOrchestratorInvariants.assertBeaconSet`) and `_ADMIN` holder
+   (`LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe, timelock)`).
+   The migration has executed on all five chains, so this is the current state.
 
-The forcing function: `GovernanceTimelockMigration.t.sol` accepts
-Safe-or-timelock per surface until **2026-10-01T00:00:00Z**, then demands the
-timelock. An unfinished rollout red-lines cron past that date.
+`GovernanceTimelockMigration.t.sol` pins the governed state on every chain. The
+migration script's own tests rewind each fork to the pre-migration state with
+the timelock's powers, so the script stays re-dispatchable and proven.
 
 ## Rehearsing the timelock
 
@@ -187,9 +192,12 @@ Every admin action becomes two Safe transactions separated by ≥48h:
    `authoriser.grantRole(DEPOSIT, newSigner)`,
    `vault.setAuthorizer(newAuthoriser)`, `vault.transferOwnership(newOwner)`).
    Batch multiple calls with `scheduleBatch`.
-2. **Wait** out the delay. Anyone can watch pending operations via
-   `CallScheduled` events; the Safe (or the dedicated canceller, once
-   provisioned) can `cancel(id)` during the window.
+2. **Wait** out the delay. Anyone can watch pending operations on the
+   rain-org-health dashboard's Role changes tab,
+   <https://rainlanguage.github.io/rain-org-health/deployments.html>, which
+   reads each network's timelock operations live from this repo's RBAC subgraph
+   (`st0x-rbac-<network>`, version `prod`); the Safe (or the dedicated
+   canceller, once provisioned) can `cancel(id)` during the window.
 3. **Execute**: Safe → `timelock.execute(target, 0, data, 0, salt)` (or
    `executeBatch`) with the identical arguments.
 
@@ -206,21 +214,93 @@ way to resolve it.
 
 ## Invariants
 
-- `LibTimelockInvariants.assertTimelockState(timelock, safe)` — codehash
-  (against the pinned `TIMELOCK_RUNTIME_CODEHASH` literal of the frozen
-  `TIMELOCK_CREATION_CODE` generation, so a compiler-settings or dependency
-  change cannot drift the expectation away from the live deployment), 48h min
-  delay, the full role model above, no open roles, no root admin outside the
-  timelock itself.
+- `LibTimelockInvariants.assertTimelockState(timelock, safe)` — rain-deploy's
+  `LibTimelockController.assertTimelockState` at the 48h delay: codehash
+  (against the `TimelockController` record of the rain-deploy release this repo
+  pins, so the expectation moves only with a deliberate rain-deploy bump, which
+  `testPinsMatchDerivedAddresses` then holds to the live addresses), the full
+  role model above, no open roles, no root admin outside the timelock itself.
 - `LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe,
   timelock)` —
-  the single master grant map, parameterised on the admin holder; post-migration
+  the single master grant map, parameterised on the admin holder; production
   consumers pass the timelock.
-- `LibTokenInvariants.assertUniformOwnershipMigration` /
-  `LibBeaconInvariants.assertProdBeaconsOwnershipMigration` /
-  `GovernanceTimelockMigration.t.sol` — the migration window + deadline (see
-  above), over vault ownership, beacon ownership and `_ADMIN` holding.
+- `LibTokenInvariants.assertUniformOwnership` /
+  `LibBeaconInvariants.assertProdBeaconsOwnedBy` /
+  `GovernanceTimelockMigration.t.sol` — vault ownership, beacon ownership and
+  exclusive `_ADMIN` holding on the timelock, per chain.
+
+## Orchestrator roles
+
+The orchestrator instance is governed through two dated scripts, each recorded
+by the Safe in `rain-deploy`'s `MigrationRegistry` (`LibStoxMigrations`), and
+`LibOrchestratorInvariants.assertInstance` asserts exactly the role state the
+records imply:
+
+1. `20261006-grant-orchestrator-emergency` — the Safe takes `EMERGENCY_ROLE`
+   while it still administers the orchestrator directly, and records the
+   governance-timelock migration (as history) and the grant.
+2. `20261006-orchestrator-admin-to-timelock` — `DEFAULT_ADMIN_ROLE` moves from
+   the Safe to the timelock, recorded onto the grant, so the registry refuses it
+   on a chain where step 1 has not executed.
+
+`MINT`, `BURN` and `EMERGENCY` are themselves operations and stay off the
+timelock; who may hold them is delay-gated, in both directions. Revoking a
+leaked `MINT` or `BURN` key is also a 48h timelock operation; the orchestrator
+has no pause, and `EMERGENCY` covers only withdraw, sweep and `setBurnIndex`.
+The immediate levers are the key's own `renounceRole`, which the legitimate
+holder can still call, and the Safe's direct `CERTIFY` on the authoriser:
+forcing a token's certification to expire blocks ordinary transfers of that
+token, which stops the orchestrator delivering mints of it, but it freezes every
+holder of that token too. The `CERTIFY` lever holds only while the leaked key
+cannot certify the token again: the service signer holds `CERTIFY` on the
+authoriser as well as `MINT` and `BURN` on the orchestrator, and revoking that
+`CERTIFY` is itself a timelock operation. Schedule the timelock revokes (`MINT`
+/ `BURN` on the orchestrator, and `CERTIFY` on the authoriser when the leaked
+key holds it) at the same time as the Safe expires the certification.
+
+The two steps are separate bundles by choice: the `EMERGENCY` grant is needed
+now and is signed on its own, while the admin move is a separate governance
+decision, signed once the grant has landed. Before signing step 2, on each
+chain, read the rain-org-health dashboard's Role changes tab
+(<https://rainlanguage.github.io/rain-org-health/deployments.html>; the
+equivalent subgraph queries are in the script's NatSpec):
+
+- cancel every timelock operation still pending against the orchestrator: once
+  the timelock is admin, a leftover `grantRole` or `revokeRole` there becomes
+  executable by anyone;
+- confirm the Safe is the orchestrator's only current `DEFAULT_ADMIN_ROLE`
+  holder. Role membership is not enumerable on chain, so the invariants check
+  only the Safe and the timelock; a third holder would survive the move with
+  immediate admin power.
+
+**Per-role admin roles.** An orchestrator implementation that gives each
+operating role its own self-administered admin role (`MINT_ADMIN`, `BURN_ADMIN`,
+`EMERGENCY_ADMIN`), installed by a `migrate(admin)` callable only by
+`DEFAULT_ADMIN_ROLE`, changes what "admin on the timelock" means: the timelock
+must then hold `DEFAULT_ADMIN_ROLE` **and** each `*_ADMIN` role, and the Safe
+none of them. Because each `*_ADMIN` administers itself, `DEFAULT_ADMIN_ROLE`
+cannot take one back once granted, so `migrate` must be called with the timelock
+as `admin`.
+
+- **Step 2 must execute on every chain before that upgrade, or any upgrade of
+  the orchestrator, receipt-vault or receipt beacon, is scheduled.** If one
+  lands first, step 2 refuses there (its pre-flight pins the 0.1.30
+  implementation, the vault logic it was built against and the current role
+  admins), the Safe keeps `DEFAULT_ADMIN_ROLE`, and it can call `migrate(safe)`
+  directly, handing itself the self-administered `*_ADMIN` roles.
+- With step 2 executed, the beacon upgrade and `migrate(timelock)` are both
+  timelock operations and go in one `scheduleBatch`. In that implementation
+  `MINT_ADMIN` also sets the mint caps and the mint weighting, and `mint`
+  reverts while either is unset, so the same batch must set them; otherwise
+  minting halts until a second timelock operation lands at least 48h later. Each
+  new mint recipient's limit is likewise a 48h timelock operation before its
+  first mint.
 
 ## Explicitly out of scope (follow-ups)
+
+- **New Base tokens** are deployed by the sft-ops CD pipeline, not by a script
+  here. It must hand each new vault to `STOX_GOVERNANCE_TIMELOCK`
+  (`transferOwnership`); a vault left on the Safe fails the token and governance
+  invariants as soon as it is pinned.
 
 - **Dedicated canceller** — see the role model above.

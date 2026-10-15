@@ -18,18 +18,7 @@ contract LibBeaconInvariantsHarness {
         return LibBeaconInvariants.prodBeaconsForChainId(chainId);
     }
 
-    function callAssertProdBeaconsOwnedByChainSafe(uint256 chainId) external view {
-        LibBeaconInvariants.assertProdBeaconsOwnedByChainSafe(chainId);
-    }
-
-    function callAssertProdBeaconsOwnedBy(uint256 chainId, address expectedOwner) external view {
-        LibBeaconInvariants.assertProdBeaconsOwnedBy(chainId, expectedOwner);
-    }
-
-    function callAssertProdBeaconsOwnershipMigration(uint256 chainId, address pre, address post, uint256 deadline)
-        external
-        view
-    {
-        LibBeaconInvariants.assertProdBeaconsOwnershipMigration(chainId, pre, post, deadline);
+    function callAssertProdBeaconsOwnedByChainTimelock(uint256 chainId) external view {
+        LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(chainId);
     }
 }

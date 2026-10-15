@@ -3,8 +3,7 @@
 pragma solidity ^0.8.25;
 
 /// @notice A contract of the audited 0.1.30 closure has no runtime code at
-/// its pinned address on the active chain. Ship the closure first via
-/// `manual-sol-artifacts-0-1-30.yaml`.
+/// its pinned address on the active chain. Ship the closure first.
 /// @param pinned The pinned closure address that is missing.
 error ClosureNotDeployed(address pinned);
 

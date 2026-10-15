@@ -2,11 +2,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Script} from "forge-std-1.16.1/src/Script.sol";
-import {VmSafe} from "forge-std-1.16.1/src/Vm.sol";
-import {LibCodeGen} from "rain-sol-codegen-0.1.3/src/lib/LibCodeGen.sol";
-import {LibFs} from "rain-sol-codegen-0.1.3/src/lib/LibFs.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {Script} from "forge-std-1.17.0/src/Script.sol";
+import {VmSafe} from "forge-std-1.17.0/src/Vm.sol";
+import {LibCodeGen} from "rain-sol-codegen-0.1.39/src/lib/LibCodeGen.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
@@ -66,11 +65,11 @@ contract BuildPointers is Script {
     function buildContractPointers(string memory name, bytes memory creationCode) internal {
         address deployed = LibRainDeploy.deployZoltu(creationCode);
 
-        LibFs.buildFileForContract(
-            vm,
-            deployed,
-            string.concat(deployTag(), "/", name),
+        vm.writeFile(
+            string.concat("src/generated/", deployTag(), "/", name, ".pointers.sol"),
             string.concat(
+                LibCodeGen.filePrefix(),
+                LibCodeGen.bytecodeHashConstantString(vm, deployed),
                 LibCodeGen.addressConstantString(
                     vm,
                     "/// @dev The deterministic deploy address of the contract when deployed via\n/// the Zoltu factory.",
@@ -88,14 +87,7 @@ contract BuildPointers is Script {
     }
 
     function run() external {
-        // The beacon-set deployers and the wrapped-vault beacon resolve their
-        // initial owner from `block.chainid` (the chain's token-owner Safe)
-        // and refuse a chain with no Safe pin, which the local build chain
-        // is. Pin the generator to Base: the pointers it derives — Zoltu
-        // address, creation code, runtime code and their hashes — are
-        // functions of the creation code alone and identical on every chain;
-        // only the constructed beacon's owner storage differs, and that is
-        // not a pointer.
+        // The beacon constructors resolve their owner from `block.chainid`; the pointers are chain-invariant.
         vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         LibRainDeploy.etchZoltuFactory(vm);
 
@@ -150,10 +142,7 @@ contract BuildPointers is Script {
 
     string constant GEN_V4_PATH = "src/generated/LibProdDeployV4.sol";
     string constant GEN_CURRENT_PATH = "src/generated/LibProdDeployCurrent.sol";
-    // The beacon owner the DEPLOYED 0.1.1 / 0.1.30 artifacts bake in
-    // (rainlang.eth). Emitted into `LibProdDeployV4` as deploy history only:
-    // current source resolves each chain's token-owner Safe at construction
-    // instead, so `LibProdDeployCurrent` carries no owner.
+    // Deploy history only: the owner the 0.1.1 / 0.1.30 artifacts bake in. Current source resolves the timelock.
     string constant GEN_OWNER = "0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b";
 
     // REUSE-IgnoreStart  (the two SPDX lines below are the header EMITTED into
@@ -250,7 +239,7 @@ contract BuildPointers is Script {
     /// @notice All release-tag dirs under `src/generated`, numeric-sorted
     /// (`readDir` order is unspecified, so an explicit sort keeps the
     /// generated output deterministic).
-    function deployTags() internal returns (string[] memory tags) {
+    function deployTags() internal view returns (string[] memory tags) {
         VmSafe.DirEntry[] memory entries = vm.readDir("src/generated");
         string[] memory tmp = new string[](entries.length);
         uint256 n = 0;
@@ -278,7 +267,7 @@ contract BuildPointers is Script {
         }
     }
 
-    function pointerExists(string memory tag, string memory name) internal returns (bool) {
+    function pointerExists(string memory tag, string memory name) internal view returns (bool) {
         return vm.exists(string.concat("src/generated/", tag, "/", name, ".pointers.sol"));
     }
 
@@ -368,6 +357,20 @@ contract BuildPointers is Script {
         vm.writeLine(
             GEN_V4_PATH,
             "address constant STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);"
+        );
+        // Robinhood Chain and BNB Smart Chain V4 authoriser clones: the logged
+        // addresses of the `20260619-deploy-v4-authoriser-clone` broadcasts.
+        // `CloneFactory.clone` is a plain CREATE, so the address is a function
+        // of the factory and its nonce alone; each chain's first clone from its
+        // fresh factory (nonce 1) lands at the Ethereum / HyperEVM address. The
+        // impl plays no part, which is why Base, same impl and factory, differs.
+        vm.writeLine(
+            GEN_V4_PATH,
+            "address constant STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);"
+        );
+        vm.writeLine(
+            GEN_V4_PATH,
+            "address constant STOX_PROD_AUTHORISER_V4_CLONE_BSC = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);"
         );
         vm.writeLine(GEN_V4_PATH, "uint256 constant V4_SWAP_DEADLINE = 1_793_491_200;");
         // ST0x orchestrator beacon + production instance — CREATE-derived

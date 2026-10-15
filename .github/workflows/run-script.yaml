@@ -21,21 +21,14 @@ on:
           # scripts exist, not *whether* they've run.
           #
           # Broadcast scripts (dispatched with `--broadcast` from the CI
-          # deploy key) live in `manual-broadcast.yaml` instead. The
-          # `20260619-deploy-v4-authoriser-clone` entry stays listed here
-          # too, but dispatching via run-script.yaml is DRY-RUN ONLY (no
-          # `--broadcast`) — useful as a pre-flight smoke test.
-          - 20260619-deploy-v4-authoriser-clone
-          - 20260623-upgrade-receipt-vaults-to-v4
-          - 20260722-swap-rklb-authoriser
-          - 20260722-swap-remaining-vault-authorisers
-          - 20260723-provision-additional-service-signer
+          # deploy key) live in `manual-broadcast.yaml` instead.
           - 20260729-migrate-governance-to-timelock
           - 20260813-timelock-rehearsal-schedule
           - 20260813-timelock-rehearsal-cancel
-          - 20260831-enable-orchestrator-roles
           - 20260831-retire-direct-signer-roles
-          - 20260825-upgrade-fleet-to-0-1-30
+          - 20261006-grant-eu-authoriser-roles
+          - 20261006-grant-orchestrator-emergency
+          - 20261006-orchestrator-admin-to-timelock
       network:
         description: 'Network to author against (default: base)'
         required: true
@@ -50,6 +43,8 @@ on:
           - 'base'
           - 'ethereum'
           - 'hyperevm'
+          - 'robinhood'
+          - 'bsc'
       sig:
         description: 'Entrypoint to dispatch (default: run())'
         required: true
@@ -111,6 +106,8 @@ jobs:
           BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
           ETHEREUM_RPC_URL: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
           HYPEREVM_RPC_URL: ${{ secrets.RPC_URL_HYPEREVM_FORK }}
+          ROBINHOOD_RPC_URL: ${{ secrets.RPC_URL_ROBINHOOD_FORK }}
+          BSC_RPC_URL: ${{ secrets.RPC_URL_BSC_FORK }}
           # Pass the choice inputs via env rather than template-expanding them
           # into the command, so a dispatch (even one crafted via the API) is
           # used as a literal argument and cannot inject shell.

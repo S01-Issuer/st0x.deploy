@@ -2,20 +2,24 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Script} from "forge-std-1.16.1/src/Script.sol";
-import {console2} from "forge-std-1.16.1/src/console2.sol";
-import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
-import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
-import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/TimelockController.sol";
+import {Script} from "forge-std-1.17.0/src/Script.sol";
+import {console2} from "forge-std-1.17.0/src/console2.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
+import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 
-import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 
-import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
-import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
+import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJson.sol";
+import {LibSafe} from "rain-deploy-0.1.18/src/lib/LibSafe.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 
@@ -131,9 +135,9 @@ error GovernanceLoopNotProven(bytes32 id);
 ///   2. Transfers ownership of every production receipt vault from the
 ///      Safe to the timelock (`transferOwnership` — single-step
 ///      `OwnableUpgradeable`).
-///   3. Transfers ownership of the chain's three in-use upgrade beacons
-///      (receipt, receipt vault, wrapped token vault) from the Safe to the
-///      timelock (`transferOwnership` — single-step `Ownable`).
+///   3. Transfers ownership of the chain's in-use upgrade beacons
+///      (receipt, receipt vault, wrapped token vault, orchestrator) from the
+///      Safe to the timelock (`transferOwnership` — single-step `Ownable`).
 ///   4. Renounces the Safe's own copy of each `_ADMIN` role
 ///      (`renounceRole` — last, so the Safe stays fully empowered until
 ///      every grant and transfer has landed inside the same atomic batch).
@@ -175,8 +179,8 @@ error GovernanceLoopNotProven(bytes32 id);
 ///    timelock pin is hydrated and `assertTimelockState` passes (codehash,
 ///    48h delay, Safe as sole proposer/canceller/executor,
 ///    self-administration, no open roles); the chain's V4 authoriser clone
-///    carries the pinned codehash and its six operational grants (service
-///    signer + Safe action roles) are intact.
+///    carries the pinned codehash and its operational grants (service
+///    signer, Safe and orchestrator action roles) are intact.
 /// 2. **Select** — still-Safe-owned vaults, still-Safe-owned beacons and
 ///    still-Safe-held `_ADMIN` roles, from live chain state.
 /// 3. **Build** — grants, then vault transfers, then beacon transfers,
@@ -223,7 +227,7 @@ contract MigrateGovernanceToTimelock is Script {
     }
 
     /// @notice The chain's V4 authoriser clone, selected by chain id from
-    /// `LibProdDeployV4`. Both chains' clones proxy the same Zoltu-deployed
+    /// `LibProdDeployV4`. Every chain's clone proxies the same Zoltu-deployed
     /// 0.1.1 impl address, so they share one EIP-1167 codehash pin.
     /// @return The active chain's authoriser clone.
     function activeChainAuthoriser() internal view returns (address) {
@@ -235,6 +239,12 @@ contract MigrateGovernanceToTimelock is Script {
         }
         if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
             return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM;
+        }
+        if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD;
+        }
+        if (block.chainid == LibSafeInvariants.BSC_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC;
         }
         revert UnsupportedChainForTokenTable(block.chainid);
     }
@@ -250,6 +260,12 @@ contract MigrateGovernanceToTimelock is Script {
         }
         if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
             return LibTokenInvariants.productionTokensHyperEvm();
+        }
+        if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
+            return LibTokenInvariants.productionTokensRobinhood();
+        }
+        if (block.chainid == LibSafeInvariants.BSC_CHAIN_ID) {
+            return LibTokenInvariants.productionTokensBsc();
         }
         revert UnsupportedChainForTokenTable(block.chainid);
     }
@@ -276,7 +292,7 @@ contract MigrateGovernanceToTimelock is Script {
     function run() external {
         // --- Pre-flight ---------------------------------------------------
 
-        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid));
+        Safe safe = Safe(payable(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid)));
 
         address timelock = activeChainTimelock();
         if (timelock == address(0)) revert TimelockNotPinned(block.chainid);
@@ -318,12 +334,12 @@ contract MigrateGovernanceToTimelock is Script {
         // a single MultiSend at this nonce, so this is the hash signers
         // cross-check in the Safe UI.
         uint256 nonce = safe.nonce();
-        bytes32 bundleSafeTxHash = LibSafeOps.computeMultiSendSafeTxHash(safe, txs, nonce);
+        bytes32 bundleSafeTxHash = LibSafeTx.multiSendSafeTxHash(safe, txs, nonce);
 
         // --- Simulate -----------------------------------------------------
 
         for (uint256 i = 0; i < txs.length; i++) {
-            LibSafeOps.simulateExternalCall(safe, txs[i].to, txs[i].data);
+            LibSafeFork.simulateCall(vm, safe, txs[i].to, txs[i].data);
         }
 
         // --- Post-state ---------------------------------------------------
@@ -355,7 +371,7 @@ contract MigrateGovernanceToTimelock is Script {
     /// same bundle this check proves byte-identical.
     /// @param jsonPath Filesystem path to the downloaded Tx Builder JSON.
     function verify(string calldata jsonPath) external view {
-        IGnosisSafe safe = IGnosisSafe(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid));
+        Safe safe = Safe(payable(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid)));
         address timelock = activeChainTimelock();
         if (timelock == address(0)) revert TimelockNotPinned(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock, address(safe));
@@ -377,21 +393,19 @@ contract MigrateGovernanceToTimelock is Script {
     }
 
     /// @notice Compare a parsed artifact against the live-derived bundle
-    /// via the shared `LibSafeOps.assertParsedTxsMatch`, then log the
+    /// via `LibSafeTxBuilderJson.requireMatches`, then log the
     /// canonical MultiSend `SafeTxHash` at the live nonce for the Safe-UI
     /// cross-check. Split from `verify` for the same legacy-codegen
     /// stack-limit reason as `_assertPostState`.
     /// @param safe The chain's token-owner Safe.
     /// @param expected The bundle derived from live state.
     /// @param jsonPath Filesystem path to the artifact under verification.
-    function _verifyArtifact(IGnosisSafe safe, SafeTx[] memory expected, string calldata jsonPath) internal view {
-        LibSafeOps.assertParsedTxsMatch(expected, jsonPath);
+    function _verifyArtifact(Safe safe, SafeTx[] memory expected, string calldata jsonPath) internal view {
+        LibSafeTxBuilderJson.requireMatches(vm, vm.readFile(jsonPath), address(safe), expected);
 
         uint256 nonce = safe.nonce();
         console2.log("Artifact verified against live state.");
-        console2.log(
-            "Bundle MultiSend SafeTxHash:", vm.toString(LibSafeOps.computeMultiSendSafeTxHash(safe, expected, nonce))
-        );
+        console2.log("Bundle MultiSend SafeTxHash:", vm.toString(LibSafeTx.multiSendSafeTxHash(safe, expected, nonce)));
         console2.log("Nonce:", nonce);
     }
 
@@ -412,7 +426,7 @@ contract MigrateGovernanceToTimelock is Script {
     {
         string memory artifactPath =
             string.concat("out/20260729-governance-timelock-migration-", vm.toString(block.chainid), ".json");
-        string memory json = LibSafeOps.emitTxBuilderJson(safe, block.chainid, BUNDLE_NAME, txs);
+        string memory json = LibSafeTxBuilderJson.toJson(vm, safe, block.chainid, BUNDLE_NAME, txs);
         vm.writeFile(artifactPath, json);
 
         console2.log("==== TX BUILDER JSON BEGIN ====");
@@ -443,7 +457,7 @@ contract MigrateGovernanceToTimelock is Script {
     /// @param beaconImplsBefore The beacon implementations captured before
     /// the bundle, index-aligned with `prodBeaconsForChainId`.
     function _assertPostState(
-        IGnosisSafe safe,
+        Safe safe,
         address timelock,
         address authoriser,
         TokenInstance[] memory tokens,
@@ -470,8 +484,8 @@ contract MigrateGovernanceToTimelock is Script {
             }
         }
 
-        LibSafeInvariants.assertImmutableInvariants(safe);
-        LibSafeInvariants.assertThreshold(safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
+        LibSafe.assertLockedDown(safe);
+        LibSafe.assertThreshold(safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
         LibTimelockInvariants.assertTimelockState(timelock, address(safe));
     }
 
@@ -659,7 +673,7 @@ contract MigrateGovernanceToTimelock is Script {
                 to: authoriser,
                 value: 0,
                 data: abi.encodeCall(IAccessControl.grantRole, (targets.grantRoles[i], timelock)),
-                operation: 0
+                operation: Enum.Operation.Call
             });
             t++;
         }
@@ -668,7 +682,7 @@ contract MigrateGovernanceToTimelock is Script {
                 to: targets.vaults[i],
                 value: 0,
                 data: abi.encodeCall(Ownable.transferOwnership, (timelock)),
-                operation: 0
+                operation: Enum.Operation.Call
             });
             t++;
         }
@@ -677,7 +691,7 @@ contract MigrateGovernanceToTimelock is Script {
                 to: targets.beacons[i],
                 value: 0,
                 data: abi.encodeCall(Ownable.transferOwnership, (timelock)),
-                operation: 0
+                operation: Enum.Operation.Call
             });
             t++;
         }
@@ -686,7 +700,7 @@ contract MigrateGovernanceToTimelock is Script {
                 to: authoriser,
                 value: 0,
                 data: abi.encodeCall(IAccessControl.renounceRole, (targets.renounceRoles[i], safe)),
-                operation: 0
+                operation: Enum.Operation.Call
             });
             t++;
         }
@@ -704,7 +718,7 @@ contract MigrateGovernanceToTimelock is Script {
     /// @param safe The chain's token-owner Safe.
     /// @param timelock The chain's governance timelock.
     /// @param authoriser The chain's authoriser clone.
-    function _proveGovernanceLoop(IGnosisSafe safe, address timelock, address authoriser) internal {
+    function _proveGovernanceLoop(Safe safe, address timelock, address authoriser) internal {
         bytes memory adminAction = abi.encodeCall(
             IAccessControl.grantRole, (keccak256("DEPOSIT"), LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C)
         );
@@ -716,7 +730,7 @@ contract MigrateGovernanceToTimelock is Script {
             TimelockController.schedule,
             (authoriser, 0, adminAction, bytes32(0), LOOP_PROOF_SALT, LibTimelockInvariants.TIMELOCK_MIN_DELAY)
         );
-        LibSafeOps.simulateNPlus1(safe, timelock, scheduleData, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
+        LibSafeFork.simulateNPlus1(vm, safe, timelock, scheduleData);
 
         // Inside the window: pending, not executable.
         if (!controller.isOperationPending(id) || controller.isOperationReady(id)) {
@@ -731,7 +745,7 @@ contract MigrateGovernanceToTimelock is Script {
         }
         bytes memory executeData =
             abi.encodeCall(TimelockController.execute, (authoriser, 0, adminAction, bytes32(0), LOOP_PROOF_SALT));
-        LibSafeOps.simulateNPlus1(safe, timelock, executeData, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
+        LibSafeFork.simulateNPlus1(vm, safe, timelock, executeData);
         if (!controller.isOperationDone(id)) {
             revert GovernanceLoopNotProven(id);
         }

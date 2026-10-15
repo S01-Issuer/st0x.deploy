@@ -2,11 +2,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Test, Vm} from "forge-std-1.16.1/src/Test.sol";
-import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
-import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
-import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
-import {IERC165} from "@openzeppelin-contracts-5.6.1/utils/introspection/IERC165.sol";
+import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
+import {IERC165} from "@openzeppelin-contracts-5.7.0/utils/introspection/IERC165.sol";
 
 import {
     ST0xOrchestratorBeaconSetDeployer,
@@ -16,7 +16,11 @@ import {UpgradedImpl} from "./UpgradedImpl.sol";
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IST0xVaultBeaconSet} from "../../../../src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
-import {LibSafeInvariants, UnsupportedChainForTokenOwnerSafe} from "../../../../src/lib/LibSafeInvariants.sol";
+import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
+import {
+    LibTimelockInvariants,
+    UnsupportedChainForGovernanceTimelock
+} from "../../../../src/lib/LibTimelockInvariants.sol";
 import {IST0xOrchestratorBeaconSetDeployerV1} from "../../../../src/interface/IST0xOrchestratorBeaconSetDeployerV1.sol";
 
 contract ST0xOrchestratorBeaconSetDeployerTest is Test {
@@ -33,8 +37,6 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     ST0xOrchestrator internal impl;
 
     function setUp() public {
-        // The beacon owner is the active chain's token-owner Safe; the local
-        // chain has no Safe pin, so pin the test to Base.
         vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         impl = new ST0xOrchestrator();
         // The Zoltu deployer hardcodes the beacon implementation to the fixed
@@ -84,27 +86,27 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
         IBeacon beacon = d.iOrchestratorBeacon();
         assertEq(beacon.implementation(), LibProdDeployV4.ST0X_ORCHESTRATOR_CANDIDATE, "beacon impl");
-        assertEq(Ownable(address(beacon)).owner(), LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, "beacon owner");
+        assertEq(Ownable(address(beacon)).owner(), LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, "beacon owner");
     }
 
     /// The owner follows the chain: on Ethereum's chain id the same
-    /// constructor hands the beacon to Ethereum's token-owner Safe.
+    /// constructor hands the beacon to Ethereum's governance timelock.
     function testConstructorOwnerFollowsTheChain() external {
         vm.chainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
         assertEq(
             Ownable(address(d.iOrchestratorBeacon())).owner(),
-            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM,
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ETHEREUM,
             "beacon owner"
         );
     }
 
-    /// A chain with no pinned token-owner Safe cannot construct the
-    /// deployer: there is no owner to hand the beacon to, so it refuses
-    /// rather than defaulting to an EOA or to another chain's Safe.
-    function testConstructorRefusesAChainWithoutASafePin() external {
+    /// A chain with no pinned governance timelock cannot construct the
+    /// deployer: it refuses rather than defaulting to an EOA or to another
+    /// chain's timelock.
+    function testConstructorRefusesAChainWithoutATimelockPin() external {
         vm.chainId(123456);
-        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForTokenOwnerSafe.selector, 123456));
+        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForGovernanceTimelock.selector, 123456));
         new ST0xOrchestratorBeaconSetDeployer();
     }
 
@@ -168,7 +170,7 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
 
         UpgradedImpl newImpl = new UpgradedImpl();
         // The beacon owner is the chain's token-owner Safe, not a deploy param.
-        vm.prank(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+        vm.prank(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
         UpgradeableBeacon(address(beacon)).upgradeTo(address(newImpl));
 
         // Call through the proxy proves live delegation to the new impl.
@@ -176,7 +178,7 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     }
 
     function testFuzzBeaconUpgradeUnauthorised(address notOwner) external {
-        vm.assume(notOwner != LibSafeInvariants.STOX_TOKEN_OWNER_SAFE && notOwner != address(0));
+        vm.assume(notOwner != LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK && notOwner != address(0));
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
         IBeacon beacon = d.iOrchestratorBeacon();
         UpgradedImpl newImpl = new UpgradedImpl();

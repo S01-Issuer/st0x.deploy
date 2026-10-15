@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Script} from "forge-std-1.16.1/src/Script.sol";
-import {console2} from "forge-std-1.16.1/src/console2.sol";
-import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {Script} from "forge-std-1.17.0/src/Script.sol";
+import {console2} from "forge-std-1.17.0/src/console2.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
@@ -105,10 +105,12 @@ contract DeployGovernanceTimelock is Script {
     /// @return nets The network names, matching `foundry.toml`'s
     /// `[rpc_endpoints]` aliases.
     function networks() internal pure returns (string[] memory nets) {
-        nets = new string[](3);
+        nets = new string[](5);
         nets[0] = LibRainDeploy.BASE;
         nets[1] = LibStoxDeployNetworks.ETHEREUM;
         nets[2] = LibStoxDeployNetworks.HYPEREVM;
+        nets[3] = LibStoxDeployNetworks.ROBINHOOD;
+        nets[4] = LibStoxDeployNetworks.BSC;
     }
 
     /// @notice The active chain's governance-timelock pin. Virtual so the

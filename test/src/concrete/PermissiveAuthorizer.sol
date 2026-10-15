@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {IAuthorizeV1, Unauthorized} from "rain-vats-0.1.6/src/interface/IAuthorizeV1.sol";
+import {IAuthorizeV1, Unauthorized} from "rain-vats-0.2.4/src/interface/IAuthorizeV1.sol";
 
 /// @dev Permissive authorizer used by the fallback routing tests. Records the
 /// most recent call and allows every permission by default so we can exercise
@@ -18,6 +18,9 @@ contract PermissiveAuthorizer is IAuthorizeV1 {
         denyMode = deny;
     }
 
+    // A test double that records whatever it is asked to authorise, the zero
+    // address included.
+    // forge-lint: disable-next-line(missing-zero-check)
     function authorize(address user, bytes32 permission, bytes memory data) external override {
         callCount++;
         lastUser = user;

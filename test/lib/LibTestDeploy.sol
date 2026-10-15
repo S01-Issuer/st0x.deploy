@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {Vm} from "forge-std-1.16.1/src/Vm.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
+import {Vm} from "forge-std-1.17.0/src/Vm.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {StoxReceipt} from "../../src/concrete/StoxReceipt.sol";
@@ -21,15 +21,11 @@ import {
 /// @title LibTestDeploy
 /// @notice Deploys the full Stox contract suite via Zoltu in a test
 /// environment. Etches the Zoltu factory and deploys each contract,
-/// asserting deterministic addresses match LibProdDeployV4.
-///
-/// The beacons resolve their initial owner from `block.chainid` (the chain's
-/// token-owner Safe), and the local test chain has no Safe pin, so every
-/// deploy helper first pins the test to Base's chain id. Tests that assert
-/// beacon ownership expect `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE`.
+/// asserting deterministic addresses match LibProdDeployV4. Every deploy
+/// helper pins the chain to Base so the beacon constructors resolve a
+/// timelock; the beacons come up owned by
+/// `LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK`.
 library LibTestDeploy {
-    /// @notice Pin the active chain id to Base so the beacon constructors
-    /// resolve a Safe. Idempotent.
     function selectBaseChainId(Vm vm) internal {
         vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
     }

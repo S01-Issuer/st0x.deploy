@@ -2,15 +2,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
+import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
-
-/// @notice A pinned `(role, grantee)` pair on the production authoriser.
-struct RoleGrant {
-    bytes32 role;
-    address grantee;
-}
+import {RoleGrant} from "./RoleGrant.sol";
 
 /// @notice An expected `(role, grantee)` pair is not held on the authoriser.
 /// Surfaces the exact pair that breaks the role-grant invariant rather than
@@ -20,14 +16,6 @@ struct RoleGrant {
 /// @param grantee The grantee that should hold the role.
 error ExpectedGrantMissing(address authoriser, bytes32 role, address grantee);
 
-/// @notice A pinned grantee unexpectedly holds `DEFAULT_ADMIN_ROLE`. The role
-/// hierarchy admins each action role by its own `<ROLE>_ADMIN`, never by
-/// `DEFAULT_ADMIN_ROLE`, so a root-admin holder is an unexpected escalation
-/// path outside the pinned grant map.
-/// @param authoriser The authoriser inspected.
-/// @param holder The grantee found to hold `DEFAULT_ADMIN_ROLE`.
-error UnexpectedDefaultAdmin(address authoriser, address holder);
-
 /// @notice The authoriser's runtime codehash does not match the pinned
 /// EIP-1167 minimal-proxy codehash, i.e. the clone does not proxy the
 /// audited implementation.
@@ -35,23 +23,6 @@ error UnexpectedDefaultAdmin(address authoriser, address holder);
 /// @param expected The pinned EIP-1167 codehash.
 /// @param actual The codehash observed on-chain.
 error AuthoriserImplCodehashMismatch(address authoriser, bytes32 expected, bytes32 actual);
-
-/// @notice The token-owner Safe still holds an `_ADMIN` role that the map
-/// assigns to a distinct admin holder. The `_ADMIN` slice must be held
-/// EXCLUSIVELY: a Safe that keeps a copy can grant or revoke action roles
-/// directly, bypassing the delay the admin holder (the governance timelock)
-/// exists to impose.
-/// @param authoriser The authoriser inspected.
-/// @param role The `_ADMIN` role the Safe unexpectedly retains.
-/// @param holder The Safe retaining it.
-error UnexpectedRetainedAdminGrant(address authoriser, bytes32 role, address holder);
-
-/// @notice The retired service signer holds an action role it was revoked
-/// from. The `20260810-revoke-fireblocks-service-signer` bundles removed
-/// every grant the retired signer held; any re-grant is unsanctioned drift.
-/// @param authoriser The authoriser carrying the unexpected grant.
-/// @param role The action role the retired signer holds.
-error UnexpectedRetiredSignerGrant(address authoriser, bytes32 role);
 
 /// @notice Dispatched against a chain without a hydrated authoriser pin.
 /// @param chainId The active chain id.
@@ -62,8 +33,14 @@ error UnsupportedChainForAuthoriser(uint256 chainId);
 /// @param authoriser The authoriser address inspected.
 error AuthoriserNotReady(address authoriser);
 
+/// @notice The pinned EU assets authoriser clone has no code, or does not
+/// carry the EIP-1167 codehash that proves which implementation it proxies.
+/// @param clone The clone address inspected.
+error EuAuthoriserNotReady(address clone);
+
 /// @title LibAuthoriserInvariants
-/// @notice Reusable invariants for the ST0x production authoriser on Base:
+/// @notice Reusable invariants for the ST0x production authoriser on every
+/// chain:
 /// the grantee constants and the single master `(role, grantee)` map every
 /// consumer asserts. Each assertion either returns silently when the
 /// invariant holds against the live chain state or reverts with a typed
@@ -81,19 +58,88 @@ error AuthoriserNotReady(address authoriser);
 /// and `LibTokenInvariants`; individually callable via `assertAll()` for
 /// the focused authoriser drift detector.
 library LibAuthoriserInvariants {
+    /// @notice A chain's V4 authoriser clone pin, raw: `address(0)` while the
+    /// slot is a placeholder. Reverts for a chain without a slot rather than
+    /// falling back to another chain's clone. The one chain-to-clone table;
+    /// the deploy script and every invariant read it.
+    /// @param chainId The chain id.
+    /// @return The pinned clone, or zero for a placeholder slot.
+    function authoriserForChainId(uint256 chainId) internal pure returns (address) {
+        if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        }
+        if (chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
+        }
+        if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM;
+        }
+        if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD;
+        }
+        if (chainId == LibSafeInvariants.BSC_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC;
+        }
+        revert UnsupportedChainForAuthoriser(chainId);
+    }
+
+    /// @notice The EU assets authoriser clone on Base.
+    /// https://basescan.org/address/0xdb9152e46c1d140db6a6f814461f21c571f3275e
+    address internal constant STOX_EU_AUTHORISER_CLONE = address(0xDB9152e46c1D140DB6a6f814461f21c571F3275e);
+
+    /// @notice The EU assets authoriser clone on Ethereum. Shared with
+    /// HyperEVM, Robinhood Chain and BNB Smart Chain, which share the Safe
+    /// the clone's init data carries as initial admin.
+    address internal constant STOX_EU_AUTHORISER_CLONE_ETHEREUM = address(0x8Fc06579571A105C5a699FA11d95b9c73747f8eb);
+
+    /// @notice The EU assets authoriser clone on HyperEVM.
+    address internal constant STOX_EU_AUTHORISER_CLONE_HYPEREVM = STOX_EU_AUTHORISER_CLONE_ETHEREUM;
+
+    /// @notice The EU assets authoriser clone on Robinhood Chain.
+    address internal constant STOX_EU_AUTHORISER_CLONE_ROBINHOOD = STOX_EU_AUTHORISER_CLONE_ETHEREUM;
+
+    /// @notice The EU assets authoriser clone on BNB Smart Chain.
+    address internal constant STOX_EU_AUTHORISER_CLONE_BSC = STOX_EU_AUTHORISER_CLONE_ETHEREUM;
+
+    /// @notice A chain's EU assets authoriser clone pin. Reverts for a chain
+    /// without a slot rather than falling back to another chain's clone.
+    /// @param chainId The chain id.
+    /// @return The pinned clone.
+    function euAuthoriserForChainId(uint256 chainId) internal pure returns (address) {
+        if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
+            return STOX_EU_AUTHORISER_CLONE;
+        }
+        if (chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
+            return STOX_EU_AUTHORISER_CLONE_ETHEREUM;
+        }
+        if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
+            return STOX_EU_AUTHORISER_CLONE_HYPEREVM;
+        }
+        if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
+            return STOX_EU_AUTHORISER_CLONE_ROBINHOOD;
+        }
+        if (chainId == LibSafeInvariants.BSC_CHAIN_ID) {
+            return STOX_EU_AUTHORISER_CLONE_BSC;
+        }
+        revert UnsupportedChainForAuthoriser(chainId);
+    }
+
+    /// @notice Asserts a chain's pinned EU assets authoriser clone is deployed
+    /// and proxies the audited implementation. Role state is not asserted here:
+    /// it changes when the Safe bundle executes, and the deployment does not.
+    /// @param chainId The chain id.
+    function assertEuAuthoriserDeployed(uint256 chainId) internal view {
+        address clone = euAuthoriserForChainId(chainId);
+        if (clone.code.length == 0 || clone.codehash != LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH) {
+            revert EuAuthoriserNotReady(clone);
+        }
+    }
+
     /// @notice The active chain's hydrated V4 authoriser clone, asserted
     /// deployed with the shared EIP-1167 codehash.
     /// @return authoriser The validated authoriser address.
     function activeChainAuthoriser() internal view returns (address authoriser) {
-        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
-        } else if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
-        } else if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
-            authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM;
-        } else {
-            revert UnsupportedChainForAuthoriser(block.chainid);
-        }
+        authoriser = authoriserForChainId(block.chainid);
         if (
             authoriser == address(0) || authoriser.code.length == 0
                 || authoriser.codehash != LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH
@@ -112,84 +158,57 @@ library LibAuthoriserInvariants {
     /// https://basescan.org/address/0x315b16faa6ee413fabca877d3851b3818369f0cd
     address internal constant STOX_PROD_AUTHORISER = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
 
-    /// @notice The role-admin hierarchy sets `<ROLE>_ADMIN` as the admin of
-    /// each action role rather than `DEFAULT_ADMIN_ROLE`. Consequently no
-    /// `DEFAULT_ADMIN_ROLE` grant was emitted at init and no address holds
-    /// it. Pinned as the explicit expectation so `assertExpectedGrants`
-    /// reverts `UnexpectedDefaultAdmin` if any pinned grantee holds it.
-    bytes32 internal constant DEFAULT_ADMIN_ROLE = bytes32(0);
-
     /// @notice The number of `_ADMIN` roles in the grant map — its LEADING
     /// slice, so `expectedGrants(...)[0..ADMIN_ROLE_COUNT)` are exactly the
     /// entries that track the admin holder. The slice's position and length
     /// are pinned by `testExpectedGrantsAdminHolderParameterisation`.
     uint256 internal constant ADMIN_ROLE_COUNT = 7;
 
-    /// @notice The ST0x token-owner Safe — holds every `_ADMIN` role on the
-    /// production authoriser and was later granted DEPOSIT, WITHDRAW and
-    /// CERTIFY as a privileged operator. Identical to
+    /// @notice The ST0x token-owner Safe — holds DEPOSIT, WITHDRAW and
+    /// CERTIFY on the production authoriser as a privileged operator; the
+    /// `_ADMIN` roles are on the governance timelock. Identical to
     /// `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE`; re-exported as a grantee
     /// constant for call-site clarity.
     address internal constant GRANTEE_TOKEN_OWNER_SAFE = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
 
-    /// @notice The RETIRED original service EOA — Fireblocks-custodied. It
-    /// holds NOTHING on any chain's authoriser: its `DEPOSIT`, `WITHDRAW`
-    /// and `CERTIFY` were revoked on every chain by the
-    /// `20260810-revoke-fireblocks-service-signer` Safe bundles (executed
-    /// Aug 2026), and `assertExpectedGrants` asserts that absence so a
-    /// re-grant red-lines cron. Kept as an audit-trail constant.
-    /// https://basescan.org/address/0x1c66d6708914c40239d54919320b4c48cae3d1a9
-    address internal constant GRANTEE_SERVICE_1C66 = 0x1c66D6708914C40239D54919320b4C48cAE3D1A9;
-
-    /// @notice The service EOA holding the three action roles on each
-    /// chain's authoriser. Provisioned on each live chain's authoriser by
-    /// the `20260723-provision-additional-service-signer` Safe bundle; the
-    /// ADDRESS is shared across chains while the grants are per-chain
-    /// state.
+    /// @notice The service EOA: `CERTIFY` on each chain's authoriser and
+    /// `MINT` and `BURN` on the orchestrator. Same address on every chain.
     address internal constant GRANTEE_SERVICE_3D0C = 0x3d0CD66EFA66c05d86c3d4316B03eAE87ab9E8aE;
 
+    /// @notice The production orchestrator instance, granted `DEPOSIT` and
+    /// `WITHDRAW` on each chain's authoriser by
+    /// `20260831-enable-orchestrator-roles` so the service signer can mint
+    /// and burn through it. Same address on every chain.
+    address internal constant GRANTEE_ORCHESTRATOR = LibProdDeployV4.ST0X_ORCHESTRATOR_INSTANCE;
+
+    /// @notice The minter for the EU assets authoriser, holding `DEPOSIT` and
+    /// `WITHDRAW` — mint and redeem — where the shared service signer holds
+    /// them on the US authoriser. The EU clone is the same implementation at
+    /// the same role structure; this address is the only thing that differs,
+    /// which is why the map below is parameterised on it rather than restated.
+    address internal constant GRANTEE_EU_MINTER = 0x0958d9E94D9D4139280947ACd86D4a50F13bfA8C;
+
     /// @notice The full `(role, grantee)` map in effect on the Base
-    /// production authoriser. Delegates to the Safe-parametric overload with
-    /// Base's token-owner Safe.
-    /// @return grants The pinned `(role, grantee)` pairs for Base.
-    function expectedGrants() internal pure returns (RoleGrant[] memory grants) {
-        grants = expectedGrants(GRANTEE_TOKEN_OWNER_SAFE);
+    /// production authoriser: Base's token-owner Safe in the operational
+    /// slots, Base's governance timelock holding the seven `_ADMIN` roles.
+    /// @return The pinned `(role, grantee)` pairs for Base.
+    function expectedGrants() internal pure returns (RoleGrant[] memory) {
+        return expectedGrants(GRANTEE_TOKEN_OWNER_SAFE, LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
     }
 
-    /// @notice The canonical `(role, grantee)` map the current production
-    /// authoriser must carry, parameterised on the chain's token-owner Safe
-    /// (the STRUCTURE is chain-agnostic; service signers are shared across
-    /// chains, the Safe address is per-chain). The single source of truth
-    /// every live-state invariant asserts: a chain is red on any pair until
-    /// the operation that grants it executes there, and drift-guarded
-    /// thereafter.
-    /// @param tokenOwnerSafe The chain's token-owner Safe filling the Safe
-    /// grantee slots.
-    /// @return grants The `(role, grantee)` pairs for that chain.
-    function expectedGrants(address tokenOwnerSafe) internal pure returns (RoleGrant[] memory grants) {
-        grants = expectedGrants(tokenOwnerSafe, tokenOwnerSafe);
-    }
-
-    /// @notice The `(role, grantee)` map parameterised on BOTH the chain's
-    /// token-owner Safe AND the holder of the seven `_ADMIN` roles. Before
-    /// the governance-timelock migration the Safe is the admin holder (the
-    /// two-arg call sites above collapse the parameters); after the
-    /// migration the seven `_ADMIN` roles sit on the governance timelock
-    /// while the Safe keeps its three direct action roles. This overload is
-    /// the single map both states are expressed through, so the migration
-    /// script's post-state and the post-migration invariant surface assert
-    /// the same structure the pre-migration consumers do.
+    /// @notice The canonical `(role, grantee)` map the production authoriser
+    /// must carry, parameterised on the chain's token-owner Safe and the
+    /// holder of the seven `_ADMIN` roles — the chain's governance timelock
+    /// in production; the Safe keeps its three direct action roles. The
+    /// STRUCTURE is chain-agnostic: service signers are shared across chains,
+    /// the Safe and timelock are per-chain. The single source of truth every
+    /// live-state invariant asserts.
     /// @param tokenOwnerSafe The chain's token-owner Safe filling the
     /// operational Safe grantee slots.
-    /// @param adminHolder The holder of the seven `_ADMIN` roles (the Safe
-    /// pre-migration, the governance timelock post-migration).
-    /// @return grants The `(role, grantee)` pairs for that chain.
-    function expectedGrants(address tokenOwnerSafe, address adminHolder)
-        internal
-        pure
-        returns (RoleGrant[] memory grants)
-    {
-        grants = new RoleGrant[](13);
+    /// @param adminHolder The holder of the seven `_ADMIN` roles.
+    /// @return The `(role, grantee)` pairs for that chain.
+    function expectedGrants(address tokenOwnerSafe, address adminHolder) internal pure returns (RoleGrant[] memory) {
+        RoleGrant[] memory grants = new RoleGrant[](13);
 
         // Init grants (block 41715184 on Base) — the admin holder receives
         // every `_ADMIN` (the Safe at init; the governance timelock once the
@@ -212,110 +231,98 @@ library LibAuthoriserInvariants {
         grants[8] = RoleGrant(keccak256("WITHDRAW"), tokenOwnerSafe);
         grants[9] = RoleGrant(keccak256("CERTIFY"), tokenOwnerSafe);
 
-        // Service signer, provisioned by the 20260723 bundle per chain. The
-        // retired `GRANTEE_SERVICE_1C66` deliberately has no rows: its
-        // revocation is asserted as an ABSENCE in `assertExpectedGrants`.
-        grants[10] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_SERVICE_3D0C);
-        grants[11] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_SERVICE_3D0C);
-        grants[12] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_3D0C);
+        grants[10] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_3D0C);
+        grants[11] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_ORCHESTRATOR);
+        grants[12] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_ORCHESTRATOR);
+        return grants;
     }
 
-    /// @notice Assert every pinned `(role, grantee)` pair in
-    /// `expectedGrants()` is held on the supplied authoriser, and that no
-    /// pinned grantee holds `DEFAULT_ADMIN_ROLE`. Reverts with
-    /// `UnexpectedDefaultAdmin` if a pinned grantee holds the root admin
-    /// role, or `ExpectedGrantMissing` on the first missing pair, surfacing
-    /// the exact role + grantee that broke the invariant.
-    /// @dev Parameterised on the authoriser address so the same assertion
-    /// can run against the pinned production clone AND against a
-    /// freshly-deployed clone (a script's pre-flight on a swap target)
-    /// without duplicating the iteration. The `DEFAULT_ADMIN_ROLE` check is
-    /// a negative assertion over the pinned grantees, not an exhaustive
-    /// scan (a plain `AccessControl` cannot enumerate members).
+    /// @notice A region's authoriser map: every `_ADMIN` on the admin holder
+    /// and every operational role on that region's wallet. Distinct from the
+    /// US production map, which additionally grants to the shared service
+    /// signer and the orchestrator — a region's authoriser grants to that
+    /// region's operators only.
+    /// @param adminHolder The holder of the seven `_ADMIN` roles.
+    /// @param minter The region's wallet, holding all seven operational roles.
+    /// @param additionalCertifier A second `CERTIFY` holder alongside the
+    /// region's wallet.
+    /// @return The `(role, grantee)` pairs for that authoriser.
+    function expectedEuGrants(address adminHolder, address minter, address additionalCertifier)
+        internal
+        pure
+        returns (RoleGrant[] memory)
+    {
+        // Every `_ADMIN` on the admin holder, every operational role on the
+        // region's wallet, and nothing else. `tokenOwnerSafe` is the writer
+        // that executes the bundle, not a grantee: it holds the `_ADMIN`
+        // roles only until it has granted with them and renounced.
+        //
+        // The seven pairs are the ones the live clone reports: for each role
+        // below, `getRoleAdmin(role)` is the matching `_ADMIN`, checked on
+        // the deployed 0.1.1 implementation rather than read off 0.2.4's
+        // source, which declares only five of them.
+        RoleGrant[] memory grants = new RoleGrant[](15);
+
+        grants[0] = RoleGrant(keccak256("DEPOSIT_ADMIN"), adminHolder);
+        grants[1] = RoleGrant(keccak256("WITHDRAW_ADMIN"), adminHolder);
+        grants[2] = RoleGrant(keccak256("CERTIFY_ADMIN"), adminHolder);
+        grants[3] = RoleGrant(keccak256("CONFISCATE_SHARES_ADMIN"), adminHolder);
+        grants[4] = RoleGrant(keccak256("CONFISCATE_RECEIPT_ADMIN"), adminHolder);
+        grants[5] = RoleGrant(keccak256("SCHEDULE_CORPORATE_ACTION_ADMIN"), adminHolder);
+        grants[6] = RoleGrant(keccak256("CANCEL_CORPORATE_ACTION_ADMIN"), adminHolder);
+
+        grants[7] = RoleGrant(keccak256("DEPOSIT"), minter);
+        grants[8] = RoleGrant(keccak256("WITHDRAW"), minter);
+        grants[9] = RoleGrant(keccak256("CERTIFY"), minter);
+        grants[10] = RoleGrant(keccak256("CONFISCATE_SHARES"), minter);
+        grants[11] = RoleGrant(keccak256("CONFISCATE_RECEIPT"), minter);
+        grants[12] = RoleGrant(keccak256("SCHEDULE_CORPORATE_ACTION"), minter);
+        grants[13] = RoleGrant(keccak256("CANCEL_CORPORATE_ACTION"), minter);
+
+        // An additional certifier alongside the region's wallet. `CERTIFY` is
+        // the one operational role with a second holder; every other one is
+        // the minter's alone.
+        grants[14] = RoleGrant(keccak256("CERTIFY"), additionalCertifier);
+        return grants;
+    }
+
+    /// @notice Assert the Base map (`expectedGrants()`) on the supplied
+    /// authoriser. See the three-argument overload.
     /// @param authoriser The authoriser to validate.
     function assertExpectedGrants(address authoriser) internal view {
-        assertExpectedGrants(authoriser, GRANTEE_TOKEN_OWNER_SAFE);
+        assertExpectedGrants(authoriser, GRANTEE_TOKEN_OWNER_SAFE, LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
     }
 
-    /// @notice Assert every `(role, grantee)` pair from
-    /// `expectedGrants(tokenOwnerSafe)` is held on the supplied authoriser, and
-    /// that neither the Safe nor the service signer holds `DEFAULT_ADMIN_ROLE`.
-    /// Parameterised on the chain's token-owner Safe so the identical grant
-    /// STRUCTURE is asserted against each chain's authoriser with that chain's
-    /// Safe address (the service signer is shared).
-    /// @param authoriser The authoriser to validate.
-    /// @param tokenOwnerSafe The chain's token-owner Safe filling the Safe
-    /// grantee slots.
-    function assertExpectedGrants(address authoriser, address tokenOwnerSafe) internal view {
-        assertExpectedGrants(authoriser, tokenOwnerSafe, tokenOwnerSafe);
-    }
-
-    /// @notice Assert every `(role, grantee)` pair from
-    /// `expectedGrants(tokenOwnerSafe, adminHolder)` is held on the supplied
-    /// authoriser, that no named principal — the Safe, the admin holder,
-    /// the service signer — holds `DEFAULT_ADMIN_ROLE`, and that when the
-    /// admin holder is distinct from the Safe, the Safe retains NO `_ADMIN`
-    /// entry (exclusive holding — a retained copy would let the Safe mutate
-    /// the grant map without the admin holder's delay). This is the
-    /// post-timelock-migration assertion surface: the migration script's
-    /// post-state and the migration-window invariants call it with the
+    /// @notice Assert the supplied authoriser holds every
+    /// `expectedGrants(tokenOwnerSafe, adminHolder)` pair. This is the
+    /// assertion surface every production consumer calls with the chain's
     /// governance timelock as `adminHolder`.
     /// @param authoriser The authoriser to validate.
     /// @param tokenOwnerSafe The chain's token-owner Safe filling the
     /// operational Safe grantee slots.
     /// @param adminHolder The holder of the seven `_ADMIN` roles.
     function assertExpectedGrants(address authoriser, address tokenOwnerSafe, address adminHolder) internal view {
-        IAccessControl acl = IAccessControl(authoriser);
-        // No pinned grantee holds DEFAULT_ADMIN_ROLE: the hierarchy admins each
-        // action role by its own `<ROLE>_ADMIN`, so a root-admin holder would
-        // be an escalation path the pinned map does not sanction.
-        if (acl.hasRole(DEFAULT_ADMIN_ROLE, tokenOwnerSafe)) {
-            revert UnexpectedDefaultAdmin(authoriser, tokenOwnerSafe);
-        }
-        if (acl.hasRole(DEFAULT_ADMIN_ROLE, adminHolder)) {
-            revert UnexpectedDefaultAdmin(authoriser, adminHolder);
-        }
-        if (acl.hasRole(DEFAULT_ADMIN_ROLE, GRANTEE_SERVICE_1C66)) {
-            revert UnexpectedDefaultAdmin(authoriser, GRANTEE_SERVICE_1C66);
-        }
-        if (acl.hasRole(DEFAULT_ADMIN_ROLE, GRANTEE_SERVICE_3D0C)) {
-            revert UnexpectedDefaultAdmin(authoriser, GRANTEE_SERVICE_3D0C);
-        }
-        assertRetiredSignerAbsent(acl, authoriser);
-        RoleGrant[] memory grants = expectedGrants(tokenOwnerSafe, adminHolder);
-        for (uint256 i = 0; i < grants.length; i++) {
-            if (!acl.hasRole(grants[i].role, grants[i].grantee)) {
-                revert ExpectedGrantMissing(authoriser, grants[i].role, grants[i].grantee);
-            }
-        }
-        // Exclusive `_ADMIN` holding: with a distinct admin holder, a Safe
-        // that retains any admin entry can grant or revoke action roles
-        // directly, bypassing the delay the admin holder exists to impose.
-        // The slice is positional (the map's leading `ADMIN_ROLE_COUNT`
-        // entries) rather than matched by grantee address, which would
-        // mis-slice if the admin holder aliased another grantee.
-        if (adminHolder != tokenOwnerSafe) {
-            for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
-                if (acl.hasRole(grants[i].role, tokenOwnerSafe)) {
-                    revert UnexpectedRetainedAdminGrant(authoriser, grants[i].role, tokenOwnerSafe);
-                }
+        assertHeld(authoriser, expectedGrants(tokenOwnerSafe, adminHolder));
+    }
+
+    /// @notice Revert on the first `expected` pair `authoriser` does not hold.
+    /// @param authoriser The authoriser.
+    /// @param expected The pairs it must hold.
+    function assertHeld(address authoriser, RoleGrant[] memory expected) internal view {
+        for (uint256 i = 0; i < expected.length; i++) {
+            if (!IAccessControl(authoriser).hasRole(expected[i].role, expected[i].grantee)) {
+                revert ExpectedGrantMissing(authoriser, expected[i].role, expected[i].grantee);
             }
         }
     }
 
-    /// @notice Assert the retired signer's revocation as an absence: it must
-    /// hold none of the three action roles the
-    /// `20260810-revoke-fireblocks-service-signer` bundles revoked, so a
-    /// re-grant red-lines rather than passing silently.
-    /// @param acl The authoriser as an `IAccessControl`.
-    /// @param authoriser The authoriser address, for the revert.
-    function assertRetiredSignerAbsent(IAccessControl acl, address authoriser) internal view {
-        bytes32[3] memory actionRoles = [keccak256("DEPOSIT"), keccak256("WITHDRAW"), keccak256("CERTIFY")];
-        for (uint256 i = 0; i < actionRoles.length; i++) {
-            if (acl.hasRole(actionRoles[i], GRANTEE_SERVICE_1C66)) {
-                revert UnexpectedRetiredSignerGrant(authoriser, actionRoles[i]);
-            }
-        }
+    /// @notice Assert a region's authoriser holds every
+    /// `expectedEuGrants(adminHolder, minter, GRANTEE_SERVICE_3D0C)` pair.
+    /// @param authoriser The authoriser to validate.
+    /// @param adminHolder The holder of the seven `_ADMIN` roles.
+    /// @param minter The region's wallet.
+    function assertExpectedEuGrants(address authoriser, address adminHolder, address minter) internal view {
+        assertHeld(authoriser, expectedEuGrants(adminHolder, minter, GRANTEE_SERVICE_3D0C));
     }
 
     /// @notice Full authoriser-side invariant bundle against the current

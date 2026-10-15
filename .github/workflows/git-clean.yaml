@@ -23,6 +23,8 @@ jobs:
         run: nix develop github:rainlanguage/rainix#sol-shell -c forge soldeer install
       - name: Regenerate pointer artifacts + deploy libs
         run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildPointers.sol
+      - name: Regenerate ideal-roles.json
+        run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildIdealRoles.sol
       - name: Format
         run: nix develop github:rainlanguage/rainix#sol-shell -c forge fmt
       - name: Assert committed artifacts match freshly built
