@@ -13,6 +13,9 @@ contract RecordingReceiver {
     uint256 public observedAliceBalance;
     uint256 public observedRecvBalance;
 
+    // A test double storing the collaborator it is handed. Rejecting zero here
+    // would only stop the suite exercising the zero case.
+    // forge-lint: disable-next-line(missing-zero-check)
     constructor(StoxReceipt receipt_, address alice_) {
         RECEIPT = receipt_;
         ALICE = alice_;

@@ -23,7 +23,7 @@ bytes32 constant ERC1155_STORAGE_LOCATION =
 ///   slot+2: string _uri
 /// If OZ changes this layout, this library MUST be updated and
 /// `testErc1155SlotConstantMatchesDerivation` in the accompanying test file
-/// will fail first. See the "Breaking dependency bumps" section of `CLAUDE.md`.
+/// will fail first.
 library LibERC1155Storage {
     /// @dev Derive the storage slot holding `_balances[id][account]`. The
     /// nested mapping resolves in two steps:

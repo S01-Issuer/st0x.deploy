@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {CompletionFilter, NODE_NONE} from "../lib/LibCorporateActionNode.sol";
-import {Float} from "rain-math-float-0.1.1/src/lib/LibDecimalFloat.sol";
+import {Float} from "rain-math-float-0.2.22/src/lib/LibDecimalFloat.sol";
 
 /// @dev Bitmap action type for V1 vault initialisation. Created once per
 /// vault by the first `scheduleCorporateAction` call as the head of the

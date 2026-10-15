@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.1/src/Test.sol";
-import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensions/IERC20Metadata.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.4/src/lib/LibRainDeploy.sol";
-import {LibProdTokenConfig, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {LibProdTokenConfig, TokenConfig, Region, UnknownUnderlying} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
 
 /// @title LibProdTokenConfigTest
@@ -18,14 +18,35 @@ import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvari
 /// the parity pin asserts every chain against this table, and this test
 /// asserts the table against live Base.
 contract LibProdTokenConfigTest is Test {
-    /// The config table and the Base address table pair by index: same
-    /// length, same `underlying` in the same order.
+    /// The config table and the Base address table pair by index over every
+    /// row Base carries: same `underlying` in the same order. The config table
+    /// may run AHEAD of Base — a row is authored when a ticker is chosen and
+    /// Base is pinned when its deploy lands, and `_selectMissing` reads only
+    /// the rows Base carries — but a config table SHORTER than Base would
+    /// leave a deployed token with no name/symbol to copy, so that is the
+    /// failure.
     function testConfigAlignsWithBaseTokenTable() external pure {
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensBase();
-        assertEq(configs.length, tokens.length, "config/table length mismatch");
-        for (uint256 i = 0; i < configs.length; i++) {
+        assertGe(configs.length, tokens.length, "config table shorter than Base table");
+        for (uint256 i = 0; i < tokens.length; i++) {
             assertEq(configs[i].underlying, tokens[i].underlying, "underlying order/key mismatch");
+        }
+    }
+
+    /// No `underlying` appears twice in the config table — guards the
+    /// ahead-of-Base window, where a ticker authored early could be appended
+    /// a second time when its Base deploy is pinned.
+    function testConfigHasNoDuplicateUnderlyings() external pure {
+        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        for (uint256 i = 0; i < configs.length; i++) {
+            for (uint256 j = i + 1; j < configs.length; j++) {
+                assertNotEq(
+                    keccak256(bytes(configs[i].underlying)),
+                    keccak256(bytes(configs[j].underlying)),
+                    string.concat("duplicate config underlying: ", configs[i].underlying)
+                );
+            }
         }
     }
 
@@ -36,7 +57,7 @@ contract LibProdTokenConfigTest is Test {
         vm.createSelectFork(LibRainDeploy.BASE);
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensBase();
-        for (uint256 i = 0; i < configs.length; i++) {
+        for (uint256 i = 0; i < tokens.length; i++) {
             IERC20Metadata vault = IERC20Metadata(tokens[i].receiptVault);
             assertEq(
                 configs[i].name, vault.name(), string.concat(configs[i].underlying, ": config name != live Base name")
@@ -58,7 +79,7 @@ contract LibProdTokenConfigTest is Test {
         vm.createSelectFork(LibRainDeploy.BASE);
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensBase();
-        for (uint256 i = 0; i < configs.length; i++) {
+        for (uint256 i = 0; i < tokens.length; i++) {
             IERC20Metadata wrapped = IERC20Metadata(tokens[i].wrappedTokenVault);
             assertEq(
                 wrapped.name(),
@@ -71,5 +92,19 @@ contract LibProdTokenConfigTest is Test {
                 string.concat(configs[i].underlying, ": wrapped symbol derivation drift")
             );
         }
+    }
+
+    function testRegionOf() external pure {
+        assertEq(uint8(LibProdTokenConfig.regionOf("MC")), uint8(Region.EU));
+        assertEq(uint8(LibProdTokenConfig.regionOf("SNES")), uint8(Region.US));
+    }
+
+    function externalRegionOf(string memory underlying) external pure returns (Region) {
+        return LibProdTokenConfig.regionOf(underlying);
+    }
+
+    function testRegionOfUnknownUnderlyingReverts() external {
+        vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "MC.PA"));
+        this.externalRegionOf("MC.PA");
     }
 }
