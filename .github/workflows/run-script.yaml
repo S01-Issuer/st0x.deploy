@@ -91,7 +91,7 @@ jobs:
       group: run-script-${{ inputs.script }}-${{ inputs.sig }}-${{ inputs.network }}
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
       - uses: DeterminateSystems/nix-installer-action@21a544727d0c62386e78b4befe52d19ad12692e3 # v17
@@ -119,7 +119,7 @@ jobs:
             --rpc-url "${NETWORK}" \
             --no-storage-caching
       - name: Upload script output
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           # Artifact name encodes both script + sig so the run() and
           # mirrorGrants() outputs of the same script don't clobber each other

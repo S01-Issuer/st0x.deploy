@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {Float, LibDecimalFloat} from "rain-math-float-0.2.22/src/lib/LibDecimalFloat.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.3/src/lib/LibDecimalFloat.sol";
 import {BalanceExceedsInt256Max} from "../error/ErrRebase.sol";
 
 /// @title LibRebaseMath
@@ -25,6 +25,9 @@ library LibRebaseMath {
     /// Reverts with `BalanceExceedsInt256Max` if `balance > type(int256).max`
     /// — such a balance would wrap to a negative `int256` and produce a
     /// silently incorrect Float coefficient.
+    ///
+    /// Reverts with `LossyConversionToFloat(balance, 0)` if `balance` is above
+    /// `type(int224).max` and no Float holds it exactly.
     ///
     /// @param balance The stored balance in wei.
     /// @param multiplier The Rain Float multiplier to apply.
