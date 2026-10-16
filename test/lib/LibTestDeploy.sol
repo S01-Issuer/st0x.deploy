@@ -7,6 +7,7 @@ import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {StoxReceipt} from "../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../src/concrete/StoxReceiptVault.sol";
+import {StoxCorporateActionsFacet} from "../../src/concrete/StoxCorporateActionsFacet.sol";
 import {StoxWrappedTokenVault} from "../../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxWrappedTokenVaultBeacon} from "../../src/concrete/StoxWrappedTokenVaultBeacon.sol";
 import {
@@ -43,6 +44,14 @@ library LibTestDeploy {
 
     function deployOffchainAssetReceiptVaultBeaconSet(Vm vm) internal {
         LibRainDeploy.etchZoltuFactory(vm);
+
+        // The vault pins the facet: its fallback, and its name() / symbol(),
+        // read from this address.
+        address facet = LibRainDeploy.deployZoltu(type(StoxCorporateActionsFacet).creationCode);
+        require(
+            facet == LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE,
+            "StoxCorporateActionsFacet address mismatch"
+        );
 
         address receipt = LibRainDeploy.deployZoltu(type(StoxReceipt).creationCode);
         require(receipt == LibProdDeployV4.STOX_RECEIPT_CANDIDATE, "StoxReceipt address mismatch");

@@ -9,11 +9,9 @@ import {
 import {ReceiptVaultConfigV2} from "rain-vats-0.2.5/src/abstract/ReceiptVault.sol";
 import {IReceiptVaultV3} from "rain-vats-0.2.5/src/interface/IReceiptVaultV3.sol";
 import {IReceiptV3} from "rain-vats-0.2.5/src/interface/IReceiptV3.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 import {StoxUnifiedDeployer} from "../../../src/concrete/deploy/StoxUnifiedDeployer.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../../src/concrete/StoxWrappedTokenVault.sol";
-import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {IStoxUnderlyingV1} from "../../../src/interface/IStoxUnderlyingV1.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
@@ -27,8 +25,6 @@ contract StoxUnderlyingIntegrationTest is Test {
 
     function setUp() public {
         LibTestDeploy.deployAll(vm);
-        address facet = LibRainDeploy.deployZoltu(type(StoxCorporateActionsFacet).creationCode);
-        require(facet == LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE, "facet address mismatch");
 
         OffchainAssetReceiptVaultConfigV2 memory config = OffchainAssetReceiptVaultConfigV2({
             initialAdmin: address(this),
@@ -68,6 +64,32 @@ contract StoxUnderlyingIntegrationTest is Test {
         assertEq(vault.name(), "NVIDIA Corporation (ST0x)");
         assertEq(wrapper.symbol(), "NVDAs");
         assertEq(wrapper.name(), "NVIDIA Corporation (ST0x)");
+    }
+
+    /// With no facet code at the pinned address, both tokens keep the
+    /// metadata stored at initialization rather than reverting, even if the
+    /// underlying was set earlier.
+    function testNoFacetFallsBackToStoredMetadata() external {
+        IStoxUnderlyingV1(address(vault)).setUnderlying("NVDA", "NVIDIA Corporation");
+        vm.etch(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE, "");
+        assertEq(vault.symbol(), "tNVDA");
+        assertEq(vault.name(), "NVIDIA Corporation ST0x");
+        assertEq(wrapper.symbol(), "wtNVDA");
+        assertEq(wrapper.name(), "Wrapped NVIDIA Corporation ST0x");
+    }
+
+    /// A facet answer shorter than a string head, or a reverting facet,
+    /// also falls back to the stored metadata.
+    function testShortOrRevertingFacetFallsBackToStoredMetadata() external {
+        IStoxUnderlyingV1(address(vault)).setUnderlying("NVDA", "NVIDIA Corporation");
+        // PUSH1 0x20 PUSH1 0x00 RETURN: one zero word.
+        vm.etch(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE, hex"60206000f3");
+        assertEq(vault.symbol(), "tNVDA");
+        assertEq(vault.name(), "NVIDIA Corporation ST0x");
+        // PUSH1 0x00 PUSH1 0x00 REVERT.
+        vm.etch(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE, hex"60006000fd");
+        assertEq(vault.symbol(), "tNVDA");
+        assertEq(vault.name(), "NVIDIA Corporation ST0x");
     }
 
     /// The ERC-1155 receipt builds its name and symbol from the vault's

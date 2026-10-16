@@ -87,37 +87,46 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     }
 
     /// @notice The tStock symbol, built from the underlying ticker by
-    /// `StoxCorporateActionsFacet.receiptVaultSymbol`, e.g. "tNVDA".
+    /// `StoxCorporateActionsFacet.receiptVaultSymbol`, e.g. "tNVDA". Falls
+    /// back to the symbol stored at initialization if the facet cannot answer.
     /// @return The token symbol.
     function symbol() public view virtual override returns (string memory) {
-        return facetString(StoxCorporateActionsFacet.receiptVaultSymbol.selector);
+        (bool success, string memory value) = facetString(StoxCorporateActionsFacet.receiptVaultSymbol.selector);
+        return success ? value : super.symbol();
     }
 
     /// @notice The tStock name, built from the underlying name by
     /// `StoxCorporateActionsFacet.receiptVaultName`, e.g.
-    /// "NVIDIA Corporation (ST0x)".
+    /// "NVIDIA Corporation (ST0x)". Falls back to the name stored at
+    /// initialization if the facet cannot answer.
     /// @return The token name.
     function name() public view virtual override returns (string memory) {
-        return facetString(StoxCorporateActionsFacet.receiptVaultName.selector);
+        (bool success, string memory value) = facetString(StoxCorporateActionsFacet.receiptVaultName.selector);
+        return success ? value : super.name();
     }
 
     /// @dev Reads the zero-argument `string` view `selector` from the facet
-    /// through a static self-call that `fallback()` routes to it, bubbling
-    /// any revert and reverting when the call returns less than a string head
-    /// (no facet code at the pinned address). Keeps the formatting out of the vault's bytecode, which has
-    /// no room for it under EIP-170. The facet is the vault's own pinned code,
-    /// so its return data is a single ABI-encoded string and is used in place.
+    /// through a static self-call that `fallback()` routes to it. Keeps the
+    /// formatting out of the vault's bytecode, which has no room for it under
+    /// EIP-170. The facet is the vault's own pinned code, so a successful
+    /// return of at least a string head is a single ABI-encoded string and is
+    /// used in place. Anything else, including no facet code at the pinned
+    /// address, reports failure so ERC-20 metadata never depends on the facet
+    /// being deployed.
     /// @param selector The facet view to read.
-    /// @return value The string the facet view returned.
-    function facetString(bytes4 selector) private view returns (string memory value) {
+    /// @return success Whether the facet returned a string.
+    /// @return value The string the facet view returned, empty on failure.
+    function facetString(bytes4 selector) private view returns (bool success, string memory value) {
         assembly ("memory-safe") {
             mstore(0, selector)
-            let success := staticcall(gas(), address(), 0, 4, 0, 0)
-            let ptr := mload(0x40)
-            returndatacopy(ptr, 0, returndatasize())
-            if or(iszero(success), lt(returndatasize(), 0x40)) { revert(ptr, returndatasize()) }
-            value := add(ptr, mload(ptr))
-            mstore(0x40, add(ptr, returndatasize()))
+            success := staticcall(gas(), address(), 0, 4, 0, 0)
+            success := and(success, iszero(lt(returndatasize(), 0x40)))
+            if success {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0, returndatasize())
+                value := add(ptr, mload(ptr))
+                mstore(0x40, add(ptr, returndatasize()))
+            }
         }
     }
 

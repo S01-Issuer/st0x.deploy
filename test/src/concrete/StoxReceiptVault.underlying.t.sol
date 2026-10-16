@@ -167,16 +167,6 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         assertEq(vault.name(), "NVIDIA Corporation (ST0x)");
     }
 
-    /// With no facet code at the pinned address the self-call returns nothing,
-    /// and `symbol()` / `name()` revert rather than reading stale memory.
-    function testSymbolAndNameRevertWithoutFacet() external {
-        vm.etch(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE, "");
-        vm.expectRevert(bytes(""));
-        vault.symbol();
-        vm.expectRevert(bytes(""));
-        vault.name();
-    }
-
     /// Strings read from the facet are allocated memory: an internal caller
     /// that allocates afterwards still holds the value it read.
     function testFacetStringSurvivesLaterAllocation() external {

@@ -119,8 +119,13 @@
   vault forwards them, through a static self-call into its own `fallback()`, to
   the facet views `receiptVaultSymbol()` / `receiptVaultName()`, which hold the
   formatting and read the initialized values through OZ's own `ERC20Storage`
-  struct (`LibERC20Storage.getStorage`). Formatting in the vault itself would
-  put it over EIP-170; forwarding brings it to 23,876 bytes (700 spare).
+  struct (`LibERC20Storage.getStorage`). If the facet cannot answer (no code at
+  its pinned address, a revert, or less than a string head), the vault returns
+  the name and symbol stored at initialization, so ERC-20 metadata never depends
+  on the facet being deployed. Formatting in the vault itself would put it over
+  EIP-170; forwarding brings it to 24,220 bytes (356 spare).
+- **Rollout order:** deploy the facet, upgrade the wrapper beacon, upgrade the
+  receipt-vault beacon, then call `setUnderlying` (`docs/TIMELOCK.md`).
 - As with every vault/facet change, the vault, facet, wrapper and the contracts
   that pin them move to new Zoltu addresses; the `candidate/` pins are
   regenerated.

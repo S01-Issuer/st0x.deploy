@@ -12,15 +12,16 @@ pragma solidity ^0.8.25;
 /// script, not the table), `decimals` is fixed by the shared vault
 /// implementation bytecode, and the wrapped token vault derives its own
 /// name/symbol on-chain from the receipt vault. So the receipt vault's
-/// `name` + `symbol` are the ONLY free deploy inputs.
+/// `name` + `symbol` are the ONLY free initialization inputs, and this table
+/// holds exactly those.
 ///
-/// Both tokens' reported metadata moves once the vault owner sets the
-/// underlying ticker and name (`IStoxUnderlyingV1.setUnderlying`): the
-/// receipt vault reports `"t" + ticker` / `name + " (ST0x)"` and the wrapped
-/// token vault `ticker + "s"` / `name + " (ST0x)"`. Until then the receipt
-/// vault reports the `name` + `symbol` it was initialized with, and the
-/// wrapped token vault `"Wrapped " + name` / `"w" + symbol`. This table holds
-/// the initialization inputs.
+/// The underlying ticker and name are not deploy inputs: the vault owner sets
+/// them after deployment with `IStoxUnderlyingV1.setUnderlying`, and this
+/// table does not carry them. Once they are set, the receipt vault reports
+/// `"t" + ticker` / `name + " (ST0x)"` and the wrapped token vault
+/// `ticker + "s"` / `name + " (ST0x)"`. Until then the receipt vault reports
+/// the `name` + `symbol` it was initialized with, and the wrapped token vault
+/// `"Wrapped " + name` / `"w" + symbol`.
 /// @param underlying The chain-agnostic ticker join key, matching
 /// `LibTokenInvariants.TokenInstance.underlying`.
 /// @param name The receipt vault's ERC-20 `name()`, verbatim from Base.

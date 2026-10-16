@@ -212,6 +212,24 @@ targeting those surfaces must target the timelock instead, and
 `LibTimelockInvariants.timelockForChainId(block.chainid)` is the only sanctioned
 way to resolve it.
 
+**Upgrading the receipt vault.** The vault delegatecalls the corporate-actions
+facet at `LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET`, a constant built
+into its bytecode. A vault implementation whose facet is not deployed keeps its
+ERC-20 metadata, but its corporate-action surface answers nothing and the
+underlying ticker and name cannot be set. The order on every chain is:
+
+1. Deploy the facet at its Zoltu address (permissionless) and check its codehash
+   against `LibProdDeployV4`.
+2. Upgrade the wrapped-token-vault beacon. It keeps its current name and symbol
+   while the vault has no underlying set.
+3. Upgrade the receipt-vault beacon.
+4. Call `setUnderlying(symbol, name)` on each vault. Both tokens rename at this
+   step, together.
+
+Steps 2–4 are timelock operations and can be scheduled as one batch.
+`UnderlyingNamingUpgradeShadowFork.t.sol` runs this order against live Base
+state.
+
 ## Invariants
 
 - `LibTimelockInvariants.assertTimelockState(timelock, safe)` — rain-deploy's

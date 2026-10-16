@@ -16,12 +16,20 @@ import {LibProdDeployV1} from "../../../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployCurrent} from "../../../../src/generated/LibProdDeployCurrent.sol";
 import {LibTokenInvariants} from "../../../../src/lib/LibTokenInvariants.sol";
 import {IStoxUnderlyingV1} from "../../../../src/interface/IStoxUnderlyingV1.sol";
+import {ICorporateActionsV1} from "../../../../src/interface/ICorporateActionsV1.sol";
+
+/// @dev A Base block before any production vault has its underlying ticker
+/// and name set, with the NVDA pair reporting its initialized metadata.
+uint256 constant NAMING_PRE_ROLLOUT_BLOCK_BASE = 52662900;
 
 /// @title UnderlyingNamingUpgradeShadowForkTest
-/// @notice Applies the current receipt vault, corporate-actions facet and
-/// wrapped token vault implementations to LIVE Base tokens on a fork, in the
-/// order the rollout runs them, and checks that each step leaves token state
-/// intact and only moves the metadata once the underlying is set.
+/// @notice Applies the current corporate-actions facet, receipt vault and
+/// wrapped token vault implementations to the live Base NVDA pair on a fork
+/// pinned before the rollout. `testRecommendedRolloutOrder` runs the order
+/// the rollout uses (facet deployed, wrapper upgrade, vault upgrade,
+/// `setUnderlying`) and checks metadata and supply after every step. The
+/// other tests cover single steps, the vault-first order, and a vault
+/// upgraded before its facet exists.
 ///
 /// @dev Implementations are planted at their deterministic candidate addresses
 /// with `deployCodeTo`, so constructors (the facet's `_SELF`) run in place, and
@@ -41,7 +49,7 @@ contract UnderlyingNamingUpgradeShadowForkTest is Test {
     uint256 internal wrapperAssetsBefore;
 
     function setUp() public {
-        vm.createSelectFork(LibRainDeploy.BASE);
+        vm.createSelectFork(LibRainDeploy.BASE, NAMING_PRE_ROLLOUT_BLOCK_BASE);
 
         vaultNameBefore = VAULT.name();
         vaultSymbolBefore = VAULT.symbol();
@@ -93,53 +101,73 @@ contract UnderlyingNamingUpgradeShadowForkTest is Test {
         assertEq(WRAPPER.totalAssets(), wrapperAssetsBefore, "wrapper assets moved");
     }
 
-    /// The live pair reports the initialized metadata, which the wrapper
-    /// derives as "Wrapped " / "w".
-    function testLiveBaseline() external view {
+    function assertMetadataUnchanged() internal view {
+        assertEq(VAULT.symbol(), vaultSymbolBefore, "vault symbol moved");
+        assertEq(VAULT.name(), vaultNameBefore, "vault name moved");
+        assertEq(WRAPPER.symbol(), wrapperSymbolBefore, "wrapper symbol moved");
+        assertEq(WRAPPER.name(), wrapperNameBefore, "wrapper name moved");
+        assertEq(receiptOf().symbol(), receiptSymbolBefore, "receipt symbol moved");
+        assertEq(receiptOf().name(), receiptNameBefore, "receipt name moved");
+    }
+
+    /// At the pinned block the pair reports its initialized metadata, which
+    /// the wrapper derives as "Wrapped " / "w".
+    function testPreRolloutBaseline() external view {
         assertEq(vaultSymbolBefore, "tNVDA");
+        assertEq(vaultNameBefore, "NVIDIA Corporation ST0x");
         assertEq(wrapperSymbolBefore, "wtNVDA");
-        assertEq(wrapperNameBefore, string.concat("Wrapped ", vaultNameBefore));
+        assertEq(wrapperNameBefore, "Wrapped NVIDIA Corporation ST0x");
     }
 
-    /// A wrapper upgraded ahead of the vault reads no underlying from the
-    /// live vault and keeps its current name and symbol.
-    function testWrapperUpgradeAloneKeepsMetadata() external {
+    /// The rollout order: wrapper upgrade, vault upgrade, then
+    /// `setUnderlying`. No visible metadata moves until the final step, which
+    /// renames both tokens together.
+    function testRecommendedRolloutOrder() external {
         upgradeWrapper();
-        assertEq(WRAPPER.symbol(), wrapperSymbolBefore);
-        assertEq(WRAPPER.name(), wrapperNameBefore);
+        assertMetadataUnchanged();
         assertSupplyIntact();
-    }
 
-    /// A vault upgraded with nothing set keeps every token's metadata and
-    /// supply, and the facet reads the underlying as unset.
-    function testVaultUpgradeUnsetKeepsMetadata() external {
         upgradeVault();
         assertEq(IStoxUnderlyingV1(address(VAULT)).underlyingSymbol(), "");
-        assertEq(VAULT.symbol(), vaultSymbolBefore);
-        assertEq(VAULT.name(), vaultNameBefore);
-        assertEq(WRAPPER.symbol(), wrapperSymbolBefore);
-        assertEq(WRAPPER.name(), wrapperNameBefore);
-        assertEq(receiptOf().symbol(), receiptSymbolBefore);
-        assertEq(receiptOf().name(), receiptNameBefore);
+        assertMetadataUnchanged();
         assertSupplyIntact();
-    }
 
-    /// The full rollout: vault upgrade, then setUnderlying by the vault owner,
-    /// then the wrapper upgrade.
-    function testFullRolloutRenames() external {
-        upgradeVault();
         setNvda();
         assertEq(VAULT.symbol(), "tNVDA");
         assertEq(VAULT.name(), "NVIDIA Corporation (ST0x)");
-        // The live wrapper implementation still derives from the vault.
+        assertEq(WRAPPER.symbol(), "NVDAs");
+        assertEq(WRAPPER.name(), "NVIDIA Corporation (ST0x)");
+        assertEq(receiptOf().symbol(), receiptSymbolBefore);
+        assertSupplyIntact();
+    }
+
+    /// Not the recommended order: with the vault upgraded and the underlying
+    /// set before the wrapper upgrade, the live wrapper shows an interim
+    /// "Wrapped <name> (ST0x)" until its own upgrade lands.
+    function testVaultFirstOrderShowsInterimWrapperName() external {
+        upgradeVault();
+        setNvda();
         assertEq(WRAPPER.symbol(), "wtNVDA");
         assertEq(WRAPPER.name(), "Wrapped NVIDIA Corporation (ST0x)");
 
         upgradeWrapper();
         assertEq(WRAPPER.symbol(), "NVDAs");
         assertEq(WRAPPER.name(), "NVIDIA Corporation (ST0x)");
-        assertEq(receiptOf().symbol(), receiptSymbolBefore);
         assertSupplyIntact();
+    }
+
+    /// A vault upgraded before the facet exists keeps every token's metadata,
+    /// but its corporate-action surface answers nothing until the facet is
+    /// deployed. This is why the facet deploy comes first.
+    function testVaultUpgradeBeforeFacetDeploy() external {
+        vm.etch(LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET, "");
+        upgradeVault();
+        assertMetadataUnchanged();
+        assertSupplyIntact();
+        (bool success, bytes memory data) =
+            address(VAULT).staticcall(abi.encodeCall(ICorporateActionsV1.completedActionCount, ()));
+        assertTrue(success, "delegatecall into empty code succeeds");
+        assertEq(data.length, 0, "corporate-action read returns nothing without the facet");
     }
 
     /// Only the vault owner sets the underlying on a live vault.
