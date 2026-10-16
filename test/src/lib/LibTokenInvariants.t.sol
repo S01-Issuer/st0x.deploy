@@ -170,4 +170,106 @@ contract LibTokenInvariantsTest is Test {
             }
         }
     }
+
+    function assertTokenAddresses(TokenInstance[] memory tokens) internal pure {
+        address[] memory addresses = new address[](tokens.length * 3);
+        for (uint256 tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
+            addresses[tokenIndex * 3] = tokens[tokenIndex].receipt;
+            addresses[tokenIndex * 3 + 1] = tokens[tokenIndex].receiptVault;
+            addresses[tokenIndex * 3 + 2] = tokens[tokenIndex].wrappedTokenVault;
+        }
+        for (uint256 addressIndex = 0; addressIndex < addresses.length; addressIndex++) {
+            assertNotEq(addresses[addressIndex], address(0), "production token address is zero");
+            for (uint256 previousIndex = 0; previousIndex < addressIndex; previousIndex++) {
+                assertNotEq(
+                    addresses[addressIndex],
+                    addresses[previousIndex],
+                    "production token address is duplicated within its chain"
+                );
+            }
+        }
+    }
+
+    /// Every receipt, receipt vault and wrapper is nonzero and appears once
+    /// per chain, so an aliased or missing leg fails without a fork.
+    function testProductionTokenAddressesAreNonzeroAndUniquePerChain() external pure {
+        assertTokenAddresses(LibTokenInvariants.productionTokensBase());
+        assertTokenAddresses(LibTokenInvariants.productionTokensEthereum());
+        assertTokenAddresses(LibTokenInvariants.productionTokensHyperEvm());
+        assertTokenAddresses(LibTokenInvariants.productionTokensRobinhood());
+        assertTokenAddresses(LibTokenInvariants.productionTokensBsc());
+    }
+
+    function assertTokenRow(
+        TokenInstance memory token,
+        string memory underlying,
+        address receipt,
+        address receiptVault,
+        address wrappedTokenVault
+    ) internal pure {
+        assertEq(token.underlying, underlying, "underlying");
+        assertEq(token.receipt, receipt, "receipt");
+        assertEq(token.receiptVault, receiptVault, "receipt vault");
+        assertEq(token.wrappedTokenVault, wrappedTokenVault, "wrapped token vault");
+    }
+
+    /// The tMC and tDIS rows hold the addresses the Base deploy and the
+    /// `20260807-deploy-missing-tokens` copies logged.
+    function testMcAndDisRowsMatchDeployments() external pure {
+        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
+        assertTokenRow(
+            base[54],
+            "MC",
+            0xC3fD55A007CB7e4549A4b5064691c75609b1411b,
+            0x6eC2421d74F2AF61b7EE7bCCAE25A3b6a7961Aa0,
+            0x378a04202D25659763A02dA5FE77c0a35e64Ce1D
+        );
+        assertTokenRow(
+            base[55],
+            "DIS",
+            0xc53b863791d8E1de96CA547CF8F3C740e770FAE1,
+            0x40584fBad768FF46f299Cf50cAe5b3D437E213Fa,
+            0x8EA3c97D23872eC4FAe1cA3189039056b77bc703
+        );
+
+        // Ethereum, HyperEVM and Robinhood Chain share the deterministic
+        // deployer, so their copies landed at the same addresses.
+        TokenInstance[][3] memory sameAddressChains = [
+            LibTokenInvariants.productionTokensEthereum(),
+            LibTokenInvariants.productionTokensHyperEvm(),
+            LibTokenInvariants.productionTokensRobinhood()
+        ];
+        for (uint256 i = 0; i < sameAddressChains.length; i++) {
+            assertTokenRow(
+                sameAddressChains[i][54],
+                "MC",
+                0x9835e52FAFA9A92678C8A9420034706B1edD431e,
+                0x4d4D633bf04ABF6e4cF152C7c5c1ecD906Ab3de4,
+                0x5Ce8b84756dDdE011734F04dC4bA2930C981B443
+            );
+            assertTokenRow(
+                sameAddressChains[i][55],
+                "DIS",
+                0x29e7fe750DFffd4D7C8e907C126324B8a5A9AdB7,
+                0xd78025Aa344E549A1D76eCE1591c481cC7Bc3548,
+                0x81f40cbCFAE7A1aD1f4474eD95A210DfA3B90B0f
+            );
+        }
+
+        TokenInstance[] memory bsc = LibTokenInvariants.productionTokensBsc();
+        assertTokenRow(
+            bsc[54],
+            "MC",
+            0xcf829819FDD164A8B6566d404E67bdFd92F169c2,
+            0x28019de1dE36d5fA0077Dfe7859ED54664982081,
+            0x69e93548C38132B8bcfA41BbA521Ae5A87c568B4
+        );
+        assertTokenRow(
+            bsc[55],
+            "DIS",
+            0x67d8ACfE2DADa892411b4A86CBAC6901383C8F4e,
+            0xe39a028cdC8a50e655A5b31ba8A48ce36f3A8243,
+            0x24eD179E95F643ff9f8235850778160cFA4aeDb7
+        );
+    }
 }
