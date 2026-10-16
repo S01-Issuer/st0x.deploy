@@ -11,6 +11,7 @@ import {EmptyUnderlyingSymbol, EmptyUnderlyingName} from "../../../src/error/Err
 import {UNDERLYING_STORAGE_LOCATION, ST0X_NAME_SUFFIX} from "../../../src/lib/LibUnderlying.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {OwnedStoxReceiptVault} from "./OwnedStoxReceiptVault.sol";
+import {MetadataMemoryStoxReceiptVault} from "./MetadataMemoryStoxReceiptVault.sol";
 
 /// Unit tests for the underlying ticker/name surface (`IStoxUnderlyingV1`,
 /// implemented by `StoxCorporateActionsFacet`) and the `symbol()` / `name()`
@@ -174,6 +175,16 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         vault.symbol();
         vm.expectRevert(bytes(""));
         vault.name();
+    }
+
+    /// Strings read from the facet are allocated memory: an internal caller
+    /// that allocates afterwards still holds the value it read.
+    function testFacetStringSurvivesLaterAllocation() external {
+        MetadataMemoryStoxReceiptVault harness = new MetadataMemoryStoxReceiptVault(OWNER);
+        vm.prank(OWNER);
+        IStoxUnderlyingV1(address(harness)).setUnderlying("NVDA", "NVIDIA Corporation");
+        assertEq(harness.symbolThenAllocate(), "tNVDA");
+        assertEq(harness.nameThenAllocate(), "NVIDIA Corporation (ST0x)");
     }
 
     /// Every new facet entry point refuses to run outside a delegatecall.

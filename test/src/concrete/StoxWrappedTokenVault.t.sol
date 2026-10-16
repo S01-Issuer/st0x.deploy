@@ -191,6 +191,17 @@ contract StoxWrappedTokenVaultTest is Test {
         assertEq(vault.symbol(), "wTT");
     }
 
+    /// A string offset below 0x20 overlaps the head itself and falls back
+    /// rather than reverting in the decoder.
+    function testOffsetInsideHeadFallsBack(uint256 offset) external {
+        offset = bound(offset, 1, 0x1f);
+        RawReturnERC20 asset = new RawReturnERC20();
+        asset.setRaw(abi.encode(offset, uint256(4), NVDA_WORD));
+        StoxWrappedTokenVault vault = newWrapper(address(asset));
+        assertEq(vault.symbol(), "wTT");
+        assertEq(vault.name(), "Wrapped Test Token");
+    }
+
     /// A string length running past the return data falls back.
     function testOverlongLengthFallsBack(uint256 length) external {
         length = bound(length, 33, type(uint256).max);
