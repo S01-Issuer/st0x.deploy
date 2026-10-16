@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {IStoxScript, ScriptDeclaration, ScriptKind} from "../src/interface/IStoxScript.sol";
+import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
@@ -48,7 +48,7 @@ error RehearsalNotScheduled(bytes32 id);
 contract TimelockRehearsalCancel is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.notAMigration(ScriptKind.TimelockRehearsal);
+        return LibStoxMigrations.notAMigration();
     }
 
     /// @notice Author the cancel bundle for the active chain.

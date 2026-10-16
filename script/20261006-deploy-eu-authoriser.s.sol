@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {IStoxScript, ScriptDeclaration, ScriptKind} from "../src/interface/IStoxScript.sol";
+import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
@@ -47,7 +47,7 @@ error EuCloneAddressMismatch(address predicted, address deployed);
 contract DeployEuAuthoriser is EuAuthoriserDeploySuites, Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.notAMigration(ScriptKind.Deployment);
+        return LibStoxMigrations.notAMigration();
     }
 
     /// @notice Deploys the clone to EVERY supported network that lacks it, in

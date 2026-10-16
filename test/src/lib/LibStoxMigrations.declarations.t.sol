@@ -16,8 +16,7 @@ import {
     IStoxHistoryMigration,
     MigrationPrerequisite,
     MigrationWriter,
-    ScriptDeclaration,
-    ScriptKind
+    ScriptDeclaration
 } from "../../../src/interface/IStoxScript.sol";
 import {LibEuAuthoriserClone} from "../../../src/lib/LibEuAuthoriserClone.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
@@ -45,26 +44,26 @@ contract LibStoxMigrationsDeclarationsTest is Test {
     }
 
     function testSafeMigrationOntoIsOneSafePrerequisiteInItsOwnNamespace() external pure {
-        ScriptDeclaration memory d = LibStoxMigrations.safeMigrationOnto("ns", "id", "head", true);
-        assertEq(uint256(d.kind), uint256(ScriptKind.Migration));
-        assertEq(d.namespace, "ns");
-        assertEq(d.id, "id");
-        assertEq(uint256(d.writer), uint256(MigrationWriter.Safe));
-        assertTrue(d.history);
-        assertEq(d.prerequisites.length, 1);
-        assertEq(uint256(d.prerequisites[0].writer), uint256(MigrationWriter.Safe));
-        assertEq(d.prerequisites[0].namespace, "ns");
-        assertEq(d.prerequisites[0].migration, "head");
+        ScriptDeclaration memory declared = LibStoxMigrations.safeMigrationOnto("ns", "id", "head", true);
+        assertTrue(declared.migration);
+        assertEq(declared.namespace, "ns");
+        assertEq(declared.id, "id");
+        assertEq(uint256(declared.writer), uint256(MigrationWriter.Safe));
+        assertTrue(declared.history);
+        assertEq(declared.prerequisites.length, 1);
+        assertEq(uint256(declared.prerequisites[0].writer), uint256(MigrationWriter.Safe));
+        assertEq(declared.prerequisites[0].namespace, "ns");
+        assertEq(declared.prerequisites[0].migration, "head");
         assertFalse(LibStoxMigrations.safeMigrationOnto("ns", "id", "head", false).history);
     }
 
     function testNotAMigrationCarriesNoRecord() external pure {
-        ScriptDeclaration memory d = LibStoxMigrations.notAMigration(ScriptKind.TimelockRehearsal);
-        assertEq(uint256(d.kind), uint256(ScriptKind.TimelockRehearsal));
-        assertEq(d.namespace, 0);
-        assertEq(d.id, 0);
-        assertEq(d.prerequisites.length, 0);
-        assertFalse(d.history);
+        ScriptDeclaration memory declared = LibStoxMigrations.notAMigration();
+        assertFalse(declared.migration);
+        assertEq(declared.namespace, 0);
+        assertEq(declared.id, 0);
+        assertEq(declared.prerequisites.length, 0);
+        assertFalse(declared.history);
     }
 
     function testWriterForChainIdIsTheChainsSafeOrTimelock() external pure {
@@ -86,9 +85,9 @@ contract LibStoxMigrationsDeclarationsTest is Test {
         MigrationPrerequisite[] memory declared = new MigrationPrerequisite[](2);
         declared[0] = MigrationPrerequisite({writer: MigrationWriter.Timelock, namespace: "a", migration: "b"});
         declared[1] = MigrationPrerequisite({writer: MigrationWriter.Safe, namespace: "c", migration: "d"});
-        ScriptDeclaration memory d = LibStoxMigrations.safeMigrationOnto("a", "e", "b", false);
-        d.prerequisites = declared;
-        Prerequisite[] memory resolved = LibStoxMigrations.prerequisitesFor(d, address(1), address(2));
+        ScriptDeclaration memory migration = LibStoxMigrations.safeMigrationOnto("a", "e", "b", false);
+        migration.prerequisites = declared;
+        Prerequisite[] memory resolved = LibStoxMigrations.prerequisitesFor(migration, address(1), address(2));
         assertEq(resolved.length, 2);
         assertEq(resolved[0].writer, address(2));
         assertEq(resolved[0].namespace, "a");
@@ -98,7 +97,7 @@ contract LibStoxMigrationsDeclarationsTest is Test {
         assertEq(resolved[1].migration, "d");
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < nets.length; i++) {
-            resolved = LibStoxMigrations.prerequisitesForChainId(d, nets[i].chainId);
+            resolved = LibStoxMigrations.prerequisitesForChainId(migration, nets[i].chainId);
             assertEq(resolved[0].writer, LibTimelockInvariants.timelockForChainId(nets[i].chainId));
             assertEq(resolved[1].writer, LibSafeInvariants.safeForChainId(nets[i].chainId));
         }
@@ -173,24 +172,26 @@ contract LibStoxMigrationsDeclarationsTest is Test {
             new BuildMigrations().discover("script");
         uint256 recorded = 0;
         for (uint256 i = 0; i < declarations.length; i++) {
-            ScriptDeclaration memory d = declarations[i];
-            if (d.kind != ScriptKind.Migration) continue;
+            ScriptDeclaration memory declared = declarations[i];
+            if (!declared.migration) continue;
             recorded++;
             string memory label = string.concat(network, ": ", paths[i]);
-            address writer = LibStoxMigrations.writerForChainId(d.writer, block.chainid);
-            Prerequisite[] memory declared = LibStoxMigrations.prerequisitesForChainId(d, block.chainid);
-            uint256 moment = d.history ? IStoxHistoryMigration(instances[i]).executedAt(block.chainid) : 0;
+            address writer = LibStoxMigrations.writerForChainId(declared.writer, block.chainid);
+            Prerequisite[] memory expected = LibStoxMigrations.prerequisitesForChainId(declared, block.chainid);
+            uint256 moment = declared.history ? IStoxHistoryMigration(instances[i]).executedAt(block.chainid) : 0;
             uint256 hits = 0;
             for (uint256 w = 0; w < writes.length; w++) {
-                if (writes[w].namespace != d.namespace || writes[w].migration != d.id) continue;
+                if (writes[w].namespace != declared.namespace || writes[w].migration != declared.id) continue;
                 hits++;
                 assertEq(writes[w].writer, writer, label);
                 assertEq(writes[w].appliedAt, moment, label);
-                assertPrerequisites(writes[w].prerequisites, declared, label);
+                assertPrerequisites(writes[w].prerequisites, expected, label);
             }
             assertEq(hits, 1, label);
-            if (LibMigrationRegistry.applied(writer, d.namespace, d.id) != 0) {
-                assertPrerequisites(LibMigrationRegistry.appliedAfter(writer, d.namespace, d.id), declared, label);
+            if (LibMigrationRegistry.applied(writer, declared.namespace, declared.id) != 0) {
+                assertPrerequisites(
+                    LibMigrationRegistry.appliedAfter(writer, declared.namespace, declared.id), expected, label
+                );
             }
         }
         assertEq(writes.length, recorded, network);

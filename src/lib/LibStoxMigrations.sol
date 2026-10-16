@@ -6,7 +6,7 @@ import {LibMigrationRegistry} from "rain-deploy-0.1.18/src/lib/LibMigrationRegis
 import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 
-import {MigrationPrerequisite, MigrationWriter, ScriptDeclaration, ScriptKind} from "../interface/IStoxScript.sol";
+import {MigrationPrerequisite, MigrationWriter, ScriptDeclaration} from "../interface/IStoxScript.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
@@ -87,7 +87,7 @@ library LibStoxMigrations {
         prerequisites[0] =
             MigrationPrerequisite({writer: MigrationWriter.Safe, namespace: namespace, migration: headMigration});
         return ScriptDeclaration({
-            kind: ScriptKind.Migration,
+            migration: true,
             namespace: namespace,
             id: id,
             writer: MigrationWriter.Safe,
@@ -97,11 +97,10 @@ library LibStoxMigrations {
     }
 
     /// @notice A script that writes no record.
-    /// @param kind What it is; never `Migration`.
     /// @return The declaration.
-    function notAMigration(ScriptKind kind) internal pure returns (ScriptDeclaration memory) {
+    function notAMigration() internal pure returns (ScriptDeclaration memory) {
         return ScriptDeclaration({
-            kind: kind,
+            migration: false,
             namespace: bytes32(0),
             id: bytes32(0),
             writer: MigrationWriter.Safe,

@@ -9,30 +9,22 @@ import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.18/src/inter
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistryDeploy.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 import {BuildMigrations, HistoryWithoutMoment, NoDeclaration} from "../../script/BuildMigrations.sol";
-import {IStoxHistoryMigration, ScriptDeclaration, ScriptKind} from "../../src/interface/IStoxScript.sol";
+import {IStoxHistoryMigration, ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {BuildMigrationsHarness} from "./BuildMigrationsHarness.sol";
 import {ZeroMomentFixture} from "./ZeroMomentFixture.sol";
 import {MigrationWithoutRecord} from "../../src/lib/LibScriptDeclarations.sol";
+import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
+import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
-contract BuildMigrationsTest is Test {
+contract BuildMigrationsTest is Test, BuildMigrationsHarness {
     string internal constant FIXTURES = "test/fixture/declarations";
 
     BuildMigrationsHarness internal build = new BuildMigrationsHarness();
 
     function networks() internal pure returns (SupportedNetwork[] memory) {
         return LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
-    }
-
-    function endsWith(string memory s, string memory suffix) internal pure returns (bool) {
-        bytes memory a = bytes(s);
-        bytes memory b = bytes(suffix);
-        if (a.length < b.length) return false;
-        for (uint256 i = 0; i < b.length; i++) {
-            if (a[a.length - b.length + i] != b[i]) return false;
-        }
-        return true;
     }
 
     function lexLess(string memory a, string memory b) internal pure returns (bool) {
@@ -48,15 +40,22 @@ contract BuildMigrationsTest is Test {
         return string.concat(at, "[", vm.toString(i), "]");
     }
 
+    function discovered()
+        internal
+        returns (string[] memory paths, ScriptDeclaration[] memory declarations, address[] memory instances)
+    {
+        return discover("script");
+    }
+
     function migrationsOf(ScriptDeclaration[] memory declarations) internal pure returns (uint256[] memory rows) {
         uint256 count = 0;
         for (uint256 i = 0; i < declarations.length; i++) {
-            if (declarations[i].kind == ScriptKind.Migration) count++;
+            if (declarations[i].migration) count++;
         }
         rows = new uint256[](count);
         uint256 r = 0;
         for (uint256 i = 0; i < declarations.length; i++) {
-            if (declarations[i].kind == ScriptKind.Migration) rows[r++] = i;
+            if (declarations[i].migration) rows[r++] = i;
         }
     }
 
@@ -83,7 +82,7 @@ contract BuildMigrationsTest is Test {
     }
 
     function testEveryScriptFileIsDiscoveredInPathOrder() external {
-        (string[] memory paths,,) = build.discover("script");
+        (string[] memory paths,,) = discovered();
         Vm.DirEntry[] memory entries = vm.readDir("script", 1);
         uint256 scripts = 0;
         for (uint256 e = 0; e < entries.length; e++) {
@@ -103,7 +102,7 @@ contract BuildMigrationsTest is Test {
 
     function testMigrationsAreTheDeclaredMigrations() external {
         string memory json = build.render();
-        (string[] memory paths, ScriptDeclaration[] memory declarations,) = build.discover("script");
+        (string[] memory paths, ScriptDeclaration[] memory declarations,) = discovered();
         uint256[] memory rows = migrationsOf(declarations);
         assertGt(rows.length, 0);
         assertFalse(vm.keyExistsJson(json, index(".migrations", rows.length)));
@@ -117,42 +116,60 @@ contract BuildMigrationsTest is Test {
 
     function testChainsAreTheResolvedWriterMomentAndPrerequisites() external {
         string memory json = build.render();
-        (, ScriptDeclaration[] memory declarations, address[] memory instances) = build.discover("script");
+        (, ScriptDeclaration[] memory declarations, address[] memory instances) = discovered();
         uint256[] memory rows = migrationsOf(declarations);
         SupportedNetwork[] memory nets = networks();
         for (uint256 r = 0; r < rows.length; r++) {
-            ScriptDeclaration memory d = declarations[rows[r]];
-            string memory chains = string.concat(index(".migrations", r), ".chains");
-            assertEq(vm.parseJsonKeys(json, chains).length, nets.length);
-            for (uint256 c = 0; c < nets.length; c++) {
-                assertChain(
-                    json,
-                    string.concat(chains, ".", vm.toString(nets[c].chainId)),
-                    d,
-                    instances[rows[r]],
-                    nets[c].chainId
-                );
-            }
+            assertMigrationChains(json, r, declarations[rows[r]], instances[rows[r]], nets);
+        }
+    }
+
+    function assertMigrationChains(
+        string memory json,
+        uint256 row,
+        ScriptDeclaration memory declared,
+        address instance,
+        SupportedNetwork[] memory nets
+    ) internal view {
+        string memory chains = string.concat(index(".migrations", row), ".chains");
+        assertEq(vm.parseJsonKeys(json, chains).length, nets.length);
+        for (uint256 c = 0; c < nets.length; c++) {
+            assertChain(
+                json, string.concat(chains, ".", vm.toString(nets[c].chainId)), declared, instance, nets[c].chainId
+            );
         }
     }
 
     function assertChain(
         string memory json,
         string memory at,
-        ScriptDeclaration memory d,
+        ScriptDeclaration memory declared,
         address instance,
         uint256 chainId
     ) internal view {
         assertEq(
             vm.parseJsonAddress(json, string.concat(at, ".writer")),
-            LibStoxMigrations.writerForChainId(d.writer, chainId)
+            LibStoxMigrations.writerForChainId(declared.writer, chainId)
         );
-        assertEq(
-            vm.parseJsonUint(json, string.concat(at, ".executedAt")),
-            d.history ? IStoxHistoryMigration(instance).executedAt(chainId) : 0
+        uint256 moment = momentOf(declared, instance, chainId);
+        assertEq(vm.parseJsonUint(json, string.concat(at, ".executedAt")), moment);
+        assertPrerequisitesJson(
+            json, string.concat(at, ".prerequisites"), LibStoxMigrations.prerequisitesForChainId(declared, chainId)
         );
-        Prerequisite[] memory expected = LibStoxMigrations.prerequisitesForChainId(d, chainId);
-        string memory pre = string.concat(at, ".prerequisites");
+    }
+
+    function momentOf(ScriptDeclaration memory declared, address instance, uint256 chainId)
+        internal
+        pure
+        returns (uint256)
+    {
+        return declared.history ? IStoxHistoryMigration(instance).executedAt(chainId) : 0;
+    }
+
+    function assertPrerequisitesJson(string memory json, string memory pre, Prerequisite[] memory expected)
+        internal
+        view
+    {
         assertFalse(vm.keyExistsJson(json, index(pre, expected.length)));
         for (uint256 p = 0; p < expected.length; p++) {
             string memory row = index(pre, p);
@@ -165,7 +182,7 @@ contract BuildMigrationsTest is Test {
     /// @dev Oracle: the per-network moments `governanceTimelockExecution` pins.
     function testTheGovernanceTimelockMoveCarriesItsExecutionMoment() external {
         string memory json = build.render();
-        (string[] memory paths, ScriptDeclaration[] memory declarations,) = build.discover("script");
+        (string[] memory paths, ScriptDeclaration[] memory declarations,) = discovered();
         uint256[] memory rows = migrationsOf(declarations);
         SupportedNetwork[] memory nets = networks();
         uint256 hits = 0;
@@ -183,6 +200,54 @@ contract BuildMigrationsTest is Test {
             }
         }
         assertEq(hits, 1);
+    }
+
+    function testATimelockWrittenLineRendersTheTimelock() external {
+        string memory json = build.renderDir(string.concat(FIXTURES, "/timelock"));
+        SupportedNetwork[] memory nets = networks();
+        assertFalse(vm.keyExistsJson(json, ".migrations[3]"));
+        for (uint256 c = 0; c < nets.length; c++) {
+            assertTimelockLine(json, nets[c].chainId);
+        }
+    }
+
+    function assertTimelockLine(string memory json, uint256 chainId) internal pure {
+        string memory chain = vm.toString(chainId);
+        address safe = LibSafeInvariants.safeForChainId(chainId);
+        address timelock = LibTimelockInvariants.timelockForChainId(chainId);
+        assertEq(vm.parseJsonAddress(json, string.concat(".migrations[0].chains.", chain, ".writer")), safe);
+        assertEq(vm.parseJsonAddress(json, string.concat(".migrations[1].chains.", chain, ".writer")), timelock);
+        string memory second = string.concat(".migrations[2].chains.", chain);
+        assertEq(vm.parseJsonAddress(json, string.concat(second, ".writer")), timelock);
+        assertEq(vm.parseJsonAddress(json, string.concat(second, ".prerequisites[0].writer")), timelock);
+        assertEq(vm.parseJsonBytes32(json, string.concat(second, ".prerequisites[0].id")), "t1");
+        assertEq(vm.parseJsonAddress(json, string.concat(second, ".prerequisites[1].writer")), safe);
+        assertEq(
+            vm.parseJsonBytes32(json, string.concat(second, ".prerequisites[1].namespace")), keccak256("fixture.safe")
+        );
+        assertEq(vm.parseJsonBytes32(json, string.concat(second, ".prerequisites[1].id")), "s1");
+    }
+
+    function testBeforeOrdersByBytesThenLength() external view {
+        assertTrue(build.callBefore("a", "b"));
+        assertFalse(build.callBefore("b", "a"));
+        assertTrue(build.callBefore("B", "a"));
+        assertTrue(build.callBefore("ab", "abc"));
+        assertFalse(build.callBefore("abc", "ab"));
+        assertFalse(build.callBefore("ab", "ab"));
+    }
+
+    function testSortedOrdersAnyListing() external view {
+        string[] memory names = new string[](4);
+        names[0] = "c.s.sol";
+        names[1] = "ab.s.sol";
+        names[2] = "a.s.sol";
+        names[3] = "a.s.sol.s.sol";
+        string[] memory got = build.callSorted(names);
+        assertEq(got[0], "a.s.sol");
+        assertEq(got[1], "a.s.sol.s.sol");
+        assertEq(got[2], "ab.s.sol");
+        assertEq(got[3], "c.s.sol");
     }
 
     function testRunWritesTheRender() external {
@@ -215,26 +280,26 @@ contract BuildMigrationsTest is Test {
             build.discover(dir);
         assertEq(paths.length, 1);
         assertEq(paths[0], string.concat(dir, "/ValidDeclarationFixture.s.sol"));
-        assertEq(uint256(declarations[0].kind), uint256(ScriptKind.TimelockExecutor));
+        assertFalse(declarations[0].migration);
         assertGt(instances[0].code.length, 0);
     }
 
     function testAHistoryMigrationWithNoMomentFails() external {
-        ScriptDeclaration memory d = LibStoxMigrations.safeMigrationOnto(
+        ScriptDeclaration memory declared = LibStoxMigrations.safeMigrationOnto(
             LibStoxMigrations.NAMESPACE, keccak256("script/h.s.sol"), MIGRATION_HEAD_GENESIS, true
         );
         address zero = address(new ZeroMomentFixture());
         vm.expectRevert(abi.encodeWithSelector(HistoryWithoutMoment.selector, "script/h.s.sol", uint256(1)));
-        build.callExecutedAt("script/h.s.sol", d, zero, 1);
+        build.callExecutedAt("script/h.s.sol", declared, zero, 1);
         address none = address(new BuildMigrations());
         vm.expectRevert(abi.encodeWithSelector(HistoryWithoutMoment.selector, "script/h.s.sol", uint256(1)));
-        build.callExecutedAt("script/h.s.sol", d, none, 1);
+        build.callExecutedAt("script/h.s.sol", declared, none, 1);
     }
 
     function testAMigrationRecordedWithItsChangeHasNoMoment() external {
-        ScriptDeclaration memory d = LibStoxMigrations.safeMigrationOnto(
+        ScriptDeclaration memory declared = LibStoxMigrations.safeMigrationOnto(
             LibStoxMigrations.NAMESPACE, keccak256("script/h.s.sol"), MIGRATION_HEAD_GENESIS, false
         );
-        assertEq(build.callExecutedAt("script/h.s.sol", d, address(new ZeroMomentFixture()), 1), 0);
+        assertEq(build.callExecutedAt("script/h.s.sol", declared, address(new ZeroMomentFixture()), 1), 0);
     }
 }

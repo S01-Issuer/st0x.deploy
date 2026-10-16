@@ -7,7 +7,7 @@ import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistryDeploy.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
-import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration, ScriptKind} from "../src/interface/IStoxScript.sol";
+import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibScriptDeclarations} from "../src/lib/LibScriptDeclarations.sol";
 import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
@@ -39,46 +39,61 @@ contract BuildMigrations is Script {
     string internal constant SCRIPTS = "script";
     string internal constant SUFFIX = ".s.sol";
 
-    function endsWith(string memory s, string memory suffix) internal pure returns (bool) {
-        bytes memory a = bytes(s);
-        bytes memory b = bytes(suffix);
-        if (a.length < b.length) return false;
-        for (uint256 i = 0; i < b.length; i++) {
-            if (a[a.length - b.length + i] != b[i]) return false;
+    function endsWith(string memory text, string memory suffix) internal pure returns (bool) {
+        bytes memory textBytes = bytes(text);
+        bytes memory suffixBytes = bytes(suffix);
+        if (textBytes.length < suffixBytes.length) return false;
+        for (uint256 i = 0; i < suffixBytes.length; i++) {
+            if (textBytes[textBytes.length - suffixBytes.length + i] != suffixBytes[i]) return false;
         }
         return true;
     }
 
     function basename(string memory path) internal pure returns (string memory) {
-        bytes memory p = bytes(path);
+        bytes memory pathBytes = bytes(path);
         uint256 start = 0;
-        for (uint256 i = 0; i < p.length; i++) {
-            if (p[i] == "/") start = i + 1;
+        for (uint256 i = 0; i < pathBytes.length; i++) {
+            if (pathBytes[i] == "/") start = i + 1;
         }
-        bytes memory out = new bytes(p.length - start);
-        for (uint256 i = 0; i < out.length; i++) {
-            out[i] = p[start + i];
+        bytes memory nameBytes = new bytes(pathBytes.length - start);
+        for (uint256 i = 0; i < nameBytes.length; i++) {
+            nameBytes[i] = pathBytes[start + i];
         }
-        return string(out);
+        return string(nameBytes);
     }
 
     function stem(string memory name, uint256 suffixLength) internal pure returns (string memory) {
-        bytes memory n = bytes(name);
-        bytes memory out = new bytes(n.length - suffixLength);
-        for (uint256 i = 0; i < out.length; i++) {
-            out[i] = n[i];
+        bytes memory nameBytes = bytes(name);
+        bytes memory stemBytes = new bytes(nameBytes.length - suffixLength);
+        for (uint256 i = 0; i < stemBytes.length; i++) {
+            stemBytes[i] = nameBytes[i];
         }
-        return string(out);
+        return string(stemBytes);
     }
 
-    function before(string memory a, string memory b) internal pure returns (bool) {
-        bytes memory x = bytes(a);
-        bytes memory y = bytes(b);
-        uint256 n = x.length < y.length ? x.length : y.length;
-        for (uint256 i = 0; i < n; i++) {
-            if (x[i] != y[i]) return x[i] < y[i];
+    /// @dev Byte order, a strict prefix first.
+    function before(string memory left, string memory right) internal pure returns (bool) {
+        bytes memory leftBytes = bytes(left);
+        bytes memory rightBytes = bytes(right);
+        uint256 shorter = leftBytes.length < rightBytes.length ? leftBytes.length : rightBytes.length;
+        for (uint256 i = 0; i < shorter; i++) {
+            if (leftBytes[i] != rightBytes[i]) return leftBytes[i] < rightBytes[i];
         }
-        return x.length < y.length;
+        return leftBytes.length < rightBytes.length;
+    }
+
+    /// @dev `names` in `before` order, whatever order the filesystem lists.
+    function sorted(string[] memory names) internal pure returns (string[] memory) {
+        for (uint256 i = 1; i < names.length; i++) {
+            string memory name = names[i];
+            uint256 at = i;
+            while (at > 0 && before(name, names[at - 1])) {
+                names[at] = names[at - 1];
+                at--;
+            }
+            names[at] = name;
+        }
+        return names;
     }
 
     /// @dev Each `.s.sol` in `dir`, by file name.
@@ -86,20 +101,14 @@ contract BuildMigrations is Script {
         Vm.DirEntry[] memory entries = vm.readDir(dir, 1);
         string[] memory names = new string[](entries.length);
         uint256 count = 0;
-        for (uint256 e = 0; e < entries.length; e++) {
-            if (entries[e].isDir || !endsWith(entries[e].path, SUFFIX)) continue;
-            string memory name = basename(entries[e].path);
-            uint256 at = count++;
-            while (at > 0 && before(name, names[at - 1])) {
-                names[at] = names[at - 1];
-                at--;
-            }
-            names[at] = name;
+        for (uint256 entry = 0; entry < entries.length; entry++) {
+            if (entries[entry].isDir || !endsWith(entries[entry].path, SUFFIX)) continue;
+            names[count++] = basename(entries[entry].path);
         }
         assembly ("memory-safe") {
             mstore(names, count)
         }
-        return names;
+        return sorted(names);
     }
 
     /// @dev The one contract in `name`'s artifacts that declares itself.
@@ -109,16 +118,16 @@ contract BuildMigrations is Script {
         Vm.DirEntry[] memory artifacts = vm.readDir(built, 1);
         address found;
         ScriptDeclaration memory declared;
-        for (uint256 a = 0; a < artifacts.length; a++) {
-            string memory artifact = basename(artifacts[a].path);
+        for (uint256 index = 0; index < artifacts.length; index++) {
+            string memory artifact = basename(artifacts[index].path);
             if (!endsWith(artifact, ".json")) continue;
-            string memory id = string.concat(name, ":", stem(artifact, 5));
-            if (vm.parseJsonBytes(vm.readFile(artifacts[a].path), ".bytecode.object").length == 0) continue;
-            address instance = vm.deployCode(id);
-            try IStoxScript(instance).declaration() returns (ScriptDeclaration memory d) {
+            string memory contractId = string.concat(name, ":", stem(artifact, 5));
+            if (vm.parseJsonBytes(vm.readFile(artifacts[index].path), ".bytecode.object").length == 0) continue;
+            address instance = vm.deployCode(contractId);
+            try IStoxScript(instance).declaration() returns (ScriptDeclaration memory candidate) {
                 if (found != address(0)) revert ManyDeclarations(path);
                 found = instance;
-                declared = d;
+                declared = candidate;
             } catch {}
         }
         if (found == address(0)) revert NoDeclaration(path);
@@ -215,34 +224,43 @@ contract BuildMigrations is Script {
         return vm.serializeString(key, "chains", chains);
     }
 
-    function render() public returns (string memory) {
-        SupportedNetwork[] memory networks =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
-        string memory networksJson;
+    function networksJson(SupportedNetwork[] memory networks) internal returns (string memory json) {
         for (uint256 i = 0; i < networks.length; i++) {
             string memory key = string.concat("networks.", vm.toString(networks[i].chainId));
             vm.serializeString(key, "network", networks[i].name);
-            networksJson = vm.serializeString(
+            json = vm.serializeString(
                 "networks",
                 vm.toString(networks[i].chainId),
                 vm.serializeAddress(key, "registry", LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
             );
         }
-        (string[] memory paths, ScriptDeclaration[] memory declarations, address[] memory instances) = discover(SCRIPTS);
+    }
+
+    function render() public returns (string memory) {
+        return renderDir(SCRIPTS);
+    }
+
+    /// @notice `migrations.json` for the scripts in `dir`.
+    /// @param dir The directory.
+    /// @return The JSON.
+    function renderDir(string memory dir) public returns (string memory) {
+        SupportedNetwork[] memory networks =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        (string[] memory paths, ScriptDeclaration[] memory declarations, address[] memory instances) = discover(dir);
         uint256 count = 0;
         for (uint256 i = 0; i < declarations.length; i++) {
-            if (declarations[i].kind == ScriptKind.Migration) count++;
+            if (declarations[i].migration) count++;
         }
         string[] memory rows = new string[](count);
         uint256 row = 0;
         for (uint256 i = 0; i < declarations.length; i++) {
-            if (declarations[i].kind != ScriptKind.Migration) continue;
+            if (!declarations[i].migration) continue;
             rows[row] = migrationJson(row, paths[i], declarations[i], instances[i], networks);
             row++;
         }
         vm.serializeUint("root", "version", 1);
         vm.serializeBytes32("root", "genesis", MIGRATION_HEAD_GENESIS);
-        vm.serializeString("root", "networks", networksJson);
+        vm.serializeString("root", "networks", networksJson(networks));
         return vm.serializeString("root", "migrations", rows);
     }
 
