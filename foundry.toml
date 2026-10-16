@@ -49,6 +49,7 @@ fs_permissions = [
   { access = "read-write", path = "ideal-roles.json" },
   { access = "read-write", path = "migrations.json" },
   { access = "read", path = "script" },
+  { access = "read", path = "test/fixture/declarations" },
 ]
 
 remappings = [

@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
+import {IStoxScript, ScriptDeclaration, ScriptKind} from "../src/interface/IStoxScript.sol";
+import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
@@ -55,7 +58,12 @@ error RehearsalChangedMinDelay(uint256 expected, uint256 actual);
 /// stage dispatched out of order fails here rather than in the Safe. The run
 /// then proves the whole loop on the fork: warp past the delay, execute as an
 /// address holding no roles, and confirm the delay is unchanged.
-contract TimelockRehearsalSchedule is Script {
+contract TimelockRehearsalSchedule is Script, IStoxScript {
+    /// @inheritdoc IStoxScript
+    function declaration() external pure returns (ScriptDeclaration memory) {
+        return LibStoxMigrations.notAMigration(ScriptKind.TimelockRehearsal);
+    }
+
     /// @notice Author the schedule bundle for the active chain.
     function run() external {
         Safe safe = Safe(payable(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid)));

@@ -14,7 +14,9 @@ import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
+import {migrateGovernanceToTimelockDeclaration} from "./20260729-migrate-governance-to-timelock.s.sol";
 
 /// @notice The Safe's line in the migration registry is not where this
 /// script applies: it has recorded something, so either this bundle has
@@ -42,6 +44,18 @@ error LineHeadMismatch(bytes32 head);
 /// @notice The n+1 revoke executed through the Safe and the Safe still
 /// holds `EMERGENCY_ROLE`.
 error EmergencyNotRevoked();
+
+/// @notice This script's declaration: the Safe's record after the
+/// governance-timelock move.
+/// @return The declaration.
+function grantOrchestratorEmergencyDeclaration() pure returns (ScriptDeclaration memory) {
+    return LibStoxMigrations.safeMigrationOnto(
+        LibStoxMigrations.NAMESPACE,
+        LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
+        LibStoxMigrations.GOVERNANCE_TIMELOCK,
+        false
+    );
+}
 
 /// @title GrantOrchestratorEmergency
 /// @notice Authors the per-chain Safe Tx Builder bundle that grants the
@@ -75,7 +89,12 @@ error EmergencyNotRevoked();
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261006-grant-orchestrator-emergency` per chain. Refuses once
 /// the Safe's line has moved off genesis (`UnexpectedMigrationLine`).
-contract GrantOrchestratorEmergency is SafeBundleScript {
+contract GrantOrchestratorEmergency is SafeBundleScript, IStoxScript {
+    /// @inheritdoc IStoxScript
+    function declaration() external pure returns (ScriptDeclaration memory) {
+        return grantOrchestratorEmergencyDeclaration();
+    }
+
     /// @notice The orchestrator instance, typed for its role-id getters.
     ST0xOrchestrator internal constant ORCHESTRATOR =
         ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
@@ -130,14 +149,12 @@ contract GrantOrchestratorEmergency is SafeBundleScript {
             data: abi.encodeCall(IAccessControl.grantRole, (ORCHESTRATOR.EMERGENCY_ROLE(), chainSafe)),
             operation: Enum.Operation.Call
         });
-        (address historyTo, bytes memory historyData) = LibStoxMigrations.applyMigrationHistoryCall(
-            LibStoxMigrations.GOVERNANCE_TIMELOCK, executedAt, LibStoxMigrations.onto(chainSafe, MIGRATION_HEAD_GENESIS)
-        );
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        (address historyTo, bytes memory historyData) =
+            LibStoxMigrations.historyCall(migrateGovernanceToTimelockDeclaration(), executedAt, chainSafe, timelock);
         txs[1] = SafeTx({to: historyTo, value: 0, data: historyData, operation: Enum.Operation.Call});
-        (address recordTo, bytes memory recordData) = LibStoxMigrations.applyMigrationCall(
-            LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
-            LibStoxMigrations.onto(chainSafe, LibStoxMigrations.GOVERNANCE_TIMELOCK)
-        );
+        (address recordTo, bytes memory recordData) =
+            LibStoxMigrations.recordCall(grantOrchestratorEmergencyDeclaration(), chainSafe, timelock);
         txs[2] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
         return txs;
     }

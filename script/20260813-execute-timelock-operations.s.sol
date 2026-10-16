@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
+import {IStoxScript, ScriptDeclaration, ScriptKind} from "../src/interface/IStoxScript.sol";
+import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
@@ -67,7 +70,12 @@ error ExecutorHoldsRole(address timelock, address executor);
 /// broadcasting key itself holds no `EXECUTOR_ROLE`. That check runs BEFORE
 /// the broadcast, because reporting it afterwards would already have sent the
 /// transaction.
-contract ExecuteTimelockOperations is Script {
+contract ExecuteTimelockOperations is Script, IStoxScript {
+    /// @inheritdoc IStoxScript
+    function declaration() external pure returns (ScriptDeclaration memory) {
+        return LibStoxMigrations.notAMigration(ScriptKind.TimelockExecutor);
+    }
+
     /// @notice Execute the rehearsal operation on the active chain if it has
     /// matured. Broadcasts from the CI deploy key, which holds no roles.
     function run() external {

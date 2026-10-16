@@ -16,6 +16,7 @@ import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigratio
 import {LibOrchestratorInvariants} from "../../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
+import {ScriptDeclaration} from "../../../src/interface/IStoxScript.sol";
 import {LibStoxMigrations, NoGovernanceTimelockMigrationOnChain} from "../../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibStoxMigrationsHarness} from "./LibStoxMigrationsHarness.sol";
@@ -110,15 +111,17 @@ contract LibStoxMigrationsTest is Test {
         }
     }
 
-    /// @notice The registry call binds this repo's namespace and targets the
-    /// pinned registry.
-    function testApplyMigrationCallBindsTheNamespace() external {
+    /// @notice The record call writes the declared namespace, id and resolved
+    /// prerequisites to the pinned registry.
+    function testRecordCallWritesTheDeclaration() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         address writer = makeAddr("writer");
         Prerequisite[] memory prerequisites = LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS);
+        ScriptDeclaration memory declared = LibStoxMigrations.safeMigrationOnto(
+            LibStoxMigrations.NAMESPACE, LibStoxMigrations.ORCHESTRATOR_EMERGENCY, MIGRATION_HEAD_GENESIS, false
+        );
 
-        (address to, bytes memory data) =
-            LibStoxMigrations.applyMigrationCall(LibStoxMigrations.ORCHESTRATOR_EMERGENCY, prerequisites);
+        (address to, bytes memory data) = LibStoxMigrations.recordCall(declared, writer, makeAddr("timelock"));
 
         assertEq(to, LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
         assertEq(
@@ -130,16 +133,18 @@ contract LibStoxMigrationsTest is Test {
         );
     }
 
-    /// @notice The history call binds this repo's namespace, carries the
-    /// moment and targets the pinned registry.
-    function testApplyMigrationHistoryCallBindsTheNamespace() external {
+    /// @notice The history call writes the declaration with the moment to the
+    /// pinned registry.
+    function testHistoryCallWritesTheDeclarationAtTheMoment() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         address writer = makeAddr("writer");
         Prerequisite[] memory prerequisites = LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS);
-
-        (address to, bytes memory data) = LibStoxMigrations.applyMigrationHistoryCall(
-            LibStoxMigrations.GOVERNANCE_TIMELOCK, 1_791_056_759, prerequisites
+        ScriptDeclaration memory declared = LibStoxMigrations.safeMigrationOnto(
+            LibStoxMigrations.NAMESPACE, LibStoxMigrations.GOVERNANCE_TIMELOCK, MIGRATION_HEAD_GENESIS, true
         );
+
+        (address to, bytes memory data) =
+            LibStoxMigrations.historyCall(declared, 1_791_056_759, writer, makeAddr("timelock"));
 
         assertEq(to, LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
         assertEq(

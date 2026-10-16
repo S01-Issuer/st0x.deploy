@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
+import {IStoxScript, ScriptDeclaration, ScriptKind} from "../src/interface/IStoxScript.sol";
+import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
@@ -93,7 +96,12 @@ error DeployerHoldsTimelockRole(bytes32 role, address deployer);
 /// chain's `LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK*` pin with the
 /// logged address (`testPinsMatchDerivedAddressesOnceHydrated` pins the
 /// hydrated value to the derivation).
-contract DeployGovernanceTimelock is Script {
+contract DeployGovernanceTimelock is Script, IStoxScript {
+    /// @inheritdoc IStoxScript
+    function declaration() external pure returns (ScriptDeclaration memory) {
+        return LibStoxMigrations.notAMigration(ScriptKind.Deployment);
+    }
+
     /// @notice Where `run()` writes the per-chain deployed addresses, so a
     /// verification step can target every chain without re-deriving them.
     string internal constant DEPLOYMENTS_PATH = "out/20260729-governance-timelock-deployments.json";

@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
+import {IStoxScript, ScriptDeclaration, ScriptKind} from "../src/interface/IStoxScript.sol";
+import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
@@ -42,7 +45,12 @@ error RehearsalNotScheduled(bytes32 id);
 /// nothing fails at authoring time rather than in the Safe. Post-state
 /// asserts the operation is fully deregistered, which is what makes the
 /// re-propose stage possible.
-contract TimelockRehearsalCancel is Script {
+contract TimelockRehearsalCancel is Script, IStoxScript {
+    /// @inheritdoc IStoxScript
+    function declaration() external pure returns (ScriptDeclaration memory) {
+        return LibStoxMigrations.notAMigration(ScriptKind.TimelockRehearsal);
+    }
+
     /// @notice Author the cancel bundle for the active chain.
     function run() external {
         Safe safe = Safe(payable(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid)));

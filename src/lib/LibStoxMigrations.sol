@@ -6,34 +6,10 @@ import {LibMigrationRegistry} from "rain-deploy-0.1.18/src/lib/LibMigrationRegis
 import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 
-import {LibRbacMigration} from "./LibRbacMigration.sol";
+import {MigrationPrerequisite, MigrationWriter, ScriptDeclaration, ScriptKind} from "../interface/IStoxScript.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
-
-/// @notice The account that records a migration, by role: its address
-/// differs per chain.
-enum MigrationWriter {
-    Safe,
-    Timelock
-}
-
-/// @notice `Prerequisite` with the writer named by role.
-struct MigrationPrerequisite {
-    MigrationWriter writer;
-    bytes32 namespace;
-    bytes32 migration;
-}
-
-/// @notice A migration a script in this repo performs. `namespace` and `id`
-/// are zero for one the registry holds no record of.
-struct Migration {
-    string script;
-    bytes32 namespace;
-    bytes32 id;
-    MigrationWriter writer;
-    MigrationPrerequisite[] prerequisites;
-}
 
 /// @notice No execution moment is pinned for the governance-timelock
 /// migration on this chain.
@@ -95,57 +71,52 @@ library LibStoxMigrations {
     bytes32 internal constant ORCHESTRATOR_ADMIN_TO_TIMELOCK =
         keccak256("script/20261006-orchestrator-admin-to-timelock.s.sol");
 
-    /// @notice Every migration a script in `script/` performs, in path order.
-    /// @return The migrations.
-    function migrations() internal pure returns (Migration[] memory) {
-        Migration[] memory list = new Migration[](6);
-        list[0] = safeOnto(
-            "script/20260729-migrate-governance-to-timelock.s.sol",
-            NAMESPACE,
-            GOVERNANCE_TIMELOCK,
-            MIGRATION_HEAD_GENESIS
-        );
-        list[1] = unrecorded("script/20260831-retire-direct-signer-roles.s.sol");
-        list[2] = safeOnto(
-            "script/20261006-grant-eu-authoriser-roles.s.sol",
-            LibRbacMigration.STOX_RBAC_NAMESPACE,
-            LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER,
-            MIGRATION_HEAD_GENESIS
-        );
-        list[3] = safeOnto(
-            "script/20261006-grant-orchestrator-emergency.s.sol", NAMESPACE, ORCHESTRATOR_EMERGENCY, GOVERNANCE_TIMELOCK
-        );
-        list[4] = safeOnto(
-            "script/20261006-orchestrator-admin-to-timelock.s.sol",
-            NAMESPACE,
-            ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-            ORCHESTRATOR_EMERGENCY
-        );
-        list[5] = unrecorded("script/MigrateMultisigThreshold.s.sol");
-        return list;
-    }
-
-    function safeOnto(string memory script, bytes32 namespace, bytes32 id, bytes32 headMigration)
-        private
+    /// @notice A migration the Safe records in `namespace`, applied onto
+    /// `headMigration` in the Safe's own line of that namespace.
+    /// @param namespace The record's namespace.
+    /// @param id The record's id.
+    /// @param headMigration What it is applied onto.
+    /// @param history Whether it is recorded later as history.
+    /// @return The declaration.
+    function safeMigrationOnto(bytes32 namespace, bytes32 id, bytes32 headMigration, bool history)
+        internal
         pure
-        returns (Migration memory)
+        returns (ScriptDeclaration memory)
     {
         MigrationPrerequisite[] memory prerequisites = new MigrationPrerequisite[](1);
         prerequisites[0] =
             MigrationPrerequisite({writer: MigrationWriter.Safe, namespace: namespace, migration: headMigration});
-        return Migration({
-            script: script, namespace: namespace, id: id, writer: MigrationWriter.Safe, prerequisites: prerequisites
+        return ScriptDeclaration({
+            kind: ScriptKind.Migration,
+            namespace: namespace,
+            id: id,
+            writer: MigrationWriter.Safe,
+            prerequisites: prerequisites,
+            history: history
         });
     }
 
-    function unrecorded(string memory script) private pure returns (Migration memory) {
-        return Migration({
-            script: script,
+    /// @notice A script that writes no record.
+    /// @param kind What it is; never `Migration`.
+    /// @return The declaration.
+    function notAMigration(ScriptKind kind) internal pure returns (ScriptDeclaration memory) {
+        return ScriptDeclaration({
+            kind: kind,
             namespace: bytes32(0),
             id: bytes32(0),
             writer: MigrationWriter.Safe,
-            prerequisites: new MigrationPrerequisite[](0)
+            prerequisites: new MigrationPrerequisite[](0),
+            history: false
         });
+    }
+
+    /// @notice The address `writer` is, given the chain's Safe and timelock.
+    /// @param writer The role.
+    /// @param safe The Safe.
+    /// @param timelock The timelock.
+    /// @return The address.
+    function writerFor(MigrationWriter writer, address safe, address timelock) internal pure returns (address) {
+        return writer == MigrationWriter.Timelock ? timelock : safe;
     }
 
     /// @notice The address `writer` is on `chainId`.
@@ -157,36 +128,74 @@ library LibStoxMigrations {
         return LibSafeInvariants.safeForChainId(chainId);
     }
 
-    /// @notice What `migration` is recorded after on `chainId`, as its write
-    /// takes the list.
-    /// @param migration The migration.
-    /// @param chainId The chain id.
+    /// @notice What `declared` is recorded after, as its write takes the list.
+    /// @param declared The declaration.
+    /// @param safe The Safe.
+    /// @param timelock The timelock.
     /// @return The prerequisites.
-    function prerequisitesForChainId(Migration memory migration, uint256 chainId)
+    function prerequisitesFor(ScriptDeclaration memory declared, address safe, address timelock)
         internal
         pure
         returns (Prerequisite[] memory)
     {
-        Prerequisite[] memory prerequisites = new Prerequisite[](migration.prerequisites.length);
+        Prerequisite[] memory prerequisites = new Prerequisite[](declared.prerequisites.length);
         for (uint256 i = 0; i < prerequisites.length; i++) {
             prerequisites[i] = Prerequisite({
-                writer: writerForChainId(migration.prerequisites[i].writer, chainId),
-                namespace: migration.prerequisites[i].namespace,
-                migration: migration.prerequisites[i].migration
+                writer: writerFor(declared.prerequisites[i].writer, safe, timelock),
+                namespace: declared.prerequisites[i].namespace,
+                migration: declared.prerequisites[i].migration
             });
         }
         return prerequisites;
     }
 
-    /// @notice When a migration recorded as history executed on `chainId`;
-    /// zero for one recorded with its change, whose record is the moment.
-    /// @param migration The migration id.
+    /// @notice `prerequisitesFor` with `chainId`'s pinned Safe and timelock.
+    /// @param declared The declaration.
     /// @param chainId The chain id.
-    /// @return The moment, unix seconds, or zero.
-    function historyMoment(bytes32 migration, uint256 chainId) internal pure returns (uint256) {
-        if (migration != GOVERNANCE_TIMELOCK) return 0;
-        (uint256 executedAt,) = governanceTimelockExecution(chainId);
-        return executedAt;
+    /// @return The prerequisites.
+    function prerequisitesForChainId(ScriptDeclaration memory declared, uint256 chainId)
+        internal
+        pure
+        returns (Prerequisite[] memory)
+    {
+        return prerequisitesFor(
+            declared, LibSafeInvariants.safeForChainId(chainId), LibTimelockInvariants.timelockForChainId(chainId)
+        );
+    }
+
+    /// @notice The registry call that writes `declared`'s record. Verifies the
+    /// registry's code hash first.
+    /// @param declared The declaration.
+    /// @param safe The Safe.
+    /// @param timelock The timelock.
+    /// @return The registry.
+    /// @return The calldata.
+    function recordCall(ScriptDeclaration memory declared, address safe, address timelock)
+        internal
+        view
+        returns (address, bytes memory)
+    {
+        return LibMigrationRegistry.applyMigrationCall(
+            declared.namespace, declared.id, prerequisitesFor(declared, safe, timelock)
+        );
+    }
+
+    /// @notice The registry call that writes `declared`'s record as history,
+    /// at `appliedAt`. Verifies the registry's code hash first.
+    /// @param declared The declaration.
+    /// @param appliedAt When it executed, unix seconds.
+    /// @param safe The Safe.
+    /// @param timelock The timelock.
+    /// @return The registry.
+    /// @return The calldata.
+    function historyCall(ScriptDeclaration memory declared, uint256 appliedAt, address safe, address timelock)
+        internal
+        view
+        returns (address, bytes memory)
+    {
+        return LibMigrationRegistry.applyMigrationHistoryCall(
+            declared.namespace, declared.id, appliedAt, prerequisitesFor(declared, safe, timelock)
+        );
     }
 
     /// @notice The block timestamp of the Safe transaction that executed the
@@ -234,41 +243,6 @@ library LibStoxMigrations {
     /// @return The head.
     function head(address writer) internal view returns (bytes32) {
         return LibMigrationRegistry.head(writer, NAMESPACE);
-    }
-
-    /// @notice The registry call that records `migration` under the caller
-    /// in this repo's namespace, after `prerequisites`: the `to` and `data`
-    /// of a Safe bundle entry. Verifies the registry's code hash first.
-    /// @param migration The migration id.
-    /// @param prerequisites What it is applied after.
-    /// @return The registry.
-    /// @return The calldata.
-    function applyMigrationCall(bytes32 migration, Prerequisite[] memory prerequisites)
-        internal
-        view
-        returns (address, bytes memory)
-    {
-        (address registry, bytes memory data) =
-            LibMigrationRegistry.applyMigrationCall(NAMESPACE, migration, prerequisites);
-        return (registry, data);
-    }
-
-    /// @notice The registry call that records `migration` under the caller
-    /// in this repo's namespace as history, at `appliedAt`, after
-    /// `prerequisites`. Verifies the registry's code hash first.
-    /// @param migration The migration id.
-    /// @param appliedAt When the migration executed, unix seconds.
-    /// @param prerequisites What it is applied after.
-    /// @return The registry.
-    /// @return The calldata.
-    function applyMigrationHistoryCall(bytes32 migration, uint256 appliedAt, Prerequisite[] memory prerequisites)
-        internal
-        view
-        returns (address, bytes memory)
-    {
-        (address registry, bytes memory data) =
-            LibMigrationRegistry.applyMigrationHistoryCall(NAMESPACE, migration, appliedAt, prerequisites);
-        return (registry, data);
     }
 
     /// @notice The prerequisite list for a migration applied onto

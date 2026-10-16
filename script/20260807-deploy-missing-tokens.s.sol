@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
+import {IStoxScript, ScriptDeclaration, ScriptKind} from "../src/interface/IStoxScript.sol";
+import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
@@ -116,7 +119,12 @@ error AuthoriserNotWired(address receiptVault, address expected, address actual)
 /// `transferOwnership(target chain's governance timelock)`. One deploy-key
 /// broadcast, no Safe signature. Logs each
 /// (underlying, receipt, receiptVault, wrapped) tuple for the pin.
-contract DeployMissingTokens is Script {
+contract DeployMissingTokens is Script, IStoxScript {
+    /// @inheritdoc IStoxScript
+    function declaration() external pure returns (ScriptDeclaration memory) {
+        return LibStoxMigrations.notAMigration(ScriptKind.Deployment);
+    }
+
     /// @notice Assert a deployer contract is present at its pinned address.
     /// @param deployer The pinned deployer address to check.
     function _assertDeployer(address deployer) internal view {

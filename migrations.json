@@ -64,12 +64,6 @@
       "script": "script/20260729-migrate-governance-to-timelock.s.sol"
     },
     {
-      "chains": {},
-      "id": null,
-      "namespace": null,
-      "script": "script/20260831-retire-direct-signer-roles.s.sol"
-    },
-    {
       "chains": {
         "1": {
           "executedAt": 0,
@@ -254,12 +248,6 @@
       "id": "0xdf1d7890b98737bae0df512744c6d6e9af57d6eafb71a5990d6dd43829b85651",
       "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
       "script": "script/20261006-orchestrator-admin-to-timelock.s.sol"
-    },
-    {
-      "chains": {},
-      "id": null,
-      "namespace": null,
-      "script": "script/MigrateMultisigThreshold.s.sol"
     }
   ],
   "networks": {
