@@ -203,6 +203,73 @@ export class Contract extends Entity {
       "timelockOperations",
     );
   }
+
+  get safeOwners(): Array<Bytes> | null {
+    let value = this.get("safeOwners");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytesArray();
+    }
+  }
+
+  set safeOwners(value: Array<Bytes> | null) {
+    if (!value) {
+      this.unset("safeOwners");
+    } else {
+      this.set("safeOwners", Value.fromBytesArray(<Array<Bytes>>value));
+    }
+  }
+
+  get threshold(): BigInt | null {
+    let value = this.get("threshold");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set threshold(value: BigInt | null) {
+    if (!value) {
+      this.unset("threshold");
+    } else {
+      this.set("threshold", Value.fromBigInt(<BigInt>value));
+    }
+  }
+
+  get thresholdAsOfBlock(): BigInt | null {
+    let value = this.get("thresholdAsOfBlock");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set thresholdAsOfBlock(value: BigInt | null) {
+    if (!value) {
+      this.unset("thresholdAsOfBlock");
+    } else {
+      this.set("thresholdAsOfBlock", Value.fromBigInt(<BigInt>value));
+    }
+  }
+
+  get thresholdChanges(): SafeThresholdChangeLoader {
+    return new SafeThresholdChangeLoader(
+      "Contract",
+      this.get("id")!.toBytes().toHexString(),
+      "thresholdChanges",
+    );
+  }
+
+  get safeOwnerChanges(): SafeOwnerChangeLoader {
+    return new SafeOwnerChangeLoader(
+      "Contract",
+      this.get("id")!.toBytes().toHexString(),
+      "safeOwnerChanges",
+    );
+  }
 }
 
 export class Role extends Entity {
@@ -1675,6 +1742,315 @@ export class TimelockCall extends Entity {
   }
 }
 
+export class SafeThresholdChange extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save SafeThresholdChange entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type SafeThresholdChange must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set("SafeThresholdChange", id.toBytes().toHexString(), this);
+    }
+  }
+
+  static loadInBlock(id: Bytes): SafeThresholdChange | null {
+    return changetype<SafeThresholdChange | null>(
+      store.get_in_block("SafeThresholdChange", id.toHexString()),
+    );
+  }
+
+  static load(id: Bytes): SafeThresholdChange | null {
+    return changetype<SafeThresholdChange | null>(
+      store.get("SafeThresholdChange", id.toHexString()),
+    );
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get contract(): Bytes {
+    let value = this.get("contract");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set contract(value: Bytes) {
+    this.set("contract", Value.fromBytes(value));
+  }
+
+  get threshold(): BigInt {
+    let value = this.get("threshold");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set threshold(value: BigInt) {
+    this.set("threshold", Value.fromBigInt(value));
+  }
+
+  get setup(): boolean {
+    let value = this.get("setup");
+    if (!value || value.kind == ValueKind.NULL) {
+      return false;
+    } else {
+      return value.toBoolean();
+    }
+  }
+
+  set setup(value: boolean) {
+    this.set("setup", Value.fromBoolean(value));
+  }
+
+  get blockNumber(): BigInt {
+    let value = this.get("blockNumber");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set blockNumber(value: BigInt) {
+    this.set("blockNumber", Value.fromBigInt(value));
+  }
+
+  get blockTimestamp(): BigInt {
+    let value = this.get("blockTimestamp");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set blockTimestamp(value: BigInt) {
+    this.set("blockTimestamp", Value.fromBigInt(value));
+  }
+
+  get transactionHash(): Bytes {
+    let value = this.get("transactionHash");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set transactionHash(value: Bytes) {
+    this.set("transactionHash", Value.fromBytes(value));
+  }
+
+  get transactionFrom(): Bytes {
+    let value = this.get("transactionFrom");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set transactionFrom(value: Bytes) {
+    this.set("transactionFrom", Value.fromBytes(value));
+  }
+
+  get logIndex(): BigInt {
+    let value = this.get("logIndex");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set logIndex(value: BigInt) {
+    this.set("logIndex", Value.fromBigInt(value));
+  }
+}
+
+export class SafeOwnerChange extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save SafeOwnerChange entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type SafeOwnerChange must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set("SafeOwnerChange", id.toBytes().toHexString(), this);
+    }
+  }
+
+  static loadInBlock(id: Bytes): SafeOwnerChange | null {
+    return changetype<SafeOwnerChange | null>(
+      store.get_in_block("SafeOwnerChange", id.toHexString()),
+    );
+  }
+
+  static load(id: Bytes): SafeOwnerChange | null {
+    return changetype<SafeOwnerChange | null>(
+      store.get("SafeOwnerChange", id.toHexString()),
+    );
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get contract(): Bytes {
+    let value = this.get("contract");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set contract(value: Bytes) {
+    this.set("contract", Value.fromBytes(value));
+  }
+
+  get owner(): Bytes {
+    let value = this.get("owner");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set owner(value: Bytes) {
+    this.set("owner", Value.fromBytes(value));
+  }
+
+  get added(): boolean {
+    let value = this.get("added");
+    if (!value || value.kind == ValueKind.NULL) {
+      return false;
+    } else {
+      return value.toBoolean();
+    }
+  }
+
+  set added(value: boolean) {
+    this.set("added", Value.fromBoolean(value));
+  }
+
+  get setup(): boolean {
+    let value = this.get("setup");
+    if (!value || value.kind == ValueKind.NULL) {
+      return false;
+    } else {
+      return value.toBoolean();
+    }
+  }
+
+  set setup(value: boolean) {
+    this.set("setup", Value.fromBoolean(value));
+  }
+
+  get blockNumber(): BigInt {
+    let value = this.get("blockNumber");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set blockNumber(value: BigInt) {
+    this.set("blockNumber", Value.fromBigInt(value));
+  }
+
+  get blockTimestamp(): BigInt {
+    let value = this.get("blockTimestamp");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set blockTimestamp(value: BigInt) {
+    this.set("blockTimestamp", Value.fromBigInt(value));
+  }
+
+  get transactionHash(): Bytes {
+    let value = this.get("transactionHash");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set transactionHash(value: Bytes) {
+    this.set("transactionHash", Value.fromBytes(value));
+  }
+
+  get transactionFrom(): Bytes {
+    let value = this.get("transactionFrom");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set transactionFrom(value: Bytes) {
+    this.set("transactionFrom", Value.fromBytes(value));
+  }
+
+  get logIndex(): BigInt {
+    let value = this.get("logIndex");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set logIndex(value: BigInt) {
+    this.set("logIndex", Value.fromBigInt(value));
+  }
+}
+
 export class RoleLoader extends Entity {
   _entity: string;
   _field: string;
@@ -1744,6 +2120,42 @@ export class TimelockOperationLoader extends Entity {
   load(): TimelockOperation[] {
     let value = store.loadRelated(this._entity, this._id, this._field);
     return changetype<TimelockOperation[]>(value);
+  }
+}
+
+export class SafeThresholdChangeLoader extends Entity {
+  _entity: string;
+  _field: string;
+  _id: string;
+
+  constructor(entity: string, id: string, field: string) {
+    super();
+    this._entity = entity;
+    this._id = id;
+    this._field = field;
+  }
+
+  load(): SafeThresholdChange[] {
+    let value = store.loadRelated(this._entity, this._id, this._field);
+    return changetype<SafeThresholdChange[]>(value);
+  }
+}
+
+export class SafeOwnerChangeLoader extends Entity {
+  _entity: string;
+  _field: string;
+  _id: string;
+
+  constructor(entity: string, id: string, field: string) {
+    super();
+    this._entity = entity;
+    this._id = id;
+    this._field = field;
+  }
+
+  load(): SafeOwnerChange[] {
+    let value = store.loadRelated(this._entity, this._id, this._field);
+    return changetype<SafeOwnerChange[]>(value);
   }
 }
 
