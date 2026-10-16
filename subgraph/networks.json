@@ -30,7 +30,7 @@
     },
     "TokenOwnerSafe": {
       "address": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611",
-      "startBlock": 0
+      "startBlock": 32935263
     }
   },
   "mainnet": {
@@ -98,7 +98,7 @@
     },
     "TokenOwnerSafe": {
       "address": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
-      "startBlock": 0
+      "startBlock": 41251257
     }
   },
   "robinhood": {
@@ -132,7 +132,7 @@
     },
     "TokenOwnerSafe": {
       "address": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
-      "startBlock": 0
+      "startBlock": 59607621
     }
   },
   "bsc": {
