@@ -227,11 +227,17 @@ The order on every chain is:
    while the vault has no underlying set.
 3. Upgrade the receipt-vault beacon.
 4. Call `setUnderlying(symbol, name)` on each vault. Both tokens rename at this
-   step, together.
+   step, together: the wrapper goes from `wt<TICKER>` to `<TICKER>s`.
+   **Precondition:** do not schedule this step until st0x.liquidity,
+   st0x.pricing and st0x-oracle-server accept both `wt<TICKER>` and `<TICKER>s`
+   in production. Services that match the `wt` prefix would otherwise reject
+   every renamed token. A rename cannot be reverted to the initialized metadata,
+   because `setUnderlying` rejects empty values.
 
-Steps 2–4 are timelock operations and can be scheduled as one batch.
-`UnderlyingNamingUpgradeShadowFork.t.sol` runs this order against live Base
-state.
+Steps 2 and 3 change no visible metadata and can be scheduled as one batch.
+Schedule step 4 as its own operation, so it can be cancelled during the delay
+without touching the beacon upgrades. `UnderlyingNamingUpgradeShadowFork.t.sol`
+runs this order against live Base state.
 
 ## Invariants
 
