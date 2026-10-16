@@ -14,7 +14,7 @@ interface IStoxUnderlyingV1 {
     /// @param oldName The name before the update. Empty if unset.
     /// @param newSymbol The ticker after the update.
     /// @param newName The name after the update.
-    event UnderlyingSet(address sender, string oldSymbol, string oldName, string newSymbol, string newName);
+    event UnderlyingSet(address indexed sender, string oldSymbol, string oldName, string newSymbol, string newName);
 
     /// @notice The underlying ticker, e.g. "NVDA".
     /// @return The ticker, or the empty string if it has never been set.
