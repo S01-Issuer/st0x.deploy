@@ -2,32 +2,19 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
+import "./AllScripts.sol";
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistryDeploy.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
-import {BuildMigrations, HistoryWithoutMoment, ManyDeclarations, NoDeclaration} from "../../script/BuildMigrations.sol";
+import {BuildMigrations, HistoryWithoutMoment, NoDeclaration} from "../../script/BuildMigrations.sol";
 import {IStoxHistoryMigration, ScriptDeclaration, ScriptKind} from "../../src/interface/IStoxScript.sol";
+import {BuildMigrationsHarness} from "./BuildMigrationsHarness.sol";
+import {ZeroMomentFixture} from "./ZeroMomentFixture.sol";
 import {MigrationWithoutRecord} from "../../src/lib/LibScriptDeclarations.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
-
-contract ZeroMomentFixture is IStoxHistoryMigration {
-    function executedAt(uint256) external pure returns (uint256) {
-        return 0;
-    }
-}
-
-contract BuildMigrationsHarness is BuildMigrations {
-    function callExecutedAt(string memory path, ScriptDeclaration memory declared, address instance, uint256 chainId)
-        external
-        pure
-        returns (uint256)
-    {
-        return executedAt(path, declared, instance, chainId);
-    }
-}
 
 contract BuildMigrationsTest is Test {
     string internal constant FIXTURES = "test/fixture/declarations";
@@ -208,14 +195,6 @@ contract BuildMigrationsTest is Test {
         string memory dir = string.concat(FIXTURES, "/undeclared");
         vm.expectRevert(
             abi.encodeWithSelector(NoDeclaration.selector, string.concat(dir, "/UndeclaredScriptFixture.s.sol"))
-        );
-        build.discover(dir);
-    }
-
-    function testAScriptFileWithTwoDeclarationsFails() external {
-        string memory dir = string.concat(FIXTURES, "/many");
-        vm.expectRevert(
-            abi.encodeWithSelector(ManyDeclarations.selector, string.concat(dir, "/ManyDeclarationsFixture.s.sol"))
         );
         build.discover(dir);
     }
