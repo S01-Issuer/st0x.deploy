@@ -6,6 +6,10 @@ import {
   SafeSetup,
 } from "../generated/TokenOwnerSafe/Safe";
 import {
+  AddedOwner1 as AddedOwner130,
+  RemovedOwner1 as RemovedOwner130,
+} from "../generated/TokenOwnerSafe/Safe";
+import {
   Contract,
   SafeOwnerChange,
   SafeThresholdChange,
@@ -81,25 +85,42 @@ export function handleSafeSetup(event: SafeSetup): void {
   recordThreshold(event, event.params.threshold, true);
 }
 
-export function handleSafeAddedOwner(event: AddedOwner): void {
+function addOwner(event: ethereum.Event, owner: Bytes): void {
   let contract = safeContract(event);
   let owners = currentOwners(contract);
-  owners.push(event.params.owner);
+  owners.push(owner);
   contract.safeOwners = owners;
   contract.save();
-  recordOwner(event, logRowId(event), event.params.owner, true, false);
+  recordOwner(event, logRowId(event), owner, true, false);
 }
 
-export function handleSafeRemovedOwner(event: RemovedOwner): void {
+function removeOwner(event: ethereum.Event, owner: Bytes): void {
   let contract = safeContract(event);
   let owners = currentOwners(contract);
   let kept = new Array<Bytes>();
   for (let i = 0; i < owners.length; i++) {
-    if (!owners[i].equals(event.params.owner)) kept.push(owners[i]);
+    if (!owners[i].equals(owner)) kept.push(owners[i]);
   }
   contract.safeOwners = kept;
   contract.save();
-  recordOwner(event, logRowId(event), event.params.owner, false, false);
+  recordOwner(event, logRowId(event), owner, false, false);
+}
+
+export function handleSafeAddedOwner(event: AddedOwner): void {
+  addOwner(event, event.params.owner);
+}
+
+export function handleSafeRemovedOwner(event: RemovedOwner): void {
+  removeOwner(event, event.params.owner);
+}
+
+/** Safe 1.3.0 emits the owner unindexed; the Base Safe ran on 1.3.0 before 1.4.1. */
+export function handleSafe130AddedOwner(event: AddedOwner130): void {
+  addOwner(event, event.params.owner);
+}
+
+export function handleSafe130RemovedOwner(event: RemovedOwner130): void {
+  removeOwner(event, event.params.owner);
 }
 
 export function handleSafeChangedThreshold(event: ChangedThreshold): void {

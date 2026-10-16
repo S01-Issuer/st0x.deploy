@@ -98,6 +98,42 @@ export class SafeSetup__Params {
   }
 }
 
+export class AddedOwner1 extends ethereum.Event {
+  get params(): AddedOwner1__Params {
+    return new AddedOwner1__Params(this);
+  }
+}
+
+export class AddedOwner1__Params {
+  _event: AddedOwner1;
+
+  constructor(event: AddedOwner1) {
+    this._event = event;
+  }
+
+  get owner(): Address {
+    return this._event.parameters[0].value.toAddress();
+  }
+}
+
+export class RemovedOwner1 extends ethereum.Event {
+  get params(): RemovedOwner1__Params {
+    return new RemovedOwner1__Params(this);
+  }
+}
+
+export class RemovedOwner1__Params {
+  _event: RemovedOwner1;
+
+  constructor(event: RemovedOwner1) {
+    this._event = event;
+  }
+
+  get owner(): Address {
+    return this._event.parameters[0].value.toAddress();
+  }
+}
+
 export class Safe extends ethereum.SmartContract {
   static bind(address: Address): Safe {
     return new Safe("Safe", address);

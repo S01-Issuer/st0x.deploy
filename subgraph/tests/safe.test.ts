@@ -7,6 +7,12 @@ import {
   SafeSetup,
 } from "../generated/TokenOwnerSafe/Safe";
 import {
+  AddedOwner1 as AddedOwner130,
+  RemovedOwner1 as RemovedOwner130,
+} from "../generated/TokenOwnerSafe/Safe";
+import {
+  handleSafe130AddedOwner,
+  handleSafe130RemovedOwner,
   handleSafeAddedOwner,
   handleSafeChangedThreshold,
   handleSafeRemovedOwner,
@@ -123,5 +129,25 @@ describe("Token-owner Safe", () => {
     assert.fieldEquals("Contract", SAFE, "kind", "TOKEN_OWNER_SAFE");
     assert.fieldEquals("Contract", SAFE, "firstIndexedBlock", "20");
     assert.fieldEquals("Contract", SAFE, "threshold", "3");
+  });
+
+  test("Safe 1.3.0 owner logs move the same set and history", () => {
+    setup(1, 10, 3);
+    handleSafe130AddedOwner(
+      changetype<AddedOwner130>(
+        ownerChangeLog(Address.fromString(SAFE), Address.fromString(CAROL), 20, 1),
+      ),
+    );
+    handleSafe130RemovedOwner(
+      changetype<RemovedOwner130>(
+        ownerChangeLog(Address.fromString(SAFE), Address.fromString(BOB), 21, 2),
+      ),
+    );
+
+    assert.fieldEquals("Contract", SAFE, "safeOwners", `[${ALICE}, ${CAROL}]`);
+    assert.fieldEquals("SafeOwnerChange", rowKey(1), "owner", CAROL);
+    assert.fieldEquals("SafeOwnerChange", rowKey(1), "added", "true");
+    assert.fieldEquals("SafeOwnerChange", rowKey(2), "owner", BOB);
+    assert.fieldEquals("SafeOwnerChange", rowKey(2), "added", "false");
   });
 });

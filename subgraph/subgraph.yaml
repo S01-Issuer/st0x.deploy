@@ -122,6 +122,10 @@ dataSources:
           handler: handleSafeAddedOwner
         - event: RemovedOwner(indexed address)
           handler: handleSafeRemovedOwner
+        - event: AddedOwner(address)
+          handler: handleSafe130AddedOwner
+        - event: RemovedOwner(address)
+          handler: handleSafe130RemovedOwner
         - event: ChangedThreshold(uint256)
           handler: handleSafeChangedThreshold
       file: ./src/safe.ts
