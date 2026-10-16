@@ -150,4 +150,24 @@ describe("Token-owner Safe", () => {
     assert.fieldEquals("SafeOwnerChange", rowKey(2), "owner", BOB);
     assert.fieldEquals("SafeOwnerChange", rowKey(2), "added", "false");
   });
+
+  test("changes logged before SafeSetup in its transaction survive setup", () => {
+    handleSafeAddedOwner(
+      changetype<AddedOwner>(
+        ownerChangeLog(Address.fromString(SAFE), Address.fromString(CAROL), 10, 0),
+      ),
+    );
+    handleSafeRemovedOwner(
+      changetype<RemovedOwner>(
+        ownerChangeLog(Address.fromString(SAFE), Address.fromString(ALICE), 10, 1),
+      ),
+    );
+    changeThreshold(2, 10, 2);
+    setup(1, 10, 3);
+
+    assert.fieldEquals("Contract", SAFE, "safeOwners", `[${BOB}, ${CAROL}]`);
+    assert.fieldEquals("Contract", SAFE, "threshold", "2");
+    assert.fieldEquals("SafeThresholdChange", rowKey(3), "threshold", "1");
+    assert.fieldEquals("SafeThresholdChange", rowKey(3), "setup", "true");
+  });
 });

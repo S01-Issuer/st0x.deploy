@@ -83,9 +83,9 @@ type Contract @entity {
   threshold: BigInt
   "The block of the `SafeSetup` or `ChangedThreshold` that set `threshold`."
   thresholdAsOfBlock: BigInt
-  "Threshold history, oldest first by `blockNumber`. Empty for every other kind."
+  "Threshold history, unordered: sort by `blockNumber` then `logIndex` for event order. Empty for every other kind."
   thresholdChanges: [SafeThresholdChange!]! @derivedFrom(field: "contract")
-  "Owner history, oldest first by `blockNumber`. Empty for every other kind."
+  "Owner history, unordered: sort by `blockNumber` then `logIndex` for event order. Empty for every other kind."
   safeOwnerChanges: [SafeOwnerChange!]! @derivedFrom(field: "contract")
 }
 

@@ -31,9 +31,13 @@ function recordThreshold(
   setup: boolean,
 ): void {
   let contract = safeContract(event);
-  contract.threshold = threshold;
-  contract.thresholdAsOfBlock = event.block.number;
-  contract.save();
+  // setupModules runs before SafeSetup is emitted, so a ChangedThreshold
+  // already seen for this Safe is later state than the setup threshold.
+  if (!setup || contract.thresholdAsOfBlock === null) {
+    contract.threshold = threshold;
+    contract.thresholdAsOfBlock = event.block.number;
+    contract.save();
+  }
 
   let row = new SafeThresholdChange(logRowId(event));
   row.contract = contract.id;
@@ -67,6 +71,20 @@ function recordOwner(
   row.save();
 }
 
+function withOwner(owners: Array<Bytes>, owner: Bytes): Array<Bytes> {
+  let next = owners.slice(0);
+  next.push(owner);
+  return next;
+}
+
+function withoutOwner(owners: Array<Bytes>, owner: Bytes): Array<Bytes> {
+  let kept = new Array<Bytes>();
+  for (let i = 0; i < owners.length; i++) {
+    if (!owners[i].equals(owner)) kept.push(owners[i]);
+  }
+  return kept;
+}
+
 function currentOwners(contract: Contract): Array<Bytes> {
   let owners = contract.safeOwners;
   return owners === null ? new Array<Bytes>() : owners;
@@ -80,6 +98,22 @@ export function handleSafeSetup(event: SafeSetup): void {
     owners.push(owner);
     recordOwner(event, logRowId(event).concatI32(i), owner, true, true);
   }
+  // setupModules runs before SafeSetup is emitted: replay this transaction's
+  // earlier owner changes for this Safe onto the setup owners, in log order.
+  let setupIndex = event.logIndex.toI32();
+  for (let i = 0; i < setupIndex; i++) {
+    let change = SafeOwnerChange.load(
+      event.transaction.hash.concatI32(i),
+    );
+    if (
+      change === null || change.setup || !change.contract.equals(event.address)
+    ) {
+      continue;
+    }
+    owners = change.added
+      ? withOwner(owners, change.owner)
+      : withoutOwner(owners, change.owner);
+  }
   contract.safeOwners = owners;
   contract.save();
   recordThreshold(event, event.params.threshold, true);
@@ -87,21 +121,14 @@ export function handleSafeSetup(event: SafeSetup): void {
 
 function addOwner(event: ethereum.Event, owner: Bytes): void {
   let contract = safeContract(event);
-  let owners = currentOwners(contract);
-  owners.push(owner);
-  contract.safeOwners = owners;
+  contract.safeOwners = withOwner(currentOwners(contract), owner);
   contract.save();
   recordOwner(event, logRowId(event), owner, true, false);
 }
 
 function removeOwner(event: ethereum.Event, owner: Bytes): void {
   let contract = safeContract(event);
-  let owners = currentOwners(contract);
-  let kept = new Array<Bytes>();
-  for (let i = 0; i < owners.length; i++) {
-    if (!owners[i].equals(owner)) kept.push(owners[i]);
-  }
-  contract.safeOwners = kept;
+  contract.safeOwners = withoutOwner(currentOwners(contract), owner);
   contract.save();
   recordOwner(event, logRowId(event), owner, false, false);
 }
