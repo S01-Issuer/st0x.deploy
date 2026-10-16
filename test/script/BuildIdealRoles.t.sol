@@ -64,7 +64,7 @@ contract BuildIdealRolesTest is Test {
     }
 
     function testRunWritesTheRender() external {
-        vm.removeFile("ideal-roles.json");
+        if (vm.exists("ideal-roles.json")) vm.removeFile("ideal-roles.json");
         build.run();
         assertEq(keccak256(vm.parseJson(vm.readFile("ideal-roles.json"))), keccak256(vm.parseJson(build.render())));
     }
