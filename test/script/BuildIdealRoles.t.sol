@@ -54,6 +54,10 @@ contract BuildIdealRolesTest is Test {
                 for (uint256 j = 0; j < grants.length; j++) {
                     assertEq(vm.parseJsonBytes32(json, string.concat(index(at, j), ".role")), grants[j].role);
                     assertEq(vm.parseJsonAddress(json, string.concat(index(at, j), ".grantee")), grants[j].grantee);
+                    string memory name = vm.parseJsonString(json, string.concat(index(at, j), ".roleName"));
+                    bytes32 named =
+                        keccak256(bytes(name)) == keccak256("DEFAULT_ADMIN_ROLE") ? bytes32(0) : keccak256(bytes(name));
+                    assertEq(named, grants[j].role, name);
                 }
             }
         }
