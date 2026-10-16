@@ -175,9 +175,10 @@ library LibStoxMigrations {
         view
         returns (address, bytes memory)
     {
-        return LibMigrationRegistry.applyMigrationCall(
+        (address registry, bytes memory data) = LibMigrationRegistry.applyMigrationCall(
             declared.namespace, declared.id, prerequisitesFor(declared, safe, timelock)
         );
+        return (registry, data);
     }
 
     /// @notice The registry call that writes `declared`'s record as history,
@@ -193,9 +194,10 @@ library LibStoxMigrations {
         view
         returns (address, bytes memory)
     {
-        return LibMigrationRegistry.applyMigrationHistoryCall(
+        (address registry, bytes memory data) = LibMigrationRegistry.applyMigrationHistoryCall(
             declared.namespace, declared.id, appliedAt, prerequisitesFor(declared, safe, timelock)
         );
+        return (registry, data);
     }
 
     /// @notice The block timestamp of the Safe transaction that executed the

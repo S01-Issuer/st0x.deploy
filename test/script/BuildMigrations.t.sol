@@ -199,7 +199,7 @@ contract BuildMigrationsTest is Test {
     }
 
     function testRunWritesTheRender() external {
-        vm.removeFile("migrations.json");
+        if (vm.exists("migrations.json")) vm.removeFile("migrations.json");
         build.run();
         assertEq(keccak256(vm.parseJson(vm.readFile("migrations.json"))), keccak256(vm.parseJson(build.render())));
     }

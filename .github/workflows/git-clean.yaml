@@ -26,7 +26,7 @@ jobs:
       - name: Regenerate ideal-roles.json
         run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildIdealRoles.sol
       - name: Regenerate migrations.json
-        run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildMigrations.sol
+        run: nix develop github:rainlanguage/rainix#sol-shell -c bash -c "forge build && forge script ./script/BuildMigrations.sol"
       - name: Format
         run: nix develop github:rainlanguage/rainix#sol-shell -c forge fmt
       - name: Assert committed artifacts match freshly built

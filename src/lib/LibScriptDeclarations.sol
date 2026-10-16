@@ -50,27 +50,39 @@ library LibScriptDeclarations {
         if (paths.length != declarations.length) revert DeclarationCountMismatch();
         for (uint256 i = 0; i < declarations.length; i++) {
             ScriptDeclaration memory d = declarations[i];
-            if (d.kind != ScriptKind.Migration) {
-                if (d.namespace != 0 || d.id != 0 || d.prerequisites.length != 0 || d.history) {
-                    revert RecordOnNonMigration(paths[i]);
-                }
-                continue;
+            if (d.kind == ScriptKind.Migration) {
+                validateMigration(paths, declarations, i);
+            } else if (d.namespace != 0 || d.id != 0 || d.prerequisites.length != 0 || d.history) {
+                revert RecordOnNonMigration(paths[i]);
             }
-            if (d.namespace == 0 || d.id == 0) revert MigrationWithoutRecord(paths[i]);
-            if (d.prerequisites.length == 0) revert MigrationWithoutPrerequisite(paths[i]);
-            if (d.namespace == LibStoxMigrations.NAMESPACE && d.id != keccak256(bytes(paths[i]))) {
-                revert IdNotScriptPath(paths[i]);
-            }
-            for (uint256 j = 0; j < i; j++) {
-                if (
-                    declarations[j].kind == ScriptKind.Migration && declarations[j].namespace == d.namespace
-                        && declarations[j].id == d.id
-                ) {
-                    revert DuplicateRecord(paths[i], paths[j]);
-                }
-            }
-            for (uint256 p = 0; p < d.prerequisites.length; p++) {
-                if (!declared(declarations, i, p)) revert UnknownPrerequisite(paths[i], p);
+        }
+    }
+
+    /// @dev The rules a `Migration` declaration at `i` must satisfy.
+    function validateMigration(string[] memory paths, ScriptDeclaration[] memory declarations, uint256 i) private pure {
+        ScriptDeclaration memory d = declarations[i];
+        if (d.namespace == 0 || d.id == 0) revert MigrationWithoutRecord(paths[i]);
+        if (d.prerequisites.length == 0) revert MigrationWithoutPrerequisite(paths[i]);
+        if (d.namespace == LibStoxMigrations.NAMESPACE && d.id != keccak256(bytes(paths[i]))) {
+            revert IdNotScriptPath(paths[i]);
+        }
+        assertFirstToDeclare(paths, declarations, i);
+        for (uint256 p = 0; p < d.prerequisites.length; p++) {
+            if (!declared(declarations, i, p)) revert UnknownPrerequisite(paths[i], p);
+        }
+    }
+
+    /// @dev No migration before `i` declares the record `i` declares.
+    function assertFirstToDeclare(string[] memory paths, ScriptDeclaration[] memory declarations, uint256 i)
+        private
+        pure
+    {
+        for (uint256 j = 0; j < i; j++) {
+            if (
+                declarations[j].kind == ScriptKind.Migration && declarations[j].namespace == declarations[i].namespace
+                    && declarations[j].id == declarations[i].id
+            ) {
+                revert DuplicateRecord(paths[i], paths[j]);
             }
         }
     }

@@ -16,6 +16,10 @@ import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 /// @param script The script's path.
 error NoDeclaration(string script);
 
+/// @notice A script file has no build artifacts: `forge build` has not compiled it.
+/// @param script The script's path.
+error ScriptNotBuilt(string script);
+
 /// @notice More than one contract in a script file declares itself.
 /// @param script The script's path.
 error ManyDeclarations(string script);
@@ -100,14 +104,16 @@ contract BuildMigrations is Script {
 
     /// @dev The one contract in `name`'s artifacts that declares itself.
     function declaring(string memory path, string memory name) internal returns (address, ScriptDeclaration memory) {
-        Vm.DirEntry[] memory artifacts = vm.readDir(string.concat("out/", name), 1);
+        string memory built = string.concat("out/", name);
+        if (!vm.exists(built)) revert ScriptNotBuilt(path);
+        Vm.DirEntry[] memory artifacts = vm.readDir(built, 1);
         address found;
         ScriptDeclaration memory declared;
         for (uint256 a = 0; a < artifacts.length; a++) {
             string memory artifact = basename(artifacts[a].path);
             if (!endsWith(artifact, ".json")) continue;
             string memory id = string.concat(name, ":", stem(artifact, 5));
-            if (vm.getCode(id).length == 0) continue;
+            if (vm.parseJsonBytes(vm.readFile(artifacts[a].path), ".bytecode.object").length == 0) continue;
             address instance = vm.deployCode(id);
             try IStoxScript(instance).declaration() returns (ScriptDeclaration memory d) {
                 if (found != address(0)) revert ManyDeclarations(path);
