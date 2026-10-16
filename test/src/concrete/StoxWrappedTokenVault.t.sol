@@ -19,7 +19,6 @@ import {MockERC20} from "../../concrete/MockERC20.sol";
 import {MockUnderlyingERC20} from "../../concrete/MockUnderlyingERC20.sol";
 import {RevertingUnderlyingERC20} from "../../concrete/RevertingUnderlyingERC20.sol";
 import {RawReturnERC20} from "../../concrete/RawReturnERC20.sol";
-import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibUnderlying.sol";
 
 /// @dev "NVDA" left-aligned in a word, as ABI-encoded string data.
 bytes32 constant NVDA_WORD = 0x4e56444100000000000000000000000000000000000000000000000000000000;
@@ -112,13 +111,13 @@ contract StoxWrappedTokenVaultTest is Test {
     }
 
     /// With the underlying set on the asset, symbol() is ticker + "s" and
-    /// name() is the underlying name + " (ST0x)".
+    /// name() is the asset's own name, unprefixed.
     function testNameAndSymbolFromUnderlying() external {
         MockUnderlyingERC20 asset = new MockUnderlyingERC20();
         asset.setUnderlyingValues("NVDA", "NVIDIA Corporation");
         StoxWrappedTokenVault vault = newWrapper(address(asset));
         assertEq(vault.symbol(), "NVDAs");
-        assertEq(vault.name(), "NVIDIA Corporation (ST0x)");
+        assertEq(vault.name(), "Test Token");
     }
 
     /// The derivation holds for any non-empty values and tracks changes on
@@ -129,7 +128,7 @@ contract StoxWrappedTokenVaultTest is Test {
         StoxWrappedTokenVault vault = newWrapper(address(asset));
         asset.setUnderlyingValues(newSymbol, newName);
         assertEq(vault.symbol(), string.concat(newSymbol, "s"));
-        assertEq(vault.name(), string.concat(newName, ST0X_NAME_SUFFIX));
+        assertEq(vault.name(), "Test Token");
     }
 
     /// Empty underlying values fall back to the asset's ERC-20 metadata,
@@ -146,7 +145,7 @@ contract StoxWrappedTokenVaultTest is Test {
 
         asset.setUnderlyingValues("", "NVIDIA Corporation");
         assertEq(vault.symbol(), "wTT");
-        assertEq(vault.name(), "NVIDIA Corporation (ST0x)");
+        assertEq(vault.name(), "Test Token");
     }
 
     /// Reverting underlying getters fall back rather than reverting.
@@ -229,7 +228,7 @@ contract StoxWrappedTokenVaultTest is Test {
         asset.setRaw(abi.encode("NVDA"));
         StoxWrappedTokenVault vault = newWrapper(address(asset));
         assertEq(vault.symbol(), "NVDAs");
-        assertEq(vault.name(), "NVDA (ST0x)");
+        assertEq(vault.name(), "Test Token");
     }
 
     /// Over a plain ERC-20 with no underlying getters, name() falls back to

@@ -17,6 +17,7 @@ import {LibProdDeployCurrent} from "../../../../src/generated/LibProdDeployCurre
 import {LibTokenInvariants} from "../../../../src/lib/LibTokenInvariants.sol";
 import {IStoxUnderlyingV1} from "../../../../src/interface/IStoxUnderlyingV1.sol";
 import {ICorporateActionsV1} from "../../../../src/interface/ICorporateActionsV1.sol";
+import {CorporateActionsFacetNotDeployed} from "../../../../src/error/ErrCorporateAction.sol";
 
 /// @dev A Base block before any production vault has its underlying ticker
 /// and name set, with the NVDA pair reporting its initialized metadata.
@@ -157,17 +158,20 @@ contract UnderlyingNamingUpgradeShadowForkTest is Test {
     }
 
     /// A vault upgraded before the facet exists keeps every token's metadata,
-    /// but its corporate-action surface answers nothing until the facet is
-    /// deployed. This is why the facet deploy comes first.
+    /// and every facet call, `setUnderlying` included, reverts rather than
+    /// succeeding as a no-op. This is why the facet deploy comes first.
     function testVaultUpgradeBeforeFacetDeploy() external {
-        vm.etch(LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET, "");
+        address facet = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET;
+        vm.etch(facet, "");
         upgradeVault();
         assertMetadataUnchanged();
         assertSupplyIntact();
-        (bool success, bytes memory data) =
-            address(VAULT).staticcall(abi.encodeCall(ICorporateActionsV1.completedActionCount, ()));
-        assertTrue(success, "delegatecall into empty code succeeds");
-        assertEq(data.length, 0, "corporate-action read returns nothing without the facet");
+        vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
+        ICorporateActionsV1(address(VAULT)).completedActionCount();
+        address owner = OwnableUpgradeable(address(VAULT)).owner();
+        vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
+        vm.prank(owner);
+        IStoxUnderlyingV1(address(VAULT)).setUnderlying("NVDA", "NVIDIA Corporation");
     }
 
     /// Only the vault owner sets the underlying on a live vault.

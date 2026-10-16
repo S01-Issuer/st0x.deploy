@@ -105,12 +105,12 @@
   the old and new values, and can be called again when a listing is renamed.
 - **Token metadata is built from those values.** Once set, `StoxReceiptVault`
   reports `symbol() = "t" + ticker` and `name() = name + " (ST0x)"`, and
-  `StoxWrappedTokenVault` reports `symbol() = ticker + "s"` and
-  `name() = name + " (ST0x)"` — e.g. `tNVDA` / `NVDAs`, both named
-  `NVIDIA Corporation (ST0x)`. The suffix is the single constant
-  `ST0X_NAME_SUFFIX`. While unset, the vault reports the name and symbol it was
-  initialized with and the wrapper `"Wrapped " + name` / `"w" + symbol`, so
-  nothing changes on chain until the values are set.
+  `StoxWrappedTokenVault` reports `symbol() = ticker + "s"` and the vault's
+  `name()` — e.g. `tNVDA` / `NVDAs`, both named `NVIDIA Corporation (ST0x)`. The
+  suffix is the single constant `ST0X_NAME_SUFFIX`. While unset, the vault
+  reports the name and symbol it was initialized with and the wrapper
+  `"Wrapped " + name` / `"w" + symbol`, so nothing changes on chain until the
+  values are set.
 - **The wrapper never reverts on its asset's behalf.** It reads the underlying
   values with a `staticcall` and falls back to the asset's ERC-20 metadata if
   the call fails, returns data that is not a well-formed `string`, or returns an
@@ -123,7 +123,13 @@
   its pinned address, a revert, or less than a string head), the vault returns
   the name and symbol stored at initialization, so ERC-20 metadata never depends
   on the facet being deployed. Formatting in the vault itself would put it over
-  EIP-170; forwarding brings it to 24,220 bytes (356 spare).
+  EIP-170; forwarding brings it to 24,271 bytes (305 spare).
+- **The vault's `fallback()` reverts with `CorporateActionsFacetNotDeployed`
+  when the pinned facet address has no code**, so a facet call (a corporate
+  action, `setUnderlying`) made before the facet is deployed fails instead of
+  succeeding as a no-op.
+- **The wrapper's name is its asset's own name once the asset reports an
+  underlying name**, so the name format lives only in the facet.
 - **Rollout order:** deploy the facet, upgrade the wrapper beacon, upgrade the
   receipt-vault beacon, then call `setUnderlying` (`docs/TIMELOCK.md`).
 - As with every vault/facet change, the vault, facet, wrapper and the contracts

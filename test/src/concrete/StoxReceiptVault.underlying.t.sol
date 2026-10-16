@@ -8,6 +8,7 @@ import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {IStoxUnderlyingV1} from "../../../src/interface/IStoxUnderlyingV1.sol";
 import {EmptyUnderlyingSymbol, EmptyUnderlyingName} from "../../../src/error/ErrUnderlying.sol";
+import {CorporateActionsFacetNotDeployed} from "../../../src/error/ErrCorporateAction.sol";
 import {UNDERLYING_STORAGE_LOCATION, ST0X_NAME_SUFFIX} from "../../../src/lib/LibUnderlying.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {OwnedStoxReceiptVault} from "./OwnedStoxReceiptVault.sol";
@@ -165,6 +166,18 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         underlying().setUnderlying("AAPL", "");
         assertEq(vault.symbol(), "tNVDA");
         assertEq(vault.name(), "NVIDIA Corporation (ST0x)");
+    }
+
+    /// With no facet code at the pinned address, `setUnderlying` reverts
+    /// instead of succeeding as a no-op, and the getters revert too.
+    function testFacetCallsRevertWithoutFacet() external {
+        address facet = LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE;
+        vm.etch(facet, "");
+        vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
+        vm.prank(OWNER);
+        underlying().setUnderlying("NVDA", "NVIDIA Corporation");
+        vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
+        underlying().underlyingSymbol();
     }
 
     /// Strings read from the facet are allocated memory: an internal caller

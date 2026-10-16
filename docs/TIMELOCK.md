@@ -215,11 +215,14 @@ way to resolve it.
 **Upgrading the receipt vault.** The vault delegatecalls the corporate-actions
 facet at `LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET`, a constant built
 into its bytecode. A vault implementation whose facet is not deployed keeps its
-ERC-20 metadata, but its corporate-action surface answers nothing and the
-underlying ticker and name cannot be set. The order on every chain is:
+ERC-20 metadata, but every facet call, `setUnderlying` included, reverts with
+`CorporateActionsFacetNotDeployed`. A batch executed before the facet exists
+therefore reverts as a whole instead of completing without renaming anything.
+The order on every chain is:
 
 1. Deploy the facet at its Zoltu address (permissionless) and check its codehash
-   against `LibProdDeployV4`.
+   against `LibProdDeployV4`. Check it again on chain right before executing the
+   batch, not only before scheduling it.
 2. Upgrade the wrapped-token-vault beacon. It keeps its current name and symbol
    while the vault has no underlying set.
 3. Upgrade the receipt-vault beacon.
