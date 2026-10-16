@@ -6,6 +6,7 @@ import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {VmSafe} from "forge-std-1.17.0/src/Vm.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.39/src/lib/LibCodeGen.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
@@ -86,6 +87,8 @@ contract BuildPointers is Script {
     }
 
     function run() external {
+        // The beacon constructors resolve their owner from `block.chainid`; the pointers are chain-invariant.
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         LibRainDeploy.etchZoltuFactory(vm);
 
         // Regenerate the rolling `candidate/` snapshot from current source.
@@ -139,6 +142,7 @@ contract BuildPointers is Script {
 
     string constant GEN_V4_PATH = "src/generated/LibProdDeployV4.sol";
     string constant GEN_CURRENT_PATH = "src/generated/LibProdDeployCurrent.sol";
+    // Deploy history only: the owner the 0.1.1 / 0.1.30 artifacts bake in. Current source resolves the timelock.
     string constant GEN_OWNER = "0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b";
 
     // REUSE-IgnoreStart  (the two SPDX lines below are the header EMITTED into
@@ -411,7 +415,6 @@ contract BuildPointers is Script {
         vm.writeLine(GEN_CURRENT_PATH, "");
         vm.writeLine(GEN_CURRENT_PATH, "library LibProdDeployCurrent {");
         vm.writeLine(GEN_CURRENT_PATH, string.concat('string constant DEPLOY_TAG = "', tag, '";'));
-        vm.writeLine(GEN_CURRENT_PATH, "address constant BEACON_INITIAL_OWNER = LibProdDeployV4.BEACON_INITIAL_OWNER;");
         vm.writeLine(
             GEN_CURRENT_PATH,
             "address constant STOX_PROD_AUTHORISER_V4_CLONE = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;"

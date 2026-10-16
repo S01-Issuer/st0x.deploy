@@ -5,6 +5,7 @@ pragma solidity ^0.8.25;
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
+import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {StoxReceipt} from "../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../src/concrete/StoxWrappedTokenVault.sol";
@@ -20,9 +21,17 @@ import {
 /// @title LibTestDeploy
 /// @notice Deploys the full Stox contract suite via Zoltu in a test
 /// environment. Etches the Zoltu factory and deploys each contract,
-/// asserting deterministic addresses match LibProdDeployV4.
+/// asserting deterministic addresses match LibProdDeployV4. Every deploy
+/// helper pins the chain to Base so the beacon constructors resolve a
+/// timelock; the beacons come up owned by
+/// `LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK`.
 library LibTestDeploy {
+    function selectBaseChainId(Vm vm) internal {
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
+    }
+
     function deployWrappedTokenVaultBeaconSet(Vm vm) internal {
+        selectBaseChainId(vm);
         LibRainDeploy.etchZoltuFactory(vm);
 
         address vault = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
@@ -42,6 +51,7 @@ library LibTestDeploy {
     }
 
     function deployOffchainAssetReceiptVaultBeaconSet(Vm vm) internal {
+        selectBaseChainId(vm);
         LibRainDeploy.etchZoltuFactory(vm);
 
         address receipt = LibRainDeploy.deployZoltu(type(StoxReceipt).creationCode);

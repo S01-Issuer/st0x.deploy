@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.14/src/lib/LibExtrospectERC1167Proxy.sol";
+import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
 import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
@@ -53,6 +54,12 @@ import {ST0xOrchestratorBeaconSetDeployer} from "../../../src/concrete/deploy/ST
 /// `testAuthoriserV4ClonePin` asserts the literal + the codehash derivation
 /// so a drifted generator value fails a test.
 contract LibProdDeployV4Test is Test {
+    /// The beacon constructors resolve their owner from `block.chainid`; the
+    /// pointers under test are functions of the creation code alone.
+    function setUp() public {
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
+    }
+
     function deployZoltuWithinEip170(bytes memory creationCode) internal returns (address) {
         address deployed = LibRainDeploy.deployZoltu(creationCode);
         assertLe(deployed.code.length, 24_576, "runtime exceeds EIP-170");

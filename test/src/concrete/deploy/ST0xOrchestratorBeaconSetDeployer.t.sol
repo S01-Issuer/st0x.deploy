@@ -16,6 +16,11 @@ import {UpgradedImpl} from "./UpgradedImpl.sol";
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IST0xVaultBeaconSet} from "../../../../src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
+import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
+import {
+    LibTimelockInvariants,
+    UnsupportedChainForGovernanceTimelock
+} from "../../../../src/lib/LibTimelockInvariants.sol";
 import {IST0xOrchestratorBeaconSetDeployerV1} from "../../../../src/interface/IST0xOrchestratorBeaconSetDeployerV1.sol";
 
 contract ST0xOrchestratorBeaconSetDeployerTest is Test {
@@ -32,6 +37,7 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     ST0xOrchestrator internal impl;
 
     function setUp() public {
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         impl = new ST0xOrchestrator();
         // The Zoltu deployer hardcodes the beacon implementation to the fixed
         // production impl address (`ST0X_ORCHESTRATOR_CANDIDATE`), so etch
@@ -73,13 +79,35 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
         return new ST0xOrchestratorBeaconSetDeployer();
     }
 
-    /// The no-arg constructor bakes the beacon owner + implementation from
-    /// `LibProdDeployV4` — the whole point of being Zoltu-deployable.
+    /// The no-arg constructor bakes the beacon implementation from
+    /// `LibProdDeployV4` and resolves the owner from the chain id — the
+    /// whole point of being Zoltu-deployable with no EOA in the loop.
     function testConstructorSuccess() external {
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
         IBeacon beacon = d.iOrchestratorBeacon();
         assertEq(beacon.implementation(), LibProdDeployV4.ST0X_ORCHESTRATOR_CANDIDATE, "beacon impl");
-        assertEq(Ownable(address(beacon)).owner(), LibProdDeployV4.BEACON_INITIAL_OWNER, "beacon owner");
+        assertEq(Ownable(address(beacon)).owner(), LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, "beacon owner");
+    }
+
+    /// The owner follows the chain: on Ethereum's chain id the same
+    /// constructor hands the beacon to Ethereum's governance timelock.
+    function testConstructorOwnerFollowsTheChain() external {
+        vm.chainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
+        ST0xOrchestratorBeaconSetDeployer d = _deployer();
+        assertEq(
+            Ownable(address(d.iOrchestratorBeacon())).owner(),
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ETHEREUM,
+            "beacon owner"
+        );
+    }
+
+    /// A chain with no pinned governance timelock cannot construct the
+    /// deployer: it refuses rather than defaulting to an EOA or to another
+    /// chain's timelock.
+    function testConstructorRefusesAChainWithoutATimelockPin() external {
+        vm.chainId(123456);
+        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForGovernanceTimelock.selector, 123456));
+        new ST0xOrchestratorBeaconSetDeployer();
     }
 
     function testDeployRevertsZeroOwner() external {
@@ -141,8 +169,8 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
         address orchestrator = d.deploy(address(0xA11CE));
 
         UpgradedImpl newImpl = new UpgradedImpl();
-        // The beacon owner is the fixed production owner, not a deploy param.
-        vm.prank(LibProdDeployV4.BEACON_INITIAL_OWNER);
+        // The beacon owner is the chain's governance timelock, not a deploy param.
+        vm.prank(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
         UpgradeableBeacon(address(beacon)).upgradeTo(address(newImpl));
 
         // Call through the proxy proves live delegation to the new impl.
@@ -150,7 +178,7 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     }
 
     function testFuzzBeaconUpgradeUnauthorised(address notOwner) external {
-        vm.assume(notOwner != LibProdDeployV4.BEACON_INITIAL_OWNER && notOwner != address(0));
+        vm.assume(notOwner != LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK && notOwner != address(0));
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
         IBeacon beacon = d.iOrchestratorBeacon();
         UpgradedImpl newImpl = new UpgradedImpl();

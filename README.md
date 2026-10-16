@@ -149,6 +149,19 @@ The `multisig-artifact` GitHub workflow runs the dry-run on `workflow_dispatch`
 dependencies, uploading `out/*.json` as a build artifact so reviewers can
 download the bundle directly from the run.
 
+### Beacon ownership
+
+From the next tagged release, every beacon comes up owned by the active chain's
+governance timelock: `StoxWrappedTokenVaultBeacon` and both beacon-set deployers
+resolve their initial owner from `block.chainid` through
+`LibTimelockInvariants.timelockForChainId` in the constructor, so the creation
+code is identical on every chain (Zoltu still applies), each chain's beacons
+belong to that chain's timelock from construction, no EOA or Safe ever holds
+beacon upgrade authority, and a chain without a pinned timelock cannot be
+deployed to at all. The sets deployed from the earlier artifacts baked in the
+rainlang.eth EOA (`LibProdDeployV4.BEACON_INITIAL_OWNER`, kept as deploy
+history) and were moved to the timelock by the dated migrations.
+
 ### Receipt vault V3 upgrade
 
 The receipt vault beacon points at the V3 implementation (corporate actions).
