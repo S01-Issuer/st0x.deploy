@@ -8,8 +8,8 @@ between the token-owner Safe and the privileged surfaces of the ST0x deployment.
 After the migration executes, the timelock is:
 
 - the `owner()` of **every production receipt vault** — so `transferOwnership`,
-  `setAuthorizer`, and every `onlyOwner` surface (including owner freezes) is
-  delay-gated;
+  `setAuthorizer`, `setUnderlying`, and every `onlyOwner` surface (including
+  owner freezes) is delay-gated;
 - the `owner()` of the chain's **four in-use upgrade beacons** (receipt, receipt
   vault, wrapped token vault, orchestrator) — so `upgradeTo` is delay-gated; and
 - the **sole holder of the authoriser's seven `_ADMIN` roles** (`DEPOSIT_ADMIN`,
@@ -211,6 +211,33 @@ the same warp-and-execute loop proof the migration script uses.
 targeting those surfaces must target the timelock instead, and
 `LibTimelockInvariants.timelockForChainId(block.chainid)` is the only sanctioned
 way to resolve it.
+
+**Upgrading the receipt vault.** The vault delegatecalls the corporate-actions
+facet at `LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET`, a constant built
+into its bytecode. A vault implementation whose facet is not deployed keeps its
+ERC-20 metadata, but every facet call, `setUnderlying` included, reverts with
+`CorporateActionsFacetNotDeployed`. A batch executed before the facet exists
+therefore reverts as a whole instead of completing without renaming anything.
+The order on every chain is:
+
+1. Deploy the facet at its Zoltu address (permissionless) and check its codehash
+   against `LibProdDeployV4`. Check it again on chain right before executing the
+   batch, not only before scheduling it.
+2. Upgrade the wrapped-token-vault beacon. It keeps its current name and symbol
+   while the vault has no underlying set.
+3. Upgrade the receipt-vault beacon.
+4. Call `setUnderlying(symbol, name)` on each vault. Both tokens rename at this
+   step, together: the wrapper goes from `wt<TICKER>` to `<TICKER>s`.
+   **Precondition:** do not schedule this step until st0x.liquidity,
+   st0x.pricing and st0x-oracle-server accept both `wt<TICKER>` and `<TICKER>s`
+   in production. Services that match the `wt` prefix would otherwise reject
+   every renamed token. A rename cannot be reverted to the initialized metadata,
+   because `setUnderlying` rejects empty values.
+
+Steps 2 and 3 change no visible metadata and can be scheduled as one batch.
+Schedule step 4 as its own operation, so it can be cancelled during the delay
+without touching the beacon upgrades. `UnderlyingNamingUpgradeShadowFork.t.sol`
+runs this order against live Base state.
 
 ## Invariants
 

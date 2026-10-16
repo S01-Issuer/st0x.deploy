@@ -9,8 +9,9 @@ import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} 
 import {LibRebase} from "../lib/LibRebase.sol";
 import {LibTotalSupply} from "../lib/LibTotalSupply.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
+import {StoxCorporateActionsFacet} from "./StoxCorporateActionsFacet.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
-import {AuthorizerMissingCorporateActionAdmin} from "../error/ErrCorporateAction.sol";
+import {AuthorizerMissingCorporateActionAdmin, CorporateActionsFacetNotDeployed} from "../error/ErrCorporateAction.sol";
 
 /// @title StoxReceiptVault
 /// @notice An OffchainAssetReceiptVault that supports corporate actions such
@@ -83,6 +84,50 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         // slither-disable-next-line unused-return
         (uint256 balance,) = LibRebase.migratedBalance(stored, s.accountMigrationCursor[account]);
         return balance;
+    }
+
+    /// @notice The tStock symbol, built from the underlying ticker by
+    /// `StoxCorporateActionsFacet.receiptVaultSymbol`, e.g. "tNVDA". Falls
+    /// back to the symbol stored at initialization if the facet cannot answer.
+    /// @return The token symbol.
+    function symbol() public view virtual override returns (string memory) {
+        (bool success, string memory value) = facetString(StoxCorporateActionsFacet.receiptVaultSymbol.selector);
+        return success ? value : super.symbol();
+    }
+
+    /// @notice The tStock name, built from the underlying name by
+    /// `StoxCorporateActionsFacet.receiptVaultName`, e.g.
+    /// "NVIDIA Corporation (ST0x)". Falls back to the name stored at
+    /// initialization if the facet cannot answer.
+    /// @return The token name.
+    function name() public view virtual override returns (string memory) {
+        (bool success, string memory value) = facetString(StoxCorporateActionsFacet.receiptVaultName.selector);
+        return success ? value : super.name();
+    }
+
+    /// @dev Reads the zero-argument `string` view `selector` from the facet
+    /// through a static self-call that `fallback()` routes to it. Keeps the
+    /// formatting out of the vault's bytecode, which has no room for it under
+    /// EIP-170. The facet is the vault's own pinned code, so a successful
+    /// return of at least a string head is a single ABI-encoded string and is
+    /// used in place. Anything else, including no facet code at the pinned
+    /// address, reports failure so ERC-20 metadata never depends on the facet
+    /// being deployed.
+    /// @param selector The facet view to read.
+    /// @return success Whether the facet returned a string.
+    /// @return value The string the facet view returned, empty on failure.
+    function facetString(bytes4 selector) private view returns (bool success, string memory value) {
+        assembly ("memory-safe") {
+            mstore(0, selector)
+            success := staticcall(gas(), address(), 0, 4, 0, 0)
+            success := and(success, iszero(lt(returndatasize(), 0x40)))
+            if success {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0, returndatasize())
+                value := add(ptr, mload(ptr))
+                mstore(0x40, add(ptr, returndatasize()))
+            }
+        }
     }
 
     /// @notice Returns the effective total supply after applying every
@@ -185,6 +230,10 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// Plain ETH transfers with empty calldata hit `receive()`, not this
     /// function, so refunds continue to work without going through delegatecall.
     ///
+    /// Reverts with `CorporateActionsFacetNotDeployed` when the pinned facet
+    /// address has no code, so a facet call made before the facet is deployed
+    /// fails instead of succeeding as a no-op.
+    ///
     /// **Trust model.** The corporate-actions facet calls the vault's
     /// `authorizer()` for any state-mutating entry point (schedule, cancel).
     /// The authorizer is the canonical permission boundary — set by the
@@ -197,7 +246,13 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// linked-list and cursor writes remain consistent under re-entry.
     fallback() external payable virtual override {
         address facet = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET;
+        bytes4 notDeployed = CorporateActionsFacetNotDeployed.selector;
         assembly ("memory-safe") {
+            if iszero(extcodesize(facet)) {
+                mstore(0, notDeployed)
+                mstore(4, facet)
+                revert(0, 0x24)
+            }
             calldatacopy(0, 0, calldatasize())
             let success := delegatecall(gas(), facet, 0, calldatasize(), 0, 0)
             returndatacopy(0, 0, returndatasize())

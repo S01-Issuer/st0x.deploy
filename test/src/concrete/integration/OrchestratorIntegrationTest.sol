@@ -8,7 +8,6 @@ import {IERC1155} from "@openzeppelin-contracts-5.7.0/token/ERC1155/IERC1155.sol
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
 import {CloneFactory} from "rain-factory-deploy-0.1.15/src/concrete/CloneFactory.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 import {Float} from "rain-math-float-0.3.3/src/lib/LibDecimalFloat.sol";
 import {
     OffchainAssetReceiptVaultConfigV2,
@@ -25,7 +24,6 @@ import {IAuthorizeV1} from "rain-vats-0.2.5/src/interface/IAuthorizeV1.sol";
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";
 import {MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV1.sol";
-import {StoxCorporateActionsFacet} from "../../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {StoxReceiptVault} from "../../../../src/concrete/StoxReceiptVault.sol";
 import {
     StoxOffchainAssetReceiptVaultBeaconSetDeployer
@@ -75,15 +73,11 @@ abstract contract OrchestratorIntegrationTest is Test {
         // vault's decimals through it at schedule time.
         LibTestTofu.deployTofu(vm);
 
-        // Real receipt + vault implementations and their beacon-set deployer
+        // Real receipt + vault implementations, the corporate-actions facet the
+        // vault pins, and their beacon-set deployer
         // at the deterministic Zoltu addresses the guard reads. MUST precede
         // the orchestrator proxy: `initialize` runs the vault-logic guard.
         LibTestDeploy.deployOffchainAssetReceiptVaultBeaconSet(vm);
-
-        // Real corporate-actions facet at the deterministic address the
-        // vault's fallback delegatecalls into.
-        address facet = LibRainDeploy.deployZoltu(type(StoxCorporateActionsFacet).creationCode);
-        require(facet == LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE, "facet address mismatch");
 
         // A real vault + receipt beacon-proxy pair via the deterministic
         // deployer the guard version-locks against.

@@ -14,12 +14,38 @@
       "confirmed": 2,
       "testsBefore": 24,
       "testsAfter": 38,
-      "filed": ["#447", "#448"],
+      "filed": [
+        "#447",
+        "#448"
+      ],
       "killedBefore": 38,
       "survivedBefore": 8,
       "killedAfter": 47,
       "survivedAfter": 1,
       "notes": "BEFORE 38/46 killed. The 8 survivors there were M15 and M16 (roleId / roleHolderId byte layout), M20 (createDiscoveredContract return contract), M41 and M42 (timelock and orchestrator grant polarity), M44 and M46 (vault and orchestrator beacon transfer kind), M45 (vault beacon upgrade kind). Seven are now killed by tests this run added; M20 is not closable with matchstick, whose data source registry is an address-keyed map that cannot distinguish one create of an address from two, so the behaviour stays unpinned and is filed as #448. One verdict in the first AFTER pass was a flake: M14 scored SURVIVED and kills when run by hand. A stale compile cache was ruled out by experiment (pristine run, then the same mutation with only src changed and the test file mtime pinned backwards, which still killed), leaving container reuse by `docker compose up`; the probe wrapper now tears the container down per probe and the whole pass was re-run under it. The first matrix is discarded and none of its numbers appear here."
+    }
+  },
+  {
+    "timestamp": "2026-10-16T01:04:12Z",
+    "commit": "964d40028a98f51293a3c78713bb55b73b51759d",
+    "testsAfterCommit": "784152eda68bb2761e91895c4a0b9f69fde67f9b",
+    "publishedTag": "sol-v0.1.30",
+    "commitsAheadOfTag": 330,
+    "scope": "Functions changed by PR #473 (branch 2026-10-15-underlying-ticker-name): StoxCorporateActionsFacet.setUnderlying / underlyingSymbol / underlyingName / receiptVaultSymbol / receiptVaultName, StoxReceiptVault.symbol / name / facetString, StoxWrappedTokenVault.symbol / name / tryAssetString, LibUnderlying, LibERC20Storage.getStorage. Each mutant was applied, BuildPointers regenerated to a fixpoint so Zoltu address and codehash checks could not decide the outcome, the naming suites were run (StoxReceiptVaultUnderlyingTest, StoxUnderlyingIntegrationTest, StoxWrappedTokenVaultTest, StoxReceiptVaultFallbackRoutingTest, StoxCorporateActionsFacetTest), then the source and pins were restored. The Base shadow-fork suite for the rollout was run separately against the unmutated code.",
+    "tool": "adversarial-mutation-test",
+    "skillVersion": "0.30.0",
+    "summary": {
+      "behaviours": 44,
+      "candidates": 0,
+      "confirmed": 0,
+      "testsBefore": 52,
+      "testsAfter": 54,
+      "filed": [],
+      "killedBefore": 42,
+      "survivedBefore": 2,
+      "killedAfter": 44,
+      "survivedAfter": 0,
+      "notes": "The two survivors were the dropped free-pointer bump after the vault reads a facet string (equivalent on the external return path, which re-encodes in place, but it corrupts the value for any internal caller that allocates afterwards) and a loosened wrapper offset check that admitted string offsets below 0x20 (the decoder then reverts, which the fallback contract forbids). Both are killed by tests added at testsAfterCommit. The adversarial pass fixed one defect in-branch before this record: with no facet code at the pinned address, the vault's symbol()/name() read uninitialised memory; they now revert. The pass found no open bug, so nothing was filed. Triage notes, all on intended behaviour: setUnderlying accepts any non-empty string (owner-gated, no format or length checks); the wrapper forwards all gas to its asset's getters; and the rollout order matters, since a vault upgraded before its facet exists reverts on name()/symbol(), and setting the underlying before the wrapper upgrade briefly shows 'Wrapped <name> (ST0x)'."
     }
   }
 ]
