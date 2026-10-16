@@ -22,4 +22,11 @@ contract BuildMigrationsHarness is BuildMigrations {
     function callSorted(string[] memory names) external pure returns (string[] memory) {
         return sorted(names);
     }
+
+    function callDeclaring(string memory path, string memory name)
+        external
+        returns (address, ScriptDeclaration memory)
+    {
+        return declaring(path, name);
+    }
 }

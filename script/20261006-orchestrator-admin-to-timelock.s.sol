@@ -187,7 +187,7 @@ contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
         LibOrchestratorInvariants.assertBeaconSet();
 
         bytes32 head = LibStoxMigrations.head(chainSafe);
-        if (head != LibStoxMigrations.ORCHESTRATOR_EMERGENCY) {
+        if (head != orchestratorAdminToTimelockDeclaration().prerequisites[0].migration) {
             revert UnexpectedMigrationLine(head);
         }
         LibOrchestratorInvariants.assertInstance(chainSafe);
@@ -230,7 +230,7 @@ contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
             revert RecordMismatch(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK, block.timestamp, record);
         }
         bytes32 head = LibStoxMigrations.head(chainSafe);
-        if (head != LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) {
+        if (head != orchestratorAdminToTimelockDeclaration().id) {
             revert LineHeadMismatch(head);
         }
         LibOrchestratorInvariants.assertInstance(chainSafe);

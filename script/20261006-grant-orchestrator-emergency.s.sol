@@ -6,7 +6,6 @@ import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessContro
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
 import {SafeBundleScript} from "rain-deploy-0.1.18/src/abstract/SafeBundleScript.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
 import {SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
 
@@ -127,7 +126,7 @@ contract GrantOrchestratorEmergency is SafeBundleScript, IStoxScript {
         LibOrchestratorInvariants.assertBeaconSet();
 
         bytes32 head = LibStoxMigrations.head(chainSafe);
-        if (head != MIGRATION_HEAD_GENESIS) {
+        if (head != migrateGovernanceToTimelockDeclaration().prerequisites[0].migration) {
             revert UnexpectedMigrationLine(head);
         }
         if (ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), chainSafe)) {
@@ -179,7 +178,7 @@ contract GrantOrchestratorEmergency is SafeBundleScript, IStoxScript {
             revert RecordMismatch(LibStoxMigrations.ORCHESTRATOR_EMERGENCY, block.timestamp, emergencyRecord);
         }
         bytes32 head = LibStoxMigrations.head(chainSafe);
-        if (head != LibStoxMigrations.ORCHESTRATOR_EMERGENCY) {
+        if (head != grantOrchestratorEmergencyDeclaration().id) {
             revert LineHeadMismatch(head);
         }
         LibOrchestratorInvariants.assertInstance(chainSafe);

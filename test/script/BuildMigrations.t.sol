@@ -8,7 +8,7 @@ import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistryDeploy.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
-import {BuildMigrations, HistoryWithoutMoment, NoDeclaration} from "../../script/BuildMigrations.sol";
+import {BuildMigrations, HistoryWithoutMoment, NoDeclaration, ScriptNotBuilt} from "../../script/BuildMigrations.sol";
 import {IStoxHistoryMigration, ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {BuildMigrationsHarness} from "./BuildMigrationsHarness.sol";
 import {ZeroMomentFixture} from "./ZeroMomentFixture.sol";
@@ -250,10 +250,16 @@ contract BuildMigrationsTest is Test, BuildMigrationsHarness {
         assertEq(got[3], "c.s.sol");
     }
 
-    function testRunWritesTheRender() external {
-        if (vm.exists("migrations.json")) vm.removeFile("migrations.json");
-        build.run();
-        assertEq(keccak256(vm.parseJson(vm.readFile("migrations.json"))), keccak256(vm.parseJson(build.render())));
+    function testRunToWritesTheRender() external {
+        string memory path = "out/migrations.test.json";
+        if (vm.exists(path)) vm.removeFile(path);
+        build.runTo(path);
+        assertEq(keccak256(vm.parseJson(vm.readFile(path))), keccak256(vm.parseJson(build.render())));
+    }
+
+    function testAScriptWithNoArtifactsFails() external {
+        vm.expectRevert(abi.encodeWithSelector(ScriptNotBuilt.selector, "script/NoSuchScript.s.sol"));
+        build.callDeclaring("script/NoSuchScript.s.sol", "NoSuchScript.s.sol");
     }
 
     function testAScriptThatDoesNotDeclareItselfFails() external {

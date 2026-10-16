@@ -24,6 +24,10 @@ error ScriptNotBuilt(string script);
 /// @param script The script's path.
 error ManyDeclarations(string script);
 
+/// @notice The deployment network catalogue is empty, so the manifest would list
+/// no network and no chain.
+error NoDeploymentNetworks();
+
 /// @notice A migration recorded as history gives no moment on a network.
 /// @param script The script's path.
 /// @param chainId The chain id.
@@ -246,6 +250,7 @@ contract BuildMigrations is Script {
     function renderDir(string memory dir) public returns (string memory) {
         SupportedNetwork[] memory networks =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        if (networks.length == 0) revert NoDeploymentNetworks();
         (string[] memory paths, ScriptDeclaration[] memory declarations, address[] memory instances) = discover(dir);
         uint256 count = 0;
         for (uint256 i = 0; i < declarations.length; i++) {
@@ -264,7 +269,13 @@ contract BuildMigrations is Script {
         return vm.serializeString("root", "migrations", rows);
     }
 
+    /// @notice Write the render to `path`.
+    /// @param path The file.
+    function runTo(string memory path) public {
+        vm.writeJson(render(), path);
+    }
+
     function run() external {
-        vm.writeJson(render(), PATH);
+        runTo(PATH);
     }
 }
