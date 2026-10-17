@@ -21,6 +21,8 @@ enum ContractKind {
   BEACON
   "An `OffchainAssetReceiptVault` beacon proxy — `Ownable`, discovered from its deployer."
   RECEIPT_VAULT
+  "The chain's token-owner `Safe` 1.4.1 proxy — its owners and threshold govern every privileged surface the timelock does not."
+  TOKEN_OWNER_SAFE
 }
 
 """
@@ -75,6 +77,16 @@ type Contract @entity {
   upgrades: [BeaconUpgrade!]! @derivedFrom(field: "contract")
   "Every operation scheduled on this contract, for a governance timelock. Empty for every other kind."
   timelockOperations: [TimelockOperation!]! @derivedFrom(field: "timelock")
+  "The current owners, for a Safe: `SafeSetup`'s owners, then every `AddedOwner` and `RemovedOwner`. Null for every other kind."
+  safeOwners: [Bytes!]
+  "The current confirmation threshold, for a Safe. Null for every other kind."
+  threshold: BigInt
+  "The block of the `SafeSetup` or `ChangedThreshold` that set `threshold`."
+  thresholdAsOfBlock: BigInt
+  "Threshold history, unordered: sort by `blockNumber` then `logIndex` for event order. Empty for every other kind."
+  thresholdChanges: [SafeThresholdChange!]! @derivedFrom(field: "contract")
+  "Owner history, unordered: sort by `blockNumber` then `logIndex` for event order. Empty for every other kind."
+  safeOwnerChanges: [SafeOwnerChange!]! @derivedFrom(field: "contract")
 }
 
 """
@@ -351,4 +363,50 @@ type TimelockCall @entity(immutable: true) {
   value: BigInt!
   "The calldata."
   data: Bytes!
+}
+
+"One threshold a Safe took: the one `SafeSetup` set at creation, or a `ChangedThreshold` log."
+type SafeThresholdChange @entity(immutable: true) {
+  "Transaction hash ++ log index."
+  id: Bytes!
+  "The Safe."
+  contract: Contract!
+  "The threshold from this log on."
+  threshold: BigInt!
+  "True for the creation threshold `SafeSetup` set."
+  setup: Boolean!
+  "Block the log was emitted in."
+  blockNumber: BigInt!
+  "Timestamp of that block."
+  blockTimestamp: BigInt!
+  "Hash of the transaction the log was emitted in."
+  transactionHash: Bytes!
+  "The EOA or account that submitted the transaction."
+  transactionFrom: Bytes!
+  "Index of the log within its block."
+  logIndex: BigInt!
+}
+
+"One owner a Safe gained or lost: each owner `SafeSetup` set at creation, an `AddedOwner` or a `RemovedOwner`."
+type SafeOwnerChange @entity(immutable: true) {
+  "Transaction hash ++ log index, then the owner's index within `SafeSetup`'s list for a creation owner."
+  id: Bytes!
+  "The Safe."
+  contract: Contract!
+  "The owner."
+  owner: Bytes!
+  "True when the owner joined, false when it left."
+  added: Boolean!
+  "True for an owner `SafeSetup` set at creation."
+  setup: Boolean!
+  "Block the log was emitted in."
+  blockNumber: BigInt!
+  "Timestamp of that block."
+  blockTimestamp: BigInt!
+  "Hash of the transaction the log was emitted in."
+  transactionHash: Bytes!
+  "The EOA or account that submitted the transaction."
+  transactionFrom: Bytes!
+  "Index of the log within its block."
+  logIndex: BigInt!
 }

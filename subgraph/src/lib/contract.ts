@@ -18,6 +18,7 @@ export namespace ContractKind {
   export const ORCHESTRATOR = "ORCHESTRATOR";
   export const BEACON = "BEACON";
   export const RECEIPT_VAULT = "RECEIPT_VAULT";
+  export const TOKEN_OWNER_SAFE = "TOKEN_OWNER_SAFE";
 }
 
 /**
