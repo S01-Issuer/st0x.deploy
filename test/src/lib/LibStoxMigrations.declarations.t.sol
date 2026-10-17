@@ -31,6 +31,7 @@ import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol"
 import {LibStoxMigrations} from "../../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {GrantOrchestratorEmergencyHarness} from "../../script/GrantOrchestratorEmergencyHarness.sol";
+import {BackfillHistoryHarness} from "../../script/BackfillHistoryHarness.sol";
 import {OrchestratorAdminToTimelockHarness} from "../../script/OrchestratorAdminToTimelockHarness.sol";
 
 struct RegistryWrite {
@@ -151,9 +152,10 @@ contract LibStoxMigrationsDeclarationsTest is Test {
     function bundleWrites(string memory network) internal returns (RegistryWrite[] memory) {
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        SafeTx[][3] memory bundles = [
+        SafeTx[][4] memory bundles = [
             new GrantOrchestratorEmergencyHarness(network).callAuthorBundle(),
             new OrchestratorAdminToTimelockHarness(network).callAuthorBundle(),
+            new BackfillHistoryHarness(network).callAuthorBundle(),
             new GrantEuAuthoriserRoles()
                 .grantBundle(LibEuAuthoriserClone.cloneDeployedAddress(block.chainid), safe, timelock)
         ];
@@ -199,13 +201,7 @@ contract LibStoxMigrationsDeclarationsTest is Test {
     function unrecorded(string memory path) internal pure returns (bool) {
         bytes32 key = keccak256(bytes(path));
         return key == keccak256("script/MigrateMultisigThreshold.s.sol")
-            || key == keccak256("script/20260831-retire-direct-signer-roles.s.sol")
-            || key == keccak256("script/20260729-deploy-governance-timelock.s.sol")
-            || key == keccak256("script/20260807-deploy-missing-tokens.s.sol")
-            || key == keccak256("script/20260813-execute-timelock-operations.s.sol")
-            || key == keccak256("script/20260813-timelock-rehearsal-cancel.s.sol")
-            || key == keccak256("script/20260813-timelock-rehearsal-schedule.s.sol")
-            || key == keccak256("script/20261006-deploy-eu-authoriser.s.sol");
+            || key == keccak256("script/20260831-retire-direct-signer-roles.s.sol");
     }
 
     function assertRecordsAreTheBundles(string memory network) internal {

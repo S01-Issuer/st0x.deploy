@@ -17,6 +17,7 @@ import {GrantEuAuthoriserRoles} from "../../script/20261006-grant-eu-authoriser-
 import {RetireDirectSignerRoles} from "../../script/20260831-retire-direct-signer-roles.s.sol";
 import {GrantOrchestratorEmergency} from "../../script/20261006-grant-orchestrator-emergency.s.sol";
 import {OrchestratorAdminToTimelock} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
+import {BackfillHistory} from "../../script/20261017-backfill-history.s.sol";
 import {MigrateMultisigThreshold} from "../../script/MigrateMultisigThreshold.s.sol";
 import {InvalidDeclarationFixture} from "../fixture/declarations/invalid/InvalidDeclarationFixture.s.sol";
 import {UndeclaredScriptFixture} from "../fixture/declarations/undeclared/UndeclaredScriptFixture.s.sol";
