@@ -197,8 +197,15 @@ contract LibStoxMigrationsDeclarationsTest is Test {
     /// @dev Declared migrations whose bundles do not write their records yet.
     /// Each one's fix deletes its entry here.
     function unrecorded(string memory path) internal pure returns (bool) {
-        return keccak256(bytes(path)) == keccak256("script/MigrateMultisigThreshold.s.sol")
-            || keccak256(bytes(path)) == keccak256("script/20260831-retire-direct-signer-roles.s.sol");
+        bytes32 key = keccak256(bytes(path));
+        return key == keccak256("script/MigrateMultisigThreshold.s.sol")
+            || key == keccak256("script/20260831-retire-direct-signer-roles.s.sol")
+            || key == keccak256("script/20260729-deploy-governance-timelock.s.sol")
+            || key == keccak256("script/20260807-deploy-missing-tokens.s.sol")
+            || key == keccak256("script/20260813-execute-timelock-operations.s.sol")
+            || key == keccak256("script/20260813-timelock-rehearsal-cancel.s.sol")
+            || key == keccak256("script/20260813-timelock-rehearsal-schedule.s.sol")
+            || key == keccak256("script/20261006-deploy-eu-authoriser.s.sol");
     }
 
     function assertRecordsAreTheBundles(string memory network) internal {

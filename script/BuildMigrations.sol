@@ -229,6 +229,7 @@ contract BuildMigrations is Script {
     }
 
     function networksJson(SupportedNetwork[] memory networks) internal returns (string memory json) {
+        if (networks.length == 0) revert NoDeploymentNetworks();
         for (uint256 i = 0; i < networks.length; i++) {
             string memory key = string.concat("networks.", vm.toString(networks[i].chainId));
             vm.serializeString(key, "network", networks[i].name);
@@ -255,7 +256,6 @@ contract BuildMigrations is Script {
 
     /// @dev `migrations.json` for the scripts in `dir` on `networks`; reverts on no network.
     function renderFor(string memory dir, SupportedNetwork[] memory networks) internal returns (string memory) {
-        if (networks.length == 0) revert NoDeploymentNetworks();
         (string[] memory paths, ScriptDeclaration[] memory declarations, address[] memory instances) = discover(dir);
         uint256 count = 0;
         for (uint256 i = 0; i < declarations.length; i++) {

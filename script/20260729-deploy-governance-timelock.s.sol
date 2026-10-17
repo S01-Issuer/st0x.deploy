@@ -99,7 +99,12 @@ error DeployerHoldsTimelockRole(bytes32 role, address deployer);
 contract DeployGovernanceTimelock is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.notAMigration();
+        return LibStoxMigrations.safeMigrationOnto(
+            LibStoxMigrations.NAMESPACE,
+            keccak256("script/20260729-deploy-governance-timelock.s.sol"),
+            keccak256("script/MigrateMultisigThreshold.s.sol"),
+            false
+        );
     }
 
     /// @notice Where `run()` writes the per-chain deployed addresses, so a

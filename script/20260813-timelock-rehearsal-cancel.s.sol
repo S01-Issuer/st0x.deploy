@@ -48,7 +48,12 @@ error RehearsalNotScheduled(bytes32 id);
 contract TimelockRehearsalCancel is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.notAMigration();
+        return LibStoxMigrations.safeMigrationOnto(
+            LibStoxMigrations.NAMESPACE,
+            keccak256("script/20260813-timelock-rehearsal-cancel.s.sol"),
+            keccak256("script/20260813-execute-timelock-operations.s.sol"),
+            false
+        );
     }
 
     /// @notice Author the cancel bundle for the active chain.

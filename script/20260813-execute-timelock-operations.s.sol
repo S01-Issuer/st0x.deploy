@@ -73,7 +73,12 @@ error ExecutorHoldsRole(address timelock, address executor);
 contract ExecuteTimelockOperations is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.notAMigration();
+        return LibStoxMigrations.safeMigrationOnto(
+            LibStoxMigrations.NAMESPACE,
+            keccak256("script/20260813-execute-timelock-operations.s.sol"),
+            keccak256("script/20260807-deploy-missing-tokens.s.sol"),
+            false
+        );
     }
 
     /// @notice Execute the rehearsal operation on the active chain if it has

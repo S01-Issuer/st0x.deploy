@@ -13,8 +13,8 @@ import {LibStoxMigrations} from "../../../../src/lib/LibStoxMigrations.sol";
 /// @dev The second timelock-written record, also waiting on the Safe line.
 contract CTimelockLineSecondFixture is IStoxScript {
     function declaration() external pure returns (ScriptDeclaration memory declared) {
-        declared = LibStoxMigrations.safeMigrationOnto(keccak256("fixture.timelock"), "t2", "t1", false);
-        declared.writer = MigrationWriter.Timelock;
+        declared =
+            LibStoxMigrations.migrationOnto(MigrationWriter.Timelock, keccak256("fixture.timelock"), "t2", "t1", false);
         MigrationPrerequisite[] memory prerequisites = new MigrationPrerequisite[](2);
         prerequisites[0] = MigrationPrerequisite({
             writer: MigrationWriter.Timelock, namespace: keccak256("fixture.timelock"), migration: "t1"

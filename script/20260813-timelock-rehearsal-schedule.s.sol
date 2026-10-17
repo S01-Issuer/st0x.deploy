@@ -61,7 +61,12 @@ error RehearsalChangedMinDelay(uint256 expected, uint256 actual);
 contract TimelockRehearsalSchedule is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.notAMigration();
+        return LibStoxMigrations.safeMigrationOnto(
+            LibStoxMigrations.NAMESPACE,
+            keccak256("script/20260813-timelock-rehearsal-schedule.s.sol"),
+            keccak256("script/20260813-timelock-rehearsal-cancel.s.sol"),
+            false
+        );
     }
 
     /// @notice Author the schedule bundle for the active chain.

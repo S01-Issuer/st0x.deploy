@@ -24,7 +24,9 @@ error RecordOnNonMigration(string script);
 /// @param script The script's path.
 error IdNotScriptPath(string script);
 
-/// @notice Two scripts declare the same record.
+/// @notice Two scripts declare the same id in one namespace. `migrations.json`
+/// keys its rows by namespace and id, so an id names one migration whatever
+/// its writer.
 /// @param script The later script's path.
 /// @param other The earlier script's path.
 error DuplicateRecord(string script, string other);
@@ -53,10 +55,10 @@ error UnknownPrerequisite(string script, uint256 index);
 /// @param other The earlier script's path.
 error ForkedLine(string script, string other);
 
-/// @notice Following a migration's head back never reaches genesis: its line
-/// is a cycle, which the registry can never record.
-/// @param script The script's path.
-error UnrootedLine(string script);
+/// @notice Following prerequisites from a migration comes back to it, so the
+/// registry can never record any migration on that cycle.
+/// @param script The path of the first script found on the cycle.
+error PrerequisiteCycle(string script);
 
 /// @notice `paths` and `declarations` differ in length.
 error DeclarationCountMismatch();
@@ -64,12 +66,19 @@ error DeclarationCountMismatch();
 /// @title LibScriptDeclarations
 /// @notice The rules every script's declaration must satisfy, over all of
 /// `script/` at once: each migration is a record the registry would accept,
-/// in a line that starts at genesis and never forks. `BuildMigrations` reverts
+/// in a line that starts at genesis and never forks, and no migration waits on
+/// itself through any chain of prerequisites. `BuildMigrations` reverts
 /// on the first violation, so a script that is not in a line fails CI rather
 /// than reaching `migrations.json`.
 library LibScriptDeclarations {
     /// @dev What `indexOf` returns for a prerequisite no declared migration is.
     uint256 internal constant NOT_FOUND = type(uint256).max;
+
+    /// @dev A migration `visit` has entered and not yet left.
+    uint256 private constant VISITING = 1;
+
+    /// @dev A migration `visit` has left: nothing it waits on cycles.
+    uint256 private constant VISITED = 2;
 
     /// @notice Revert on the first rule `declarations` break.
     /// @param paths Each script's path.
@@ -80,14 +89,20 @@ library LibScriptDeclarations {
             ScriptDeclaration memory declared = declarations[i];
             if (declared.migration) {
                 validateRecord(paths[i], declared);
-                validatePrerequisites(paths, declarations, i);
-                validateAgainstEarlier(paths, declarations, i);
-                validateRooted(paths, declarations, i);
             } else if (
                 declared.namespace != 0 || declared.id != 0 || declared.prerequisites.length != 0 || declared.history
             ) {
                 revert RecordOnNonMigration(paths[i]);
             }
+        }
+        for (uint256 i = 0; i < declarations.length; i++) {
+            if (!declarations[i].migration) continue;
+            validatePrerequisites(paths, declarations, i);
+            validateAgainstEarlier(paths, declarations, i);
+        }
+        uint256[] memory states = new uint256[](declarations.length);
+        for (uint256 i = 0; i < declarations.length; i++) {
+            if (declarations[i].migration) visit(paths, declarations, states, i);
         }
     }
 
@@ -150,17 +165,22 @@ library LibScriptDeclarations {
         }
     }
 
-    /// @dev Each step back along the line's heads is one declared migration,
-    /// so a rooted line reaches genesis in fewer steps than there are scripts.
-    function validateRooted(string[] memory paths, ScriptDeclaration[] memory declarations, uint256 i) private pure {
-        uint256 at = i;
-        for (uint256 steps = 0; steps < declarations.length; steps++) {
-            MigrationPrerequisite memory headPrerequisite = declarations[at].prerequisites[0];
-            if (headPrerequisite.migration == MIGRATION_HEAD_GENESIS) return;
-            at = indexOf(declarations, at, headPrerequisite);
-            if (at == NOT_FOUND) break;
+    /// @dev Depth-first over every prerequisite naming a declared migration;
+    /// reaching one still `VISITING` closes a cycle. With no cycle, each line's
+    /// heads end at genesis, since every head is genesis or a declared migration.
+    function visit(string[] memory paths, ScriptDeclaration[] memory declarations, uint256[] memory states, uint256 i)
+        private
+        pure
+    {
+        if (states[i] == VISITED) return;
+        if (states[i] == VISITING) revert PrerequisiteCycle(paths[i]);
+        states[i] = VISITING;
+        MigrationPrerequisite[] memory prerequisites = declarations[i].prerequisites;
+        for (uint256 index = 0; index < prerequisites.length; index++) {
+            uint256 at = indexOf(declarations, i, prerequisites[index]);
+            if (at != NOT_FOUND) visit(paths, declarations, states, at);
         }
-        revert UnrootedLine(paths[i]);
+        states[i] = VISITED;
     }
 
     /// @dev The migration other than `i` that `prerequisite` names, or
@@ -170,7 +190,6 @@ library LibScriptDeclarations {
         pure
         returns (uint256)
     {
-        if (prerequisite.namespace == 0) return NOT_FOUND;
         for (uint256 j = 0; j < declarations.length; j++) {
             if (
                 j != i && declarations[j].migration && declarations[j].namespace == prerequisite.namespace

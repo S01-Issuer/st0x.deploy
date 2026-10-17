@@ -47,7 +47,12 @@ error EuCloneAddressMismatch(address predicted, address deployed);
 contract DeployEuAuthoriser is EuAuthoriserDeploySuites, Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.notAMigration();
+        return LibStoxMigrations.safeMigrationOnto(
+            LibStoxMigrations.NAMESPACE,
+            keccak256("script/20261006-deploy-eu-authoriser.s.sol"),
+            keccak256("script/20260813-timelock-rehearsal-schedule.s.sol"),
+            false
+        );
     }
 
     /// @notice Deploys the clone to EVERY supported network that lacks it, in

@@ -4,11 +4,12 @@ pragma solidity ^0.8.25;
 
 /// @title LibRbacMigration
 /// @notice The migration registry keys for ST0x role changes. One namespace
-/// covers all RBAC tracking, so every role change the token-owner Safe makes
-/// lands in one ordered line rather than a namespace per contract. Each change
-/// is its own migration id under it.
+/// covers all RBAC tracking rather than a namespace per contract; each writer
+/// (the token-owner Safe, or the governance timelock for a change it executes)
+/// has its own ordered line in it. Each change is its own migration id.
 library LibRbacMigration {
-    /// @notice The line the token-owner Safe records every RBAC change under.
+    /// @notice The namespace every RBAC change is recorded under, by the Safe or
+    /// the timelock, whichever performs it.
     bytes32 internal constant STOX_RBAC_NAMESPACE = keccak256("st0x.rbac");
 
     /// @notice Applying the EU assets authoriser's pinned role map and handing

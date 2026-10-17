@@ -3,7 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {LibMigrationRegistry} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistry.sol";
-import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
+import {Prerequisite} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 
 import {MigrationPrerequisite, MigrationWriter, ScriptDeclaration} from "../interface/IStoxScript.sol";
@@ -71,8 +71,32 @@ library LibStoxMigrations {
     bytes32 internal constant ORCHESTRATOR_ADMIN_TO_TIMELOCK =
         keccak256("script/20261006-orchestrator-admin-to-timelock.s.sol");
 
-    /// @notice A migration the Safe records in `namespace`, applied onto
-    /// `headMigration` in the Safe's own line of that namespace.
+    /// @notice A migration `writer` records in `namespace`, applied onto
+    /// `headMigration` in `writer`'s own line of that namespace.
+    /// @param writer The account that records it, by role.
+    /// @param namespace The record's namespace.
+    /// @param id The record's id.
+    /// @param headMigration What it is applied onto.
+    /// @param history Whether it is recorded later as history.
+    /// @return The declaration.
+    function migrationOnto(MigrationWriter writer, bytes32 namespace, bytes32 id, bytes32 headMigration, bool history)
+        internal
+        pure
+        returns (ScriptDeclaration memory)
+    {
+        MigrationPrerequisite[] memory prerequisites = new MigrationPrerequisite[](1);
+        prerequisites[0] = MigrationPrerequisite({writer: writer, namespace: namespace, migration: headMigration});
+        return ScriptDeclaration({
+            migration: true,
+            namespace: namespace,
+            id: id,
+            writer: writer,
+            prerequisites: prerequisites,
+            history: history
+        });
+    }
+
+    /// @notice `migrationOnto` with the Safe as the writer.
     /// @param namespace The record's namespace.
     /// @param id The record's id.
     /// @param headMigration What it is applied onto.
@@ -83,17 +107,7 @@ library LibStoxMigrations {
         pure
         returns (ScriptDeclaration memory)
     {
-        MigrationPrerequisite[] memory prerequisites = new MigrationPrerequisite[](1);
-        prerequisites[0] =
-            MigrationPrerequisite({writer: MigrationWriter.Safe, namespace: namespace, migration: headMigration});
-        return ScriptDeclaration({
-            migration: true,
-            namespace: namespace,
-            id: id,
-            writer: MigrationWriter.Safe,
-            prerequisites: prerequisites,
-            history: history
-        });
+        return migrationOnto(MigrationWriter.Safe, namespace, id, headMigration, history);
     }
 
     /// @notice A script that writes no record.

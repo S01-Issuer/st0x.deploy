@@ -18,7 +18,8 @@ import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJ
 import {LibSafe} from "rain-deploy-0.1.18/src/lib/LibSafe.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
-import {IStoxScript, MigrationPrerequisite, MigrationWriter, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {IStoxScript, MigrationWriter, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibRbacMigration} from "../src/lib/LibRbacMigration.sol";
 
 /// @notice The orchestrator mint/burn path is not fully enabled on this
@@ -40,22 +41,15 @@ error DirectSignerRolesAlreadyRetired();
 
 /// @notice This script's declaration: the timelock's first `st0x.rbac`
 /// record, the service signer's direct roles retired.
-/// @return declared The declaration.
-function retireDirectSignerRolesDeclaration() pure returns (ScriptDeclaration memory declared) {
-    MigrationPrerequisite[] memory prerequisites = new MigrationPrerequisite[](1);
-    prerequisites[0] = MigrationPrerequisite({
-        writer: MigrationWriter.Timelock,
-        namespace: LibRbacMigration.STOX_RBAC_NAMESPACE,
-        migration: MIGRATION_HEAD_GENESIS
-    });
-    declared = ScriptDeclaration({
-        migration: true,
-        namespace: LibRbacMigration.STOX_RBAC_NAMESPACE,
-        id: LibRbacMigration.SERVICE_SIGNER_DIRECT_ROLES_RETIRED,
-        writer: MigrationWriter.Timelock,
-        prerequisites: prerequisites,
-        history: false
-    });
+/// @return The declaration.
+function retireDirectSignerRolesDeclaration() pure returns (ScriptDeclaration memory) {
+    return LibStoxMigrations.migrationOnto(
+        MigrationWriter.Timelock,
+        LibRbacMigration.STOX_RBAC_NAMESPACE,
+        LibRbacMigration.SERVICE_SIGNER_DIRECT_ROLES_RETIRED,
+        MIGRATION_HEAD_GENESIS,
+        false
+    );
 }
 
 /// @title RetireDirectSignerRoles
