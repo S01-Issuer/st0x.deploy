@@ -60,6 +60,17 @@ error TimelockAddressMismatch(address expected, address actual);
 /// @param deployer The broadcasting deploy key.
 error DeployerHoldsTimelockRole(bytes32 role, address deployer);
 
+/// @notice This script's declaration.
+/// @return The declaration.
+function deployGovernanceTimelockDeclaration() pure returns (ScriptDeclaration memory) {
+    return LibStoxMigrations.safeMigrationOnto(
+        LibStoxMigrations.NAMESPACE,
+        keccak256("script/20260729-deploy-governance-timelock.s.sol"),
+        LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
+        false
+    );
+}
+
 /// @title DeployGovernanceTimelock
 /// @notice Broadcast script that deploys the ST0x governance
 /// timelock — an unmodified, pre-audited OZ `TimelockController` — on the
@@ -99,12 +110,7 @@ error DeployerHoldsTimelockRole(bytes32 role, address deployer);
 contract DeployGovernanceTimelock is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.safeMigrationOnto(
-            LibStoxMigrations.NAMESPACE,
-            keccak256("script/20260729-deploy-governance-timelock.s.sol"),
-            LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-            false
-        );
+        return deployGovernanceTimelockDeclaration();
     }
 
     /// @notice Where `run()` writes the per-chain deployed addresses, so a

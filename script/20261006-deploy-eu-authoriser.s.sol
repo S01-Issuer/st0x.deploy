@@ -27,6 +27,17 @@ error EuCloneFactoryNotReady(address factory);
 /// @param deployed The address the clone landed at.
 error EuCloneAddressMismatch(address predicted, address deployed);
 
+/// @notice This script's declaration.
+/// @return The declaration.
+function deployEuAuthoriserDeclaration() pure returns (ScriptDeclaration memory) {
+    return LibStoxMigrations.safeMigrationOnto(
+        LibStoxMigrations.NAMESPACE,
+        keccak256("script/20261006-deploy-eu-authoriser.s.sol"),
+        keccak256("script/20260813-execute-timelock-operations.s.sol"),
+        false
+    );
+}
+
 /// @title DeployEuAuthoriser
 /// @notice Clones the audited 0.1.1 authoriser at its open-salt address, one
 /// address on every network.
@@ -47,12 +58,7 @@ error EuCloneAddressMismatch(address predicted, address deployed);
 contract DeployEuAuthoriser is EuAuthoriserDeploySuites, Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.safeMigrationOnto(
-            LibStoxMigrations.NAMESPACE,
-            keccak256("script/20261006-deploy-eu-authoriser.s.sol"),
-            keccak256("script/20260813-execute-timelock-operations.s.sol"),
-            false
-        );
+        return deployEuAuthoriserDeclaration();
     }
 
     /// @notice Deploys the clone to EVERY supported network that lacks it, in
