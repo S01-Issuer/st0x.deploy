@@ -15,4 +15,9 @@ library LibRbacMigration {
     /// the seven `_ADMIN` roles to the governance timelock.
     bytes32 internal constant EU_AUTHORISER_GRANT_AND_HANDOVER =
         keccak256("st0x.rbac.eu-assets-authoriser.grant-and-handover");
+
+    /// @notice Revoking the service signer's direct `DEPOSIT` and `WITHDRAW` on
+    /// the production authoriser, through the governance timelock.
+    bytes32 internal constant SERVICE_SIGNER_DIRECT_ROLES_RETIRED =
+        keccak256("st0x.rbac.service-signer.direct-roles-retired");
 }

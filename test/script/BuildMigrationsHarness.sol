@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {BuildMigrations} from "../../script/BuildMigrations.sol";
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
+import {SupportedNetwork} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 
 /// @dev Exposes `BuildMigrations`' internal helpers.
 contract BuildMigrationsHarness is BuildMigrations {
@@ -21,6 +22,10 @@ contract BuildMigrationsHarness is BuildMigrations {
 
     function callSorted(string[] memory names) external pure returns (string[] memory) {
         return sorted(names);
+    }
+
+    function callRenderFor(string memory dir, SupportedNetwork[] memory networks) external returns (string memory) {
+        return renderFor(dir, networks);
     }
 
     function callDeclaring(string memory path, string memory name)

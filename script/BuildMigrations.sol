@@ -240,6 +240,8 @@ contract BuildMigrations is Script {
         }
     }
 
+    /// @notice `migrations.json` for `script/` on the deployment networks.
+    /// @return The JSON.
     function render() public returns (string memory) {
         return renderDir(SCRIPTS);
     }
@@ -248,8 +250,11 @@ contract BuildMigrations is Script {
     /// @param dir The directory.
     /// @return The JSON.
     function renderDir(string memory dir) public returns (string memory) {
-        SupportedNetwork[] memory networks =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        return renderFor(dir, LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks()));
+    }
+
+    /// @dev `migrations.json` for the scripts in `dir` on `networks`; reverts on no network.
+    function renderFor(string memory dir, SupportedNetwork[] memory networks) internal returns (string memory) {
         if (networks.length == 0) revert NoDeploymentNetworks();
         (string[] memory paths, ScriptDeclaration[] memory declarations, address[] memory instances) = discover(dir);
         uint256 count = 0;
@@ -275,6 +280,7 @@ contract BuildMigrations is Script {
         vm.writeJson(render(), path);
     }
 
+    /// @notice Write `migrations.json`.
     function run() external {
         runTo(PATH);
     }

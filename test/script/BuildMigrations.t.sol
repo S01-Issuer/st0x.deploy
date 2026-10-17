@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LicenseRef-DCL-1.0
-// SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
+// SPDX-FileCopyrightText: Copyright (netIndex) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
 import "./AllScripts.sol";
@@ -8,7 +8,13 @@ import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistryDeploy.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
-import {BuildMigrations, HistoryWithoutMoment, NoDeclaration, ScriptNotBuilt} from "../../script/BuildMigrations.sol";
+import {
+    BuildMigrations,
+    HistoryWithoutMoment,
+    NoDeclaration,
+    NoDeploymentNetworks,
+    ScriptNotBuilt
+} from "../../script/BuildMigrations.sol";
 import {IStoxHistoryMigration, ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {BuildMigrationsHarness} from "./BuildMigrationsHarness.sol";
 import {ZeroMomentFixture} from "./ZeroMomentFixture.sol";
@@ -27,13 +33,13 @@ contract BuildMigrationsTest is Test, BuildMigrationsHarness {
         return LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
     }
 
-    function lexLess(string memory a, string memory b) internal pure returns (bool) {
-        bytes memory x = bytes(a);
-        bytes memory y = bytes(b);
-        for (uint256 i = 0; i < x.length && i < y.length; i++) {
-            if (x[i] != y[i]) return x[i] < y[i];
+    function lexLess(string memory left, string memory right) internal pure returns (bool) {
+        bytes memory leftBytes = bytes(left);
+        bytes memory rightBytes = bytes(right);
+        for (uint256 i = 0; i < leftBytes.length && i < rightBytes.length; i++) {
+            if (leftBytes[i] != rightBytes[i]) return leftBytes[i] < rightBytes[i];
         }
-        return x.length < y.length;
+        return leftBytes.length < rightBytes.length;
     }
 
     function index(string memory at, uint256 i) internal pure returns (string memory) {
@@ -53,9 +59,9 @@ contract BuildMigrationsTest is Test, BuildMigrationsHarness {
             if (declarations[i].migration) count++;
         }
         rows = new uint256[](count);
-        uint256 r = 0;
+        uint256 rowIndex = 0;
         for (uint256 i = 0; i < declarations.length; i++) {
-            if (declarations[i].migration) rows[r++] = i;
+            if (declarations[i].migration) rows[rowIndex++] = i;
         }
     }
 
@@ -85,14 +91,14 @@ contract BuildMigrationsTest is Test, BuildMigrationsHarness {
         (string[] memory paths,,) = discovered();
         Vm.DirEntry[] memory entries = vm.readDir("script", 1);
         uint256 scripts = 0;
-        for (uint256 e = 0; e < entries.length; e++) {
-            if (entries[e].isDir || !endsWith(entries[e].path, ".s.sol")) continue;
+        for (uint256 entryIndex = 0; entryIndex < entries.length; entryIndex++) {
+            if (entries[entryIndex].isDir || !endsWith(entries[entryIndex].path, ".s.sol")) continue;
             scripts++;
             uint256 hits = 0;
             for (uint256 i = 0; i < paths.length; i++) {
-                if (endsWith(entries[e].path, string.concat("/", paths[i]))) hits++;
+                if (endsWith(entries[entryIndex].path, string.concat("/", paths[i]))) hits++;
             }
-            assertEq(hits, 1, entries[e].path);
+            assertEq(hits, 1, entries[entryIndex].path);
         }
         assertEq(paths.length, scripts);
         for (uint256 i = 1; i < paths.length; i++) {
@@ -106,11 +112,11 @@ contract BuildMigrationsTest is Test, BuildMigrationsHarness {
         uint256[] memory rows = migrationsOf(declarations);
         assertGt(rows.length, 0);
         assertFalse(vm.keyExistsJson(json, index(".migrations", rows.length)));
-        for (uint256 r = 0; r < rows.length; r++) {
-            string memory at = index(".migrations", r);
-            assertEq(vm.parseJsonString(json, string.concat(at, ".script")), paths[rows[r]]);
-            assertEq(vm.parseJsonBytes32(json, string.concat(at, ".namespace")), declarations[rows[r]].namespace);
-            assertEq(vm.parseJsonBytes32(json, string.concat(at, ".id")), declarations[rows[r]].id);
+        for (uint256 rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+            string memory at = index(".migrations", rowIndex);
+            assertEq(vm.parseJsonString(json, string.concat(at, ".script")), paths[rows[rowIndex]]);
+            assertEq(vm.parseJsonBytes32(json, string.concat(at, ".namespace")), declarations[rows[rowIndex]].namespace);
+            assertEq(vm.parseJsonBytes32(json, string.concat(at, ".id")), declarations[rows[rowIndex]].id);
         }
     }
 
@@ -119,8 +125,8 @@ contract BuildMigrationsTest is Test, BuildMigrationsHarness {
         (, ScriptDeclaration[] memory declarations, address[] memory instances) = discovered();
         uint256[] memory rows = migrationsOf(declarations);
         SupportedNetwork[] memory nets = networks();
-        for (uint256 r = 0; r < rows.length; r++) {
-            assertMigrationChains(json, r, declarations[rows[r]], instances[rows[r]], nets);
+        for (uint256 rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+            assertMigrationChains(json, rowIndex, declarations[rows[rowIndex]], instances[rows[rowIndex]], nets);
         }
     }
 
@@ -133,9 +139,13 @@ contract BuildMigrationsTest is Test, BuildMigrationsHarness {
     ) internal view {
         string memory chains = string.concat(index(".migrations", row), ".chains");
         assertEq(vm.parseJsonKeys(json, chains).length, nets.length);
-        for (uint256 c = 0; c < nets.length; c++) {
+        for (uint256 netIndex = 0; netIndex < nets.length; netIndex++) {
             assertChain(
-                json, string.concat(chains, ".", vm.toString(nets[c].chainId)), declared, instance, nets[c].chainId
+                json,
+                string.concat(chains, ".", vm.toString(nets[netIndex].chainId)),
+                declared,
+                instance,
+                nets[netIndex].chainId
             );
         }
     }
@@ -171,11 +181,11 @@ contract BuildMigrationsTest is Test, BuildMigrationsHarness {
         view
     {
         assertFalse(vm.keyExistsJson(json, index(pre, expected.length)));
-        for (uint256 p = 0; p < expected.length; p++) {
-            string memory row = index(pre, p);
-            assertEq(vm.parseJsonAddress(json, string.concat(row, ".writer")), expected[p].writer);
-            assertEq(vm.parseJsonBytes32(json, string.concat(row, ".namespace")), expected[p].namespace);
-            assertEq(vm.parseJsonBytes32(json, string.concat(row, ".id")), expected[p].migration);
+        for (uint256 pairIndex = 0; pairIndex < expected.length; pairIndex++) {
+            string memory row = index(pre, pairIndex);
+            assertEq(vm.parseJsonAddress(json, string.concat(row, ".writer")), expected[pairIndex].writer);
+            assertEq(vm.parseJsonBytes32(json, string.concat(row, ".namespace")), expected[pairIndex].namespace);
+            assertEq(vm.parseJsonBytes32(json, string.concat(row, ".id")), expected[pairIndex].migration);
         }
     }
 
@@ -186,16 +196,17 @@ contract BuildMigrationsTest is Test, BuildMigrationsHarness {
         uint256[] memory rows = migrationsOf(declarations);
         SupportedNetwork[] memory nets = networks();
         uint256 hits = 0;
-        for (uint256 r = 0; r < rows.length; r++) {
-            bool governance = declarations[rows[r]].id == LibStoxMigrations.GOVERNANCE_TIMELOCK;
+        for (uint256 rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+            bool governance = declarations[rows[rowIndex]].id == LibStoxMigrations.GOVERNANCE_TIMELOCK;
             if (governance) {
                 hits++;
-                assertEq(paths[rows[r]], "script/20260729-migrate-governance-to-timelock.s.sol");
+                assertEq(paths[rows[rowIndex]], "script/20260729-migrate-governance-to-timelock.s.sol");
             }
-            for (uint256 c = 0; c < nets.length; c++) {
-                (uint256 moment,) = LibStoxMigrations.governanceTimelockExecution(nets[c].chainId);
-                string memory at =
-                    string.concat(index(".migrations", r), ".chains.", vm.toString(nets[c].chainId), ".executedAt");
+            for (uint256 netIndex = 0; netIndex < nets.length; netIndex++) {
+                (uint256 moment,) = LibStoxMigrations.governanceTimelockExecution(nets[netIndex].chainId);
+                string memory at = string.concat(
+                    index(".migrations", rowIndex), ".chains.", vm.toString(nets[netIndex].chainId), ".executedAt"
+                );
                 assertEq(vm.parseJsonUint(json, at), governance ? moment : 0);
             }
         }
@@ -206,8 +217,8 @@ contract BuildMigrationsTest is Test, BuildMigrationsHarness {
         string memory json = build.renderDir(string.concat(FIXTURES, "/timelock"));
         SupportedNetwork[] memory nets = networks();
         assertFalse(vm.keyExistsJson(json, ".migrations[3]"));
-        for (uint256 c = 0; c < nets.length; c++) {
-            assertTimelockLine(json, nets[c].chainId);
+        for (uint256 netIndex = 0; netIndex < nets.length; netIndex++) {
+            assertTimelockLine(json, nets[netIndex].chainId);
         }
     }
 
@@ -255,6 +266,11 @@ contract BuildMigrationsTest is Test, BuildMigrationsHarness {
         if (vm.exists(path)) vm.removeFile(path);
         build.runTo(path);
         assertEq(keccak256(vm.parseJson(vm.readFile(path))), keccak256(vm.parseJson(build.render())));
+    }
+
+    function testNoDeploymentNetworkFails() external {
+        vm.expectRevert(abi.encodeWithSelector(NoDeploymentNetworks.selector));
+        build.callRenderFor("script", new SupportedNetwork[](0));
     }
 
     function testAScriptWithNoArtifactsFails() external {

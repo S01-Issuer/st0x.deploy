@@ -68,6 +68,7 @@ error DeclarationCountMismatch();
 /// on the first violation, so a script that is not in a line fails CI rather
 /// than reaching `migrations.json`.
 library LibScriptDeclarations {
+    /// @dev What `indexOf` returns for a prerequisite no declared migration is.
     uint256 internal constant NOT_FOUND = type(uint256).max;
 
     /// @notice Revert on the first rule `declarations` break.
