@@ -33,13 +33,13 @@ error VerifyMismatch(string field);
 error VerifyExpectedSingleTx(uint256 actualCount);
 
 /// @notice This script's declaration: the Safe's record of the threshold
-/// migration, after the orchestrator admin move.
+/// migration, after the EU authoriser deploy.
 /// @return The declaration.
 function migrateMultisigThresholdDeclaration() pure returns (ScriptDeclaration memory) {
     return LibStoxMigrations.safeMigrationOnto(
         LibStoxMigrations.NAMESPACE,
         keccak256("script/MigrateMultisigThreshold.s.sol"),
-        LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
+        keccak256("script/20261006-deploy-eu-authoriser.s.sol"),
         false
     );
 }

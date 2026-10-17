@@ -102,7 +102,7 @@ contract DeployGovernanceTimelock is Script, IStoxScript {
         return LibStoxMigrations.safeMigrationOnto(
             LibStoxMigrations.NAMESPACE,
             keccak256("script/20260729-deploy-governance-timelock.s.sol"),
-            keccak256("script/MigrateMultisigThreshold.s.sol"),
+            LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
             false
         );
     }

@@ -76,7 +76,7 @@ contract ExecuteTimelockOperations is Script, IStoxScript {
         return LibStoxMigrations.safeMigrationOnto(
             LibStoxMigrations.NAMESPACE,
             keccak256("script/20260813-execute-timelock-operations.s.sol"),
-            keccak256("script/20260807-deploy-missing-tokens.s.sol"),
+            keccak256("script/20260813-timelock-rehearsal-cancel.s.sol"),
             false
         );
     }
