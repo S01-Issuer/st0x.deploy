@@ -77,7 +77,6 @@ contract MigrateMultisigThreshold is SafeBundleScript, IStoxScript {
     /// at the record this one is applied onto.
     function preflight() internal view override {
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
-        LibSafeInvariants.assertTokenOwnerSafePolicy(Safe(payable(chainSafe)));
         bytes32 head = LibStoxMigrations.head(chainSafe);
         if (head != migrateMultisigThresholdDeclaration().prerequisites[0].migration) {
             revert UnexpectedThresholdMigrationLine(head);

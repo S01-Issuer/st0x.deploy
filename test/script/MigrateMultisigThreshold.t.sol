@@ -8,9 +8,12 @@ import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistryDeploy.sol";
 import {SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
+import {LibSafe} from "rain-deploy-0.1.18/src/lib/LibSafe.sol";
+import {IMigrationRegistryV2} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJson.sol";
 
 import {
+    ThresholdLineHeadMismatch,
     UnexpectedThresholdMigrationLine,
     migrateMultisigThresholdDeclaration
 } from "../../script/MigrateMultisigThreshold.s.sol";
@@ -84,6 +87,32 @@ contract MigrateMultisigThresholdTest is Test {
             migrateMultisigThresholdDeclaration().prerequisites[0].migration,
             LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK
         );
+    }
+
+    function testRefusesASafeOffItsPolicyThreshold() external {
+        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
+        MigrateMultisigThresholdHarness script = new MigrateMultisigThresholdHarness("off-policy");
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        vm.prank(safe);
+        Safe(payable(safe)).changeThreshold(2);
+        vm.expectRevert(abi.encodeWithSelector(LibSafe.SafeThresholdMismatch.selector, safe, 3, 2));
+        script.callPreflight();
+    }
+
+    function testRunRefusesALineThatDoesNotEndAtTheRecord() external {
+        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
+        MigrateMultisigThresholdHarness script = new MigrateMultisigThresholdHarness("head-mismatch");
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        executePrerequisites("head-mismatch", safe);
+        vm.mockCall(
+            LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
+            abi.encodeCall(IMigrationRegistryV2.head, (safe, LibStoxMigrations.NAMESPACE)),
+            abi.encode(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK)
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(ThresholdLineHeadMismatch.selector, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK)
+        );
+        script.run();
     }
 
     function testRecordBase() external {
