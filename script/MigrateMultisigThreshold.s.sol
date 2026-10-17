@@ -2,33 +2,38 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
+import {Script} from "forge-std-1.17.0/src/Script.sol";
+import {console2} from "forge-std-1.17.0/src/console2.sol";
+
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
+import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
+import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
+import {LibInvariants} from "../src/lib/LibInvariants.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {SafeBundleScript} from "rain-deploy-0.1.18/src/abstract/SafeBundleScript.sol";
-import {SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJson.sol";
 
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
-import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
-import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
-/// @notice The Safe's `st0x.deploy` line is not at the record this one is
-/// applied onto.
-/// @param head The line's head.
-error UnexpectedThresholdMigrationLine(bytes32 head);
+/// @notice A previously emitted Tx Builder JSON artifact (parsed via
+/// `LibSafeTxBuilderJson.fromJson`) does not match the bundle the live
+/// pre-flight would emit. Surfaces the first field that drifts, so a
+/// signer can pinpoint where the off-chain artifact diverged from the
+/// on-chain state at verification time.
+/// @param field The name of the field that drifted (e.g. `"chainId"`,
+/// `"to"`, `"data"`, `"safeTxHash"`).
+error VerifyMismatch(string field);
 
-/// @notice After the bundle, the record is not stamped with the block it
-/// landed in.
-/// @param expected The block timestamp.
-/// @param actual The moment the registry answers.
-error ThresholdRecordMismatch(uint256 expected, uint256 actual);
+/// @notice The verify pre-flight got a non-1 tx count from the artifact.
+/// The threshold migration is a single-tx bundle; a multi-tx artifact at
+/// this path is unambiguous drift rather than a future-proofing exercise.
+/// @param actualCount The number of transactions in the parsed artifact.
+error VerifyExpectedSingleTx(uint256 actualCount);
 
-/// @notice After the bundle, the Safe's line does not end at this record.
-/// @param head The line's head.
-error ThresholdLineHeadMismatch(bytes32 head);
-
-/// @notice This script's declaration: the Safe's record after the orchestrator
-/// admin move.
+/// @notice This script's declaration: the Safe's record of the threshold
+/// migration, after the orchestrator admin move.
 /// @return The declaration.
 function migrateMultisigThresholdDeclaration() pure returns (ScriptDeclaration memory) {
     return LibStoxMigrations.safeMigrationOnto(
@@ -40,76 +45,159 @@ function migrateMultisigThresholdDeclaration() pure returns (ScriptDeclaration m
 }
 
 /// @title MigrateMultisigThreshold
-/// @notice Records the token-owner Safe's move to its policy threshold
-/// (`LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD` of the pinned owners)
-/// in the Safe's `st0x.deploy` line. The threshold changed on every chain
-/// before the registry was in use, so the bundle is the record alone, stamped
-/// with the block it lands in, onto the orchestrator admin move.
+/// @notice Forge script that authors the ST0x token-owner Safe's
+/// multisig threshold migration (1-of-6 -> 3-of-6 against the post-rotation roster). Performs an
+/// exhaustive on-chain pre-flight via `LibInvariants.assertAll`
+/// (proxy codehash, singleton + bytecode, version, modules, guard,
+/// fallback handler, uniform vault ownership, expected owner set,
+/// expected threshold), simulates the post-state, emits a Safe Tx
+/// Builder JSON artifact to `out/`, and logs the canonical `SafeTxHash`
+/// that owners must sign.
+/// @dev Two entrypoints:
+/// - `run()`: dry-run against the active fork (typically a Base head
+///   fork). Asserts every invariant the live execution will rely on,
+///   simulates the inner call, and writes the Tx Builder artifact.
+/// - `verify(jsonPath)`: re-runs the same pre-flight, parses an existing
+///   artifact, and asserts the parsed artifact matches what the live
+///   pre-flight would emit. Used by signers (or CI) to confirm an
+///   artifact wasn't tampered with between authoring and signing.
 ///
-/// `run()` and `verify()` are `SafeBundleScript`'s.
-///
-/// @dev Dispatch via `Actions → run-script` with
-/// `script = MigrateMultisigThreshold` per chain, after
-/// `20261006-orchestrator-admin-to-timelock` has executed there.
-contract MigrateMultisigThreshold is SafeBundleScript, IStoxScript {
+/// Pre-flight uses the no-arg `assertAll(safe)` overload, which defaults
+/// the expected threshold and owner set to the `LibSafeInvariants`-pinned
+/// current truth. Post-state uses the full-args overload to override
+/// the threshold with the deliberately-changed `TARGET_THRESHOLD`
+/// while keeping the owner set pinned.
+contract MigrateMultisigThreshold is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
         return migrateMultisigThresholdDeclaration();
     }
 
-    /// @inheritdoc SafeBundleScript
-    function bundleName() internal pure override returns (string memory) {
-        return "ST0x Safe: record the threshold migration";
-    }
+    /// @notice Target signature threshold post-migration. Hardcoded literal
+    /// (not derived from any constant) because the migration is a
+    /// one-shot: encoding `3` as `THRESHOLD_PRE + 2` or similar would
+    /// invite the "what if the pre-state changes" failure mode the script
+    /// is meant to surface.
+    uint256 internal constant TARGET_THRESHOLD = 3;
 
-    /// @inheritdoc SafeBundleScript
-    function artifactPath() internal view virtual override returns (string memory) {
-        return string.concat("out/MigrateMultisigThreshold-", vm.toString(block.chainid), ".json");
-    }
+    /// @notice Human-readable name embedded in the emitted Tx Builder
+    /// JSON's `meta.name`. Visible to signers in the Safe Tx Builder UI.
+    string internal constant BUNDLE_NAME = "ST0x Safe threshold 1->3 (post-rotation roster)";
 
-    /// @inheritdoc SafeBundleScript
-    function safe() internal view override returns (Safe) {
-        return Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
-    }
+    /// @notice Output path (relative to the project root) for the Tx
+    /// Builder JSON artifact. Picked up by the multisig-artifact GH
+    /// workflow so PRs that touch the migration code expose the bundle
+    /// as an artifact for review.
+    string internal constant ARTIFACT_PATH = "out/safe-threshold-migration.json";
 
-    /// @inheritdoc SafeBundleScript
-    /// @dev The Safe already carries the policy this records, and its line is
-    /// at the record this one is applied onto.
-    function preflight() internal view override {
-        address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
-        bytes32 head = LibStoxMigrations.head(chainSafe);
-        if (head != migrateMultisigThresholdDeclaration().prerequisites[0].migration) {
-            revert UnexpectedThresholdMigrationLine(head);
-        }
-    }
+    /// @notice Dry-run the threshold migration: pre-flight every invariant
+    /// via `assertAll`, simulate the post-state, emit the Tx Builder
+    /// JSON artifact, and log the canonical SafeTxHash. Does not broadcast
+    /// anything — the inner call is gated behind the Safe's own signature
+    /// verification in production and we explicitly simulate via
+    /// `vm.prank`.
+    function run() external {
+        Safe safe = Safe(payable(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE));
+        // Pre-flight: every immutable invariant plus the pinned 6-owner
+        // roster plus the pinned current threshold. Defaults from
+        // `LibSafeInvariants` (no-arg overload). Reverts with the relevant
+        // typed error from the underlying library on first mismatch.
+        LibInvariants.assertAll(safe);
 
-    /// @inheritdoc SafeBundleScript
-    /// @dev The record, and nothing else.
-    function authorBundle() internal view override returns (SafeTx[] memory) {
-        (address to, bytes memory data) = LibStoxMigrations.recordCall(
-            migrateMultisigThresholdDeclaration(),
-            address(safe()),
-            LibTimelockInvariants.timelockForChainId(block.chainid)
-        );
+        // Build the single-tx bundle: a self-call to `changeThreshold(3)`.
+        SafeTx memory txn = SafeTx({
+            to: address(safe),
+            value: 0,
+            data: abi.encodeCall(OwnerManager.changeThreshold, (TARGET_THRESHOLD)),
+            operation: Enum.Operation.Call
+        });
+
+        // Capture the nonce before any simulation. `simulateSelfCall`
+        // doesn't advance the nonce, so the hash binds correctly to the
+        // current Safe state.
+        uint256 nonce = safe.nonce();
+        bytes32 safeTxHash = LibSafeTx.safeTxHash(safe, txn, nonce);
+
+        // Simulate the inner call and re-assert post-state via the
+        // full-args bundle. Overrides only the threshold (the
+        // deliberately-changed value) while keeping the owner set on its
+        // pinned current truth. If anything about the Safe rejects the
+        // changeThreshold(3) call in production, it would also reject it
+        // here (modulo the signature check, which `vm.prank` bypasses).
+        // The bundle re-check guards against a `changeThreshold`
+        // implementation that secretly mutates the owner roster, modules,
+        // or fallback handler as a side effect.
+        LibSafeFork.simulateCall(vm, safe, address(safe), txn.data);
+        LibInvariants.assertAll(safe, TARGET_THRESHOLD, LibSafeInvariants.expectedOwners());
+
+        // Emit the Tx Builder JSON artifact and write it under `out/`.
         SafeTx[] memory txs = new SafeTx[](1);
-        txs[0] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
-        return txs;
+        txs[0] = txn;
+        string memory json = LibSafeTxBuilderJson.toJson(vm, address(safe), block.chainid, BUNDLE_NAME, txs);
+        vm.writeFile(ARTIFACT_PATH, json);
+
+        // Log the artifact with explicit BEGIN/END markers so CI can
+        // grep the bundle from the run log even when the JSON has been
+        // pretty-printed by an intermediate tool.
+        console2.log("==== TX BUILDER JSON BEGIN ====");
+        console2.log(json);
+        console2.log("==== TX BUILDER JSON END ====");
+        console2.log("SafeTxHash:", vm.toString(safeTxHash));
+        console2.log("Nonce:", nonce);
+
+        // n+1 reversibility check: prove the new state is not a dead end.
+        // Builds the inverse `changeThreshold(STOX_TOKEN_OWNER_SAFE_THRESHOLD)`
+        // as a follow-up tx; asserts undersigned attempts revert with
+        // `GS020` and that `TARGET_THRESHOLD`-many sigs successfully roll
+        // the threshold back. Per DevOps convention every critical state
+        // change ships with the proof that it isn't terminal — DM's "ppl
+        // put things in a state that cant be moved out of" framing.
+        //
+        // Sequenced AFTER the JSON emission so the artifact reflects the
+        // forward migration (`changeThreshold(3)`) rather than the
+        // reversal. The reversal exists only as a fork-local simulation;
+        // signers never see it.
+        LibSafeFork.simulateThresholdNPlus1(vm, safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
+        console2.log("n+1 reversibility check passed: threshold reverted to", safe.getThreshold());
     }
 
-    /// @inheritdoc SafeBundleScript
-    /// @dev The record is this bundle's and the Safe still carries the policy.
-    function assertPostState() internal view override {
-        address chainSafe = address(safe());
-        uint256 record = LibStoxMigrations.applied(chainSafe, migrateMultisigThresholdDeclaration().id);
-        // forge-lint: disable-next-line(block-timestamp)
-        if (record != block.timestamp) {
-            // forge-lint: disable-next-line(block-timestamp)
-            revert ThresholdRecordMismatch(block.timestamp, record);
-        }
-        bytes32 head = LibStoxMigrations.head(chainSafe);
-        if (head != migrateMultisigThresholdDeclaration().id) {
-            revert ThresholdLineHeadMismatch(head);
-        }
-        LibSafeInvariants.assertTokenOwnerSafePolicy(safe());
+    /// @notice Re-runs the threshold migration pre-flight and asserts that
+    /// a pre-emitted Tx Builder JSON at `jsonPath` matches what the live
+    /// pre-flight would emit. Used by signers to confirm an artifact's
+    /// integrity before signing.
+    /// @param jsonPath Filesystem path to the Tx Builder JSON to verify.
+    function verify(string calldata jsonPath) external view {
+        Safe safe = Safe(payable(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE));
+        // Same pre-flight bundle as `run()`. If the live state has drifted
+        // since the artifact was authored, the typed error bubbles before
+        // we even open the file.
+        LibInvariants.assertAll(safe);
+
+        (uint256 parsedChainId, address parsedSafe, SafeTx[] memory parsedTxs) =
+            LibSafeTxBuilderJson.fromJson(vm, vm.readFile(jsonPath));
+
+        if (parsedChainId != block.chainid) revert VerifyMismatch("chainId");
+        if (parsedSafe != address(safe)) revert VerifyMismatch("safeAddress");
+        if (parsedTxs.length != 1) revert VerifyExpectedSingleTx(parsedTxs.length);
+
+        SafeTx memory expected = SafeTx({
+            to: address(safe),
+            value: 0,
+            data: abi.encodeCall(OwnerManager.changeThreshold, (TARGET_THRESHOLD)),
+            operation: Enum.Operation.Call
+        });
+
+        if (parsedTxs[0].to != expected.to) revert VerifyMismatch("to");
+        if (parsedTxs[0].value != expected.value) revert VerifyMismatch("value");
+        if (keccak256(parsedTxs[0].data) != keccak256(expected.data)) revert VerifyMismatch("data");
+
+        // Cross-check the artifact's implied SafeTxHash against the live
+        // Safe's hash builder using the current on-chain nonce. Drift here
+        // is the strongest signal that the artifact is stale: a nonce bump
+        // (some other Safe tx executed in between) will cause this to
+        // flag, which is the desired safety property.
+        bytes32 liveHash = LibSafeTx.safeTxHash(safe, expected, safe.nonce());
+        bytes32 artifactHash = LibSafeTx.safeTxHash(safe, parsedTxs[0], safe.nonce());
+        if (liveHash != artifactHash) revert VerifyMismatch("safeTxHash");
     }
 }

@@ -29,7 +29,6 @@ on:
           - 20261006-grant-eu-authoriser-roles
           - 20261006-grant-orchestrator-emergency
           - 20261006-orchestrator-admin-to-timelock
-          - MigrateMultisigThreshold
       network:
         description: 'Network to author against (default: base)'
         required: true

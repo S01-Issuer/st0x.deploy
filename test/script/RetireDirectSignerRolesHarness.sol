@@ -2,42 +2,31 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 
 import {RetireDirectSignerRoles} from "../../script/20260831-retire-direct-signer-roles.s.sol";
+import {SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
 
-/// @dev Exposes the script's hooks, with an artifact path per instance.
+/// @dev Exposes the script's internals so the guard tests can drive them
+/// directly.
 contract RetireDirectSignerRolesHarness is RetireDirectSignerRoles {
-    string internal sArtifactTag;
-
-    /// @param artifactTag Suffixes this instance's artifact path.
-    constructor(string memory artifactTag) {
-        sArtifactTag = artifactTag;
+    /// @notice The script's `assertOrchestratorPathEnabled()`, externally
+    /// callable.
+    function callAssertOrchestratorPathEnabled(IAccessControl acl, address orchestrator) external view {
+        assertOrchestratorPathEnabled(acl, orchestrator);
     }
 
-    /// @inheritdoc RetireDirectSignerRoles
-    function artifactPath() internal view override returns (string memory) {
-        return string.concat(
-            "out/20260831-retire-direct-signer-roles-", vm.toString(block.chainid), "-", sArtifactTag, ".json"
-        );
+    /// @notice The script's `authorBundle()`, externally callable.
+    function callAuthorBundle(address authoriser, address safeAddr) external view returns (SafeTx[] memory) {
+        return authorBundle(authoriser, safeAddr);
     }
 
-    function callPreflight() external view {
-        preflight();
+    /// @notice The script's `assertPostRetireState()`, externally callable.
+    function callAssertPostRetireState(IAccessControl acl, address orchestrator, address safeAddr) external view {
+        assertPostRetireState(acl, orchestrator, safeAddr);
     }
 
-    function callAuthorBundle() external view returns (SafeTx[] memory) {
-        return authorBundle();
-    }
-
-    function callBatch() external view returns (address[] memory, uint256[] memory, bytes[] memory) {
-        return batch();
-    }
-
-    function callOperationId() external view returns (bytes32) {
-        return operationId();
-    }
-
+    /// @notice The script's `artifactPath()`, externally callable.
     function callArtifactPath() external view returns (string memory) {
         return artifactPath();
     }
