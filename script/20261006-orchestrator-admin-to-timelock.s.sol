@@ -14,6 +14,7 @@ import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
+import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
@@ -61,6 +62,18 @@ error GrantReadyInsideDelay(bytes32 operationId);
 /// @notice The scheduled grant did not execute after the delay.
 /// @param operationId The timelock operation.
 error ScheduledGrantNotExecuted(bytes32 operationId);
+
+/// @notice This script's declaration: the Safe's record after the
+/// orchestrator EMERGENCY grant.
+/// @return The declaration.
+function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaration memory) {
+    return LibStoxMigrations.safeMigrationOnto(
+        LibStoxMigrations.NAMESPACE,
+        LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
+        LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
+        false
+    );
+}
 
 /// @title OrchestratorAdminToTimelock
 /// @notice Authors the per-chain Safe Tx Builder bundle that moves the
@@ -127,7 +140,12 @@ error ScheduledGrantNotExecuted(bytes32 operationId);
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261006-orchestrator-admin-to-timelock` per chain, only after
 /// `20261006-grant-orchestrator-emergency` has executed there.
-contract OrchestratorAdminToTimelock is SafeBundleScript {
+contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
+    /// @inheritdoc IStoxScript
+    function declaration() external pure returns (ScriptDeclaration memory) {
+        return orchestratorAdminToTimelockDeclaration();
+    }
+
     /// @notice The orchestrator instance, typed for its role-id getters.
     ST0xOrchestrator internal constant ORCHESTRATOR =
         ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
@@ -169,7 +187,7 @@ contract OrchestratorAdminToTimelock is SafeBundleScript {
         LibOrchestratorInvariants.assertBeaconSet();
 
         bytes32 head = LibStoxMigrations.head(chainSafe);
-        if (head != LibStoxMigrations.ORCHESTRATOR_EMERGENCY) {
+        if (head != orchestratorAdminToTimelockDeclaration().prerequisites[0].migration) {
             revert UnexpectedMigrationLine(head);
         }
         LibOrchestratorInvariants.assertInstance(chainSafe);
@@ -192,10 +210,8 @@ contract OrchestratorAdminToTimelock is SafeBundleScript {
             data: abi.encodeCall(IAccessControl.renounceRole, (bytes32(0), chainSafe)),
             operation: Enum.Operation.Call
         });
-        (address recordTo, bytes memory recordData) = LibStoxMigrations.applyMigrationCall(
-            LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-            LibStoxMigrations.onto(chainSafe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY)
-        );
+        (address recordTo, bytes memory recordData) =
+            LibStoxMigrations.recordCall(orchestratorAdminToTimelockDeclaration(), chainSafe, timelock());
         txs[2] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
         return txs;
     }
@@ -214,7 +230,7 @@ contract OrchestratorAdminToTimelock is SafeBundleScript {
             revert RecordMismatch(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK, block.timestamp, record);
         }
         bytes32 head = LibStoxMigrations.head(chainSafe);
-        if (head != LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) {
+        if (head != orchestratorAdminToTimelockDeclaration().id) {
             revert LineHeadMismatch(head);
         }
         LibOrchestratorInvariants.assertInstance(chainSafe);
