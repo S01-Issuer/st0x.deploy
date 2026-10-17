@@ -422,6 +422,14 @@ contract LibScriptDeclarationsTest is Test {
         expectRevertOn(abi.encodeWithSelector(UnknownPrerequisite.selector, "script/b.s.sol", 1), paths, declarations);
     }
 
+    function testAHeadOnALaterInvalidNonMigrationIsUnknownFirst() external {
+        ScriptDeclaration memory notMigration = otherLine("o", MIGRATION_HEAD_GENESIS);
+        notMigration.migration = false;
+        (string[] memory paths, ScriptDeclaration[] memory declarations) =
+            two("script/a.s.sol", otherLine("x", "o"), "script/b.s.sol", notMigration);
+        expectRevertOn(abi.encodeWithSelector(UnknownPrerequisite.selector, "script/a.s.sol", 0), paths, declarations);
+    }
+
     function testEveryDeclarationHasAPath() external {
         (, ScriptDeclaration[] memory declarations) =
             one("script/a.s.sol", deployOnto("script/a.s.sol", MIGRATION_HEAD_GENESIS));

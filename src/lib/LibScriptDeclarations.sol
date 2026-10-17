@@ -139,7 +139,7 @@ library LibScriptDeclarations {
         ScriptDeclaration memory declared = declarations[i];
         for (uint256 j = 0; j < i; j++) {
             ScriptDeclaration memory other = declarations[j];
-            if (!other.migration || other.namespace != declared.namespace) continue;
+            if (other.namespace != declared.namespace) continue;
             if (other.id == declared.id) revert DuplicateRecord(paths[i], paths[j]);
             if (
                 other.writer == declared.writer
