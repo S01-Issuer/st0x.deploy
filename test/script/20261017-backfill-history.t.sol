@@ -33,6 +33,9 @@ import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 /// @param network The chain still pending.
 error BackfillNotApplied(string network);
 
+/// @dev A Safe line write past the backfill, for the post-state refusal.
+bytes32 constant LATER = keccak256("later");
+
 /// @title BackfillHistoryTest
 /// @notice The backfill on every deployment network at head. Before the
 /// orchestrator admin move the script refuses; with the move executed (live,
@@ -110,9 +113,10 @@ contract BackfillHistoryTest is Test {
         vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
         script = new BackfillHistoryHarness("refusal");
         safe = LibSafeInvariants.safeForChainId(block.chainid);
-        if (LibStoxMigrations.applied(safe, backfillHistoryDeclaration().id) != 0) {
+        ready = LibStoxMigrations.applied(safe, backfillHistoryDeclaration().id) == 0;
+        if (!ready) {
             console2.log("SPENT: the backfill has executed on this chain");
-            return (script, safe, false);
+            return (script, safe, ready);
         }
         if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0) {
             LibSafeFork.executeBundle(
@@ -126,7 +130,7 @@ contract BackfillHistoryTest is Test {
         }
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), script.callAuthorBundle());
         script.callAssertPostState();
-        return (script, safe, true);
+        return (script, safe, ready);
     }
 
     /// @notice Post-state refuses records from another block, naming the
@@ -149,9 +153,9 @@ contract BackfillHistoryTest is Test {
         vm.prank(safe);
         IMigrationRegistryV2(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
             .applyMigration(
-                LibStoxMigrations.NAMESPACE, "later", LibStoxMigrations.onto(safe, backfillHistoryDeclaration().id)
+                LibStoxMigrations.NAMESPACE, LATER, LibStoxMigrations.onto(safe, backfillHistoryDeclaration().id)
             );
-        vm.expectRevert(abi.encodeWithSelector(LineHeadMismatch.selector, bytes32("later")));
+        vm.expectRevert(abi.encodeWithSelector(LineHeadMismatch.selector, LATER));
         script.callAssertPostState();
     }
 
