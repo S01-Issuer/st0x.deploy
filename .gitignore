@@ -10,3 +10,6 @@ dependencies
 # Foundry writes dry-run and broadcast receipts here; they are run
 # artefacts, not source.
 broadcast/
+
+# The launch helper's npm install.
+launch/ffi/node_modules/

@@ -1,0 +1,24 @@
+name: launch-ffi-test
+# The Base token launch's Node helper, which the launch calls through vm.ffi.
+# The forge suite runs without ffi in rainix-sol.
+on: [push]
+jobs:
+  launch-ffi-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@21a544727d0c62386e78b4befe52d19ad12692e3 # v17
+      - name: Install Soldeer dependencies
+        run: nix develop --command forge soldeer install
+      - name: Install the launch helper
+        run: nix develop --command bash -c 'cd launch/ffi && npm ci --ignore-scripts'
+      - name: Launch helper tests
+        run: nix develop --command bash -c 'cd launch/ffi && npm test'
+      - name: Launch ffi integration tests
+        env:
+          FOUNDRY_TEST: test-ffi
+        run: nix develop --command forge test --threads 1 --ffi
