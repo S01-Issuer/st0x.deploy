@@ -30,8 +30,10 @@ contract LibUtcDateTest is Test {
 
     function testIsLeapYear() external pure {
         assertTrue(LibUtcDate.isLeapYear(2000));
+        assertTrue(LibUtcDate.isLeapYear(2400));
         assertTrue(LibUtcDate.isLeapYear(2028));
         assertFalse(LibUtcDate.isLeapYear(1900));
+        assertFalse(LibUtcDate.isLeapYear(2100));
         assertFalse(LibUtcDate.isLeapYear(2027));
     }
 

@@ -575,4 +575,24 @@ contract LibLaunchPlanTest is Test {
         (found,) = LibLaunchPlan.findPin(ctx.pins, "tNONE");
         assertFalse(found);
     }
+
+    function testDedicatedAuthoriserMustBeOnTheAllowlist() external {
+        DedicatedPin memory pin = _pinned();
+        PlanContext memory ctx = _lvmhCtx(pin, true);
+        ctx.allowlistedAuthorisers = new address[](1);
+        ctx.allowlistedAuthorisers[0] = address(0xBEEF);
+        vm.expectRevert(
+            abi.encodeWithSelector(DedicatedAuthoriserNotAllowlisted.selector, "tMC", DEDICATED)
+        );
+        harness.planOne("f", _lvmh(), ctx);
+    }
+
+    function testParseAssetTypeMatchesCdPlanCase() external {
+        LaunchMetadata memory equity = _hood();
+        equity.assetType = "equity";
+        vm.expectRevert(abi.encodeWithSelector(UnsupportedAssetType.selector, "equity"));
+        harness.planOne("f", equity, _ctx());
+        equity.assetType = "ETF";
+        assertTrue(_plan(equity).assetType == AssetType.Etf);
+    }
 }
