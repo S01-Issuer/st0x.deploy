@@ -1,0 +1,293 @@
+name: deploy-sft
+# The Base token launch, ported from sft-ops's deploy-sft. Merging a new
+# launch/metadata/<ticker>.json to main launches that token on Base:
+#
+# validate (no secrets) -> dry-run (fork) -> deploy -> ledger branch
+#
+# Editing an existing metadata file does not launch again: plan() skips any
+# symbol already live or retired in launch/launches.json. launch/metadata/
+# published/ is excluded; those are records recovered from chain.
+#
+# The deploy job runs only when the repository variable LAUNCH_ENABLED is
+# 'true'. Until sft-ops hands the launch over, it is unset and the launch
+# signer's key is not configured here, so sft-ops stays the only launcher.
+on:
+  push:
+    branches: [main]
+    paths: ['launch/metadata/*.json', '!launch/metadata/published/**']
+  workflow_dispatch:
+    inputs:
+      files:
+        description: Space-separated launch/metadata/<ticker>.json paths to launch
+        required: true
+# One mainnet launch at a time. Never cancel a run that may have broadcast.
+concurrency:
+  group: deploy-sft-mainnet
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@21a544727d0c62386e78b4befe52d19ad12692e3 # v17
+      - name: Install Soldeer dependencies
+        run: nix develop --command forge soldeer install
+      - name: Launch tests
+        run: |
+          nix develop --command forge test --match-path \
+            '{test/src/lib/LibLaunchPlan.t.sol,test/src/lib/LibUtcDate.t.sol,test/src/lib/LibRainMeta.t.sol,test/script/20261020-launch-base-tokens.plan.t.sol,test/script/20261020-launch-base-tokens.t.sol}'
+      # Dispatch inputs and the diff go through env, never into the script text.
+      - name: Collect newly added metadata files
+        id: files
+        env:
+          EVENT: ${{ github.event_name }}
+          DISPATCH_FILES: ${{ github.event.inputs.files }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "${EVENT}" = "workflow_dispatch" ]; then
+            FILES="${DISPATCH_FILES}"
+          elif [ "${BEFORE}" = "0000000000000000000000000000000000000000" ]; then
+            FILES=""
+          else
+            # --diff-filter=A: only files ADDED by this merge. A modification to
+            # an existing metadata file is a metadata correction, not a launch.
+            FILES=$(git diff --name-only --diff-filter=A "${BEFORE}" "${SHA}" \
+              -- ':(glob)launch/metadata/*.json' | tr '\n' ' ')
+          fi
+          echo "files=${FILES}" >> "$GITHUB_OUTPUT"
+          echo "Added metadata files: ${FILES:-<none>}"
+      - name: Plan
+        id: plan
+        env:
+          LAUNCH_FILES: ${{ steps.files.outputs.files }}
+        run: |
+          set -euo pipefail
+          if [ -z "${LAUNCH_FILES// /}" ]; then
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          nix develop --command forge script script/20261020-launch-base-tokens.s.sol --sig 'plan()'
+          echo "count=$(jq '.order | length' out/launch-plan.json)" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Launch plan"
+            echo '```json'
+            cat out/launch-plan.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Keep the plan
+        if: steps.plan.outputs.count != '0'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: launch-plan
+          path: out/launch-plan.json
+  dry-run:
+    needs: validate
+    if: needs.validate.outputs.count != '0'
+    runs-on: ubuntu-latest
+    env:
+      BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
+      PINATA_JWT: ${{ secrets.PINATA_JWT }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@21a544727d0c62386e78b4befe52d19ad12692e3 # v17
+      - name: Install Soldeer dependencies
+        run: nix develop --command forge soldeer install
+      - name: Install the launch helper
+        run: nix develop --command bash -c 'cd launch/ffi && npm ci --ignore-scripts'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: launch-plan
+          path: out
+      # The whole launch of each token on a fork of Base head, as the launch
+      # signer, handoff included. Nothing is broadcast.
+      - name: Fork dry-run every token
+        run: |
+          set -euo pipefail
+          mapfile -t symbols < <(jq -r '.order[]' out/launch-plan.json)
+          for symbol in "${symbols[@]}"; do
+            nix develop --command forge script script/20261020-launch-base-tokens.s.sol \
+              --ffi --sig 'prepare(string)' "${symbol}"
+            nix develop --command forge script script/20261020-launch-base-tokens.s.sol \
+              --sig 'simulate(string)' "${symbol}" --rpc-url base
+          done
+  # Never on a re-run: it starts with none of the first attempt's stage files
+  # and plans from a ledger without the first attempt's rows, so it would
+  # launch every token of the batch again.
+  deploy:
+    needs: [validate, dry-run]
+    if: >-
+      vars.LAUNCH_ENABLED == 'true' && needs.validate.outputs.count != '0' && github.run_attempt == 1 && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # The environment scopes the launch signer's key to this job and restricts
+    # it to main.
+    environment: production
+    permissions:
+      contents: write
+    env:
+      BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
+      PINATA_JWT: ${{ secrets.PINATA_JWT }}
+    steps:
+      # The commit validate planned and dry-run checked, not main's head.
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@21a544727d0c62386e78b4befe52d19ad12692e3 # v17
+      - name: Install Soldeer dependencies
+        run: nix develop --command forge soldeer install
+      - name: Install the launch helper
+        run: nix develop --command bash -c 'cd launch/ffi && npm ci --ignore-scripts'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: launch-plan
+          path: out
+      # Failing here costs nothing; failing mid-batch strands tokens.
+      - name: RPC pre-flight
+        run: |
+          set -euo pipefail
+          chain=$(nix develop --command cast chain-id --rpc-url "${BASE_RPC_URL}")
+          if [ "${chain}" != 8453 ]; then
+            echo "RPC reports chain id ${chain}, expected 8453 (Base)" >&2
+            exit 1
+          fi
+          echo "RPC pre-flight OK: Base, block $(nix develop --command cast block-number --rpc-url "${BASE_RPC_URL}")"
+      # One token at a time: parallel broadcasts from one key race on nonce.
+      # Each token is simulated, then broadcast in three stages, each acting on
+      # the previous stage's mined addresses. The batch stops at the first
+      # failure; tokens before it have landed. --sender is the launch signer,
+      # which every stage requires as msg.sender.
+      - name: Launch
+        id: launch
+        env:
+          DEPLOYER_PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
+          LAUNCH_SIGNER: '0x21Cc8a5fe957a167cB92F12F4E658d755b00Be53'
+        run: |
+          set -euo pipefail
+          mapfile -t symbols < <(jq -r '.order[]' out/launch-plan.json)
+          for symbol in "${symbols[@]}"; do
+            echo "=== ${symbol} ==="
+            env -u DEPLOYER_PRIVATE_KEY nix develop --command forge script \
+              script/20261020-launch-base-tokens.s.sol --ffi --sig 'prepare(string)' "${symbol}"
+            env -u DEPLOYER_PRIVATE_KEY nix develop --command forge script \
+              script/20261020-launch-base-tokens.s.sol --sig 'simulate(string)' "${symbol}" \
+              --rpc-url base
+            for stage in deploy clone wire; do
+              nix develop --command launch/stage.sh "${symbol}" "${stage}" \
+                --rpc-url base --private-key "${DEPLOYER_PRIVATE_KEY}" \
+                --sender "${LAUNCH_SIGNER}"
+            done
+          done
+      # always(): a batch that stops partway still launched real tokens, and
+      # this is the only record of them once the runner is torn down.
+      - name: Record
+        if: always()
+        run: |
+          set -euo pipefail
+          record_log=$(mktemp)
+          trap 'rm -f "${record_log}"' EXIT
+          for attempt in 1 2 3 4 5; do
+            status=0
+            nix develop --command forge script script/20261020-launch-base-tokens.s.sol --sig 'record()' \
+              --rpc-url base 2>&1 | tee "${record_log}" || status=$?
+            if [ "${status}" = 0 ]; then
+              break
+            fi
+            if [ "${attempt}" = 5 ] || ! grep -q StageNotReady "${record_log}"; then
+              exit "${status}"
+            fi
+            echo "record attempt ${attempt}: RPC behind mined receipts; retrying"
+            sleep $((attempt * 5))
+          done
+          {
+            echo "### Launched"
+            cat out/launch/summary.md
+          } >> "$GITHUB_STEP_SUMMARY"
+      # The stage files, payloads and ledger of this run. A token that stopped
+      # partway is finished or abandoned from these by hand.
+      - name: Keep the launch record
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: launch-record
+          path: |
+            out/launch/
+            out/launch-plan.json
+            launch/launches.json
+      # Retried, as an RPC behind the last wire transaction reports a token
+      # half wired.
+      - name: Check on chain
+        id: check
+        if: always()
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5 6; do
+            if nix develop --command forge script script/20261020-launch-base-tokens.s.sol \
+              --sig 'check()' --rpc-url base; then
+              exit 0
+            fi
+            if [ "${attempt}" = 6 ]; then
+              exit 1
+            fi
+            wait=$(( (2 ** (attempt - 1)) * (5 + RANDOM % 5) ))
+            echo "check attempt ${attempt} failed, retrying in ${wait}s"
+            sleep "${wait}"
+          done
+          exit 1
+      # Pushes a branch rather than opening a PR, as sft-ops does: the
+      # workflow token cannot open pull requests. The push preserves the
+      # record; the PR is one click from the summary.
+      - name: Push the ledger branch
+        if: always()
+        env:
+          LAUNCHED: ${{ steps.launch.outcome }}
+          CHECKED: ${{ steps.check.outcome }}
+          RUN_ID: ${{ github.run_id }}
+          COMPARE: ${{ github.server_url }}/${{ github.repository }}/compare
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- launch/launches.json; then
+            echo "Ledger unchanged; nothing to push."
+            exit 0
+          fi
+
+          if [ "${LAUNCHED}" = "success" ] && [ "${CHECKED}" = "success" ]; then
+            TITLE="Ledger: CD launch ${RUN_ID}"
+            NOTE="All tokens in the batch launched and verified."
+          else
+            TITLE="Ledger: PARTIAL CD launch ${RUN_ID}"
+            NOTE="**The launch did not fully succeed.** These rows are the tokens whose landing authoriser was set. Reconcile against the run log before merging, and check ownership on chain."
+          fi
+
+          BRANCH="cd/ledger-${RUN_ID}"
+          git config user.name "st0x-cd[bot]"
+          git config user.email "cd@st0x.io"
+          git checkout -b "${BRANCH}"
+          git add launch/launches.json
+          git commit -m "${TITLE}"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git" "${BRANCH}"
+
+          {
+            echo "### Ledger"
+            echo
+            echo "${NOTE}"
+            echo
+            echo "Branch \`${BRANCH}\` pushed. Open the PR:"
+            echo "${COMPARE}/main...${BRANCH}?expand=1"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Fail when the on-chain check failed
+        if: steps.check.outcome == 'failure'
+        run: exit 1
