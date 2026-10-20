@@ -60,14 +60,16 @@ Dispatching the workflow with a file list is the only other way in.
       token listed in `launch/dedicated-authorisers.json` (today: `tMC`) lands
       on its own authoriser, never on the shared one. `plan()` refuses it while
       the pinned `authorizer` is the zero placeholder. Once the authoriser is
-      deployed and the minter holds `DEPOSIT` and `WITHDRAW` on it, set
-      `authorizer` and `deployBlock` (the block that created it), and add the
-      address to `launch/allowlist.json` with role `authorizer`, chainId `8453`,
-      in the metadata PR or one merged before it. The pre-flight then proves the
-      authoriser was created at `deployBlock`, replays every role grant and
-      revoke since, and refuses unless `DEPOSIT` and `WITHDRAW` are held by the
-      minter and the token-owner Safe and nobody else · the plan logs
-      `authorizer=<addr> (dedicated, …)`.
+      deployed, set `authorizer` and `deployBlock` (the block that created it),
+      and add the address to `launch/allowlist.json` with role `authorizer`,
+      chainId `8453`, in the metadata PR or one merged before it. Set
+      `minterGrantPending: true` until the minter holds `DEPOSIT` and `WITHDRAW`
+      on the authoriser; while that flag is set the pre-flight skips the minter
+      role check (as sft-ops does for `tMC`). Clear the flag once the Safe grant
+      bundle has run. The pre-flight then proves the authoriser was created at
+      `deployBlock`, replays every role grant and revoke since, and refuses
+      unless `DEPOSIT` and `WITHDRAW` are held by the minter and the token-owner
+      Safe and nobody else · the plan logs `authorizer=<addr> (dedicated, …)`.
 - [ ] **Open the metadata PR** — Alastair · one file per new token, nothing else
       in the diff bar the pin above · PR open, `launch-ffi-test` green.
 - [ ] **Get a review** — whoever did not open the PR · check the file against
@@ -83,8 +85,10 @@ Dispatching the workflow with a file list is the only other way in.
       launch. A cancelled `deploy` can have mined transactions and may not
       upload its artifacts. Reconcile the signer's transactions and on-chain
       state before dispatching any token again; recover a partial launch by hand
-      as below. Never use the re-run buttons on `deploy-sft`: a re-run does not
-      run `deploy`.
+      as below. If `Record` exits 0 but `launch/launches.json` is unchanged (for
+      example an RPC error during `record()`), rebuild the ledger from the run's
+      `launch-record` artifact before any new dispatch. Never use the re-run
+      buttons on `deploy-sft`: a re-run does not run `deploy`.
 - [ ] **Open and merge the ledger PR** — Alastair · the run pushes
       `cd/ledger-<run_id>` with the updated `launch/launches.json` and prints
       the compare link in the summary · merged.

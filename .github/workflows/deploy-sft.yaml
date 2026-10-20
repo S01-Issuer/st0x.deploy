@@ -60,7 +60,7 @@ jobs:
           else
             # --diff-filter=A: only files ADDED by this merge. A modification to
             # an existing metadata file is a metadata correction, not a launch.
-            FILES=$(git diff --name-only --diff-filter=A "${BEFORE}" "${SHA}" \
+            FILES=$(git diff --no-renames --name-only --diff-filter=A "${BEFORE}" "${SHA}" \
               -- ':(glob)launch/metadata/*.json' | tr '\n' ' ')
           fi
           echo "files=${FILES}" >> "$GITHUB_OUTPUT"
