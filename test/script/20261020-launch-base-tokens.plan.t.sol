@@ -316,7 +316,7 @@ contract LaunchBaseTokensPlanTest is Test {
         vm.writeFile("out/test-launch-ledger-skip.json", '[{"symbol":"tWMT"}]');
         vm.setEnv("LAUNCH_LEDGER", "out/test-launch-ledger-skip.json");
         vm.setEnv("LAUNCH_FILES", "launch/metadata/wmt.json launch/metadata/iau.json");
-        vm.setEnv("LAUNCH_PLAN_OUT", "out/test-launch-plan-skip.json");
+        vm.setEnv("LAUNCH_PLAN", "out/test-launch-plan-skip.json");
         uint256 beforeSeconds = vm.unixTime() / 1000;
         script.plan();
         string memory skipJson = vm.readFile("out/test-launch-plan-skip.json");
@@ -335,7 +335,7 @@ contract LaunchBaseTokensPlanTest is Test {
             "launch/metadata/wmt.json launch/metadata/mc.json launch/metadata/iau.json launch/metadata/published/ibhg.json"
         );
         vm.setEnv("LAUNCH_NOW", vm.toString(NOW));
-        vm.setEnv("LAUNCH_PLAN_OUT", "out/test-launch-plan.json");
+        vm.setEnv("LAUNCH_PLAN", "out/test-launch-plan.json");
         script.plan();
 
         string memory planJson = vm.readFile("out/test-launch-plan.json");
