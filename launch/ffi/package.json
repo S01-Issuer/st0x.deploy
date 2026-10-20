@@ -1,0 +1,12 @@
+{
+  "name": "st0x-launch-ffi",
+  "private": true,
+  "type": "module",
+  "description": "Helpers the Base token launch calls through vm.ffi: the metadata payload bytes, Pinata uploads and the metadata generator.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "pako": "2.1.0"
+  }
+}
