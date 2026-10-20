@@ -1,0 +1,37 @@
+{
+  "asset_type": "ETF",
+  "primary_ticker": "QQQM",
+  "code": "QQQM",
+  "name": "Invesco NASDAQ 100 ETF",
+  "exchange": "NasdaqGM",
+  "description": "The fund generally will invest at least 90% of its total assets in the securities that comprise the underlying index. Strictly in accordance with its guidelines and mandated procedures, Nasdaq, Inc. (“Nasdaq” or the “index provider”) compiles, maintains and calculates the underlying index, which includes securities of 100 of the largest domestic and international nonfinancial companies listed on The Nasdaq Stock Market LLC based on market capitalization. It is non-diversified.",
+  "isin": "",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "United States",
+    "iso": "US"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Charles Schwab & Co., Inc."
+    },
+    {
+      "name": "Freedom Finance"
+    }
+  ],
+  "category": "Large Growth",
+  "inception_date": "2020-10-13",
+  "dividend_paying_frequency": ""
+}

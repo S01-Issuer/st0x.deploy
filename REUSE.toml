@@ -18,6 +18,8 @@ path = [
   "flake.nix",
   "foundry.toml",
   "ideal-roles.json",
+  "launch/**/",
+  "test/fixtures/**/",
   "REUSE.toml",
   "slither.config.json",
   "subgraph/**/",

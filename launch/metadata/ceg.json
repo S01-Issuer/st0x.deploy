@@ -1,0 +1,37 @@
+{
+  "asset_type": "Equity",
+  "primary_ticker": "CEG",
+  "code": "CEG",
+  "name": "Constellation Energy Corporation",
+  "exchange": "NasdaqGS",
+  "description": "Constellation Energy Corporation produces and sells energy products and services in the United States. The company operates through five segments: Mid-Atlantic, Midwest, New York, ERCOT, and Other Power Regions. It offers electricity, natural gas, energy-related products, and sustainable solutions. The company has approximately 31,676 megawatts of generating capacity consisting of nuclear, wind, solar, natural gas, and hydroelectric assets. It serves distribution utilities, municipalities, cooperatives, and commercial, industrial, public sector, and residential customers. The company was incorporated in 2021 and is headquartered in Baltimore, Maryland.",
+  "isin": "US21037T1097",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "United States",
+    "iso": "US"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Charles Schwab & Co., Inc."
+    },
+    {
+      "name": "Freedom Finance"
+    }
+  ],
+  "sector": "Utilities",
+  "industry": "Utilities - Independent Power Producers",
+  "ipo_date": "2022-01-19"
+}

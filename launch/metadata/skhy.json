@@ -1,0 +1,37 @@
+{
+  "asset_type": "Equity",
+  "primary_ticker": "SKHY",
+  "code": "SKHY",
+  "name": "SK hynix Inc. ADR",
+  "exchange": "NASDAQ",
+  "description": "American Depositary Shares (ADS) representing common shares of SK hynix Inc., listed on the Nasdaq Global Select Market under the ticker SKHY. Each ADS represents one-tenth (1/10) of one common share of the underlying issuer, which trades on the Korea Exchange under code 000660. Citibank, N.A. acts as the depositary bank. SK hynix Inc., through its subsidiaries, engages in the research, development, manufacture, distribution, and sale of semiconductor devices in Korea, China, rest of Asia, the United States, Europe, and internationally. It offers DRAM, such as server memory, graphics memory, mobile memory, PC memory, and consumer memory; NAND flash memory; solid-state drives (SSD); and multi-chip package (MCP) products. It also operates a foundry business and produces non-memory semiconductors. The company serves server, networking, mobile, personal computer, consumer, and automotive applications. The company was formerly known as Hynix Semiconductor Inc. and changed its name to SK hynix Inc. in March 2012. SK hynix Inc. was incorporated in 1949 and is headquartered in Icheon-si, South Korea.",
+  "isin": "US78392B2060",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "South Korea",
+    "iso": "KR"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Charles Schwab & Co., Inc."
+    },
+    {
+      "name": "Freedom Finance"
+    }
+  ],
+  "sector": "Technology",
+  "industry": "Semiconductors",
+  "ipo_date": "2026-07-10"
+}

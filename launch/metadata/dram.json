@@ -1,0 +1,37 @@
+{
+  "asset_type": "ETF",
+  "primary_ticker": "DRAM",
+  "code": "DRAM",
+  "name": "Roundhill Memory ETF",
+  "exchange": "Cboe US",
+  "description": "The fund will generally seek to invest primarily in the equity securities of “Memory Companies,” but may also seek exposure to Memory Companies through derivative instruments, such as swap agreements and forward contracts. Under normal circumstances, it invests at least 80% of its net assets (plus borrowings for investment purposes) in equity securities or instruments (i.e., swap agreements or forward contracts) that provide exposure to Memory Companies. The fund is non-diversified.",
+  "isin": "US77926X3200",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "United States",
+    "iso": "US"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Charles Schwab & Co., Inc."
+    },
+    {
+      "name": "Freedom Finance"
+    }
+  ],
+  "category": "Technology",
+  "inception_date": "2026-04-01",
+  "dividend_paying_frequency": ""
+}

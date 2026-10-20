@@ -1,0 +1,34 @@
+{
+  "asset_type": "Equity",
+  "primary_ticker": "MCD",
+  "code": "MCD",
+  "name": "McDonald's Corporation",
+  "exchange": "NYSE",
+  "description": "McDonald's Corporation owns, operates, and franchises restaurants under the McDonald's brand in the United States and internationally. It offers food and beverages, including hamburgers and cheeseburgers, various chicken sandwiches, fries, shakes, frozen desserts, sundaes, soft serve cones, cookies, pies, soft drinks, coffee, and other beverages; and full or limited breakfast, as well as sells various other products during limited-time promotions. The company owns and operates franchised restaurants under various structures, including conventional franchise, developmental license, or affiliate. McDonald's Corporation was founded in 1940 and is based in Chicago, Illinois.",
+  "isin": "US5801351017",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "United States",
+    "iso": "US"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Clear Street LLC"
+    }
+  ],
+  "sector": "Consumer Cyclical",
+  "industry": "Restaurants",
+  "ipo_date": "1965-04-21"
+}

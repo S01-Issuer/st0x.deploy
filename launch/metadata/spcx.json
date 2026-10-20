@@ -1,0 +1,37 @@
+{
+  "asset_type": "Equity",
+  "primary_ticker": "SPCX",
+  "code": "SPCX",
+  "name": "Space Exploration Technologies Corp.",
+  "exchange": "NasdaqGS",
+  "description": "Space Exploration Technologies Corp. designs, manufactures, and launches rockets and spacecraft, and provides satellite-based broadband services in the United States, Ireland, and Canada. The company offers launch services for satellites, cargo, and crew to destinations such as low Earth orbit, the International Space Station, the Moon, and Mars, using vehicles, including Falcon 9, Falcon Heavy, and Starship. It provides dedicated rideshare missions for small satellites, manufactures reusable rockets and spacecraft, such as Dragon and Starship, and conducts suborbital and orbital flight tests. The company supplies broadband internet connectivity through the Starlink satellite network for consumer and commercial use, and offers Starshield, a satellite-based solution for government users focused on sensing, communications, and satellite bus services. It supports scientific research opportunities and provides on-orbit research and travel services for private and government customers, and collaborates with government agencies for national security space launch missions. The company serves government agencies, national security organizations, commercial satellite operators, research institutions, and private spaceflight clients, supporting scientific research and commercial payload missions for professional and industrial clients in the aerospace and telecommunications sectors. The company was founded in 2002 and is based in Starbase, Texas.",
+  "isin": "US84615Q1031",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "United States",
+    "iso": "US"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Charles Schwab & Co., Inc."
+    },
+    {
+      "name": "Freedom Finance"
+    }
+  ],
+  "sector": "Industrials",
+  "industry": "Aerospace & Defense",
+  "ipo_date": "2026-06-12"
+}

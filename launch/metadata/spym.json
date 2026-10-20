@@ -1,0 +1,34 @@
+{
+  "asset_type": "ETF",
+  "primary_ticker": "SPYM",
+  "code": "SPYM",
+  "name": "State Street SPDR Portfolio S&P 500 ETF",
+  "exchange": "NYSEArca",
+  "description": "",
+  "isin": "US78464A8541",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "United States",
+    "iso": "US"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Clear Street LLC"
+    }
+  ],
+  "category": "",
+  "inception_date": "2005-11-15",
+  "dividend_paying_frequency": ""
+}

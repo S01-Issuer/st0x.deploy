@@ -1,0 +1,20 @@
+[
+  {
+    "address": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611",
+    "label": "Production owner Safe (wtSPYM reference)",
+    "chainId": 8453,
+    "roles": ["owner"]
+  },
+  {
+    "address": "0x315b16faa6eE413faBCa877d3851B3818369f0cD",
+    "label": "Production shared authorizer (2026-07 migration)",
+    "chainId": 8453,
+    "roles": ["authorizer"]
+  },
+  {
+    "address": "0xDB9152e46c1D140DB6a6f814461f21c571F3275e",
+    "label": "EU assets authoriser (tMC; st0x.deploy STOX_EU_AUTHORISER_CLONE)",
+    "chainId": 8453,
+    "roles": ["authorizer"]
+  }
+]

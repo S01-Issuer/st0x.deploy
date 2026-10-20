@@ -1,0 +1,37 @@
+{
+  "asset_type": "Equity",
+  "primary_ticker": "BABA",
+  "code": "BABA",
+  "name": "Alibaba Group Holding Limited (ADR)",
+  "exchange": "NYSE",
+  "description": "American Depositary Shares (ADS) representing ordinary shares of Alibaba Group Holding Limited, listed on the New York Stock Exchange under the ticker BABA. Each ADS represents eight ordinary shares of the underlying issuer, which trades on the Hong Kong Stock Exchange under stock code 9988. Citibank, N.A. acts as the depositary bank; the custodian is Citibank, N.A. Hong Kong branch. The issuer is incorporated in the Cayman Islands and headquartered in Hangzhou, China, and conducts a substantial portion of its China operations through variable interest entities rather than direct equity ownership. Alibaba Group Holding Limited, through its subsidiaries, provides technology infrastructure and marketing reach to help merchants, brands, retailers, and other businesses in the People's Republic of China and internationally. It operates through the Alibaba China E-Commerce Group, Alibaba International Digital Commerce Group, Cloud Intelligence Group, and All Others segments. The Alibaba China E-commerce Group segment operates Taobao and Tmall, which are digital retail platforms; Taobao Instant Commerce, a local services and on-demand delivery platform; 1688.com, a domestic wholesale marketplace; and Xianyu, a consumer-to-consumer community and marketplace for idle goods. Its Alibaba International Digital Commerce Group segment includes AliExpress, a global e-commerce platform; Trendyol, an e-commerce platform in Turkey; Lazada, an e-commerce platform in Southeast Asia; Daraz, an e-commerce platform in South Asia, primarily in Pakistan and Bangladesh; and Alibaba.com, an integrated international online wholesale marketplace. The Cloud Intelligence Group segment offers a suite of cloud services based on infrastructure-as-a-service, platform-as-a-service, and model-as-a-service. Its All Others segment comprises Amap, a provider of mobile digital maps, navigation, and real-time traffic information in China; Cainiao, which provides logistics solutions; Youku, an online long-form video platform in China; Freshippo, a retail platform for groceries and fresh goods; and Alibaba Health, a pharmaceutical and healthcare services platform. Alibaba Group Holding Limited was incorporated in 1999 and is based in Hangzhou, China.",
+  "isin": "US01609W1027",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "China",
+    "iso": "CN"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Charles Schwab & Co., Inc."
+    },
+    {
+      "name": "Freedom Finance"
+    }
+  ],
+  "sector": "Consumer Cyclical",
+  "industry": "Internet Retail",
+  "ipo_date": "2014-09-19"
+}

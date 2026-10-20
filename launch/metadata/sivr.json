@@ -1,0 +1,34 @@
+{
+  "asset_type": "ETF",
+  "primary_ticker": "SIVR",
+  "code": "SIVR",
+  "name": "abrdn Physical Silver Shares ETF",
+  "exchange": "NYSEArca",
+  "description": "The shares are intended to constitute a simple and cost-effective means of making an investment similar to an investment in silver. An investment in physical silver requires expensive and sometimes complicated arrangements in connection with the assay, transportation, warehousing and insurance of the metal. Although the shares are not the exact equivalent of an investment in silver, they provide investors with an alternative that allows a level of participation in the silver market through the securities market.",
+  "isin": "US0032641088",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "United States",
+    "iso": "US"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Clear Street LLC"
+    }
+  ],
+  "category": "Commodities Focused",
+  "inception_date": "2009-07-24",
+  "dividend_paying_frequency": ""
+}

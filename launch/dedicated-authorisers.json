@@ -1,0 +1,10 @@
+{
+  "tMC": {
+    "chainId": 8453,
+    "authorizer": "0xDB9152e46c1D140DB6a6f814461f21c571F3275e",
+    "minter": "0x0958d9E94D9D4139280947ACd86D4a50F13bfA8C",
+    "deployBlock": 52312053,
+    "minterGrantPending": true,
+    "note": "EU assets authoriser (st0x.deploy LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE), created by the deterministic clone factory in tx 0x3c1d972610bc50d41125470aa326c444b9e1d05828d0033ea41ae86d92f304c5. Exclusive minter 0x0958 (Turnkey S01EuMinter). tMC must never be wired to the shared authoriser 0x315b16faa6eE413faBCa877d3851B3818369f0cD. minterGrantPending: the EU grant bundle (st0x.deploy 20261006-grant-eu-authoriser-roles) is queued in the Base Safe but not executed, so tMC deploys unmintable; set false once 0x0958 holds DEPOSIT and WITHDRAW."
+  }
+}

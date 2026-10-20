@@ -1,0 +1,34 @@
+{
+  "asset_type": "ETF",
+  "primary_ticker": "IBHG",
+  "code": "IBHG",
+  "name": "iShares iBonds 2027 Term High Yield and Income ETF",
+  "exchange": "Cboe US",
+  "description": "The index is composed of U.S. dollar-denominated, taxable, fixed-rate, high yield and BBB or equivalently rated corporate bonds scheduled to mature between January 1, 2027 and December 15, 2027, inclusive. The fund will invest at least 80% of its assets in the component instruments of the index, and it will invest at least 90% of its assets in fixed income securities of the types included in the index.",
+  "isin": "US46436E4787",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "United States",
+    "iso": "US"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Clear Street LLC"
+    }
+  ],
+  "category": "Target Maturity",
+  "inception_date": "2021-07-07",
+  "dividend_paying_frequency": ""
+}

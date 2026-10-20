@@ -1,0 +1,34 @@
+{
+  "asset_type": "Equity",
+  "primary_ticker": "PLBY",
+  "code": "PLBY",
+  "name": "Playboy, Inc.",
+  "exchange": "NasdaqGM",
+  "description": "Playboy, Inc. operates as a pleasure and leisure company in the United States, Australia, China, the United Kingdom, and internationally. The company operates through two segments: Direct-to-Consumer and Licensing. It offers sexual wellness products, such as lingerie, bedroom accessories, intimacy products, and other adult products; apparel and accessories products; and beauty and grooming products, such as skincare, haircare, bath and body, cosmetics, and fragrance. The company also owns and operates digital commerce retail platforms, such as playboy.com under license agreements; Honey Birdette retail stores; and collaborates with nightlife, hospitality, digital casino, and online gaming industries. In addition, it licenses Playboy name, Rabbit Head Design, and other trademarks and related properties; and programming content to cable television operators and direct-to-home satellite television operators. Further, the company business covers the subscription sale of playboyplus.com and playboy.tv, which are online content platforms. It offers its products under its flagship brand Playboy. The company was formerly known as PLBY Group, Inc. and changed its name to Playboy, Inc. in June 2025. Playboy, Inc. is headquartered in Los Angeles, California.",
+  "isin": "US72814P1093",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "United States",
+    "iso": "US"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Clear Street LLC"
+    }
+  ],
+  "sector": "Consumer Cyclical",
+  "industry": "Apparel Manufacturing",
+  "ipo_date": "2021-02-11"
+}

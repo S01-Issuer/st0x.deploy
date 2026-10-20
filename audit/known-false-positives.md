@@ -1,0 +1,33 @@
+# Base launch audit scope
+
+[RAI-3577](https://linear.app/makeitrain/issue/RAI-3577) ports the existing
+sft-ops Base launch at `ee39d0d` without redesign. These compatibility rules
+apply only to `LaunchBaseTokens`, its plan inputs, and the dry-run-only launch
+workflow. They do not apply to the other deploy scripts or production fleet
+invariants.
+
+- **Owner:** `cd-plan.ts::PRODUCTION_OWNER_SAFE` is
+  `0xe70d821f3462a074e63b42d0AaC6523faAe1d611`. The issue requires that owner
+  and explicitly excludes timelock handover. `planContext` and the handoff
+  checks therefore use the Safe. The conflict with `docs/TIMELOCK.md` is a
+  cutover decision, recorded in `docs/LAUNCH.md`; it is not resolved by changing
+  this compatibility port's owner.
+- **Shipped symbols:** `cd-plan.ts::loadLedgerSymbols` reads the launch ledger,
+  not `LibTokenInvariants`. The copied ledger omits live tFGI, so both planners
+  plan it. The fixed snapshot test preserves this result. Inputs must be
+  reconciled with sft-ops before cutover; adding fleet pins to the planner would
+  change the requested skip rule.
+- **Dedicated pin matching:** `dedicated-authorisers.ts::findDedicatedPin` uses
+  the first case-insensitive match from `Object.keys(pins).find`.
+  `LibLaunchPlan.findPin` preserves it. Rejecting ambiguous keys should be
+  considered for both launchers together.
+- **Signer trust:** the source launch retains the same signer's vault ownership
+  and temporary-authoriser administration until handoff. The port preserves that
+  trust model. Additional supply or role restrictions would change the source
+  launch's acceptance rules and belong in the later design review, not silently
+  in this port.
+
+These notes do not waive tests of the compatibility rules, receipt validation,
+stage readiness, handoff target checks, or post-launch checks already present in
+the source. They do not authorize production cutover. `LAUNCH_ENABLED` remains a
+separate gate, and sft-ops stays live until the team reviews the port.

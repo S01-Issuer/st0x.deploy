@@ -1,0 +1,37 @@
+{
+  "asset_type": "Equity",
+  "primary_ticker": "TSM",
+  "code": "TSM",
+  "name": "Taiwan Semiconductor Manufacturing Company Limited (ADR)",
+  "exchange": "NYSE",
+  "description": "American Depositary Shares (ADS) representing common shares of Taiwan Semiconductor Manufacturing Company Limited, listed on the New York Stock Exchange under the ticker TSM. Each ADS represents five common shares (par value NT$10) of the underlying issuer, which trades on the Taiwan Stock Exchange under code 2330. Citibank, N.A. acts as the depositary bank; the custodian is Citibank, N.A. Taipei Branch. Taiwan Semiconductor Manufacturing Company Limited, together with its subsidiaries, manufactures, packages, tests, and sells integrated circuits and other semiconductor devices in Taiwan, China, Europe, the Middle East, Africa, Japan, the United States, and internationally. It provides various wafer fabrication processes, such as processes to manufacture complementary metal-oxide-semiconductor (CMOS) logic, mixed-signal, radio frequency, embedded memory, bipolar CMOS mixed-signal, and others. The company also is involved in providing customer and engineering support services; manufacturing of masks; investment in technology start-up companies; research, designing, developing, manufacturing, packaging, testing, and sale of color filters; and investment activities. Its products are used in high performance computing, smartphones, Internet of things, automotive, and digital consumer electronics. Taiwan Semiconductor Manufacturing Company Limited was incorporated in 1987 and is headquartered in Hsinchu City, Taiwan.",
+  "isin": "US8740391003",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "Taiwan",
+    "iso": "TW"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Charles Schwab & Co., Inc."
+    },
+    {
+      "name": "Freedom Finance"
+    }
+  ],
+  "sector": "Technology",
+  "industry": "Semiconductors",
+  "ipo_date": "1997-10-08"
+}

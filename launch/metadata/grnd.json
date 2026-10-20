@@ -1,0 +1,34 @@
+{
+  "asset_type": "Equity",
+  "primary_ticker": "GRND",
+  "code": "GRND",
+  "name": "Grindr Inc.",
+  "exchange": "NYSE",
+  "description": "Grindr Inc. operates a social networking and dating application for the lesbian, gay, bisexual, transgender, and queer (LGBTQ) communities worldwide. It manages and operates Grindr platform, a social networking platform serving and addressing the needs of gay, bisexual, and sexually explorative adults. It also offers Grindr as the Global Gayborhood in Your Pocket brand. In addition, the company provides ad-supported service and a premium subscription version. Grindr Inc. was founded in 2009 and is headquartered in West Hollywood, California.",
+  "isin": "US39854F1012",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "United States",
+    "iso": "US"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Clear Street LLC"
+    }
+  ],
+  "sector": "Technology",
+  "industry": "Software - Application",
+  "ipo_date": "2022-11-18"
+}

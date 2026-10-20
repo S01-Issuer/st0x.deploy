@@ -1,0 +1,34 @@
+{
+  "asset_type": "Equity",
+  "primary_ticker": "CRCL",
+  "code": "CRCL",
+  "name": "Circle Internet Group Inc",
+  "exchange": "NYSE",
+  "description": "Circle Internet Group, Inc. operates as a platform, network, and market infrastructure for stablecoin and blockchain applications. The company provides various platform including Arc Blockchain and Developer Infrastructure, an open, layer-1 blockchain network purpose-built to bring real world economic activity onchain; Circle Digital Assets and Services, which includes circle digital assets, USDC, EURC, and USYC, as well as circle mint and xreserve, related liquidity, custody, and trust infrastructure; and Circle Applications, which includes circle payments network and stablefx, applications that use circle digital assets to deliver real-world utility on the arc network and across the broader multichain ecosystem. Its stablecoins network comprises circle stablecoins, tokenized funds, liquidity, payments network, and developer services, as well as integration services. The company was founded in 2013 and is based in New York, New York.",
+  "isin": "US1725731079",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "United States",
+    "iso": "US"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Clear Street LLC"
+    }
+  ],
+  "sector": "Financial Services",
+  "industry": "Capital Markets",
+  "ipo_date": "2025-06-05"
+}

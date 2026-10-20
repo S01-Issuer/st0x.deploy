@@ -1,0 +1,31 @@
+{
+  "asset_type": "ETF",
+  "primary_ticker": "IBHG.BATS",
+  "code": "IBHG",
+  "name": "iShares iBonds 2027 Term High Yield and Income ETF",
+  "exchange": "BATS",
+  "category": "Target Maturity",
+  "description": "The iShares iBonds 2027 Term High Yield and Income ETF seeks to track the investment results of an index composed of U.S. dollar denominated, high yield and other income generating corporate bonds maturing in 2027. The fund tracks the Bloomberg 2027 Term High Yield and Income Index. The fund will terminate in December 2027.",
+  "isin": "US46436E4787",
+  "inception_date": "2021-07-07",
+  "dividend_paying_frequency": "Monthly",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "USA",
+    "iso": "US"
+  },
+  "offchain_counterparties": [
+    "Charles Schwab & Co., Inc.",
+    "Freedom Finance",
+    "AlpacaDB Inc."
+  ]
+}
