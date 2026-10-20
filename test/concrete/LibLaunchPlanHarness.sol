@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {LibLaunchPlan, LaunchMetadata, PlanContext, TokenPlan} from "../../../src/lib/LibLaunchPlan.sol";
+import {LibLaunchPlan, LaunchMetadata, PlanContext, TokenPlan} from "../../src/lib/LibLaunchPlan.sol";
 
 /// @notice Exposes `LibLaunchPlan.planOne` as an external call so its reverts
 /// can be expected.

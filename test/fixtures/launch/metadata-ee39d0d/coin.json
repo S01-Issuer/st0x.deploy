@@ -1,0 +1,34 @@
+{
+  "asset_type": "Equity",
+  "primary_ticker": "COIN",
+  "code": "COIN",
+  "name": "Coinbase Global Inc",
+  "exchange": "NasdaqGS",
+  "description": "Coinbase Global, Inc. operates platform for crypto assets in the United States and internationally. It provides the primary financial account in the crypto economy for consumers; a brokerage platform with a pool of liquidity across the crypto marketplace for institutions; and a suite of products granting access to build onchain for developers. The company was founded in 2012 and is based in New York, New York.",
+  "isin": "US19260Q1076",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "United States",
+    "iso": "US"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Clear Street LLC"
+    }
+  ],
+  "sector": "Financial Services",
+  "industry": "Financial Data & Stock Exchanges",
+  "ipo_date": "2021-04-14"
+}

@@ -1,0 +1,34 @@
+{
+  "asset_type": "ETF",
+  "primary_ticker": "PPLT",
+  "code": "PPLT",
+  "name": "abrdn Physical Platinum Shares ETF",
+  "exchange": "NYSEArca",
+  "description": "The fund designed for investors who want a cost-effective and convenient way to invest in platinum with minimal credit risk. Advantages of investing in the Shares include Ease and Flexibility of Investment, Expenses, Minimal Credit Risk.",
+  "isin": "US0032601066",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "United States",
+    "iso": "US"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Clear Street LLC"
+    }
+  ],
+  "category": "Commodities Focused",
+  "inception_date": "2010-01-08",
+  "dividend_paying_frequency": ""
+}

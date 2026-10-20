@@ -2,16 +2,15 @@
 
 [RAI-3577](https://linear.app/makeitrain/issue/RAI-3577) ports the existing
 sft-ops Base launch at `ee39d0d` without redesign. These compatibility rules
-apply only to `LaunchBaseTokens`, its plan inputs, and the dry-run-only launch
-workflow. They do not apply to the other deploy scripts or production fleet
-invariants.
+apply only to `LaunchBaseTokens` and its plan inputs. They do not apply to the
+other deploy scripts or production fleet invariants.
 
 - **Owner:** `cd-plan.ts::PRODUCTION_OWNER_SAFE` is
   `0xe70d821f3462a074e63b42d0AaC6523faAe1d611`. The issue requires that owner
-  and explicitly excludes timelock handover. `planContext` and the handoff
-  checks therefore use the Safe. The conflict with `docs/TIMELOCK.md` is a
-  cutover decision, recorded in `docs/LAUNCH.md`; it is not resolved by changing
-  this compatibility port's owner.
+  and explicitly excludes timelock handover. `planContext` therefore uses the
+  Safe. The conflict with `docs/TIMELOCK.md` is a cutover decision for
+  [RAI-3577](https://linear.app/makeitrain/issue/RAI-3577); it is not resolved
+  by changing this compatibility port's owner.
 - **Shipped symbols:** `cd-plan.ts::loadLedgerSymbols` reads the launch ledger,
   not `LibTokenInvariants`. The copied ledger omits live tFGI, so both planners
   plan it. The fixed snapshot test preserves this result. Inputs must be
@@ -27,7 +26,5 @@ invariants.
   launch's acceptance rules and belong in the later design review, not silently
   in this port.
 
-These notes do not waive tests of the compatibility rules, receipt validation,
-stage readiness, handoff target checks, or post-launch checks already present in
-the source. They do not authorize production cutover. `LAUNCH_ENABLED` remains a
-separate gate, and sft-ops stays live until the team reviews the port.
+These notes do not waive tests of the compatibility rules. They do not authorize
+production cutover, and sft-ops stays live until the team reviews the port.

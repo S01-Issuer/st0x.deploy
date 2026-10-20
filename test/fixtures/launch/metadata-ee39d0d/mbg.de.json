@@ -1,0 +1,37 @@
+{
+  "asset_type": "Equity",
+  "primary_ticker": "MBG.DE",
+  "code": "MBG.DE",
+  "name": "Mercedes-Benz Group AG",
+  "exchange": "XETRA",
+  "description": "Mercedes-Benz Group AG operates as an automotive company in Europe, Germany, North America, the United States, Asia, China, and internationally. It operates through Mercedes-Benz Cars, Mercedes-Benz Vans, and Mercedes-Benz Financial Services segments. The company develops, manufactures, and sells cars and vans under the Mercedes-Benz, Mercedes-AMG, Mercedes-Maybach, G-Class brands, as well as related spare parts and accessories. It also provides financing, leasing, vehicle subscription and rental, fleet management, insurance, and digital services related to charging electric vehicles. The company was formerly known as Daimler AG and changed its name to Mercedes-Benz Group AG in February 2022. Mercedes-Benz Group AG was founded in 1886 and is headquartered in Stuttgart, Germany.",
+  "isin": "DE0007100000",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "EUR",
+    "name": "Euro",
+    "symbol": "€"
+  },
+  "country": {
+    "name": "Germany",
+    "iso": "DE"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Clear Street LLC"
+    },
+    {
+      "name": "Freedom Finance"
+    }
+  ],
+  "sector": "Consumer Cyclical",
+  "industry": "Auto Manufacturers",
+  "ipo_date": "1996-10-30"
+}

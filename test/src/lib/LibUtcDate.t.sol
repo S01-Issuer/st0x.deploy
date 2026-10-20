@@ -26,15 +26,29 @@ contract LibUtcDateTest is Test {
         uint256 leapDay = LibUtcDate.daysFromCivil(2028, 2, 29) * 86400 + 3600;
         assertEq(LibUtcDate.toIsoDate(LibUtcDate.addYearsUtc(leapDay, 1)), "2029-03-01");
         assertEq(LibUtcDate.toIsoDate(LibUtcDate.addYearsUtc(leapDay, 4)), "2032-02-29");
+        assertEq(LibUtcDate.toIsoDate(LibUtcDate.addYearsUtc(leapDay, 72)), "2100-03-01");
+        assertEq(LibUtcDate.toIsoDate(LibUtcDate.addYearsUtc(leapDay, 372)), "2400-02-29");
     }
 
-    function testIsLeapYear() external pure {
-        assertTrue(LibUtcDate.isLeapYear(2000));
-        assertTrue(LibUtcDate.isLeapYear(2400));
-        assertTrue(LibUtcDate.isLeapYear(2028));
-        assertFalse(LibUtcDate.isLeapYear(1900));
-        assertFalse(LibUtcDate.isLeapYear(2100));
-        assertFalse(LibUtcDate.isLeapYear(2027));
+    /// @notice 29 February of a year divisible by 400 is the last day of an
+    /// era, the only day `doe / 146096` changes.
+    function testCivilFromDaysOnTheLastDayOfAnEra() external pure {
+        (uint256 year, uint256 month, uint256 day) = LibUtcDate.civilFromDays(11016);
+        assertEq(year, 2000);
+        assertEq(month, 2);
+        assertEq(day, 29);
+        (year, month, day) = LibUtcDate.civilFromDays(LibUtcDate.daysFromCivil(2400, 2, 29));
+        assertEq(year, 2400);
+        assertEq(month, 2);
+        assertEq(day, 29);
+        assertEq(LibUtcDate.toIsoDate(11016 * 86400), "2000-02-29");
+        assertEq(LibUtcDate.toIsoDate(11017 * 86400), "2000-03-01");
+    }
+
+    function testToIsoDateTimeMsHourBoundaries() external pure {
+        assertEq(LibUtcDate.toIsoDateTimeMs(3_600_000), "1970-01-01T01:00:00.000Z");
+        assertEq(LibUtcDate.toIsoDateTimeMs(3_599_999), "1970-01-01T00:59:59.999Z");
+        assertEq(LibUtcDate.toIsoDateTimeMs(82_800_000), "1970-01-01T23:00:00.000Z");
     }
 
     function testToIsoDateTimeMsMatchesJavaScript() external pure {

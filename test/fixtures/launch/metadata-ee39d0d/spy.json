@@ -1,0 +1,34 @@
+{
+  "asset_type": "ETF",
+  "primary_ticker": "SPY",
+  "code": "SPY",
+  "name": "State Street SPDR S&P 500 ETF Trust",
+  "exchange": "NYSEArca",
+  "description": "The trust seeks to achieve its investment objective by holding a portfolio of the common stocks that are included in the index (the “Portfolio”), with the weight of each stock in the Portfolio substantially corresponding to the weight of such stock in the index.",
+  "isin": "US78462F1030",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "United States",
+    "iso": "US"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Clear Street LLC"
+    }
+  ],
+  "category": "Large Blend",
+  "inception_date": "1993-01-22",
+  "dividend_paying_frequency": "Quarterly"
+}

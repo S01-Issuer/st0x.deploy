@@ -1,0 +1,34 @@
+{
+  "asset_type": "Equity",
+  "primary_ticker": "TR",
+  "code": "TR",
+  "name": "Tootsie Roll Industries, Inc.",
+  "exchange": "NYSE",
+  "description": "Tootsie Roll Industries, Inc., together with its subsidiaries, manufactures and sells confectionery products in the United States, Canada, Mexico, and internationally. The company sells its products under the Tootsie Roll, Tootsie Fruit Roll, Tootsie Pops, Tootsie Mini Pops, Child's Play, Caramel Apple Pops, Charms, Blow-Pop, Charms Mini Pops, Cella's, Dots, Junior Mints, Charleston Chew, Sugar Daddy, Sugar Babies, Andes, Fluffy Stuff, Dubble Bubble, Razzles, Cry Baby, Nik-L-Nip, And Tutsi Pop trademarks. It sells its products directly to wholesale distributors of candy, food and groceries, supermarkets, variety stores, dollar stores, chain grocers, drug chains, discount chains, cooperative grocery associations, mass merchandisers, warehouse and membership club stores, vending machine operators, e-commerce merchants, on-line marketplaces, the U.S. military and fund-raising charitable organizations, as well as through food and grocery brokers. Tootsie Roll Industries, Inc. was founded in 1896 and is headquartered in Chicago, Illinois.",
+  "isin": "US8905161076",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "United States",
+    "iso": "US"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Clear Street LLC"
+    }
+  ],
+  "sector": "Consumer Defensive",
+  "industry": "Confectioners",
+  "ipo_date": "1922-01-01"
+}

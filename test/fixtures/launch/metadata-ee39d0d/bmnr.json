@@ -1,0 +1,34 @@
+{
+  "asset_type": "Equity",
+  "primary_ticker": "BMNR",
+  "code": "BMNR",
+  "name": "Bitmine Immersion Technologies, Inc",
+  "exchange": "NYSE",
+  "description": "Bitmine Immersion Technologies, Inc. operates as a blockchain technology company primarily in the United States. The company engages in ETH treasury operations; BTC ecosystem services, including consulting and advisory engagements and equipment leasing; facilitation and optimization of third-party power and hosting arrangements; and disciplined BTC treasury management while winding down proprietary self-mining exposure and deferring new site buildouts. It also offers digital asset ecosystem services, including consulting/advisory, and disciplined digital asset treasury management. In addition, the company sells mining equipment to customers and related parties. The company was formerly known as Sandy Springs Holdings Inc. Bitmine Immersion Technologies, Inc. was incorporated in 2019 and is based in Las Vegas, Nevada.",
+  "isin": "US09175A2069",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "United States",
+    "iso": "US"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Clear Street LLC"
+    }
+  ],
+  "sector": "Financial Services",
+  "industry": "Capital Markets",
+  "ipo_date": "2025-06-05"
+}

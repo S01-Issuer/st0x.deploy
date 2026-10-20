@@ -4,8 +4,13 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {LaunchBaseTokens, LaunchPlanInvalid, DuplicateSymbol} from "../../script/20261020-launch-base-tokens.s.sol";
-import {LaunchFilePlanner} from "../../script/lib/LaunchFilePlanner.sol";
+import {
+    LaunchBaseTokens,
+    LaunchPlanInvalid,
+    DuplicateSymbol,
+    LaunchInputOutsideOut
+} from "../../script/20261020-launch-base-tokens.s.sol";
+import {LaunchFilePlanner} from "../../script/LaunchFilePlanner.sol";
 import {LibLaunchInputs} from "../../script/lib/LibLaunchInputs.sol";
 import {
     LibLaunchPlan,
@@ -58,34 +63,52 @@ contract LaunchBaseTokensPlanTest is Test {
     }
 
     function _metadataFiles() internal view returns (string[] memory files) {
-        Vm.DirEntry[] memory entries = vm.readDir("launch/metadata", 2);
+        return _dirFiles("launch/metadata/", 2);
+    }
+
+    /// @dev `readDir` paths are absolute; each is returned as `dir` plus what
+    /// follows `dir` in it.
+    function _dirFiles(string memory dir, uint64 depth) internal view returns (string[] memory files) {
+        Vm.DirEntry[] memory entries = vm.readDir(dir, depth);
         files = new string[](entries.length);
         for (uint256 i = 0; i < entries.length; i++) {
-            files[i] = string.concat("launch/metadata/", _relative(entries[i].path));
+            files[i] = string.concat(dir, _after(entries[i].path, dir));
         }
     }
 
-    /// @dev `readDir` paths are absolute; keep what follows `launch/metadata/`.
-    function _relative(string memory path) internal pure returns (string memory) {
-        bytes memory b = bytes(path);
-        bytes memory marker = "launch/metadata/";
-        for (uint256 i = 0; i + marker.length <= b.length; i++) {
+    function _after(string memory path, string memory marker) internal pure returns (string memory) {
+        bytes memory pathBytes = bytes(path);
+        bytes memory markerBytes = bytes(marker);
+        for (uint256 i = 0; i + markerBytes.length <= pathBytes.length; i++) {
             bool hit = true;
-            for (uint256 j = 0; j < marker.length; j++) {
-                if (b[i + j] != marker[j]) {
+            for (uint256 j = 0; j < markerBytes.length; j++) {
+                if (pathBytes[i + j] != markerBytes[j]) {
                     hit = false;
                     break;
                 }
             }
             if (hit) {
-                bytes memory rest = new bytes(b.length - i - marker.length);
+                bytes memory rest = new bytes(pathBytes.length - i - markerBytes.length);
                 for (uint256 k = 0; k < rest.length; k++) {
-                    rest[k] = b[i + marker.length + k];
+                    rest[k] = pathBytes[i + markerBytes.length + k];
                 }
                 return string(rest);
             }
         }
         return path;
+    }
+
+    /// @dev `launch/metadata/air.pa.json` names `tAIR.PA`: the symbol from the
+    /// file name, upper-cased without `LibLaunchPlan`.
+    function _symbolFromFileName(string memory file) internal pure returns (string memory) {
+        bytes memory name = bytes(_after(file, "launch/metadata/"));
+        bytes memory symbol = new bytes(name.length - bytes(".json").length + 1);
+        symbol[0] = "t";
+        for (uint256 i = 1; i < symbol.length; i++) {
+            bytes1 char = name[i - 1];
+            symbol[i] = char >= "a" && char <= "z" ? bytes1(uint8(char) - 32) : char;
+        }
+        return string(symbol);
     }
 
     /// @notice Every committed metadata file plans cleanly: a symbol already
@@ -102,12 +125,9 @@ contract LaunchBaseTokensPlanTest is Test {
         }
         assertEq(outcomes.length, inputs);
         for (uint256 i = 0; i < outcomes.length; i++) {
-            assertEq(outcomes[i].failure.length, 0, outcomes[i].metadataFile);
-            string memory json = vm.readFile(outcomes[i].metadataFile);
-            string memory symbol = string.concat(
-                "t", LibLaunchPlan.toUpper(LibLaunchPlan.trim(vm.parseJsonString(json, ".primary_ticker")))
-            );
-            bool shipped = LibLaunchPlan.contains(ctx.shippedSymbols, LibLaunchPlan.toLower(symbol));
+            assertFalse(outcomes[i].failed, outcomes[i].metadataFile);
+            string memory symbol = _symbolFromFileName(outcomes[i].metadataFile);
+            bool shipped = _shippedCaseInsensitive(ctx.shippedSymbols, symbol);
             assertEq(outcomes[i].skipped, shipped, outcomes[i].metadataFile);
             if (shipped) continue;
             assertEq(outcomes[i].plan.symbol, symbol);
@@ -116,28 +136,51 @@ contract LaunchBaseTokensPlanTest is Test {
         }
     }
 
-    /// @notice sft-ops `cd-plan` on the files copied from sft-ops `ee39d0d`
-    /// planned exactly tFGI and skipped the rest.
+    function _shippedCaseInsensitive(string[] memory shipped, string memory symbol) internal pure returns (bool) {
+        for (uint256 i = 0; i < shipped.length; i++) {
+            if (keccak256(bytes(vm.toLowercase(shipped[i]))) == keccak256(bytes(vm.toLowercase(symbol)))) return true;
+        }
+        return false;
+    }
+
+    /// @notice Every pin names the symbol of a committed metadata file, so a
+    /// renamed or mistyped key cannot leave its token on the shared
+    /// authoriser.
+    function testEveryPinNamesACommittedMetadataFile() external view {
+        string[] memory keys = vm.parseJsonKeys(vm.readFile("launch/dedicated-authorisers.json"), "$");
+        string[] memory files = _metadataFiles();
+        for (uint256 i = 0; i < keys.length; i++) {
+            bool matched = false;
+            for (uint256 j = 0; j < files.length && !matched; j++) {
+                if (!LibLaunchInputs.isMetadataFile(files[j])) continue;
+                matched = keccak256(bytes(vm.toLowercase(_symbolFromFileName(files[j]))))
+                    == keccak256(bytes(vm.toLowercase(keys[i])));
+            }
+            assertTrue(matched, keys[i]);
+        }
+    }
+
+    /// @notice sft-ops `cd-plan` on the metadata files and ledger frozen from
+    /// sft-ops `ee39d0d` planned exactly tFGI and skipped the rest.
     function testCopiedSnapshotPlansOnlyFgi() external {
-        string[] memory files = vm.parseJsonStringArray(vm.readFile("test/fixtures/launch/metadata-ee39d0d.json"), "$");
-        LaunchBaseTokens.FileOutcome[] memory outcomes = script.planFiles(
-            files,
-            script.planContext(
-                "test/fixtures/launch/launches-ee39d0d.json",
-                "launch/allowlist.json",
-                "launch/dedicated-authorisers.json",
-                NOW
-            )
+        string memory dir = "test/fixtures/launch/metadata-ee39d0d/";
+        string[] memory files = _dirFiles(dir, 1);
+        PlanContext memory ctx = script.planContext(
+            "test/fixtures/launch/launches-ee39d0d.json",
+            "launch/allowlist.json",
+            "launch/dedicated-authorisers.json",
+            NOW
         );
-        assertEq(outcomes.length, 63);
+        LaunchFilePlanner planner = new LaunchFilePlanner();
+        assertEq(files.length, 63);
         uint256 planned;
-        for (uint256 i = 0; i < outcomes.length; i++) {
-            assertEq(outcomes[i].failure.length, 0, outcomes[i].metadataFile);
-            if (outcomes[i].skipped) continue;
+        for (uint256 i = 0; i < files.length; i++) {
+            (bool skipped, TokenPlan memory tokenPlan) = planner.planFile(files[i], ctx);
+            if (skipped) continue;
             planned++;
-            assertEq(outcomes[i].metadataFile, "launch/metadata/fgi.json");
-            assertEq(outcomes[i].plan.symbol, "tFGI");
-            assertEq(outcomes[i].plan.name, "FGI Industries Ltd. ST0x");
+            assertEq(files[i], string.concat(dir, "fgi.json"));
+            assertEq(tokenPlan.symbol, "tFGI");
+            assertEq(tokenPlan.name, "FGI Industries Ltd. ST0x");
         }
         assertEq(planned, 1);
     }
@@ -145,10 +188,8 @@ contract LaunchBaseTokensPlanTest is Test {
     function testABatchCannotPlanOneSymbolTwice() external {
         vm.writeFile("out/test-launch-ledger-dup.json", "[]");
         string[] memory files = new string[](3);
-        vm.createDir("out/test-launch-duplicates/metadata", true);
         for (uint256 i = 0; i < files.length; i++) {
-            files[i] = string.concat("out/test-launch-duplicates/metadata/", vm.toString(i), ".json");
-            vm.writeFile(files[i], vm.readFile("launch/metadata/wmt.json"));
+            files[i] = "launch/metadata/wmt.json";
         }
         LaunchBaseTokens.FileOutcome[] memory outcomes = script.planFiles(
             files,
@@ -156,8 +197,9 @@ contract LaunchBaseTokensPlanTest is Test {
                 "out/test-launch-ledger-dup.json", "launch/allowlist.json", "launch/dedicated-authorisers.json", NOW
             )
         );
-        assertEq(outcomes[0].failure.length, 0);
+        assertFalse(outcomes[0].failed);
         for (uint256 i = 1; i < outcomes.length; i++) {
+            assertTrue(outcomes[i].failed);
             assertEq(outcomes[i].failure, abi.encodeWithSelector(DuplicateSymbol.selector, "tWMT", files[0]));
         }
     }
@@ -219,17 +261,22 @@ contract LaunchBaseTokensPlanTest is Test {
         string memory path = "out/test-launch-ledger-retired-odd.json";
         vm.writeFile(
             path,
-            '[{"symbol":"tX","deprecated":{"retired":"true"}},{"symbol":"tY","deprecated":{"retired":1}},'
-            '{"symbol":"tZ","deprecated":{"retired":false}},{"symbol":"tW","deprecated":{"retired":"false"}},'
-            '{"symbol":"tV","deprecated":{"retired":"0"}},{"symbol":"tU","deprecated":{"retired":0}}]'
+            '[{"symbol":"tA","deprecated":{"retired":"true"}},{"symbol":"tB","deprecated":{"retired":1}},'
+            '{"symbol":"tC","deprecated":{"retired":"false"}},{"symbol":"tD","deprecated":{"retired":"0"}},'
+            '{"symbol":"tE","deprecated":{"retired":2}},{"symbol":"tF","deprecated":{"retired":-1}},'
+            '{"symbol":"tG","deprecated":{"retired":"0x1111111111111111111111111111111111111111"}},'
+            '{"symbol":"tH","deprecated":{"retired":"yes"}},{"symbol":"tI","deprecated":{"retired":{"a":1}}},'
+            '{"symbol":"tJ","deprecated":{"retired":{}}},{"symbol":"tK","deprecated":{"retired":[]}},'
+            '{"symbol":"tL","deprecated":{"retired":""}},'
+            '{"symbol":"tX","deprecated":{"retired":false}},{"symbol":"tY","deprecated":{"retired":0}},'
+            '{"symbol":"tZ","deprecated":{"retired":null}}]'
         );
         string[] memory shipped = LibLaunchInputs.readShippedSymbols(path);
-        // JSON `0` encodes as the same word as `false`, so tU stays plannable.
-        assertEq(shipped.length, 4);
-        assertEq(shipped[0], "tx");
-        assertEq(shipped[1], "ty");
-        assertEq(shipped[2], "tw");
-        assertEq(shipped[3], "tv");
+        string[12] memory retired = ["ta", "tb", "tc", "td", "te", "tf", "tg", "th", "ti", "tj", "tk", "tl"];
+        assertEq(shipped.length, retired.length);
+        for (uint256 i = 0; i < retired.length; i++) {
+            assertEq(shipped[i], retired[i]);
+        }
     }
 
     function testLedgerBadDeployStaysPlannable() external {
@@ -276,6 +323,37 @@ contract LaunchBaseTokensPlanTest is Test {
         assertFalse(pins[3].minterGrantPending);
     }
 
+    function testPinLoaderReadsOnlyJsonNumbers() external {
+        string memory path = "out/test-launch-pins-strings.json";
+        vm.writeFile(
+            path,
+            '{"tA":{"chainId":"8453","deployBlock":"123"},"tB":{"chainId":"0x2105","deployBlock":"0x10"},'
+            '"tC":{"chainId":"0x1111111111111111111111111111111111111111","deployBlock":true}}'
+        );
+        DedicatedPin[] memory pins = LibLaunchInputs.readPins(path);
+        assertEq(pins.length, 3);
+        for (uint256 i = 0; i < pins.length; i++) {
+            assertEq(pins[i].chainId, 0, pins[i].symbol);
+            assertEq(pins[i].deployBlock, 0, pins[i].symbol);
+        }
+    }
+
+    function testPinLoaderReadsOnlyJsonTrueAsGrantPending() external {
+        string memory path = "out/test-launch-pins-pending.json";
+        vm.writeFile(
+            path,
+            '{"tA":{"minterGrantPending":false},"tB":{"minterGrantPending":0},"tC":{"minterGrantPending":"true"},'
+            '"tD":{"minterGrantPending":null},"tE":{"minterGrantPending":1},"tF":{"minterGrantPending":{"a":1}},'
+            '"tG":{"minterGrantPending":true}}'
+        );
+        DedicatedPin[] memory pins = LibLaunchInputs.readPins(path);
+        assertEq(pins.length, 7);
+        for (uint256 i = 0; i < 6; i++) {
+            assertFalse(pins[i].minterGrantPending, pins[i].symbol);
+        }
+        assertTrue(pins[6].minterGrantPending);
+    }
+
     function testAllowlistLoaderScopesAuthorisersToBase() external view {
         PlanContext memory ctx = _committedContext();
         assertEq(ctx.allowlistedOwners.length, 1);
@@ -307,7 +385,12 @@ contract LaunchBaseTokensPlanTest is Test {
         assertFalse(LibLaunchInputs.isMetadataFile("launch/Metadata/hood.json"));
         assertFalse(LibLaunchInputs.isMetadataFile("a/b/metadata/x.json"));
         assertFalse(LibLaunchInputs.isMetadataFile("../metadata/x.json"));
-        assertTrue(LibLaunchInputs.isMetadataFile("out/test-launch-duplicates/metadata/0.json"));
+        assertFalse(LibLaunchInputs.isMetadataFile("Xaunch/metadata/a.json"));
+        assertFalse(LibLaunchInputs.isMetadataFile("launch/metadataX/a.json"));
+        assertFalse(LibLaunchInputs.isMetadataFile("launch/metadata/"));
+        assertFalse(LibLaunchInputs.isMetadataFile("out/metadata/x.json"));
+        assertFalse(LibLaunchInputs.isMetadataFile("out/launch/metadata/x.json"));
+        assertFalse(LibLaunchInputs.isMetadataFile("out/test-launch-duplicates/metadata/0.json"));
     }
 
     /// @notice `plan()` reads its inputs from the environment, which every
@@ -328,6 +411,9 @@ contract LaunchBaseTokensPlanTest is Test {
         assertEq(skipKeys.length, 1);
         assertEq(skipKeys[0], "tIAU");
         assertEq(vm.parseJsonString(skipJson, ".tokens.tIAU.symbol"), "tIAU");
+        assertEq(vm.parseJsonString(skipJson, ".ledger"), "out/test-launch-ledger-skip.json");
+        assertEq(vm.parseJsonString(skipJson, ".allowlist"), "launch/allowlist.json");
+        assertEq(vm.parseJsonString(skipJson, ".pins"), "launch/dedicated-authorisers.json");
         vm.writeFile("out/test-launch-ledger-empty.json", "[]");
         vm.setEnv("LAUNCH_LEDGER", "out/test-launch-ledger-empty.json");
         vm.setEnv(
@@ -360,12 +446,91 @@ contract LaunchBaseTokensPlanTest is Test {
         assertTrue(vm.parseJsonBool(planJson, ".tokens.tMC.dedicatedMinterGrantPending"));
         assertFalse(vm.parseJsonBool(planJson, ".tokens.tWMT.dedicatedMinterGrantPending"));
 
-        vm.createDir("out/test-launch-bad/metadata", true);
-        vm.writeFile("out/test-launch-bad/metadata/a.json", '{"primary_ticker":"AAA","asset_type":"Fund"}');
-        vm.writeFile("out/test-launch-bad/metadata/b.json", '{"primary_ticker":"BBB","asset_type":"ETF","name":"B"}');
-        vm.setEnv("LAUNCH_FILES", "out/test-launch-bad/metadata/a.json out/test-launch-bad/metadata/b.json");
+        vm.setEnv("LAUNCH_FILES", "launch/metadata/spy.json");
+        vm.setEnv("LAUNCH_PLAN_OUT", "out/test-launch-plan-second.json");
+        script.plan();
+        string[] memory secondKeys = vm.parseJsonKeys(vm.readFile("out/test-launch-plan-second.json"), ".tokens");
+        assertEq(secondKeys.length, 1);
+        assertEq(secondKeys[0], "tSPY");
+
+        address planner = vm.computeCreateAddress(address(script), vm.getNonce(address(script)));
+        vm.mockCallRevert(planner, abi.encodeWithSelector(LaunchFilePlanner.planFile.selector), "");
+        vm.etch(planner, "");
+        vm.setEnv("LAUNCH_FILES", "launch/metadata/wmt.json");
+        vm.setEnv("LAUNCH_PLAN_OUT", "out/test-launch-plan-empty-revert.json");
+        vm.expectRevert(abi.encodeWithSelector(LaunchPlanInvalid.selector, 1));
+        script.plan();
+        assertFalse(vm.exists("out/test-launch-plan-empty-revert.json"));
+        vm.clearMockedCalls();
+
+        vm.writeFile("out/test-launch-allowlist-no-owner.json", "[]");
+        vm.setEnv("LAUNCH_ALLOWLIST", "out/test-launch-allowlist-no-owner.json");
+        vm.setEnv("LAUNCH_FILES", "launch/metadata/wmt.json launch/metadata/iau.json");
         vm.expectRevert(abi.encodeWithSelector(LaunchPlanInvalid.selector, 2));
         script.plan();
+
+        vm.setEnv("LAUNCH_ALLOWLIST", "launch/allowlist.json");
+        vm.setEnv("LAUNCH_LEDGER", "test/fixtures/launch/launches-ee39d0d.json");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LaunchInputOutsideOut.selector, "LAUNCH_LEDGER", "test/fixtures/launch/launches-ee39d0d.json"
+            )
+        );
+        script.plan();
+        vm.setEnv("LAUNCH_LEDGER", "out/test-launch-ledger-empty.json");
+        vm.setEnv("LAUNCH_PLAN_OUT", "launch/launches.json");
+        vm.expectRevert(
+            abi.encodeWithSelector(LaunchInputOutsideOut.selector, "LAUNCH_PLAN_OUT", "launch/launches.json")
+        );
+        script.plan();
+    }
+
+    function testDescribeOutcomesListsEveryLine() external view {
+        LaunchBaseTokens.FileOutcome[] memory outcomes = new LaunchBaseTokens.FileOutcome[](4);
+        outcomes[0].metadataFile = "launch/metadata/wmt.json";
+        outcomes[0].skipped = true;
+        outcomes[1].metadataFile = "launch/metadata/iau.json";
+        outcomes[1].plan.symbol = "tIAU";
+        outcomes[1].plan.name = "iShares Gold Trust ST0x";
+        outcomes[1].plan.assetType = AssetType.Etf;
+        outcomes[1].plan.certifyUntil = 1818633600;
+        outcomes[2].metadataFile = "launch/metadata/mc.json";
+        outcomes[2].plan.symbol = "tMC";
+        outcomes[2].plan.name = "LVMH ST0x";
+        outcomes[2].plan.certifyUntil = 1818633600;
+        outcomes[2].plan.dedicated = true;
+        outcomes[2].plan.landingAuthoriser = address(1);
+        outcomes[2].plan.dedicatedMinter = address(2);
+        outcomes[2].plan.dedicatedMinterGrantPending = true;
+        outcomes[3].metadataFile = "launch/metadata/a.json";
+        outcomes[3].failed = true;
+        outcomes[3].failure = abi.encodeWithSelector(MissingName.selector);
+        (string[] memory lines, uint256 failures) = script.describeOutcomes(outcomes);
+        assertEq(failures, 1);
+        assertEq(lines.length, 5);
+        assertEq(lines[0], "  skip  launch/metadata/wmt.json (already in the ledger)");
+        assertEq(lines[1], "  plan  tIAU \"iShares Gold Trust ST0x\" type=etf certify-until=2027-08-19");
+        assertEq(lines[2], "  plan  tMC \"LVMH ST0x\" type=equity certify-until=2027-08-19");
+        assertEq(
+            lines[3],
+            "        authorizer=0x0000000000000000000000000000000000000001 (dedicated, minter 0x0000000000000000000000000000000000000002, grant pending)"
+        );
+        assertEq(lines[4], "  FAIL  launch/metadata/a.json - name is missing");
+
+        LaunchBaseTokens.FileOutcome[] memory skippedOnly = new LaunchBaseTokens.FileOutcome[](1);
+        skippedOnly[0] = outcomes[0];
+        (lines, failures) = script.describeOutcomes(skippedOnly);
+        assertEq(failures, 0);
+        assertEq(lines.length, 2);
+        assertEq(lines[1], "  nothing to deploy");
+
+        LaunchBaseTokens.FileOutcome[] memory failedOnly = new LaunchBaseTokens.FileOutcome[](1);
+        failedOnly[0] = outcomes[3];
+        failedOnly[0].failure = "";
+        (lines, failures) = script.describeOutcomes(failedOnly);
+        assertEq(failures, 1);
+        assertEq(lines.length, 1);
+        assertEq(lines[0], "  FAIL  launch/metadata/a.json - unreadable");
     }
 
     function testDescribePlanMatchesThePlan() external view {
@@ -392,7 +557,6 @@ contract LaunchBaseTokensPlanTest is Test {
 
     function testDescribeFailureNamesTheField() external view {
         assertEq(script.describeFailure(""), "unreadable");
-        assertEq(script.describeFailure(bytes("unreadable")), "unreadable");
         assertEq(script.describeFailure(abi.encodeWithSignature("Error(string)", "file not found")), "file not found");
         assertEq(
             script.describeFailureLine("launch/metadata/a.json", abi.encodeWithSelector(MissingName.selector)),
@@ -433,6 +597,11 @@ contract LaunchBaseTokensPlanTest is Test {
         assertEq(ctx.allowlistedAuthorisers[0], 0x2222222222222222222222222222222222222222);
         assertEq(ctx.allowlistedOwners.length, 1);
         assertEq(ctx.allowlistedOwners[0], 0x3333333333333333333333333333333333333333);
+
+        vm.writeFile(
+            path, '[{"address":"0x2222222222222222222222222222222222222222","chainId":"8453","roles":["authorizer"]}]'
+        );
+        assertEq(LibLaunchInputs.readAllowlisted(path, "authorizer", 8453).length, 0);
     }
 
     function testReadMetadataReadsEveryField() external view {
@@ -472,16 +641,10 @@ contract LaunchBaseTokensPlanTest is Test {
         files[0] = "launch/metadata/wmt.json";
         LaunchBaseTokens.FileOutcome[] memory outcomes = script.planFiles(files, _committedContext());
         assertEq(outcomes.length, 1);
-        assertEq(outcomes[0].failure, bytes("unreadable"));
-        assertEq(script.describeFailure(outcomes[0].failure), "unreadable");
+        assertTrue(outcomes[0].failed);
+        assertEq(outcomes[0].failure.length, 0);
         assertFalse(outcomes[0].skipped);
-
-        address plannerAgain = vm.computeCreateAddress(address(script), vm.getNonce(address(script)));
-        vm.mockCallRevert(plannerAgain, abi.encodeWithSelector(LaunchFilePlanner.planFile.selector), "");
-        vm.etch(plannerAgain, "");
-        vm.setEnv("LAUNCH_FILES", "launch/metadata/wmt.json");
-        vm.expectRevert(abi.encodeWithSelector(LaunchPlanInvalid.selector, 1));
-        script.plan();
+        assertEq(script.describeFailure(outcomes[0].failure), "unreadable");
     }
 
     function testDescribeFailureHandlesEveryRefusalAndUnknownBytes() external view {
@@ -577,10 +740,18 @@ contract LaunchBaseTokensPlanTest is Test {
         assertEq(shipped.length, 1);
         assertEq(shipped[0], "ta");
         string memory metadataPath = "out/test-launch-metadata-shapes.json";
-        vm.writeFile(metadataPath, '{"primary_ticker":["HOOD"],"isin":{"v":"US7707001027"}}');
+        vm.writeFile(
+            metadataPath,
+            '{"primary_ticker":["HOOD"],"isin":{"v":"US7707001027"},"name":null,"asset_type":true,"country":{"iso":12}}'
+        );
         LaunchMetadata memory metadata = LibLaunchInputs.readMetadata(metadataPath);
         assertEq(metadata.primaryTicker, "");
         assertEq(metadata.isin, "");
+        assertEq(metadata.name, "");
+        assertEq(metadata.assetType, "true");
+        assertEq(metadata.countryIso, "12");
+        vm.writeFile(metadataPath, '{"name":"null"}');
+        assertEq(LibLaunchInputs.readMetadata(metadataPath).name, "null");
         string memory allowlistPath = "out/test-launch-allowlist-shapes.json";
         vm.writeFile(
             allowlistPath, '[{"address":"0x1111111111111111111111111111111111111111","chainId":8453,"roles":"owner"}]'

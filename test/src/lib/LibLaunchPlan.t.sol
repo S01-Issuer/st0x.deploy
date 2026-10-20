@@ -27,7 +27,7 @@ import {
     DedicatedDeployBlockUnset,
     DedicatedAuthoriserNotAllowlisted
 } from "../../../src/lib/LibLaunchPlan.sol";
-import {LibLaunchPlanHarness} from "./LibLaunchPlanHarness.sol";
+import {LibLaunchPlanHarness} from "../../concrete/LibLaunchPlanHarness.sol";
 
 /// @title LibLaunchPlanTest
 /// @notice Every case of sft-ops `tests/cd-plan.test.ts`, with the same inputs
@@ -581,18 +581,46 @@ contract LibLaunchPlanTest is Test {
         PlanContext memory ctx = _lvmhCtx(pin, true);
         ctx.allowlistedAuthorisers = new address[](1);
         ctx.allowlistedAuthorisers[0] = address(0xBEEF);
-        vm.expectRevert(
-            abi.encodeWithSelector(DedicatedAuthoriserNotAllowlisted.selector, "tMC", DEDICATED)
-        );
+        vm.expectRevert(abi.encodeWithSelector(DedicatedAuthoriserNotAllowlisted.selector, "tMC", DEDICATED));
         harness.planOne("f", _lvmh(), ctx);
     }
 
     function testParseAssetTypeMatchesCdPlanCase() external {
-        LaunchMetadata memory equity = _hood();
-        equity.assetType = "equity";
-        vm.expectRevert(abi.encodeWithSelector(UnsupportedAssetType.selector, "equity"));
-        harness.planOne("f", equity, _ctx());
-        equity.assetType = "ETF";
-        assertTrue(_plan(equity).assetType == AssetType.Etf);
+        string[5] memory refused = ["etf", "Etf", "equity", "EQUITY", "E TF"];
+        for (uint256 i = 0; i < refused.length; i++) {
+            LaunchMetadata memory metadata = _hood();
+            metadata.assetType = refused[i];
+            vm.expectRevert(abi.encodeWithSelector(UnsupportedAssetType.selector, refused[i]));
+            harness.planOne("f", metadata, _ctx());
+        }
+        LaunchMetadata memory etf = _hood();
+        etf.assetType = "ETF";
+        assertTrue(_plan(etf).assetType == AssetType.Etf);
+    }
+
+    function testRefusesAnOwnerMissingFromANonEmptyAllowlist() external {
+        PlanContext memory ctx = _ctx();
+        ctx.allowlistedOwners[0] = SHARED;
+        vm.expectRevert(abi.encodeWithSelector(OwnerNotAllowlisted.selector, OWNER_SAFE));
+        harness.planOne("f", _hood(), ctx);
+    }
+
+    function testContainsAddressIsExactMembership(address member, address other) external pure {
+        vm.assume(member != other);
+        address[] memory values = new address[](1);
+        values[0] = member;
+        assertTrue(LibLaunchPlan.containsAddress(values, member));
+        assertFalse(LibLaunchPlan.containsAddress(values, other));
+    }
+
+    function testToUpperMapsExactlyTheLowerCaseLetters() external view {
+        for (uint256 i = 0; i < 256; i++) {
+            bytes1 char = bytes32(i)[31];
+            bytes1 expected = (char >= "a" && char <= "z") ? bytes1(uint8(char) - 32) : char;
+            assertEq(bytes(LibLaunchPlan.toUpper(string(abi.encodePacked(char))))[0], expected);
+        }
+        LaunchMetadata memory metadata = _hood();
+        metadata.primaryTicker = "zm";
+        assertEq(_plan(metadata).symbol, "tZM");
     }
 }

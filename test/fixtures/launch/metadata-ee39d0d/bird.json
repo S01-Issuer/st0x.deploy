@@ -1,0 +1,34 @@
+{
+  "asset_type": "Equity",
+  "primary_ticker": "BIRD",
+  "code": "BIRD",
+  "name": "Smartbird, Inc.",
+  "exchange": "NasdaqGS",
+  "description": "Smartbird, Inc. operates in the artificial intelligence infrastructure market in the United States. The company acquires and monetizes graphics processing units (GPUs), related high-performance computing infrastructure capable of supporting high workloads, and other related assets. Smartbird was formerly known as Allbirds, Inc., a direct-to-consumer footwear and apparel brand, and changed its name to Smartbird, Inc. in 2026 following the sale of its historical footwear business; the go-forward AI infrastructure business is early stage and has no established operating history. The company's Class A common stock carries one vote per share and trades on the Nasdaq Global Select Market under the symbol BIRD; its Class B common stock carries ten votes per share and is not listed. The company effected a 1-for-20 reverse stock split of its common stock on September 4, 2024. Smartbird, Inc. was incorporated in Delaware in 2015 and is headquartered in Palo Alto, California.",
+  "isin": "US01675A2087",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "United States",
+    "iso": "US"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Clear Street LLC"
+    }
+  ],
+  "sector": "Technology",
+  "industry": "Software - Infrastructure",
+  "ipo_date": "2021-11-03"
+}

@@ -1,0 +1,34 @@
+{
+  "asset_type": "Equity",
+  "primary_ticker": "SNES",
+  "code": "SNES",
+  "name": "SenesTech, Inc.",
+  "exchange": "NasdaqCM",
+  "description": "SenesTech, Inc. engages in the development and commercialization of a technology for managing animal pest populations through fertility control. The company offers ContraPest, a liquid bait containing the active ingredients 4-vinylcyclohexene diepoxide and triptolide; and Evolve, a soft bait containing the active ingredient, cottonseed oil that limits the reproduction of male and female rats beginning with the first breeding cycles following consumption. It also develops Evolve Mouse, a modified version of its bait technology containing the active ingredient cottonseed oil that limits reproduction of male and female mice. The company was incorporated in 2004 and is headquartered in Surprise, Arizona.",
+  "isin": "US81720R2085",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "United States",
+    "iso": "US"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Clear Street LLC"
+    }
+  ],
+  "sector": "Basic Materials",
+  "industry": "Specialty Chemicals",
+  "ipo_date": "2016-12-08"
+}

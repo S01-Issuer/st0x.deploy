@@ -1,0 +1,37 @@
+{
+  "asset_type": "ETF",
+  "primary_ticker": "ARKK",
+  "code": "ARKK",
+  "name": "ARK Innovation ETF",
+  "exchange": "Cboe US",
+  "description": "The fund is an actively-managed exchange-traded fund (\"ETF\") that will invest under normal circumstances primarily (at least 65% of its assets) in domestic and foreign equity securities of companies that are relevant to the fund's investment theme of disruptive innovation. Its investments in foreign equity securities will be in both developed and emerging markets. The fund may invest in foreign securities listed on foreign exchanges as well as American Depositary Receipts (“ADRs”) and Global Depositary Receipts (“GDRs”). The fund is non-diversified.",
+  "isin": "",
+  "tokenised_issuer": {
+    "name": "S1 Issuer",
+    "address": "Kurfürstendamm 15, 10719 Berlin",
+    "offering_framework": "Prospectus"
+  },
+  "currency": {
+    "code": "USD",
+    "name": "US Dollar",
+    "symbol": "$"
+  },
+  "country": {
+    "name": "United States",
+    "iso": "US"
+  },
+  "offchain_counterparties": [
+    {
+      "name": "AlpacaDB Inc"
+    },
+    {
+      "name": "Charles Schwab & Co., Inc."
+    },
+    {
+      "name": "Freedom Finance"
+    }
+  ],
+  "category": "Mid-Cap Growth",
+  "inception_date": "2014-10-31",
+  "dividend_paying_frequency": ""
+}

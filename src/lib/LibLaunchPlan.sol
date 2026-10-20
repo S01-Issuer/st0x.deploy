@@ -131,9 +131,13 @@ library LibLaunchPlan {
     uint256 internal constant CERTIFY_YEARS = 1;
 
     /// @notice Plan one metadata file.
+    /// @param metadataFile The path the metadata was read from.
+    /// @param metadata The fields read from that file.
+    /// @param ctx The ledger, allowlist, pins, owner and clock.
     /// @return skipped True when the symbol has already shipped or was retired:
     /// editing the metadata of a live token must never launch it again.
-    /// @return plan The derived launch arguments, empty when skipped.
+    /// @return plan The derived launch arguments; only `symbol` is set when
+    /// skipped.
     function planOne(string memory metadataFile, LaunchMetadata memory metadata, PlanContext memory ctx)
         internal
         pure
@@ -174,6 +178,10 @@ library LibLaunchPlan {
         }
     }
 
+    /// @notice The asset class named by `asset_type`, which must be exactly
+    /// `Equity` or `ETF` after trimming.
+    /// @param assetType The `asset_type` field.
+    /// @return The asset class.
     function parseAssetType(string memory assetType) internal pure returns (AssetType) {
         string memory trimmed = trim(assetType);
         if (Strings.equal(trimmed, "Equity")) return AssetType.Equity;
@@ -183,21 +191,31 @@ library LibLaunchPlan {
 
     /// @notice The trimmed name, which must be present and must not be the
     /// ticker or the symbol.
+    /// @param name The `name` field.
+    /// @param ticker The trimmed ticker.
+    /// @param symbol The derived symbol.
+    /// @return The trimmed name.
     function checkName(string memory name, string memory ticker, string memory symbol)
         internal
         pure
-        returns (string memory rawName)
+        returns (string memory)
     {
-        rawName = trim(name);
-        if (bytes(rawName).length == 0) revert MissingName();
-        string memory lowered = toLower(rawName);
+        string memory trimmed = trim(name);
+        if (bytes(trimmed).length == 0) revert MissingName();
+        string memory lowered = toLower(trimmed);
         if (Strings.equal(lowered, toLower(symbol)) || Strings.equal(lowered, toLower(ticker))) {
-            revert NameIsTicker(rawName);
+            revert NameIsTicker(trimmed);
         }
+        return trimmed;
     }
 
     /// @notice A pinned token lands only on its own allowlisted authoriser.
     /// Every failure is a refusal, never a fall-back to the shared authoriser.
+    /// @param pin The pin found for `symbol`.
+    /// @param symbol The derived symbol.
+    /// @param ctx The shared authoriser and the authoriser allowlist.
+    /// @return authoriser The dedicated authoriser.
+    /// @return minter The dedicated minter.
     function checkPin(DedicatedPin memory pin, string memory symbol, PlanContext memory ctx)
         internal
         pure
@@ -205,13 +223,14 @@ library LibLaunchPlan {
     {
         if (pin.chainId != BASE_CHAIN_ID) revert DedicatedPinWrongChain(symbol, pin.chainId);
 
-        bool ok;
-        (ok, authoriser) = parseSetAddress(pin.authoriser);
-        if (!ok) revert DedicatedAuthoriserUnset(symbol, pin.authoriser);
+        bool authoriserSet;
+        (authoriserSet, authoriser) = parseSetAddress(pin.authoriser);
+        if (!authoriserSet) revert DedicatedAuthoriserUnset(symbol, pin.authoriser);
         if (authoriser == ctx.sharedAuthoriser) revert DedicatedAuthoriserIsShared(symbol);
 
-        (ok, minter) = parseSetAddress(pin.minter);
-        if (!ok) revert DedicatedMinterUnset(symbol, pin.minter);
+        bool minterSet;
+        (minterSet, minter) = parseSetAddress(pin.minter);
+        if (!minterSet) revert DedicatedMinterUnset(symbol, pin.minter);
 
         if (pin.deployBlock == 0) revert DedicatedDeployBlockUnset(symbol);
 
@@ -220,22 +239,29 @@ library LibLaunchPlan {
         }
     }
 
-    /// @notice The pin for `symbol`, matched case-insensitively.
+    /// @notice The first pin whose key matches `symbol` case-insensitively.
+    /// @param pins The dedicated-authoriser pins.
+    /// @param symbol The derived symbol.
+    /// @return found Whether a pin matched.
+    /// @return pin The matching pin, empty when none matched.
     function findPin(DedicatedPin[] memory pins, string memory symbol)
         internal
         pure
         returns (bool found, DedicatedPin memory pin)
     {
         string memory target = toLower(symbol);
-        for (uint256 i = 0; i < pins.length; i++) {
+        for (uint256 i = 0; i < pins.length && !found; i++) {
             found = Strings.equal(toLower(pins[i].symbol), target);
-            if (found) return (found, pins[i]);
+            if (found) pin = pins[i];
         }
     }
 
     /// @notice Parse a `0x`-prefixed address the way viem's `isAddress` accepts
     /// it: forty hex digits, either all lower case or exactly EIP-55. The zero
     /// address counts as unset.
+    /// @param value The address text.
+    /// @return ok Whether `value` is a set, well-formed address.
+    /// @return parsed The address, zero when not set.
     function parseSetAddress(string memory value) internal pure returns (bool ok, address parsed) {
         bytes memory raw = bytes(value);
         if (raw.length != 42 || raw[0] != "0" || raw[1] != "x") return (ok, parsed);
@@ -248,35 +274,37 @@ library LibLaunchPlan {
     /// @notice `(ADR)` and `(ADS)` become `ADR` and `ADS`, runs of two or more
     /// whitespace characters become one space, and the ends are trimmed: both
     /// `Foo Limited (ADR)` and `Foo Limited ADR` name the same token.
+    /// @param name The trimmed name.
+    /// @return The normalised name.
     function normaliseAdrName(string memory name) internal pure returns (string memory) {
         bytes memory src = bytes(name);
         bytes memory unwrapped = new bytes(src.length);
-        uint256 n = 0;
+        uint256 unwrappedLength = 0;
         for (uint256 i = 0; i < src.length; i++) {
             if (src[i] == "(" && i + 4 < src.length && src[i + 4] == ")" && _isAdrOrAds(src, i + 1)) {
-                unwrapped[n++] = src[i + 1];
-                unwrapped[n++] = src[i + 2];
-                unwrapped[n++] = src[i + 3];
+                unwrapped[unwrappedLength++] = src[i + 1];
+                unwrapped[unwrappedLength++] = src[i + 2];
+                unwrapped[unwrappedLength++] = src[i + 3];
                 i += 4;
             } else {
-                unwrapped[n++] = src[i];
+                unwrapped[unwrappedLength++] = src[i];
             }
         }
 
-        bytes memory collapsed = new bytes(n);
-        uint256 m = 0;
-        for (uint256 i = 0; i < n; i++) {
-            if (_isSpace(unwrapped[i]) && i + 1 < n && _isSpace(unwrapped[i + 1])) {
-                while (i + 1 < n && _isSpace(unwrapped[i + 1])) {
+        bytes memory collapsed = new bytes(unwrappedLength);
+        uint256 collapsedLength = 0;
+        for (uint256 i = 0; i < unwrappedLength; i++) {
+            if (_isSpace(unwrapped[i]) && i + 1 < unwrappedLength && _isSpace(unwrapped[i + 1])) {
+                while (i + 1 < unwrappedLength && _isSpace(unwrapped[i + 1])) {
                     i++;
                 }
-                collapsed[m++] = " ";
+                collapsed[collapsedLength++] = " ";
             } else {
-                collapsed[m++] = unwrapped[i];
+                collapsed[collapsedLength++] = unwrapped[i];
             }
         }
         assembly ("memory-safe") {
-            mstore(collapsed, m)
+            mstore(collapsed, collapsedLength)
         }
         return trim(string(collapsed));
     }
@@ -284,6 +312,8 @@ library LibLaunchPlan {
     /// @notice The counterparty names, in any order, are exactly the US set
     /// (`AlpacaDB Inc`, `Clear Street LLC`) or the non-US set, which adds
     /// `Freedom Finance`.
+    /// @param names The counterparty names.
+    /// @return Whether the names form one of the two sets.
     function isAllowedCounterpartySet(string[] memory names) internal pure returns (bool) {
         string[] memory sorted = sortStrings(names);
         if (sorted.length == 2) {
@@ -296,31 +326,44 @@ library LibLaunchPlan {
         return false;
     }
 
+    /// @notice Only ASCII letters, digits, `.` and `-`.
+    /// @param ticker The trimmed ticker.
+    /// @return Whether every character is allowed.
     function isTicker(string memory ticker) internal pure returns (bool) {
-        bytes memory b = bytes(ticker);
-        for (uint256 i = 0; i < b.length; i++) {
-            bytes1 c = b[i];
-            if (!_isUpper(c) && !(c >= "a" && c <= "z") && !_isDigit(c) && c != "." && c != "-") return false;
+        bytes memory tickerBytes = bytes(ticker);
+        for (uint256 i = 0; i < tickerBytes.length; i++) {
+            bytes1 char = tickerBytes[i];
+            if (!_isUpper(char) && !_isLower(char) && !_isDigit(char) && char != "." && char != "-") return false;
         }
         return true;
     }
 
     /// @notice Two upper-case ASCII letters.
+    /// @param iso The trimmed `country.iso`.
+    /// @return Whether `iso` is a country code.
     function isCountryIso(string memory iso) internal pure returns (bool) {
-        bytes memory b = bytes(iso);
-        return b.length == 2 && _isUpper(b[0]) && _isUpper(b[1]);
+        bytes memory isoBytes = bytes(iso);
+        return isoBytes.length == 2 && _isUpper(isoBytes[0]) && _isUpper(isoBytes[1]);
     }
 
     /// @notice `^[A-Z]{2}[A-Z0-9]{9}[0-9]$`.
+    /// @param isin The trimmed, upper-cased ISIN.
+    /// @return Whether `isin` has the ISIN shape.
     function isIsin(string memory isin) internal pure returns (bool) {
-        bytes memory b = bytes(isin);
-        if (b.length != 12 || !_isUpper(b[0]) || !_isUpper(b[1]) || !_isDigit(b[11])) return false;
+        bytes memory isinBytes = bytes(isin);
+        if (isinBytes.length != 12 || !_isUpper(isinBytes[0]) || !_isUpper(isinBytes[1]) || !_isDigit(isinBytes[11])) {
+            return false;
+        }
         for (uint256 i = 2; i < 11; i++) {
-            if (!_isUpper(b[i]) && !_isDigit(b[i])) return false;
+            if (!_isUpper(isinBytes[i]) && !_isDigit(isinBytes[i])) return false;
         }
         return true;
     }
 
+    /// @notice Exact, case-sensitive membership.
+    /// @param values The strings to search.
+    /// @param value The string to find.
+    /// @return Whether `values` holds `value`.
     function contains(string[] memory values, string memory value) internal pure returns (bool) {
         for (uint256 i = 0; i < values.length; i++) {
             if (Strings.equal(values[i], value)) return true;
@@ -328,6 +371,10 @@ library LibLaunchPlan {
         return false;
     }
 
+    /// @notice Exact membership.
+    /// @param values The addresses to search.
+    /// @param value The address to find.
+    /// @return Whether `values` holds `value`.
     function containsAddress(address[] memory values, address value) internal pure returns (bool) {
         for (uint256 i = 0; i < values.length; i++) {
             if (values[i] == value) return true;
@@ -337,80 +384,95 @@ library LibLaunchPlan {
 
     /// @notice A sorted copy, by byte order: JavaScript's default sort for the
     /// ASCII names compared here.
-    function sortStrings(string[] memory values) internal pure returns (string[] memory sorted) {
-        sorted = new string[](values.length);
+    /// @param values The strings to sort.
+    /// @return The sorted copy.
+    function sortStrings(string[] memory values) internal pure returns (string[] memory) {
+        string[] memory sorted = new string[](values.length);
         for (uint256 i = 0; i < values.length; i++) {
             sorted[i] = values[i];
             for (uint256 j = i; j > 0 && _lessThan(sorted[j], sorted[j - 1]); j--) {
                 (sorted[j], sorted[j - 1]) = (sorted[j - 1], sorted[j]);
             }
         }
+        return sorted;
     }
 
     /// @notice ASCII whitespace stripped from both ends.
+    /// @param value The text to trim.
+    /// @return The trimmed copy.
     function trim(string memory value) internal pure returns (string memory) {
-        bytes memory b = bytes(value);
+        bytes memory valueBytes = bytes(value);
         uint256 start = 0;
-        uint256 end = b.length;
-        while (start < end && _isSpace(b[start])) {
+        uint256 end = valueBytes.length;
+        while (start < end && _isSpace(valueBytes[start])) {
             start++;
         }
-        while (end > start && _isSpace(b[end - 1])) {
+        while (end > start && _isSpace(valueBytes[end - 1])) {
             end--;
         }
-        bytes memory out = new bytes(end - start);
-        for (uint256 i = 0; i < out.length; i++) {
-            out[i] = b[start + i];
+        bytes memory trimmed = new bytes(end - start);
+        for (uint256 i = 0; i < trimmed.length; i++) {
+            trimmed[i] = valueBytes[start + i];
         }
-        return string(out);
+        return string(trimmed);
     }
 
+    /// @notice ASCII-only lower-casing; bytes outside `A-Z` are copied
+    /// unchanged.
+    /// @param value The text to lower-case.
+    /// @return The lower-cased copy.
     function toLower(string memory value) internal pure returns (string memory) {
-        bytes memory out = bytes(string.concat(value));
-        for (uint256 i = 0; i < out.length; i++) {
-            if (_isUpper(out[i])) out[i] = bytes1(uint8(out[i]) + 32);
+        bytes memory lowered = bytes(string.concat(value));
+        for (uint256 i = 0; i < lowered.length; i++) {
+            if (_isUpper(lowered[i])) lowered[i] = bytes1(uint8(lowered[i]) + 32);
         }
-        return string(out);
+        return string(lowered);
     }
 
+    /// @notice ASCII-only upper-casing; bytes outside `a-z` are copied
+    /// unchanged.
+    /// @param value The text to upper-case.
+    /// @return The upper-cased copy.
     function toUpper(string memory value) internal pure returns (string memory) {
-        bytes memory out = bytes(string.concat(value));
-        for (uint256 i = 0; i < out.length; i++) {
-            if (out[i] >= "a" && out[i] <= "z") out[i] = bytes1(uint8(out[i]) - 32);
+        bytes memory raised = bytes(string.concat(value));
+        for (uint256 i = 0; i < raised.length; i++) {
+            raised[i] = _upper(raised[i]);
         }
-        return string(out);
+        return string(raised);
     }
 
-    function _isAdrOrAds(bytes memory b, uint256 at) private pure returns (bool) {
-        bytes1 a = _upper(b[at]);
-        bytes1 d = _upper(b[at + 1]);
-        bytes1 last = _upper(b[at + 2]);
-        return a == "A" && d == "D" && (last == "R" || last == "S");
+    function _isAdrOrAds(bytes memory name, uint256 at) private pure returns (bool) {
+        bytes1 last = _upper(name[at + 2]);
+        return _upper(name[at]) == "A" && _upper(name[at + 1]) == "D" && (last == "R" || last == "S");
     }
 
-    function _upper(bytes1 c) private pure returns (bytes1) {
-        return c >= "a" && c <= "z" ? bytes1(uint8(c) - 32) : c;
+    function _upper(bytes1 char) private pure returns (bytes1) {
+        return _isLower(char) ? bytes1(uint8(char) - 32) : char;
     }
 
-    function _isUpper(bytes1 c) private pure returns (bool) {
-        return c >= "A" && c <= "Z";
+    function _isUpper(bytes1 char) private pure returns (bool) {
+        return char >= "A" && char <= "Z";
     }
 
-    function _isDigit(bytes1 c) private pure returns (bool) {
-        return c >= "0" && c <= "9";
+    function _isLower(bytes1 char) private pure returns (bool) {
+        return char >= "a" && char <= "z";
     }
 
-    function _isSpace(bytes1 c) private pure returns (bool) {
-        return c == " " || c == "\t" || c == "\n" || c == "\r" || c == 0x0b || c == 0x0c;
+    function _isDigit(bytes1 char) private pure returns (bool) {
+        return char >= "0" && char <= "9";
     }
 
-    function _lessThan(string memory a, string memory b) private pure returns (bool) {
-        bytes memory x = bytes(a);
-        bytes memory y = bytes(b);
-        uint256 n = x.length < y.length ? x.length : y.length;
-        for (uint256 i = 0; i < n; i++) {
-            if (x[i] != y[i]) return x[i] < y[i];
+    function _isSpace(bytes1 char) private pure returns (bool) {
+        return char == " " || char == "\t" || char == "\n" || char == "\r" || char == 0x0b || char == 0x0c;
+    }
+
+    function _lessThan(string memory left, string memory right) private pure returns (bool) {
+        bytes memory leftBytes = bytes(left);
+        bytes memory rightBytes = bytes(right);
+        uint256 shorter = leftBytes.length < rightBytes.length ? leftBytes.length : rightBytes.length;
+        for (uint256 i = 0; i < shorter; i++) {
+            if (leftBytes[i] != rightBytes[i]) return leftBytes[i] < rightBytes[i];
         }
-        return x.length < y.length;
+        return leftBytes.length < rightBytes.length;
     }
 }

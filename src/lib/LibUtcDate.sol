@@ -15,7 +15,13 @@ library LibUtcDate {
     // The algorithm truncates on purpose: each division takes a whole number
     // of eras, years or months.
     // slither-disable-start divide-before-multiply
-    /// @notice Days since 1970-01-01 of the civil date `year-month-day`.
+    /// @notice Days since 1970-01-01 of the civil date `year-month-day`. The
+    /// year is counted from 1 March, so day 29 of February in a non-leap year
+    /// is 1 March.
+    /// @param year The civil year, 1970 or later.
+    /// @param month The month, 1 to 12.
+    /// @param day The day of the month, from 1.
+    /// @return The day count since 1970-01-01.
     function daysFromCivil(uint256 year, uint256 month, uint256 day) internal pure returns (uint256) {
         uint256 y = month <= 2 ? year - 1 : year;
         uint256 era = y / 400;
@@ -27,6 +33,10 @@ library LibUtcDate {
     }
 
     /// @notice The civil date of `daysSinceEpoch` days after 1970-01-01.
+    /// @param daysSinceEpoch The day count since 1970-01-01.
+    /// @return year The civil year.
+    /// @return month The month, 1 to 12.
+    /// @return day The day of the month, from 1.
     function civilFromDays(uint256 daysSinceEpoch) internal pure returns (uint256 year, uint256 month, uint256 day) {
         uint256 z = daysSinceEpoch + 719468;
         uint256 era = z / 146097;
@@ -38,26 +48,24 @@ library LibUtcDate {
         month = mp < 10 ? mp + 3 : mp - 9;
         year = yoe + era * 400 + (month <= 2 ? 1 : 0);
     }
-    // slither-disable-end divide-before-multiply
 
-    function isLeapYear(uint256 year) internal pure returns (bool) {
-        return (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
-    }
+    // slither-disable-end divide-before-multiply
 
     /// @notice Midnight UTC of the calendar day `yearCount` years after the day
     /// holding `timestamp`, matching JavaScript's
     /// `Date.UTC(y + yearCount, m, d)`: 29 February rolls to 1 March when the
-    /// target year is not a leap year.
+    /// target year is not a leap year, as `daysFromCivil` counts it.
+    /// @param timestamp Unix seconds.
+    /// @param yearCount Whole years to add.
+    /// @return Unix seconds at midnight UTC of the target day.
     function addYearsUtc(uint256 timestamp, uint256 yearCount) internal pure returns (uint256) {
         (uint256 year, uint256 month, uint256 day) = civilFromDays(timestamp / SECONDS_PER_DAY);
-        uint256 targetYear = year + yearCount;
-        if (month == 2 && day == 29 && !isLeapYear(targetYear)) {
-            (month, day) = (3, 1);
-        }
-        return daysFromCivil(targetYear, month, day) * SECONDS_PER_DAY;
+        return daysFromCivil(year + yearCount, month, day) * SECONDS_PER_DAY;
     }
 
     /// @notice `YYYY-MM-DD` of the UTC day holding `timestamp`.
+    /// @param timestamp Unix seconds.
+    /// @return The ISO 8601 date.
     function toIsoDate(uint256 timestamp) internal pure returns (string memory) {
         (uint256 year, uint256 month, uint256 day) = civilFromDays(timestamp / SECONDS_PER_DAY);
         return string.concat(_pad(year, 4), "-", _pad(month, 2), "-", _pad(day, 2));
@@ -65,6 +73,8 @@ library LibUtcDate {
 
     /// @notice `YYYY-MM-DDTHH:MM:SS.mmmZ`, JavaScript's `Date.toISOString()`,
     /// for a time given in unix milliseconds.
+    /// @param unixMs Unix milliseconds.
+    /// @return The ISO 8601 UTC time with milliseconds.
     function toIsoDateTimeMs(uint256 unixMs) internal pure returns (string memory) {
         uint256 secs = unixMs / 1000;
         uint256 secOfDay = secs % SECONDS_PER_DAY;

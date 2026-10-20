@@ -31,7 +31,7 @@ import {
     DedicatedAuthoriserNotAllowlisted
 } from "../src/lib/LibLaunchPlan.sol";
 import {LibLaunchInputs} from "./lib/LibLaunchInputs.sol";
-import {LaunchFilePlanner} from "./lib/LaunchFilePlanner.sol";
+import {LaunchFilePlanner} from "./LaunchFilePlanner.sol";
 
 /// @notice At least one metadata file failed its checks. Every failure is
 /// logged before this reverts.
@@ -42,59 +42,80 @@ error LaunchPlanInvalid(uint256 failures);
 /// deploy the token twice.
 error DuplicateSymbol(string symbol, string firstFile);
 
+/// @notice An environment override of a launch input names a path outside
+/// `out/`. Overrides exist for tests and the end-to-end rehearsal, which stage
+/// their inputs there.
+error LaunchInputOutsideOut(string name, string path);
+
 /// @title LaunchBaseTokens
 /// @notice The Base token launch ported from sft-ops: `plan()` is its
 /// `cd-plan`. Each `launch/metadata/<ticker>.json` named in `LAUNCH_FILES`
 /// (space-separated) is checked and turned into launch arguments, written to
-/// `LAUNCH_PLAN_OUT`. Inputs default to the committed files under `launch/`
-/// and can be overridden by environment for tests.
+/// the plan file.
+///
+/// Environment:
+/// - `LAUNCH_FILES`: the changed files; paths that are not deploy inputs are
+///   ignored. Default none.
+/// - `LAUNCH_NOW`: unix seconds the certification year counts from. Default
+///   the current time.
+/// - `LAUNCH_LEDGER`, `LAUNCH_ALLOWLIST`, `LAUNCH_PINS`: the ledger, allowlist
+///   and dedicated-authoriser pins. Default the committed files under
+///   `launch/`; an override must be under `out/`.
+/// - `LAUNCH_PLAN_OUT`: the plan file. Default `out/launch-plan.json`; an
+///   override must be under `out/`.
 contract LaunchBaseTokens is Script {
     string internal constant DEFAULT_LEDGER = "launch/launches.json";
     string internal constant DEFAULT_PINS = "launch/dedicated-authorisers.json";
     string internal constant DEFAULT_ALLOWLIST = "launch/allowlist.json";
     string internal constant DEFAULT_PLAN_OUT = "out/launch-plan.json";
 
-    /// @notice One file's outcome, for the log and the plan file.
+    /// @notice One file's outcome, for the log and the plan file. `failure`
+    /// holds the revert data, which may be empty when `failed`.
     struct FileOutcome {
         string metadataFile;
         bool skipped;
+        bool failed;
         bytes failure;
         TokenPlan plan;
     }
 
+    /// @notice The input files a plan was made from.
+    struct PlanInputs {
+        string ledger;
+        string allowlist;
+        string pins;
+    }
+
+    /// @notice Plan the files in `LAUNCH_FILES`, log every outcome and write
+    /// the plan file. Reverts after logging when any file is refused.
     function plan() external {
         string[] memory files = vm.envOr("LAUNCH_FILES", " ", new string[](0));
         uint256 nowSeconds = vm.envOr("LAUNCH_NOW", vm.unixTime() / 1000);
-        PlanContext memory ctx = planContext(
-            vm.envOr("LAUNCH_LEDGER", DEFAULT_LEDGER),
-            vm.envOr("LAUNCH_ALLOWLIST", DEFAULT_ALLOWLIST),
-            vm.envOr("LAUNCH_PINS", DEFAULT_PINS),
-            nowSeconds
-        );
+        PlanInputs memory inputs = PlanInputs({
+            ledger: _inputPath("LAUNCH_LEDGER", DEFAULT_LEDGER),
+            allowlist: _inputPath("LAUNCH_ALLOWLIST", DEFAULT_ALLOWLIST),
+            pins: _inputPath("LAUNCH_PINS", DEFAULT_PINS)
+        });
+        string memory planOut = _inputPath("LAUNCH_PLAN_OUT", DEFAULT_PLAN_OUT);
 
-        FileOutcome[] memory outcomes = planFiles(files, ctx);
+        FileOutcome[] memory outcomes =
+            planFiles(files, planContext(inputs.ledger, inputs.allowlist, inputs.pins, nowSeconds));
 
-        uint256 failures = 0;
-        uint256 planned = 0;
-        for (uint256 i = 0; i < outcomes.length; i++) {
-            FileOutcome memory outcome = outcomes[i];
-            if (outcome.failure.length != 0) {
-                failures++;
-                console2.log(describeFailureLine(outcome.metadataFile, outcome.failure));
-            } else if (outcome.skipped) {
-                console2.log("  skip ", outcome.metadataFile, "(already in the ledger)");
-            } else {
-                planned++;
-                _logPlan(outcome.plan);
-            }
+        (string[] memory lines, uint256 failures) = describeOutcomes(outcomes);
+        for (uint256 i = 0; i < lines.length; i++) {
+            console2.log(lines[i]);
         }
         if (failures != 0) revert LaunchPlanInvalid(failures);
-        if (planned == 0) console2.log("  nothing to deploy");
 
-        vm.writeJson(_planJson(outcomes, nowSeconds), vm.envOr("LAUNCH_PLAN_OUT", DEFAULT_PLAN_OUT));
+        vm.writeJson(_planJson(outcomes, inputs, nowSeconds), planOut);
     }
 
     /// @notice Everything the plan depends on besides the metadata files.
+    /// @param ledger The launch ledger.
+    /// @param allowlist The owner and authoriser allowlist.
+    /// @param pins The dedicated-authoriser pins.
+    /// @param nowSeconds Unix seconds the certification year counts from.
+    /// @return ctx The plan context.
     function planContext(string memory ledger, string memory allowlist, string memory pins, uint256 nowSeconds)
         public
         view
@@ -111,74 +132,126 @@ contract LaunchBaseTokens is Script {
     }
 
     /// @notice Plan every deploy input in `files`; other paths are ignored.
+    /// @param files The changed files.
+    /// @param ctx The plan context.
+    /// @return outcomes One outcome per deploy input, in `files` order.
     function planFiles(string[] memory files, PlanContext memory ctx) public returns (FileOutcome[] memory outcomes) {
         FileOutcome[] memory all = new FileOutcome[](files.length);
         LaunchFilePlanner planner = new LaunchFilePlanner();
-        uint256 n = 0;
+        uint256 inputCount = 0;
         for (uint256 i = 0; i < files.length; i++) {
             if (!LibLaunchInputs.isMetadataFile(files[i])) continue;
-            all[n].metadataFile = files[i];
+            FileOutcome memory outcome = all[inputCount];
+            outcome.metadataFile = files[i];
             try planner.planFile(files[i], ctx) returns (bool skipped, TokenPlan memory tokenPlan) {
-                all[n].skipped = skipped;
-                all[n].plan = tokenPlan;
+                outcome.skipped = skipped;
+                outcome.plan = tokenPlan;
                 if (!skipped) {
-                    for (uint256 j = 0; j < n; j++) {
+                    for (uint256 j = 0; j < inputCount; j++) {
                         if (
-                            !all[j].skipped && all[j].failure.length == 0
+                            !all[j].skipped && !all[j].failed
                                 && Strings.equal(
                                     LibLaunchPlan.toLower(all[j].plan.symbol), LibLaunchPlan.toLower(tokenPlan.symbol)
                                 )
                         ) {
-                            all[n].failure =
+                            outcome.failed = true;
+                            outcome.failure =
                                 abi.encodeWithSelector(DuplicateSymbol.selector, tokenPlan.symbol, all[j].metadataFile);
                         }
                     }
                 }
             } catch (bytes memory failure) {
-                // An empty revert is still a refusal. `plan()` treats a zero-length
-                // failure as success, so store the marker `describeFailure` already names.
-                all[n].failure = failure.length == 0 ? bytes("unreadable") : failure;
+                outcome.failed = true;
+                outcome.failure = failure;
             }
-            n++;
+            inputCount++;
         }
-        outcomes = new FileOutcome[](n);
-        for (uint256 i = 0; i < n; i++) {
+        outcomes = new FileOutcome[](inputCount);
+        for (uint256 i = 0; i < inputCount; i++) {
             outcomes[i] = all[i];
         }
     }
 
+    /// @notice The lines `plan()` logs for a batch: a `FAIL` line per refusal,
+    /// a skip line per shipped symbol, the plan lines per planned token, and
+    /// `nothing to deploy` when no file is refused or planned.
+    /// @param outcomes The batch's outcomes.
+    /// @return lines The log lines, in order.
+    /// @return failures How many files were refused.
+    function describeOutcomes(FileOutcome[] memory outcomes)
+        public
+        pure
+        returns (string[] memory lines, uint256 failures)
+    {
+        string[] memory all = new string[](outcomes.length * 2 + 1);
+        uint256 lineCount = 0;
+        uint256 planned = 0;
+        for (uint256 i = 0; i < outcomes.length; i++) {
+            FileOutcome memory outcome = outcomes[i];
+            if (outcome.failed) {
+                failures++;
+                all[lineCount++] = describeFailureLine(outcome.metadataFile, outcome.failure);
+            } else if (outcome.skipped) {
+                all[lineCount++] = string.concat("  skip  ", outcome.metadataFile, " (already in the ledger)");
+            } else {
+                planned++;
+                (string memory line, string memory dedicatedLine) = describePlan(outcome.plan);
+                all[lineCount++] = line;
+                if (bytes(dedicatedLine).length != 0) all[lineCount++] = dedicatedLine;
+            }
+        }
+        if (failures == 0 && planned == 0) all[lineCount++] = "  nothing to deploy";
+        lines = new string[](lineCount);
+        for (uint256 i = 0; i < lineCount; i++) {
+            lines[i] = all[i];
+        }
+    }
+
     /// @notice The `FAIL` line `plan()` logs for one file.
+    /// @param file The refused metadata file.
+    /// @param failure The revert data.
+    /// @return The log line.
     function describeFailureLine(string memory file, bytes memory failure) public pure returns (string memory) {
         return string.concat("  FAIL  ", file, " - ", describeFailure(failure));
     }
 
     /// @notice The lines `_logPlan` prints. `dedicatedLine` is empty when the
     /// token uses the shared authoriser.
-    function describePlan(TokenPlan memory p) public pure returns (string memory line, string memory dedicatedLine) {
+    /// @param tokenPlan The planned token.
+    /// @return line The plan line.
+    /// @return dedicatedLine The dedicated-authoriser line, or empty.
+    function describePlan(TokenPlan memory tokenPlan)
+        public
+        pure
+        returns (string memory line, string memory dedicatedLine)
+    {
         line = string.concat(
             "  plan  ",
-            p.symbol,
+            tokenPlan.symbol,
             " \"",
-            p.name,
+            tokenPlan.name,
             "\" type=",
-            p.assetType == AssetType.Etf ? "etf" : "equity",
+            tokenPlan.assetType == AssetType.Etf ? "etf" : "equity",
             " certify-until=",
-            LibUtcDate.toIsoDate(p.certifyUntil)
+            LibUtcDate.toIsoDate(tokenPlan.certifyUntil)
         );
-        if (p.dedicated) {
+        if (tokenPlan.dedicated) {
             dedicatedLine = string.concat(
                 "        authorizer=",
-                vm.toString(p.landingAuthoriser),
+                vm.toString(tokenPlan.landingAuthoriser),
                 " (dedicated, minter ",
-                vm.toString(p.dedicatedMinter),
-                p.dedicatedMinterGrantPending ? ", grant pending)" : ")"
+                vm.toString(tokenPlan.dedicatedMinter),
+                tokenPlan.dedicatedMinterGrantPending ? ", grant pending)" : ")"
             );
         }
     }
 
     /// @notice A plan refusal in words, for the job log.
+    /// @param failure The revert data.
+    /// @return The refusal in words; `unreadable` when the data is too short
+    /// to name an error.
     function describeFailure(bytes memory failure) public pure returns (string memory) {
-        if (failure.length < 4 || keccak256(failure) == keccak256(bytes("unreadable"))) return "unreadable";
+        if (failure.length < 4) return "unreadable";
         // forge-lint: disable-next-line(unsafe-typecast)
         bytes4 selector = bytes4(failure);
         bytes memory args = new bytes(failure.length - 4);
@@ -247,33 +320,52 @@ contract LaunchBaseTokens is Script {
         return vm.toString(failure);
     }
 
-    function _logPlan(TokenPlan memory p) internal pure {
-        (string memory line, string memory dedicatedLine) = describePlan(p);
-        console2.log(line);
-        if (bytes(dedicatedLine).length != 0) console2.log(dedicatedLine);
+    /// @notice `name`'s value, or `defaultPath` when unset. An override must
+    /// be under `out/`.
+    function _inputPath(string memory name, string memory defaultPath) internal view returns (string memory) {
+        string memory path = vm.envOr(name, defaultPath);
+        if (Strings.equal(path, defaultPath)) return path;
+        bytes memory pathBytes = bytes(path);
+        bytes memory prefix = "out/";
+        bool underOut = pathBytes.length > prefix.length;
+        for (uint256 i = 0; underOut && i < prefix.length; i++) {
+            underOut = pathBytes[i] == prefix[i];
+        }
+        if (!underOut) revert LaunchInputOutsideOut(name, path);
+        return path;
     }
 
-    /// @notice The plan file: `tokens` keyed by symbol, plus the clock the
-    /// certification dates were counted from.
-    function _planJson(FileOutcome[] memory outcomes, uint256 nowSeconds) internal returns (string memory) {
-        string memory tokens = "{}";
+    /// @notice The plan file: `tokens` keyed by symbol, the input files, and
+    /// the clock the certification dates were counted from. Foundry keeps
+    /// serialized objects for the whole process, so both are reset first.
+    function _planJson(FileOutcome[] memory outcomes, PlanInputs memory inputs, uint256 nowSeconds)
+        internal
+        returns (string memory)
+    {
+        string memory tokens = vm.serializeJson("tokens", "{}");
+        vm.serializeJson("plan", "{}");
         for (uint256 i = 0; i < outcomes.length; i++) {
-            if (outcomes[i].skipped || outcomes[i].failure.length != 0) continue;
-            TokenPlan memory p = outcomes[i].plan;
-            string memory key = p.symbol;
-            vm.serializeString(key, "metadataFile", p.metadataFile);
-            vm.serializeString(key, "symbol", p.symbol);
-            vm.serializeString(key, "name", p.name);
-            vm.serializeString(key, "type", p.assetType == AssetType.Etf ? "etf" : "equity");
-            vm.serializeUint(key, "certifyUntil", p.certifyUntil);
-            vm.serializeAddress(key, "intendedOwner", p.intendedOwner);
-            vm.serializeAddress(key, "landingAuthoriser", p.landingAuthoriser);
-            vm.serializeBool(key, "dedicated", p.dedicated);
-            vm.serializeAddress(key, "dedicatedMinter", p.dedicatedMinter);
-            vm.serializeUint(key, "dedicatedDeployBlock", p.dedicatedDeployBlock);
-            string memory token = vm.serializeBool(key, "dedicatedMinterGrantPending", p.dedicatedMinterGrantPending);
-            tokens = vm.serializeString("tokens", p.symbol, token);
+            if (outcomes[i].skipped || outcomes[i].failed) continue;
+            TokenPlan memory tokenPlan = outcomes[i].plan;
+            string memory key = tokenPlan.symbol;
+            vm.serializeJson(key, "{}");
+            vm.serializeString(key, "metadataFile", tokenPlan.metadataFile);
+            vm.serializeString(key, "symbol", tokenPlan.symbol);
+            vm.serializeString(key, "name", tokenPlan.name);
+            vm.serializeString(key, "type", tokenPlan.assetType == AssetType.Etf ? "etf" : "equity");
+            vm.serializeUint(key, "certifyUntil", tokenPlan.certifyUntil);
+            vm.serializeAddress(key, "intendedOwner", tokenPlan.intendedOwner);
+            vm.serializeAddress(key, "landingAuthoriser", tokenPlan.landingAuthoriser);
+            vm.serializeBool(key, "dedicated", tokenPlan.dedicated);
+            vm.serializeAddress(key, "dedicatedMinter", tokenPlan.dedicatedMinter);
+            vm.serializeUint(key, "dedicatedDeployBlock", tokenPlan.dedicatedDeployBlock);
+            string memory token =
+                vm.serializeBool(key, "dedicatedMinterGrantPending", tokenPlan.dedicatedMinterGrantPending);
+            tokens = vm.serializeString("tokens", tokenPlan.symbol, token);
         }
+        vm.serializeString("plan", "ledger", inputs.ledger);
+        vm.serializeString("plan", "allowlist", inputs.allowlist);
+        vm.serializeString("plan", "pins", inputs.pins);
         vm.serializeUint("plan", "plannedAt", nowSeconds);
         return vm.serializeString("plan", "tokens", tokens);
     }
