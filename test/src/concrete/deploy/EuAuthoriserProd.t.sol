@@ -3,10 +3,10 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {IMigrationRegistryV2} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistry.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistryDeploy.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {IMigrationRegistryV3} from "rain-deploy-0.1.19/src/interface/IMigrationRegistryV3.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.19/src/lib/LibMigrationRegistry.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.19/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.19/src/lib/LibRainDeploy.sol";
 
 import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibEuAuthoriserClone} from "../../../../src/lib/LibEuAuthoriserClone.sol";
@@ -29,7 +29,7 @@ contract EuAuthoriserProdTest is Test {
 
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         assertGt(
-            LibMigrationRegistry.applied(
+            LibMigrationRegistry.appliedV3(
                 safe, LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER
             ),
             0,
@@ -94,7 +94,7 @@ contract EuAuthoriserProdTest is Test {
         vm.mockCall(
             LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
             abi.encodeCall(
-                IMigrationRegistryV2.applied,
+                IMigrationRegistryV3.appliedV3,
                 (safe, LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER)
             ),
             abi.encode(uint256(0))

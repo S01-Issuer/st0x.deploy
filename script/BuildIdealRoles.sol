@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.19/src/lib/LibRainDeploy.sol";
 import {LibIdealRoles, ContractRoles} from "../src/lib/LibIdealRoles.sol";
 import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 import {RoleGrant} from "../src/lib/RoleGrant.sol";

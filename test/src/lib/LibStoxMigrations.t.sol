@@ -4,14 +4,16 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistry.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.19/src/lib/LibMigrationRegistry.sol";
 import {
-    IMigrationRegistryV2,
+    IMigrationRegistryV3,
     MIGRATION_HEAD_GENESIS,
     Prerequisite
-} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistryDeploy.sol";
+} from "rain-deploy-0.1.19/src/interface/IMigrationRegistryV3.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.19/src/lib/LibMigrationRegistryDeploy.sol";
+import {
+    RUNTIME_CODE as MIGRATION_REGISTRY_RUNTIME_CODE
+} from "rain-deploy-0.1.19/src/generated/candidate/MigrationRegistry.sol";
 
 import {LibOrchestratorInvariants} from "../../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
@@ -33,12 +35,12 @@ contract LibStoxMigrationsTest is Test {
     function testRegistryInstancePinned() external pure {
         assertEq(
             LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
-            0xc89F95eC7e626CFBef37a1F502A69BaF2022F8A8,
+            0x1F0e0A54489B8fE29C3aB2e3500295DC84c7D58f,
             "st0x.deploy migration records live at this registry instance; moving it strands them"
         );
         assertEq(
             LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_CODEHASH,
-            0x7a67fcb1f620333d4214ee9a6674bcd505c72aad173a6e8579b8c1371db45684,
+            0x9c93685df075fff2be0849da0572b05ac94302d08ac9347659b08d48336ebe24,
             "st0x.deploy migration records live at this registry instance; moving it strands them"
         );
     }
@@ -110,44 +112,113 @@ contract LibStoxMigrationsTest is Test {
         }
     }
 
-    /// @notice The registry call binds this repo's namespace and targets the
-    /// pinned registry.
+    /// @notice The pinned registry's own code at its address, so the call
+    /// builders' code-hash check passes without a fork.
+    function etchRegistry() internal {
+        vm.etch(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS, MIGRATION_REGISTRY_RUNTIME_CODE);
+    }
+
+    /// @notice The registry call names the writer, binds this repo's
+    /// namespace and targets the pinned registry.
     function testApplyMigrationCallBindsTheNamespace() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
+        etchRegistry();
         address writer = makeAddr("writer");
         Prerequisite[] memory prerequisites = LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS);
 
         (address to, bytes memory data) =
-            LibStoxMigrations.applyMigrationCall(LibStoxMigrations.ORCHESTRATOR_EMERGENCY, prerequisites);
+            LibStoxMigrations.applyMigrationCall(writer, LibStoxMigrations.ORCHESTRATOR_EMERGENCY, prerequisites);
 
         assertEq(to, LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
         assertEq(
             data,
             abi.encodeCall(
-                IMigrationRegistryV2.applyMigration,
-                (LibStoxMigrations.NAMESPACE, LibStoxMigrations.ORCHESTRATOR_EMERGENCY, prerequisites)
+                IMigrationRegistryV3.applyMigrationV3,
+                (writer, LibStoxMigrations.NAMESPACE, LibStoxMigrations.ORCHESTRATOR_EMERGENCY, prerequisites)
             )
         );
     }
 
-    /// @notice The history call binds this repo's namespace, carries the
-    /// moment and targets the pinned registry.
+    /// @notice The history call names the writer, binds this repo's
+    /// namespace, carries the moment and targets the pinned registry.
     function testApplyMigrationHistoryCallBindsTheNamespace() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
+        etchRegistry();
         address writer = makeAddr("writer");
         Prerequisite[] memory prerequisites = LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS);
 
         (address to, bytes memory data) = LibStoxMigrations.applyMigrationHistoryCall(
-            LibStoxMigrations.GOVERNANCE_TIMELOCK, 1_791_056_759, prerequisites
+            writer, LibStoxMigrations.GOVERNANCE_TIMELOCK, 1_791_056_759, prerequisites
         );
 
         assertEq(to, LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
         assertEq(
             data,
             abi.encodeCall(
-                IMigrationRegistryV2.applyMigrationHistory,
-                (LibStoxMigrations.NAMESPACE, LibStoxMigrations.GOVERNANCE_TIMELOCK, 1_791_056_759, prerequisites)
+                IMigrationRegistryV3.applyMigrationHistoryV3,
+                (
+                    writer,
+                    LibStoxMigrations.NAMESPACE,
+                    LibStoxMigrations.GOVERNANCE_TIMELOCK,
+                    1_791_056_759,
+                    prerequisites
+                )
             )
         );
+    }
+
+    /// @notice Both calls, sent by the writer, land in the writer's line in
+    /// this repo's namespace, and the reads see them there: the history
+    /// record at its moment, the direct record at the block it lands in, the
+    /// head at the latest.
+    function testCallsSentByTheWriterLandInItsLine() external {
+        etchRegistry();
+        vm.warp(1_800_000_000);
+        address writer = makeAddr("writer");
+        assertEq(LibStoxMigrations.head(writer), MIGRATION_HEAD_GENESIS);
+
+        (address historyTo, bytes memory historyData) = LibStoxMigrations.applyMigrationHistoryCall(
+            writer,
+            LibStoxMigrations.GOVERNANCE_TIMELOCK,
+            1_791_056_759,
+            LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS)
+        );
+        vm.prank(writer);
+        (bool historyOk,) = historyTo.call(historyData);
+        assertTrue(historyOk, "history record");
+
+        (address recordTo, bytes memory recordData) = LibStoxMigrations.applyMigrationCall(
+            writer,
+            LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
+            LibStoxMigrations.onto(writer, LibStoxMigrations.GOVERNANCE_TIMELOCK)
+        );
+        vm.prank(writer);
+        (bool recordOk,) = recordTo.call(recordData);
+        assertTrue(recordOk, "direct record");
+
+        assertEq(LibStoxMigrations.applied(writer, LibStoxMigrations.GOVERNANCE_TIMELOCK), 1_791_056_759);
+        assertEq(LibStoxMigrations.applied(writer, LibStoxMigrations.ORCHESTRATOR_EMERGENCY), 1_800_000_000);
+        assertEq(LibStoxMigrations.head(writer), LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
+        assertEq(LibStoxMigrations.applied(makeAddr("other"), LibStoxMigrations.ORCHESTRATOR_EMERGENCY), 0);
+    }
+
+    /// @notice The call names its writer, so an account the writer never
+    /// approved cannot send it.
+    function testCallSentByAnotherAccountIsRefused() external {
+        etchRegistry();
+        address writer = makeAddr("writer");
+        address other = makeAddr("other");
+        (address to, bytes memory data) = LibStoxMigrations.applyMigrationCall(
+            writer, LibStoxMigrations.ORCHESTRATOR_EMERGENCY, LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS)
+        );
+
+        vm.prank(other);
+        (bool ok, bytes memory reason) = to.call(data);
+        assertFalse(ok, "sent by another account");
+        assertEq(
+            reason,
+            abi.encodeWithSelector(
+                IMigrationRegistryV3.NotApproved.selector, writer, LibStoxMigrations.NAMESPACE, other
+            )
+        );
+        assertEq(LibStoxMigrations.head(writer), MIGRATION_HEAD_GENESIS);
     }
 }

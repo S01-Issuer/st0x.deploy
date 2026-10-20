@@ -4,8 +4,12 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
-import {LibTimelockController} from "rain-deploy-0.1.18/src/lib/LibTimelockController.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.19/src/lib/LibRainDeploy.sol";
+import {LibTimelockController} from "rain-deploy-0.1.19/src/lib/LibTimelockController.sol";
+import {
+    BYTECODE_HASH as TIMELOCK_BYTECODE_HASH,
+    CREATION_CODE as TIMELOCK_CREATION_CODE
+} from "rain-deploy-0.1.19/src/generated/0_1_18/TimelockController.sol";
 import {LibTimelockInvariants, UnsupportedChainForGovernanceTimelock} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariantsHarness} from "./LibTimelockInvariantsHarness.sol";
@@ -59,12 +63,22 @@ contract LibTimelockInvariantsTest is Test {
         assertEq(timelock.getMinDelay(), LibTimelockInvariants.TIMELOCK_MIN_DELAY);
     }
 
+    /// @notice The frozen generation the timelocks were deployed from is
+    /// consistent: its creation code deploys code hashing to its
+    /// `BYTECODE_HASH`.
+    function testTimelockGenerationIsConsistent() external {
+        LibTimelockController.checkTimelockGeneration(
+            vm, TIMELOCK_CREATION_CODE, TIMELOCK_BYTECODE_HASH, LibTimelockInvariants.TIMELOCK_MIN_DELAY, SAFE
+        );
+    }
+
     /// @notice A timelock deployed with a different delay is rejected: the
     /// runtime bytecode is identical (delay is storage, not code), so only
     /// the `getMinDelay` pin catches it.
     function testAssertRejectsWrongMinDelay() external {
         LibRainDeploy.etchZoltuFactory(vm);
-        address wrongDelay = LibRainDeploy.deployZoltu(LibTimelockController.timelockInitCode(1 hours, SAFE));
+        address wrongDelay =
+            LibRainDeploy.deployZoltu(LibTimelockController.timelockInitCode(TIMELOCK_CREATION_CODE, 1 hours, SAFE));
         vm.expectRevert(
             abi.encodeWithSelector(
                 LibTimelockController.TimelockMinDelayMismatch.selector,
