@@ -20,6 +20,13 @@ import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibProdTokenConfig, TokenConfig, Region} from "../src/lib/LibProdTokenConfig.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
+import {
+    LibTokenDeployment,
+    ISetAuthorizer,
+    DeploymentEventMissing,
+    OwnershipHandoffFailed,
+    AuthoriserNotWired
+} from "./lib/LibTokenDeployment.sol";
 
 /// @notice Pre-flight failed: a required deployer contract has no runtime
 /// code at its pinned 0.1.1 address on the active fork.
@@ -54,28 +61,6 @@ error TokenTableTooShort(uint256 configsLength, uint256 baseLength);
 /// is nothing to copy. This is also what stops a re-dispatch from minting
 /// duplicates of tokens that already landed.
 error NoMissingTokens();
-
-/// @notice The unified deployer emitted no `Deployment` event this iteration,
-/// so there is no address to wire or hand over. Named rather than left to
-/// fault on a zero address, because it happens MID-BROADCAST with earlier
-/// tokens already live.
-/// @param underlying The token whose deployment could not be resolved.
-error DeploymentEventMissing(string underlying);
-
-/// @notice A freshly deployed vault did not end up owned by the chain's
-/// governance timelock. A vault left on the deploy key is a production asset
-/// held by a CI secret; one left on the Safe is governed without the delay.
-/// @param receiptVault The vault whose handoff did not land.
-/// @param expected The timelock ownership was meant to land on.
-/// @param actual The owner actually read back.
-error OwnershipHandoffFailed(address receiptVault, address expected, address actual);
-
-/// @notice A freshly deployed vault is not routed to the chain's authoriser.
-/// Until `setAuthorizer` lands, every operation on the vault reverts.
-/// @param receiptVault The vault whose authoriser did not land.
-/// @param expected The authoriser it must route to.
-/// @param actual The authoriser actually read back.
-error AuthoriserNotWired(address receiptVault, address expected, address actual);
 
 /// @title DeployMissingTokens
 /// @notice Copies Base's production token set onto whichever chain this is
@@ -237,16 +222,7 @@ contract DeployMissingTokens is Script {
         pure
         returns (address receiptVault, address wrapped)
     {
-        bytes32 deploymentTopic = keccak256("Deployment(address,address,address)");
-        for (uint256 i = 0; i < logs.length; i++) {
-            if (logs[i].emitter == unifiedDeployer && logs[i].topics.length > 0 && logs[i].topics[0] == deploymentTopic)
-            {
-                (, receiptVault, wrapped) = abi.decode(logs[i].data, (address, address, address));
-            }
-        }
-        if (receiptVault == address(0)) {
-            revert DeploymentEventMissing(underlying);
-        }
+        return LibTokenDeployment.readDeployment(logs, unifiedDeployer, underlying);
     }
 
     /// @notice Assert a freshly deployed vault ended up wired to the chain's
@@ -261,14 +237,7 @@ contract DeployMissingTokens is Script {
     /// @param expectedAuthoriser The authoriser it must route to.
     /// @param expectedOwner The timelock ownership must have landed on.
     function assertHandoffLanded(address receiptVault, address expectedAuthoriser, address expectedOwner) public view {
-        address wiredAuthoriser = ISetAuthorizer(receiptVault).authorizer();
-        if (wiredAuthoriser != expectedAuthoriser) {
-            revert AuthoriserNotWired(receiptVault, expectedAuthoriser, wiredAuthoriser);
-        }
-        address landedOwner = Ownable(receiptVault).owner();
-        if (landedOwner != expectedOwner) {
-            revert OwnershipHandoffFailed(receiptVault, expectedOwner, landedOwner);
-        }
+        LibTokenDeployment.assertHandoffLanded(receiptVault, expectedAuthoriser, expectedOwner);
     }
 
     /// @notice Whether `tokens` already carries a DEPLOYED entry for
@@ -370,12 +339,4 @@ contract DeployMissingTokens is Script {
             " Pin the logged tuples into this chain's LibTokenInvariants table."
         );
     }
-}
-
-/// @dev Local mirror of the receipt-vault `setAuthorizer(IAuthorizeV1)`
-/// owner-gated selector — rain-vats ships no interface carrying it; see the
-/// 20260706 script for the full rationale.
-interface ISetAuthorizer {
-    function setAuthorizer(IAuthorizeV1 newAuthorizer) external;
-    function authorizer() external view returns (address);
 }

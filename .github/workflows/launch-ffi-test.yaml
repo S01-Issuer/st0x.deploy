@@ -1,6 +1,7 @@
 name: launch-ffi-test
-# The Base token launch's Node helper, which the launch calls through vm.ffi.
-# The forge suite runs without ffi in rainix-sol.
+# The Base token launch's Node helper, which the launch calls through vm.ffi,
+# and the staged launch run through the forge CLI on an anvil fork. The forge
+# suite runs without ffi in rainix-sol.
 on: [push]
 jobs:
   launch-ffi-test:
@@ -22,3 +23,7 @@ jobs:
         env:
           FOUNDRY_TEST: test-ffi
         run: nix develop --command forge test --threads 1 --ffi
+      - name: Staged launch through the forge CLI on an anvil fork
+        env:
+          BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
+        run: nix develop --command bash launch/e2e.sh

@@ -434,7 +434,7 @@ contract LaunchBaseTokensPlanTest is Test {
         vm.writeFile("out/test-launch-ledger-skip.json", '[{"symbol":"tWMT"}]');
         vm.setEnv("LAUNCH_LEDGER", "out/test-launch-ledger-skip.json");
         vm.setEnv("LAUNCH_FILES", "launch/metadata/wmt.json launch/metadata/iau.json");
-        vm.setEnv("LAUNCH_PLAN_OUT", "out/test-launch-plan-skip.json");
+        vm.setEnv("LAUNCH_PLAN", "out/test-launch-plan-skip.json");
         uint256 beforeSeconds = vm.unixTime() / 1000;
         script.plan();
         string memory skipJson = vm.readFile("out/test-launch-plan-skip.json");
@@ -456,7 +456,7 @@ contract LaunchBaseTokensPlanTest is Test {
             "launch/metadata/wmt.json launch/metadata/mc.json launch/metadata/iau.json launch/metadata/published/ibhg.json"
         );
         vm.setEnv("LAUNCH_NOW", vm.toString(NOW));
-        vm.setEnv("LAUNCH_PLAN_OUT", "out/test-launch-plan.json");
+        vm.setEnv("LAUNCH_PLAN", "out/test-launch-plan.json");
         script.plan();
 
         string memory planJson = vm.readFile("out/test-launch-plan.json");
@@ -483,7 +483,7 @@ contract LaunchBaseTokensPlanTest is Test {
         assertFalse(vm.parseJsonBool(planJson, ".tokens.tWMT.dedicatedMinterGrantPending"));
 
         vm.setEnv("LAUNCH_FILES", "launch/metadata/spy.json");
-        vm.setEnv("LAUNCH_PLAN_OUT", "out/test-launch-plan-second.json");
+        vm.setEnv("LAUNCH_PLAN", "out/test-launch-plan-second.json");
         script.plan();
         string[] memory secondKeys = vm.parseJsonKeys(vm.readFile("out/test-launch-plan-second.json"), ".tokens");
         assertEq(secondKeys.length, 1);
@@ -493,7 +493,7 @@ contract LaunchBaseTokensPlanTest is Test {
         vm.mockCallRevert(planner, abi.encodeWithSelector(LaunchFilePlanner.planFile.selector), "");
         vm.etch(planner, "");
         vm.setEnv("LAUNCH_FILES", "launch/metadata/wmt.json");
-        vm.setEnv("LAUNCH_PLAN_OUT", "out/test-launch-plan-empty-revert.json");
+        vm.setEnv("LAUNCH_PLAN", "out/test-launch-plan-empty-revert.json");
         vm.expectRevert(abi.encodeWithSelector(LaunchPlanInvalid.selector, 1));
         script.plan();
         assertFalse(vm.exists("out/test-launch-plan-empty-revert.json"));
@@ -514,14 +514,14 @@ contract LaunchBaseTokensPlanTest is Test {
         );
         script.plan();
         vm.setEnv("LAUNCH_LEDGER", "out/test-launch-ledger-empty.json");
-        vm.setEnv("LAUNCH_PLAN_OUT", "launch/launches.json");
+        vm.setEnv("LAUNCH_PLAN", "launch/launches.json");
         vm.expectRevert(
-            abi.encodeWithSelector(LaunchInputOutsideOut.selector, "LAUNCH_PLAN_OUT", "launch/launches.json")
+            abi.encodeWithSelector(LaunchInputOutsideOut.selector, "LAUNCH_PLAN", "launch/launches.json")
         );
         script.plan();
-        vm.setEnv("LAUNCH_PLAN_OUT", "out/../launch/launches.json");
+        vm.setEnv("LAUNCH_PLAN", "out/../launch/launches.json");
         vm.expectRevert(
-            abi.encodeWithSelector(LaunchInputOutsideOut.selector, "LAUNCH_PLAN_OUT", "out/../launch/launches.json")
+            abi.encodeWithSelector(LaunchInputOutsideOut.selector, "LAUNCH_PLAN", "out/../launch/launches.json")
         );
         script.plan();
     }
