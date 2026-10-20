@@ -64,7 +64,8 @@ forge_script() {
 }
 
 stage() {
-  launch/stage.sh "$1" "$2" --rpc-url "${RPC}" --unlocked --sender "${SIGNER}" "${@:3}"
+  # Anvil's forked Base node rejects forge's EIP-1559 fee-history queries.
+  launch/stage.sh "$1" "$2" --legacy --rpc-url "${RPC}" --unlocked --sender "${SIGNER}" "${@:3}"
 }
 
 # Mine the first $1 transactions sent to the pool, then make the next one
