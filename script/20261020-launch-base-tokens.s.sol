@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
+import {Bytes} from "@openzeppelin-contracts-5.7.0/utils/Bytes.sol";
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
@@ -19,6 +20,7 @@ import {
     UnsupportedAssetType,
     MissingName,
     NameIsTicker,
+    UnicodeWhitespaceInName,
     InvalidCountryIso,
     InvalidIsin,
     InvalidCounterparties,
@@ -43,7 +45,7 @@ error LaunchPlanInvalid(uint256 failures);
 error DuplicateSymbol(string symbol, string firstFile);
 
 /// @notice An environment override of a launch input names a path outside
-/// `out/`. Overrides exist for tests and the end-to-end rehearsal, which stage
+/// `out/`, or one holding `..`. Overrides exist for tests and the end-to-end rehearsal, which stage
 /// their inputs there.
 error LaunchInputOutsideOut(string name, string path);
 
@@ -69,10 +71,12 @@ contract LaunchBaseTokens is Script {
     string internal constant DEFAULT_ALLOWLIST = "launch/allowlist.json";
     string internal constant DEFAULT_PLAN_OUT = "out/launch-plan.json";
 
-    /// @notice One file's outcome, for the log and the plan file. `failure`
-    /// holds the revert data, which may be empty when `failed`.
+    /// @notice One file's outcome, for the log and the plan file. `ignored`
+    /// marks a path that is not a deploy input. `failure` holds the revert
+    /// data, which may be empty when `failed`.
     struct FileOutcome {
         string metadataFile;
+        bool ignored;
         bool skipped;
         bool failed;
         bytes failure;
@@ -87,7 +91,8 @@ contract LaunchBaseTokens is Script {
     }
 
     /// @notice Plan the files in `LAUNCH_FILES`, log every outcome and write
-    /// the plan file. Reverts after logging when any file is refused.
+    /// the plan file. When any file is refused it reverts after logging and
+    /// writes no plan file.
     function plan() external {
         string[] memory files = vm.envOr("LAUNCH_FILES", " ", new string[](0));
         uint256 nowSeconds = vm.envOr("LAUNCH_NOW", vm.unixTime() / 1000);
@@ -124,30 +129,35 @@ contract LaunchBaseTokens is Script {
         ctx.shippedSymbols = LibLaunchInputs.readShippedSymbols(ledger);
         ctx.allowlistedOwners = LibLaunchInputs.readAllowlisted(allowlist, "owner", 0);
         ctx.allowlistedAuthorisers =
-            LibLaunchInputs.readAllowlisted(allowlist, "authorizer", LibLaunchPlan.BASE_CHAIN_ID);
+            LibLaunchInputs.readAllowlisted(allowlist, "authorizer", LibSafeInvariants.BASE_CHAIN_ID);
         ctx.pins = LibLaunchInputs.readPins(pins);
         ctx.ownerSafe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         ctx.sharedAuthoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
         ctx.now = nowSeconds;
     }
 
-    /// @notice Plan every deploy input in `files`; other paths are ignored.
+    /// @notice Plan every deploy input in `files`; any other non-empty path is
+    /// an ignored outcome, so it shows in the log.
     /// @param files The changed files.
     /// @param ctx The plan context.
-    /// @return outcomes One outcome per deploy input, in `files` order.
+    /// @return outcomes One outcome per non-empty path, in `files` order.
     function planFiles(string[] memory files, PlanContext memory ctx) public returns (FileOutcome[] memory outcomes) {
         FileOutcome[] memory all = new FileOutcome[](files.length);
         LaunchFilePlanner planner = new LaunchFilePlanner();
         uint256 inputCount = 0;
         for (uint256 i = 0; i < files.length; i++) {
-            if (!LibLaunchInputs.isMetadataFile(files[i])) continue;
-            FileOutcome memory outcome = all[inputCount];
+            if (bytes(files[i]).length == 0) continue;
+            FileOutcome memory outcome = all[inputCount++];
             outcome.metadataFile = files[i];
+            if (!LibLaunchInputs.isMetadataFile(files[i])) {
+                outcome.ignored = true;
+                continue;
+            }
             try planner.planFile(files[i], ctx) returns (bool skipped, TokenPlan memory tokenPlan) {
                 outcome.skipped = skipped;
                 outcome.plan = tokenPlan;
                 if (!skipped) {
-                    for (uint256 j = 0; j < inputCount; j++) {
+                    for (uint256 j = 0; j + 1 < inputCount; j++) {
                         if (
                             !all[j].skipped && !all[j].failed
                                 && Strings.equal(
@@ -164,7 +174,6 @@ contract LaunchBaseTokens is Script {
                 outcome.failed = true;
                 outcome.failure = failure;
             }
-            inputCount++;
         }
         outcomes = new FileOutcome[](inputCount);
         for (uint256 i = 0; i < inputCount; i++) {
@@ -172,8 +181,9 @@ contract LaunchBaseTokens is Script {
         }
     }
 
-    /// @notice The lines `plan()` logs for a batch: a `FAIL` line per refusal,
-    /// a skip line per shipped symbol, the plan lines per planned token, and
+    /// @notice The lines `plan()` logs for a batch: an ignore line per path that
+    /// is not a deploy input, a `FAIL` line per refusal, a skip line per
+    /// shipped symbol, the plan lines per planned token, and
     /// `nothing to deploy` when no file is refused or planned.
     /// @param outcomes The batch's outcomes.
     /// @return lines The log lines, in order.
@@ -188,7 +198,10 @@ contract LaunchBaseTokens is Script {
         uint256 planned = 0;
         for (uint256 i = 0; i < outcomes.length; i++) {
             FileOutcome memory outcome = outcomes[i];
-            if (outcome.failed) {
+            if (outcome.ignored) {
+                all[lineCount++] =
+                    string.concat("  ignore ", outcome.metadataFile, " (not a launch/metadata/<name>.json file)");
+            } else if (outcome.failed) {
                 failures++;
                 all[lineCount++] = describeFailureLine(outcome.metadataFile, outcome.failure);
             } else if (outcome.skipped) {
@@ -254,10 +267,7 @@ contract LaunchBaseTokens is Script {
         if (failure.length < 4) return "unreadable";
         // forge-lint: disable-next-line(unsafe-typecast)
         bytes4 selector = bytes4(failure);
-        bytes memory args = new bytes(failure.length - 4);
-        for (uint256 i = 0; i < args.length; i++) {
-            args[i] = failure[i + 4];
-        }
+        bytes memory args = Bytes.slice(failure, 4);
         if (selector == bytes4(0x08c379a0)) return abi.decode(args, (string));
         if (selector == MissingPrimaryTicker.selector) return "primary_ticker is missing";
         if (selector == MissingName.selector) return "name is missing";
@@ -281,6 +291,9 @@ contract LaunchBaseTokens is Script {
         }
         if (selector == NameIsTicker.selector) {
             return string.concat("name is the ticker (", abi.decode(args, (string)), "), not the asset name");
+        }
+        if (selector == UnicodeWhitespaceInName.selector) {
+            return string.concat("name holds Unicode whitespace: \"", abi.decode(args, (string)), "\"");
         }
         if (selector == InvalidCountryIso.selector) {
             return string.concat("country.iso must be a 2-letter code, got \"", abi.decode(args, (string)), "\"");
@@ -321,15 +334,14 @@ contract LaunchBaseTokens is Script {
     }
 
     /// @notice `name`'s value, or `defaultPath` when unset. An override must
-    /// be under `out/`.
+    /// be under `out/` and must not hold `..`.
     function _inputPath(string memory name, string memory defaultPath) internal view returns (string memory) {
         string memory path = vm.envOr(name, defaultPath);
         if (Strings.equal(path, defaultPath)) return path;
         bytes memory pathBytes = bytes(path);
-        bytes memory prefix = "out/";
-        bool underOut = pathBytes.length > prefix.length;
-        for (uint256 i = 0; underOut && i < prefix.length; i++) {
-            underOut = pathBytes[i] == prefix[i];
+        bool underOut = pathBytes.length > 4 && Strings.equal(string(Bytes.slice(pathBytes, 0, 4)), "out/");
+        for (uint256 i = 0; underOut && i + 1 < pathBytes.length; i++) {
+            underOut = pathBytes[i] != "." || pathBytes[i + 1] != ".";
         }
         if (!underOut) revert LaunchInputOutsideOut(name, path);
         return path;
@@ -345,7 +357,7 @@ contract LaunchBaseTokens is Script {
         string memory tokens = vm.serializeJson("tokens", "{}");
         vm.serializeJson("plan", "{}");
         for (uint256 i = 0; i < outcomes.length; i++) {
-            if (outcomes[i].skipped || outcomes[i].failed) continue;
+            if (outcomes[i].ignored || outcomes[i].skipped || outcomes[i].failed) continue;
             TokenPlan memory tokenPlan = outcomes[i].plan;
             string memory key = tokenPlan.symbol;
             vm.serializeJson(key, "{}");

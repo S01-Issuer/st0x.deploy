@@ -3,6 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
+import {Bytes} from "@openzeppelin-contracts-5.7.0/utils/Bytes.sol";
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
 import {LibLaunchPlan, LaunchMetadata, DedicatedPin} from "../../src/lib/LibLaunchPlan.sol";
 
@@ -19,12 +20,19 @@ library LibLaunchInputs {
     Vm internal constant VM = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     /// @notice Whether `file` is a deploy input: `launch/metadata/<name>.json`,
-    /// with no directory in between. `published/` never counts.
+    /// where `<name>` is non-empty and holds only the ticker characters, so it
+    /// names no directory and is safe in a shell. `published/` never counts.
     /// @param file A repository-relative path.
     /// @return Whether the path is a deploy input.
     function isMetadataFile(string memory file) internal pure returns (bool) {
         bytes memory path = bytes(file);
-        return _endsWith(path, ".json") && _directlyUnder(path, "launch/metadata/");
+        bytes memory prefix = "launch/metadata/";
+        bytes memory suffix = ".json";
+        if (path.length <= prefix.length + suffix.length) return false;
+        uint256 nameEnd = path.length - suffix.length;
+        return Strings.equal(string(Bytes.slice(path, 0, prefix.length)), string(prefix))
+            && Strings.equal(string(Bytes.slice(path, nameEnd)), string(suffix))
+            && LibLaunchPlan.isTicker(string(Bytes.slice(path, prefix.length, nameEnd)));
     }
 
     /// @notice The fields of one metadata file the plan reads.
@@ -49,7 +57,9 @@ library LibLaunchInputs {
     /// @notice Lower-cased symbols the planner must never launch again: every
     /// live ledger row, plus every row whose deprecation is marked `retired`.
     /// A deprecation without `retired` is a bad deploy whose symbol is meant to
-    /// be launched again.
+    /// be launched again. `deprecated` counts when JavaScript would call it
+    /// true; `retired` counts for any value but `false`, `0` and `null`, which
+    /// is stricter than cd-plan's `=== true`.
     /// @param ledgerPath The launch ledger.
     /// @return symbols The lower-cased symbols, in ledger order.
     function readShippedSymbols(string memory ledgerPath) internal view returns (string[] memory symbols) {
@@ -61,16 +71,8 @@ library LibLaunchInputs {
             string memory row = string.concat("$[", VM.toString(i), "]");
             string memory symbol = _string(json, string.concat(row, ".symbol"));
             if (bytes(symbol).length == 0) continue;
-            string memory retiredKey = string.concat(row, ".deprecated.retired");
-            bool deprecated = _present(json, string.concat(row, ".deprecated"));
-            // `{"retired": false}` encodes as a zero word, so `_present` on the
-            // object is false. The key itself is what decides.
-            bool retiredKeyExists = VM.keyExistsJson(json, retiredKey);
-            if (!deprecated && !retiredKeyExists) {
-                shipped[shippedCount++] = LibLaunchPlan.toLower(symbol);
-                continue;
-            }
-            if (!retiredKeyExists || !_retired(json, retiredKey)) continue;
+            bool deprecated = _truthy(json, string.concat(row, ".deprecated"));
+            if (deprecated && !_retired(json, string.concat(row, ".deprecated.retired"))) continue;
             shipped[shippedCount++] = LibLaunchPlan.toLower(symbol);
         }
         symbols = new string[](shippedCount);
@@ -127,10 +129,23 @@ library LibLaunchInputs {
         }
     }
 
-    function _present(string memory json, string memory key) private view returns (bool) {
+    /// @notice JavaScript truthiness, as cd-plan tests `row.deprecated`:
+    /// `false`, `0` and `null` are the zero word, `""` is the empty string, and
+    /// an object is truthy even when Foundry encodes it as the zero word.
+    function _truthy(string memory json, string memory key) private view returns (bool) {
         if (!VM.keyExistsJson(json, key)) return false;
-        bytes memory raw = VM.parseJson(json, key);
-        return raw.length != 0 && keccak256(raw) != keccak256(abi.encode(bytes32(0)));
+        if (_jsonZero(json, key)) {
+            try VM.parseJsonKeys(json, key) returns (string[] memory) {
+                return true;
+            } catch {
+                return false;
+            }
+        }
+        try VM.parseJsonString(json, key) returns (string memory value) {
+            return bytes(value).length != 0;
+        } catch {
+            return true;
+        }
     }
 
     /// @notice Foundry reads JSON `null` as the text `null`; it is the zero
@@ -194,26 +209,6 @@ library LibLaunchInputs {
         } catch {
             return new string[](0);
         }
-    }
-
-    function _endsWith(bytes memory path, bytes memory suffix) private pure returns (bool) {
-        if (path.length < suffix.length) return false;
-        for (uint256 i = 0; i < suffix.length; i++) {
-            if (path[path.length - suffix.length + i] != suffix[i]) return false;
-        }
-        return true;
-    }
-
-    /// @notice `prefix` plus a file name, with no further slash.
-    function _directlyUnder(bytes memory path, bytes memory prefix) private pure returns (bool) {
-        if (path.length <= prefix.length) return false;
-        for (uint256 i = 0; i < prefix.length; i++) {
-            if (path[i] != prefix[i]) return false;
-        }
-        for (uint256 i = prefix.length; i < path.length; i++) {
-            if (path[i] == "/") return false;
-        }
-        return true;
     }
 
     function _arrayLength(string memory json, string memory key) private view returns (uint256 count) {

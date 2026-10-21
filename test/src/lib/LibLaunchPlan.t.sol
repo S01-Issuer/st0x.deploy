@@ -16,6 +16,7 @@ import {
     UnsupportedAssetType,
     MissingName,
     NameIsTicker,
+    UnicodeWhitespaceInName,
     InvalidCountryIso,
     InvalidIsin,
     InvalidCounterparties,
@@ -622,5 +623,59 @@ contract LibLaunchPlanTest is Test {
         LaunchMetadata memory metadata = _hood();
         metadata.primaryTicker = "zm";
         assertEq(_plan(metadata).symbol, "tZM");
+    }
+
+    function testSortStringsPutsAPrefixFirstInEitherInputOrder() external pure {
+        string[] memory values = new string[](2);
+        values[0] = "AlpacaDB Inc X";
+        values[1] = "AlpacaDB Inc";
+        string[] memory sorted = LibLaunchPlan.sortStrings(values);
+        assertEq(sorted[0], "AlpacaDB Inc");
+        assertEq(sorted[1], "AlpacaDB Inc X");
+        values[0] = "AlpacaDB Inc";
+        values[1] = "AlpacaDB Inc X";
+        sorted = LibLaunchPlan.sortStrings(values);
+        assertEq(sorted[0], "AlpacaDB Inc");
+        assertEq(sorted[1], "AlpacaDB Inc X");
+    }
+
+    function testRejectsACounterpartyThatExtendsAnAllowedName() external {
+        LaunchMetadata memory metadata = _hood();
+        metadata.counterparties[0] = "Clear Street LLC";
+        metadata.counterparties[1] = "Clear Street LLC X";
+        vm.expectRevert(InvalidCounterparties.selector);
+        harness.planOne("f", metadata, _ctx());
+    }
+
+    function testRefusesUnicodeWhitespaceInTheName() external {
+        bytes[17] memory spaces = [
+            bytes(hex"c285"),
+            hex"c2a0",
+            hex"e19a80",
+            hex"e28080",
+            hex"e28081",
+            hex"e28082",
+            hex"e28083",
+            hex"e28084",
+            hex"e28085",
+            hex"e28086",
+            hex"e2808a",
+            hex"e280a8",
+            hex"e280a9",
+            hex"e280af",
+            hex"e2819f",
+            hex"e38080",
+            hex"efbbbf"
+        ];
+        for (uint256 i = 0; i < spaces.length; i++) {
+            LaunchMetadata memory metadata = _hood();
+            string memory name = string.concat("Robinhood", string(spaces[i]), "Markets Inc");
+            metadata.name = string.concat(name, string(spaces[i]));
+            vm.expectRevert(abi.encodeWithSelector(UnicodeWhitespaceInName.selector, metadata.name));
+            harness.planOne("f", metadata, _ctx());
+        }
+        LaunchMetadata memory accented = _hood();
+        accented.name = unicode"Moët Hennessy\u00e0 Louis Vuitton";
+        assertEq(_plan(accented).name, unicode"Moët Hennessyà Louis Vuitton ST0x");
     }
 }

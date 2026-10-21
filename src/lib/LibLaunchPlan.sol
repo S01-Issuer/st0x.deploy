@@ -2,7 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
+import {Bytes} from "@openzeppelin-contracts-5.7.0/utils/Bytes.sol";
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
+import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibUtcDate} from "./LibUtcDate.sol";
 
 /// @notice The metadata file has no `primary_ticker`.
@@ -18,6 +20,11 @@ error UnsupportedAssetType(string assetType);
 
 /// @notice The metadata file has no `name`.
 error MissingName();
+
+/// @notice `name` holds Unicode whitespace, which JavaScript's `trim()` and
+/// `\s` in sft-ops match but this port does not. The name is permanent once
+/// deployed, so it is refused rather than normalised differently.
+error UnicodeWhitespaceInName(string name);
 
 /// @notice `name` is the ticker or the token symbol, not the asset name: the
 /// tQQQM/tVWO/tARKK redeploys.
@@ -127,7 +134,6 @@ struct TokenPlan {
 /// @notice The checks sft-ops `cd-plan` makes before a Base token launch, and
 /// the launch arguments it derives from a metadata file.
 library LibLaunchPlan {
-    uint256 internal constant BASE_CHAIN_ID = 8453;
     uint256 internal constant CERTIFY_YEARS = 1;
 
     /// @notice Plan one metadata file.
@@ -189,8 +195,8 @@ library LibLaunchPlan {
         revert UnsupportedAssetType(trimmed);
     }
 
-    /// @notice The trimmed name, which must be present and must not be the
-    /// ticker or the symbol.
+    /// @notice The trimmed name, which must be present, must hold no Unicode
+    /// whitespace and must not be the ticker or the symbol.
     /// @param name The `name` field.
     /// @param ticker The trimmed ticker.
     /// @param symbol The derived symbol.
@@ -202,6 +208,7 @@ library LibLaunchPlan {
     {
         string memory trimmed = trim(name);
         if (bytes(trimmed).length == 0) revert MissingName();
+        if (_hasUnicodeSpace(bytes(trimmed))) revert UnicodeWhitespaceInName(trimmed);
         string memory lowered = toLower(trimmed);
         if (Strings.equal(lowered, toLower(symbol)) || Strings.equal(lowered, toLower(ticker))) {
             revert NameIsTicker(trimmed);
@@ -221,7 +228,7 @@ library LibLaunchPlan {
         pure
         returns (address authoriser, address minter)
     {
-        if (pin.chainId != BASE_CHAIN_ID) revert DedicatedPinWrongChain(symbol, pin.chainId);
+        if (pin.chainId != LibSafeInvariants.BASE_CHAIN_ID) revert DedicatedPinWrongChain(symbol, pin.chainId);
 
         bool authoriserSet;
         (authoriserSet, authoriser) = parseSetAddress(pin.authoriser);
@@ -263,8 +270,8 @@ library LibLaunchPlan {
     /// @return ok Whether `value` is a set, well-formed address.
     /// @return parsed The address, zero when not set.
     function parseSetAddress(string memory value) internal pure returns (bool ok, address parsed) {
-        bytes memory raw = bytes(value);
-        if (raw.length != 42 || raw[0] != "0" || raw[1] != "x") return (ok, parsed);
+        // `tryParseAddress` takes 42 bytes only with a lower-case `0x` prefix.
+        if (bytes(value).length != 42) return (ok, parsed);
         (ok, parsed) = Strings.tryParseAddress(value);
         ok = ok && parsed != address(0)
             && (Strings.equal(toLower(value), value) || Strings.equal(Strings.toChecksumHexString(parsed), value));
@@ -277,17 +284,20 @@ library LibLaunchPlan {
     /// @param name The trimmed name.
     /// @return The normalised name.
     function normaliseAdrName(string memory name) internal pure returns (string memory) {
-        bytes memory src = bytes(name);
-        bytes memory unwrapped = new bytes(src.length);
+        bytes memory nameBytes = bytes(name);
+        bytes memory unwrapped = new bytes(nameBytes.length);
         uint256 unwrappedLength = 0;
-        for (uint256 i = 0; i < src.length; i++) {
-            if (src[i] == "(" && i + 4 < src.length && src[i + 4] == ")" && _isAdrOrAds(src, i + 1)) {
-                unwrapped[unwrappedLength++] = src[i + 1];
-                unwrapped[unwrappedLength++] = src[i + 2];
-                unwrapped[unwrappedLength++] = src[i + 3];
+        for (uint256 i = 0; i < nameBytes.length; i++) {
+            if (
+                nameBytes[i] == "(" && i + 4 < nameBytes.length && nameBytes[i + 4] == ")"
+                    && _isAdrOrAds(nameBytes, i + 1)
+            ) {
+                unwrapped[unwrappedLength++] = nameBytes[i + 1];
+                unwrapped[unwrappedLength++] = nameBytes[i + 2];
+                unwrapped[unwrappedLength++] = nameBytes[i + 3];
                 i += 4;
             } else {
-                unwrapped[unwrappedLength++] = src[i];
+                unwrapped[unwrappedLength++] = nameBytes[i];
             }
         }
 
@@ -410,11 +420,7 @@ library LibLaunchPlan {
         while (end > start && _isSpace(valueBytes[end - 1])) {
             end--;
         }
-        bytes memory trimmed = new bytes(end - start);
-        for (uint256 i = 0; i < trimmed.length; i++) {
-            trimmed[i] = valueBytes[start + i];
-        }
-        return string(trimmed);
+        return string(Bytes.slice(valueBytes, start, end));
     }
 
     /// @notice ASCII-only lower-casing; bytes outside `A-Z` are copied
@@ -439,6 +445,30 @@ library LibLaunchPlan {
             raised[i] = _upper(raised[i]);
         }
         return string(raised);
+    }
+
+    /// @notice Whether `text` holds the UTF-8 encoding of a Unicode whitespace
+    /// character: U+0085, U+00A0, U+1680, U+2000 to U+200A, U+2028, U+2029,
+    /// U+202F, U+205F, U+3000 or U+FEFF.
+    function _hasUnicodeSpace(bytes memory text) private pure returns (bool) {
+        for (uint256 i = 0; i + 1 < text.length; i++) {
+            bytes1 lead = text[i];
+            bytes1 next = text[i + 1];
+            if (lead == 0xC2 && (next == 0x85 || next == 0xA0)) return true;
+            if (i + 2 >= text.length) continue;
+            bytes1 last = text[i + 2];
+            if (lead == 0xE1 && next == 0x9A && last == 0x80) return true;
+            if (
+                lead == 0xE2 && next == 0x80
+                    && ((last >= 0x80 && last <= 0x8A) || last == 0xA8 || last == 0xA9 || last == 0xAF)
+            ) {
+                return true;
+            }
+            if (lead == 0xE2 && next == 0x81 && last == 0x9F) return true;
+            if (lead == 0xE3 && next == 0x80 && last == 0x80) return true;
+            if (lead == 0xEF && next == 0xBB && last == 0xBF) return true;
+        }
+        return false;
     }
 
     function _isAdrOrAds(bytes memory name, uint256 at) private pure returns (bool) {

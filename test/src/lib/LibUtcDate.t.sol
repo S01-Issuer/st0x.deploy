@@ -45,18 +45,6 @@ contract LibUtcDateTest is Test {
         assertEq(LibUtcDate.toIsoDate(11017 * 86400), "2000-03-01");
     }
 
-    function testToIsoDateTimeMsHourBoundaries() external pure {
-        assertEq(LibUtcDate.toIsoDateTimeMs(3_600_000), "1970-01-01T01:00:00.000Z");
-        assertEq(LibUtcDate.toIsoDateTimeMs(3_599_999), "1970-01-01T00:59:59.999Z");
-        assertEq(LibUtcDate.toIsoDateTimeMs(82_800_000), "1970-01-01T23:00:00.000Z");
-    }
-
-    function testToIsoDateTimeMsMatchesJavaScript() external pure {
-        assertEq(LibUtcDate.toIsoDateTimeMs(1792079467450), "2026-10-15T15:51:07.450Z");
-        assertEq(LibUtcDate.toIsoDateTimeMs(1823558400000), "2027-10-15T00:00:00.000Z");
-        assertEq(LibUtcDate.toIsoDateTimeMs(5), "1970-01-01T00:00:00.005Z");
-    }
-
     function testCivilRoundTrip(uint32 daysSinceEpoch) external pure {
         (uint256 y, uint256 m, uint256 d) = LibUtcDate.civilFromDays(daysSinceEpoch);
         assertEq(LibUtcDate.daysFromCivil(y, m, d), daysSinceEpoch);

@@ -25,6 +25,7 @@ import {
     InvalidTicker,
     MissingName,
     NameIsTicker,
+    UnicodeWhitespaceInName,
     InvalidCountryIso,
     InvalidIsin,
     OwnerNotAllowlisted,
@@ -114,17 +115,20 @@ contract LaunchBaseTokensPlanTest is Test {
     /// @notice Every committed metadata file plans cleanly: a symbol already
     /// live or retired in the committed ledger skips, any other plans with no
     /// refusal, on the shared authoriser unless it is pinned. `published/` and
-    /// its README are never inputs.
+    /// its README are ignored.
     function testCommittedMetadataPlansAsSftOpsDoes() external {
         PlanContext memory ctx = _committedContext();
-        LaunchBaseTokens.FileOutcome[] memory outcomes = script.planFiles(_metadataFiles(), ctx);
-        uint256 inputs = 0;
         string[] memory files = _metadataFiles();
-        for (uint256 i = 0; i < files.length; i++) {
-            if (LibLaunchInputs.isMetadataFile(files[i])) inputs++;
-        }
-        assertEq(outcomes.length, inputs);
+        LaunchBaseTokens.FileOutcome[] memory outcomes = script.planFiles(files, ctx);
+        assertEq(outcomes.length, files.length);
+        uint256 ignored = 0;
         for (uint256 i = 0; i < outcomes.length; i++) {
+            assertEq(outcomes[i].metadataFile, files[i]);
+            assertEq(outcomes[i].ignored, !LibLaunchInputs.isMetadataFile(files[i]), files[i]);
+            if (outcomes[i].ignored) {
+                ignored++;
+                continue;
+            }
             assertFalse(outcomes[i].failed, outcomes[i].metadataFile);
             string memory symbol = _symbolFromFileName(outcomes[i].metadataFile);
             bool shipped = _shippedCaseInsensitive(ctx.shippedSymbols, symbol);
@@ -134,6 +138,30 @@ contract LaunchBaseTokensPlanTest is Test {
             (bool pinned,) = LibLaunchPlan.findPin(ctx.pins, symbol);
             if (!pinned) assertEq(outcomes[i].plan.landingAuthoriser, SHARED);
         }
+        assertGt(ignored, 0);
+    }
+
+    /// @notice A path that is not a deploy input is logged as ignored, never
+    /// dropped silently; an empty entry is no path at all.
+    function testPlanFilesReportsEveryIgnoredPath() external {
+        string[] memory files = new string[](4);
+        files[0] = "./launch/metadata/fgi.json";
+        files[1] = "";
+        files[2] = "launch//metadata/fgi.json";
+        files[3] = "launch/metadata/wmt.json";
+        LaunchBaseTokens.FileOutcome[] memory outcomes = script.planFiles(files, _committedContext());
+        assertEq(outcomes.length, 3);
+        assertTrue(outcomes[0].ignored);
+        assertTrue(outcomes[1].ignored);
+        assertFalse(outcomes[2].ignored);
+        assertTrue(outcomes[2].skipped);
+        (string[] memory lines, uint256 failures) = script.describeOutcomes(outcomes);
+        assertEq(failures, 0);
+        assertEq(lines.length, 4);
+        assertEq(lines[0], "  ignore ./launch/metadata/fgi.json (not a launch/metadata/<name>.json file)");
+        assertEq(lines[1], "  ignore launch//metadata/fgi.json (not a launch/metadata/<name>.json file)");
+        assertEq(lines[2], "  skip  launch/metadata/wmt.json (already in the ledger)");
+        assertEq(lines[3], "  nothing to deploy");
     }
 
     function _shippedCaseInsensitive(string[] memory shipped, string memory symbol) internal pure returns (bool) {
@@ -391,6 +419,13 @@ contract LaunchBaseTokensPlanTest is Test {
         assertFalse(LibLaunchInputs.isMetadataFile("out/metadata/x.json"));
         assertFalse(LibLaunchInputs.isMetadataFile("out/launch/metadata/x.json"));
         assertFalse(LibLaunchInputs.isMetadataFile("out/test-launch-duplicates/metadata/0.json"));
+        assertFalse(LibLaunchInputs.isMetadataFile("launch/metadata/a;b.json"));
+        assertFalse(LibLaunchInputs.isMetadataFile("launch/metadata/$(x).json"));
+        assertFalse(LibLaunchInputs.isMetadataFile("launch/metadata/a b.json"));
+        assertFalse(LibLaunchInputs.isMetadataFile("launch/metadata/.json"));
+        assertFalse(LibLaunchInputs.isMetadataFile("launch/metadata/../x.json"));
+        assertTrue(LibLaunchInputs.isMetadataFile("launch/metadata/air.pa.json"));
+        assertTrue(LibLaunchInputs.isMetadataFile("launch/metadata/brk-b.json"));
     }
 
     /// @notice `plan()` reads its inputs from the environment, which every
@@ -427,7 +462,8 @@ contract LaunchBaseTokensPlanTest is Test {
         string memory planJson = vm.readFile("out/test-launch-plan.json");
         assertEq(vm.parseJsonUint(planJson, ".plannedAt"), NOW);
         assertEq(vm.parseJsonString(planJson, ".tokens.tWMT.name"), "Walmart Inc. ST0x");
-        assertEq(LibUtcDate.toIsoDate(vm.parseJsonUint(planJson, ".tokens.tWMT.certifyUntil")), "2027-08-19");
+        assertEq(vm.parseJsonUint(planJson, ".tokens.tWMT.certifyUntil"), 1818633600);
+        assertEq(LibUtcDate.toIsoDate(1818633600), "2027-08-19");
         assertEq(vm.parseJsonAddress(planJson, ".tokens.tWMT.landingAuthoriser"), SHARED);
         assertTrue(vm.parseJsonBool(planJson, ".tokens.tMC.dedicated"));
         assertEq(vm.parseJsonAddress(planJson, ".tokens.tMC.dedicatedMinter"), MINTER);
@@ -481,6 +517,11 @@ contract LaunchBaseTokensPlanTest is Test {
         vm.setEnv("LAUNCH_PLAN_OUT", "launch/launches.json");
         vm.expectRevert(
             abi.encodeWithSelector(LaunchInputOutsideOut.selector, "LAUNCH_PLAN_OUT", "launch/launches.json")
+        );
+        script.plan();
+        vm.setEnv("LAUNCH_PLAN_OUT", "out/../launch/launches.json");
+        vm.expectRevert(
+            abi.encodeWithSelector(LaunchInputOutsideOut.selector, "LAUNCH_PLAN_OUT", "out/../launch/launches.json")
         );
         script.plan();
     }
@@ -670,6 +711,10 @@ contract LaunchBaseTokensPlanTest is Test {
             "name is the ticker (HOOD), not the asset name"
         );
         assertEq(
+            script.describeFailure(abi.encodeWithSelector(UnicodeWhitespaceInName.selector, "Foo")),
+            "name holds Unicode whitespace: \"Foo\""
+        );
+        assertEq(
             script.describeFailure(abi.encodeWithSelector(InvalidCountryIso.selector, "USA")),
             "country.iso must be a 2-letter code, got \"USA\""
         );
@@ -734,11 +779,14 @@ contract LaunchBaseTokensPlanTest is Test {
         vm.writeFile(
             ledgerPath,
             '[{"symbol":"tA","deprecated":{}},{"symbol":"tB","deprecated":[]},'
-            '{"symbol":"tC","deprecated":true},{"symbol":"tD","deprecated":"x"}]'
+            '{"symbol":"tC","deprecated":true},{"symbol":"tD","deprecated":"x"},{"symbol":"tE","deprecated":{"a":0}},'
+            '{"symbol":"tF","deprecated":{"retired":false}},{"symbol":"tG","deprecated":1},'
+            '{"symbol":"tH","deprecated":""},{"symbol":"tI","deprecated":0},{"name":"no symbol"},{"symbol":""}]'
         );
         string[] memory shipped = LibLaunchInputs.readShippedSymbols(ledgerPath);
-        assertEq(shipped.length, 1);
-        assertEq(shipped[0], "ta");
+        assertEq(shipped.length, 2);
+        assertEq(shipped[0], "th");
+        assertEq(shipped[1], "ti");
         string memory metadataPath = "out/test-launch-metadata-shapes.json";
         vm.writeFile(
             metadataPath,

@@ -16,6 +16,11 @@ other deploy scripts or production fleet invariants.
   plan it. The fixed snapshot test preserves this result. Inputs must be
   reconciled with sft-ops before cutover; adding fleet pins to the planner would
   change the requested skip rule.
+- **Retired rows:** cd-plan relaunches a deprecated row unless
+  `deprecated.retired === true`. `LibLaunchInputs` keeps the symbol shipped for
+  any `retired` value other than `false`, `0` and `null` (for example `"true"`,
+  `1` or `"false"`), so a mistyped flag skips the token instead of launching it
+  twice. Relaunching such a row needs the flag removed or set to `false`.
 - **Dedicated pin matching:** `dedicated-authorisers.ts::findDedicatedPin` uses
   the first case-insensitive match from `Object.keys(pins).find`.
   `LibLaunchPlan.findPin` preserves it. Rejecting ambiguous keys should be
