@@ -10,14 +10,7 @@ import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
 import {StoxWrappedTokenVault} from "../src/concrete/StoxWrappedTokenVault.sol";
-import {StoxUnifiedDeployer} from "../src/concrete/deploy/StoxUnifiedDeployer.sol";
 import {StoxWrappedTokenVaultBeacon} from "../src/concrete/StoxWrappedTokenVaultBeacon.sol";
-import {
-    StoxWrappedTokenVaultBeaconSetDeployer
-} from "../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";
-import {
-    StoxOffchainAssetReceiptVaultBeaconSetDeployer
-} from "../src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
@@ -25,7 +18,6 @@ import {
     StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 } from "../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
-import {ST0xOrchestratorBeaconSetDeployer} from "../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
 
 contract BuildPointers is Script {
     /// @notice The rolling "current source" snapshot tag — always `candidate`,
@@ -96,18 +88,7 @@ contract BuildPointers is Script {
         buildContractPointers("StoxReceipt", type(StoxReceipt).creationCode);
         buildContractPointers("StoxReceiptVault", type(StoxReceiptVault).creationCode);
         buildContractPointers("StoxWrappedTokenVault", type(StoxWrappedTokenVault).creationCode);
-        // Beacon must be built before the deployer since the deployer imports
-        // the beacon's pointer file.
         buildContractPointers("StoxWrappedTokenVaultBeacon", type(StoxWrappedTokenVaultBeacon).creationCode);
-        buildContractPointers(
-            "StoxWrappedTokenVaultBeaconSetDeployer", type(StoxWrappedTokenVaultBeaconSetDeployer).creationCode
-        );
-        // OARV deployer depends on StoxReceipt and StoxReceiptVault pointers.
-        buildContractPointers(
-            "StoxOffchainAssetReceiptVaultBeaconSetDeployer",
-            type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode
-        );
-        buildContractPointers("StoxUnifiedDeployer", type(StoxUnifiedDeployer).creationCode);
         // Authorizers have no dependencies on other Stox contracts.
         buildContractPointers(
             "StoxOffchainAssetReceiptVaultAuthorizerV1", type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode
@@ -116,11 +97,7 @@ contract BuildPointers is Script {
             "StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1",
             type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode
         );
-        // ST0x orchestrator. The beacon-set deployer's constructor bakes the
-        // orchestrator impl constant, so the impl must be built (and thus
-        // Zoltu-deployed at that address) before the deployer.
         buildContractPointers("ST0xOrchestrator", type(ST0xOrchestrator).creationCode);
-        buildContractPointers("ST0xOrchestratorBeaconSetDeployer", type(ST0xOrchestratorBeaconSetDeployer).creationCode);
 
         // Regenerate the deploy libs from the (now-updated) per-tag snapshots.
         genProdLibs();
