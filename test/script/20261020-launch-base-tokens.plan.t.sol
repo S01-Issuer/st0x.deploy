@@ -26,6 +26,7 @@ import {
     MissingName,
     NameIsTicker,
     UnicodeWhitespaceInName,
+    ControlCharacterInName,
     InvalidCountryIso,
     InvalidIsin,
     OwnerNotAllowlisted,
@@ -468,6 +469,8 @@ contract LaunchBaseTokensPlanTest is Test {
         assertTrue(vm.parseJsonBool(planJson, ".tokens.tMC.dedicated"));
         assertEq(vm.parseJsonAddress(planJson, ".tokens.tMC.dedicatedMinter"), MINTER);
         assertFalse(vm.keyExistsJson(planJson, ".tokens.tIBHG"));
+        string[] memory tokenKeys = vm.parseJsonKeys(planJson, ".tokens");
+        assertEq(tokenKeys.length, 3);
         assertEq(vm.parseJsonString(planJson, ".tokens.tWMT.symbol"), "tWMT");
         assertEq(vm.parseJsonString(planJson, ".tokens.tWMT.metadataFile"), "launch/metadata/wmt.json");
         assertEq(vm.parseJsonString(planJson, ".tokens.tWMT.type"), "equity");
@@ -494,6 +497,9 @@ contract LaunchBaseTokensPlanTest is Test {
         vm.etch(planner, "");
         vm.setEnv("LAUNCH_FILES", "launch/metadata/wmt.json");
         vm.setEnv("LAUNCH_PLAN_OUT", "out/test-launch-plan-empty-revert.json");
+        if (vm.exists("out/test-launch-plan-empty-revert.json")) {
+            vm.removeFile("out/test-launch-plan-empty-revert.json");
+        }
         vm.expectRevert(abi.encodeWithSelector(LaunchPlanInvalid.selector, 1));
         script.plan();
         assertFalse(vm.exists("out/test-launch-plan-empty-revert.json"));
@@ -575,25 +581,49 @@ contract LaunchBaseTokensPlanTest is Test {
     }
 
     function testDescribePlanMatchesThePlan() external view {
-        TokenPlan memory p;
-        p.symbol = "tIAU";
-        p.name = "iShares Gold Trust ST0x";
-        p.assetType = AssetType.Etf;
-        p.certifyUntil = 1818633600;
-        (string memory line, string memory dedicatedLine) = script.describePlan(p);
+        TokenPlan memory tokenPlan;
+        tokenPlan.symbol = "tIAU";
+        tokenPlan.name = "iShares Gold Trust ST0x";
+        tokenPlan.assetType = AssetType.Etf;
+        tokenPlan.certifyUntil = 1818633600;
+        (string memory line, string memory dedicatedLine) = script.describePlan(tokenPlan);
         assertEq(line, "  plan  tIAU \"iShares Gold Trust ST0x\" type=etf certify-until=2027-08-19");
         assertEq(dedicatedLine, "");
-        p.assetType = AssetType.Equity;
-        p.dedicated = true;
-        p.landingAuthoriser = address(1);
-        p.dedicatedMinter = address(2);
-        p.dedicatedMinterGrantPending = true;
-        (line, dedicatedLine) = script.describePlan(p);
+        tokenPlan.assetType = AssetType.Equity;
+        tokenPlan.dedicated = true;
+        tokenPlan.landingAuthoriser = address(1);
+        tokenPlan.dedicatedMinter = address(2);
+        tokenPlan.dedicatedMinterGrantPending = true;
+        (line, dedicatedLine) = script.describePlan(tokenPlan);
         assertEq(line, "  plan  tIAU \"iShares Gold Trust ST0x\" type=equity certify-until=2027-08-19");
         assertEq(
             dedicatedLine,
             "        authorizer=0x0000000000000000000000000000000000000001 (dedicated, minter 0x0000000000000000000000000000000000000002, grant pending)"
         );
+        tokenPlan.dedicatedMinterGrantPending = false;
+        (, dedicatedLine) = script.describePlan(tokenPlan);
+        assertEq(
+            dedicatedLine,
+            "        authorizer=0x0000000000000000000000000000000000000001 (dedicated, minter 0x0000000000000000000000000000000000000002)"
+        );
+    }
+
+    /// @notice A later duplicate names the first planned file, not an earlier
+    /// duplicate that was itself refused.
+    function testDuplicateNamesTheFirstPlannedFile() external {
+        address planner = vm.computeCreateAddress(address(script), vm.getNonce(address(script)));
+        TokenPlan memory tokenPlan;
+        tokenPlan.symbol = "tWMT";
+        vm.mockCall(planner, abi.encodeWithSelector(LaunchFilePlanner.planFile.selector), abi.encode(false, tokenPlan));
+        vm.etch(planner, "");
+        string[] memory files = new string[](3);
+        files[0] = "launch/metadata/a.json";
+        files[1] = "launch/metadata/b.json";
+        files[2] = "launch/metadata/c.json";
+        LaunchBaseTokens.FileOutcome[] memory outcomes = script.planFiles(files, _committedContext());
+        assertFalse(outcomes[0].failed);
+        assertEq(outcomes[1].failure, abi.encodeWithSelector(DuplicateSymbol.selector, "tWMT", files[0]));
+        assertEq(outcomes[2].failure, abi.encodeWithSelector(DuplicateSymbol.selector, "tWMT", files[0]));
     }
 
     function testDescribeFailureNamesTheField() external view {
@@ -709,6 +739,10 @@ contract LaunchBaseTokensPlanTest is Test {
         assertEq(
             script.describeFailure(abi.encodeWithSelector(NameIsTicker.selector, "HOOD")),
             "name is the ticker (HOOD), not the asset name"
+        );
+        assertEq(
+            script.describeFailure(abi.encodeWithSelector(ControlCharacterInName.selector, "A\nB")),
+            "name holds a control character: 0x410a42"
         );
         assertEq(
             script.describeFailure(abi.encodeWithSelector(UnicodeWhitespaceInName.selector, "Foo")),

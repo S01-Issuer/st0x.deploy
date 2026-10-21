@@ -10,6 +10,7 @@ import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
 /// Hinnant's `days_from_civil` / `civil_from_days`, valid for every date from
 /// 1970-01-01 on.
 library LibUtcDate {
+    /// @notice Seconds in a UTC day; unix time has no leap seconds.
     uint256 internal constant SECONDS_PER_DAY = 86400;
 
     // The algorithm truncates on purpose: each division takes a whole number
@@ -73,10 +74,10 @@ library LibUtcDate {
         return string.concat(_pad(year, 4), "-", _pad(month, 2), "-", _pad(day, 2));
     }
 
-    function _pad(uint256 value, uint256 width) private pure returns (string memory s) {
-        s = Strings.toString(value);
-        while (bytes(s).length < width) {
-            s = string.concat("0", s);
+    function _pad(uint256 value, uint256 width) private pure returns (string memory padded) {
+        padded = Strings.toString(value);
+        while (bytes(padded).length < width) {
+            padded = string.concat("0", padded);
         }
     }
 }

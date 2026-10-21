@@ -21,6 +21,7 @@ import {
     MissingName,
     NameIsTicker,
     UnicodeWhitespaceInName,
+    ControlCharacterInName,
     InvalidCountryIso,
     InvalidIsin,
     InvalidCounterparties,
@@ -228,8 +229,9 @@ contract LaunchBaseTokens is Script {
         return string.concat("  FAIL  ", file, " - ", describeFailure(failure));
     }
 
-    /// @notice The lines `_logPlan` prints. `dedicatedLine` is empty when the
-    /// token uses the shared authoriser.
+    /// @notice The plan line and, for a dedicated token, the authoriser line
+    /// that `describeOutcomes` adds to the log. `dedicatedLine` is empty when
+    /// the token uses the shared authoriser.
     /// @param tokenPlan The planned token.
     /// @return line The plan line.
     /// @return dedicatedLine The dedicated-authoriser line, or empty.
@@ -294,6 +296,10 @@ contract LaunchBaseTokens is Script {
         }
         if (selector == UnicodeWhitespaceInName.selector) {
             return string.concat("name holds Unicode whitespace: \"", abi.decode(args, (string)), "\"");
+        }
+        if (selector == ControlCharacterInName.selector) {
+            // The name itself would put the control character in the log.
+            return string.concat("name holds a control character: ", vm.toString(bytes(abi.decode(args, (string)))));
         }
         if (selector == InvalidCountryIso.selector) {
             return string.concat("country.iso must be a 2-letter code, got \"", abi.decode(args, (string)), "\"");

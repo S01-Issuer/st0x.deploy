@@ -26,6 +26,11 @@ error MissingName();
 /// deployed, so it is refused rather than normalised differently.
 error UnicodeWhitespaceInName(string name);
 
+/// @notice `name` holds a control character (C0, DEL or C1). The name is
+/// permanent once deployed and is printed to the job log, where a newline
+/// could start a workflow command. cd-plan accepts these.
+error ControlCharacterInName(string name);
+
 /// @notice `name` is the ticker or the token symbol, not the asset name: the
 /// tQQQM/tVWO/tARKK redeploys.
 error NameIsTicker(string name);
@@ -134,6 +139,8 @@ struct TokenPlan {
 /// @notice The checks sft-ops `cd-plan` makes before a Base token launch, and
 /// the launch arguments it derives from a metadata file.
 library LibLaunchPlan {
+    /// @notice Whole years from the plan time to the certification date, as
+    /// cd-plan's `addYearsUtc(now, 1)`.
     uint256 internal constant CERTIFY_YEARS = 1;
 
     /// @notice Plan one metadata file.
@@ -195,8 +202,9 @@ library LibLaunchPlan {
         revert UnsupportedAssetType(trimmed);
     }
 
-    /// @notice The trimmed name, which must be present, must hold no Unicode
-    /// whitespace and must not be the ticker or the symbol.
+    /// @notice The trimmed name, which must be present, must hold no control
+    /// character or Unicode whitespace and must not be the ticker or the
+    /// symbol.
     /// @param name The `name` field.
     /// @param ticker The trimmed ticker.
     /// @param symbol The derived symbol.
@@ -208,6 +216,7 @@ library LibLaunchPlan {
     {
         string memory trimmed = trim(name);
         if (bytes(trimmed).length == 0) revert MissingName();
+        if (_hasControlCharacter(bytes(trimmed))) revert ControlCharacterInName(trimmed);
         if (_hasUnicodeSpace(bytes(trimmed))) revert UnicodeWhitespaceInName(trimmed);
         string memory lowered = toLower(trimmed);
         if (Strings.equal(lowered, toLower(symbol)) || Strings.equal(lowered, toLower(ticker))) {
@@ -447,14 +456,24 @@ library LibLaunchPlan {
         return string(raised);
     }
 
-    /// @notice Whether `text` holds the UTF-8 encoding of a Unicode whitespace
-    /// character: U+0085, U+00A0, U+1680, U+2000 to U+200A, U+2028, U+2029,
-    /// U+202F, U+205F, U+3000 or U+FEFF.
+    /// @notice Whether `text` holds a C0 control, DEL, or the UTF-8 encoding of
+    /// a C1 control (U+0080 to U+009F).
+    function _hasControlCharacter(bytes memory text) private pure returns (bool) {
+        for (uint256 i = 0; i < text.length; i++) {
+            if (text[i] < 0x20 || text[i] == 0x7F) return true;
+            if (text[i] == 0xC2 && i + 1 < text.length && text[i + 1] >= 0x80 && text[i + 1] <= 0x9F) return true;
+        }
+        return false;
+    }
+
+    /// @notice Whether `text` holds the UTF-8 encoding of a character that
+    /// JavaScript's `trim()` and `\s` match beyond ASCII: U+00A0, U+1680,
+    /// U+2000 to U+200A, U+2028, U+2029, U+202F, U+205F, U+3000 or U+FEFF.
     function _hasUnicodeSpace(bytes memory text) private pure returns (bool) {
         for (uint256 i = 0; i + 1 < text.length; i++) {
             bytes1 lead = text[i];
             bytes1 next = text[i + 1];
-            if (lead == 0xC2 && (next == 0x85 || next == 0xA0)) return true;
+            if (lead == 0xC2 && next == 0xA0) return true;
             if (i + 2 >= text.length) continue;
             bytes1 last = text[i + 2];
             if (lead == 0xE1 && next == 0x9A && last == 0x80) return true;

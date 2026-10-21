@@ -21,6 +21,10 @@ other deploy scripts or production fleet invariants.
   any `retired` value other than `false`, `0` and `null` (for example `"true"`,
   `1` or `"false"`), so a mistyped flag skips the token instead of launching it
   twice. Relaunching such a row needs the flag removed or set to `false`.
+- **Name characters:** cd-plan accepts any `name`. `LibLaunchPlan.checkName`
+  refuses control characters (C0, DEL and C1, U+0085 included), because the name
+  is permanent and printed to the job log, and Unicode whitespace that
+  JavaScript's `trim()` would strip but this port does not.
 - **Dedicated pin matching:** `dedicated-authorisers.ts::findDedicatedPin` uses
   the first case-insensitive match from `Object.keys(pins).find`.
   `LibLaunchPlan.findPin` preserves it. Rejecting ambiguous keys should be

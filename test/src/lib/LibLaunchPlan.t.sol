@@ -17,6 +17,7 @@ import {
     MissingName,
     NameIsTicker,
     UnicodeWhitespaceInName,
+    ControlCharacterInName,
     InvalidCountryIso,
     InvalidIsin,
     InvalidCounterparties,
@@ -61,22 +62,22 @@ contract LibLaunchPlanTest is Test {
         names[2] = "Freedom Finance";
     }
 
-    function _hood() internal pure returns (LaunchMetadata memory m) {
-        m.primaryTicker = "HOOD";
-        m.assetType = "Equity";
-        m.name = "Robinhood Markets Inc";
-        m.isin = "US7707001027";
-        m.countryIso = "US";
-        m.counterparties = _usCounterparties();
+    function _hood() internal pure returns (LaunchMetadata memory metadata) {
+        metadata.primaryTicker = "HOOD";
+        metadata.assetType = "Equity";
+        metadata.name = "Robinhood Markets Inc";
+        metadata.isin = "US7707001027";
+        metadata.countryIso = "US";
+        metadata.counterparties = _usCounterparties();
     }
 
-    function _lvmh() internal pure returns (LaunchMetadata memory m) {
-        m = _hood();
-        m.primaryTicker = "MC";
-        m.name = unicode"LVMH Moët Hennessy Louis Vuitton SE";
-        m.isin = "FR0000121014";
-        m.countryIso = "FR";
-        m.counterparties = _nonUsCounterparties();
+    function _lvmh() internal pure returns (LaunchMetadata memory metadata) {
+        metadata = _hood();
+        metadata.primaryTicker = "MC";
+        metadata.name = unicode"LVMH Moët Hennessy Louis Vuitton SE";
+        metadata.isin = "FR0000121014";
+        metadata.countryIso = "FR";
+        metadata.counterparties = _nonUsCounterparties();
     }
 
     function _ctx() internal pure returns (PlanContext memory ctx) {
@@ -103,9 +104,9 @@ contract LibLaunchPlanTest is Test {
         if (allowlisted) ctx.allowlistedAuthorisers[0] = DEDICATED;
     }
 
-    function _plan(LaunchMetadata memory m) internal view returns (TokenPlan memory p) {
+    function _plan(LaunchMetadata memory metadata) internal view returns (TokenPlan memory tokenPlan) {
         bool skipped;
-        (skipped, p) = harness.planOne("launch/metadata/hood.json", m, _ctx());
+        (skipped, tokenPlan) = harness.planOne("launch/metadata/hood.json", metadata, _ctx());
         assertFalse(skipped);
     }
 
@@ -118,34 +119,34 @@ contract LibLaunchPlanTest is Test {
     // cd-plan derivation
 
     function testDerivesEveryArgumentFromTheMetadataFile() external view {
-        TokenPlan memory p = _plan(_hood());
-        assertEq(p.metadataFile, "launch/metadata/hood.json");
-        assertEq(p.symbol, "tHOOD");
-        assertEq(p.name, "Robinhood Markets Inc ST0x");
-        assertTrue(p.assetType == AssetType.Equity);
-        assertEq(LibUtcDate.toIsoDate(p.certifyUntil), "2027-08-19");
-        assertEq(p.certifyUntil % 86400, 0);
-        assertEq(p.intendedOwner, OWNER_SAFE);
-        assertEq(p.landingAuthoriser, SHARED);
-        assertFalse(p.dedicated);
+        TokenPlan memory tokenPlan = _plan(_hood());
+        assertEq(tokenPlan.metadataFile, "launch/metadata/hood.json");
+        assertEq(tokenPlan.symbol, "tHOOD");
+        assertEq(tokenPlan.name, "Robinhood Markets Inc ST0x");
+        assertTrue(tokenPlan.assetType == AssetType.Equity);
+        assertEq(LibUtcDate.toIsoDate(tokenPlan.certifyUntil), "2027-08-19");
+        assertEq(tokenPlan.certifyUntil % 86400, 0);
+        assertEq(tokenPlan.intendedOwner, OWNER_SAFE);
+        assertEq(tokenPlan.landingAuthoriser, SHARED);
+        assertFalse(tokenPlan.dedicated);
     }
 
     /// @notice PTY is a closed-end fund carrying asset_type "ETF" precisely so
     /// this holds.
     function testMapsEtfAssetTypeToTheEtfSchema() external view {
-        LaunchMetadata memory m = _hood();
-        m.primaryTicker = "PTY";
-        m.assetType = " \x0bETF\x0c ";
-        assertTrue(_plan(m).assetType == AssetType.Etf);
+        LaunchMetadata memory metadata = _hood();
+        metadata.primaryTicker = "PTY";
+        metadata.assetType = " \x0bETF\x0c ";
+        assertTrue(_plan(metadata).assetType == AssetType.Etf);
     }
 
     function testFoldsAdrParenthesisation() external view {
-        LaunchMetadata memory m = _hood();
-        m.primaryTicker = "TSM";
-        m.name = "Taiwan Semiconductor Manufacturing Company Limited (ADR)";
-        m.isin = "US8740391003";
-        m.countryIso = "TW";
-        assertEq(_plan(m).name, "Taiwan Semiconductor Manufacturing Company Limited ADR ST0x");
+        LaunchMetadata memory metadata = _hood();
+        metadata.primaryTicker = "TSM";
+        metadata.name = "Taiwan Semiconductor Manufacturing Company Limited (ADR)";
+        metadata.isin = "US8740391003";
+        metadata.countryIso = "TW";
+        assertEq(_plan(metadata).name, "Taiwan Semiconductor Manufacturing Company Limited ADR ST0x");
     }
 
     // cd-plan refusals
@@ -158,24 +159,24 @@ contract LibLaunchPlanTest is Test {
     /// @notice The ledger symbols are lower-cased on load, so a ledger row
     /// `THOOD` skips `tHOOD`.
     function testSkipIsCaseInsensitive() external view {
-        LaunchMetadata memory m = _hood();
-        m.primaryTicker = "hood";
-        (bool skipped,) = harness.planOne("launch/metadata/hood.json", m, _shipped("thood"));
+        LaunchMetadata memory metadata = _hood();
+        metadata.primaryTicker = "hood";
+        (bool skipped,) = harness.planOne("launch/metadata/hood.json", metadata, _shipped("thood"));
         assertTrue(skipped);
     }
 
     function testRejectsAnUnknownAssetType() external {
-        LaunchMetadata memory m = _hood();
-        m.assetType = "Fund";
+        LaunchMetadata memory metadata = _hood();
+        metadata.assetType = "Fund";
         vm.expectRevert(abi.encodeWithSelector(UnsupportedAssetType.selector, "Fund"));
-        harness.planOne("f", m, _ctx());
+        harness.planOne("f", metadata, _ctx());
     }
 
     function testRejectsAnEmptyCountryIso() external {
-        LaunchMetadata memory m = _hood();
-        m.countryIso = "";
+        LaunchMetadata memory metadata = _hood();
+        metadata.countryIso = "";
         vm.expectRevert(abi.encodeWithSelector(InvalidCountryIso.selector, ""));
-        harness.planOne("f", m, _ctx());
+        harness.planOne("f", metadata, _ctx());
     }
 
     function testRejectsMalformedCountryIso() external {
@@ -208,92 +209,92 @@ contract LibLaunchPlanTest is Test {
     }
 
     function testUpperCasesTheIsinBeforeChecking() external view {
-        LaunchMetadata memory m = _hood();
-        m.isin = " us7707001027 ";
-        _plan(m);
+        LaunchMetadata memory metadata = _hood();
+        metadata.isin = " us7707001027 ";
+        _plan(metadata);
     }
 
     function testRejectsTheRetiredCounterpartySet() external {
-        LaunchMetadata memory m = _hood();
-        m.counterparties = new string[](3);
-        m.counterparties[0] = "AlpacaDB Inc";
-        m.counterparties[1] = "Charles Schwab & Co., Inc.";
-        m.counterparties[2] = "Freedom Finance";
+        LaunchMetadata memory metadata = _hood();
+        metadata.counterparties = new string[](3);
+        metadata.counterparties[0] = "AlpacaDB Inc";
+        metadata.counterparties[1] = "Charles Schwab & Co., Inc.";
+        metadata.counterparties[2] = "Freedom Finance";
         vm.expectRevert(InvalidCounterparties.selector);
-        harness.planOne("f", m, _ctx());
+        harness.planOne("f", metadata, _ctx());
     }
 
     function testAcceptsCounterpartiesInEitherOrder() external view {
-        LaunchMetadata memory m = _hood();
-        m.counterparties[0] = "Clear Street LLC";
-        m.counterparties[1] = "AlpacaDB Inc";
-        _plan(m);
+        LaunchMetadata memory metadata = _hood();
+        metadata.counterparties[0] = "Clear Street LLC";
+        metadata.counterparties[1] = "AlpacaDB Inc";
+        _plan(metadata);
     }
 
     function testAcceptsTheNonUsCounterpartySet() external view {
-        LaunchMetadata memory m = _hood();
-        m.counterparties = _nonUsCounterparties();
-        _plan(m);
+        LaunchMetadata memory metadata = _hood();
+        metadata.counterparties = _nonUsCounterparties();
+        _plan(metadata);
     }
 
     function testRejectsFreedomFinanceWithoutTheUsPair() external {
-        LaunchMetadata memory m = _hood();
-        m.counterparties[1] = "Freedom Finance";
+        LaunchMetadata memory metadata = _hood();
+        metadata.counterparties[1] = "Freedom Finance";
         vm.expectRevert(InvalidCounterparties.selector);
-        harness.planOne("f", m, _ctx());
+        harness.planOne("f", metadata, _ctx());
     }
 
     function testRejectsAMissingPrimaryTicker() external {
-        LaunchMetadata memory m = _hood();
-        m.primaryTicker = "";
+        LaunchMetadata memory metadata = _hood();
+        metadata.primaryTicker = "";
         vm.expectRevert(MissingPrimaryTicker.selector);
-        harness.planOne("f", m, _ctx());
+        harness.planOne("f", metadata, _ctx());
     }
 
     function testRejectsATickerThatIsNotAPlainSymbol() external {
         string[4] memory bad = ["A;B", "../X", "A B", "X$(Y)"];
         for (uint256 i = 0; i < bad.length; i++) {
-            LaunchMetadata memory m = _hood();
-            m.primaryTicker = bad[i];
+            LaunchMetadata memory metadata = _hood();
+            metadata.primaryTicker = bad[i];
             vm.expectRevert(abi.encodeWithSelector(InvalidTicker.selector, bad[i]));
-            harness.planOne("f", m, _ctx());
+            harness.planOne("f", metadata, _ctx());
         }
     }
 
     function testAcceptsDottedAndDashedTickers() external view {
-        LaunchMetadata memory m = _hood();
-        m.primaryTicker = "air.pa";
-        m.countryIso = "FR";
-        m.isin = "NL0000235190";
-        assertEq(_plan(m).symbol, "tAIR.PA");
-        m.primaryTicker = "BRK-B";
-        assertEq(_plan(m).symbol, "tBRK-B");
-        m.primaryTicker = "7203.T";
-        assertEq(_plan(m).symbol, "t7203.T");
+        LaunchMetadata memory metadata = _hood();
+        metadata.primaryTicker = "air.pa";
+        metadata.countryIso = "FR";
+        metadata.isin = "NL0000235190";
+        assertEq(_plan(metadata).symbol, "tAIR.PA");
+        metadata.primaryTicker = "BRK-B";
+        assertEq(_plan(metadata).symbol, "tBRK-B");
+        metadata.primaryTicker = "7203.T";
+        assertEq(_plan(metadata).symbol, "t7203.T");
     }
 
     function testRejectsAMissingName() external {
-        LaunchMetadata memory m = _hood();
-        m.name = "  ";
+        LaunchMetadata memory metadata = _hood();
+        metadata.name = "  ";
         vm.expectRevert(MissingName.selector);
-        harness.planOne("f", m, _ctx());
+        harness.planOne("f", metadata, _ctx());
     }
 
     /// @notice The tQQQM/tVWO/tARKK redeploys.
     function testRefusesANameThatIsTheTokenSymbol() external {
-        LaunchMetadata memory m = _hood();
-        m.primaryTicker = "QQQM";
-        m.name = "tQQQM";
+        LaunchMetadata memory metadata = _hood();
+        metadata.primaryTicker = "QQQM";
+        metadata.name = "tQQQM";
         vm.expectRevert(abi.encodeWithSelector(NameIsTicker.selector, "tQQQM"));
-        harness.planOne("f", m, _ctx());
+        harness.planOne("f", metadata, _ctx());
     }
 
     function testRefusesANameThatIsTheBareTicker() external {
-        LaunchMetadata memory m = _hood();
-        m.primaryTicker = "QQQM";
-        m.name = "QQQM";
+        LaunchMetadata memory metadata = _hood();
+        metadata.primaryTicker = "QQQM";
+        metadata.name = "QQQM";
         vm.expectRevert(abi.encodeWithSelector(NameIsTicker.selector, "QQQM"));
-        harness.planOne("f", m, _ctx());
+        harness.planOne("f", metadata, _ctx());
     }
 
     function testRefusesAnOwnerThatIsNotAllowlisted() external {
@@ -306,32 +307,32 @@ contract LibLaunchPlanTest is Test {
     // cd-plan dedicated authorisers
 
     function testCarriesTheDedicatedAuthoriserAndMinterIntoThePlan() external view {
-        (bool skipped, TokenPlan memory p) =
+        (bool skipped, TokenPlan memory tokenPlan) =
             harness.planOne("launch/metadata/mc.json", _lvmh(), _lvmhCtx(_pinned(), true));
         assertFalse(skipped);
-        assertEq(p.symbol, "tMC");
-        assertEq(p.name, unicode"LVMH Moët Hennessy Louis Vuitton SE ST0x");
-        assertTrue(p.dedicated);
-        assertEq(p.landingAuthoriser, DEDICATED);
-        assertEq(p.dedicatedMinter, MINTER);
-        assertEq(p.dedicatedDeployBlock, 41_000_000);
-        assertFalse(p.dedicatedMinterGrantPending);
+        assertEq(tokenPlan.symbol, "tMC");
+        assertEq(tokenPlan.name, unicode"LVMH Moët Hennessy Louis Vuitton SE ST0x");
+        assertTrue(tokenPlan.dedicated);
+        assertEq(tokenPlan.landingAuthoriser, DEDICATED);
+        assertEq(tokenPlan.dedicatedMinter, MINTER);
+        assertEq(tokenPlan.dedicatedDeployBlock, 41_000_000);
+        assertFalse(tokenPlan.dedicatedMinterGrantPending);
     }
 
     function testMatchesThePinCaseInsensitively() external view {
         DedicatedPin memory pin = _pinned();
         pin.symbol = "TMC";
-        LaunchMetadata memory m = _lvmh();
-        m.primaryTicker = "mc";
-        (, TokenPlan memory p) = harness.planOne("f", m, _lvmhCtx(pin, true));
-        assertEq(p.landingAuthoriser, DEDICATED);
+        LaunchMetadata memory metadata = _lvmh();
+        metadata.primaryTicker = "mc";
+        (, TokenPlan memory tokenPlan) = harness.planOne("f", metadata, _lvmhCtx(pin, true));
+        assertEq(tokenPlan.landingAuthoriser, DEDICATED);
     }
 
     function testLeavesUnpinnedTokensOnTheSharedAuthoriser() external view {
-        TokenPlan memory p = _plan(_hood());
-        assertFalse(p.dedicated);
-        assertEq(p.landingAuthoriser, SHARED);
-        assertEq(p.dedicatedMinter, address(0));
+        TokenPlan memory tokenPlan = _plan(_hood());
+        assertFalse(tokenPlan.dedicated);
+        assertEq(tokenPlan.landingAuthoriser, SHARED);
+        assertEq(tokenPlan.dedicatedMinter, address(0));
     }
 
     function testRefusesAZeroPlaceholderAuthoriser() external {
@@ -409,10 +410,10 @@ contract LibLaunchPlanTest is Test {
     function testPassesTheGrantPendingFlagOnlyWhenThePinSaysSo() external view {
         DedicatedPin memory pin = _pinned();
         pin.minterGrantPending = true;
-        (, TokenPlan memory p) = harness.planOne("f", _lvmh(), _lvmhCtx(pin, true));
-        assertTrue(p.dedicatedMinterGrantPending);
-        (, p) = harness.planOne("f", _lvmh(), _lvmhCtx(_pinned(), true));
-        assertFalse(p.dedicatedMinterGrantPending);
+        (, TokenPlan memory tokenPlan) = harness.planOne("f", _lvmh(), _lvmhCtx(pin, true));
+        assertTrue(tokenPlan.dedicatedMinterGrantPending);
+        (, tokenPlan) = harness.planOne("f", _lvmh(), _lvmhCtx(_pinned(), true));
+        assertFalse(tokenPlan.dedicatedMinterGrantPending);
     }
 
     /// @notice The loader reads a missing, negative or fractional
@@ -440,10 +441,10 @@ contract LibLaunchPlanTest is Test {
         for (uint256 i = 0; i < 256; i++) {
             // i stays in 0..255, so the narrowing cast loses no bits.
             // forge-lint: disable-next-line(unsafe-typecast)
-            bytes1 c = bytes1(uint8(i));
-            bool allowed =
-                (c >= "A" && c <= "Z") || (c >= "a" && c <= "z") || (c >= "0" && c <= "9") || c == "." || c == "-";
-            assertEq(LibLaunchPlan.isTicker(string(abi.encodePacked("A", c))), allowed);
+            bytes1 char = bytes1(uint8(i));
+            bool allowed = (char >= "A" && char <= "Z") || (char >= "a" && char <= "z") || (char >= "0" && char <= "9")
+                || char == "." || char == "-";
+            assertEq(LibLaunchPlan.isTicker(string(abi.encodePacked("A", char))), allowed);
         }
     }
 
@@ -451,11 +452,11 @@ contract LibLaunchPlanTest is Test {
         for (uint256 i = 0; i < 256; i++) {
             // i stays in 0..255, so the narrowing cast loses no bits.
             // forge-lint: disable-next-line(unsafe-typecast)
-            bytes1 c = bytes1(uint8(i));
-            bool upper = c >= "A" && c <= "Z";
-            bool digit = c >= "0" && c <= "9";
-            assertEq(LibLaunchPlan.isIsin(string(abi.encodePacked("US77070010", c, "7"))), upper || digit);
-            assertEq(LibLaunchPlan.isIsin(string(abi.encodePacked("US770700102", c))), digit);
+            bytes1 char = bytes1(uint8(i));
+            bool upper = char >= "A" && char <= "Z";
+            bool digit = char >= "0" && char <= "9";
+            assertEq(LibLaunchPlan.isIsin(string(abi.encodePacked("US77070010", char, "7"))), upper || digit);
+            assertEq(LibLaunchPlan.isIsin(string(abi.encodePacked("US770700102", char))), digit);
         }
     }
 
@@ -648,9 +649,8 @@ contract LibLaunchPlanTest is Test {
     }
 
     function testRefusesUnicodeWhitespaceInTheName() external {
-        bytes[17] memory spaces = [
-            bytes(hex"c285"),
-            hex"c2a0",
+        bytes[16] memory spaces = [
+            bytes(hex"c2a0"),
             hex"e19a80",
             hex"e28080",
             hex"e28081",
@@ -668,14 +668,48 @@ contract LibLaunchPlanTest is Test {
             hex"efbbbf"
         ];
         for (uint256 i = 0; i < spaces.length; i++) {
-            LaunchMetadata memory metadata = _hood();
-            string memory name = string.concat("Robinhood", string(spaces[i]), "Markets Inc");
-            metadata.name = string.concat(name, string(spaces[i]));
-            vm.expectRevert(abi.encodeWithSelector(UnicodeWhitespaceInName.selector, metadata.name));
-            harness.planOne("f", metadata, _ctx());
+            LaunchMetadata memory inside = _hood();
+            inside.name = string.concat("Robinhood", string(spaces[i]), "Markets Inc");
+            vm.expectRevert(abi.encodeWithSelector(UnicodeWhitespaceInName.selector, inside.name));
+            harness.planOne("f", inside, _ctx());
+            LaunchMetadata memory trailing = _hood();
+            trailing.name = string.concat("Robinhood Markets Inc", string(spaces[i]));
+            vm.expectRevert(abi.encodeWithSelector(UnicodeWhitespaceInName.selector, trailing.name));
+            harness.planOne("f", trailing, _ctx());
         }
         LaunchMetadata memory accented = _hood();
         accented.name = unicode"Moët Hennessy\u00e0 Louis Vuitton";
         assertEq(_plan(accented).name, unicode"Moët Hennessyà Louis Vuitton ST0x");
+    }
+
+    /// @notice Format characters next to the refused ranges are not
+    /// whitespace to JavaScript, so cd-plan accepts them and so does this.
+    function testAcceptsFormatCharactersThatJavaScriptDoesNotTreatAsSpace() external view {
+        bytes[5] memory notSpaces = [bytes(hex"e1a08e"), hex"e2808b", hex"e2808c", hex"e2808d", hex"e281a0"];
+        for (uint256 i = 0; i < notSpaces.length; i++) {
+            LaunchMetadata memory metadata = _hood();
+            metadata.name = string.concat("Robinhood", string(notSpaces[i]), "Markets Inc");
+            assertEq(_plan(metadata).name, string.concat(metadata.name, " ST0x"));
+        }
+    }
+
+    function testRefusesControlCharactersInTheName() external {
+        for (uint256 code = 0; code < 0x20; code++) {
+            _expectControlRefused(abi.encodePacked(bytes32(code)[31]));
+        }
+        _expectControlRefused(hex"7f");
+        _expectControlRefused(hex"c280");
+        _expectControlRefused(hex"c285");
+        _expectControlRefused(hex"c29f");
+        LaunchMetadata memory metadata = _hood();
+        metadata.name = unicode"Robinhood\u00a1Markets Inc";
+        assertEq(_plan(metadata).name, unicode"Robinhood\u00a1Markets Inc ST0x");
+    }
+
+    function _expectControlRefused(bytes memory control) internal {
+        LaunchMetadata memory metadata = _hood();
+        metadata.name = string.concat("Robinhood", string(control), "Markets Inc");
+        vm.expectRevert(abi.encodeWithSelector(ControlCharacterInName.selector, metadata.name));
+        harness.planOne("f", metadata, _ctx());
     }
 }
