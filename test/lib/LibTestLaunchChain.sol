@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
+import {IReceiptVaultV1} from "rain-vats-0.2.5/src/interface/deprecated/IReceiptVaultV1.sol";
 import {LibProdLaunchBase} from "../../src/lib/LibProdLaunchBase.sol";
 
 /// @title LibTestLaunchChain
@@ -41,12 +42,11 @@ library LibTestLaunchChain {
     }
 
     bytes32 internal constant META_V1_2 = keccak256("MetaV1_2(address,bytes32,bytes)");
-    bytes32 internal constant RECEIPT_VAULT_INFORMATION = keccak256("ReceiptVaultInformation(address,bytes)");
 
     /// @notice The schema document `vault` published in `blockNumber`.
     function schemaDocument(address vault, uint256 blockNumber) internal view returns (bytes memory document) {
         bytes32[] memory topics = new bytes32[](1);
-        topics[0] = RECEIPT_VAULT_INFORMATION;
+        topics[0] = IReceiptVaultV1.ReceiptVaultInformation.selector;
         Vm.EthGetLogs[] memory logs = VM.eth_getLogs(blockNumber, blockNumber, vault, topics);
         require(logs.length == 1, "expected one schema publication");
         (, document) = abi.decode(logs[0].data, (address, bytes));
