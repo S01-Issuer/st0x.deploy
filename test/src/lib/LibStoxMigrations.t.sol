@@ -4,14 +4,14 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistry.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.19-main/src/lib/LibMigrationRegistry.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.19-main/src/lib/LibRainDeploy.sol";
 import {
-    IMigrationRegistryV2,
+    IMigrationRegistryV3,
     MIGRATION_HEAD_GENESIS,
     Prerequisite
-} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistryDeploy.sol";
+} from "rain-deploy-0.1.19-main/src/interface/IMigrationRegistryV3.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.19-main/src/lib/LibMigrationRegistryDeploy.sol";
 
 import {LibOrchestratorInvariants} from "../../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
@@ -118,14 +118,14 @@ contract LibStoxMigrationsTest is Test {
         Prerequisite[] memory prerequisites = LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS);
 
         (address to, bytes memory data) =
-            LibStoxMigrations.applyMigrationCall(LibStoxMigrations.ORCHESTRATOR_EMERGENCY, prerequisites);
+            LibStoxMigrations.applyMigrationCall(writer, LibStoxMigrations.ORCHESTRATOR_EMERGENCY, prerequisites);
 
         assertEq(to, LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
         assertEq(
             data,
             abi.encodeCall(
-                IMigrationRegistryV2.applyMigration,
-                (LibStoxMigrations.NAMESPACE, LibStoxMigrations.ORCHESTRATOR_EMERGENCY, prerequisites)
+                IMigrationRegistryV3.applyMigrationV3,
+                (writer, LibStoxMigrations.NAMESPACE, LibStoxMigrations.ORCHESTRATOR_EMERGENCY, prerequisites)
             )
         );
     }
@@ -138,15 +138,21 @@ contract LibStoxMigrationsTest is Test {
         Prerequisite[] memory prerequisites = LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS);
 
         (address to, bytes memory data) = LibStoxMigrations.applyMigrationHistoryCall(
-            LibStoxMigrations.GOVERNANCE_TIMELOCK, 1_791_056_759, prerequisites
+            writer, LibStoxMigrations.GOVERNANCE_TIMELOCK, 1_791_056_759, prerequisites
         );
 
         assertEq(to, LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
         assertEq(
             data,
             abi.encodeCall(
-                IMigrationRegistryV2.applyMigrationHistory,
-                (LibStoxMigrations.NAMESPACE, LibStoxMigrations.GOVERNANCE_TIMELOCK, 1_791_056_759, prerequisites)
+                IMigrationRegistryV3.applyMigrationHistoryV3,
+                (
+                    writer,
+                    LibStoxMigrations.NAMESPACE,
+                    LibStoxMigrations.GOVERNANCE_TIMELOCK,
+                    1_791_056_759,
+                    prerequisites
+                )
             )
         );
     }

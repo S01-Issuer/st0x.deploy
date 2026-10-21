@@ -16,10 +16,10 @@ import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {LibSafeTx, SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJson.sol";
-import {LibSafe} from "rain-deploy-0.1.18/src/lib/LibSafe.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.19-main/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.19-main/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.19-main/src/lib/LibSafeTxBuilderJson.sol";
+import {LibSafe} from "rain-deploy-0.1.19-main/src/lib/LibSafe.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 

@@ -4,9 +4,9 @@ pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
-import {ICloneableFactoryV4} from "rain-factory-0.1.30/src/interface/ICloneableFactoryV4.sol";
-import {LibCloneFactoryDeploy} from "rain-factory-deploy-0.1.15/src/lib/LibCloneFactoryDeploy.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {ICloneableFactoryV4} from "rain-factory-0.2.4/src/interface/deprecated/ICloneableFactoryV4.sol";
+import {LibCloneFactoryDeploy} from "rain-factory-deploy-0.2.1/src/lib/LibCloneFactoryDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.19-main/src/lib/LibRainDeploy.sol";
 
 import {EuAuthoriserDeploySuites} from "../src/abstract/EuAuthoriserDeploySuites.sol";
 import {EU_AUTHORISER_SALT, LibEuAuthoriserClone} from "../src/lib/LibEuAuthoriserClone.sol";

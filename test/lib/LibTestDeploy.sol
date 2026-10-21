@@ -3,7 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.19-main/src/lib/LibRainDeploy.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {StoxReceipt} from "../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../src/concrete/StoxReceiptVault.sol";

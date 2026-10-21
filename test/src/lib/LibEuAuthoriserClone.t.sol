@@ -3,10 +3,10 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibICloneableFactoryV4} from "rain-factory-0.1.30/src/lib/LibICloneableFactoryV4.sol";
+import {LibICloneableFactoryV5} from "rain-factory-0.2.4/src/lib/LibICloneableFactoryV5.sol";
 
 import {EU_AUTHORISER_SALT, LibEuAuthoriserClone} from "../../../src/lib/LibEuAuthoriserClone.sol";
-import {LibCloneFactoryDeploy} from "rain-factory-deploy-0.1.15/src/lib/LibCloneFactoryDeploy.sol";
+import {LibCloneFactoryDeploy} from "rain-factory-deploy-0.2.1/src/lib/LibCloneFactoryDeploy.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
@@ -204,8 +204,8 @@ contract LibEuAuthoriserCloneTest is Test {
         // The declaration's address, re-derived from the same three inputs.
         assertEq(
             LibEuAuthoriserClone.cloneDeployedAddress(LibSafeInvariants.BASE_CHAIN_ID),
-            LibICloneableFactoryV4.predictCloneAddress(
-                factory, implementation, LibICloneableFactoryV4.effectiveOpenSalt(EU_AUTHORISER_SALT, data)
+            LibICloneableFactoryV5.predictCloneAddress(
+                factory, implementation, LibICloneableFactoryV5.effectiveOpenSalt(EU_AUTHORISER_SALT, data)
             ),
             "address is the open-salt derivation"
         );
@@ -215,8 +215,8 @@ contract LibEuAuthoriserCloneTest is Test {
         // cannot silently collide with another clone of this implementation.
         assertTrue(
             LibEuAuthoriserClone.cloneDeployedAddress(LibSafeInvariants.BASE_CHAIN_ID)
-                != LibICloneableFactoryV4.predictCloneAddress(
-                    factory, implementation, LibICloneableFactoryV4.effectiveOpenSalt(bytes32(0), data)
+                != LibICloneableFactoryV5.predictCloneAddress(
+                    factory, implementation, LibICloneableFactoryV5.effectiveOpenSalt(bytes32(0), data)
                 ),
             "a different salt is a different address"
         );

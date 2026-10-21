@@ -2,11 +2,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {LibICloneableFactoryV4} from "rain-factory-0.1.30/src/lib/LibICloneableFactoryV4.sol";
-import {LibCloneFactoryDeploy} from "rain-factory-deploy-0.1.15/src/lib/LibCloneFactoryDeploy.sol";
+import {LibICloneableFactoryV5} from "rain-factory-0.2.4/src/lib/LibICloneableFactoryV5.sol";
+import {LibCloneFactoryDeploy} from "rain-factory-deploy-0.2.1/src/lib/LibCloneFactoryDeploy.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.2.5/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.2.6-pr345/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
@@ -50,7 +50,7 @@ library LibEuAuthoriserClone {
     /// spelling of the proxy layout.
     /// @return The creation code.
     function cloneCreationCode() internal pure returns (bytes memory) {
-        return LibICloneableFactoryV4.cloneCreationCode(implementation());
+        return LibICloneableFactoryV5.cloneCreationCode(implementation());
     }
 
     /// @notice The clone's runtime code: the creation code's tail, which is
@@ -75,10 +75,10 @@ library LibEuAuthoriserClone {
     /// @param chainId The chain the clone is for.
     /// @return The predicted clone address.
     function cloneDeployedAddress(uint256 chainId) internal pure returns (address) {
-        return LibICloneableFactoryV4.predictCloneAddress(
+        return LibICloneableFactoryV5.predictCloneAddress(
             LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS,
             implementation(),
-            LibICloneableFactoryV4.effectiveOpenSalt(EU_AUTHORISER_SALT, cloneData(chainId))
+            LibICloneableFactoryV5.effectiveOpenSalt(EU_AUTHORISER_SALT, cloneData(chainId))
         );
     }
 
