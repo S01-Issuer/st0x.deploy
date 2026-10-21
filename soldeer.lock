@@ -63,10 +63,10 @@ integrity = "7a311375a8aa65ca50e11f19413ae2bfe9103d9efdda27a67f08f25cd7022ff8"
 
 [[dependencies]]
 name = "rain-math-float"
-version = "0.3.3"
-url = "https://soldeer-revisions.s3.amazonaws.com/rain-math-float/0_3_3_14-10-2026_16:26:38_rain.math.zip"
-checksum = "c40776b5eb3c93c2ee10ad747ba755ef7daae8a0a1b0fa81f602890ded87e364"
-integrity = "40c5496a7baac28b6837f94d040ed87f171cbbf2f7cbb6c988a27b1573839c59"
+version = "0.3.10"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-math-float/0_3_10_16-10-2026_16:22:13_rain.math.zip"
+checksum = "81e6c67cc0e2c573784f1c03e70db1ea9537e8161065ded0aaf90bc11b6b6150"
+integrity = "f1509e5fa3a4182b625f4650fb368fe605f76ffcaeaa6fbbf1159346b69f2809"
 
 [[dependencies]]
 name = "rain-sol-codegen"
