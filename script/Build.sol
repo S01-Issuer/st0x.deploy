@@ -6,6 +6,12 @@ import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {VmSafe} from "forge-std-1.17.0/src/Vm.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.39/src/lib/LibCodeGen.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {
+    LibRainDeploySnapshot,
+    NonMonotonicRelease,
+    NothingToFreeze,
+    SnapshotAlreadyFrozen
+} from "rain-deploy-0.1.18/src/lib/LibRainDeploySnapshot.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
@@ -27,11 +33,11 @@ import {
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {ST0xOrchestratorBeaconSetDeployer} from "../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
 
-contract BuildPointers is Script {
+contract Build is Script {
     /// @notice The rolling "current source" snapshot tag — always `candidate`,
     /// never a version number. `src/generated/candidate/` is regenerated from
     /// the current source on every run; a numbered snapshot is frozen only when
-    /// a release tag promotes `candidate` (see `script/cut-release.sh`). Source
+    /// a release tag promotes `candidate` (see `cutRelease()`). Source
     /// self-references (`LibProdDeployCurrent`) always resolve to `candidate`,
     /// so they track whatever the source currently compiles to, while numbered
     /// snapshots (`0_1_1`, …) stay frozen and are never regenerated here.
@@ -58,14 +64,14 @@ contract BuildPointers is Script {
     /// `src/generated/<tag>/` — the rolling `candidate` snapshot for the
     /// current `deployTag()`. Numbered release snapshots are frozen and never
     /// regenerated here; a release freezes a copy of `candidate` beside them
-    /// (see `script/cut-release.sh`).
+    /// (see `cutRelease()`).
     /// @param creationCode The creation bytecode of the contract, typically
     /// obtained via `type(ContractName).creationCode`.
     function buildContractPointers(string memory name, bytes memory creationCode) internal {
         address deployed = LibRainDeploy.deployZoltu(creationCode);
 
         vm.writeFile(
-            string.concat("src/generated/", deployTag(), "/", name, ".pointers.sol"),
+            pointerPath(deployTag(), name),
             string.concat(
                 LibCodeGen.filePrefix(),
                 LibCodeGen.bytecodeHashConstantString(vm, deployed),
@@ -85,7 +91,47 @@ contract BuildPointers is Script {
         );
     }
 
+    /// @notice Regenerate the rolling `candidate/` snapshot and the deploy libs.
+    /// Freezes nothing.
     function run() external {
+        regenerateSnapshots();
+        genProdLibs();
+    }
+
+    /// @notice Regenerate `candidate/`, freeze it as
+    /// `src/generated/<[external.package].version>/`, then regenerate the
+    /// deploy libs over the record.
+    function cutRelease() external {
+        string memory tag = LibRainDeploySnapshot.deployTag(vm);
+        string memory frozenDir = string.concat("src/generated/", tag);
+        if (vm.exists(frozenDir)) revert SnapshotAlreadyFrozen(tag, frozenDir);
+        string[] memory tags = deployTags();
+        if (tags.length > 1 && tagKey(tags[tags.length - 2]) >= tagKey(tag)) {
+            revert NonMonotonicRelease(tag, tags[tags.length - 2]);
+        }
+
+        regenerateSnapshots();
+
+        string[12] memory names = contractNames();
+        string[12] memory records;
+        for (uint256 c = 0; c < 12; c++) {
+            string memory rollingPath = pointerPath(CANDIDATE_TAG, names[c]);
+            if (!vm.exists(rollingPath)) revert NothingToFreeze(rollingPath);
+            records[c] = vm.readFile(rollingPath);
+        }
+        vm.createDir(frozenDir, true);
+        for (uint256 c = 0; c < 12; c++) {
+            vm.writeFile(pointerPath(tag, names[c]), records[c]);
+        }
+
+        genProdLibs();
+    }
+
+    function pointerPath(string memory tag, string memory name) internal pure returns (string memory) {
+        return string.concat("src/generated/", tag, "/", name, ".pointers.sol");
+    }
+
+    function regenerateSnapshots() internal {
         LibRainDeploy.etchZoltuFactory(vm);
 
         // Regenerate the rolling `candidate/` snapshot from current source.
@@ -121,9 +167,6 @@ contract BuildPointers is Script {
         // Zoltu-deployed at that address) before the deployer.
         buildContractPointers("ST0xOrchestrator", type(ST0xOrchestrator).creationCode);
         buildContractPointers("ST0xOrchestratorBeaconSetDeployer", type(ST0xOrchestratorBeaconSetDeployer).creationCode);
-
-        // Regenerate the deploy libs from the (now-updated) per-tag snapshots.
-        genProdLibs();
     }
 
     // =========================================================================
@@ -264,7 +307,7 @@ contract BuildPointers is Script {
     }
 
     function pointerExists(string memory tag, string memory name) internal view returns (bool) {
-        return vm.exists(string.concat("src/generated/", tag, "/", name, ".pointers.sol"));
+        return vm.exists(pointerPath(tag, name));
     }
 
     function writeGeneratedHeader(string memory path) internal {
@@ -273,7 +316,7 @@ contract BuildPointers is Script {
         vm.writeLine(path, GEN_SPDX_COPYRIGHT);
         vm.writeLine(path, "pragma solidity ^0.8.25;");
         vm.writeLine(path, "");
-        vm.writeLine(path, "// GENERATED by script/BuildPointers.sol. Do not edit.");
+        vm.writeLine(path, "// GENERATED by script/Build.sol. Do not edit.");
     }
 
     function v4ImportLine(string memory name, string memory base, string memory tag)
@@ -402,7 +445,7 @@ contract BuildPointers is Script {
     function genCurrent() internal {
         string memory tag = deployTag();
         string memory suffix = tagSuffix(tag);
-        require(vm.exists(string.concat("src/generated/", tag)), "BuildPointers: current tag dir missing");
+        require(vm.exists(string.concat("src/generated/", tag)), "Build: current tag dir missing");
         string[12] memory names = contractNames();
         string[12] memory bases = contractBases();
 
