@@ -4,13 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {NonMonotonicRelease, SnapshotAlreadyFrozen} from "rain-deploy-0.1.18/src/lib/LibRainDeploySnapshot.sol";
-import {Build} from "../../script/Build.sol";
-
-contract BuildCutReleaseGuardsHarness is Build {
-    function checkReleaseIsNewExternal(string memory root, string memory tag) external view returns (string memory) {
-        return checkReleaseIsNew(root, tag);
-    }
-}
+import {BuildCutReleaseGuardsHarness} from "./BuildCutReleaseGuardsHarness.sol";
 
 contract BuildCutReleaseGuardsTest is Test {
     BuildCutReleaseGuardsHarness internal build = new BuildCutReleaseGuardsHarness();
@@ -50,6 +44,12 @@ contract BuildCutReleaseGuardsTest is Test {
         string memory root = record("below-newest", dirs3("0_1_1", "0_1_30", "candidate"));
         vm.expectRevert(abi.encodeWithSelector(NonMonotonicRelease.selector, "0_1_29", "0_1_30"));
         build.checkReleaseIsNewExternal(root, "0_1_29");
+    }
+
+    function testCutReleaseRefusesASpellingOfTheNewestRelease() external {
+        string memory root = record("respelled-newest", dirs3("0_1_1", "0_1_30", "candidate"));
+        vm.expectRevert(abi.encodeWithSelector(NonMonotonicRelease.selector, "0_1_030", "0_1_30"));
+        build.checkReleaseIsNewExternal(root, "0_1_030");
     }
 
     function testCutReleaseOrdersReleasesNumerically() external {
