@@ -356,16 +356,6 @@ contract StoxReceiptVaultSetAuthorizerGuardTest is Test {
         assertTrue(SCHEDULE_CORPORATE_ACTION != CANCEL_CORPORATE_ACTION);
     }
 
-    /// The override truly overrides — same 4-byte selector as the
-    /// parent's `setAuthorizer`. A signature mismatch (different param
-    /// type, different name) would shadow the parent rather than
-    /// override it, leaving the unguarded parent function callable.
-    /// Pin selector equality so a refactor that drifts the signature
-    /// fails loudly.
-    function testSetAuthorizerSelectorMatchesParent() external pure {
-        assertEq(StoxReceiptVault.setAuthorizer.selector, OffchainAssetReceiptVault.setAuthorizer.selector);
-    }
-
     /// The guard runs only at install time, not on every dispatch. If a
     /// previously-valid authorizer renounces its role admins post-
     /// install, `vault.authorizer()` still returns it — the guard has

@@ -20,7 +20,7 @@ import {
     VALID_ACTION_TYPES_MASK
 } from "../../../../src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "../../../../src/lib/LibCorporateActionNode.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.19-main/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.20/src/lib/LibRainDeploy.sol";
 import {IReceiptVaultV3} from "rain-vats-0.2.6-pr345/src/interface/IReceiptVaultV3.sol";
 import {IReceiptV3} from "rain-vats-0.2.6-pr345/src/interface/IReceiptV3.sol";
 import {IAuthorizableV1} from "rain-vats-0.2.6-pr345/src/interface/IAuthorizableV1.sol";

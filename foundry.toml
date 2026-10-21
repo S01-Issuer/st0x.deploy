@@ -19,7 +19,7 @@ optimizer = true
 # Changing it moves every Zoltu address: the vault pins the facet and the orchestrator
 # pins vault + receipt, so all three deploy in lockstep. Dependency-pinned bytecode
 # (rain-deploy's TimelockController, 2000 runs) does not reproduce under this profile.
-optimizer_runs = 1666
+optimizer_runs = 200
 
 evm_version = "cancun"
 
@@ -50,7 +50,7 @@ remappings = [
 forge-std = "1.17.0"
 "@openzeppelin-contracts" = "5.7.0"
 "@openzeppelin-contracts-upgradeable" = "5.7.0"
-"rain-deploy" = { version = "0.1.19-main", git = "https://github.com/rainlanguage/rain.deploy.git", rev = "0131e35b435dd95fe29af07a977ddc58073a3605" }
+"rain-deploy" = "0.1.20"
 safe-global-safe-smart-account = "1.4.1-3"
 "rain-extrospection" = "0.1.14"
 "rain-extrospection-deploy" = "0.1.0"
@@ -61,7 +61,7 @@ safe-global-safe-smart-account = "1.4.1-3"
 "rain-sol-codegen" = "0.1.39"
 "rain-solmem" = "0.1.28"
 "rain-tofu-erc20-decimals" = "0.1.4"
-"rain-vats" = { version = "0.2.6-pr345", git = "https://github.com/rainlanguage/rain.vats.git", rev = "e7c77be4effa431809c865904aacd5315ac69b62" }
+"rain-vats" = { version = "0.2.6-pr345", git = "https://github.com/rainlanguage/rain.vats.git", rev = "ac73779bb9311a2bd506a517f13097c558be0378" }
 "rain-verify-interface" = "0.1.0"
 
 [soldeer]
