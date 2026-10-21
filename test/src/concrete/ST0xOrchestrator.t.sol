@@ -5,9 +5,9 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
-import {IST0xVaultBeaconSet} from "../../../src/interface/IST0xVaultBeaconSet.sol";
 import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../../../src/interface/IST0xOrchestratorV1.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
+import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 
 import {Initializable} from "@openzeppelin-contracts-upgradeable-5.7.0/proxy/utils/Initializable.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
@@ -61,13 +61,10 @@ contract ST0xOrchestratorTest is Test {
     /// Default admin passed to `initialize`.
     address internal constant OWNER = address(0x0FFCE);
 
-    /// The vault-version guard reads these fixed production addresses. The
-    /// orchestrator's `_checkVaultLogic` reads the current-release (candidate) pins,
-    /// so the mocks target the candidate deployer and impls.
-    address internal constant DEPLOYER =
-        LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE;
-    address internal constant VAULT_BEACON = address(0xBEAC04);
-    address internal constant RECEIPT_BEACON = address(0xBEAC12);
+    /// The vault-version guard reads the V1 production beacons and compares
+    /// them with the candidate impls, so the mocks target those.
+    address internal constant VAULT_BEACON = LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1;
+    address internal constant RECEIPT_BEACON = LibProdDeployV1.STOX_RECEIPT_BEACON_V1;
     address internal constant EXPECTED_VAULT_IMPL = LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE;
     address internal constant EXPECTED_RECEIPT_IMPL = LibProdDeployV4.STOX_RECEIPT_CANDIDATE;
 
@@ -101,17 +98,9 @@ contract ST0xOrchestratorTest is Test {
         return ST0xOrchestrator(payable(address(proxy)));
     }
 
-    /// Make the vault-logic version guard PASS: the deployer resolves each
-    /// beacon and each beacon reports the expected implementation.
+    /// Make the vault-logic version guard PASS: each beacon reports the
+    /// expected implementation.
     function _makeGuardPass() internal {
-        vm.mockCall(
-            DEPLOYER,
-            abi.encodeWithSelector(IST0xVaultBeaconSet.iOffchainAssetReceiptVaultBeacon.selector),
-            abi.encode(VAULT_BEACON)
-        );
-        vm.mockCall(
-            DEPLOYER, abi.encodeWithSelector(IST0xVaultBeaconSet.iReceiptBeacon.selector), abi.encode(RECEIPT_BEACON)
-        );
         vm.mockCall(
             VAULT_BEACON, abi.encodeWithSelector(IBeacon.implementation.selector), abi.encode(EXPECTED_VAULT_IMPL)
         );

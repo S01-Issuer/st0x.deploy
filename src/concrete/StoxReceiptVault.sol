@@ -3,8 +3,9 @@
 pragma solidity =0.8.25;
 
 import {OffchainAssetReceiptVault} from "rain-vats-0.2.6-pr345/src/concrete/vault/OffchainAssetReceiptVault.sol";
-import {ConfigRegistryOffchainAssetReceiptVault} from
-    "rain-vats-0.2.6-pr345/src/concrete/vault/ConfigRegistryOffchainAssetReceiptVault.sol";
+import {
+    ConfigRegistryOffchainAssetReceiptVault
+} from "rain-vats-0.2.6-pr345/src/concrete/vault/ConfigRegistryOffchainAssetReceiptVault.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {LibProdDeployV1} from "../lib/LibProdDeployV1.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.6-pr345/src/interface/IAuthorizeV1.sol";

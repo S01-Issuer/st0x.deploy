@@ -161,7 +161,8 @@ contract ST0xOrchestrator is
 
     /// @inheritdoc IST0xOrchestratorV1
     function vaultLogicIsExpected() external view returns (bool) {
-        return IBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1).implementation() == LibProdDeployCurrent.STOX_RECEIPT_VAULT
+        return IBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1).implementation()
+                == LibProdDeployCurrent.STOX_RECEIPT_VAULT
             && IBeacon(LibProdDeployV1.STOX_RECEIPT_BEACON_V1).implementation() == LibProdDeployCurrent.STOX_RECEIPT;
     }
 

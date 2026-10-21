@@ -6,9 +6,7 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.20/src/lib/LibRainDeploy.sol";
 import {LibTimelockController} from "rain-deploy-0.1.20/src/lib/LibTimelockController.sol";
-import {
-    CREATION_CODE as TIMELOCK_CREATION_CODE
-} from "rain-deploy-0.1.20/src/generated/0_1_18/TimelockController.sol";
+import {CREATION_CODE as TIMELOCK_CREATION_CODE} from "rain-deploy-0.1.20/src/generated/0_1_18/TimelockController.sol";
 import {LibTimelockInvariants, UnsupportedChainForGovernanceTimelock} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariantsHarness} from "./LibTimelockInvariantsHarness.sol";

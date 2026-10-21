@@ -2,9 +2,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {IST0xVaultBeaconSet} from "../../../../src/interface/IST0xVaultBeaconSet.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV1.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
+import {LibProdDeployV1} from "../../../../src/lib/LibProdDeployV1.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 
 /// @title GuardPassesAgainstRealV4BeaconsTest
@@ -18,15 +19,13 @@ contract GuardPassesAgainstRealV4BeaconsTest is OrchestratorIntegrationTest {
         assertTrue(orchestrator.vaultLogicIsExpected(), "guard must pass against the real V4 beacons");
 
         // Cross-check the beacons the guard reads really are the V4 impls.
-        IST0xVaultBeaconSet beaconSet =
-            IST0xVaultBeaconSet(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE);
         assertEq(
-            beaconSet.iOffchainAssetReceiptVaultBeacon().implementation(),
+            IBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1).implementation(),
             LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE,
             "vault beacon points at V4 vault impl"
         );
         assertEq(
-            beaconSet.iReceiptBeacon().implementation(),
+            IBeacon(LibProdDeployV1.STOX_RECEIPT_BEACON_V1).implementation(),
             LibProdDeployV4.STOX_RECEIPT_CANDIDATE,
             "receipt beacon points at V4 receipt impl"
         );
