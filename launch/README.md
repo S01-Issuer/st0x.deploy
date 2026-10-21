@@ -12,3 +12,10 @@ see `audit/known-false-positives.md`).
 `test/fixtures/launch/` holds a frozen copy of the `ee39d0d` ledger and metadata
 for the parity test. Apply any redaction of `launches.json` to
 `test/fixtures/launch/launches-ee39d0d.json` in the same commit.
+
+## Launch helper
+
+`ffi/` is the Node helper the launch calls through `vm.ffi`. Only the
+`launch-ffi-test` workflow runs its tests and the ffi integration tests, and
+that check is not required by the `main` ruleset. A change under `launch/ffi/`
+must not merge until `launch-ffi-test` is green on its head.
