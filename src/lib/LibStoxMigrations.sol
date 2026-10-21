@@ -4,41 +4,30 @@ pragma solidity ^0.8.25;
 
 import {LibMigrationRegistry} from "rain-deploy-0.1.20/src/lib/LibMigrationRegistry.sol";
 import {Prerequisite} from "rain-deploy-0.1.20/src/interface/IMigrationRegistryV3.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.20/src/lib/LibRainDeploy.sol";
-
-import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
-
-/// @notice No execution moment is pinned for the governance-timelock
-/// migration on this chain.
-/// @param chainId The chain asked about.
-error NoGovernanceTimelockMigrationOnChain(uint256 chainId);
 
 /// @title LibStoxMigrations
 /// @notice The ids under which this repo's operational scripts record what
 /// they applied in `rain-deploy`'s `MigrationRegistry`, and the reads the
 /// invariants branch on.
 ///
-/// A migration recorded with its change is recorded by the account that
-/// performs it, as the last call of the same transaction, so the record and
-/// the change land atomically:
+/// Every record is in ONE line per chain: `WRITER`'s, in `NAMESPACE`. The
+/// account that performs a migration writes its record as `WRITER`'s approved
+/// delegate, as the last call of the same transaction, so the record and the
+/// change land atomically:
 ///
-/// - a migration the chain's token-owner Safe performs directly records
-///   under the Safe, in the Safe's MultiSend (both orchestrator ids here);
-/// - a migration executed through the governance timelock records under the
+/// - a migration the chain's token-owner Safe performs directly is recorded by
+///   the Safe, in its MultiSend (both orchestrator ids here);
+/// - a migration executed through the governance timelock is recorded by the
 ///   timelock, as the last call of the scheduled batch, so it lands
-///   atomically whoever executes the matured operation. Its invariant reads
-///   the timelock's line.
+///   atomically whoever executes the matured operation.
 ///
-/// The exception is a migration that ran before anything was recorded: it
-/// is recorded later as history, with the moment it executed
-/// (`GOVERNANCE_TIMELOCK`, written by the orchestrator EMERGENCY bundle).
-/// Until that record lands, `applied` answering zero does NOT mean it has
-/// not run, so no invariant branches on `GOVERNANCE_TIMELOCK`'s record.
+/// The line starts empty: what ran before it, such as the move of the beacons
+/// to the governance timelock, is not recorded, and an invariant that depends
+/// on it reads that state from the chain.
 ///
-/// For every id recorded with its change, an invariant asserts exactly the
-/// state the recorded migrations imply: `applied` answering zero means the
-/// migration has not run on this chain, and the pre-migration state must
-/// hold exactly.
+/// For every id, an invariant asserts exactly the state the recorded
+/// migrations imply: `applied` answering zero means the migration has not run
+/// on this chain, and the pre-migration state must hold exactly.
 ///
 /// The records live in ONE registry instance: the address and code hash
 /// `LibMigrationRegistryDeploy` carries in the imported rain-deploy. A
@@ -52,11 +41,10 @@ library LibStoxMigrations {
     /// @notice The namespace every st0x.deploy record is written in.
     bytes32 internal constant NAMESPACE = keccak256("st0x.deploy");
 
-    /// @notice `script/20260729-migrate-governance-to-timelock.s.sol`: vault
-    /// and beacon ownership plus the authoriser `_ADMIN` roles to the
-    /// governance timelock. Ran before anything was recorded, so it is
-    /// recorded as history with the moment it executed.
-    bytes32 internal constant GOVERNANCE_TIMELOCK = keccak256("script/20260729-migrate-governance-to-timelock.s.sol");
+    /// @notice The writer of every st0x.deploy record: the root authority, the
+    /// same account on every chain, which approves each chain's Safe and
+    /// governance timelock to write its line in `NAMESPACE`.
+    address internal constant WRITER = address(0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c);
 
     /// @notice `script/20261006-grant-orchestrator-emergency.s.sol`: the
     /// chain's Safe is granted `EMERGENCY_ROLE` on the orchestrator.
@@ -68,99 +56,50 @@ library LibStoxMigrations {
     bytes32 internal constant ORCHESTRATOR_ADMIN_TO_TIMELOCK =
         keccak256("script/20261006-orchestrator-admin-to-timelock.s.sol");
 
-    /// @notice The block timestamp of the Safe transaction that executed the
-    /// governance-timelock migration on `chainId`: the block in which the
-    /// orchestrator beacon's `OwnershipTransferred(safe, timelock)` was
-    /// emitted.
-    ///
-    /// `chainId` resolves to a network through `rain-deploy`'s catalogue
-    /// entries for `LibStoxDeployNetworks.deploymentNetworks()`, so chain ids
-    /// are stated once, in the catalogue; the moments are pinned per network
-    /// name.
-    /// @param chainId The chain id.
-    /// @return The execution moment, unix seconds.
-    /// @return The block the migration executed in.
-    function governanceTimelockExecution(uint256 chainId) internal pure returns (uint256, uint256) {
-        SupportedNetwork[] memory networks =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
-        for (uint256 i = 0; i < networks.length; i++) {
-            if (networks[i].chainId == chainId) {
-                bytes32 name = keccak256(bytes(networks[i].name));
-                if (name == keccak256(bytes(LibRainDeploy.ETHEREUM))) return (1_791_056_759, 26_113_992);
-                if (name == keccak256(bytes(LibRainDeploy.HYPEREVM))) return (1_791_062_016, 47_585_501);
-                if (name == keccak256(bytes(LibRainDeploy.BSC))) return (1_791_109_807, 125_660_540);
-                if (name == keccak256(bytes(LibRainDeploy.ROBINHOOD))) return (1_791_131_389, 80_078_305);
-                if (name == keccak256(bytes(LibRainDeploy.BASE))) return (1_791_142_369, 52_176_511);
-            }
-        }
-        revert NoGovernanceTimelockMigrationOnChain(chainId);
-    }
-
-    /// @notice When `writer` recorded `migration` in this repo's namespace, or
-    /// zero if it never did. Verifies the registry's code hash first.
-    /// @param writer The account that performed the migration: the chain's
-    /// Safe for a Safe-executed migration, its timelock for a
-    /// timelock-executed one.
+    /// @notice When `migration` was recorded in this repo's line, or zero if
+    /// it never was. Verifies the registry's code hash first.
     /// @param migration The migration id.
     /// @return The recorded moment, or zero.
-    function applied(address writer, bytes32 migration) internal view returns (uint256) {
-        return LibMigrationRegistry.appliedV3(writer, NAMESPACE, migration);
+    function applied(bytes32 migration) internal view returns (uint256) {
+        return LibMigrationRegistry.appliedV3(WRITER, NAMESPACE, migration);
     }
 
-    /// @notice The migration `writer`'s line in this repo's namespace was last
-    /// applied onto, or `MIGRATION_HEAD_GENESIS` if it has recorded nothing.
-    /// @param writer The account whose line to read.
+    /// @notice The migration this repo's line was last applied onto, or
+    /// `MIGRATION_HEAD_GENESIS` if it has recorded nothing.
     /// @return The head.
-    function head(address writer) internal view returns (bytes32) {
-        return LibMigrationRegistry.headV3(writer, NAMESPACE);
+    function head() internal view returns (bytes32) {
+        return LibMigrationRegistry.headV3(WRITER, NAMESPACE);
     }
 
-    /// @notice The registry call that records `migration` under the caller
-    /// in this repo's namespace, after `prerequisites`: the `to` and `data`
-    /// of a Safe bundle entry. Verifies the registry's code hash first.
-    /// @param writer The account the record is written under: the Safe that
-    /// executes the call, or a writer that approved it.
+    /// @notice Whether `delegate` may write this repo's line.
+    /// @param delegate The account asked about: a chain's Safe or timelock.
+    /// @return `WRITER`'s approval of it for `NAMESPACE`.
+    function approved(address delegate) internal view returns (bool) {
+        return LibMigrationRegistry.approvedV3(WRITER, NAMESPACE, delegate);
+    }
+
+    /// @notice The registry call that records `migration` in this repo's
+    /// line, after `prerequisites`: the `to` and `data` of a bundle entry,
+    /// made by an approved delegate. Verifies the registry's code hash first.
     /// @param migration The migration id.
     /// @param prerequisites What it is applied after.
     /// @return The registry.
     /// @return The calldata.
-    function applyMigrationCall(address writer, bytes32 migration, Prerequisite[] memory prerequisites)
+    function applyMigrationCall(bytes32 migration, Prerequisite[] memory prerequisites)
         internal
         view
         returns (address, bytes memory)
     {
         (address registry, bytes memory data) =
-            LibMigrationRegistry.applyMigrationV3Call(writer, NAMESPACE, migration, prerequisites);
-        return (registry, data);
-    }
-
-    /// @notice The registry call that records `migration` under the caller
-    /// in this repo's namespace as history, at `appliedAt`, after
-    /// `prerequisites`. Verifies the registry's code hash first.
-    /// @param writer The account the record is written under.
-    /// @param migration The migration id.
-    /// @param appliedAt When the migration executed, unix seconds.
-    /// @param prerequisites What it is applied after.
-    /// @return The registry.
-    /// @return The calldata.
-    function applyMigrationHistoryCall(
-        address writer,
-        bytes32 migration,
-        uint256 appliedAt,
-        Prerequisite[] memory prerequisites
-    ) internal view returns (address, bytes memory) {
-        (address registry, bytes memory data) = LibMigrationRegistry.applyMigrationHistoryV3Call(
-            writer, NAMESPACE, migration, appliedAt, prerequisites
-        );
+            LibMigrationRegistry.applyMigrationV3Call(WRITER, NAMESPACE, migration, prerequisites);
         return (registry, data);
     }
 
     /// @notice The prerequisite list for a migration applied onto
-    /// `headMigration` that waits on nothing outside the writer's own line.
-    /// @param writer The account writing the record.
+    /// `headMigration` that waits on nothing outside this repo's line.
     /// @param headMigration The head the migration is applied onto.
     /// @return The single-entry list naming the head.
-    function onto(address writer, bytes32 headMigration) internal pure returns (Prerequisite[] memory) {
-        return LibMigrationRegistry.onto(writer, NAMESPACE, headMigration);
+    function onto(bytes32 headMigration) internal pure returns (Prerequisite[] memory) {
+        return LibMigrationRegistry.onto(WRITER, NAMESPACE, headMigration);
     }
 }

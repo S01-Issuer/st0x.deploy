@@ -58,7 +58,7 @@ contract LibOrchestratorInvariantsTest is Test {
     /// @notice Fork Base and stand in a fresh Safe: it becomes the sole
     /// `DEFAULT_ADMIN_ROLE` holder, taking it from whichever of the real
     /// Safe and the timelock holds it, and the timelock is cleared of every
-    /// operating role. The stand-in's registry line is at genesis.
+    /// operating role. This repo's registry line is at genesis.
     function selectScenarioFork() internal {
         selectFork(LibRainDeploy.BASE);
         address realSafe = safe;
@@ -80,40 +80,27 @@ contract LibOrchestratorInvariantsTest is Test {
             orchestrator.revokeRole(roles[i], timelock);
         }
         vm.stopPrank();
-        assertEq(LibStoxMigrations.head(safe), MIGRATION_HEAD_GENESIS, "stand-in line not at genesis");
+        assertEq(LibStoxMigrations.head(), MIGRATION_HEAD_GENESIS, "line not at genesis");
     }
 
     /// @notice Record the chain's migrations up to and including `upTo`, as
-    /// the Safe, in line order. Recording only — no role is touched.
+    /// the root authority, in line order. Recording only — no role is touched.
     function record(bytes32 upTo) internal {
-        (uint256 executedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
-        vm.startPrank(safe);
-        if (LibStoxMigrations.head(safe) == MIGRATION_HEAD_GENESIS) {
-            registry.applyMigrationHistoryV3(
-                safe,
-                LibStoxMigrations.NAMESPACE,
-                LibStoxMigrations.GOVERNANCE_TIMELOCK,
-                executedAt,
-                LibStoxMigrations.onto(safe, MIGRATION_HEAD_GENESIS)
-            );
-        }
-        if (
-            upTo != LibStoxMigrations.GOVERNANCE_TIMELOCK
-                && LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0
-        ) {
+        vm.startPrank(LibStoxMigrations.WRITER);
+        if (LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0) {
             registry.applyMigrationV3(
-                safe,
+                LibStoxMigrations.WRITER,
                 LibStoxMigrations.NAMESPACE,
                 LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
-                LibStoxMigrations.onto(safe, LibStoxMigrations.GOVERNANCE_TIMELOCK)
+                LibStoxMigrations.onto(MIGRATION_HEAD_GENESIS)
             );
         }
         if (upTo == LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) {
             registry.applyMigrationV3(
-                safe,
+                LibStoxMigrations.WRITER,
                 LibStoxMigrations.NAMESPACE,
                 LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-                LibStoxMigrations.onto(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY)
+                LibStoxMigrations.onto(LibStoxMigrations.ORCHESTRATOR_EMERGENCY)
             );
         }
         vm.stopPrank();

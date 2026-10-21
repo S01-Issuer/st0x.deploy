@@ -16,25 +16,30 @@ import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
-/// @notice The Safe's line in the migration registry is not where this
+/// @notice This repo's line in the migration registry is not where this
 /// script applies: it has recorded something, so either this bundle has
 /// already executed on the chain or a migration this script does not know
 /// about has.
 /// @param head The line's head.
 error UnexpectedMigrationLine(bytes32 head);
 
+/// @notice The Safe is not approved to write this repo's line under
+/// `LibStoxMigrations.WRITER`, so the record would revert.
+/// @param safe The Safe.
+error SafeNotApprovedWriter(address safe);
+
 /// @notice The Safe already holds `EMERGENCY_ROLE` without the record this
 /// script writes: it was granted outside a recorded migration.
 error EmergencyAlreadyGranted();
 
-/// @notice After the bundle, a migration's record is not the one the bundle
+/// @notice After the bundle, the migration's record is not the one the bundle
 /// wrote.
 /// @param migration The migration.
 /// @param expected The moment the bundle records.
 /// @param actual The moment the registry answers.
 error RecordMismatch(bytes32 migration, uint256 expected, uint256 actual);
 
-/// @notice After the bundle, the Safe's line does not end at this script's
+/// @notice After the bundle, this repo's line does not end at this script's
 /// record.
 /// @param head The line's head.
 error LineHeadMismatch(bytes32 head);
@@ -46,18 +51,13 @@ error EmergencyNotRevoked();
 /// @title GrantOrchestratorEmergency
 /// @notice Authors the per-chain Safe Tx Builder bundle that grants the
 /// chain's token-owner Safe `EMERGENCY_ROLE` on the orchestrator, and starts
-/// the Safe's line in `rain-deploy`'s `MigrationRegistry`. Three calls, one
+/// this repo's line in `rain-deploy`'s `MigrationRegistry`. Two calls, one
 /// atomic MultiSend:
 ///
 /// 1. `orchestrator.grantRole(EMERGENCY, safe)`.
-/// 2. `registry.applyMigrationHistory(GOVERNANCE_TIMELOCK, executedAt,
-///    [genesis])`: the governance-timelock migration ran before anything
-///    was recorded, so it is recorded with the moment it executed on this
-///    chain (`LibStoxMigrations.governanceTimelockExecution`). Recording it
-///    first keeps the line in the order the migrations ran; once anything
-///    later is recorded, the registry refuses an earlier moment.
-/// 3. `registry.applyMigration(ORCHESTRATOR_EMERGENCY, [GOVERNANCE_TIMELOCK])`:
-///    the grant's own record, stamped with the block it lands in.
+/// 2. `registry.applyMigrationV3(WRITER, NAMESPACE, ORCHESTRATOR_EMERGENCY,
+///    [genesis])`: the grant's record, stamped with the block it lands in,
+///    written by the Safe as `LibStoxMigrations.WRITER`'s approved delegate.
 ///
 /// `EMERGENCY_ROLE` is administered by `DEFAULT_ADMIN_ROLE`, which the Safe
 /// holds, so the grant is immediate. The admin move to the timelock is
@@ -74,7 +74,8 @@ error EmergencyNotRevoked();
 ///
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261006-grant-orchestrator-emergency` per chain. Refuses once
-/// the Safe's line has moved off genesis (`UnexpectedMigrationLine`).
+/// the line has moved off genesis (`UnexpectedMigrationLine`), and until
+/// `WRITER` has approved the Safe (`SafeNotApprovedWriter`).
 contract GrantOrchestratorEmergency is SafeBundleScript {
     /// @notice The orchestrator instance, typed for its role-id getters.
     ST0xOrchestrator internal constant ORCHESTRATOR =
@@ -99,17 +100,20 @@ contract GrantOrchestratorEmergency is SafeBundleScript {
 
     /// @inheritdoc SafeBundleScript
     /// @dev The Safe, the timelock and the orchestrator are what this repo
-    /// pins, the Safe's registry line is at genesis, and the Safe does not yet
-    /// hold `EMERGENCY_ROLE`.
+    /// pins, this repo's line is at genesis and the Safe may write it, and the
+    /// Safe does not yet hold `EMERGENCY_ROLE`.
     function preflight() internal view override {
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock, chainSafe);
         LibOrchestratorInvariants.assertBeaconSet();
 
-        bytes32 head = LibStoxMigrations.head(chainSafe);
+        bytes32 head = LibStoxMigrations.head();
         if (head != MIGRATION_HEAD_GENESIS) {
             revert UnexpectedMigrationLine(head);
+        }
+        if (!LibStoxMigrations.approved(chainSafe)) {
+            revert SafeNotApprovedWriter(chainSafe);
         }
         if (ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), chainSafe)) {
             revert EmergencyAlreadyGranted();
@@ -118,54 +122,38 @@ contract GrantOrchestratorEmergency is SafeBundleScript {
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev The grant, then the two records.
+    /// @dev The grant, then its record.
     function authorBundle() internal view override returns (SafeTx[] memory) {
         address chainSafe = address(safe());
-        (uint256 executedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
 
-        SafeTx[] memory txs = new SafeTx[](3);
+        SafeTx[] memory txs = new SafeTx[](2);
         txs[0] = SafeTx({
             to: address(ORCHESTRATOR),
             value: 0,
             data: abi.encodeCall(IAccessControl.grantRole, (ORCHESTRATOR.EMERGENCY_ROLE(), chainSafe)),
             operation: Enum.Operation.Call
         });
-        (address historyTo, bytes memory historyData) = LibStoxMigrations.applyMigrationHistoryCall(
-            chainSafe,
-            LibStoxMigrations.GOVERNANCE_TIMELOCK,
-            executedAt,
-            LibStoxMigrations.onto(chainSafe, MIGRATION_HEAD_GENESIS)
-        );
-        txs[1] = SafeTx({to: historyTo, value: 0, data: historyData, operation: Enum.Operation.Call});
         (address recordTo, bytes memory recordData) = LibStoxMigrations.applyMigrationCall(
-            chainSafe,
-            LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
-            LibStoxMigrations.onto(chainSafe, LibStoxMigrations.GOVERNANCE_TIMELOCK)
+            LibStoxMigrations.ORCHESTRATOR_EMERGENCY, LibStoxMigrations.onto(MIGRATION_HEAD_GENESIS)
         );
-        txs[2] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
+        txs[1] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
         return txs;
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev The records are exactly the two this bundle writes, the
-    /// orchestrator's roles are what they imply, and the Safe still carries the
-    /// token-owner policy.
+    /// @dev The record is this bundle's, the orchestrator's roles are what it
+    /// implies, and the Safe still carries the token-owner policy.
     function assertPostState() internal view override {
         address chainSafe = address(safe());
-        (uint256 executedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
-        uint256 timelockRecord = LibStoxMigrations.applied(chainSafe, LibStoxMigrations.GOVERNANCE_TIMELOCK);
-        if (timelockRecord != executedAt) {
-            revert RecordMismatch(LibStoxMigrations.GOVERNANCE_TIMELOCK, executedAt, timelockRecord);
-        }
         // The registry stamps the block the record lands in, which on the
         // fork is this block: an equality with a known value, not a window.
-        uint256 emergencyRecord = LibStoxMigrations.applied(chainSafe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
+        uint256 emergencyRecord = LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
         // forge-lint: disable-next-line(block-timestamp)
         if (emergencyRecord != block.timestamp) {
             // forge-lint: disable-next-line(block-timestamp)
             revert RecordMismatch(LibStoxMigrations.ORCHESTRATOR_EMERGENCY, block.timestamp, emergencyRecord);
         }
-        bytes32 head = LibStoxMigrations.head(chainSafe);
+        bytes32 head = LibStoxMigrations.head();
         if (head != LibStoxMigrations.ORCHESTRATOR_EMERGENCY) {
             revert LineHeadMismatch(head);
         }

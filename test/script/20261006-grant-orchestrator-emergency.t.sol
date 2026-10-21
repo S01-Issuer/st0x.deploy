@@ -16,6 +16,7 @@ import {LibSafeTxBuilderJson} from "rain-deploy-0.1.20/src/lib/LibSafeTxBuilderJ
 import {
     EmergencyAlreadyGranted,
     EmergencyNotRevoked,
+    SafeNotApprovedWriter,
     UnexpectedMigrationLine
 } from "../../script/20261006-grant-orchestrator-emergency.s.sol";
 import {GrantOrchestratorEmergencyHarness} from "./GrantOrchestratorEmergencyHarness.sol";
@@ -43,23 +44,33 @@ contract GrantOrchestratorEmergencyTest is Test {
     ST0xOrchestrator internal constant ORCHESTRATOR =
         ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
 
+    /// @notice The root authority's approval of `safe` as a writer of this
+    /// repo's line, on the fork, where the chain does not carry it yet.
+    /// @param safe The chain's Safe.
+    function approveSafe(address safe) internal {
+        if (!LibStoxMigrations.approved(safe)) {
+            vm.prank(LibStoxMigrations.WRITER);
+            IMigrationRegistryV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
+                .approveV3(LibStoxMigrations.NAMESPACE, safe);
+        }
+    }
+
     function assertBundle(string memory network) internal {
         vm.createSelectFork(network);
         GrantOrchestratorEmergencyHarness script = new GrantOrchestratorEmergencyHarness(network);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
 
-        if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) != 0) {
+        if (LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_EMERGENCY) != 0) {
             console2.log(string.concat("EXECUTED [", network, "]: asserting the post-grant state"));
             LibOrchestratorInvariants.assertInstance(safe);
             assertTrue(ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), safe));
-            (uint256 timelockMigratedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
-            assertEq(LibStoxMigrations.applied(safe, LibStoxMigrations.GOVERNANCE_TIMELOCK), timelockMigratedAt);
-            vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.head(safe)));
+            vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.head()));
             script.callPreflight();
             return;
         }
 
         console2.log(string.concat("PENDING [", network, "]: authoring, verifying and executing the bundle"));
+        approveSafe(safe);
         uint256 preRun = vm.snapshotState();
         script.run();
         assertTrue(ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), safe), "run: EMERGENCY");
@@ -75,10 +86,8 @@ contract GrantOrchestratorEmergencyTest is Test {
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), txs);
 
         assertTrue(ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), safe), "exec: EMERGENCY");
-        assertEq(LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY), block.timestamp);
-        (uint256 executedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
-        assertEq(LibStoxMigrations.applied(safe, LibStoxMigrations.GOVERNANCE_TIMELOCK), executedAt);
-        assertEq(LibStoxMigrations.head(safe), LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
+        assertEq(LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_EMERGENCY), block.timestamp);
+        assertEq(LibStoxMigrations.head(), LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
         LibOrchestratorInvariants.assertInstance(safe);
 
         vm.expectRevert(
@@ -89,8 +98,7 @@ contract GrantOrchestratorEmergencyTest is Test {
 
     function assertApplied(string memory network) internal {
         vm.createSelectFork(network);
-        address safe = LibSafeInvariants.safeForChainId(block.chainid);
-        if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0) {
+        if (LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0) {
             revert EmergencyGrantNotApplied(network);
         }
     }
@@ -139,8 +147,7 @@ contract GrantOrchestratorEmergencyTest is Test {
     /// refusal and tamper tests below need the pre-grant state; once it has
     /// executed they report SPENT and stop asserting.
     function spent() internal view returns (bool) {
-        address safe = LibSafeInvariants.safeForChainId(block.chainid);
-        if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) != 0) {
+        if (LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_EMERGENCY) != 0) {
             console2.log("SPENT: the grant has executed on this chain");
             return true;
         }
@@ -154,6 +161,7 @@ contract GrantOrchestratorEmergencyTest is Test {
         if (spent()) return;
         GrantOrchestratorEmergencyHarness script = new GrantOrchestratorEmergencyHarness("unrecorded");
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        approveSafe(safe);
         bytes32 emergencyRole = ORCHESTRATOR.EMERGENCY_ROLE();
         vm.prank(safe);
         ORCHESTRATOR.grantRole(emergencyRole, safe);
@@ -166,14 +174,32 @@ contract GrantOrchestratorEmergencyTest is Test {
         vm.createSelectFork(LibRainDeploy.BASE);
         if (spent()) return;
         GrantOrchestratorEmergencyHarness script = new GrantOrchestratorEmergencyHarness("off-genesis");
-        address safe = LibSafeInvariants.safeForChainId(block.chainid);
         bytes32 other = keccak256("some other migration");
-        vm.prank(safe);
+        vm.prank(LibStoxMigrations.WRITER);
         IMigrationRegistryV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
             .applyMigrationV3(
-                safe, LibStoxMigrations.NAMESPACE, other, LibStoxMigrations.onto(safe, MIGRATION_HEAD_GENESIS)
+                LibStoxMigrations.WRITER,
+                LibStoxMigrations.NAMESPACE,
+                other,
+                LibStoxMigrations.onto(MIGRATION_HEAD_GENESIS)
             );
         vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, other));
+        script.callPreflight();
+    }
+
+    /// @notice A Safe the root authority has not approved is refused: its
+    /// record would revert inside the bundle.
+    function testRefusesUnapprovedSafe() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        if (spent()) return;
+        GrantOrchestratorEmergencyHarness script = new GrantOrchestratorEmergencyHarness("unapproved");
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        if (LibStoxMigrations.approved(safe)) {
+            vm.prank(LibStoxMigrations.WRITER);
+            IMigrationRegistryV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
+                .revokeV3(LibStoxMigrations.NAMESPACE, safe);
+        }
+        vm.expectRevert(abi.encodeWithSelector(SafeNotApprovedWriter.selector, safe));
         script.callPreflight();
     }
 
@@ -186,6 +212,7 @@ contract GrantOrchestratorEmergencyTest is Test {
         if (spent()) return;
         GrantOrchestratorEmergencyHarness script = new GrantOrchestratorEmergencyHarness("n-plus-1");
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        approveSafe(safe);
         bytes32 emergencyRole = ORCHESTRATOR.EMERGENCY_ROLE();
         vm.mockCall(address(ORCHESTRATOR), abi.encodeCall(IAccessControl.revokeRole, (emergencyRole, safe)), "");
         vm.expectRevert(EmergencyNotRevoked.selector);
@@ -200,6 +227,7 @@ contract GrantOrchestratorEmergencyTest is Test {
         if (spent()) return;
         GrantOrchestratorEmergencyHarness script = new GrantOrchestratorEmergencyHarness("tamper");
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        approveSafe(safe);
         // Built in memory and written to its own paths, so this test never
         // reads the artifact `run()` writes for the other tests.
         string memory json =
