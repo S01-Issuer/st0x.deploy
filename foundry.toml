@@ -14,7 +14,7 @@ libs = ['dependencies']
 
 solc = "0.8.25"
 optimizer = true
-# Highest value that keeps StoxReceiptVault under EIP-170 (see CHANGELOG); re-check
+# StoxReceiptVault fits EIP-170 at 201 runs or fewer (see CHANGELOG); re-check
 # `forge build --sizes` on vault or dependency changes. via_ir makes the vault larger.
 # Changing it moves every Zoltu address: the vault pins the facet and the orchestrator
 # pins vault + receipt, so all three deploy in lockstep. Dependency-pinned bytecode
