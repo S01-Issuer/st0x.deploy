@@ -229,8 +229,14 @@ contract StoxReceiptVault is ConfigRegistryOffchainAssetReceiptVault {
     /// Reverts with `AuthorizerMissingCorporateActionAdmin` if either
     /// `SCHEDULE_CORPORATE_ACTION` or `CANCEL_CORPORATE_ACTION` resolves
     /// to `DEFAULT_ADMIN_ROLE` on the supplied authorizer. Requires the
-    /// authorizer to implement `IAccessControl`.
+    /// authorizer to implement `IAccessControl`. The vault itself, which
+    /// `_initialize` installs before the RBAC-selected authorizer replaces
+    /// it, passes unchecked during initialization only.
     function _setAuthorizer(IAuthorizeV1 newAuthorizer) internal virtual override {
+        if (_isInitializing() && address(newAuthorizer) == address(this)) {
+            super._setAuthorizer(newAuthorizer);
+            return;
+        }
         bytes32 scheduleAdmin = IAccessControl(address(newAuthorizer)).getRoleAdmin(SCHEDULE_CORPORATE_ACTION);
         if (scheduleAdmin == bytes32(0)) {
             revert AuthorizerMissingCorporateActionAdmin(address(newAuthorizer), SCHEDULE_CORPORATE_ACTION);

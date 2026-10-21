@@ -61,6 +61,9 @@ import {LibReceiptRebase} from "../lib/LibReceiptRebase.sol";
 /// `testZeroBalanceAdvancesCursor` regression in both `LibRebase.t.sol` and
 /// `LibReceiptRebase.t.sol`.
 contract StoxReceipt is Receipt {
+    /// @notice The asset named in `uri` metadata.
+    string internal constant VAULT_ASSET_SYMBOL = "the underlying off-chain asset";
+
     /// @notice Emitted whenever `migrateHolderId` advances a `(account, id)`
     /// pair's migration cursor. The cursor itself is storage state, so the
     /// event fires on every cursor advance regardless of whether
@@ -229,5 +232,12 @@ contract StoxReceipt is Receipt {
     /// `(account, id)` pair the batch touches.
     function getVault() internal view returns (ICorporateActionsV1) {
         return ICorporateActionsV1(this.manager());
+    }
+
+    /// The vault's asset is off-chain and `asset()` is `address(0)`, so the
+    /// inherited read reverts and with it `uri`, which the vault checks at
+    /// `initialize`.
+    function _vaultAssetSymbol() internal pure override returns (string memory) {
+        return VAULT_ASSET_SYMBOL;
     }
 }

@@ -3,7 +3,9 @@
 pragma solidity ^0.8.25;
 
 import {LibICloneableFactoryV5} from "rain-factory-0.2.4/src/lib/LibICloneableFactoryV5.sol";
-import {LibCloneFactoryDeploy} from "rain-factory-deploy-0.2.1/src/lib/LibCloneFactoryDeploy.sol";
+import {
+    DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_15
+} from "rain-factory-deploy-0.2.1/src/generated/0_1_15/CloneFactory.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
 } from "rain-vats-0.2.6-pr345/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
@@ -76,7 +78,7 @@ library LibEuAuthoriserClone {
     /// @return The predicted clone address.
     function cloneDeployedAddress(uint256 chainId) internal pure returns (address) {
         return LibICloneableFactoryV5.predictCloneAddress(
-            LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS,
+            CLONE_FACTORY_0_1_15,
             implementation(),
             LibICloneableFactoryV5.effectiveOpenSalt(EU_AUTHORISER_SALT, cloneData(chainId))
         );

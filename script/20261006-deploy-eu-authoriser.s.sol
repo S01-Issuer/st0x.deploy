@@ -5,7 +5,10 @@ pragma solidity =0.8.25;
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {ICloneableFactoryV4} from "rain-factory-0.2.4/src/interface/deprecated/ICloneableFactoryV4.sol";
-import {LibCloneFactoryDeploy} from "rain-factory-deploy-0.2.1/src/lib/LibCloneFactoryDeploy.sol";
+import {
+    DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_15,
+    BYTECODE_HASH as CLONE_FACTORY_0_1_15_CODEHASH
+} from "rain-factory-deploy-0.2.1/src/generated/0_1_15/CloneFactory.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.20/src/lib/LibRainDeploy.sol";
 
 import {EuAuthoriserDeploySuites} from "../src/abstract/EuAuthoriserDeploySuites.sol";
@@ -61,7 +64,7 @@ contract DeployEuAuthoriser is EuAuthoriserDeploySuites, Script {
     function run() external {
         string[] memory networks = supportedNetworks();
         address implementation = LibEuAuthoriserClone.implementation();
-        address factory = LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS;
+        address factory = CLONE_FACTORY_0_1_15;
 
         uint256[] memory forkIds = LibRainDeploy.createForks(vm, networks);
 
@@ -73,7 +76,7 @@ contract DeployEuAuthoriser is EuAuthoriserDeploySuites, Script {
         // matches the chains.
         for (uint256 i = 0; i < networks.length; i++) {
             vm.selectFork(forkIds[i]);
-            if (factory.code.length == 0 || factory.codehash != LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_CODEHASH) {
+            if (factory.code.length == 0 || factory.codehash != CLONE_FACTORY_0_1_15_CODEHASH) {
                 revert EuCloneFactoryNotReady(factory);
             }
         }
