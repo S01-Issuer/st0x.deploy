@@ -106,8 +106,10 @@ contract Build is Script {
         string memory frozenDir = string.concat("src/generated/", tag);
         if (vm.exists(frozenDir)) revert SnapshotAlreadyFrozen(tag, frozenDir);
         string[] memory tags = deployTags();
-        if (tags.length > 1 && tagKey(tags[tags.length - 2]) >= tagKey(tag)) {
-            revert NonMonotonicRelease(tag, tags[tags.length - 2]);
+        for (uint256 i = tags.length; i > 0; i--) {
+            if (keccak256(bytes(tags[i - 1])) == keccak256(bytes(CANDIDATE_TAG))) continue;
+            if (tagKey(tags[i - 1]) >= tagKey(tag)) revert NonMonotonicRelease(tag, tags[i - 1]);
+            break;
         }
 
         regenerateSnapshots();
