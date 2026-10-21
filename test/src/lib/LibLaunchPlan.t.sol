@@ -615,6 +615,15 @@ contract LibLaunchPlanTest is Test {
         assertFalse(LibLaunchPlan.containsAddress(values, other));
     }
 
+    function testCaseFunctionsReturnACopy() external pure {
+        string memory input = "brk.b-1";
+        assertEq(LibLaunchPlan.toUpper(input), "BRK.B-1");
+        assertEq(input, "brk.b-1");
+        string memory upper = "BRK.B-1";
+        assertEq(LibLaunchPlan.toLower(upper), "brk.b-1");
+        assertEq(upper, "BRK.B-1");
+    }
+
     function testToUpperMapsExactlyTheLowerCaseLetters() external view {
         for (uint256 i = 0; i < 256; i++) {
             bytes1 char = bytes32(i)[31];

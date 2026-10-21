@@ -11,7 +11,12 @@ import {
     LaunchInputOutsideOut
 } from "../../script/20261020-launch-base-tokens.s.sol";
 import {LaunchFilePlanner} from "../../script/LaunchFilePlanner.sol";
-import {LibLaunchInputs} from "../../script/lib/LibLaunchInputs.sol";
+import {
+    LibLaunchInputs,
+    LaunchLedgerNotAnArray,
+    LaunchLedgerRowWithoutSymbol
+} from "../../script/lib/LibLaunchInputs.sol";
+import {Bytes} from "@openzeppelin-contracts-5.7.0/utils/Bytes.sol";
 import {
     LibLaunchPlan,
     PlanContext,
@@ -530,6 +535,36 @@ contract LaunchBaseTokensPlanTest is Test {
             abi.encodeWithSelector(LaunchInputOutsideOut.selector, "LAUNCH_PLAN_OUT", "out/../launch/launches.json")
         );
         script.plan();
+        string[4] memory notUnderOut = ["out/", "out", "ou/x", "/out/x"];
+        for (uint256 i = 0; i < notUnderOut.length; i++) {
+            vm.setEnv("LAUNCH_PLAN_OUT", notUnderOut[i]);
+            vm.expectRevert(abi.encodeWithSelector(LaunchInputOutsideOut.selector, "LAUNCH_PLAN_OUT", notUnderOut[i]));
+            script.plan();
+        }
+
+        // The shortest override under `out/`, an empty pin file, and stray
+        // keys left in Foundry's serializer by an earlier serialization.
+        vm.writeFile("out/x", "[]");
+        vm.writeFile("out/test-launch-pins-empty.json", "{}");
+        vm.setEnv("LAUNCH_LEDGER", "out/x");
+        vm.setEnv("LAUNCH_PINS", "out/test-launch-pins-empty.json");
+        vm.setEnv("LAUNCH_FILES", "launch/metadata/mc.json");
+        vm.setEnv("LAUNCH_PLAN_OUT", "out/test-launch-plan-pins.json");
+        vm.serializeString("plan", "stray", "x");
+        vm.serializeString("tMC", "stray", "x");
+        script.plan();
+        string memory pinsJson = vm.readFile("out/test-launch-plan-pins.json");
+        assertEq(vm.parseJsonString(pinsJson, ".ledger"), "out/x");
+        assertEq(vm.parseJsonString(pinsJson, ".pins"), "out/test-launch-pins-empty.json");
+        assertFalse(vm.parseJsonBool(pinsJson, ".tokens.tMC.dedicated"));
+        assertEq(vm.parseJsonAddress(pinsJson, ".tokens.tMC.landingAuthoriser"), SHARED);
+        assertFalse(vm.keyExistsJson(pinsJson, ".stray"));
+        assertFalse(vm.keyExistsJson(pinsJson, ".tokens.tMC.stray"));
+        assertEq(vm.parseJsonKeys(pinsJson, ".tokens.tMC").length, 11);
+        vm.setEnv("LAUNCH_PINS", "launch/x.json");
+        vm.expectRevert(abi.encodeWithSelector(LaunchInputOutsideOut.selector, "LAUNCH_PINS", "launch/x.json"));
+        script.plan();
+        vm.setEnv("LAUNCH_PINS", "launch/dedicated-authorisers.json");
     }
 
     function testDescribeOutcomesListsEveryLine() external view {
@@ -572,6 +607,15 @@ contract LaunchBaseTokensPlanTest is Test {
         assertEq(lines[1], "  nothing to deploy");
 
         LaunchBaseTokens.FileOutcome[] memory failedOnly = new LaunchBaseTokens.FileOutcome[](1);
+        LaunchBaseTokens.FileOutcome[] memory plannedOnly = new LaunchBaseTokens.FileOutcome[](2);
+        plannedOnly[0] = outcomes[0];
+        plannedOnly[1] = outcomes[1];
+        (lines, failures) = script.describeOutcomes(plannedOnly);
+        assertEq(failures, 0);
+        assertEq(lines.length, 2);
+        assertEq(lines[0], "  skip  launch/metadata/wmt.json (already in the ledger)");
+        assertEq(lines[1], "  plan  tIAU \"iShares Gold Trust ST0x\" type=etf certify-until=2027-08-19");
+
         failedOnly[0] = outcomes[3];
         failedOnly[0].failure = "";
         (lines, failures) = script.describeOutcomes(failedOnly);
@@ -815,7 +859,7 @@ contract LaunchBaseTokensPlanTest is Test {
             '[{"symbol":"tA","deprecated":{}},{"symbol":"tB","deprecated":[]},'
             '{"symbol":"tC","deprecated":true},{"symbol":"tD","deprecated":"x"},{"symbol":"tE","deprecated":{"a":0}},'
             '{"symbol":"tF","deprecated":{"retired":false}},{"symbol":"tG","deprecated":1},'
-            '{"symbol":"tH","deprecated":""},{"symbol":"tI","deprecated":0},{"name":"no symbol"},{"symbol":""}]'
+            '{"symbol":"tH","deprecated":""},{"symbol":"tI","deprecated":0}]'
         );
         string[] memory shipped = LibLaunchInputs.readShippedSymbols(ledgerPath);
         assertEq(shipped.length, 2);
@@ -839,5 +883,82 @@ contract LaunchBaseTokensPlanTest is Test {
             allowlistPath, '[{"address":"0x1111111111111111111111111111111111111111","chainId":8453,"roles":"owner"}]'
         );
         assertEq(LibLaunchInputs.readAllowlisted(allowlistPath, "owner", 0).length, 0);
+    }
+
+    function readShipped(string memory path) external view returns (string[] memory) {
+        return LibLaunchInputs.readShippedSymbols(path);
+    }
+
+    /// @notice A ledger the reader cannot read is refused, never read as
+    /// shipping nothing.
+    function testLedgerReaderRefusesShapesItCannotRead() external {
+        string memory path = "out/test-launch-ledger-unreadable.json";
+        string[2] memory notArrays = ["{}", '{"rows":[]}'];
+        for (uint256 i = 0; i < notArrays.length; i++) {
+            vm.writeFile(path, notArrays[i]);
+            vm.expectRevert(abi.encodeWithSelector(LaunchLedgerNotAnArray.selector, path));
+            this.readShipped(path);
+        }
+        string[6] memory badRows = [
+            '[{"Symbol":"tA"}]',
+            '[{"symbol":1}]',
+            '[{"symbol":true}]',
+            '[{"symbol":null}]',
+            '[{"symbol":""}]',
+            '[{"name":"no symbol"}]'
+        ];
+        for (uint256 i = 0; i < badRows.length; i++) {
+            vm.writeFile(path, badRows[i]);
+            vm.expectRevert(abi.encodeWithSelector(LaunchLedgerRowWithoutSymbol.selector, path, 0));
+            this.readShipped(path);
+        }
+        vm.writeFile(path, "[]");
+        assertEq(this.readShipped(path).length, 0);
+    }
+
+    /// @notice No input text reaches the log with a byte outside printable
+    /// ASCII, so a newline cannot start a workflow command.
+    function testLoggedInputTextIsPrintable() external view {
+        string memory injected = "A\n::error::x";
+        string memory hexed = vm.toString(bytes(injected));
+        bytes[9] memory failures = [
+            abi.encodeWithSelector(InvalidTicker.selector, injected),
+            abi.encodeWithSelector(UnsupportedAssetType.selector, injected),
+            abi.encodeWithSelector(InvalidCountryIso.selector, injected),
+            abi.encodeWithSelector(InvalidIsin.selector, injected),
+            abi.encodeWithSelector(NameIsTicker.selector, injected),
+            abi.encodeWithSelector(DedicatedAuthoriserUnset.selector, "tMC", injected),
+            abi.encodeWithSelector(DedicatedMinterUnset.selector, "tMC", injected),
+            abi.encodeWithSelector(DuplicateSymbol.selector, "tWMT", injected),
+            abi.encodeWithSignature("Error(string)", injected)
+        ];
+        for (uint256 i = 0; i < failures.length; i++) {
+            string memory line = script.describeFailureLine("launch/metadata/a.json", failures[i]);
+            _assertPrintable(line);
+            assertTrue(_contains(line, hexed), line);
+        }
+        LaunchBaseTokens.FileOutcome[] memory outcomes = new LaunchBaseTokens.FileOutcome[](1);
+        outcomes[0].metadataFile = injected;
+        outcomes[0].ignored = true;
+        (string[] memory lines,) = script.describeOutcomes(outcomes);
+        assertEq(lines[0], string.concat("  ignore ", hexed, " (not a launch/metadata/<name>.json file)"));
+        assertEq(script.printable("Robinhood Markets Inc"), "Robinhood Markets Inc");
+        assertEq(script.printable(unicode"Moët"), vm.toString(bytes(unicode"Moët")));
+    }
+
+    function _assertPrintable(string memory text) internal pure {
+        bytes memory textBytes = bytes(text);
+        for (uint256 i = 0; i < textBytes.length; i++) {
+            assertTrue(textBytes[i] >= 0x20 && textBytes[i] <= 0x7E, text);
+        }
+    }
+
+    function _contains(string memory haystack, string memory needle) internal pure returns (bool) {
+        bytes memory h = bytes(haystack);
+        bytes memory n = bytes(needle);
+        for (uint256 i = 0; i + n.length <= h.length; i++) {
+            if (keccak256(Bytes.slice(h, i, i + n.length)) == keccak256(n)) return true;
+        }
+        return false;
     }
 }

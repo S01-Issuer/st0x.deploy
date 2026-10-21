@@ -157,18 +157,18 @@ contract LaunchBaseTokens is Script {
             try planner.planFile(files[i], ctx) returns (bool skipped, TokenPlan memory tokenPlan) {
                 outcome.skipped = skipped;
                 outcome.plan = tokenPlan;
-                if (!skipped) {
-                    for (uint256 j = 0; j + 1 < inputCount; j++) {
-                        if (
-                            !all[j].skipped && !all[j].failed
-                                && Strings.equal(
-                                    LibLaunchPlan.toLower(all[j].plan.symbol), LibLaunchPlan.toLower(tokenPlan.symbol)
-                                )
-                        ) {
-                            outcome.failed = true;
-                            outcome.failure =
-                                abi.encodeWithSelector(DuplicateSymbol.selector, tokenPlan.symbol, all[j].metadataFile);
-                        }
+                // Skipping depends only on the symbol, so a duplicate of a
+                // skipped file is skipped too and needs no check.
+                for (uint256 j = 0; j + 1 < inputCount && !skipped; j++) {
+                    if (
+                        !all[j].failed
+                            && Strings.equal(
+                                LibLaunchPlan.toLower(all[j].plan.symbol), LibLaunchPlan.toLower(tokenPlan.symbol)
+                            )
+                    ) {
+                        outcome.failed = true;
+                        outcome.failure =
+                            abi.encodeWithSelector(DuplicateSymbol.selector, tokenPlan.symbol, all[j].metadataFile);
                     }
                 }
             } catch (bytes memory failure) {
@@ -200,8 +200,9 @@ contract LaunchBaseTokens is Script {
         for (uint256 i = 0; i < outcomes.length; i++) {
             FileOutcome memory outcome = outcomes[i];
             if (outcome.ignored) {
-                all[lineCount++] =
-                    string.concat("  ignore ", outcome.metadataFile, " (not a launch/metadata/<name>.json file)");
+                all[lineCount++] = string.concat(
+                    "  ignore ", printable(outcome.metadataFile), " (not a launch/metadata/<name>.json file)"
+                );
             } else if (outcome.failed) {
                 failures++;
                 all[lineCount++] = describeFailureLine(outcome.metadataFile, outcome.failure);
@@ -226,7 +227,7 @@ contract LaunchBaseTokens is Script {
     /// @param failure The revert data.
     /// @return The log line.
     function describeFailureLine(string memory file, bytes memory failure) public pure returns (string memory) {
-        return string.concat("  FAIL  ", file, " - ", describeFailure(failure));
+        return string.concat("  FAIL  ", printable(file), " - ", describeFailure(failure));
     }
 
     /// @notice The plan line and, for a dedicated token, the authoriser line
@@ -261,7 +262,21 @@ contract LaunchBaseTokens is Script {
         }
     }
 
-    /// @notice A plan refusal in words, for the job log.
+    /// @notice `text` when every byte is printable ASCII, else its hex. Every
+    /// file-sourced string goes through this before it reaches the job log,
+    /// where a newline could start a workflow command.
+    /// @param text The text.
+    /// @return The text, or `0x` and its bytes in hex.
+    function printable(string memory text) public pure returns (string memory) {
+        bytes memory textBytes = bytes(text);
+        for (uint256 i = 0; i < textBytes.length; i++) {
+            if (textBytes[i] < 0x20 || textBytes[i] > 0x7E) return vm.toString(textBytes);
+        }
+        return text;
+    }
+
+    /// @notice A plan refusal in words, for the job log. Strings from the
+    /// input files appear through `printable`.
     /// @param failure The revert data.
     /// @return The refusal in words; `unreadable` when the data is too short
     /// to name an error.
@@ -270,7 +285,7 @@ contract LaunchBaseTokens is Script {
         // forge-lint: disable-next-line(unsafe-typecast)
         bytes4 selector = bytes4(failure);
         bytes memory args = Bytes.slice(failure, 4);
-        if (selector == bytes4(0x08c379a0)) return abi.decode(args, (string));
+        if (selector == bytes4(0x08c379a0)) return printable(abi.decode(args, (string)));
         if (selector == MissingPrimaryTicker.selector) return "primary_ticker is missing";
         if (selector == MissingName.selector) return "name is missing";
         if (selector == InvalidCounterparties.selector) {
@@ -280,60 +295,76 @@ contract LaunchBaseTokens is Script {
         if (selector == InvalidTicker.selector) {
             return string.concat(
                 "primary_ticker may hold only ASCII letters, digits, '.' and '-', got \"",
-                abi.decode(args, (string)),
+                printable(abi.decode(args, (string))),
                 "\""
             );
         }
         if (selector == DuplicateSymbol.selector) {
             (string memory symbol, string memory firstFile) = abi.decode(args, (string, string));
-            return string.concat(symbol, " is also planned from ", firstFile);
+            return string.concat(printable(symbol), " is also planned from ", printable(firstFile));
         }
         if (selector == UnsupportedAssetType.selector) {
-            return string.concat("asset_type must be \"Equity\" or \"ETF\", got \"", abi.decode(args, (string)), "\"");
+            return string.concat(
+                "asset_type must be \"Equity\" or \"ETF\", got \"", printable(abi.decode(args, (string))), "\""
+            );
         }
         if (selector == NameIsTicker.selector) {
-            return string.concat("name is the ticker (", abi.decode(args, (string)), "), not the asset name");
+            return string.concat("name is the ticker (", printable(abi.decode(args, (string))), "), not the asset name");
         }
         if (selector == UnicodeWhitespaceInName.selector) {
-            return string.concat("name holds Unicode whitespace: \"", abi.decode(args, (string)), "\"");
+            return string.concat("name holds Unicode whitespace: \"", printable(abi.decode(args, (string))), "\"");
         }
         if (selector == ControlCharacterInName.selector) {
-            // The name itself would put the control character in the log.
-            return string.concat("name holds a control character: ", vm.toString(bytes(abi.decode(args, (string)))));
+            return string.concat("name holds a control character: ", printable(abi.decode(args, (string))));
         }
         if (selector == InvalidCountryIso.selector) {
-            return string.concat("country.iso must be a 2-letter code, got \"", abi.decode(args, (string)), "\"");
+            return
+                string.concat(
+                    "country.iso must be a 2-letter code, got \"", printable(abi.decode(args, (string))), "\""
+                );
         }
         if (selector == InvalidIsin.selector) {
-            return string.concat("isin is missing or malformed: \"", abi.decode(args, (string)), "\"");
+            return string.concat("isin is missing or malformed: \"", printable(abi.decode(args, (string))), "\"");
         }
         if (selector == OwnerNotAllowlisted.selector) {
             return string.concat(vm.toString(abi.decode(args, (address))), " is not an allowlisted owner");
         }
         if (selector == DedicatedPinWrongChain.selector) {
             (string memory symbol, uint256 chainId) = abi.decode(args, (string, uint256));
-            return
-                string.concat(symbol, ": dedicated authoriser pin is for chainId ", vm.toString(chainId), ", not Base");
+            return string.concat(
+                printable(symbol), ": dedicated authoriser pin is for chainId ", vm.toString(chainId), ", not Base"
+            );
         }
         if (selector == DedicatedAuthoriserUnset.selector) {
             (string memory symbol, string memory authoriser) = abi.decode(args, (string, string));
-            return
-                string.concat(symbol, " requires a dedicated authoriser but none is pinned (got \"", authoriser, "\")");
+            return string.concat(
+                printable(symbol),
+                " requires a dedicated authoriser but none is pinned (got \"",
+                printable(authoriser),
+                "\")"
+            );
         }
         if (selector == DedicatedAuthoriserIsShared.selector) {
-            return string.concat(abi.decode(args, (string)), ": dedicated authoriser is the shared authoriser");
+            return
+                string.concat(printable(abi.decode(args, (string))), ": dedicated authoriser is the shared authoriser");
         }
         if (selector == DedicatedMinterUnset.selector) {
             (string memory symbol, string memory minter) = abi.decode(args, (string, string));
-            return string.concat(symbol, ": dedicated minter is unset or malformed: \"", minter, "\"");
+            return
+                string.concat(
+                    printable(symbol), ": dedicated minter is unset or malformed: \"", printable(minter), "\""
+                );
         }
         if (selector == DedicatedDeployBlockUnset.selector) {
-            return string.concat(abi.decode(args, (string)), ": dedicated authoriser deployBlock is unset");
+            return string.concat(printable(abi.decode(args, (string))), ": dedicated authoriser deployBlock is unset");
         }
         if (selector == DedicatedAuthoriserNotAllowlisted.selector) {
             (string memory symbol, address authoriser) = abi.decode(args, (string, address));
             return string.concat(
-                symbol, ": dedicated authoriser ", vm.toString(authoriser), " is not allowlisted as authorizer on Base"
+                printable(symbol),
+                ": dedicated authoriser ",
+                vm.toString(authoriser),
+                " is not allowlisted as authorizer on Base"
             );
         }
         return vm.toString(failure);

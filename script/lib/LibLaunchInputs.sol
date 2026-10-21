@@ -7,6 +7,14 @@ import {Bytes} from "@openzeppelin-contracts-5.7.0/utils/Bytes.sol";
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
 import {LibLaunchPlan, LaunchMetadata, DedicatedPin} from "../../src/lib/LibLaunchPlan.sol";
 
+/// @notice The ledger's top level is not a JSON array, so no symbol in it
+/// could be read as shipped.
+error LaunchLedgerNotAnArray(string path);
+
+/// @notice A ledger row has no non-empty string `symbol`, so whether it
+/// shipped cannot be read.
+error LaunchLedgerRowWithoutSymbol(string path, uint256 row);
+
 /// @title LibLaunchInputs
 /// @notice Reads the launch inputs under `launch/` (metadata files, the ledger,
 /// the dedicated-authoriser pins and the allowlist) into the shapes
@@ -56,6 +64,8 @@ library LibLaunchInputs {
 
     /// @notice Lower-cased symbols the planner must never launch again: every
     /// live ledger row, plus every row whose deprecation is marked `retired`.
+    /// A ledger that is not an array, or a row without a string `symbol`, is
+    /// refused rather than read as shipping nothing.
     /// A deprecation without `retired` is a bad deploy whose symbol is meant to
     /// be launched again. `deprecated` counts when JavaScript would call it
     /// true; `retired` counts for any value but `false`, `0` and `null`, which
@@ -64,13 +74,16 @@ library LibLaunchInputs {
     /// @return symbols The lower-cased symbols, in ledger order.
     function readShippedSymbols(string memory ledgerPath) internal view returns (string[] memory symbols) {
         string memory json = VM.readFile(ledgerPath);
+        try VM.parseJsonKeys(json, "$") returns (string[] memory) {
+            revert LaunchLedgerNotAnArray(ledgerPath);
+        } catch {}
         uint256 count = _arrayLength(json, "$");
         string[] memory shipped = new string[](count);
         uint256 shippedCount = 0;
         for (uint256 i = 0; i < count; i++) {
             string memory row = string.concat("$[", VM.toString(i), "]");
-            string memory symbol = _string(json, string.concat(row, ".symbol"));
-            if (bytes(symbol).length == 0) continue;
+            string memory symbol = _jsonString(json, string.concat(row, ".symbol"));
+            if (bytes(symbol).length == 0) revert LaunchLedgerRowWithoutSymbol(ledgerPath, i);
             bool deprecated = _truthy(json, string.concat(row, ".deprecated"));
             if (deprecated && !_retired(json, string.concat(row, ".deprecated.retired"))) continue;
             shipped[shippedCount++] = LibLaunchPlan.toLower(symbol);
@@ -163,8 +176,7 @@ library LibLaunchInputs {
     /// @notice `parseJsonUint` also accepts decimal and hex strings, and an
     /// address-shaped string is a single word. A JSON number is the only value
     /// that reads back as its own decimal text.
-    function _uint(string memory json, string memory key) private view returns (uint256) {
-        if (!VM.keyExistsJson(json, key)) return 0;
+    function _uint(string memory json, string memory key) private pure returns (uint256) {
         try VM.parseJsonUint(json, key) returns (uint256 value) {
             bool number = _jsonWord(json, key) && Strings.equal(VM.parseJsonString(json, key), VM.toString(value));
             return number ? value : 0;
@@ -202,12 +214,22 @@ library LibLaunchInputs {
         return keccak256(VM.parseJson(json, key)) == keccak256(abi.encode(false));
     }
 
-    function _strings(string memory json, string memory key) private view returns (string[] memory) {
-        if (!VM.keyExistsJson(json, key)) return new string[](0);
+    function _strings(string memory json, string memory key) private pure returns (string[] memory) {
         try VM.parseJsonStringArray(json, key) returns (string[] memory values) {
             return values;
         } catch {
             return new string[](0);
+        }
+    }
+
+    /// @notice A JSON string's value, or empty for anything else: numbers,
+    /// booleans and null read back as one word, a string never does.
+    function _jsonString(string memory json, string memory key) private view returns (string memory) {
+        if (!VM.keyExistsJson(json, key) || _jsonWord(json, key)) return "";
+        try VM.parseJsonString(json, key) returns (string memory value) {
+            return value;
+        } catch {
+            return "";
         }
     }
 
