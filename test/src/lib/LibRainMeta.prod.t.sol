@@ -39,7 +39,7 @@ contract LibRainMetaProdTest is Test {
         _assertPublished(_document(2));
     }
 
-    /// @notice A non-ASCII name, and the dedicated-authoriser path.
+    /// @notice A non-ASCII token name.
     function testMcDocumentsAreOnChainAndFramedByLibRainMeta() external view {
         _assertPublished(_document(3));
     }
@@ -48,23 +48,37 @@ contract LibRainMetaProdTest is Test {
         _assertPublished(_document(4));
     }
 
-    function _assertPublished(LibTestLaunchChain.PublishedDocuments memory p) internal view {
-        assertEq(LibTestLaunchChain.schemaDocument(p.vault, p.schemaBlock), p.schemaDocument, "schema on chain");
-        assertEq(LibTestLaunchChain.metaDocument(p.vault, p.vaultMetaBlock), p.metadataDocument, "vault metadata");
-        assertEq(LibTestLaunchChain.metaDocument(p.wrapper, p.wrapperMetaBlock), p.metadataDocument, "wrapper metadata");
+    function _assertPublished(LibTestLaunchChain.PublishedDocuments memory published) internal view {
+        assertEq(
+            LibTestLaunchChain.schemaDocument(published.vault, published.schemaBlock),
+            published.schemaDocument,
+            "schema on chain"
+        );
+        assertEq(
+            LibTestLaunchChain.metaDocument(published.vault, published.vaultMetaBlock),
+            published.metadataDocument,
+            "vault metadata"
+        );
+        assertEq(
+            LibTestLaunchChain.metaDocument(published.wrapper, published.wrapperMetaBlock),
+            published.metadataDocument,
+            "wrapper metadata"
+        );
 
         assertEq(
             LibRainMeta.encode(
-                LibTestLaunchChain.payloadOf(p.schemaDocument), LibTestLaunchChain.cidOf(p.schemaDocument)
+                LibTestLaunchChain.payloadOf(published.schemaDocument),
+                LibTestLaunchChain.cidOf(published.schemaDocument)
             ),
-            p.schemaDocument,
+            published.schemaDocument,
             "schema framing"
         );
         assertEq(
             LibRainMeta.encode(
-                LibTestLaunchChain.payloadOf(p.metadataDocument), LibTestLaunchChain.cidOf(p.metadataDocument)
+                LibTestLaunchChain.payloadOf(published.metadataDocument),
+                LibTestLaunchChain.cidOf(published.metadataDocument)
             ),
-            p.metadataDocument,
+            published.metadataDocument,
             "metadata framing"
         );
     }

@@ -26,17 +26,25 @@ library LibRainMeta {
     uint8 internal constant MAJOR_TEXT = 3;
     uint8 internal constant MAJOR_MAP = 5;
 
-    function encode(bytes memory payload, string memory cid) internal pure returns (bytes memory meta) {
-        meta = abi.encodePacked(RAIN_META_DOCUMENT_MAGIC, schemaItem(payload));
-        if (bytes(cid).length != 0) {
-            meta = abi.encodePacked(meta, hashListItem(cid));
-        }
+    /// @notice A Rain meta document holding `payload` and, when `cid` is
+    /// non-empty, a hash-list item naming it.
+    /// @param payload `deflate(JSON.stringify(x))`.
+    /// @param cid The IPFS CID of `JSON.stringify(x)`, or empty for none.
+    /// @return The magic followed by the CBOR items.
+    function encode(bytes memory payload, string memory cid) internal pure returns (bytes memory) {
+        bytes memory meta = bytes.concat(bytes8(RAIN_META_DOCUMENT_MAGIC), schemaItem(payload));
+        if (bytes(cid).length != 0) meta = bytes.concat(meta, hashListItem(cid));
+        return meta;
     }
 
+    /// @notice The schema item: the payload, the OA schema magic, and its
+    /// content type and encoding.
+    /// @param payload The deflated JSON.
+    /// @return The CBOR map.
     function schemaItem(bytes memory payload) internal pure returns (bytes memory) {
         bytes memory head =
-            abi.encodePacked(header(MAJOR_MAP, 4), header(MAJOR_UINT, 0), header(MAJOR_BYTES, payload.length));
-        bytes memory tail = abi.encodePacked(
+            bytes.concat(header(MAJOR_MAP, 4), header(MAJOR_UINT, 0), header(MAJOR_BYTES, payload.length));
+        bytes memory tail = bytes.concat(
             header(MAJOR_UINT, 1),
             header(MAJOR_UINT, OA_SCHEMA_MAGIC),
             header(MAJOR_UINT, 2),
@@ -44,11 +52,14 @@ library LibRainMeta {
             header(MAJOR_UINT, 3),
             text("deflate")
         );
-        return abi.encodePacked(head, payload, tail);
+        return bytes.concat(head, payload, tail);
     }
 
+    /// @notice The hash-list item naming `cid`.
+    /// @param cid The IPFS CID.
+    /// @return The CBOR map.
     function hashListItem(string memory cid) internal pure returns (bytes memory) {
-        return abi.encodePacked(
+        return bytes.concat(
             header(MAJOR_MAP, 2),
             header(MAJOR_UINT, 0),
             text(cid),
@@ -57,13 +68,19 @@ library LibRainMeta {
         );
     }
 
+    /// @notice A CBOR text string.
+    /// @param value The text.
+    /// @return The head followed by the UTF-8 bytes.
     function text(string memory value) internal pure returns (bytes memory) {
-        return abi.encodePacked(header(MAJOR_TEXT, bytes(value).length), value);
+        return bytes.concat(header(MAJOR_TEXT, bytes(value).length), bytes(value));
     }
 
     /// @notice The shortest CBOR head for `major` and `value`, as canonical
-    /// CBOR requires.
-    /// Each narrowing cast is bounded by the comparison before it.
+    /// CBOR requires. Each narrowing cast is bounded by the comparison before
+    /// it.
+    /// @param major The CBOR major type.
+    /// @param value The length or value the head carries.
+    /// @return The head. Reverts `CborValueTooLarge` above 2^64 - 1.
     function header(uint8 major, uint256 value) internal pure returns (bytes memory) {
         uint8 tag = major << 5;
         // forge-lint: disable-next-line(unsafe-typecast)
