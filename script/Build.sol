@@ -43,6 +43,8 @@ contract Build is Script {
     /// snapshots (`0_1_1`, …) stay frozen and are never regenerated here.
     string constant CANDIDATE_TAG = "candidate";
 
+    string constant GENERATED_ROOT = "src/generated";
+
     function deployTag() internal pure returns (string memory) {
         return CANDIDATE_TAG;
     }
@@ -103,14 +105,7 @@ contract Build is Script {
     /// deploy libs over the record.
     function cutRelease() external {
         string memory tag = LibRainDeploySnapshot.deployTag(vm);
-        string memory frozenDir = string.concat("src/generated/", tag);
-        if (vm.exists(frozenDir)) revert SnapshotAlreadyFrozen(tag, frozenDir);
-        string[] memory tags = deployTags();
-        for (uint256 i = tags.length; i > 0; i--) {
-            if (keccak256(bytes(tags[i - 1])) == keccak256(bytes(CANDIDATE_TAG))) continue;
-            if (tagKey(tags[i - 1]) >= tagKey(tag)) revert NonMonotonicRelease(tag, tags[i - 1]);
-            break;
-        }
+        string memory frozenDir = checkReleaseIsNew(GENERATED_ROOT, tag);
 
         regenerateSnapshots();
 
@@ -127,6 +122,21 @@ contract Build is Script {
         }
 
         genProdLibs();
+    }
+
+    /// @notice Refuses `tag` if `root` already holds it or a release at or
+    /// above it.
+    /// @return The directory `tag` freezes into.
+    function checkReleaseIsNew(string memory root, string memory tag) internal view returns (string memory) {
+        string memory frozenDir = string.concat(root, "/", tag);
+        if (vm.exists(frozenDir)) revert SnapshotAlreadyFrozen(tag, frozenDir);
+        string[] memory tags = deployTags(root);
+        for (uint256 i = tags.length; i > 0; i--) {
+            if (keccak256(bytes(tags[i - 1])) == keccak256(bytes(CANDIDATE_TAG))) continue;
+            if (tagKey(tags[i - 1]) >= tagKey(tag)) revert NonMonotonicRelease(tag, tags[i - 1]);
+            break;
+        }
+        return frozenDir;
     }
 
     function pointerPath(string memory tag, string memory name) internal pure returns (string memory) {
@@ -277,11 +287,11 @@ contract Build is Script {
         key = key * 1_000_000 + num;
     }
 
-    /// @notice All release-tag dirs under `src/generated`, numeric-sorted
+    /// @notice All release-tag dirs under `root`, numeric-sorted
     /// (`readDir` order is unspecified, so an explicit sort keeps the
     /// generated output deterministic).
-    function deployTags() internal view returns (string[] memory tags) {
-        VmSafe.DirEntry[] memory entries = vm.readDir("src/generated");
+    function deployTags(string memory root) internal view returns (string[] memory tags) {
+        VmSafe.DirEntry[] memory entries = vm.readDir(root);
         string[] memory tmp = new string[](entries.length);
         uint256 n = 0;
         for (uint256 i = 0; i < entries.length; i++) {
@@ -483,7 +493,7 @@ contract Build is Script {
     }
 
     function genProdLibs() internal {
-        string[] memory tags = deployTags();
+        string[] memory tags = deployTags(GENERATED_ROOT);
         genV4(tags);
         genCurrent();
     }
