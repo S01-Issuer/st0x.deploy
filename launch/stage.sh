@@ -11,15 +11,21 @@
 # earlier token's file can never be read as this token's.
 #
 # A stage is retried only when it reverted with StageNotReady: the RPC has not
-# reached the block the previous stage landed in, and nothing was sent.
+# reached the block the previous stage landed in, and nothing was sent. Forge
+# prints the error by name when it can decode it and by selector otherwise, so
+# both are matched.
 set -euo pipefail
+
+: "${LAUNCH_STAGE_DIR:?LAUNCH_STAGE_DIR must name the stage directory}"
 
 symbol=$1
 sig=$2
 shift 2
 
 script=script/20261020-launch-base-tokens.s.sol
-stage_dir="${LAUNCH_STAGE_DIR:-out/launch}/${symbol}"
+stage_dir="${LAUNCH_STAGE_DIR}/${symbol}"
+# cast sig "StageNotReady(uint256,uint256)"
+not_ready='StageNotReady|0xabf07c3e'
 latest="broadcast/$(basename "${script}")/8453/${sig}-latest.json"
 log=$(mktemp)
 trap 'rm -f "${log}"' EXIT
@@ -34,7 +40,7 @@ for attempt in 1 2 3 4 5; do
   if [[ -f "${latest}" ]]; then
     cp "${latest}" "${stage_dir}/${sig}.json"
   fi
-  if [[ "${status}" == 0 ]] || ! grep -q "StageNotReady" "${log}"; then
+  if [[ "${status}" == 0 ]] || ! grep -qE "${not_ready}" "${log}"; then
     break
   fi
   echo "${symbol} ${sig}: RPC behind the previous stage (attempt ${attempt}); retrying"

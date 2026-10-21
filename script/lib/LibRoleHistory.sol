@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-DCL-1.0
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
-pragma solidity =0.8.25;
+pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 
@@ -19,47 +19,57 @@ library LibRoleHistory {
     uint256 internal constant WINDOW = 2000;
     uint256 internal constant MIN_WINDOW = 50;
 
-    /// @notice The holders of `role` after replaying `logs` in chain order.
+    /// @notice The holders of `role` after replaying `unordered` in chain
+    /// order. Logs other than four-topic role events are skipped.
+    /// @param unordered The authoriser's logs, in any order.
+    /// @param role The role.
+    /// @return members The holders.
     function holders(Vm.EthGetLogs[] memory unordered, bytes32 role) internal pure returns (address[] memory members) {
         Vm.EthGetLogs[] memory logs = inChainOrder(unordered);
         address[] memory set = new address[](logs.length);
-        uint256 n = 0;
+        uint256 count = 0;
         for (uint256 i = 0; i < logs.length; i++) {
             if (logs[i].topics.length != 4 || logs[i].topics[1] != role) continue;
             address account = address(uint160(uint256(logs[i].topics[2])));
             if (logs[i].topics[0] == ROLE_GRANTED_TOPIC) {
-                if (!_contains(set, n, account)) set[n++] = account;
+                if (!_contains(set, count, account)) set[count++] = account;
             } else if (logs[i].topics[0] == ROLE_REVOKED_TOPIC) {
-                for (uint256 j = 0; j < n; j++) {
+                for (uint256 j = 0; j < count; j++) {
                     if (set[j] == account) {
-                        set[j] = set[n - 1];
-                        n--;
+                        set[j] = set[count - 1];
+                        count--;
                         break;
                     }
                 }
             }
         }
-        members = new address[](n);
-        for (uint256 i = 0; i < n; i++) {
+        members = new address[](count);
+        for (uint256 i = 0; i < count; i++) {
             members[i] = set[i];
         }
     }
 
     /// @notice Problems with `holders` of one role: anyone but `minter` and
     /// `safe` holding it, and, when `minterRequired`, `minter` not holding it.
+    /// @param label The role's name, for the report.
+    /// @param roleHolders The role's holders.
+    /// @param minter The dedicated minter.
+    /// @param safe The owner Safe.
+    /// @param minterRequired Whether the minter must hold the role.
+    /// @return problems The problems, empty when there are none.
     function exclusivityProblems(
         string memory label,
-        address[] memory holders_,
+        address[] memory roleHolders,
         address minter,
         address safe,
         bool minterRequired
     ) internal pure returns (string memory problems) {
         bool minterHolds = false;
-        for (uint256 i = 0; i < holders_.length; i++) {
-            if (holders_[i] == minter) {
+        for (uint256 i = 0; i < roleHolders.length; i++) {
+            if (roleHolders[i] == minter) {
                 minterHolds = true;
-            } else if (holders_[i] != safe) {
-                problems = string.concat(problems, label, ": unexpected holder ", VM.toString(holders_[i]), "; ");
+            } else if (roleHolders[i] != safe) {
+                problems = string.concat(problems, label, ": unexpected holder ", VM.toString(roleHolders[i]), "; ");
             }
         }
         if (minterRequired && !minterHolds) {
@@ -68,6 +78,8 @@ library LibRoleHistory {
     }
 
     /// @notice A copy of `logs` sorted by block number, then log index.
+    /// @param logs The logs.
+    /// @return sorted The sorted copy.
     function inChainOrder(Vm.EthGetLogs[] memory logs) internal pure returns (Vm.EthGetLogs[] memory sorted) {
         sorted = new Vm.EthGetLogs[](logs.length);
         for (uint256 i = 0; i < logs.length; i++) {
@@ -82,9 +94,14 @@ library LibRoleHistory {
         return a.blockNumber < b.blockNumber || (a.blockNumber == b.blockNumber && a.logIndex < b.logIndex);
     }
 
-    /// @notice Every log `emitter` emitted from `fromBlock` to `toBlock`, read
-    /// in windows of 2000 blocks. A window the RPC refuses is halved, down to
-    /// 50 blocks, and retried.
+    /// @notice Every log `emitter` emitted from `fromBlock` to `toBlock`, both
+    /// inclusive, read in windows of 2000 blocks. A window the RPC refuses is
+    /// halved and retried; once a window of 50 blocks or fewer is refused, the
+    /// RPC's failure is propagated.
+    /// @param emitter The authoriser.
+    /// @param fromBlock The first block.
+    /// @param toBlock The last block.
+    /// @return all The logs, in the order the RPC returned them.
     function readLogs(address emitter, uint256 fromBlock, uint256 toBlock)
         internal
         view
@@ -104,11 +121,18 @@ library LibRoleHistory {
     }
 
     /// @notice The inclusive end of a log window, capped at the final block.
+    /// @param start The window's first block.
+    /// @param size The window's size.
+    /// @param toBlock The final block.
+    /// @return The window's last block.
     function nextWindow(uint256 start, uint256 size, uint256 toBlock) internal pure returns (uint256) {
         return start + size - 1 > toBlock ? toBlock : start + size - 1;
     }
 
     /// @notice Halve a refused window, or propagate the RPC failure at the floor.
+    /// @param size The refused window's size.
+    /// @param reason The RPC failure.
+    /// @return The next window's size.
     function shrink(uint256 size, bytes memory reason) internal pure returns (uint256) {
         if (size <= MIN_WINDOW) {
             assembly ("memory-safe") {
@@ -118,8 +142,8 @@ library LibRoleHistory {
         return size / 2;
     }
 
-    function _contains(address[] memory set, uint256 n, address value) private pure returns (bool) {
-        for (uint256 i = 0; i < n; i++) {
+    function _contains(address[] memory set, uint256 count, address value) private pure returns (bool) {
+        for (uint256 i = 0; i < count; i++) {
             if (set[i] == value) return true;
         }
         return false;

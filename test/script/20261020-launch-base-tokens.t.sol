@@ -18,14 +18,17 @@ import {
     LandingAuthoriserNotAllowed,
     VaultMismatch,
     TempAuthoriserNotSigners,
+    CertifyNotGranted,
     FixedCidsNotAllowed,
     CertificationExpired,
-    LaunchCheckFailed
+    LaunchCheckFailed,
+    StageSentUnconfirmed,
+    StageDirUnset
 } from "../../script/20261020-launch-base-tokens.s.sol";
 import {CERTIFY_ADMIN} from "rain-vats-0.2.5/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {CERTIFY} from "rain-vats-0.2.5/src/concrete/vault/OffchainAssetReceiptVault.sol";
 import {OwnershipHandoffFailed, AuthoriserNotWired} from "../../script/lib/LibTokenDeployment.sol";
-import {LibLedger, LedgerRow} from "../../script/lib/LibLedger.sol";
+import {LibLedger, LedgerRow, LedgerNotAnArray} from "../../script/lib/LibLedger.sol";
 import {LibLaunchStages, StageReceipt} from "../../script/lib/LibLaunchStages.sol";
 import {LibRoleHistory} from "../../script/lib/LibRoleHistory.sol";
 import {LibProdLaunchBase} from "../../src/lib/LibProdLaunchBase.sol";
@@ -55,6 +58,22 @@ contract LaunchBaseTokensTest is Test {
         harness = new LaunchBaseTokensHarness();
     }
 
+    function _writePlan(LaunchBaseTokens.LaunchPaths memory at, string memory metadataFile, uint256 nowSeconds)
+        internal
+    {
+        string[] memory files = new string[](1);
+        files[0] = metadataFile;
+        LaunchBaseTokens.PlanInputs memory inputs = LaunchBaseTokens.PlanInputs({
+            ledger: at.ledger, allowlist: at.allowlist, pins: "launch/dedicated-authorisers.json"
+        });
+        script.writePlan(
+            script.planFiles(files, script.planContext(inputs.ledger, inputs.allowlist, inputs.pins, nowSeconds)),
+            inputs,
+            nowSeconds,
+            at.plan
+        );
+    }
+
     /// @notice A fresh working directory with a plan for tDIS.
     function _paths(string memory name) internal returns (LaunchBaseTokens.LaunchPaths memory at) {
         string memory dir = string.concat("out/test-launch-unit-", name);
@@ -67,15 +86,7 @@ contract LaunchBaseTokensTest is Test {
             allowlist: "launch/allowlist.json"
         });
         vm.writeFile(at.ledger, "[]\n");
-        string[] memory files = new string[](1);
-        files[0] = "launch/metadata/dis.json";
-        script.writePlan(
-            script.planFiles(
-                files, script.planContext(at.ledger, at.allowlist, "launch/dedicated-authorisers.json", NOW)
-            ),
-            NOW,
-            at.plan
-        );
+        _writePlan(at, "launch/metadata/dis.json", NOW);
     }
 
     function _log(address emitter, bytes32 topic, bytes memory data) internal pure returns (Vm.Log memory log) {
@@ -149,6 +160,7 @@ contract LaunchBaseTokensTest is Test {
     function testDeployRefusesWhenItsDeploymentAlreadyLanded() external {
         LaunchBaseTokens.LaunchPaths memory at = _paths("redeploy");
         vm.chainId(8453);
+        _payloads(at, "uploaded");
         _deployment(at, 1);
         vm.expectRevert(abi.encodeWithSelector(StageAlreadyDone.selector, "tDIS", "deploy"));
         harness.deployStage(at, "tDIS");
@@ -195,8 +207,8 @@ contract LaunchBaseTokensTest is Test {
     }
 
     function testWireRefusesWithoutPayloads() external {
-        LaunchBaseTokens.LaunchPaths memory at = _paths("no-payloads");
-        vm.chainId(8453);
+        LaunchBaseTokens.LaunchPaths memory at = _prepared("no-payloads");
+        vm.removeFile(script.stageFile(at, "tDIS", "payloads"));
         vm.expectRevert(abi.encodeWithSelector(PayloadsMissing.selector, "tDIS"));
         harness.wireStage(at, "tDIS");
     }
@@ -241,6 +253,15 @@ contract LaunchBaseTokensTest is Test {
         _mockVault("name()", abi.encode("The Walt Disney Company ST0x"));
         _mockVault("symbol()", abi.encode("tDIS"));
         vm.mockCall(TEMP, abi.encodeWithSignature("hasRole(bytes32,address)", CERTIFY_ADMIN, SIGNER), abi.encode(true));
+    }
+
+    function _payloads(LaunchBaseTokens.LaunchPaths memory at, string memory mode) internal {
+        vm.writeFile(
+            script.stageFile(at, "tDIS", "payloads"),
+            string.concat(
+                '{"schemaMeta":"0x00","schemaCid":"","metadataMeta":"0x00","metadataCid":"","mode":"', mode, '"}'
+            )
+        );
     }
 
     function _mockVault(string memory signature, bytes memory result) internal {
@@ -373,7 +394,7 @@ contract LaunchBaseTokensTest is Test {
         _mockVault("isCertificationExpired()", abi.encode(false));
         vm.mockCall(TEMP, abi.encodeWithSignature("hasRole(bytes32,address)", CERTIFY, SIGNER), abi.encode(false));
         TokenPlan memory p = script.plannedToken(at, "tDIS");
-        vm.expectRevert(abi.encodeWithSelector(TempAuthoriserNotSigners.selector, TEMP));
+        vm.expectRevert(abi.encodeWithSelector(CertifyNotGranted.selector, TEMP));
         harness.exposedAssertLaunched(p, VAULT, TEMP);
     }
 
@@ -404,9 +425,33 @@ contract LaunchBaseTokensTest is Test {
         script.checkStage(at);
     }
 
-    function testCheckSkipsATokenBeforeItsLandingAuthoriser() external {
+    /// @notice A vault deployed but not launched is still the signer's, so the
+    /// read-back fails on it.
+    function testCheckReportsATokenDeployedButNotLaunched() external {
         LaunchBaseTokens.LaunchPaths memory at = _prepared("check-stopped");
         _mockVault("authorizer()", abi.encode(TEMP));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LaunchCheckFailed.selector,
+                string.concat("tDIS: vault ", vm.toString(VAULT), " stopped before its landing authoriser was set; ")
+            )
+        );
+        script.checkStage(at);
+    }
+
+    function testCheckPassesATokenNeverDeployed() external {
+        LaunchBaseTokens.LaunchPaths memory at = _paths("check-not-deployed");
+        script.checkStage(at);
+    }
+
+    function testCheckReportsADeploySentWithoutAReceipt() external {
+        LaunchBaseTokens.LaunchPaths memory at = _paths("check-pending");
+        vm.writeFile(script.stageFile(at, "tDIS", "deploy"), '{"receipts":[],"pending":["0xabc"]}');
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LaunchCheckFailed.selector, "tDIS: deploy sent with no receipt, reconcile on chain: 0xabc; "
+            )
+        );
         script.checkStage(at);
     }
 
@@ -551,10 +596,33 @@ contract LaunchBaseTokensTest is Test {
 
     function testLedgerRefusesAFileThatIsNotAnArray() external {
         string memory path = "out/test-launch-unit-invalid-ledger.json";
-        vm.writeFile(path, "{}");
         LedgerRow[] memory rows = new LedgerRow[](1);
-        vm.expectRevert("ledger is not a JSON array");
+        string[5] memory notArrays = ["{}", '{"rows":[]}', "[]x", "", "x[]"];
+        for (uint256 i = 0; i < notArrays.length; i++) {
+            vm.writeFile(path, notArrays[i]);
+            vm.expectRevert(abi.encodeWithSelector(LedgerNotAnArray.selector, path));
+            harness.exposedAppendLedger(path, rows);
+        }
+    }
+
+    function testLedgerAppendsSeveralRowsToAnEmptyArray() external {
+        string memory path = "out/test-launch-unit-ledger-two-rows.json";
+        LedgerRow[] memory rows = new LedgerRow[](2);
+        rows[0].symbol = "tA";
+        rows[1].symbol = "tB";
+        string memory expected =
+            string.concat("[\n", LibLedger.format(rows[0]), ",\n", LibLedger.format(rows[1]), "\n]\n");
+        vm.writeFile(path, "[]\n");
         harness.exposedAppendLedger(path, rows);
+        assertEq(vm.readFile(path), expected);
+        vm.writeFile(path, "[ ]\n");
+        harness.exposedAppendLedger(path, rows);
+        assertEq(vm.readFile(path), expected);
+    }
+
+    function testLedgerEscapesEveryHexDigitInLowercase() external pure {
+        assertEq(LibLedger.quote("\x1a"), "\"\\u001a\"");
+        assertEq(LibLedger.quote("\x0b\x0e\x1d"), "\"\\u000b\\u000e\\u001d\"");
     }
 
     function testLedgerEscapesHexDigitsInLowercase() external pure {
@@ -779,8 +847,21 @@ contract LaunchBaseTokensTest is Test {
 
     function testHexQuantityHasNoLeadingZeros() external view {
         assertEq(harness.exposedHexQuantity(0), "0x0");
+        assertEq(harness.exposedHexQuantity(10), "0xa");
+        assertEq(harness.exposedHexQuantity(0x123456789abcdef0), "0x123456789abcdef0");
         assertEq(harness.exposedHexQuantity(52312052), "0x31e37f4");
         assertEq(harness.exposedHexQuantity(255), "0xff");
+        string memory allF = "0x";
+        for (uint256 i = 0; i < 64; i++) {
+            allF = string.concat(allF, "f");
+        }
+        assertEq(harness.exposedHexQuantity(type(uint256).max), allF);
+    }
+
+    function testHexQuantityRoundTrips(uint256 value) external view {
+        string memory quantity = harness.exposedHexQuantity(value);
+        assertEq(vm.parseUint(quantity), value);
+        if (value != 0) assertTrue(bytes(quantity)[2] != "0");
     }
 
     function testRecordWaitsForReceiptsAndKeepsMinedProgress() external {
@@ -840,5 +921,140 @@ contract LaunchBaseTokensTest is Test {
             if (hit) return true;
         }
         return false;
+    }
+
+    function testPlannedTokenReadsTheDedicatedFieldsBack() external {
+        LaunchBaseTokens.LaunchPaths memory at = _paths("planned-dedicated");
+        TokenPlan memory tokenPlan = script.plannedToken(at, "tDIS");
+        assertFalse(tokenPlan.dedicated);
+        assertFalse(tokenPlan.dedicatedMinterGrantPending);
+        vm.writeJson("true", at.plan, "$.tokens.tDIS.dedicatedMinterGrantPending");
+        vm.writeJson("true", at.plan, "$.tokens.tDIS.dedicated");
+        vm.writeJson("52312053", at.plan, "$.tokens.tDIS.dedicatedDeployBlock");
+        _editPlanAddress(at, "dedicatedMinter", address(0x0958));
+        tokenPlan = script.plannedToken(at, "tDIS");
+        assertTrue(tokenPlan.dedicated);
+        assertTrue(tokenPlan.dedicatedMinterGrantPending);
+        assertEq(tokenPlan.dedicatedDeployBlock, 52312053);
+        assertEq(tokenPlan.dedicatedMinter, address(0x0958));
+    }
+
+    function testCloneAndWireRefuseAChainOtherThanBase() external {
+        LaunchBaseTokens.LaunchPaths memory at = _paths("clone-wire-chain");
+        vm.expectRevert(abi.encodeWithSelector(WrongChain.selector, block.chainid));
+        harness.cloneStage(at, "tDIS");
+        vm.expectRevert(abi.encodeWithSelector(WrongChain.selector, block.chainid));
+        harness.wireStage(at, "tDIS");
+    }
+
+    function testDeployRefusesASentDeployWithNoReceipt() external {
+        LaunchBaseTokens.LaunchPaths memory at = _paths("deploy-pending");
+        vm.chainId(8453);
+        _payloads(at, "uploaded");
+        vm.writeFile(script.stageFile(at, "tDIS", "deploy"), '{"receipts":[],"pending":["0xabc"]}');
+        vm.expectRevert(abi.encodeWithSelector(StageSentUnconfirmed.selector, "tDIS", "deploy", "0xabc"));
+        harness.deployStage(at, "tDIS");
+    }
+
+    function testCloneRefusesASentCloneWithNoReceipt() external {
+        LaunchBaseTokens.LaunchPaths memory at = _prepared("clone-pending");
+        vm.writeFile(script.stageFile(at, "tDIS", "clone"), '{"receipts":[],"pending":["0xdef"]}');
+        vm.expectRevert(abi.encodeWithSelector(StageSentUnconfirmed.selector, "tDIS", "clone", "0xdef"));
+        harness.cloneStage(at, "tDIS");
+    }
+
+    /// @notice `deploy` runs `wire`'s pre-flight, so a plan `wire` would
+    /// refuse leaves no vault.
+    function testDeployRefusesWhatWireWouldRefuse() external {
+        LaunchBaseTokens.LaunchPaths memory at = _paths("deploy-preflight");
+        vm.chainId(8453);
+        vm.expectRevert(abi.encodeWithSelector(PayloadsMissing.selector, "tDIS"));
+        harness.deployStage(at, "tDIS");
+        _payloads(at, "fixed-cids");
+        vm.setEnv("LAUNCH_ALLOW_FIXED_CIDS", "false");
+        vm.expectRevert(abi.encodeWithSelector(FixedCidsNotAllowed.selector, "tDIS"));
+        harness.deployStage(at, "tDIS");
+        _payloads(at, "uploaded");
+        _editPlanAddress(at, "landingAuthoriser", address(0xBAD));
+        vm.expectRevert(abi.encodeWithSelector(LandingAuthoriserNotAllowed.selector, address(0xBAD)));
+        harness.deployStage(at, "tDIS");
+    }
+
+    function testStagesNeedTheStageDirectory() external {
+        LaunchBaseTokens.LaunchPaths memory at = _paths("stage-dir");
+        assertEq(script.requireStageDir(at).stageDir, at.stageDir);
+        at.stageDir = "";
+        vm.expectRevert(StageDirUnset.selector);
+        script.requireStageDir(at);
+    }
+
+    function testRecordTwiceWritesOneRow() external {
+        LaunchBaseTokens.LaunchPaths memory at = _paths("record-twice");
+        _deployment(at, 1);
+        _wire(at, true, true);
+        script.recordStage(at, "2026-10-15T15:51:07.450Z");
+        string memory once = vm.readFile(at.ledger);
+        script.recordStage(at, "2026-10-15T16:00:00.000Z");
+        assertEq(vm.readFile(at.ledger), once);
+        assertEq(vm.readFile(string.concat(at.stageDir, "/summary.md")), "- tDIS: already recorded\n");
+    }
+
+    /// @notice A row takes its time from the wire stage's broadcast, not from
+    /// when `record()` runs.
+    function testRecordStampsTheRowWithTheWireBroadcastTime() external {
+        LaunchBaseTokens.LaunchPaths memory at = _paths("record-wire-time");
+        _deployment(at, 1);
+        _wire(at, true, true);
+        vm.writeJson("1792079467450", script.stageFile(at, "tDIS", "wire"), ".timestamp");
+        script.recordStage(at, "2030-01-01T00:00:00.000Z");
+        assertEq(vm.parseJsonString(vm.readFile(at.ledger), "$[0].deployedAt"), "2026-10-15T15:51:07.450Z");
+    }
+
+    function testRecordWaitsForTheDeployBlockWithoutWireReceipts() external {
+        LaunchBaseTokens.LaunchPaths memory at = _paths("record-deploy-lag");
+        _deployment(at, 5);
+        vm.roll(4);
+        vm.expectRevert(abi.encodeWithSelector(StageNotReady.selector, 4, 5));
+        script.recordStage(at, "2026-10-15T15:51:07.450Z");
+        assertEq(vm.readFile(at.ledger), "[]\n");
+    }
+
+    function testSimulatedCloneWithoutNewCloneRefuses() external {
+        vm.etch(LibProdLaunchBase.CLONE_FACTORY, hex"00");
+        vm.mockCall(LibProdLaunchBase.CLONE_FACTORY, abi.encodeWithSignature("clone(address,bytes)"), abi.encode(TEMP));
+        vm.expectRevert(abi.encodeWithSelector(NewCloneNotFound.selector, "tDIS"));
+        harness.exposedCloneTempAuthoriser("tDIS");
+    }
+
+    function testRoleHistoryComparesLogIndicesOnlyWithinABlock() external pure {
+        bytes32 deposit = keccak256("DEPOSIT");
+        Vm.EthGetLogs[] memory logs = new Vm.EthGetLogs[](2);
+        logs[0] = _role(LibRoleHistory.ROLE_GRANTED_TOPIC, deposit, address(0xA));
+        logs[0].blockNumber = 9;
+        logs[0].logIndex = 2;
+        logs[1] = _role(LibRoleHistory.ROLE_REVOKED_TOPIC, deposit, address(0xA));
+        logs[1].blockNumber = 10;
+        logs[1].logIndex = 0;
+        assertEq(LibRoleHistory.holders(logs, deposit).length, 0);
+
+        logs[0].topics[0] = LibRoleHistory.ROLE_REVOKED_TOPIC;
+        logs[1].topics[0] = LibRoleHistory.ROLE_GRANTED_TOPIC;
+        address[] memory holders = LibRoleHistory.holders(logs, deposit);
+        assertEq(holders.length, 1);
+        assertEq(holders[0], address(0xA));
+    }
+
+    function testRoleHistorySkipsNonRoleEvents() external pure {
+        bytes32 deposit = keccak256("DEPOSIT");
+        Vm.EthGetLogs[] memory logs = new Vm.EthGetLogs[](3);
+        logs[0].topics = new bytes32[](1);
+        logs[0].topics[0] = keccak256("Initialized(uint64)");
+        logs[1] = _role(LibRoleHistory.ROLE_GRANTED_TOPIC, deposit, address(0xA));
+        logs[1].blockNumber = 1;
+        logs[2].topics = new bytes32[](0);
+        logs[2].blockNumber = 2;
+        address[] memory holders = LibRoleHistory.holders(logs, deposit);
+        assertEq(holders.length, 1);
+        assertEq(holders[0], address(0xA));
     }
 }

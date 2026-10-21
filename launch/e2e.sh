@@ -43,7 +43,6 @@ export LAUNCH_FILES="launch/metadata/dis.json launch/metadata/wmt.json launch/me
 # is uploaded.
 export LAUNCH_FIXED_SCHEMA_CID=bafkreihewy5a4ynph5cbwee6xzfoujfk7jh4h47hpso3rntlp45itiyzgi
 export LAUNCH_FIXED_METADATA_CID=bafkreiggpf2siafql7ikqwwo5esxtmajtmybxhohid4tm22tuvbz5auogq
-export LAUNCH_ALLOW_FIXED_CIDS=true
 
 anvil --fork-url "${BASE_RPC_URL}" --fork-block-number "${DIS_FORK_BLOCK}" \
   --auto-impersonate --port "${PORT}" --silent &
@@ -108,7 +107,19 @@ cut_wire() {
 forge_script --sig 'plan()'
 for symbol in tDIS tWMT tSPY tSNES; do
   forge_script --ffi --sig 'prepare(string)' "${symbol}"
+  [[ "$(jq -r .mode "${LAUNCH_STAGE_DIR}/${symbol}/payloads.json")" == fixed-cids ]] \
+    || fail "${symbol} payloads not marked fixed-cids"
 done
+
+# Fixed CIDs are refused unless LAUNCH_ALLOW_FIXED_CIDS is set, before
+# anything is sent.
+fixed_nonce=$(cast nonce "${SIGNER}" --rpc-url "${RPC}")
+if stage tDIS deploy >"${WORK}/fixed-cids.log" 2>&1; then
+  fail "deploy must refuse fixed CIDs by default"
+fi
+grep -q FixedCidsNotAllowed "${WORK}/fixed-cids.log" || fail "deploy refused fixed CIDs for another reason"
+[[ "$(cast nonce "${SIGNER}" --rpc-url "${RPC}")" == "${fixed_nonce}" ]] || fail "the refused deploy sent a transaction"
+export LAUNCH_ALLOW_FIXED_CIDS=true
 
 forge_script --sig 'simulate(string)' tDIS --rpc-url "${RPC}"
 simulate_nonce=$(cast nonce "${SIGNER}" --rpc-url "${RPC}")
@@ -134,11 +145,16 @@ fi
 [[ ! -f "${LAUNCH_STAGE_DIR}/tSNES/wire.json" ]] || fail "tSNES kept a stale wire file"
 
 forge_script --sig 'record()' --rpc-url "${RPC}"
-if forge_script --sig 'check()' --rpc-url "${RPC}"; then
+if forge_script --sig 'check()' --rpc-url "${RPC}" >"${WORK}/check.log" 2>&1; then
   fail "check() should report tWMT, still owned by the signer"
 fi
+grep -q "tSPY: vault .* stopped before its landing authoriser was set" "${WORK}/check.log" \
+  || fail "check() should report tSPY, deployed but not launched"
 
 ledger="${LAUNCH_LEDGER}"
+recorded=$(cat "${ledger}")
+forge_script --sig 'record()' --rpc-url "${RPC}"
+[[ "$(cat "${ledger}")" == "${recorded}" ]] || fail "a second record() changed the ledger"
 [[ "$(jq length "${ledger}")" == 2 ]] || fail "expected two ledger rows"
 [[ "$(jq -r '.[0].symbol' "${ledger}")" == tDIS ]] || fail "first row is not tDIS"
 [[ "$(jq -r '.[0].sft' "${ledger}")" == "${DIS_VAULT}" ]] || fail "tDIS vault differs"
@@ -146,6 +162,7 @@ ledger="${LAUNCH_LEDGER}"
 [[ "$(jq -r '.[1].symbol' "${ledger}")" == tWMT ]] || fail "second row is not tWMT"
 [[ "$(jq -r '.[1].currentOwner' "${ledger}")" == "${SIGNER}" ]] || fail "tWMT should still be the signer's"
 summary="${LAUNCH_STAGE_DIR}/summary.md"
+grep -q "tDIS: already recorded" "${summary}" || fail "the second record() should skip tDIS"
 grep -q "tSPY: vault .* stopped before its landing authoriser was set" "${summary}" || fail "tSPY missing from the summary"
 grep -q "tSNES: vault .* stopped before its landing authoriser was set" "${summary}" || fail "tSNES missing from the summary"
 

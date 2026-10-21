@@ -515,9 +515,7 @@ contract LaunchBaseTokensPlanTest is Test {
         script.plan();
         vm.setEnv("LAUNCH_LEDGER", "out/test-launch-ledger-empty.json");
         vm.setEnv("LAUNCH_PLAN", "launch/launches.json");
-        vm.expectRevert(
-            abi.encodeWithSelector(LaunchInputOutsideOut.selector, "LAUNCH_PLAN", "launch/launches.json")
-        );
+        vm.expectRevert(abi.encodeWithSelector(LaunchInputOutsideOut.selector, "LAUNCH_PLAN", "launch/launches.json"));
         script.plan();
         vm.setEnv("LAUNCH_PLAN", "out/../launch/launches.json");
         vm.expectRevert(

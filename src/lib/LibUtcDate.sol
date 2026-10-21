@@ -6,7 +6,7 @@ import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
 
 /// @title LibUtcDate
 /// @notice Proleptic Gregorian UTC calendar arithmetic over unix seconds, for
-/// the certification dates of the token launch. Uses Howard
+/// the dates the token launch writes on chain and into its ledger. Uses Howard
 /// Hinnant's `days_from_civil` / `civil_from_days`, valid for every date from
 /// 1970-01-01 on.
 library LibUtcDate {
@@ -71,6 +71,27 @@ library LibUtcDate {
     function toIsoDate(uint256 timestamp) internal pure returns (string memory) {
         (uint256 year, uint256 month, uint256 day) = civilFromDays(timestamp / SECONDS_PER_DAY);
         return string.concat(_pad(year, 4), "-", _pad(month, 2), "-", _pad(day, 2));
+    }
+
+    /// @notice `YYYY-MM-DDTHH:MM:SS.mmmZ`, JavaScript's `Date.toISOString()`,
+    /// for a time given in unix milliseconds.
+    /// @param unixMs Unix milliseconds.
+    /// @return The ISO 8601 UTC time with milliseconds.
+    function toIsoDateTimeMs(uint256 unixMs) internal pure returns (string memory) {
+        uint256 secs = unixMs / 1000;
+        uint256 secOfDay = secs % SECONDS_PER_DAY;
+        return string.concat(
+            toIsoDate(secs),
+            "T",
+            _pad(secOfDay / 3600, 2),
+            ":",
+            _pad((secOfDay / 60) % 60, 2),
+            ":",
+            _pad(secOfDay % 60, 2),
+            ".",
+            _pad(unixMs % 1000, 3),
+            "Z"
+        );
     }
 
     function _pad(uint256 value, uint256 width) private pure returns (string memory s) {

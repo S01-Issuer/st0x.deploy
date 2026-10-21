@@ -16,13 +16,19 @@ import {
 } from "rain-vats-0.2.5/src/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
 import {ReceiptVaultConfigV2} from "rain-vats-0.2.5/src/abstract/ReceiptVault.sol";
 import {CERTIFY, DEPOSIT, WITHDRAW} from "rain-vats-0.2.5/src/concrete/vault/OffchainAssetReceiptVault.sol";
-import {CERTIFY_ADMIN} from "rain-vats-0.2.5/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+import {
+    CERTIFY_ADMIN,
+    DEPOSIT_ADMIN,
+    WITHDRAW_ADMIN,
+    OffchainAssetReceiptVaultAuthorizerV1Config
+} from "rain-vats-0.2.5/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {IStoxUnifiedDeployerV1} from "../src/interface/IStoxUnifiedDeployerV1.sol";
 import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 import {LibProdLaunchBase} from "../src/lib/LibProdLaunchBase.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
+import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibUtcDate} from "../src/lib/LibUtcDate.sol";
 import {
     LibLaunchPlan,
@@ -94,6 +100,15 @@ error StageNotReady(uint256 blockNumber, uint256 required);
 /// make a second vault or clone, or replay the wiring.
 error StageAlreadyDone(string symbol, string stage);
 
+/// @notice The stage sent a transaction forge holds no receipt for. It may
+/// still land, so sending again could create a second vault or clone.
+/// Reconcile it on chain first.
+error StageSentUnconfirmed(string symbol, string stage, string txHash);
+
+/// @notice A stage ran without `LAUNCH_STAGE_DIR`, so it could not read the
+/// receipts `launch/stage.sh` copies there.
+error StageDirUnset();
+
 /// @notice The `deploy` stage file holds no `Deployment` from the unified
 /// deployer.
 error DeploymentNotFound(string symbol);
@@ -107,6 +122,10 @@ error VaultMismatch(address vault);
 /// @notice The mined temp authoriser does not let the signer grant CERTIFY.
 error TempAuthoriserNotSigners(address temp);
 
+/// @notice After the wiring, the signer does not hold CERTIFY on the temp
+/// authoriser, so the certification was not made by the launch.
+error CertifyNotGranted(address temp);
+
 /// @notice The handoff target is not the production Safe allowlisted as
 /// `owner` on Base.
 error HandoffTargetNotAllowlisted(address owner);
@@ -119,6 +138,10 @@ error LandingAuthoriserNotAllowed(address authoriser);
 /// @notice The payloads carry test CIDs, which are never published unless
 /// `LAUNCH_ALLOW_FIXED_CIDS` is set.
 error FixedCidsNotAllowed(string symbol);
+
+/// @notice Only one of `LAUNCH_FIXED_SCHEMA_CID` and
+/// `LAUNCH_FIXED_METADATA_CID` is set.
+error FixedCidsIncomplete(string symbol);
 
 /// @notice The vault's certification expired, or never started.
 error CertificationExpired(address vault);
@@ -194,7 +217,6 @@ contract LaunchBaseTokens is Script {
     string internal constant DEFAULT_PINS = "launch/dedicated-authorisers.json";
     string internal constant DEFAULT_ALLOWLIST = "launch/allowlist.json";
     string internal constant DEFAULT_PLAN = "out/launch-plan.json";
-    string internal constant DEFAULT_STAGE_DIR = "out/launch";
 
     /// @notice Where the launch reads and writes. `paths()` takes each from
     /// the environment, defaulting to the committed files; tests pass their
@@ -397,12 +419,31 @@ contract LaunchBaseTokens is Script {
     function paths() public view returns (LaunchPaths memory) {
         return LaunchPaths({
             plan: _inputPath("LAUNCH_PLAN", DEFAULT_PLAN),
-            stageDir: _inputPath("LAUNCH_STAGE_DIR", DEFAULT_STAGE_DIR),
+            stageDir: _inputPath("LAUNCH_STAGE_DIR", ""),
             ledger: _inputPath("LAUNCH_LEDGER", DEFAULT_LEDGER),
             allowlist: _inputPath("LAUNCH_ALLOWLIST", DEFAULT_ALLOWLIST)
         });
     }
 
+    /// @notice `paths()` for a stage, which needs `LAUNCH_STAGE_DIR`.
+    /// @return The paths.
+    function stagePaths() public view returns (LaunchPaths memory) {
+        return requireStageDir(paths());
+    }
+
+    /// @notice `at`, refused when it names no stage directory.
+    /// @param at The launch's paths.
+    /// @return The same paths.
+    function requireStageDir(LaunchPaths memory at) public pure returns (LaunchPaths memory) {
+        if (bytes(at.stageDir).length == 0) revert StageDirUnset();
+        return at;
+    }
+
+    /// @notice One stage's file for one token.
+    /// @param at The launch's paths.
+    /// @param symbol The token.
+    /// @param stage `payloads`, `deploy`, `clone` or `wire`.
+    /// @return The file.
     function stageFile(LaunchPaths memory at, string memory symbol, string memory stage)
         public
         pure
@@ -412,25 +453,36 @@ contract LaunchBaseTokens is Script {
     }
 
     /// @notice The plan `plan()` wrote for `symbol`.
-    function plannedToken(LaunchPaths memory at, string memory symbol) public view returns (TokenPlan memory p) {
+    /// @param at The launch's paths.
+    /// @param symbol The token.
+    /// @return tokenPlan The token's plan.
+    function plannedToken(LaunchPaths memory at, string memory symbol)
+        public
+        view
+        returns (TokenPlan memory tokenPlan)
+    {
         string memory json = vm.readFile(at.plan);
         string memory key = string.concat("$.tokens['", symbol, "']");
         if (!vm.keyExistsJson(json, key)) revert NotPlanned(symbol);
-        p.metadataFile = vm.parseJsonString(json, string.concat(key, ".metadataFile"));
-        p.symbol = vm.parseJsonString(json, string.concat(key, ".symbol"));
-        p.name = vm.parseJsonString(json, string.concat(key, ".name"));
-        p.assetType = LibLaunchPlan.parseAssetType(
+        tokenPlan.metadataFile = vm.parseJsonString(json, string.concat(key, ".metadataFile"));
+        tokenPlan.symbol = vm.parseJsonString(json, string.concat(key, ".symbol"));
+        tokenPlan.name = vm.parseJsonString(json, string.concat(key, ".name"));
+        tokenPlan.assetType = LibLaunchPlan.parseAssetType(
             Strings.equal(vm.parseJsonString(json, string.concat(key, ".type")), "etf") ? "ETF" : "Equity"
         );
-        p.certifyUntil = vm.parseJsonUint(json, string.concat(key, ".certifyUntil"));
-        p.intendedOwner = vm.parseJsonAddress(json, string.concat(key, ".intendedOwner"));
-        p.landingAuthoriser = vm.parseJsonAddress(json, string.concat(key, ".landingAuthoriser"));
-        p.dedicated = vm.parseJsonBool(json, string.concat(key, ".dedicated"));
-        p.dedicatedMinter = vm.parseJsonAddress(json, string.concat(key, ".dedicatedMinter"));
-        p.dedicatedDeployBlock = vm.parseJsonUint(json, string.concat(key, ".dedicatedDeployBlock"));
-        p.dedicatedMinterGrantPending = vm.parseJsonBool(json, string.concat(key, ".dedicatedMinterGrantPending"));
+        tokenPlan.certifyUntil = vm.parseJsonUint(json, string.concat(key, ".certifyUntil"));
+        tokenPlan.intendedOwner = vm.parseJsonAddress(json, string.concat(key, ".intendedOwner"));
+        tokenPlan.landingAuthoriser = vm.parseJsonAddress(json, string.concat(key, ".landingAuthoriser"));
+        tokenPlan.dedicated = vm.parseJsonBool(json, string.concat(key, ".dedicated"));
+        tokenPlan.dedicatedMinter = vm.parseJsonAddress(json, string.concat(key, ".dedicatedMinter"));
+        tokenPlan.dedicatedDeployBlock = vm.parseJsonUint(json, string.concat(key, ".dedicatedDeployBlock"));
+        tokenPlan.dedicatedMinterGrantPending =
+            vm.parseJsonBool(json, string.concat(key, ".dedicatedMinterGrantPending"));
     }
 
+    /// @notice The planned symbols, in launch order.
+    /// @param at The launch's paths.
+    /// @return The symbols.
     function plannedOrder(LaunchPaths memory at) public view returns (string[] memory) {
         return vm.parseJsonStringArray(vm.readFile(at.plan), "$.order");
     }
@@ -445,24 +497,33 @@ contract LaunchBaseTokens is Script {
     /// only tests do. Needs `--ffi`.
     function prepare(string memory symbol) external {
         prepareStage(
-            paths(),
+            stagePaths(),
             symbol,
             vm.envOr("LAUNCH_FIXED_SCHEMA_CID", string("")),
             vm.envOr("LAUNCH_FIXED_METADATA_CID", string(""))
         );
     }
 
+    /// @notice The body of `prepare`, with the paths and fixed CIDs given.
+    /// @param at The launch's paths.
+    /// @param symbol The token.
+    /// @param fixedSchemaCid A test CID for the schema, or empty to upload.
+    /// @param fixedMetadataCid A test CID for the metadata, or empty to
+    /// upload. Both fixed mark the payloads `fixed-cids`; one alone is refused.
     function prepareStage(
         LaunchPaths memory at,
         string memory symbol,
         string memory fixedSchemaCid,
         string memory fixedMetadataCid
     ) public {
-        TokenPlan memory p = plannedToken(at, symbol);
+        TokenPlan memory tokenPlan = plannedToken(at, symbol);
         bool fixedCids = bytes(fixedSchemaCid).length != 0 || bytes(fixedMetadataCid).length != 0;
+        if (fixedCids && (bytes(fixedSchemaCid).length == 0 || bytes(fixedMetadataCid).length == 0)) {
+            revert FixedCidsIncomplete(symbol);
+        }
         LaunchPayloads memory payloads = fixedCids
-            ? LibLaunchPayload.withCids(p.metadataFile, p.name, fixedSchemaCid, fixedMetadataCid)
-            : LibLaunchPayload.upload(p.metadataFile, p.name);
+            ? LibLaunchPayload.withCids(tokenPlan.metadataFile, tokenPlan.name, fixedSchemaCid, fixedMetadataCid)
+            : LibLaunchPayload.upload(tokenPlan.metadataFile, tokenPlan.name);
 
         string memory key = string.concat("payloads-", symbol);
         vm.serializeBytes(key, "schemaMeta", payloads.schemaMeta);
@@ -477,6 +538,10 @@ contract LaunchBaseTokens is Script {
         if (fixedCids) console2.log("  (fixed CIDs: nothing was uploaded)");
     }
 
+    /// @notice The documents and CIDs `prepare` wrote for `symbol`.
+    /// @param at The launch's paths.
+    /// @param symbol The token.
+    /// @return payloads The documents and CIDs.
     function payloadsOf(LaunchPaths memory at, string memory symbol)
         public
         view
@@ -495,27 +560,26 @@ contract LaunchBaseTokens is Script {
     /// to 8 and the handoff, with every pre-flight and post-state check. Never
     /// broadcasts.
     function simulate(string memory symbol) external {
-        simulateStage(paths(), symbol);
+        simulateStage(stagePaths(), symbol);
     }
 
+    /// @notice The body of `simulate`, with the paths given.
+    /// @param at The launch's paths.
+    /// @param symbol The token.
     function simulateStage(LaunchPaths memory at, string memory symbol) public {
         if (vm.isContext(VmSafe.ForgeContext.ScriptBroadcast) || vm.isContext(VmSafe.ForgeContext.ScriptResume)) {
             revert SimulateCannotBroadcast();
         }
         requireBase();
-        TokenPlan memory p = plannedToken(at, symbol);
-        LaunchPayloads memory payloads = payloadsOf(at, symbol);
-        checkHandoffTarget(at, p);
-        checkLandingAuthoriser(at, p);
-        if (p.dedicated) checkDedicatedAuthoriser(p);
+        (TokenPlan memory tokenPlan, LaunchPayloads memory payloads) = preflight(at, symbol);
 
         vm.startPrank(LibProdLaunchBase.LAUNCH_SIGNER, LibProdLaunchBase.LAUNCH_SIGNER);
-        (address vault, address wrapper) = deployToken(p);
-        address temp = cloneTempAuthoriser(p.symbol);
-        wireToken(p, vault, wrapper, temp, payloads);
+        (address vault, address wrapper) = deployToken(tokenPlan);
+        address temp = cloneTempAuthoriser(tokenPlan.symbol);
+        wireToken(tokenPlan, vault, wrapper, temp, payloads);
         vm.stopPrank();
 
-        assertLaunched(p, vault, temp);
+        assertLaunched(tokenPlan, vault, temp);
         console2.log(string.concat(symbol, " simulated: vault ", vm.toString(vault), " wrapper ", vm.toString(wrapper)));
     }
 
@@ -525,40 +589,48 @@ contract LaunchBaseTokens is Script {
 
     /// @notice Stage 1: deploy the vault and its wrapper.
     function deploy(string memory symbol) external {
-        deployStage(paths(), symbol);
+        deployStage(stagePaths(), symbol);
     }
 
+    /// @notice The body of `deploy`, with the paths given. Runs the whole
+    /// pre-flight first, so a plan `wire` would refuse leaves no vault.
+    /// @param at The launch's paths.
+    /// @param symbol The token.
     function deployStage(LaunchPaths memory at, string memory symbol) public {
         requireBase();
         requireSigner(msg.sender);
-        TokenPlan memory p = plannedToken(at, symbol);
-        (bool deployed,,,) = LibLaunchStages.findDeployment(
-            LibLaunchStages.readReceipts(stageFile(at, symbol, "deploy")), unifiedDeployer()
-        );
+        (TokenPlan memory tokenPlan,) = preflight(at, symbol);
+        string memory deployFile = stageFile(at, symbol, "deploy");
+        (bool deployed,,,) = LibLaunchStages.findDeployment(LibLaunchStages.readReceipts(deployFile), unifiedDeployer());
         if (deployed) revert StageAlreadyDone(symbol, "deploy");
+        requireNothingPending(deployFile, symbol, "deploy");
 
         startLaunchBroadcast();
-        IStoxUnifiedDeployerV1(unifiedDeployer()).newTokenAndWrapperVault(vaultConfig(p));
+        IStoxUnifiedDeployerV1(unifiedDeployer()).newTokenAndWrapperVault(vaultConfig(tokenPlan));
         stopLaunchBroadcast();
     }
 
     /// @notice Stage 2: clone the temp authoriser, once the mined vault from
     /// stage 1 is confirmed to be the planned token.
     function clone(string memory symbol) external {
-        cloneStage(paths(), symbol);
+        cloneStage(stagePaths(), symbol);
     }
 
+    /// @notice The body of `clone`, with the paths given.
+    /// @param at The launch's paths.
+    /// @param symbol The token.
     function cloneStage(LaunchPaths memory at, string memory symbol) public {
         requireBase();
         requireSigner(msg.sender);
-        TokenPlan memory p = plannedToken(at, symbol);
+        TokenPlan memory tokenPlan = plannedToken(at, symbol);
         (address vault,, uint256 deployedAt) = minedDeployment(at, symbol);
         if (block.number < deployedAt) revert StageNotReady(block.number, deployedAt);
-        (bool cloned,,) = LibLaunchStages.findClone(
-            LibLaunchStages.readReceipts(stageFile(at, symbol, "clone")), LibProdLaunchBase.CLONE_FACTORY
-        );
+        string memory cloneFile = stageFile(at, symbol, "clone");
+        (bool cloned,,) =
+            LibLaunchStages.findClone(LibLaunchStages.readReceipts(cloneFile), LibProdLaunchBase.CLONE_FACTORY);
         if (cloned) revert StageAlreadyDone(symbol, "clone");
-        checkMinedVault(p, vault);
+        requireNothingPending(cloneFile, symbol, "clone");
+        checkMinedVault(tokenPlan, vault);
 
         startLaunchBroadcast();
         ICloneFactory(LibProdLaunchBase.CLONE_FACTORY).clone(tempAuthoriserImplementation(), tempAuthoriserConfig());
@@ -569,14 +641,16 @@ contract LaunchBaseTokens is Script {
     /// and temp authoriser. None of these create an address, so what lands is
     /// what this invocation simulated.
     function wire(string memory symbol) external {
-        wireStage(paths(), symbol);
+        wireStage(stagePaths(), symbol);
     }
 
+    /// @notice The body of `wire`, with the paths given.
+    /// @param at The launch's paths.
+    /// @param symbol The token.
     function wireStage(LaunchPaths memory at, string memory symbol) public {
         requireBase();
         requireSigner(msg.sender);
-        TokenPlan memory p = plannedToken(at, symbol);
-        LaunchPayloads memory payloads = payloadsOf(at, symbol);
+        TokenPlan memory tokenPlan = plannedToken(at, symbol);
         (address vault, address wrapper,) = minedDeployment(at, symbol);
         (bool cloned, address temp, uint256 clonedAt) = LibLaunchStages.findClone(
             LibLaunchStages.readReceipts(stageFile(at, symbol, "clone")), LibProdLaunchBase.CLONE_FACTORY
@@ -584,23 +658,18 @@ contract LaunchBaseTokens is Script {
         if (!cloned) revert NewCloneNotFound(symbol);
         if (block.number < clonedAt) revert StageNotReady(block.number, clonedAt);
         if (ISetAuthorizer(vault).authorizer() != vault) revert StageAlreadyDone(symbol, "wire");
-        checkMinedVault(p, vault);
+        checkMinedVault(tokenPlan, vault);
         if (!IAccessControl(temp).hasRole(CERTIFY_ADMIN, LibProdLaunchBase.LAUNCH_SIGNER)) {
             revert TempAuthoriserNotSigners(temp);
         }
-        checkHandoffTarget(at, p);
-        checkLandingAuthoriser(at, p);
-        if (p.dedicated) checkDedicatedAuthoriser(p);
-        if (
-            Strings.equal(vm.parseJsonString(vm.readFile(stageFile(at, symbol, "payloads")), ".mode"), "fixed-cids")
-                && !vm.envOr("LAUNCH_ALLOW_FIXED_CIDS", false)
-        ) revert FixedCidsNotAllowed(symbol);
+        LaunchPayloads memory payloads;
+        (, payloads) = preflight(at, symbol);
 
         startLaunchBroadcast();
-        wireToken(p, vault, wrapper, temp, payloads);
+        wireToken(tokenPlan, vault, wrapper, temp, payloads);
         stopLaunchBroadcast();
 
-        assertLaunched(p, vault, temp);
+        assertLaunched(tokenPlan, vault, temp);
     }
 
     // =========================================================================
@@ -609,32 +678,42 @@ contract LaunchBaseTokens is Script {
 
     /// @notice Append a ledger row for every planned token whose landing
     /// authoriser is set: `create-sft` appends after that step, before the
-    /// handoff. Tokens that stopped earlier are listed in
-    /// `LAUNCH_STAGE_DIR/summary.md`. Runs on Base so the vault's state is read
-    /// from the chain. Refuses an RPC behind the mined wire receipts.
+    /// handoff. A token already in the ledger is not recorded again. Tokens
+    /// that stopped earlier are listed in `LAUNCH_STAGE_DIR/summary.md`. Runs
+    /// on Base so the vault's state is read from the chain. Refuses an RPC
+    /// behind the mined receipts.
     function record() external {
         requireBase();
-        recordStage(paths(), LibUtcDate.toIsoDateTimeMs(vm.unixTime()));
+        recordStage(stagePaths(), LibUtcDate.toIsoDateTimeMs(vm.unixTime()));
     }
 
-    function recordStage(LaunchPaths memory at, string memory deployedAt) public {
+    /// @notice The body of `record`, with the paths given.
+    /// @param at The launch's paths.
+    /// @param recordedAt The `deployedAt` of a row whose wire stage file has
+    /// no broadcast time.
+    function recordStage(LaunchPaths memory at, string memory recordedAt) public {
         string[] memory order = plannedOrder(at);
+        string[] memory recorded = LibLaunchInputs.readShippedSymbols(at.ledger);
         LedgerRow[] memory rows = new LedgerRow[](order.length);
-        uint256 n = 0;
+        uint256 rowCount = 0;
         string memory summary = "";
         for (uint256 i = 0; i < order.length; i++) {
-            TokenPlan memory p = plannedToken(at, order[i]);
-            (bool landed, LedgerRow memory row, string memory stopped) = recordedRow(at, p, deployedAt);
+            TokenPlan memory tokenPlan = plannedToken(at, order[i]);
+            if (LibLaunchPlan.contains(recorded, LibLaunchPlan.toLower(tokenPlan.symbol))) {
+                summary = string.concat(summary, "- ", tokenPlan.symbol, ": already recorded\n");
+                continue;
+            }
+            (bool landed, LedgerRow memory row, string memory stopped) = recordedRow(at, tokenPlan, recordedAt);
             if (landed) {
-                rows[n++] = row;
-                summary = string.concat(summary, "- ", p.symbol, " ", vm.toString(row.sft));
+                rows[rowCount++] = row;
+                summary = string.concat(summary, "- ", tokenPlan.symbol, " ", vm.toString(row.sft));
                 summary = string.concat(summary, ": recorded, owner ", vm.toString(row.currentOwner), "\n");
             } else {
-                summary = string.concat(summary, "- ", p.symbol, ": ", stopped, "\n");
+                summary = string.concat(summary, "- ", tokenPlan.symbol, ": ", stopped, "\n");
             }
         }
         assembly ("memory-safe") {
-            mstore(rows, n)
+            mstore(rows, rowCount)
         }
         LibLedger.append(at.ledger, rows);
         vm.createDir(at.stageDir, true);
@@ -642,22 +721,31 @@ contract LaunchBaseTokens is Script {
         console2.log(summary);
     }
 
-    /// @notice The ledger row for `p`, when its landing authoriser was set,
-    /// or the stage it stopped at.
-    function recordedRow(LaunchPaths memory at, TokenPlan memory p, string memory deployedAt)
+    /// @notice The ledger row for `tokenPlan`, when its landing authoriser was set,
+    /// or the stage it stopped at. `deployedAt` is the wire stage's broadcast
+    /// time, which follows the landing authoriser as `create-sft`'s clock
+    /// does, or `recordedAt` when the wire stage file holds none.
+    /// @param at The launch's paths.
+    /// @param tokenPlan The token's plan.
+    /// @param recordedAt The fallback `deployedAt`.
+    /// @return landed Whether the landing authoriser was set.
+    /// @return row The ledger row, when landed.
+    /// @return stopped Where the launch stopped, when not landed.
+    function recordedRow(LaunchPaths memory at, TokenPlan memory tokenPlan, string memory recordedAt)
         public
         view
         returns (bool landed, LedgerRow memory row, string memory stopped)
     {
-        string memory deployFile = stageFile(at, p.symbol, "deploy");
-        (bool deployed, address vault, address wrapper,) =
+        string memory deployFile = stageFile(at, tokenPlan.symbol, "deploy");
+        (bool deployed, address vault, address wrapper, uint256 deployBlock) =
             LibLaunchStages.findDeployment(LibLaunchStages.readReceipts(deployFile), unifiedDeployer());
         if (!deployed) {
             string[] memory pending = LibLaunchStages.pendingHashes(deployFile);
             if (pending.length == 0) return (landed, row, "not deployed");
             return (landed, row, string.concat("deploy sent with no receipt, reconcile on chain: ", pending[0]));
         }
-        (bool landingSet, bool handedOff) = launchProgress(at, p, vault);
+        if (deployBlock > block.number) revert StageNotReady(block.number, deployBlock);
+        (bool landingSet, bool handedOff) = launchProgress(at, tokenPlan, vault);
         if (!landingSet) {
             return (
                 landed,
@@ -665,64 +753,92 @@ contract LaunchBaseTokens is Script {
                 string.concat("vault ", vm.toString(vault), " stopped before its landing authoriser was set")
             );
         }
-        row.symbol = p.symbol;
-        row.name = p.name;
+        row.symbol = tokenPlan.symbol;
+        row.name = tokenPlan.name;
         row.sft = vault;
         row.wrapper = wrapper;
-        row.authorizer = p.landingAuthoriser;
-        row.chainId = LibLaunchPlan.BASE_CHAIN_ID;
-        row.deployedAt = deployedAt;
+        row.authorizer = tokenPlan.landingAuthoriser;
+        row.chainId = LibSafeInvariants.BASE_CHAIN_ID;
+        row.deployedAt = _wiredAt(at, tokenPlan.symbol, recordedAt);
         row.deployedBy = LibProdLaunchBase.LAUNCH_SIGNER;
-        row.intendedOwner = p.intendedOwner;
-        row.currentOwner = handedOff ? p.intendedOwner : LibProdLaunchBase.LAUNCH_SIGNER;
-        row.certifyUntil = LibUtcDate.toIsoDateTimeMs(p.certifyUntil * 1000);
+        row.intendedOwner = tokenPlan.intendedOwner;
+        row.currentOwner = handedOff ? tokenPlan.intendedOwner : LibProdLaunchBase.LAUNCH_SIGNER;
+        row.certifyUntil = LibUtcDate.toIsoDateTimeMs(tokenPlan.certifyUntil * 1000);
         landed = true;
         return (landed, row, "");
+    }
+
+    /// @notice The wire stage file's broadcast time, or `fallbackTime`.
+    function _wiredAt(LaunchPaths memory at, string memory symbol, string memory fallbackTime)
+        internal
+        view
+        returns (string memory)
+    {
+        string memory wireFile = stageFile(at, symbol, "wire");
+        if (!vm.exists(wireFile)) return fallbackTime;
+        string memory json = vm.readFile(wireFile);
+        if (!vm.keyExistsJson(json, ".timestamp")) return fallbackTime;
+        return LibUtcDate.toIsoDateTimeMs(vm.parseJsonUint(json, ".timestamp"));
     }
 
     /// @notice Whether the vault's landing authoriser is set, and whether it
     /// was handed to its owner. Mined receipts retain landed progress, and
     /// chain state also counts when a transaction's receipt was not saved.
-    function launchProgress(LaunchPaths memory at, TokenPlan memory p, address vault)
+    /// @param at The launch's paths.
+    /// @param tokenPlan The token's plan.
+    /// @param vault The mined vault.
+    /// @return landingSet Whether the landing authoriser is set.
+    /// @return handedOff Whether the vault was handed to its owner.
+    function launchProgress(LaunchPaths memory at, TokenPlan memory tokenPlan, address vault)
         internal
         view
         returns (bool landingSet, bool handedOff)
     {
-        StageReceipt[] memory wired = LibLaunchStages.readReceipts(stageFile(at, p.symbol, "wire"));
+        StageReceipt[] memory wired = LibLaunchStages.readReceipts(stageFile(at, tokenPlan.symbol, "wire"));
         for (uint256 i = 0; i < wired.length; i++) {
             if (wired[i].blockNumber > block.number) revert StageNotReady(block.number, wired[i].blockNumber);
         }
-        landingSet = LibLaunchStages.setAuthorizerLanded(wired, vault, p.landingAuthoriser);
-        handedOff = LibLaunchStages.ownershipTransferred(wired, vault, p.intendedOwner);
+        landingSet = LibLaunchStages.setAuthorizerLanded(wired, vault, tokenPlan.landingAuthoriser);
+        handedOff = LibLaunchStages.ownershipTransferred(wired, vault, tokenPlan.intendedOwner);
         if (vault.code.length != 0) {
-            landingSet = landingSet || ISetAuthorizer(vault).authorizer() == p.landingAuthoriser;
-            handedOff = handedOff || Ownable(vault).owner() == p.intendedOwner;
+            landingSet = landingSet || ISetAuthorizer(vault).authorizer() == tokenPlan.landingAuthoriser;
+            handedOff = handedOff || Ownable(vault).owner() == tokenPlan.intendedOwner;
         }
     }
 
     /// @notice `cd-deploy`'s read-back of every recorded token: owner is the
-    /// Safe, the authoriser is the landing one, certification is live.
+    /// Safe, the authoriser is the landing one, certification is live. A token
+    /// deployed but not launched is a failure too, as its vault is still the
+    /// signer's.
     function check() external view {
-        checkStage(paths());
+        checkStage(stagePaths());
     }
 
+    /// @notice The body of `check`, with the paths given.
+    /// @param at The launch's paths.
     function checkStage(LaunchPaths memory at) public view {
         string[] memory order = plannedOrder(at);
         string memory failures = "";
         for (uint256 i = 0; i < order.length; i++) {
-            TokenPlan memory p = plannedToken(at, order[i]);
-            (bool landed, LedgerRow memory row,) = recordedRow(at, p, "");
-            if (!landed) continue;
+            TokenPlan memory tokenPlan = plannedToken(at, order[i]);
+            (bool landed, LedgerRow memory row, string memory stopped) = recordedRow(at, tokenPlan, "");
+            if (!landed) {
+                if (!Strings.equal(stopped, "not deployed")) {
+                    failures = string.concat(failures, tokenPlan.symbol, ": ", stopped, "; ");
+                }
+                continue;
+            }
             address owner = Ownable(row.sft).owner();
             address authoriser = ISetAuthorizer(row.sft).authorizer();
-            if (owner != p.intendedOwner) {
-                failures = string.concat(failures, p.symbol, ": owner() is ", vm.toString(owner), "; ");
+            if (owner != tokenPlan.intendedOwner) {
+                failures = string.concat(failures, tokenPlan.symbol, ": owner() is ", vm.toString(owner), "; ");
             }
-            if (authoriser != p.landingAuthoriser) {
-                failures = string.concat(failures, p.symbol, ": authorizer() is ", vm.toString(authoriser), "; ");
+            if (authoriser != tokenPlan.landingAuthoriser) {
+                failures =
+                    string.concat(failures, tokenPlan.symbol, ": authorizer() is ", vm.toString(authoriser), "; ");
             }
             if (ILaunchedVault(row.sft).isCertificationExpired()) {
-                failures = string.concat(failures, p.symbol, ": certification is expired; ");
+                failures = string.concat(failures, tokenPlan.symbol, ": certification is expired; ");
             }
         }
         if (bytes(failures).length != 0) revert LaunchCheckFailed(failures);
@@ -732,17 +848,19 @@ contract LaunchBaseTokens is Script {
     // Steps
     // =========================================================================
 
+    /// @notice The unified deployer every launch deploys through.
+    /// @return The deployer.
     function unifiedDeployer() public pure returns (address) {
         return LibProdDeployV1.STOX_UNIFIED_DEPLOYER;
     }
 
     /// @notice Step 1: `newTokenAndWrapperVault` with the signer as initial
     /// admin, the pair read from the `Deployment` event.
-    function vaultConfig(TokenPlan memory p) internal pure returns (OffchainAssetReceiptVaultConfigV2 memory) {
+    function vaultConfig(TokenPlan memory tokenPlan) internal pure returns (OffchainAssetReceiptVaultConfigV2 memory) {
         return OffchainAssetReceiptVaultConfigV2({
             initialAdmin: LibProdLaunchBase.LAUNCH_SIGNER,
             receiptVaultConfig: ReceiptVaultConfigV2({
-                asset: address(0), name: p.name, symbol: p.symbol, receipt: address(0)
+                asset: address(0), name: tokenPlan.name, symbol: tokenPlan.symbol, receipt: address(0)
             })
         });
     }
@@ -751,15 +869,15 @@ contract LaunchBaseTokens is Script {
         return LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1;
     }
 
-    /// @notice `abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: signer}))`.
+    /// @notice The temp authoriser's `initialize` data: the signer as admin.
     function tempAuthoriserConfig() internal pure returns (bytes memory) {
-        return abi.encode(LibProdLaunchBase.LAUNCH_SIGNER);
+        return abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: LibProdLaunchBase.LAUNCH_SIGNER}));
     }
 
-    function deployToken(TokenPlan memory p) internal returns (address vault, address wrapper) {
+    function deployToken(TokenPlan memory tokenPlan) internal returns (address vault, address wrapper) {
         vm.recordLogs();
-        IStoxUnifiedDeployerV1(unifiedDeployer()).newTokenAndWrapperVault(vaultConfig(p));
-        (vault, wrapper) = LibTokenDeployment.readDeployment(vm.getRecordedLogs(), unifiedDeployer(), p.symbol);
+        IStoxUnifiedDeployerV1(unifiedDeployer()).newTokenAndWrapperVault(vaultConfig(tokenPlan));
+        (vault, wrapper) = LibTokenDeployment.readDeployment(vm.getRecordedLogs(), unifiedDeployer(), tokenPlan.symbol);
     }
 
     /// @notice Step 2: a throwaway authoriser administered by the signer, only
@@ -775,25 +893,55 @@ contract LaunchBaseTokens is Script {
     }
 
     /// @notice Steps 3 to 8, then the handoff to the owner Safe.
-    function wireToken(TokenPlan memory p, address vault, address wrapper, address temp, LaunchPayloads memory payloads)
-        internal
-    {
+    function wireToken(
+        TokenPlan memory tokenPlan,
+        address vault,
+        address wrapper,
+        address temp,
+        LaunchPayloads memory payloads
+    ) internal {
         ISetAuthorizer(vault).setAuthorizer(IAuthorizeV1(temp));
         ILaunchedVault(vault).receiptVaultInformation(payloads.schemaMeta);
         IMetaBoard(LibProdLaunchBase.METABOARD).emitMeta(bytes32(uint256(uint160(vault))), payloads.metadataMeta);
         IMetaBoard(LibProdLaunchBase.METABOARD).emitMeta(bytes32(uint256(uint160(wrapper))), payloads.metadataMeta);
         IAccessControl(temp).grantRole(CERTIFY, LibProdLaunchBase.LAUNCH_SIGNER);
-        ILaunchedVault(vault).certify(p.certifyUntil, false, "");
-        ISetAuthorizer(vault).setAuthorizer(IAuthorizeV1(p.landingAuthoriser));
-        Ownable(vault).transferOwnership(p.intendedOwner);
+        ILaunchedVault(vault).certify(tokenPlan.certifyUntil, false, "");
+        ISetAuthorizer(vault).setAuthorizer(IAuthorizeV1(tokenPlan.landingAuthoriser));
+        Ownable(vault).transferOwnership(tokenPlan.intendedOwner);
     }
 
     // =========================================================================
     // Checks
     // =========================================================================
 
+    /// @notice What every stage checks before it touches the chain: the
+    /// payloads exist and carry no test CIDs unless allowed, the handoff target
+    /// and landing authoriser are the ones `plan()` would choose, and a
+    /// dedicated authoriser is exclusive to its minter.
+    function preflight(LaunchPaths memory at, string memory symbol)
+        internal
+        returns (TokenPlan memory tokenPlan, LaunchPayloads memory payloads)
+    {
+        tokenPlan = plannedToken(at, symbol);
+        payloads = payloadsOf(at, symbol);
+        if (
+            Strings.equal(vm.parseJsonString(vm.readFile(stageFile(at, symbol, "payloads")), ".mode"), "fixed-cids")
+                && !vm.envOr("LAUNCH_ALLOW_FIXED_CIDS", false)
+        ) revert FixedCidsNotAllowed(symbol);
+        checkHandoffTarget(at, tokenPlan);
+        checkLandingAuthoriser(at, tokenPlan);
+        if (tokenPlan.dedicated) checkDedicatedAuthoriser(tokenPlan);
+    }
+
+    /// @notice Refuse a stage whose earlier run sent a transaction with no
+    /// receipt.
+    function requireNothingPending(string memory file, string memory symbol, string memory stage) internal view {
+        string[] memory pending = LibLaunchStages.pendingHashes(file);
+        if (pending.length != 0) revert StageSentUnconfirmed(symbol, stage, pending[0]);
+    }
+
     function requireBase() internal view {
-        if (block.chainid != LibLaunchPlan.BASE_CHAIN_ID) revert WrongChain(block.chainid);
+        if (block.chainid != LibSafeInvariants.BASE_CHAIN_ID) revert WrongChain(block.chainid);
     }
 
     function requireSigner(address sender) internal view virtual {
@@ -822,51 +970,58 @@ contract LaunchBaseTokens is Script {
     }
 
     /// @notice The mined vault is the planned token and still the signer's.
-    function checkMinedVault(TokenPlan memory p, address vault) internal view {
+    function checkMinedVault(TokenPlan memory tokenPlan, address vault) internal view {
         if (
-            vault.code.length == 0 || !Strings.equal(ILaunchedVault(vault).name(), p.name)
-                || !Strings.equal(ILaunchedVault(vault).symbol(), p.symbol)
+            vault.code.length == 0 || !Strings.equal(ILaunchedVault(vault).name(), tokenPlan.name)
+                || !Strings.equal(ILaunchedVault(vault).symbol(), tokenPlan.symbol)
                 || Ownable(vault).owner() != LibProdLaunchBase.LAUNCH_SIGNER
         ) revert VaultMismatch(vault);
     }
 
     /// @notice `transfer-ownership`'s guard: the new owner is the production
     /// Safe, allowlisted as `owner` on Base.
-    function checkHandoffTarget(LaunchPaths memory at, TokenPlan memory p) public view {
-        address[] memory owners = LibLaunchInputs.readAllowlisted(at.allowlist, "owner", LibLaunchPlan.BASE_CHAIN_ID);
+    /// @param at The launch's paths.
+    /// @param tokenPlan The token's plan.
+    function checkHandoffTarget(LaunchPaths memory at, TokenPlan memory tokenPlan) public view {
+        address[] memory owners =
+            LibLaunchInputs.readAllowlisted(at.allowlist, "owner", LibSafeInvariants.BASE_CHAIN_ID);
         if (
-            p.intendedOwner != LibSafeInvariants.STOX_TOKEN_OWNER_SAFE
-                || !LibLaunchPlan.containsAddress(owners, p.intendedOwner)
-        ) revert HandoffTargetNotAllowlisted(p.intendedOwner);
+            tokenPlan.intendedOwner != LibSafeInvariants.STOX_TOKEN_OWNER_SAFE
+                || !LibLaunchPlan.containsAddress(owners, tokenPlan.intendedOwner)
+        ) revert HandoffTargetNotAllowlisted(tokenPlan.intendedOwner);
     }
 
     /// @notice The plan file cannot route a token anywhere `plan()` would not:
     /// the shared authoriser without a pin, an allowlisted one with a pin.
-    function checkLandingAuthoriser(LaunchPaths memory at, TokenPlan memory p) public view {
-        if (!p.dedicated) {
-            if (p.landingAuthoriser != LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE) {
-                revert LandingAuthoriserNotAllowed(p.landingAuthoriser);
+    /// @param at The launch's paths.
+    /// @param tokenPlan The token's plan.
+    function checkLandingAuthoriser(LaunchPaths memory at, TokenPlan memory tokenPlan) public view {
+        if (!tokenPlan.dedicated) {
+            if (tokenPlan.landingAuthoriser != LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE) {
+                revert LandingAuthoriserNotAllowed(tokenPlan.landingAuthoriser);
             }
             return;
         }
         address[] memory authorisers =
-            LibLaunchInputs.readAllowlisted(at.allowlist, "authorizer", LibLaunchPlan.BASE_CHAIN_ID);
+            LibLaunchInputs.readAllowlisted(at.allowlist, "authorizer", LibSafeInvariants.BASE_CHAIN_ID);
         if (
-            p.landingAuthoriser == LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE
-                || !LibLaunchPlan.containsAddress(authorisers, p.landingAuthoriser)
-        ) revert LandingAuthoriserNotAllowed(p.landingAuthoriser);
+            tokenPlan.landingAuthoriser == LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE
+                || !LibLaunchPlan.containsAddress(authorisers, tokenPlan.landingAuthoriser)
+        ) revert LandingAuthoriserNotAllowed(tokenPlan.landingAuthoriser);
     }
 
     /// @notice A dedicated authoriser exists, was created at its pinned block,
     /// and DEPOSIT and WITHDRAW on it are held only by its minter and the owner
     /// Safe: replayed from every role event since creation, and agreeing with
     /// `hasRole`. The minter must hold both unless its grants are pending. The
-    /// shared-fleet depositors must not hold DEPOSIT.
-    function checkDedicatedAuthoriser(TokenPlan memory p) public {
-        address authoriser = p.landingAuthoriser;
+    /// shared-fleet depositors must not hold DEPOSIT, and only governance may
+    /// hold DEPOSIT_ADMIN and WITHDRAW_ADMIN.
+    /// @param tokenPlan The token's plan.
+    function checkDedicatedAuthoriser(TokenPlan memory tokenPlan) public {
+        address authoriser = tokenPlan.landingAuthoriser;
         if (authoriser.code.length == 0) revert DedicatedAuthoriserNoCode(authoriser);
-        if (!createdAt(authoriser, p.dedicatedDeployBlock)) {
-            revert DedicatedAuthoriserNotCreatedAt(authoriser, p.dedicatedDeployBlock);
+        if (!createdAt(authoriser, tokenPlan.dedicatedDeployBlock)) {
+            revert DedicatedAuthoriserNotCreatedAt(authoriser, tokenPlan.dedicatedDeployBlock);
         }
 
         string memory problems = "";
@@ -879,26 +1034,27 @@ contract LaunchBaseTokens is Script {
             }
         }
 
-        Vm.EthGetLogs[] memory history = LibRoleHistory.readLogs(authoriser, p.dedicatedDeployBlock, block.number);
+        Vm.EthGetLogs[] memory history =
+            LibRoleHistory.readLogs(authoriser, tokenPlan.dedicatedDeployBlock, block.number);
         bytes32[2] memory guarded = [DEPOSIT, WITHDRAW];
         string[2] memory labels = ["DEPOSIT", "WITHDRAW"];
-        for (uint256 r = 0; r < guarded.length; r++) {
-            address[] memory holders = LibRoleHistory.holders(history, guarded[r]);
+        for (uint256 roleIndex = 0; roleIndex < guarded.length; roleIndex++) {
+            address[] memory holders = LibRoleHistory.holders(history, guarded[roleIndex]);
             problems = string.concat(
                 problems,
                 LibRoleHistory.exclusivityProblems(
-                    labels[r],
+                    labels[roleIndex],
                     holders,
-                    p.dedicatedMinter,
+                    tokenPlan.dedicatedMinter,
                     LibSafeInvariants.STOX_TOKEN_OWNER_SAFE,
-                    !p.dedicatedMinterGrantPending
+                    !tokenPlan.dedicatedMinterGrantPending
                 )
             );
             for (uint256 i = 0; i < holders.length; i++) {
-                if (!roles.hasRole(guarded[r], holders[i])) {
+                if (!roles.hasRole(guarded[roleIndex], holders[i])) {
                     problems = string.concat(
                         problems,
-                        labels[r],
+                        labels[roleIndex],
                         ": history says ",
                         vm.toString(holders[i]),
                         " holds it but hasRole() disagrees; "
@@ -906,15 +1062,49 @@ contract LaunchBaseTokens is Script {
                 }
             }
             if (
-                !LibLaunchPlan.containsAddress(holders, p.dedicatedMinter)
-                    && roles.hasRole(guarded[r], p.dedicatedMinter)
+                !LibLaunchPlan.containsAddress(holders, tokenPlan.dedicatedMinter)
+                    && roles.hasRole(guarded[roleIndex], tokenPlan.dedicatedMinter)
             ) {
                 problems = string.concat(
-                    problems, labels[r], ": hasRole() says the minter holds it but history disagrees; "
+                    problems, labels[roleIndex], ": hasRole() says the minter holds it but history disagrees; "
                 );
             }
         }
+        problems = string.concat(problems, adminProblems(roles, history));
         if (bytes(problems).length != 0) revert DedicatedAuthoriserNotExclusive(problems);
+    }
+
+    /// @notice DEPOSIT_ADMIN and WITHDRAW_ADMIN may grant DEPOSIT and WITHDRAW
+    /// to anyone, so only governance may hold them: the owner Safe, or the
+    /// Base governance timelock it hands its admin roles to.
+    function adminProblems(IAccessControl roles, Vm.EthGetLogs[] memory history)
+        internal
+        view
+        returns (string memory problems)
+    {
+        bytes32[2] memory admins = [DEPOSIT_ADMIN, WITHDRAW_ADMIN];
+        string[2] memory labels = ["DEPOSIT_ADMIN", "WITHDRAW_ADMIN"];
+        for (uint256 roleIndex = 0; roleIndex < admins.length; roleIndex++) {
+            address[] memory holders = LibRoleHistory.holders(history, admins[roleIndex]);
+            for (uint256 i = 0; i < holders.length; i++) {
+                if (
+                    holders[i] != LibSafeInvariants.STOX_TOKEN_OWNER_SAFE
+                        && holders[i] != LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK
+                ) {
+                    problems = string.concat(
+                        problems, labels[roleIndex], ": unexpected holder ", vm.toString(holders[i]), "; "
+                    );
+                } else if (!roles.hasRole(admins[roleIndex], holders[i])) {
+                    problems = string.concat(
+                        problems,
+                        labels[roleIndex],
+                        ": history says ",
+                        vm.toString(holders[i]),
+                        " holds it but hasRole() disagrees; "
+                    );
+                }
+            }
+        }
     }
 
     /// @notice Whether `account` has no code before `blockNumber` and has code
@@ -935,11 +1125,11 @@ contract LaunchBaseTokens is Script {
     /// @notice `create-sft`'s post-state: wired to the landing authoriser,
     /// owned by the Safe, certified, with CERTIFY granted on the temp
     /// authoriser.
-    function assertLaunched(TokenPlan memory p, address vault, address temp) internal view {
-        LibTokenDeployment.assertHandoffLanded(vault, p.landingAuthoriser, p.intendedOwner);
+    function assertLaunched(TokenPlan memory tokenPlan, address vault, address temp) internal view {
+        LibTokenDeployment.assertHandoffLanded(vault, tokenPlan.landingAuthoriser, tokenPlan.intendedOwner);
         if (ILaunchedVault(vault).isCertificationExpired()) revert CertificationExpired(vault);
         if (!IAccessControl(temp).hasRole(CERTIFY, LibProdLaunchBase.LAUNCH_SIGNER)) {
-            revert TempAuthoriserNotSigners(temp);
+            revert CertifyNotGranted(temp);
         }
     }
 
@@ -947,19 +1137,19 @@ contract LaunchBaseTokens is Script {
     function hexQuantity(uint256 value) internal pure returns (string memory) {
         if (value == 0) return "0x0";
         bytes memory digits = new bytes(64);
-        uint256 n = 0;
+        uint256 digitCount = 0;
         while (value != 0) {
             // forge-lint: disable-next-line(unsafe-typecast)
             uint8 nibble = uint8(value & 0xf);
-            digits[63 - n] = nibble < 10 ? bytes1(nibble + 0x30) : bytes1(nibble + 0x57);
+            digits[63 - digitCount] = nibble < 10 ? bytes1(nibble + 0x30) : bytes1(nibble + 0x57);
             value >>= 4;
-            n++;
+            digitCount++;
         }
-        bytes memory out = new bytes(n + 2);
+        bytes memory out = new bytes(digitCount + 2);
         out[0] = "0";
         out[1] = "x";
-        for (uint256 i = 0; i < n; i++) {
-            out[2 + i] = digits[64 - n + i];
+        for (uint256 i = 0; i < digitCount; i++) {
+            out[2 + i] = digits[64 - digitCount + i];
         }
         return string(out);
     }

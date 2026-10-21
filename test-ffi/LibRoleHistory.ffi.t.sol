@@ -4,7 +4,13 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
+import {DEPOSIT} from "rain-vats-0.2.5/src/concrete/vault/OffchainAssetReceiptVault.sol";
+import {DEPOSIT_ADMIN} from "rain-vats-0.2.5/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {LibRoleHistory} from "../script/lib/LibRoleHistory.sol";
+import {DedicatedAuthoriserNotExclusive} from "../script/20261020-launch-base-tokens.s.sol";
+import {TokenPlan} from "../src/lib/LibLaunchPlan.sol";
+import {LaunchBaseTokensHarness} from "../test/script/LaunchBaseTokensHarness.sol";
 
 contract LibRoleHistoryFfiTest is Test {
     address constant EMITTER = address(0xA11CE);
@@ -15,6 +21,67 @@ contract LibRoleHistoryFfiTest is Test {
 
     function testReadLogsPropagatesTheRpcFailureAtTheWindowFloor() external {
         _run("floor");
+    }
+
+    /// @notice Both ends of the range are read, including a final window of
+    /// one block and a range of one block.
+    function testReadLogsIncludesAOneBlockFinalWindow() external {
+        this.exerciseEdges(_fixture("start", "limited"));
+    }
+
+    function exerciseEdges(string memory rpc) external {
+        vm.createSelectFork(rpc);
+        Vm.EthGetLogs[] memory logs = this.readLogs{gas: 500000}(100, 1100);
+        uint256[5] memory blocks = [uint256(100), 599, 600, 1099, 1100];
+        assertEq(logs.length, blocks.length);
+        for (uint256 i = 0; i < blocks.length; i++) {
+            assertEq(logs[i].blockNumber, blocks[i]);
+        }
+        logs = this.readLogs{gas: 500000}(1100, 1100);
+        assertEq(logs.length, 1);
+        assertEq(logs[0].blockNumber, 1100);
+    }
+
+    /// @notice The dedicated-authoriser check replays the authoriser's creation
+    /// block: a DEPOSIT grant there, and a DEPOSIT_ADMIN grant to anyone but
+    /// governance, are refused.
+    function testDedicatedAuthoriserCheckReplaysFromTheCreationBlock() external {
+        this.exerciseAuthoriser(_fixture("start", "authoriser"));
+    }
+
+    function exerciseAuthoriser(string memory rpc) external {
+        vm.createSelectFork(rpc);
+        vm.roll(200);
+        LaunchBaseTokensHarness script = new LaunchBaseTokensHarness();
+        vm.etch(EMITTER, hex"00");
+        vm.mockCall(EMITTER, abi.encodeWithSelector(IAccessControl.hasRole.selector), abi.encode(false));
+        vm.mockCall(
+            EMITTER, abi.encodeWithSelector(IAccessControl.hasRole.selector, DEPOSIT, address(0x5157)), abi.encode(true)
+        );
+        vm.mockCall(
+            EMITTER,
+            abi.encodeWithSelector(IAccessControl.hasRole.selector, DEPOSIT_ADMIN, address(0xad31)),
+            abi.encode(true)
+        );
+        TokenPlan memory tokenPlan;
+        tokenPlan.landingAuthoriser = EMITTER;
+        tokenPlan.dedicated = true;
+        tokenPlan.dedicatedMinter = address(0x0958);
+        tokenPlan.dedicatedDeployBlock = 100;
+        tokenPlan.dedicatedMinterGrantPending = true;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DedicatedAuthoriserNotExclusive.selector,
+                string.concat(
+                    "DEPOSIT: unexpected holder ",
+                    vm.toString(address(0x5157)),
+                    "; DEPOSIT_ADMIN: unexpected holder ",
+                    vm.toString(address(0xad31)),
+                    "; "
+                )
+            )
+        );
+        script.checkDedicatedAuthoriser(tokenPlan);
     }
 
     function _run(string memory mode) internal {

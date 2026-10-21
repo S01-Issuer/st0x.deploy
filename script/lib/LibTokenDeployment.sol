@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: LicenseRef-DCL-1.0
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
-pragma solidity =0.8.25;
+pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.5/src/interface/IAuthorizeV1.sol";
+import {LibLaunchStages, StageReceipt} from "./LibLaunchStages.sol";
 
 /// @notice The unified deployer emitted no `Deployment` event, so there is no
 /// address to wire or hand over. Named rather than left to fault on a zero
@@ -36,33 +37,32 @@ interface ISetAuthorizer {
 /// @notice What the token-deploy scripts share: resolving the pair the unified
 /// deployer created, and asserting the vault ended wired and handed over.
 library LibTokenDeployment {
-    bytes32 internal constant DEPLOYMENT_TOPIC = keccak256("Deployment(address,address,address)");
-
     /// @notice Resolve the deployed pair out of the unified deployer's
-    /// `Deployment(sender, asset, wrapper)` event. Logs from other emitters, and
-    /// other events from the deployer, are ignored.
+    /// `Deployment(sender, asset, wrapper)` event, with the decoder the launch
+    /// stages use on mined receipts. Logs from other emitters, and other events
+    /// from the deployer, are ignored.
     /// @param logs The logs recorded across the deploy call.
     /// @param unifiedDeployer The deployer whose event is authoritative.
     /// @param underlying The token being deployed, for the revert.
+    /// @return receiptVault The deployed vault.
+    /// @return wrapped The deployed wrapper.
     function readDeployment(Vm.Log[] memory logs, address unifiedDeployer, string memory underlying)
         internal
         pure
         returns (address receiptVault, address wrapped)
     {
-        for (uint256 i = 0; i < logs.length; i++) {
-            if (
-                logs[i].emitter == unifiedDeployer && logs[i].topics.length > 0 && logs[i].topics[0] == DEPLOYMENT_TOPIC
-            ) {
-                (, receiptVault, wrapped) = abi.decode(logs[i].data, (address, address, address));
-            }
-        }
-        if (receiptVault == address(0)) {
-            revert DeploymentEventMissing(underlying);
-        }
+        StageReceipt[] memory asReceipt = new StageReceipt[](1);
+        asReceipt[0] = LibLaunchStages.fromRecordedLogs(logs, 0);
+        bool found;
+        (found, receiptVault, wrapped,) = LibLaunchStages.findDeployment(asReceipt, unifiedDeployer);
+        if (!found) revert DeploymentEventMissing(underlying);
     }
 
     /// @notice Assert a deployed vault is wired to `expectedAuthoriser` and
     /// owned by `expectedOwner`.
+    /// @param receiptVault The deployed vault.
+    /// @param expectedAuthoriser The authoriser it must route to.
+    /// @param expectedOwner The owner it must have.
     function assertHandoffLanded(address receiptVault, address expectedAuthoriser, address expectedOwner)
         internal
         view

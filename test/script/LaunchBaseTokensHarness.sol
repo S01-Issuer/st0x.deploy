@@ -29,6 +29,10 @@ contract LaunchBaseTokensHarness is LaunchBaseTokens {
         assertLaunched(p, vault, temp);
     }
 
+    function exposedCloneTempAuthoriser(string memory symbol) external returns (address) {
+        return cloneTempAuthoriser(symbol);
+    }
+
     function exposedHexQuantity(uint256 value) external pure returns (string memory) {
         return hexQuantity(value);
     }

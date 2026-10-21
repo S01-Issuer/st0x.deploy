@@ -1,8 +1,15 @@
 // SPDX-License-Identifier: LicenseRef-DCL-1.0
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
-pragma solidity =0.8.25;
+pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
+
+/// @notice The ledger's top level is not a JSON array: its first non-space
+/// byte is not `[`, or something other than whitespace follows its last `]`.
+error LedgerNotAnArray(string path);
+
+/// @notice The ledger did not read back with the appended rows at its end.
+error LedgerAppendFailed(string path);
 
 /// @notice One `launch/launches.json` row, in its key order.
 struct LedgerRow {
@@ -26,15 +33,22 @@ struct LedgerRow {
 library LibLedger {
     Vm internal constant VM = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-    /// @notice Append `rows` to the JSON array in `path`.
+    /// @notice Append `rows` to the JSON array in `path`, then read it back.
+    /// @param path The ledger.
+    /// @param rows The rows to append.
     function append(string memory path, LedgerRow[] memory rows) internal {
         if (rows.length == 0) return;
         bytes memory file = bytes(VM.readFile(path));
+        uint256 start = 0;
+        while (start < file.length && _isSpace(file[start])) {
+            start++;
+        }
         uint256 end = file.length;
-        while (end > 0 && file[end - 1] != "]") {
+        while (end > start && _isSpace(file[end - 1])) {
             end--;
         }
-        require(end > 0, "ledger is not a JSON array");
+        if (end - start < 2 || file[start] != "[" || file[end - 1] != "]") revert LedgerNotAnArray(path);
+        uint256 existing = _arrayLength(string(file));
         uint256 body = end - 1;
         while (body > 0 && _isSpace(file[body - 1])) {
             body--;
@@ -49,9 +63,19 @@ library LibLedger {
             out = abi.encodePacked(out, empty && i == 0 ? "\n" : ",\n", format(rows[i]));
         }
         VM.writeFile(path, string(abi.encodePacked(out, "\n]\n")));
+
+        string memory written = VM.readFile(path);
+        string memory last = string.concat("$[", VM.toString(existing + rows.length - 1), "]");
+        if (
+            _arrayLength(written) != existing + rows.length
+                || keccak256(bytes(VM.parseJsonString(written, string.concat(last, ".symbol"))))
+                    != keccak256(bytes(rows[rows.length - 1].symbol))
+        ) revert LedgerAppendFailed(path);
     }
 
     /// @notice A row as `JSON.stringify` prints an array element at indent 2.
+    /// @param row The row.
+    /// @return out The row's text.
     function format(LedgerRow memory row) internal pure returns (string memory out) {
         out = string.concat("  {\n", _field("symbol", quote(row.symbol)), _field("name", quote(row.name)));
         out = string.concat(out, _address("sft", row.sft), _address("wrapper", row.wrapper));
@@ -69,20 +93,32 @@ library LibLedger {
     }
 
     /// @notice A JSON string literal escaped the way `JSON.stringify` does.
+    /// @param value The text.
+    /// @return The literal.
     function quote(string memory value) internal pure returns (string memory) {
-        bytes memory b = bytes(value);
+        bytes memory valueBytes = bytes(value);
         bytes memory out = "\"";
-        for (uint256 i = 0; i < b.length; i++) {
-            bytes1 c = b[i];
-            if (c == "\"") out = abi.encodePacked(out, "\\\"");
-            else if (c == "\\") out = abi.encodePacked(out, "\\\\");
-            else if (c == "\n") out = abi.encodePacked(out, "\\n");
-            else if (c == "\r") out = abi.encodePacked(out, "\\r");
-            else if (c == "\t") out = abi.encodePacked(out, "\\t");
-            else if (c == 0x08) out = abi.encodePacked(out, "\\b");
-            else if (c == 0x0c) out = abi.encodePacked(out, "\\f");
-            else if (uint8(c) < 0x20) out = abi.encodePacked(out, "\\u00", _hex(uint8(c) >> 4), _hex(uint8(c) & 0x0f));
-            else out = abi.encodePacked(out, c);
+        for (uint256 i = 0; i < valueBytes.length; i++) {
+            bytes1 char = valueBytes[i];
+            if (char == "\"") {
+                out = abi.encodePacked(out, "\\\"");
+            } else if (char == "\\") {
+                out = abi.encodePacked(out, "\\\\");
+            } else if (char == "\n") {
+                out = abi.encodePacked(out, "\\n");
+            } else if (char == "\r") {
+                out = abi.encodePacked(out, "\\r");
+            } else if (char == "\t") {
+                out = abi.encodePacked(out, "\\t");
+            } else if (char == 0x08) {
+                out = abi.encodePacked(out, "\\b");
+            } else if (char == 0x0c) {
+                out = abi.encodePacked(out, "\\f");
+            } else if (uint8(char) < 0x20) {
+                out = abi.encodePacked(out, "\\u00", _hex(uint8(char) >> 4), _hex(uint8(char) & 0x0f));
+            } else {
+                out = abi.encodePacked(out, char);
+            }
         }
         return string(abi.encodePacked(out, "\""));
     }
@@ -95,7 +131,13 @@ library LibLedger {
         return nibble < 10 ? bytes1(nibble + 0x30) : bytes1(nibble + 0x57);
     }
 
-    function _isSpace(bytes1 c) private pure returns (bool) {
-        return c == " " || c == "\n" || c == "\r" || c == "\t";
+    function _isSpace(bytes1 char) private pure returns (bool) {
+        return char == " " || char == "\n" || char == "\r" || char == "\t";
+    }
+
+    function _arrayLength(string memory json) private view returns (uint256 count) {
+        while (VM.keyExistsJson(json, string.concat("$[", VM.toString(count), "]"))) {
+            count++;
+        }
     }
 }

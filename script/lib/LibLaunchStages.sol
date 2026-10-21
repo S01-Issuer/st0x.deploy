@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-DCL-1.0
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
-pragma solidity =0.8.25;
+pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 
@@ -32,6 +32,8 @@ library LibLaunchStages {
     bytes32 internal constant OWNERSHIP_TRANSFERRED_TOPIC = keccak256("OwnershipTransferred(address,address)");
 
     /// @notice The receipts in a stage file, or none when it does not exist.
+    /// @param path The stage file.
+    /// @return receipts The receipts, in file order.
     function readReceipts(string memory path) internal view returns (StageReceipt[] memory receipts) {
         if (!VM.exists(path)) return receipts;
         string memory json = VM.readFile(path);
@@ -53,6 +55,8 @@ library LibLaunchStages {
     }
 
     /// @notice The hashes forge sent but holds no receipt for.
+    /// @param path The stage file.
+    /// @return The pending hashes, none when the file does not exist.
     function pendingHashes(string memory path) internal view returns (string[] memory) {
         if (!VM.exists(path)) return new string[](0);
         string memory json = VM.readFile(path);
@@ -61,6 +65,9 @@ library LibLaunchStages {
     }
 
     /// @notice Logs recorded with `vm.recordLogs`, as one successful receipt.
+    /// @param recorded The recorded logs.
+    /// @param blockNumber The block the receipt is attributed to.
+    /// @return receipt The receipt.
     function fromRecordedLogs(Vm.Log[] memory recorded, uint256 blockNumber)
         internal
         pure
@@ -75,8 +82,14 @@ library LibLaunchStages {
         }
     }
 
-    /// @notice The pair from the unified deployer's `Deployment` event in a
+    /// @notice The pair from the first unified deployer `Deployment` event in a
     /// successful receipt.
+    /// @param receipts The stage's receipts.
+    /// @param unifiedDeployer The deployer whose event counts.
+    /// @return found Whether a `Deployment` was found.
+    /// @return vault The deployed vault.
+    /// @return wrapper The deployed wrapper.
+    /// @return blockNumber The block of the receipt holding it.
     function findDeployment(StageReceipt[] memory receipts, address unifiedDeployer)
         internal
         pure
@@ -96,8 +109,13 @@ library LibLaunchStages {
         }
     }
 
-    /// @notice The clone from the factory's `NewClone` event in a successful
-    /// receipt.
+    /// @notice The clone from the factory's first `NewClone` event in a
+    /// successful receipt.
+    /// @param receipts The stage's receipts.
+    /// @param factory The clone factory whose event counts.
+    /// @return found Whether a `NewClone` was found.
+    /// @return clone The clone.
+    /// @return blockNumber The block of the receipt holding it.
     function findClone(StageReceipt[] memory receipts, address factory)
         internal
         pure
@@ -117,6 +135,10 @@ library LibLaunchStages {
 
     /// @notice Whether a successful receipt holds `vault`'s `AuthorizerSet` to
     /// `authoriser`.
+    /// @param receipts The stage's receipts.
+    /// @param vault The vault.
+    /// @param authoriser The authoriser it must be set to.
+    /// @return Whether such a receipt exists.
     function setAuthorizerLanded(StageReceipt[] memory receipts, address vault, address authoriser)
         internal
         pure
@@ -136,6 +158,10 @@ library LibLaunchStages {
 
     /// @notice Whether a successful receipt holds `vault`'s ownership transfer
     /// to `newOwner`.
+    /// @param receipts The stage's receipts.
+    /// @param vault The vault.
+    /// @param newOwner The owner it must be transferred to.
+    /// @return Whether such a receipt exists.
     function ownershipTransferred(StageReceipt[] memory receipts, address vault, address newOwner)
         internal
         pure

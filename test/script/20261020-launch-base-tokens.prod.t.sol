@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
+import {IReceiptVaultV1} from "rain-vats-0.2.5/src/interface/deprecated/IReceiptVaultV1.sol";
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
@@ -13,7 +14,7 @@ import {
     DedicatedAuthoriserNotExclusive,
     DedicatedAuthoriserNotCreatedAt,
     DedicatedAuthoriserNoCode,
-    TempAuthoriserNotSigners,
+    CertifyNotGranted,
     CertificationExpired,
     LaunchCheckFailed,
     ILaunchedVault
@@ -99,11 +100,14 @@ contract LaunchBaseTokensProdTest is Test {
     }
 
     /// @notice A shared-fleet depositor holding DEPOSIT on the dedicated
-    /// authoriser stops both the simulation and the wiring stage.
+    /// authoriser stops the simulation and every broadcasting stage that
+    /// would act on it.
     function testDedicatedAuthoriserWithAFleetDepositorRefuses() external {
         Replay memory r = _mc();
         r.name = "mc-refusal";
         LaunchBaseTokens.LaunchPaths memory at = _prepare(r);
+        _stage(at, r.symbol, "deploy");
+        _stage(at, r.symbol, "clone");
         vm.mockCall(
             r.landing,
             abi.encodeWithSelector(
@@ -113,9 +117,8 @@ contract LaunchBaseTokensProdTest is Test {
         );
         vm.expectPartialRevert(DedicatedAuthoriserNotExclusive.selector);
         script.simulateStage(at, r.symbol);
-
-        _stage(at, r.symbol, "deploy");
-        _stage(at, r.symbol, "clone");
+        vm.expectPartialRevert(DedicatedAuthoriserNotExclusive.selector);
+        script.deployStage(at, r.symbol);
         vm.expectPartialRevert(DedicatedAuthoriserNotExclusive.selector);
         script.wireStage(at, r.symbol);
     }
@@ -257,8 +260,35 @@ contract LaunchBaseTokensProdTest is Test {
             abi.encodeWithSelector(IAccessControl.hasRole.selector, CERTIFY, LibProdLaunchBase.LAUNCH_SIGNER),
             abi.encode(false)
         );
-        vm.expectRevert(abi.encodeWithSelector(TempAuthoriserNotSigners.selector, temp));
+        vm.expectRevert(abi.encodeWithSelector(CertifyNotGranted.selector, temp));
         script.wireStage(at, r.symbol);
+    }
+
+    /// @notice The simulation's post-state check is what makes a passing
+    /// `simulate` mean anything.
+    function testSimulateRefusesAnExpiredCertification() external {
+        Replay memory r = _dis();
+        r.name = "dis-expired-simulate";
+        LaunchBaseTokens.LaunchPaths memory at = _prepare(r);
+        vm.writeJson("1", at.plan, "$.tokens.tDIS.certifyUntil");
+        vm.expectRevert(abi.encodeWithSelector(CertificationExpired.selector, r.vault));
+        script.simulateStage(at, r.symbol);
+    }
+
+    function _writePlan(LaunchBaseTokens.LaunchPaths memory at, string memory metadataFile, uint256 nowSeconds)
+        internal
+    {
+        string[] memory files = new string[](1);
+        files[0] = metadataFile;
+        LaunchBaseTokens.PlanInputs memory inputs = LaunchBaseTokens.PlanInputs({
+            ledger: at.ledger, allowlist: at.allowlist, pins: "launch/dedicated-authorisers.json"
+        });
+        script.writePlan(
+            script.planFiles(files, script.planContext(inputs.ledger, inputs.allowlist, inputs.pins, nowSeconds)),
+            inputs,
+            nowSeconds,
+            at.plan
+        );
     }
 
     function _prepare(Replay memory r) internal returns (LaunchBaseTokens.LaunchPaths memory at) {
@@ -276,15 +306,7 @@ contract LaunchBaseTokensProdTest is Test {
             allowlist: "launch/allowlist.json"
         });
         vm.writeFile(at.ledger, "[]\n");
-        string[] memory files = new string[](1);
-        files[0] = r.metadataFile;
-        script.writePlan(
-            script.planFiles(
-                files, script.planContext(at.ledger, at.allowlist, "launch/dedicated-authorisers.json", r.plannedAt)
-            ),
-            r.plannedAt,
-            at.plan
-        );
+        _writePlan(at, r.metadataFile, r.plannedAt);
         // The documents `prepare` builds; `launch/e2e.sh` runs `prepare` itself
         // through ffi, and the helper's node tests match these bytes.
         vm.createDir(string.concat(at.stageDir, "/", r.symbol), true);
@@ -345,6 +367,11 @@ contract LaunchBaseTokensProdTest is Test {
         assertTrue(_contains(row, string.concat("\"wrapper\": \"", vm.toString(r.wrapper), "\"")));
 
         script.checkStage(at);
+
+        // The Safe can act as the owner it was handed.
+        vm.prank(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+        Ownable(r.vault).transferOwnership(address(0xBEEF));
+        assertEq(Ownable(r.vault).owner(), address(0xBEEF));
     }
 
     /// @notice The wiring stage published exactly the documents sft-ops did.
@@ -363,7 +390,7 @@ contract LaunchBaseTokensProdTest is Test {
                 assertEq(published, meta);
                 if (subject == bytes32(uint256(uint160(r.vault)))) vaultMetas++;
                 else wrapperMetas++;
-            } else if (logs[i].topics[0] == LibTestLaunchChain.RECEIPT_VAULT_INFORMATION) {
+            } else if (logs[i].topics[0] == IReceiptVaultV1.ReceiptVaultInformation.selector) {
                 (, bytes memory published) = abi.decode(logs[i].data, (address, bytes));
                 assertEq(published, schema);
                 schemaSeen = true;
