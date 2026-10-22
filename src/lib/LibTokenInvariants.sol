@@ -6,6 +6,11 @@ import {IOwnable} from "../interface/IOwnable.sol";
 import {IAuthorisable} from "../interface/IAuthorisable.sol";
 import {LibProdTokenConfig, Region} from "./LibProdTokenConfig.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
+import {LibSafeInvariants} from "./LibSafeInvariants.sol";
+
+/// @notice A chain with no production token table.
+/// @param chainId The chain id.
+error NoTokenTableForChain(uint256 chainId);
 
 /// @notice One production token's contract triple on a single chain, keyed
 /// by the underlying ticker. The underlying symbol (e.g. "MSTR", not
@@ -2358,11 +2363,31 @@ library LibTokenInvariants {
     /// single source of truth and the two accessors cannot drift.
     /// @return vaults The 54 production receipt vault addresses on Base.
     function productionReceiptVaults() internal pure returns (address[] memory vaults) {
-        TokenInstance[] memory tokens = productionTokensBase();
-        vaults = new address[](tokens.length);
+        return productionReceiptVaultsForChainId(LibSafeInvariants.BASE_CHAIN_ID);
+    }
+
+    /// @notice The chain's production receipt vaults, in token table order.
+    /// @param chainId The chain id.
+    /// @return The receipt vault addresses.
+    function productionReceiptVaultsForChainId(uint256 chainId) internal pure returns (address[] memory) {
+        TokenInstance[] memory tokens = productionTokensForChainId(chainId);
+        address[] memory vaults = new address[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
             vaults[i] = tokens[i].receiptVault;
         }
+        return vaults;
+    }
+
+    /// @notice The chain's production token table.
+    /// @param chainId The chain id.
+    /// @return The chain's token instances.
+    function productionTokensForChainId(uint256 chainId) internal pure returns (TokenInstance[] memory) {
+        if (chainId == LibSafeInvariants.BASE_CHAIN_ID) return productionTokensBase();
+        if (chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) return productionTokensEthereum();
+        if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) return productionTokensHyperEvm();
+        if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) return productionTokensRobinhood();
+        if (chainId == LibSafeInvariants.BSC_CHAIN_ID) return productionTokensBsc();
+        revert NoTokenTableForChain(chainId);
     }
 
     /// @notice Assert that every production receipt vault reports the same
