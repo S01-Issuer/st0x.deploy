@@ -2,9 +2,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
-import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
-
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
@@ -32,17 +29,6 @@ error OperationNotExecutable(bytes32 id, bool pending, bool ready, bool done);
 /// @param timelock The timelock inspected.
 /// @param executor The broadcasting key that unexpectedly holds the role.
 error ExecutorHoldsRole(address timelock, address executor);
-
-/// @notice This script's declaration.
-/// @return The declaration.
-function executeTimelockOperationsDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        keccak256("script/20260813-execute-timelock-operations.s.sol"),
-        keccak256("script/20260813-timelock-rehearsal-cancel.s.sol"),
-        false
-    );
-}
 
 /// @title ExecuteTimelockOperations
 /// @notice Executes a matured timelock operation from the CI
@@ -81,12 +67,7 @@ function executeTimelockOperationsDeclaration() pure returns (ScriptDeclaration 
 /// broadcasting key itself holds no `EXECUTOR_ROLE`. That check runs BEFORE
 /// the broadcast, because reporting it afterwards would already have sent the
 /// transaction.
-contract ExecuteTimelockOperations is Script, IStoxScript {
-    /// @inheritdoc IStoxScript
-    function declaration() external pure returns (ScriptDeclaration memory) {
-        return executeTimelockOperationsDeclaration();
-    }
-
+contract ExecuteTimelockOperations is Script {
     /// @notice Execute the rehearsal operation on the active chain if it has
     /// matured. Broadcasts from the CI deploy key, which holds no roles.
     function run() external {

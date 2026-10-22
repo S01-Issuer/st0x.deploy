@@ -22,7 +22,6 @@ import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
-import {IStoxScript, MigrationWriter, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 
 /// @notice One account's mint cap: who, and the policy its bucket runs under.
 /// @param account The minter or recipient.
@@ -75,18 +74,6 @@ error BootstrapWeightingUnset();
 /// @param what The property that does not hold.
 error BootstrapStateUnexpected(string what);
 
-/// @notice This script's declaration: the timelock's first `st0x.deploy`
-/// record, written by the bootstrap batch when it executes.
-/// @return The declaration.
-function bootstrapMintCapsOrchestratorDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.migrationOnto(
-        MigrationWriter.Timelock,
-        LibStoxMigrations.NAMESPACE,
-        keccak256("script/20261011-bootstrap-mint-caps-orchestrator.s.sol"),
-        MIGRATION_HEAD_GENESIS,
-        false
-    );
-}
 
 /// @title BootstrapMintCapsOrchestrator
 /// @notice Authors the per-chain Safe bundle that deploys the mint-caps
@@ -124,11 +111,7 @@ function bootstrapMintCapsOrchestratorDeclaration() pure returns (ScriptDeclarat
 /// batch from an address holding no roles, asserts the bootstrapped state and
 /// that the batch leaves the live orchestrator's vault access unchanged, then
 /// returns the fork to the post-bundle state.
-contract BootstrapMintCapsOrchestrator is SafeBundleScript, IStoxScript {
-    /// @inheritdoc IStoxScript
-    function declaration() external pure returns (ScriptDeclaration memory) {
-        return bootstrapMintCapsOrchestratorDeclaration();
-    }
+contract BootstrapMintCapsOrchestrator is SafeBundleScript {
 
     /// @notice The salt of the bootstrap batch on the timelock.
     bytes32 internal constant BOOTSTRAP_SALT = keccak256("st0x.mint-caps-orchestrator.bootstrap");
@@ -256,7 +239,7 @@ contract BootstrapMintCapsOrchestrator is SafeBundleScript, IStoxScript {
             payloads[n++] = abi.encodeCall(IAccessControl.grantRole, (ORCHESTRATOR_BURN_ROLE, cfg.burners[i]));
         }
         (targets[n], payloads[n]) =
-            LibStoxMigrations.recordCall(bootstrapMintCapsOrchestratorDeclaration(), safeAddr, timelockAddr);
+            LibStoxMigrations.applyMigrationCall(timelockAddr, LibStoxMigrations.BOOTSTRAP_MINT_CAPS_ORCHESTRATOR, LibStoxMigrations.onto(timelockAddr, MIGRATION_HEAD_GENESIS));
     }
 
     /// @notice The bootstrap batch for the active chain, from

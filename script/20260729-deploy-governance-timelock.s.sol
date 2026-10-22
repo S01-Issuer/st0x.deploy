@@ -2,9 +2,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
-import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
-
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
@@ -60,17 +57,6 @@ error TimelockAddressMismatch(address expected, address actual);
 /// @param deployer The broadcasting deploy key.
 error DeployerHoldsTimelockRole(bytes32 role, address deployer);
 
-/// @notice This script's declaration.
-/// @return The declaration.
-function deployGovernanceTimelockDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        keccak256("script/20260729-deploy-governance-timelock.s.sol"),
-        LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-        false
-    );
-}
-
 /// @title DeployGovernanceTimelock
 /// @notice Broadcast script that deploys the ST0x governance
 /// timelock — an unmodified, pre-audited OZ `TimelockController` — on the
@@ -107,12 +93,7 @@ function deployGovernanceTimelockDeclaration() pure returns (ScriptDeclaration m
 /// chain's `LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK*` pin with the
 /// logged address (`testPinsMatchDerivedAddressesOnceHydrated` pins the
 /// hydrated value to the derivation).
-contract DeployGovernanceTimelock is Script, IStoxScript {
-    /// @inheritdoc IStoxScript
-    function declaration() external pure returns (ScriptDeclaration memory) {
-        return deployGovernanceTimelockDeclaration();
-    }
-
+contract DeployGovernanceTimelock is Script {
     /// @notice Where `run()` writes the per-chain deployed addresses, so a
     /// verification step can target every chain without re-deriving them.
     string internal constant DEPLOYMENTS_PATH = "out/20260729-governance-timelock-deployments.json";

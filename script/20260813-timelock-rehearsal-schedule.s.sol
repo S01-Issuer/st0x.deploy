@@ -2,9 +2,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
-import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
-
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
@@ -36,17 +33,6 @@ error RehearsalAlreadyScheduled(bytes32 id);
 /// @param actual The delay after.
 error RehearsalChangedMinDelay(uint256 expected, uint256 actual);
 
-/// @notice This script's declaration.
-/// @return The declaration.
-function timelockRehearsalScheduleDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        keccak256("script/20260813-timelock-rehearsal-schedule.s.sol"),
-        keccak256("script/20260807-deploy-missing-tokens.s.sol"),
-        false
-    );
-}
-
 /// @title TimelockRehearsalSchedule
 /// @notice Authors the Safe bundle that SCHEDULES the timelock
 /// rehearsal no-op — see `LibTimelockRehearsal` for what the operation is and
@@ -69,12 +55,7 @@ function timelockRehearsalScheduleDeclaration() pure returns (ScriptDeclaration 
 /// stage dispatched out of order fails here rather than in the Safe. The run
 /// then proves the whole loop on the fork: warp past the delay, execute as an
 /// address holding no roles, and confirm the delay is unchanged.
-contract TimelockRehearsalSchedule is Script, IStoxScript {
-    /// @inheritdoc IStoxScript
-    function declaration() external pure returns (ScriptDeclaration memory) {
-        return timelockRehearsalScheduleDeclaration();
-    }
-
+contract TimelockRehearsalSchedule is Script {
     /// @notice Author the schedule bundle for the active chain.
     function run() external {
         Safe safe = Safe(payable(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid)));

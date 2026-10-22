@@ -2,9 +2,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
-import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
-
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
@@ -28,17 +25,6 @@ error CancelTimelockNotPinned(uint256 chainId);
 /// @param id The operation id that is not pending.
 error RehearsalNotScheduled(bytes32 id);
 
-/// @notice This script's declaration.
-/// @return The declaration.
-function timelockRehearsalCancelDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        keccak256("script/20260813-timelock-rehearsal-cancel.s.sol"),
-        keccak256("script/20260813-timelock-rehearsal-schedule.s.sol"),
-        false
-    );
-}
-
 /// @title TimelockRehearsalCancel
 /// @notice Authors the Safe bundle that CANCELS the scheduled
 /// timelock rehearsal — see `LibTimelockRehearsal` for the operation.
@@ -56,12 +42,7 @@ function timelockRehearsalCancelDeclaration() pure returns (ScriptDeclaration me
 /// nothing fails at authoring time rather than in the Safe. Post-state
 /// asserts the operation is fully deregistered, which is what makes the
 /// re-propose stage possible.
-contract TimelockRehearsalCancel is Script, IStoxScript {
-    /// @inheritdoc IStoxScript
-    function declaration() external pure returns (ScriptDeclaration memory) {
-        return timelockRehearsalCancelDeclaration();
-    }
-
+contract TimelockRehearsalCancel is Script {
     /// @notice Author the cancel bundle for the active chain.
     function run() external {
         Safe safe = Safe(payable(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid)));

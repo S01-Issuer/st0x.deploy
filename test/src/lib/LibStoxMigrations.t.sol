@@ -19,7 +19,6 @@ import {
 import {LibOrchestratorInvariants} from "../../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
-import {MigrationWriter, ScriptDeclaration} from "../../../src/interface/IStoxScript.sol";
 import {LibStoxMigrations, NoGovernanceTimelockMigrationOnChain} from "../../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibStoxMigrationsHarness} from "./LibStoxMigrationsHarness.sol";
@@ -62,12 +61,19 @@ contract LibStoxMigrationsTest is Test {
             LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
             keccak256("script/20261006-orchestrator-admin-to-timelock.s.sol")
         );
+        assertEq(
+            LibStoxMigrations.BOOTSTRAP_MINT_CAPS_ORCHESTRATOR,
+            keccak256("script/20261011-bootstrap-mint-caps-orchestrator.s.sol")
+        );
     }
 
     function testIdsDistinct() external pure {
         assertTrue(LibStoxMigrations.GOVERNANCE_TIMELOCK != LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
         assertTrue(LibStoxMigrations.ORCHESTRATOR_EMERGENCY != LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
         assertTrue(LibStoxMigrations.GOVERNANCE_TIMELOCK != LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
+        assertTrue(LibStoxMigrations.GOVERNANCE_TIMELOCK != LibStoxMigrations.BOOTSTRAP_MINT_CAPS_ORCHESTRATOR);
+        assertTrue(LibStoxMigrations.ORCHESTRATOR_EMERGENCY != LibStoxMigrations.BOOTSTRAP_MINT_CAPS_ORCHESTRATOR);
+        assertTrue(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK != LibStoxMigrations.BOOTSTRAP_MINT_CAPS_ORCHESTRATOR);
     }
 
     /// @notice A catalogued network ST0x does not deploy to has no moment.
@@ -120,74 +126,36 @@ contract LibStoxMigrationsTest is Test {
         vm.etch(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS, MIGRATION_REGISTRY_RUNTIME_CODE);
     }
 
-    function emergencyDeclaration() internal pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.safeMigrationOnto(
-            LibStoxMigrations.NAMESPACE,
-            LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
-            LibStoxMigrations.GOVERNANCE_TIMELOCK,
-            false
-        );
-    }
-
-    function governanceTimelockDeclaration() internal pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.safeMigrationOnto(
-            LibStoxMigrations.NAMESPACE, LibStoxMigrations.GOVERNANCE_TIMELOCK, MIGRATION_HEAD_GENESIS, true
-        );
-    }
-
-    /// @notice The record call names the declared writer and writes the
-    /// declared namespace, id and resolved prerequisites to the pinned
-    /// registry.
-    function testRecordCallWritesTheDeclaration() external {
+    /// @notice The registry call names the writer, binds this repo's
+    /// namespace and targets the pinned registry.
+    function testApplyMigrationCallBindsTheNamespace() external {
         etchRegistry();
         address writer = makeAddr("writer");
+        Prerequisite[] memory prerequisites = LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS);
 
         (address to, bytes memory data) =
-            LibStoxMigrations.recordCall(emergencyDeclaration(), writer, makeAddr("timelock"));
+            LibStoxMigrations.applyMigrationCall(writer, LibStoxMigrations.ORCHESTRATOR_EMERGENCY, prerequisites);
 
         assertEq(to, LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
         assertEq(
             data,
             abi.encodeCall(
                 IMigrationRegistryV3.applyMigrationV3,
-                (
-                    writer,
-                    LibStoxMigrations.NAMESPACE,
-                    LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
-                    LibStoxMigrations.onto(writer, LibStoxMigrations.GOVERNANCE_TIMELOCK)
-                )
+                (writer, LibStoxMigrations.NAMESPACE, LibStoxMigrations.ORCHESTRATOR_EMERGENCY, prerequisites)
             )
         );
     }
 
-    /// @notice A timelock-written declaration names the timelock as the
-    /// writer.
-    function testRecordCallNamesTheTimelockForATimelockWriter() external {
-        etchRegistry();
-        address timelock = makeAddr("timelock");
-        ScriptDeclaration memory declared = LibStoxMigrations.migrationOnto(
-            MigrationWriter.Timelock, LibStoxMigrations.NAMESPACE, "id", MIGRATION_HEAD_GENESIS, false
-        );
-
-        (, bytes memory data) = LibStoxMigrations.recordCall(declared, makeAddr("safe"), timelock);
-
-        assertEq(
-            data,
-            abi.encodeCall(
-                IMigrationRegistryV3.applyMigrationV3,
-                (timelock, LibStoxMigrations.NAMESPACE, "id", LibStoxMigrations.onto(timelock, MIGRATION_HEAD_GENESIS))
-            )
-        );
-    }
-
-    /// @notice The history call names the declared writer and writes the
-    /// declaration with the moment to the pinned registry.
-    function testHistoryCallWritesTheDeclarationAtTheMoment() external {
+    /// @notice The history call names the writer, binds this repo's
+    /// namespace, carries the moment and targets the pinned registry.
+    function testApplyMigrationHistoryCallBindsTheNamespace() external {
         etchRegistry();
         address writer = makeAddr("writer");
+        Prerequisite[] memory prerequisites = LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS);
 
-        (address to, bytes memory data) =
-            LibStoxMigrations.historyCall(governanceTimelockDeclaration(), 1_791_056_759, writer, makeAddr("timelock"));
+        (address to, bytes memory data) = LibStoxMigrations.applyMigrationHistoryCall(
+            writer, LibStoxMigrations.GOVERNANCE_TIMELOCK, 1_791_056_759, prerequisites
+        );
 
         assertEq(to, LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
         assertEq(
@@ -199,33 +167,7 @@ contract LibStoxMigrationsTest is Test {
                     LibStoxMigrations.NAMESPACE,
                     LibStoxMigrations.GOVERNANCE_TIMELOCK,
                     1_791_056_759,
-                    LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS)
-                )
-            )
-        );
-    }
-
-    /// @notice A timelock-written history declaration names the timelock as
-    /// the writer.
-    function testHistoryCallNamesTheTimelockForATimelockWriter() external {
-        etchRegistry();
-        address timelock = makeAddr("timelock");
-        ScriptDeclaration memory declared = LibStoxMigrations.migrationOnto(
-            MigrationWriter.Timelock, LibStoxMigrations.NAMESPACE, "id", MIGRATION_HEAD_GENESIS, true
-        );
-
-        (, bytes memory data) = LibStoxMigrations.historyCall(declared, 7, makeAddr("safe"), timelock);
-
-        assertEq(
-            data,
-            abi.encodeCall(
-                IMigrationRegistryV3.applyMigrationHistoryV3,
-                (
-                    timelock,
-                    LibStoxMigrations.NAMESPACE,
-                    "id",
-                    7,
-                    LibStoxMigrations.onto(timelock, MIGRATION_HEAD_GENESIS)
+                    prerequisites
                 )
             )
         );
@@ -239,17 +181,23 @@ contract LibStoxMigrationsTest is Test {
         etchRegistry();
         vm.warp(1_800_000_000);
         address writer = makeAddr("writer");
-        address timelock = makeAddr("timelock");
         assertEq(LibStoxMigrations.head(writer), MIGRATION_HEAD_GENESIS);
 
-        (address historyTo, bytes memory historyData) =
-            LibStoxMigrations.historyCall(governanceTimelockDeclaration(), 1_791_056_759, writer, timelock);
+        (address historyTo, bytes memory historyData) = LibStoxMigrations.applyMigrationHistoryCall(
+            writer,
+            LibStoxMigrations.GOVERNANCE_TIMELOCK,
+            1_791_056_759,
+            LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS)
+        );
         vm.prank(writer);
         (bool historyOk,) = historyTo.call(historyData);
         assertTrue(historyOk, "history record");
 
-        (address recordTo, bytes memory recordData) =
-            LibStoxMigrations.recordCall(emergencyDeclaration(), writer, timelock);
+        (address recordTo, bytes memory recordData) = LibStoxMigrations.applyMigrationCall(
+            writer,
+            LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
+            LibStoxMigrations.onto(writer, LibStoxMigrations.GOVERNANCE_TIMELOCK)
+        );
         vm.prank(writer);
         (bool recordOk,) = recordTo.call(recordData);
         assertTrue(recordOk, "direct record");
@@ -266,12 +214,8 @@ contract LibStoxMigrationsTest is Test {
         etchRegistry();
         address writer = makeAddr("writer");
         address other = makeAddr("other");
-        (address to, bytes memory data) = LibStoxMigrations.recordCall(
-            LibStoxMigrations.safeMigrationOnto(
-                LibStoxMigrations.NAMESPACE, LibStoxMigrations.ORCHESTRATOR_EMERGENCY, MIGRATION_HEAD_GENESIS, false
-            ),
-            writer,
-            makeAddr("timelock")
+        (address to, bytes memory data) = LibStoxMigrations.applyMigrationCall(
+            writer, LibStoxMigrations.ORCHESTRATOR_EMERGENCY, LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS)
         );
 
         vm.prank(other);

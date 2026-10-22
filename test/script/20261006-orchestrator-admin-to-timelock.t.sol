@@ -15,8 +15,7 @@ import {LibSafeTxBuilderJson} from "rain-deploy-0.1.21/src/lib/LibSafeTxBuilderJ
 
 import {UnexpectedMigrationLine} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
-import {BackfillMigrationRegistryV3Harness} from "./BackfillMigrationRegistryV3Harness.sol";
-import {backfillMigrationRegistryV3Declaration} from "../../script/20261022-backfill-migration-registry-v3.s.sol";
+import {GrantOrchestratorEmergencyHarness} from "./GrantOrchestratorEmergencyHarness.sol";
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
@@ -31,8 +30,8 @@ error AdminMoveNotApplied(string network);
 
 /// @title OrchestratorAdminToTimelockTest
 /// @notice The admin move on every deployment network at head, in two parts
-/// per network. The bundle walks the line: before the V3 backfill the
-/// script refuses and the bundle cannot execute; with the backfill executed
+/// per network. The bundle walks the line: before the EMERGENCY grant the
+/// script refuses and the bundle cannot execute; with the grant executed
 /// (live, or its bundle executed on the fork) `run()` executes the move
 /// through the Safe, proves it and writes the artifact, `verify` accepts
 /// that artifact, and the artifact executed by the owners leaves the state
@@ -43,9 +42,9 @@ contract OrchestratorAdminToTimelockTest is Test {
     ST0xOrchestrator internal constant ORCHESTRATOR =
         ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
 
-    function executeV3Backfill(address safe) internal {
-        BackfillMigrationRegistryV3Harness backfill = new BackfillMigrationRegistryV3Harness("admin-move-prerequisite");
-        LibSafeFork.executeBundle(vm, Safe(payable(safe)), backfill.callAuthorBundle());
+    function executeEmergencyGrant(address safe) internal {
+        GrantOrchestratorEmergencyHarness grant = new GrantOrchestratorEmergencyHarness("admin-move-prerequisite");
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), grant.callAuthorBundle());
     }
 
     function assertBundle(string memory network) internal {
@@ -64,8 +63,8 @@ contract OrchestratorAdminToTimelockTest is Test {
             return;
         }
 
-        if (LibStoxMigrations.applied(safe, backfillMigrationRegistryV3Declaration().id) == 0) {
-            console2.log(string.concat("PENDING [", network, "]: V3 backfill not executed; move refused"));
+        if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0) {
+            console2.log(string.concat("PENDING [", network, "]: EMERGENCY grant not executed; move refused"));
             vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.head(safe)));
             script.callPreflight();
             // Out of order on chain (the move signed at a lower nonce than
@@ -83,9 +82,9 @@ contract OrchestratorAdminToTimelockTest is Test {
                     safe,
                     LibStoxMigrations.NAMESPACE,
                     LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-                    LibStoxMigrations.onto(safe, backfillMigrationRegistryV3Declaration().id)
+                    LibStoxMigrations.onto(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY)
                 );
-            executeV3Backfill(safe);
+            executeEmergencyGrant(safe);
         }
 
         console2.log(string.concat("PENDING [", network, "]: authoring, verifying and executing the move"));
@@ -193,8 +192,8 @@ contract OrchestratorAdminToTimelockTest is Test {
             console2.log("SPENT: the admin move has executed on this chain");
             return;
         }
-        if (LibStoxMigrations.applied(safe, backfillMigrationRegistryV3Declaration().id) == 0) {
-            executeV3Backfill(safe);
+        if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0) {
+            executeEmergencyGrant(safe);
         }
         OrchestratorAdminToTimelockHarness script = new OrchestratorAdminToTimelockHarness("tamper");
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);

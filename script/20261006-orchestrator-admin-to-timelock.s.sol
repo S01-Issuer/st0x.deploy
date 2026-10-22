@@ -14,17 +14,15 @@ import {LibSafeFork} from "rain-deploy-0.1.21/src/lib/LibSafeFork.sol";
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
-import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {backfillMigrationRegistryV3Declaration} from "./20261022-backfill-migration-registry-v3.s.sol";
 
-/// @notice The Safe's line in the migration registry is not at the V3
-/// backfill's record, which this migration is applied onto: the backfill
-/// has not executed on this chain, this bundle already has, or another
-/// Safe-recorded migration has landed after it. In the last case this move
-/// can never apply onto the line as written and has to be re-authored onto
-/// the new head.
+/// @notice The Safe's line in the migration registry is not at the
+/// orchestrator EMERGENCY grant, which this migration is applied onto:
+/// the grant has not executed on this chain, this bundle already has, or
+/// another Safe-recorded migration has landed after the grant. In the last
+/// case this move can never apply onto the line as written and has to be
+/// re-authored onto the new head.
 /// @param head The line's head.
 error UnexpectedMigrationLine(bytes32 head);
 
@@ -64,18 +62,6 @@ error GrantReadyInsideDelay(bytes32 operationId);
 /// @param operationId The timelock operation.
 error ScheduledGrantNotExecuted(bytes32 operationId);
 
-/// @notice This script's declaration: the Safe's record after the V3
-/// backfill.
-/// @return The declaration.
-function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-        backfillMigrationRegistryV3Declaration().id,
-        false
-    );
-}
-
 /// @title OrchestratorAdminToTimelock
 /// @notice Authors the per-chain Safe Tx Builder bundle that moves the
 /// orchestrator's `DEFAULT_ADMIN_ROLE` from the chain's token-owner Safe to
@@ -84,7 +70,7 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// 1. `orchestrator.grantRole(DEFAULT_ADMIN, timelock)`.
 /// 2. `orchestrator.renounceRole(DEFAULT_ADMIN, safe)`.
 /// 3. `registry.applyMigrationV3(safe, ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-///    [20261022-backfill-migration-registry-v3])`.
+///    [ORCHESTRATOR_EMERGENCY])`.
 ///
 /// `DEFAULT_ADMIN_ROLE` administers `MINT_ROLE`, `BURN_ROLE` and
 /// `EMERGENCY_ROLE` on the audited 0.1.30 orchestrator, so after this every
@@ -93,8 +79,7 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// burning and emergency recovery are not delayed. A holder can still
 /// `renounceRole` itself immediately.
 ///
-/// The record is applied onto the V3 backfill's, which carries the EMERGENCY
-/// grant's, so the registry
+/// The record is applied onto the EMERGENCY grant's, so the registry
 /// refuses it on a chain where that grant has not executed: the Safe must be
 /// granted `EMERGENCY_ROLE` while it can still do so directly.
 ///
@@ -142,12 +127,7 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261006-orchestrator-admin-to-timelock` per chain, only after
 /// `20261006-grant-orchestrator-emergency` has executed there.
-contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
-    /// @inheritdoc IStoxScript
-    function declaration() external pure returns (ScriptDeclaration memory) {
-        return orchestratorAdminToTimelockDeclaration();
-    }
-
+contract OrchestratorAdminToTimelock is SafeBundleScript {
     /// @notice The orchestrator instance, typed for its role-id getters.
     ST0xOrchestrator internal constant ORCHESTRATOR =
         ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
@@ -181,7 +161,7 @@ contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     /// @dev The Safe, the timelock and the orchestrator are what this repo
-    /// pins, the Safe's registry line is at the V3 backfill, and the
+    /// pins, the Safe's registry line is at the EMERGENCY grant, and the
     /// orchestrator carries what that record implies: Safe EMERGENCY.
     function preflight() internal view override {
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
@@ -189,7 +169,7 @@ contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
         LibOrchestratorInvariants.assertBeaconSet();
 
         bytes32 head = LibStoxMigrations.head(chainSafe);
-        if (head != orchestratorAdminToTimelockDeclaration().prerequisites[0].migration) {
+        if (head != LibStoxMigrations.ORCHESTRATOR_EMERGENCY) {
             revert UnexpectedMigrationLine(head);
         }
         LibOrchestratorInvariants.assertInstance(chainSafe);
@@ -212,8 +192,11 @@ contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
             data: abi.encodeCall(IAccessControl.renounceRole, (bytes32(0), chainSafe)),
             operation: Enum.Operation.Call
         });
-        (address recordTo, bytes memory recordData) =
-            LibStoxMigrations.recordCall(orchestratorAdminToTimelockDeclaration(), chainSafe, timelock());
+        (address recordTo, bytes memory recordData) = LibStoxMigrations.applyMigrationCall(
+            chainSafe,
+            LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
+            LibStoxMigrations.onto(chainSafe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY)
+        );
         txs[2] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
         return txs;
     }
@@ -232,7 +215,7 @@ contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
             revert RecordMismatch(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK, block.timestamp, record);
         }
         bytes32 head = LibStoxMigrations.head(chainSafe);
-        if (head != orchestratorAdminToTimelockDeclaration().id) {
+        if (head != LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) {
             revert LineHeadMismatch(head);
         }
         LibOrchestratorInvariants.assertInstance(chainSafe);
