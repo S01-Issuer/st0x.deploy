@@ -81,6 +81,7 @@ contract LibAuthoriserInvariantsAssertKeysHoldNoRolesTest is Test {
 
     function testPassesOnTheLiveBaseAuthoriser() external {
         vm.createSelectFork("base");
+        harness = new LibAuthoriserInvariantsHarness();
         harness.callAssertKeysHoldNoRoles(LibAuthoriserInvariants.STOX_PROD_AUTHORISER);
     }
 }
