@@ -19,9 +19,14 @@ import {LibProdBeacons0_1_1} from "../../../src/lib/LibProdBeacons0_1_1.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibBeaconInvariantsHarness} from "./LibBeaconInvariantsHarness.sol";
-import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
+import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
+
+/// The frozen 0.1.30 orchestrator beacon-set deployer's beacon getter.
+interface IOrchestratorBeaconSet0_1_30 {
+    function iOrchestratorBeacon() external view returns (IBeacon);
+}
 
 /// @title LibBeaconInvariantsTest
 /// @notice Inverted fork tests that exercise each invariant in
@@ -229,22 +234,18 @@ contract LibBeaconInvariantsTest is Test {
         harness.callAssertProdBeaconsOwnedByChainTimelock(LibSafeInvariants.BASE_CHAIN_ID);
     }
 
-    /// @notice `UPGRADEABLE_BEACON_CODEHASH_0_1_30` is the runtime of a beacon
-    /// this tree actually compiles, re-derived rather than transcribed.
-    /// @dev The defect this exists to stop: the V1 pin was documented as "a
-    /// property of the OZ bytecode rather than of any one deployment
-    /// generation" and reused for the orchestrator beacon, which OZ 5.6.1 at
-    /// `optimizer_runs = 2000` builds 130 bytes shorter. Nothing compared the
-    /// two, so `MigrateOrchestratorBeaconOwner.run()` reverted
-    /// `BeaconCodehashMismatch` in pre-flight on every chain while the suite
-    /// stayed green. Constructing the beacon here means an OZ bump or an
-    /// optimizer change fails at build time instead of at a broadcast.
+    /// @notice `UPGRADEABLE_BEACON_CODEHASH_0_1_30` is the runtime of the beacon
+    /// the frozen 0.1.30 orchestrator beacon-set deployer builds, re-derived
+    /// from its creation code rather than transcribed.
     function testOrchestratorBeaconCodehashPin() external {
-        UpgradeableBeacon beacon = new UpgradeableBeacon(address(this), address(this));
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_0_1_30);
+        address deployer =
+            LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_30);
         assertEq(
-            address(beacon).codehash,
+            address(IOrchestratorBeaconSet0_1_30(deployer).iOrchestratorBeacon()).codehash,
             LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30,
-            "0.1.30 beacon pin no longer matches a beacon this tree compiles"
+            "0.1.30 beacon pin no longer matches the beacon the frozen 0.1.30 deployer builds"
         );
     }
 

@@ -79,12 +79,12 @@ library LibBeaconInvariants {
     bytes32 internal constant UPGRADEABLE_BEACON_CODEHASH =
         0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630;
 
-    /// @notice Runtime codehash of OZ `UpgradeableBeacon` as compiled by the
-    /// current tree, OpenZeppelin 5.6.1 at `optimizer_runs = 2000`. This is
-    /// the beacon `ST0xOrchestratorBeaconSetDeployer`'s constructor builds,
-    /// so it is what the orchestrator beacon is asserted against.
-    /// @dev Re-derived by `testOrchestratorBeaconCodehashPin`, which compiles
-    /// a beacon and compares.
+    /// @notice Runtime codehash of the OZ `UpgradeableBeacon` the 0.1.30
+    /// `ST0xOrchestratorBeaconSetDeployer` constructor builds, OpenZeppelin
+    /// 5.6.1 at `optimizer_runs = 2000`, so it is what the orchestrator
+    /// beacon is asserted against.
+    /// @dev Re-derived by `testOrchestratorBeaconCodehashPin` from the frozen
+    /// 0.1.30 deployer's creation code.
     bytes32 internal constant UPGRADEABLE_BEACON_CODEHASH_0_1_30 =
         0x448cd06335de9e79ecdc51aa7c6647926860a1976f407de6f79f363b85ccaf2b;
 
@@ -171,8 +171,8 @@ library LibBeaconInvariants {
     /// @notice Expected runtime codehash of each beacon in
     /// `prodBeaconsForChainId`, index-aligned with it.
     /// @dev The set spans two build generations: the three token beacons are
-    /// the V1 build (858 bytes), the orchestrator beacon is OZ 5.6.1 at the
-    /// current `optimizer_runs` (728 bytes).
+    /// the V1 build (858 bytes), the orchestrator beacon is OZ 5.6.1 at 2000
+    /// runs (728 bytes).
     /// @return The expected codehash per beacon.
     function prodBeaconCodehashesForChainId(uint256) internal pure returns (bytes32[4] memory) {
         return [
