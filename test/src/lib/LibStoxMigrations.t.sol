@@ -4,19 +4,21 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistry.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.20/src/lib/LibRainDeploy.sol";
 import {
     IMigrationRegistryV2,
     MIGRATION_HEAD_GENESIS,
     Prerequisite
-} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistryDeploy.sol";
+} from "rain-deploy-0.1.20/src/interface/deprecated/IMigrationRegistryV2.sol";
 
 import {LibOrchestratorInvariants} from "../../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
-import {LibStoxMigrations, NoGovernanceTimelockMigrationOnChain} from "../../../src/lib/LibStoxMigrations.sol";
+import {
+    LibStoxMigrations,
+    NoGovernanceTimelockMigrationOnChain,
+    UnexpectedMigrationRegistryCodeHash
+} from "../../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibStoxMigrationsHarness} from "./LibStoxMigrationsHarness.sol";
 
@@ -32,15 +34,34 @@ contract LibStoxMigrationsTest is Test {
     /// invariants.
     function testRegistryInstancePinned() external pure {
         assertEq(
-            LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
+            LibStoxMigrations.REGISTRY,
             0xc89F95eC7e626CFBef37a1F502A69BaF2022F8A8,
             "st0x.deploy migration records live at this registry instance; moving it strands them"
         );
         assertEq(
-            LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_CODEHASH,
+            LibStoxMigrations.REGISTRY_CODEHASH,
             0x7a67fcb1f620333d4214ee9a6674bcd505c72aad173a6e8579b8c1371db45684,
             "st0x.deploy migration records live at this registry instance; moving it strands them"
         );
+    }
+
+    /// @notice Every registry read refuses code other than the pinned registry.
+    function testReadRejectsUnpinnedRegistryCode() external {
+        LibStoxMigrationsHarness ext = new LibStoxMigrationsHarness();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                UnexpectedMigrationRegistryCodeHash.selector, LibStoxMigrations.REGISTRY_CODEHASH, bytes32(0)
+            )
+        );
+        ext.applied(address(1), LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
+
+        vm.etch(LibStoxMigrations.REGISTRY, hex"00");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                UnexpectedMigrationRegistryCodeHash.selector, LibStoxMigrations.REGISTRY_CODEHASH, keccak256(hex"00")
+            )
+        );
+        ext.applied(address(1), LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
     }
 
     function testNamespace() external pure {
@@ -82,7 +103,7 @@ contract LibStoxMigrationsTest is Test {
 
     function assertExecution(string memory network) internal {
         vm.createSelectFork(network);
-        LibMigrationRegistry.checkCodeHash();
+        LibStoxMigrations.checkCodeHash();
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         (uint256 appliedAt, uint256 blockNumber) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
@@ -120,7 +141,7 @@ contract LibStoxMigrationsTest is Test {
         (address to, bytes memory data) =
             LibStoxMigrations.applyMigrationCall(LibStoxMigrations.ORCHESTRATOR_EMERGENCY, prerequisites);
 
-        assertEq(to, LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
+        assertEq(to, LibStoxMigrations.REGISTRY);
         assertEq(
             data,
             abi.encodeCall(
@@ -141,7 +162,7 @@ contract LibStoxMigrationsTest is Test {
             LibStoxMigrations.GOVERNANCE_TIMELOCK, 1_791_056_759, prerequisites
         );
 
-        assertEq(to, LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
+        assertEq(to, LibStoxMigrations.REGISTRY);
         assertEq(
             data,
             abi.encodeCall(

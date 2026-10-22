@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.20/src/lib/LibRainDeploy.sol";
 
 import {DeployerHoldsTimelockRole, TimelockNotPinned} from "../../script/20260729-deploy-governance-timelock.s.sol";
 import {UnpinnedDeployGovernanceTimelockHarness} from "./UnpinnedDeployGovernanceTimelockHarness.sol";

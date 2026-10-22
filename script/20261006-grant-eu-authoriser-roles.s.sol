@@ -10,9 +10,8 @@ import {
     IMigrationRegistryV2,
     MIGRATION_HEAD_GENESIS,
     Prerequisite
-} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistry.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistryDeploy.sol";
+} from "rain-deploy-0.1.20/src/interface/deprecated/IMigrationRegistryV2.sol";
+import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
@@ -20,9 +19,9 @@ import {LibEuAuthoriserClone} from "../src/lib/LibEuAuthoriserClone.sol";
 import {LibRbacMigration} from "../src/lib/LibRbacMigration.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {LibSafeTx, SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJson.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.20/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.20/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.20/src/lib/LibSafeTxBuilderJson.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
 /// @notice The EU authoriser clone is absent or carries the wrong code hash.
@@ -55,7 +54,7 @@ contract GrantEuAuthoriserRoles is Script {
         // MultiSendCallOnly raw-calls `txs[0]`, so a registry that is not on
         // this chain records nothing and returns success. Without this the
         // bundle's run-once guard silently does not exist.
-        LibMigrationRegistry.checkCodeHash();
+        LibStoxMigrations.checkCodeHash();
 
         clone = LibEuAuthoriserClone.cloneDeployedAddress(block.chainid);
         if (clone.code.length == 0 || clone.codehash != LibEuAuthoriserClone.cloneDeployedCodehash()) {
@@ -109,7 +108,7 @@ contract GrantEuAuthoriserRoles is Script {
         });
 
         txs[0] = SafeTx({
-            to: LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
+            to: LibStoxMigrations.REGISTRY,
             value: 0,
             data: abi.encodeCall(
                 IMigrationRegistryV2.applyMigration,

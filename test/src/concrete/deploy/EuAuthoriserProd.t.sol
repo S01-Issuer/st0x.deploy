@@ -3,10 +3,9 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {IMigrationRegistryV2} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistry.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistryDeploy.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {IMigrationRegistryV2} from "rain-deploy-0.1.20/src/interface/deprecated/IMigrationRegistryV2.sol";
+import {LibStoxMigrations} from "../../../../src/lib/LibStoxMigrations.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.20/src/lib/LibRainDeploy.sol";
 
 import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibEuAuthoriserClone} from "../../../../src/lib/LibEuAuthoriserClone.sol";
@@ -27,11 +26,12 @@ contract EuAuthoriserProdTest is Test {
     function assertChainEuAuthoriser() internal view {
         LibAuthoriserInvariants.assertEuAuthoriserDeployed(block.chainid);
 
+        LibStoxMigrations.checkCodeHash();
+
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         assertGt(
-            LibMigrationRegistry.applied(
-                safe, LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER
-            ),
+            IMigrationRegistryV2(LibStoxMigrations.REGISTRY)
+                .applied(safe, LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER),
             0,
             "EU authoriser grant-and-handover recorded"
         );
@@ -92,7 +92,7 @@ contract EuAuthoriserProdTest is Test {
         vm.createSelectFork(LibRainDeploy.BASE);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         vm.mockCall(
-            LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
+            LibStoxMigrations.REGISTRY,
             abi.encodeCall(
                 IMigrationRegistryV2.applied,
                 (safe, LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER)
