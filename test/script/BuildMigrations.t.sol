@@ -11,6 +11,7 @@ import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.21/src/lib/LibRai
 import {
     BuildMigrations,
     HistoryWithoutMoment,
+    ManyDeclarations,
     NoDeclaration,
     NoDeploymentNetworks,
     ScriptNotBuilt
@@ -24,13 +25,23 @@ import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
-contract BuildMigrationsTest is Test, BuildMigrationsHarness {
+contract BuildMigrationsTest is Test {
     string internal constant FIXTURES = "test/fixture/declarations";
 
     BuildMigrationsHarness internal build = new BuildMigrationsHarness();
 
     function networks() internal pure returns (SupportedNetwork[] memory) {
         return LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+    }
+
+    function endsWith(string memory text, string memory suffix) internal pure returns (bool) {
+        bytes memory textBytes = bytes(text);
+        bytes memory suffixBytes = bytes(suffix);
+        if (textBytes.length < suffixBytes.length) return false;
+        for (uint256 i = 0; i < suffixBytes.length; i++) {
+            if (textBytes[textBytes.length - suffixBytes.length + i] != suffixBytes[i]) return false;
+        }
+        return true;
     }
 
     function lexLess(string memory left, string memory right) internal pure returns (bool) {
@@ -50,7 +61,7 @@ contract BuildMigrationsTest is Test, BuildMigrationsHarness {
         internal
         returns (string[] memory paths, ScriptDeclaration[] memory declarations, address[] memory instances)
     {
-        return discover("script");
+        return build.discover("script");
     }
 
     function migrationsOf(ScriptDeclaration[] memory declarations) internal pure returns (uint256[] memory rows) {
@@ -282,6 +293,14 @@ contract BuildMigrationsTest is Test, BuildMigrationsHarness {
         string memory dir = string.concat(FIXTURES, "/undeclared");
         vm.expectRevert(
             abi.encodeWithSelector(NoDeclaration.selector, string.concat(dir, "/UndeclaredScriptFixture.s.sol"))
+        );
+        build.discover(dir);
+    }
+
+    function testTwoDeclaringContractsInOneFileFail() external {
+        string memory dir = string.concat(FIXTURES, "/many");
+        vm.expectRevert(
+            abi.encodeWithSelector(ManyDeclarations.selector, string.concat(dir, "/ManyDeclarationsFixture.s.sol"))
         );
         build.discover(dir);
     }

@@ -23,6 +23,7 @@ import {BindBeaconOwner} from "../../script/20261022-bind-beacon-owner.s.sol";
 import {DeployBeacons} from "../../script/20261022-deploy-beacons.s.sol";
 import {InvalidDeclarationFixture} from "../fixture/declarations/invalid/InvalidDeclarationFixture.s.sol";
 import {UndeclaredScriptFixture} from "../fixture/declarations/undeclared/UndeclaredScriptFixture.s.sol";
+import {ManyDeclarationsFixture} from "../fixture/declarations/many/ManyDeclarationsFixture.s.sol";
 import {ValidDeclarationFixture} from "../fixture/declarations/valid/ValidDeclarationFixture.s.sol";
 import {ASafeLineFixture} from "../fixture/declarations/timelock/ASafeLineFixture.s.sol";
 import {BTimelockLineFirstFixture} from "../fixture/declarations/timelock/BTimelockLineFirstFixture.s.sol";
