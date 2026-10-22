@@ -69,7 +69,7 @@ error ScheduledGrantNotExecuted(bytes32 operationId);
 ///
 /// 1. `orchestrator.grantRole(DEFAULT_ADMIN, timelock)`.
 /// 2. `orchestrator.renounceRole(DEFAULT_ADMIN, safe)`.
-/// 3. `registry.applyMigration(ORCHESTRATOR_ADMIN_TO_TIMELOCK,
+/// 3. `registry.applyMigrationV3(safe, ORCHESTRATOR_ADMIN_TO_TIMELOCK,
 ///    [ORCHESTRATOR_EMERGENCY])`.
 ///
 /// `DEFAULT_ADMIN_ROLE` administers `MINT_ROLE`, `BURN_ROLE` and
@@ -193,6 +193,7 @@ contract OrchestratorAdminToTimelock is SafeBundleScript {
             operation: Enum.Operation.Call
         });
         (address recordTo, bytes memory recordData) = LibStoxMigrations.applyMigrationCall(
+            chainSafe,
             LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
             LibStoxMigrations.onto(chainSafe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY)
         );

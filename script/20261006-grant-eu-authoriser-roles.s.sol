@@ -7,11 +7,12 @@ import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 
 import {
-    IMigrationRegistryV2,
+    IMigrationRegistryV3,
     MIGRATION_HEAD_GENESIS,
     Prerequisite
-} from "rain-deploy-0.1.21/src/interface/deprecated/IMigrationRegistryV2.sol";
-import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+} from "rain-deploy-0.1.21/src/interface/IMigrationRegistryV3.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.21/src/lib/LibMigrationRegistry.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.21/src/lib/LibMigrationRegistryDeploy.sol";
 
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
@@ -54,7 +55,7 @@ contract GrantEuAuthoriserRoles is Script {
         // MultiSendCallOnly raw-calls `txs[0]`, so a registry that is not on
         // this chain records nothing and returns success. Without this the
         // bundle's run-once guard silently does not exist.
-        LibStoxMigrations.checkCodeHash();
+        LibMigrationRegistry.checkCodeHash();
 
         clone = LibEuAuthoriserClone.cloneDeployedAddress(block.chainid);
         if (clone.code.length == 0 || clone.codehash != LibEuAuthoriserClone.cloneDeployedCodehash()) {
@@ -108,11 +109,16 @@ contract GrantEuAuthoriserRoles is Script {
         });
 
         txs[0] = SafeTx({
-            to: LibStoxMigrations.REGISTRY,
+            to: LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
             value: 0,
             data: abi.encodeCall(
-                IMigrationRegistryV2.applyMigration,
-                (LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER, prerequisites)
+                IMigrationRegistryV3.applyMigrationV3,
+                (
+                    safe,
+                    LibRbacMigration.STOX_RBAC_NAMESPACE,
+                    LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER,
+                    prerequisites
+                )
             ),
             operation: Enum.Operation.Call
         });

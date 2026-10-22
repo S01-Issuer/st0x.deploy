@@ -7,7 +7,8 @@ import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
-import {IMigrationRegistryV2} from "rain-deploy-0.1.21/src/interface/deprecated/IMigrationRegistryV2.sol";
+import {IMigrationRegistryV3} from "rain-deploy-0.1.21/src/interface/IMigrationRegistryV3.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.21/src/lib/LibMigrationRegistryDeploy.sol";
 import {SafeTx} from "rain-deploy-0.1.21/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.21/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.21/src/lib/LibSafeTxBuilderJson.sol";
@@ -75,9 +76,10 @@ contract OrchestratorAdminToTimelockTest is Test {
             vm.expectRevert(bytes("GS013"));
             this.externalExecute(safe, early);
             vm.prank(safe);
-            vm.expectPartialRevert(IMigrationRegistryV2.UnexpectedMigrationHead.selector);
-            IMigrationRegistryV2(LibStoxMigrations.REGISTRY)
-                .applyMigration(
+            vm.expectPartialRevert(IMigrationRegistryV3.UnexpectedMigrationHead.selector);
+            IMigrationRegistryV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
+                .applyMigrationV3(
+                    safe,
                     LibStoxMigrations.NAMESPACE,
                     LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
                     LibStoxMigrations.onto(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY)

@@ -4,8 +4,8 @@ pragma solidity ^0.8.25;
 
 import {LibTimelockController} from "rain-deploy-0.1.21/src/lib/LibTimelockController.sol";
 import {
-    CREATION_CODE as TIMELOCK_CREATION_CODE,
-    BYTECODE_HASH as TIMELOCK_BYTECODE_HASH
+    BYTECODE_HASH as TIMELOCK_BYTECODE_HASH,
+    CREATION_CODE as TIMELOCK_CREATION_CODE
 } from "rain-deploy-0.1.21/src/generated/0_1_18/TimelockController.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {RoleGrant} from "./RoleGrant.sol";

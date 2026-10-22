@@ -11,8 +11,4 @@ contract LibStoxMigrationsHarness {
     function governanceTimelockExecution(uint256 chainId) external pure returns (uint256, uint256) {
         return LibStoxMigrations.governanceTimelockExecution(chainId);
     }
-
-    function applied(address writer, bytes32 migration) external view returns (uint256) {
-        return LibStoxMigrations.applied(writer, migration);
-    }
 }

@@ -3,8 +3,9 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {IMigrationRegistryV2} from "rain-deploy-0.1.21/src/interface/deprecated/IMigrationRegistryV2.sol";
-import {LibStoxMigrations} from "../../../../src/lib/LibStoxMigrations.sol";
+import {IMigrationRegistryV3} from "rain-deploy-0.1.21/src/interface/IMigrationRegistryV3.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.21/src/lib/LibMigrationRegistry.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.21/src/lib/LibMigrationRegistryDeploy.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
 
 import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
@@ -26,12 +27,11 @@ contract EuAuthoriserProdTest is Test {
     function assertChainEuAuthoriser() internal view {
         LibAuthoriserInvariants.assertEuAuthoriserDeployed(block.chainid);
 
-        LibStoxMigrations.checkCodeHash();
-
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         assertGt(
-            IMigrationRegistryV2(LibStoxMigrations.REGISTRY)
-                .applied(safe, LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER),
+            LibMigrationRegistry.appliedV3(
+                safe, LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER
+            ),
             0,
             "EU authoriser grant-and-handover recorded"
         );
@@ -92,9 +92,9 @@ contract EuAuthoriserProdTest is Test {
         vm.createSelectFork(LibRainDeploy.BASE);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         vm.mockCall(
-            LibStoxMigrations.REGISTRY,
+            LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
             abi.encodeCall(
-                IMigrationRegistryV2.applied,
+                IMigrationRegistryV3.appliedV3,
                 (safe, LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER)
             ),
             abi.encode(uint256(0))
