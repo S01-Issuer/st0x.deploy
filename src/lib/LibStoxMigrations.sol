@@ -16,7 +16,7 @@ import {Prerequisite} from "rain-deploy-0.1.20/src/interface/IMigrationRegistryV
 /// change land atomically:
 ///
 /// - a migration the chain's token-owner Safe performs directly is recorded by
-///   the Safe, in its MultiSend (both orchestrator ids here);
+///   the Safe, in its MultiSend (the orchestrator admin move);
 /// - a migration executed through the governance timelock is recorded by the
 ///   timelock, as the last call of the scheduled batch, so it lands
 ///   atomically whoever executes the matured operation.
@@ -45,10 +45,6 @@ library LibStoxMigrations {
     /// same account on every chain, which approves each chain's Safe and
     /// governance timelock to write its line in `NAMESPACE`.
     address internal constant WRITER = address(0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c);
-
-    /// @notice `script/20261006-grant-orchestrator-emergency.s.sol`: the
-    /// chain's Safe is granted `EMERGENCY_ROLE` on the orchestrator.
-    bytes32 internal constant ORCHESTRATOR_EMERGENCY = keccak256("script/20261006-grant-orchestrator-emergency.s.sol");
 
     /// @notice `script/20261006-orchestrator-admin-to-timelock.s.sol`: the
     /// orchestrator's `DEFAULT_ADMIN_ROLE` moves from the chain's Safe to the

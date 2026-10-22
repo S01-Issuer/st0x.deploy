@@ -58,7 +58,8 @@ contract LibOrchestratorInvariantsTest is Test {
     /// @notice Fork Base and stand in a fresh Safe: it becomes the sole
     /// `DEFAULT_ADMIN_ROLE` holder, taking it from whichever of the real
     /// Safe and the timelock holds it, and the timelock is cleared of every
-    /// operating role. This repo's registry line is at genesis.
+    /// operating role, and the stand-in holds `EMERGENCY`, as every chain's Safe
+    /// does. This repo's registry line is at genesis.
     function selectScenarioFork() internal {
         selectFork(LibRainDeploy.BASE);
         address realSafe = safe;
@@ -81,29 +82,16 @@ contract LibOrchestratorInvariantsTest is Test {
         }
         vm.stopPrank();
         assertEq(LibStoxMigrations.head(), MIGRATION_HEAD_GENESIS, "line not at genesis");
+        grantEmergencyToSafe();
     }
 
     /// @notice Record the chain's migrations up to and including `upTo`, as
     /// the root authority, in line order. Recording only — no role is touched.
     function record(bytes32 upTo) internal {
-        vm.startPrank(LibStoxMigrations.WRITER);
-        if (LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0) {
-            registry.applyMigrationV3(
-                LibStoxMigrations.WRITER,
-                LibStoxMigrations.NAMESPACE,
-                LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
-                LibStoxMigrations.onto(MIGRATION_HEAD_GENESIS)
-            );
-        }
-        if (upTo == LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) {
-            registry.applyMigrationV3(
-                LibStoxMigrations.WRITER,
-                LibStoxMigrations.NAMESPACE,
-                LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-                LibStoxMigrations.onto(LibStoxMigrations.ORCHESTRATOR_EMERGENCY)
-            );
-        }
-        vm.stopPrank();
+        vm.prank(LibStoxMigrations.WRITER);
+        registry.applyMigrationV3(
+            LibStoxMigrations.WRITER, LibStoxMigrations.NAMESPACE, upTo, LibStoxMigrations.onto(MIGRATION_HEAD_GENESIS)
+        );
     }
 
     function grantEmergencyToSafe() internal {
@@ -145,27 +133,19 @@ contract LibOrchestratorInvariantsTest is Test {
         harness.callAssertBeaconSet();
     }
 
-    /// @notice Granted and recorded: passes.
-    function testEmergencyGrantedAndRecordedPasses() external {
-        selectScenarioFork();
-        grantEmergencyToSafe();
-        record(LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
-        harness.callAssertInstance(safe);
-    }
-
-    /// @notice Granted without the record: nothing is asserted until the
-    /// record lands.
-    function testEmergencyGrantedWithoutRecordPasses() external {
+    /// @notice The Safe holds `EMERGENCY`: passes.
+    function testEmergencyGrantedPasses() external {
         selectScenarioFork();
         grantEmergencyToSafe();
         harness.callAssertInstance(safe);
     }
 
-    /// @notice Recorded without the grant: the record says a migration ran
-    /// that did not.
-    function testEmergencyRecordedWithoutGrantTrips() external {
+    /// @notice The Safe without `EMERGENCY` trips: the grant ran on every
+    /// chain before the line started, so it is always expected.
+    function testEmergencyMissingTrips() external {
         selectScenarioFork();
-        record(LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
+        vm.prank(safe);
+        orchestrator.revokeRole(emergencyRole, safe);
         vm.expectRevert(
             abi.encodeWithSelector(OrchestratorRoleMissing.selector, address(orchestrator), emergencyRole, safe)
         );
@@ -186,7 +166,6 @@ contract LibOrchestratorInvariantsTest is Test {
     function testAdminMovedWithoutRecordPasses() external {
         selectScenarioFork();
         grantEmergencyToSafe();
-        record(LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
         moveAdminToTimelock();
         harness.callAssertInstance(safe);
     }

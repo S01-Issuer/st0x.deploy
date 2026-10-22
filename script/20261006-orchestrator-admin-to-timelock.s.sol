@@ -8,6 +8,7 @@ import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/Timel
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
 import {SafeBundleScript} from "rain-deploy-0.1.20/src/abstract/SafeBundleScript.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.20/src/interface/IMigrationRegistryV3.sol";
 import {SafeTx} from "rain-deploy-0.1.20/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.20/src/lib/LibSafeFork.sol";
 
@@ -17,14 +18,16 @@ import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
-/// @notice This repo's line in the migration registry is not at the
-/// orchestrator EMERGENCY grant, which this migration is applied onto:
-/// the grant has not executed on this chain, this bundle already has, or
-/// another Safe-recorded migration has landed after the grant. In the last
-/// case this move can never apply onto the line as written and has to be
-/// re-authored onto the new head.
+/// @notice This repo's line in the migration registry is not at genesis, which
+/// this migration is applied onto as the line's first record: this bundle has
+/// already executed on the chain, or another migration has been recorded
+/// first, and this move has to be re-authored onto the new head.
 /// @param head The line's head.
 error UnexpectedMigrationLine(bytes32 head);
+
+/// @notice The Safe does not hold `EMERGENCY_ROLE`, so after the move it could
+/// only be granted through the timelock.
+error EmergencyNotGranted();
 
 /// @notice The Safe is not approved to write this repo's line under
 /// `LibStoxMigrations.WRITER`, so the record would revert.
@@ -75,7 +78,7 @@ error ScheduledGrantNotExecuted(bytes32 operationId);
 /// 1. `orchestrator.grantRole(DEFAULT_ADMIN, timelock)`.
 /// 2. `orchestrator.renounceRole(DEFAULT_ADMIN, safe)`.
 /// 3. `registry.applyMigrationV3(WRITER, NAMESPACE,
-///    ORCHESTRATOR_ADMIN_TO_TIMELOCK, [ORCHESTRATOR_EMERGENCY])`, written by the
+///    ORCHESTRATOR_ADMIN_TO_TIMELOCK, [genesis])`, written by the
 ///    Safe as `LibStoxMigrations.WRITER`'s approved delegate.
 ///
 /// `DEFAULT_ADMIN_ROLE` administers `MINT_ROLE`, `BURN_ROLE` and
@@ -85,9 +88,9 @@ error ScheduledGrantNotExecuted(bytes32 operationId);
 /// burning and emergency recovery are not delayed. A holder can still
 /// `renounceRole` itself immediately.
 ///
-/// The record is applied onto the EMERGENCY grant's, so the registry
-/// refuses it on a chain where that grant has not executed: the Safe must be
-/// granted `EMERGENCY_ROLE` while it can still do so directly.
+/// The Safe must hold `EMERGENCY_ROLE` first, granted while it can still do so
+/// directly; the grant ran on every chain before this line was started, so
+/// preflight reads it from the orchestrator rather than the line.
 ///
 /// **Before signing: cancel any timelock operation already scheduled against
 /// the orchestrator.** `schedule` does not run the inner call, so a
@@ -131,8 +134,8 @@ error ScheduledGrantNotExecuted(bytes32 operationId);
 /// bundle re-derived from live state.
 ///
 /// @dev Dispatch via `Actions → run-script` with
-/// `script = 20261006-orchestrator-admin-to-timelock` per chain, only after
-/// `20261006-grant-orchestrator-emergency` has executed there.
+/// `script = 20261006-orchestrator-admin-to-timelock` per chain, once the root
+/// authority has approved the Safe there.
 contract OrchestratorAdminToTimelock is SafeBundleScript {
     /// @notice The orchestrator instance, typed for its role-id getters.
     ST0xOrchestrator internal constant ORCHESTRATOR =
@@ -167,20 +170,22 @@ contract OrchestratorAdminToTimelock is SafeBundleScript {
 
     /// @inheritdoc SafeBundleScript
     /// @dev The Safe, the timelock and the orchestrator are what this repo
-    /// pins, this repo's line is at the EMERGENCY grant and the Safe may write
-    /// it, and the orchestrator carries what that record implies: Safe
-    /// EMERGENCY.
+    /// pins, this repo's line is at genesis and the Safe may write it, and the
+    /// Safe holds `EMERGENCY_ROLE`.
     function preflight() internal view override {
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);
         LibOrchestratorInvariants.assertBeaconSet();
 
         bytes32 head = LibStoxMigrations.head();
-        if (head != LibStoxMigrations.ORCHESTRATOR_EMERGENCY) {
+        if (head != MIGRATION_HEAD_GENESIS) {
             revert UnexpectedMigrationLine(head);
         }
         if (!LibStoxMigrations.approved(chainSafe)) {
             revert SafeNotApprovedWriter(chainSafe);
+        }
+        if (!ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), chainSafe)) {
+            revert EmergencyNotGranted();
         }
         LibOrchestratorInvariants.assertInstance(chainSafe);
     }
@@ -203,8 +208,7 @@ contract OrchestratorAdminToTimelock is SafeBundleScript {
             operation: Enum.Operation.Call
         });
         (address recordTo, bytes memory recordData) = LibStoxMigrations.applyMigrationCall(
-            LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-            LibStoxMigrations.onto(LibStoxMigrations.ORCHESTRATOR_EMERGENCY)
+            LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK, LibStoxMigrations.onto(MIGRATION_HEAD_GENESIS)
         );
         txs[2] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
         return txs;

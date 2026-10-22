@@ -15,7 +15,6 @@ import {LibSafeTxBuilderJson} from "rain-deploy-0.1.20/src/lib/LibSafeTxBuilderJ
 
 import {UnexpectedMigrationLine} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
-import {GrantOrchestratorEmergencyHarness} from "./GrantOrchestratorEmergencyHarness.sol";
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
@@ -30,9 +29,8 @@ error AdminMoveNotApplied(string network);
 
 /// @title OrchestratorAdminToTimelockTest
 /// @notice The admin move on every deployment network at head, in two parts
-/// per network. The bundle walks the line: before the EMERGENCY grant the
-/// script refuses and the bundle cannot execute; with the grant executed
-/// (live, or its bundle executed on the fork) `run()` executes the move
+/// per network. The bundle: with the Safe approved as a writer (live, or on
+/// the fork) `run()` executes the move
 /// through the Safe, proves it and writes the artifact, `verify` accepts
 /// that artifact, and the artifact executed by the owners leaves the state
 /// the invariants demand and makes a re-dispatch refuse; once executed on
@@ -53,11 +51,6 @@ contract OrchestratorAdminToTimelockTest is Test {
         }
     }
 
-    function executeEmergencyGrant(address safe) internal {
-        GrantOrchestratorEmergencyHarness grant = new GrantOrchestratorEmergencyHarness("admin-move-prerequisite");
-        LibSafeFork.executeBundle(vm, Safe(payable(safe)), grant.callAuthorBundle());
-    }
-
     function assertBundle(string memory network) internal {
         vm.createSelectFork(network);
         OrchestratorAdminToTimelockHarness script = new OrchestratorAdminToTimelockHarness(network);
@@ -75,29 +68,6 @@ contract OrchestratorAdminToTimelockTest is Test {
         }
 
         approveSafe(safe);
-        if (LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0) {
-            console2.log(string.concat("PENDING [", network, "]: EMERGENCY grant not executed; move refused"));
-            vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.head()));
-            script.callPreflight();
-            // Out of order on chain (the move signed at a lower nonce than
-            // the grant, or imported where the grant is still queued): the
-            // registry refuses the record, so the whole bundle reverts. The
-            // Safe reports any inner failure as GS013, so the refuser is
-            // pinned by calling the record directly as the Safe.
-            SafeTx[] memory early = script.callAuthorBundle();
-            vm.expectRevert(bytes("GS013"));
-            this.externalExecute(safe, early);
-            vm.prank(safe);
-            vm.expectPartialRevert(IMigrationRegistryV3.UnexpectedMigrationHead.selector);
-            IMigrationRegistryV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
-                .applyMigrationV3(
-                    LibStoxMigrations.WRITER,
-                    LibStoxMigrations.NAMESPACE,
-                    LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-                    LibStoxMigrations.onto(LibStoxMigrations.ORCHESTRATOR_EMERGENCY)
-                );
-            executeEmergencyGrant(safe);
-        }
 
         console2.log(string.concat("PENDING [", network, "]: authoring, verifying and executing the move"));
         uint256 preRun = vm.snapshotState();
@@ -204,9 +174,6 @@ contract OrchestratorAdminToTimelockTest is Test {
             return;
         }
         approveSafe(safe);
-        if (LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0) {
-            executeEmergencyGrant(safe);
-        }
         OrchestratorAdminToTimelockHarness script = new OrchestratorAdminToTimelockHarness("tamper");
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         // Built in memory and written to its own paths, so this test never
@@ -227,11 +194,5 @@ contract OrchestratorAdminToTimelockTest is Test {
         vm.writeFile(tamperedPath, tampered);
         vm.expectRevert(abi.encodeWithSelector(LibSafeTxBuilderJson.ArtifactMismatch.selector, "data"));
         script.verify(tamperedPath);
-    }
-
-    /// @notice External shim: execute a bundle through the Safe so
-    /// `vm.expectRevert` can observe the revert.
-    function externalExecute(address safe, SafeTx[] memory txs) external {
-        LibSafeFork.executeBundle(vm, Safe(payable(safe)), txs);
     }
 }

@@ -47,16 +47,9 @@ contract LibStoxMigrationsTest is Test {
 
     function testIdsNameTheirScripts() external pure {
         assertEq(
-            LibStoxMigrations.ORCHESTRATOR_EMERGENCY, keccak256("script/20261006-grant-orchestrator-emergency.s.sol")
-        );
-        assertEq(
             LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
             keccak256("script/20261006-orchestrator-admin-to-timelock.s.sol")
         );
-    }
-
-    function testIdsDistinct() external pure {
-        assertTrue(LibStoxMigrations.ORCHESTRATOR_EMERGENCY != LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
     }
 
     /// @notice The registry call writes the root authority's line in this
@@ -66,7 +59,7 @@ contract LibStoxMigrationsTest is Test {
         Prerequisite[] memory prerequisites = LibStoxMigrations.onto(MIGRATION_HEAD_GENESIS);
 
         (address to, bytes memory data) =
-            LibStoxMigrations.applyMigrationCall(LibStoxMigrations.ORCHESTRATOR_EMERGENCY, prerequisites);
+            LibStoxMigrations.applyMigrationCall(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK, prerequisites);
 
         assertEq(to, LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
         assertEq(
@@ -76,7 +69,7 @@ contract LibStoxMigrationsTest is Test {
                 (
                     LibStoxMigrations.WRITER,
                     LibStoxMigrations.NAMESPACE,
-                    LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
+                    LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
                     prerequisites
                 )
             )
@@ -93,7 +86,7 @@ contract LibStoxMigrationsTest is Test {
         address safe = makeAddr("safe");
         address stranger = makeAddr("stranger");
         (address to, bytes memory data) = LibStoxMigrations.applyMigrationCall(
-            LibStoxMigrations.ORCHESTRATOR_EMERGENCY, LibStoxMigrations.onto(MIGRATION_HEAD_GENESIS)
+            LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK, LibStoxMigrations.onto(MIGRATION_HEAD_GENESIS)
         );
 
         assertFalse(LibStoxMigrations.approved(safe));
@@ -110,8 +103,7 @@ contract LibStoxMigrationsTest is Test {
         vm.prank(safe);
         (bool ok,) = to.call(data);
         assertTrue(ok, "the approved Safe writes the line");
-        assertEq(LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_EMERGENCY), block.timestamp);
-        assertEq(LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK), 0);
-        assertEq(LibStoxMigrations.head(), LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
+        assertEq(LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK), block.timestamp);
+        assertEq(LibStoxMigrations.head(), LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
     }
 }

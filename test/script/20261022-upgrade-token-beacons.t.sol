@@ -20,7 +20,6 @@ import {
     UnexpectedMigrationLine
 } from "../../script/20261022-upgrade-token-beacons.s.sol";
 import {UpgradeTokenBeaconsHarness} from "./UpgradeTokenBeaconsHarness.sol";
-import {GrantOrchestratorEmergencyHarness} from "./GrantOrchestratorEmergencyHarness.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
@@ -59,13 +58,9 @@ contract UpgradeTokenBeaconsTest is Test {
         }
     }
 
-    /// @notice The orchestrator bundles this upgrade is applied after,
+    /// @notice The orchestrator admin move this upgrade is applied after,
     /// executed on the fork where the chain has not.
     function executeOrchestratorMigrations(address safe) internal {
-        if (LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0) {
-            GrantOrchestratorEmergencyHarness grant = new GrantOrchestratorEmergencyHarness("upgrade-prerequisite");
-            LibSafeFork.executeBundle(vm, Safe(payable(safe)), grant.callAuthorBundle());
-        }
         if (LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) == 0) {
             OrchestratorAdminToTimelockHarness move = new OrchestratorAdminToTimelockHarness("upgrade-prerequisite");
             LibSafeFork.executeBundle(vm, Safe(payable(safe)), move.callAuthorBundle());
