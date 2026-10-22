@@ -93,6 +93,17 @@
     `script/timelock-verify.sh`, whose `check` (CI: `timelock-verify-check`)
     proves that compile reproduces the pinned creation and runtime code.
 
+- **`optimizer_runs` lowered 1666 → 200 to fit the mint-capped
+  `ST0xOrchestrator` under EIP-170.** The mint caps and mint weighting grow the
+  orchestrator to 26,420 at 1666 runs (over by 1,844). Measured: `runs=1000` →
+  26,375; `runs=700` → 24,762; `runs=600` → 24,741; `runs=550` → 24,565 (11
+  spare); `runs=400` → 24,026; `runs=200` → 23,486 (**1,090 spare**); `runs=1` →
+  23,036. `StoxReceiptVault` is 21,813 at 200.
+
+  As with the earlier lowerings, every `src/generated/candidate/` pin moves and
+  the vault, facet and receipt deploy in lockstep; the frozen `0_1_1` and
+  `0_1_30` snapshots are untouched.
+
 ### Deploy scripts
 
 - **The per-chain "deploy missing tokens" scripts are merged into one.**
