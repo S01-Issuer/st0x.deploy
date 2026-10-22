@@ -27,6 +27,9 @@ import {
     backfillMigrationRegistryV3Declaration
 } from "../../script/20261022-backfill-migration-registry-v3.s.sol";
 import {BackfillMigrationRegistryV3Harness} from "./BackfillMigrationRegistryV3Harness.sol";
+import {grantEuAuthoriserRolesDeclaration} from "../../script/20261006-grant-eu-authoriser-roles.s.sol";
+import {grantOrchestratorEmergencyDeclaration} from "../../script/20261006-grant-orchestrator-emergency.s.sol";
+import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {LibOrchestratorInvariants, OrchestratorRoleMissing} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibRbacMigration} from "../../src/lib/LibRbacMigration.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
@@ -344,6 +347,28 @@ contract BackfillMigrationRegistryV3Test is Test {
             )
         );
         script.callAssertPostState();
+    }
+
+    /// @dev Record `index` carried one second off its V2 moment is refused.
+    function assertPostStateRefusesMiscarried(uint256 index, ScriptDeclaration memory declared) internal {
+        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        if (spent()) return;
+        SafeTx[] memory txs = script.callAuthorBundle();
+        uint256 v2Moment = V2.applied(safe, declared.namespace, declared.id);
+        (, txs[index].data) = LibStoxMigrations.historyCall(
+            declared, v2Moment + 1, safe, LibTimelockInvariants.timelockForChainId(block.chainid)
+        );
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), txs);
+        vm.expectRevert(abi.encodeWithSelector(BackfillRecordMismatch.selector, declared.id, v2Moment, v2Moment + 1));
+        script.callAssertPostState();
+    }
+
+    function testPostStateRefusesMiscarriedOrchestratorEmergency() external {
+        assertPostStateRefusesMiscarried(1, grantOrchestratorEmergencyDeclaration());
+    }
+
+    function testPostStateRefusesMiscarriedEuAuthoriserGrant() external {
+        assertPostStateRefusesMiscarried(2, grantEuAuthoriserRolesDeclaration());
     }
 
     function executeBackfill(BackfillMigrationRegistryV3Harness script, address safe) internal {
