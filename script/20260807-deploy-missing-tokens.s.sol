@@ -122,12 +122,7 @@ error AuthoriserNotWired(address receiptVault, address expected, address actual)
 contract DeployMissingTokens is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.safeMigrationOnto(
-            LibStoxMigrations.NAMESPACE,
-            keccak256("script/20260807-deploy-missing-tokens.s.sol"),
-            keccak256("script/20260729-deploy-governance-timelock.s.sol"),
-            false
-        );
+        return LibStoxMigrations.notAMigration();
     }
 
     /// @notice Assert a deployer contract is present at its pinned address.
