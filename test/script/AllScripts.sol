@@ -25,6 +25,7 @@ import {BindAuthoriserAdmin} from "../../script/20261022-bind-authoriser-admin.s
 import {DeployAuthoriserClone} from "../../script/20261022-deploy-authoriser-clone.s.sol";
 import {InvalidDeclarationFixture} from "../fixture/declarations/invalid/InvalidDeclarationFixture.s.sol";
 import {UndeclaredScriptFixture} from "../fixture/declarations/undeclared/UndeclaredScriptFixture.s.sol";
+import {ManyDeclarationsFixture} from "../fixture/declarations/many/ManyDeclarationsFixture.s.sol";
 import {ValidDeclarationFixture} from "../fixture/declarations/valid/ValidDeclarationFixture.s.sol";
 import {ASafeLineFixture} from "../fixture/declarations/timelock/ASafeLineFixture.s.sol";
 import {BTimelockLineFirstFixture} from "../fixture/declarations/timelock/BTimelockLineFirstFixture.s.sol";

@@ -113,11 +113,9 @@ contract BindBeaconOwner is SafeBundleScript, IStoxScript {
         address chainSafe = address(safe());
         (bytes memory value, uint256 registeredAt) =
             LibConfigRegistry.resolve(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER);
+        bytes memory expected = abi.encode(LibTimelockInvariants.timelockForChainId(block.chainid));
         // forge-lint: disable-next-line(block-timestamp)
-        if (
-            keccak256(value) != keccak256(abi.encode(LibTimelockInvariants.timelockForChainId(block.chainid)))
-                || registeredAt != block.timestamp
-        ) {
+        if (keccak256(value) != keccak256(expected) || registeredAt != block.timestamp) {
             revert BeaconOwnerBindingMismatch(value, registeredAt);
         }
         bytes32 id = bindBeaconOwnerDeclaration().id;
