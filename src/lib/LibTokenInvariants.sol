@@ -506,6 +506,14 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x378a04202D25659763A02dA5FE77c0a35e64Ce1D
     address internal constant MC_WRAPPED_TOKEN_VAULT = address(0x378a04202D25659763A02dA5FE77c0a35e64Ce1D);
 
+    // ---- tDIS / wtDIS — The Walt Disney Company ST0x ----
+    /// https://basescan.org/address/0xc53b863791d8E1de96CA547CF8F3C740e770FAE1
+    address internal constant DIS_RECEIPT = address(0xc53b863791d8E1de96CA547CF8F3C740e770FAE1);
+    /// https://basescan.org/address/0x40584fBad768FF46f299Cf50cAe5b3D437E213Fa
+    address internal constant DIS_RECEIPT_VAULT = address(0x40584fBad768FF46f299Cf50cAe5b3D437E213Fa);
+    /// https://basescan.org/address/0x8EA3c97D23872eC4FAe1cA3189039056b77bc703
+    address internal constant DIS_WRAPPED_TOKEN_VAULT = address(0x8EA3c97D23872eC4FAe1cA3189039056b77bc703);
+
     /// @notice Returns the production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
@@ -513,7 +521,7 @@ library LibTokenInvariants {
     /// (cross-chain parity, per-token config checks) iterate this instead.
     /// @return tokens The production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](55);
+        tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance({
             underlying: "MSTR",
             receipt: MSTR_RECEIPT,
@@ -845,6 +853,12 @@ library LibTokenInvariants {
             receiptVault: MC_RECEIPT_VAULT,
             wrappedTokenVault: MC_WRAPPED_TOKEN_VAULT
         });
+        tokens[55] = TokenInstance({
+            underlying: "DIS",
+            receipt: DIS_RECEIPT,
+            receiptVault: DIS_RECEIPT_VAULT,
+            wrappedTokenVault: DIS_WRAPPED_TOKEN_VAULT
+        });
     }
 
     /// @notice Returns the production token instance triples on Ethereum
@@ -852,7 +866,7 @@ library LibTokenInvariants {
     /// index as well as by key.
     /// @return tokens The production token instances on Ethereum.
     function productionTokensEthereum() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](54);
+        tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance({
             underlying: "MSTR",
             receipt: address(0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763),
@@ -1177,6 +1191,18 @@ library LibTokenInvariants {
             receiptVault: address(0xfAE9AfE275E57759f8Fbae5f252c65aDBF1b773F),
             wrappedTokenVault: address(0x23A0944e82766242dA76cb0f77e0b7812e5487EA)
         });
+        tokens[54] = TokenInstance({
+            underlying: "MC",
+            receipt: address(0x9835e52FAFA9A92678C8A9420034706B1edD431e),
+            receiptVault: address(0x4d4D633bf04ABF6e4cF152C7c5c1ecD906Ab3de4),
+            wrappedTokenVault: address(0x5Ce8b84756dDdE011734F04dC4bA2930C981B443)
+        });
+        tokens[55] = TokenInstance({
+            underlying: "DIS",
+            receipt: address(0x29e7fe750DFffd4D7C8e907C126324B8a5A9AdB7),
+            receiptVault: address(0xd78025Aa344E549A1D76eCE1591c481cC7Bc3548),
+            wrappedTokenVault: address(0x81f40cbCFAE7A1aD1f4474eD95A210DfA3B90B0f)
+        });
     }
 
     /// @notice Returns the production token instance triples on HyperEVM,
@@ -1184,7 +1210,7 @@ library LibTokenInvariants {
     /// parity pin asserts the alignment).
     /// @return tokens The production token instances on HyperEVM.
     function productionTokensHyperEvm() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](54);
+        tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance({
             underlying: "MSTR",
             receipt: 0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
@@ -1508,6 +1534,18 @@ library LibTokenInvariants {
             receipt: address(0x395717EE8201419b21B40A400ea959a7D7d43A36),
             receiptVault: address(0xfAE9AfE275E57759f8Fbae5f252c65aDBF1b773F),
             wrappedTokenVault: address(0x23A0944e82766242dA76cb0f77e0b7812e5487EA)
+        });
+        tokens[54] = TokenInstance({
+            underlying: "MC",
+            receipt: address(0x9835e52FAFA9A92678C8A9420034706B1edD431e),
+            receiptVault: address(0x4d4D633bf04ABF6e4cF152C7c5c1ecD906Ab3de4),
+            wrappedTokenVault: address(0x5Ce8b84756dDdE011734F04dC4bA2930C981B443)
+        });
+        tokens[55] = TokenInstance({
+            underlying: "DIS",
+            receipt: address(0x29e7fe750DFffd4D7C8e907C126324B8a5A9AdB7),
+            receiptVault: address(0xd78025Aa344E549A1D76eCE1591c481cC7Bc3548),
+            wrappedTokenVault: address(0x81f40cbCFAE7A1aD1f4474eD95A210DfA3B90B0f)
         });
     }
 
@@ -1517,7 +1555,7 @@ library LibTokenInvariants {
     /// asserts the alignment).
     /// @return tokens The production token instances on Robinhood Chain.
     function productionTokensRobinhood() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](54);
+        tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance({
             underlying: "MSTR",
             receipt: 0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
@@ -1842,6 +1880,18 @@ library LibTokenInvariants {
             receiptVault: address(0xfAE9AfE275E57759f8Fbae5f252c65aDBF1b773F),
             wrappedTokenVault: address(0x23A0944e82766242dA76cb0f77e0b7812e5487EA)
         });
+        tokens[54] = TokenInstance({
+            underlying: "MC",
+            receipt: address(0x9835e52FAFA9A92678C8A9420034706B1edD431e),
+            receiptVault: address(0x4d4D633bf04ABF6e4cF152C7c5c1ecD906Ab3de4),
+            wrappedTokenVault: address(0x5Ce8b84756dDdE011734F04dC4bA2930C981B443)
+        });
+        tokens[55] = TokenInstance({
+            underlying: "DIS",
+            receipt: address(0x29e7fe750DFffd4D7C8e907C126324B8a5A9AdB7),
+            receiptVault: address(0xd78025Aa344E549A1D76eCE1591c481cC7Bc3548),
+            wrappedTokenVault: address(0x81f40cbCFAE7A1aD1f4474eD95A210DfA3B90B0f)
+        });
     }
 
     /// @notice Returns the production token instance triples on BNB Smart
@@ -1850,7 +1900,7 @@ library LibTokenInvariants {
     /// asserts the alignment).
     /// @return tokens The production token instances on BNB Smart Chain.
     function productionTokensBsc() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](54);
+        tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance({
             underlying: "MSTR",
             receipt: 0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8,
@@ -2174,6 +2224,18 @@ library LibTokenInvariants {
             receipt: address(0x15be3D9f7C33cA78797e337DC524F7330C9672E9),
             receiptVault: address(0xcc23Ef9e1e74c22ab2A9B73E253Af01531385b08),
             wrappedTokenVault: address(0x0590F2C3ecE606F9E01af0291EFDEA7A28899782)
+        });
+        tokens[54] = TokenInstance({
+            underlying: "MC",
+            receipt: address(0xcf829819FDD164A8B6566d404E67bdFd92F169c2),
+            receiptVault: address(0x28019de1dE36d5fA0077Dfe7859ED54664982081),
+            wrappedTokenVault: address(0x69e93548C38132B8bcfA41BbA521Ae5A87c568B4)
+        });
+        tokens[55] = TokenInstance({
+            underlying: "DIS",
+            receipt: address(0x67d8ACfE2DADa892411b4A86CBAC6901383C8F4e),
+            receiptVault: address(0xe39a028cdC8a50e655A5b31ba8A48ce36f3A8243),
+            wrappedTokenVault: address(0x24eD179E95F643ff9f8235850778160cFA4aeDb7)
         });
     }
 
