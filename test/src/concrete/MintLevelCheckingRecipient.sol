@@ -15,6 +15,7 @@ contract MintLevelCheckingRecipient is IMintRecipient {
     address internal immutable MINTER;
     Float internal immutable EXPECTED_LEVEL;
 
+    // forge-lint: disable-next-line(missing-zero-check)
     constructor(IST0xOrchestratorV2 orchestrator, address minter, Float expectedLevel) {
         ORCHESTRATOR = orchestrator;
         MINTER = minter;
