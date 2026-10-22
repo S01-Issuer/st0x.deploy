@@ -7,7 +7,7 @@ import {
     MigrateMultisigThreshold,
     VerifyMismatch,
     VerifyExpectedSingleTx
-} from "../../script/MigrateMultisigThreshold.s.sol";
+} from "../../script/20260619-migrate-multisig-threshold.s.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
