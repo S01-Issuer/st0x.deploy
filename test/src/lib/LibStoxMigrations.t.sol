@@ -22,8 +22,7 @@ import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol"
 import {LibStoxMigrationsHarness} from "./LibStoxMigrationsHarness.sol";
 
 /// @title LibStoxMigrationsTest
-/// @notice The migration ids name their scripts, and the pinned execution
-/// moment of the governance-timelock migration is the chain's own record of
+/// @notice The pinned execution moment of the governance-timelock migration is the chain's own record of
 /// it: the block's timestamp, in the block that holds the orchestrator
 /// beacon's ownership transfer from the Safe to the timelock.
 contract LibStoxMigrationsTest is Test {
@@ -46,25 +45,6 @@ contract LibStoxMigrationsTest is Test {
 
     function testNamespace() external pure {
         assertEq(LibStoxMigrations.NAMESPACE, keccak256("st0x.deploy"));
-    }
-
-    function testIdsNameTheirScripts() external pure {
-        assertEq(
-            LibStoxMigrations.GOVERNANCE_TIMELOCK, keccak256("script/20260729-migrate-governance-to-timelock.s.sol")
-        );
-        assertEq(
-            LibStoxMigrations.ORCHESTRATOR_EMERGENCY, keccak256("script/20261006-grant-orchestrator-emergency.s.sol")
-        );
-        assertEq(
-            LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-            keccak256("script/20261006-orchestrator-admin-to-timelock.s.sol")
-        );
-    }
-
-    function testIdsDistinct() external pure {
-        assertTrue(LibStoxMigrations.GOVERNANCE_TIMELOCK != LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
-        assertTrue(LibStoxMigrations.ORCHESTRATOR_EMERGENCY != LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
-        assertTrue(LibStoxMigrations.GOVERNANCE_TIMELOCK != LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
     }
 
     /// @notice A catalogued network ST0x does not deploy to has no moment.

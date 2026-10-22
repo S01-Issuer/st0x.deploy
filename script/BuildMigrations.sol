@@ -241,12 +241,6 @@ contract BuildMigrations is Script {
         }
     }
 
-    /// @notice `migrations.json` for `script/` on the deployment networks.
-    /// @return The JSON.
-    function render() public returns (string memory) {
-        return renderDir(SCRIPTS);
-    }
-
     /// @notice `migrations.json` for the scripts in `dir`.
     /// @param dir The directory.
     /// @return The JSON.
@@ -274,14 +268,15 @@ contract BuildMigrations is Script {
         return vm.serializeString("root", "migrations", rows);
     }
 
-    /// @notice Write the render to `path`.
+    /// @notice Write the render of `dir` to `path`.
+    /// @param dir The directory.
     /// @param path The file.
-    function runTo(string memory path) public {
-        vm.writeJson(render(), path);
+    function runTo(string memory dir, string memory path) public {
+        vm.writeJson(renderDir(dir), path);
     }
 
     /// @notice Write `migrations.json`.
     function run() external {
-        runTo(PATH);
+        runTo(SCRIPTS, PATH);
     }
 }

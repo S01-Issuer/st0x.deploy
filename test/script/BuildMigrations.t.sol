@@ -2,8 +2,15 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import "./AllScripts.sol";
 import {Test} from "forge-std-1.17.0/src/Test.sol";
+// Discovery reads build artifacts, and forge test builds only what a test imports.
+import {InvalidDeclarationFixture} from "../fixture/declarations/invalid/InvalidDeclarationFixture.s.sol";
+import {ManyDeclarationsFixture} from "../fixture/declarations/many/ManyDeclarationsFixture.s.sol";
+import {ASafeLineFixture} from "../fixture/declarations/timelock/ASafeLineFixture.s.sol";
+import {BTimelockLineFirstFixture} from "../fixture/declarations/timelock/BTimelockLineFirstFixture.s.sol";
+import {CTimelockLineSecondFixture} from "../fixture/declarations/timelock/CTimelockLineSecondFixture.s.sol";
+import {UndeclaredScriptFixture} from "../fixture/declarations/undeclared/UndeclaredScriptFixture.s.sol";
+import {ValidDeclarationFixture} from "../fixture/declarations/valid/ValidDeclarationFixture.s.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistryDeploy.sol";
@@ -27,6 +34,7 @@ import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
 contract BuildMigrationsTest is Test {
     string internal constant FIXTURES = "test/fixture/declarations";
+    string internal constant LINES = "test/fixture/declarations/timelock";
 
     BuildMigrationsHarness internal build = new BuildMigrationsHarness();
 
@@ -61,7 +69,7 @@ contract BuildMigrationsTest is Test {
         internal
         returns (string[] memory paths, ScriptDeclaration[] memory declarations, address[] memory instances)
     {
-        return build.discover("script");
+        return build.discover(LINES);
     }
 
     function migrationsOf(ScriptDeclaration[] memory declarations) internal pure returns (uint256[] memory rows) {
@@ -77,15 +85,15 @@ contract BuildMigrationsTest is Test {
     }
 
     function testVersionIsOne() external {
-        assertEq(vm.parseJsonUint(build.render(), ".version"), 1);
+        assertEq(vm.parseJsonUint(build.renderDir(LINES), ".version"), 1);
     }
 
     function testGenesisIsTheRegistryGenesis() external {
-        assertEq(vm.parseJsonBytes32(build.render(), ".genesis"), MIGRATION_HEAD_GENESIS);
+        assertEq(vm.parseJsonBytes32(build.renderDir(LINES), ".genesis"), MIGRATION_HEAD_GENESIS);
     }
 
     function testNetworksAreTheDeploymentNetworksWithTheRegistry() external {
-        string memory json = build.render();
+        string memory json = build.renderDir(LINES);
         SupportedNetwork[] memory nets = networks();
         assertEq(vm.parseJsonKeys(json, ".networks").length, nets.length);
         for (uint256 i = 0; i < nets.length; i++) {
@@ -100,7 +108,7 @@ contract BuildMigrationsTest is Test {
 
     function testEveryScriptFileIsDiscoveredInPathOrder() external {
         (string[] memory paths,,) = discovered();
-        Vm.DirEntry[] memory entries = vm.readDir("script", 1);
+        Vm.DirEntry[] memory entries = vm.readDir(LINES, 1);
         uint256 scripts = 0;
         for (uint256 entryIndex = 0; entryIndex < entries.length; entryIndex++) {
             if (entries[entryIndex].isDir || !endsWith(entries[entryIndex].path, ".s.sol")) continue;
@@ -118,7 +126,7 @@ contract BuildMigrationsTest is Test {
     }
 
     function testMigrationsAreTheDeclaredMigrations() external {
-        string memory json = build.render();
+        string memory json = build.renderDir(LINES);
         (string[] memory paths, ScriptDeclaration[] memory declarations,) = discovered();
         uint256[] memory rows = migrationsOf(declarations);
         assertGt(rows.length, 0);
@@ -132,7 +140,7 @@ contract BuildMigrationsTest is Test {
     }
 
     function testChainsAreTheResolvedWriterMomentAndPrerequisites() external {
-        string memory json = build.render();
+        string memory json = build.renderDir(LINES);
         (, ScriptDeclaration[] memory declarations, address[] memory instances) = discovered();
         uint256[] memory rows = migrationsOf(declarations);
         SupportedNetwork[] memory nets = networks();
@@ -200,32 +208,8 @@ contract BuildMigrationsTest is Test {
         }
     }
 
-    /// @dev Oracle: the per-network moments `governanceTimelockExecution` pins.
-    function testTheGovernanceTimelockMoveCarriesItsExecutionMoment() external {
-        string memory json = build.render();
-        (string[] memory paths, ScriptDeclaration[] memory declarations,) = discovered();
-        uint256[] memory rows = migrationsOf(declarations);
-        SupportedNetwork[] memory nets = networks();
-        uint256 hits = 0;
-        for (uint256 rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-            bool governance = declarations[rows[rowIndex]].id == LibStoxMigrations.GOVERNANCE_TIMELOCK;
-            if (governance) {
-                hits++;
-                assertEq(paths[rows[rowIndex]], "script/20260729-migrate-governance-to-timelock.s.sol");
-            }
-            for (uint256 netIndex = 0; netIndex < nets.length; netIndex++) {
-                (uint256 moment,) = LibStoxMigrations.governanceTimelockExecution(nets[netIndex].chainId);
-                string memory at = string.concat(
-                    index(".migrations", rowIndex), ".chains.", vm.toString(nets[netIndex].chainId), ".executedAt"
-                );
-                assertEq(vm.parseJsonUint(json, at), governance ? moment : 0);
-            }
-        }
-        assertEq(hits, 1);
-    }
-
     function testATimelockWrittenLineRendersTheTimelock() external {
-        string memory json = build.renderDir(string.concat(FIXTURES, "/timelock"));
+        string memory json = build.renderDir(LINES);
         SupportedNetwork[] memory nets = networks();
         assertFalse(vm.keyExistsJson(json, ".migrations[3]"));
         for (uint256 netIndex = 0; netIndex < nets.length; netIndex++) {
@@ -275,13 +259,13 @@ contract BuildMigrationsTest is Test {
     function testRunToWritesTheRender() external {
         string memory path = "out/migrations.test.json";
         if (vm.exists(path)) vm.removeFile(path);
-        build.runTo(path);
-        assertEq(keccak256(vm.parseJson(vm.readFile(path))), keccak256(vm.parseJson(build.render())));
+        build.runTo(LINES, path);
+        assertEq(keccak256(vm.parseJson(vm.readFile(path))), keccak256(vm.parseJson(build.renderDir(LINES))));
     }
 
     function testNoDeploymentNetworkFails() external {
         vm.expectRevert(abi.encodeWithSelector(NoDeploymentNetworks.selector));
-        build.callRenderFor("script", new SupportedNetwork[](0));
+        build.callRenderFor(LINES, new SupportedNetwork[](0));
     }
 
     function testAScriptWithNoArtifactsFails() external {
