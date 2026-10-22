@@ -25,6 +25,8 @@ import {
     CONFIG_REGISTRY_RBAC_MIN_AGE
 } from "rain-vats-0.2.6-pr345/src/concrete/vault/ConfigRegistryOffchainAssetReceiptVault.sol";
 import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
+import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {StoxReceipt} from "../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../src/concrete/StoxReceiptVault.sol";
@@ -58,8 +60,10 @@ library LibTestDeploy {
     }
 
     /// The candidate implementations behind the V1 receipt, vault and wrapper
-    /// beacons, and the pinned clone factory and ConfigRegistry.
+    /// beacons, and the pinned clone factory and ConfigRegistry, on a local EVM
+    /// that is Base, the chain the V1 beacons serve.
     function deployAll(Vm vm) internal {
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         deployImplementations(vm);
         address owner = LibProdDeployV1.BEACON_INITIAL_OWNER;
         placeBeacon(vm, LibProdDeployV1.STOX_RECEIPT_BEACON_V1, LibProdDeployV4.STOX_RECEIPT_CANDIDATE, owner);
@@ -100,15 +104,24 @@ library LibTestDeploy {
         );
     }
 
-    /// Binds `name` under `authority` to an RBAC of `owner` and the single
-    /// `authorizer`, then warps past the minimum age a vault requires.
+    /// Binds `name` under `authority` to an RBAC of `owner`, Base's V1 receipt
+    /// beacon and the single `authorizer`, then warps past the minimum age a
+    /// vault requires.
     function bindRbac(Vm vm, address authority, bytes32 name, address owner, IAuthorizeV1 authorizer) internal {
         IAuthorizeV1[] memory authorizers = new IAuthorizeV1[](1);
         authorizers[0] = authorizer;
         vm.prank(authority);
         IConfigRegistryV2(CONFIG_REGISTRY_ADDRESS)
             .registerV2(
-                authority, name, abi.encode(OffchainAssetReceiptVaultRbacV1({owner: owner, authorizers: authorizers}))
+                authority,
+                name,
+                abi.encode(
+                    OffchainAssetReceiptVaultRbacV1({
+                    owner: owner,
+                    receiptBeacon: IBeacon(LibProdDeployV1.STOX_RECEIPT_BEACON_V1),
+                    authorizers: authorizers
+                })
+                )
             );
         vm.warp(block.timestamp + CONFIG_REGISTRY_RBAC_MIN_AGE + 1);
     }

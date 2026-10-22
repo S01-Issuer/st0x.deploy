@@ -20,7 +20,7 @@ import {ReceiptVault} from "rain-vats-0.2.6-pr345/src/abstract/ReceiptVault.sol"
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
-import {LibProdDeployV1} from "../lib/LibProdDeployV1.sol";
+import {LibBeaconInvariants} from "../lib/LibBeaconInvariants.sol";
 import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../interface/IST0xOrchestratorV1.sol";
 
 /// @title ST0xOrchestrator
@@ -148,12 +148,24 @@ contract ST0xOrchestrator is
         _;
     }
 
+    /// The active chain's receipt-vault and receipt beacons: Base serves its
+    /// tokens from the V1 beacons, every other chain from its 0.1.1 set.
+    /// Reverts on a chain with no pinned beacons.
+    function _vaultBeacons() internal view returns (IBeacon, IBeacon) {
+        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        return (
+            IBeacon(beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]),
+            IBeacon(beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX])
+        );
+    }
+
     function _checkVaultLogic() internal view {
-        address vaultImpl = IBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1).implementation();
+        (IBeacon vaultBeacon, IBeacon receiptBeacon) = _vaultBeacons();
+        address vaultImpl = vaultBeacon.implementation();
         if (vaultImpl != LibProdDeployCurrent.STOX_RECEIPT_VAULT) {
             revert VaultLogicMismatch(LibProdDeployCurrent.STOX_RECEIPT_VAULT, vaultImpl);
         }
-        address receiptImpl = IBeacon(LibProdDeployV1.STOX_RECEIPT_BEACON_V1).implementation();
+        address receiptImpl = receiptBeacon.implementation();
         if (receiptImpl != LibProdDeployCurrent.STOX_RECEIPT) {
             revert ReceiptLogicMismatch(LibProdDeployCurrent.STOX_RECEIPT, receiptImpl);
         }
@@ -161,9 +173,9 @@ contract ST0xOrchestrator is
 
     /// @inheritdoc IST0xOrchestratorV1
     function vaultLogicIsExpected() external view returns (bool) {
-        return IBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1).implementation()
-                == LibProdDeployCurrent.STOX_RECEIPT_VAULT
-            && IBeacon(LibProdDeployV1.STOX_RECEIPT_BEACON_V1).implementation() == LibProdDeployCurrent.STOX_RECEIPT;
+        (IBeacon vaultBeacon, IBeacon receiptBeacon) = _vaultBeacons();
+        return vaultBeacon.implementation() == LibProdDeployCurrent.STOX_RECEIPT_VAULT
+            && receiptBeacon.implementation() == LibProdDeployCurrent.STOX_RECEIPT;
     }
 
     // ------------------------------------------------------------------ //

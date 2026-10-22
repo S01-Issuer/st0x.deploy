@@ -8,6 +8,7 @@ import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
 import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../../../src/interface/IST0xOrchestratorV1.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
+import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 
 import {Initializable} from "@openzeppelin-contracts-upgradeable-5.7.0/proxy/utils/Initializable.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
@@ -76,6 +77,8 @@ contract ST0xOrchestratorTest is Test {
     ST0xOrchestrator internal orchestrator;
 
     function setUp() public {
+        // The guard resolves the active chain's beacons; the mocks are Base's.
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         impl = new ST0xOrchestrator();
         // `initialize` runs the vault-logic guard, so the guard mocks must be
         // in place BEFORE the proxy is deployed.

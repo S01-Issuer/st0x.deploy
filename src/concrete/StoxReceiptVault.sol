@@ -6,8 +6,6 @@ import {OffchainAssetReceiptVault} from "rain-vats-0.2.6-pr345/src/concrete/vaul
 import {
     ConfigRegistryOffchainAssetReceiptVault
 } from "rain-vats-0.2.6-pr345/src/concrete/vault/ConfigRegistryOffchainAssetReceiptVault.sol";
-import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
-import {LibProdDeployV1} from "../lib/LibProdDeployV1.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.6-pr345/src/interface/IAuthorizeV1.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
@@ -44,10 +42,6 @@ import {AuthorizerMissingCorporateActionAdmin} from "../error/ErrCorporateAction
 /// inflating the recipient's balance. See `LibRebase.migratedBalance` and
 /// its zero-balance regression tests.
 contract StoxReceiptVault is ConfigRegistryOffchainAssetReceiptVault {
-    /// Every vault's receipt is a proxy of the production receipt beacon, the
-    /// one the existing tokens' receipts read.
-    constructor() ConfigRegistryOffchainAssetReceiptVault(IBeacon(LibProdDeployV1.STOX_RECEIPT_BEACON_V1)) {}
-
     /// @notice Emitted whenever `migrateAccount` advances an account's
     /// migration cursor. The cursor itself is storage state, so the event
     /// fires on every cursor advance regardless of whether
