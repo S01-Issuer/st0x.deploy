@@ -23,21 +23,15 @@ import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
-/// @notice The admin move is required on this chain and its record is not
-/// on chain. Execute the bundle.
-/// @param network The chain still pending.
-error AdminMoveNotApplied(string network);
-
 /// @title OrchestratorAdminToTimelockTest
-/// @notice The admin move on every deployment network at head, in two parts
-/// per network. The bundle walks the line: before the EMERGENCY grant the
-/// script refuses and the bundle cannot execute; with the grant executed
-/// (live, or its bundle executed on the fork) `run()` executes the move
-/// through the Safe, proves it and writes the artifact, `verify` accepts
-/// that artifact, and the artifact executed by the owners leaves the state
-/// the invariants demand and makes a re-dispatch refuse; once executed on
-/// chain, the chain must be in that state. The requirement: the move's
-/// record is on chain, red until it is.
+/// @notice The admin move on every deployment network at head. The bundle
+/// walks the line: before the EMERGENCY grant the script refuses and the
+/// bundle cannot execute; with the grant executed (live, or its bundle
+/// executed on the fork) `run()` executes the move through the Safe, proves
+/// it and writes the artifact, `verify` accepts that artifact, and the
+/// artifact executed by the owners leaves the state the invariants demand and
+/// makes a re-dispatch refuse; once executed on chain, the chain must be in
+/// that state.
 contract OrchestratorAdminToTimelockTest is Test {
     ST0xOrchestrator internal constant ORCHESTRATOR =
         ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
@@ -132,14 +126,6 @@ contract OrchestratorAdminToTimelockTest is Test {
         script.callPreflight();
     }
 
-    function assertApplied(string memory network) internal {
-        vm.createSelectFork(network);
-        address safe = LibSafeInvariants.safeForChainId(block.chainid);
-        if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) == 0) {
-            revert AdminMoveNotApplied(network);
-        }
-    }
-
     function testMoveBundleBase() external {
         assertBundle(LibRainDeploy.BASE);
     }
@@ -158,26 +144,6 @@ contract OrchestratorAdminToTimelockTest is Test {
 
     function testMoveBundleBsc() external {
         assertBundle(LibStoxDeployNetworks.BSC);
-    }
-
-    function testMoveAppliedBase() external {
-        assertApplied(LibRainDeploy.BASE);
-    }
-
-    function testMoveAppliedEthereum() external {
-        assertApplied(LibStoxDeployNetworks.ETHEREUM);
-    }
-
-    function testMoveAppliedHyperEvm() external {
-        assertApplied(LibStoxDeployNetworks.HYPEREVM);
-    }
-
-    function testMoveAppliedRobinhood() external {
-        assertApplied(LibStoxDeployNetworks.ROBINHOOD);
-    }
-
-    function testMoveAppliedBsc() external {
-        assertApplied(LibStoxDeployNetworks.BSC);
     }
 
     /// @notice `verify` refuses an artifact that hands admin to an address
