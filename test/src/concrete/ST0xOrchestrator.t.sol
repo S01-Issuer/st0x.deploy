@@ -25,6 +25,7 @@ import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProx
 import {IERC1271} from "@openzeppelin-contracts-5.7.0/interfaces/IERC1271.sol";
 import {Mock1271} from "./Mock1271.sol";
 import {MockMintRecipient} from "./MockMintRecipient.sol";
+import {MintLevelCheckingRecipient} from "./MintLevelCheckingRecipient.sol";
 import {ReentrantMintRecipient} from "./ReentrantMintRecipient.sol";
 import {ReentrantBurnVault} from "./ReentrantBurnVault.sol";
 import {MockManagerRevert1155} from "./MockManagerRevert1155.sol";
@@ -1975,6 +1976,21 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
 
         _capMintTo(orchestrator, MINTER_A, TOKEN, address(capRecipient2), capacity, keccak256("recipient2-full"));
+    }
+
+    /// Both buckets are charged before the recipient's `authorizeMint`
+    /// callback runs, so the callback sees the mint already metered.
+    function testMintCapsChargedBeforeRecipientCallback() external {
+        _grantMintOn(orchestrator, MINTER_A);
+        vm.prank(OWNER);
+        orchestrator.setMinterMintLimit(MINTER_A, _f(10e18), NO_LEAK);
+        MintLevelCheckingRecipient recipient = new MintLevelCheckingRecipient(orchestrator, MINTER_A, _f(6e18));
+        vm.prank(OWNER);
+        orchestrator.setRecipientMintLimit(address(recipient), _f(10e18), NO_LEAK);
+
+        _capMintTo(orchestrator, MINTER_A, TOKEN, address(recipient), 6e18, keccak256("charged-first"));
+
+        _assertFloatEq(orchestrator.recipientMintLevel(address(recipient)), _f(6e18), "recipient charged once");
     }
 
     /// Each bucket's level is readable on its own, leaked to the current
