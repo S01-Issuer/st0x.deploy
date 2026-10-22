@@ -35,6 +35,7 @@ fs_permissions = [
   # the script writes the Safe Tx Builder JSON artifact under `out/`, and
   # the LibSafeOps round-trip tests round-trip the JSON through disk.
   { access = "read-write", path = "out" },
+  { access = "read-write", path = "privileged-addresses.json" },
   { access = "read-write", path = "ideal-roles.json" },
 ]
 
@@ -96,8 +97,4 @@ flare = { key = "${CI_DEPLOY_FLARE_ETHERSCAN_API_KEY}" }
 # the same reason `ethereum` is above.
 hyperevm = { key = "${CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY}", chain = 999, url = "https://api.etherscan.io/v2/api?chainid=999" }
 polygon = { key = "${CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY}" }
-# Robinhood Chain (4663) has no `[etherscan]` entry on purpose: Etherscan's
-# multichain (v2) API does not index it, so an entry here would only make
-# foundry demand an API key it cannot use. Its explorer is Blockscout, which
-# imports Sourcify matches, and Sourcify supports 4663 — the `--verifier
-# sourcify` leg of `manual-broadcast.yaml` is the verification path.
+robinhood = { key = "${CI_DEPLOY_ROBINHOOD_ETHERSCAN_API_KEY}", chain = 4663, url = "https://robinhoodchain.blockscout.com/api" }

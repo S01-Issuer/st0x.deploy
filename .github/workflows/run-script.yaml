@@ -29,6 +29,7 @@ on:
           - 20261006-grant-eu-authoriser-roles
           - 20261006-orchestrator-admin-to-timelock
           - 20261022-upgrade-token-beacons
+          - 20260619-migrate-multisig-threshold
       network:
         description: 'Network to author against (default: base)'
         required: true
