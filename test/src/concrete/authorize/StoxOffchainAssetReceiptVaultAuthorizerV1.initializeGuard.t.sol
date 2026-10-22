@@ -6,36 +6,30 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Clones} from "@openzeppelin-contracts-5.7.0/proxy/Clones.sol";
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../../src/lib/LibCorporateAction.sol";
 import {
-    OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.2.7/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
-import {
     SCHEDULE_CORPORATE_ACTION_ADMIN,
     CANCEL_CORPORATE_ACTION_ADMIN
 } from "../../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
-import {FailingSuperInitAuthorizer} from "./FailingSuperInitAuthorizer.sol";
-import {ICLONEABLE_V2_SUCCESS} from "rain-factory-0.2.4/src/interface/ICloneableV2.sol";
+import {LibAuthoriserClone} from "../../../../src/lib/LibAuthoriserClone.sol";
+import {LibStoxConfigFork} from "../../../../src/lib/LibStoxConfigFork.sol";
+import {FAILURE_SENTINEL, FailingSuperInitAuthorizer} from "./FailingSuperInitAuthorizer.sol";
 
 contract StoxOffchainAssetReceiptVaultAuthorizerV1InitializeGuardTest is Test {
     address constant ADMIN = address(uint160(uint256(keccak256("ADMIN"))));
 
-    /// When _initialize returns non-success, initialize returns that value
-    /// and does NOT set up corporate action role admins.
+    /// When the base `_initialize` returns non-success, initialize returns
+    /// that value and does NOT set up corporate action role admins.
     function testInitializeReturnsEarlyOnSuperFailure() external {
+        LibStoxConfigFork.bindAuthoriserAdmin(vm, ADMIN);
         FailingSuperInitAuthorizer impl = new FailingSuperInitAuthorizer();
         FailingSuperInitAuthorizer authorizer = FailingSuperInitAuthorizer(Clones.clone(address(impl)));
 
-        bytes32 result =
-            authorizer.initialize(abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: ADMIN})));
+        bytes32 result = authorizer.initialize(LibAuthoriserClone.cloneData());
 
-        // initialize returns the failure sentinel, not ICLONEABLE_V2_SUCCESS.
-        assertEq(result, FailingSuperInitAuthorizer(address(impl)).FAILURE_SENTINEL());
-        assertTrue(result != ICLONEABLE_V2_SUCCESS);
+        assertEq(result, FAILURE_SENTINEL);
 
-        // Role admins should NOT be set (default admin is bytes32(0)).
         assertEq(authorizer.getRoleAdmin(SCHEDULE_CORPORATE_ACTION), bytes32(0));
         assertEq(authorizer.getRoleAdmin(CANCEL_CORPORATE_ACTION), bytes32(0));
 
-        // Admin should NOT have the corporate action admin roles.
         assertFalse(authorizer.hasRole(SCHEDULE_CORPORATE_ACTION_ADMIN, ADMIN));
         assertFalse(authorizer.hasRole(CANCEL_CORPORATE_ACTION_ADMIN, ADMIN));
     }

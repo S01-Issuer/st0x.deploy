@@ -12,20 +12,19 @@ import {
     StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {
-    OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.2.7/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
-import {
     OffchainAssetReceiptVaultPaymentMintAuthorizerV1Config
-} from "rain-vats-0.2.7/src/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.7/src/interface/IAuthorizeV1.sol";
+} from "rain-vats-0.2.7-pr349/src/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.7-pr349/src/interface/IAuthorizeV1.sol";
 import {CloneFactory} from "rain-factory-deploy-0.2.1/src/concrete/CloneFactory.sol";
+import {LibAuthoriserClone} from "../../../src/lib/LibAuthoriserClone.sol";
+import {LibStoxConfigFork} from "../../../src/lib/LibStoxConfigFork.sol";
 import {VerifyAlwaysApproved} from "rain-verify-interface-0.1.0/src/concrete/VerifyAlwaysApproved.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {IERC165} from "@openzeppelin-contracts-5.7.0/utils/introspection/IERC165.sol";
 import {
     IncompatibleAuthorizer,
     OffchainAssetReceiptVault
-} from "rain-vats-0.2.7/src/concrete/vault/OffchainAssetReceiptVault.sol";
+} from "rain-vats-0.2.7-pr349/src/concrete/vault/OffchainAssetReceiptVault.sol";
 import {AuthorizerMissingCorporateActionAdmin} from "../../../src/error/ErrCorporateAction.sol";
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../src/lib/LibCorporateAction.sol";
 import {MockERC20} from "../../concrete/MockERC20.sol";
@@ -58,9 +57,10 @@ contract StoxReceiptVaultSetAuthorizerGuardTest is Test {
     }
 
     function _newCorporateActionsAuthorizer() internal returns (StoxOffchainAssetReceiptVaultAuthorizerV1) {
+        LibStoxConfigFork.bindAuthoriserAdmin(vm, OWNER);
         StoxOffchainAssetReceiptVaultAuthorizerV1 impl = new StoxOffchainAssetReceiptVaultAuthorizerV1();
         CloneFactory factory = new CloneFactory();
-        bytes memory initData = abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: OWNER}));
+        bytes memory initData = LibAuthoriserClone.cloneData();
         return StoxOffchainAssetReceiptVaultAuthorizerV1(
             factory.cloneDeterministic(address(impl), initData, bytes32(uint256(uint160(address(impl)))))
         );

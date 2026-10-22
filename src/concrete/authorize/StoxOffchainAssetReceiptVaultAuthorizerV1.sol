@@ -3,9 +3,11 @@
 pragma solidity =0.8.25;
 
 import {
-    OffchainAssetReceiptVaultAuthorizerV1,
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.2.7/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.2.7-pr349/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+import {
+    ConfigRegistryOffchainAssetReceiptVaultAuthorizerV1
+} from "rain-vats-0.2.7-pr349/src/concrete/authorize/ConfigRegistryOffchainAssetReceiptVaultAuthorizerV1.sol";
 import {ICLONEABLE_V2_SUCCESS} from "rain-factory-0.2.4/src/interface/ICloneableV2.sol";
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../lib/LibCorporateAction.sol";
 
@@ -21,14 +23,18 @@ bytes32 constant CANCEL_CORPORATE_ACTION_ADMIN = keccak256("CANCEL_CORPORATE_ACT
 /// via its generic RBAC path, but cannot grant them because no role admin is
 /// configured. This contract adds SCHEDULE_CORPORATE_ACTION_ADMIN and
 /// CANCEL_CORPORATE_ACTION_ADMIN roles following the same pattern as the
-/// existing role admin hierarchy.
-contract StoxOffchainAssetReceiptVaultAuthorizerV1 is OffchainAssetReceiptVaultAuthorizerV1 {
-    /// @inheritdoc OffchainAssetReceiptVaultAuthorizerV1
-    function initialize(bytes memory data) public override initializer returns (bytes32) {
-        OffchainAssetReceiptVaultAuthorizerV1Config memory config =
-            abi.decode(data, (OffchainAssetReceiptVaultAuthorizerV1Config));
-
-        bytes32 result = _initialize(config);
+/// existing role admin hierarchy, granted to the same initial admin the
+/// `ConfigRegistry` resolves for the other five.
+contract StoxOffchainAssetReceiptVaultAuthorizerV1 is ConfigRegistryOffchainAssetReceiptVaultAuthorizerV1 {
+    /// @dev The base admins, then the corporate-action admins on the same
+    /// initial admin, unless the base did not succeed.
+    function _initialize(OffchainAssetReceiptVaultAuthorizerV1Config memory config)
+        internal
+        virtual
+        override
+        returns (bytes32)
+    {
+        bytes32 result = super._initialize(config);
         if (result != ICLONEABLE_V2_SUCCESS) {
             return result;
         }

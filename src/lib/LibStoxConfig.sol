@@ -16,11 +16,23 @@ library LibStoxConfig {
     /// current st0x deploy constructs.
     bytes32 internal constant BEACON_OWNER = keccak256("st0x.beacon-owner.v1");
 
+    /// @notice `abi.encode(address)`: the initial admin of every V4 authoriser
+    /// clone, the holder of its seven `_ADMIN` roles.
+    bytes32 internal constant AUTHORISER_ADMIN = keccak256("st0x.authoriser-admin.v1");
+
     /// @notice The bound beacon owner. Reverts `NameNotRegistered` where it is
     /// unbound.
     /// @return The owner.
     function beaconOwner() internal view returns (address) {
         (bytes memory value,) = LibConfigRegistry.resolve(ROOT_AUTHORITY, BEACON_OWNER);
+        return abi.decode(value, (address));
+    }
+
+    /// @notice The bound authoriser admin. Reverts `NameNotRegistered` where
+    /// it is unbound.
+    /// @return The admin.
+    function authoriserAdmin() internal view returns (address) {
+        (bytes memory value,) = LibConfigRegistry.resolve(ROOT_AUTHORITY, AUTHORISER_ADMIN);
         return abi.decode(value, (address));
     }
 }

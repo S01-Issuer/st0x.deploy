@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {
     OffchainAssetReceiptVaultBeaconSetDeployer,
     OffchainAssetReceiptVaultBeaconSetDeployerConfig
-} from "rain-vats-0.2.7/src/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
+} from "rain-vats-0.2.7-pr349/src/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
 import {LibProdDeployCurrent} from "../../generated/LibProdDeployCurrent.sol";
 import {LibStoxConfig} from "../../lib/LibStoxConfig.sol";
 
