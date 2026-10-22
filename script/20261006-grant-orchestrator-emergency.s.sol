@@ -5,9 +5,9 @@ pragma solidity =0.8.25;
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {SafeBundleScript} from "rain-deploy-0.1.18/src/abstract/SafeBundleScript.sol";
-import {SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.21/src/abstract/SafeBundleScript.sol";
+import {SafeTx} from "rain-deploy-0.1.21/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.21/src/lib/LibSafeFork.sol";
 
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
@@ -63,14 +63,15 @@ function grantOrchestratorEmergencyDeclaration() pure returns (ScriptDeclaration
 /// atomic MultiSend:
 ///
 /// 1. `orchestrator.grantRole(EMERGENCY, safe)`.
-/// 2. `registry.applyMigrationHistory(GOVERNANCE_TIMELOCK, executedAt,
+/// 2. `registry.applyMigrationHistoryV3(safe, GOVERNANCE_TIMELOCK, executedAt,
 ///    [genesis])`: the governance-timelock migration ran before anything
 ///    was recorded, so it is recorded with the moment it executed on this
 ///    chain (`LibStoxMigrations.governanceTimelockExecution`). Recording it
 ///    first keeps the line in the order the migrations ran; once anything
 ///    later is recorded, the registry refuses an earlier moment.
-/// 3. `registry.applyMigration(ORCHESTRATOR_EMERGENCY, [GOVERNANCE_TIMELOCK])`:
-///    the grant's own record, stamped with the block it lands in.
+/// 3. `registry.applyMigrationV3(safe, ORCHESTRATOR_EMERGENCY,
+///    [GOVERNANCE_TIMELOCK])`: the grant's own record, stamped with the
+///    block it lands in.
 ///
 /// `EMERGENCY_ROLE` is administered by `DEFAULT_ADMIN_ROLE`, which the Safe
 /// holds, so the grant is immediate. The admin move to the timelock is

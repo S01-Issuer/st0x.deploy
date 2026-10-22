@@ -749,23 +749,23 @@
   "networks": {
     "1": {
       "network": "ethereum",
-      "registry": "0xc89F95eC7e626CFBef37a1F502A69BaF2022F8A8"
+      "registry": "0x5A48e719785E11c4643EA4056D0861A6a69e91a0"
     },
     "4663": {
       "network": "robinhood",
-      "registry": "0xc89F95eC7e626CFBef37a1F502A69BaF2022F8A8"
+      "registry": "0x5A48e719785E11c4643EA4056D0861A6a69e91a0"
     },
     "56": {
       "network": "bsc",
-      "registry": "0xc89F95eC7e626CFBef37a1F502A69BaF2022F8A8"
+      "registry": "0x5A48e719785E11c4643EA4056D0861A6a69e91a0"
     },
     "8453": {
       "network": "base",
-      "registry": "0xc89F95eC7e626CFBef37a1F502A69BaF2022F8A8"
+      "registry": "0x5A48e719785E11c4643EA4056D0861A6a69e91a0"
     },
     "999": {
       "network": "hyperevm",
-      "registry": "0xc89F95eC7e626CFBef37a1F502A69BaF2022F8A8"
+      "registry": "0x5A48e719785E11c4643EA4056D0861A6a69e91a0"
     }
   },
   "version": 1
