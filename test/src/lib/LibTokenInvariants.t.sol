@@ -167,4 +167,33 @@ contract LibTokenInvariantsTest is Test {
             }
         }
     }
+
+    function assertTokenAddresses(TokenInstance[] memory tokens) internal pure {
+        address[] memory addresses = new address[](tokens.length * 3);
+        for (uint256 tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
+            addresses[tokenIndex * 3] = tokens[tokenIndex].receipt;
+            addresses[tokenIndex * 3 + 1] = tokens[tokenIndex].receiptVault;
+            addresses[tokenIndex * 3 + 2] = tokens[tokenIndex].wrappedTokenVault;
+        }
+        for (uint256 addressIndex = 0; addressIndex < addresses.length; addressIndex++) {
+            assertNotEq(addresses[addressIndex], address(0), "production token address is zero");
+            for (uint256 previousIndex = 0; previousIndex < addressIndex; previousIndex++) {
+                assertNotEq(
+                    addresses[addressIndex],
+                    addresses[previousIndex],
+                    "production token address is duplicated within its chain"
+                );
+            }
+        }
+    }
+
+    /// Every receipt, receipt vault and wrapper is nonzero and appears once
+    /// per chain, so an aliased or missing leg fails without a fork.
+    function testProductionTokenAddressesAreNonzeroAndUniquePerChain() external pure {
+        assertTokenAddresses(LibTokenInvariants.productionTokensBase());
+        assertTokenAddresses(LibTokenInvariants.productionTokensEthereum());
+        assertTokenAddresses(LibTokenInvariants.productionTokensHyperEvm());
+        assertTokenAddresses(LibTokenInvariants.productionTokensRobinhood());
+        assertTokenAddresses(LibTokenInvariants.productionTokensBsc());
+    }
 }
