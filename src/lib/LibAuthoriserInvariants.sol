@@ -38,6 +38,14 @@ error AuthoriserNotReady(address authoriser);
 /// @param clone The clone address inspected.
 error EuAuthoriserNotReady(address clone);
 
+/// @notice A deploy key holds a role on the authoriser. The hot deploy key
+/// deploys and holds nothing, and the retired deploy EOA must never reappear
+/// in the role graph.
+/// @param authoriser The authoriser carrying the grant.
+/// @param role The role found on the key.
+/// @param holder The key holding it.
+error DeployKeyHoldsRole(address authoriser, bytes32 role, address holder);
+
 /// @title LibAuthoriserInvariants
 /// @notice Reusable invariants for the ST0x production authoriser on every
 /// chain:
@@ -188,6 +196,12 @@ library LibAuthoriserInvariants {
     /// which is why the map below is parameterised on it rather than restated.
     address internal constant GRANTEE_EU_MINTER = 0x0958d9E94D9D4139280947ACd86D4a50F13bfA8C;
 
+    /// @notice The CI deploy key: the sender of the Base V4 clone's creation
+    /// (Base tx
+    /// `0x26519d1c9090e6236cbd6e9c7f5d6eee7cf633da3a6653742914b3c17fe7d236`).
+    /// Its retired predecessor is `LibProdDeployV4.BEACON_INITIAL_OWNER`.
+    address internal constant DEPLOY_HOT_KEY = 0xE8c6eDE25f0E7fAfE8fBc34770FaBa27d56c0E76;
+
     /// @notice The full `(role, grantee)` map in effect on the Base
     /// production authoriser: Base's token-owner Safe in the operational
     /// slots, Base's governance timelock holding the seven `_ADMIN` roles.
@@ -323,6 +337,44 @@ library LibAuthoriserInvariants {
     /// @param minter The region's wallet.
     function assertExpectedEuGrants(address authoriser, address adminHolder, address minter) internal view {
         assertHeld(authoriser, expectedEuGrants(adminHolder, minter, GRANTEE_SERVICE_3D0C));
+    }
+
+    /// @notice Assert `adminHolder` holds the seven `_ADMIN` roles on
+    /// `authoriser`.
+    /// @param authoriser The authoriser to validate.
+    /// @param adminHolder The expected holder.
+    function assertAdminRolesHeld(address authoriser, address adminHolder) internal view {
+        RoleGrant[] memory grants = expectedGrants(GRANTEE_TOKEN_OWNER_SAFE, adminHolder);
+        RoleGrant[] memory admins = new RoleGrant[](ADMIN_ROLE_COUNT);
+        for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
+            admins[i] = grants[i];
+        }
+        assertHeld(authoriser, admins);
+    }
+
+    /// @notice Assert neither `DEPLOY_HOT_KEY` nor the retired deploy EOA
+    /// (`LibProdDeployV4.BEACON_INITIAL_OWNER`) holds `DEFAULT_ADMIN_ROLE` or
+    /// any role of `expectedEuGrants`, which names all fourteen.
+    /// @param authoriser The authoriser to validate.
+    function assertKeysHoldNoRoles(address authoriser) internal view {
+        assertKeyHoldsNoRoles(authoriser, DEPLOY_HOT_KEY);
+        assertKeyHoldsNoRoles(authoriser, LibProdDeployV4.BEACON_INITIAL_OWNER);
+    }
+
+    /// @notice `assertKeysHoldNoRoles` for one key.
+    /// @param authoriser The authoriser to validate.
+    /// @param key The key.
+    function assertKeyHoldsNoRoles(address authoriser, address key) internal view {
+        IAccessControl acl = IAccessControl(authoriser);
+        if (acl.hasRole(bytes32(0), key)) {
+            revert DeployKeyHoldsRole(authoriser, bytes32(0), key);
+        }
+        RoleGrant[] memory grants = expectedEuGrants(key, key, key);
+        for (uint256 i = 0; i < grants.length; i++) {
+            if (acl.hasRole(grants[i].role, key)) {
+                revert DeployKeyHoldsRole(authoriser, grants[i].role, key);
+            }
+        }
     }
 
     /// @notice Full authoriser-side invariant bundle against the current
