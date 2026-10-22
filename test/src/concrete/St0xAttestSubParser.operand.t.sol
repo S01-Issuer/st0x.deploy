@@ -9,8 +9,8 @@ import {
     UnexpectedOperandValue,
     OperandOverflow,
     UnknownWord
-} from "rainlang-0.2.14/src/error/ErrParse.sol";
-import {ContextGridOverflow} from "rainlang-0.2.14/src/error/ErrSubParse.sol";
+} from "rainlang-0.2.17/src/error/ErrParse.sol";
+import {ContextGridOverflow} from "rainlang-0.2.17/src/error/ErrSubParse.sol";
 
 import {St0xAttestSubParserTest} from "test/src/concrete/St0xAttestSubParserTest.sol";
 import {

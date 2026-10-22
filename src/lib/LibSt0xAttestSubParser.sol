@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 
 import {AuthoringMetaV2} from "rainlang-interface-0.2.13/src/interface/ISubParserV4.sol";
 import {OperandV2} from "rainlang-interface-0.2.13/src/interface/IInterpreterV4.sol";
-import {LibSubParse} from "rainlang-0.2.14/src/lib/parse/LibSubParse.sol";
+import {LibSubParse} from "rainlang-0.2.17/src/lib/parse/LibSubParse.sol";
 
 import {
     CONTEXT_ATTESTATION_ROW_PRICE,
@@ -214,7 +214,7 @@ library LibSt0xAttestSubParser {
 
     /// @notice The authoring meta for every word, in word index order.
     /// `script/BuildAuthoringMeta.sol` writes it to `meta/` and
-    /// `script/Build.sol` builds the parse meta from it.
+    /// `script/BuildPointers.sol` builds the parse meta from it.
     /// @return The ABI encoded `AuthoringMetaV2[]`.
     //slither-disable-next-line dead-code
     function authoringMetaV2() internal pure returns (bytes memory) {

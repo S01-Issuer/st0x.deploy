@@ -7,9 +7,9 @@ import {
     IParserToolingV1,
     ISubParserToolingV1,
     OperandV2
-} from "rainlang-0.2.14/src/abstract/BaseRainlangSubParser.sol";
-import {LibParseOperand} from "rainlang-0.2.14/src/lib/parse/LibParseOperand.sol";
-import {BadDynamicLength} from "rainlang-0.2.14/src/error/ErrOpList.sol";
+} from "rainlang-0.2.17/src/abstract/BaseRainlangSubParser.sol";
+import {LibParseOperand} from "rainlang-0.2.17/src/lib/parse/LibParseOperand.sol";
+import {BadDynamicLength} from "rainlang-0.2.17/src/error/ErrOpList.sol";
 import {LibConvert} from "rain-lib-typecast-0.1.4/src/LibConvert.sol";
 import {IDescribedByMetaV1} from "rain-metadata-0.1.43/src/interface/IDescribedByMetaV1.sol";
 
@@ -30,7 +30,7 @@ import {
 ///
 /// Every table the base contract dispatches on is a constant from
 /// `src/generated/St0xAttestSubParserPointers.sol`, which
-/// `script/Build.sol` regenerates from the `build*` functions below.
+/// `script/BuildPointers.sol` regenerates from the `build*` functions below.
 contract St0xAttestSubParser is BaseRainlangSubParser {
     /// @inheritdoc IDescribedByMetaV1
     function describedByMetaV1() external pure returns (bytes32) {

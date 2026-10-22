@@ -2,23 +2,24 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.18/src/abstract/SafeBundleScript.sol";
+import {SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
+import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.10/src/lib/LibDecimalFloat.sol";
 import {EvaluableV4} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
 
 import {ST0xOrchestrator, ORCHESTRATOR_MINT_ROLE, ORCHESTRATOR_BURN_ROLE} from "../src/concrete/ST0xOrchestrator.sol";
-import {IGnosisSafe} from "../src/interface/IGnosisSafe.sol";
 import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
-import {LibSafeOps, SafeTx} from "../src/lib/LibSafeOps.sol";
 
 /// @notice One account's mint cap: who, and the policy its bucket runs under.
 /// @param account The minter or recipient.
@@ -101,16 +102,14 @@ error BootstrapStateUnexpected(string what);
 /// What the bootstrap installs is governance's: a concrete script per
 /// deployment supplies `bootstrapConfig()`.
 ///
-/// @dev `run()` simulates the bundle on the fork, warps past the delay,
-/// executes the batch from an address holding no roles and asserts the
-/// post-bootstrap state and that the live orchestrator's vault access is
-/// unchanged, before emitting the artifact.
-abstract contract BootstrapMintCapsOrchestrator is Script {
+/// `run()` and `verify()` are `SafeBundleScript`'s. `assertReversible` proves
+/// the scheduled batch on the fork: it warps past the delay, executes the
+/// batch from an address holding no roles, asserts the bootstrapped state and
+/// that the batch leaves the live orchestrator's vault access unchanged, then
+/// returns the fork to the post-bundle state.
+abstract contract BootstrapMintCapsOrchestrator is SafeBundleScript {
     /// @notice The salt of the bootstrap batch on the timelock.
     bytes32 internal constant BOOTSTRAP_SALT = keccak256("st0x.mint-caps-orchestrator.bootstrap");
-
-    /// @notice Signer-visible `meta.name` for the emitted bundle.
-    string internal constant BUNDLE_NAME = "ST0x mint-caps orchestrator: deploy and schedule its bootstrap";
 
     /// @notice The authoriser roles the orchestrator mints and burns with.
     bytes32 internal constant DEPOSIT = keccak256("DEPOSIT");
@@ -122,9 +121,32 @@ abstract contract BootstrapMintCapsOrchestrator is Script {
     /// NatSpec.
     function bootstrapConfig() internal view virtual returns (MintCapsBootstrapConfig memory);
 
-    /// @notice Chain-suffixed artifact path.
-    function artifactPath() internal view virtual returns (string memory) {
+    /// @inheritdoc SafeBundleScript
+    function bundleName() internal pure override returns (string memory) {
+        return "ST0x mint-caps orchestrator: deploy and schedule its bootstrap";
+    }
+
+    /// @inheritdoc SafeBundleScript
+    /// @dev Chain-suffixed, for the ACTIVE chain.
+    function artifactPath() internal view virtual override returns (string memory) {
         return string.concat("out/20261011-bootstrap-mint-caps-orchestrator-", vm.toString(block.chainid), ".json");
+    }
+
+    /// @inheritdoc SafeBundleScript
+    function safe() internal view override returns (Safe) {
+        return Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
+    }
+
+    /// @notice The chain's governance timelock.
+    function timelock() internal view returns (address) {
+        return LibTimelockInvariants.timelockForChainId(block.chainid);
+    }
+
+    /// @inheritdoc SafeBundleScript
+    function preflight() internal view override {
+        address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+        LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);
+        if (address(bootstrapConfig().weighting.interpreter) == address(0)) revert BootstrapWeightingUnset();
     }
 
     /// @notice The Zoltu deploys the new orchestrator needs, in dependency
@@ -151,15 +173,17 @@ abstract contract BootstrapMintCapsOrchestrator is Script {
     /// @notice Whether the timelock grants the authoriser roles, or the Safe
     /// does. Reverts `BootstrapVaultRoleAdminMissing` if neither holds both
     /// `_ADMIN`s.
-    function timelockGrantsVaultRoles(address authoriser, address safeAddr, address timelock)
+    function timelockGrantsVaultRoles(address authoriser, address safeAddr, address timelockAddr)
         internal
         view
         returns (bool)
     {
         IAccessControl acl = IAccessControl(authoriser);
-        if (acl.hasRole(DEPOSIT_ADMIN, timelock) && acl.hasRole(WITHDRAW_ADMIN, timelock)) return true;
+        if (acl.hasRole(DEPOSIT_ADMIN, timelockAddr) && acl.hasRole(WITHDRAW_ADMIN, timelockAddr)) return true;
         if (acl.hasRole(DEPOSIT_ADMIN, safeAddr) && acl.hasRole(WITHDRAW_ADMIN, safeAddr)) return false;
-        revert BootstrapVaultRoleAdminMissing(acl.hasRole(DEPOSIT_ADMIN, timelock) ? WITHDRAW_ADMIN : DEPOSIT_ADMIN);
+        revert BootstrapVaultRoleAdminMissing(
+            acl.hasRole(DEPOSIT_ADMIN, timelockAddr) ? WITHDRAW_ADMIN : DEPOSIT_ADMIN
+        );
     }
 
     /// @notice The authoriser grants the instance still lacks.
@@ -179,10 +203,10 @@ abstract contract BootstrapMintCapsOrchestrator is Script {
         MintCapsBootstrapConfig memory cfg,
         address authoriser,
         address safeAddr,
-        address timelock,
+        address timelockAddr,
         address instance
     ) internal view returns (address[] memory targets, bytes[] memory payloads) {
-        bytes[] memory grants = timelockGrantsVaultRoles(authoriser, safeAddr, timelock)
+        bytes[] memory grants = timelockGrantsVaultRoles(authoriser, safeAddr, timelockAddr)
             ? vaultGrants(authoriser, instance)
             : new bytes[](0);
         uint256 count = grants.length + 1 + cfg.minters.length * 2 + cfg.recipients.length + cfg.burners.length;
@@ -213,35 +237,45 @@ abstract contract BootstrapMintCapsOrchestrator is Script {
         }
     }
 
-    /// @notice The bootstrap operation's id on `timelock`.
-    function bootstrapOperationId(address timelock, address[] memory targets, bytes[] memory payloads)
+    /// @notice The bootstrap batch for the active chain, from
+    /// `bootstrapConfig()` and live state.
+    function activeBootstrapBatch() internal view returns (address[] memory targets, bytes[] memory payloads) {
+        return bootstrapBatch(
+            bootstrapConfig(),
+            LibAuthoriserInvariants.activeChainAuthoriser(),
+            address(safe()),
+            timelock(),
+            LibOrchestratorInvariants.mintCapsInstance()
+        );
+    }
+
+    /// @notice The bootstrap operation's id on `timelockAddr`.
+    function bootstrapOperationId(address timelockAddr, address[] memory targets, bytes[] memory payloads)
         internal
         pure
         returns (bytes32)
     {
-        return TimelockController(payable(timelock))
+        return TimelockController(payable(timelockAddr))
             .hashOperationBatch(targets, new uint256[](targets.length), payloads, bytes32(0), BOOTSTRAP_SALT);
     }
 
-    /// @notice Author the Safe bundle: see the contract-level flow.
-    function authorBundle(MintCapsBootstrapConfig memory cfg, address authoriser, address safeAddr, address timelock)
-        internal
-        view
-        returns (SafeTx[] memory txs, bytes32 id)
-    {
-        if (address(cfg.weighting.interpreter) == address(0)) revert BootstrapWeightingUnset();
+    /// @inheritdoc SafeBundleScript
+    /// @dev See the contract-level flow.
+    function authorBundle() internal view override returns (SafeTx[] memory txs) {
+        address authoriser = LibAuthoriserInvariants.activeChainAuthoriser();
         address instance = LibOrchestratorInvariants.mintCapsInstance();
 
         (address[] memory pins, bytes[] memory creationCodes) = deployments();
-        bytes[] memory directGrants = timelockGrantsVaultRoles(authoriser, safeAddr, timelock)
+        bytes[] memory directGrants = timelockGrantsVaultRoles(authoriser, address(safe()), timelock())
             ? new bytes[](0)
             : vaultGrants(authoriser, instance);
         SafeTx[] memory candidates = new SafeTx[](pins.length + 1 + directGrants.length + 1);
         uint256 n = 0;
         for (uint256 i = 0; i < pins.length; i++) {
             if (pins[i].code.length == 0) {
-                candidates[n++] =
-                    SafeTx({to: LibRainDeploy.ZOLTU_FACTORY, value: 0, data: creationCodes[i], operation: 0});
+                candidates[n++] = SafeTx({
+                    to: LibRainDeploy.ZOLTU_FACTORY, value: 0, data: creationCodes[i], operation: Enum.Operation.Call
+                });
             }
         }
         if (instance.code.length == 0) {
@@ -249,14 +283,15 @@ abstract contract BootstrapMintCapsOrchestrator is Script {
                 to: LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER,
                 value: 0,
                 data: abi.encodeWithSignature("deploy()"),
-                operation: 0
+                operation: Enum.Operation.Call
             });
         }
         for (uint256 i = 0; i < directGrants.length; i++) {
-            candidates[n++] = SafeTx({to: authoriser, value: 0, data: directGrants[i], operation: 0});
+            candidates[n++] =
+                SafeTx({to: authoriser, value: 0, data: directGrants[i], operation: Enum.Operation.Call});
         }
 
-        (candidates[n++], id) = scheduleTx(cfg, authoriser, safeAddr, timelock, instance);
+        candidates[n++] = scheduleTx();
 
         txs = new SafeTx[](n);
         for (uint256 i = 0; i < n; i++) {
@@ -264,30 +299,67 @@ abstract contract BootstrapMintCapsOrchestrator is Script {
         }
     }
 
-    /// @notice The Safe transaction scheduling the bootstrap batch on
-    /// `timelock` with its minimum delay. Reverts `BootstrapAlreadyScheduled`
+    /// @notice The Safe transaction scheduling the bootstrap batch on the
+    /// timelock with its minimum delay. Reverts `BootstrapAlreadyScheduled`
     /// if the operation is already registered.
-    function scheduleTx(
-        MintCapsBootstrapConfig memory cfg,
-        address authoriser,
-        address safeAddr,
-        address timelock,
-        address instance
-    ) internal view returns (SafeTx memory scheduleCall, bytes32 id) {
-        (address[] memory targets, bytes[] memory payloads) =
-            bootstrapBatch(cfg, authoriser, safeAddr, timelock, instance);
-        id = bootstrapOperationId(timelock, targets, payloads);
-        TimelockController tl = TimelockController(payable(timelock));
+    function scheduleTx() internal view returns (SafeTx memory) {
+        (address[] memory targets, bytes[] memory payloads) = activeBootstrapBatch();
+        TimelockController tl = TimelockController(payable(timelock()));
+        bytes32 id = bootstrapOperationId(address(tl), targets, payloads);
         if (tl.isOperation(id)) revert BootstrapAlreadyScheduled(id);
-        scheduleCall = SafeTx({
-            to: timelock,
+        return SafeTx({
+            to: address(tl),
             value: 0,
             data: abi.encodeCall(
                 TimelockController.scheduleBatch,
                 (targets, new uint256[](targets.length), payloads, bytes32(0), BOOTSTRAP_SALT, tl.getMinDelay())
             ),
-            operation: 0
+            operation: Enum.Operation.Call
         });
+    }
+
+    /// @inheritdoc SafeBundleScript
+    /// @dev Every pin and the instance carry code, the mint-caps beacon set
+    /// holds its invariants, the instance has vault access or the batch grants
+    /// it, and the batch is pending inside its delay.
+    function assertPostState() internal view override {
+        (address[] memory pins,) = deployments();
+        for (uint256 i = 0; i < pins.length; i++) {
+            _require(pins[i].code.length > 0, "pin deployed");
+        }
+        LibOrchestratorInvariants.assertMintCapsBeaconSet();
+        address authoriser = LibAuthoriserInvariants.activeChainAuthoriser();
+        address instance = LibOrchestratorInvariants.mintCapsInstance();
+        if (!timelockGrantsVaultRoles(authoriser, address(safe()), timelock())) {
+            _require(vaultGrants(authoriser, instance).length == 0, "new orchestrator holds vault access");
+        }
+        (address[] memory targets, bytes[] memory payloads) = activeBootstrapBatch();
+        TimelockController tl = TimelockController(payable(timelock()));
+        bytes32 id = bootstrapOperationId(address(tl), targets, payloads);
+        _require(tl.isOperationPending(id) && !tl.isOperationReady(id), "bootstrap pending inside its delay");
+    }
+
+    /// @inheritdoc SafeBundleScript
+    /// @dev Proves the scheduled batch, then returns the fork to the
+    /// post-bundle state `run()` writes the artifact from.
+    function assertReversible() internal override {
+        uint256 postBundle = vm.snapshotState();
+        address authoriser = LibAuthoriserInvariants.activeChainAuthoriser();
+        (bool liveDeposit, bool liveWithdraw) = liveVaultAccess(authoriser);
+        (address[] memory targets, bytes[] memory payloads) = activeBootstrapBatch();
+        TimelockController tl = TimelockController(payable(timelock()));
+        // forge-lint: disable-next-line(block-timestamp)
+        vm.warp(block.timestamp + tl.getMinDelay());
+        vm.prank(address(uint160(uint256(keccak256("st0x.mint-caps-bootstrap.roleless-executor")))));
+        tl.executeBatch(targets, new uint256[](targets.length), payloads, bytes32(0), BOOTSTRAP_SALT);
+        assertBootstrapped(bootstrapConfig(), authoriser, address(safe()));
+        (bool liveDepositAfter, bool liveWithdrawAfter) = liveVaultAccess(authoriser);
+        _require(
+            liveDeposit == liveDepositAfter && liveWithdraw == liveWithdrawAfter,
+            "live orchestrator vault access unchanged"
+        );
+        console2.log("Bootstrap proven: executed after the delay from a roleless address");
+        vm.revertToState(postBundle);
     }
 
     /// @notice Assert the bootstrapped state on the active fork: the
@@ -346,79 +418,23 @@ abstract contract BootstrapMintCapsOrchestrator is Script {
         if (!ok) revert BootstrapStateUnexpected(what);
     }
 
-    /// @notice Simulate the bundle as the Safe, then execute the batch after
-    /// the delay from an address holding no roles.
-    function simulate(MintCapsBootstrapConfig memory cfg, SafeTx[] memory txs, address authoriser, address safeAddr)
-        internal
-    {
-        IGnosisSafe safe = IGnosisSafe(safeAddr);
-        for (uint256 i = 0; i < txs.length; i++) {
-            LibSafeOps.simulateExternalCall(safe, txs[i].to, txs[i].data);
-        }
-        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        (address[] memory targets, bytes[] memory payloads) =
-            bootstrapBatch(cfg, authoriser, safeAddr, timelock, LibOrchestratorInvariants.mintCapsInstance());
-        vm.warp(block.timestamp + TimelockController(payable(timelock)).getMinDelay());
-        vm.prank(address(uint160(uint256(keccak256("st0x.mint-caps-bootstrap.roleless-executor")))));
-        TimelockController(payable(timelock))
-            .executeBatch(targets, new uint256[](targets.length), payloads, bytes32(0), BOOTSTRAP_SALT);
-    }
-
-    /// @notice Author the bundle for the active chain, prove it on the fork
-    /// and write the Tx Builder artifact. Does not broadcast.
-    function run() external {
-        address safeAddr = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
-        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        LibTimelockInvariants.assertTimelockState(timelock, safeAddr);
-        address authoriser = LibAuthoriserInvariants.activeChainAuthoriser();
-        MintCapsBootstrapConfig memory cfg = bootstrapConfig();
-
-        (SafeTx[] memory txs, bytes32 id) = authorBundle(cfg, authoriser, safeAddr, timelock);
-        uint256 nonce = IGnosisSafe(safeAddr).nonce();
-        bytes32 bundleSafeTxHash = LibSafeOps.computeMultiSendSafeTxHash(IGnosisSafe(safeAddr), txs, nonce);
-
-        (bool liveDeposit, bool liveWithdraw) = liveVaultAccess(authoriser);
-        simulate(cfg, txs, authoriser, safeAddr);
-        assertBootstrapped(cfg, authoriser, safeAddr);
-        (bool liveDepositAfter, bool liveWithdrawAfter) = liveVaultAccess(authoriser);
-        _require(
-            liveDeposit == liveDepositAfter && liveWithdraw == liveWithdrawAfter,
-            "live orchestrator vault access unchanged"
-        );
-
-        string memory json = LibSafeOps.emitTxBuilderJson(safeAddr, block.chainid, BUNDLE_NAME, txs);
-        vm.writeFile(artifactPath(), json);
-
-        console2.log("==== TX BUILDER JSON BEGIN ====");
-        console2.log(json);
-        console2.log("==== TX BUILDER JSON END ====");
-        console2.log("Bundle MultiSend SafeTxHash:", vm.toString(bundleSafeTxHash));
-        console2.log("Nonce:", nonce);
-        console2.log("Timelock operation id:", vm.toString(id));
-        console2.log("Mint-caps orchestrator:", LibOrchestratorInvariants.mintCapsInstance());
-        console2.log("Chain:", block.chainid);
-    }
-
     /// @notice Execute the matured bootstrap batch from the broadcasting key,
     /// which must hold no role: execution is permissionless. The batch is
     /// rebuilt from `bootstrapConfig()` and live state, so it executes only
     /// what this repo commits to.
     function execute() external {
         address safeAddr = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
-        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         address authoriser = LibAuthoriserInvariants.activeChainAuthoriser();
-        MintCapsBootstrapConfig memory cfg = bootstrapConfig();
-        (address[] memory targets, bytes[] memory payloads) =
-            bootstrapBatch(cfg, authoriser, safeAddr, timelock, LibOrchestratorInvariants.mintCapsInstance());
-        bytes32 id = bootstrapOperationId(timelock, targets, payloads);
-        if (!TimelockController(payable(timelock)).isOperationReady(id)) revert BootstrapNotExecutable(id);
+        (address[] memory targets, bytes[] memory payloads) = activeBootstrapBatch();
+        TimelockController tl = TimelockController(payable(timelock()));
+        bytes32 id = bootstrapOperationId(address(tl), targets, payloads);
+        if (!tl.isOperationReady(id)) revert BootstrapNotExecutable(id);
 
         vm.startBroadcast();
-        TimelockController(payable(timelock))
-            .executeBatch(targets, new uint256[](targets.length), payloads, bytes32(0), BOOTSTRAP_SALT);
+        tl.executeBatch(targets, new uint256[](targets.length), payloads, bytes32(0), BOOTSTRAP_SALT);
         vm.stopBroadcast();
 
-        assertBootstrapped(cfg, authoriser, safeAddr);
+        assertBootstrapped(bootstrapConfig(), authoriser, safeAddr);
         console2.log("Executed bootstrap operation:", vm.toString(id));
     }
 }

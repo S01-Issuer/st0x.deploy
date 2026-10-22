@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
+import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
@@ -18,7 +19,7 @@ import {
     TEST_STORE_ADDRESS,
     TEST_INTERPRETER_ADDRESS,
     TEST_EXPRESSION_DEPLOYER_ADDRESS
-} from "rainlang-0.2.14/test/lib/deploy/LibTestInterpreterDeploy.sol";
+} from "rainlang-0.2.17/test/lib/deploy/LibTestInterpreterDeploy.sol";
 import {OffchainAssetReceiptVault} from "rain-vats-0.2.5/src/concrete/vault/OffchainAssetReceiptVault.sol";
 
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
@@ -94,9 +95,18 @@ contract BootstrapMintCapsOrchestratorProdTest is Test {
         return MintAuthV1({nonce: nonce, signature: abi.encodePacked(r, s, v)});
     }
 
-    /// @notice Run the bootstrap script on the fork: deploy, schedule, wait
-    /// out the delay, execute from a roleless address and assert the
-    /// bootstrapped state. Returns the mint-caps instance.
+    /// @notice The live orchestrator's vault access on the active chain.
+    function liveVaultAccess() internal view returns (bool deposit, bool withdraw) {
+        address live = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
+        IAccessControl acl = IAccessControl(LibAuthoriserInvariants.activeChainAuthoriser());
+        deposit = acl.hasRole(keccak256("DEPOSIT"), live);
+        withdraw = acl.hasRole(keccak256("WITHDRAW"), live);
+    }
+
+    /// @notice Run the bootstrap script on the fork: the Safe bundle deploys
+    /// and schedules, then the batch executes after the delay from the
+    /// roleless broadcaster. The live orchestrator's vault access is the same
+    /// before and after. Returns the mint-caps instance.
     function bootstrap(address recipient) internal returns (address mintCaps) {
         BootstrapMintCapsOrchestratorHarness script = new BootstrapMintCapsOrchestratorHarness();
         script.configure(
@@ -106,7 +116,16 @@ contract BootstrapMintCapsOrchestratorProdTest is Test {
             LibDecimalFloat.packLossless(1000, 0),
             LibDecimalFloat.packLossless(1, 0)
         );
+        (bool liveDeposit, bool liveWithdraw) = liveVaultAccess();
         script.run();
+        vm.warp(
+            block.timestamp
+                + TimelockController(payable(LibTimelockInvariants.timelockForChainId(block.chainid))).getMinDelay()
+        );
+        script.execute();
+        (bool liveDepositAfter, bool liveWithdrawAfter) = liveVaultAccess();
+        assertEq(liveDepositAfter, liveDeposit, "live DEPOSIT unchanged");
+        assertEq(liveWithdrawAfter, liveWithdraw, "live WITHDRAW unchanged");
         mintCaps = LibOrchestratorInvariants.mintCapsInstance();
     }
 
