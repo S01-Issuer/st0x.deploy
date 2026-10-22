@@ -241,8 +241,12 @@ contract LibStoxMigrationsDeclarationsTest is Test {
             if (!declared.migration) continue;
             string memory label = string.concat(network, ": ", paths[i]);
             if (unrecorded(paths[i])) {
-                for (uint256 w = 0; w < writes.length; w++) {
-                    assertTrue(writes[w].namespace != declared.namespace || writes[w].migration != declared.id, label);
+                for (uint256 writeIndex = 0; writeIndex < writes.length; writeIndex++) {
+                    assertTrue(
+                        writes[writeIndex].namespace != declared.namespace
+                            || writes[writeIndex].migration != declared.id,
+                        label
+                    );
                 }
                 continue;
             }
@@ -266,16 +270,18 @@ contract LibStoxMigrationsDeclarationsTest is Test {
         uint256 v2Moment = IMigrationRegistryV2(REGISTRY_V2).applied(writer, declared.namespace, declared.id);
         uint256 hits = 0;
         uint256 copies = 0;
-        for (uint256 w = 0; w < writes.length; w++) {
-            if (writes[w].namespace != declared.namespace || writes[w].migration != declared.id) continue;
-            assertEq(writes[w].writer, writer, label);
-            assertPrerequisites(writes[w].prerequisites, expected, label);
-            if (writes[w].copy) {
+        for (uint256 writeIndex = 0; writeIndex < writes.length; writeIndex++) {
+            if (writes[writeIndex].namespace != declared.namespace || writes[writeIndex].migration != declared.id) {
+                continue;
+            }
+            assertEq(writes[writeIndex].writer, writer, label);
+            assertPrerequisites(writes[writeIndex].prerequisites, expected, label);
+            if (writes[writeIndex].copy) {
                 copies++;
-                assertEq(writes[w].appliedAt, v2Moment, label);
+                assertEq(writes[writeIndex].appliedAt, v2Moment, label);
             } else {
                 hits++;
-                assertEq(writes[w].appliedAt, moment, label);
+                assertEq(writes[writeIndex].appliedAt, moment, label);
             }
         }
         assertEq(hits, 1, label);
