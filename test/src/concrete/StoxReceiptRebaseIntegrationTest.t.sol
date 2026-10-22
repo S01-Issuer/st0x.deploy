@@ -11,7 +11,7 @@ import {
     LibCorporateActionReceipt,
     CORPORATE_ACTION_RECEIPT_STORAGE_LOCATION
 } from "../../../src/lib/LibCorporateActionReceipt.sol";
-import {IReceiptManagerV2} from "rain-vats-0.2.5/src/interface/IReceiptManagerV2.sol";
+import {IReceiptManagerV2} from "rain-vats-0.2.7/src/interface/IReceiptManagerV2.sol";
 import {IERC1155Errors} from "@openzeppelin-contracts-5.7.0/interfaces/draft-IERC6093.sol";
 import {MockVault} from "./MockVault.sol";
 import {TestStoxReceipt} from "./TestStoxReceipt.sol";

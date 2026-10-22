@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {LibMigrationRegistry} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistry.sol";
-import {Prerequisite} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.21/src/lib/LibMigrationRegistry.sol";
+import {Prerequisite} from "rain-deploy-0.1.21/src/interface/IMigrationRegistryV3.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
 
 import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
 
@@ -104,7 +104,7 @@ library LibStoxMigrations {
     /// @param migration The migration id.
     /// @return The recorded moment, or zero.
     function applied(address writer, bytes32 migration) internal view returns (uint256) {
-        return LibMigrationRegistry.applied(writer, NAMESPACE, migration);
+        return LibMigrationRegistry.appliedV3(writer, NAMESPACE, migration);
     }
 
     /// @notice The migration `writer`'s line in this repo's namespace was last
@@ -112,47 +112,55 @@ library LibStoxMigrations {
     /// @param writer The account whose line to read.
     /// @return The head.
     function head(address writer) internal view returns (bytes32) {
-        return LibMigrationRegistry.head(writer, NAMESPACE);
+        return LibMigrationRegistry.headV3(writer, NAMESPACE);
     }
 
-    /// @notice The registry call that records `migration` under the caller
+    /// @notice The registry call that records `migration` under `writer`
     /// in this repo's namespace, after `prerequisites`: the `to` and `data`
-    /// of a Safe bundle entry. Verifies the registry's code hash first.
+    /// of a Safe bundle entry. The account that sends it must be `writer` or
+    /// approved by `writer` for this namespace. Verifies the registry's code
+    /// hash first.
+    /// @param writer The line the record lands in.
     /// @param migration The migration id.
     /// @param prerequisites What it is applied after.
     /// @return The registry.
     /// @return The calldata.
-    function applyMigrationCall(bytes32 migration, Prerequisite[] memory prerequisites)
+    function applyMigrationCall(address writer, bytes32 migration, Prerequisite[] memory prerequisites)
         internal
         view
         returns (address, bytes memory)
     {
         (address registry, bytes memory data) =
-            LibMigrationRegistry.applyMigrationCall(NAMESPACE, migration, prerequisites);
+            LibMigrationRegistry.applyMigrationV3Call(writer, NAMESPACE, migration, prerequisites);
         return (registry, data);
     }
 
-    /// @notice The registry call that records `migration` under the caller
+    /// @notice The registry call that records `migration` under `writer`
     /// in this repo's namespace as history, at `appliedAt`, after
-    /// `prerequisites`. Verifies the registry's code hash first.
+    /// `prerequisites`. The account that sends it must be `writer` or
+    /// approved by `writer` for this namespace. Verifies the registry's code
+    /// hash first.
+    /// @param writer The line the record lands in.
     /// @param migration The migration id.
     /// @param appliedAt When the migration executed, unix seconds.
     /// @param prerequisites What it is applied after.
     /// @return The registry.
     /// @return The calldata.
-    function applyMigrationHistoryCall(bytes32 migration, uint256 appliedAt, Prerequisite[] memory prerequisites)
-        internal
-        view
-        returns (address, bytes memory)
-    {
-        (address registry, bytes memory data) =
-            LibMigrationRegistry.applyMigrationHistoryCall(NAMESPACE, migration, appliedAt, prerequisites);
+    function applyMigrationHistoryCall(
+        address writer,
+        bytes32 migration,
+        uint256 appliedAt,
+        Prerequisite[] memory prerequisites
+    ) internal view returns (address, bytes memory) {
+        (address registry, bytes memory data) = LibMigrationRegistry.applyMigrationHistoryV3Call(
+            writer, NAMESPACE, migration, appliedAt, prerequisites
+        );
         return (registry, data);
     }
 
     /// @notice The prerequisite list for a migration applied onto
     /// `headMigration` that waits on nothing outside the writer's own line.
-    /// @param writer The account writing the record.
+    /// @param writer The line's writer.
     /// @param headMigration The head the migration is applied onto.
     /// @return The single-entry list naming the head.
     function onto(address writer, bytes32 headMigration) internal pure returns (Prerequisite[] memory) {
