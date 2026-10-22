@@ -74,7 +74,6 @@ error BootstrapWeightingUnset();
 /// @param what The property that does not hold.
 error BootstrapStateUnexpected(string what);
 
-
 /// @title BootstrapMintCapsOrchestrator
 /// @notice Authors the per-chain Safe bundle that deploys the mint-caps
 /// orchestrator next to the live one and schedules its bootstrap on the
@@ -112,7 +111,6 @@ error BootstrapStateUnexpected(string what);
 /// that the batch leaves the live orchestrator's vault access unchanged, then
 /// returns the fork to the post-bundle state.
 contract BootstrapMintCapsOrchestrator is SafeBundleScript {
-
     /// @notice The salt of the bootstrap batch on the timelock.
     bytes32 internal constant BOOTSTRAP_SALT = keccak256("st0x.mint-caps-orchestrator.bootstrap");
 
@@ -238,8 +236,11 @@ contract BootstrapMintCapsOrchestrator is SafeBundleScript {
             targets[n] = instance;
             payloads[n++] = abi.encodeCall(IAccessControl.grantRole, (ORCHESTRATOR_BURN_ROLE, cfg.burners[i]));
         }
-        (targets[n], payloads[n]) =
-            LibStoxMigrations.applyMigrationCall(timelockAddr, LibStoxMigrations.BOOTSTRAP_MINT_CAPS_ORCHESTRATOR, LibStoxMigrations.onto(timelockAddr, MIGRATION_HEAD_GENESIS));
+        (targets[n], payloads[n]) = LibStoxMigrations.applyMigrationCall(
+            timelockAddr,
+            LibStoxMigrations.BOOTSTRAP_MINT_CAPS_ORCHESTRATOR,
+            LibStoxMigrations.onto(timelockAddr, MIGRATION_HEAD_GENESIS)
+        );
     }
 
     /// @notice The bootstrap batch for the active chain, from

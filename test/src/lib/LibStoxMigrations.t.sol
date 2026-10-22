@@ -73,7 +73,9 @@ contract LibStoxMigrationsTest is Test {
         assertTrue(LibStoxMigrations.GOVERNANCE_TIMELOCK != LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
         assertTrue(LibStoxMigrations.GOVERNANCE_TIMELOCK != LibStoxMigrations.BOOTSTRAP_MINT_CAPS_ORCHESTRATOR);
         assertTrue(LibStoxMigrations.ORCHESTRATOR_EMERGENCY != LibStoxMigrations.BOOTSTRAP_MINT_CAPS_ORCHESTRATOR);
-        assertTrue(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK != LibStoxMigrations.BOOTSTRAP_MINT_CAPS_ORCHESTRATOR);
+        assertTrue(
+            LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK != LibStoxMigrations.BOOTSTRAP_MINT_CAPS_ORCHESTRATOR
+        );
     }
 
     /// @notice A catalogued network ST0x does not deploy to has no moment.
