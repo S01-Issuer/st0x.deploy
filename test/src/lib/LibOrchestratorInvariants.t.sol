@@ -5,9 +5,11 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.19/src/lib/LibRainDeploy.sol";
-import {IMigrationRegistryV3, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.19/src/interface/IMigrationRegistryV3.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.19/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
+import {
+    IMigrationRegistryV2,
+    MIGRATION_HEAD_GENESIS
+} from "rain-deploy-0.1.21/src/interface/deprecated/IMigrationRegistryV2.sol";
 
 import {
     LibOrchestratorInvariants,
@@ -42,8 +44,7 @@ contract LibOrchestratorInvariantsTest is Test {
     bytes32 internal burnRole;
     bytes32 internal emergencyRole;
     IAccessControl internal orchestrator = IAccessControl(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
-    IMigrationRegistryV3 internal registry =
-        IMigrationRegistryV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
+    IMigrationRegistryV2 internal registry = IMigrationRegistryV2(LibStoxMigrations.REGISTRY);
 
     function selectFork(string memory network) internal {
         vm.createSelectFork(network);
@@ -89,8 +90,7 @@ contract LibOrchestratorInvariantsTest is Test {
         (uint256 executedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
         vm.startPrank(safe);
         if (LibStoxMigrations.head(safe) == MIGRATION_HEAD_GENESIS) {
-            registry.applyMigrationHistoryV3(
-                safe,
+            registry.applyMigrationHistory(
                 LibStoxMigrations.NAMESPACE,
                 LibStoxMigrations.GOVERNANCE_TIMELOCK,
                 executedAt,
@@ -101,16 +101,14 @@ contract LibOrchestratorInvariantsTest is Test {
             upTo != LibStoxMigrations.GOVERNANCE_TIMELOCK
                 && LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0
         ) {
-            registry.applyMigrationV3(
-                safe,
+            registry.applyMigration(
                 LibStoxMigrations.NAMESPACE,
                 LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
                 LibStoxMigrations.onto(safe, LibStoxMigrations.GOVERNANCE_TIMELOCK)
             );
         }
         if (upTo == LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) {
-            registry.applyMigrationV3(
-                safe,
+            registry.applyMigration(
                 LibStoxMigrations.NAMESPACE,
                 LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
                 LibStoxMigrations.onto(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY)

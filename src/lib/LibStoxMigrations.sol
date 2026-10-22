@@ -2,9 +2,12 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {LibMigrationRegistry} from "rain-deploy-0.1.19/src/lib/LibMigrationRegistry.sol";
-import {Prerequisite} from "rain-deploy-0.1.19/src/interface/IMigrationRegistryV3.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.19/src/lib/LibRainDeploy.sol";
+import {IMigrationRegistryV2, Prerequisite} from "rain-deploy-0.1.21/src/interface/deprecated/IMigrationRegistryV2.sol";
+import {
+    DEPLOYED_ADDRESS as MIGRATION_REGISTRY_V2_ADDRESS,
+    BYTECODE_HASH as MIGRATION_REGISTRY_V2_CODEHASH
+} from "rain-deploy-0.1.21/src/generated/0_1_18/MigrationRegistry.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
 
 import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
 
@@ -12,6 +15,11 @@ import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
 /// migration on this chain.
 /// @param chainId The chain asked about.
 error NoGovernanceTimelockMigrationOnChain(uint256 chainId);
+
+/// @notice The code at `LibStoxMigrations.REGISTRY` is not the pinned registry.
+/// @param expectedCodeHash The pinned code hash.
+/// @param actualCodeHash The code hash found.
+error UnexpectedMigrationRegistryCodeHash(bytes32 expectedCodeHash, bytes32 actualCodeHash);
 
 /// @title LibStoxMigrations
 /// @notice The ids under which this repo's operational scripts record what
@@ -40,17 +48,22 @@ error NoGovernanceTimelockMigrationOnChain(uint256 chainId);
 /// migration has not run on this chain, and the pre-migration state must
 /// hold exactly.
 ///
-/// The records live in ONE registry instance: the address and code hash
-/// `LibMigrationRegistryDeploy` carries in the imported rain-deploy. A
-/// rain-deploy bump that moves the registry would read an empty line and
-/// fail every role invariant closed; `LibStoxMigrationsTest` pins the
-/// instance so such a bump fails there first.
+/// The records live in ONE registry instance: `REGISTRY`, rain-deploy's frozen
+/// 0.1.18 `MigrationRegistry` (V2). Reading any other instance would see an
+/// empty line and fail every role invariant closed; `LibStoxMigrationsTest`
+/// pins the instance.
 ///
 /// The registry is an index, not proof. It says which state an invariant must
 /// assert; the invariant still reads that state from the chain.
 library LibStoxMigrations {
     /// @notice The namespace every st0x.deploy record is written in.
     bytes32 internal constant NAMESPACE = keccak256("st0x.deploy");
+
+    /// @notice The registry holding every record.
+    address internal constant REGISTRY = MIGRATION_REGISTRY_V2_ADDRESS;
+
+    /// @notice `REGISTRY`'s pinned code hash.
+    bytes32 internal constant REGISTRY_CODEHASH = MIGRATION_REGISTRY_V2_CODEHASH;
 
     /// @notice `script/20260729-migrate-governance-to-timelock.s.sol`: vault
     /// and beacon ownership plus the authoriser `_ADMIN` roles to the
@@ -104,7 +117,8 @@ library LibStoxMigrations {
     /// @param migration The migration id.
     /// @return The recorded moment, or zero.
     function applied(address writer, bytes32 migration) internal view returns (uint256) {
-        return LibMigrationRegistry.appliedV3(writer, NAMESPACE, migration);
+        checkCodeHash();
+        return IMigrationRegistryV2(REGISTRY).applied(writer, NAMESPACE, migration);
     }
 
     /// @notice The migration `writer`'s line in this repo's namespace was last
@@ -112,58 +126,63 @@ library LibStoxMigrations {
     /// @param writer The account whose line to read.
     /// @return The head.
     function head(address writer) internal view returns (bytes32) {
-        return LibMigrationRegistry.headV3(writer, NAMESPACE);
+        checkCodeHash();
+        return IMigrationRegistryV2(REGISTRY).head(writer, NAMESPACE);
     }
 
-    /// @notice The registry call that records `migration` under `writer`
+    /// @notice The registry call that records `migration` under the caller
     /// in this repo's namespace, after `prerequisites`: the `to` and `data`
-    /// of a Safe bundle entry. The account that sends it must be `writer` or
-    /// approved by `writer` for this namespace. Verifies the registry's code
-    /// hash first.
-    /// @param writer The line the record lands in.
+    /// of a Safe bundle entry. Verifies the registry's code hash first.
     /// @param migration The migration id.
     /// @param prerequisites What it is applied after.
     /// @return The registry.
     /// @return The calldata.
-    function applyMigrationCall(address writer, bytes32 migration, Prerequisite[] memory prerequisites)
+    function applyMigrationCall(bytes32 migration, Prerequisite[] memory prerequisites)
         internal
         view
         returns (address, bytes memory)
     {
-        (address registry, bytes memory data) =
-            LibMigrationRegistry.applyMigrationV3Call(writer, NAMESPACE, migration, prerequisites);
-        return (registry, data);
+        checkCodeHash();
+        bytes memory data = abi.encodeCall(IMigrationRegistryV2.applyMigration, (NAMESPACE, migration, prerequisites));
+        return (REGISTRY, data);
     }
 
-    /// @notice The registry call that records `migration` under `writer`
+    /// @notice The registry call that records `migration` under the caller
     /// in this repo's namespace as history, at `appliedAt`, after
-    /// `prerequisites`. The account that sends it must be `writer` or
-    /// approved by `writer` for this namespace. Verifies the registry's code
-    /// hash first.
-    /// @param writer The line the record lands in.
+    /// `prerequisites`. Verifies the registry's code hash first.
     /// @param migration The migration id.
     /// @param appliedAt When the migration executed, unix seconds.
     /// @param prerequisites What it is applied after.
     /// @return The registry.
     /// @return The calldata.
-    function applyMigrationHistoryCall(
-        address writer,
-        bytes32 migration,
-        uint256 appliedAt,
-        Prerequisite[] memory prerequisites
-    ) internal view returns (address, bytes memory) {
-        (address registry, bytes memory data) = LibMigrationRegistry.applyMigrationHistoryV3Call(
-            writer, NAMESPACE, migration, appliedAt, prerequisites
+    function applyMigrationHistoryCall(bytes32 migration, uint256 appliedAt, Prerequisite[] memory prerequisites)
+        internal
+        view
+        returns (address, bytes memory)
+    {
+        checkCodeHash();
+        bytes memory data = abi.encodeCall(
+            IMigrationRegistryV2.applyMigrationHistory, (NAMESPACE, migration, appliedAt, prerequisites)
         );
-        return (registry, data);
+        return (REGISTRY, data);
     }
 
     /// @notice The prerequisite list for a migration applied onto
     /// `headMigration` that waits on nothing outside the writer's own line.
-    /// @param writer The line's writer.
+    /// @param writer The account writing the record.
     /// @param headMigration The head the migration is applied onto.
     /// @return The single-entry list naming the head.
     function onto(address writer, bytes32 headMigration) internal pure returns (Prerequisite[] memory) {
-        return LibMigrationRegistry.onto(writer, NAMESPACE, headMigration);
+        Prerequisite[] memory prerequisites = new Prerequisite[](1);
+        prerequisites[0] = Prerequisite({writer: writer, namespace: NAMESPACE, migration: headMigration});
+        return prerequisites;
+    }
+
+    /// @notice Reverts unless `REGISTRY` holds the pinned registry code.
+    function checkCodeHash() internal view {
+        bytes32 actualCodeHash = REGISTRY.codehash;
+        if (actualCodeHash != REGISTRY_CODEHASH) {
+            revert UnexpectedMigrationRegistryCodeHash(REGISTRY_CODEHASH, actualCodeHash);
+        }
     }
 }
