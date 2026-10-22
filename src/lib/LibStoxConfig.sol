@@ -24,6 +24,8 @@ library LibStoxConfig {
     /// unbound.
     /// @return The owner.
     function beaconOwner() internal view returns (address) {
+        // The binding's moment is irrelevant to the owner.
+        // slither-disable-next-line unused-return
         (bytes memory value,) = LibConfigRegistry.resolve(ROOT_AUTHORITY, BEACON_OWNER);
         return abi.decode(value, (address));
     }

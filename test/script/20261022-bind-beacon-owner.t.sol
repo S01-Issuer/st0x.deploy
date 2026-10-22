@@ -5,12 +5,15 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
+import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
 import {IConfigRegistryV3} from "rain-deploy-0.1.21/src/interface/IConfigRegistryV3.sol";
 import {IMigrationRegistryV3} from "rain-deploy-0.1.21/src/interface/IMigrationRegistryV3.sol";
+import {LibConfigRegistry} from "rain-deploy-0.1.21/src/lib/LibConfigRegistry.sol";
 import {LibConfigRegistryDeploy} from "rain-deploy-0.1.21/src/lib/LibConfigRegistryDeploy.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.21/src/lib/LibMigrationRegistryDeploy.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
 import {SafeTx} from "rain-deploy-0.1.21/src/lib/LibSafeTx.sol";
+import {LibSafe} from "rain-deploy-0.1.21/src/lib/LibSafe.sol";
 import {LibSafeFork} from "rain-deploy-0.1.21/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.21/src/lib/LibSafeTxBuilderJson.sol";
 
@@ -240,6 +243,34 @@ contract BindBeaconOwnerTest is Test {
                 safe, LibStoxMigrations.NAMESPACE, LATER, LibStoxMigrations.onto(safe, bindBeaconOwnerDeclaration().id)
             );
         vm.expectRevert(abi.encodeWithSelector(BindBeaconOwnerUnexpectedLine.selector, LATER));
+        script.callAssertPostState();
+    }
+
+    function testPreflightRefusesAnUnpinnedRegistry() external {
+        (BindBeaconOwnerHarness script, address safe, bool ready) = readyOnFork("unpinned");
+        if (!ready) return;
+        advanceLine(safe, "unpinned");
+        approveSafe(safe);
+        vm.etch(address(CONFIG_REGISTRY), hex"00");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibConfigRegistry.UnexpectedConfigRegistryCodeHash.selector,
+                LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_CODEHASH,
+                keccak256(hex"00")
+            )
+        );
+        script.callPreflight();
+    }
+
+    function testPostStateRefusesADriftedSafe() external {
+        (BindBeaconOwnerHarness script, address safe, bool ready) = executedOnFork("drifted");
+        if (!ready) return;
+        vm.mockCall(safe, abi.encodeCall(OwnerManager.getThreshold, ()), abi.encode(uint256(4)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibSafe.SafeThresholdMismatch.selector, safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD, 4
+            )
+        );
         script.callAssertPostState();
     }
 
