@@ -35,6 +35,7 @@ on:
           - 20260729-deploy-governance-timelock
           - 20260813-execute-timelock-operations
           - 20261006-deploy-eu-authoriser
+          - 20261022-deploy-beacons
       network:
         description: 'Network to broadcast against (default: base)'
         required: true
@@ -92,7 +93,7 @@ jobs:
     # selected network, so all its dispatches must share ONE group — list
     # each multi-chain script in the ternary below.
     concurrency:
-      group: manual-broadcast-${{ inputs.script }}-${{ (inputs.script == '20260729-deploy-governance-timelock' || inputs.script == '20261006-deploy-eu-authoriser') && 'all-chains' || inputs.network }}
+      group: manual-broadcast-${{ inputs.script }}-${{ (inputs.script == '20260729-deploy-governance-timelock' || inputs.script == '20261006-deploy-eu-authoriser' || inputs.script == '20261022-deploy-beacons') && 'all-chains' || inputs.network }}
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6

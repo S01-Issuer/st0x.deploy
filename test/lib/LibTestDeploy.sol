@@ -5,6 +5,8 @@ pragma solidity ^0.8.25;
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
+import {LibStoxConfigFork} from "../../src/lib/LibStoxConfigFork.sol";
+import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {StoxReceipt} from "../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../src/concrete/StoxWrappedTokenVault.sol";
@@ -23,6 +25,7 @@ import {
 /// asserting deterministic addresses match LibProdDeployV4.
 library LibTestDeploy {
     function deployWrappedTokenVaultBeaconSet(Vm vm) internal {
+        LibStoxConfigFork.bindBeaconOwner(vm, LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
         LibRainDeploy.etchZoltuFactory(vm);
 
         address vault = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
@@ -42,6 +45,7 @@ library LibTestDeploy {
     }
 
     function deployOffchainAssetReceiptVaultBeaconSet(Vm vm) internal {
+        LibStoxConfigFork.bindBeaconOwner(vm, LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
         LibRainDeploy.etchZoltuFactory(vm);
 
         address receipt = LibRainDeploy.deployZoltu(type(StoxReceipt).creationCode);
