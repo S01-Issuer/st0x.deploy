@@ -29,7 +29,7 @@ import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 ///    the beacon's IMPLEMENTATION, not its address. The wrapped-token-vault
 ///    beacon has its own generated pin (`STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1`)
 ///    so it is referenced directly. The receipt and receipt-vault beacons are
-///    NOT emitted as individual generated pointers — they are created by, and
+///    NOT emitted as individual generated snapshots — they are created by, and
 ///    read live from, the generated `0_1_1` beacon-set-deployer
 ///    (`STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1`) via its
 ///    `iReceiptBeacon()` / `iOffchainAssetReceiptVaultBeacon()` getters. The

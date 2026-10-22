@@ -25,7 +25,7 @@ import {
 ///   orchestrator and the later rebuilds are Base-only.
 ///
 /// The codehash pins are the same literals `LibProdDeployV4Test` checks against
-/// the generated pointer files and against a fresh Zoltu redeploy. This test
+/// the generated snapshot files and against a fresh Zoltu redeploy. This test
 /// closes the loop by asserting the *live on-chain* code at each deterministic
 /// address matches those pins, proving the production deploy landed the audited
 /// bytecode at the address the source expects.

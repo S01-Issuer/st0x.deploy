@@ -43,7 +43,7 @@ contract DeployMissingTokensTest is Test {
     /// @dev The 0.1.1 authoriser implementation the production V4 authoriser
     /// clones. Written out rather than imported so this test states the
     /// implementation it expects the clone to proxy, independently of the
-    /// generated pointers it would otherwise be checking against themselves.
+    /// generated snapshots it would otherwise be checking against themselves.
     address constant AUTHORISER_IMPL_0_1_1 = address(0x2EA0d35d0B1F57C42e6130f298930228bCbFDe9b);
 
     /// @dev Arbitrary non-empty runtime, for standing something at an address

@@ -59,21 +59,21 @@ contract Build is Script {
     }
 
     /// @notice Deploys a contract via the Zoltu factory and generates its
-    /// pointer file containing `DEPLOYED_ADDRESS`, `CREATION_CODE`, and
+    /// snapshot file containing `DEPLOYED_ADDRESS`, `CREATION_CODE`, and
     /// `RUNTIME_CODE` constants.
     /// @param name Must exactly match the contract's Solidity filename (without
-    /// `.sol`), as it determines the generated pointer file path under
+    /// `.sol`), as it determines the generated snapshot file path under
     /// `src/generated/<tag>/` — the rolling `candidate` snapshot for the
     /// current `deployTag()`. Numbered release snapshots are frozen and never
     /// regenerated here; a release freezes a copy of `candidate` beside them
     /// (see `cutRelease()`).
     /// @param creationCode The creation bytecode of the contract, typically
     /// obtained via `type(ContractName).creationCode`.
-    function buildContractPointers(string memory name, bytes memory creationCode) internal {
+    function buildContractSnapshot(string memory name, bytes memory creationCode) internal {
         address deployed = LibRainDeploy.deployZoltu(creationCode);
 
         vm.writeFile(
-            pointerPath(deployTag(), name),
+            snapshotPath(deployTag(), name),
             string.concat(
                 LibCodeGen.filePrefix(),
                 LibCodeGen.bytecodeHashConstantString(vm, deployed),
@@ -112,13 +112,13 @@ contract Build is Script {
         string[12] memory names = contractNames();
         string[12] memory records;
         for (uint256 c = 0; c < 12; c++) {
-            string memory rollingPath = pointerPath(CANDIDATE_TAG, names[c]);
+            string memory rollingPath = snapshotPath(CANDIDATE_TAG, names[c]);
             if (!vm.exists(rollingPath)) revert NothingToFreeze(rollingPath);
             records[c] = vm.readFile(rollingPath);
         }
         vm.createDir(frozenDir, true);
         for (uint256 c = 0; c < 12; c++) {
-            vm.writeFile(pointerPath(tag, names[c]), records[c]);
+            vm.writeFile(snapshotPath(tag, names[c]), records[c]);
         }
 
         genProdLibs();
@@ -139,8 +139,17 @@ contract Build is Script {
         return frozenDir;
     }
 
-    function pointerPath(string memory tag, string memory name) internal pure returns (string memory) {
-        return string.concat("src/generated/", tag, "/", name, ".pointers.sol");
+    function snapshotPath(string memory tag, string memory name) internal pure returns (string memory) {
+        return string.concat(GENERATED_ROOT, "/", tag, "/", name, ".sol");
+    }
+
+    /// @notice `name`'s file in `tag`, relative to `src/generated/`. Records
+    /// frozen as `<Name>.pointers.sol` are never renamed, so that spelling is
+    /// read when `<Name>.sol` is absent.
+    function snapshotFile(string memory tag, string memory name) internal view returns (string memory) {
+        string memory file = string.concat(tag, "/", name, ".sol");
+        if (vm.exists(string.concat(GENERATED_ROOT, "/", file))) return file;
+        return string.concat(tag, "/", name, ".pointers.sol");
     }
 
     function regenerateSnapshots() internal {
@@ -150,42 +159,42 @@ contract Build is Script {
         // `vm.writeFile` won't create the dir, so ensure it exists first.
         vm.createDir(string.concat("src/generated/", deployTag()), true);
 
-        buildContractPointers("StoxCorporateActionsFacet", type(StoxCorporateActionsFacet).creationCode);
-        buildContractPointers("StoxReceipt", type(StoxReceipt).creationCode);
-        buildContractPointers("StoxReceiptVault", type(StoxReceiptVault).creationCode);
-        buildContractPointers("StoxWrappedTokenVault", type(StoxWrappedTokenVault).creationCode);
+        buildContractSnapshot("StoxCorporateActionsFacet", type(StoxCorporateActionsFacet).creationCode);
+        buildContractSnapshot("StoxReceipt", type(StoxReceipt).creationCode);
+        buildContractSnapshot("StoxReceiptVault", type(StoxReceiptVault).creationCode);
+        buildContractSnapshot("StoxWrappedTokenVault", type(StoxWrappedTokenVault).creationCode);
         // Beacon must be built before the deployer since the deployer imports
-        // the beacon's pointer file.
-        buildContractPointers("StoxWrappedTokenVaultBeacon", type(StoxWrappedTokenVaultBeacon).creationCode);
-        buildContractPointers(
+        // the beacon's snapshot.
+        buildContractSnapshot("StoxWrappedTokenVaultBeacon", type(StoxWrappedTokenVaultBeacon).creationCode);
+        buildContractSnapshot(
             "StoxWrappedTokenVaultBeaconSetDeployer", type(StoxWrappedTokenVaultBeaconSetDeployer).creationCode
         );
-        // OARV deployer depends on StoxReceipt and StoxReceiptVault pointers.
-        buildContractPointers(
+        // OARV deployer depends on StoxReceipt and StoxReceiptVault snapshots.
+        buildContractSnapshot(
             "StoxOffchainAssetReceiptVaultBeaconSetDeployer",
             type(StoxOffchainAssetReceiptVaultBeaconSetDeployer).creationCode
         );
-        buildContractPointers("StoxUnifiedDeployer", type(StoxUnifiedDeployer).creationCode);
+        buildContractSnapshot("StoxUnifiedDeployer", type(StoxUnifiedDeployer).creationCode);
         // Authorizers have no dependencies on other Stox contracts.
-        buildContractPointers(
+        buildContractSnapshot(
             "StoxOffchainAssetReceiptVaultAuthorizerV1", type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode
         );
-        buildContractPointers(
+        buildContractSnapshot(
             "StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1",
             type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode
         );
         // ST0x orchestrator. The beacon-set deployer's constructor bakes the
         // orchestrator impl constant, so the impl must be built (and thus
         // Zoltu-deployed at that address) before the deployer.
-        buildContractPointers("ST0xOrchestrator", type(ST0xOrchestrator).creationCode);
-        buildContractPointers("ST0xOrchestratorBeaconSetDeployer", type(ST0xOrchestratorBeaconSetDeployer).creationCode);
+        buildContractSnapshot("ST0xOrchestrator", type(ST0xOrchestrator).creationCode);
+        buildContractSnapshot("ST0xOrchestratorBeaconSetDeployer", type(ST0xOrchestratorBeaconSetDeployer).creationCode);
     }
 
     // =========================================================================
     // Deploy-lib generation.
     //
     // Regenerates `src/generated/LibProdDeployV4.sol` (one versioned constant
-    // set per release tag, each aliasing that tag's frozen `*.pointers.sol`
+    // set per release tag, each aliasing that tag's snapshot
     // exports) and `src/generated/LibProdDeployCurrent.sol` (unversioned
     // aliases of the current `deployTag()`), from the per-tag snapshots on
     // disk. Emitted line-by-line via `vm.writeLine` so no single string grows
@@ -203,7 +212,7 @@ contract Build is Script {
 
     // REUSE-IgnoreEnd
 
-    /// @notice Pointer filenames (without `.pointers.sol`) in a fixed order.
+    /// @notice Snapshot filenames (without `.sol`) in a fixed order.
     function contractNames() internal pure returns (string[12] memory names) {
         names[0] = "StoxReceipt";
         names[1] = "StoxReceiptVault";
@@ -318,8 +327,8 @@ contract Build is Script {
         }
     }
 
-    function pointerExists(string memory tag, string memory name) internal view returns (bool) {
-        return vm.exists(pointerPath(tag, name));
+    function snapshotExists(string memory tag, string memory name) internal view returns (bool) {
+        return vm.exists(string.concat(GENERATED_ROOT, "/", snapshotFile(tag, name)));
     }
 
     function writeGeneratedHeader(string memory path) internal {
@@ -333,7 +342,7 @@ contract Build is Script {
 
     function v4ImportLine(string memory name, string memory base, string memory tag)
         internal
-        pure
+        view
         returns (string memory)
     {
         string memory suffix = tagSuffix(tag);
@@ -342,7 +351,7 @@ contract Build is Script {
         string memory mid = string.concat(
             "_CODEHASH_", suffix, "_GEN, CREATION_CODE as ", base, "_CREATION_", suffix, "_GEN, RUNTIME_CODE as ", base
         );
-        string memory tail = string.concat("_RUNTIME_", suffix, '_GEN} from "./', tag, "/", name, '.pointers.sol";');
+        string memory tail = string.concat("_RUNTIME_", suffix, '_GEN} from "./', snapshotFile(tag, name), '";');
         return string.concat(head, mid, tail);
     }
 
@@ -377,7 +386,7 @@ contract Build is Script {
         writeGeneratedHeader(GEN_V4_PATH);
         for (uint256 t = 0; t < tags.length; t++) {
             for (uint256 c = 0; c < 12; c++) {
-                if (pointerExists(tags[t], names[c])) {
+                if (snapshotExists(tags[t], names[c])) {
                     vm.writeLine(GEN_V4_PATH, v4ImportLine(names[c], bases[c], tags[t]));
                 }
             }
@@ -444,7 +453,7 @@ contract Build is Script {
         );
         for (uint256 t = 0; t < tags.length; t++) {
             for (uint256 c = 0; c < 12; c++) {
-                if (pointerExists(tags[t], names[c])) {
+                if (snapshotExists(tags[t], names[c])) {
                     emitV4Constants(tags[t], bases[c]);
                 }
             }
@@ -476,7 +485,7 @@ contract Build is Script {
             "bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH;"
         );
         for (uint256 c = 0; c < 12; c++) {
-            if (!pointerExists(tag, names[c])) continue;
+            if (!snapshotExists(tag, names[c])) continue;
             string memory base = bases[c];
             vm.writeLine(
                 GEN_CURRENT_PATH,
