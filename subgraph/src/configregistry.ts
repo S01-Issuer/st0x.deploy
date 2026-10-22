@@ -20,11 +20,16 @@ export function configBindingId(
 
 /**
  * Record one `Register` and move the binding to its value. The most recent
- * `Register` for an (authority, name) is the binding `getV3` answers, so the
- * log is the whole truth.
+ * `Register` for an (authority, name) is the binding `getV2` answers, so the
+ * log is the whole truth. `registerCount` moves only for a log not seen before:
+ * a replay of the same log rewrites the same `ConfigRegister` row and must not
+ * count twice.
  */
 export function handleConfigRegistryRegister(event: Register): void {
   let rowId = logRowId(event);
+  if (ConfigRegister.load(rowId) !== null) {
+    return;
+  }
   let registry = getOrCreateContract(
     event.address,
     ContractKind.CONFIG_REGISTRY,

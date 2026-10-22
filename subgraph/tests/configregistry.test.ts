@@ -197,6 +197,27 @@ describe("ConfigRegistry bindings", () => {
     assert.fieldEquals("Contract", REGISTRY, "firstIndexedBlock", "100");
   });
 
+  test("a replayed Register neither counts again nor rolls the value back", () => {
+    register(REGISTRY, AUTHORITY, AUTHORITY, US_NAME, VALUE_A, 100, 3);
+    register(REGISTRY, AUTHORITY, AUTHORITY, US_NAME, VALUE_B, 250, 1);
+    register(REGISTRY, AUTHORITY, AUTHORITY, US_NAME, VALUE_A, 100, 3);
+
+    let id = bindingId(REGISTRY, AUTHORITY, US_NAME);
+    assert.fieldEquals("ConfigBinding", id, "value", VALUE_B);
+    assert.fieldEquals("ConfigBinding", id, "boundAtBlock", "250");
+    assert.fieldEquals("ConfigBinding", id, "registerCount", "2");
+    assert.entityCount("ConfigRegister", 2);
+  });
+
+  test("a replay of the only Register leaves the count at one", () => {
+    register(REGISTRY, AUTHORITY, AUTHORITY, US_NAME, VALUE_A, 100, 3);
+    register(REGISTRY, AUTHORITY, AUTHORITY, US_NAME, VALUE_A, 100, 3);
+
+    let id = bindingId(REGISTRY, AUTHORITY, US_NAME);
+    assert.fieldEquals("ConfigBinding", id, "registerCount", "1");
+    assert.entityCount("ConfigRegister", 1);
+  });
+
   test("names, authorities and registries each key their own binding", () => {
     register(REGISTRY, AUTHORITY, AUTHORITY, US_NAME, VALUE_A, 100, 0);
     register(REGISTRY, AUTHORITY, AUTHORITY, EU_NAME, VALUE_B, 101, 1);

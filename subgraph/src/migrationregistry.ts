@@ -31,10 +31,14 @@ export function migrationLineId(
  * Record one `Migrated` as the next record in its line. The registry refuses
  * any write not applied onto the line's current head, so log order is line
  * order: the record's `appliedOnto` is the head before it and it becomes the
- * new head.
+ * new head. A replay of a log already recorded returns before touching the
+ * line, so `index` and `recordCount` count each log once.
  */
 export function handleMigrationRegistryMigrated(event: Migrated): void {
   let rowId = logRowId(event);
+  if (MigrationRecord.load(rowId) !== null) {
+    return;
+  }
   let registry = getOrCreateContract(
     event.address,
     ContractKind.MIGRATION_REGISTRY,

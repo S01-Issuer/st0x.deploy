@@ -206,6 +206,31 @@ describe("MigrationRegistry lines", () => {
     assert.fieldEquals("Contract", REGISTRY, "firstIndexedBlock", "1000");
   });
 
+  test("a replayed record moves neither the head nor the count", () => {
+    migrate(SAFE, WRITER, NAMESPACE, MIGRATION_1, 900, 1000, 7);
+    migrate(SAFE, WRITER, NAMESPACE, MIGRATION_2, 1500, 1500, 2);
+    migrate(SAFE, WRITER, NAMESPACE, MIGRATION_1, 900, 1000, 7);
+
+    let id = lineId(REGISTRY, WRITER, NAMESPACE);
+    assert.fieldEquals("MigrationLine", id, "head", MIGRATION_2);
+    assert.fieldEquals("MigrationLine", id, "headRecord", mockRowId(2));
+    assert.fieldEquals("MigrationLine", id, "recordCount", "2");
+    assert.entityCount("MigrationRecord", 2);
+    assert.fieldEquals("MigrationRecord", mockRowId(7), "index", "0");
+    assert.fieldEquals("MigrationRecord", mockRowId(7), "appliedOnto", GENESIS);
+  });
+
+  test("a replay of the only record leaves the line at one", () => {
+    migrate(SAFE, WRITER, NAMESPACE, MIGRATION_1, 900, 1000, 7);
+    migrate(SAFE, WRITER, NAMESPACE, MIGRATION_1, 900, 1000, 7);
+
+    let id = lineId(REGISTRY, WRITER, NAMESPACE);
+    assert.fieldEquals("MigrationLine", id, "recordCount", "1");
+    assert.fieldEquals("MigrationRecord", mockRowId(7), "index", "0");
+    assert.fieldEquals("MigrationRecord", mockRowId(7), "appliedOnto", GENESIS);
+    assert.entityCount("MigrationRecord", 1);
+  });
+
   test("another namespace or writer is its own line from genesis", () => {
     migrate(SAFE, WRITER, NAMESPACE, MIGRATION_1, 900, 1000, 0);
     migrate(SAFE, WRITER, OTHER_NAMESPACE, MIGRATION_2, 900, 1001, 1);
