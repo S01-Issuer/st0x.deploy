@@ -9,8 +9,9 @@ import {
     SCHEDULE_CORPORATE_ACTION_ADMIN,
     CANCEL_CORPORATE_ACTION_ADMIN
 } from "../../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
-import {LibAuthoriserClone} from "../../../../src/lib/LibAuthoriserClone.sol";
-import {LibStoxConfigFork} from "../../../../src/lib/LibStoxConfigFork.sol";
+import {
+    OffchainAssetReceiptVaultAuthorizerV1Config
+} from "rain-vats-0.2.7-pr349/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {FAILURE_SENTINEL, FailingSuperInitAuthorizer} from "./FailingSuperInitAuthorizer.sol";
 
 contract StoxOffchainAssetReceiptVaultAuthorizerV1InitializeGuardTest is Test {
@@ -19,11 +20,11 @@ contract StoxOffchainAssetReceiptVaultAuthorizerV1InitializeGuardTest is Test {
     /// When the base `_initialize` returns non-success, initialize returns
     /// that value and does NOT set up corporate action role admins.
     function testInitializeReturnsEarlyOnSuperFailure() external {
-        LibStoxConfigFork.bindAuthoriserAdmin(vm, ADMIN);
         FailingSuperInitAuthorizer impl = new FailingSuperInitAuthorizer();
         FailingSuperInitAuthorizer authorizer = FailingSuperInitAuthorizer(Clones.clone(address(impl)));
 
-        bytes32 result = authorizer.initialize(LibAuthoriserClone.cloneData());
+        bytes32 result =
+            authorizer.initialize(abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: ADMIN})));
 
         assertEq(result, FAILURE_SENTINEL);
 

@@ -37,9 +37,7 @@ contract StoxCorporateActionsFacetAuthorizerIntegrationTest is Test {
         // second call in one test at an address the first already took.
         return StoxOffchainAssetReceiptVaultAuthorizerV1(
             factory.cloneDeterministic(
-                address(impl),
-                LibAuthoriserClone.cloneData(),
-                bytes32(uint256(uint160(address(impl))))
+                address(impl), LibAuthoriserClone.cloneData(), bytes32(uint256(uint160(address(impl))))
             )
         );
     }

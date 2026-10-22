@@ -11,7 +11,9 @@ import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
 } from "rain-vats-0.2.7-pr349/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
-import {OffchainAssetReceiptVaultConfigV2} from "rain-vats-0.2.7-pr349/src/concrete/vault/OffchainAssetReceiptVault.sol";
+import {
+    OffchainAssetReceiptVaultConfigV2
+} from "rain-vats-0.2.7-pr349/src/concrete/vault/OffchainAssetReceiptVault.sol";
 import {ReceiptVaultConfigV2} from "rain-vats-0.2.7-pr349/src/abstract/ReceiptVault.sol";
 import {
     StoxWrappedTokenVaultBeaconSetDeployer
