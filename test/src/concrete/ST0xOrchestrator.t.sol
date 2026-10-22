@@ -29,9 +29,9 @@ import {ReentrantMintRecipient} from "./ReentrantMintRecipient.sol";
 import {ReentrantBurnVault} from "./ReentrantBurnVault.sol";
 import {MockManagerRevert1155} from "./MockManagerRevert1155.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin-contracts-5.7.0/utils/ReentrancyGuardTransient.sol";
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.5/src/concrete/vault/OffchainAssetReceiptVault.sol";
-import {ReceiptVault} from "rain-vats-0.2.5/src/abstract/ReceiptVault.sol";
-import {IReceiptV3} from "rain-vats-0.2.5/src/interface/IReceiptV3.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.7/src/concrete/vault/OffchainAssetReceiptVault.sol";
+import {ReceiptVault} from "rain-vats-0.2.7/src/abstract/ReceiptVault.sol";
+import {IReceiptV3} from "rain-vats-0.2.7/src/interface/IReceiptV3.sol";
 import {SignedContextV1, EvaluableV4} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 

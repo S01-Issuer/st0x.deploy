@@ -20,6 +20,7 @@ path = [
   "foundry.toml",
   "privileged-addresses.json",
   "ideal-roles.json",
+  "migrations.json",
   "REUSE.toml",
   "slither.config.json",
   "subgraph/**/",

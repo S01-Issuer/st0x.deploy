@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {VmSafe} from "forge-std-1.17.0/src/Vm.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.39/src/lib/LibCodeGen.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
 import {LibFs} from "rain-sol-codegen-0.1.39/src/lib/LibFs.sol";
 import {LibGenParseMeta} from "rainlang-interface-0.2.13/src/lib/codegen/LibGenParseMeta.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";

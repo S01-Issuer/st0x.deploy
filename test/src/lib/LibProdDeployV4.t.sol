@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
 import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.14/src/lib/LibExtrospectERC1167Proxy.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";

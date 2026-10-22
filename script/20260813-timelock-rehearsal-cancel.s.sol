@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
+import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
@@ -9,9 +12,9 @@ import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/Timel
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {LibSafeTx, SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJson.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.21/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.21/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.21/src/lib/LibSafeTxBuilderJson.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTimelockRehearsal} from "../src/lib/LibTimelockRehearsal.sol";
 
@@ -24,6 +27,17 @@ error CancelTimelockNotPinned(uint256 chainId);
 /// cancel and the bundle would revert inside the Safe.
 /// @param id The operation id that is not pending.
 error RehearsalNotScheduled(bytes32 id);
+
+/// @notice This script's declaration.
+/// @return The declaration.
+function timelockRehearsalCancelDeclaration() pure returns (ScriptDeclaration memory) {
+    return LibStoxMigrations.safeMigrationOnto(
+        LibStoxMigrations.NAMESPACE,
+        keccak256("script/20260813-timelock-rehearsal-cancel.s.sol"),
+        keccak256("script/20260813-timelock-rehearsal-schedule.s.sol"),
+        false
+    );
+}
 
 /// @title TimelockRehearsalCancel
 /// @notice Authors the Safe bundle that CANCELS the scheduled
@@ -42,7 +56,12 @@ error RehearsalNotScheduled(bytes32 id);
 /// nothing fails at authoring time rather than in the Safe. Post-state
 /// asserts the operation is fully deregistered, which is what makes the
 /// re-propose stage possible.
-contract TimelockRehearsalCancel is Script {
+contract TimelockRehearsalCancel is Script, IStoxScript {
+    /// @inheritdoc IStoxScript
+    function declaration() external pure returns (ScriptDeclaration memory) {
+        return timelockRehearsalCancelDeclaration();
+    }
+
     /// @notice Author the cancel bundle for the active chain.
     function run() external {
         Safe safe = Safe(payable(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid)));

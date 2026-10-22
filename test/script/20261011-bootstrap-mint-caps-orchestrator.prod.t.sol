@@ -8,7 +8,7 @@ import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessContro
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
 import {LibDecimalFloat} from "rain-math-float-0.3.10/src/lib/LibDecimalFloat.sol";
 import {EvaluableV4, SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
 import {IInterpreterV4} from "rainlang-interface-0.2.13/src/interface/IInterpreterV4.sol";
@@ -20,7 +20,7 @@ import {
     TEST_INTERPRETER_ADDRESS,
     TEST_EXPRESSION_DEPLOYER_ADDRESS
 } from "rainlang-0.2.17/test/lib/deploy/LibTestInterpreterDeploy.sol";
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.5/src/concrete/vault/OffchainAssetReceiptVault.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.7/src/concrete/vault/OffchainAssetReceiptVault.sol";
 
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {St0xAttestSubParser} from "../../src/concrete/St0xAttestSubParser.sol";
