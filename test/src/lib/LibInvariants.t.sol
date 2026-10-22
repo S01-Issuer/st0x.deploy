@@ -35,7 +35,7 @@ contract LibInvariantsTest is Test {
         // Both forms must return silently. `assertProductionState` asserts the
         // shared token-owner Safe + shared grant map, so only the token table
         // and the live authoriser are passed. The live authoriser is the V4
-        // clone since the swap batch executed on Base (2026-07).
+        // clone.
         LibInvariants.assertAll(safe);
         LibInvariants.assertProductionState(
             LibTokenInvariants.productionTokensBase(), LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE
