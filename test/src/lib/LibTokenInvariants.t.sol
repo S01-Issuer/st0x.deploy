@@ -54,8 +54,8 @@ contract LibTokenInvariantsTest is Test {
     }
 
     /// @notice Every production receipt vault reports the V4 authoriser clone
-    /// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`) — the production
-    /// authoriser since the V4 swap batch executed on Base (2026-07).
+    /// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`), the production
+    /// authoriser.
     /// Passes against the live chain state: vault authoriser is uniform.
     /// Deliberately STRICT (not migration-window gated): when a newly
     /// deployed token enters the table still wired to a previous authoriser,
@@ -110,9 +110,7 @@ contract LibTokenInvariantsTest is Test {
 
     /// The Ethereum token table mirrors Base row-for-row on the `underlying`
     /// key — same length, same order — so the two per-chain tables cannot
-    /// drift now that the Ethereum table is written out explicitly rather than
-    /// derived from Base. (The addresses are still per-chain placeholders,
-    /// hydrated by the token pin PR; this guards only the shared shape.)
+    /// drift.
     function testEthereumTokenTableMirrorsBaseUnderlyings() external pure {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
         TokenInstance[] memory eth = LibTokenInvariants.productionTokensEthereum();
@@ -134,8 +132,7 @@ contract LibTokenInvariantsTest is Test {
     }
 
     /// The Robinhood Chain token table mirrors Base row-for-row on the
-    /// `underlying` key. Its addresses are placeholders until the token
-    /// deploy executes there; this guards only the shared shape.
+    /// `underlying` key.
     function testRobinhoodTokenTableMirrorsBaseUnderlyings() external pure {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
         TokenInstance[] memory robinhood = LibTokenInvariants.productionTokensRobinhood();
@@ -146,7 +143,7 @@ contract LibTokenInvariantsTest is Test {
     }
 
     /// The BNB Smart Chain token table mirrors Base row-for-row on the
-    /// `underlying` key; addresses are placeholders until its token deploy.
+    /// `underlying` key.
     function testBscTokenTableMirrorsBaseUnderlyings() external pure {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
         TokenInstance[] memory bsc = LibTokenInvariants.productionTokensBsc();
