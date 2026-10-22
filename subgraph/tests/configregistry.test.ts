@@ -165,6 +165,15 @@ describe("ConfigRegistry bindings", () => {
     assert.fieldEquals("Contract", REGISTRY, "firstIndexedBlock", "100");
   });
 
+  test("a delegate's first Register binds under the authority, not the delegate", () => {
+    register(REGISTRY, DELEGATE, AUTHORITY, US_NAME, VALUE_A, 100, 3);
+
+    let id = bindingId(REGISTRY, AUTHORITY, US_NAME);
+    assert.entityCount("ConfigBinding", 1);
+    assert.fieldEquals("ConfigBinding", id, "authority", AUTHORITY);
+    assert.fieldEquals("ConfigBinding", id, "sender", DELEGATE);
+  });
+
   test("a rebind moves value, sender and age, and keeps the first row", () => {
     register(REGISTRY, AUTHORITY, AUTHORITY, US_NAME, VALUE_A, 100, 3);
     register(REGISTRY, DELEGATE, AUTHORITY, US_NAME, VALUE_B, 250, 1);
