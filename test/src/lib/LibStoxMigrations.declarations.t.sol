@@ -228,8 +228,7 @@ contract LibStoxMigrationsDeclarationsTest is Test {
     function unrecorded(string memory path) internal pure returns (bool) {
         bytes32 key = keccak256(bytes(path));
         return key == keccak256("script/20260619-migrate-multisig-threshold.s.sol")
-            || key == keccak256("script/20260831-retire-direct-signer-roles.s.sol")
-            || key == keccak256("script/20261022-deploy-beacons.s.sol");
+            || key == keccak256("script/20260831-retire-direct-signer-roles.s.sol");
     }
 
     function assertRecordsAreTheBundles(string memory network) internal {

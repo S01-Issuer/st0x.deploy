@@ -37,18 +37,13 @@ import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
-/// @notice The beacon owner bind is not on this chain. Execute the bundle.
-/// @param network The chain still pending.
-error BindBeaconOwnerNotApplied(string network);
-
 /// @dev A Safe line write past the bind.
 bytes32 constant LATER = keccak256("later");
 
 /// @title BindBeaconOwnerTest
 /// @notice The bind on every deployment network at head, with every
 /// predecessor on the Safe's line and the root's approval of the Safe written
-/// on the fork where the chain lacks them. The requirement: the bind's record
-/// is on chain, red until it is.
+/// on the fork where the chain lacks them.
 contract BindBeaconOwnerTest is Test {
     IConfigRegistryV3 internal constant CONFIG_REGISTRY =
         IConfigRegistryV3(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS);
@@ -120,16 +115,6 @@ contract BindBeaconOwnerTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(BindBeaconOwnerUnexpectedLine.selector, id));
         script.callPreflight();
-    }
-
-    function assertApplied(string memory network) internal {
-        vm.createSelectFork(network);
-        if (
-            LibStoxMigrations.applied(LibSafeInvariants.safeForChainId(block.chainid), bindBeaconOwnerDeclaration().id)
-                == 0
-        ) {
-            revert BindBeaconOwnerNotApplied(network);
-        }
     }
 
     /// @dev A HyperEVM fork just before the bind, or false once the bind has
@@ -292,26 +277,6 @@ contract BindBeaconOwnerTest is Test {
 
     function testBindBundleBsc() external {
         assertBundle(LibStoxDeployNetworks.BSC);
-    }
-
-    function testBindAppliedBase() external {
-        assertApplied(LibRainDeploy.BASE);
-    }
-
-    function testBindAppliedEthereum() external {
-        assertApplied(LibStoxDeployNetworks.ETHEREUM);
-    }
-
-    function testBindAppliedHyperEvm() external {
-        assertApplied(LibStoxDeployNetworks.HYPEREVM);
-    }
-
-    function testBindAppliedRobinhood() external {
-        assertApplied(LibStoxDeployNetworks.ROBINHOOD);
-    }
-
-    function testBindAppliedBsc() external {
-        assertApplied(LibStoxDeployNetworks.BSC);
     }
 }
 

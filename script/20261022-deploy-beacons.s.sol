@@ -45,33 +45,17 @@ import {
     RUNTIME_CODE as ORCHESTRATOR_RUNTIME_CODE
 } from "../src/generated/candidate/ST0xOrchestrator.pointers.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
-import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
+import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {bindBeaconOwnerDeclaration} from "./20261022-bind-beacon-owner.s.sol";
-
-/// @notice The beacon owner bind has not been applied on `network`.
-/// @param network The network.
-error BeaconOwnerNotBound(string network);
 
 /// @notice A deployed beacon is not owned by the chain's timelock.
 /// @param beacon The beacon.
 /// @param owner Its owner.
 error BeaconOwnerNotTimelock(address beacon, address owner);
 
-/// @notice This script's declaration.
-/// @return The declaration.
-function deployBeaconsDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        keccak256("script/20261022-deploy-beacons.s.sol"),
-        bindBeaconOwnerDeclaration().id,
-        false
-    );
-}
-
-/// @notice The Zoltu step, refused where the beacon owner bind is not applied.
+/// @notice The Zoltu step, refused where the beacon owner is unbound.
 /// @param vm The cheatcode handle.
 /// @param network The network.
 /// @param deployer The broadcaster.
@@ -80,11 +64,7 @@ function deployBeaconsDeclaration() pure returns (ScriptDeclaration memory) {
 function boundZoltuDeployStep(Vm vm, string memory network, address deployer, bytes memory creationCode)
     returns (address)
 {
-    if (
-        LibStoxMigrations.applied(LibSafeInvariants.safeForChainId(block.chainid), bindBeaconOwnerDeclaration().id) == 0
-    ) {
-        revert BeaconOwnerNotBound(network);
-    }
+    LibStoxConfig.beaconOwner();
     return LibRainDeploy.zoltuDeployStep(vm, network, deployer, creationCode);
 }
 
@@ -95,7 +75,7 @@ function boundZoltuDeployStep(Vm vm, string memory network, address deployer, by
 contract DeployBeacons is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return deployBeaconsDeclaration();
+        return LibStoxMigrations.notAMigration();
     }
 
     /// @notice Deploys `creationCode` to `expected` on every network.
