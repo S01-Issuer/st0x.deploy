@@ -3,10 +3,10 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {Float, LibDecimalFloat} from "rain-math-float-0.3.3/src/lib/LibDecimalFloat.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.10/src/lib/LibDecimalFloat.sol";
 import {LibRebaseMathHarness} from "./LibRebaseMathHarness.sol";
 import {BalanceExceedsInt256Max} from "src/error/ErrRebase.sol";
-import {LossyConversionToFloat} from "rain-math-float-0.3.3/src/error/ErrDecimalFloat.sol";
+import {LossyConversionToFloat} from "rain-math-float-0.3.10/src/error/ErrDecimalFloat.sol";
 
 contract LibRebaseMathTest is Test {
     LibRebaseMathHarness internal h;
