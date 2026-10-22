@@ -12,13 +12,13 @@ import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {SafeTx} from "rain-deploy-0.1.20/src/lib/LibSafeTx.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.20/src/lib/LibSafeTxBuilderJson.sol";
-import {LibSafe} from "rain-deploy-0.1.20/src/lib/LibSafe.sol";
+import {SafeTx} from "rain-deploy-0.1.21/src/lib/LibSafeTx.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.21/src/lib/LibSafeTxBuilderJson.sol";
+import {LibSafe} from "rain-deploy-0.1.21/src/lib/LibSafe.sol";
 import {IOwnable, ReceiptVaultOwnerMismatch} from "../../src/lib/LibTokenInvariants.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.20/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
 
 /// @title MigrateMultisigThresholdTest
 /// @notice End-to-end fork tests for the multisig threshold migration

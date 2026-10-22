@@ -4,12 +4,12 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.20/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
 import {
     IMigrationRegistryV2,
     MIGRATION_HEAD_GENESIS,
     Prerequisite
-} from "rain-deploy-0.1.20/src/interface/deprecated/IMigrationRegistryV2.sol";
+} from "rain-deploy-0.1.21/src/interface/deprecated/IMigrationRegistryV2.sol";
 
 import {LibOrchestratorInvariants} from "../../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";

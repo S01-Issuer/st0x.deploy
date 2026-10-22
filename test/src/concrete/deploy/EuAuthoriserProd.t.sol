@@ -3,9 +3,9 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {IMigrationRegistryV2} from "rain-deploy-0.1.20/src/interface/deprecated/IMigrationRegistryV2.sol";
+import {IMigrationRegistryV2} from "rain-deploy-0.1.21/src/interface/deprecated/IMigrationRegistryV2.sol";
 import {LibStoxMigrations} from "../../../../src/lib/LibStoxMigrations.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.20/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
 
 import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibEuAuthoriserClone} from "../../../../src/lib/LibEuAuthoriserClone.sol";

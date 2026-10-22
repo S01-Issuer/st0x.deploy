@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.20/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
 import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants, BeaconOwnerMismatch} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {LibBeaconInvariantsHarness} from "../../lib/LibBeaconInvariantsHarness.sol";

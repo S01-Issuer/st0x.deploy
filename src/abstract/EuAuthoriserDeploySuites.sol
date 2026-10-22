@@ -6,7 +6,7 @@ import {
     DeployCandidate,
     DeploySuite,
     RainDeploySuitesBase
-} from "rain-deploy-0.1.20/src/abstract/RainDeploySuitesBase.sol";
+} from "rain-deploy-0.1.21/src/abstract/RainDeploySuitesBase.sol";
 
 import {LibStoxDeployNetworks} from "../lib/LibStoxDeployNetworks.sol";
 

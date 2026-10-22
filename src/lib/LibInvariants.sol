@@ -3,7 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {LibSafe} from "rain-deploy-0.1.20/src/lib/LibSafe.sol";
+import {LibSafe} from "rain-deploy-0.1.21/src/lib/LibSafe.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";

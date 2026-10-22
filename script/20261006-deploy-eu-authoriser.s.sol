@@ -9,7 +9,7 @@ import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     BYTECODE_HASH as CLONE_FACTORY_CODEHASH
 } from "rain-factory-deploy-0.2.1/src/generated/0_1_15/CloneFactory.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.20/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
 
 import {EuAuthoriserDeploySuites} from "../src/abstract/EuAuthoriserDeploySuites.sol";
 import {EU_AUTHORISER_SALT, LibEuAuthoriserClone} from "../src/lib/LibEuAuthoriserClone.sol";
