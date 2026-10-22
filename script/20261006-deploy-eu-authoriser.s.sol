@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
+import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {ICloneableFactoryV4} from "rain-factory-0.2.4/src/interface/deprecated/ICloneableFactoryV4.sol";
@@ -27,6 +30,17 @@ error EuCloneFactoryNotReady(address factory);
 /// @param deployed The address the clone landed at.
 error EuCloneAddressMismatch(address predicted, address deployed);
 
+/// @notice This script's declaration.
+/// @return The declaration.
+function deployEuAuthoriserDeclaration() pure returns (ScriptDeclaration memory) {
+    return LibStoxMigrations.safeMigrationOnto(
+        LibStoxMigrations.NAMESPACE,
+        keccak256("script/20261006-deploy-eu-authoriser.s.sol"),
+        keccak256("script/20260813-execute-timelock-operations.s.sol"),
+        false
+    );
+}
+
 /// @title DeployEuAuthoriser
 /// @notice Clones the audited 0.1.1 authoriser at its open-salt address, one
 /// address on every network.
@@ -44,7 +58,12 @@ error EuCloneAddressMismatch(address predicted, address deployed);
 /// Idempotent: a clone already at the predicted address is left alone, so a
 /// re-dispatch after a partial rollout only fills in the networks still
 /// missing it.
-contract DeployEuAuthoriser is EuAuthoriserDeploySuites, Script {
+contract DeployEuAuthoriser is EuAuthoriserDeploySuites, Script, IStoxScript {
+    /// @inheritdoc IStoxScript
+    function declaration() external pure returns (ScriptDeclaration memory) {
+        return deployEuAuthoriserDeclaration();
+    }
+
     /// @notice Deploys the clone to EVERY supported network that lacks it, in
     /// one dispatch.
     ///

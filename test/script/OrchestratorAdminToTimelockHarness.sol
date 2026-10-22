@@ -32,6 +32,10 @@ contract OrchestratorAdminToTimelockHarness is OrchestratorAdminToTimelock {
         return authorBundle();
     }
 
+    function callSafe() external view returns (address) {
+        return address(safe());
+    }
+
     function callArtifactPath() external view returns (string memory) {
         return artifactPath();
     }

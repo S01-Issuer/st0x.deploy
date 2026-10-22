@@ -23,7 +23,8 @@ import {
     UnexpectedRegistryV2CodeHash,
     UnexpectedRegistryV2Line,
     UnexpectedRegistryV2Order,
-    UnexpectedRegistryV3Line
+    UnexpectedRegistryV3Line,
+    backfillMigrationRegistryV3Declaration
 } from "../../script/20261022-backfill-migration-registry-v3.s.sol";
 import {BackfillMigrationRegistryV3Harness} from "./BackfillMigrationRegistryV3Harness.sol";
 import {LibOrchestratorInvariants, OrchestratorRoleMissing} from "../../src/lib/LibOrchestratorInvariants.sol";
@@ -66,7 +67,9 @@ contract BackfillMigrationRegistryV3Test is Test {
             LibMigrationRegistry.appliedOntoV3(safe, ns, LibStoxMigrations.ORCHESTRATOR_EMERGENCY),
             LibStoxMigrations.GOVERNANCE_TIMELOCK
         );
-        assertEq(LibStoxMigrations.head(safe), LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
+        bytes32 own = backfillMigrationRegistryV3Declaration().id;
+        assertTrue(LibStoxMigrations.applied(safe, own) != 0, "own record zero");
+        assertEq(LibMigrationRegistry.appliedOntoV3(safe, ns, own), LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
         assertEq(LibMigrationRegistry.headV3(safe, rbac), eu);
         assertEq(LibMigrationRegistry.appliedByV3(safe, ns, LibStoxMigrations.ORCHESTRATOR_EMERGENCY), safe);
         LibOrchestratorInvariants.assertInstance(safe);
@@ -80,13 +83,8 @@ contract BackfillMigrationRegistryV3Test is Test {
         if (LibStoxMigrations.head(safe) != MIGRATION_HEAD_GENESIS) {
             console2.log(string.concat("EXECUTED [", network, "]: asserting the backfilled state"));
             assertCarried(safe);
-            vm.expectRevert(
-                abi.encodeWithSelector(
-                    UnexpectedRegistryV3Line.selector,
-                    LibStoxMigrations.NAMESPACE,
-                    LibStoxMigrations.ORCHESTRATOR_EMERGENCY
-                )
-            );
+            // Selector only: a later recorded migration moves the head.
+            vm.expectPartialRevert(UnexpectedRegistryV3Line.selector);
             script.callPreflight();
             return;
         }
@@ -104,23 +102,17 @@ contract BackfillMigrationRegistryV3Test is Test {
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), txs);
 
         assertCarried(safe);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                UnexpectedRegistryV3Line.selector, LibStoxMigrations.NAMESPACE, LibStoxMigrations.ORCHESTRATOR_EMERGENCY
-            )
-        );
+        bytes32 own = backfillMigrationRegistryV3Declaration().id;
+        assertEq(LibStoxMigrations.applied(safe, own), block.timestamp, "own record moment");
+        assertEq(LibStoxMigrations.head(safe), own);
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedRegistryV3Line.selector, LibStoxMigrations.NAMESPACE, own));
         script.callPreflight();
     }
 
     function assertApplied(string memory network) internal {
         vm.createSelectFork(network);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
-        if (
-            LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0
-                || LibMigrationRegistry.appliedV3(
-                        safe, LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER
-                    ) == 0
-        ) {
+        if (LibStoxMigrations.applied(safe, backfillMigrationRegistryV3Declaration().id) == 0) {
             revert BackfillNotApplied(network);
         }
     }
@@ -359,6 +351,20 @@ contract BackfillMigrationRegistryV3Test is Test {
         script.callAssertPostState();
     }
 
+    function testPostStateRefusesOwnRecordFromAnotherBlock() external {
+        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        if (spent()) return;
+        executeBackfill(script, safe);
+        uint256 recordedAt = block.timestamp;
+        vm.warp(recordedAt + 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BackfillRecordMismatch.selector, backfillMigrationRegistryV3Declaration().id, recordedAt + 1, recordedAt
+            )
+        );
+        script.callAssertPostState();
+    }
+
     function testPostStateRefusesDeployLineMovedOn() external {
         (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
         if (spent()) return;
@@ -369,7 +375,7 @@ contract BackfillMigrationRegistryV3Test is Test {
             safe,
             LibStoxMigrations.NAMESPACE,
             other,
-            LibStoxMigrations.onto(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY)
+            LibStoxMigrations.onto(safe, backfillMigrationRegistryV3Declaration().id)
         );
         vm.expectRevert(abi.encodeWithSelector(UnexpectedRegistryV3Line.selector, LibStoxMigrations.NAMESPACE, other));
         script.callAssertPostState();

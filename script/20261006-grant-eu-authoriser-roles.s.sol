@@ -24,6 +24,8 @@ import {LibSafeTx, SafeTx} from "rain-deploy-0.1.21/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.21/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.21/src/lib/LibSafeTxBuilderJson.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
+import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
 /// @notice The EU authoriser clone is absent or carries the wrong code hash.
 /// @param clone The clone address inspected.
@@ -34,11 +36,30 @@ error EuAuthoriserNotDeployed(address clone);
 /// @param role The missing role.
 error SafeMissingRoleAdmin(address clone, bytes32 role);
 
+/// @notice This script's declaration: the Safe's first record in the RBAC
+/// namespace. Genesis, not the line's live head: a signed bundle names the
+/// state it was approved against, so another RBAC migration landing first must
+/// refuse this one rather than silently re-base onto it.
+/// @return The declaration.
+function grantEuAuthoriserRolesDeclaration() pure returns (ScriptDeclaration memory) {
+    return LibStoxMigrations.safeMigrationOnto(
+        LibRbacMigration.STOX_RBAC_NAMESPACE,
+        LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER,
+        MIGRATION_HEAD_GENESIS,
+        false
+    );
+}
+
 /// @title GrantEuAuthoriserRoles
 /// @notice Authors the Safe bundle that applies the pinned role map to the EU
 /// assets authoriser clone and hands governance to the timelock. Broadcasts
 /// nothing; writes Safe Tx Builder JSON and prints the MultiSend `SafeTxHash`.
-contract GrantEuAuthoriserRoles is Script {
+contract GrantEuAuthoriserRoles is Script, IStoxScript {
+    /// @inheritdoc IStoxScript
+    function declaration() external pure returns (ScriptDeclaration memory) {
+        return grantEuAuthoriserRolesDeclaration();
+    }
+
     string internal constant BUNDLE_NAME = "ST0x EU assets authoriser: role map and admin handover to the timelock";
 
     /// @notice Where the JSON is written, per chain.
@@ -100,24 +121,17 @@ contract GrantEuAuthoriserRoles is Script {
 
         txs = new SafeTx[](1 + grants.length + admins.length);
 
-        // Genesis, not the line's live head. A signed bundle names the state
-        // it was approved against, so another RBAC migration landing first
-        // must refuse this one rather than silently re-base onto it.
-        Prerequisite[] memory prerequisites = new Prerequisite[](1);
-        prerequisites[0] = Prerequisite({
-            writer: safe, namespace: LibRbacMigration.STOX_RBAC_NAMESPACE, migration: MIGRATION_HEAD_GENESIS
-        });
-
+        ScriptDeclaration memory declared = grantEuAuthoriserRolesDeclaration();
         txs[0] = SafeTx({
             to: LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
             value: 0,
             data: abi.encodeCall(
                 IMigrationRegistryV3.applyMigrationV3,
                 (
-                    safe,
-                    LibRbacMigration.STOX_RBAC_NAMESPACE,
-                    LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER,
-                    prerequisites
+                    LibStoxMigrations.writerFor(declared.writer, safe, timelock),
+                    declared.namespace,
+                    declared.id,
+                    LibStoxMigrations.prerequisitesFor(declared, safe, timelock)
                 )
             ),
             operation: Enum.Operation.Call

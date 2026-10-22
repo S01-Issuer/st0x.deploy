@@ -19,6 +19,10 @@ import {LibRbacMigration} from "../src/lib/LibRbacMigration.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
+import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {migrateGovernanceToTimelockDeclaration} from "./20260729-migrate-governance-to-timelock.s.sol";
+import {grantEuAuthoriserRolesDeclaration} from "./20261006-grant-eu-authoriser-roles.s.sol";
+import {grantOrchestratorEmergencyDeclaration} from "./20261006-grant-orchestrator-emergency.s.sol";
 
 /// @notice The code at the V2 registry address is not the frozen 0.1.18
 /// registry.
@@ -49,11 +53,24 @@ error GovernanceTimelockMomentMismatch(uint256 pinned, uint256 recorded);
 /// @param head The line's V3 head.
 error UnexpectedRegistryV3Line(bytes32 namespace, bytes32 head);
 
-/// @notice After the bundle, a V3 record differs from its V2 record.
+/// @notice After the bundle, a V3 record differs from the moment it must
+/// carry: its V2 moment, or this block for this script's own record.
 /// @param migration The record.
-/// @param expected The V2 moment.
+/// @param expected The moment it must carry.
 /// @param actual The V3 moment.
 error BackfillRecordMismatch(bytes32 migration, uint256 expected, uint256 actual);
+
+/// @notice This script's declaration: the Safe's record after the V2
+/// records it carries into V3.
+/// @return The declaration.
+function backfillMigrationRegistryV3Declaration() pure returns (ScriptDeclaration memory) {
+    return LibStoxMigrations.safeMigrationOnto(
+        LibStoxMigrations.NAMESPACE,
+        keccak256("script/20261022-backfill-migration-registry-v3.s.sol"),
+        grantOrchestratorEmergencyDeclaration().id,
+        false
+    );
+}
 
 /// @title BackfillMigrationRegistryV3
 /// @notice Authors the per-chain Safe Tx Builder bundle that carries the
@@ -63,6 +80,7 @@ error BackfillRecordMismatch(bytes32 migration, uint256 expected, uint256 actual
 /// 1. `st0x.deploy`: `GOVERNANCE_TIMELOCK` onto genesis.
 /// 2. `st0x.deploy`: `ORCHESTRATOR_EMERGENCY` onto `GOVERNANCE_TIMELOCK`.
 /// 3. `st0x.rbac`: `EU_AUTHORISER_GRANT_AND_HANDOVER` onto genesis.
+/// 4. `st0x.deploy`: this script's own record onto `ORCHESTRATOR_EMERGENCY`.
 ///
 /// Until it executes, every invariant that reads V3 answers "not applied"
 /// against a chain where the change is live, and fails.
@@ -70,7 +88,12 @@ error BackfillRecordMismatch(bytes32 migration, uint256 expected, uint256 actual
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261022-backfill-migration-registry-v3` per chain. Refuses once
 /// either V3 line has moved off genesis (`UnexpectedRegistryV3Line`).
-contract BackfillMigrationRegistryV3 is SafeBundleScript {
+contract BackfillMigrationRegistryV3 is SafeBundleScript, IStoxScript {
+    /// @inheritdoc IStoxScript
+    function declaration() external pure returns (ScriptDeclaration memory) {
+        return backfillMigrationRegistryV3Declaration();
+    }
+
     /// @inheritdoc SafeBundleScript
     function bundleName() internal pure override returns (string memory) {
         return "ST0x: backfill MigrationRegistry V3 from V2";
@@ -127,8 +150,11 @@ contract BackfillMigrationRegistryV3 is SafeBundleScript {
     }
 
     /// @inheritdoc SafeBundleScript
+    /// @dev The three V2 records as history at their V2 moments, each from
+    /// its own script's declaration, then this script's own record.
     function authorBundle() internal view override returns (SafeTx[] memory) {
         address chainSafe = address(safe());
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         (uint256 timelockAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
         uint256 emergencyAt = v2Moment(
             LibStoxMigrations.NAMESPACE, LibStoxMigrations.ORCHESTRATOR_EMERGENCY, LibStoxMigrations.GOVERNANCE_TIMELOCK
@@ -139,29 +165,17 @@ contract BackfillMigrationRegistryV3 is SafeBundleScript {
             MIGRATION_HEAD_GENESIS
         );
 
-        SafeTx[] memory txs = new SafeTx[](3);
-        (address to, bytes memory data) = LibStoxMigrations.applyMigrationHistoryCall(
-            chainSafe,
-            LibStoxMigrations.GOVERNANCE_TIMELOCK,
-            timelockAt,
-            LibStoxMigrations.onto(chainSafe, MIGRATION_HEAD_GENESIS)
-        );
+        SafeTx[] memory txs = new SafeTx[](4);
+        (address to, bytes memory data) =
+            LibStoxMigrations.historyCall(migrateGovernanceToTimelockDeclaration(), timelockAt, chainSafe, timelock);
         txs[0] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
-        (to, data) = LibStoxMigrations.applyMigrationHistoryCall(
-            chainSafe,
-            LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
-            emergencyAt,
-            LibStoxMigrations.onto(chainSafe, LibStoxMigrations.GOVERNANCE_TIMELOCK)
-        );
+        (to, data) =
+            LibStoxMigrations.historyCall(grantOrchestratorEmergencyDeclaration(), emergencyAt, chainSafe, timelock);
         txs[1] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
-        (to, data) = LibMigrationRegistry.applyMigrationHistoryV3Call(
-            chainSafe,
-            LibRbacMigration.STOX_RBAC_NAMESPACE,
-            LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER,
-            euAt,
-            LibMigrationRegistry.onto(chainSafe, LibRbacMigration.STOX_RBAC_NAMESPACE, MIGRATION_HEAD_GENESIS)
-        );
+        (to, data) = LibStoxMigrations.historyCall(grantEuAuthoriserRolesDeclaration(), euAt, chainSafe, timelock);
         txs[2] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
+        (to, data) = LibStoxMigrations.recordCall(backfillMigrationRegistryV3Declaration(), chainSafe, timelock);
+        txs[3] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
         return txs;
     }
 
@@ -175,15 +189,23 @@ contract BackfillMigrationRegistryV3 is SafeBundleScript {
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev Every V3 record equals its V2 record, both V3 heads equal the V2
-    /// heads, and the orchestrator invariant holds against V3.
+    /// @dev Every carried V3 record equals its V2 record, this script's record
+    /// carries this block and heads the deploy line, the rbac head equals the
+    /// V2 head, and the orchestrator invariant holds against V3.
     function assertPostState() internal view override {
         address chainSafe = address(safe());
         assertCarried(LibStoxMigrations.NAMESPACE, LibStoxMigrations.GOVERNANCE_TIMELOCK);
         assertCarried(LibStoxMigrations.NAMESPACE, LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
         assertCarried(LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER);
+        bytes32 own = backfillMigrationRegistryV3Declaration().id;
+        uint256 ownAt = LibStoxMigrations.applied(chainSafe, own);
+        // forge-lint: disable-next-line(block-timestamp)
+        if (ownAt != block.timestamp) {
+            // forge-lint: disable-next-line(block-timestamp)
+            revert BackfillRecordMismatch(own, block.timestamp, ownAt);
+        }
         bytes32 deployHead = LibStoxMigrations.head(chainSafe);
-        if (deployHead != LibStoxMigrations.ORCHESTRATOR_EMERGENCY) {
+        if (deployHead != own) {
             revert UnexpectedRegistryV3Line(LibStoxMigrations.NAMESPACE, deployHead);
         }
         bytes32 rbacHead = LibMigrationRegistry.headV3(chainSafe, LibRbacMigration.STOX_RBAC_NAMESPACE);
