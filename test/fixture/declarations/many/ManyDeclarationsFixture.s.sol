@@ -5,15 +5,15 @@ pragma solidity =0.8.25;
 import {IStoxScript, ScriptDeclaration} from "../../../../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../../../../src/lib/LibStoxMigrations.sol";
 
-/// @dev One of two contracts in one file that declare themselves.
-contract ManyDeclarationsFixtureA is IStoxScript {
+/// @dev A library in the same file that also answers `declaration()`.
+library LibManyDeclarationsFixture {
     function declaration() external pure returns (ScriptDeclaration memory) {
         return LibStoxMigrations.notAMigration();
     }
 }
 
-/// @dev The other.
-contract ManyDeclarationsFixtureB is IStoxScript {
+/// @dev A script whose file holds a second declaring artifact.
+contract ManyDeclarationsFixture is IStoxScript {
     function declaration() external pure returns (ScriptDeclaration memory) {
         return LibStoxMigrations.notAMigration();
     }

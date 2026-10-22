@@ -20,7 +20,7 @@ import {OrchestratorAdminToTimelock} from "../../script/20261006-orchestrator-ad
 import {MigrateMultisigThreshold} from "../../script/20260619-migrate-multisig-threshold.s.sol";
 import {InvalidDeclarationFixture} from "../fixture/declarations/invalid/InvalidDeclarationFixture.s.sol";
 import {UndeclaredScriptFixture} from "../fixture/declarations/undeclared/UndeclaredScriptFixture.s.sol";
-import {ManyDeclarationsFixtureA} from "../fixture/declarations/many/ManyDeclarationsFixture.s.sol";
+import {ManyDeclarationsFixture} from "../fixture/declarations/many/ManyDeclarationsFixture.s.sol";
 import {ValidDeclarationFixture} from "../fixture/declarations/valid/ValidDeclarationFixture.s.sol";
 import {ASafeLineFixture} from "../fixture/declarations/timelock/ASafeLineFixture.s.sol";
 import {BTimelockLineFirstFixture} from "../fixture/declarations/timelock/BTimelockLineFirstFixture.s.sol";
