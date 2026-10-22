@@ -19,10 +19,14 @@ enum ContractKind {
   ORCHESTRATOR
   "An `UpgradeableBeacon` — `Ownable`, and the only kind that emits `Upgraded`."
   BEACON
-  "An `OffchainAssetReceiptVault` beacon proxy — `Ownable`, discovered from its deployer."
+  "An `OffchainAssetReceiptVault` beacon proxy — `Ownable`, discovered from a beacon-set deployer or from the clone factory's `NewBeaconProxy` over the chain's receipt-vault beacon."
   RECEIPT_VAULT
   "The chain's token-owner `Safe` 1.4.1 proxy — its owners and threshold govern every privileged surface the timelock does not."
   TOKEN_OWNER_SAFE
+  "The chain's `ConfigRegistry` — name bindings under authorities, and their delegates."
+  CONFIG_REGISTRY
+  "The chain's `MigrationRegistry` — migration lines under writers, and their delegates."
+  MIGRATION_REGISTRY
 }
 
 """
@@ -399,6 +403,174 @@ type SafeOwnerChange @entity(immutable: true) {
   added: Boolean!
   "True for an owner `SafeSetup` set at creation."
   setup: Boolean!
+  "Block the log was emitted in."
+  blockNumber: BigInt!
+  "Timestamp of that block."
+  blockTimestamp: BigInt!
+  "Hash of the transaction the log was emitted in."
+  transactionHash: Bytes!
+  "The EOA or account that submitted the transaction."
+  transactionFrom: Bytes!
+  "Index of the log within its block."
+  logIndex: BigInt!
+}
+
+"""
+One name bound under one authority in the chain's `ConfigRegistry`, at its
+current value. Created by the first `Register` for the pair. The registry has no
+unbind, so a row never goes away, and every later `Register` replaces `value`.
+
+Every authority's bindings are indexed, not only st0x's: the registry is one
+shared contract and `Register` is the only way to discover a binding. Filter on
+`authority` for the one a consumer trusts.
+"""
+type ConfigBinding @entity {
+  "`registry` address ++ `authority` ++ the `bytes32` name."
+  id: Bytes!
+  "The `ConfigRegistry`."
+  registry: Contract!
+  "The authority the name is bound under."
+  authority: Bytes!
+  "The raw `bytes32` name, as emitted. Hash a label to match it, as for `Role.role`."
+  name: Bytes!
+  "The value the most recent `Register` bound, byte for byte. Its encoding is agreed between the authority and its readers."
+  value: Bytes!
+  "That `Register`'s `sender`: the authority, or a delegate it approved for `name`."
+  sender: Bytes!
+  "Block of that `Register`."
+  boundAtBlock: BigInt!
+  "Timestamp of that block. This is the moment `getV2` answers for the binding."
+  boundAtTimestamp: BigInt!
+  "How many `Register` logs have bound the name under the authority, the first included."
+  registerCount: Int!
+  "Every `Register` of the name under the authority, unordered: sort by `blockNumber` then `logIndex`."
+  registers: [ConfigRegister!]! @derivedFrom(field: "binding")
+}
+
+"One `Register` log."
+type ConfigRegister @entity(immutable: true) {
+  "Transaction hash ++ log index."
+  id: Bytes!
+  "The binding it wrote."
+  binding: ConfigBinding!
+  "The account that called `registerV2`: the authority or a delegate."
+  sender: Bytes!
+  "The value bound."
+  value: Bytes!
+  "Block the log was emitted in."
+  blockNumber: BigInt!
+  "Timestamp of that block."
+  blockTimestamp: BigInt!
+  "Hash of the transaction the log was emitted in."
+  transactionHash: Bytes!
+  "The EOA or account that submitted the transaction."
+  transactionFrom: Bytes!
+  "Index of the log within its block."
+  logIndex: BigInt!
+}
+
+"""
+One delegate an account has approved or revoked within one scope of a registry:
+a name under a `ConfigRegistry` authority, or a namespace under a
+`MigrationRegistry` writer. Created by the first `Approved` or `Revoked` naming
+the triple and kept after a revoke, with `approved` false.
+
+The registries emit `Approved` again for an approval that already stands and
+`Revoked` for one that never did, so neither log says the state moved; `approved`
+is the state after the most recent of them.
+"""
+type RegistryDelegate @entity {
+  "`registry` address ++ `account` ++ the `bytes32` scope ++ `delegate`."
+  id: Bytes!
+  "The registry the approval is held in. Its `kind` says whether `scope` is a name or a namespace."
+  registry: Contract!
+  "The approving account: the `ConfigRegistry` authority or the `MigrationRegistry` writer. The events' `sender`."
+  account: Bytes!
+  "The name (`ConfigRegistry`) or namespace (`MigrationRegistry`) the approval covers."
+  scope: Bytes!
+  "The approved account."
+  delegate: Bytes!
+  "Whether `delegate` may write under `account` within `scope` right now."
+  approved: Boolean!
+  "Block of the most recent `Approved`, null if never approved."
+  approvedAtBlock: BigInt
+  "Timestamp of that block."
+  approvedAtTimestamp: BigInt
+  "Block of the most recent `Revoked`, null if never revoked."
+  revokedAtBlock: BigInt
+  "Timestamp of that block."
+  revokedAtTimestamp: BigInt
+  "Every `Approved` and `Revoked` for the triple, unordered: sort by `blockNumber` then `logIndex`."
+  changes: [RegistryDelegateChange!]! @derivedFrom(field: "registryDelegate")
+}
+
+"One `Approved` or `Revoked` log from a registry."
+type RegistryDelegateChange @entity(immutable: true) {
+  "Transaction hash ++ log index."
+  id: Bytes!
+  "The approval it moved."
+  registryDelegate: RegistryDelegate!
+  "True for `Approved`, false for `Revoked`."
+  approved: Boolean!
+  "Block the log was emitted in."
+  blockNumber: BigInt!
+  "Timestamp of that block."
+  blockTimestamp: BigInt!
+  "Hash of the transaction the log was emitted in."
+  transactionHash: Bytes!
+  "The EOA or account that submitted the transaction. Differs from `account` when the account is a Safe or timelock."
+  transactionFrom: Bytes!
+  "Index of the log within its block."
+  logIndex: BigInt!
+}
+
+"""
+One writer's line in one namespace of the chain's `MigrationRegistry`. Created
+by its first `Migrated`. A migration is applied at most once per line and never
+unrecorded, so the line's records in log order are its whole history and each
+record's migration is the head the next was applied onto.
+
+Every writer's lines are indexed: `Migrated` is the only way to discover one.
+Filter on `writer` and `namespace` for the line a consumer reads.
+"""
+type MigrationLine @entity {
+  "`registry` address ++ `writer` ++ the `bytes32` namespace."
+  id: Bytes!
+  "The `MigrationRegistry`."
+  registry: Contract!
+  "The line's writer."
+  writer: Bytes!
+  "The raw `bytes32` namespace, as emitted."
+  namespace: Bytes!
+  "The line's head: the migration of its most recent record. `headV3` answers the same."
+  head: Bytes!
+  "The record `head` comes from."
+  headRecord: MigrationRecord!
+  "How many records the line holds."
+  recordCount: Int!
+  "Every record. Order on `index` for line order."
+  records: [MigrationRecord!]! @derivedFrom(field: "line")
+}
+
+"""
+One `Migrated` log: a migration recorded in a line, by `applyMigrationV3` or
+`applyMigrationHistoryV3`. The log does not say which.
+"""
+type MigrationRecord @entity(immutable: true) {
+  "Transaction hash ++ log index."
+  id: Bytes!
+  "The line it was recorded in."
+  line: MigrationLine!
+  "Its position in the line, from zero."
+  index: Int!
+  "The raw `bytes32` migration id, as emitted."
+  migration: Bytes!
+  "The head it was applied onto: the previous record's migration, or `MIGRATION_HEAD_GENESIS` for the first."
+  appliedOnto: Bytes!
+  "The moment recorded against it, as emitted: when the migration ran, not when it was written down."
+  appliedAt: BigInt!
+  "The account that called: the writer or a delegate it approved for the namespace."
+  sender: Bytes!
   "Block the log was emitted in."
   blockNumber: BigInt!
   "Timestamp of that block."

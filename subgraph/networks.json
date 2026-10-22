@@ -31,6 +31,18 @@
     "TokenOwnerSafe": {
       "address": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611",
       "startBlock": 32935263
+    },
+    "ConfigRegistry": {
+      "address": "0xF726114632EF8529734d64A9D028d31F07E91f09",
+      "startBlock": 52903669
+    },
+    "MigrationRegistry": {
+      "address": "0x4B2ca6f3629Cddc0eAC884443c5DA8Ba02cd9A1b",
+      "startBlock": 52903669
+    },
+    "CloneFactory": {
+      "address": "0xdA3F8841B3F6640AB623050fBBA9baDc0ccd11B0",
+      "startBlock": 52895056
     }
   },
   "mainnet": {
@@ -65,6 +77,18 @@
     "TokenOwnerSafe": {
       "address": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
       "startBlock": 25546317
+    },
+    "ConfigRegistry": {
+      "address": "0xF726114632EF8529734d64A9D028d31F07E91f09",
+      "startBlock": 26241886
+    },
+    "MigrationRegistry": {
+      "address": "0x4B2ca6f3629Cddc0eAC884443c5DA8Ba02cd9A1b",
+      "startBlock": 26241886
+    },
+    "CloneFactory": {
+      "address": "0xdA3F8841B3F6640AB623050fBBA9baDc0ccd11B0",
+      "startBlock": 26240455
     }
   },
   "hyperevm": {
@@ -99,6 +123,18 @@
     "TokenOwnerSafe": {
       "address": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
       "startBlock": 41251257
+    },
+    "ConfigRegistry": {
+      "address": "0xF726114632EF8529734d64A9D028d31F07E91f09",
+      "startBlock": 49145679
+    },
+    "MigrationRegistry": {
+      "address": "0x4B2ca6f3629Cddc0eAC884443c5DA8Ba02cd9A1b",
+      "startBlock": 49145679
+    },
+    "CloneFactory": {
+      "address": "0xdA3F8841B3F6640AB623050fBBA9baDc0ccd11B0",
+      "startBlock": 49128166
     }
   },
   "robinhood": {
@@ -133,6 +169,18 @@
     "TokenOwnerSafe": {
       "address": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
       "startBlock": 59607621
+    },
+    "ConfigRegistry": {
+      "address": "0xF726114632EF8529734d64A9D028d31F07E91f09",
+      "startBlock": 94388530
+    },
+    "MigrationRegistry": {
+      "address": "0x4B2ca6f3629Cddc0eAC884443c5DA8Ba02cd9A1b",
+      "startBlock": 94388530
+    },
+    "CloneFactory": {
+      "address": "0xdA3F8841B3F6640AB623050fBBA9baDc0ccd11B0",
+      "startBlock": 94221930
     }
   },
   "bsc": {
@@ -167,6 +215,18 @@
     "TokenOwnerSafe": {
       "address": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
       "startBlock": 0
+    },
+    "ConfigRegistry": {
+      "address": "0xF726114632EF8529734d64A9D028d31F07E91f09",
+      "startBlock": 128962452
+    },
+    "MigrationRegistry": {
+      "address": "0x4B2ca6f3629Cddc0eAC884443c5DA8Ba02cd9A1b",
+      "startBlock": 128962452
+    },
+    "CloneFactory": {
+      "address": "0xdA3F8841B3F6640AB623050fBBA9baDc0ccd11B0",
+      "startBlock": 128924185
     }
   }
 }
