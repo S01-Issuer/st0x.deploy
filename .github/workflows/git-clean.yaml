@@ -15,8 +15,8 @@ jobs:
       - name: Install soldeer dependencies
         if: hashFiles('soldeer.lock') != ''
         run: nix develop github:rainlanguage/rainix#sol-shell -c forge soldeer install
-      - name: Regenerate pointer artifacts + deploy libs
-        run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildPointers.sol
+      - name: Regenerate snapshots + deploy libs
+        run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/Build.sol
       - name: Regenerate ideal-roles.json
         run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildIdealRoles.sol
       - name: Format
@@ -24,6 +24,6 @@ jobs:
       - name: Assert committed artifacts match freshly built
         run: |
           if ! git diff --exit-code; then
-            echo "::error::Committed pointer artifacts are stale. Regenerate and commit."
+            echo "::error::Committed generated artifacts are stale. Regenerate and commit."
             exit 1
           fi

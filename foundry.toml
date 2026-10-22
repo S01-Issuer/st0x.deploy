@@ -1,11 +1,10 @@
-# Soldeer package identity. `version` here is the NEXT, in-development release —
-# the version this branch's work generates into `src/generated/<tag>/` and
-# deploys (see issue #244). On merge, `rainix-autopublish` publishes this version
-# and bumps to the next, regenerating the deploy libs so the bump commit is born
-# clean. So this holds the next unpublished version, not the last published one.
-[package]
+# Release metadata, not foundry config: `[external.*]` is the section foundry
+# reserves for another tool's config and never merges into a profile.
+[external.package]
 name = "st0x-deploy"
-version = "0.1.30"
+# Deploy repo: the last released version. Only a release moves it, in lockstep
+# with the frozen `src/generated/<tag>/` snapshot it names.
+version = "0.1.31"
 
 [profile.default]
 libs = ['dependencies']
@@ -28,8 +27,8 @@ cbor_metadata = false
 
 fs_permissions = [
   { access = "read-write", path = "src/generated" },
-  # `BuildPointers` reads the canonical release version from `[package].version`
-  # here to name the `src/generated/<tag>/` snapshot and generate the deploy tag.
+  # `Build.cutRelease()` reads `[external.package].version` to name the frozen
+  # `src/generated/<tag>/` snapshot.
   { access = "read", path = "foundry.toml" },
   # `out` is needed by the RAI-296 multisig migration script and its tests:
   # the script writes the Safe Tx Builder JSON artifact under `out/`, and
