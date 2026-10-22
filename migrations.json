@@ -7,6 +7,68 @@
           "executedAt": 0,
           "prerequisites": [
             {
+              "id": "0xc7ca31d8bad60b109d563261ebc10b31efe19279adeef695ff811d145187943c",
+              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+              "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+            }
+          ],
+          "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+        },
+        "4663": {
+          "executedAt": 0,
+          "prerequisites": [
+            {
+              "id": "0xc7ca31d8bad60b109d563261ebc10b31efe19279adeef695ff811d145187943c",
+              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+              "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+            }
+          ],
+          "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+        },
+        "56": {
+          "executedAt": 0,
+          "prerequisites": [
+            {
+              "id": "0xc7ca31d8bad60b109d563261ebc10b31efe19279adeef695ff811d145187943c",
+              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+              "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+            }
+          ],
+          "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+        },
+        "8453": {
+          "executedAt": 0,
+          "prerequisites": [
+            {
+              "id": "0xc7ca31d8bad60b109d563261ebc10b31efe19279adeef695ff811d145187943c",
+              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+              "writer": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611"
+            }
+          ],
+          "writer": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611"
+        },
+        "999": {
+          "executedAt": 0,
+          "prerequisites": [
+            {
+              "id": "0xc7ca31d8bad60b109d563261ebc10b31efe19279adeef695ff811d145187943c",
+              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+              "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+            }
+          ],
+          "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+        }
+      },
+      "id": "0x68847439065e76f168f14737cda7cb7f920f30021cc88a737633db6d7ca3c543",
+      "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+      "script": "script/20260619-migrate-multisig-threshold.s.sol"
+    },
+    {
+      "chains": {
+        "1": {
+          "executedAt": 0,
+          "prerequisites": [
+            {
               "id": "0xdf1d7890b98737bae0df512744c6d6e9af57d6eafb71a5990d6dd43829b85651",
               "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
               "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
@@ -682,68 +744,6 @@
       "id": "0xdf1d7890b98737bae0df512744c6d6e9af57d6eafb71a5990d6dd43829b85651",
       "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
       "script": "script/20261006-orchestrator-admin-to-timelock.s.sol"
-    },
-    {
-      "chains": {
-        "1": {
-          "executedAt": 0,
-          "prerequisites": [
-            {
-              "id": "0xc7ca31d8bad60b109d563261ebc10b31efe19279adeef695ff811d145187943c",
-              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
-              "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
-            }
-          ],
-          "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
-        },
-        "4663": {
-          "executedAt": 0,
-          "prerequisites": [
-            {
-              "id": "0xc7ca31d8bad60b109d563261ebc10b31efe19279adeef695ff811d145187943c",
-              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
-              "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
-            }
-          ],
-          "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
-        },
-        "56": {
-          "executedAt": 0,
-          "prerequisites": [
-            {
-              "id": "0xc7ca31d8bad60b109d563261ebc10b31efe19279adeef695ff811d145187943c",
-              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
-              "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
-            }
-          ],
-          "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
-        },
-        "8453": {
-          "executedAt": 0,
-          "prerequisites": [
-            {
-              "id": "0xc7ca31d8bad60b109d563261ebc10b31efe19279adeef695ff811d145187943c",
-              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
-              "writer": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611"
-            }
-          ],
-          "writer": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611"
-        },
-        "999": {
-          "executedAt": 0,
-          "prerequisites": [
-            {
-              "id": "0xc7ca31d8bad60b109d563261ebc10b31efe19279adeef695ff811d145187943c",
-              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
-              "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
-            }
-          ],
-          "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
-        }
-      },
-      "id": "0x69068c8374ab2db093315bd8143134206f37bca5e0ba730d3d118ff0b9a63d83",
-      "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
-      "script": "script/MigrateMultisigThreshold.s.sol"
     }
   ],
   "networks": {

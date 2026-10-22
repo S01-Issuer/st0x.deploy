@@ -38,7 +38,7 @@ error VerifyExpectedSingleTx(uint256 actualCount);
 function migrateMultisigThresholdDeclaration() pure returns (ScriptDeclaration memory) {
     return LibStoxMigrations.safeMigrationOnto(
         LibStoxMigrations.NAMESPACE,
-        keccak256("script/MigrateMultisigThreshold.s.sol"),
+        keccak256("script/20260619-migrate-multisig-threshold.s.sol"),
         keccak256("script/20261006-deploy-eu-authoriser.s.sol"),
         false
     );
