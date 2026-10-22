@@ -200,7 +200,7 @@ contract LibStoxMigrationsDeclarationsTest is Test {
     /// Each one's fix deletes its entry here.
     function unrecorded(string memory path) internal pure returns (bool) {
         bytes32 key = keccak256(bytes(path));
-        return key == keccak256("script/MigrateMultisigThreshold.s.sol")
+        return key == keccak256("script/20260619-migrate-multisig-threshold.s.sol")
             || key == keccak256("script/20260831-retire-direct-signer-roles.s.sol");
     }
 
