@@ -58,4 +58,15 @@ library LibProdBeaconsBase {
             LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30
         ];
     }
+
+    /// @notice The V1 implementation each beacon served before the 0.1.1 upgrade, index-aligned with `beacons()`; none for the orchestrator.
+    /// @return The four V1 implementation addresses.
+    function v1Implementations() internal pure returns (address[4] memory) {
+        return [
+            LibProdDeployV1.STOX_RECEIPT_IMPLEMENTATION,
+            LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION,
+            LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION,
+            address(0)
+        ];
+    }
 }
