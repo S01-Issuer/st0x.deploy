@@ -38,6 +38,11 @@ error RecordMismatch(bytes32 migration, uint256 expected, uint256 actual);
 /// @param head The line's head.
 error LineHeadMismatch(bytes32 head);
 
+/// @notice `holder` does not hold `role` on the orchestrator.
+/// @param role The role.
+/// @param holder The address that must hold it.
+error RoleNotHeld(bytes32 role, address holder);
+
 /// @notice After the move, the Safe's direct grant on the orchestrator did
 /// not revert for lacking `DEFAULT_ADMIN_ROLE`.
 /// @param success Whether the grant went through.
@@ -162,7 +167,7 @@ contract OrchestratorAdminToTimelock is SafeBundleScript {
     /// @inheritdoc SafeBundleScript
     /// @dev The Safe, the timelock and the orchestrator are what this repo
     /// pins, the Safe's registry line is at the EMERGENCY grant, and the
-    /// orchestrator carries what that record implies: Safe EMERGENCY.
+    /// Safe holds `EMERGENCY_ROLE`.
     function preflight() internal view override {
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);
@@ -172,7 +177,17 @@ contract OrchestratorAdminToTimelock is SafeBundleScript {
         if (head != LibStoxMigrations.ORCHESTRATOR_EMERGENCY) {
             revert UnexpectedMigrationLine(head);
         }
-        LibOrchestratorInvariants.assertInstance(chainSafe);
+        assertHolds(ORCHESTRATOR.EMERGENCY_ROLE(), chainSafe);
+        LibOrchestratorInvariants.assertInstance();
+    }
+
+    /// @notice Revert unless `holder` holds `role` on the orchestrator.
+    /// @param role The role.
+    /// @param holder The address that must hold it.
+    function assertHolds(bytes32 role, address holder) internal view {
+        if (!ORCHESTRATOR.hasRole(role, holder)) {
+            revert RoleNotHeld(role, holder);
+        }
     }
 
     /// @inheritdoc SafeBundleScript
@@ -201,8 +216,9 @@ contract OrchestratorAdminToTimelock is SafeBundleScript {
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev The record is this bundle's, the orchestrator's roles are what it
-    /// implies, and the Safe still carries the token-owner policy.
+    /// @dev The record is this bundle's, the timelock holds
+    /// `DEFAULT_ADMIN_ROLE`, the Safe holds `EMERGENCY_ROLE`, and the Safe
+    /// still carries the token-owner policy.
     function assertPostState() internal view override {
         address chainSafe = address(safe());
         // The registry stamps the block the record lands in, which on the
@@ -217,7 +233,9 @@ contract OrchestratorAdminToTimelock is SafeBundleScript {
         if (head != LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) {
             revert LineHeadMismatch(head);
         }
-        LibOrchestratorInvariants.assertInstance(chainSafe);
+        assertHolds(bytes32(0), timelock());
+        assertHolds(ORCHESTRATOR.EMERGENCY_ROLE(), chainSafe);
+        LibOrchestratorInvariants.assertInstance();
         LibSafeInvariants.assertTokenOwnerSafePolicy(safe());
     }
 

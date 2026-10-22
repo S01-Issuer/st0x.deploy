@@ -43,6 +43,9 @@ error LineHeadMismatch(bytes32 head);
 /// holds `EMERGENCY_ROLE`.
 error EmergencyNotRevoked();
 
+/// @notice After the bundle, the Safe does not hold `EMERGENCY_ROLE`.
+error EmergencyNotGranted();
+
 /// @title GrantOrchestratorEmergency
 /// @notice Authors the per-chain Safe Tx Builder bundle that grants the
 /// chain's token-owner Safe `EMERGENCY_ROLE` on the orchestrator, and starts
@@ -62,9 +65,6 @@ error EmergencyNotRevoked();
 /// `EMERGENCY_ROLE` is administered by `DEFAULT_ADMIN_ROLE`, which the Safe
 /// holds, so the grant is immediate. The admin move to the timelock is
 /// `20261006-orchestrator-admin-to-timelock`, which waits on this record.
-///
-/// `LibOrchestratorInvariants.assertInstance` reads the record: once it is
-/// recorded, the Safe must hold `EMERGENCY_ROLE`.
 ///
 /// `run()` and `verify()` are `SafeBundleScript`'s: `run()` executes the
 /// bundle through the Safe on the fork, requires the post-state, proves the
@@ -114,7 +114,7 @@ contract GrantOrchestratorEmergency is SafeBundleScript {
         if (ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), chainSafe)) {
             revert EmergencyAlreadyGranted();
         }
-        LibOrchestratorInvariants.assertInstance(chainSafe);
+        LibOrchestratorInvariants.assertInstance();
     }
 
     /// @inheritdoc SafeBundleScript
@@ -143,9 +143,8 @@ contract GrantOrchestratorEmergency is SafeBundleScript {
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev The records are exactly the two this bundle writes, the
-    /// orchestrator's roles are what they imply, and the Safe still carries the
-    /// token-owner policy.
+    /// @dev The records are exactly the two this bundle writes, the Safe holds
+    /// `EMERGENCY_ROLE`, and the Safe still carries the token-owner policy.
     function assertPostState() internal view override {
         address chainSafe = address(safe());
         (uint256 executedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
@@ -165,17 +164,16 @@ contract GrantOrchestratorEmergency is SafeBundleScript {
         if (head != LibStoxMigrations.ORCHESTRATOR_EMERGENCY) {
             revert LineHeadMismatch(head);
         }
-        LibOrchestratorInvariants.assertInstance(chainSafe);
+        if (!ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), chainSafe)) {
+            revert EmergencyNotGranted();
+        }
+        LibOrchestratorInvariants.assertInstance();
         LibSafeInvariants.assertTokenOwnerSafePolicy(safe());
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev The Safe can still revoke the role under the live threshold. The
-    /// registry record is permanent, so a real revoke must ship with its own
-    /// recorded migration (and a matching branch in
-    /// `LibOrchestratorInvariants.assertInstance`), or every later
-    /// `assertInstance` caller reverts. Re-grants so the fork ends in the
-    /// post-bundle state.
+    /// @dev The Safe can still revoke the role under the live threshold.
+    /// Re-grants so the fork ends in the post-bundle state.
     function assertReversible() internal override {
         Safe chainSafe = safe();
         bytes32 emergencyRole = ORCHESTRATOR.EMERGENCY_ROLE();

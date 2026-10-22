@@ -43,7 +43,7 @@ contract GrantOrchestratorEmergencyTest is Test {
 
         if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) != 0) {
             console2.log(string.concat("EXECUTED [", network, "]: asserting the post-grant state"));
-            LibOrchestratorInvariants.assertInstance(safe);
+            LibOrchestratorInvariants.assertInstance();
             assertTrue(ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), safe));
             (uint256 timelockMigratedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
             assertEq(LibStoxMigrations.applied(safe, LibStoxMigrations.GOVERNANCE_TIMELOCK), timelockMigratedAt);
@@ -72,7 +72,7 @@ contract GrantOrchestratorEmergencyTest is Test {
         (uint256 executedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
         assertEq(LibStoxMigrations.applied(safe, LibStoxMigrations.GOVERNANCE_TIMELOCK), executedAt);
         assertEq(LibStoxMigrations.head(safe), LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
-        LibOrchestratorInvariants.assertInstance(safe);
+        LibOrchestratorInvariants.assertInstance();
 
         vm.expectRevert(
             abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.ORCHESTRATOR_EMERGENCY)
