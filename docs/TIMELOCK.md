@@ -69,11 +69,13 @@ Each admin role administers its operating role and itself, so
 the only way a first holder is seated, and losing every holder of one takes a
 beacon upgrade to recover.
 
-Bootstrapping is a timelock bundle per chain: deploy the implementation and the
-beacon-set deployer, `deploy()` the instance, then schedule the weighting, the
-limits, the operating-role grants and the instance's `DEPOSIT`/`WITHDRAW` grants
-on each vault authoriser (made by whichever principal holds `DEPOSIT_ADMIN` /
-`WITHDRAW_ADMIN` there: the timelock once the governance migration has run).
+Bootstrapping is `script/20261011-bootstrap-mint-caps-orchestrator.s.sol`, a
+Safe bundle per chain: deploy the implementation and the beacon-set deployer,
+`deploy()` the instance, then schedule one timelock batch with the weighting,
+the limits, the operating-role grants and the timelock's registry record. The
+instance's `DEPOSIT`/`WITHDRAW` grants on the vault authoriser are made by
+whichever principal holds `DEPOSIT_ADMIN` / `WITHDRAW_ADMIN` there: directly by
+the Safe, or in the batch once the timelock holds them.
 
 ## Role model
 

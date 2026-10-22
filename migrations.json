@@ -751,6 +751,68 @@
           "executedAt": 0,
           "prerequisites": [
             {
+              "id": "0xd85a7f14bb19a07649810ac09029cc9c29667e4059cb83e258bc52e213365d3f",
+              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+              "writer": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B"
+            }
+          ],
+          "writer": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B"
+        },
+        "4663": {
+          "executedAt": 0,
+          "prerequisites": [
+            {
+              "id": "0xd85a7f14bb19a07649810ac09029cc9c29667e4059cb83e258bc52e213365d3f",
+              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+              "writer": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B"
+            }
+          ],
+          "writer": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B"
+        },
+        "56": {
+          "executedAt": 0,
+          "prerequisites": [
+            {
+              "id": "0xd85a7f14bb19a07649810ac09029cc9c29667e4059cb83e258bc52e213365d3f",
+              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+              "writer": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B"
+            }
+          ],
+          "writer": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B"
+        },
+        "8453": {
+          "executedAt": 0,
+          "prerequisites": [
+            {
+              "id": "0xd85a7f14bb19a07649810ac09029cc9c29667e4059cb83e258bc52e213365d3f",
+              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+              "writer": "0x48ba1371A78E6cC54157c63721756ab444510DB3"
+            }
+          ],
+          "writer": "0x48ba1371A78E6cC54157c63721756ab444510DB3"
+        },
+        "999": {
+          "executedAt": 0,
+          "prerequisites": [
+            {
+              "id": "0xd85a7f14bb19a07649810ac09029cc9c29667e4059cb83e258bc52e213365d3f",
+              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+              "writer": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B"
+            }
+          ],
+          "writer": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B"
+        }
+      },
+      "id": "0x175e69363bb510718f8d9329e9249164b7f0e30083693c39b90d61e08539f8a6",
+      "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+      "script": "script/20261011-bootstrap-mint-caps-orchestrator.s.sol"
+    },
+    {
+      "chains": {
+        "1": {
+          "executedAt": 0,
+          "prerequisites": [
+            {
               "id": "0xc7ca31d8bad60b109d563261ebc10b31efe19279adeef695ff811d145187943c",
               "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
               "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"

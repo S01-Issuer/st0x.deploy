@@ -37,6 +37,11 @@ import {BackfillHistoryHarness} from "../../script/BackfillHistoryHarness.sol";
 import {BackfillMigrationRegistryV3Harness} from "../../script/BackfillMigrationRegistryV3Harness.sol";
 import {backfillMigrationRegistryV3Declaration} from "../../../script/20261022-backfill-migration-registry-v3.s.sol";
 import {OrchestratorAdminToTimelockHarness} from "../../script/OrchestratorAdminToTimelockHarness.sol";
+import {BootstrapMintCapsOrchestratorHarness} from "../../script/BootstrapMintCapsOrchestratorHarness.sol";
+import {Float} from "rain-math-float-0.3.10/src/lib/LibDecimalFloat.sol";
+import {EvaluableV4} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
+import {IInterpreterV4} from "rainlang-interface-0.2.13/src/interface/IInterpreterV4.sol";
+import {IInterpreterStoreV3} from "rainlang-interface-0.2.13/src/interface/IInterpreterStoreV3.sol";
 
 struct RegistryWrite {
     address writer;
@@ -152,6 +157,20 @@ contract LibStoxMigrationsDeclarationsTest is Test {
         (targets,, payloads,,,) = abi.decode(data[4:], (address[], uint256[], bytes[], bytes32, bytes32, uint256));
     }
 
+    function bootstrapBundle() internal returns (SafeTx[] memory) {
+        BootstrapMintCapsOrchestratorHarness bootstrap = new BootstrapMintCapsOrchestratorHarness();
+        bootstrap.configure(
+            EvaluableV4({
+                interpreter: IInterpreterV4(address(0x1)), store: IInterpreterStoreV3(address(0x2)), bytecode: hex"00"
+            }),
+            address(0xA11CE),
+            address(0xB0B),
+            Float.wrap(0),
+            Float.wrap(0)
+        );
+        return bootstrap.callAuthorBundle();
+    }
+
     /// @dev Every registry call in the bundles that write this repo's records:
     /// the Safe's own calls, and the calls inside a batch the Safe schedules
     /// on the timelock, which the timelock makes. Each names its sender as the
@@ -160,13 +179,14 @@ contract LibStoxMigrationsDeclarationsTest is Test {
     function bundleWrites(string memory network) internal returns (RegistryWrite[] memory) {
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        SafeTx[][5] memory bundles = [
+        SafeTx[][6] memory bundles = [
             new GrantOrchestratorEmergencyHarness(network).callAuthorBundle(),
             new OrchestratorAdminToTimelockHarness(network).callAuthorBundle(),
             new BackfillHistoryHarness(network).callAuthorBundle(),
             new GrantEuAuthoriserRoles()
                 .grantBundle(LibEuAuthoriserClone.cloneDeployedAddress(block.chainid), safe, timelock),
-            new BackfillMigrationRegistryV3Harness(network).callAuthorBundle()
+            new BackfillMigrationRegistryV3Harness(network).callAuthorBundle(),
+            bootstrapBundle()
         ];
         RegistryWrite[] memory writes = new RegistryWrite[](32);
         uint256 writeCount = 0;

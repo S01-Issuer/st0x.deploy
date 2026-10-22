@@ -12,6 +12,7 @@ import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.10/src/lib/LibDecimalFloat.sol";
 import {EvaluableV4} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.21/src/interface/IMigrationRegistryV3.sol";
 
 import {ST0xOrchestrator, ORCHESTRATOR_MINT_ROLE, ORCHESTRATOR_BURN_ROLE} from "../src/concrete/ST0xOrchestrator.sol";
 import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
@@ -20,6 +21,8 @@ import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
+import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+import {IStoxScript, MigrationWriter, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 
 /// @notice One account's mint cap: who, and the policy its bucket runs under.
 /// @param account The minter or recipient.
@@ -72,6 +75,19 @@ error BootstrapWeightingUnset();
 /// @param what The property that does not hold.
 error BootstrapStateUnexpected(string what);
 
+/// @notice This script's declaration: the timelock's first `st0x.deploy`
+/// record, written by the bootstrap batch when it executes.
+/// @return The declaration.
+function bootstrapMintCapsOrchestratorDeclaration() pure returns (ScriptDeclaration memory) {
+    return LibStoxMigrations.migrationOnto(
+        MigrationWriter.Timelock,
+        LibStoxMigrations.NAMESPACE,
+        keccak256("script/20261011-bootstrap-mint-caps-orchestrator.s.sol"),
+        MIGRATION_HEAD_GENESIS,
+        false
+    );
+}
+
 /// @title BootstrapMintCapsOrchestrator
 /// @notice Authors the per-chain Safe bundle that deploys the mint-caps
 /// orchestrator next to the live one and schedules its bootstrap on the
@@ -94,20 +110,26 @@ error BootstrapStateUnexpected(string what);
 ///     authoriser directly, when the Safe holds the `_ADMIN`s.
 ///  4. Schedules one timelock batch: the authoriser grants (when the
 ///     timelock holds the `_ADMIN`s), the mint weighting, every minter and
-///     recipient cap, and the `MINT_ROLE`/`BURN_ROLE` grants.
+///     recipient cap, the `MINT_ROLE`/`BURN_ROLE` grants, and the
+///     timelock's registry record.
 ///
 /// Steps 1-3 are skipped item by item when already done. Execution is
 /// permissionless once the delay has run: `execute()` broadcasts it.
 ///
-/// What the bootstrap installs is governance's: a concrete script per
-/// deployment supplies `bootstrapConfig()`.
+/// What the bootstrap installs is governance's `bootstrapConfig()`. Until it
+/// is set, the config is empty and `preflight` refuses.
 ///
 /// `run()` and `verify()` are `SafeBundleScript`'s. `assertReversible` proves
 /// the scheduled batch on the fork: it warps past the delay, executes the
 /// batch from an address holding no roles, asserts the bootstrapped state and
 /// that the batch leaves the live orchestrator's vault access unchanged, then
 /// returns the fork to the post-bundle state.
-abstract contract BootstrapMintCapsOrchestrator is SafeBundleScript {
+contract BootstrapMintCapsOrchestrator is SafeBundleScript, IStoxScript {
+    /// @inheritdoc IStoxScript
+    function declaration() external pure returns (ScriptDeclaration memory) {
+        return bootstrapMintCapsOrchestratorDeclaration();
+    }
+
     /// @notice The salt of the bootstrap batch on the timelock.
     bytes32 internal constant BOOTSTRAP_SALT = keccak256("st0x.mint-caps-orchestrator.bootstrap");
 
@@ -119,7 +141,7 @@ abstract contract BootstrapMintCapsOrchestrator is SafeBundleScript {
 
     /// @notice What this deployment installs. Governance's; see the contract
     /// NatSpec.
-    function bootstrapConfig() internal view virtual returns (MintCapsBootstrapConfig memory);
+    function bootstrapConfig() internal view virtual returns (MintCapsBootstrapConfig memory cfg) {}
 
     /// @inheritdoc SafeBundleScript
     function bundleName() internal pure override returns (string memory) {
@@ -181,9 +203,7 @@ abstract contract BootstrapMintCapsOrchestrator is SafeBundleScript {
         IAccessControl acl = IAccessControl(authoriser);
         if (acl.hasRole(DEPOSIT_ADMIN, timelockAddr) && acl.hasRole(WITHDRAW_ADMIN, timelockAddr)) return true;
         if (acl.hasRole(DEPOSIT_ADMIN, safeAddr) && acl.hasRole(WITHDRAW_ADMIN, safeAddr)) return false;
-        revert BootstrapVaultRoleAdminMissing(
-            acl.hasRole(DEPOSIT_ADMIN, timelockAddr) ? WITHDRAW_ADMIN : DEPOSIT_ADMIN
-        );
+        revert BootstrapVaultRoleAdminMissing(acl.hasRole(DEPOSIT_ADMIN, timelockAddr) ? WITHDRAW_ADMIN : DEPOSIT_ADMIN);
     }
 
     /// @notice The authoriser grants the instance still lacks.
@@ -209,7 +229,7 @@ abstract contract BootstrapMintCapsOrchestrator is SafeBundleScript {
         bytes[] memory grants = timelockGrantsVaultRoles(authoriser, safeAddr, timelockAddr)
             ? vaultGrants(authoriser, instance)
             : new bytes[](0);
-        uint256 count = grants.length + 1 + cfg.minters.length * 2 + cfg.recipients.length + cfg.burners.length;
+        uint256 count = grants.length + 2 + cfg.minters.length * 2 + cfg.recipients.length + cfg.burners.length;
         targets = new address[](count);
         payloads = new bytes[](count);
         uint256 n = 0;
@@ -235,6 +255,8 @@ abstract contract BootstrapMintCapsOrchestrator is SafeBundleScript {
             targets[n] = instance;
             payloads[n++] = abi.encodeCall(IAccessControl.grantRole, (ORCHESTRATOR_BURN_ROLE, cfg.burners[i]));
         }
+        (targets[n], payloads[n]) =
+            LibStoxMigrations.recordCall(bootstrapMintCapsOrchestratorDeclaration(), safeAddr, timelockAddr);
     }
 
     /// @notice The bootstrap batch for the active chain, from
@@ -287,8 +309,7 @@ abstract contract BootstrapMintCapsOrchestrator is SafeBundleScript {
             });
         }
         for (uint256 i = 0; i < directGrants.length; i++) {
-            candidates[n++] =
-                SafeTx({to: authoriser, value: 0, data: directGrants[i], operation: Enum.Operation.Call});
+            candidates[n++] = SafeTx({to: authoriser, value: 0, data: directGrants[i], operation: Enum.Operation.Call});
         }
 
         candidates[n++] = scheduleTx();

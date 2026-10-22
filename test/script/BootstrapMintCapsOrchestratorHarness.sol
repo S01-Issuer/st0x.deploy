@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
+import {SafeTx} from "rain-deploy-0.1.21/src/lib/LibSafeTx.sol";
 import {Float} from "rain-math-float-0.3.10/src/lib/LibDecimalFloat.sol";
 import {EvaluableV4} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
 
@@ -48,5 +49,9 @@ contract BootstrapMintCapsOrchestratorHarness is BootstrapMintCapsOrchestrator {
         cfg.recipients[0] = MintCapEntry({account: sRecipient, capacity: sCapacity, leakRate: sLeakRate});
         cfg.burners = new address[](1);
         cfg.burners[0] = sMinter;
+    }
+
+    function callAuthorBundle() external view returns (SafeTx[] memory) {
+        return authorBundle();
     }
 }
