@@ -187,7 +187,7 @@ contract LibStoxMigrationsDeclarationsTest is Test {
         RegistryWrite[] memory writes,
         uint256 writeCount,
         string memory network
-    ) internal returns (uint256) {
+    ) internal view returns (uint256) {
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         address registry = LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS;
         for (uint256 txIndex = 0; txIndex < bundle.length; txIndex++) {
