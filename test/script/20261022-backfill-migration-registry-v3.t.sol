@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
 import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.21/src/interface/IMigrationRegistryV3.sol";
@@ -11,10 +12,13 @@ import {IMigrationRegistryV2} from "rain-deploy-0.1.21/src/interface/deprecated/
 import {DEPLOYED_ADDRESS as REGISTRY_V2} from "rain-deploy-0.1.21/src/generated/0_1_18/MigrationRegistry.sol";
 import {LibMigrationRegistry} from "rain-deploy-0.1.21/src/lib/LibMigrationRegistry.sol";
 import {SafeTx} from "rain-deploy-0.1.21/src/lib/LibSafeTx.sol";
+import {LibSafe} from "rain-deploy-0.1.21/src/lib/LibSafe.sol";
 import {LibSafeFork} from "rain-deploy-0.1.21/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.21/src/lib/LibSafeTxBuilderJson.sol";
+import {ITimelockControllerState, LibTimelockController} from "rain-deploy-0.1.21/src/lib/LibTimelockController.sol";
 
 import {
+    BackfillRecordMismatch,
     GovernanceTimelockMomentMismatch,
     UnexpectedRegistryV2CodeHash,
     UnexpectedRegistryV2Line,
@@ -22,11 +26,12 @@ import {
     UnexpectedRegistryV3Line
 } from "../../script/20261022-backfill-migration-registry-v3.s.sol";
 import {BackfillMigrationRegistryV3Harness} from "./BackfillMigrationRegistryV3Harness.sol";
-import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
+import {LibOrchestratorInvariants, OrchestratorRoleMissing} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibRbacMigration} from "../../src/lib/LibRbacMigration.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
+import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
 /// @notice The Safe's V2 records are not yet in V3 on this chain. Execute the
 /// backfill bundle.
@@ -305,5 +310,113 @@ contract BackfillMigrationRegistryV3Test is Test {
         vm.writeFile(tamperedPath, tampered);
         vm.expectRevert(abi.encodeWithSelector(LibSafeTxBuilderJson.ArtifactMismatch.selector, "data"));
         script.verify(tamperedPath);
+    }
+
+    function testPreflightRefusesSafeOffPolicy() external {
+        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        if (spent()) return;
+        vm.mockCall(safe, abi.encodeWithSignature("getThreshold()"), abi.encode(uint256(1)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibSafe.SafeThresholdMismatch.selector, safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD, 1
+            )
+        );
+        script.callPreflight();
+    }
+
+    function testPreflightRefusesTimelockOffState() external {
+        (BackfillMigrationRegistryV3Harness script,) = setUpBase();
+        if (spent()) return;
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        vm.mockCall(timelock, abi.encodeCall(ITimelockControllerState.getMinDelay, ()), abi.encode(uint256(1)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibTimelockController.TimelockMinDelayMismatch.selector,
+                timelock,
+                LibTimelockInvariants.TIMELOCK_MIN_DELAY,
+                1
+            )
+        );
+        script.callPreflight();
+    }
+
+    function testPostStateRefusesUncarriedRecord() external {
+        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        if (spent()) return;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BackfillRecordMismatch.selector,
+                LibStoxMigrations.GOVERNANCE_TIMELOCK,
+                V2.applied(safe, LibStoxMigrations.NAMESPACE, LibStoxMigrations.GOVERNANCE_TIMELOCK),
+                0
+            )
+        );
+        script.callAssertPostState();
+    }
+
+    function executeBackfill(BackfillMigrationRegistryV3Harness script, address safe) internal {
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), script.callAuthorBundle());
+        script.callAssertPostState();
+    }
+
+    function testPostStateRefusesDeployLineMovedOn() external {
+        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        if (spent()) return;
+        executeBackfill(script, safe);
+        bytes32 other = keccak256("some other migration");
+        vm.prank(safe);
+        LibMigrationRegistry.applyMigrationV3(
+            safe,
+            LibStoxMigrations.NAMESPACE,
+            other,
+            LibStoxMigrations.onto(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY)
+        );
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedRegistryV3Line.selector, LibStoxMigrations.NAMESPACE, other));
+        script.callAssertPostState();
+    }
+
+    function testPostStateRefusesRbacLineMovedOn() external {
+        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        if (spent()) return;
+        executeBackfill(script, safe);
+        bytes32 other = keccak256("some other migration");
+        vm.prank(safe);
+        LibMigrationRegistry.applyMigrationV3(
+            safe,
+            LibRbacMigration.STOX_RBAC_NAMESPACE,
+            other,
+            LibMigrationRegistry.onto(
+                safe, LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER
+            )
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(UnexpectedRegistryV3Line.selector, LibRbacMigration.STOX_RBAC_NAMESPACE, other)
+        );
+        script.callAssertPostState();
+    }
+
+    function testPostStateRefusesOrchestratorMissingEmergency() external {
+        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        if (spent()) return;
+        executeBackfill(script, safe);
+        address instance = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
+        vm.mockCall(instance, abi.encodeCall(IAccessControl.hasRole, (keccak256("EMERGENCY"), safe)), abi.encode(false));
+        vm.expectRevert(
+            abi.encodeWithSelector(OrchestratorRoleMissing.selector, instance, keccak256("EMERGENCY"), safe)
+        );
+        script.callAssertPostState();
+    }
+
+    function testPostStateRefusesSafeOffPolicy() external {
+        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        if (spent()) return;
+        executeBackfill(script, safe);
+        vm.mockCall(safe, abi.encodeWithSignature("getThreshold()"), abi.encode(uint256(1)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibSafe.SafeThresholdMismatch.selector, safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD, 1
+            )
+        );
+        script.callAssertPostState();
     }
 }
