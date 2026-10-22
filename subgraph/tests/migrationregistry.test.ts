@@ -21,8 +21,8 @@ import {
   TX_HASH,
 } from "./event-mocks.test";
 
-const REGISTRY = "0x4b2ca6f3629cddc0eac884443c5da8ba02cd9a1b";
-const CONFIG_REGISTRY = "0xf726114632ef8529734d64a9d028d31f07e91f09";
+const REGISTRY = "0x5a48e719785e11c4643ea4056d0861a6a69e91a0";
+const CONFIG_REGISTRY = "0x2f1f82c65cce305df3950f8af8fa5ad6d9a815e8";
 /** st0x `LibStoxMigrations.WRITER`. */
 const WRITER = "0x0b300013cd54a8f1ac40981f80faaa18b8cc1e4c";
 const OTHER_WRITER = "0x00000000000000000000000000000000000000a9";

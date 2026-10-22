@@ -224,8 +224,8 @@ dataSources:
     network: robinhood
     source:
       abi: ConfigRegistry
-      address: "0xF726114632EF8529734d64A9D028d31F07E91f09"
-      startBlock: 94388530
+      address: "0x2F1f82c65cce305Df3950F8aF8Fa5aD6D9a815e8"
+      startBlock: 95041555
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -252,8 +252,8 @@ dataSources:
     network: robinhood
     source:
       abi: MigrationRegistry
-      address: "0x4B2ca6f3629Cddc0eAC884443c5DA8Ba02cd9A1b"
-      startBlock: 94388530
+      address: "0x5A48e719785E11c4643EA4056D0861A6a69e91a0"
+      startBlock: 95041555
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7

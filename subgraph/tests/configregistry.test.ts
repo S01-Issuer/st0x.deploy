@@ -19,7 +19,7 @@ import {
   TX_HASH,
 } from "./event-mocks.test";
 
-const REGISTRY = "0xf726114632ef8529734d64a9d028d31f07e91f09";
+const REGISTRY = "0x2f1f82c65cce305df3950f8af8fa5ad6d9a815e8";
 const OTHER_REGISTRY = "0x0000000000000000000000000000000000000c02";
 /** st0x `LibStoxMigrations.WRITER`, the root authority. */
 const AUTHORITY = "0x0b300013cd54a8f1ac40981f80faaa18b8cc1e4c";
