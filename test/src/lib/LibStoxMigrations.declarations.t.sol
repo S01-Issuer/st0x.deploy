@@ -219,8 +219,12 @@ contract LibStoxMigrationsDeclarationsTest is Test {
             if (!declared.migration) continue;
             string memory label = string.concat(network, ": ", paths[i]);
             if (unrecorded(paths[i])) {
-                for (uint256 w = 0; w < writes.length; w++) {
-                    assertTrue(writes[w].namespace != declared.namespace || writes[w].migration != declared.id, label);
+                for (uint256 writeIndex = 0; writeIndex < writes.length; writeIndex++) {
+                    assertTrue(
+                        writes[writeIndex].namespace != declared.namespace
+                            || writes[writeIndex].migration != declared.id,
+                        label
+                    );
                 }
                 continue;
             }
@@ -229,12 +233,14 @@ contract LibStoxMigrationsDeclarationsTest is Test {
             Prerequisite[] memory expected = LibStoxMigrations.prerequisitesForChainId(declared, block.chainid);
             uint256 moment = declared.history ? IStoxHistoryMigration(instances[i]).executedAt(block.chainid) : 0;
             uint256 hits = 0;
-            for (uint256 w = 0; w < writes.length; w++) {
-                if (writes[w].namespace != declared.namespace || writes[w].migration != declared.id) continue;
+            for (uint256 writeIndex = 0; writeIndex < writes.length; writeIndex++) {
+                if (writes[writeIndex].namespace != declared.namespace || writes[writeIndex].migration != declared.id) {
+                    continue;
+                }
                 hits++;
-                assertEq(writes[w].writer, writer, label);
-                assertEq(writes[w].appliedAt, moment, label);
-                assertPrerequisites(writes[w].prerequisites, expected, label);
+                assertEq(writes[writeIndex].writer, writer, label);
+                assertEq(writes[writeIndex].appliedAt, moment, label);
+                assertPrerequisites(writes[writeIndex].prerequisites, expected, label);
             }
             assertEq(hits, 1, label);
             if (LibMigrationRegistry.applied(writer, declared.namespace, declared.id) != 0) {
