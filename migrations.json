@@ -868,6 +868,130 @@
       "id": "0x1d0a122eb0c6b277ce27f34518d08baef969adf24bb136bfc5481ec4935c0ac8",
       "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
       "script": "script/20261022-backfill-migration-registry-v3.s.sol"
+    },
+    {
+      "chains": {
+        "1": {
+          "executedAt": 0,
+          "prerequisites": [
+            {
+              "id": "0x68847439065e76f168f14737cda7cb7f920f30021cc88a737633db6d7ca3c543",
+              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+              "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+            }
+          ],
+          "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+        },
+        "4663": {
+          "executedAt": 0,
+          "prerequisites": [
+            {
+              "id": "0x68847439065e76f168f14737cda7cb7f920f30021cc88a737633db6d7ca3c543",
+              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+              "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+            }
+          ],
+          "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+        },
+        "56": {
+          "executedAt": 0,
+          "prerequisites": [
+            {
+              "id": "0x68847439065e76f168f14737cda7cb7f920f30021cc88a737633db6d7ca3c543",
+              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+              "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+            }
+          ],
+          "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+        },
+        "8453": {
+          "executedAt": 0,
+          "prerequisites": [
+            {
+              "id": "0x68847439065e76f168f14737cda7cb7f920f30021cc88a737633db6d7ca3c543",
+              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+              "writer": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611"
+            }
+          ],
+          "writer": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611"
+        },
+        "999": {
+          "executedAt": 0,
+          "prerequisites": [
+            {
+              "id": "0x68847439065e76f168f14737cda7cb7f920f30021cc88a737633db6d7ca3c543",
+              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+              "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+            }
+          ],
+          "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+        }
+      },
+      "id": "0x2bf222a36eb792bdab5f891e6790131e47f355b449c678a606016ab7d4e7bf34",
+      "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+      "script": "script/20261022-bind-beacon-owner.s.sol"
+    },
+    {
+      "chains": {
+        "1": {
+          "executedAt": 0,
+          "prerequisites": [
+            {
+              "id": "0x2bf222a36eb792bdab5f891e6790131e47f355b449c678a606016ab7d4e7bf34",
+              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+              "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+            }
+          ],
+          "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+        },
+        "4663": {
+          "executedAt": 0,
+          "prerequisites": [
+            {
+              "id": "0x2bf222a36eb792bdab5f891e6790131e47f355b449c678a606016ab7d4e7bf34",
+              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+              "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+            }
+          ],
+          "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+        },
+        "56": {
+          "executedAt": 0,
+          "prerequisites": [
+            {
+              "id": "0x2bf222a36eb792bdab5f891e6790131e47f355b449c678a606016ab7d4e7bf34",
+              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+              "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+            }
+          ],
+          "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+        },
+        "8453": {
+          "executedAt": 0,
+          "prerequisites": [
+            {
+              "id": "0x2bf222a36eb792bdab5f891e6790131e47f355b449c678a606016ab7d4e7bf34",
+              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+              "writer": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611"
+            }
+          ],
+          "writer": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611"
+        },
+        "999": {
+          "executedAt": 0,
+          "prerequisites": [
+            {
+              "id": "0x2bf222a36eb792bdab5f891e6790131e47f355b449c678a606016ab7d4e7bf34",
+              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+              "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+            }
+          ],
+          "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
+        }
+      },
+      "id": "0xce08142a299d18e3bea07c1c71db50c3eb405a0c815be7bb10ed46dafdb93839",
+      "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+      "script": "script/20261022-deploy-beacons.s.sol"
     }
   ],
   "networks": {
