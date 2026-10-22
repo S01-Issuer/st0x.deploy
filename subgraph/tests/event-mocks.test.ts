@@ -244,3 +244,51 @@ export function cancelledLog(
     new ethereum.EventParam("id", ethereum.Value.fromFixedBytes(id)),
   ]);
 }
+
+/** `SafeSetup(address,address[],uint256,address,address)`. */
+export function safeSetupLog(
+  safe: Address,
+  owners: Array<Address>,
+  threshold: i32,
+  blockNumber: i32,
+  logIndex: i32,
+): ethereum.Event {
+  let zero = Address.zero();
+  return mockLog(safe, blockNumber, logIndex, [
+    new ethereum.EventParam("initiator", ethereum.Value.fromAddress(zero)),
+    new ethereum.EventParam("owners", ethereum.Value.fromAddressArray(owners)),
+    new ethereum.EventParam(
+      "threshold",
+      ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(threshold)),
+    ),
+    new ethereum.EventParam("initializer", ethereum.Value.fromAddress(zero)),
+    new ethereum.EventParam("fallbackHandler", ethereum.Value.fromAddress(zero)),
+  ]);
+}
+
+/** `ChangedThreshold(uint256)`. */
+export function changedThresholdLog(
+  safe: Address,
+  threshold: i32,
+  blockNumber: i32,
+  logIndex: i32,
+): ethereum.Event {
+  return mockLog(safe, blockNumber, logIndex, [
+    new ethereum.EventParam(
+      "threshold",
+      ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(threshold)),
+    ),
+  ]);
+}
+
+/** `AddedOwner(address)` or `RemovedOwner(address)`: one `owner` param each. */
+export function ownerChangeLog(
+  safe: Address,
+  owner: Address,
+  blockNumber: i32,
+  logIndex: i32,
+): ethereum.Event {
+  return mockLog(safe, blockNumber, logIndex, [
+    new ethereum.EventParam("owner", ethereum.Value.fromAddress(owner)),
+  ]);
+}

@@ -6,6 +6,11 @@ import {IOwnable} from "../interface/IOwnable.sol";
 import {IAuthorisable} from "../interface/IAuthorisable.sol";
 import {LibProdTokenConfig, Region} from "./LibProdTokenConfig.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
+import {LibSafeInvariants} from "./LibSafeInvariants.sol";
+
+/// @notice A chain with no production token table.
+/// @param chainId The chain id.
+error NoTokenTableForChain(uint256 chainId);
 
 /// @notice One production token's contract triple on a single chain, keyed
 /// by the underlying ticker. The underlying symbol (e.g. "MSTR", not
@@ -57,9 +62,8 @@ error ReceiptVaultAuthoriserMismatch(address vault, address expected, address ac
 library LibTokenInvariants {
     // =========================================================================
     // Production token instance addresses on Base. Each token set is a
-    // beacon proxy triple deployed via V1 OffchainAssetReceiptVaultBeaconSetDeployer
-    // + V1 StoxWrappedTokenVaultBeaconSetDeployer: a receipt (ERC-1155), a
-    // receipt vault (ERC-20), and a wrapped token vault (ERC-4626).
+    // beacon proxy triple: a receipt (ERC-1155), a receipt vault (ERC-20),
+    // and a wrapped token vault (ERC-4626).
     // =========================================================================
 
     // ---- tMSTR / wtMSTR — MicroStrategy Incorporated ST0x ----
@@ -510,12 +514,12 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x8EA3c97D23872eC4FAe1cA3189039056b77bc703
     address internal constant DIS_WRAPPED_TOKEN_VAULT = address(0x8EA3c97D23872eC4FAe1cA3189039056b77bc703);
 
-    /// @notice Returns the 56 production token instance triples on Base, in
+    /// @notice Returns the production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
     /// that need the receipt / wrapped-vault legs or the underlying join key
     /// (cross-chain parity, per-token config checks) iterate this instead.
-    /// @return tokens The 56 production token instances on Base.
+    /// @return tokens The production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance({
@@ -692,11 +696,6 @@ library LibTokenInvariants {
             receiptVault: RKLB_RECEIPT_VAULT,
             wrappedTokenVault: RKLB_WRAPPED_TOKEN_VAULT
         });
-        // Deployed on Base across 2026-07-27, 2026-08-05 and 2026-08-14, each
-        // wired onto the shared V4 authoriser and handed to the Base
-        // token-owner Safe. All twelve were copied onto Ethereum and HyperEVM
-        // by `20260807-deploy-missing-tokens`, so rows 29-41 exist on all
-        // three chains, as does every row below them.
         tokens[29] = TokenInstance({
             underlying: "GOOGL",
             receipt: GOOGL_RECEIPT,
@@ -775,12 +774,6 @@ library LibTokenInvariants {
             receiptVault: CBRS_RECEIPT_VAULT,
             wrappedTokenVault: CBRS_WRAPPED_TOKEN_VAULT
         });
-        // The EU batch (2026-08-27), MCD and NKE (2026-09-03), GRND
-        // (2026-09-04) and the 2026-09-06 batch. Deployed on Base first and
-        // copied onto Ethereum and HyperEVM on 2026-09-07 by
-        // `20260807-deploy-missing-tokens` (runs 34127693038 and 34129816326),
-        // which diffs Base against the target chain's table and selected
-        // exactly these fourteen rows.
         tokens[42] = TokenInstance({
             underlying: "MCD",
             receipt: MCD_RECEIPT,
@@ -829,51 +822,37 @@ library LibTokenInvariants {
             receiptVault: FGI_RECEIPT_VAULT,
             wrappedTokenVault: FGI_WRAPPED_TOKEN_VAULT
         });
-        // tBIRD — deployed on Base 2026-09-11 by sft-ops CD (run 34614696472),
-        // wired onto the V4 authoriser and handed to the Base token-owner Safe.
-        // Copied onto the four other chains by `20260807-deploy-missing-tokens`;
-        // see each chain's table for its run id.
         tokens[50] = TokenInstance({
             underlying: "BIRD",
             receipt: BIRD_RECEIPT,
             receiptVault: BIRD_RECEIPT_VAULT,
             wrappedTokenVault: BIRD_WRAPPED_TOKEN_VAULT
         });
-        // tSPY — deployed on Base 2026-09-29 by sft-ops CD (run 36576678295),
-        // wired onto the V4 authoriser and handed to the Base token-owner Safe.
         tokens[51] = TokenInstance({
             underlying: "SPY",
             receipt: SPY_RECEIPT,
             receiptVault: SPY_RECEIPT_VAULT,
             wrappedTokenVault: SPY_WRAPPED_TOKEN_VAULT
         });
-        // tSNES — deployed on Base 2026-09-30 by sft-ops CD (run 36713883246),
-        // wired onto the V4 authoriser and handed to the Base token-owner Safe.
         tokens[52] = TokenInstance({
             underlying: "SNES",
             receipt: SNES_RECEIPT,
             receiptVault: SNES_RECEIPT_VAULT,
             wrappedTokenVault: SNES_WRAPPED_TOKEN_VAULT
         });
-        // tWMT — deployed on Base 2026-10-08 by sft-ops CD (run 37747102500),
-        // wired onto the V4 authoriser and handed to the Base token-owner Safe.
         tokens[53] = TokenInstance({
             underlying: "WMT",
             receipt: WMT_RECEIPT,
             receiptVault: WMT_RECEIPT_VAULT,
             wrappedTokenVault: WMT_WRAPPED_TOKEN_VAULT
         });
-        // tMC — deployed on Base 2026-10-08 by sft-ops CD (run 37753140808),
-        // wired onto the EU assets authoriser (not the V4 one) and handed to
-        // the Base token-owner Safe.
+        // tMC sits on the EU assets authoriser, not the V4 one.
         tokens[54] = TokenInstance({
             underlying: "MC",
             receipt: MC_RECEIPT,
             receiptVault: MC_RECEIPT_VAULT,
             wrappedTokenVault: MC_WRAPPED_TOKEN_VAULT
         });
-        // tDIS — deployed on Base 2026-10-15 by sft-ops CD (run 38763592908),
-        // wired onto the V4 authoriser and handed to the Base token-owner Safe.
         tokens[55] = TokenInstance({
             underlying: "DIS",
             receipt: DIS_RECEIPT,
@@ -885,16 +864,8 @@ library LibTokenInvariants {
     /// @notice Returns the production token instance triples on Ethereum
     /// mainnet — Base's underlyings in Base row order, so the tables pair by
     /// index as well as by key.
-    /// @return tokens The 56 production token instances on Ethereum.
+    /// @return tokens The production token instances on Ethereum.
     function productionTokensEthereum() internal pure returns (TokenInstance[] memory tokens) {
-        // Deployed on Ethereum mainnet 2026-07-22 by
-        // `20260706-deploy-tokens-ethereum` (manual-broadcast run
-        // 29921218929): 28 tokens via the 0.1.1 unified deployer, each wired
-        // onto the Ethereum V4 authoriser and handed to the Ethereum
-        // token-owner Safe in the same broadcast. Addresses pinned from the
-        // run's logged (underlying, receipt, receiptVault, wrapped) tuples.
-        // Order and underlyings match Base row-for-row (the cross-chain
-        // parity pin asserts this).
         tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance({
             underlying: "MSTR",
@@ -1064,24 +1035,12 @@ library LibTokenInvariants {
             receiptVault: address(0xb62E913f0cC881862527Fa7e41e1C98eEf09cedD),
             wrappedTokenVault: address(0x1D6F0763e58FA6d472d470Eaaef0a4C08080d208)
         });
-        // RKLB was accidentally omitted from the table when the 28-token
-        // Ethereum broadcast ran; a gap-filling broadcast (EXECUTED
-        // 2026-07-22, manual-broadcast run 29924926246) deployed it and this
-        // row pins the logged tuple. That per-chain script has since been
-        // superseded by `20260807-deploy-missing-tokens`.
         tokens[28] = TokenInstance({
             underlying: "RKLB",
             receipt: address(0xFf5b15a4f478F296893b0b244D9b118Be87bCda2),
             receiptVault: address(0xED0c085d92C262FB46937CB0B3C9763Af7fCCf30),
             wrappedTokenVault: address(0x8FC87Be766C0cB6f254F1FDc9351D4B85B560FB3)
         });
-        // Deployed 2026-08-12 by `20260807-deploy-missing-tokens` across two
-        // manual-broadcast runs (31613854321, 31624478447) — the five 2026-08-05
-        // tokens then the six 2026-07-27 ones. Each was wired onto this
-        // chain's V4 authoriser and handed to its token-owner Safe in the same
-        // broadcast; these rows pin the logged tuples, which the runs produced
-        // but no PR ever recorded. Verified on chain before pinning: every
-        // `owner()` is the Safe and every `authorizer()` the V4 clone.
         tokens[29] = TokenInstance({
             underlying: "GOOGL",
             receipt: address(0xdC29d07D2125699FA44cAB7e940542b526dB0abd),
@@ -1148,36 +1107,18 @@ library LibTokenInvariants {
             receiptVault: address(0xf3875383506677BCdA6b9F12c48Ff7fE300970D7),
             wrappedTokenVault: address(0x04eE4ED5FF6643eA955503f966012b684f479966)
         });
-        // FTF, deployed 2026-08-14 by `20260807-deploy-missing-tokens` (run
-        // 31835550273) — the sole token the dispatch selected, Base having been
-        // pinned to 41 first. Wired onto this chain's V4 authoriser and handed
-        // to its token-owner Safe in the same broadcast.
         tokens[40] = TokenInstance({
             underlying: "FTF",
             receipt: address(0x05215bE061F61d341703a6b63AcFDFf396965425),
             receiptVault: address(0x334ccaD2e7D774F5e6A13437977dD0878926deF8),
             wrappedTokenVault: address(0x710A14a41a8Ea2e25376124C48bf9cAdc1E69be5)
         });
-        // CBRS, deployed 2026-08-14 by `20260807-deploy-missing-tokens` (run
-        // 31845108154) — the sole token that dispatch selected. It was never pinned
-        // here: the pin PR (#310) stayed open, so this table sat a row behind
-        // the chain. Verified live before pinning — symbol() tCBRS, receipt()
-        // and owner() the chain's token-owner Safe.
         tokens[41] = TokenInstance({
             underlying: "CBRS",
             receipt: address(0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8),
             receiptVault: address(0x75E0d127794b9C26eE35c55fbaBcc41c53Ccb37C),
             wrappedTokenVault: address(0x15925E1c19c0F0d392F6FCb40FdE9144Dd823962)
         });
-        // Deployed 2026-09-07 by `20260807-deploy-missing-tokens`
-        // (manual-broadcast run 34127693038) — the fourteen Base rows this table
-        // was missing: the EU batch (2026-08-27), MCD and NKE (2026-09-03),
-        // GRND (2026-09-04) and the 2026-09-06 batch. Each was wired onto this
-        // chain's V4 authoriser and handed to its token-owner Safe in the same
-        // broadcast; these rows pin the logged tuples. Verified on chain before
-        // pinning: every `receipt()` matches, every `owner()` is the chain's
-        // token-owner Safe, every `symbol()` is the expected t-ticker and every
-        // wrapper has code.
         tokens[42] = TokenInstance({
             underlying: "MCD",
             receipt: address(0x37BbE0cd96266CFc10960521EfB32A822ef780E0),
@@ -1226,60 +1167,36 @@ library LibTokenInvariants {
             receiptVault: address(0xfEa217600e2b00bBB2172a99345016a0cEb7d29f),
             wrappedTokenVault: address(0x685DFd386968B58D895F934485820C479C79a8bB)
         });
-        // tBIRD — copied from Base 2026-09-11 15:24 UTC by `20260807-deploy-missing-tokens`
-        // on `ethereum` (manual-broadcast run 34615473964), the only token the
-        // selection found missing; wired onto this chain's V4 authoriser and
-        // handed to its token-owner Safe in the same broadcast.
         tokens[50] = TokenInstance({
             underlying: "BIRD",
             receipt: address(0x34a8386fd0a943D4c1F182e9eb6b5e125509dFF2),
             receiptVault: address(0x2E04C503ebd584C3c0Bb1d57E0C51E7B7EaE28E1),
             wrappedTokenVault: address(0xe93A1Bb48e797dDa936f405A7A253f55040584D5)
         });
-        // tSPY — copied from Base 2026-09-29 14:10 UTC by `20260807-deploy-missing-tokens`
-        // on `ethereum` (manual-broadcast run 36580206553), the only token the
-        // selection found missing; wired onto this chain's V4 authoriser and
-        // handed to its token-owner Safe in the same broadcast.
         tokens[51] = TokenInstance({
             underlying: "SPY",
             receipt: address(0xc3f3EAfCc5927C645cdb22CEEB68844D53AA7C7C),
             receiptVault: address(0x76D34283ec6d29b1b07E0e6077f5c436AD163B9c),
             wrappedTokenVault: address(0xfBA650082205E5807a5eAF28BdcC8E851bB2f753)
         });
-        // tSNES — copied from Base 2026-09-30 by `20260807-deploy-missing-tokens`
-        // on `ethereum` (manual-broadcast run 36714584347), the only token the
-        // selection found missing; wired onto this chain's V4 authoriser and
-        // handed to its token-owner Safe in the same broadcast.
         tokens[52] = TokenInstance({
             underlying: "SNES",
             receipt: address(0x4ed13d2C1f545FA73f53bE8c0BB82D279738C10f),
             receiptVault: address(0xF8bF43D61E4Cd2a5b5DfaD01BaC84693d7B95e51),
             wrappedTokenVault: address(0x06096908dBC38fc54509024674E4fd1891B5F7CA)
         });
-        // tWMT — copied from Base 2026-10-08 by `20260807-deploy-missing-tokens`
-        // on `ethereum` (manual-broadcast run 37748098946), the only token the
-        // selection found missing; wired onto this chain's V4 authoriser and
-        // handed to its governance timelock in the same broadcast.
         tokens[53] = TokenInstance({
             underlying: "WMT",
             receipt: address(0x395717EE8201419b21B40A400ea959a7D7d43A36),
             receiptVault: address(0xfAE9AfE275E57759f8Fbae5f252c65aDBF1b773F),
             wrappedTokenVault: address(0x23A0944e82766242dA76cb0f77e0b7812e5487EA)
         });
-        // tMC — copied from Base 2026-10-15 by `20260807-deploy-missing-tokens`
-        // on `ethereum` (manual-broadcast run 38764553397), one of the two tokens the
-        // selection found missing (tMC, tDIS); wired onto this chain's EU assets authoriser and
-        // handed to its governance timelock in the same broadcast.
         tokens[54] = TokenInstance({
             underlying: "MC",
             receipt: address(0x9835e52FAFA9A92678C8A9420034706B1edD431e),
             receiptVault: address(0x4d4D633bf04ABF6e4cF152C7c5c1ecD906Ab3de4),
             wrappedTokenVault: address(0x5Ce8b84756dDdE011734F04dC4bA2930C981B443)
         });
-        // tDIS — copied from Base 2026-10-15 by `20260807-deploy-missing-tokens`
-        // on `ethereum` (manual-broadcast run 38764553397), one of the two tokens the
-        // selection found missing (tMC, tDIS); wired onto this chain's V4 authoriser and
-        // handed to its governance timelock in the same broadcast.
         tokens[55] = TokenInstance({
             underlying: "DIS",
             receipt: address(0x29e7fe750DFffd4D7C8e907C126324B8a5A9AdB7),
@@ -1288,18 +1205,11 @@ library LibTokenInvariants {
         });
     }
 
-    /// @notice Returns the 56 production token instance triples on HyperEVM,
+    /// @notice Returns the production token instance triples on HyperEVM,
     /// in the same row order as `productionTokensBase()` (the cross-chain
     /// parity pin asserts the alignment).
-    /// @return tokens The 56 production token instances on HyperEVM.
+    /// @return tokens The production token instances on HyperEVM.
     function productionTokensHyperEvm() internal pure returns (TokenInstance[] memory tokens) {
-        // Deployed on HyperEVM 2026-07-24 (manual-broadcast run 30114307165):
-        // all 29 tokens via the 0.1.1 unified deployer, each wired onto the
-        // HyperEVM V4 authoriser and handed to the HyperEVM token-owner Safe
-        // in the same broadcast. Addresses pinned from the run's logged
-        // (underlying, receipt, receiptVault, wrapped) tuples. The script that
-        // ran it was per-chain and has since been superseded by
-        // `20260807-deploy-missing-tokens`, so this is the record of the run.
         tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance({
             underlying: "MSTR",
@@ -1475,13 +1385,6 @@ library LibTokenInvariants {
             receiptVault: 0xED0c085d92C262FB46937CB0B3C9763Af7fCCf30,
             wrappedTokenVault: 0x8FC87Be766C0cB6f254F1FDc9351D4B85B560FB3
         });
-        // Deployed 2026-08-12 by `20260807-deploy-missing-tokens` across two
-        // manual-broadcast runs (31614605147, 31625585429) — the five 2026-08-05
-        // tokens then the six 2026-07-27 ones. Each was wired onto this
-        // chain's V4 authoriser and handed to its token-owner Safe in the same
-        // broadcast; these rows pin the logged tuples, which the runs produced
-        // but no PR ever recorded. Verified on chain before pinning: every
-        // `owner()` is the Safe and every `authorizer()` the V4 clone.
         tokens[29] = TokenInstance({
             underlying: "GOOGL",
             receipt: 0xdC29d07D2125699FA44cAB7e940542b526dB0abd,
@@ -1548,36 +1451,18 @@ library LibTokenInvariants {
             receiptVault: 0xf3875383506677BCdA6b9F12c48Ff7fE300970D7,
             wrappedTokenVault: 0x04eE4ED5FF6643eA955503f966012b684f479966
         });
-        // FTF, deployed 2026-08-14 by `20260807-deploy-missing-tokens` (run
-        // 31835971348) — the sole token the dispatch selected, Base having been
-        // pinned to 41 first. Wired onto this chain's V4 authoriser and handed
-        // to its token-owner Safe in the same broadcast.
         tokens[40] = TokenInstance({
             underlying: "FTF",
             receipt: 0x05215bE061F61d341703a6b63AcFDFf396965425,
             receiptVault: 0x334ccaD2e7D774F5e6A13437977dD0878926deF8,
             wrappedTokenVault: 0x710A14a41a8Ea2e25376124C48bf9cAdc1E69be5
         });
-        // CBRS, deployed 2026-08-14 by `20260807-deploy-missing-tokens` (run
-        // 31845492796) — the sole token that dispatch selected. It was never pinned
-        // here: the pin PR (#310) stayed open, so this table sat a row behind
-        // the chain. Verified live before pinning — symbol() tCBRS, receipt()
-        // and owner() the chain's token-owner Safe.
         tokens[41] = TokenInstance({
             underlying: "CBRS",
             receipt: 0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8,
             receiptVault: 0x75E0d127794b9C26eE35c55fbaBcc41c53Ccb37C,
             wrappedTokenVault: 0x15925E1c19c0F0d392F6FCb40FdE9144Dd823962
         });
-        // Deployed 2026-09-07 by `20260807-deploy-missing-tokens`
-        // (manual-broadcast run 34129816326) — the fourteen Base rows this table
-        // was missing: the EU batch (2026-08-27), MCD and NKE (2026-09-03),
-        // GRND (2026-09-04) and the 2026-09-06 batch. Each was wired onto this
-        // chain's V4 authoriser and handed to its token-owner Safe in the same
-        // broadcast; these rows pin the logged tuples. Verified on chain before
-        // pinning: every `receipt()` matches, every `owner()` is the chain's
-        // token-owner Safe, every `symbol()` is the expected t-ticker and every
-        // wrapper has code.
         tokens[42] = TokenInstance({
             underlying: "MCD",
             receipt: 0x37BbE0cd96266CFc10960521EfB32A822ef780E0,
@@ -1626,60 +1511,36 @@ library LibTokenInvariants {
             receiptVault: 0xfEa217600e2b00bBB2172a99345016a0cEb7d29f,
             wrappedTokenVault: 0x685DFd386968B58D895F934485820C479C79a8bB
         });
-        // tBIRD — copied from Base 2026-09-11 15:26 UTC by `20260807-deploy-missing-tokens`
-        // on `hyperevm` (manual-broadcast run 34615476787), the only token the
-        // selection found missing; wired onto this chain's V4 authoriser and
-        // handed to its token-owner Safe in the same broadcast.
         tokens[50] = TokenInstance({
             underlying: "BIRD",
             receipt: 0x34a8386fd0a943D4c1F182e9eb6b5e125509dFF2,
             receiptVault: 0x2E04C503ebd584C3c0Bb1d57E0C51E7B7EaE28E1,
             wrappedTokenVault: 0xe93A1Bb48e797dDa936f405A7A253f55040584D5
         });
-        // tSPY — copied from Base 2026-09-29 14:11 UTC by `20260807-deploy-missing-tokens`
-        // on `hyperevm` (manual-broadcast run 36580211489), the only token the
-        // selection found missing; wired onto this chain's V4 authoriser and
-        // handed to its token-owner Safe in the same broadcast.
         tokens[51] = TokenInstance({
             underlying: "SPY",
             receipt: address(0xc3f3EAfCc5927C645cdb22CEEB68844D53AA7C7C),
             receiptVault: address(0x76D34283ec6d29b1b07E0e6077f5c436AD163B9c),
             wrappedTokenVault: address(0xfBA650082205E5807a5eAF28BdcC8E851bB2f753)
         });
-        // tSNES — copied from Base 2026-09-30 by `20260807-deploy-missing-tokens`
-        // on `hyperevm` (manual-broadcast run 36714588187), the only token the
-        // selection found missing; wired onto this chain's V4 authoriser and
-        // handed to its token-owner Safe in the same broadcast.
         tokens[52] = TokenInstance({
             underlying: "SNES",
             receipt: address(0x4ed13d2C1f545FA73f53bE8c0BB82D279738C10f),
             receiptVault: address(0xF8bF43D61E4Cd2a5b5DfaD01BaC84693d7B95e51),
             wrappedTokenVault: address(0x06096908dBC38fc54509024674E4fd1891B5F7CA)
         });
-        // tWMT — copied from Base 2026-10-08 by `20260807-deploy-missing-tokens`
-        // on `hyperevm` (manual-broadcast run 37748107967), the only token the
-        // selection found missing; wired onto this chain's V4 authoriser and
-        // handed to its governance timelock in the same broadcast.
         tokens[53] = TokenInstance({
             underlying: "WMT",
             receipt: address(0x395717EE8201419b21B40A400ea959a7D7d43A36),
             receiptVault: address(0xfAE9AfE275E57759f8Fbae5f252c65aDBF1b773F),
             wrappedTokenVault: address(0x23A0944e82766242dA76cb0f77e0b7812e5487EA)
         });
-        // tMC — copied from Base 2026-10-15 by `20260807-deploy-missing-tokens`
-        // on `hyperevm` (manual-broadcast run 38764569550), one of the two tokens the
-        // selection found missing (tMC, tDIS); wired onto this chain's EU assets authoriser and
-        // handed to its governance timelock in the same broadcast.
         tokens[54] = TokenInstance({
             underlying: "MC",
             receipt: address(0x9835e52FAFA9A92678C8A9420034706B1edD431e),
             receiptVault: address(0x4d4D633bf04ABF6e4cF152C7c5c1ecD906Ab3de4),
             wrappedTokenVault: address(0x5Ce8b84756dDdE011734F04dC4bA2930C981B443)
         });
-        // tDIS — copied from Base 2026-10-15 by `20260807-deploy-missing-tokens`
-        // on `hyperevm` (manual-broadcast run 38764569550), one of the two tokens the
-        // selection found missing (tMC, tDIS); wired onto this chain's V4 authoriser and
-        // handed to its governance timelock in the same broadcast.
         tokens[55] = TokenInstance({
             underlying: "DIS",
             receipt: address(0x29e7fe750DFffd4D7C8e907C126324B8a5A9AdB7),
@@ -1692,14 +1553,7 @@ library LibTokenInvariants {
     /// Chain (chain id 4663) — Base's underlyings in Base row order, so the
     /// tables pair by index as well as by key (the cross-chain parity pin
     /// asserts the alignment).
-    ///
-    /// Deployed on Robinhood Chain 2026-09-10 by `20260807-deploy-missing-tokens`
-    /// on `robinhood` (manual-broadcast run 34542355140): all 41 tokens via the
-    /// 0.1.1 unified deployer against beacons already on 0.1.30, each wired
-    /// onto this chain's V4 authoriser and handed to its token-owner Safe in
-    /// the same broadcast. Addresses pinned from the run's logged
-    /// (underlying, receipt, receiptVault, wrapped) tuples.
-    /// @return tokens The 56 production token instances on Robinhood Chain.
+    /// @return tokens The production token instances on Robinhood Chain.
     function productionTokensRobinhood() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance({
@@ -1948,9 +1802,6 @@ library LibTokenInvariants {
             receiptVault: 0x334ccaD2e7D774F5e6A13437977dD0878926deF8,
             wrappedTokenVault: 0x710A14a41a8Ea2e25376124C48bf9cAdc1E69be5
         });
-        // From row 41: Base's later deployments, copied onto this chain by
-        // `20260807-deploy-missing-tokens` on 2026-09-11 (manual-broadcast run
-        // 34588739371) — the fifteen rows the dispatch selected, in Base order.
         tokens[41] = TokenInstance({
             underlying: "CBRS",
             receipt: 0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8,
@@ -2005,60 +1856,36 @@ library LibTokenInvariants {
             receiptVault: 0xfEa217600e2b00bBB2172a99345016a0cEb7d29f,
             wrappedTokenVault: 0x685DFd386968B58D895F934485820C479C79a8bB
         });
-        // tBIRD — copied from Base 2026-09-11 15:24 UTC by `20260807-deploy-missing-tokens`
-        // on `robinhood` (manual-broadcast run 34615482230), the only token the
-        // selection found missing; wired onto this chain's V4 authoriser and
-        // handed to its token-owner Safe in the same broadcast.
         tokens[50] = TokenInstance({
             underlying: "BIRD",
             receipt: 0x34a8386fd0a943D4c1F182e9eb6b5e125509dFF2,
             receiptVault: 0x2E04C503ebd584C3c0Bb1d57E0C51E7B7EaE28E1,
             wrappedTokenVault: 0xe93A1Bb48e797dDa936f405A7A253f55040584D5
         });
-        // tSPY — copied from Base 2026-09-29 14:11 UTC by `20260807-deploy-missing-tokens`
-        // on `robinhood` (manual-broadcast run 36580216217), the only token the
-        // selection found missing; wired onto this chain's V4 authoriser and
-        // handed to its token-owner Safe in the same broadcast.
         tokens[51] = TokenInstance({
             underlying: "SPY",
             receipt: address(0xc3f3EAfCc5927C645cdb22CEEB68844D53AA7C7C),
             receiptVault: address(0x76D34283ec6d29b1b07E0e6077f5c436AD163B9c),
             wrappedTokenVault: address(0xfBA650082205E5807a5eAF28BdcC8E851bB2f753)
         });
-        // tSNES — copied from Base 2026-09-30 by `20260807-deploy-missing-tokens`
-        // on `robinhood` (manual-broadcast run 36714592472), the only token the
-        // selection found missing; wired onto this chain's V4 authoriser and
-        // handed to its token-owner Safe in the same broadcast.
         tokens[52] = TokenInstance({
             underlying: "SNES",
             receipt: address(0x4ed13d2C1f545FA73f53bE8c0BB82D279738C10f),
             receiptVault: address(0xF8bF43D61E4Cd2a5b5DfaD01BaC84693d7B95e51),
             wrappedTokenVault: address(0x06096908dBC38fc54509024674E4fd1891B5F7CA)
         });
-        // tWMT — copied from Base 2026-10-08 by `20260807-deploy-missing-tokens`
-        // on `robinhood` (manual-broadcast run 37748116629), the only token the
-        // selection found missing; wired onto this chain's V4 authoriser and
-        // handed to its governance timelock in the same broadcast.
         tokens[53] = TokenInstance({
             underlying: "WMT",
             receipt: address(0x395717EE8201419b21B40A400ea959a7D7d43A36),
             receiptVault: address(0xfAE9AfE275E57759f8Fbae5f252c65aDBF1b773F),
             wrappedTokenVault: address(0x23A0944e82766242dA76cb0f77e0b7812e5487EA)
         });
-        // tMC — copied from Base 2026-10-15 by `20260807-deploy-missing-tokens`
-        // on `robinhood` (manual-broadcast run 38764582990), one of the two tokens the
-        // selection found missing (tMC, tDIS); wired onto this chain's EU assets authoriser and
-        // handed to its governance timelock in the same broadcast.
         tokens[54] = TokenInstance({
             underlying: "MC",
             receipt: address(0x9835e52FAFA9A92678C8A9420034706B1edD431e),
             receiptVault: address(0x4d4D633bf04ABF6e4cF152C7c5c1ecD906Ab3de4),
             wrappedTokenVault: address(0x5Ce8b84756dDdE011734F04dC4bA2930C981B443)
         });
-        // tDIS — copied from Base 2026-10-15 by `20260807-deploy-missing-tokens`
-        // on `robinhood` (manual-broadcast run 38764582990), one of the two tokens the
-        // selection found missing (tMC, tDIS); wired onto this chain's V4 authoriser and
-        // handed to its governance timelock in the same broadcast.
         tokens[55] = TokenInstance({
             underlying: "DIS",
             receipt: address(0x29e7fe750DFffd4D7C8e907C126324B8a5A9AdB7),
@@ -2071,14 +1898,7 @@ library LibTokenInvariants {
     /// Chain (chain id 56) — Base's underlyings in Base row order, so the
     /// tables pair by index as well as by key (the cross-chain parity pin
     /// asserts the alignment).
-    ///
-    /// Deployed on BNB Smart Chain 2026-09-10 by `20260807-deploy-missing-tokens`
-    /// on `bsc` (manual-broadcast run 34545683866): all 41 tokens via the
-    /// 0.1.1 unified deployer against beacons already on 0.1.30, each wired
-    /// onto this chain's V4 authoriser and handed to its token-owner Safe in
-    /// the same broadcast. Addresses pinned from the run's logged
-    /// (underlying, receipt, receiptVault, wrapped) tuples.
-    /// @return tokens The 56 production token instances on BNB Smart Chain.
+    /// @return tokens The production token instances on BNB Smart Chain.
     function productionTokensBsc() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](56);
         tokens[0] = TokenInstance({
@@ -2327,9 +2147,6 @@ library LibTokenInvariants {
             receiptVault: 0x162d65E4E4313b88D7eFc37F9c8110b334110406,
             wrappedTokenVault: 0xd6c50a60b46eeF15ae2E8dbeFC417A6F0F154bc5
         });
-        // From row 41: Base's later deployments, copied onto this chain by
-        // `20260807-deploy-missing-tokens` on 2026-09-11 (manual-broadcast run
-        // 34589363778) — the fifteen rows the dispatch selected, in Base order.
         tokens[41] = TokenInstance({
             underlying: "CBRS",
             receipt: 0xdEa3AA3Ad91C7989Dd9986b8E5558d0e9889d718,
@@ -2384,60 +2201,36 @@ library LibTokenInvariants {
             receiptVault: 0x042Dfd33De6766a8858f188DFcf207D311da6488,
             wrappedTokenVault: 0x5A5c3b64907823b1c5ea9d75D5AF44dFD06b03ea
         });
-        // tBIRD — copied from Base 2026-09-11 15:24 UTC by `20260807-deploy-missing-tokens`
-        // on `bsc` (manual-broadcast run 34615479611), the only token the
-        // selection found missing; wired onto this chain's V4 authoriser and
-        // handed to its token-owner Safe in the same broadcast.
         tokens[50] = TokenInstance({
             underlying: "BIRD",
             receipt: 0x6cFDdBddbCe10Cda74329F5B85FAa01d9d8081F8,
             receiptVault: 0x21a53882B0023c1F4D98087564e91ae6CEA0b4Ec,
             wrappedTokenVault: 0x9253907626f6FB9685c58e1C2cB2bF0AE6337A40
         });
-        // tSPY — copied from Base 2026-09-29 14:12 UTC by `20260807-deploy-missing-tokens`
-        // on `bsc` (manual-broadcast run 36580222711), the only token the
-        // selection found missing; wired onto this chain's V4 authoriser and
-        // handed to its token-owner Safe in the same broadcast.
         tokens[51] = TokenInstance({
             underlying: "SPY",
             receipt: address(0xDF7aBB7e9eA11b158CC17a84e79916Df3AA3f8f9),
             receiptVault: address(0x788E2fEE2EDa979739a7E4b3EBfC2AeB7E4f3A12),
             wrappedTokenVault: address(0xa0E98F987B0c1b9D2Eb92b24e81a69Dd0449CAd8)
         });
-        // tSNES — copied from Base 2026-09-30 by `20260807-deploy-missing-tokens`
-        // on `bsc` (manual-broadcast run 36714595910), the only token the
-        // selection found missing; wired onto this chain's V4 authoriser and
-        // handed to its token-owner Safe in the same broadcast.
         tokens[52] = TokenInstance({
             underlying: "SNES",
             receipt: address(0x800144a27098164095d7BaAaba1700aB23bb29C7),
             receiptVault: address(0x9A13CA5347146D705e33bb42b336CA3b6868cc61),
             wrappedTokenVault: address(0xbF85d4451CcB77B497532dBc4ACa58d10b5DC192)
         });
-        // tWMT — copied from Base 2026-10-08 by `20260807-deploy-missing-tokens`
-        // on `bsc` (manual-broadcast run 37748125276), the only token the
-        // selection found missing; wired onto this chain's V4 authoriser and
-        // handed to its governance timelock in the same broadcast.
         tokens[53] = TokenInstance({
             underlying: "WMT",
             receipt: address(0x15be3D9f7C33cA78797e337DC524F7330C9672E9),
             receiptVault: address(0xcc23Ef9e1e74c22ab2A9B73E253Af01531385b08),
             wrappedTokenVault: address(0x0590F2C3ecE606F9E01af0291EFDEA7A28899782)
         });
-        // tMC — copied from Base 2026-10-15 by `20260807-deploy-missing-tokens`
-        // on `bsc` (manual-broadcast run 38764595942), one of the two tokens the
-        // selection found missing (tMC, tDIS); wired onto this chain's EU assets authoriser and
-        // handed to its governance timelock in the same broadcast.
         tokens[54] = TokenInstance({
             underlying: "MC",
             receipt: address(0xcf829819FDD164A8B6566d404E67bdFd92F169c2),
             receiptVault: address(0x28019de1dE36d5fA0077Dfe7859ED54664982081),
             wrappedTokenVault: address(0x69e93548C38132B8bcfA41BbA521Ae5A87c568B4)
         });
-        // tDIS — copied from Base 2026-10-15 by `20260807-deploy-missing-tokens`
-        // on `bsc` (manual-broadcast run 38764595942), one of the two tokens the
-        // selection found missing (tMC, tDIS); wired onto this chain's V4 authoriser and
-        // handed to its governance timelock in the same broadcast.
         tokens[55] = TokenInstance({
             underlying: "DIS",
             receipt: address(0x67d8ACfE2DADa892411b4A86CBAC6901383C8F4e),
@@ -2446,19 +2239,39 @@ library LibTokenInvariants {
         });
     }
 
-    /// @notice Returns the 56 production receipt vault addresses on Base, in
+    /// @notice Returns the production receipt vault addresses on Base, in
     /// the order they were deployed. Provided so consumers (e.g. invariant
     /// assertions, migration scripts) can iterate without hardcoding the
     /// list inline.
     /// @dev Derived from `productionTokensBase()` so the token table is the
     /// single source of truth and the two accessors cannot drift.
-    /// @return vaults The 56 production receipt vault addresses on Base.
+    /// @return vaults The production receipt vault addresses on Base.
     function productionReceiptVaults() internal pure returns (address[] memory vaults) {
-        TokenInstance[] memory tokens = productionTokensBase();
-        vaults = new address[](tokens.length);
+        return productionReceiptVaultsForChainId(LibSafeInvariants.BASE_CHAIN_ID);
+    }
+
+    /// @notice The chain's production receipt vaults, in token table order.
+    /// @param chainId The chain id.
+    /// @return The receipt vault addresses.
+    function productionReceiptVaultsForChainId(uint256 chainId) internal pure returns (address[] memory) {
+        TokenInstance[] memory tokens = productionTokensForChainId(chainId);
+        address[] memory vaults = new address[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
             vaults[i] = tokens[i].receiptVault;
         }
+        return vaults;
+    }
+
+    /// @notice The chain's production token table.
+    /// @param chainId The chain id.
+    /// @return The chain's token instances.
+    function productionTokensForChainId(uint256 chainId) internal pure returns (TokenInstance[] memory) {
+        if (chainId == LibSafeInvariants.BASE_CHAIN_ID) return productionTokensBase();
+        if (chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) return productionTokensEthereum();
+        if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) return productionTokensHyperEvm();
+        if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) return productionTokensRobinhood();
+        if (chainId == LibSafeInvariants.BSC_CHAIN_ID) return productionTokensBsc();
+        revert NoTokenTableForChain(chainId);
     }
 
     /// @notice Assert that every production receipt vault reports the same
