@@ -38,6 +38,11 @@ contract InvariantVault is StoxReceiptVault {
         }
     }
 
+    function publicMigrateAccount(address account) external {
+        LibTotalSupply.fold();
+        migrateAccount(account);
+    }
+
     function publicUpdate(address from, address to, uint256 amount) external {
         _update(from, to, amount);
     }
