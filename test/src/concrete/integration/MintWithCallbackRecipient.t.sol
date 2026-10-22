@@ -6,7 +6,7 @@ import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";
 import {Digest} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 import {AcceptingMintRecipient} from "./AcceptingMintRecipient.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
+import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
 
 /// @title MintWithCallbackRecipientTest
 /// @notice Workflow: a contract recipient with no key authorises via the

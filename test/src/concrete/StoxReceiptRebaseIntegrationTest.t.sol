@@ -2,17 +2,17 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test, Vm} from "forge-std-1.16.2/src/Test.sol";
+import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
 import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
-import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.10/src/lib/LibDecimalFloat.sol";
 import {ICorporateActionsV1} from "../../../src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter, NODE_NONE} from "../../../src/lib/LibCorporateActionNode.sol";
 import {
     LibCorporateActionReceipt,
     CORPORATE_ACTION_RECEIPT_STORAGE_LOCATION
 } from "../../../src/lib/LibCorporateActionReceipt.sol";
-import {IReceiptManagerV2} from "rain-vats-0.2.1/src/interface/IReceiptManagerV2.sol";
-import {IERC1155Errors} from "@openzeppelin-contracts-5.6.1/interfaces/draft-IERC6093.sol";
+import {IReceiptManagerV2} from "rain-vats-0.2.5/src/interface/IReceiptManagerV2.sol";
+import {IERC1155Errors} from "@openzeppelin-contracts-5.7.0/interfaces/draft-IERC6093.sol";
 import {MockVault} from "./MockVault.sol";
 import {TestStoxReceipt} from "./TestStoxReceipt.sol";
 import {RecordingReceiver} from "./RecordingReceiver.sol";
@@ -454,7 +454,7 @@ contract StoxReceiptRebaseIntegrationTest is Test {
     /// In a multi-id batch transfer, `ReceiptAccountMigrated` events fire
     /// in `(from, ids[0]), (to, ids[0]), (from, ids[1]), (to, ids[1])`
     /// order, all before the `TransferBatch` event. Bob's zero-balance
-    /// migrations also emit: every cursor advance fires.
+    /// migrations also emit (per #81 — every cursor advance fires).
     /// Indexers rely on this interleaving: for each event emitted for
     /// `ids[i]`, the balance at that cursor for that id is the rasterized
     /// value, not yet touched by the transfer.
@@ -582,7 +582,7 @@ contract StoxReceiptRebaseIntegrationTest is Test {
     }
 
     // -----------------------------------------------------------------------
-    // Receipt-side always-emit semantics.
+    // Issue #81: receipt-side always-emit semantics.
     //
     // Mirrors the share-side test matrix on `StoxReceiptVault.t.sol`.
     // `migrateHolderId` must emit `ReceiptAccountMigrated` on every

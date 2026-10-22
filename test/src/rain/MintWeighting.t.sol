@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Strings} from "@openzeppelin-contracts-5.6.1/utils/Strings.sol";
-import {stdError} from "forge-std-1.16.2/src/StdError.sol";
-import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
+import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
+import {stdError} from "forge-std-1.17.0/src/StdError.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.10/src/lib/LibDecimalFloat.sol";
+import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
 
 import {LibTestDotrain, DotrainBinding} from "test/lib/LibTestDotrain.sol";
 import {IST0xOrchestratorV2} from "src/interface/IST0xOrchestratorV2.sol";

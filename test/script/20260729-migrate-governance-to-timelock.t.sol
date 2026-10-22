@@ -2,13 +2,13 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.2/src/Test.sol";
-import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
-import {Ownable} from "@openzeppelin-contracts-5.6.1/access/Ownable.sol";
-import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/TimelockController.sol";
-import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
-import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
+import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 
 import {DeployGovernanceTimelockHarness} from "./DeployGovernanceTimelockHarness.sol";
 import {
@@ -23,18 +23,23 @@ import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.1/src/concrete/vault/OffchainAssetReceiptVault.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.1/src/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.5/src/concrete/vault/OffchainAssetReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.5/src/interface/IAuthorizeV1.sol";
 
 import {IAuthorisable} from "../../src/interface/IAuthorisable.sol";
-import {IGnosisSafe} from "../../src/interface/IGnosisSafe.sol";
-import {LibSafeOps, SafeTx, TxBuilderArtifactMismatch} from "../../src/lib/LibSafeOps.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
+import {SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJson.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 
 /// @title MigrateGovernanceToTimelockTest
-/// @notice Live Base head fork coverage for the governance migration
-/// authoring. The happy path stands up the real timelock (via the deploy
+/// @notice Live head fork coverage for the governance migration authoring.
+/// The migration has executed on every chain, so each fork is first rewound
+/// to the pre-migration state with the timelock's own powers
+/// (`rewindMigration`): the script stays re-dispatchable for audit, and its
+/// authoring path stays proven against real production contracts. The happy path stands up the real timelock (via the deploy
 /// script, at its derived Zoltu address), drives the full `run()` — bundle
 /// build, simulation, post-state, artifact, governance-loop proof — and
 /// then independently re-derives the expected bundle from the pre-run state
@@ -96,7 +101,44 @@ contract MigrateGovernanceToTimelockTest is Test {
     }
 
     function selectBaseFork() internal {
-        vm.createSelectFork(LibRainDeploy.BASE);
+        selectRewoundFork(LibRainDeploy.BASE);
+    }
+
+    /// @notice Fork `network` at head and rewind the executed migration.
+    function selectRewoundFork(string memory network) internal {
+        vm.createSelectFork(network);
+        rewindMigration();
+    }
+
+    /// @notice Put the active fork back in the pre-migration state: every
+    /// production vault and in-use beacon the timelock owns goes back to the
+    /// Safe, and the seven authoriser `_ADMIN` roles move from the timelock
+    /// back to the Safe. Uses only powers the timelock holds, so the rewound
+    /// state is one the real contracts admit.
+    function rewindMigration() internal {
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        IAccessControl authoriser = IAccessControl(_activeChainAuthoriser());
+
+        vm.startPrank(timelock);
+        TokenInstance[] memory tokens = _activeChainTokens();
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (Ownable(tokens[i].receiptVault).owner() == timelock) {
+                Ownable(tokens[i].receiptVault).transferOwnership(safe);
+            }
+        }
+        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        for (uint256 i = 0; i < beacons.length; i++) {
+            if (Ownable(beacons[i]).owner() == timelock) {
+                Ownable(beacons[i]).transferOwnership(safe);
+            }
+        }
+        RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
+        for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
+            authoriser.grantRole(grants[i].role, safe);
+            authoriser.renounceRole(grants[i].role, timelock);
+        }
+        vm.stopPrank();
     }
 
     /// @notice Deploy the real timelock on the fork at its derived address
@@ -130,18 +172,30 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// `RPC_URL_HYPEREVM_FORK` secret, so a missing RPC must fail at fork
     /// time rather than pass having asserted nothing.
     function testRunAuthorsFullMigrationOnHyperevm() external {
-        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
+        selectRewoundFork(LibStoxDeployNetworks.HYPEREVM);
         _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM);
     }
 
-    /// @notice The same full authoring against live Ethereum state, so all
-    /// three governed chains carry the same proof — Ethereum shares
+    /// @notice The same full authoring against live Ethereum state — Ethereum shares
     /// HyperEVM's Safe and timelock but has its own token table and
     /// authoriser clone, and chain-generic code is only proven generic by
     /// running it on every chain it claims.
     function testRunAuthorsFullMigrationOnEthereum() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
+        selectRewoundFork(LibStoxDeployNetworks.ETHEREUM);
         _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM);
+    }
+
+    /// @notice The same full authoring against live Robinhood Chain state.
+    function testRunAuthorsFullMigrationOnRobinhood() external {
+        selectRewoundFork(LibStoxDeployNetworks.ROBINHOOD);
+        _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD);
+    }
+
+    /// @notice The same full authoring against live BNB Smart Chain state, so
+    /// all five governed chains carry the same proof.
+    function testRunAuthorsFullMigrationOnBsc() external {
+        selectRewoundFork(LibStoxDeployNetworks.BSC);
+        _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC);
     }
 
     /// @notice Drive the full authoring on whichever fork is selected and
@@ -278,11 +332,15 @@ contract MigrateGovernanceToTimelockTest is Test {
         address authoriser = _activeChainAuthoriser();
         RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
 
-        (uint256 chainId, address firstTarget, SafeTx[] memory txs) = LibSafeOps.parseTxBuilderJson(
-            string.concat("out/20260729-governance-timelock-migration-", vm.toString(block.chainid), ".json")
+        (uint256 chainId, address artifactSafe, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(
+            vm,
+            vm.readFile(
+                string.concat("out/20260729-governance-timelock-migration-", vm.toString(block.chainid), ".json")
+            )
         );
         assertEq(chainId, block.chainid, "artifact must be authored for the active chain");
-        assertEq(firstTarget, authoriser, "bundle must open with the authoriser grants");
+        assertEq(artifactSafe, safe, "artifact must be authored for the chain's Safe");
+        assertEq(txs[0].to, authoriser, "bundle must open with the authoriser grants");
         assertEq(txs.length, ADMIN_ROLE_COUNT + vaultTargets.length + beaconTargets.length + ADMIN_ROLE_COUNT);
 
         for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
@@ -477,13 +535,13 @@ contract MigrateGovernanceToTimelockTest is Test {
         verifier.verify(path);
 
         // Tamper one call's payload and re-emit: verify pinpoints the field.
-        (,, SafeTx[] memory txs) = LibSafeOps.parseTxBuilderJson(path);
+        (,, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(vm, vm.readFile(path));
         txs[0].data = abi.encodeCall(IAccessControl.grantRole, (bytes32(uint256(1)), address(0xBAD)));
         vm.writeFile(
             "out/tampered-migration.json",
-            LibSafeOps.emitTxBuilderJson(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, block.chainid, "tampered", txs)
+            LibSafeTxBuilderJson.toJson(vm, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, block.chainid, "tampered", txs)
         );
-        vm.expectRevert(abi.encodeWithSelector(TxBuilderArtifactMismatch.selector, "data"));
+        vm.expectRevert(abi.encodeWithSelector(LibSafeTxBuilderJson.ArtifactMismatch.selector, "data"));
         verifier.verify("out/tampered-migration.json");
     }
 
@@ -497,24 +555,24 @@ contract MigrateGovernanceToTimelockTest is Test {
         bytes32 salt = keccak256(abi.encode("migrate-away-proof", target, data));
         bytes32 id = controller.hashOperation(target, 0, data, bytes32(0), salt);
 
-        LibSafeOps.simulateNPlus1(
-            IGnosisSafe(safe),
+        LibSafeFork.simulateNPlus1(
+            vm,
+            Safe(payable(safe)),
             timelock,
             abi.encodeCall(
                 TimelockController.schedule,
                 (target, 0, data, bytes32(0), salt, LibTimelockInvariants.TIMELOCK_MIN_DELAY)
-            ),
-            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD
+            )
         );
         assertTrue(controller.isOperationPending(id), "leg must be pending after schedule");
         assertFalse(controller.isOperationReady(id), "leg must not be executable inside the delay");
 
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
-        LibSafeOps.simulateNPlus1(
-            IGnosisSafe(safe),
+        LibSafeFork.simulateNPlus1(
+            vm,
+            Safe(payable(safe)),
             timelock,
-            abi.encodeCall(TimelockController.execute, (target, 0, data, bytes32(0), salt)),
-            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD
+            abi.encodeCall(TimelockController.execute, (target, 0, data, bytes32(0), salt))
         );
         assertTrue(controller.isOperationDone(id), "leg must complete after the delay");
     }

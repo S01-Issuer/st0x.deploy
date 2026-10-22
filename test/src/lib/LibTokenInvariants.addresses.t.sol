@@ -2,20 +2,20 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.2/src/Test.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibTokenInvariants} from "../../../src/lib/LibTokenInvariants.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibTestProd} from "../../lib/LibTestProd.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
-import {IERC20Metadata} from "@openzeppelin-contracts-5.6.1/token/ERC20/extensions/IERC20Metadata.sol";
-import {IERC4626} from "@openzeppelin-contracts-5.6.1/interfaces/IERC4626.sol";
-import {IReceiptVaultV3} from "rain-vats-0.2.1/src/interface/IReceiptVaultV3.sol";
-import {IReceiptV3} from "rain-vats-0.2.1/src/interface/IReceiptV3.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
+import {IERC4626} from "@openzeppelin-contracts-5.7.0/interfaces/IERC4626.sol";
+import {IReceiptVaultV3} from "rain-vats-0.2.5/src/interface/IReceiptVaultV3.sol";
+import {IReceiptV3} from "rain-vats-0.2.5/src/interface/IReceiptV3.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
-} from "rain-vats-0.2.1/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
-import {ICertifiableV1} from "rain-vats-0.2.1/src/interface/ICertifiableV1.sol";
+} from "rain-vats-0.2.5/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
+import {ICertifiableV1} from "rain-vats-0.2.5/src/interface/ICertifiableV1.sol";
 import {
     ERC1967_BEACON_SLOT,
     LibExtrospectERC1967BeaconProxy
@@ -24,11 +24,8 @@ import {LibExtrospectBytecode} from "rain-extrospection-0.1.14/src/lib/LibExtros
 import {LibExtrospectMetamorphic} from "rain-extrospection-0.1.14/src/lib/LibExtrospectMetamorphic.sol";
 import {EVM_OP_CREATE, EVM_OP_DELEGATECALL} from "rain-extrospection-0.1.14/src/lib/EVMOpcodes.sol";
 import {IExtrospectV1} from "rain-extrospection-0.1.14/src/interface/IExtrospectV1.sol";
+import {DEPLOYED_ADDRESS as EXTROSPECT_0_1_0} from "rain-extrospection-deploy-0.1.0/src/generated/0_1_0/Extrospect.sol";
 import {IBeacon} from "rain-extrospection-0.1.14/src/interface/IBeacon.sol";
-
-/// @dev The deterministic Zoltu address of the deployed `Extrospect`
-/// concrete, the `IExtrospectV1` this test calls on Base.
-address constant EXTROSPECT_ZOLTU_ADDRESS_V1 = address(0x1BE878af679C1a0A6AC15108b0F4398de1f94506);
 
 /// @title LibTokenInvariantsAddressesTest
 /// @notice Fork tests verifying production token instances on Base.
@@ -210,13 +207,22 @@ contract LibTokenInvariantsAddressesTest is Test {
         );
     }
 
-    /// `checkNoSolidityCBORMetadata` reverts with `UnexpectedMetadata` on
-    /// bytecode carrying the 53-byte Solidity CBOR trailer (`a2 64 "ipfs"
-    /// 5822 <34 bytes> 64 "solc" 43 <3 bytes> 0033`), etched at a sentinel
-    /// address. Routes through the deployed `Extrospect` contract at
-    /// `EXTROSPECT_ZOLTU_ADDRESS_V1` because the library function inlines
-    /// into the test contract and a same-depth revert does not satisfy
-    /// `vm.expectRevert`.
+    /// Mutation pin: the no-CBOR tests above all return clean (no revert),
+    /// which by itself doesn't prove `checkNoSolidityCBORMetadata` would
+    /// catch a deployment that actually carried CBOR metadata. Construct
+    /// fake bytecode at a sentinel address using `vm.etch`, with the exact
+    /// 53-byte Solidity CBOR trailer (`a2 64 "ipfs" 5822 <34 bytes> 64
+    /// "solc" 43 <3 bytes> 0033`), and assert the library reverts with
+    /// `UnexpectedMetadata`. Without this, a regression in
+    /// `tryTrimSolidityCBORMetadata` (e.g. always returning false) would
+    /// silently turn the prod pins into vacuous always-pass tests.
+    ///
+    /// Routes through the deployed `Extrospect` contract at the
+    /// deterministic Zoltu address — `checkNoSolidityCBORMetadata` is
+    /// library-internal and inlines into the test contract, so a
+    /// same-depth revert wouldn't satisfy `vm.expectRevert`. The
+    /// concrete contract provides the external call hop and is on Base
+    /// at `EXTROSPECT_0_1_0`.
     function testCheckNoSolidityCBORMetadataDetectsCBORTrailer() external {
         LibTestProd.createSelectForkBase(vm);
         bytes memory bytecode = abi.encodePacked(
@@ -237,7 +243,7 @@ contract LibTokenInvariantsAddressesTest is Test {
         vm.etch(sentinel, bytecode);
 
         vm.expectRevert(bytes4(keccak256("UnexpectedMetadata()")));
-        IExtrospectV1(EXTROSPECT_ZOLTU_ADDRESS_V1).checkNoSolidityCBORMetadata(sentinel);
+        IExtrospectV1(EXTROSPECT_0_1_0).checkNoSolidityCBORMetadata(sentinel);
     }
 
     /// `LibExtrospectMetamorphic.scanMetamorphicRisk` bitmap pin for

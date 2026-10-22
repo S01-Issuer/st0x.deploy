@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
-import {LibTOFUTokenDecimals} from "rain-tofu-erc20-decimals-0.1.1/src/lib/LibTOFUTokenDecimals.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.10/src/lib/LibDecimalFloat.sol";
+import {LibTOFUTokenDecimals} from "rain-tofu-erc20-decimals-0.1.4/src/lib/LibTOFUTokenDecimals.sol";
 import {InvalidSplitMultiplier, MultiplierTooSmall, MultiplierTooLarge} from "../error/ErrStockSplit.sol";
 
 /// @title LibStockSplit
@@ -42,14 +42,21 @@ library LibStockSplit {
     /// Rules:
     /// 1. Multiplier must be strictly positive — rejects zero and negative
     ///    values (`InvalidSplitMultiplier`).
-    /// 2. Multiplier must be at least the value of 1 smallest-unit in Float
-    ///    terms (`fromFixedDecimal(1, decimals)` = `10^(-decimals)`) — rejects
-    ///    multipliers that would truncate a 1-wei balance to zero on the
-    ///    first rebase pass (`MultiplierTooSmall`).
+    /// 2. Multiplier must be at least `10^-decimals`
+    ///    (`fromFixedDecimal(1, decimals)`). This preserves at least one
+    ///    smallest unit when rebasing a one-whole-token balance (`10^decimals`
+    ///    smallest units); smaller balances can still truncate to zero
+    ///    (`MultiplierTooSmall`).
     /// 3. Multiplier must be at most the value of 1 whole token represented
     ///    as a raw smallest-unit count (`fromFixedDecimal(10^decimals, 0)`) —
     ///    rejects near-saturation multipliers that risk overflow on
     ///    sequential application (`MultiplierTooLarge`).
+    ///
+    /// The bounds are deliberately conservative. The largest historical real
+    /// stock split was roughly 1000x (= 1e3), well inside the ceiling, and
+    /// the smallest realistic reverse split would be around 1/1000 (= 1e-3),
+    /// well above the floor.
+    ///
     /// @param multiplier The stock split multiplier as a Float.
     function validateMultiplierV1(Float multiplier) internal {
         // Reject zero and negative multipliers.
@@ -62,8 +69,8 @@ library LibStockSplit {
         // under delegatecall.
         uint8 decimals = LibTOFUTokenDecimals.safeDecimalsForToken(address(this));
 
-        // Floor: one smallest-unit balance in Float terms. Below this, a
-        // 1-wei balance truncates to zero on rebase.
+        // Floor: 10^-decimals. A one-whole-token balance keeps at least one
+        // smallest unit; smaller balances can still truncate to zero.
         Float floor = LibDecimalFloat.fromFixedDecimalLosslessPacked(1, decimals);
         if (LibDecimalFloat.lt(multiplier, floor)) revert MultiplierTooSmall(multiplier);
 

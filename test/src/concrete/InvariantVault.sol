@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
-import {ERC20Upgradeable} from "@openzeppelin-contracts-upgradeable-5.6.1/token/ERC20/ERC20Upgradeable.sol";
+import {ERC20Upgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/token/ERC20/ERC20Upgradeable.sol";
 import {LibCorporateAction} from "../../../src/lib/LibCorporateAction.sol";
 import {ACTION_TYPE_STOCK_SPLIT_V1} from "../../../src/interface/ICorporateActionsV1.sol";
 import {LibERC20Storage} from "../../../src/lib/LibERC20Storage.sol";
@@ -36,6 +36,11 @@ contract InvariantVault is StoxReceiptVault {
         } else if (to == address(0)) {
             LibTotalSupply.onBurn(amount);
         }
+    }
+
+    function publicMigrateAccount(address account) external {
+        LibTotalSupply.fold();
+        migrateAccount(account);
     }
 
     function publicUpdate(address from, address to, uint256 amount) external {

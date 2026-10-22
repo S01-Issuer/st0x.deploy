@@ -2,248 +2,277 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.2/src/Test.sol";
-import {IBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/IBeacon.sol";
-import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
-import {IAccessControl} from "@openzeppelin-contracts-5.6.1/access/IAccessControl.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {IMigrationRegistryV2, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistryDeploy.sol";
 
-import {
-    ST0xOrchestrator,
-    ORCHESTRATOR_MINT_ROLE,
-    ORCHESTRATOR_MINT_ADMIN_ROLE,
-    ORCHESTRATOR_BURN_ROLE,
-    ORCHESTRATOR_BURN_ADMIN_ROLE,
-    ORCHESTRATOR_EMERGENCY_ROLE,
-    ORCHESTRATOR_EMERGENCY_ADMIN_ROLE
-} from "../../../src/concrete/ST0xOrchestrator.sol";
-import {ST0xOrchestratorBeaconSetDeployer} from "../../../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
-import {IST0xVaultBeaconSet} from "../../../src/interface/IST0xVaultBeaconSet.sol";
-import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
-import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
-import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
-import {BeaconOwnerMismatch, BeaconImplementationMismatch} from "../../../src/lib/LibBeaconInvariants.sol";
 import {
     LibOrchestratorInvariants,
-    OrchestratorSetDeployerMissing,
-    OrchestratorInstanceMissing,
-    OrchestratorVaultLogicUnexpected,
-    OrchestratorRoleMissing,
-    OrchestratorUnexpectedRoleHolder,
-    OrchestratorRoleAdminUnexpected
+    OrchestratorAdminMissing,
+    OrchestratorRoleAdminUnexpected,
+    OrchestratorRoleMissing
 } from "../../../src/lib/LibOrchestratorInvariants.sol";
+import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {BeaconOwnerMismatch} from "../../../src/lib/LibBeaconInvariants.sol";
+import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
+import {LibAuthoriserInvariants} from "../../../src/lib/LibAuthoriserInvariants.sol";
+import {LibStoxMigrations} from "../../../src/lib/LibStoxMigrations.sol";
+import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibOrchestratorInvariantsHarness} from "./LibOrchestratorInvariantsHarness.sol";
+import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 
 /// @title LibOrchestratorInvariantsTest
-/// @notice The mint-caps orchestrator invariants against a local deploy that
-/// matches production: the current-release orchestrator and beacon-set
-/// deployer Zoltu-deployed on Base, then the first `deploy()`. Green on that
-/// deploy, and each holder, wiring or address deviation reverts with its
-/// own typed error.
+/// @notice The orchestrator invariants against every deployment network at
+/// head, then each role invariant driven both ways on a Base fork: the
+/// role state a record implies holds, and every disagreement between the
+/// record and the role trips its own typed error.
+///
+/// The scenarios run against a stand-in Safe that has never written to the
+/// migration registry and is made the orchestrator's sole admin on the fork
+/// (`selectScenarioFork`), so they hold whatever the live chain has already
+/// recorded.
 contract LibOrchestratorInvariantsTest is Test {
-    /// @notice Stand-in for the chain's token-owner Safe; the invariants only
-    /// read its role membership.
-    address internal constant SAFE = address(0x5aFe00000000000000000000000000000000aAaa);
-
-    /// @notice OZ `AccessControlUpgradeable`'s ERC-7201 storage slot.
-    bytes32 internal constant ACCESS_CONTROL_SLOT = 0x02dd7bc7dec4dceedda775e58dd541e08a116c6c53815c0bd028192f7b626800;
-
-    address internal constant VAULT_BEACON = address(0xBEAC04);
-    address internal constant RECEIPT_BEACON = address(0xBEAC12);
-
     LibOrchestratorInvariantsHarness internal harness;
+    address internal safe;
     address internal timelock;
-    address internal deployKey;
-    ST0xOrchestratorBeaconSetDeployer internal setDeployer;
+    bytes32 internal mintRole;
+    bytes32 internal burnRole;
+    bytes32 internal emergencyRole;
+    IAccessControl internal orchestrator = IAccessControl(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
+    IMigrationRegistryV2 internal registry =
+        IMigrationRegistryV2(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
 
-    function setUp() external {
-        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
+    function selectFork(string memory network) internal {
+        vm.createSelectFork(network);
         harness = new LibOrchestratorInvariantsHarness();
+        safe = LibSafeInvariants.safeForChainId(block.chainid);
         timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        deployKey = LibProdDeployCurrent.BEACON_INITIAL_OWNER;
-        makeVaultLogic(LibProdDeployCurrent.STOX_RECEIPT_VAULT);
-
-        LibRainDeploy.etchZoltuFactory(vm);
-        LibRainDeploy.deployZoltu(type(ST0xOrchestrator).creationCode);
-        setDeployer = ST0xOrchestratorBeaconSetDeployer(
-            LibRainDeploy.deployZoltu(type(ST0xOrchestratorBeaconSetDeployer).creationCode)
-        );
+        mintRole = ST0xOrchestrator(payable(address(orchestrator))).MINT_ROLE();
+        burnRole = ST0xOrchestrator(payable(address(orchestrator))).BURN_ROLE();
+        emergencyRole = ST0xOrchestrator(payable(address(orchestrator))).EMERGENCY_ROLE();
     }
 
-    /// @notice Point the vault beacon at `vaultImpl` and the receipt beacon
-    /// at the current release, so `vaultLogicIsExpected` passes exactly when
-    /// `vaultImpl` is the current-release vault.
-    function makeVaultLogic(address vaultImpl) internal {
-        address beaconSet = LibProdDeployCurrent.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER;
+    /// @notice Fork Base and stand in a fresh Safe: it becomes the sole
+    /// `DEFAULT_ADMIN_ROLE` holder, taking it from whichever of the real
+    /// Safe and the timelock holds it, and the timelock is cleared of every
+    /// operating role. The stand-in's registry line is at genesis.
+    function selectScenarioFork() internal {
+        selectFork(LibRainDeploy.BASE);
+        address realSafe = safe;
+        safe = makeAddr("scenario-token-owner-safe");
+        address admin = orchestrator.hasRole(bytes32(0), realSafe) ? realSafe : timelock;
+        vm.prank(admin);
+        orchestrator.grantRole(bytes32(0), safe);
+        if (orchestrator.hasRole(bytes32(0), realSafe)) {
+            vm.prank(realSafe);
+            orchestrator.renounceRole(bytes32(0), realSafe);
+        }
+        if (orchestrator.hasRole(bytes32(0), timelock)) {
+            vm.prank(timelock);
+            orchestrator.renounceRole(bytes32(0), timelock);
+        }
+        bytes32[3] memory roles = [emergencyRole, mintRole, burnRole];
+        vm.startPrank(safe);
+        for (uint256 i = 0; i < roles.length; i++) {
+            orchestrator.revokeRole(roles[i], timelock);
+        }
+        vm.stopPrank();
+        assertEq(LibStoxMigrations.head(safe), MIGRATION_HEAD_GENESIS, "stand-in line not at genesis");
+    }
+
+    /// @notice Record the chain's migrations up to and including `upTo`, as
+    /// the Safe, in line order. Recording only — no role is touched.
+    function record(bytes32 upTo) internal {
+        (uint256 executedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
+        vm.startPrank(safe);
+        if (LibStoxMigrations.head(safe) == MIGRATION_HEAD_GENESIS) {
+            registry.applyMigrationHistory(
+                LibStoxMigrations.NAMESPACE,
+                LibStoxMigrations.GOVERNANCE_TIMELOCK,
+                executedAt,
+                LibStoxMigrations.onto(safe, MIGRATION_HEAD_GENESIS)
+            );
+        }
+        if (
+            upTo != LibStoxMigrations.GOVERNANCE_TIMELOCK
+                && LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0
+        ) {
+            registry.applyMigration(
+                LibStoxMigrations.NAMESPACE,
+                LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
+                LibStoxMigrations.onto(safe, LibStoxMigrations.GOVERNANCE_TIMELOCK)
+            );
+        }
+        if (upTo == LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) {
+            registry.applyMigration(
+                LibStoxMigrations.NAMESPACE,
+                LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
+                LibStoxMigrations.onto(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY)
+            );
+        }
+        vm.stopPrank();
+    }
+
+    function grantEmergencyToSafe() internal {
+        if (!orchestrator.hasRole(emergencyRole, safe)) {
+            vm.prank(safe);
+            orchestrator.grantRole(emergencyRole, safe);
+        }
+    }
+
+    function moveAdminToTimelock() internal {
+        vm.startPrank(safe);
+        orchestrator.grantRole(bytes32(0), timelock);
+        orchestrator.renounceRole(bytes32(0), safe);
+        vm.stopPrank();
+    }
+
+    /// @notice The invariants hold at head on every network ST0x deploys to.
+    function testLiveOnEveryDeploymentNetwork() external {
+        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        for (uint256 i = 0; i < networks.length; i++) {
+            selectFork(networks[i]);
+            harness.callAssertBeaconSet();
+            harness.callAssertInstance(safe);
+        }
+    }
+
+    /// @notice The beacon owner must be the chain's timelock exactly; the
+    /// Safe that owned it before the governance migration no longer passes.
+    function testBeaconOwnedBySafeTrips() external {
+        selectFork(LibRainDeploy.BASE);
         vm.mockCall(
-            beaconSet,
-            abi.encodeWithSelector(IST0xVaultBeaconSet.iOffchainAssetReceiptVaultBeacon.selector),
-            abi.encode(VAULT_BEACON)
+            LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON, abi.encodeCall(Ownable.owner, ()), abi.encode(safe)
         );
-        vm.mockCall(
-            beaconSet, abi.encodeWithSelector(IST0xVaultBeaconSet.iReceiptBeacon.selector), abi.encode(RECEIPT_BEACON)
-        );
-        vm.mockCall(VAULT_BEACON, abi.encodeWithSelector(IBeacon.implementation.selector), abi.encode(vaultImpl));
-        vm.mockCall(
-            RECEIPT_BEACON,
-            abi.encodeWithSelector(IBeacon.implementation.selector),
-            abi.encode(LibProdDeployCurrent.STOX_RECEIPT)
-        );
-    }
-
-    function deployInstance() internal returns (IAccessControl) {
-        return IAccessControl(setDeployer.deploy());
-    }
-
-    function adminRoles() internal pure returns (bytes32[4] memory) {
-        return [
-            // DEFAULT_ADMIN_ROLE is 0x00 in OZ AccessControl.
-            bytes32(0), ORCHESTRATOR_MINT_ADMIN_ROLE, ORCHESTRATOR_BURN_ADMIN_ROLE, ORCHESTRATOR_EMERGENCY_ADMIN_ROLE
-        ];
-    }
-
-    function operatingRoles() internal pure returns (bytes32[3] memory) {
-        return [ORCHESTRATOR_MINT_ROLE, ORCHESTRATOR_BURN_ROLE, ORCHESTRATOR_EMERGENCY_ROLE];
-    }
-
-    /// @notice Overwrite `role`'s admin role in the instance's AccessControl
-    /// storage: `RoleData { mapping hasRole; bytes32 adminRole; }`.
-    function setRoleAdmin(address instance, bytes32 role, bytes32 adminRole) internal {
-        bytes32 roleData = keccak256(abi.encode(role, ACCESS_CONTROL_SLOT));
-        vm.store(instance, bytes32(uint256(roleData) + 1), adminRole);
-    }
-
-    /// @notice The derived beacon and instance are where the production
-    /// deployer actually creates them.
-    function testMintCapsAddressesMatchDeploy() external {
-        assertEq(address(setDeployer), LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER, "set deployer");
-        assertEq(address(setDeployer.iOrchestratorBeacon()), LibOrchestratorInvariants.mintCapsBeacon(), "beacon");
-        assertEq(address(deployInstance()), LibOrchestratorInvariants.mintCapsInstance(), "instance");
-    }
-
-    function testAssertMintCapsBeaconSetPasses() external view {
-        harness.callAssertMintCapsBeaconSet();
-    }
-
-    function testAssertMintCapsBeaconSetRevertsWhenDeployerMissing() external {
-        vm.etch(address(setDeployer), "");
-        vm.expectRevert(abi.encodeWithSelector(OrchestratorSetDeployerMissing.selector, address(setDeployer)));
-        harness.callAssertMintCapsBeaconSet();
-    }
-
-    /// @notice A beacon handed to anyone but the timelock fails, the deploy
-    /// key included.
-    function testFuzzAssertMintCapsBeaconSetRevertsOnOtherOwner(address owner) external {
-        vm.assume(owner != timelock && owner != address(0));
-        address beacon = LibOrchestratorInvariants.mintCapsBeacon();
-        vm.prank(timelock);
-        UpgradeableBeacon(beacon).transferOwnership(owner);
-        vm.expectRevert(abi.encodeWithSelector(BeaconOwnerMismatch.selector, beacon, timelock, owner));
-        harness.callAssertMintCapsBeaconSet();
-    }
-
-    function testAssertMintCapsBeaconSetRevertsOnOtherImplementation() external {
-        address beacon = LibOrchestratorInvariants.mintCapsBeacon();
-        address other = address(new ST0xOrchestrator());
-        vm.prank(timelock);
-        UpgradeableBeacon(beacon).upgradeTo(other);
         vm.expectRevert(
             abi.encodeWithSelector(
-                BeaconImplementationMismatch.selector, beacon, LibProdDeployCurrent.ST0X_ORCHESTRATOR, other
+                BeaconOwnerMismatch.selector, LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON, timelock, safe
             )
         );
-        harness.callAssertMintCapsBeaconSet();
+        harness.callAssertBeaconSet();
     }
 
-    function testAssertMintCapsInstancePasses() external {
-        deployInstance();
-        harness.callAssertMintCapsInstance(SAFE);
+    /// @notice Granted and recorded: passes.
+    function testEmergencyGrantedAndRecordedPasses() external {
+        selectScenarioFork();
+        grantEmergencyToSafe();
+        record(LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
+        harness.callAssertInstance(safe);
     }
 
-    /// @notice The Safe may hold `EMERGENCY_ROLE`: it is an operating role
-    /// the timelock can grant it.
-    function testAssertMintCapsInstanceAllowsSafeEmergencyRole() external {
-        IAccessControl acl = deployInstance();
-        vm.prank(timelock);
-        acl.grantRole(ORCHESTRATOR_EMERGENCY_ROLE, SAFE);
-        harness.callAssertMintCapsInstance(SAFE);
+    /// @notice Granted without the record: nothing is asserted until the
+    /// record lands.
+    function testEmergencyGrantedWithoutRecordPasses() external {
+        selectScenarioFork();
+        grantEmergencyToSafe();
+        harness.callAssertInstance(safe);
     }
 
-    function testAssertMintCapsInstanceRevertsWhenMissing() external {
+    /// @notice Recorded without the grant: the record says a migration ran
+    /// that did not.
+    function testEmergencyRecordedWithoutGrantTrips() external {
+        selectScenarioFork();
+        record(LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
         vm.expectRevert(
-            abi.encodeWithSelector(OrchestratorInstanceMissing.selector, LibOrchestratorInvariants.mintCapsInstance())
+            abi.encodeWithSelector(OrchestratorRoleMissing.selector, address(orchestrator), emergencyRole, safe)
         );
-        harness.callAssertMintCapsInstance(SAFE);
+        harness.callAssertInstance(safe);
     }
 
-    function testAssertMintCapsInstanceRevertsOnUnexpectedVaultLogic() external {
-        IAccessControl acl = deployInstance();
-        makeVaultLogic(address(0xBAD));
-        vm.expectRevert(abi.encodeWithSelector(OrchestratorVaultLogicUnexpected.selector, address(acl)));
-        harness.callAssertMintCapsInstance(SAFE);
+    /// @notice Admin moved and recorded: passes.
+    function testAdminMovedAndRecordedPasses() external {
+        selectScenarioFork();
+        grantEmergencyToSafe();
+        moveAdminToTimelock();
+        record(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
+        harness.callAssertInstance(safe);
     }
 
-    /// @notice The timelock losing any admin role fails, naming that role.
-    function testFuzzAssertMintCapsInstanceRevertsWhenTimelockLacksAdminRole(uint256 index) external {
-        IAccessControl acl = deployInstance();
-        bytes32 role = adminRoles()[index % 4];
+    /// @notice Admin moved without the record: nothing is asserted about
+    /// admin until the record lands.
+    function testAdminMovedWithoutRecordPasses() external {
+        selectScenarioFork();
+        grantEmergencyToSafe();
+        record(LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
+        moveAdminToTimelock();
+        harness.callAssertInstance(safe);
+    }
+
+    /// @notice Admin recorded as moved while the timelock does not hold it.
+    function testAdminRecordedWithoutMoveTrips() external {
+        selectScenarioFork();
+        grantEmergencyToSafe();
+        record(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
+        vm.expectRevert(abi.encodeWithSelector(OrchestratorAdminMissing.selector, address(orchestrator), timelock));
+        harness.callAssertInstance(safe);
+    }
+
+    /// @notice Each operating role must be administered by
+    /// `DEFAULT_ADMIN_ROLE`; a different admin role changes who decides its
+    /// grants, which is the question every check above answers.
+    function testRoleAdminChangedTrips() external {
+        selectScenarioFork();
+        bytes32[4] memory roles = [bytes32(0), mintRole, burnRole, emergencyRole];
+        for (uint256 i = 0; i < roles.length; i++) {
+            vm.clearMockedCalls();
+            vm.mockCall(
+                address(orchestrator),
+                abi.encodeCall(IAccessControl.getRoleAdmin, (roles[i])),
+                abi.encode(keccak256("OTHER_ADMIN"))
+            );
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    OrchestratorRoleAdminUnexpected.selector,
+                    address(orchestrator),
+                    roles[i],
+                    bytes32(0),
+                    keccak256("OTHER_ADMIN")
+                )
+            );
+            harness.callAssertInstance(safe);
+        }
+    }
+
+    /// @notice The service signer's `MINT` and `BURN` are expected for the dashboard, not asserted in CI.
+    function testServiceSignerMintAndBurnPassHeldOrNot() external {
+        selectScenarioFork();
+        address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
+        vm.startPrank(safe);
+        orchestrator.grantRole(mintRole, signer);
+        orchestrator.grantRole(burnRole, signer);
+        vm.stopPrank();
+        harness.callAssertInstance(safe);
+
+        vm.startPrank(safe);
+        orchestrator.revokeRole(mintRole, signer);
+        orchestrator.revokeRole(burnRole, signer);
+        vm.stopPrank();
+        harness.callAssertInstance(safe);
+    }
+
+    /// @notice After the admin move the timelock can revoke the Safe's
+    /// `EMERGENCY`, and that trips.
+    function testPostMoveDriftTrips() external {
+        selectPostMoveScenario();
         vm.prank(timelock);
-        acl.revokeRole(role, timelock);
-        vm.expectRevert(abi.encodeWithSelector(OrchestratorRoleMissing.selector, address(acl), role, timelock));
-        harness.callAssertMintCapsInstance(SAFE);
-    }
-
-    /// @notice The Safe or the deploy key holding any admin role fails,
-    /// naming that holder and role.
-    function testFuzzAssertMintCapsInstanceRevertsOnOtherAdminHolder(uint256 index, bool safe) external {
-        IAccessControl acl = deployInstance();
-        bytes32 role = adminRoles()[index % 4];
-        address holder = safe ? SAFE : deployKey;
-        vm.prank(timelock);
-        acl.grantRole(role, holder);
-        vm.expectRevert(abi.encodeWithSelector(OrchestratorUnexpectedRoleHolder.selector, address(acl), role, holder));
-        harness.callAssertMintCapsInstance(SAFE);
-    }
-
-    /// @notice The timelock or the deploy key holding any operating role
-    /// fails, naming that holder and role.
-    function testFuzzAssertMintCapsInstanceRevertsOnOperatingRoleHolder(uint256 index, bool isTimelock) external {
-        IAccessControl acl = deployInstance();
-        bytes32 role = operatingRoles()[index % 3];
-        address holder = isTimelock ? timelock : deployKey;
-        vm.prank(timelock);
-        acl.grantRole(role, holder);
-        vm.expectRevert(abi.encodeWithSelector(OrchestratorUnexpectedRoleHolder.selector, address(acl), role, holder));
-        harness.callAssertMintCapsInstance(SAFE);
-    }
-
-    /// @notice The Safe holding `MINT_ROLE` or `BURN_ROLE` fails.
-    function testFuzzAssertMintCapsInstanceRevertsOnSafeMintOrBurn(bool mint) external {
-        IAccessControl acl = deployInstance();
-        bytes32 role = operatingRoles()[mint ? 0 : 1];
-        vm.prank(timelock);
-        acl.grantRole(role, SAFE);
-        vm.expectRevert(abi.encodeWithSelector(OrchestratorUnexpectedRoleHolder.selector, address(acl), role, SAFE));
-        harness.callAssertMintCapsInstance(SAFE);
-    }
-
-    /// @notice Every role's admin is pinned: rewiring any one of the seven to
-    /// a different admin fails, naming the role, the expected admin and the
-    /// actual one.
-    function testFuzzAssertMintCapsInstanceRevertsOnRoleAdminRewired(uint256 index, bytes32 wrongAdmin) external {
-        IAccessControl acl = deployInstance();
-        bytes32[4] memory admins = adminRoles();
-        bytes32[3] memory operating = operatingRoles();
-        bytes32[7] memory roles = [admins[0], operating[0], admins[1], operating[1], admins[2], operating[2], admins[3]];
-        bytes32[7] memory expected = [admins[0], admins[1], admins[1], admins[2], admins[2], admins[3], admins[3]];
-        index = index % 7;
-        vm.assume(wrongAdmin != expected[index]);
-        setRoleAdmin(address(acl), roles[index], wrongAdmin);
+        orchestrator.revokeRole(emergencyRole, safe);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                OrchestratorRoleAdminUnexpected.selector, address(acl), roles[index], expected[index], wrongAdmin
-            )
+            abi.encodeWithSelector(OrchestratorRoleMissing.selector, address(orchestrator), emergencyRole, safe)
         );
-        harness.callAssertMintCapsInstance(SAFE);
+        harness.callAssertInstance(safe);
+    }
+
+    /// @notice The stand-in scenario after both stacked migrations: the
+    /// stand-in Safe holds `EMERGENCY`, the timelock holds admin, both are
+    /// recorded, and the invariant passes.
+    function selectPostMoveScenario() internal {
+        selectScenarioFork();
+        grantEmergencyToSafe();
+        moveAdminToTimelock();
+        record(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
+        harness.callAssertInstance(safe);
     }
 }

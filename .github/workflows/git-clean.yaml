@@ -4,19 +4,13 @@ jobs:
   git-clean:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
-      - uses: nixbuild/nix-quick-install-action@5bb6a3b3abe66fd09bbf250dce8ada94f856a703 # v30
+      - uses: rainlanguage/rainix/.github/actions/nix-cachix-setup@main
         with:
-          nix_conf: |
-            keep-env-derivations = true
-            keep-outputs = true
-      - name: Restore and save Nix store
-        uses: nix-community/cache-nix-action@135667ec418502fa5a3598af6fb9eb733888ce6a # v6
-        with:
-          primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
-          restore-prefixes-first-match: nix-${{ runner.os }}-
+          checkout: 'false'
+          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
           gc-max-store-size-linux: 1G
       - name: Install soldeer dependencies
         if: hashFiles('soldeer.lock') != ''
@@ -25,6 +19,10 @@ jobs:
         run: nix develop github:rainlanguage/rainix#sol-shell -c ./script/build-meta.sh
       - name: Regenerate pointer artifacts + deploy libs
         run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/Build.sol
+      - name: Regenerate privileged-addresses.json
+        run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildPrivilegedAddresses.sol
+      - name: Regenerate ideal-roles.json
+        run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildIdealRoles.sol
       - name: Format
         run: nix develop github:rainlanguage/rainix#sol-shell -c forge fmt
       - name: Assert committed artifacts match freshly built

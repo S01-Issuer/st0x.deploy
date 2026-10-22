@@ -34,6 +34,7 @@ on:
           - 20260807-deploy-missing-tokens
           - 20260729-deploy-governance-timelock
           - 20260813-execute-timelock-operations
+          - 20261006-deploy-eu-authoriser
       network:
         description: 'Network to broadcast against (default: base)'
         required: true
@@ -91,10 +92,10 @@ jobs:
     # selected network, so all its dispatches must share ONE group — list
     # each multi-chain script in the ternary below.
     concurrency:
-      group: manual-broadcast-${{ inputs.script }}-${{ inputs.script == '20260729-deploy-governance-timelock' && 'all-chains' || inputs.network }}
+      group: manual-broadcast-${{ inputs.script }}-${{ (inputs.script == '20260729-deploy-governance-timelock' || inputs.script == '20261006-deploy-eu-authoriser') && 'all-chains' || inputs.network }}
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
       - uses: DeterminateSystems/nix-installer-action@21a544727d0c62386e78b4befe52d19ad12692e3 # v17
@@ -169,13 +170,13 @@ jobs:
           CI_DEPLOY_BSC_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_BSC_ETHERSCAN_API_KEY || vars.CI_DEPLOY_BSC_ETHERSCAN_API_KEY || '' }}
           CI_DEPLOY_FLARE_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_FLARE_ETHERSCAN_API_KEY || vars.CI_DEPLOY_FLARE_ETHERSCAN_API_KEY || '' }}
           CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY || vars.CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY || '' }}
+          CI_DEPLOY_ROBINHOOD_ETHERSCAN_API_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY || secrets.CI_DEPLOY_ROBINHOOD_ETHERSCAN_API_KEY || vars.CI_DEPLOY_ROBINHOOD_ETHERSCAN_API_KEY || '' }}
           # `--guess-constructor-args` reads the creation transaction over RPC.
           BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
           ETHEREUM_RPC_URL: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
           HYPEREVM_RPC_URL: ${{ secrets.RPC_URL_HYPEREVM_FORK }}
         run: |
           MANIFEST=out/20260729-governance-timelock-deployments.json
-          CONTRACT=dependencies/@openzeppelin-contracts-5.6.1/governance/TimelockController.sol:TimelockController
           jq -c '.[]' "${MANIFEST}" | while read -r entry; do
             CHAIN=$(echo "${entry}" | jq -r '.chainId')
             NET=$(echo "${entry}" | jq -r '.network')
@@ -185,12 +186,7 @@ jobs:
             # chains including HyperEVM. Matches on bytecode, so it needs
             # neither constructor args nor an RPC endpoint.
             echo "Sourcify: verifying ${ADDR} on chain ${CHAIN}"
-            nix develop --command forge verify-contract \
-              --verifier sourcify \
-              --chain "${CHAIN}" \
-              --watch \
-              "${ADDR}" \
-              "${CONTRACT}"
+            nix develop --command bash script/timelock-verify.sh sourcify "${CHAIN}" "${ADDR}"
 
             # Etherscan: what actually surfaces on Basescan/Etherscan, since
             # they do NOT ingest Sourcify. Needs a paid v2 key for any chain
@@ -203,13 +199,7 @@ jobs:
               # rejected per-chain at request time, and that must not abort the
               # loop before the remaining chains reach Sourcify. Sourcify above
               # is the leg that gates this step's success.
-              nix develop --command forge verify-contract \
-                --chain "${NET}" \
-                --rpc-url "${NET}" \
-                --watch \
-                --guess-constructor-args \
-                "${ADDR}" \
-                "${CONTRACT}" \
+              nix develop --command bash script/timelock-verify.sh etherscan "${NET}" "${ADDR}" \
                 || echo "Etherscan: verification failed for ${NET} (paid v2 plan required); Sourcify stands"
             else
               echo "Etherscan: no ${KEY_VAR} configured, skipping ${NET}"

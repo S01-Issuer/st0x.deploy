@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {TimelockController} from "@openzeppelin-contracts-5.6.1/governance/TimelockController.sol";
+import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 

@@ -70,6 +70,29 @@
     `forge test -vvv`) and should be regenerated in CI, where the fork-test RPC
     secrets are available.
 
+- **`optimizer_runs` lowered 2000 → 1666 to fit the rain-math-float bump under
+  EIP-170.** Float 0.2.22 → 0.3.3 (0.2.61 and 0.3.3 compile to identical
+  bytecode) grows `StoxReceiptVault` to 24,757 at 2000 runs (over by 181).
+  Measured: `runs=2000` → 24,757; `runs=1800` → 24,607 (over by 31); `runs=1667`
+  → 24,580 (over by 4); `runs=1666` → 24,030 (**546 spare**); `runs=1000` →
+  23,728.
+
+  As with 5000 → 2000, this moves the bytecode and deterministic Zoltu address
+  of every contract; all 12 `src/generated/candidate/` pins are regenerated.
+
+  - No user-facing address moves.
+  - ⚠️ **This is a coordinated multi-contract release.** `StoxReceiptVault`,
+    `StoxCorporateActionsFacet` and `StoxReceipt` deploy in lockstep, for the
+    reasons given under 5000 → 2000 above.
+  - The frozen `0_1_1` and `0_1_30` snapshots are untouched and
+    `testFrozenRedeploy*` still redeploys them.
+  - rain-deploy's `TimelockController` creation code was built at 2000 runs, so
+    it no longer reproduces under this profile. Tests build timelocks from that
+    pinned creation code, and the governance-timelock verify step in
+    `manual-broadcast.yaml` compiles with rain-deploy's settings via
+    `script/timelock-verify.sh`, whose `check` (CI: `timelock-verify-check`)
+    proves that compile reproduces the pinned creation and runtime code.
+
 ### Deploy scripts
 
 - **The per-chain "deploy missing tokens" scripts are merged into one.**
@@ -156,6 +179,39 @@
   singleton as a `BeaconProxy` behind a shared `UpgradeableBeacon` owned by the
   owner multisig. Config-in-constructor base; the Zoltu-deployable concrete
   subclass with hardcoded `LibProdDeploy*` config lands with the deploy wiring.
+
+### Subgraph
+
+- **`subgraph/` indexes role holders, role admins and ownership.**
+  `AccessControl` exposes no member list, so a role's current holders exist
+  nowhere on chain as readable state — only the `RoleGranted` / `RoleRevoked`
+  log stream has them, and public RPCs cap `eth_getLogs` at 1000 blocks, which
+  makes trawling that stream impractical on the chains ST0x deploys to. The
+  subgraph answers, per contract per chain: current holders of a role and the
+  count, the full grant/revoke history with both the event `sender` and the
+  transaction submitter, the current role admin and its history, and the current
+  owner and its history — plus the current implementation and upgrade history of
+  each beacon. One deployment per network, built and deployed by the rainix
+  subgraph tooling to Ormi (`.github/workflows/subgraph-test.yaml`,
+  `.github/workflows/deploy-subgraph.yaml`).
+
+  The indexed set is the five networks in
+  `LibStoxDeployNetworks.deploymentNetworks()`. Six static data sources — the
+  authoriser clone, the governance timelock, the wrapped-token-vault beacon, the
+  orchestrator beacon and the two beacon-set deployers — plus three templates.
+  Receipt vaults and orchestrators are discovered from their deployers'
+  `Deployment` events rather than enumerated, because listing 54 tokens a chain
+  by address would take roughly 61 data sources per network.
+
+  Two caveats are deliberate. `startBlock` is 0 on every network: no deploy
+  block is recorded anywhere in this repo, and 0 is the only lower bound that
+  cannot silently drop grant or revoke history — it costs initial sync time, not
+  correctness. And the receipt and receipt-vault beacons are created in the
+  beacon-set deployer's constructor, in a block that precedes any `Deployment`,
+  so their construction-time logs are not reachable from the template that
+  discovers them; their owner and implementation are read by call at discovery
+  instead, which `Contract.ownerFromLog` / `Contract.implementationFromLog`
+  report per row.
 
 ## V3 (corporate actions)
 

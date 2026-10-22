@@ -3,12 +3,8 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - 'script/MigrateMultisigThreshold.s.sol'
-      - 'src/lib/LibSafeOps.sol'
+      - 'script/20260619-migrate-multisig-threshold.s.sol'
       - 'src/lib/LibSafeInvariants.sol'
-      - 'src/lib/LibProdSafes.sol'
-      - 'src/lib/LibProdTokensBase.sol'
-      - 'src/interface/IGnosisSafe.sol'
       - '.github/workflows/multisig-artifact.yaml'
 # Builds the Safe Tx Builder JSON for the multisig threshold migration
 # via a forge-script dry-run and uploads `out/*.json` as a build artifact.
@@ -24,7 +20,7 @@ jobs:
   build-artifact:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
       - uses: DeterminateSystems/nix-installer-action@21a544727d0c62386e78b4befe52d19ad12692e3 # v17
@@ -35,12 +31,12 @@ jobs:
           BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
         run: |
           nix develop --command bash -c '
-            forge script script/MigrateMultisigThreshold.s.sol \
+            forge script script/20260619-migrate-multisig-threshold.s.sol \
               --rpc-url base \
               --no-storage-caching
           '
       - name: Upload Tx Builder JSON
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: safe-threshold-tx-builder-json
           path: out/*.json

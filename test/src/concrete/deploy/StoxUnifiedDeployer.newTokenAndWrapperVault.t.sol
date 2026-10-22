@@ -2,11 +2,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test, Vm} from "forge-std-1.16.2/src/Test.sol";
+import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
 import {
     OffchainAssetReceiptVaultConfigV2
-} from "rain-vats-0.2.1/src/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
-import {ReceiptVaultConfigV2} from "rain-vats-0.2.1/src/abstract/ReceiptVault.sol";
+} from "rain-vats-0.2.5/src/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
+import {ReceiptVaultConfigV2} from "rain-vats-0.2.5/src/abstract/ReceiptVault.sol";
 import {StoxUnifiedDeployer} from "../../../../src/concrete/deploy/StoxUnifiedDeployer.sol";
 import {StoxWrappedTokenVault} from "../../../../src/concrete/StoxWrappedTokenVault.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";

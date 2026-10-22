@@ -4,11 +4,12 @@ pragma solidity =0.8.25;
 
 import {
     OffchainAssetReceiptVaultPaymentMintAuthorizerV1
-} from "rain-vats-0.2.1/src/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
+} from "rain-vats-0.2.5/src/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 
 /// @title StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 /// @notice An OffchainAssetReceiptVaultPaymentMintAuthorizerV1 specialized for
-/// Stox. No modifications to the base contract.
+/// Stox. Currently there are no modifications to the base contract, but this is
+/// here to prepare for any future upgrades.
 /// @dev Inherits
 /// `rain.vats/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol`.
 /// Implements ICloneableV2: `initialize(bytes)` expects

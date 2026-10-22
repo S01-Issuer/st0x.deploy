@@ -117,21 +117,23 @@ verify.
 
 ### Worked example: the multisig threshold migration
 
-`script/MigrateMultisigThreshold.s.sol` authors the `STOX_TOKEN_OWNER_SAFE`
-threshold migration (1-of-6 to 3-of-6). The script's pre-flight asserts, in one
-call into `LibInvariants.assertAll`, the pinned Safe v1.4.1 proxy codehash,
+`script/20260619-migrate-multisig-threshold.s.sol` bumps the
+`STOX_TOKEN_OWNER_SAFE` threshold from 1-of-4 to 3-of-4 against the current
+4-owner roster. The script's pre-flight asserts, in one call into
+`LibSafeInvariants.assertAllChecks`, the pinned Safe v1.4.1 proxy codehash,
 singleton + bytecode, version, absence of modules and guard, fallback handler,
 uniform `owner()` across every production receipt vault returned by
-`LibTokenInvariants.productionReceiptVaults()`, the expected owner set, and the
-expected threshold. Only after that bundle passes does it simulate
-`changeThreshold(3)` via `vm.prank`, re-run the same bundle against the
-post-state with the new threshold argument, and emit the Tx Builder JSON.
+`LibTokenOwnership.productionReceiptVaults()` (13 vaults), the expected owner
+set, and the expected pre-migration threshold (`= 1`). Only after that bundle
+passes does it simulate `changeThreshold(3)` via `vm.prank`, re-run the same
+bundle against the post-state with the new threshold argument, and emit the Tx
+Builder JSON.
 
 Dry-run and produce the artifact:
 
 ```shell
 BASE_RPC_URL=https://base-rpc.publicnode.com \
-  forge script script/MigrateMultisigThreshold.s.sol --rpc-url base
+  forge script script/20260619-migrate-multisig-threshold.s.sol --rpc-url base
 ```
 
 The artifact is written to `out/safe-threshold-migration.json` and the canonical
@@ -143,7 +145,7 @@ before signing):
 
 ```shell
 BASE_RPC_URL=https://base-rpc.publicnode.com \
-  forge script script/MigrateMultisigThreshold.s.sol \
+  forge script script/20260619-migrate-multisig-threshold.s.sol \
   --rpc-url base \
   --sig 'verify(string)' \
   out/safe-threshold-migration.json
@@ -161,10 +163,13 @@ download the bundle directly from the run.
 
 ### Receipt vault V3 shadow fork
 
-`test/src/concrete/upgrade/V3UpgradeShadowFork.t.sol` forks Base at head, plants
-the V3 receipt vault implementation and the corporate-actions facet at their
-deterministic Zoltu addresses, upgrades `STOX_RECEIPT_VAULT_BEACON_V1` to the V3
-implementation on the fork, and exercises corporate-action fallback routing,
+The receipt vault beacon points at the V3 implementation (corporate actions).
+The beacon is owned by the governance timelock, so any further upgrade is a
+timelock operation (`docs/TIMELOCK.md`).
+
+The post-upgrade behaviour of live tokens is verified by the shadow-fork suite
+`test/src/concrete/upgrade/V3UpgradeShadowFork.t.sol`, which applies the upgrade
+to a Base head fork and exercises corporate-action fallback routing,
 backwards-compatible reads, authoriser and receipt wiring, and certification
 against a real on-chain receipt vault.
 

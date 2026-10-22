@@ -42,11 +42,25 @@ library LibProdBeacons0_1_1 {
     /// bootstrapped chain's fork).
     /// @return The four beacon addresses.
     function beacons() internal view returns (address[4] memory) {
-        IST0xVaultBeaconSet deployer =
-            IST0xVaultBeaconSet(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1);
+        IST0xVaultBeaconSet deployer = IST0xVaultBeaconSet(beaconSetDeployer());
+        address[4] memory set = pinnedBeacons();
+        set[0] = address(deployer.iReceiptBeacon());
+        set[1] = address(deployer.iOffchainAssetReceiptVaultBeacon());
+        return set;
+    }
+
+    /// @notice The deployer whose getters resolve the receipt and receipt-vault beacons.
+    /// @return The beacon set deployer.
+    function beaconSetDeployer() internal pure returns (address) {
+        return LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1;
+    }
+
+    /// @notice The beacons that are generated pins, index-aligned with `beacons()`; `address(0)` where `beacons()` reads the deployer.
+    /// @return The four pinned beacon addresses.
+    function pinnedBeacons() internal pure returns (address[4] memory) {
         return [
-            address(deployer.iReceiptBeacon()),
-            address(deployer.iOffchainAssetReceiptVaultBeacon()),
+            address(0),
+            address(0),
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1,
             LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON
         ];

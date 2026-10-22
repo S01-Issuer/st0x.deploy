@@ -2,24 +2,24 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {IERC1155} from "@openzeppelin-contracts-5.6.1/token/ERC1155/IERC1155.sol";
-import {UpgradeableBeacon} from "@openzeppelin-contracts-5.6.1/proxy/beacon/UpgradeableBeacon.sol";
-import {BeaconProxy} from "@openzeppelin-contracts-5.6.1/proxy/beacon/BeaconProxy.sol";
-import {CloneFactory} from "rain-factory-0.1.5/src/concrete/CloneFactory.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
-import {Float, LibDecimalFloat} from "rain-math-float-0.2.4/src/lib/LibDecimalFloat.sol";
+import {IERC1155} from "@openzeppelin-contracts-5.7.0/token/ERC1155/IERC1155.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
+import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
+import {CloneFactory} from "rain-factory-deploy-0.1.15/src/concrete/CloneFactory.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.10/src/lib/LibDecimalFloat.sol";
 import {
     OffchainAssetReceiptVaultConfigV2,
     DEPOSIT,
     WITHDRAW,
     CERTIFY
-} from "rain-vats-0.2.1/src/concrete/vault/OffchainAssetReceiptVault.sol";
+} from "rain-vats-0.2.5/src/concrete/vault/OffchainAssetReceiptVault.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.2.1/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
-import {ReceiptVaultConfigV2} from "rain-vats-0.2.1/src/abstract/ReceiptVault.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.1/src/interface/IAuthorizeV1.sol";
-import {EvaluableV4} from "rainlang-interface-0.2.9/src/interface/IInterpreterCallerV4.sol";
+} from "rain-vats-0.2.5/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+import {ReceiptVaultConfigV2} from "rain-vats-0.2.5/src/abstract/ReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.5/src/interface/IAuthorizeV1.sol";
+import {EvaluableV4} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
@@ -206,7 +206,7 @@ abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
             factory.cloneDeterministic(
                 address(authorizerImpl),
                 abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: ADMIN})),
-                bytes32(0)
+                bytes32(uint256(uint160(address(authorizerImpl))))
             )
         );
     }

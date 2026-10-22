@@ -2,17 +2,22 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.16.2/src/Test.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {
     LibTokenInvariants,
     TokenInstance,
     IOwnable,
-    ReceiptVaultOwnerMismatch
+    ReceiptVaultOwnerMismatch,
+    ReceiptVaultAuthoriserMismatch
 } from "../../../src/lib/LibTokenInvariants.sol";
+import {IAuthorisable} from "../../../src/interface/IAuthorisable.sol";
+import {LibAuthoriserInvariants} from "../../../src/lib/LibAuthoriserInvariants.sol";
+import {LibProdTokenConfig, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariantsHarness} from "./LibTokenInvariantsHarness.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
 
 /// @title LibTokenInvariantsTest
 /// @notice Fork tests for the token-side uniformity invariants: every
@@ -20,7 +25,7 @@ import {LibRainDeploy} from "rain-deploy-0.1.11/src/lib/LibRainDeploy.sol";
 /// `authorizer()`.
 ///
 /// Both uniformity invariants currently hold on-chain (every vault is
-/// owned by `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE` and reports the V4
+/// owned by `LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK` and reports the V4
 /// authoriser clone `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`), so the
 /// positive cases pass against the live Base fork. The inverted
 /// ownership-drift case is also exercised here for full error-path coverage.
@@ -41,16 +46,16 @@ contract LibTokenInvariantsTest is Test {
     }
 
     /// @notice Every production receipt vault reports
-    /// `LibSafeInvariants.STOX_TOKEN_OWNER_SAFE` as its `owner()`. Passes against
+    /// `LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK` as its `owner()`. Passes against
     /// the live chain state: vault ownership is uniform.
     function testProdReceiptVaultsUniformOwnership() external {
         selectBaseFork();
-        LibTokenInvariants.assertUniformOwnership(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+        LibTokenInvariants.assertUniformOwnership(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
     }
 
     /// @notice Every production receipt vault reports the V4 authoriser clone
-    /// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`) — the production
-    /// authoriser since the V4 swap batch executed on Base (2026-07).
+    /// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`), the production
+    /// authoriser.
     /// Passes against the live chain state: vault authoriser is uniform.
     /// Deliberately STRICT (not migration-window gated): when a newly
     /// deployed token enters the table still wired to a previous authoriser,
@@ -61,6 +66,33 @@ contract LibTokenInvariantsTest is Test {
         LibTokenInvariants.assertUniformAuthoriser(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE);
     }
 
+    /// @notice tMC is held to the EU authoriser, not the V4 one: wiring it to
+    /// the shared authoriser would let every US-fleet depositor mint it, so
+    /// that state must trip the invariant.
+    function testInvertedEuTokenOnTheSharedAuthoriser() external {
+        selectBaseFork();
+        address v4 = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        address victim = LibTokenInvariants.MC_RECEIPT_VAULT;
+        vm.mockCall(victim, abi.encodeWithSelector(IAuthorisable.authorizer.selector), abi.encode(v4));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ReceiptVaultAuthoriserMismatch.selector, victim, LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE, v4
+            )
+        );
+        harness.callAssertUniformAuthoriser(v4);
+    }
+
+    /// @notice And the converse: a US token on the EU authoriser trips it.
+    function testInvertedUsTokenOnTheEuAuthoriser() external {
+        selectBaseFork();
+        address v4 = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+        address eu = LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE;
+        address victim = LibTokenInvariants.WMT_RECEIPT_VAULT;
+        vm.mockCall(victim, abi.encodeWithSelector(IAuthorisable.authorizer.selector), abi.encode(eu));
+        vm.expectRevert(abi.encodeWithSelector(ReceiptVaultAuthoriserMismatch.selector, victim, v4, eu));
+        harness.callAssertUniformAuthoriser(v4);
+    }
+
     /// @notice Token-side ownership drift trips `ReceiptVaultOwnerMismatch`.
     /// Simulated by mocking a single vault's `owner()` to a rogue address;
     /// the assertion reverts surfacing the offending vault. The victim vault
@@ -68,7 +100,7 @@ contract LibTokenInvariantsTest is Test {
     /// production receipt vaults).
     function testInvertedUniformOwnershipDrift() external {
         selectBaseFork();
-        address expectedOwner = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
+        address expectedOwner = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
         address rogueOwner = address(0xBADC0DE);
         address victim = LibTokenInvariants.MSTR_RECEIPT_VAULT;
         vm.mockCall(victim, abi.encodeWithSelector(IOwnable.owner.selector), abi.encode(rogueOwner));
@@ -78,9 +110,7 @@ contract LibTokenInvariantsTest is Test {
 
     /// The Ethereum token table mirrors Base row-for-row on the `underlying`
     /// key — same length, same order — so the two per-chain tables cannot
-    /// drift now that the Ethereum table is written out explicitly rather than
-    /// derived from Base. (The addresses are still per-chain placeholders,
-    /// hydrated by the token pin PR; this guards only the shared shape.)
+    /// drift.
     function testEthereumTokenTableMirrorsBaseUnderlyings() external pure {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
         TokenInstance[] memory eth = LibTokenInvariants.productionTokensEthereum();
@@ -102,8 +132,7 @@ contract LibTokenInvariantsTest is Test {
     }
 
     /// The Robinhood Chain token table mirrors Base row-for-row on the
-    /// `underlying` key. Its addresses are placeholders until the token
-    /// deploy executes there; this guards only the shared shape.
+    /// `underlying` key.
     function testRobinhoodTokenTableMirrorsBaseUnderlyings() external pure {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
         TokenInstance[] memory robinhood = LibTokenInvariants.productionTokensRobinhood();
@@ -114,13 +143,28 @@ contract LibTokenInvariantsTest is Test {
     }
 
     /// The BNB Smart Chain token table mirrors Base row-for-row on the
-    /// `underlying` key; addresses are placeholders until its token deploy.
+    /// `underlying` key.
     function testBscTokenTableMirrorsBaseUnderlyings() external pure {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
         TokenInstance[] memory bsc = LibTokenInvariants.productionTokensBsc();
         assertEq(bsc.length, base.length, "BNB Smart Chain token table length diverges from Base");
         for (uint256 i = 0; i < base.length; i++) {
             assertEq(bsc[i].underlying, base[i].underlying, "BNB Smart Chain token underlying diverges from Base");
+        }
+    }
+
+    function testDiscardedEuBatchIsNotListed() external pure {
+        string[6] memory discarded = ["AIR.PA", "BMW.DE", "MC.PA", "SIE.DE", "MBG.DE", "RHM.DE"];
+        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
+        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        for (uint256 d = 0; d < discarded.length; d++) {
+            bytes32 key = keccak256(bytes(discarded[d]));
+            for (uint256 i = 0; i < base.length; i++) {
+                assertTrue(keccak256(bytes(base[i].underlying)) != key, discarded[d]);
+            }
+            for (uint256 i = 0; i < configs.length; i++) {
+                assertTrue(keccak256(bytes(configs[i].underlying)) != key, discarded[d]);
+            }
         }
     }
 }

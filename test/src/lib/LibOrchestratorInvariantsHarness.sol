@@ -4,9 +4,18 @@ pragma solidity =0.8.25;
 
 import {LibOrchestratorInvariants} from "../../../src/lib/LibOrchestratorInvariants.sol";
 
-/// @notice External-call harness around `LibOrchestratorInvariants`'s
-/// internal asserts so `vm.expectRevert` can catch their typed errors.
+/// @title LibOrchestratorInvariantsHarness
+/// @notice External-call shim around the internal library so
+/// `vm.expectRevert` can intercept the typed errors.
 contract LibOrchestratorInvariantsHarness {
+    function callAssertBeaconSet() external view {
+        LibOrchestratorInvariants.assertBeaconSet();
+    }
+
+    function callAssertInstance(address chainSafe) external view {
+        LibOrchestratorInvariants.assertInstance(chainSafe);
+    }
+
     function callAssertMintCapsBeaconSet() external view {
         LibOrchestratorInvariants.assertMintCapsBeaconSet();
     }

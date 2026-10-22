@@ -18,10 +18,6 @@ on:
         required: true
         type: string
       networks:
-        # Etherscan-family chains only. Robinhood Chain (4663) is not
-        # indexed by Etherscan v2 and has no `[etherscan]` entry in
-        # foundry.toml; verify there through Sourcify instead
-        # (`forge verify-contract --verifier sourcify --chain 4663 ...`).
         description: 'Whitespace separated foundry chain ids or names'
         required: true
         type: string
@@ -45,4 +41,5 @@ jobs:
       CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY }}
       CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY }}
       CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY }}
+      CI_DEPLOY_ROBINHOOD_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_ROBINHOOD_ETHERSCAN_API_KEY }}
       CI_DEPLOY_FLARE_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_FLARE_ETHERSCAN_API_KEY }}
