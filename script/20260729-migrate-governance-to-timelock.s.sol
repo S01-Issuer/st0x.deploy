@@ -275,22 +275,7 @@ contract MigrateGovernanceToTimelock is Script, IStoxScript, IStoxHistoryMigrati
     /// @notice The chain's production token table, selected by chain id.
     /// @return The active chain's token instances.
     function tokensForActiveChain() internal view returns (TokenInstance[] memory) {
-        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensBase();
-        }
-        if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensEthereum();
-        }
-        if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensHyperEvm();
-        }
-        if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensRobinhood();
-        }
-        if (block.chainid == LibSafeInvariants.BSC_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensBsc();
-        }
-        revert UnsupportedChainForTokenTable(block.chainid);
+        return LibTokenInvariants.productionTokensForChainId(block.chainid);
     }
 
     /// @notice The seven `_ADMIN` roles, sliced from the master grant map so

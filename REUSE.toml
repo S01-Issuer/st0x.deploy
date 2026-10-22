@@ -17,6 +17,7 @@ path = [
   ".prettierignore",
   "flake.nix",
   "foundry.toml",
+  "privileged-addresses.json",
   "ideal-roles.json",
   "migrations.json",
   "REUSE.toml",

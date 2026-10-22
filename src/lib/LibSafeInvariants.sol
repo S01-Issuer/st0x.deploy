@@ -99,7 +99,7 @@ library LibSafeInvariants {
     address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_3 = 0x8D5901d8aE48101B59400235ad8614A2e0510466;
     address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_4 = 0xC1C89b7f5448F447d59f920456A9610f6b2544bC;
     address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_5 = 0xAB92b327c97A6E7461cBd76E2a789E5e106FF87e;
-    address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_6 = 0x5CCd3cE683b66ff271DDB8915fF528b8fcFa23c2;
+    address internal constant STOX_TOKEN_OWNER_SAFE_OWNER_TDM = 0x5CCd3cE683b66ff271DDB8915fF528b8fcFa23c2;
 
     /// @notice Expected owner set for `STOX_TOKEN_OWNER_SAFE` in
     /// `getOwners()` order. Helper because Solidity 0.8 cannot express a
@@ -111,7 +111,7 @@ library LibSafeInvariants {
         owners[2] = STOX_TOKEN_OWNER_SAFE_OWNER_3;
         owners[3] = STOX_TOKEN_OWNER_SAFE_OWNER_4;
         owners[4] = STOX_TOKEN_OWNER_SAFE_OWNER_5;
-        owners[5] = STOX_TOKEN_OWNER_SAFE_OWNER_6;
+        owners[5] = STOX_TOKEN_OWNER_SAFE_OWNER_TDM;
         return owners;
     }
 
@@ -135,7 +135,7 @@ library LibSafeInvariants {
         owners[2] = STOX_TOKEN_OWNER_SAFE_OWNER_2;
         owners[3] = STOX_TOKEN_OWNER_SAFE_OWNER_3;
         owners[4] = STOX_TOKEN_OWNER_SAFE_OWNER_4;
-        owners[5] = STOX_TOKEN_OWNER_SAFE_OWNER_6;
+        owners[5] = STOX_TOKEN_OWNER_SAFE_OWNER_TDM;
         return owners;
     }
 
