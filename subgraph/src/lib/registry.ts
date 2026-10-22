@@ -19,7 +19,8 @@ export function registryDelegateId(
 /**
  * Record one `IRegistryDelegatesV1` `Approved` (`approved` true) or `Revoked`
  * (false). Both registries emit either log whatever the prior state, so the log
- * sets `approved` rather than toggling it.
+ * sets `approved` rather than toggling it. A replay of a log already recorded
+ * returns before touching the approval, so an older log cannot roll it back.
  */
 export function recordDelegateChange(
   kind: string,
@@ -29,6 +30,10 @@ export function recordDelegateChange(
   delegate: Bytes,
   approved: boolean,
 ): void {
+  let rowId = logRowId(event);
+  if (RegistryDelegateChange.load(rowId) !== null) {
+    return;
+  }
   let registry = getOrCreateContract(event.address, kind, event.block.number);
   let id = registryDelegateId(registry.id, account, scope, delegate);
   let entity = RegistryDelegate.load(id);
@@ -49,7 +54,7 @@ export function recordDelegateChange(
   }
   entity.save();
 
-  let row = new RegistryDelegateChange(logRowId(event));
+  let row = new RegistryDelegateChange(rowId);
   row.registryDelegate = id;
   row.approved = approved;
   row.blockNumber = event.block.number;

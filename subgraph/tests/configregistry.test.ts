@@ -366,11 +366,22 @@ describe("ConfigRegistry delegates", () => {
     assert.entityCount("RegistryDelegateChange", 3);
   });
 
+  test("a replayed Approved after a Revoked leaves the revoke standing", () => {
+    approve(REGISTRY, AUTHORITY, US_NAME, DELEGATE, 300, 4);
+    revoke(REGISTRY, AUTHORITY, US_NAME, DELEGATE, 400, 2);
+    approve(REGISTRY, AUTHORITY, US_NAME, DELEGATE, 300, 4);
+
+    let id = delegateId(REGISTRY, AUTHORITY, US_NAME, DELEGATE);
+    assert.fieldEquals("RegistryDelegate", id, "approved", "false");
+    assert.fieldEquals("RegistryDelegate", id, "approvedAtBlock", "300");
+    assert.entityCount("RegistryDelegateChange", 2);
+  });
+
   test("scopes and delegates each key their own approval", () => {
     approve(REGISTRY, AUTHORITY, US_NAME, DELEGATE, 300, 0);
     approve(REGISTRY, AUTHORITY, EU_NAME, DELEGATE, 300, 1);
     approve(REGISTRY, AUTHORITY, US_NAME, OTHER_DELEGATE, 300, 2);
-    revoke(REGISTRY, AUTHORITY, US_NAME, OTHER_DELEGATE, 301, 0);
+    revoke(REGISTRY, AUTHORITY, US_NAME, OTHER_DELEGATE, 301, 3);
 
     assert.entityCount("RegistryDelegate", 3);
     assert.fieldEquals(
