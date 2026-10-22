@@ -46,9 +46,9 @@ contract ShareAndReceiptMigrationParityTest is Test {
         return _ratio(3, 2);
     }
 
-    function _schedule(Float multiplier, uint256 delay) internal returns (uint256) {
+    function _schedule(Float multiplier, uint64 delay) internal returns (uint256) {
         return vault.publicSchedule(
-            ACTION_TYPE_STOCK_SPLIT_V1, uint64(block.timestamp + delay), LibStockSplit.encodeParametersV1(multiplier)
+            ACTION_TYPE_STOCK_SPLIT_V1, uint64(block.timestamp) + delay, LibStockSplit.encodeParametersV1(multiplier)
         );
     }
 
@@ -96,7 +96,7 @@ contract ShareAndReceiptMigrationParityTest is Test {
         return _assertParity();
     }
 
-    function _assertParity() internal returns (uint256) {
+    function _assertParity() internal view returns (uint256) {
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         Vm.Log[] memory shareLogs = new Vm.Log[](logs.length);
@@ -246,7 +246,7 @@ contract ShareAndReceiptMigrationParityTest is Test {
         }
     }
 
-    function testRandomSequenceMigratesIdentically(uint256[24] memory ops) external {
+    function testRandomSequenceMigratesIdentically(uint256[24] memory ops, uint8[24] memory delays) external {
         for (uint256 i = 0; i < ops.length; i++) {
             uint256 op = ops[i] % 7;
             uint256 seed = ops[i] / 7;
@@ -265,7 +265,7 @@ contract ShareAndReceiptMigrationParityTest is Test {
             } else if (op == 3) {
                 _touch(a);
             } else if (op == 4) {
-                _schedule(_multiplier(amountSeed), 1 + amountSeed % 50);
+                _schedule(_multiplier(amountSeed), 1 + uint64(delays[i]));
             } else if (op == 5) {
                 uint256 length = vault.nodesLength();
                 if (length > 1) {
