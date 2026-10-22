@@ -1,5 +1,18 @@
 # Changelog
 
+## Registry-config tokens (rain.vats 0.2.6)
+
+### StoxReceiptVault
+
+- **`optimizer_runs` lowered 1666 → 200 to fit the ConfigRegistry vault under
+  EIP-170.** `StoxReceiptVault` now inherits
+  `ConfigRegistryOffchainAssetReceiptVault`, which resolves its RBAC from the
+  ConfigRegistry and deploys its receipt through the V5 clone factory. Measured
+  with that and this release's authorizer and receipt fixes: `runs=202` to
+  `runs=215` → 24,626 (over by 50); `runs=201` and `runs=200` → 24,562 (**14
+  spare**); `runs=150` → 23,974. As with every optimizer change, this moves
+  every candidate Zoltu address; the candidate pins are regenerated.
+
 ## V4 (rain.vats 0.1.6)
 
 ### StoxReceiptVault

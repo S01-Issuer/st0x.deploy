@@ -5,9 +5,9 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
-import {IMigrationRegistryV2, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.20/src/lib/LibRainDeploy.sol";
+import {IMigrationRegistryV3, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.20/src/interface/IMigrationRegistryV3.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.20/src/lib/LibMigrationRegistryDeploy.sol";
 
 import {
     LibOrchestratorInvariants,
@@ -42,8 +42,8 @@ contract LibOrchestratorInvariantsTest is Test {
     bytes32 internal burnRole;
     bytes32 internal emergencyRole;
     IAccessControl internal orchestrator = IAccessControl(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
-    IMigrationRegistryV2 internal registry =
-        IMigrationRegistryV2(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
+    IMigrationRegistryV3 internal registry =
+        IMigrationRegistryV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
 
     function selectFork(string memory network) internal {
         vm.createSelectFork(network);
@@ -58,7 +58,8 @@ contract LibOrchestratorInvariantsTest is Test {
     /// @notice Fork Base and stand in a fresh Safe: it becomes the sole
     /// `DEFAULT_ADMIN_ROLE` holder, taking it from whichever of the real
     /// Safe and the timelock holds it, and the timelock is cleared of every
-    /// operating role. The stand-in's registry line is at genesis.
+    /// operating role, and the stand-in holds `EMERGENCY`, as every chain's Safe
+    /// does. This repo's registry line is at genesis.
     function selectScenarioFork() internal {
         selectFork(LibRainDeploy.BASE);
         address realSafe = safe;
@@ -80,40 +81,17 @@ contract LibOrchestratorInvariantsTest is Test {
             orchestrator.revokeRole(roles[i], timelock);
         }
         vm.stopPrank();
-        assertEq(LibStoxMigrations.head(safe), MIGRATION_HEAD_GENESIS, "stand-in line not at genesis");
+        assertEq(LibStoxMigrations.head(), MIGRATION_HEAD_GENESIS, "line not at genesis");
+        grantEmergencyToSafe();
     }
 
     /// @notice Record the chain's migrations up to and including `upTo`, as
-    /// the Safe, in line order. Recording only — no role is touched.
+    /// the root authority, in line order. Recording only — no role is touched.
     function record(bytes32 upTo) internal {
-        (uint256 executedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
-        vm.startPrank(safe);
-        if (LibStoxMigrations.head(safe) == MIGRATION_HEAD_GENESIS) {
-            registry.applyMigrationHistory(
-                LibStoxMigrations.NAMESPACE,
-                LibStoxMigrations.GOVERNANCE_TIMELOCK,
-                executedAt,
-                LibStoxMigrations.onto(safe, MIGRATION_HEAD_GENESIS)
-            );
-        }
-        if (
-            upTo != LibStoxMigrations.GOVERNANCE_TIMELOCK
-                && LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0
-        ) {
-            registry.applyMigration(
-                LibStoxMigrations.NAMESPACE,
-                LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
-                LibStoxMigrations.onto(safe, LibStoxMigrations.GOVERNANCE_TIMELOCK)
-            );
-        }
-        if (upTo == LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) {
-            registry.applyMigration(
-                LibStoxMigrations.NAMESPACE,
-                LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-                LibStoxMigrations.onto(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY)
-            );
-        }
-        vm.stopPrank();
+        vm.prank(LibStoxMigrations.WRITER);
+        registry.applyMigrationV3(
+            LibStoxMigrations.WRITER, LibStoxMigrations.NAMESPACE, upTo, LibStoxMigrations.onto(MIGRATION_HEAD_GENESIS)
+        );
     }
 
     function grantEmergencyToSafe() internal {
@@ -155,27 +133,19 @@ contract LibOrchestratorInvariantsTest is Test {
         harness.callAssertBeaconSet();
     }
 
-    /// @notice Granted and recorded: passes.
-    function testEmergencyGrantedAndRecordedPasses() external {
-        selectScenarioFork();
-        grantEmergencyToSafe();
-        record(LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
-        harness.callAssertInstance(safe);
-    }
-
-    /// @notice Granted without the record: nothing is asserted until the
-    /// record lands.
-    function testEmergencyGrantedWithoutRecordPasses() external {
+    /// @notice The Safe holds `EMERGENCY`: passes.
+    function testEmergencyGrantedPasses() external {
         selectScenarioFork();
         grantEmergencyToSafe();
         harness.callAssertInstance(safe);
     }
 
-    /// @notice Recorded without the grant: the record says a migration ran
-    /// that did not.
-    function testEmergencyRecordedWithoutGrantTrips() external {
+    /// @notice The Safe without `EMERGENCY` trips: the grant ran on every
+    /// chain before the line started, so it is always expected.
+    function testEmergencyMissingTrips() external {
         selectScenarioFork();
-        record(LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
+        vm.prank(safe);
+        orchestrator.revokeRole(emergencyRole, safe);
         vm.expectRevert(
             abi.encodeWithSelector(OrchestratorRoleMissing.selector, address(orchestrator), emergencyRole, safe)
         );
@@ -196,7 +166,6 @@ contract LibOrchestratorInvariantsTest is Test {
     function testAdminMovedWithoutRecordPasses() external {
         selectScenarioFork();
         grantEmergencyToSafe();
-        record(LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
         moveAdminToTimelock();
         harness.callAssertInstance(safe);
     }

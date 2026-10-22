@@ -2,8 +2,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.5/src/concrete/vault/OffchainAssetReceiptVault.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.5/src/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.6-pr345/src/concrete/vault/OffchainAssetReceiptVault.sol";
+import {
+    ConfigRegistryOffchainAssetReceiptVault
+} from "rain-vats-0.2.6-pr345/src/concrete/vault/ConfigRegistryOffchainAssetReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.6-pr345/src/interface/IAuthorizeV1.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
 import {LibRebase} from "../lib/LibRebase.sol";
@@ -38,7 +41,7 @@ import {AuthorizerMissingCorporateActionAdmin} from "../error/ErrCorporateAction
 /// a balance that was already written at the post-rebase basis, silently
 /// inflating the recipient's balance. See `LibRebase.migratedBalance` and
 /// its zero-balance regression tests.
-contract StoxReceiptVault is OffchainAssetReceiptVault {
+contract StoxReceiptVault is ConfigRegistryOffchainAssetReceiptVault {
     /// @notice Emitted whenever `migrateAccount` advances an account's
     /// migration cursor. The cursor itself is storage state, so the event
     /// fires on every cursor advance regardless of whether
@@ -208,7 +211,8 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     }
 
     /// @notice Reject authorizers that don't configure admin hierarchies
-    /// for the corporate-action roles. Without an explicit admin, the
+    /// for the corporate-action roles, at `initialize` and at every later
+    /// `setAuthorizer`. Without an explicit admin, the
     /// role's admin resolves to the unassigned `DEFAULT_ADMIN_ROLE` and
     /// the role becomes permanently ungrantable — silently disabling
     /// corporate actions and drifting the vault away from the underlying
@@ -219,9 +223,14 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// Reverts with `AuthorizerMissingCorporateActionAdmin` if either
     /// `SCHEDULE_CORPORATE_ACTION` or `CANCEL_CORPORATE_ACTION` resolves
     /// to `DEFAULT_ADMIN_ROLE` on the supplied authorizer. Requires the
-    /// authorizer to implement `IAccessControl`.
-    /// @inheritdoc OffchainAssetReceiptVault
-    function setAuthorizer(IAuthorizeV1 newAuthorizer) public override {
+    /// authorizer to implement `IAccessControl`. The vault itself, which
+    /// `_initialize` installs before the RBAC-selected authorizer replaces
+    /// it, passes unchecked during initialization only.
+    function _setAuthorizer(IAuthorizeV1 newAuthorizer) internal virtual override {
+        if (_isInitializing() && address(newAuthorizer) == address(this)) {
+            super._setAuthorizer(newAuthorizer);
+            return;
+        }
         bytes32 scheduleAdmin = IAccessControl(address(newAuthorizer)).getRoleAdmin(SCHEDULE_CORPORATE_ACTION);
         if (scheduleAdmin == bytes32(0)) {
             revert AuthorizerMissingCorporateActionAdmin(address(newAuthorizer), SCHEDULE_CORPORATE_ACTION);
@@ -230,6 +239,6 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         if (cancelAdmin == bytes32(0)) {
             revert AuthorizerMissingCorporateActionAdmin(address(newAuthorizer), CANCEL_CORPORATE_ACTION);
         }
-        super.setAuthorizer(newAuthorizer);
+        super._setAuthorizer(newAuthorizer);
     }
 }

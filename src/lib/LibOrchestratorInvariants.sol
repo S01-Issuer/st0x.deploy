@@ -132,7 +132,7 @@ library LibOrchestratorInvariants {
 
         RoleGrant[] memory expected = expectedGrants(chainSafe, timelock);
         for (uint256 i = 0; i < expected.length; i++) {
-            if (migrationRecorded(chainSafe, expected[i].role)) {
+            if (migrationRecorded(expected[i].role)) {
                 assertHolds(acl, expected[i]);
             }
         }
@@ -143,19 +143,19 @@ library LibOrchestratorInvariants {
         assertAdministeredByDefaultAdmin(acl, ST0xOrchestrator(payable(instance)).EMERGENCY_ROLE());
     }
 
-    /// @notice Whether the chain's Safe has recorded the migration that
-    /// grants `role` its expected holder: `ORCHESTRATOR_ADMIN_TO_TIMELOCK`
-    /// for `DEFAULT_ADMIN_ROLE`, `ORCHESTRATOR_EMERGENCY` for `EMERGENCY`;
-    /// no migration grants any other role, so it is never recorded.
-    /// @param chainSafe The chain's token-owner Safe.
+    /// @notice Whether `role`'s expected holder is in force:
+    /// `DEFAULT_ADMIN_ROLE` once this repo's line records
+    /// `ORCHESTRATOR_ADMIN_TO_TIMELOCK`; `EMERGENCY` always, granted to the Safe
+    /// on every chain before the line started; no migration grants any other
+    /// role.
     /// @param role The role.
     /// @return Whether the migration is recorded.
-    function migrationRecorded(address chainSafe, bytes32 role) private view returns (bool) {
+    function migrationRecorded(bytes32 role) private view returns (bool) {
         if (role == bytes32(0)) {
-            return LibStoxMigrations.applied(chainSafe, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) != 0;
+            return LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) != 0;
         }
         if (role == keccak256("EMERGENCY")) {
-            return LibStoxMigrations.applied(chainSafe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) != 0;
+            return true;
         }
         return false;
     }

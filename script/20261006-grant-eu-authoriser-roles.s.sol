@@ -7,12 +7,12 @@ import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 
 import {
-    IMigrationRegistryV2,
+    IMigrationRegistryV3,
     MIGRATION_HEAD_GENESIS,
     Prerequisite
-} from "rain-deploy-0.1.18/src/interface/IMigrationRegistryV2.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistry.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.18/src/lib/LibMigrationRegistryDeploy.sol";
+} from "rain-deploy-0.1.20/src/interface/IMigrationRegistryV3.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.20/src/lib/LibMigrationRegistry.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.20/src/lib/LibMigrationRegistryDeploy.sol";
 
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
@@ -20,9 +20,9 @@ import {LibEuAuthoriserClone} from "../src/lib/LibEuAuthoriserClone.sol";
 import {LibRbacMigration} from "../src/lib/LibRbacMigration.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {LibSafeTx, SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJson.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.20/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.20/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.20/src/lib/LibSafeTxBuilderJson.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
 /// @notice The EU authoriser clone is absent or carries the wrong code hash.
@@ -112,8 +112,13 @@ contract GrantEuAuthoriserRoles is Script {
             to: LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
             value: 0,
             data: abi.encodeCall(
-                IMigrationRegistryV2.applyMigration,
-                (LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER, prerequisites)
+                IMigrationRegistryV3.applyMigrationV3,
+                (
+                    safe,
+                    LibRbacMigration.STOX_RBAC_NAMESPACE,
+                    LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER,
+                    prerequisites
+                )
             ),
             operation: Enum.Operation.Call
         });

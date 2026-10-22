@@ -231,17 +231,16 @@ way to resolve it.
 
 ## Orchestrator roles
 
-The orchestrator instance is governed through two dated scripts, each recorded
-by the Safe in `rain-deploy`'s `MigrationRegistry` (`LibStoxMigrations`), and
-`LibOrchestratorInvariants.assertInstance` asserts exactly the role state the
+The Safe holds `EMERGENCY_ROLE` on every chain, and
+`LibOrchestratorInvariants.assertInstance` always expects it. The rest is
+recorded in the root authority's line in `rain-deploy`'s `MigrationRegistry`
+(`LibStoxMigrations`), and the invariants assert exactly the role state the
 records imply:
 
-1. `20261006-grant-orchestrator-emergency` — the Safe takes `EMERGENCY_ROLE`
-   while it still administers the orchestrator directly, and records the
-   governance-timelock migration (as history) and the grant.
-2. `20261006-orchestrator-admin-to-timelock` — `DEFAULT_ADMIN_ROLE` moves from
-   the Safe to the timelock, recorded onto the grant, so the registry refuses it
-   on a chain where step 1 has not executed.
+1. `20261006-orchestrator-admin-to-timelock` — `DEFAULT_ADMIN_ROLE` moves from
+   the Safe to the timelock, the line's first record.
+2. `20261022-upgrade-token-beacons` — the timelock upgrades the receipt-vault,
+   receipt and orchestrator beacons in one batch, recorded onto step 1.
 
 `MINT`, `BURN` and `EMERGENCY` are themselves operations and stay off the
 timelock; who may hold them is delay-gated, in both directions. Revoking a

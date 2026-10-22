@@ -2,14 +2,14 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
+import {SafeTx} from "rain-deploy-0.1.20/src/lib/LibSafeTx.sol";
 
-import {GrantOrchestratorEmergency} from "../../script/20261006-grant-orchestrator-emergency.s.sol";
+import {UpgradeTokenBeacons} from "../../script/20261022-upgrade-token-beacons.s.sol";
 
 /// @dev Exposes the script's hooks so the tests can drive them directly, and
 /// gives each test its own artifact path: `run()` removes and rewrites the
 /// artifact, and tests run in parallel.
-contract GrantOrchestratorEmergencyHarness is GrantOrchestratorEmergency {
+contract UpgradeTokenBeaconsHarness is UpgradeTokenBeacons {
     string internal sArtifactTag;
 
     /// @param artifactTag Suffixes this instance's artifact path.
@@ -17,11 +17,10 @@ contract GrantOrchestratorEmergencyHarness is GrantOrchestratorEmergency {
         sArtifactTag = artifactTag;
     }
 
-    /// @inheritdoc GrantOrchestratorEmergency
+    /// @inheritdoc UpgradeTokenBeacons
     function artifactPath() internal view override returns (string memory) {
-        return string.concat(
-            "out/20261006-grant-orchestrator-emergency-", vm.toString(block.chainid), "-", sArtifactTag, ".json"
-        );
+        return
+            string.concat("out/20261022-upgrade-token-beacons-", vm.toString(block.chainid), "-", sArtifactTag, ".json");
     }
 
     function callPreflight() external view {
@@ -34,5 +33,13 @@ contract GrantOrchestratorEmergencyHarness is GrantOrchestratorEmergency {
 
     function callArtifactPath() external view returns (string memory) {
         return artifactPath();
+    }
+
+    function callBatch() external view returns (address[] memory, uint256[] memory, bytes[] memory) {
+        return batch();
+    }
+
+    function callOperationId() external view returns (bytes32) {
+        return operationId();
     }
 }
