@@ -5,6 +5,8 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
+import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
+import {LibSafe} from "rain-deploy-0.1.21/src/lib/LibSafe.sol";
 import {IConfigRegistryV3} from "rain-deploy-0.1.21/src/interface/IConfigRegistryV3.sol";
 import {IMigrationRegistryV3} from "rain-deploy-0.1.21/src/interface/IMigrationRegistryV3.sol";
 import {LibConfigRegistryDeploy} from "rain-deploy-0.1.21/src/lib/LibConfigRegistryDeploy.sol";
@@ -270,6 +272,18 @@ contract BindAuthoriserAdminTest is Test {
                 LibStoxMigrations.onto(safe, bindAuthoriserAdminDeclaration().id)
             );
         vm.expectRevert(abi.encodeWithSelector(BindAuthoriserAdminUnexpectedLine.selector, LATER));
+        script.callAssertPostState();
+    }
+
+    function testPostStateRefusesADriftedSafe() external {
+        (BindAuthoriserAdminHarness script, address safe, bool ready) = executedOnFork("drifted");
+        if (!ready) return;
+        vm.mockCall(safe, abi.encodeCall(OwnerManager.getThreshold, ()), abi.encode(uint256(4)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibSafe.SafeThresholdMismatch.selector, safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD, 4
+            )
+        );
         script.callAssertPostState();
     }
 
