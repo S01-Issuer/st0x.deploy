@@ -34,6 +34,8 @@ library LibStoxConfig {
     /// it is unbound.
     /// @return The admin.
     function authoriserAdmin() internal view returns (address) {
+        // The binding's moment is irrelevant to the admin.
+        // slither-disable-next-line unused-return
         (bytes memory value,) = LibConfigRegistry.resolve(ROOT_AUTHORITY, AUTHORISER_ADMIN);
         return abi.decode(value, (address));
     }

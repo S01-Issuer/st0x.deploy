@@ -53,9 +53,9 @@ contract DeployBeaconsTest is Test {
         );
     }
 
-    function testDeclarationIsOntoTheBind() external pure {
-        assertEq(deployBeaconsDeclaration().prerequisites[0].migration, bindBeaconOwnerDeclaration().id);
-        assertEq(deployBeaconsDeclaration().namespace, LibStoxMigrations.NAMESPACE);
+    function testDeclarationIsNotAMigration() external pure {
+        assertFalse(deployBeaconsDeclaration().migration);
+        assertEq(deployBeaconsDeclaration().prerequisites.length, 0);
     }
 
     function testStepRefusesAnUnboundChain() external {

@@ -21,6 +21,8 @@ import {BackfillHistory} from "../../script/20261017-backfill-history.s.sol";
 import {MigrateMultisigThreshold} from "../../script/20260619-migrate-multisig-threshold.s.sol";
 import {BindBeaconOwner} from "../../script/20261022-bind-beacon-owner.s.sol";
 import {DeployBeacons} from "../../script/20261022-deploy-beacons.s.sol";
+import {BindAuthoriserAdmin} from "../../script/20261022-bind-authoriser-admin.s.sol";
+import {DeployAuthoriserClone} from "../../script/20261022-deploy-authoriser-clone.s.sol";
 import {InvalidDeclarationFixture} from "../fixture/declarations/invalid/InvalidDeclarationFixture.s.sol";
 import {UndeclaredScriptFixture} from "../fixture/declarations/undeclared/UndeclaredScriptFixture.s.sol";
 import {ValidDeclarationFixture} from "../fixture/declarations/valid/ValidDeclarationFixture.s.sol";

@@ -63,12 +63,7 @@ error BeaconOwnerNotTimelock(address beacon, address owner);
 /// @notice This script's declaration.
 /// @return The declaration.
 function deployBeaconsDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        keccak256("script/20261022-deploy-beacons.s.sol"),
-        bindBeaconOwnerDeclaration().id,
-        false
-    );
+    return LibStoxMigrations.notAMigration();
 }
 
 /// @notice The Zoltu step, refused where the beacon owner bind is not applied.

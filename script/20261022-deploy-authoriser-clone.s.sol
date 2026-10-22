@@ -27,40 +27,27 @@ import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {AUTHORISER_CLONE_SALT, LibAuthoriserClone} from "../src/lib/LibAuthoriserClone.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
-import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
+import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {bindAuthoriserAdminDeclaration} from "./20261022-bind-authoriser-admin.s.sol";
 
-/// @notice The authoriser admin bind has not been applied on `network`.
+/// @notice The chain's bound authoriser admin is not its governance timelock.
 /// @param network The network.
-error AuthoriserAdminNotBound(string network);
+/// @param admin The bound admin.
+error AuthoriserAdminNotTimelock(string network, address admin);
 
-/// @notice This script's declaration.
-/// @return The declaration.
-function deployAuthoriserCloneDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        keccak256("script/20261022-deploy-authoriser-clone.s.sol"),
-        bindAuthoriserAdminDeclaration().id,
-        false
-    );
-}
-
-/// @notice Reverts unless the authoriser admin bind is applied on the
-/// selected fork.
+/// @notice Reverts unless the selected fork binds the authoriser admin to its
+/// governance timelock; `LibStoxConfig.authoriserAdmin` reverts where unbound.
 /// @param network The network, for the refusal to name.
 function requireAdminBound(string memory network) view {
-    if (
-        LibStoxMigrations.applied(LibSafeInvariants.safeForChainId(block.chainid), bindAuthoriserAdminDeclaration().id)
-            == 0
-    ) {
-        revert AuthoriserAdminNotBound(network);
+    address admin = LibStoxConfig.authoriserAdmin();
+    if (admin != LibTimelockInvariants.timelockForChainId(block.chainid)) {
+        revert AuthoriserAdminNotTimelock(network, admin);
     }
 }
 
-/// @notice The Zoltu step, refused where the admin bind is not applied.
+/// @notice The Zoltu step, refused where the admin is not bound.
 /// @param vm The cheatcode handle.
 /// @param network The network.
 /// @param deployer The broadcaster.
@@ -73,7 +60,7 @@ function boundZoltuDeployStep(Vm vm, string memory network, address deployer, by
     return LibRainDeploy.zoltuDeployStep(vm, network, deployer, creationCode);
 }
 
-/// @notice The clone step, refused where the admin bind is not applied.
+/// @notice The clone step, refused where the admin is not bound.
 /// @param vm The cheatcode handle.
 /// @param network The network.
 /// @param deployer The broadcaster.
@@ -96,7 +83,7 @@ function boundCloneStep(Vm vm, string memory network, address deployer, bytes me
 contract DeployAuthoriserClone is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return deployAuthoriserCloneDeclaration();
+        return LibStoxMigrations.notAMigration();
     }
 
     /// @notice Reverts unless `clone` carries the timelock's seven `_ADMIN`

@@ -64,7 +64,7 @@ safe-global-safe-smart-account = "1.4.1-3"
 "rain-sol-codegen" = "0.1.39"
 "rain-solmem" = "0.1.28"
 "rain-tofu-erc20-decimals" = "0.1.4"
-"rain-vats" = { version = "0.2.7-pr349", git = "https://github.com/rainlanguage/rain.vats.git", rev = "e58002e0a309b14b3bb9495bf5971ec7b0a0410f" }
+"rain-vats" = { version = "0.2.7-pr349", git = "https://github.com/rainlanguage/rain.vats.git", rev = "4bd339eb59f844811afd261efe54025c42da046c" }
 "rain-verify-interface" = "0.1.0"
 
 [soldeer]

@@ -36,6 +36,7 @@ import {GrantOrchestratorEmergencyHarness} from "../../script/GrantOrchestratorE
 import {BackfillHistoryHarness} from "../../script/BackfillHistoryHarness.sol";
 import {BackfillMigrationRegistryV3Harness} from "../../script/BackfillMigrationRegistryV3Harness.sol";
 import {backfillMigrationRegistryV3Declaration} from "../../../script/20261022-backfill-migration-registry-v3.s.sol";
+import {BindAuthoriserAdminHarness} from "../../script/BindAuthoriserAdminHarness.sol";
 import {BindBeaconOwnerHarness} from "../../script/BindBeaconOwnerHarness.sol";
 import {OrchestratorAdminToTimelockHarness} from "../../script/OrchestratorAdminToTimelockHarness.sol";
 
@@ -161,14 +162,15 @@ contract LibStoxMigrationsDeclarationsTest is Test {
     function bundleWrites(string memory network) internal returns (RegistryWrite[] memory) {
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        SafeTx[][6] memory bundles = [
+        SafeTx[][7] memory bundles = [
             new GrantOrchestratorEmergencyHarness(network).callAuthorBundle(),
             new OrchestratorAdminToTimelockHarness(network).callAuthorBundle(),
             new BackfillHistoryHarness(network).callAuthorBundle(),
             new GrantEuAuthoriserRoles()
                 .grantBundle(LibEuAuthoriserClone.cloneDeployedAddress(block.chainid), safe, timelock),
             new BackfillMigrationRegistryV3Harness(network).callAuthorBundle(),
-            new BindBeaconOwnerHarness(network).callAuthorBundle()
+            new BindBeaconOwnerHarness(network).callAuthorBundle(),
+            new BindAuthoriserAdminHarness(network).callAuthorBundle()
         ];
         RegistryWrite[] memory writes = new RegistryWrite[](32);
         uint256 writeCount = 0;
@@ -228,8 +230,7 @@ contract LibStoxMigrationsDeclarationsTest is Test {
     function unrecorded(string memory path) internal pure returns (bool) {
         bytes32 key = keccak256(bytes(path));
         return key == keccak256("script/20260619-migrate-multisig-threshold.s.sol")
-            || key == keccak256("script/20260831-retire-direct-signer-roles.s.sol")
-            || key == keccak256("script/20261022-deploy-beacons.s.sol");
+            || key == keccak256("script/20260831-retire-direct-signer-roles.s.sol");
     }
 
     function assertRecordsAreTheBundles(string memory network) internal {

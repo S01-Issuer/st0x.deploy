@@ -24,7 +24,6 @@ import {
 import {backfillHistoryDeclaration} from "../../script/20261017-backfill-history.s.sol";
 import {backfillMigrationRegistryV3Declaration} from "../../script/20261022-backfill-migration-registry-v3.s.sol";
 import {bindBeaconOwnerDeclaration} from "../../script/20261022-bind-beacon-owner.s.sol";
-import {deployBeaconsDeclaration} from "../../script/20261022-deploy-beacons.s.sol";
 import {migrateMultisigThresholdDeclaration} from "../../script/20260619-migrate-multisig-threshold.s.sol";
 import {BackfillHistoryHarness} from "./BackfillHistoryHarness.sol";
 import {BackfillMigrationRegistryV3Harness} from "./BackfillMigrationRegistryV3Harness.sol";
@@ -48,9 +47,9 @@ contract BindAuthoriserAdminTest is Test {
     IConfigRegistryV3 internal constant CONFIG_REGISTRY =
         IConfigRegistryV3(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS);
 
-    /// @dev Applies every predecessor up to the beacon owner bind that the
+    /// @dev Applies every predecessor before the beacon owner bind that the
     /// chain lacks.
-    function advanceToBeaconOwnerBind(address safe, string memory tag) internal {
+    function advanceToMultisigThreshold(address safe, string memory tag) internal {
         if (LibStoxMigrations.applied(safe, backfillMigrationRegistryV3Declaration().id) == 0) {
             LibSafeFork.executeBundle(
                 vm, Safe(payable(safe)), new BackfillMigrationRegistryV3Harness(tag).callAuthorBundle()
@@ -70,23 +69,17 @@ contract BindAuthoriserAdminTest is Test {
                 LibStoxMigrations.recordCall(migrateMultisigThresholdDeclaration(), safe, timelock);
             LibSafeFork.simulateCall(vm, Safe(payable(safe)), to, data);
         }
+    }
+
+    /// @dev Applies every predecessor on the Safe's line that the chain lacks.
+    function advanceLine(address safe, string memory tag) internal {
+        advanceToMultisigThreshold(safe, tag);
         if (LibStoxMigrations.applied(safe, bindBeaconOwnerDeclaration().id) == 0) {
             if (!CONFIG_REGISTRY.approvedV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER, safe)) {
                 vm.prank(LibStoxConfig.ROOT_AUTHORITY);
                 CONFIG_REGISTRY.approveV3(LibStoxConfig.BEACON_OWNER, safe);
             }
             LibSafeFork.executeBundle(vm, Safe(payable(safe)), new BindBeaconOwnerHarness(tag).callAuthorBundle());
-        }
-    }
-
-    /// @dev Applies every predecessor on the Safe's line that the chain lacks.
-    function advanceLine(address safe, string memory tag) internal {
-        advanceToBeaconOwnerBind(safe, tag);
-        if (LibStoxMigrations.applied(safe, deployBeaconsDeclaration().id) == 0) {
-            (address to, bytes memory data) = LibStoxMigrations.recordCall(
-                deployBeaconsDeclaration(), safe, LibTimelockInvariants.timelockForChainId(block.chainid)
-            );
-            LibSafeFork.simulateCall(vm, Safe(payable(safe)), to, data);
         }
     }
 
@@ -161,8 +154,8 @@ contract BindAuthoriserAdminTest is Test {
         script.callAssertPostState();
     }
 
-    function testDeclarationIsOntoTheBeaconDeploy() external pure {
-        assertEq(bindAuthoriserAdminDeclaration().prerequisites[0].migration, deployBeaconsDeclaration().id);
+    function testDeclarationIsOntoTheBeaconOwnerBind() external pure {
+        assertEq(bindAuthoriserAdminDeclaration().prerequisites[0].migration, bindBeaconOwnerDeclaration().id);
         assertEq(bindAuthoriserAdminDeclaration().namespace, LibStoxMigrations.NAMESPACE);
         assertEq(bindAuthoriserAdminDeclaration().id, keccak256("script/20261022-bind-authoriser-admin.s.sol"));
         assertFalse(bindAuthoriserAdminDeclaration().history);
@@ -194,19 +187,21 @@ contract BindAuthoriserAdminTest is Test {
         script.callPreflight();
     }
 
-    function testPreflightRefusesALineBeforeTheBeaconDeploy() external {
+    function testPreflightRefusesALineBeforeTheBeaconOwnerBind() external {
         (BindAuthoriserAdminHarness script, address safe, bool ready) = readyOnFork("early");
         if (!ready) return;
-        if (LibStoxMigrations.applied(safe, deployBeaconsDeclaration().id) != 0) return;
-        advanceToBeaconOwnerBind(safe, "early");
+        if (LibStoxMigrations.applied(safe, bindBeaconOwnerDeclaration().id) != 0) return;
+        advanceToMultisigThreshold(safe, "early");
         approveSafe(safe);
         vm.expectRevert(
-            abi.encodeWithSelector(BindAuthoriserAdminUnexpectedLine.selector, bindBeaconOwnerDeclaration().id)
+            abi.encodeWithSelector(
+                BindAuthoriserAdminUnexpectedLine.selector, migrateMultisigThresholdDeclaration().id
+            )
         );
         script.callPreflight();
     }
 
-    function testPreflightRefusesALinePastTheBeaconDeploy() external {
+    function testPreflightRefusesALinePastTheBeaconOwnerBind() external {
         (BindAuthoriserAdminHarness script, address safe, bool ready) = readyOnFork("past");
         if (!ready) return;
         advanceLine(safe, "past");
@@ -214,7 +209,7 @@ contract BindAuthoriserAdminTest is Test {
         vm.prank(safe);
         IMigrationRegistryV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
             .applyMigrationV3(
-                safe, LibStoxMigrations.NAMESPACE, LATER, LibStoxMigrations.onto(safe, deployBeaconsDeclaration().id)
+                safe, LibStoxMigrations.NAMESPACE, LATER, LibStoxMigrations.onto(safe, bindBeaconOwnerDeclaration().id)
             );
         vm.expectRevert(abi.encodeWithSelector(BindAuthoriserAdminUnexpectedLine.selector, LATER));
         script.callPreflight();

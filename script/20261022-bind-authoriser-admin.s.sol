@@ -15,7 +15,7 @@ import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {deployBeaconsDeclaration} from "./20261022-deploy-beacons.s.sol";
+import {bindBeaconOwnerDeclaration} from "./20261022-bind-beacon-owner.s.sol";
 
 /// @notice The Safe's line is not at the migration this bind applies onto.
 /// @param head The line's head.
@@ -42,7 +42,7 @@ function bindAuthoriserAdminDeclaration() pure returns (ScriptDeclaration memory
     return LibStoxMigrations.safeMigrationOnto(
         LibStoxMigrations.NAMESPACE,
         keccak256("script/20261022-bind-authoriser-admin.s.sol"),
-        deployBeaconsDeclaration().id,
+        bindBeaconOwnerDeclaration().id,
         false
     );
 }
