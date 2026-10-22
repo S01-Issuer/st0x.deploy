@@ -196,9 +196,7 @@ contract BindAuthoriserAdminTest is Test {
         advanceToMultisigThreshold(safe, "early");
         approveSafe(safe);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                BindAuthoriserAdminUnexpectedLine.selector, migrateMultisigThresholdDeclaration().id
-            )
+            abi.encodeWithSelector(BindAuthoriserAdminUnexpectedLine.selector, migrateMultisigThresholdDeclaration().id)
         );
         script.callPreflight();
     }

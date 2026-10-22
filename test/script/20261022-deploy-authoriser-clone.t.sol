@@ -61,13 +61,17 @@ contract DeployAuthoriserCloneTest is Test {
     function testStepsRefuseAnUnboundChain() external {
         vm.expectRevert(
             abi.encodeWithSelector(
-                IConfigRegistryV3.NameNotRegistered.selector, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.AUTHORISER_ADMIN
+                IConfigRegistryV3.NameNotRegistered.selector,
+                LibStoxConfig.ROOT_AUTHORITY,
+                LibStoxConfig.AUTHORISER_ADMIN
             )
         );
         deployImplementation();
         vm.expectRevert(
             abi.encodeWithSelector(
-                IConfigRegistryV3.NameNotRegistered.selector, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.AUTHORISER_ADMIN
+                IConfigRegistryV3.NameNotRegistered.selector,
+                LibStoxConfig.ROOT_AUTHORITY,
+                LibStoxConfig.AUTHORISER_ADMIN
             )
         );
         script.callBoundCloneStep("base", address(this), LibAuthoriserClone.cloneData());

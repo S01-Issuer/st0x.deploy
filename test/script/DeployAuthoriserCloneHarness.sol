@@ -21,10 +21,7 @@ contract DeployAuthoriserCloneHarness is DeployAuthoriserClone {
         return boundZoltuDeployStep(vm, network, deployer, creationCode);
     }
 
-    function callBoundCloneStep(string memory network, address deployer, bytes memory data)
-        external
-        returns (address)
-    {
+    function callBoundCloneStep(string memory network, address deployer, bytes memory data) external returns (address) {
         return boundCloneStep(vm, network, deployer, data);
     }
 }
