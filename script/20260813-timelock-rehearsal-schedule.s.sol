@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
+import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
@@ -9,9 +12,9 @@ import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/Timel
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {LibSafeTx, SafeTx} from "rain-deploy-0.1.18/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.18/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.18/src/lib/LibSafeTxBuilderJson.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.22/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.22/src/lib/LibSafeTxBuilderJson.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTimelockRehearsal} from "../src/lib/LibTimelockRehearsal.sol";
 
@@ -55,7 +58,12 @@ error RehearsalChangedMinDelay(uint256 expected, uint256 actual);
 /// stage dispatched out of order fails here rather than in the Safe. The run
 /// then proves the whole loop on the fork: warp past the delay, execute as an
 /// address holding no roles, and confirm the delay is unchanged.
-contract TimelockRehearsalSchedule is Script {
+contract TimelockRehearsalSchedule is Script, IStoxScript {
+    /// @inheritdoc IStoxScript
+    function declaration() external pure returns (ScriptDeclaration memory) {
+        return LibStoxMigrations.notAMigration();
+    }
+
     /// @notice Author the schedule bundle for the active chain.
     function run() external {
         Safe safe = Safe(payable(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid)));

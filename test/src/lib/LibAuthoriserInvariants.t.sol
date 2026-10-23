@@ -16,9 +16,9 @@ import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.18/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
-import {DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_1} from "rain-factory-deploy-0.1.15/src/generated/0_1_1/CloneFactory.sol";
+import {DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_1} from "rain-factory-deploy-0.2.2/src/generated/0_1_1/CloneFactory.sol";
 
 /// @title LibAuthoriserInvariantsTest
 /// @notice Fork tests pinning the production V4 authoriser clone's state

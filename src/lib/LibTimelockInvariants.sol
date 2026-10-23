@@ -2,7 +2,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {LibTimelockController} from "rain-deploy-0.1.18/src/lib/LibTimelockController.sol";
+import {LibTimelockController} from "rain-deploy-0.1.22/src/lib/LibTimelockController.sol";
+import {
+    BYTECODE_HASH as TIMELOCK_BYTECODE_HASH,
+    CREATION_CODE as TIMELOCK_CREATION_CODE
+} from "rain-deploy-0.1.22/src/generated/0_1_18/TimelockController.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {RoleGrant} from "./RoleGrant.sol";
 
@@ -169,7 +173,7 @@ library LibTimelockInvariants {
     /// @param proposerSafe The chain's token-owner Safe.
     /// @return The creation code including constructor arguments.
     function timelockInitCode(address proposerSafe) internal pure returns (bytes memory) {
-        return LibTimelockController.timelockInitCode(TIMELOCK_MIN_DELAY, proposerSafe);
+        return LibTimelockController.timelockInitCode(TIMELOCK_CREATION_CODE, TIMELOCK_MIN_DELAY, proposerSafe);
     }
 
     /// @notice The Zoltu address `timelockInitCode` deploys to. The deploy
@@ -178,7 +182,7 @@ library LibTimelockInvariants {
     /// @param proposerSafe The chain's token-owner Safe.
     /// @return The deterministic timelock address for that Safe.
     function expectedTimelockAddress(address proposerSafe) internal pure returns (address) {
-        return LibTimelockController.expectedTimelockAddress(TIMELOCK_MIN_DELAY, proposerSafe);
+        return LibTimelockController.expectedTimelockAddress(TIMELOCK_CREATION_CODE, TIMELOCK_MIN_DELAY, proposerSafe);
     }
 
     /// @notice The pairs the governance timelock must carry.
@@ -210,6 +214,8 @@ library LibTimelockInvariants {
         if (TIMELOCK_CANCELLER != address(0)) {
             cancellers[0] = TIMELOCK_CANCELLER;
         }
-        LibTimelockController.assertTimelockState(timelock, TIMELOCK_MIN_DELAY, proposerSafe, cancellers);
+        LibTimelockController.assertTimelockState(
+            TIMELOCK_BYTECODE_HASH, timelock, TIMELOCK_MIN_DELAY, proposerSafe, cancellers
+        );
     }
 }
