@@ -4,8 +4,8 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.21/src/lib/LibMigrationRegistry.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.22/src/lib/LibMigrationRegistry.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
 
 import {GrantEuAuthoriserRoles} from "../../script/20261006-grant-eu-authoriser-roles.s.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
@@ -13,8 +13,8 @@ import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol
 import {LibEuAuthoriserClone} from "../../src/lib/LibEuAuthoriserClone.sol";
 import {LibRbacMigration} from "../../src/lib/LibRbacMigration.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {SafeTx} from "rain-deploy-0.1.21/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.21/src/lib/LibSafeFork.sol";
+import {SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.22/src/lib/LibSafeFork.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
