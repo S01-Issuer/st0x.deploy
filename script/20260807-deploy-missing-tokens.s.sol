@@ -10,10 +10,10 @@ import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {
     OffchainAssetReceiptVaultConfigV2
-} from "rain-vats-0.2.7/src/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
-import {ReceiptVaultConfigV2} from "rain-vats-0.2.7/src/abstract/ReceiptVault.sol";
-import {IReceiptVaultV3} from "rain-vats-0.2.7/src/interface/IReceiptVaultV3.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.7/src/interface/IAuthorizeV1.sol";
+} from "rain-vats-0.2.8/src/concrete/deploy/OffchainAssetReceiptVaultBeaconSetDeployer.sol";
+import {ReceiptVaultConfigV2} from "rain-vats-0.2.8/src/abstract/ReceiptVault.sol";
+import {IReceiptVaultV3} from "rain-vats-0.2.8/src/interface/IReceiptVaultV3.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.8/src/interface/IAuthorizeV1.sol";
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {IStoxUnifiedDeployerV1} from "../src/interface/IStoxUnifiedDeployerV1.sol";
