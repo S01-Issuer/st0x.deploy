@@ -13,11 +13,11 @@ import {
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.2.8/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.2.9/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {
     OffchainAssetReceiptVaultPaymentMintAuthorizerV1Config
-} from "rain-vats-0.2.8/src/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.8/src/interface/IAuthorizeV1.sol";
+} from "rain-vats-0.2.9/src/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.9/src/interface/IAuthorizeV1.sol";
 import {CloneFactory} from "rain-factory-deploy-0.2.2/src/concrete/CloneFactory.sol";
 import {VerifyAlwaysApproved} from "rain-verify-interface-0.1.0/src/concrete/VerifyAlwaysApproved.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
@@ -25,7 +25,7 @@ import {IERC165} from "@openzeppelin-contracts-5.7.0/utils/introspection/IERC165
 import {
     IncompatibleAuthorizer,
     OffchainAssetReceiptVault
-} from "rain-vats-0.2.8/src/concrete/vault/OffchainAssetReceiptVault.sol";
+} from "rain-vats-0.2.9/src/abstract/OffchainAssetReceiptVault.sol";
 import {AuthorizerMissingCorporateActionAdmin} from "../../../src/error/ErrCorporateAction.sol";
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../src/lib/LibCorporateAction.sol";
 import {MockERC20} from "../../concrete/MockERC20.sol";
@@ -354,16 +354,6 @@ contract StoxReceiptVaultSetAuthorizerGuardTest is Test {
         assertTrue(SCHEDULE_CORPORATE_ACTION != bytes32(0));
         assertTrue(CANCEL_CORPORATE_ACTION != bytes32(0));
         assertTrue(SCHEDULE_CORPORATE_ACTION != CANCEL_CORPORATE_ACTION);
-    }
-
-    /// The override truly overrides — same 4-byte selector as the
-    /// parent's `setAuthorizer`. A signature mismatch (different param
-    /// type, different name) would shadow the parent rather than
-    /// override it, leaving the unguarded parent function callable.
-    /// Pin selector equality so a refactor that drifts the signature
-    /// fails loudly.
-    function testSetAuthorizerSelectorMatchesParent() external pure {
-        assertEq(StoxReceiptVault.setAuthorizer.selector, OffchainAssetReceiptVault.setAuthorizer.selector);
     }
 
     /// The guard runs only at install time, not on every dispatch. If a

@@ -13,13 +13,14 @@ import {IERC1155Receiver} from "@openzeppelin-contracts-5.7.0/token/ERC1155/IERC
 import {IERC165} from "@openzeppelin-contracts-5.7.0/utils/introspection/IERC165.sol";
 import {SignatureChecker} from "@openzeppelin-contracts-5.7.0/utils/cryptography/SignatureChecker.sol";
 
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.8/src/concrete/vault/OffchainAssetReceiptVault.sol";
-import {IReceiptV3} from "rain-vats-0.2.8/src/interface/IReceiptV3.sol";
-import {ReceiptVault} from "rain-vats-0.2.8/src/abstract/ReceiptVault.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.9/src/abstract/OffchainAssetReceiptVault.sol";
+import {IReceiptV3} from "rain-vats-0.2.9/src/interface/IReceiptV3.sol";
+import {ReceiptVault} from "rain-vats-0.2.9/src/abstract/ReceiptVault.sol";
 
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
-import {IST0xVaultBeaconSet} from "../interface/IST0xVaultBeaconSet.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
+import {LibBeaconInvariants} from "../lib/LibBeaconInvariants.sol";
 import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../interface/IST0xOrchestratorV1.sol";
 
 /// @title ST0xOrchestrator
@@ -147,14 +148,24 @@ contract ST0xOrchestrator is
         _;
     }
 
+    /// The active chain's receipt-vault and receipt beacons: Base serves its
+    /// tokens from the V1 beacons, every other chain from its 0.1.1 set.
+    /// Reverts on a chain with no pinned beacons.
+    function _vaultBeacons() internal view returns (IBeacon, IBeacon) {
+        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
+        return (
+            IBeacon(beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]),
+            IBeacon(beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX])
+        );
+    }
+
     function _checkVaultLogic() internal view {
-        IST0xVaultBeaconSet beaconSet =
-            IST0xVaultBeaconSet(LibProdDeployCurrent.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
-        address vaultImpl = beaconSet.iOffchainAssetReceiptVaultBeacon().implementation();
+        (IBeacon vaultBeacon, IBeacon receiptBeacon) = _vaultBeacons();
+        address vaultImpl = vaultBeacon.implementation();
         if (vaultImpl != LibProdDeployCurrent.STOX_RECEIPT_VAULT) {
             revert VaultLogicMismatch(LibProdDeployCurrent.STOX_RECEIPT_VAULT, vaultImpl);
         }
-        address receiptImpl = beaconSet.iReceiptBeacon().implementation();
+        address receiptImpl = receiptBeacon.implementation();
         if (receiptImpl != LibProdDeployCurrent.STOX_RECEIPT) {
             revert ReceiptLogicMismatch(LibProdDeployCurrent.STOX_RECEIPT, receiptImpl);
         }
@@ -162,10 +173,9 @@ contract ST0xOrchestrator is
 
     /// @inheritdoc IST0xOrchestratorV1
     function vaultLogicIsExpected() external view returns (bool) {
-        IST0xVaultBeaconSet beaconSet =
-            IST0xVaultBeaconSet(LibProdDeployCurrent.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
-        return beaconSet.iOffchainAssetReceiptVaultBeacon().implementation() == LibProdDeployCurrent.STOX_RECEIPT_VAULT
-            && beaconSet.iReceiptBeacon().implementation() == LibProdDeployCurrent.STOX_RECEIPT;
+        (IBeacon vaultBeacon, IBeacon receiptBeacon) = _vaultBeacons();
+        return vaultBeacon.implementation() == LibProdDeployCurrent.STOX_RECEIPT_VAULT
+            && receiptBeacon.implementation() == LibProdDeployCurrent.STOX_RECEIPT;
     }
 
     // ------------------------------------------------------------------ //

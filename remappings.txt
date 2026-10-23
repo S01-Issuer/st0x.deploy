@@ -11,6 +11,6 @@ rain-math-float-0.3.10/=dependencies/rain-math-float-0.3.10/
 rain-sol-codegen-0.1.39/=dependencies/rain-sol-codegen-0.1.39/
 rain-solmem-0.1.28/=dependencies/rain-solmem-0.1.28/
 rain-tofu-erc20-decimals-0.1.4/=dependencies/rain-tofu-erc20-decimals-0.1.4/
-rain-vats-0.2.8/=dependencies/rain-vats-0.2.8/
+rain-vats-0.2.9/=dependencies/rain-vats-0.2.9/
 rain-verify-interface-0.1.0/=dependencies/rain-verify-interface-0.1.0/
 safe-global-safe-smart-account-1.4.1-3/=dependencies/safe-global-safe-smart-account-1.4.1-3/

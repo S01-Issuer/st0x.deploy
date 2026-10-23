@@ -91,10 +91,10 @@ integrity = "f10dc50978061fb2a92fb9ba907c2cbe678d24198faabf060f699d36f1e8e4a0"
 
 [[dependencies]]
 name = "rain-vats"
-version = "0.2.8"
-url = "https://soldeer-revisions.s3.amazonaws.com/rain-vats/0_2_8_22-10-2026_20:26:29_rain.zip"
-checksum = "686261cf6e4e66c4854a15671fefae849416ae3e39eabf64864a81f06cf9e5d0"
-integrity = "3869bf963767a14d109750a64fc5f9a80c5d27a9fc58b17a6262d6285e872cc0"
+version = "0.2.9"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-vats/0_2_9_22-10-2026_20:44:18_rain.zip"
+checksum = "e5bd3cb69bdd4f8c5bcb2dcc8c330340e69c3e0e3e95fee1703910c9cdef4cce"
+integrity = "f3b7aabfee853f7266e1c2832915705389e702c08915cf97850153aeaf9b14ea"
 
 [[dependencies]]
 name = "rain-verify-interface"
