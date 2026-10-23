@@ -14,6 +14,9 @@ import {LibSafeTx, SafeTx} from "rain-deploy-0.1.21/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.21/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.21/src/lib/LibSafeTxBuilderJson.sol";
 
+import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+
 /// @notice A previously emitted Tx Builder JSON artifact (parsed via
 /// `LibSafeTxBuilderJson.fromJson`) does not match the bundle the live
 /// pre-flight would emit. Surfaces the first field that drifts, so a
@@ -28,6 +31,18 @@ error VerifyMismatch(string field);
 /// this path is unambiguous drift rather than a future-proofing exercise.
 /// @param actualCount The number of transactions in the parsed artifact.
 error VerifyExpectedSingleTx(uint256 actualCount);
+
+/// @notice This script's declaration: the Safe's record of the threshold
+/// migration, after the orchestrator admin move.
+/// @return The declaration.
+function migrateMultisigThresholdDeclaration() pure returns (ScriptDeclaration memory) {
+    return LibStoxMigrations.safeMigrationOnto(
+        LibStoxMigrations.NAMESPACE,
+        keccak256("script/20260619-migrate-multisig-threshold.s.sol"),
+        LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
+        false
+    );
+}
 
 /// @title MigrateMultisigThreshold
 /// @notice Forge script that authors the ST0x token-owner Safe's
@@ -52,7 +67,12 @@ error VerifyExpectedSingleTx(uint256 actualCount);
 /// current truth. Post-state uses the full-args overload to override
 /// the threshold with the deliberately-changed `TARGET_THRESHOLD`
 /// while keeping the owner set pinned.
-contract MigrateMultisigThreshold is Script {
+contract MigrateMultisigThreshold is Script, IStoxScript {
+    /// @inheritdoc IStoxScript
+    function declaration() external pure returns (ScriptDeclaration memory) {
+        return migrateMultisigThresholdDeclaration();
+    }
+
     /// @notice Target signature threshold post-migration. Hardcoded literal
     /// (not derived from any constant) because the migration is a
     /// one-shot: encoding `3` as `THRESHOLD_PRE + 2` or similar would
