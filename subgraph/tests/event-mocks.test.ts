@@ -292,3 +292,124 @@ export function ownerChangeLog(
     new ethereum.EventParam("owner", ethereum.Value.fromAddress(owner)),
   ]);
 }
+
+/** `ConfigRegistry` `Register(address,address,bytes32,bytes)`. */
+export function registerLog(
+  registry: Address,
+  sender: Address,
+  authority: Address,
+  name: Bytes,
+  value: Bytes,
+  blockNumber: i32,
+  logIndex: i32,
+): ethereum.Event {
+  return mockLog(registry, blockNumber, logIndex, [
+    new ethereum.EventParam("sender", ethereum.Value.fromAddress(sender)),
+    new ethereum.EventParam("authority", ethereum.Value.fromAddress(authority)),
+    new ethereum.EventParam("name", ethereum.Value.fromFixedBytes(name)),
+    new ethereum.EventParam("value", ethereum.Value.fromBytes(value)),
+  ]);
+}
+
+/**
+ * `IRegistryDelegatesV1` `Approved(address,bytes32,address)` or
+ * `Revoked(address,bytes32,address)`: the same three params, and which one it
+ * is is decided by the handler the caller hands it to.
+ */
+export function delegateChangeLog(
+  registry: Address,
+  sender: Address,
+  scope: Bytes,
+  delegate: Address,
+  blockNumber: i32,
+  logIndex: i32,
+): ethereum.Event {
+  return mockLog(registry, blockNumber, logIndex, [
+    new ethereum.EventParam("sender", ethereum.Value.fromAddress(sender)),
+    new ethereum.EventParam("scope", ethereum.Value.fromFixedBytes(scope)),
+    new ethereum.EventParam("delegate", ethereum.Value.fromAddress(delegate)),
+  ]);
+}
+
+/** `MigrationRegistry` `Migrated(address,address,bytes32,bytes32,uint256)`. */
+export function migratedLog(
+  registry: Address,
+  sender: Address,
+  writer: Address,
+  namespace: Bytes,
+  migration: Bytes,
+  appliedAt: i32,
+  blockNumber: i32,
+  logIndex: i32,
+): ethereum.Event {
+  return mockLog(registry, blockNumber, logIndex, [
+    new ethereum.EventParam("sender", ethereum.Value.fromAddress(sender)),
+    new ethereum.EventParam("writer", ethereum.Value.fromAddress(writer)),
+    new ethereum.EventParam(
+      "namespace",
+      ethereum.Value.fromFixedBytes(namespace),
+    ),
+    new ethereum.EventParam(
+      "migration",
+      ethereum.Value.fromFixedBytes(migration),
+    ),
+    new ethereum.EventParam(
+      "appliedAt",
+      ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(appliedAt)),
+    ),
+  ]);
+}
+
+/**
+ * `ICloneableFactoryV6`
+ * `NewRegistryBeaconProxy(address,address,address,bytes32,address,address,bytes32,bytes)`.
+ */
+export function newRegistryBeaconProxyLog(
+  factory: Address,
+  sender: Address,
+  beacon: Address,
+  proxy: Address,
+  blockNumber: i32,
+  logIndex: i32,
+): ethereum.Event {
+  return mockLog(factory, blockNumber, logIndex, [
+    new ethereum.EventParam("sender", ethereum.Value.fromAddress(sender)),
+    new ethereum.EventParam(
+      "registry",
+      ethereum.Value.fromAddress(
+        Address.fromString("0x2F1f82c65cce305Df3950F8aF8Fa5aD6D9a815e8"),
+      ),
+    ),
+    new ethereum.EventParam(
+      "authority",
+      ethereum.Value.fromAddress(
+        Address.fromString("0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c"),
+      ),
+    ),
+    new ethereum.EventParam(
+      "beaconName",
+      ethereum.Value.fromFixedBytes(Bytes.fromUint8Array(new Uint8Array(32))),
+    ),
+    new ethereum.EventParam("beacon", ethereum.Value.fromAddress(beacon)),
+    new ethereum.EventParam("proxy", ethereum.Value.fromAddress(proxy)),
+    new ethereum.EventParam(
+      "salt",
+      ethereum.Value.fromFixedBytes(Bytes.fromUint8Array(new Uint8Array(32))),
+    ),
+    new ethereum.EventParam("data", ethereum.Value.fromBytes(Bytes.empty())),
+  ]);
+}
+
+/**
+ * The id of the history row a mock log here writes: `TX_HASH` then the log
+ * index as four little-endian bytes, which is `ByteArray.fromI32`'s order.
+ * Spelled out rather than built with `concatI32`, so a row keyed any other way
+ * fails to match. Log indices here stay below 256.
+ */
+export function mockRowId(logIndex: i32): string {
+  let low = logIndex.toString(16);
+  if (low.length < 2) {
+    low = "0".concat(low);
+  }
+  return TX_HASH.toHexString().concat(low).concat("000000");
+}
