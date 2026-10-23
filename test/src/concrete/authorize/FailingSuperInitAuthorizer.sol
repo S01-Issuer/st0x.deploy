@@ -12,20 +12,7 @@ import {
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
-
-bytes32 constant FAILURE_SENTINEL = bytes32(uint256(1));
-
-/// @dev A base `_initialize` that does not succeed.
-abstract contract FailingBaseInitAuthorizer is OffchainAssetReceiptVaultAuthorizerV1 {
-    function _initialize(OffchainAssetReceiptVaultAuthorizerV1Config memory)
-        internal
-        virtual
-        override
-        returns (bytes32)
-    {
-        return FAILURE_SENTINEL;
-    }
-}
+import {FailingBaseInitAuthorizer} from "./FailingBaseInitAuthorizer.sol";
 
 /// @dev Linearised so `StoxOffchainAssetReceiptVaultAuthorizerV1`'s `super`
 /// is `FailingBaseInitAuthorizer`. Takes the plain config.

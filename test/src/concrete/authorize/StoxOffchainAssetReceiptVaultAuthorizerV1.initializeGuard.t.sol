@@ -12,7 +12,8 @@ import {
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
 } from "rain-vats-0.2.7-pr349/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
-import {FAILURE_SENTINEL, FailingSuperInitAuthorizer} from "./FailingSuperInitAuthorizer.sol";
+import {FAILURE_SENTINEL} from "./FailingBaseInitAuthorizer.sol";
+import {FailingSuperInitAuthorizer} from "./FailingSuperInitAuthorizer.sol";
 
 contract StoxOffchainAssetReceiptVaultAuthorizerV1InitializeGuardTest is Test {
     address constant ADMIN = address(uint160(uint256(keccak256("ADMIN"))));
