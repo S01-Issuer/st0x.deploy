@@ -138,9 +138,7 @@ contract ST0xOrchestrator is
     /// proxy bytecode, or false when `proxy` has other code.
     function _beaconImplementation(address proxy) internal view returns (bool, address) {
         (bool isProxy, address beacon) = LibExtrospectRegistryBeaconProxy.isRegistryBeaconProxy(proxy.code);
-        address impl;
-        if (isProxy) impl = IBeacon(beacon).implementation();
-        return (isProxy, impl);
+        return (isProxy, isProxy ? IBeacon(beacon).implementation() : address(0));
     }
 
     function _checkVaultLogic(address token) internal view {
