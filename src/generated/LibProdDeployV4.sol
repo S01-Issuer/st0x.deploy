@@ -182,6 +182,18 @@ library LibProdDeployV4 {
     address constant STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);
     address constant STOX_PROD_AUTHORISER_V4_CLONE_BSC = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);
     uint256 constant V4_SWAP_DEADLINE = 1_793_491_200;
+
+    /// @dev The V4 authoriser clone whose admin is the `ConfigRegistry`'s.
+    address constant STOX_AUTHORISER_V4_REGISTRY_CLONE = address(0x37cc41EDC768F1CBB6A1Ca274403E570C69C7909);
+
+    /// @dev Its runtime code.
+    bytes constant STOX_AUTHORISER_V4_REGISTRY_CLONE_CODE =
+        hex"363d3d373d3d3d363d7380009f2a9ef9a7d51aadde2dcce35c062533f3755af43d82803e903d91602b57fd5bf3";
+
+    /// @dev Its code hash.
+    bytes32 constant STOX_AUTHORISER_V4_REGISTRY_CLONE_CODEHASH =
+        bytes32(0x1cdb5cab2165ad2319db258e62299c0e88067d4637b9749551d825378790f49c);
+
     address constant ST0X_ORCHESTRATOR_BEACON = address(0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613);
     address constant ST0X_ORCHESTRATOR_INSTANCE = address(0x3A7387a484d87Aa8bBA45E98AAB401Ce4FBF03E2);
     address constant STOX_RECEIPT_0_1_1 = STOX_RECEIPT_ADDRESS_0_1_1_GEN;

@@ -15,6 +15,7 @@ import {MockERC20} from "../../../concrete/MockERC20.sol";
 import {BadInitializeVault} from "../../../concrete/BadInitializeVault.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
+import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 
 contract StoxWrappedTokenVaultBeaconSetDeployerTest is Test {
@@ -60,7 +61,7 @@ contract StoxWrappedTokenVaultBeaconSetDeployerTest is Test {
     function testNewVaultInitializeVaultFailed() external {
         LibTestDeploy.deployWrappedTokenVaultBeaconSet(vm);
         BadInitializeVault badImpl = new BadInitializeVault();
-        vm.prank(LibProdDeployV4.BEACON_INITIAL_OWNER);
+        vm.prank(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
         UpgradeableBeacon(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CANDIDATE).upgradeTo(address(badImpl));
 
         vm.expectRevert(abi.encodeWithSelector(InitializeVaultFailed.selector));

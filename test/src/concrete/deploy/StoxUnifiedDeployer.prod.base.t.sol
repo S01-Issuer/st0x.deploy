@@ -10,9 +10,11 @@ import {LibTestProd} from "../../../lib/LibTestProd.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
-} from "rain-vats-0.2.7/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
-import {OffchainAssetReceiptVaultConfigV2} from "rain-vats-0.2.7/src/concrete/vault/OffchainAssetReceiptVault.sol";
-import {ReceiptVaultConfigV2} from "rain-vats-0.2.7/src/abstract/ReceiptVault.sol";
+} from "rain-vats-0.2.7-pr349/src/interface/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
+import {
+    OffchainAssetReceiptVaultConfigV2
+} from "rain-vats-0.2.7-pr349/src/concrete/vault/OffchainAssetReceiptVault.sol";
+import {ReceiptVaultConfigV2} from "rain-vats-0.2.7-pr349/src/abstract/ReceiptVault.sol";
 import {
     StoxWrappedTokenVaultBeaconSetDeployer
 } from "../../../../src/concrete/deploy/StoxWrappedTokenVaultBeaconSetDeployer.sol";

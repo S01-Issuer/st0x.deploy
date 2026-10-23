@@ -30,6 +30,8 @@ on:
           - 20261006-grant-orchestrator-emergency
           - 20261006-orchestrator-admin-to-timelock
           - 20260619-migrate-multisig-threshold
+          - 20261022-bind-beacon-owner
+          - 20261022-bind-authoriser-admin
       network:
         description: 'Network to author against (default: base)'
         required: true

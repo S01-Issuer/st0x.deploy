@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Receipt} from "rain-vats-0.2.7/src/concrete/receipt/Receipt.sol";
+import {Receipt} from "rain-vats-0.2.7-pr349/src/concrete/receipt/Receipt.sol";
 import {ERC1155Upgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/token/ERC1155/ERC1155Upgradeable.sol";
 import {IERC1155} from "@openzeppelin-contracts-5.7.0/token/ERC1155/IERC1155.sol";
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
@@ -164,7 +164,7 @@ contract StoxReceipt is Receipt {
     /// implementation installed via beacon upgrade could serve
     /// inconsistent answers across iterations and inflate, zero, or drift
     /// any first-touched balance. The protocol relies on
-    /// `BEACON_INITIAL_OWNER = rainlang.eth` only installing audited
+    /// the beacon owner only installing audited
     /// vault implementations behind every receipt's manager pointer.
     /// Beacon upgrade authority is the trust root.
     /// @inheritdoc ERC1155Upgradeable

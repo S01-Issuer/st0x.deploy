@@ -16,6 +16,10 @@ import {UpgradedImpl} from "./UpgradedImpl.sol";
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IST0xVaultBeaconSet} from "../../../../src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
+import {IConfigRegistryV3} from "rain-deploy-0.1.21/src/interface/IConfigRegistryV3.sol";
+import {LibStoxConfig} from "../../../../src/lib/LibStoxConfig.sol";
+import {LibStoxConfigFork} from "../../../../src/lib/LibStoxConfigFork.sol";
+import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
 import {IST0xOrchestratorBeaconSetDeployerV1} from "../../../../src/interface/IST0xOrchestratorBeaconSetDeployerV1.sol";
 
 contract ST0xOrchestratorBeaconSetDeployerTest is Test {
@@ -28,6 +32,7 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
         LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE;
     address internal constant VAULT_BEACON = address(0xBEAC04);
     address internal constant RECEIPT_BEACON = address(0xBEAC12);
+    address internal constant BEACON_OWNER = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
 
     ST0xOrchestrator internal impl;
 
@@ -70,16 +75,34 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     }
 
     function _deployer() internal returns (ST0xOrchestratorBeaconSetDeployer) {
+        LibStoxConfigFork.bindBeaconOwner(vm, BEACON_OWNER);
         return new ST0xOrchestratorBeaconSetDeployer();
     }
 
-    /// The no-arg constructor bakes the beacon owner + implementation from
-    /// `LibProdDeployV4` — the whole point of being Zoltu-deployable.
+    /// The no-arg constructor takes the implementation from `LibProdDeployV4`
+    /// and the owner from the bound beacon owner.
     function testConstructorSuccess() external {
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
         IBeacon beacon = d.iOrchestratorBeacon();
         assertEq(beacon.implementation(), LibProdDeployV4.ST0X_ORCHESTRATOR_CANDIDATE, "beacon impl");
-        assertEq(Ownable(address(beacon)).owner(), LibProdDeployV4.BEACON_INITIAL_OWNER, "beacon owner");
+        assertEq(Ownable(address(beacon)).owner(), BEACON_OWNER, "beacon owner");
+    }
+
+    function testFuzzConstructorOwnerFollowsBinding(address owner) external {
+        vm.assume(owner != address(0));
+        LibStoxConfigFork.bindBeaconOwner(vm, owner);
+        ST0xOrchestratorBeaconSetDeployer d = new ST0xOrchestratorBeaconSetDeployer();
+        assertEq(Ownable(address(d.iOrchestratorBeacon())).owner(), owner, "beacon owner");
+    }
+
+    function testConstructorUnboundReverts() external {
+        LibStoxConfigFork.etchConfigRegistry(vm);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IConfigRegistryV3.NameNotRegistered.selector, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER
+            )
+        );
+        new ST0xOrchestratorBeaconSetDeployer();
     }
 
     function testDeployRevertsZeroOwner() external {
@@ -142,7 +165,7 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
 
         UpgradedImpl newImpl = new UpgradedImpl();
         // The beacon owner is the fixed production owner, not a deploy param.
-        vm.prank(LibProdDeployV4.BEACON_INITIAL_OWNER);
+        vm.prank(BEACON_OWNER);
         UpgradeableBeacon(address(beacon)).upgradeTo(address(newImpl));
 
         // Call through the proxy proves live delegation to the new impl.
@@ -150,7 +173,7 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     }
 
     function testFuzzBeaconUpgradeUnauthorised(address notOwner) external {
-        vm.assume(notOwner != LibProdDeployV4.BEACON_INITIAL_OWNER && notOwner != address(0));
+        vm.assume(notOwner != BEACON_OWNER && notOwner != address(0));
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
         IBeacon beacon = d.iOrchestratorBeacon();
         UpgradedImpl newImpl = new UpgradedImpl();

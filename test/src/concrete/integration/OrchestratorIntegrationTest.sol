@@ -15,12 +15,9 @@ import {
     DEPOSIT,
     WITHDRAW,
     CERTIFY
-} from "rain-vats-0.2.7/src/concrete/vault/OffchainAssetReceiptVault.sol";
-import {
-    OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.2.7/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
-import {ReceiptVaultConfigV2} from "rain-vats-0.2.7/src/abstract/ReceiptVault.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.7/src/interface/IAuthorizeV1.sol";
+} from "rain-vats-0.2.7-pr349/src/concrete/vault/OffchainAssetReceiptVault.sol";
+import {ReceiptVaultConfigV2} from "rain-vats-0.2.7-pr349/src/abstract/ReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.7-pr349/src/interface/IAuthorizeV1.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";
@@ -37,6 +34,9 @@ import {ICorporateActionsV1} from "../../../../src/interface/ICorporateActionsV1
 import {SCHEDULE_CORPORATE_ACTION, STOCK_SPLIT_V1_TYPE_HASH} from "../../../../src/lib/LibCorporateAction.sol";
 import {LibStockSplit} from "../../../../src/lib/LibStockSplit.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
+import {LibAuthoriserClone} from "../../../../src/lib/LibAuthoriserClone.sol";
+import {LibStoxConfigFork} from "../../../../src/lib/LibStoxConfigFork.sol";
+import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 import {LibTestTofu} from "../../../lib/LibTestTofu.sol";
 
@@ -60,7 +60,7 @@ abstract contract OrchestratorIntegrationTest is Test {
     /// Beacon owner for the OARV beacon set — the address the beacon-set
     /// deployer hands ownership to at construction. Needed to upgrade the
     /// vault beacon out from under the guard (the guard-halt workflow).
-    address internal constant BEACON_OWNER = LibProdDeployV4.BEACON_INITIAL_OWNER;
+    address internal constant BEACON_OWNER = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
 
     StoxReceiptVault internal vault;
     IERC1155 internal receipt;
@@ -145,12 +145,13 @@ abstract contract OrchestratorIntegrationTest is Test {
     }
 
     function _newAuthorizer() internal returns (StoxOffchainAssetReceiptVaultAuthorizerV1) {
+        LibStoxConfigFork.bindAuthoriserAdmin(vm, ADMIN);
         StoxOffchainAssetReceiptVaultAuthorizerV1 authorizerImpl = new StoxOffchainAssetReceiptVaultAuthorizerV1();
         CloneFactory factory = new CloneFactory();
         return StoxOffchainAssetReceiptVaultAuthorizerV1(
             factory.cloneDeterministic(
                 address(authorizerImpl),
-                abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: ADMIN})),
+                LibAuthoriserClone.cloneData(),
                 bytes32(uint256(uint160(address(authorizerImpl))))
             )
         );
