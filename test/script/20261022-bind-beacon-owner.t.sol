@@ -6,16 +6,16 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
-import {IConfigRegistryV3} from "rain-deploy-0.1.21/src/interface/IConfigRegistryV3.sol";
-import {IMigrationRegistryV3} from "rain-deploy-0.1.21/src/interface/IMigrationRegistryV3.sol";
-import {LibConfigRegistry} from "rain-deploy-0.1.21/src/lib/LibConfigRegistry.sol";
-import {LibConfigRegistryDeploy} from "rain-deploy-0.1.21/src/lib/LibConfigRegistryDeploy.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.21/src/lib/LibMigrationRegistryDeploy.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
-import {SafeTx} from "rain-deploy-0.1.21/src/lib/LibSafeTx.sol";
-import {LibSafe} from "rain-deploy-0.1.21/src/lib/LibSafe.sol";
-import {LibSafeFork} from "rain-deploy-0.1.21/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.21/src/lib/LibSafeTxBuilderJson.sol";
+import {IConfigRegistryV3} from "rain-deploy-0.1.22/src/interface/IConfigRegistryV3.sol";
+import {IMigrationRegistryV3} from "rain-deploy-0.1.22/src/interface/IMigrationRegistryV3.sol";
+import {LibConfigRegistry} from "rain-deploy-0.1.22/src/lib/LibConfigRegistry.sol";
+import {LibConfigRegistryDeploy} from "rain-deploy-0.1.22/src/lib/LibConfigRegistryDeploy.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.22/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
+import {LibSafe} from "rain-deploy-0.1.22/src/lib/LibSafe.sol";
+import {LibSafeFork} from "rain-deploy-0.1.22/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.22/src/lib/LibSafeTxBuilderJson.sol";
 
 import {
     BeaconOwnerBindingMismatch,

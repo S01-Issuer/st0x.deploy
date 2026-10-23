@@ -16,7 +16,7 @@ import {UpgradedImpl} from "./UpgradedImpl.sol";
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IST0xVaultBeaconSet} from "../../../../src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
-import {IConfigRegistryV3} from "rain-deploy-0.1.21/src/interface/IConfigRegistryV3.sol";
+import {IConfigRegistryV3} from "rain-deploy-0.1.22/src/interface/IConfigRegistryV3.sol";
 import {LibStoxConfig} from "../../../../src/lib/LibStoxConfig.sol";
 import {LibStoxConfigFork} from "../../../../src/lib/LibStoxConfigFork.sol";
 import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";

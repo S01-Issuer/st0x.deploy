@@ -4,8 +4,8 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
-import {IConfigRegistryV3} from "rain-deploy-0.1.21/src/interface/IConfigRegistryV3.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
+import {IConfigRegistryV3} from "rain-deploy-0.1.22/src/interface/IConfigRegistryV3.sol";
 
 import {StoxReceipt} from "../../../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../../../src/concrete/StoxReceiptVault.sol";

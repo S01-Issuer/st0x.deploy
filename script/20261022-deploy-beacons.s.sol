@@ -5,11 +5,11 @@ pragma solidity =0.8.25;
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
-import {LibRainDeploy, DeployDependency, SupportedNetwork} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
-import {LibConfigRegistryDeploy} from "rain-deploy-0.1.21/src/lib/LibConfigRegistryDeploy.sol";
+import {LibRainDeploy, DeployDependency, SupportedNetwork} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
+import {LibConfigRegistryDeploy} from "rain-deploy-0.1.22/src/lib/LibConfigRegistryDeploy.sol";
 import {
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.21/src/generated/candidate/ConfigRegistry.sol";
+} from "rain-deploy-0.1.22/src/generated/candidate/ConfigRegistry.sol";
 
 import {StoxWrappedTokenVaultBeacon} from "../src/concrete/StoxWrappedTokenVaultBeacon.sol";
 import {

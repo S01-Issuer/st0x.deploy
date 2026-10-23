@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {LibConfigRegistry} from "rain-deploy-0.1.21/src/lib/LibConfigRegistry.sol";
+import {LibConfigRegistry} from "rain-deploy-0.1.22/src/lib/LibConfigRegistry.sol";
 
 /// @title LibStoxConfig
 /// @notice st0x's bindings in rain-deploy's `ConfigRegistry` V3, all under the
