@@ -34,9 +34,10 @@ import {StoxWrappedTokenVault} from "../../src/concrete/StoxWrappedTokenVault.so
 /// production addresses, with the pinned V6 clone factory and ConfigRegistry
 /// in place. Tokens are registry beacon proxies, as in production.
 library LibTestDeploy {
-    /// The names an authority binds the vault and receipt beacons to.
+    /// The names an authority binds the vault, receipt and wrapper beacons to.
     bytes32 internal constant VAULT_BEACON_NAME = keccak256("st0x.vault-beacon.v1");
     bytes32 internal constant RECEIPT_BEACON_NAME = keccak256("st0x.receipt-beacon.v1");
+    bytes32 internal constant WRAPPER_BEACON_NAME = keccak256("st0x.wrapper-beacon.v1");
 
     /// Zoltu-deploys the candidate receipt, vault and wrapper implementations,
     /// refusing any that lands off its pinned address.
@@ -85,12 +86,13 @@ library LibTestDeploy {
         return ICloneableFactoryV6(CLONE_FACTORY_ADDRESS);
     }
 
-    /// A wrapper of `asset`: a factory beacon proxy over the V1 wrapper beacon.
-    function newWrapper(address asset) internal returns (StoxWrappedTokenVault) {
+    /// A wrapper of `asset`: a registry beacon proxy over the wrapper beacon
+    /// `authority` binds, so it has the same address wherever `asset` does.
+    function newWrapper(address authority, address asset) internal returns (StoxWrappedTokenVault) {
         return StoxWrappedTokenVault(
             factory()
-                .beaconProxyDeterministicOpenSalt(
-                    LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1, abi.encode(asset), bytes32(0)
+                .registryBeaconProxy(
+                    CONFIG_REGISTRY_ADDRESS, authority, WRAPPER_BEACON_NAME, abi.encode(asset), bytes32(0)
                 )
         );
     }
@@ -104,15 +106,23 @@ library LibTestDeploy {
         );
     }
 
-    /// Binds `name` under `authority` to an RBAC of `owner` and `authorizer`,
-    /// and the vault and receipt beacon names to Base's V1 beacons. The clock
-    /// moves a second before each bind, since the registry refuses a rebind at
-    /// the moment of the binding it replaces.
-    function bindRbac(Vm vm, address authority, bytes32 name, address owner, IAuthorizeV1 authorizer) internal {
+    /// Binds the vault, receipt and wrapper beacon names under `authority` to
+    /// Base's V1 beacons.
+    function bindBeacons(Vm vm, address authority) internal {
         bind(vm, authority, VAULT_BEACON_NAME, abi.encode(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1));
         bind(vm, authority, RECEIPT_BEACON_NAME, abi.encode(LibProdDeployV1.STOX_RECEIPT_BEACON_V1));
+        bind(vm, authority, WRAPPER_BEACON_NAME, abi.encode(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1));
+    }
+
+    /// Binds the beacon names, and `name` under `authority` to an RBAC of
+    /// `owner` and `authorizer`.
+    function bindRbac(Vm vm, address authority, bytes32 name, address owner, IAuthorizeV1 authorizer) internal {
+        bindBeacons(vm, authority);
         bind(vm, authority, name, abi.encode(OffchainAssetReceiptVaultRbacV1({owner: owner, authorizer: authorizer})));
     }
+
+    /// The clock moves a second before each bind, since the registry refuses a
+    /// rebind at the moment of the binding it replaces.
 
     function bind(Vm vm, address authority, bytes32 name, bytes memory value) internal {
         vm.warp(block.timestamp + 1);
