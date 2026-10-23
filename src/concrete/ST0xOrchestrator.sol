@@ -159,10 +159,11 @@ contract ST0xOrchestrator is
 
     /// @inheritdoc IST0xOrchestratorV2
     function vaultLogicIsExpected(address token) external view returns (bool) {
-        (bool isProxy, address impl) = _beaconImplementation(token);
-        if (!isProxy || impl != LibProdDeployCurrent.STOX_RECEIPT_VAULT) return false;
-        (isProxy, impl) = _beaconImplementation(address(ReceiptVault(payable(token)).receipt()));
-        return isProxy && impl == LibProdDeployCurrent.STOX_RECEIPT;
+        // A non-proxy yields address(0), which is never an expected implementation.
+        (, address impl) = _beaconImplementation(token);
+        if (impl != LibProdDeployCurrent.STOX_RECEIPT_VAULT) return false;
+        (, impl) = _beaconImplementation(address(ReceiptVault(payable(token)).receipt()));
+        return impl == LibProdDeployCurrent.STOX_RECEIPT;
     }
 
     // ------------------------------------------------------------------ //
