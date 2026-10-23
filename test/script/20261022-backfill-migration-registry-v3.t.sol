@@ -70,7 +70,10 @@ contract BackfillMigrationRegistryV3Test is Test {
         assertEq(LibMigrationRegistry.appliedOntoV3(safe, ns, own), LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
         assertEq(LibMigrationRegistry.headV3(safe, rbac), eu);
         assertEq(LibMigrationRegistry.appliedByV3(safe, ns, LibStoxMigrations.ORCHESTRATOR_EMERGENCY), safe);
-        assertTrue(IAccessControl(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE).hasRole(keccak256("EMERGENCY"), safe), "Safe EMERGENCY");
+        assertTrue(
+            IAccessControl(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE).hasRole(keccak256("EMERGENCY"), safe),
+            "Safe EMERGENCY"
+        );
         LibOrchestratorInvariants.assertInstance();
     }
 
