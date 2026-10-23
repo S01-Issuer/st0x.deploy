@@ -6,11 +6,11 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {Base64} from "@openzeppelin-contracts-5.7.0/utils/Base64.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.6-pr345/src/interface/IAuthorizeV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.9/src/interface/IAuthorizeV1.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.2.6-pr345/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
-import {CloneFactory} from "rain-factory-deploy-0.2.1/src/concrete/CloneFactory.sol";
+} from "rain-vats-0.2.9/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+import {CloneFactory} from "rain-factory-deploy-0.2.2/src/concrete/CloneFactory.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
 import {
@@ -20,7 +20,7 @@ import {AuthorizerMissingCorporateActionAdmin} from "../../../src/error/ErrCorpo
 import {SCHEDULE_CORPORATE_ACTION} from "../../../src/lib/LibCorporateAction.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.20/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {OwnedStoxReceiptVault} from "./OwnedStoxReceiptVault.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
@@ -61,7 +61,7 @@ contract StoxReceiptVaultInitializeTest is Test {
     function testInitializeInstallsTheRbacAuthorizer() external {
         IAuthorizeV1 authorizer = _newCorporateActionsAuthorizer();
         LibTestDeploy.bindRbac(vm, AUTHORITY, RBAC_NAME, OWNER, authorizer);
-        StoxReceiptVault vault = LibTestDeploy.newVault(_data());
+        StoxReceiptVault vault = LibTestDeploy.newVault(AUTHORITY, _data());
         assertEq(address(vault.authorizer()), address(authorizer));
         assertEq(vault.owner(), OWNER);
     }
@@ -99,7 +99,7 @@ contract StoxReceiptVaultInitializeTest is Test {
     /// named, where the generic receipt reads `asset()` at `address(0)`.
     function testReceiptUriNamesTheOffchainAsset() external {
         LibTestDeploy.bindRbac(vm, AUTHORITY, RBAC_NAME, OWNER, _newCorporateActionsAuthorizer());
-        StoxReceipt receipt = StoxReceipt(address(LibTestDeploy.newVault(_data()).receipt()));
+        StoxReceipt receipt = StoxReceipt(address(LibTestDeploy.newVault(AUTHORITY, _data()).receipt()));
         assertEq(
             receipt.uri(0),
             string.concat(

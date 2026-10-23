@@ -3,10 +3,10 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {IMigrationRegistryV3} from "rain-deploy-0.1.20/src/interface/IMigrationRegistryV3.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.20/src/lib/LibMigrationRegistry.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.20/src/lib/LibMigrationRegistryDeploy.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.20/src/lib/LibRainDeploy.sol";
+import {IMigrationRegistryV3} from "rain-deploy-0.1.22/src/interface/IMigrationRegistryV3.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.22/src/lib/LibMigrationRegistry.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.22/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
 
 import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibEuAuthoriserClone} from "../../../../src/lib/LibEuAuthoriserClone.sol";

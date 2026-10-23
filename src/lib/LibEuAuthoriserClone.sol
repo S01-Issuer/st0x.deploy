@@ -2,13 +2,13 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {LibICloneableFactoryV5} from "rain-factory-0.2.4/src/lib/LibICloneableFactoryV5.sol";
+import {LibICloneableFactoryV5} from "rain-factory-0.2.5/src/lib/LibICloneableFactoryV5.sol";
 import {
-    DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_15
-} from "rain-factory-deploy-0.2.1/src/generated/0_1_15/CloneFactory.sol";
+    DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS
+} from "rain-factory-deploy-0.2.2/src/generated/0_1_15/CloneFactory.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.2.6-pr345/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.2.9/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
@@ -78,7 +78,7 @@ library LibEuAuthoriserClone {
     /// @return The predicted clone address.
     function cloneDeployedAddress(uint256 chainId) internal pure returns (address) {
         return LibICloneableFactoryV5.predictCloneAddress(
-            CLONE_FACTORY_0_1_15,
+            CLONE_FACTORY_ADDRESS,
             implementation(),
             LibICloneableFactoryV5.effectiveOpenSalt(EU_AUTHORISER_SALT, cloneData(chainId))
         );

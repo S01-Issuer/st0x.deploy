@@ -20,6 +20,13 @@ checksum = "a77ad38d5fbef0ec10d1f4d191698e5fbaa2bffbee5d1aced91a39da5e9b908c"
 integrity = "fa706c8a7caf3426c90f75e6aafa3224b0a6c899b490800cf6944e4ec42f9344"
 
 [[dependencies]]
+name = "rain-deploy"
+version = "0.1.22"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-deploy/0_1_22_22-10-2026_17:04:26_rain.zip"
+checksum = "9ac263c7feec92f8ab2df6378e171d5685bea2dacf1f10db80e285bc4026cdd6"
+integrity = "600f0cc8d960d39a4084e5d60d5a8b81536c5547c21647fb19e5dcaf727a384a"
+
+[[dependencies]]
 name = "rain-extrospection"
 version = "0.1.14"
 url = "https://soldeer-revisions.s3.amazonaws.com/rain-extrospection/0_1_14_06-09-2026_09:00:43_rain.zip"
@@ -32,6 +39,20 @@ version = "0.1.0"
 url = "https://soldeer-revisions.s3.amazonaws.com/rain-extrospection-deploy/0_1_0_19-08-2026_11:05:54_rain.extrospection.zip"
 checksum = "72e5c81ac3484d2c5a44b0c4f422d441ca2d32d1a7cac81fefeec3167e9176b2"
 integrity = "3c2d6a6b0f7ead61153b9e64334afc1d035bb0a855553b21f8bf0b767e4515c5"
+
+[[dependencies]]
+name = "rain-factory"
+version = "0.2.5"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-factory/0_2_5_22-10-2026_16:07:01_rain.zip"
+checksum = "6ab4a3ae642358b2068314070c28a0f28a7d58913ff199cb46ea1d0b744c71fe"
+integrity = "d1a5e360ef066a175c267a83f906f442572957bc99f625747408fa827b3ab87f"
+
+[[dependencies]]
+name = "rain-factory-deploy"
+version = "0.2.2"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-factory-deploy/0_2_2_22-10-2026_19:52:43_rain.factory.zip"
+checksum = "9d7853974398ab1dfe4d5fd3a04da1ade12830b6303f78bd745aaafe16aecc1b"
+integrity = "c2a137f5b8955168ccad3d1d76d5483ef2c624c630887552b250464806944b33"
 
 [[dependencies]]
 name = "rain-math-fixedpoint"
@@ -67,6 +88,13 @@ version = "0.1.4"
 url = "https://soldeer-revisions.s3.amazonaws.com/rain-tofu-erc20-decimals/0_1_4_21-08-2026_19:26:07_rain.tofu.zip"
 checksum = "e4722c1b6e2f030263e27b20f9ab73a4f8111445945846b96f0085848288022b"
 integrity = "f10dc50978061fb2a92fb9ba907c2cbe678d24198faabf060f699d36f1e8e4a0"
+
+[[dependencies]]
+name = "rain-vats"
+version = "0.2.9"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-vats/0_2_9_22-10-2026_20:44:18_rain.zip"
+checksum = "e5bd3cb69bdd4f8c5bcb2dcc8c330340e69c3e0e3e95fee1703910c9cdef4cce"
+integrity = "f3b7aabfee853f7266e1c2832915705389e702c08915cf97850153aeaf9b14ea"
 
 [[dependencies]]
 name = "rain-verify-interface"

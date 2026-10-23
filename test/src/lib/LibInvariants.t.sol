@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.20/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibInvariants} from "../../../src/lib/LibInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
@@ -35,7 +35,7 @@ contract LibInvariantsTest is Test {
         // Both forms must return silently. `assertProductionState` asserts the
         // shared token-owner Safe + shared grant map, so only the token table
         // and the live authoriser are passed. The live authoriser is the V4
-        // clone since the swap batch executed on Base (2026-07).
+        // clone.
         LibInvariants.assertAll(safe);
         LibInvariants.assertProductionState(
             LibTokenInvariants.productionTokensBase(), LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE

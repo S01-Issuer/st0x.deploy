@@ -260,27 +260,49 @@ library LibBeaconInvariants {
     /// @param chainId The active chain id (`block.chainid`).
     /// @return The chain's four in-use beacon addresses.
     function prodBeaconsForChainId(uint256 chainId) internal view returns (address[4] memory) {
-        if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
-            return LibProdBeaconsBase.beacons();
-        }
-        if (chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
-            return LibProdBeacons0_1_1.beacons();
-        }
-        if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
-            // HyperEVM bootstraps at 0.1.1 too — the deterministic beacon
-            // set resolves to the SAME addresses as Ethereum's.
-            return LibProdBeacons0_1_1.beacons();
-        }
-        if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
-            // Robinhood Chain bootstraps at 0.1.1 as well: the same
-            // deterministic beacon set.
-            return LibProdBeacons0_1_1.beacons();
-        }
-        if (chainId == LibSafeInvariants.BSC_CHAIN_ID) {
-            // BNB Smart Chain too.
-            return LibProdBeacons0_1_1.beacons();
-        }
+        return runsBaseBeaconSet(chainId) ? LibProdBeaconsBase.beacons() : LibProdBeacons0_1_1.beacons();
+    }
+
+    /// @notice Whether the chain runs Base's V1 beacon set rather than the deterministic 0.1.1 set.
+    /// @param chainId The chain id.
+    /// @return True for Base's set, false for the 0.1.1 set.
+    function runsBaseBeaconSet(uint256 chainId) internal pure returns (bool) {
+        if (chainId == LibSafeInvariants.BASE_CHAIN_ID) return true;
+        if (
+            chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID || chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID
+                || chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID || chainId == LibSafeInvariants.BSC_CHAIN_ID
+        ) return false;
         revert UnsupportedChainForProdBeacons(chainId);
+    }
+
+    /// @notice The chain's pinned beacons; `address(0)` where `prodBeaconsForChainId` reads one from the set deployer.
+    /// @param chainId The chain id.
+    /// @return The four pinned beacon addresses.
+    function prodPinnedBeaconsForChainId(uint256 chainId) internal pure returns (address[4] memory) {
+        return runsBaseBeaconSet(chainId) ? LibProdBeaconsBase.beacons() : LibProdBeacons0_1_1.pinnedBeacons();
+    }
+
+    /// @notice The deployer whose getters resolve the chain's unpinned beacons; `address(0)` when all are pinned.
+    /// @param chainId The chain id.
+    /// @return The beacon set deployer.
+    function prodBeaconSetDeployerForChainId(uint256 chainId) internal pure returns (address) {
+        return runsBaseBeaconSet(chainId) ? address(0) : LibProdBeacons0_1_1.beaconSetDeployer();
+    }
+
+    /// @notice The implementation each of the chain's beacons was bootstrapped with, index-aligned with `prodBeaconsForChainId`.
+    /// @param chainId The chain id.
+    /// @return The four bootstrap-time implementation addresses.
+    function prodImplementationsForChainId(uint256 chainId) internal pure returns (address[4] memory) {
+        return runsBaseBeaconSet(chainId) ? LibProdBeaconsBase.implementations() : LibProdBeacons0_1_1.implementations();
+    }
+
+    /// @notice The V1 implementation each of the chain's beacons served before 0.1.1; `address(0)` where there was none.
+    /// @param chainId The chain id.
+    /// @return The four V1 implementation addresses.
+    function prodV1ImplementationsForChainId(uint256 chainId) internal pure returns (address[4] memory) {
+        return runsBaseBeaconSet(chainId)
+            ? LibProdBeaconsBase.v1Implementations()
+            : [address(0), address(0), address(0), address(0)];
     }
 
     /// @notice Assert the active chain's four IN-USE production beacons are

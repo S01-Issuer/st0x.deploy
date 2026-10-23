@@ -4,29 +4,25 @@ pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.20/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.20/src/generated/0_1_20/ConfigRegistry.sol";
+} from "rain-deploy-0.1.22/src/generated/0_1_21/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.1/src/generated/0_2_1/CloneFactory.sol";
-import {ICloneableFactoryV5} from "rain-factory-0.2.4/src/interface/ICloneableFactoryV5.sol";
-import {IConfigRegistryV2} from "rain-deploy-0.1.20/src/interface/IConfigRegistryV2.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.6-pr345/src/interface/IAuthorizeV1.sol";
-import {OffchainAssetReceiptVaultRbacV1} from "rain-vats-0.2.6-pr345/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
+} from "rain-factory-deploy-0.2.2/src/generated/0_2_2/CloneFactory.sol";
+import {ICloneableFactoryV6} from "rain-factory-0.2.5/src/interface/ICloneableFactoryV6.sol";
+import {IConfigRegistryV3} from "rain-deploy-0.1.22/src/interface/IConfigRegistryV3.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.9/src/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVaultRbacV1} from "rain-vats-0.2.9/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {
-    CONFIG_REGISTRY_OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V1_TAG,
-    ConfigRegistryOffchainAssetReceiptVaultConfigV1
-} from "rain-vats-0.2.6-pr345/src/interface/IConfigRegistryOffchainAssetReceiptVaultV1.sol";
-import {
-    CONFIG_REGISTRY_RBAC_MIN_AGE
-} from "rain-vats-0.2.6-pr345/src/concrete/vault/ConfigRegistryOffchainAssetReceiptVault.sol";
+    OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
+    OffchainAssetReceiptVaultConfigV3
+} from "rain-vats-0.2.9/src/interface/IOffchainAssetReceiptVaultV1.sol";
 import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {StoxReceipt} from "../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../src/concrete/StoxReceiptVault.sol";
@@ -35,9 +31,13 @@ import {StoxWrappedTokenVault} from "../../src/concrete/StoxWrappedTokenVault.so
 /// @title LibTestDeploy
 /// @notice The production token set on the local EVM: the candidate
 /// implementations at their Zoltu addresses, served by the V1 beacons at their
-/// production addresses, with the pinned V5 clone factory and ConfigRegistry
-/// in place. Tokens are factory beacon proxies, as in production.
+/// production addresses, with the pinned V6 clone factory and ConfigRegistry
+/// in place. Tokens are registry beacon proxies, as in production.
 library LibTestDeploy {
+    /// The names an authority binds the vault and receipt beacons to.
+    bytes32 internal constant VAULT_BEACON_NAME = keccak256("st0x.vault-beacon.v1");
+    bytes32 internal constant RECEIPT_BEACON_NAME = keccak256("st0x.receipt-beacon.v1");
+
     /// Zoltu-deploys the candidate receipt, vault and wrapper implementations,
     /// refusing any that lands off its pinned address.
     function deployImplementations(Vm vm) internal {
@@ -81,8 +81,8 @@ library LibTestDeploy {
     }
 
     /// The pinned clone factory.
-    function factory() internal pure returns (ICloneableFactoryV5) {
-        return ICloneableFactoryV5(CLONE_FACTORY_ADDRESS);
+    function factory() internal pure returns (ICloneableFactoryV6) {
+        return ICloneableFactoryV6(CLONE_FACTORY_ADDRESS);
     }
 
     /// A wrapper of `asset`: a factory beacon proxy over the V1 wrapper beacon.
@@ -95,48 +95,47 @@ library LibTestDeploy {
         );
     }
 
-    /// A token vault initialized from `data`: a factory beacon proxy over the
-    /// V1 vault beacon.
-    function newVault(bytes memory data) internal returns (StoxReceiptVault) {
+    /// A token vault initialized from `data`: a registry beacon proxy over the
+    /// vault beacon `authority` binds.
+    function newVault(address authority, bytes memory data) internal returns (StoxReceiptVault) {
         return StoxReceiptVault(
             payable(factory()
-                    .beaconProxyDeterministicOpenSalt(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1, data, bytes32(0)))
+                    .registryBeaconProxy(CONFIG_REGISTRY_ADDRESS, authority, VAULT_BEACON_NAME, data, bytes32(0)))
         );
     }
 
-    /// Binds `name` under `authority` to an RBAC of `owner`, Base's V1 receipt
-    /// beacon and the single `authorizer`, then warps past the minimum age a
-    /// vault requires.
+    /// Binds `name` under `authority` to an RBAC of `owner` and `authorizer`,
+    /// and the vault and receipt beacon names to Base's V1 beacons. The clock
+    /// moves a second before each bind, since the registry refuses a rebind at
+    /// the moment of the binding it replaces.
     function bindRbac(Vm vm, address authority, bytes32 name, address owner, IAuthorizeV1 authorizer) internal {
-        IAuthorizeV1[] memory authorizers = new IAuthorizeV1[](1);
-        authorizers[0] = authorizer;
+        bind(vm, authority, VAULT_BEACON_NAME, abi.encode(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1));
+        bind(vm, authority, RECEIPT_BEACON_NAME, abi.encode(LibProdDeployV1.STOX_RECEIPT_BEACON_V1));
+        bind(vm, authority, name, abi.encode(OffchainAssetReceiptVaultRbacV1({owner: owner, authorizer: authorizer})));
+    }
+
+    function bind(Vm vm, address authority, bytes32 name, bytes memory value) internal {
+        vm.warp(block.timestamp + 1);
         vm.prank(authority);
-        IConfigRegistryV2(CONFIG_REGISTRY_ADDRESS)
-            .registerV2(
-                authority,
-                name,
-                abi.encode(
-                    OffchainAssetReceiptVaultRbacV1({
-                    owner: owner,
-                    receiptBeacon: IBeacon(LibProdDeployV1.STOX_RECEIPT_BEACON_V1),
-                    authorizers: authorizers
-                })
-                )
-            );
-        vm.warp(block.timestamp + CONFIG_REGISTRY_RBAC_MIN_AGE + 1);
+        IConfigRegistryV3(CONFIG_REGISTRY_ADDRESS).registerV3(authority, name, value);
     }
 
     /// The init data of a vault named `name`, `symbol`, resolving its RBAC from
-    /// `rbacName` under `authority`, with the first authorizer.
+    /// `rbacName` under `authority`, with its receipt from `RECEIPT_BEACON_NAME`.
     function vaultData(string memory name, string memory symbol, address authority, bytes32 rbacName)
         internal
         pure
         returns (bytes memory)
     {
         return abi.encode(
-            CONFIG_REGISTRY_OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V1_TAG,
-            ConfigRegistryOffchainAssetReceiptVaultConfigV1({
-                name: name, symbol: symbol, authority: authority, rbacName: rbacName, authorizerIndex: 0, metadata: ""
+            OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
+            OffchainAssetReceiptVaultConfigV3({
+                name: name,
+                symbol: symbol,
+                authority: authority,
+                rbacName: rbacName,
+                receiptBeaconName: RECEIPT_BEACON_NAME,
+                metadata: ""
             })
         );
     }

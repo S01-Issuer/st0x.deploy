@@ -16,10 +16,10 @@ import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {LibSafeTx, SafeTx} from "rain-deploy-0.1.20/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.20/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.20/src/lib/LibSafeTxBuilderJson.sol";
-import {LibSafe} from "rain-deploy-0.1.20/src/lib/LibSafe.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.22/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.22/src/lib/LibSafeTxBuilderJson.sol";
+import {LibSafe} from "rain-deploy-0.1.22/src/lib/LibSafe.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 
@@ -252,22 +252,7 @@ contract MigrateGovernanceToTimelock is Script {
     /// @notice The chain's production token table, selected by chain id.
     /// @return The active chain's token instances.
     function tokensForActiveChain() internal view returns (TokenInstance[] memory) {
-        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensBase();
-        }
-        if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensEthereum();
-        }
-        if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensHyperEvm();
-        }
-        if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensRobinhood();
-        }
-        if (block.chainid == LibSafeInvariants.BSC_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensBsc();
-        }
-        revert UnsupportedChainForTokenTable(block.chainid);
+        return LibTokenInvariants.productionTokensForChainId(block.chainid);
     }
 
     /// @notice The seven `_ADMIN` roles, sliced from the master grant map so

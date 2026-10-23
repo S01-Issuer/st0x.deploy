@@ -2,11 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.6-pr345/src/concrete/vault/OffchainAssetReceiptVault.sol";
-import {
-    ConfigRegistryOffchainAssetReceiptVault
-} from "rain-vats-0.2.6-pr345/src/concrete/vault/ConfigRegistryOffchainAssetReceiptVault.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.6-pr345/src/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.9/src/abstract/OffchainAssetReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.9/src/interface/IAuthorizeV1.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
 import {LibRebase} from "../lib/LibRebase.sol";
@@ -41,7 +38,7 @@ import {AuthorizerMissingCorporateActionAdmin} from "../error/ErrCorporateAction
 /// a balance that was already written at the post-rebase basis, silently
 /// inflating the recipient's balance. See `LibRebase.migratedBalance` and
 /// its zero-balance regression tests.
-contract StoxReceiptVault is ConfigRegistryOffchainAssetReceiptVault {
+contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// @notice Emitted whenever `migrateAccount` advances an account's
     /// migration cursor. The cursor itself is storage state, so the event
     /// fires on every cursor advance regardless of whether

@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {LibMigrationRegistry} from "rain-deploy-0.1.20/src/lib/LibMigrationRegistry.sol";
-import {Prerequisite} from "rain-deploy-0.1.20/src/interface/IMigrationRegistryV3.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.22/src/lib/LibMigrationRegistry.sol";
+import {Prerequisite} from "rain-deploy-0.1.22/src/interface/IMigrationRegistryV3.sol";
 
 /// @title LibStoxMigrations
 /// @notice The ids under which this repo's operational scripts record what

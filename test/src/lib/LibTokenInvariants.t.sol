@@ -17,7 +17,7 @@ import {LibProdTokenConfig, TokenConfig} from "../../../src/lib/LibProdTokenConf
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariantsHarness} from "./LibTokenInvariantsHarness.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.20/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
 
 /// @title LibTokenInvariantsTest
 /// @notice Fork tests for the token-side uniformity invariants: every
@@ -54,8 +54,8 @@ contract LibTokenInvariantsTest is Test {
     }
 
     /// @notice Every production receipt vault reports the V4 authoriser clone
-    /// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`) — the production
-    /// authoriser since the V4 swap batch executed on Base (2026-07).
+    /// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`), the production
+    /// authoriser.
     /// Passes against the live chain state: vault authoriser is uniform.
     /// Deliberately STRICT (not migration-window gated): when a newly
     /// deployed token enters the table still wired to a previous authoriser,
@@ -110,9 +110,7 @@ contract LibTokenInvariantsTest is Test {
 
     /// The Ethereum token table mirrors Base row-for-row on the `underlying`
     /// key — same length, same order — so the two per-chain tables cannot
-    /// drift now that the Ethereum table is written out explicitly rather than
-    /// derived from Base. (The addresses are still per-chain placeholders,
-    /// hydrated by the token pin PR; this guards only the shared shape.)
+    /// drift.
     function testEthereumTokenTableMirrorsBaseUnderlyings() external pure {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
         TokenInstance[] memory eth = LibTokenInvariants.productionTokensEthereum();
@@ -134,8 +132,7 @@ contract LibTokenInvariantsTest is Test {
     }
 
     /// The Robinhood Chain token table mirrors Base row-for-row on the
-    /// `underlying` key. Its addresses are placeholders until the token
-    /// deploy executes there; this guards only the shared shape.
+    /// `underlying` key.
     function testRobinhoodTokenTableMirrorsBaseUnderlyings() external pure {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
         TokenInstance[] memory robinhood = LibTokenInvariants.productionTokensRobinhood();
@@ -146,7 +143,7 @@ contract LibTokenInvariantsTest is Test {
     }
 
     /// The BNB Smart Chain token table mirrors Base row-for-row on the
-    /// `underlying` key; addresses are placeholders until its token deploy.
+    /// `underlying` key.
     function testBscTokenTableMirrorsBaseUnderlyings() external pure {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
         TokenInstance[] memory bsc = LibTokenInvariants.productionTokensBsc();
@@ -169,5 +166,34 @@ contract LibTokenInvariantsTest is Test {
                 assertTrue(keccak256(bytes(configs[i].underlying)) != key, discarded[d]);
             }
         }
+    }
+
+    function assertTokenAddresses(TokenInstance[] memory tokens) internal pure {
+        address[] memory addresses = new address[](tokens.length * 3);
+        for (uint256 tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
+            addresses[tokenIndex * 3] = tokens[tokenIndex].receipt;
+            addresses[tokenIndex * 3 + 1] = tokens[tokenIndex].receiptVault;
+            addresses[tokenIndex * 3 + 2] = tokens[tokenIndex].wrappedTokenVault;
+        }
+        for (uint256 addressIndex = 0; addressIndex < addresses.length; addressIndex++) {
+            assertNotEq(addresses[addressIndex], address(0), "production token address is zero");
+            for (uint256 previousIndex = 0; previousIndex < addressIndex; previousIndex++) {
+                assertNotEq(
+                    addresses[addressIndex],
+                    addresses[previousIndex],
+                    "production token address is duplicated within its chain"
+                );
+            }
+        }
+    }
+
+    /// Every receipt, receipt vault and wrapper is nonzero and appears once
+    /// per chain, so an aliased or missing leg fails without a fork.
+    function testProductionTokenAddressesAreNonzeroAndUniquePerChain() external pure {
+        assertTokenAddresses(LibTokenInvariants.productionTokensBase());
+        assertTokenAddresses(LibTokenInvariants.productionTokensEthereum());
+        assertTokenAddresses(LibTokenInvariants.productionTokensHyperEvm());
+        assertTokenAddresses(LibTokenInvariants.productionTokensRobinhood());
+        assertTokenAddresses(LibTokenInvariants.productionTokensBsc());
     }
 }

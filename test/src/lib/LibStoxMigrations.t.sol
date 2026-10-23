@@ -7,11 +7,11 @@ import {
     IMigrationRegistryV3,
     MIGRATION_HEAD_GENESIS,
     Prerequisite
-} from "rain-deploy-0.1.20/src/interface/IMigrationRegistryV3.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.20/src/lib/LibMigrationRegistryDeploy.sol";
+} from "rain-deploy-0.1.22/src/interface/IMigrationRegistryV3.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.22/src/lib/LibMigrationRegistryDeploy.sol";
 import {
     RUNTIME_CODE as MIGRATION_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.20/src/generated/0_1_20/MigrationRegistry.sol";
+} from "rain-deploy-0.1.22/src/generated/0_1_21/MigrationRegistry.sol";
 
 import {LibStoxMigrations} from "../../../src/lib/LibStoxMigrations.sol";
 
@@ -26,12 +26,12 @@ contract LibStoxMigrationsTest is Test {
     function testRegistryInstancePinned() external pure {
         assertEq(
             LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
-            0x4B2ca6f3629Cddc0eAC884443c5DA8Ba02cd9A1b,
+            0x5A48e719785E11c4643EA4056D0861A6a69e91a0,
             "st0x.deploy migration records live at this registry instance"
         );
         assertEq(
             LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_CODEHASH,
-            0x753e54807b3aaa0ac6d5b538c8c8cd34526f48e474a23f2795f4e2b306560e8e,
+            0xa78caf9b315d637f5bdc94b2168007bc64d7b172844deaf6e0dcabf418ee5c56,
             "st0x.deploy migration records live at this registry instance"
         );
     }

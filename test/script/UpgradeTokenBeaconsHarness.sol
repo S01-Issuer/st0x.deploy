@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {SafeTx} from "rain-deploy-0.1.20/src/lib/LibSafeTx.sol";
+import {SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
 
 import {UpgradeTokenBeacons} from "../../script/20261022-upgrade-token-beacons.s.sol";
 
