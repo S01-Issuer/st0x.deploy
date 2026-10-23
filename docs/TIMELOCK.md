@@ -243,6 +243,10 @@ records imply:
    the Safe to the timelock, recorded onto the grant, so the registry refuses it
    on a chain where step 1 has not executed.
 
+Step 1 and the EU authoriser grant were recorded in the V2 registry. The records
+are read from V3, so `20261022-backfill-migration-registry-v3` carries them over
+as history, per chain, before step 2 can run.
+
 `MINT`, `BURN` and `EMERGENCY` are themselves operations and stay off the
 timelock; who may hold them is delay-gated, in both directions. Revoking a
 leaked `MINT` or `BURN` key is also a 48h timelock operation; the orchestrator

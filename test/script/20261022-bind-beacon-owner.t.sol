@@ -24,9 +24,10 @@ import {
     SafeNotBeaconOwnerDelegate,
     bindBeaconOwnerDeclaration
 } from "../../script/20261022-bind-beacon-owner.s.sol";
+import {backfillMigrationRegistryV3Declaration} from "../../script/20261022-backfill-migration-registry-v3.s.sol";
 import {migrateMultisigThresholdDeclaration} from "../../script/20260619-migrate-multisig-threshold.s.sol";
 import {BindBeaconOwnerHarness} from "./BindBeaconOwnerHarness.sol";
-import {GrantOrchestratorEmergencyHarness} from "./GrantOrchestratorEmergencyHarness.sol";
+import {BackfillMigrationRegistryV3Harness} from "./BackfillMigrationRegistryV3Harness.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
@@ -47,9 +48,9 @@ contract BindBeaconOwnerTest is Test {
 
     /// @dev Applies every predecessor on the Safe's line that the chain lacks.
     function advanceLine(address safe, string memory tag) internal {
-        if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0) {
+        if (LibStoxMigrations.applied(safe, backfillMigrationRegistryV3Declaration().id) == 0) {
             LibSafeFork.executeBundle(
-                vm, Safe(payable(safe)), new GrantOrchestratorEmergencyHarness(tag).callAuthorBundle()
+                vm, Safe(payable(safe)), new BackfillMigrationRegistryV3Harness(tag).callAuthorBundle()
             );
         }
         if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) == 0) {
