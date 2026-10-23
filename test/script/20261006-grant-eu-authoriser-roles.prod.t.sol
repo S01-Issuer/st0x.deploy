@@ -17,6 +17,7 @@ import {SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.22/src/lib/LibSafeFork.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
+import {LibTestV3Backfill} from "../lib/LibTestV3Backfill.sol";
 
 /// @title GrantEuAuthoriserRolesProdTest
 /// @notice The ordering property the grant bundle relies on, walked against
@@ -41,6 +42,7 @@ contract GrantEuAuthoriserRolesProdTest is Test {
     function assertGrantBundleRollout(string memory label, uint256 chainId) internal {
         assertEq(block.chainid, chainId, string.concat(label, ": fork"));
         address safe = LibSafeInvariants.safeForChainId(chainId);
+        LibTestV3Backfill.executeIfPending(vm, safe);
 
         uint256 appliedAt = LibMigrationRegistry.appliedV3(
             safe, LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER

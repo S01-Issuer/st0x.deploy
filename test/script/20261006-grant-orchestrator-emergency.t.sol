@@ -24,6 +24,7 @@ import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
+import {LibTestV3Backfill} from "../lib/LibTestV3Backfill.sol";
 
 /// @title GrantOrchestratorEmergencyTest
 /// @notice The grant on every deployment network at head: while the chain
@@ -40,6 +41,7 @@ contract GrantOrchestratorEmergencyTest is Test {
         vm.createSelectFork(network);
         GrantOrchestratorEmergencyHarness script = new GrantOrchestratorEmergencyHarness(network);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        LibTestV3Backfill.executeIfPending(vm, safe);
 
         if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) != 0) {
             console2.log(string.concat("EXECUTED [", network, "]: asserting the post-grant state"));
@@ -103,8 +105,9 @@ contract GrantOrchestratorEmergencyTest is Test {
     /// @notice Whether the grant has executed on the active chain. The
     /// refusal and tamper tests below need the pre-grant state; once it has
     /// executed they report SPENT and stop asserting.
-    function spent() internal view returns (bool) {
+    function spent() internal returns (bool) {
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        LibTestV3Backfill.executeIfPending(vm, safe);
         if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) != 0) {
             console2.log("SPENT: the grant has executed on this chain");
             return true;
