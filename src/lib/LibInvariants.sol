@@ -26,8 +26,7 @@ library LibInvariants {
     /// @notice Full production-state invariant bundle. Composes every
     /// per-facet `assertAll`: Safe identity / config + the governance
     /// timelock's pinned configuration + token-side
-    /// uniformity (every vault owned by Base's governance timelock and gated
-    /// by the current production authoriser,
+    /// uniformity (every vault gated by the current production authoriser,
     /// `LibAuthoriserInvariants.STOX_PROD_AUTHORISER`) + the authoriser's
     /// codehash and grant map.
     /// Pre-flight at the start of every migration script and prod-state
@@ -48,9 +47,7 @@ library LibInvariants {
         LibSafe.assertThreshold(safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
         LibTimelockInvariants.assertTimelockState(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, address(safe));
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(LibSafeInvariants.BASE_CHAIN_ID);
-        LibTokenInvariants.assertAll(
-            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, LibAuthoriserInvariants.STOX_PROD_AUTHORISER
-        );
+        LibTokenInvariants.assertUniformAuthoriser(LibAuthoriserInvariants.STOX_PROD_AUTHORISER);
         LibAuthoriserInvariants.assertAll();
     }
 
@@ -59,8 +56,7 @@ library LibInvariants {
     /// ACTIVE chain (`block.chainid`): the Safe carries the chain-agnostic
     /// token-owner policy (`assertTokenOwnerSafePolicy` — v1.4.1 identity,
     /// owner SET, threshold), the token-side uniformity (every vault in
-    /// `tokens` owned by that chain's governance timelock and gated by the
-    /// single `authoriser`), the in-use beacons owned by that timelock, and
+    /// `tokens` gated by the single `authoriser`), the in-use beacons owned by that timelock, and
     /// the authoriser's role-grant map for that chain's Safe and timelock. The Safe is resolved AND policy-asserted in one call via
     /// `LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid)`,
     /// so the deploy artifacts that differ per chain — the Safe address, the
@@ -83,7 +79,8 @@ library LibInvariants {
     /// start, so there is no V3→V4 migration window to tolerate. The
     /// authoriser CODEHASH is not asserted here (a deploy-artifact property
     /// the clone-deploy script + cross-chain parity pin check); this bundle
-    /// asserts live ROLE state + ownership.
+    /// asserts live ROLE state. Vault ownership is watched by the
+    /// rain-org-health dashboard.
     ///
     /// Driven per chain by `LibInvariantsTest` against live forks of all five
     /// governed chains.
@@ -94,7 +91,7 @@ library LibInvariants {
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock, safe);
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
-        LibTokenInvariants.assertAll(tokens, timelock, authoriser);
+        LibTokenInvariants.assertUniformAuthoriser(tokens, authoriser);
         LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe, timelock);
     }
 
@@ -113,9 +110,7 @@ library LibInvariants {
         LibSafe.assertThreshold(safe, expectedThreshold);
         LibTimelockInvariants.assertTimelockState(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, address(safe));
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(LibSafeInvariants.BASE_CHAIN_ID);
-        LibTokenInvariants.assertAll(
-            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, LibAuthoriserInvariants.STOX_PROD_AUTHORISER
-        );
+        LibTokenInvariants.assertUniformAuthoriser(LibAuthoriserInvariants.STOX_PROD_AUTHORISER);
         LibAuthoriserInvariants.assertAll();
     }
 }
