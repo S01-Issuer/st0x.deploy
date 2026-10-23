@@ -50,8 +50,8 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 /// implementation serving inconsistent answers across `nextOfType` /
 /// `getActionParameters` iterations — such an implementation could
 /// inflate, zero, or arbitrarily drift balances on first-touch. The
-/// receipt assumes the beacon owner (`BEACON_INITIAL_OWNER =
-/// rainlang.eth`) only installs audited vault implementations behind
+/// receipt assumes the beacon owner only installs audited vault
+/// implementations behind
 /// every receipt's manager pointer. Beacon upgrade authority is the
 /// trust root; if that key is compromised, every downstream balance
 /// derived from this walk is compromised.

@@ -164,7 +164,7 @@ contract StoxReceipt is Receipt {
     /// implementation installed via beacon upgrade could serve
     /// inconsistent answers across iterations and inflate, zero, or drift
     /// any first-touched balance. The protocol relies on
-    /// `BEACON_INITIAL_OWNER = rainlang.eth` only installing audited
+    /// the beacon owner only installing audited
     /// vault implementations behind every receipt's manager pointer.
     /// Beacon upgrade authority is the trust root.
     /// @inheritdoc ERC1155Upgradeable
