@@ -34,6 +34,7 @@ import {ICorporateActionsV1} from "../../../../src/interface/ICorporateActionsV1
 import {SCHEDULE_CORPORATE_ACTION, STOCK_SPLIT_V1_TYPE_HASH} from "../../../../src/lib/LibCorporateAction.sol";
 import {LibStockSplit} from "../../../../src/lib/LibStockSplit.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
+import {LibStoxConfig} from "../../../../src/lib/LibStoxConfig.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 import {LibTestTofu} from "../../../lib/LibTestTofu.sol";
 
@@ -53,7 +54,6 @@ abstract contract OrchestratorIntegrationTest is Test {
     address internal constant ADMIN = address(uint160(uint256(keccak256("ADMIN"))));
     address internal constant OWNER = address(uint160(uint256(keccak256("OWNER"))));
     address internal constant MM = address(uint160(uint256(keccak256("MM"))));
-    address internal constant RBAC_AUTHORITY = address(uint160(uint256(keccak256("RBAC_AUTHORITY"))));
     bytes32 internal constant RBAC_NAME = keccak256("st0x.rbac.test.v1");
 
     /// Beacon owner for the OARV beacon set — the address the beacon-set
@@ -87,12 +87,13 @@ abstract contract OrchestratorIntegrationTest is Test {
         // Real authoriser clone, bound with ADMIN as owner in the RBAC the
         // vault resolves at initialize.
         authorizer = _newAuthorizer();
-        LibTestDeploy.bindRbac(vm, RBAC_AUTHORITY, RBAC_NAME, ADMIN, IAuthorizeV1(address(authorizer)));
+        LibTestDeploy.bindRbac(vm, LibStoxConfig.ROOT_AUTHORITY, RBAC_NAME, ADMIN, IAuthorizeV1(address(authorizer)));
 
         // A real vault + receipt beacon-proxy pair from the clone factory, over
         // the beacon the guard version-locks against.
         vault = LibTestDeploy.newVault(
-            RBAC_AUTHORITY, LibTestDeploy.vaultData("Test tStock", "tTEST", RBAC_AUTHORITY, RBAC_NAME)
+            LibStoxConfig.ROOT_AUTHORITY,
+            LibTestDeploy.vaultData("Test tStock", "tTEST", LibStoxConfig.ROOT_AUTHORITY, RBAC_NAME)
         );
         receipt = IERC1155(address(vault.receipt()));
 

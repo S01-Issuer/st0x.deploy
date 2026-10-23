@@ -20,7 +20,8 @@ import {ReceiptVault} from "rain-vats-0.2.9/src/abstract/ReceiptVault.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
-import {LibBeaconInvariants} from "../lib/LibBeaconInvariants.sol";
+import {LibConfigRegistry} from "rain-deploy-0.1.22/src/lib/LibConfigRegistry.sol";
+import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
 import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../interface/IST0xOrchestratorV1.sol";
 
 /// @title ST0xOrchestrator
@@ -134,14 +135,10 @@ contract ST0xOrchestrator is
 
     /// @dev Revert unless the shared production vault + receipt beacons still
     /// point at the implementations pinned in `LibProdDeployCurrent`. Every
-    /// production token proxies these two beacons: a registry beacon proxy
-    /// fixes its beacon at construction from the binding then in force, and
-    /// production bindings name these beacons. So this one check version-locks
-    /// the orchestrator against every production token at once. The token's
-    /// beacon is not readable on chain and a binding resolved now need not be
-    /// the one a token was built from, so the pinned beacons, not the
-    /// registry, are what is checked. NOTE: it checks the shared beacons, not the specific `token`
-    /// argument — a `token` that is NOT a proxy of the shared set is not
+    /// production token is a registry beacon proxy of the beacons the root
+    /// authority binds on its chain, so this one check version-locks the
+    /// orchestrator against every production token at once. NOTE: it checks
+    /// the shared beacons, not the specific `token` argument — a `token` that is NOT a proxy of the shared set is not
     /// covered by the lock. That is not a hazard: such a token has not
     /// granted the orchestrator `DEPOSIT`/`WITHDRAW`, so mint/burn on it
     /// revert at the vault authoriser, and its shares/receipts are its own
@@ -152,15 +149,15 @@ contract ST0xOrchestrator is
         _;
     }
 
-    /// The active chain's receipt-vault and receipt beacons: Base serves its
-    /// tokens from the V1 beacons, every other chain from its 0.1.1 set.
-    /// Reverts on a chain with no pinned beacons.
+    /// The vault and receipt beacons the root authority binds on this chain.
     function _vaultBeacons() internal view returns (IBeacon, IBeacon) {
-        address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
-        return (
-            IBeacon(beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]),
-            IBeacon(beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX])
-        );
+        return (_boundBeacon(LibStoxConfig.VAULT_BEACON_NAME), _boundBeacon(LibStoxConfig.RECEIPT_BEACON_NAME));
+    }
+
+    function _boundBeacon(bytes32 name) internal view returns (IBeacon) {
+        // slither-disable-next-line unused-return
+        (bytes memory value,) = LibConfigRegistry.resolve(LibStoxConfig.ROOT_AUTHORITY, name);
+        return IBeacon(abi.decode(value, (address)));
     }
 
     function _checkVaultLogic() internal view {

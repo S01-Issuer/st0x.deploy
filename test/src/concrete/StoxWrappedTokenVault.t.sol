@@ -11,6 +11,7 @@ import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
+import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 import {Initializable} from "@openzeppelin-contracts-upgradeable-5.7.0/proxy/utils/Initializable.sol";
 import {MockERC20} from "../../concrete/MockERC20.sol";
 
@@ -400,7 +401,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.placeBeacon(
             vm, otherBeacon, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CANDIDATE, LibProdDeployV1.BEACON_INITIAL_OWNER
         );
-        LibTestDeploy.bind(vm, AUTHORITY, LibTestDeploy.WRAPPER_BEACON_NAME, abi.encode(otherBeacon));
+        LibTestDeploy.bind(vm, AUTHORITY, LibStoxConfig.WRAPPER_BEACON_NAME, abi.encode(otherBeacon));
         address elsewhere = address(LibTestDeploy.newWrapper(AUTHORITY, address(asset)));
         address elsewhereBeacon = address(uint160(uint256(vm.load(elsewhere, ERC1967Utils.BEACON_SLOT))));
 

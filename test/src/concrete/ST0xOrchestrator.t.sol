@@ -7,8 +7,8 @@ import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
 import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../../../src/interface/IST0xOrchestratorV1.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
-import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
-import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
+import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
 import {Initializable} from "@openzeppelin-contracts-upgradeable-5.7.0/proxy/utils/Initializable.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
@@ -62,10 +62,10 @@ contract ST0xOrchestratorTest is Test {
     /// Default admin passed to `initialize`.
     address internal constant OWNER = address(0x0FFCE);
 
-    /// The vault-version guard reads the V1 production beacons and compares
-    /// them with the candidate impls, so the mocks target those.
-    address internal constant VAULT_BEACON = LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1;
-    address internal constant RECEIPT_BEACON = LibProdDeployV1.STOX_RECEIPT_BEACON_V1;
+    /// The beacons the root authority binds, which the vault-version guard
+    /// compares with the candidate impls.
+    address internal constant VAULT_BEACON = address(0xBEAC04);
+    address internal constant RECEIPT_BEACON = address(0xBEAC12);
     address internal constant EXPECTED_VAULT_IMPL = LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE;
     address internal constant EXPECTED_RECEIPT_IMPL = LibProdDeployV4.STOX_RECEIPT_CANDIDATE;
 
@@ -77,8 +77,11 @@ contract ST0xOrchestratorTest is Test {
     ST0xOrchestrator internal orchestrator;
 
     function setUp() public {
-        // The guard resolves the active chain's beacons; the mocks are Base's.
-        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
+        LibTestDeploy.etchConfigRegistry(vm);
+        LibTestDeploy.bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.VAULT_BEACON_NAME, abi.encode(VAULT_BEACON));
+        LibTestDeploy.bind(
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.RECEIPT_BEACON_NAME, abi.encode(RECEIPT_BEACON)
+        );
         impl = new ST0xOrchestrator();
         // `initialize` runs the vault-logic guard, so the guard mocks must be
         // in place BEFORE the proxy is deployed.
