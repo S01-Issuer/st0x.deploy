@@ -28,17 +28,6 @@ error CancelTimelockNotPinned(uint256 chainId);
 /// @param id The operation id that is not pending.
 error RehearsalNotScheduled(bytes32 id);
 
-/// @notice This script's declaration.
-/// @return The declaration.
-function timelockRehearsalCancelDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        keccak256("script/20260813-timelock-rehearsal-cancel.s.sol"),
-        keccak256("script/20260813-timelock-rehearsal-schedule.s.sol"),
-        false
-    );
-}
-
 /// @title TimelockRehearsalCancel
 /// @notice Authors the Safe bundle that CANCELS the scheduled
 /// timelock rehearsal — see `LibTimelockRehearsal` for the operation.
@@ -59,7 +48,7 @@ function timelockRehearsalCancelDeclaration() pure returns (ScriptDeclaration me
 contract TimelockRehearsalCancel is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return timelockRehearsalCancelDeclaration();
+        return LibStoxMigrations.notAMigration();
     }
 
     /// @notice Author the cancel bundle for the active chain.

@@ -30,7 +30,6 @@ on:
           - 20261006-grant-orchestrator-emergency
           - 20261006-orchestrator-admin-to-timelock
           - 20260619-migrate-multisig-threshold
-          - 20261017-backfill-history
           - 20261022-backfill-migration-registry-v3
       network:
         description: 'Network to author against (default: base)'

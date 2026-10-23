@@ -33,13 +33,13 @@ error VerifyMismatch(string field);
 error VerifyExpectedSingleTx(uint256 actualCount);
 
 /// @notice This script's declaration: the Safe's record of the threshold
-/// migration, after the history backfill.
+/// migration, after the orchestrator admin move.
 /// @return The declaration.
 function migrateMultisigThresholdDeclaration() pure returns (ScriptDeclaration memory) {
     return LibStoxMigrations.safeMigrationOnto(
         LibStoxMigrations.NAMESPACE,
         keccak256("script/20260619-migrate-multisig-threshold.s.sol"),
-        keccak256("script/20261017-backfill-history.s.sol"),
+        LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
         false
     );
 }

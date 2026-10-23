@@ -82,9 +82,6 @@ function backfillMigrationRegistryV3Declaration() pure returns (ScriptDeclaratio
 /// 3. `st0x.rbac`: `EU_AUTHORISER_GRANT_AND_HANDOVER` onto genesis.
 /// 4. `st0x.deploy`: this script's own record onto `ORCHESTRATOR_EMERGENCY`.
 ///
-/// Until it executes, every invariant that reads V3 answers "not applied"
-/// against a chain where the change is live, and fails.
-///
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261022-backfill-migration-registry-v3` per chain. Refuses once
 /// either V3 line has moved off genesis (`UnexpectedRegistryV3Line`).

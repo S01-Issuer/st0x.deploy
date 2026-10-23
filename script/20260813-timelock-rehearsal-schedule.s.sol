@@ -36,17 +36,6 @@ error RehearsalAlreadyScheduled(bytes32 id);
 /// @param actual The delay after.
 error RehearsalChangedMinDelay(uint256 expected, uint256 actual);
 
-/// @notice This script's declaration.
-/// @return The declaration.
-function timelockRehearsalScheduleDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        keccak256("script/20260813-timelock-rehearsal-schedule.s.sol"),
-        keccak256("script/20260807-deploy-missing-tokens.s.sol"),
-        false
-    );
-}
-
 /// @title TimelockRehearsalSchedule
 /// @notice Authors the Safe bundle that SCHEDULES the timelock
 /// rehearsal no-op — see `LibTimelockRehearsal` for what the operation is and
@@ -72,7 +61,7 @@ function timelockRehearsalScheduleDeclaration() pure returns (ScriptDeclaration 
 contract TimelockRehearsalSchedule is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return timelockRehearsalScheduleDeclaration();
+        return LibStoxMigrations.notAMigration();
     }
 
     /// @notice Author the schedule bundle for the active chain.

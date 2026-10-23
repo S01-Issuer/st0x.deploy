@@ -33,17 +33,6 @@ error OperationNotExecutable(bytes32 id, bool pending, bool ready, bool done);
 /// @param executor The broadcasting key that unexpectedly holds the role.
 error ExecutorHoldsRole(address timelock, address executor);
 
-/// @notice This script's declaration.
-/// @return The declaration.
-function executeTimelockOperationsDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        keccak256("script/20260813-execute-timelock-operations.s.sol"),
-        keccak256("script/20260813-timelock-rehearsal-cancel.s.sol"),
-        false
-    );
-}
-
 /// @title ExecuteTimelockOperations
 /// @notice Executes a matured timelock operation from the CI
 /// deploy key.
@@ -84,7 +73,7 @@ function executeTimelockOperationsDeclaration() pure returns (ScriptDeclaration 
 contract ExecuteTimelockOperations is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return executeTimelockOperationsDeclaration();
+        return LibStoxMigrations.notAMigration();
     }
 
     /// @notice Execute the rehearsal operation on the active chain if it has

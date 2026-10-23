@@ -80,17 +80,6 @@ error OwnershipHandoffFailed(address receiptVault, address expected, address act
 /// @param actual The authoriser actually read back.
 error AuthoriserNotWired(address receiptVault, address expected, address actual);
 
-/// @notice This script's declaration.
-/// @return The declaration.
-function deployMissingTokensDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        keccak256("script/20260807-deploy-missing-tokens.s.sol"),
-        keccak256("script/20260729-deploy-governance-timelock.s.sol"),
-        false
-    );
-}
-
 /// @title DeployMissingTokens
 /// @notice Copies Base's production token set onto whichever chain this is
 /// dispatched against, deploying only the tokens that chain does not already
@@ -133,7 +122,7 @@ function deployMissingTokensDeclaration() pure returns (ScriptDeclaration memory
 contract DeployMissingTokens is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return deployMissingTokensDeclaration();
+        return LibStoxMigrations.notAMigration();
     }
 
     /// @notice Assert a deployer contract is present at its pinned address.

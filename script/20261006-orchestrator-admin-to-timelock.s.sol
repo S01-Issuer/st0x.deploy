@@ -94,9 +94,9 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// `renounceRole` itself immediately.
 ///
 /// The record is applied onto the V3 backfill's, which carries the EMERGENCY
-/// grant's, so the registry
-/// refuses it on a chain where that grant has not executed: the Safe must be
-/// granted `EMERGENCY_ROLE` while it can still do so directly.
+/// grant's, so the registry refuses it on a chain where that grant has not
+/// executed: the Safe must be granted `EMERGENCY_ROLE` while it can still do
+/// so directly.
 ///
 /// **Before signing: cancel any timelock operation already scheduled against
 /// the orchestrator.** `schedule` does not run the inner call, so a

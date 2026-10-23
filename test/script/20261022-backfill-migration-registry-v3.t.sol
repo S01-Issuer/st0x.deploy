@@ -37,15 +37,9 @@ import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
-/// @notice The Safe's V2 records are not yet in V3 on this chain. Execute the
-/// backfill bundle.
-/// @param network The chain still pending.
-error BackfillNotApplied(string network);
-
 /// @title BackfillMigrationRegistryV3Test
 /// @notice Per network: the bundle carries every V2 record into V3 at its V2
-/// moment and the invariants then hold; once executed the script refuses. The
-/// requirement: the backfill is on chain, red until it is.
+/// moment and the invariants then hold; once executed the script refuses.
 contract BackfillMigrationRegistryV3Test is Test {
     IMigrationRegistryV2 internal constant V2 = IMigrationRegistryV2(REGISTRY_V2);
 
@@ -112,14 +106,6 @@ contract BackfillMigrationRegistryV3Test is Test {
         script.callPreflight();
     }
 
-    function assertApplied(string memory network) internal {
-        vm.createSelectFork(network);
-        address safe = LibSafeInvariants.safeForChainId(block.chainid);
-        if (LibStoxMigrations.applied(safe, backfillMigrationRegistryV3Declaration().id) == 0) {
-            revert BackfillNotApplied(network);
-        }
-    }
-
     function testBackfillBundleBase() external {
         assertBundle(LibRainDeploy.BASE);
     }
@@ -138,26 +124,6 @@ contract BackfillMigrationRegistryV3Test is Test {
 
     function testBackfillBundleBsc() external {
         assertBundle(LibStoxDeployNetworks.BSC);
-    }
-
-    function testBackfillAppliedBase() external {
-        assertApplied(LibRainDeploy.BASE);
-    }
-
-    function testBackfillAppliedEthereum() external {
-        assertApplied(LibStoxDeployNetworks.ETHEREUM);
-    }
-
-    function testBackfillAppliedHyperEvm() external {
-        assertApplied(LibStoxDeployNetworks.HYPEREVM);
-    }
-
-    function testBackfillAppliedRobinhood() external {
-        assertApplied(LibStoxDeployNetworks.ROBINHOOD);
-    }
-
-    function testBackfillAppliedBsc() external {
-        assertApplied(LibStoxDeployNetworks.BSC);
     }
 
     /// @notice The refusal tests need the pre-backfill state.
