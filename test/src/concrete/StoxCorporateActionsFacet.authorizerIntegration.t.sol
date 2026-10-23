@@ -5,18 +5,19 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../src/lib/LibCorporateAction.sol";
 import {
-    OffchainAssetReceiptVaultAuthorizerV1Config,
     CERTIFY,
     CERTIFY_ADMIN
-} from "rain-vats-0.2.7/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.2.7-pr349/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1,
     SCHEDULE_CORPORATE_ACTION_ADMIN,
     CANCEL_CORPORATE_ACTION_ADMIN
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
-import {Unauthorized} from "rain-vats-0.2.7/src/interface/IAuthorizeV1.sol";
+import {Unauthorized} from "rain-vats-0.2.7-pr349/src/interface/IAuthorizeV1.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {CloneFactory} from "rain-factory-deploy-0.2.1/src/concrete/CloneFactory.sol";
+import {LibAuthoriserClone} from "../../../src/lib/LibAuthoriserClone.sol";
+import {LibStoxConfigFork} from "../../../src/lib/LibStoxConfigFork.sol";
 
 /// @title StoxCorporateActionsFacetAuthorizerIntegrationTest
 /// @notice Tests that the real OffchainAssetReceiptVaultAuthorizerV1 handles
@@ -28,6 +29,7 @@ contract StoxCorporateActionsFacetAuthorizerIntegrationTest is Test {
     address constant NOBODY = address(uint160(uint256(keccak256("NOBODY"))));
 
     function newAuthorizer() internal returns (StoxOffchainAssetReceiptVaultAuthorizerV1) {
+        LibStoxConfigFork.bindAuthoriserAdmin(vm, ADMIN);
         StoxOffchainAssetReceiptVaultAuthorizerV1 impl = new StoxOffchainAssetReceiptVaultAuthorizerV1();
         CloneFactory factory = new CloneFactory();
         // The salt is the fresh implementation's own address. `ICloneableFactoryV4`
@@ -35,9 +37,7 @@ contract StoxCorporateActionsFacetAuthorizerIntegrationTest is Test {
         // second call in one test at an address the first already took.
         return StoxOffchainAssetReceiptVaultAuthorizerV1(
             factory.cloneDeterministic(
-                address(impl),
-                abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: ADMIN})),
-                bytes32(uint256(uint160(address(impl))))
+                address(impl), LibAuthoriserClone.cloneData(), bytes32(uint256(uint160(address(impl))))
             )
         );
     }

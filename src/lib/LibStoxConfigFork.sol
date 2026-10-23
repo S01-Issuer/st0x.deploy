@@ -23,15 +23,30 @@ library LibStoxConfigFork {
         }
     }
 
-    /// @notice Binds `LibStoxConfig.BEACON_OWNER` to `owner` as the root
-    /// authority, a second after the name's last binding.
+    /// @notice Binds `name` to `value` as the root authority, a second after
+    /// the name's last binding.
     /// @param vm The cheatcode handle.
-    /// @param owner The beacon owner.
-    function bindBeaconOwner(Vm vm, address owner) internal {
+    /// @param name The name.
+    /// @param value The ABI-encoded value.
+    function bind(Vm vm, bytes32 name, bytes memory value) internal {
         etchConfigRegistry(vm);
         vm.warp(block.timestamp + 1);
         vm.prank(LibStoxConfig.ROOT_AUTHORITY);
         IConfigRegistryV3(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
-            .registerV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER, abi.encode(owner));
+            .registerV3(LibStoxConfig.ROOT_AUTHORITY, name, value);
+    }
+
+    /// @notice Binds `LibStoxConfig.BEACON_OWNER` to `owner`.
+    /// @param vm The cheatcode handle.
+    /// @param owner The beacon owner.
+    function bindBeaconOwner(Vm vm, address owner) internal {
+        bind(vm, LibStoxConfig.BEACON_OWNER, abi.encode(owner));
+    }
+
+    /// @notice Binds `LibStoxConfig.AUTHORISER_ADMIN` to `admin`.
+    /// @param vm The cheatcode handle.
+    /// @param admin The authoriser admin.
+    function bindAuthoriserAdmin(Vm vm, address admin) internal {
+        bind(vm, LibStoxConfig.AUTHORISER_ADMIN, abi.encode(admin));
     }
 }

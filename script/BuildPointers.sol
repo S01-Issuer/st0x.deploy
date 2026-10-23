@@ -26,6 +26,8 @@ import {
 } from "../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {ST0xOrchestratorBeaconSetDeployer} from "../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
+import {LibICloneableFactoryV5} from "rain-factory-0.2.4/src/lib/LibICloneableFactoryV5.sol";
+import {LibAuthoriserClone} from "../src/lib/LibAuthoriserClone.sol";
 import {LibStoxConfigFork} from "../src/lib/LibStoxConfigFork.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
@@ -373,6 +375,7 @@ contract BuildPointers is Script {
             "address constant STOX_PROD_AUTHORISER_V4_CLONE_BSC = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);"
         );
         vm.writeLine(GEN_V4_PATH, "uint256 constant V4_SWAP_DEADLINE = 1_793_491_200;");
+        emitRegistryClonePins();
         // ST0x orchestrator beacon + production instance — CREATE-derived
         // from the 0.1.30 orchestrator beacon-set deployer (itself a Zoltu
         // deploy), so chain-invariant like every Zoltu pin: the beacon is the
@@ -399,6 +402,36 @@ contract BuildPointers is Script {
             }
         }
         vm.writeLine(GEN_V4_PATH, "}");
+    }
+
+    /// @notice The V4 authoriser clone of the candidate authoriser, whose
+    /// admin is resolved from the `ConfigRegistry`: one address on every
+    /// chain.
+    function emitRegistryClonePins() internal {
+        address implementation =
+            LibRainDeploy.zoltuAddress(type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode);
+        bytes memory runtimeCode = LibICloneableFactoryV5.cloneRuntimeCode(implementation);
+        vm.writeLine(
+            GEN_V4_PATH,
+            LibCodeGen.addressConstantString(
+                vm,
+                "/// @dev The V4 authoriser clone whose admin is the `ConfigRegistry`'s.",
+                "STOX_AUTHORISER_V4_REGISTRY_CLONE",
+                LibAuthoriserClone.cloneDeployedAddress(implementation)
+            )
+        );
+        vm.writeLine(
+            GEN_V4_PATH,
+            LibCodeGen.bytesConstantString(
+                vm, "/// @dev Its runtime code.", "STOX_AUTHORISER_V4_REGISTRY_CLONE_CODE", runtimeCode
+            )
+        );
+        vm.writeLine(
+            GEN_V4_PATH,
+            LibCodeGen.bytes32ConstantString(
+                vm, "/// @dev Its code hash.", "STOX_AUTHORISER_V4_REGISTRY_CLONE_CODEHASH", keccak256(runtimeCode)
+            )
+        );
     }
 
     /// @notice Generate `LibProdDeployCurrent.sol`: unversioned aliases of the
