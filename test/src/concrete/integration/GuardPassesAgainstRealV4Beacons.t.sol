@@ -3,20 +3,20 @@
 pragma solidity =0.8.25;
 
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
-import {MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV1.sol";
+import {MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibProdDeployV1} from "../../../../src/lib/LibProdDeployV1.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 
 /// @title GuardPassesAgainstRealV4BeaconsTest
-/// @notice Workflow: the orchestrator's hardcoded vault-version guard reads
-/// the REAL deterministic OARV beacon-set deployer and its two beacons, and
-/// finds them pointing at the real V4 impls — so `vaultLogicIsExpected()` is
-/// true and a mint against a real vault completes.
+/// @notice Workflow: the orchestrator's vault-logic guard reads a real
+/// token's beacon and its receipt's from their proxy bytecode, and finds
+/// them serving the real V4 impls — so `vaultLogicIsExpected(vault)` is true
+/// and a mint against the real vault completes.
 contract GuardPassesAgainstRealV4BeaconsTest is OrchestratorIntegrationTest {
     function testGuardPassesAgainstRealV4Beacons() external {
-        // The guard reads the genuine production deployer + beacons.
-        assertTrue(orchestrator.vaultLogicIsExpected(), "guard must pass against the real V4 beacons");
+        // The guard reads the real token's own beacons.
+        assertTrue(orchestrator.vaultLogicIsExpected(address(vault)), "guard must pass against the real V4 beacons");
 
         // Cross-check the beacons the guard reads really are the V4 impls.
         assertEq(

@@ -24,7 +24,7 @@ import {IAuthorizeV1} from "rain-vats-0.2.9/src/interface/IAuthorizeV1.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";
-import {MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV1.sol";
+import {MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {StoxCorporateActionsFacet} from "../../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {StoxReceiptVault} from "../../../../src/concrete/StoxReceiptVault.sol";
 import {
@@ -43,12 +43,11 @@ import {LibTestTofu} from "../../../lib/LibTestTofu.sol";
 /// SINGLETON `ST0xOrchestrator` — one workflow per concrete file in this
 /// folder. Nothing vault-side is mocked. The setUp builds the full local V4
 /// substrate — TOFU singleton, the real `StoxReceipt` + `StoxReceiptVault`
-/// implementations and their beacon-set deployer Zoltu-deployed to the
-/// deterministic addresses `LibProdDeployV4` pins, a real vault+receipt
-/// beacon-proxy pair, a real corporate-actions facet, and a real authoriser
-/// clone — so the orchestrator's hardcoded vault-version guard
-/// (`onlyExpectedVaultLogic`) reads the genuine production beacons and passes
-/// (both at `initialize` and on every mint/burn). Every mint/burn then
+/// implementations Zoltu-deployed to the deterministic addresses
+/// `LibProdDeployV4` pins, a real vault+receipt registry beacon proxy pair, a
+/// real corporate-actions facet, and a real authoriser clone — so the
+/// orchestrator's vault-logic guard (`onlyExpectedVaultLogic`) reads the
+/// token's own beacons and passes on every mint/burn. Every mint/burn then
 /// exercises the real mint/redeem/receipt/rebase machinery end-to-end.
 abstract contract OrchestratorIntegrationTest is Test {
     address internal constant ADMIN = address(uint160(uint256(keccak256("ADMIN"))));
@@ -74,9 +73,8 @@ abstract contract OrchestratorIntegrationTest is Test {
         // vault's decimals through it at schedule time.
         LibTestTofu.deployTofu(vm);
 
-        // Real receipt + vault implementations behind the V1 beacons the
-        // guard reads, with the clone factory and ConfigRegistry. MUST precede
-        // the orchestrator proxy: `initialize` runs the vault-logic guard.
+        // Real receipt + vault implementations behind the V1 beacons, with the
+        // clone factory and ConfigRegistry.
         LibTestDeploy.deployAll(vm);
 
         // Real corporate-actions facet at the deterministic address the

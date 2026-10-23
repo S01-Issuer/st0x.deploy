@@ -19,13 +19,13 @@ import {ICertifiableV1} from "rain-vats-0.2.9/src/interface/ICertifiableV1.sol";
 import {
     ERC1967_BEACON_SLOT,
     LibExtrospectERC1967BeaconProxy
-} from "rain-extrospection-0.1.14/src/lib/LibExtrospectERC1967BeaconProxy.sol";
-import {LibExtrospectBytecode} from "rain-extrospection-0.1.14/src/lib/LibExtrospectBytecode.sol";
-import {LibExtrospectMetamorphic} from "rain-extrospection-0.1.14/src/lib/LibExtrospectMetamorphic.sol";
-import {EVM_OP_CREATE, EVM_OP_DELEGATECALL} from "rain-extrospection-0.1.14/src/lib/EVMOpcodes.sol";
-import {IExtrospectV1} from "rain-extrospection-0.1.14/src/interface/IExtrospectV1.sol";
+} from "rain-extrospection-0.1.16/src/lib/LibExtrospectERC1967BeaconProxy.sol";
+import {LibExtrospectBytecode} from "rain-extrospection-0.1.16/src/lib/LibExtrospectBytecode.sol";
+import {LibExtrospectMetamorphic} from "rain-extrospection-0.1.16/src/lib/LibExtrospectMetamorphic.sol";
+import {EVM_OP_CREATE, EVM_OP_DELEGATECALL} from "rain-extrospection-0.1.16/src/lib/EVMOpcodes.sol";
+import {IExtrospectV1} from "rain-extrospection-0.1.16/src/interface/IExtrospectV1.sol";
 import {DEPLOYED_ADDRESS as EXTROSPECT_0_1_0} from "rain-extrospection-deploy-0.1.1/src/generated/0_1_0/Extrospect.sol";
-import {IBeacon} from "rain-extrospection-0.1.14/src/interface/IBeacon.sol";
+import {IBeacon} from "rain-extrospection-0.1.16/src/interface/IBeacon.sol";
 
 /// @title LibTokenInvariantsAddressesTest
 /// @notice Fork tests verifying production token instances on Base.

@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
 import {LibDecimalFloat} from "rain-math-float-0.3.10/src/lib/LibDecimalFloat.sol";
 
-import {IST0xOrchestratorV1, MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV1.sol";
+import {IST0xOrchestratorV2, MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 
 /// @title BurnFractionalSplitTruncationDustTest
@@ -52,7 +52,7 @@ contract BurnFractionalSplitTruncationDustTest is OrchestratorIntegrationTest {
         // Burning the full rebased balance overruns the held receipts by
         // `gap` → the whole burn reverts; nothing is pulled or consumed.
         vm.prank(MM);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.InsufficientReceipts.selector, address(vault), gap));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.InsufficientReceipts.selector, address(vault), gap));
         orchestrator.burn(address(vault), burnAmount, "");
 
         assertEq(vault.balanceOf(MM), burnAmount, "reverted burn pulled nothing");
