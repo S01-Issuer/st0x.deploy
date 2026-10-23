@@ -134,9 +134,13 @@ contract ST0xOrchestrator is
 
     /// @dev Revert unless the shared production vault + receipt beacons still
     /// point at the implementations pinned in `LibProdDeployCurrent`. Every
-    /// production token is a `BeaconProxy` of these two beacons, so this one
-    /// check version-locks the orchestrator against every production token at
-    /// once. NOTE: it checks the shared beacons, not the specific `token`
+    /// production token proxies these two beacons: a registry beacon proxy
+    /// fixes its beacon at construction from the binding then in force, and
+    /// production bindings name these beacons. So this one check version-locks
+    /// the orchestrator against every production token at once. The token's
+    /// beacon is not readable on chain and a binding resolved now need not be
+    /// the one a token was built from, so the pinned beacons, not the
+    /// registry, are what is checked. NOTE: it checks the shared beacons, not the specific `token`
     /// argument — a `token` that is NOT a proxy of the shared set is not
     /// covered by the lock. That is not a hazard: such a token has not
     /// granted the orchestrator `DEPOSIT`/`WITHDRAW`, so mint/burn on it
