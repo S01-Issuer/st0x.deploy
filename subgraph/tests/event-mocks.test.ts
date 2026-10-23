@@ -262,7 +262,10 @@ export function safeSetupLog(
       ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(threshold)),
     ),
     new ethereum.EventParam("initializer", ethereum.Value.fromAddress(zero)),
-    new ethereum.EventParam("fallbackHandler", ethereum.Value.fromAddress(zero)),
+    new ethereum.EventParam(
+      "fallbackHandler",
+      ethereum.Value.fromAddress(zero),
+    ),
   ]);
 }
 

@@ -102,11 +102,11 @@ export function handleSafeSetup(event: SafeSetup): void {
   // earlier owner changes for this Safe onto the setup owners, in log order.
   let setupIndex = event.logIndex.toI32();
   for (let i = 0; i < setupIndex; i++) {
-    let change = SafeOwnerChange.load(
-      event.transaction.hash.concatI32(i),
-    );
+    let change = SafeOwnerChange.load(event.transaction.hash.concatI32(i));
     if (
-      change === null || change.setup || !change.contract.equals(event.address)
+      change === null ||
+      change.setup ||
+      !change.contract.equals(event.address)
     ) {
       continue;
     }

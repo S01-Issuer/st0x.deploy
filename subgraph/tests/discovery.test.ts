@@ -136,9 +136,7 @@ function mockBeaconState(
     Address.fromString(beacon),
     "implementation",
     "implementation():(address)",
-  ).returns([
-    ethereum.Value.fromAddress(Address.fromString(implementation)),
-  ]);
+  ).returns([ethereum.Value.fromAddress(Address.fromString(implementation))]);
 }
 
 function mockBothBeacons(): void {
@@ -390,9 +388,7 @@ describe("Discovered beacon state", () => {
       Address.fromString(VAULT_BEACON),
       "owner",
       "owner():(address)",
-    ).returns([
-      ethereum.Value.fromAddress(Address.fromString(BEACON_OWNER)),
-    ]);
+    ).returns([ethereum.Value.fromAddress(Address.fromString(BEACON_OWNER))]);
     createMockedFunction(
       Address.fromString(VAULT_BEACON),
       "implementation",
