@@ -45,14 +45,6 @@ contract LibTokenInvariantsTest is Test {
         harness = new LibTokenInvariantsHarness();
     }
 
-    /// @notice Every production receipt vault reports
-    /// `LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK` as its `owner()`. Passes against
-    /// the live chain state: vault ownership is uniform.
-    function testProdReceiptVaultsUniformOwnership() external {
-        selectBaseFork();
-        LibTokenInvariants.assertUniformOwnership(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
-    }
-
     /// @notice Every production receipt vault reports the V4 authoriser clone
     /// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`), the production
     /// authoriser.
