@@ -7,7 +7,7 @@ import {
   Entity,
   Bytes,
   Address,
-  BigInt
+  BigInt,
 } from "@graphprotocol/graph-ts";
 
 export class NewRegistryBeaconProxy extends ethereum.Event {
@@ -56,8 +56,8 @@ export class NewRegistryBeaconProxy__Params {
   }
 }
 
-export class CloneFactory extends ethereum.SmartContract {
-  static bind(address: Address): CloneFactory {
-    return new CloneFactory("CloneFactory", address);
+export class CloneFactoryV6 extends ethereum.SmartContract {
+  static bind(address: Address): CloneFactoryV6 {
+    return new CloneFactoryV6("CloneFactoryV6", address);
   }
 }

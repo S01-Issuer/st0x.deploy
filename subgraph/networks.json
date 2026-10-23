@@ -4,7 +4,11 @@
       "address": "0x315b16faa6eE413faBCa877d3851B3818369f0cD",
       "startBlock": 48660294
     },
-    "CloneFactory": {
+    "CloneFactoryV5": {
+      "address": "0xdA3F8841B3F6640AB623050fBBA9baDc0ccd11B0",
+      "startBlock": 52895056
+    },
+    "CloneFactoryV6": {
       "address": "0xB8434a191846f6c3930648aAF264C8e86bF08C62",
       "startBlock": 52953832
     },
@@ -50,7 +54,11 @@
       "address": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
       "startBlock": 121144118
     },
-    "CloneFactory": {
+    "CloneFactoryV5": {
+      "address": "0xdA3F8841B3F6640AB623050fBBA9baDc0ccd11B0",
+      "startBlock": 128924185
+    },
+    "CloneFactoryV6": {
       "address": "0xB8434a191846f6c3930648aAF264C8e86bF08C62",
       "startBlock": 129185296
     },
@@ -96,7 +104,11 @@
       "address": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
       "startBlock": 41325390
     },
-    "CloneFactory": {
+    "CloneFactoryV5": {
+      "address": "0xdA3F8841B3F6640AB623050fBBA9baDc0ccd11B0",
+      "startBlock": 49128166
+    },
+    "CloneFactoryV6": {
       "address": "0xB8434a191846f6c3930648aAF264C8e86bF08C62",
       "startBlock": 49247677
     },
@@ -142,7 +154,11 @@
       "address": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
       "startBlock": 25587106
     },
-    "CloneFactory": {
+    "CloneFactoryV5": {
+      "address": "0xdA3F8841B3F6640AB623050fBBA9baDc0ccd11B0",
+      "startBlock": 26240455
+    },
+    "CloneFactoryV6": {
       "address": "0xB8434a191846f6c3930648aAF264C8e86bF08C62",
       "startBlock": 26250225
     },
@@ -188,7 +204,11 @@
       "address": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
       "startBlock": 59731165
     },
-    "CloneFactory": {
+    "CloneFactoryV5": {
+      "address": "0xdA3F8841B3F6640AB623050fBBA9baDc0ccd11B0",
+      "startBlock": 94221930
+    },
+    "CloneFactoryV6": {
       "address": "0xB8434a191846f6c3930648aAF264C8e86bF08C62",
       "startBlock": 95351301
     },

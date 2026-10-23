@@ -54,6 +54,12 @@ type Contract @entity {
   """
   firstIndexedBlock: BigInt!
   """
+  The clone factory that built it, for a contract found through a clone
+  factory's event: which factory version made the token. Null for every other
+  contract.
+  """
+  factory: Bytes
+  """
   The current owner, for an `Ownable` contract. Null means no owner has been
   established: either the contract is not `Ownable`, or it is and no
   `OwnershipTransferred` has been seen since `firstIndexedBlock`.

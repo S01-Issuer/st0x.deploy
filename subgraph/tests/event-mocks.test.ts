@@ -262,7 +262,10 @@ export function safeSetupLog(
       ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(threshold)),
     ),
     new ethereum.EventParam("initializer", ethereum.Value.fromAddress(zero)),
-    new ethereum.EventParam("fallbackHandler", ethereum.Value.fromAddress(zero)),
+    new ethereum.EventParam(
+      "fallbackHandler",
+      ethereum.Value.fromAddress(zero),
+    ),
   ]);
 }
 
@@ -357,6 +360,27 @@ export function migratedLog(
       "appliedAt",
       ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(appliedAt)),
     ),
+  ]);
+}
+
+/** `ICloneableFactoryV5` `NewBeaconProxy(address,address,address,bytes32,bytes)`. */
+export function newBeaconProxyLog(
+  factory: Address,
+  sender: Address,
+  beacon: Address,
+  proxy: Address,
+  blockNumber: i32,
+  logIndex: i32,
+): ethereum.Event {
+  return mockLog(factory, blockNumber, logIndex, [
+    new ethereum.EventParam("sender", ethereum.Value.fromAddress(sender)),
+    new ethereum.EventParam("beacon", ethereum.Value.fromAddress(beacon)),
+    new ethereum.EventParam("proxy", ethereum.Value.fromAddress(proxy)),
+    new ethereum.EventParam(
+      "salt",
+      ethereum.Value.fromFixedBytes(Bytes.fromUint8Array(new Uint8Array(32))),
+    ),
+    new ethereum.EventParam("data", ethereum.Value.fromBytes(Bytes.empty())),
   ]);
 }
 

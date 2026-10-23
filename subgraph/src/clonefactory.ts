@@ -1,6 +1,8 @@
-import { Address, dataSource } from "@graphprotocol/graph-ts";
-import { NewRegistryBeaconProxy } from "../generated/CloneFactory/CloneFactory";
-import { OffchainAssetReceiptVaultBeaconSetDeployer } from "../generated/CloneFactory/OffchainAssetReceiptVaultBeaconSetDeployer";
+import { Address, BigInt, dataSource } from "@graphprotocol/graph-ts";
+import { NewBeaconProxy } from "../generated/CloneFactoryV5/CloneFactoryV5";
+import { NewRegistryBeaconProxy } from "../generated/CloneFactoryV6/CloneFactoryV6";
+import { OffchainAssetReceiptVaultBeaconSetDeployer } from "../generated/CloneFactoryV6/OffchainAssetReceiptVaultBeaconSetDeployer";
+import { Contract } from "../generated/schema";
 import { ReceiptVault } from "../generated/templates";
 import { ContractKind, createDiscoveredContract } from "./lib/contract";
 
@@ -43,34 +45,67 @@ export function receiptVaultBeacon(network: string): Address | null {
 }
 
 /**
- * Index a vault the V6 clone factory built as a registry beacon proxy over the
- * chain's receipt-vault beacon. The factory is shared by every rain consumer,
- * so a proxy over any other beacon is not st0x's and is skipped. The event
- * carries the beacon the binding resolved to, which is the one the proxy keeps.
+/**
+ * Index a vault a clone factory built over the chain's receipt-vault beacon,
+ * recording the factory. Every clone factory is shared by every rain consumer,
+ * so a proxy over any other beacon is not st0x's and is skipped.
  *
  * As for a deployer-built vault, the proxy's `OwnershipTransferred` fires inside
  * `initialize` earlier in this transaction and is replayed into the new
  * template, so nothing is read for it here.
  */
-export function handleCloneFactoryNewRegistryBeaconProxy(
-  event: NewRegistryBeaconProxy,
+function discoverFactoryVault(
+  factory: Address,
+  beacon: Address,
+  proxy: Address,
+  block: BigInt,
 ): void {
-  let beacon = receiptVaultBeacon(dataSource.network());
-  if (beacon === null) {
+  let expected = receiptVaultBeacon(dataSource.network());
+  if (expected === null) {
     return;
   }
-  if (!event.params.beacon.equals(beacon)) {
+  if (!beacon.equals(expected)) {
     return;
   }
   if (
     createDiscoveredContract(
-      event.params.proxy,
+      proxy,
       ContractKind.RECEIPT_VAULT,
-      event.block.number,
+      block,
       null,
       null,
     )
   ) {
-    ReceiptVault.create(event.params.proxy);
+    let contract = Contract.load(proxy)!;
+    contract.factory = factory;
+    contract.save();
+    ReceiptVault.create(proxy);
   }
+}
+
+/** `ICloneableFactoryV5.NewBeaconProxy`. */
+export function handleCloneFactoryV5NewBeaconProxy(
+  event: NewBeaconProxy,
+): void {
+  discoverFactoryVault(
+    event.address,
+    event.params.beacon,
+    event.params.proxy,
+    event.block.number,
+  );
+}
+
+/**
+ * `ICloneableFactoryV6.NewRegistryBeaconProxy`. The event carries the beacon the
+ * binding resolved to, which is the one the proxy keeps.
+ */
+export function handleCloneFactoryV6NewRegistryBeaconProxy(
+  event: NewRegistryBeaconProxy,
+): void {
+  discoverFactoryVault(
+    event.address,
+    event.params.beacon,
+    event.params.proxy,
+    event.block.number,
+  );
 }
