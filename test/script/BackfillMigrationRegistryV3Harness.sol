@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {SafeTx} from "rain-deploy-0.1.21/src/lib/LibSafeTx.sol";
+import {SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
 
 import {BackfillMigrationRegistryV3} from "../../script/20261022-backfill-migration-registry-v3.s.sol";
 
