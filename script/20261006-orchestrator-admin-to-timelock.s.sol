@@ -17,13 +17,14 @@ import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
+import {backfillMigrationRegistryV3Declaration} from "./20261022-backfill-migration-registry-v3.s.sol";
 
-/// @notice The Safe's line in the migration registry is not at the
-/// orchestrator EMERGENCY grant, which this migration is applied onto:
-/// the grant has not executed on this chain, this bundle already has, or
-/// another Safe-recorded migration has landed after the grant. In the last
-/// case this move can never apply onto the line as written and has to be
-/// re-authored onto the new head.
+/// @notice The Safe's line in the migration registry is not at the V3
+/// backfill's record, which this migration is applied onto: the backfill
+/// has not executed on this chain, this bundle already has, or another
+/// Safe-recorded migration has landed after it. In the last case this move
+/// can never apply onto the line as written and has to be re-authored onto
+/// the new head.
 /// @param head The line's head.
 error UnexpectedMigrationLine(bytes32 head);
 
@@ -63,14 +64,14 @@ error GrantReadyInsideDelay(bytes32 operationId);
 /// @param operationId The timelock operation.
 error ScheduledGrantNotExecuted(bytes32 operationId);
 
-/// @notice This script's declaration: the Safe's record after the
-/// orchestrator EMERGENCY grant.
+/// @notice This script's declaration: the Safe's record after the V3
+/// backfill.
 /// @return The declaration.
 function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaration memory) {
     return LibStoxMigrations.safeMigrationOnto(
         LibStoxMigrations.NAMESPACE,
         LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-        LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
+        backfillMigrationRegistryV3Declaration().id,
         false
     );
 }
@@ -83,7 +84,7 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// 1. `orchestrator.grantRole(DEFAULT_ADMIN, timelock)`.
 /// 2. `orchestrator.renounceRole(DEFAULT_ADMIN, safe)`.
 /// 3. `registry.applyMigrationV3(safe, ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-///    [ORCHESTRATOR_EMERGENCY])`.
+///    [20261022-backfill-migration-registry-v3])`.
 ///
 /// `DEFAULT_ADMIN_ROLE` administers `MINT_ROLE`, `BURN_ROLE` and
 /// `EMERGENCY_ROLE` on the audited 0.1.30 orchestrator, so after this every
@@ -92,9 +93,10 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// burning and emergency recovery are not delayed. A holder can still
 /// `renounceRole` itself immediately.
 ///
-/// The record is applied onto the EMERGENCY grant's, so the registry
-/// refuses it on a chain where that grant has not executed: the Safe must be
-/// granted `EMERGENCY_ROLE` while it can still do so directly.
+/// The record is applied onto the V3 backfill's, which carries the EMERGENCY
+/// grant's, so the registry refuses it on a chain where that grant has not
+/// executed: the Safe must be granted `EMERGENCY_ROLE` while it can still do
+/// so directly.
 ///
 /// **Before signing: cancel any timelock operation already scheduled against
 /// the orchestrator.** `schedule` does not run the inner call, so a
@@ -179,7 +181,7 @@ contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     /// @dev The Safe, the timelock and the orchestrator are what this repo
-    /// pins, the Safe's registry line is at the EMERGENCY grant, and the
+    /// pins, the Safe's registry line is at the V3 backfill, and the
     /// orchestrator carries what that record implies: Safe EMERGENCY.
     function preflight() internal view override {
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
