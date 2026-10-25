@@ -90,6 +90,13 @@ checksum = "e4722c1b6e2f030263e27b20f9ab73a4f8111445945846b96f0085848288022b"
 integrity = "f10dc50978061fb2a92fb9ba907c2cbe678d24198faabf060f699d36f1e8e4a0"
 
 [[dependencies]]
+name = "rain-tofu-erc20-decimals-deploy"
+version = "0.1.3"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-tofu-erc20-decimals-deploy/0_1_3_23-10-2026_06:53:49_rain.tofu.erc20-decimals.zip"
+checksum = "1dc402f96bb791458d56e9616a6d77c93bce28b6d55d85675205cddb0ddbb313"
+integrity = "a2832c32c4a13a592c4c66072be5dca8b956e535467d8ce3cb6c51e9b4d5fc89"
+
+[[dependencies]]
 name = "rain-vats"
 version = "0.2.9"
 url = "https://soldeer-revisions.s3.amazonaws.com/rain-vats/0_2_9_22-10-2026_20:44:18_rain.zip"

@@ -1,0 +1,67 @@
+name: Manual sol artifacts
+permissions:
+  contents: read
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: "The `StoxDeploySuites` suite to deploy to every network this repo deploys to"
+        required: true
+        type: choice
+        options:
+          - stox-corporate-actions-facet
+          - stox-receipt
+          - stox-receipt-vault
+          - stox-wrapped-token-vault
+          - stox-wrapped-token-vault-beacon
+          - stox-offchain-asset-receipt-vault-authorizer
+          - stox-offchain-asset-receipt-vault-payment-mint-authorizer
+          - stox-orchestrator
+          - stox-eu-assets-authoriser
+          - stox-corporate-actions-facet@0_1_1
+          - stox-receipt@0_1_1
+          - stox-receipt-vault@0_1_1
+          - stox-wrapped-token-vault@0_1_1
+          - stox-wrapped-token-vault-beacon@0_1_1
+          - stox-wrapped-token-vault-beacon-set-deployer@0_1_1
+          - stox-offchain-asset-receipt-vault-beacon-set-deployer@0_1_1
+          - stox-unified-deployer@0_1_1
+          - stox-offchain-asset-receipt-vault-authorizer@0_1_1
+          - stox-offchain-asset-receipt-vault-payment-mint-authorizer@0_1_1
+          - stox-corporate-actions-facet@0_1_30
+          - stox-receipt@0_1_30
+          - stox-receipt-vault@0_1_30
+          - stox-offchain-asset-receipt-vault-beacon-set-deployer@0_1_30
+          - stox-orchestrator@0_1_30
+          - stox-orchestrator-beacon-set-deployer@0_1_30
+      legacy:
+        description: "Send type-0 transactions. HyperEVM needs them; Robinhood Chain rejects them."
+        required: false
+        type: boolean
+        default: false
+      verify:
+        description: "Verify on the block explorer after broadcasting. A released suite's code is not current source, so leave it off for those; `Manual sol verify` repairs verification later."
+        required: false
+        type: boolean
+        default: false
+jobs:
+  deploy:
+    uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-artifacts.yaml@main
+    with:
+      suite: ${{ inputs.suite }}
+      legacy: ${{ inputs.legacy }}
+      verify: ${{ inputs.verify }}
+    secrets:
+      PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+      CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      EXPLORER_VERIFICATION_KEY: ${{ secrets.EXPLORER_VERIFICATION_KEY }}
+      RPC_URL_BASE_FORK: ${{ secrets.RPC_URL_BASE_FORK }}
+      RPC_URL_ETHEREUM_FORK: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
+      RPC_URL_HYPEREVM_FORK: ${{ secrets.RPC_URL_HYPEREVM_FORK }}
+      RPC_URL_ROBINHOOD_FORK: ${{ secrets.RPC_URL_ROBINHOOD_FORK }}
+      RPC_URL_BSC_FORK: ${{ secrets.RPC_URL_BSC_FORK }}
+      CI_DEPLOY_BASE_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_BASE_ETHERSCAN_API_KEY }}
+      CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY }}
+      CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY }}
+      CI_DEPLOY_ROBINHOOD_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_ROBINHOOD_ETHERSCAN_API_KEY }}
+      CI_DEPLOY_BSC_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_BSC_ETHERSCAN_API_KEY }}

@@ -85,6 +85,7 @@ library LibAuthoriserInvariants {
 
     /// @notice The EU assets authoriser clone on Base.
     /// https://basescan.org/address/0xdb9152e46c1d140db6a6f814461f21c571f3275e
+    /// Every EU clone landed in manual-broadcast run 37698322610.
     address internal constant STOX_EU_AUTHORISER_CLONE = address(0xDB9152e46c1D140DB6a6f814461f21c571F3275e);
 
     /// @notice The EU assets authoriser clone on Ethereum. Shared with
