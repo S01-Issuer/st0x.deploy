@@ -25,6 +25,7 @@ import {
 import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
 import {EU_AUTHORISER_SALT, LibEuAuthoriserClone} from "../lib/LibEuAuthoriserClone.sol";
 import {LibStoxDeployNetworks} from "../lib/LibStoxDeployNetworks.sol";
+import {LibReleasedSuites} from "../lib/LibReleasedSuites.sol";
 
 /// @title StoxDeploySuites
 /// @notice Every deterministic deployment this repo makes, declared once for
@@ -73,174 +74,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
 
     /// @inheritdoc RainDeploySuitesBase
     function releasedSuites() internal pure override returns (DeploySuite[] memory) {
-        DeploySuite[] memory suites = new DeploySuite[](16);
-        suites[0] = zoltu(
-            string.concat(FACET, "@0_1_1"),
-            V4.STOX_CORPORATE_ACTIONS_FACET_CREATION_CODE_0_1_1,
-            V4.STOX_CORPORATE_ACTIONS_FACET_0_1_1,
-            V4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_1,
-            V4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_1,
-            FACET_PATH,
-            one(TOFU_DECIMALS_ADDRESS, TOFU_DECIMALS_RUNTIME_CODE)
-        );
-        suites[1] = zoltu(
-            string.concat(RECEIPT, "@0_1_1"),
-            V4.STOX_RECEIPT_CREATION_CODE_0_1_1,
-            V4.STOX_RECEIPT_0_1_1,
-            V4.STOX_RECEIPT_CODEHASH_0_1_1,
-            V4.STOX_RECEIPT_RUNTIME_CODE_0_1_1,
-            RECEIPT_PATH,
-            new DeployDependency[](0)
-        );
-        suites[2] = zoltu(
-            string.concat(RECEIPT_VAULT, "@0_1_1"),
-            V4.STOX_RECEIPT_VAULT_CREATION_CODE_0_1_1,
-            V4.STOX_RECEIPT_VAULT_0_1_1,
-            V4.STOX_RECEIPT_VAULT_CODEHASH_0_1_1,
-            V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_1,
-            RECEIPT_VAULT_PATH,
-            one(V4.STOX_CORPORATE_ACTIONS_FACET_0_1_1, V4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_1)
-        );
-        suites[3] = zoltu(
-            string.concat(WRAPPED_TOKEN_VAULT, "@0_1_1"),
-            V4.STOX_WRAPPED_TOKEN_VAULT_CREATION_CODE_0_1_1,
-            V4.STOX_WRAPPED_TOKEN_VAULT_0_1_1,
-            V4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_1,
-            V4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_0_1_1,
-            WRAPPED_TOKEN_VAULT_PATH,
-            new DeployDependency[](0)
-        );
-        suites[4] = zoltu(
-            string.concat(WRAPPED_TOKEN_VAULT_BEACON, "@0_1_1"),
-            V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CREATION_CODE_0_1_1,
-            V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1,
-            V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_1,
-            V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RUNTIME_CODE_0_1_1,
-            WRAPPED_TOKEN_VAULT_BEACON_PATH,
-            one(V4.STOX_WRAPPED_TOKEN_VAULT_0_1_1, V4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_0_1_1)
-        );
-        suites[5] = zoltu(
-            string.concat(WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER, "@0_1_1"),
-            V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_1,
-            V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1,
-            V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1,
-            V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_1,
-            WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_PATH,
-            one(V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1, V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RUNTIME_CODE_0_1_1)
-        );
-        suites[6] = zoltu(
-            string.concat(RECEIPT_VAULT_BEACON_SET_DEPLOYER, "@0_1_1"),
-            V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_1,
-            V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1,
-            V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1,
-            V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_1,
-            RECEIPT_VAULT_BEACON_SET_DEPLOYER_PATH,
-            two(
-                V4.STOX_RECEIPT_0_1_1,
-                V4.STOX_RECEIPT_RUNTIME_CODE_0_1_1,
-                V4.STOX_RECEIPT_VAULT_0_1_1,
-                V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_1
-            )
-        );
-        suites[7] = zoltu(
-            string.concat(UNIFIED_DEPLOYER, "@0_1_1"),
-            V4.STOX_UNIFIED_DEPLOYER_CREATION_CODE_0_1_1,
-            V4.STOX_UNIFIED_DEPLOYER_0_1_1,
-            V4.STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_1,
-            V4.STOX_UNIFIED_DEPLOYER_RUNTIME_CODE_0_1_1,
-            UNIFIED_DEPLOYER_PATH,
-            two(
-                V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1,
-                V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_1,
-                V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1,
-                V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_1
-            )
-        );
-        suites[8] = zoltu(
-            string.concat(AUTHORIZER, "@0_1_1"),
-            V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CREATION_CODE_0_1_1,
-            V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1,
-            V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_1,
-            V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_CODE_0_1_1,
-            AUTHORIZER_PATH,
-            new DeployDependency[](0)
-        );
-        suites[9] = zoltu(
-            string.concat(PAYMENT_MINT_AUTHORIZER, "@0_1_1"),
-            V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CREATION_CODE_0_1_1,
-            V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_0_1_1,
-            V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_1,
-            V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_RUNTIME_CODE_0_1_1,
-            PAYMENT_MINT_AUTHORIZER_PATH,
-            new DeployDependency[](0)
-        );
-        suites[10] = zoltu(
-            string.concat(FACET, "@0_1_30"),
-            V4.STOX_CORPORATE_ACTIONS_FACET_CREATION_CODE_0_1_30,
-            V4.STOX_CORPORATE_ACTIONS_FACET_0_1_30,
-            V4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_30,
-            V4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_30,
-            FACET_PATH,
-            one(TOFU_DECIMALS_ADDRESS, TOFU_DECIMALS_RUNTIME_CODE)
-        );
-        suites[11] = zoltu(
-            string.concat(RECEIPT, "@0_1_30"),
-            V4.STOX_RECEIPT_CREATION_CODE_0_1_30,
-            V4.STOX_RECEIPT_0_1_30,
-            V4.STOX_RECEIPT_CODEHASH_0_1_30,
-            V4.STOX_RECEIPT_RUNTIME_CODE_0_1_30,
-            RECEIPT_PATH,
-            new DeployDependency[](0)
-        );
-        suites[12] = zoltu(
-            string.concat(RECEIPT_VAULT, "@0_1_30"),
-            V4.STOX_RECEIPT_VAULT_CREATION_CODE_0_1_30,
-            V4.STOX_RECEIPT_VAULT_0_1_30,
-            V4.STOX_RECEIPT_VAULT_CODEHASH_0_1_30,
-            V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_30,
-            RECEIPT_VAULT_PATH,
-            one(V4.STOX_CORPORATE_ACTIONS_FACET_0_1_30, V4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_30)
-        );
-        suites[13] = zoltu(
-            string.concat(RECEIPT_VAULT_BEACON_SET_DEPLOYER, "@0_1_30"),
-            V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_30,
-            V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_30,
-            V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_30,
-            V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_30,
-            RECEIPT_VAULT_BEACON_SET_DEPLOYER_PATH,
-            two(
-                V4.STOX_RECEIPT_0_1_30,
-                V4.STOX_RECEIPT_RUNTIME_CODE_0_1_30,
-                V4.STOX_RECEIPT_VAULT_0_1_30,
-                V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_30
-            )
-        );
-        suites[14] = zoltu(
-            string.concat(ORCHESTRATOR, "@0_1_30"),
-            V4.ST0X_ORCHESTRATOR_CREATION_CODE_0_1_30,
-            V4.ST0X_ORCHESTRATOR_0_1_30,
-            V4.ST0X_ORCHESTRATOR_CODEHASH_0_1_30,
-            V4.ST0X_ORCHESTRATOR_RUNTIME_CODE_0_1_30,
-            ORCHESTRATOR_PATH,
-            three(
-                V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_30,
-                V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_30,
-                V4.STOX_RECEIPT_0_1_30,
-                V4.STOX_RECEIPT_RUNTIME_CODE_0_1_30,
-                V4.STOX_RECEIPT_VAULT_0_1_30,
-                V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_30
-            )
-        );
-        suites[15] = zoltu(
-            string.concat(ORCHESTRATOR_BEACON_SET_DEPLOYER, "@0_1_30"),
-            V4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_30,
-            V4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_30,
-            V4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_0_1_30,
-            V4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_30,
-            ORCHESTRATOR_BEACON_SET_DEPLOYER_PATH,
-            one(V4.ST0X_ORCHESTRATOR_0_1_30, V4.ST0X_ORCHESTRATOR_RUNTIME_CODE_0_1_30)
-        );
-        return suites;
+        return LibReleasedSuites.releasedSuites();
     }
 
     /// @inheritdoc RainDeploySuitesBase
@@ -417,21 +251,6 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         DeployDependency[] memory deps = new DeployDependency[](2);
         deps[0] = DeployDependency({deployedAddress: a, runtimeCode: aRuntimeCode});
         deps[1] = DeployDependency({deployedAddress: b, runtimeCode: bRuntimeCode});
-        return deps;
-    }
-
-    function three(
-        address a,
-        bytes memory aRuntimeCode,
-        address b,
-        bytes memory bRuntimeCode,
-        address c,
-        bytes memory cRuntimeCode
-    ) internal pure returns (DeployDependency[] memory) {
-        DeployDependency[] memory deps = new DeployDependency[](3);
-        deps[0] = DeployDependency({deployedAddress: a, runtimeCode: aRuntimeCode});
-        deps[1] = DeployDependency({deployedAddress: b, runtimeCode: bRuntimeCode});
-        deps[2] = DeployDependency({deployedAddress: c, runtimeCode: cRuntimeCode});
         return deps;
     }
 }

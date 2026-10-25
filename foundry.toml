@@ -28,6 +28,7 @@ cbor_metadata = false
 
 fs_permissions = [
   { access = "read-write", path = "src/generated" },
+  { access = "read-write", path = "src/lib" },
   # `BuildPointers` reads the canonical release version from `[package].version`
   # here to name the `src/generated/<tag>/` snapshot and generate the deploy tag.
   { access = "read", path = "foundry.toml" },
@@ -42,6 +43,10 @@ fs_permissions = [
   { access = "read", path = "script" },
   { access = "read", path = "test/fixture/declarations" },
 ]
+
+# `BuildPointers` emits the released-suites libs with `string.concat` over
+# whole bytecode constants, which exceeds the default script gas limit.
+gas_limit = "18446744073709551615"
 
 remappings = [
   # Third-party soldeer dep whose own source uses unversioned import
