@@ -53,7 +53,8 @@ contract BuildExpectedStateTest is Test {
                 assertEq(vm.parseJsonAddress(json, string.concat(row, ".beacon")), pinned[i]);
                 assertEq(vm.parseJsonAddress(json, string.concat(row, ".implementation")), impls[i]);
                 assertEq(
-                    vm.parseJsonAddress(json, string.concat(row, ".owner")), LibTimelockInvariants.timelockForChainId(id)
+                    vm.parseJsonAddress(json, string.concat(row, ".owner")),
+                    LibTimelockInvariants.timelockForChainId(id)
                 );
             }
         }
@@ -82,7 +83,8 @@ contract BuildExpectedStateTest is Test {
                 LibSafeInvariants.safeForChainId(nets[i].chainId)
             );
             assertEq(
-                vm.parseJsonUint(json, string.concat(at, ".threshold")), LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD
+                vm.parseJsonUint(json, string.concat(at, ".threshold")),
+                LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD
             );
             address[] memory owners = LibSafeInvariants.expectedOwners();
             string memory list = string.concat(at, ".owners");
@@ -138,9 +140,7 @@ contract BuildExpectedStateTest is Test {
     function testRunWritesTheRender() external {
         vm.removeFile("expected-state.json");
         build.run();
-        assertEq(
-            keccak256(vm.parseJson(vm.readFile("expected-state.json"))), keccak256(vm.parseJson(build.render()))
-        );
+        assertEq(keccak256(vm.parseJson(vm.readFile("expected-state.json"))), keccak256(vm.parseJson(build.render())));
     }
 
     function isEu(string memory underlying) internal pure returns (bool) {

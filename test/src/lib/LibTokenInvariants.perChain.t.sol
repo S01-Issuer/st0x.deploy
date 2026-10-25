@@ -84,9 +84,8 @@ contract LibTokenInvariantsPerChainTest is Test {
         for (uint256 c = 0; c < nets.length; c++) {
             uint256 id = nets[c].chainId;
             for (uint256 i = 0; i < configs.length; i++) {
-                address expected = configs[i].region == Region.EU
-                    ? LibAuthoriserInvariants.euAuthoriserForChainId(id)
-                    : usAuthoriser;
+                address expected =
+                    configs[i].region == Region.EU ? LibAuthoriserInvariants.euAuthoriserForChainId(id) : usAuthoriser;
                 assertEq(LibTokenInvariants.expectedAuthoriser(configs[i].underlying, usAuthoriser, id), expected);
             }
         }
@@ -96,7 +95,8 @@ contract LibTokenInvariantsPerChainTest is Test {
     function testExpectedAuthoriserBaseFixedExamples() external pure {
         uint256 base = LibSafeInvariants.BASE_CHAIN_ID;
         assertEq(
-            LibTokenInvariants.expectedAuthoriser("MC", address(0xA11CE), base), 0xDB9152e46c1D140DB6a6f814461f21c571F3275e
+            LibTokenInvariants.expectedAuthoriser("MC", address(0xA11CE), base),
+            0xDB9152e46c1D140DB6a6f814461f21c571F3275e
         );
         assertEq(LibTokenInvariants.expectedAuthoriser("WMT", address(0xA11CE), base), address(0xA11CE));
     }
