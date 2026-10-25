@@ -8,4 +8,8 @@ contract LibBeaconInvariantsPerChainHarness {
     function runsBaseBeaconSet(uint256 chainId) external pure returns (bool) {
         return LibBeaconInvariants.runsBaseBeaconSet(chainId);
     }
+
+    function prodExpectedImplementationsForChainId(uint256 chainId) external pure returns (address[4] memory) {
+        return LibBeaconInvariants.prodExpectedImplementationsForChainId(chainId);
+    }
 }

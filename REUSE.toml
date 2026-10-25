@@ -19,6 +19,7 @@ path = [
   "foundry.toml",
   "privileged-addresses.json",
   "ideal-roles.json",
+  "expected-state.json",
   "migrations.json",
   "REUSE.toml",
   "slither.config.json",

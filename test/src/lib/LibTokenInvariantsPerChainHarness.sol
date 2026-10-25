@@ -8,4 +8,12 @@ contract LibTokenInvariantsPerChainHarness {
     function productionTokensForChainId(uint256 chainId) external pure returns (TokenInstance[] memory) {
         return LibTokenInvariants.productionTokensForChainId(chainId);
     }
+
+    function expectedAuthoriser(string memory underlying, address usAuthoriser, uint256 chainId)
+        external
+        pure
+        returns (address)
+    {
+        return LibTokenInvariants.expectedAuthoriser(underlying, usAuthoriser, chainId);
+    }
 }

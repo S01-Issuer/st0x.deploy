@@ -21,4 +21,8 @@ contract LibBeaconInvariantsHarness {
     function callAssertProdBeaconsOwnedByChainTimelock(uint256 chainId) external view {
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(chainId);
     }
+
+    function callAssertProdBeaconsAtExpectedState(uint256 chainId) external view {
+        LibBeaconInvariants.assertProdBeaconsAtExpectedState(chainId);
+    }
 }

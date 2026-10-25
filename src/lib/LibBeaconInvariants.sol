@@ -5,6 +5,7 @@ pragma solidity ^0.8.25;
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {LibProdBeaconsBase} from "./LibProdBeaconsBase.sol";
 import {LibProdBeacons0_1_1} from "./LibProdBeacons0_1_1.sol";
+import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 
@@ -303,6 +304,31 @@ library LibBeaconInvariants {
         return runsBaseBeaconSet(chainId)
             ? LibProdBeaconsBase.v1Implementations()
             : [address(0), address(0), address(0), address(0)];
+    }
+
+    /// @notice The implementation each of the chain's beacons must serve today, index-aligned with
+    /// `prodBeaconsForChainId`. The receipt and receipt-vault beacons were moved onto 0.1.30 by
+    /// `20260825-upgrade-fleet-to-0-1-30`; the other two serve their bootstrap implementation.
+    /// @param chainId The chain id.
+    /// @return The four expected implementation addresses.
+    function prodExpectedImplementationsForChainId(uint256 chainId) internal pure returns (address[4] memory) {
+        address[4] memory impls = prodImplementationsForChainId(chainId);
+        impls[RECEIPT_BEACON_INDEX] = LibProdDeployV4.STOX_RECEIPT_0_1_30;
+        impls[RECEIPT_VAULT_BEACON_INDEX] = LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30;
+        return impls;
+    }
+
+    /// @notice Assert each of the chain's in-use beacons against its build's codehash, the chain's timelock as owner
+    /// and `prodExpectedImplementationsForChainId`.
+    /// @param chainId The active chain id (`block.chainid`).
+    function assertProdBeaconsAtExpectedState(uint256 chainId) internal view {
+        address[4] memory beacons = prodBeaconsForChainId(chainId);
+        address[4] memory impls = prodExpectedImplementationsForChainId(chainId);
+        bytes32[4] memory codehashes = prodBeaconCodehashesForChainId(chainId);
+        address owner = LibTimelockInvariants.timelockForChainId(chainId);
+        for (uint256 i = 0; i < beacons.length; i++) {
+            assertBeaconInvariants(beacons[i], owner, impls[i], codehashes[i]);
+        }
     }
 
     /// @notice Assert the active chain's four IN-USE production beacons are

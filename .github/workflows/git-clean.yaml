@@ -23,6 +23,8 @@ jobs:
         run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildSubgraphNetworks.sol
       - name: Regenerate ideal-roles.json
         run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildIdealRoles.sol
+      - name: Regenerate expected-state.json
+        run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildExpectedState.sol
       - name: Regenerate migrations.json
         run: nix develop github:rainlanguage/rainix#sol-shell -c bash -c "forge build && forge script ./script/BuildMigrations.sol"
       - name: Format
