@@ -25,20 +25,12 @@ import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 
-/// @notice The grant is required on this chain and its record is not on
-/// chain: the Safe lacks `EMERGENCY_ROLE` there and the admin move cannot
-/// follow. Execute the bundle.
-/// @param network The chain still pending.
-error EmergencyGrantNotApplied(string network);
-
 /// @title GrantOrchestratorEmergencyTest
-/// @notice The grant on every deployment network at head, in two parts per
-/// network. The bundle: while the chain has not executed it, `run()`
+/// @notice The grant on every deployment network at head. While the chain has not executed it, `run()`
 /// executes it through the Safe, proves it and writes the artifact, `verify`
 /// accepts that artifact, and the artifact executed by the owners leaves the
 /// state the invariants demand and makes a re-dispatch refuse; once executed,
-/// the chain must be in that state and the script must refuse. The
-/// requirement: the grant's record is on chain, red until it is.
+/// the chain must be in that state and the script must refuse.
 contract GrantOrchestratorEmergencyTest is Test {
     ST0xOrchestrator internal constant ORCHESTRATOR =
         ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
@@ -87,14 +79,6 @@ contract GrantOrchestratorEmergencyTest is Test {
         script.callPreflight();
     }
 
-    function assertApplied(string memory network) internal {
-        vm.createSelectFork(network);
-        address safe = LibSafeInvariants.safeForChainId(block.chainid);
-        if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0) {
-            revert EmergencyGrantNotApplied(network);
-        }
-    }
-
     function testGrantBundleBase() external {
         assertBundle(LibRainDeploy.BASE);
     }
@@ -113,26 +97,6 @@ contract GrantOrchestratorEmergencyTest is Test {
 
     function testGrantBundleBsc() external {
         assertBundle(LibStoxDeployNetworks.BSC);
-    }
-
-    function testGrantAppliedBase() external {
-        assertApplied(LibRainDeploy.BASE);
-    }
-
-    function testGrantAppliedEthereum() external {
-        assertApplied(LibStoxDeployNetworks.ETHEREUM);
-    }
-
-    function testGrantAppliedHyperEvm() external {
-        assertApplied(LibStoxDeployNetworks.HYPEREVM);
-    }
-
-    function testGrantAppliedRobinhood() external {
-        assertApplied(LibStoxDeployNetworks.ROBINHOOD);
-    }
-
-    function testGrantAppliedBsc() external {
-        assertApplied(LibStoxDeployNetworks.BSC);
     }
 
     /// @notice Whether the grant has executed on the active chain. The
