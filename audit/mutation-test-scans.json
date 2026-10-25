@@ -14,12 +14,38 @@
       "confirmed": 2,
       "testsBefore": 24,
       "testsAfter": 38,
-      "filed": ["#447", "#448"],
+      "filed": [
+        "#447",
+        "#448"
+      ],
       "killedBefore": 38,
       "survivedBefore": 8,
       "killedAfter": 47,
       "survivedAfter": 1,
       "notes": "BEFORE 38/46 killed. The 8 survivors there were M15 and M16 (roleId / roleHolderId byte layout), M20 (createDiscoveredContract return contract), M41 and M42 (timelock and orchestrator grant polarity), M44 and M46 (vault and orchestrator beacon transfer kind), M45 (vault beacon upgrade kind). Seven are now killed by tests this run added; M20 is not closable with matchstick, whose data source registry is an address-keyed map that cannot distinguish one create of an address from two, so the behaviour stays unpinned and is filed as #448. One verdict in the first AFTER pass was a flake: M14 scored SURVIVED and kills when run by hand. A stale compile cache was ruled out by experiment (pristine run, then the same mutation with only src changed and the test file mtime pinned backwards, which still killed), leaving container reuse by `docker compose up`; the probe wrapper now tears the container down per probe and the whole pass was re-run under it. The first matrix is discarded and none of its numbers appear here."
+    }
+  },
+  {
+    "timestamp": "2026-10-25T21:30:00Z",
+    "commit": "e6656af1195c53d67ab1b69664a47d19eba32f7f",
+    "testsAfterCommit": "1fcb3e0ed9e74bb791e45d2b4be0de9cdeee655d",
+    "publishedTag": "sol-v0.1.30",
+    "commitsAheadOfTag": 467,
+    "scope": "pr:510 (branch 2026-10-25-expected-state-json): LibBeaconInvariants.prodExpectedImplementationsForChainId and assertProdBeaconsAtExpectedState, LibTokenInvariants.expectedAuthoriser and assertUniformAuthoriser, script/BuildExpectedState.sol. BEFORE at the scanned commit covers the one pre-existing behaviour, the inline region routing (3 mutants); AFTER at testsAfterCommit covers all 33.",
+    "tool": "adversarial-mutation-test",
+    "skillVersion": "0.35.0",
+    "summary": {
+      "behaviours": 33,
+      "candidates": 0,
+      "confirmed": 0,
+      "testsBefore": 42,
+      "testsAfter": 61,
+      "filed": [],
+      "killedBefore": 3,
+      "survivedBefore": 0,
+      "killedAfter": 33,
+      "survivedAfter": 0,
+      "notes": "BEFORE ran only the 3 routing mutants, because nothing else existed before this PR; all 3 were killed by tests that already existed. AFTER: 33/33 killed. The M30 kill list also names Ethereum fork tests, which is likely public-RPC flakiness; testRunWritesTheRender is its real killer."
     }
   }
 ]
