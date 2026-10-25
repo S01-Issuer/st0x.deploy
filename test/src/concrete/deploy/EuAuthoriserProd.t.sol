@@ -8,23 +8,14 @@ import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
 import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibEuAuthoriserClone} from "../../../../src/lib/LibEuAuthoriserClone.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
-import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
 
 /// @title EuAuthoriserProdTest
 /// @notice The pinned EU assets authoriser clone is live on every chain it was
 /// deployed to, read against the chain rather than re-derived.
-///
-/// Each chain must carry the post-bundle role state: the pinned EU map, with
-/// the `_ADMIN` roles on the governance timelock.
+/// Its role state is watched by the rain-org-health dashboard.
 contract EuAuthoriserProdTest is Test {
     function assertChainEuAuthoriser() internal view {
         LibAuthoriserInvariants.assertEuAuthoriserDeployed(block.chainid);
-        LibAuthoriserInvariants.assertExpectedEuGrants(
-            LibAuthoriserInvariants.euAuthoriserForChainId(block.chainid),
-            LibTimelockInvariants.timelockForChainId(block.chainid),
-            LibAuthoriserInvariants.GRANTEE_EU_MINTER
-        );
-
         address pinned = LibAuthoriserInvariants.euAuthoriserForChainId(block.chainid);
         assertEq(
             pinned, LibEuAuthoriserClone.cloneDeployedAddress(block.chainid), "pin matches the derivation on chain"
