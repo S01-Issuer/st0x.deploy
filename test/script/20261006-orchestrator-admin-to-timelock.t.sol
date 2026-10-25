@@ -13,7 +13,7 @@ import {SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.22/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.22/src/lib/LibSafeTxBuilderJson.sol";
 
-import {UnexpectedMigrationLine} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
+import {UnexpectedMigrationLine, RoleNotHeld} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {BackfillMigrationRegistryV3Harness} from "./BackfillMigrationRegistryV3Harness.sol";
 import {backfillMigrationRegistryV3Declaration} from "../../script/20261022-backfill-migration-registry-v3.s.sol";
@@ -182,6 +182,60 @@ contract OrchestratorAdminToTimelockTest is Test {
         vm.writeFile(tamperedPath, tampered);
         vm.expectRevert(abi.encodeWithSelector(LibSafeTxBuilderJson.ArtifactMismatch.selector, "data"));
         script.verify(tamperedPath);
+    }
+
+    /// @notice Selects the first network whose move is pending, with the V3
+    /// backfill executed on the fork; false if the move is spent everywhere.
+    function selectPendingMove() internal returns (bool) {
+        string[5] memory networks = [
+            LibRainDeploy.BASE,
+            LibStoxDeployNetworks.ETHEREUM,
+            LibStoxDeployNetworks.HYPEREVM,
+            LibStoxDeployNetworks.ROBINHOOD,
+            LibStoxDeployNetworks.BSC
+        ];
+        for (uint256 i = 0; i < networks.length; i++) {
+            vm.createSelectFork(networks[i]);
+            address safe = LibSafeInvariants.safeForChainId(block.chainid);
+            if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) != 0) continue;
+            if (LibStoxMigrations.applied(safe, backfillMigrationRegistryV3Declaration().id) == 0) {
+                executeV3Backfill(safe);
+            }
+            return true;
+        }
+        console2.log("SPENT: the admin move has executed on every chain");
+        return false;
+    }
+
+    function testPreflightRefusesSafeWithoutEmergency() external {
+        if (!selectPendingMove()) return;
+        OrchestratorAdminToTimelockHarness script = new OrchestratorAdminToTimelockHarness("no-emergency-pre");
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        bytes32 emergency = ORCHESTRATOR.EMERGENCY_ROLE();
+        script.callPreflight();
+        vm.mockCall(address(ORCHESTRATOR), abi.encodeCall(IAccessControl.hasRole, (emergency, safe)), abi.encode(false));
+        vm.expectRevert(abi.encodeWithSelector(RoleNotHeld.selector, emergency, safe));
+        script.callPreflight();
+    }
+
+    function testPostStateRefusesMissingRole() external {
+        if (!selectPendingMove()) return;
+        OrchestratorAdminToTimelockHarness script = new OrchestratorAdminToTimelockHarness("no-role-post");
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), script.callAuthorBundle());
+        script.callAssertPostState();
+
+        bytes32[2] memory roles = [bytes32(0), ORCHESTRATOR.EMERGENCY_ROLE()];
+        address[2] memory holders = [timelock, safe];
+        for (uint256 i = 0; i < roles.length; i++) {
+            vm.clearMockedCalls();
+            vm.mockCall(
+                address(ORCHESTRATOR), abi.encodeCall(IAccessControl.hasRole, (roles[i], holders[i])), abi.encode(false)
+            );
+            vm.expectRevert(abi.encodeWithSelector(RoleNotHeld.selector, roles[i], holders[i]));
+            script.callAssertPostState();
+        }
     }
 
     /// @notice External shim: execute a bundle through the Safe so
