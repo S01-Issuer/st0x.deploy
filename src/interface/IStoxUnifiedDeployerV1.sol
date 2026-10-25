@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {OffchainAssetReceiptVaultConfigV2} from "rain-vats-0.2.8/src/concrete/vault/OffchainAssetReceiptVault.sol";
+import {OffchainAssetReceiptVaultConfigV2} from "rain-vats-0.2.9/src/abstract/OffchainAssetReceiptVault.sol";
 
 /// @title IStoxUnifiedDeployerV1
 /// @notice V1 interface for the StoxUnifiedDeployer.
