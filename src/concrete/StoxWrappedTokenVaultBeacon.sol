@@ -19,9 +19,6 @@ import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
 /// permanently sets the owner to `address(0)`, which would irreversibly
 /// disable `upgradeTo`. The owner must never call `renounceOwnership`.
 ///
-/// `StoxWrappedTokenVaultBeaconSetDeployer` creates `BeaconProxy` instances
-/// that delegate to this beacon's `implementation()`.
-///
 /// The implementation contract must already be deployed at its Zoltu address
 /// before this beacon is deployed, because the `UpgradeableBeacon` constructor
 /// validates that the implementation address has code.

@@ -68,9 +68,9 @@ contract BindBeaconOwnerTest is Test {
 
     /// @dev The root approves the Safe where the chain lacks the approval.
     function approveSafe(address safe) internal {
-        if (!CONFIG_REGISTRY.approvedV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER, safe)) {
+        if (!CONFIG_REGISTRY.approvedV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER_NAME, safe)) {
             vm.prank(LibStoxConfig.ROOT_AUTHORITY);
-            CONFIG_REGISTRY.approveV3(LibStoxConfig.BEACON_OWNER, safe);
+            CONFIG_REGISTRY.approveV3(LibStoxConfig.BEACON_OWNER_NAME, safe);
         }
     }
 
@@ -138,9 +138,9 @@ contract BindBeaconOwnerTest is Test {
         (BindBeaconOwnerHarness script, address safe, bool ready) = readyOnFork("unapproved");
         if (!ready) return;
         advanceLine(safe, "unapproved");
-        if (CONFIG_REGISTRY.approvedV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER, safe)) {
+        if (CONFIG_REGISTRY.approvedV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER_NAME, safe)) {
             vm.prank(LibStoxConfig.ROOT_AUTHORITY);
-            CONFIG_REGISTRY.revokeV3(LibStoxConfig.BEACON_OWNER, safe);
+            CONFIG_REGISTRY.revokeV3(LibStoxConfig.BEACON_OWNER_NAME, safe);
         }
         vm.expectRevert(abi.encodeWithSelector(SafeNotBeaconOwnerDelegate.selector, safe));
         script.callPreflight();
@@ -179,7 +179,7 @@ contract BindBeaconOwnerTest is Test {
         if (!ready) return;
         vm.warp(block.timestamp + 1);
         vm.prank(LibStoxConfig.ROOT_AUTHORITY);
-        CONFIG_REGISTRY.registerV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER, abi.encode(other));
+        CONFIG_REGISTRY.registerV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER_NAME, abi.encode(other));
         vm.expectRevert(abi.encodeWithSelector(BeaconOwnerBindingMismatch.selector, abi.encode(other), block.timestamp));
         script.callAssertPostState();
     }
@@ -207,7 +207,7 @@ contract BindBeaconOwnerTest is Test {
         vm.prank(LibStoxConfig.ROOT_AUTHORITY);
         CONFIG_REGISTRY.registerV3(
             LibStoxConfig.ROOT_AUTHORITY,
-            LibStoxConfig.BEACON_OWNER,
+            LibStoxConfig.BEACON_OWNER_NAME,
             abi.encode(LibTimelockInvariants.timelockForChainId(block.chainid))
         );
         vm.expectRevert(abi.encodeWithSelector(BindBeaconOwnerRecordMismatch.selector, recordedAt));

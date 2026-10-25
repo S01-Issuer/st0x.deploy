@@ -28,7 +28,9 @@ contract LibStoxConfigTest is Test {
     function testBeaconOwnerUnboundReverts() external {
         vm.expectRevert(
             abi.encodeWithSelector(
-                IConfigRegistryV3.NameNotRegistered.selector, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER
+                IConfigRegistryV3.NameNotRegistered.selector,
+                LibStoxConfig.ROOT_AUTHORITY,
+                LibStoxConfig.BEACON_OWNER_NAME
             )
         );
         harness.beaconOwner();
@@ -38,23 +40,27 @@ contract LibStoxConfigTest is Test {
         vm.assume(authority != LibStoxConfig.ROOT_AUTHORITY);
         vm.prank(authority);
         IConfigRegistryV3(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
-            .registerV3(authority, LibStoxConfig.BEACON_OWNER, abi.encode(owner));
+            .registerV3(authority, LibStoxConfig.BEACON_OWNER_NAME, abi.encode(owner));
         vm.expectRevert(
             abi.encodeWithSelector(
-                IConfigRegistryV3.NameNotRegistered.selector, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER
+                IConfigRegistryV3.NameNotRegistered.selector,
+                LibStoxConfig.ROOT_AUTHORITY,
+                LibStoxConfig.BEACON_OWNER_NAME
             )
         );
         harness.beaconOwner();
     }
 
     function testFuzzBeaconOwnerIgnoresOtherName(bytes32 name, address owner) external {
-        vm.assume(name != LibStoxConfig.BEACON_OWNER);
+        vm.assume(name != LibStoxConfig.BEACON_OWNER_NAME);
         vm.prank(LibStoxConfig.ROOT_AUTHORITY);
         IConfigRegistryV3(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
             .registerV3(LibStoxConfig.ROOT_AUTHORITY, name, abi.encode(owner));
         vm.expectRevert(
             abi.encodeWithSelector(
-                IConfigRegistryV3.NameNotRegistered.selector, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER
+                IConfigRegistryV3.NameNotRegistered.selector,
+                LibStoxConfig.ROOT_AUTHORITY,
+                LibStoxConfig.BEACON_OWNER_NAME
             )
         );
         harness.beaconOwner();

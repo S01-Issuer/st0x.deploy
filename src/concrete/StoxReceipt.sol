@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Receipt} from "rain-vats-0.2.8/src/concrete/receipt/Receipt.sol";
+import {Receipt} from "rain-vats-0.2.9/src/concrete/receipt/Receipt.sol";
 import {ERC1155Upgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/token/ERC1155/ERC1155Upgradeable.sol";
 import {IERC1155} from "@openzeppelin-contracts-5.7.0/token/ERC1155/IERC1155.sol";
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
@@ -61,6 +61,9 @@ import {LibReceiptRebase} from "../lib/LibReceiptRebase.sol";
 /// `testZeroBalanceAdvancesCursor` regression in both `LibRebase.t.sol` and
 /// `LibReceiptRebase.t.sol`.
 contract StoxReceipt is Receipt {
+    /// @notice The asset named in `uri` metadata.
+    string internal constant VAULT_ASSET_SYMBOL = "the underlying off-chain asset";
+
     /// @notice Emitted whenever `migrateHolderId` advances a `(account, id)`
     /// pair's migration cursor. The cursor itself is storage state, so the
     /// event fires on every cursor advance regardless of whether
@@ -229,5 +232,12 @@ contract StoxReceipt is Receipt {
     /// `(account, id)` pair the batch touches.
     function getVault() internal view returns (ICorporateActionsV1) {
         return ICorporateActionsV1(this.manager());
+    }
+
+    /// The vault's asset is off-chain and `asset()` is `address(0)`, so the
+    /// inherited read reverts and with it `uri`, which the vault checks at
+    /// `initialize`.
+    function _vaultAssetSymbol() internal pure override returns (string memory) {
+        return VAULT_ASSET_SYMBOL;
     }
 }

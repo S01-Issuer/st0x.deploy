@@ -15,21 +15,18 @@ import {
     DEPOSIT,
     WITHDRAW,
     CERTIFY
-} from "rain-vats-0.2.8/src/concrete/vault/OffchainAssetReceiptVault.sol";
+} from "rain-vats-0.2.9/src/abstract/OffchainAssetReceiptVault.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.2.8/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
-import {ReceiptVaultConfigV2} from "rain-vats-0.2.8/src/abstract/ReceiptVault.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.8/src/interface/IAuthorizeV1.sol";
+} from "rain-vats-0.2.9/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+import {ReceiptVaultConfigV2} from "rain-vats-0.2.9/src/abstract/ReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.9/src/interface/IAuthorizeV1.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";
-import {MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV1.sol";
+import {MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {StoxCorporateActionsFacet} from "../../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {StoxReceiptVault} from "../../../../src/concrete/StoxReceiptVault.sol";
-import {
-    StoxOffchainAssetReceiptVaultBeaconSetDeployer
-} from "../../../../src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
@@ -37,7 +34,7 @@ import {ICorporateActionsV1} from "../../../../src/interface/ICorporateActionsV1
 import {SCHEDULE_CORPORATE_ACTION, STOCK_SPLIT_V1_TYPE_HASH} from "../../../../src/lib/LibCorporateAction.sol";
 import {LibStockSplit} from "../../../../src/lib/LibStockSplit.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
-import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
+import {LibStoxConfig} from "../../../../src/lib/LibStoxConfig.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 import {LibTestTofu} from "../../../lib/LibTestTofu.sol";
 
@@ -46,22 +43,22 @@ import {LibTestTofu} from "../../../lib/LibTestTofu.sol";
 /// SINGLETON `ST0xOrchestrator` — one workflow per concrete file in this
 /// folder. Nothing vault-side is mocked. The setUp builds the full local V4
 /// substrate — TOFU singleton, the real `StoxReceipt` + `StoxReceiptVault`
-/// implementations and their beacon-set deployer Zoltu-deployed to the
-/// deterministic addresses `LibProdDeployV4` pins, a real vault+receipt
-/// beacon-proxy pair, a real corporate-actions facet, and a real authoriser
-/// clone — so the orchestrator's hardcoded vault-version guard
-/// (`onlyExpectedVaultLogic`) reads the genuine production beacons and passes
-/// (both at `initialize` and on every mint/burn). Every mint/burn then
+/// implementations Zoltu-deployed to the deterministic addresses
+/// `LibProdDeployV4` pins, a real vault+receipt registry beacon proxy pair, a
+/// real corporate-actions facet, and a real authoriser clone — so the
+/// orchestrator's vault-logic guard (`onlyExpectedVaultLogic`) reads the
+/// token's own beacons and passes on every mint/burn. Every mint/burn then
 /// exercises the real mint/redeem/receipt/rebase machinery end-to-end.
 abstract contract OrchestratorIntegrationTest is Test {
     address internal constant ADMIN = address(uint160(uint256(keccak256("ADMIN"))));
     address internal constant OWNER = address(uint160(uint256(keccak256("OWNER"))));
     address internal constant MM = address(uint160(uint256(keccak256("MM"))));
+    bytes32 internal constant RBAC_NAME = keccak256("st0x.rbac.test.v1");
 
     /// Beacon owner for the OARV beacon set — the address the beacon-set
     /// deployer hands ownership to at construction. Needed to upgrade the
     /// vault beacon out from under the guard (the guard-halt workflow).
-    address internal constant BEACON_OWNER = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
+    address internal constant BEACON_OWNER = LibProdDeployV4.BEACON_INITIAL_OWNER;
 
     StoxReceiptVault internal vault;
     IERC1155 internal receipt;
@@ -76,25 +73,27 @@ abstract contract OrchestratorIntegrationTest is Test {
         // vault's decimals through it at schedule time.
         LibTestTofu.deployTofu(vm);
 
-        // Real receipt + vault implementations and their beacon-set deployer
-        // at the deterministic Zoltu addresses the guard reads. MUST precede
-        // the orchestrator proxy: `initialize` runs the vault-logic guard.
-        LibTestDeploy.deployOffchainAssetReceiptVaultBeaconSet(vm);
+        // Real receipt + vault implementations behind the V1 beacons, with the
+        // clone factory and ConfigRegistry.
+        LibTestDeploy.deployAll(vm);
 
         // Real corporate-actions facet at the deterministic address the
         // vault's fallback delegatecalls into.
         address facet = LibRainDeploy.deployZoltu(type(StoxCorporateActionsFacet).creationCode);
         require(facet == LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE, "facet address mismatch");
 
-        // A real vault + receipt beacon-proxy pair via the deterministic
-        // deployer the guard version-locks against.
-        vault = _newVault();
-        receipt = IERC1155(address(vault.receipt()));
-
-        // Real authoriser clone paired with the vault by its owner.
+        // Real authoriser clone, bound with ADMIN as owner in the RBAC the
+        // vault resolves at initialize.
         authorizer = _newAuthorizer();
-        vm.prank(ADMIN);
-        vault.setAuthorizer(IAuthorizeV1(address(authorizer)));
+        LibTestDeploy.bindRbac(vm, LibStoxConfig.ROOT_AUTHORITY, RBAC_NAME, ADMIN, IAuthorizeV1(address(authorizer)));
+
+        // A real vault + receipt beacon-proxy pair from the clone factory, over
+        // the beacon the guard version-locks against.
+        vault = LibTestDeploy.newVault(
+            LibStoxConfig.ROOT_AUTHORITY,
+            LibTestDeploy.vaultData("Test tStock", "tTEST", LibStoxConfig.ROOT_AUTHORITY, RBAC_NAME)
+        );
+        receipt = IERC1155(address(vault.receipt()));
 
         // Orchestrator impl behind a real UpgradeableBeacon + BeaconProxy,
         // initialised with OWNER as DEFAULT_ADMIN_ROLE.
@@ -126,24 +125,6 @@ abstract contract OrchestratorIntegrationTest is Test {
     // ------------------------------------------------------------------ //
     //                              Helpers                               //
     // ------------------------------------------------------------------ //
-
-    function _newVault() internal returns (StoxReceiptVault) {
-        return StoxReceiptVault(
-            payable(address(
-                    StoxOffchainAssetReceiptVaultBeaconSetDeployer(
-                            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE
-                        )
-                        .newOffchainAssetReceiptVault(
-                            OffchainAssetReceiptVaultConfigV2({
-                            initialAdmin: ADMIN,
-                            receiptVaultConfig: ReceiptVaultConfigV2({
-                            asset: address(0), name: "Test tStock", symbol: "tTEST", receipt: address(0)
-                        })
-                        })
-                        )
-                ))
-        );
-    }
 
     function _newAuthorizer() internal returns (StoxOffchainAssetReceiptVaultAuthorizerV1) {
         StoxOffchainAssetReceiptVaultAuthorizerV1 authorizerImpl = new StoxOffchainAssetReceiptVaultAuthorizerV1();

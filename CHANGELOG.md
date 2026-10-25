@@ -1,5 +1,23 @@
 # Changelog
 
+## Registry-config tokens (rain.vats 0.2.9)
+
+### StoxReceiptVault
+
+- **Built on rain.vats 0.2.9's abstract `OffchainAssetReceiptVault`.** It
+  initializes from the ConfigRegistry and makes its receipt as a V6 registry
+  beacon proxy, so a token has the same address on every chain. The beacon-set
+  deployers are removed; tokens are V6 `registryBeaconProxy`s.
+- **`optimizer_runs` lowered 1666 → 200 to fit EIP-170.** At 200 runs the
+  runtime is 24,418 bytes (158 spare). As with every optimizer change, this
+  moves every candidate Zoltu address; the candidate pins are regenerated.
+
+### StoxReceipt
+
+- **`uri` names "the underlying off-chain asset".** The vault's `asset()` is
+  `address(0)`, so the inherited symbol read reverted, and with it `uri`, which
+  the vault checks at `initialize`.
+
 ## V4 (rain.vats 0.1.6)
 
 ### StoxReceiptVault

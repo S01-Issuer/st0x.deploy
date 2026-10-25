@@ -49,7 +49,7 @@ function bindBeaconOwnerDeclaration() pure returns (ScriptDeclaration memory) {
 
 /// @title BindBeaconOwner
 /// @notice Authors the per-chain Safe bundle that binds
-/// `LibStoxConfig.BEACON_OWNER` under the root authority to the chain's
+/// `LibStoxConfig.BEACON_OWNER_NAME` under the root authority to the chain's
 /// governance timelock, as the root's approved delegate, and records it.
 contract BindBeaconOwner is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
@@ -83,7 +83,7 @@ contract BindBeaconOwner is SafeBundleScript, IStoxScript {
             revert BindBeaconOwnerUnexpectedLine(head);
         }
         if (!IConfigRegistryV3(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
-                .approvedV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER, chainSafe)) {
+                .approvedV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER_NAME, chainSafe)) {
             revert SafeNotBeaconOwnerDelegate(chainSafe);
         }
     }
@@ -98,7 +98,7 @@ contract BindBeaconOwner is SafeBundleScript, IStoxScript {
             value: 0,
             data: abi.encodeCall(
                 IConfigRegistryV3.registerV3,
-                (LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER, abi.encode(timelock))
+                (LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER_NAME, abi.encode(timelock))
             ),
             operation: Enum.Operation.Call
         });
@@ -112,7 +112,7 @@ contract BindBeaconOwner is SafeBundleScript, IStoxScript {
     function assertPostState() internal view override {
         address chainSafe = address(safe());
         (bytes memory value, uint256 registeredAt) =
-            LibConfigRegistry.resolve(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER);
+            LibConfigRegistry.resolve(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER_NAME);
         bytes memory expected = abi.encode(LibTimelockInvariants.timelockForChainId(block.chainid));
         // forge-lint: disable-next-line(block-timestamp)
         if (keccak256(value) != keccak256(expected) || registeredAt != block.timestamp) {

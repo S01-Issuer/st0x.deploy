@@ -12,17 +12,25 @@ library LibStoxConfig {
     /// @notice The authority every st0x binding is read under.
     address internal constant ROOT_AUTHORITY = address(0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c);
 
+    /// @notice `abi.encode(address)`: the beacon production tokens proxy.
+    bytes32 internal constant VAULT_BEACON_NAME = keccak256("st0x.vault-beacon.v1");
+
+    /// @notice `abi.encode(address)`: the beacon production receipts proxy.
+    bytes32 internal constant RECEIPT_BEACON_NAME = keccak256("st0x.receipt-beacon.v1");
+
+    /// @notice `abi.encode(address)`: the beacon production wrappers proxy.
+    bytes32 internal constant WRAPPER_BEACON_NAME = keccak256("st0x.wrapper-beacon.v1");
+
     /// @notice `abi.encode(address)`: the initial owner of every beacon a
     /// current st0x deploy constructs.
-    bytes32 internal constant BEACON_OWNER = keccak256("st0x.beacon-owner.v1");
+    bytes32 internal constant BEACON_OWNER_NAME = keccak256("st0x.beacon-owner.v1");
 
     /// @notice The bound beacon owner. Reverts `NameNotRegistered` where it is
     /// unbound.
     /// @return The owner.
     function beaconOwner() internal view returns (address) {
-        // The binding's moment is irrelevant to the owner.
         // slither-disable-next-line unused-return
-        (bytes memory value,) = LibConfigRegistry.resolve(ROOT_AUTHORITY, BEACON_OWNER);
+        (bytes memory value,) = LibConfigRegistry.resolve(ROOT_AUTHORITY, BEACON_OWNER_NAME);
         return abi.decode(value, (address));
     }
 }

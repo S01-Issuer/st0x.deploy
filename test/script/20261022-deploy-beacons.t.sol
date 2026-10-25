@@ -30,7 +30,9 @@ contract DeployBeaconsTest is Test {
     function testStepRefusesAnUnboundChain() external {
         vm.expectRevert(
             abi.encodeWithSelector(
-                IConfigRegistryV3.NameNotRegistered.selector, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER
+                IConfigRegistryV3.NameNotRegistered.selector,
+                LibStoxConfig.ROOT_AUTHORITY,
+                LibStoxConfig.BEACON_OWNER_NAME
             )
         );
         script.callBoundZoltuDeployStep("base", address(this), type(StoxWrappedTokenVaultBeacon).creationCode);

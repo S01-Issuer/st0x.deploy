@@ -55,7 +55,9 @@ contract StoxWrappedTokenVaultBeaconTest is Test {
         LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IConfigRegistryV3.NameNotRegistered.selector, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER
+                IConfigRegistryV3.NameNotRegistered.selector,
+                LibStoxConfig.ROOT_AUTHORITY,
+                LibStoxConfig.BEACON_OWNER_NAME
             )
         );
         new StoxWrappedTokenVaultBeacon();

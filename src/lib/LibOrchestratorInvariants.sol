@@ -10,7 +10,7 @@ import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
 import {RoleGrant} from "./RoleGrant.sol";
-import {IST0xOrchestratorV1} from "../interface/IST0xOrchestratorV1.sol";
+import {IST0xOrchestratorV1} from "../interface/deprecated/IST0xOrchestratorV1.sol";
 import {ST0xOrchestrator} from "../concrete/ST0xOrchestrator.sol";
 
 /// @notice The orchestrator beacon-set deployer has no runtime code at its

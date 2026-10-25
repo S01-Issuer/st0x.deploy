@@ -23,7 +23,7 @@ library LibStoxConfigFork {
         }
     }
 
-    /// @notice Binds `LibStoxConfig.BEACON_OWNER` to `owner` as the root
+    /// @notice Binds `LibStoxConfig.BEACON_OWNER_NAME` to `owner` as the root
     /// authority, a second after the name's last binding.
     /// @param vm The cheatcode handle.
     /// @param owner The beacon owner.
@@ -32,6 +32,6 @@ library LibStoxConfigFork {
         vm.warp(block.timestamp + 1);
         vm.prank(LibStoxConfig.ROOT_AUTHORITY);
         IConfigRegistryV3(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
-            .registerV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER, abi.encode(owner));
+            .registerV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER_NAME, abi.encode(owner));
     }
 }

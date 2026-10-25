@@ -8,13 +8,13 @@ import {
     OffchainAssetReceiptVaultAuthorizerV1Config,
     CERTIFY,
     CERTIFY_ADMIN
-} from "rain-vats-0.2.8/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.2.9/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1,
     SCHEDULE_CORPORATE_ACTION_ADMIN,
     CANCEL_CORPORATE_ACTION_ADMIN
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
-import {Unauthorized} from "rain-vats-0.2.8/src/interface/IAuthorizeV1.sol";
+import {Unauthorized} from "rain-vats-0.2.9/src/interface/IAuthorizeV1.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {CloneFactory} from "rain-factory-deploy-0.2.2/src/concrete/CloneFactory.sol";
 
