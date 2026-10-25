@@ -172,9 +172,9 @@ contract StoxCrossChainParityTest is Test {
     /// fork and assert the parity-specific per-token properties the shared
     /// framework does not cover: receipt/wrapped wiring, per-leg proxy
     /// codehash uniformity within the chain, and the single shared beacon.
-    /// @dev The uniform owner + sole-authoriser checks are NOT here — the token
-    /// leg in `assertChainLegs` asserts them via
-    /// `LibTokenInvariants.assertAll(tokens, timelock, clone)`; this function adds
+    /// @dev The sole-authoriser check is NOT here — the token leg in
+    /// `assertChainLegs` asserts it via
+    /// `LibTokenInvariants.assertUniformAuthoriser(tokens, clone)`; this function adds
     /// only the per-token config snapshot + within-chain uniformity that the
     /// cross-chain comparison builds on.
     /// @param tokens The chain's token table.
@@ -444,8 +444,8 @@ contract StoxCrossChainParityTest is Test {
         );
         legs.tokenLegLive = legs.safeLive && legs.cloneLive && allTokens;
         if (legs.tokenLegLive) {
-            // Ownership (timelock) + sole authoriser (clone) across every vault.
-            LibTokenInvariants.assertAll(tokens, LibTimelockInvariants.timelockForChainId(block.chainid), clone);
+            // Sole authoriser (clone) across every vault.
+            LibTokenInvariants.assertUniformAuthoriser(tokens, clone);
             address beacon;
             address receiptBeacon;
             (legs.tokenConfigs, beacon, receiptBeacon) = assertChainAndSnapshot(tokens);

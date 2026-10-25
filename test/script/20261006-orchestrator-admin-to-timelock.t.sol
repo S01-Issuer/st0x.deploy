@@ -26,13 +26,13 @@ import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
 /// @title OrchestratorAdminToTimelockTest
 /// @notice The admin move on every deployment network at head. The bundle
-/// walks the line: before the V3 backfill the script refuses and the bundle
-/// cannot execute; with the backfill executed (live, or its bundle executed
-/// on the fork) `run()` executes the move through the Safe, proves it and
-/// writes the artifact, `verify` accepts that artifact, and the artifact
-/// executed by the owners leaves the state the invariants demand and makes a
-/// re-dispatch refuse; once executed on chain, the chain must be in that
-/// state.
+/// walks the line: before the V3 backfill the
+/// script refuses and the bundle cannot execute; with the backfill executed
+/// (live, or its bundle executed on the fork) `run()` executes the move
+/// through the Safe, proves it and writes the artifact, `verify` accepts
+/// that artifact, and the artifact executed by the owners leaves the state
+/// the invariants demand and makes a re-dispatch refuse; once executed on
+/// chain, the chain must be in that state.
 contract OrchestratorAdminToTimelockTest is Test {
     ST0xOrchestrator internal constant ORCHESTRATOR =
         ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));

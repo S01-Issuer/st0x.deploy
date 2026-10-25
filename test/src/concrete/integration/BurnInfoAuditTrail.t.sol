@@ -3,10 +3,10 @@
 pragma solidity =0.8.25;
 
 import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
-import {IReceiptVaultV1} from "rain-vats-0.2.8/src/interface/deprecated/IReceiptVaultV1.sol";
-import {IReceiptV3} from "rain-vats-0.2.8/src/interface/IReceiptV3.sol";
+import {IReceiptVaultV1} from "rain-vats-0.2.9/src/interface/deprecated/IReceiptVaultV1.sol";
+import {IReceiptV3} from "rain-vats-0.2.9/src/interface/IReceiptV3.sol";
 
-import {IST0xOrchestratorV1, MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV1.sol";
+import {IST0xOrchestratorV2, MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 
 /// @title BurnInfoAuditTrailTest
@@ -42,7 +42,7 @@ contract BurnInfoAuditTrailTest is OrchestratorIntegrationTest {
         vm.expectEmit(true, true, true, true, address(receipt));
         emit IReceiptV3.ReceiptInformation(address(orchestrator), mintedId, burnInfo);
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(MM, address(vault), amount, 0, mintedId + 1);
+        emit IST0xOrchestratorV2.Burned(MM, address(vault), amount, 0, mintedId + 1);
         vm.prank(MM);
         orchestrator.burn(address(vault), amount, burnInfo);
 

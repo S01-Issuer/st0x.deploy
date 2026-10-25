@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {Digest} from "./IST0xOrchestratorV1.sol";
+import {Digest} from "./IST0xOrchestratorV2.sol";
 
 /// @title IMintRecipient
 /// @notice Callback interface a contract recipient implements to authorise an

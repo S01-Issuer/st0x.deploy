@@ -4,98 +4,22 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
-import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
-import {LibBeaconInvariants, BeaconOwnerMismatch} from "../../../../src/lib/LibBeaconInvariants.sol";
+import {BeaconOwnerMismatch} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {LibBeaconInvariantsHarness} from "../../lib/LibBeaconInvariantsHarness.sol";
 import {LibSafeInvariantsHarness} from "../../lib/LibSafeInvariantsHarness.sol";
 import {LibTimelockInvariantsHarness} from "../../lib/LibTimelockInvariantsHarness.sol";
 import {LibTokenInvariantsHarness} from "../../lib/LibTokenInvariantsHarness.sol";
-import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibProdBeaconsBase} from "../../../../src/lib/LibProdBeaconsBase.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
-import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, ReceiptVaultOwnerMismatch, TokenInstance} from "../../../../src/lib/LibTokenInvariants.sol";
 
 /// @title GovernanceTimelockMigrationTest
-/// @notice Live-fork pin of the governance-timelock state on every governed
-/// chain. `20260729-migrate-governance-to-timelock` has executed on Base,
-/// Ethereum, HyperEVM, Robinhood Chain and BNB Smart Chain, so each chain is
-/// asserted exactly:
-///
-/// - the timelock is the pinned, correctly configured deployment;
-/// - every production receipt vault is owned by the timelock;
-/// - every in-use upgrade beacon is owned by the timelock — a beacon owner
-///   can repoint every production proxy in one transaction, so a beacon left
-///   on the Safe would make the delay bypassable;
-/// - the authoriser's seven `_ADMIN` roles sit exclusively on the timelock
-///   and the Safe keeps its operational roles.
+/// @notice Timelock coverage for every governed chain, and the ownership
+/// checks that trip when a vault or beacon is handed back to the Safe. The
+/// live governed state is watched by the rain-org-health dashboard and
+/// `LibInvariantsTest`.
 contract GovernanceTimelockMigrationTest is Test {
-    /// @notice Assert the governed state for the active chain.
-    /// @param tokens The chain's production token table.
-    /// @param safe The chain's token-owner Safe.
-    /// @param timelock The chain's governance timelock pin.
-    /// @param authoriser The chain's V4 authoriser clone.
-    function assertChainGoverned(TokenInstance[] memory tokens, address safe, address timelock, address authoriser)
-        internal
-        view
-    {
-        LibTimelockInvariants.assertTimelockState(timelock, safe);
-        LibTokenInvariants.assertUniformOwnership(tokens, timelock);
-        LibBeaconInvariants.assertProdBeaconsOwnedBy(block.chainid, timelock);
-        LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe, timelock);
-    }
-
-    function testBaseGoverned() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
-        assertChainGoverned(
-            LibTokenInvariants.productionTokensBase(),
-            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE,
-            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK,
-            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE
-        );
-    }
-
-    function testEthereumGoverned() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
-        assertChainGoverned(
-            LibTokenInvariants.productionTokensEthereum(),
-            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM,
-            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ETHEREUM,
-            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM
-        );
-    }
-
-    function testHyperevmGoverned() external {
-        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
-        assertChainGoverned(
-            LibTokenInvariants.productionTokensHyperEvm(),
-            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM,
-            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_HYPEREVM,
-            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM
-        );
-    }
-
-    function testRobinhoodGoverned() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
-        assertChainGoverned(
-            LibTokenInvariants.productionTokensRobinhood(),
-            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD,
-            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ROBINHOOD,
-            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD
-        );
-    }
-
-    function testBscGoverned() external {
-        vm.createSelectFork(LibStoxDeployNetworks.BSC);
-        assertChainGoverned(
-            LibTokenInvariants.productionTokensBsc(),
-            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC,
-            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_BSC,
-            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC
-        );
-    }
-
     /// @notice Chain ids ST0x governs today or is expected to govern.
     ///
     /// NOT a list of supported chains: an entry is INERT until that chain

@@ -23,8 +23,8 @@ import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.8/src/concrete/vault/OffchainAssetReceiptVault.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.8/src/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.9/src/abstract/OffchainAssetReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.9/src/interface/IAuthorizeV1.sol";
 
 import {IAuthorisable} from "../../src/interface/IAuthorisable.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";

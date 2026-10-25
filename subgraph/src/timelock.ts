@@ -42,7 +42,10 @@ export function timelockOperationKeyId(
 }
 
 /** `TimelockOperation.id`: the key id followed by the scheduling index. */
-export function timelockOperationId(keyId: Bytes, schedulingIndex: i32): Bytes {
+export function timelockOperationId(
+  keyId: Bytes,
+  schedulingIndex: i32,
+): Bytes {
   return keyId.concatI32(schedulingIndex);
 }
 

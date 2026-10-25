@@ -219,6 +219,106 @@ dataSources:
         - event: Deployment(indexed address,indexed address,address)
           handler: handleOrchestratorDeployment
       file: ./src/orchestratordeployer.ts
+  - kind: ethereum/contract
+    name: ConfigRegistry
+    network: robinhood
+    source:
+      abi: ConfigRegistry
+      address: "0x2F1f82c65cce305Df3950F8aF8Fa5aD6D9a815e8"
+      startBlock: 95041555
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+        - ConfigBinding
+        - ConfigRegister
+        - RegistryDelegate
+        - RegistryDelegateChange
+      abis:
+        - name: ConfigRegistry
+          file: ./abis/ConfigRegistry.json
+      eventHandlers:
+        - event: Register(address,address,bytes32,bytes)
+          handler: handleConfigRegistryRegister
+        - event: Approved(address,bytes32,address)
+          handler: handleConfigRegistryApproved
+        - event: Revoked(address,bytes32,address)
+          handler: handleConfigRegistryRevoked
+      file: ./src/configregistry.ts
+  - kind: ethereum/contract
+    name: MigrationRegistry
+    network: robinhood
+    source:
+      abi: MigrationRegistry
+      address: "0x5A48e719785E11c4643EA4056D0861A6a69e91a0"
+      startBlock: 95041555
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+        - MigrationLine
+        - MigrationRecord
+        - RegistryDelegate
+        - RegistryDelegateChange
+      abis:
+        - name: MigrationRegistry
+          file: ./abis/MigrationRegistry.json
+      eventHandlers:
+        - event: Migrated(address,address,bytes32,bytes32,uint256)
+          handler: handleMigrationRegistryMigrated
+        - event: Approved(address,bytes32,address)
+          handler: handleMigrationRegistryApproved
+        - event: Revoked(address,bytes32,address)
+          handler: handleMigrationRegistryRevoked
+      file: ./src/migrationregistry.ts
+  - kind: ethereum/contract
+    name: CloneFactoryV5
+    network: robinhood
+    source:
+      abi: CloneFactoryV5
+      address: "0xdA3F8841B3F6640AB623050fBBA9baDc0ccd11B0"
+      startBlock: 94221930
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+      abis:
+        - name: CloneFactoryV5
+          file: ./abis/CloneFactoryV5.json
+        - name: OffchainAssetReceiptVaultBeaconSetDeployer
+          file: ./abis/OffchainAssetReceiptVaultBeaconSetDeployer.json
+      eventHandlers:
+        - event: NewBeaconProxy(address,address,address,bytes32,bytes)
+          handler: handleCloneFactoryV5NewBeaconProxy
+      file: ./src/clonefactory.ts
+  - kind: ethereum/contract
+    name: CloneFactoryV6
+    network: robinhood
+    source:
+      abi: CloneFactoryV6
+      address: "0xB8434a191846f6c3930648aAF264C8e86bF08C62"
+      startBlock: 95351301
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+      abis:
+        - name: CloneFactoryV6
+          file: ./abis/CloneFactoryV6.json
+        - name: OffchainAssetReceiptVaultBeaconSetDeployer
+          file: ./abis/OffchainAssetReceiptVaultBeaconSetDeployer.json
+      eventHandlers:
+        - event: NewRegistryBeaconProxy(address,address,address,bytes32,address,address,bytes32,bytes)
+          handler: handleCloneFactoryV6NewRegistryBeaconProxy
+      file: ./src/clonefactory.ts
 templates:
   - kind: ethereum/contract
     name: ReceiptVault

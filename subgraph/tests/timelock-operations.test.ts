@@ -30,7 +30,8 @@ const OTHER_TIMELOCK = "0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b";
 const ORCHESTRATOR = "0x00000000000000000000000000000000000000c0";
 const AUTHORIZER = "0x315b16faa6ee413fabca877d3851b3818369f0cd";
 const BEACON = "0x00000000000000000000000000000000000000b1";
-const OP = "0x0101010101010101010101010101010101010101010101010101010101010101";
+const OP =
+  "0x0101010101010101010101010101010101010101010101010101010101010101";
 const OTHER_OP =
   "0x0202020202020202020202020202020202020202020202020202020202020202";
 const PREDECESSOR =
@@ -103,16 +104,7 @@ function schedule(
   blockNumber: i32,
   logIndex: i32,
 ): void {
-  scheduleInTx(
-    timelock,
-    id,
-    index,
-    target,
-    data,
-    blockNumber,
-    logIndex,
-    TX_HASH,
-  );
+  scheduleInTx(timelock, id, index, target, data, blockNumber, logIndex, TX_HASH);
 }
 
 function scheduleInTx(
@@ -182,12 +174,7 @@ function cancel(id: string, blockNumber: i32, logIndex: i32): void {
   );
 }
 
-function salt(
-  id: string,
-  value: string,
-  blockNumber: i32,
-  logIndex: i32,
-): void {
+function salt(id: string, value: string, blockNumber: i32, logIndex: i32): void {
   handleTimelockCallSalt(
     changetype<CallSalt>(
       callSaltLog(
@@ -292,12 +279,7 @@ describe("Scheduling", () => {
     schedule(TIMELOCK, OTHER_OP, 0, ORCHESTRATOR, REVOKE_DATA, 100, 6);
     salt(OP, SALT, 100, 5);
 
-    assert.fieldEquals(
-      "TimelockOperation",
-      opKey(TIMELOCK, OP, 0),
-      "salt",
-      SALT,
-    );
+    assert.fieldEquals("TimelockOperation", opKey(TIMELOCK, OP, 0), "salt", SALT);
     assert.fieldEquals(
       "TimelockOperation",
       opKey(TIMELOCK, OTHER_OP, 0),

@@ -49,11 +49,7 @@ function getOrCreateRole(contract: Contract, role: Bytes): Role {
   return entity;
 }
 
-function getOrNewRoleHolder(
-  id: Bytes,
-  role: Bytes,
-  account: Bytes,
-): RoleHolder {
+function getOrNewRoleHolder(id: Bytes, role: Bytes, account: Bytes): RoleHolder {
   let existing = RoleHolder.load(id);
   if (existing !== null) {
     return existing;

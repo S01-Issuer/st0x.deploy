@@ -12,10 +12,10 @@ import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.s
 /// @title EuAuthoriserProdTest
 /// @notice The pinned EU assets authoriser clone is live on every chain it was
 /// deployed to, read against the chain rather than re-derived.
+/// Its role state is watched by the rain-org-health dashboard.
 contract EuAuthoriserProdTest is Test {
     function assertChainEuAuthoriser() internal view {
         LibAuthoriserInvariants.assertEuAuthoriserDeployed(block.chainid);
-
         address pinned = LibAuthoriserInvariants.euAuthoriserForChainId(block.chainid);
         assertEq(
             pinned, LibEuAuthoriserClone.cloneDeployedAddress(block.chainid), "pin matches the derivation on chain"

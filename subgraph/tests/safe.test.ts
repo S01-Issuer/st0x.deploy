@@ -97,12 +97,7 @@ describe("Token-owner Safe", () => {
     assert.fieldEquals("SafeThresholdChange", rowKey(7), "threshold", "3");
     assert.fieldEquals("SafeThresholdChange", rowKey(7), "setup", "false");
     assert.fieldEquals("SafeThresholdChange", rowKey(7), "blockNumber", "20");
-    assert.fieldEquals(
-      "SafeThresholdChange",
-      rowKey(7),
-      "blockTimestamp",
-      "240",
-    );
+    assert.fieldEquals("SafeThresholdChange", rowKey(7), "blockTimestamp", "240");
     assert.fieldEquals("SafeThresholdChange", rowKey(3), "threshold", "1");
   });
 
@@ -110,22 +105,12 @@ describe("Token-owner Safe", () => {
     setup(1, 10, 3);
     handleSafeAddedOwner(
       changetype<AddedOwner>(
-        ownerChangeLog(
-          Address.fromString(SAFE),
-          Address.fromString(CAROL),
-          20,
-          1,
-        ),
+        ownerChangeLog(Address.fromString(SAFE), Address.fromString(CAROL), 20, 1),
       ),
     );
     handleSafeRemovedOwner(
       changetype<RemovedOwner>(
-        ownerChangeLog(
-          Address.fromString(SAFE),
-          Address.fromString(ALICE),
-          21,
-          2,
-        ),
+        ownerChangeLog(Address.fromString(SAFE), Address.fromString(ALICE), 21, 2),
       ),
     );
 
@@ -150,22 +135,12 @@ describe("Token-owner Safe", () => {
     setup(1, 10, 3);
     handleSafe130AddedOwner(
       changetype<AddedOwner130>(
-        ownerChangeLog(
-          Address.fromString(SAFE),
-          Address.fromString(CAROL),
-          20,
-          1,
-        ),
+        ownerChangeLog(Address.fromString(SAFE), Address.fromString(CAROL), 20, 1),
       ),
     );
     handleSafe130RemovedOwner(
       changetype<RemovedOwner130>(
-        ownerChangeLog(
-          Address.fromString(SAFE),
-          Address.fromString(BOB),
-          21,
-          2,
-        ),
+        ownerChangeLog(Address.fromString(SAFE), Address.fromString(BOB), 21, 2),
       ),
     );
 
@@ -179,22 +154,12 @@ describe("Token-owner Safe", () => {
   test("changes logged before SafeSetup in its transaction survive setup", () => {
     handleSafeAddedOwner(
       changetype<AddedOwner>(
-        ownerChangeLog(
-          Address.fromString(SAFE),
-          Address.fromString(CAROL),
-          10,
-          0,
-        ),
+        ownerChangeLog(Address.fromString(SAFE), Address.fromString(CAROL), 10, 0),
       ),
     );
     handleSafeRemovedOwner(
       changetype<RemovedOwner>(
-        ownerChangeLog(
-          Address.fromString(SAFE),
-          Address.fromString(ALICE),
-          10,
-          1,
-        ),
+        ownerChangeLog(Address.fromString(SAFE), Address.fromString(ALICE), 10, 1),
       ),
     );
     changeThreshold(2, 10, 2);

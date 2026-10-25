@@ -5,9 +5,9 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
-import {IST0xVaultBeaconSet} from "../../../src/interface/IST0xVaultBeaconSet.sol";
-import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../../../src/interface/IST0xOrchestratorV1.sol";
+import {IST0xOrchestratorV2, MintAuthV1, Digest} from "../../../src/interface/IST0xOrchestratorV2.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
+import {LibTestRegistryBeaconProxy} from "../../lib/LibTestRegistryBeaconProxy.sol";
 
 import {Initializable} from "@openzeppelin-contracts-upgradeable-5.7.0/proxy/utils/Initializable.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
@@ -25,9 +25,9 @@ import {ReentrantMintRecipient} from "./ReentrantMintRecipient.sol";
 import {ReentrantBurnVault} from "./ReentrantBurnVault.sol";
 import {MockManagerRevert1155} from "./MockManagerRevert1155.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin-contracts-5.7.0/utils/ReentrancyGuardTransient.sol";
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.8/src/concrete/vault/OffchainAssetReceiptVault.sol";
-import {ReceiptVault} from "rain-vats-0.2.8/src/abstract/ReceiptVault.sol";
-import {IReceiptV3} from "rain-vats-0.2.8/src/interface/IReceiptV3.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.9/src/abstract/OffchainAssetReceiptVault.sol";
+import {ReceiptVault} from "rain-vats-0.2.9/src/abstract/ReceiptVault.sol";
+import {IReceiptV3} from "rain-vats-0.2.9/src/interface/IReceiptV3.sol";
 
 /// @dev Comprehensive unit + fuzz tests for the SINGLETON `ST0xOrchestrator`.
 /// All external dependencies (vault, receipt, ERC-20 shares, the production
@@ -61,11 +61,8 @@ contract ST0xOrchestratorTest is Test {
     /// Default admin passed to `initialize`.
     address internal constant OWNER = address(0x0FFCE);
 
-    /// The vault-version guard reads these fixed production addresses. The
-    /// orchestrator's `_checkVaultLogic` reads the current-release (candidate) pins,
-    /// so the mocks target the candidate deployer and impls.
-    address internal constant DEPLOYER =
-        LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE;
+    /// Each token's and each receipt's own beacon, which the vault-logic guard
+    /// reads from the proxy bytecode.
     address internal constant VAULT_BEACON = address(0xBEAC04);
     address internal constant RECEIPT_BEACON = address(0xBEAC12);
     address internal constant EXPECTED_VAULT_IMPL = LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE;
@@ -80,10 +77,12 @@ contract ST0xOrchestratorTest is Test {
 
     function setUp() public {
         impl = new ST0xOrchestrator();
-        // `initialize` runs the vault-logic guard, so the guard mocks must be
-        // in place BEFORE the proxy is deployed.
         _makeGuardPass();
         orchestrator = _deployProxy(OWNER);
+        LibTestRegistryBeaconProxy.etch(vm, TOKEN, VAULT_BEACON);
+        LibTestRegistryBeaconProxy.etch(vm, TOKEN2, VAULT_BEACON);
+        LibTestRegistryBeaconProxy.etch(vm, RECEIPT_ADDR, RECEIPT_BEACON);
+        LibTestRegistryBeaconProxy.etch(vm, RECEIPT_ADDR2, RECEIPT_BEACON);
         _mockVaultTopology(TOKEN, RECEIPT_ADDR);
         _mockVaultTopology(TOKEN2, RECEIPT_ADDR2);
     }
@@ -93,7 +92,7 @@ contract ST0xOrchestratorTest is Test {
     // ------------------------------------------------------------------ //
 
     /// Deploy a fresh beacon + proxy pair pointing at `impl`, initialised
-    /// with `owner`. The guard mocks must already pass.
+    /// with `owner`.
     function _deployProxy(address owner) internal returns (ST0xOrchestrator) {
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
         bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, (owner));
@@ -101,17 +100,9 @@ contract ST0xOrchestratorTest is Test {
         return ST0xOrchestrator(payable(address(proxy)));
     }
 
-    /// Make the vault-logic version guard PASS: the deployer resolves each
-    /// beacon and each beacon reports the expected implementation.
+    /// Make the vault-logic version guard PASS: each beacon reports the
+    /// expected implementation.
     function _makeGuardPass() internal {
-        vm.mockCall(
-            DEPLOYER,
-            abi.encodeWithSelector(IST0xVaultBeaconSet.iOffchainAssetReceiptVaultBeacon.selector),
-            abi.encode(VAULT_BEACON)
-        );
-        vm.mockCall(
-            DEPLOYER, abi.encodeWithSelector(IST0xVaultBeaconSet.iReceiptBeacon.selector), abi.encode(RECEIPT_BEACON)
-        );
         vm.mockCall(
             VAULT_BEACON, abi.encodeWithSelector(IBeacon.implementation.selector), abi.encode(EXPECTED_VAULT_IMPL)
         );
@@ -283,36 +274,16 @@ contract ST0xOrchestratorTest is Test {
     function testInitializeZeroOwnerReverts() external {
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
         bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, (address(0)));
-        vm.expectRevert(IST0xOrchestratorV1.ZeroOwner.selector);
+        vm.expectRevert(IST0xOrchestratorV2.ZeroOwner.selector);
         new BeaconProxy(address(beacon), initData);
     }
 
-    /// `initialize` runs the vault-logic guard, so a fresh proxy cannot be
-    /// deployed against unexpected vault logic — the `BeaconProxy`
-    /// constructor bubbles `VaultLogicMismatch` from the init delegatecall.
-    function testInitializeVaultGuardFailReverts() external {
+    /// `initialize` has no token, so it does not read vault logic.
+    function testInitializeIgnoresVaultLogic() external {
         _makeGuardFailVault();
-        UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, (OWNER));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IST0xOrchestratorV1.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD)
-            )
-        );
-        new BeaconProxy(address(beacon), initData);
-    }
-
-    /// Same for the receipt leg of the guard.
-    function testInitializeReceiptGuardFailReverts() external {
         _makeGuardFailReceipt();
-        UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, (OWNER));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IST0xOrchestratorV1.ReceiptLogicMismatch.selector, EXPECTED_RECEIPT_IMPL, address(0xDEAD)
-            )
-        );
-        new BeaconProxy(address(beacon), initData);
+        ST0xOrchestrator fresh = _deployProxy(OWNER);
+        assertTrue(fresh.hasRole(fresh.DEFAULT_ADMIN_ROLE(), OWNER));
     }
 
     function testDoubleInitializeReverts() external {
@@ -478,7 +449,7 @@ contract ST0xOrchestratorTest is Test {
         vm.expectCall(TOKEN, abi.encodeWithSelector(IERC20.transfer.selector, eoa, amount));
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Minted(address(this), TOKEN, eoa, amount, nonce);
+        emit IST0xOrchestratorV2.Minted(address(this), TOKEN, eoa, amount, nonce);
         orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), info);
     }
 
@@ -495,7 +466,7 @@ contract ST0xOrchestratorTest is Test {
         bytes memory sig = hex"deadbeef";
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Minted(address(this), TOKEN, address(recipient), amount, nonce);
+        emit IST0xOrchestratorV2.Minted(address(this), TOKEN, address(recipient), amount, nonce);
         orchestrator.mint(TOKEN, address(recipient), amount, _auth(sig, nonce), info);
     }
 
@@ -503,7 +474,7 @@ contract ST0xOrchestratorTest is Test {
         _grant(orchestrator.MINT_ROLE(), address(this));
         Mock1271 recipient = new Mock1271(false);
         _prepMint(TOKEN, "");
-        vm.expectRevert(IST0xOrchestratorV1.BadRecipientSignature.selector);
+        vm.expectRevert(IST0xOrchestratorV2.BadRecipientSignature.selector);
         orchestrator.mint(TOKEN, address(recipient), 100, _auth(hex"deadbeef", keccak256("x")), "");
     }
 
@@ -521,7 +492,7 @@ contract ST0xOrchestratorTest is Test {
         vm.expectCall(address(recipient), abi.encodeWithSelector(IMintRecipient.authorizeMint.selector, digest));
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Minted(address(this), TOKEN, address(recipient), amount, nonce);
+        emit IST0xOrchestratorV2.Minted(address(this), TOKEN, address(recipient), amount, nonce);
         orchestrator.mint(TOKEN, address(recipient), amount, _auth("", nonce), info);
     }
 
@@ -530,7 +501,7 @@ contract ST0xOrchestratorTest is Test {
         MockMintRecipient recipient = new MockMintRecipient(false);
         _prepMint(TOKEN, "");
         vm.expectRevert(
-            abi.encodeWithSelector(IST0xOrchestratorV1.RecipientCallbackRejected.selector, address(recipient))
+            abi.encodeWithSelector(IST0xOrchestratorV2.RecipientCallbackRejected.selector, address(recipient))
         );
         orchestrator.mint(TOKEN, address(recipient), 100, _auth("", keccak256("x")), "");
     }
@@ -546,13 +517,13 @@ contract ST0xOrchestratorTest is Test {
 
         bytes memory sig = _sign(wrongPk, TOKEN, eoa, amount, nonce);
 
-        vm.expectRevert(IST0xOrchestratorV1.BadRecipientSignature.selector);
+        vm.expectRevert(IST0xOrchestratorV2.BadRecipientSignature.selector);
         orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), "");
     }
 
     function testMintZeroAmountReverts() external {
         _grant(orchestrator.MINT_ROLE(), address(this));
-        vm.expectRevert(IST0xOrchestratorV1.ZeroAmount.selector);
+        vm.expectRevert(IST0xOrchestratorV2.ZeroAmount.selector);
         orchestrator.mint(TOKEN, BOB, 0, _auth("", bytes32(0)), "");
     }
 
@@ -569,7 +540,7 @@ contract ST0xOrchestratorTest is Test {
         orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), "");
         assertTrue(orchestrator.nonceUsed(eoa, nonce));
 
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.NonceReplayed.selector, eoa, nonce));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NonceReplayed.selector, eoa, nonce));
         orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), "");
     }
 
@@ -587,7 +558,7 @@ contract ST0xOrchestratorTest is Test {
 
         // Same nonce, amount 600, correctly signed → still NonceReplayed.
         bytes memory sig = _sign(pk, TOKEN, eoa, 600, nonce);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.NonceReplayed.selector, eoa, nonce));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NonceReplayed.selector, eoa, nonce));
         orchestrator.mint(TOKEN, eoa, 600, _auth(sig, nonce), "");
     }
 
@@ -603,7 +574,7 @@ contract ST0xOrchestratorTest is Test {
         orchestrator.mint(TOKEN, eoa, 500, _auth(_sign(pk, TOKEN, eoa, 500, nonce), nonce), "");
 
         bytes memory sig = _sign(pk, TOKEN2, eoa, 500, nonce);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.NonceReplayed.selector, eoa, nonce));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NonceReplayed.selector, eoa, nonce));
         orchestrator.mint(TOKEN2, eoa, 500, _auth(sig, nonce), "");
     }
 
@@ -631,7 +602,7 @@ contract ST0xOrchestratorTest is Test {
         _makeGuardFailVault();
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD)
+                IST0xOrchestratorV2.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD)
             )
         );
         orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "");
@@ -642,9 +613,35 @@ contract ST0xOrchestratorTest is Test {
         _makeGuardFailReceipt();
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.ReceiptLogicMismatch.selector, EXPECTED_RECEIPT_IMPL, address(0xDEAD)
+                IST0xOrchestratorV2.ReceiptLogicMismatch.selector, EXPECTED_RECEIPT_IMPL, address(0xDEAD)
             )
         );
+        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "");
+    }
+
+    function testMintNonProxyTokenReverts() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        address token = address(0x70CE4);
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, token));
+        orchestrator.mint(token, BOB, 1, _auth("", bytes32(0)), "");
+    }
+
+    /// A token whose code differs from a registry beacon proxy in one byte
+    /// reverts, even though its beacon word names the expected beacon.
+    function testMintAlteredProxyTokenReverts() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        bytes memory code = TOKEN.code;
+        code[0] = 0x00;
+        vm.etch(TOKEN, code);
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, TOKEN));
+        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "");
+    }
+
+    function testMintNonProxyReceiptReverts() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        address receipt_ = address(0x4EC1E7);
+        _mockVaultTopology(TOKEN, receipt_);
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, receipt_));
         orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "");
     }
 
@@ -673,7 +670,7 @@ contract ST0xOrchestratorTest is Test {
 
     function testBurnZeroAmountReverts() external {
         _grant(orchestrator.BURN_ROLE(), address(this));
-        vm.expectRevert(IST0xOrchestratorV1.ZeroAmount.selector);
+        vm.expectRevert(IST0xOrchestratorV2.ZeroAmount.selector);
         orchestrator.burn(TOKEN, 0, "");
     }
 
@@ -690,7 +687,7 @@ contract ST0xOrchestratorTest is Test {
             abi.encodeWithSelector(ReceiptVault.mint.selector, amount, address(orchestrator), uint256(0), bytes("")),
             abi.encode(amount - 1)
         );
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.VaultAmountMismatch.selector, amount, amount - 1));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.VaultAmountMismatch.selector, amount, amount - 1));
         orchestrator.mint(TOKEN, eoa, amount, _auth(sig, keccak256("vam-mint")), "");
     }
 
@@ -779,7 +776,7 @@ contract ST0xOrchestratorTest is Test {
         bytes memory sig = abi.encodePacked(r, s, v);
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Minted(address(this), TOKEN, eoa, amount, nonce);
+        emit IST0xOrchestratorV2.Minted(address(this), TOKEN, eoa, amount, nonce);
         orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), info);
     }
 
@@ -836,7 +833,7 @@ contract ST0xOrchestratorTest is Test {
             ),
             abi.encode(amount - 1)
         );
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.VaultAmountMismatch.selector, amount, amount - 1));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.VaultAmountMismatch.selector, amount, amount - 1));
         orchestrator.burn(TOKEN, amount, "");
     }
 
@@ -845,9 +842,35 @@ contract ST0xOrchestratorTest is Test {
         _makeGuardFailVault();
         vm.expectRevert(
             abi.encodeWithSelector(
-                IST0xOrchestratorV1.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD)
+                IST0xOrchestratorV2.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD)
             )
         );
+        orchestrator.burn(TOKEN, 1, "");
+    }
+
+    function testBurnReceiptGuardFailReverts() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        _makeGuardFailReceipt();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IST0xOrchestratorV2.ReceiptLogicMismatch.selector, EXPECTED_RECEIPT_IMPL, address(0xDEAD)
+            )
+        );
+        orchestrator.burn(TOKEN, 1, "");
+    }
+
+    function testBurnNonProxyTokenReverts() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        address token = address(0x70CE4);
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, token));
+        orchestrator.burn(token, 1, "");
+    }
+
+    function testBurnNonProxyReceiptReverts() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        address receipt_ = address(0x4EC1E7);
+        _mockVaultTopology(TOKEN, receipt_);
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, receipt_));
         orchestrator.burn(TOKEN, 1, "");
     }
 
@@ -872,7 +895,7 @@ contract ST0xOrchestratorTest is Test {
             )
         );
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, amount, 0, 1);
+        emit IST0xOrchestratorV2.Burned(address(this), TOKEN, amount, 0, 1);
         orchestrator.burn(TOKEN, amount, "");
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 1);
     }
@@ -890,7 +913,7 @@ contract ST0xOrchestratorTest is Test {
         _mockRedeem(TOKEN, amount, 2, "");
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, amount, 0, 3);
+        emit IST0xOrchestratorV2.Burned(address(this), TOKEN, amount, 0, 3);
         orchestrator.burn(TOKEN, amount, "");
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 3);
     }
@@ -919,7 +942,7 @@ contract ST0xOrchestratorTest is Test {
             )
         );
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, 300, 0, 2);
+        emit IST0xOrchestratorV2.Burned(address(this), TOKEN, 300, 0, 2);
         orchestrator.burn(TOKEN, 300, "");
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 2);
     }
@@ -935,7 +958,7 @@ contract ST0xOrchestratorTest is Test {
         _mockRedeem(TOKEN, 200, 0, "");
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, 200, 0, 0);
+        emit IST0xOrchestratorV2.Burned(address(this), TOKEN, 200, 0, 0);
         orchestrator.burn(TOKEN, 200, "");
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 0, "pointer parked at partially-drained id");
     }
@@ -950,7 +973,7 @@ contract ST0xOrchestratorTest is Test {
         _mockERC20(TOKEN);
         _mockHighwater(TOKEN, 0);
 
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.InsufficientReceipts.selector, TOKEN, amount));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.InsufficientReceipts.selector, TOKEN, amount));
         orchestrator.burn(TOKEN, amount, "");
 
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 1, "pointer untouched by reverted burn");
@@ -970,7 +993,7 @@ contract ST0xOrchestratorTest is Test {
         _mockBalance(RECEIPT_ADDR, 1, 30); // covers 30, leaves 20 unburnable
         _mockRedeem(TOKEN, 30, 1, "");
 
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV1.InsufficientReceipts.selector, TOKEN, 20));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.InsufficientReceipts.selector, TOKEN, 20));
         orchestrator.burn(TOKEN, amount, "");
 
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 0, "pointer untouched by reverted burn");
@@ -1006,7 +1029,7 @@ contract ST0xOrchestratorTest is Test {
         _mockRedeem(TOKEN, amount, startIdx, "");
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, amount, startIdx, startIdx + 1);
+        emit IST0xOrchestratorV2.Burned(address(this), TOKEN, amount, startIdx, startIdx + 1);
         orchestrator.burn(TOKEN, amount, "");
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), startIdx + 1);
     }
@@ -1018,12 +1041,12 @@ contract ST0xOrchestratorTest is Test {
     function testFuzzSetBurnIndex(uint256 first, uint256 second) external {
         _grant(orchestrator.EMERGENCY_ROLE(), address(this));
         vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV1.BurnIndexSet(TOKEN, 0, first);
+        emit IST0xOrchestratorV2.BurnIndexSet(TOKEN, 0, first);
         orchestrator.setBurnIndex(TOKEN, first);
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), first);
 
         vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV1.BurnIndexSet(TOKEN, first, second);
+        emit IST0xOrchestratorV2.BurnIndexSet(TOKEN, first, second);
         orchestrator.setBurnIndex(TOKEN, second);
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), second);
     }
@@ -1041,7 +1064,7 @@ contract ST0xOrchestratorTest is Test {
             abi.encodeWithSelector(IERC1155.safeTransferFrom.selector, address(orchestrator), to, id, amount, "")
         );
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.ReceiptsWithdrawn(TOKEN, to, id, amount);
+        emit IST0xOrchestratorV2.ReceiptsWithdrawn(TOKEN, to, id, amount);
         orchestrator.withdrawReceipt(TOKEN, id, amount, to);
     }
 
@@ -1062,7 +1085,7 @@ contract ST0xOrchestratorTest is Test {
         vm.mockCall(TOKEN, abi.encodeWithSelector(IERC20.transfer.selector), abi.encode(true));
         vm.expectCall(TOKEN, abi.encodeWithSelector(IERC20.transfer.selector, to, amount));
         vm.expectEmit(true, true, false, true, address(orchestrator));
-        emit IST0xOrchestratorV1.SharesWithdrawn(TOKEN, to, amount);
+        emit IST0xOrchestratorV2.SharesWithdrawn(TOKEN, to, amount);
         orchestrator.withdrawShares(TOKEN, amount, to);
     }
 
@@ -1076,7 +1099,7 @@ contract ST0xOrchestratorTest is Test {
             abi.encodeWithSelector(IERC1155.safeTransferFrom.selector, address(orchestrator), to, id, amount, "")
         );
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.ForeignERC1155Swept(erc1155, to, id, amount);
+        emit IST0xOrchestratorV2.ForeignERC1155Swept(erc1155, to, id, amount);
         orchestrator.sweepERC1155(erc1155, id, amount, to);
     }
 
@@ -1152,7 +1175,7 @@ contract ST0xOrchestratorTest is Test {
         _mockManager(RECEIPT_ADDR, TOKEN);
 
         vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV1.BurnIndexLowered(TOKEN, 10, 5);
+        emit IST0xOrchestratorV2.BurnIndexLowered(TOKEN, 10, 5);
         vm.prank(RECEIPT_ADDR);
         bytes4 ret = orchestrator.onERC1155Received(address(this), BOB, 5, 1, "");
         assertEq(ret, IERC1155Receiver.onERC1155Received.selector);
@@ -1205,9 +1228,9 @@ contract ST0xOrchestratorTest is Test {
 
         // Each qualifying id lowers in turn: 10 → 7 → 3.
         vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV1.BurnIndexLowered(TOKEN, 10, 7);
+        emit IST0xOrchestratorV2.BurnIndexLowered(TOKEN, 10, 7);
         vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV1.BurnIndexLowered(TOKEN, 7, 3);
+        emit IST0xOrchestratorV2.BurnIndexLowered(TOKEN, 7, 3);
         vm.prank(RECEIPT_ADDR);
         bytes4 ret = orchestrator.onERC1155BatchReceived(address(this), BOB, ids, values, "");
         assertEq(ret, IERC1155Receiver.onERC1155BatchReceived.selector);
@@ -1246,7 +1269,7 @@ contract ST0xOrchestratorTest is Test {
         values[1] = 1;
 
         vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV1.BurnIndexLowered(TOKEN, 10, 6);
+        emit IST0xOrchestratorV2.BurnIndexLowered(TOKEN, 10, 6);
         vm.prank(RECEIPT_ADDR);
         bytes4 ret = orchestrator.onERC1155BatchReceived(address(this), BOB, ids, values, "");
         assertEq(ret, IERC1155Receiver.onERC1155BatchReceived.selector);
@@ -1257,7 +1280,7 @@ contract ST0xOrchestratorTest is Test {
 
     function testSupportsInterface() external view {
         assertTrue(orchestrator.supportsInterface(type(IERC1155Receiver).interfaceId));
-        assertTrue(orchestrator.supportsInterface(type(IST0xOrchestratorV1).interfaceId));
+        assertTrue(orchestrator.supportsInterface(type(IST0xOrchestratorV2).interfaceId));
         assertTrue(orchestrator.supportsInterface(type(IERC165).interfaceId));
         assertTrue(orchestrator.supportsInterface(type(IAccessControl).interfaceId));
         assertFalse(orchestrator.supportsInterface(0xffffffff), "erc165 sentinel");
@@ -1265,7 +1288,7 @@ contract ST0xOrchestratorTest is Test {
 
     function testFuzzSupportsInterfaceFalse(bytes4 interfaceId) external view {
         vm.assume(interfaceId != type(IERC1155Receiver).interfaceId);
-        vm.assume(interfaceId != type(IST0xOrchestratorV1).interfaceId);
+        vm.assume(interfaceId != type(IST0xOrchestratorV2).interfaceId);
         vm.assume(interfaceId != type(IERC165).interfaceId);
         vm.assume(interfaceId != type(IAccessControl).interfaceId);
         vm.assume(interfaceId != 0xffffffff);
@@ -1288,12 +1311,26 @@ contract ST0xOrchestratorTest is Test {
     // ------------------------------------------------------------------ //
 
     function testVaultLogicIsExpectedTrue() external view {
-        assertTrue(orchestrator.vaultLogicIsExpected());
+        assertTrue(orchestrator.vaultLogicIsExpected(TOKEN));
     }
 
-    function testVaultLogicIsExpectedFalse() external {
+    function testVaultLogicIsExpectedFalseOnVaultImpl() external {
         _makeGuardFailVault();
-        assertFalse(orchestrator.vaultLogicIsExpected());
+        assertFalse(orchestrator.vaultLogicIsExpected(TOKEN));
+    }
+
+    function testVaultLogicIsExpectedFalseOnReceiptImpl() external {
+        _makeGuardFailReceipt();
+        assertFalse(orchestrator.vaultLogicIsExpected(TOKEN));
+    }
+
+    function testVaultLogicIsExpectedFalseOnNonProxyToken() external view {
+        assertFalse(orchestrator.vaultLogicIsExpected(address(0x70CE4)));
+    }
+
+    function testVaultLogicIsExpectedFalseOnNonProxyReceipt() external {
+        _mockVaultTopology(TOKEN, address(0x4EC1E7));
+        assertFalse(orchestrator.vaultLogicIsExpected(TOKEN));
     }
 
     /// `burnInfo` is forwarded VERBATIM to `vault.redeem` as the audit-trail
@@ -1315,7 +1352,7 @@ contract ST0xOrchestratorTest is Test {
             )
         );
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(address(this), TOKEN, amount, 0, 1);
+        emit IST0xOrchestratorV2.Burned(address(this), TOKEN, amount, 0, 1);
         orchestrator.burn(TOKEN, amount, burnInfo);
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 1);
     }
@@ -1326,14 +1363,19 @@ contract ST0xOrchestratorTest is Test {
     /// after external calls in `_burnWalk` is only safe under this lock),
     /// while the outer burn completes normally.
     function testBurnReentrantCallReverts() external {
-        ReentrantBurnVault attacker = new ReentrantBurnVault(orchestrator);
+        // The attacker is the vault logic the token's beacon serves.
+        ReentrantBurnVault attacker = ReentrantBurnVault(address(0xA77AC4));
+        LibTestRegistryBeaconProxy.etch(vm, address(attacker), VAULT_BEACON);
+        vm.etch(EXPECTED_VAULT_IMPL, address(new ReentrantBurnVault(orchestrator)).code);
+        _mockVaultTopology(address(attacker), RECEIPT_ADDR);
+        _mockBalance(RECEIPT_ADDR, 0, type(uint256).max);
         _grant(orchestrator.BURN_ROLE(), address(this));
         // The nested call comes FROM the attacker, so it passes the role
         // check and reaches the reentrancy guard.
         _grant(orchestrator.BURN_ROLE(), address(attacker));
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV1.Burned(address(this), address(attacker), 100, 0, 0);
+        emit IST0xOrchestratorV2.Burned(address(this), address(attacker), 100, 0, 0);
         orchestrator.burn(address(attacker), 100, "");
 
         assertTrue(attacker.reentryAttempted(), "attacker must have attempted reentry");
