@@ -26,10 +26,12 @@ import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxWrappedTokenVaultBeacon} from "../../../src/concrete/StoxWrappedTokenVaultBeacon.sol";
-import {StoxOffchainAssetReceiptVaultAuthorizerV1} from
-    "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
-import {StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1} from
-    "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
+import {
+    StoxOffchainAssetReceiptVaultAuthorizerV1
+} from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
+import {
+    StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
+} from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 
 contract StoxDeploySuitesTest is Test, StoxDeploySuites {
@@ -136,7 +138,9 @@ contract StoxDeploySuitesTest is Test, StoxDeploySuites {
                 assertTrue(
                     containsAddress(reach, deps[j].deployedAddress),
                     string.concat(
-                        suites[i].suite, " declares a dependency it never reaches: ", vm.toString(deps[j].deployedAddress)
+                        suites[i].suite,
+                        " declares a dependency it never reaches: ",
+                        vm.toString(deps[j].deployedAddress)
                     )
                 );
             }
