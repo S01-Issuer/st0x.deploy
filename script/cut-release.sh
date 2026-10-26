@@ -10,10 +10,10 @@
 # `foundry.toml` here — the single source of truth at this point.
 #
 # Model: `src/generated/candidate/` is the rolling snapshot of what the current
-# source compiles to (regenerated every BuildPointers run). A numbered snapshot
+# source compiles to (regenerated every script/Build.sol run). A numbered snapshot
 # (`0_1_4/`, …) is a FROZEN copy of `candidate` taken at the instant a tag
 # releases it — it never changes again (the frozen-snapshots-append-only gate
-# enforces this). This script performs that copy, then re-runs BuildPointers so
+# enforces this). This script performs that copy, then re-runs script/Build.sol so
 # the pointer libs pick up the new numbered alias set alongside `candidate`.
 set -euo pipefail
 
@@ -48,5 +48,5 @@ cp -r src/generated/candidate "src/generated/${TAG}"
 
 # Regenerate candidate (idempotent — source unchanged) and the pointer libs,
 # which now emit the new numbered alias set in addition to `candidate`.
-forge script ./script/BuildPointers.sol
+forge script ./script/Build.sol
 forge fmt

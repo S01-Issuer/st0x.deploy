@@ -59,7 +59,7 @@ library LibOrchestratorInvariants {
     /// `ST0xOrchestratorBeaconSetDeployer`'s constructor — its `CREATE` at
     /// nonce 1, so the same address on every chain the deployer is on.
     /// Aliases the `LibProdDeployV4` pin (single source of truth, emitted by
-    /// `BuildPointers`).
+    /// `script/Build.sol`).
     address internal constant ST0X_ORCHESTRATOR_BEACON = LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON;
 
     /// @notice The production orchestrator instance: the `BeaconProxy` minted
@@ -69,7 +69,7 @@ library LibOrchestratorInvariants {
     /// `20260818-deploy-orchestrator` refuses to broadcast against a deployer
     /// whose nonce shows an earlier `deploy()`, so a pinned instance is
     /// always this address. Aliases the `LibProdDeployV4` pin (single source
-    /// of truth, emitted by `BuildPointers`).
+    /// of truth, emitted by `script/Build.sol`).
     address internal constant ST0X_ORCHESTRATOR_INSTANCE = LibProdDeployV4.ST0X_ORCHESTRATOR_INSTANCE;
 
     /// @notice Assert the orchestrator beacon set on the active chain: the

@@ -28,7 +28,7 @@ cbor_metadata = false
 
 fs_permissions = [
   { access = "read-write", path = "src/generated" },
-  # `BuildPointers` reads the canonical release version from `[package].version`
+  # `script/Build.sol` reads the canonical release version from `[package].version`
   # here to name the `src/generated/<tag>/` snapshot and generate the deploy tag.
   { access = "read", path = "foundry.toml" },
   # `out` is needed by the RAI-296 multisig migration script and its tests:
