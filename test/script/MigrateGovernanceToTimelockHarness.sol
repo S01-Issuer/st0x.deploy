@@ -2,7 +2,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
+
 import {MigrateGovernanceToTimelock} from "../../script/20260729-migrate-governance-to-timelock.s.sol";
+import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 
 /// @title MigrateGovernanceToTimelockHarness
 /// @notice Overrides the script's timelock resolution so the full authoring
@@ -31,6 +34,13 @@ contract MigrateGovernanceToTimelockHarness is MigrateGovernanceToTimelock {
 
     function callArtifactPath() external view returns (string memory) {
         return artifactPath();
+    }
+
+    function callAssertPostState() external view {
+        _assertPostState(
+            Safe(payable(LibSafeInvariants.safeForChainId(block.chainid))),
+            activeChainTimelock(), activeChainAuthoriser(), tokensForActiveChain(), _beaconImplementations()
+        );
     }
 
     function activeChainTimelock() internal view override returns (address) {
