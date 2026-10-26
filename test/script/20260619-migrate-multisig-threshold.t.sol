@@ -15,7 +15,12 @@ import {migrateMultisigThresholdDeclaration} from "../../script/20260619-migrate
 import {MigrateMultisigThresholdHarness} from "./MigrateMultisigThresholdHarness.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
-import {LibStoxMigrations, SafeNotApprovedWriter, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
+import {
+    LibStoxMigrations,
+    RecordMismatch,
+    SafeNotApprovedWriter,
+    UnexpectedMigrationLine
+} from "../../src/lib/LibStoxMigrations.sol";
 import {LibMigrationLineFork} from "../lib/LibMigrationLineFork.sol";
 
 contract MigrateMultisigThresholdTest is Test {
@@ -105,5 +110,13 @@ contract MigrateMultisigThresholdTest is Test {
         vm.writeFile(tampered, LibSafeTxBuilderJson.toJson(vm, address(safe), block.chainid, "tampered", txs));
         vm.expectRevert(abi.encodeWithSelector(LibSafeTxBuilderJson.ArtifactMismatch.selector, "data"));
         script.verify(tampered);
+    }
+
+    function testPostStateRefusesAMissingRecord() external {
+        (MigrateMultisigThresholdHarness script,) = fork(LibRainDeploy.BASE, "unrecorded");
+        vm.expectRevert(abi.encodeWithSelector(RecordMismatch.selector, ID, block.timestamp, 0));
+        script.callAssertPostState();
+        script.run();
+        script.callAssertPostState();
     }
 }

@@ -39,6 +39,14 @@ library LibMigrationLineFork {
         LibMigrationRegistry.approveV3(LibStoxMigrations.NAMESPACE, delegate);
     }
 
+    /// @notice `WRITER` withdraws `delegate`'s approval.
+    /// @param vm The cheatcodes.
+    /// @param delegate The account revoked.
+    function revoke(Vm vm, address delegate) internal {
+        vm.prank(LibStoxMigrations.WRITER);
+        LibMigrationRegistry.revokeV3(LibStoxMigrations.NAMESPACE, delegate);
+    }
+
     /// @notice `WRITER` records every migration before `declared`, so the
     /// line's head is `declared.onto`.
     /// @param vm The cheatcodes.

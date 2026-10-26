@@ -39,7 +39,10 @@ contract MigrateGovernanceToTimelockHarness is MigrateGovernanceToTimelock {
     function callAssertPostState() external view {
         _assertPostState(
             Safe(payable(LibSafeInvariants.safeForChainId(block.chainid))),
-            activeChainTimelock(), activeChainAuthoriser(), tokensForActiveChain(), _beaconImplementations()
+            activeChainTimelock(),
+            activeChainAuthoriser(),
+            tokensForActiveChain(),
+            _beaconImplementations()
         );
     }
 

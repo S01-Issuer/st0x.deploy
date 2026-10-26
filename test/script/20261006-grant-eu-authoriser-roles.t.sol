@@ -8,6 +8,7 @@ import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
 import {SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
 
 import {
+    EuAuthoriserNotDeployed,
     SafeMissingRoleAdmin,
     SafeStillHoldsAdmin,
     grantEuAuthoriserRolesDeclaration
@@ -18,7 +19,12 @@ import {LibEuAuthoriserClone} from "../../src/lib/LibEuAuthoriserClone.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
-import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
+import {
+    LibStoxMigrations,
+    RecordMismatch,
+    SafeNotApprovedWriter,
+    UnexpectedMigrationLine
+} from "../../src/lib/LibStoxMigrations.sol";
 import {LibMigrationLineFork} from "../lib/LibMigrationLineFork.sol";
 
 contract GrantEuAuthoriserRolesTest is Test {
@@ -98,6 +104,42 @@ contract GrantEuAuthoriserRolesTest is Test {
         vm.prank(timelock());
         eu().grantRole(admin, LibSafeInvariants.safeForChainId(block.chainid));
         vm.expectRevert(abi.encodeWithSelector(SafeStillHoldsAdmin.selector, admin));
+        script.callAssertPostState();
+    }
+
+    function testPreflightRefusesForeignCodeAtTheClone() external {
+        GrantEuAuthoriserRolesHarness script = fork(LibRainDeploy.BASE, "foreignCode");
+        script.callPreflight();
+        vm.etch(address(eu()), hex"00");
+        vm.expectRevert(abi.encodeWithSelector(EuAuthoriserNotDeployed.selector, address(eu())));
+        script.callPreflight();
+    }
+
+    function testPreflightRefusesAnUnapprovedSafe() external {
+        GrantEuAuthoriserRolesHarness script = fork(LibRainDeploy.BASE, "unapproved");
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        LibMigrationLineFork.revoke(vm, safe);
+        vm.expectRevert(abi.encodeWithSelector(SafeNotApprovedWriter.selector, safe));
+        script.callPreflight();
+    }
+
+    function testPreflightRefusesAHeadThatIsNotItsOnto() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        LibMigrationLineFork.approve(vm, LibSafeInvariants.safeForChainId(block.chainid));
+        GrantEuAuthoriserRolesHarness script = new GrantEuAuthoriserRolesHarness("wrongHead");
+        bytes32 head = LibStoxMigrations.head();
+        assertNotEq(head, grantEuAuthoriserRolesDeclaration().onto);
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, head));
+        script.callPreflight();
+    }
+
+    function testPostStateRefusesAMissingRecord() external {
+        GrantEuAuthoriserRolesHarness script = fork(LibRainDeploy.BASE, "unrecorded");
+        vm.expectRevert(
+            abi.encodeWithSelector(RecordMismatch.selector, grantEuAuthoriserRolesDeclaration().id, block.timestamp, 0)
+        );
+        script.callAssertPostState();
+        script.run();
         script.callAssertPostState();
     }
 }

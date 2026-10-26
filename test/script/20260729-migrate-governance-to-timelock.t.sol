@@ -479,7 +479,9 @@ contract MigrateGovernanceToTimelockTest is Test {
             )
         );
         script.callAssertPostState();
+        uint256 runAt = block.timestamp;
         script.run();
+        vm.warp(runAt);
         script.callAssertPostState();
     }
 

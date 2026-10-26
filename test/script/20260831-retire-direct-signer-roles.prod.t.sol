@@ -12,6 +12,8 @@ import {
     OrchestratorPathNotEnabled,
     TimelockMissingRoleAdminForRetire,
     RetireInsideDelay,
+    RetireNotScheduled,
+    RegrantNotRestored,
     retireDirectSignerRolesDeclaration
 } from "../../script/20260831-retire-direct-signer-roles.s.sol";
 import {orchestratorAdminToTimelockDeclaration} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
@@ -22,7 +24,12 @@ import {IST0xOrchestratorV1} from "../../src/interface/deprecated/IST0xOrchestra
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
-import {LibStoxMigrations, SafeNotApprovedWriter, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
+import {
+    LibStoxMigrations,
+    RecordMismatch,
+    SafeNotApprovedWriter,
+    UnexpectedMigrationLine
+} from "../../src/lib/LibStoxMigrations.sol";
 import {LibMigrationLineFork} from "../lib/LibMigrationLineFork.sol";
 
 contract RetireDirectSignerRolesProdTest is Test {
@@ -184,5 +191,50 @@ contract RetireDirectSignerRolesProdTest is Test {
         vm.mockCall(orchestrator, abi.encodeCall(IST0xOrchestratorV1.vaultLogicIsExpected, ()), abi.encode(false));
         vm.expectRevert(abi.encodeWithSelector(OrchestratorVaultLogicUnexpected.selector, orchestrator));
         script.verify("missing-artifact.json");
+    }
+
+    function operationId(RetireDirectSignerRolesHarness script) internal view returns (bytes32) {
+        (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
+            script.callOperation(address(authoriser()), address(timelock()));
+        return timelock().hashOperationBatch(targets, values, payloads, bytes32(0), RETIRE_SALT);
+    }
+
+    function testPostStateRefusesABatchNotPendingInsideItsDelay() external {
+        RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "notScheduled");
+        bytes32 id = operationId(script);
+        vm.expectRevert(abi.encodeWithSelector(RetireNotScheduled.selector, id));
+        script.callAssertPostState();
+        script.run();
+        script.callAssertPostState();
+        vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        vm.expectRevert(abi.encodeWithSelector(RetireNotScheduled.selector, id));
+        script.callAssertPostState();
+    }
+
+    function testPostStateRefusesARecordFromAnotherBlock() external {
+        RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "staleRecord");
+        script.run();
+        vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        script.run();
+        script.callAssertPostState();
+        uint256 recordedAt = block.timestamp;
+        vm.warp(recordedAt + 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RecordMismatch.selector, retireDirectSignerRolesDeclaration().id, recordedAt + 1, recordedAt
+            )
+        );
+        script.callAssertPostState();
+    }
+
+    function testRunRefusesARegrantThatDoesNotRestoreDeposit() external {
+        RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "regrant");
+        vm.mockCall(
+            address(authoriser()),
+            abi.encodeCall(IAccessControl.hasRole, (keccak256("DEPOSIT"), SIGNER)),
+            abi.encode(false)
+        );
+        vm.expectRevert(RegrantNotRestored.selector);
+        script.run();
     }
 }

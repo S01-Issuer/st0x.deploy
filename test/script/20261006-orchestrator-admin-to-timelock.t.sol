@@ -16,6 +16,7 @@ import {LibSafeTxBuilderJson} from "rain-deploy-0.1.22/src/lib/LibSafeTxBuilderJ
 
 import {
     EmergencyNotGranted,
+    SafeStillAdmin,
     orchestratorAdminToTimelockDeclaration
 } from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
@@ -264,6 +265,30 @@ contract OrchestratorAdminToTimelockTest is Test {
                 RecordMismatch.selector, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK, recordedAt + 1, recordedAt
             )
         );
+        script.callAssertPostState();
+    }
+
+    function testBundleSkipsTheGrantWhenTheTimelockIsAlreadyAdmin() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        approveSafe(safe);
+        OrchestratorAdminToTimelockHarness script = new OrchestratorAdminToTimelockHarness("timelockAdmin");
+        assertEq(script.callAuthorBundle().length, 3);
+        vm.prank(safe);
+        ORCHESTRATOR.grantRole(bytes32(0), timelock);
+        SafeTx[] memory txs = script.callAuthorBundle();
+        assertEq(txs.length, 2);
+        assertEq(txs[0].data, abi.encodeCall(IAccessControl.renounceRole, (bytes32(0), safe)));
+    }
+
+    function testPostStateRefusesASafeStillAdmin() external {
+        OrchestratorAdminToTimelockHarness script = executedMove();
+        if (address(script) == address(0)) return;
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        vm.prank(LibTimelockInvariants.timelockForChainId(block.chainid));
+        ORCHESTRATOR.grantRole(bytes32(0), safe);
+        vm.expectRevert(abi.encodeWithSelector(SafeStillAdmin.selector, safe));
         script.callAssertPostState();
     }
 

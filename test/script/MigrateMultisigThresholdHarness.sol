@@ -26,4 +26,8 @@ contract MigrateMultisigThresholdHarness is MigrateMultisigThreshold {
     function callAuthorBundle() external view returns (SafeTx[] memory) {
         return authorBundle();
     }
+
+    function callAssertPostState() external view {
+        assertPostState();
+    }
 }
