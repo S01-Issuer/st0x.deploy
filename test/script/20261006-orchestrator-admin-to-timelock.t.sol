@@ -210,28 +210,28 @@ contract OrchestratorAdminToTimelockTest is Test {
     }
 
     /// @notice Executes the move on a Base fork where it has not run yet.
-    /// @return script The harness, for its post-state check.
-    /// @return executed False when the move already ran on the chain.
-    function executedMove() internal returns (OrchestratorAdminToTimelockHarness script, bool executed) {
+    /// @return The harness, for its post-state check, or the zero harness when
+    /// the move already ran on the chain.
+    function executedMove() internal returns (OrchestratorAdminToTimelockHarness) {
         vm.createSelectFork(LibRainDeploy.BASE);
         if (LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) != 0) {
             console2.log("SPENT: the admin move has executed on this chain");
-            return (script, false);
+            return OrchestratorAdminToTimelockHarness(address(0));
         }
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         approveSafe(safe);
-        script = new OrchestratorAdminToTimelockHarness("post-state");
+        OrchestratorAdminToTimelockHarness script = new OrchestratorAdminToTimelockHarness("post-state");
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), script.callAuthorBundle());
         // Control: the move's own state passes.
         script.callAssertPostState();
-        return (script, true);
+        return script;
     }
 
     /// @notice The post-state check refuses a line whose head is not the
     /// admin move.
     function testPostStateRefusesAnotherHead() external {
-        (OrchestratorAdminToTimelockHarness script, bool executed) = executedMove();
-        if (!executed) return;
+        OrchestratorAdminToTimelockHarness script = executedMove();
+        if (address(script) == address(0)) return;
         bytes32 next = keccak256("script/next.s.sol");
         (address registry, bytes memory data) = LibMigrationRegistry.applyMigrationV3Call(
             LibStoxMigrations.WRITER,
@@ -249,8 +249,8 @@ contract OrchestratorAdminToTimelockTest is Test {
     /// @notice The post-state check refuses a record stamped in another
     /// block.
     function testPostStateRefusesARecordFromAnotherBlock() external {
-        (OrchestratorAdminToTimelockHarness script, bool executed) = executedMove();
-        if (!executed) return;
+        OrchestratorAdminToTimelockHarness script = executedMove();
+        if (address(script) == address(0)) return;
         uint256 recordedAt = block.timestamp;
         vm.warp(recordedAt + 1);
         vm.expectRevert(
