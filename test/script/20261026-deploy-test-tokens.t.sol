@@ -34,6 +34,7 @@ import {
     RbacOwnerMismatch,
     TestTokenAuthoriserMismatch,
     TestTokenNotLanded,
+    TestTokenOffPin,
     TestTokenOwnerMismatch
 } from "../../script/20261026-deploy-test-tokens.s.sol";
 import {
@@ -480,5 +481,83 @@ contract DeployTestTokensTest is Test {
             )
         );
         script.assertLanded(Region.US);
+    }
+
+    function mockBuild(bytes32 beaconName, bytes memory data, address built) internal {
+        vm.mockCall(
+            LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS,
+            abi.encodeCall(
+                ICloneableFactoryV6.registryBeaconProxy,
+                (
+                    LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS,
+                    LibStoxConfig.ROOT_AUTHORITY,
+                    beaconName,
+                    data,
+                    bytes32(0)
+                )
+            ),
+            abi.encode(built)
+        );
+    }
+
+    function testRunRefusesTokenBuiltOffPin() external {
+        setUpChain(LibSafeInvariants.BASE_CHAIN_ID);
+        address off = makeAddr("off-pin-token");
+        mockBuild(LibStoxConfig.VAULT_BEACON_NAME, LibStoxTestTokens.vaultData(Region.US), off);
+        vm.expectRevert(abi.encodeWithSelector(TestTokenOffPin.selector, Region.US, LibStoxTestTokens.US_TOKEN, off));
+        script.run();
+    }
+
+    function testRunRefusesWrapperBuiltOffPin() external {
+        setUpChain(LibSafeInvariants.BASE_CHAIN_ID);
+        address off = makeAddr("off-pin-wrapper");
+        mockBuild(LibStoxConfig.WRAPPER_BEACON_NAME, abi.encode(LibStoxTestTokens.EU_TOKEN), off);
+        vm.expectRevert(abi.encodeWithSelector(TestTokenOffPin.selector, Region.EU, LibStoxTestTokens.EU_WRAPPER, off));
+        script.run();
+    }
+
+    /// The run checks each region's token after building: a token another
+    /// caller built, whose owner then reads off the timelock, fails the run.
+    function checkRunRefusesOwnerAfterBuild(Region region, address token) internal {
+        setUpChain(LibSafeInvariants.BASE_CHAIN_ID);
+        address built = factory()
+            .registryBeaconProxy(
+                LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS,
+                LibStoxConfig.ROOT_AUTHORITY,
+                LibStoxConfig.VAULT_BEACON_NAME,
+                LibStoxTestTokens.vaultData(region),
+                bytes32(0)
+            );
+        assertEq(built, token);
+        address other = makeAddr("other-owner");
+        vm.mockCall(token, abi.encodeCall(Ownable.owner, ()), abi.encode(other));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TestTokenOwnerMismatch.selector, region, LibTimelockInvariants.timelockForChainId(block.chainid), other
+            )
+        );
+        script.run();
+    }
+
+    function testRunChecksUsLanded() external {
+        checkRunRefusesOwnerAfterBuild(Region.US, LibStoxTestTokens.US_TOKEN);
+    }
+
+    function testRunChecksEuLanded() external {
+        checkRunRefusesOwnerAfterBuild(Region.EU, LibStoxTestTokens.EU_TOKEN);
+    }
+
+    /// The run pre-flights before it builds: a US RBAC owned off the timelock
+    /// stops it at the RBAC check, not after a token is built.
+    function testRunPreflightsBeforeBuilding() external {
+        setUpChain(LibSafeInvariants.BASE_CHAIN_ID);
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        bindRbac(LibStoxConfig.US_RBAC_NAME, safe, LibAuthoriserInvariants.authoriserForChainId(block.chainid));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RbacOwnerMismatch.selector, Region.US, LibTimelockInvariants.timelockForChainId(block.chainid), safe
+            )
+        );
+        script.run();
     }
 }
