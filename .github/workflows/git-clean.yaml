@@ -3,4 +3,5 @@ on: [push]
 jobs:
   git-clean:
     uses: rainlanguage/rainix/.github/workflows/rainix-copy-artifacts.yaml@main
-    secrets: inherit
+    secrets:
+      CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
