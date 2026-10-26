@@ -21,5 +21,26 @@
       "survivedAfter": 1,
       "notes": "BEFORE 38/46 killed. The 8 survivors there were M15 and M16 (roleId / roleHolderId byte layout), M20 (createDiscoveredContract return contract), M41 and M42 (timelock and orchestrator grant polarity), M44 and M46 (vault and orchestrator beacon transfer kind), M45 (vault beacon upgrade kind). Seven are now killed by tests this run added; M20 is not closable with matchstick, whose data source registry is an address-keyed map that cannot distinguish one create of an address from two, so the behaviour stays unpinned and is filed as #448. One verdict in the first AFTER pass was a flake: M14 scored SURVIVED and kills when run by hand. A stale compile cache was ruled out by experiment (pristine run, then the same mutation with only src changed and the test file mtime pinned backwards, which still killed), leaving container reuse by `docker compose up`; the probe wrapper now tears the container down per probe and the whole pass was re-run under it. The first matrix is discarded and none of its numbers appear here."
     }
+  },
+  {
+    "timestamp": "2026-10-26T11:56:10Z",
+    "commit": "375c716a96cfa26a557d6a368178b49d8f8b5697",
+    "testsAfterCommit": "7a18a1b73fcbf6d8e8b8faaf1862591ac9987495",
+    "publishedTag": "sol-v0.1.30",
+    "commitsAheadOfTag": 473,
+    "scope": "pr:512 (branch 2026-10-26-migrations-root-line): src/lib/LibScriptDeclarations.sol, src/lib/LibStoxMigrations.sol, script/BuildMigrations.sol, the preflight and post-state of script/20261006-orchestrator-admin-to-timelock.s.sol, and LibOrchestratorInvariants.migrationRecorded. 40 mutants run against the non-fork migration suites with migrations.json regenerated inside the suite command; 8 against the Base fork suites (OrchestratorAdminToTimelockTest, LibOrchestratorInvariantsTest) over a public RPC.",
+    "tool": "adversarial-mutation-test",
+    "skillVersion": "0.35.0",
+    "summary": {
+      "behaviours": 48,
+      "candidates": 0,
+      "confirmed": 0,
+      "filed": [],
+      "killedBefore": 46,
+      "survivedBefore": 2,
+      "killedAfter": 48,
+      "survivedAfter": 0,
+      "notes": "BEFORE at 375c716a, 46/48 killed by pre-existing tests. The 2 survivors were the admin move post-state checks: the line head must be the move (LineHeadMismatch) and the record must be stamped in this block (RecordMismatch). testPostStateRefusesAnotherHead and testPostStateRefusesARecordFromAnotherBlock kill them. AFTER at 7a18a1b7, the 8 fork mutants were re-probed (8/8); the 40 local mutants were not re-run because the added tests sit only in the fork suite. No equivalent mutants and no adversarial candidates."
+    }
   }
 ]
