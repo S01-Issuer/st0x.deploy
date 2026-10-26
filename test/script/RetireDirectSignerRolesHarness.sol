@@ -17,8 +17,8 @@ contract RetireDirectSignerRolesHarness is RetireDirectSignerRoles {
     }
 
     /// @notice The script's `authorBundle()`, externally callable.
-    function callAuthorBundle(address authoriser, address safeAddr) external view returns (SafeTx[] memory) {
-        return authorBundle(authoriser, safeAddr);
+    function callAuthorBundle() external view returns (SafeTx[] memory) {
+        return authorBundle();
     }
 
     /// @notice The script's `assertPostRetireState()`, externally callable.

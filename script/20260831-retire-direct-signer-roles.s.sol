@@ -2,75 +2,87 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
+import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
+import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.22/src/abstract/SafeBundleScript.sol";
+import {SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.22/src/lib/LibSafeFork.sol";
+
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
-import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {LibSafeTx, SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.22/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.22/src/lib/LibSafeTxBuilderJson.sol";
-import {LibSafe} from "rain-deploy-0.1.22/src/lib/LibSafe.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+import {orchestratorAdminToTimelockDeclaration} from "./20261006-orchestrator-admin-to-timelock.s.sol";
 
 /// @notice The orchestrator mint/burn path is not fully enabled on this
 /// chain — retiring the signer's direct roles now would leave NO working
-/// mint/burn path. Execute `20260831-enable-orchestrator-roles` (and give
-/// the orchestrator its burn-in) first.
+/// mint/burn path.
 /// @param holder The principal missing a role.
 /// @param role The role it must hold before retirement can be authored.
 error OrchestratorPathNotEnabled(address holder, bytes32 role);
 
-/// @notice The Safe does not hold the `_ADMIN` role needed to revoke a
-/// grant in the bundle.
+/// @notice The timelock does not hold the `_ADMIN` role needed to revoke a
+/// role the signer still holds.
 /// @param adminRole The missing `_ADMIN` role.
-error SafeMissingRoleAdminForRetire(bytes32 adminRole);
+error TimelockMissingRoleAdminForRetire(bytes32 adminRole);
 
-/// @notice The signer holds neither direct vault role — the retirement has
-/// executed on this chain and a re-dispatch has nothing to author.
-error DirectSignerRolesAlreadyRetired();
+/// @notice The retirement is scheduled and still inside its delay.
+/// @param id The timelock operation.
+error RetireInsideDelay(bytes32 id);
+
+/// @notice After the schedule bundle, the retirement is not pending inside
+/// its delay.
+/// @param id The timelock operation.
+error RetireNotScheduled(bytes32 id);
+
+/// @notice The re-grant through the timelock did not restore the signer's
+/// direct `DEPOSIT`.
+error RegrantNotRestored();
+
+/// @notice This script's declaration: the line's record after the
+/// orchestrator admin move.
+/// @return The declaration.
+function retireDirectSignerRolesDeclaration() pure returns (ScriptDeclaration memory) {
+    return LibStoxMigrations.migrationOnto(
+        keccak256("script/20260831-retire-direct-signer-roles.s.sol"), orchestratorAdminToTimelockDeclaration().id
+    );
+}
 
 /// @title RetireDirectSignerRoles
-/// @notice Authors the per-chain Safe Tx Builder bundle that
-/// closes the parallel burn-in window opened by
-/// `20260831-enable-orchestrator-roles`: revoke the service signer's DIRECT
-/// `DEPOSIT` and `WITHDRAW` on the authoriser, leaving the orchestrator as
-/// the only mint/burn path the signer can drive. Run this ONLY once the
-/// orchestrator has proven itself in production — the split from the
-/// enable bundle exists precisely so this step can wait.
+/// @notice Authors the per-chain Safe bundles that retire the service
+/// signer's DIRECT `DEPOSIT` and `WITHDRAW` on the authoriser, leaving the
+/// orchestrator as the only mint/burn path the signer can drive. The
+/// authoriser's `_ADMIN` roles are on the governance timelock, so the
+/// retirement is one timelock batch:
+///
+/// 1. `authoriser.revokeRole(role, signer)` for each of `DEPOSIT` and
+///    `WITHDRAW` the signer still holds.
+/// 2. `registry.applyMigrationV3(WRITER, NAMESPACE, <this script>,
+///    [orchestrator admin move])`, written by the timelock as
+///    `LibStoxMigrations.WRITER`'s approved delegate, so the record lands
+///    with the revokes whoever executes the matured batch.
+///
+/// The bundle is the stage the timelock is at: `scheduleBatch` when the batch
+/// is not scheduled, `executeBatch` once it is ready. A batch inside its delay
+/// refuses (`RetireInsideDelay`).
 ///
 /// Deliberately untouched: the signer's `CERTIFY` (the orchestrator has no
-/// certify surface) and the Safe's own three direct action roles (the
-/// break-glass path).
+/// certify surface) and the Safe's own three direct action roles.
 ///
 /// @dev Dispatch via `Actions → run-script` with
-/// `script = 20260831-retire-direct-signer-roles` per chain; sign and
-/// execute the artifact in the Safe UI. Pre-flight refuses to author unless
-/// the orchestrator path is FULLY enabled on the chain — the orchestrator
-/// holds both vault roles and the signer holds `MINT`/`BURN` on it
-/// (`OrchestratorPathNotEnabled`) — so the retirement can never strand a
-/// chain with no working mint path. Self-scoping; a retired chain refuses
-/// (`DirectSignerRolesAlreadyRetired`).
-///
-/// **SUPERSEDED.** The revokes need the vault `_ADMIN`s, and
-/// `20260729-migrate-governance-to-timelock` moved them to the timelock on
-/// every chain before this script was dispatched, so it now refuses
-/// (`SafeMissingRoleAdminForRetire`) everywhere. The retirement has to be
-/// authored as a timelock operation (Safe schedules the same two revokes,
-/// 48h, execute) in a new dated script. This one stays registered so its
-/// refusal can be re-derived.
-contract RetireDirectSignerRoles is Script, IStoxScript {
+/// `script = 20260831-retire-direct-signer-roles` per chain, once to schedule
+/// and again after `TIMELOCK_MIN_DELAY` to execute. Pre-flight refuses unless
+/// the orchestrator path is FULLY enabled (`OrchestratorPathNotEnabled`).
+contract RetireDirectSignerRoles is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
-    /// @dev It refuses on every chain, so it writes no record.
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.notAMigration();
+        return retireDirectSignerRolesDeclaration();
     }
 
     /// @notice The service signer whose direct vault access retires.
@@ -80,20 +92,37 @@ contract RetireDirectSignerRoles is Script, IStoxScript {
     bytes32 internal constant ORCHESTRATOR_MINT_ROLE = keccak256("MINT");
     bytes32 internal constant ORCHESTRATOR_BURN_ROLE = keccak256("BURN");
 
-    /// @notice Signer-visible `meta.name` for the emitted bundle.
-    string internal constant BUNDLE_NAME = "ST0x retire: service signer's direct vault roles (orchestrator proven)";
+    /// @notice The retirement batch's salt.
+    bytes32 internal constant RETIRE_SALT = keccak256("st0x.retire-direct-signer-roles.20260831");
 
-    /// @notice Chain-suffixed artifact path.
-    /// @return path The artifact path for the ACTIVE chain.
-    function artifactPath() internal view virtual returns (string memory path) {
-        path = string.concat("out/20260831-retire-direct-signer-roles-", vm.toString(block.chainid), ".json");
+    /// @notice Salt for the fork-only re-grant proof.
+    bytes32 internal constant PROOF_SALT = keccak256("st0x.retire-direct-signer-roles.proof");
+
+    /// @inheritdoc SafeBundleScript
+    function bundleName() internal pure override returns (string memory) {
+        return "ST0x retire: service signer's direct vault roles, through the timelock";
     }
 
-    /// @notice The burn-in gate: the orchestrator path must be FULLY enabled
-    /// before the direct path retires — the orchestrator holds both vault
-    /// roles on the authoriser and the signer holds both operational roles
-    /// on the orchestrator. Reverts `OrchestratorPathNotEnabled` naming the
-    /// first missing (holder, role).
+    /// @inheritdoc SafeBundleScript
+    function artifactPath() internal view virtual override returns (string memory) {
+        return string.concat("out/20260831-retire-direct-signer-roles-", vm.toString(block.chainid), ".json");
+    }
+
+    /// @inheritdoc SafeBundleScript
+    function safe() internal view override returns (Safe) {
+        return Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
+    }
+
+    /// @notice The chain's governance timelock.
+    /// @return The timelock.
+    function timelock() internal view returns (TimelockController) {
+        return TimelockController(payable(LibTimelockInvariants.timelockForChainId(block.chainid)));
+    }
+
+    /// @notice The burn-in gate: the orchestrator holds both vault roles on
+    /// the authoriser and the signer holds both operational roles on the
+    /// orchestrator. Reverts `OrchestratorPathNotEnabled` naming the first
+    /// missing (holder, role).
     /// @param acl The authoriser's access-control surface.
     /// @param orchestrator The orchestrator instance.
     function assertOrchestratorPathEnabled(IAccessControl acl, address orchestrator) internal view {
@@ -112,49 +141,95 @@ contract RetireDirectSignerRoles is Script, IStoxScript {
         }
     }
 
-    /// @notice Pre-flight the principals and self-scope the bundle: one
-    /// `revokeRole` per direct role the signer still holds. Refuses when
-    /// the Safe lacks an `_ADMIN` it needs or when nothing remains
-    /// (`DirectSignerRolesAlreadyRetired`).
+    /// @notice The retirement batch from live state: one `revokeRole` per
+    /// direct role the signer still holds, then the record. Refuses a revoke
+    /// the timelock cannot make.
     /// @param authoriser The chain's authoriser clone.
-    /// @param safeAddr The chain's token-owner Safe.
-    /// @return The self-scoped revoke transactions.
-    function authorBundle(address authoriser, address safeAddr) internal view returns (SafeTx[] memory) {
+    /// @param controller The chain's governance timelock.
+    /// @return The batch's targets.
+    /// @return The batch's values.
+    /// @return The batch's payloads.
+    function operation(address authoriser, address controller)
+        internal
+        view
+        returns (address[] memory, uint256[] memory, bytes[] memory)
+    {
         IAccessControl acl = IAccessControl(authoriser);
-
-        if (!acl.hasRole(keccak256("DEPOSIT_ADMIN"), safeAddr)) {
-            revert SafeMissingRoleAdminForRetire(keccak256("DEPOSIT_ADMIN"));
-        }
-        if (!acl.hasRole(keccak256("WITHDRAW_ADMIN"), safeAddr)) {
-            revert SafeMissingRoleAdminForRetire(keccak256("WITHDRAW_ADMIN"));
-        }
-
-        SafeTx[] memory candidates = new SafeTx[](2);
-        uint256 count = 0;
         bytes32[2] memory roles = [keccak256("DEPOSIT"), keccak256("WITHDRAW")];
+        bytes32[2] memory admins = [keccak256("DEPOSIT_ADMIN"), keccak256("WITHDRAW_ADMIN")];
+        uint256 count = 0;
         for (uint256 i = 0; i < roles.length; i++) {
             if (acl.hasRole(roles[i], SERVICE_SIGNER)) {
-                candidates[count++] = SafeTx({
-                    to: authoriser,
-                    value: 0,
-                    data: abi.encodeCall(IAccessControl.revokeRole, (roles[i], SERVICE_SIGNER)),
-                    operation: Enum.Operation.Call
-                });
+                if (!acl.hasRole(admins[i], controller)) revert TimelockMissingRoleAdminForRetire(admins[i]);
+                count++;
             }
         }
-        if (count == 0) {
-            revert DirectSignerRolesAlreadyRetired();
+        address[] memory targets = new address[](count + 1);
+        uint256[] memory values = new uint256[](count + 1);
+        bytes[] memory payloads = new bytes[](count + 1);
+        uint256 next = 0;
+        for (uint256 i = 0; i < roles.length; i++) {
+            if (acl.hasRole(roles[i], SERVICE_SIGNER)) {
+                targets[next] = authoriser;
+                payloads[next] = abi.encodeCall(IAccessControl.revokeRole, (roles[i], SERVICE_SIGNER));
+                next++;
+            }
         }
-        SafeTx[] memory txs = new SafeTx[](count);
-        for (uint256 i = 0; i < count; i++) {
-            txs[i] = candidates[i];
-        }
+        (targets[count], payloads[count]) = LibStoxMigrations.recordCall(retireDirectSignerRolesDeclaration());
+        return (targets, values, payloads);
+    }
+
+    /// @notice The live retirement batch's timelock operation id.
+    /// @return The id.
+    function operationId() internal view returns (bytes32) {
+        TimelockController controller = timelock();
+        (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
+            operation(LibAuthoriserInvariants.activeChainAuthoriser(), address(controller));
+        return controller.hashOperationBatch(targets, values, payloads, bytes32(0), RETIRE_SALT);
+    }
+
+    /// @inheritdoc SafeBundleScript
+    /// @dev The Safe, timelock, orchestrator and grant map are what this repo
+    /// pins, the orchestrator path is enabled, this is the line's next record
+    /// and the timelock may write it, and the batch is not inside its delay.
+    function preflight() internal view override {
+        address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+        address controller = address(timelock());
+        LibTimelockInvariants.assertTimelockState(controller, chainSafe);
+        address authoriser = LibAuthoriserInvariants.activeChainAuthoriser();
+        LibOrchestratorInvariants.assertBeaconSet();
+        LibOrchestratorInvariants.assertInstance();
+        assertOrchestratorPathEnabled(IAccessControl(authoriser), LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
+        LibAuthoriserInvariants.assertExpectedGrants(authoriser, chainSafe, controller);
+        LibStoxMigrations.assertNext(retireDirectSignerRolesDeclaration(), controller);
+
+        bytes32 id = operationId();
+        if (timelock().isOperationPending(id) && !timelock().isOperationReady(id)) revert RetireInsideDelay(id);
+    }
+
+    /// @inheritdoc SafeBundleScript
+    /// @dev `scheduleBatch` if the batch is not scheduled, else
+    /// `executeBatch`.
+    function authorBundle() internal view override returns (SafeTx[] memory) {
+        TimelockController controller = timelock();
+        (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
+            operation(LibAuthoriserInvariants.activeChainAuthoriser(), address(controller));
+        bytes memory data = controller.isOperation(
+                controller.hashOperationBatch(targets, values, payloads, bytes32(0), RETIRE_SALT)
+            )
+            ? abi.encodeCall(TimelockController.executeBatch, (targets, values, payloads, bytes32(0), RETIRE_SALT))
+            : abi.encodeCall(
+                TimelockController.scheduleBatch,
+                (targets, values, payloads, bytes32(0), RETIRE_SALT, LibTimelockInvariants.TIMELOCK_MIN_DELAY)
+            );
+        SafeTx[] memory txs = new SafeTx[](1);
+        txs[0] = SafeTx({to: address(controller), value: 0, data: data, operation: Enum.Operation.Call});
         return txs;
     }
 
-    /// @notice Assert the post-retirement state on the active fork: the
-    /// signer holds neither direct vault role, its `CERTIFY` and every
-    /// other canonical row survive, and the orchestrator path is intact.
+    /// @notice The retired state: the signer holds neither direct vault role,
+    /// every row of the grant map survives, and the orchestrator path is
+    /// intact.
     /// @param acl The authoriser's access-control surface.
     /// @param orchestrator The orchestrator instance.
     /// @param safeAddr The chain's token-owner Safe.
@@ -174,104 +249,65 @@ contract RetireDirectSignerRoles is Script, IStoxScript {
         assertOrchestratorPathEnabled(acl, orchestrator);
     }
 
-    /// @notice Author the retirement bundle for the active chain: see the
-    /// contract-level flow. Does not broadcast — execution happens via the
-    /// Safe UI using the emitted artifact.
-    function run() external {
-        // --- Pre-flight ---------------------------------------------------
-
-        address safeAddr = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
-        Safe safe = Safe(payable(safeAddr));
-        address authoriser = LibAuthoriserInvariants.activeChainAuthoriser();
-        IAccessControl acl = IAccessControl(authoriser);
-
-        LibOrchestratorInvariants.assertBeaconSet();
-        LibOrchestratorInvariants.assertInstance();
-        address orchestrator = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
-
-        // The burn-in gate: no retirement without a fully-enabled
-        // orchestrator path.
-        assertOrchestratorPathEnabled(acl, orchestrator);
-
-        LibAuthoriserInvariants.assertExpectedGrants(
-            authoriser, safeAddr, LibTimelockInvariants.timelockForChainId(block.chainid)
-        );
-
-        // --- Build the bundle ----------------------------------------------
-
-        SafeTx[] memory txs = authorBundle(authoriser, safeAddr);
-
-        uint256 nonce = safe.nonce();
-        bytes32 bundleSafeTxHash = LibSafeTx.multiSendSafeTxHash(safe, txs, nonce);
-
-        // --- Simulate -----------------------------------------------------
-
-        for (uint256 i = 0; i < txs.length; i++) {
-            LibSafeFork.simulateCall(vm, safe, txs[i].to, txs[i].data);
-        }
-
-        // --- Post-state ---------------------------------------------------
-
-        assertPostRetireState(acl, orchestrator, safeAddr);
-        LibSafe.assertLockedDown(safe);
-        LibSafe.assertThreshold(safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
-
-        // --- Artifact -----------------------------------------------------
-
-        string memory json = LibSafeTxBuilderJson.toJson(vm, safeAddr, block.chainid, BUNDLE_NAME, txs);
-        vm.writeFile(artifactPath(), json);
-
-        console2.log("==== TX BUILDER JSON BEGIN ====");
-        console2.log(json);
-        console2.log("==== TX BUILDER JSON END ====");
-        console2.log("Bundle MultiSend SafeTxHash:", vm.toString(bundleSafeTxHash));
-        console2.log("Nonce:", nonce);
-        console2.log("Bundle item count:", txs.length);
-        console2.log("Chain:", block.chainid);
-        console2.log("Service signer:", SERVICE_SIGNER);
-
-        // --- n+1 reversal proof --------------------------------------------
-
-        // The retirement is fully reversible under the `_ADMIN`s the Safe
-        // holds: prove the re-grant clears the live threshold, then
-        // re-revoke so the fork ends retired.
-        LibSafeFork.simulateNPlus1(
-            vm, safe, authoriser, abi.encodeCall(IAccessControl.grantRole, (keccak256("DEPOSIT"), SERVICE_SIGNER))
-        );
-        require(
-            acl.hasRole(keccak256("DEPOSIT"), SERVICE_SIGNER),
-            "RetireDirectSignerRoles: n+1 re-grant did not restore the role"
-        );
-        LibSafeFork.simulateCall(
-            vm, safe, authoriser, abi.encodeCall(IAccessControl.revokeRole, (keccak256("DEPOSIT"), SERVICE_SIGNER))
-        );
-        console2.log(
-            "n+1 reversal check passed: the Safe can restore (and re-retire) the fallback under the live threshold"
+    /// @notice The executed batch's state: its record and the retired state.
+    function assertExecuted() internal view {
+        LibStoxMigrations.assertRecorded(retireDirectSignerRolesDeclaration());
+        assertPostRetireState(
+            IAccessControl(LibAuthoriserInvariants.activeChainAuthoriser()),
+            LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE,
+            address(safe())
         );
     }
 
-    /// @notice Signer-side integrity check for a CI-authored retirement
-    /// artifact, run LOCALLY against a live fork before signing.
-    /// Deliberately NOT in the run-script dispatcher: it takes a local path
-    /// and runs on the signer's machine.
-    /// @param jsonPath Filesystem path to the downloaded Tx Builder JSON.
-    function verify(string calldata jsonPath) external view {
-        address safeAddr = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
-        Safe safe = Safe(payable(safeAddr));
+    /// @inheritdoc SafeBundleScript
+    /// @dev After `executeBatch`, the executed state; after `scheduleBatch`,
+    /// the batch pending inside its delay. The Safe keeps its policy.
+    function assertPostState() internal view override {
+        LibSafeInvariants.assertTokenOwnerSafePolicy(safe());
+        if (LibStoxMigrations.applied(retireDirectSignerRolesDeclaration().id) != 0) {
+            assertExecuted();
+            return;
+        }
+        bytes32 id = operationId();
+        if (!timelock().isOperationPending(id) || timelock().isOperationReady(id)) revert RetireNotScheduled(id);
+    }
+
+    /// @inheritdoc SafeBundleScript
+    /// @dev After `scheduleBatch`, the batch executes from a roleless address
+    /// once the delay has run and leaves the executed state. Then the Safe can
+    /// restore the signer's direct `DEPOSIT` through the timelock. The fork
+    /// returns to the post-bundle state.
+    function assertReversible() internal override {
+        uint256 postBundle = vm.snapshotState();
+        TimelockController controller = timelock();
         address authoriser = LibAuthoriserInvariants.activeChainAuthoriser();
-        LibOrchestratorInvariants.assertBeaconSet();
-        LibOrchestratorInvariants.assertInstance();
-        assertOrchestratorPathEnabled(IAccessControl(authoriser), LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
+        if (LibStoxMigrations.applied(retireDirectSignerRolesDeclaration().id) == 0) {
+            (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
+                operation(authoriser, address(controller));
+            // forge-lint: disable-next-line(block-timestamp)
+            vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+            vm.prank(address(0xdead));
+            controller.executeBatch(targets, values, payloads, bytes32(0), RETIRE_SALT);
+            assertExecuted();
+        }
 
-        LibAuthoriserInvariants.assertExpectedGrants(
-            authoriser, safeAddr, LibTimelockInvariants.timelockForChainId(block.chainid)
+        bytes memory regrant =
+            abi.encodeCall(IAccessControl.grantRole, (keccak256("DEPOSIT"), SERVICE_SIGNER));
+        LibSafeFork.simulateNPlus1(
+            vm,
+            safe(),
+            address(controller),
+            abi.encodeCall(
+                TimelockController.schedule,
+                (authoriser, 0, regrant, bytes32(0), PROOF_SALT, LibTimelockInvariants.TIMELOCK_MIN_DELAY)
+            )
         );
-        SafeTx[] memory expected = authorBundle(authoriser, safeAddr);
-        LibSafeTxBuilderJson.requireMatches(vm, vm.readFile(jsonPath), safeAddr, expected);
-
-        uint256 nonce = safe.nonce();
-        console2.log("Artifact verified against live state.");
-        console2.log("Bundle MultiSend SafeTxHash:", vm.toString(LibSafeTx.multiSendSafeTxHash(safe, expected, nonce)));
-        console2.log("Nonce:", nonce);
+        // forge-lint: disable-next-line(block-timestamp)
+        vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        vm.prank(address(0xdead));
+        controller.execute(authoriser, 0, regrant, bytes32(0), PROOF_SALT);
+        if (!IAccessControl(authoriser).hasRole(keccak256("DEPOSIT"), SERVICE_SIGNER)) revert RegrantNotRestored();
+        console2.log("Retirement proven: executed through the timelock, and reversible through it");
+        vm.revertToState(postBundle);
     }
 }

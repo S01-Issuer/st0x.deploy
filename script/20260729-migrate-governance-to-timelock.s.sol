@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+import {migrateMultisigThresholdDeclaration} from "./20260619-migrate-multisig-threshold.s.sol";
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
@@ -98,12 +99,6 @@ error MigrationBeaconCodehashMismatch(address beacon, bytes32 expected, bytes32 
 /// @param actual The implementation observed after simulating the bundle.
 error BeaconImplementationMoved(address beacon, address expected, address actual);
 
-/// @notice Every production vault and beacon is already timelock-owned and
-/// every `_ADMIN` role already sits (exclusively) on the timelock — the
-/// migration has fully landed. Dispatching again authors an empty bundle,
-/// which is never meaningful.
-error NothingToMigrate();
-
 /// @notice The migration work selected from live chain state, grouped so
 /// `run()` carries one local for the whole selection rather than four.
 /// @dev Grouping is load-bearing, not cosmetic: `via_ir` is off for this
@@ -127,6 +122,15 @@ struct MigrationTargets {
 /// state.
 /// @param id The timelock operation id that failed to complete.
 error GovernanceLoopNotProven(bytes32 id);
+
+/// @notice This script's declaration: the line's record after the Safe's
+/// threshold.
+/// @return The declaration.
+function migrateGovernanceToTimelockDeclaration() pure returns (ScriptDeclaration memory) {
+    return LibStoxMigrations.migrationOnto(
+        keccak256("script/20260729-migrate-governance-to-timelock.s.sol"), migrateMultisigThresholdDeclaration().id
+    );
+}
 
 /// @title MigrateGovernanceToTimelock
 /// @notice Authors the Safe bundle that hands ST0x governance
@@ -174,7 +178,7 @@ error GovernanceLoopNotProven(bytes32 id);
 /// every `_ADMIN` role's live holders and targets exactly what is still on
 /// the Safe. A partial prior execution resumes cleanly (already-migrated
 /// vaults and roles are skipped; a role held by both sides gets only the
-/// renounce); full completion refuses with `NothingToMigrate`; any state
+/// renounce); full completion authors only the record; any state
 /// outside {Safe, timelock} aborts the authoring with a typed error.
 ///
 /// @dev Flow:
@@ -208,9 +212,8 @@ error GovernanceLoopNotProven(bytes32 id);
 ///    author a bundle that locks governance out.
 contract MigrateGovernanceToTimelock is Script, IStoxScript {
     /// @inheritdoc IStoxScript
-    /// @dev In force on every chain before the line started, so not in it.
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.notAMigration();
+        return migrateGovernanceToTimelockDeclaration();
     }
 
     /// @notice The number of authoriser `_ADMIN` roles the migration moves —
@@ -294,6 +297,7 @@ contract MigrateGovernanceToTimelock is Script, IStoxScript {
 
         address authoriser = activeChainAuthoriser();
         _preflightAuthoriser(authoriser, address(safe), timelock);
+        LibStoxMigrations.assertNext(migrateGovernanceToTimelockDeclaration(), address(safe));
 
         TokenInstance[] memory tokens = tokensForActiveChain();
 
@@ -303,13 +307,6 @@ contract MigrateGovernanceToTimelock is Script, IStoxScript {
         targets.vaults = _selectVaultTargets(tokens, address(safe), timelock);
         targets.beacons = _selectBeaconTargets(address(safe), timelock);
         (targets.grantRoles, targets.renounceRoles) = _selectRoleTargets(authoriser, address(safe), timelock);
-
-        if (
-            targets.vaults.length == 0 && targets.beacons.length == 0 && targets.grantRoles.length == 0
-                && targets.renounceRoles.length == 0
-        ) {
-            revert NothingToMigrate();
-        }
 
         console2.log("Vault transfers:", targets.vaults.length);
         console2.log("Beacon transfers:", targets.beacons.length);
@@ -371,17 +368,12 @@ contract MigrateGovernanceToTimelock is Script, IStoxScript {
         LibTimelockInvariants.assertTimelockState(timelock, address(safe));
         address authoriser = activeChainAuthoriser();
         _preflightAuthoriser(authoriser, address(safe), timelock);
+        LibStoxMigrations.assertNext(migrateGovernanceToTimelockDeclaration(), address(safe));
 
         MigrationTargets memory targets;
         targets.vaults = _selectVaultTargets(tokensForActiveChain(), address(safe), timelock);
         targets.beacons = _selectBeaconTargets(address(safe), timelock);
         (targets.grantRoles, targets.renounceRoles) = _selectRoleTargets(authoriser, address(safe), timelock);
-        if (
-            targets.vaults.length == 0 && targets.beacons.length == 0 && targets.grantRoles.length == 0
-                && targets.renounceRoles.length == 0
-        ) {
-            revert NothingToMigrate();
-        }
 
         _verifyArtifact(safe, _buildBundle(authoriser, timelock, address(safe), targets), jsonPath);
     }
@@ -457,6 +449,7 @@ contract MigrateGovernanceToTimelock is Script, IStoxScript {
         TokenInstance[] memory tokens,
         address[4] memory beaconImplsBefore
     ) internal view {
+        LibStoxMigrations.assertRecorded(migrateGovernanceToTimelockDeclaration());
         LibTokenInvariants.assertUniformOwnership(tokens, timelock);
         LibTokenInvariants.assertUniformAuthoriser(tokens, authoriser);
 
@@ -645,9 +638,9 @@ contract MigrateGovernanceToTimelock is Script, IStoxScript {
 
     /// @notice Build the bundle in the safety-critical order: every grant
     /// first, then every vault transfer, then every beacon transfer, then
-    /// every renounce — the Safe gives nothing up until everything it is
-    /// handing over has landed, and the whole sequence executes atomically
-    /// in one MultiSend.
+    /// every renounce, then the record — the Safe gives nothing up until
+    /// everything it is handing over has landed, and the whole sequence
+    /// executes atomically in one MultiSend.
     /// @param authoriser The chain's authoriser clone.
     /// @param timelock The chain's governance timelock.
     /// @param safe The chain's token-owner Safe.
@@ -655,11 +648,12 @@ contract MigrateGovernanceToTimelock is Script, IStoxScript {
     /// @return txs The bundle transactions in execution order.
     function _buildBundle(address authoriser, address timelock, address safe, MigrationTargets memory targets)
         internal
-        pure
+        view
         returns (SafeTx[] memory txs)
     {
         txs = new SafeTx[](
             targets.grantRoles.length + targets.vaults.length + targets.beacons.length + targets.renounceRoles.length
+                + 1
         );
         uint256 t = 0;
         for (uint256 i = 0; i < targets.grantRoles.length; i++) {
@@ -698,6 +692,7 @@ contract MigrateGovernanceToTimelock is Script, IStoxScript {
             });
             t++;
         }
+        txs[t] = LibStoxMigrations.recordTx(migrateGovernanceToTimelockDeclaration());
     }
 
     /// @notice Prove the post-migration governance loop end-to-end on the
