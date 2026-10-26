@@ -74,6 +74,10 @@ contract BuildPrivilegedAddressesTest is Test {
                 vm.parseJsonAddress(json, string.concat(at, ".authoriser")),
                 LibAuthoriserInvariants.authoriserForChainId(id)
             );
+            assertEq(
+                vm.parseJsonAddress(json, string.concat(at, ".euAuthoriser")),
+                LibAuthoriserInvariants.euAuthoriserForChainId(id)
+            );
         }
     }
 
