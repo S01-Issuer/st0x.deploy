@@ -8,6 +8,7 @@ import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessContro
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
 import {IRegistryDelegatesV1} from "rain-deploy-0.1.22/src/interface/IRegistryDelegatesV1.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.22/src/lib/LibMigrationRegistry.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.22/src/lib/LibMigrationRegistryDeploy.sol";
 import {SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.22/src/lib/LibSafeFork.sol";
@@ -15,6 +16,8 @@ import {LibSafeTxBuilderJson} from "rain-deploy-0.1.22/src/lib/LibSafeTxBuilderJ
 
 import {
     EmergencyNotGranted,
+    LineHeadMismatch,
+    RecordMismatch,
     SafeNotApprovedWriter,
     UnexpectedMigrationLine
 } from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
@@ -204,6 +207,58 @@ contract OrchestratorAdminToTimelockTest is Test {
         ORCHESTRATOR.renounceRole(emergency, safe);
         vm.expectRevert(abi.encodeWithSelector(EmergencyNotGranted.selector));
         script.callPreflight();
+    }
+
+    /// @notice Executes the move on a Base fork where it has not run yet.
+    /// @return script The harness, for its post-state check.
+    /// @return executed False when the move already ran on the chain.
+    function executedMove() internal returns (OrchestratorAdminToTimelockHarness script, bool executed) {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        if (LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) != 0) {
+            console2.log("SPENT: the admin move has executed on this chain");
+            return (script, false);
+        }
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        approveSafe(safe);
+        script = new OrchestratorAdminToTimelockHarness("post-state");
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), script.callAuthorBundle());
+        // Control: the move's own state passes.
+        script.callAssertPostState();
+        return (script, true);
+    }
+
+    /// @notice The post-state check refuses a line whose head is not the
+    /// admin move.
+    function testPostStateRefusesAnotherHead() external {
+        (OrchestratorAdminToTimelockHarness script, bool executed) = executedMove();
+        if (!executed) return;
+        bytes32 next = keccak256("script/next.s.sol");
+        (address registry, bytes memory data) = LibMigrationRegistry.applyMigrationV3Call(
+            LibStoxMigrations.WRITER,
+            LibStoxMigrations.NAMESPACE,
+            next,
+            LibStoxMigrations.onto(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK)
+        );
+        vm.prank(LibStoxMigrations.WRITER);
+        (bool ok,) = registry.call(data);
+        assertTrue(ok, "next record");
+        vm.expectRevert(abi.encodeWithSelector(LineHeadMismatch.selector, next));
+        script.callAssertPostState();
+    }
+
+    /// @notice The post-state check refuses a record stamped in another
+    /// block.
+    function testPostStateRefusesARecordFromAnotherBlock() external {
+        (OrchestratorAdminToTimelockHarness script, bool executed) = executedMove();
+        if (!executed) return;
+        uint256 recordedAt = block.timestamp;
+        vm.warp(recordedAt + 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RecordMismatch.selector, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK, recordedAt + 1, recordedAt
+            )
+        );
+        script.callAssertPostState();
     }
 
     /// @notice External shim: execute a bundle through the Safe so

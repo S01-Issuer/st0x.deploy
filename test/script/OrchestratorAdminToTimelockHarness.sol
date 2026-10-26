@@ -32,6 +32,10 @@ contract OrchestratorAdminToTimelockHarness is OrchestratorAdminToTimelock {
         return authorBundle();
     }
 
+    function callAssertPostState() external view {
+        assertPostState();
+    }
+
     function callArtifactPath() external view returns (string memory) {
         return artifactPath();
     }
