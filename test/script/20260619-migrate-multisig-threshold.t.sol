@@ -87,9 +87,7 @@ contract MigrateMultisigThresholdTest is Test {
         address[] memory owners = safe.getOwners();
         vm.prank(address(safe));
         safe.swapOwner(address(1), owners[0], address(0xBEEF));
-        vm.expectRevert(
-            abi.encodeWithSelector(LibSafe.SafeOwnerMismatch.selector, address(safe), 0, owners[0], address(0xBEEF))
-        );
+        vm.expectRevert(abi.encodeWithSelector(LibSafe.SafeUnexpectedOwner.selector, address(safe), address(0xBEEF)));
         script.run();
     }
 
