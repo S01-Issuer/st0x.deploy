@@ -28,12 +28,13 @@ import {IAuthorizeV1} from "rain-vats-0.2.9/src/interface/IAuthorizeV1.sol";
 
 import {IAuthorisable} from "../../src/interface/IAuthorisable.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
+import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
 import {SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.22/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.22/src/lib/LibSafeTxBuilderJson.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
-import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
+import {LibStoxMigrations, RecordMismatch, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
 import {LibMigrationLineFork} from "../lib/LibMigrationLineFork.sol";
 
 /// @title MigrateGovernanceToTimelockTest
@@ -399,24 +400,87 @@ contract MigrateGovernanceToTimelockTest is Test {
         second.run();
     }
 
-    function testRunRecordsOnlyWhereGovernanceAlreadyMoved() external {
+    /// @notice On live head state the authoring emits exactly what each
+    /// chain still needs, derived here from pre-run state, then the record.
+    function testRunAuthorsOnlyWhatLiveStateStillNeeds() external {
         string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
         for (uint256 i = 0; i < networks.length; i++) {
             vm.createSelectFork(networks[i]);
-            LibMigrationLineFork.approve(vm, LibSafeInvariants.safeForChainId(block.chainid));
+            address safe = LibSafeInvariants.safeForChainId(block.chainid);
+            address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+            LibMigrationLineFork.approve(vm, safe);
             LibMigrationLineFork.recordOnto(vm, migrateGovernanceToTimelockDeclaration());
-            MigrateGovernanceToTimelockHarness script = new MigrateGovernanceToTimelockHarness(
-                LibTimelockInvariants.timelockForChainId(block.chainid), "recordOnly"
-            );
+            SafeTx[] memory expected = _expectedLiveBundle(safe, timelock);
+
+            MigrateGovernanceToTimelockHarness script = new MigrateGovernanceToTimelockHarness(timelock, "liveState");
             script.run();
             (,, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(vm, vm.readFile(script.callArtifactPath()));
-            assertEq(txs.length, 1, networks[i]);
-            (address registry, bytes memory recordData) =
-                LibStoxMigrations.recordCall(migrateGovernanceToTimelockDeclaration());
-            assertEq(txs[0].to, registry);
-            assertEq(txs[0].data, recordData);
+            assertEq(txs.length, expected.length, networks[i]);
+            for (uint256 j = 0; j < txs.length; j++) {
+                assertEq(txs[j].to, expected[j].to, networks[i]);
+                assertEq(txs[j].data, expected[j].data, networks[i]);
+            }
             assertEq(LibStoxMigrations.head(), migrateGovernanceToTimelockDeclaration().id);
         }
+    }
+
+    function _call(address to, bytes memory data) internal pure returns (SafeTx memory) {
+        return SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
+    }
+
+    function _expectedLiveBundle(address safe, address timelock) internal view returns (SafeTx[] memory) {
+        IAccessControl authoriser = IAccessControl(_activeChainAuthoriser());
+        address[] memory vaults = _safeOwnedVaults(safe);
+        address[] memory beacons = _safeOwnedBeacons(safe);
+        RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
+        SafeTx[] memory scratch = new SafeTx[](ADMIN_ROLE_COUNT * 2 + vaults.length + beacons.length + 1);
+        uint256 n = 0;
+        for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
+            if (!authoriser.hasRole(grants[i].role, timelock)) {
+                scratch[n] =
+                    _call(address(authoriser), abi.encodeCall(IAccessControl.grantRole, (grants[i].role, timelock)));
+                n++;
+            }
+        }
+        for (uint256 i = 0; i < vaults.length; i++) {
+            scratch[n] = _call(vaults[i], abi.encodeCall(Ownable.transferOwnership, (timelock)));
+            n++;
+        }
+        for (uint256 i = 0; i < beacons.length; i++) {
+            scratch[n] = _call(beacons[i], abi.encodeCall(Ownable.transferOwnership, (timelock)));
+            n++;
+        }
+        for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
+            if (authoriser.hasRole(grants[i].role, safe)) {
+                scratch[n] =
+                    _call(address(authoriser), abi.encodeCall(IAccessControl.renounceRole, (grants[i].role, safe)));
+                n++;
+            }
+        }
+        scratch[n] = LibStoxMigrations.recordTx(migrateGovernanceToTimelockDeclaration());
+        n++;
+        SafeTx[] memory txs = new SafeTx[](n);
+        for (uint256 i = 0; i < n; i++) {
+            txs[i] = scratch[i];
+        }
+        return txs;
+    }
+
+    function testPostStateRefusesAMissingRecord() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
+        LibMigrationLineFork.approve(vm, LibSafeInvariants.safeForChainId(block.chainid));
+        LibMigrationLineFork.recordOnto(vm, migrateGovernanceToTimelockDeclaration());
+        MigrateGovernanceToTimelockHarness script = new MigrateGovernanceToTimelockHarness(
+            LibTimelockInvariants.timelockForChainId(block.chainid), "unrecorded"
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RecordMismatch.selector, migrateGovernanceToTimelockDeclaration().id, block.timestamp, 0
+            )
+        );
+        script.callAssertPostState();
+        script.run();
+        script.callAssertPostState();
     }
 
     /// @notice A production vault owned by neither the Safe nor the timelock
