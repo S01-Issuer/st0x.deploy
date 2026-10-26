@@ -21,5 +21,28 @@
       "survivedAfter": 1,
       "notes": "BEFORE 38/46 killed. The 8 survivors there were M15 and M16 (roleId / roleHolderId byte layout), M20 (createDiscoveredContract return contract), M41 and M42 (timelock and orchestrator grant polarity), M44 and M46 (vault and orchestrator beacon transfer kind), M45 (vault beacon upgrade kind). Seven are now killed by tests this run added; M20 is not closable with matchstick, whose data source registry is an address-keyed map that cannot distinguish one create of an address from two, so the behaviour stays unpinned and is filed as #448. One verdict in the first AFTER pass was a flake: M14 scored SURVIVED and kills when run by hand. A stale compile cache was ruled out by experiment (pristine run, then the same mutation with only src changed and the test file mtime pinned backwards, which still killed), leaving container reuse by `docker compose up`; the probe wrapper now tears the container down per probe and the whole pass was re-run under it. The first matrix is discarded and none of its numbers appear here."
     }
+  },
+  {
+    "timestamp": "2026-10-26T11:06:53Z",
+    "commit": "f203e9cdda54a9079a29d27f0508252736cd5564",
+    "testsAfterCommit": "2efb6149571e37db973fad86fc813b43987c390e",
+    "publishedTag": "sol-v0.1.30",
+    "commitsAheadOfTag": 475,
+    "scope": "pr:496 (branch 2026-10-22-migration-applied-asserts-to-dashboard): LibOrchestratorInvariants.assertInstance and every script call site whose orchestrator role check moved out of it (orchestrator admin move, V3 backfill, grant orchestrator emergency, retire direct signer roles). Suite: forge test over LibOrchestratorInvariantsTest, OrchestratorAdminToTimelockTest, BackfillMigrationRegistryV3Test and RetireDirectSignerRoles*, forked from public RPCs, with failing tests re-run up to twice to absorb RPC flakes. BEFORE pass at commit, all 15 mutants; AFTER pass at testsAfterCommit, the 5 BEFORE survivors.",
+    "tool": "adversarial-mutation-test",
+    "skillVersion": "0.35.0",
+    "summary": {
+      "behaviours": 15,
+      "candidates": 0,
+      "confirmed": 0,
+      "testsBefore": 49,
+      "testsAfter": 53,
+      "filed": [],
+      "killedBefore": 10,
+      "survivedBefore": 5,
+      "killedAfter": 14,
+      "survivedAfter": 1,
+      "notes": "BEFORE survivors: M01 (instance code check) and M02 (vault-logic lock) in assertInstance, M14 and M15 (retire run() and verify() calling assertInstance), M13 (grant emergency post-state EmergencyNotGranted). testInstanceWithoutCodeTrips and testVaultLogicUnexpectedTrips kill M01 and M02, and testRunRefusesOrchestratorInstanceOffInvariant and testVerifyRefusesOrchestratorInstanceOffInvariant kill M14 and M15. M13 is in audit/known-false-positives.md: the script is spent on every chain and its suite was removed in #508, so no fork at head reaches it. The grant emergency script's two assertInstance() calls were not probed, for the same reason."
+    }
   }
 ]
