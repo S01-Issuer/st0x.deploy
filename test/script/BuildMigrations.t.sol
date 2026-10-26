@@ -155,7 +155,7 @@ contract BuildMigrationsTest is Test {
         }
     }
 
-    function assertChain(string memory json, string memory at, bytes32 head) internal pure {
+    function assertChain(string memory json, string memory at, bytes32 head) internal view {
         assertEq(vm.parseJsonAddress(json, string.concat(at, ".writer")), LibStoxMigrations.WRITER);
         assertEq(vm.parseJsonUint(json, string.concat(at, ".executedAt")), 0);
         string memory pre = string.concat(at, ".prerequisites");
