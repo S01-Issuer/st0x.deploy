@@ -24,13 +24,14 @@ import {
     UnexpectedRegistryV2Line,
     UnexpectedRegistryV2Order,
     UnexpectedRegistryV3Line,
+    EmergencyNotHeld,
     backfillMigrationRegistryV3Declaration
 } from "../../script/20261022-backfill-migration-registry-v3.s.sol";
 import {BackfillMigrationRegistryV3Harness} from "./BackfillMigrationRegistryV3Harness.sol";
 import {grantEuAuthoriserRolesDeclaration} from "../../script/20261006-grant-eu-authoriser-roles.s.sol";
 import {grantOrchestratorEmergencyDeclaration} from "../../script/20261006-grant-orchestrator-emergency.s.sol";
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
-import {LibOrchestratorInvariants, OrchestratorRoleMissing} from "../../src/lib/LibOrchestratorInvariants.sol";
+import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibRbacMigration} from "../../src/lib/LibRbacMigration.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
@@ -69,7 +70,11 @@ contract BackfillMigrationRegistryV3Test is Test {
         assertEq(LibMigrationRegistry.appliedOntoV3(safe, ns, own), LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
         assertEq(LibMigrationRegistry.headV3(safe, rbac), eu);
         assertEq(LibMigrationRegistry.appliedByV3(safe, ns, LibStoxMigrations.ORCHESTRATOR_EMERGENCY), safe);
-        LibOrchestratorInvariants.assertInstance(safe);
+        assertTrue(
+            IAccessControl(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE).hasRole(keccak256("EMERGENCY"), safe),
+            "Safe EMERGENCY"
+        );
+        LibOrchestratorInvariants.assertInstance();
     }
 
     function assertBundle(string memory network) internal {
@@ -398,9 +403,7 @@ contract BackfillMigrationRegistryV3Test is Test {
         executeBackfill(script, safe);
         address instance = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
         vm.mockCall(instance, abi.encodeCall(IAccessControl.hasRole, (keccak256("EMERGENCY"), safe)), abi.encode(false));
-        vm.expectRevert(
-            abi.encodeWithSelector(OrchestratorRoleMissing.selector, instance, keccak256("EMERGENCY"), safe)
-        );
+        vm.expectRevert(abi.encodeWithSelector(EmergencyNotHeld.selector, safe));
         script.callAssertPostState();
     }
 

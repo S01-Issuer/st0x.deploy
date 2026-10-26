@@ -18,8 +18,8 @@ error NoGovernanceTimelockMigrationOnChain(uint256 chainId);
 
 /// @title LibStoxMigrations
 /// @notice The ids under which this repo's operational scripts record what
-/// they applied in `rain-deploy`'s `MigrationRegistry`, and the reads the
-/// invariants branch on.
+/// they applied in `rain-deploy`'s `MigrationRegistry`, and the calls that
+/// write and read those records.
 ///
 /// A migration recorded with its change is recorded by the account that
 /// performs it, as the last call of the same transaction, so the record and
@@ -29,28 +29,18 @@ error NoGovernanceTimelockMigrationOnChain(uint256 chainId);
 ///   under the Safe, in the Safe's MultiSend (both orchestrator ids here);
 /// - a migration executed through the governance timelock records under the
 ///   timelock, as the last call of the scheduled batch, so it lands
-///   atomically whoever executes the matured operation. Its invariant reads
-///   the timelock's line.
+///   atomically whoever executes the matured operation.
 ///
 /// The exception is a migration that ran before anything was recorded: it
 /// is recorded later as history, with the moment it executed
 /// (`GOVERNANCE_TIMELOCK`, written by the orchestrator EMERGENCY bundle).
 /// Until that record lands, `applied` answering zero does NOT mean it has
-/// not run, so no invariant branches on `GOVERNANCE_TIMELOCK`'s record.
-///
-/// For every id recorded with its change, an invariant asserts exactly the
-/// state the recorded migrations imply: `applied` answering zero means the
-/// migration has not run on this chain, and the pre-migration state must
-/// hold exactly.
+/// not run.
 ///
 /// The records live in ONE registry instance: the address and code hash
-/// `LibMigrationRegistryDeploy` carries in the imported rain-deploy. A
-/// rain-deploy bump that moves the registry would read an empty line and
-/// fail every role invariant closed; `LibStoxMigrationsTest` pins the
-/// instance so such a bump fails there first.
-///
-/// The registry is an index, not proof. It says which state an invariant must
-/// assert; the invariant still reads that state from the chain.
+/// `LibMigrationRegistryDeploy` carries in the imported rain-deploy.
+/// `LibStoxMigrationsTest` pins the instance so a rain-deploy bump that
+/// moves the registry fails there first.
 library LibStoxMigrations {
     /// @notice The namespace every st0x.deploy record is written in.
     bytes32 internal constant NAMESPACE = keccak256("st0x.deploy");

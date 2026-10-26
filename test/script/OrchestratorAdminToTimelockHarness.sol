@@ -28,6 +28,10 @@ contract OrchestratorAdminToTimelockHarness is OrchestratorAdminToTimelock {
         preflight();
     }
 
+    function callAssertPostState() external view {
+        assertPostState();
+    }
+
     function callAuthorBundle() external view returns (SafeTx[] memory) {
         return authorBundle();
     }
