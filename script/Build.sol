@@ -4,8 +4,9 @@ pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {VmSafe} from "forge-std-1.17.0/src/Vm.sol";
-import {LibCodeGen} from "rain-sol-codegen-0.1.39/src/lib/LibCodeGen.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
+import {LibRainDeploySnapshot} from "rain-deploy-0.1.25/src/lib/LibRainDeploySnapshot.sol";
+import {DeployCandidate, DeploySuite} from "rain-deploy-0.1.25/src/abstract/RainDeploySuitesBase.sol";
+import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
@@ -19,95 +20,108 @@ import {
 } from "../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 
-contract Build is Script {
+contract Build is Script, StoxDeploySuites {
     /// @notice The rolling "current source" snapshot tag — always `candidate`,
     /// never a version number. `src/generated/candidate/` is regenerated from
     /// the current source on every run; a numbered snapshot is frozen only when
-    /// a release tag promotes `candidate` (see `script/cut-release.sh`). Source
-    /// self-references (`LibProdDeployCurrent`) always resolve to `candidate`,
-    /// so they track whatever the source currently compiles to, while numbered
-    /// snapshots (`0_1_1`, …) stay frozen and are never regenerated here.
+    /// a release tag promotes `candidate` (see `script/cut-release.sh`).
     string constant CANDIDATE_TAG = "candidate";
+    string constant RECORD_ROOT = "src/generated";
+    string constant LIB_DIR = "src/lib";
 
     function deployTag() internal pure returns (string memory) {
         return CANDIDATE_TAG;
     }
 
     /// @notice The constant-name suffix for a tag dir. Numbered tags use the tag
-    /// verbatim (`0_1_1`); the rolling `candidate` dir uses `CANDIDATE`, so its
-    /// generated constants read `STOX_RECEIPT_CANDIDATE` rather than the
-    /// lowercase dir name.
+    /// verbatim (`0_1_1`); the rolling `candidate` dir uses `CANDIDATE`.
     function tagSuffix(string memory tag) internal pure returns (string memory) {
         if (keccak256(bytes(tag)) == keccak256(bytes(CANDIDATE_TAG))) return "CANDIDATE";
         return tag;
     }
 
-    /// @notice Deploys a contract via the Zoltu factory and generates its
-    /// pointer file containing `DEPLOYED_ADDRESS`, `CREATION_CODE`, and
-    /// `RUNTIME_CODE` constants.
-    /// @param name Must exactly match the contract's Solidity filename (without
-    /// `.sol`), as it determines the generated pointer file path under
-    /// `src/generated/<tag>/` — the rolling `candidate` snapshot for the
-    /// current `deployTag()`. Numbered release snapshots are frozen and never
-    /// regenerated here; a release freezes a copy of `candidate` beside them
-    /// (see `script/cut-release.sh`).
-    /// @param creationCode The creation bytecode of the contract, typically
-    /// obtained via `type(ContractName).creationCode`.
-    function buildContractPointers(string memory name, bytes memory creationCode) internal {
-        address deployed = LibRainDeploy.deployZoltu(creationCode);
+    /// @notice Snapshot file names, index-aligned with the Zoltu entries of
+    /// `candidateSuites()`.
+    function candidateContractNames() internal pure returns (string[8] memory) {
+        string[8] memory names;
+        names[0] = "StoxCorporateActionsFacet";
+        names[1] = "StoxReceipt";
+        names[2] = "StoxReceiptVault";
+        names[3] = "StoxWrappedTokenVault";
+        names[4] = "StoxWrappedTokenVaultBeacon";
+        names[5] = "StoxOffchainAssetReceiptVaultAuthorizerV1";
+        names[6] = "StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1";
+        names[7] = "ST0xOrchestrator";
+        return names;
+    }
 
-        vm.writeFile(
-            string.concat("src/generated/", deployTag(), "/", name, ".pointers.sol"),
-            string.concat(
-                LibCodeGen.filePrefix(),
-                LibCodeGen.bytecodeHashConstantString(vm, deployed),
-                LibCodeGen.addressConstantString(
-                    vm,
-                    "/// @dev The deterministic deploy address of the contract when deployed via\n/// the Zoltu factory.",
-                    "DEPLOYED_ADDRESS",
-                    deployed
-                ),
-                LibCodeGen.bytesConstantString(
-                    vm, "/// @dev The creation bytecode of the contract.", "CREATION_CODE", creationCode
-                ),
-                LibCodeGen.bytesConstantString(
-                    vm, "/// @dev The runtime bytecode of the contract.", "RUNTIME_CODE", deployed.code
-                )
-            )
-        );
+    function candidateCreationCodes() internal pure returns (bytes[8] memory) {
+        bytes[8] memory codes;
+        codes[0] = type(StoxCorporateActionsFacet).creationCode;
+        codes[1] = type(StoxReceipt).creationCode;
+        codes[2] = type(StoxReceiptVault).creationCode;
+        codes[3] = type(StoxWrappedTokenVault).creationCode;
+        codes[4] = type(StoxWrappedTokenVaultBeacon).creationCode;
+        codes[5] = type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode;
+        codes[6] = type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode;
+        codes[7] = type(ST0xOrchestrator).creationCode;
+        return codes;
     }
 
     function run() external {
-        LibRainDeploy.etchZoltuFactory(vm);
+        DeployCandidate[] memory candidates = candidateSuites();
+        string[8] memory names = candidateContractNames();
+        bytes[8] memory codes = candidateCreationCodes();
+        for (uint256 i = 0; i < names.length; i++) {
+            LibRainDeploySnapshot.writeSnapshot(
+                vm, RECORD_ROOT, CANDIDATE_TAG, names[i], codes[i], candidates[i].snapshot.dependencies
+            );
+        }
 
-        // Regenerate the rolling `candidate/` snapshot from current source.
-        // `vm.writeFile` won't create the dir, so ensure it exists first.
-        vm.createDir(string.concat("src/generated/", deployTag()), true);
-
-        buildContractPointers("StoxCorporateActionsFacet", type(StoxCorporateActionsFacet).creationCode);
-        buildContractPointers("StoxReceipt", type(StoxReceipt).creationCode);
-        buildContractPointers("StoxReceiptVault", type(StoxReceiptVault).creationCode);
-        buildContractPointers("StoxWrappedTokenVault", type(StoxWrappedTokenVault).creationCode);
-        buildContractPointers("StoxWrappedTokenVaultBeacon", type(StoxWrappedTokenVaultBeacon).creationCode);
-        // Authorizers have no dependencies on other Stox contracts.
-        buildContractPointers(
-            "StoxOffchainAssetReceiptVaultAuthorizerV1", type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode
-        );
-        buildContractPointers(
-            "StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1",
-            type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode
-        );
-        buildContractPointers("ST0xOrchestrator", type(ST0xOrchestrator).creationCode);
-
-        // Regenerate the deploy libs from the (now-updated) per-tag snapshots.
         genProdLibs();
+        genReleasedLibs(candidates);
+    }
+
+    /// @notice The key and artifact path each released lib is emitted with,
+    /// index-aligned with `contractNames()`. Contracts with no candidate carry
+    /// only those two fields.
+    function releasedTemplates(DeployCandidate[] memory candidates) internal pure returns (DeploySuite[12] memory) {
+        DeploySuite[12] memory templates;
+        templates[0] = candidates[1].snapshot;
+        templates[1] = candidates[2].snapshot;
+        templates[2] = candidates[3].snapshot;
+        templates[3].suite = UNIFIED_DEPLOYER;
+        templates[3].artifactPath = UNIFIED_DEPLOYER_PATH;
+        templates[4] = candidates[4].snapshot;
+        templates[5].suite = WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER;
+        templates[5].artifactPath = WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_PATH;
+        templates[6].suite = RECEIPT_VAULT_BEACON_SET_DEPLOYER;
+        templates[6].artifactPath = RECEIPT_VAULT_BEACON_SET_DEPLOYER_PATH;
+        templates[7] = candidates[5].snapshot;
+        templates[8] = candidates[6].snapshot;
+        templates[9] = candidates[0].snapshot;
+        templates[10] = candidates[7].snapshot;
+        templates[11].suite = ORCHESTRATOR_BEACON_SET_DEPLOYER;
+        templates[11].artifactPath = ORCHESTRATOR_BEACON_SET_DEPLOYER_PATH;
+        return templates;
+    }
+
+    function genReleasedLibs(DeployCandidate[] memory candidates) internal {
+        string[12] memory names = contractNames();
+        DeploySuite[12] memory templates = releasedTemplates(candidates);
+        string[] memory released = new string[](names.length);
+        for (uint256 i = 0; i < names.length; i++) {
+            LibRainDeploySnapshot.writeReleasedSuitesLib(vm, LIB_DIR, RECORD_ROOT, names[i], templates[i]);
+            released[i] = names[i];
+        }
+        LibRainDeploySnapshot.writeReleasedSuitesAggregate(vm, LIB_DIR, released);
     }
 
     // =========================================================================
     // Deploy-lib generation.
     //
     // Regenerates `src/generated/LibProdDeployV4.sol` (one versioned constant
-    // set per release tag, each aliasing that tag's frozen `*.pointers.sol`
+    // set per release tag, each aliasing that tag's frozen `<tag>/*.sol`
     // exports) and `src/generated/LibProdDeployCurrent.sol` (unversioned
     // aliases of the current `deployTag()`), from the per-tag snapshots on
     // disk. Emitted line-by-line via `vm.writeLine` so no single string grows
@@ -125,7 +139,7 @@ contract Build is Script {
 
     // REUSE-IgnoreEnd
 
-    /// @notice Pointer filenames (without `.pointers.sol`) in a fixed order.
+    /// @notice Pointer filenames (record file names without `.sol`) in a fixed order.
     function contractNames() internal pure returns (string[12] memory names) {
         names[0] = "StoxReceipt";
         names[1] = "StoxReceiptVault";
@@ -241,7 +255,7 @@ contract Build is Script {
     }
 
     function pointerExists(string memory tag, string memory name) internal view returns (bool) {
-        return vm.exists(string.concat("src/generated/", tag, "/", name, ".pointers.sol"));
+        return vm.exists(string.concat("src/generated/", tag, "/", name, ".sol"));
     }
 
     function writeGeneratedHeader(string memory path) internal {
@@ -264,7 +278,7 @@ contract Build is Script {
         string memory mid = string.concat(
             "_CODEHASH_", suffix, "_GEN, CREATION_CODE as ", base, "_CREATION_", suffix, "_GEN, RUNTIME_CODE as ", base
         );
-        string memory tail = string.concat("_RUNTIME_", suffix, '_GEN} from "./', tag, "/", name, '.pointers.sol";');
+        string memory tail = string.concat("_RUNTIME_", suffix, '_GEN} from "./', tag, "/", name, '.sol";');
         return string.concat(head, mid, tail);
     }
 

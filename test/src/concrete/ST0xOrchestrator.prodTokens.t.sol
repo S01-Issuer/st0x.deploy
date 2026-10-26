@@ -3,9 +3,9 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
 import {LibExtrospectRegistryBeaconProxy} from "rain-extrospection-0.1.16/src/lib/LibExtrospectRegistryBeaconProxy.sol";
-import {IReceiptVaultV3} from "rain-vats-0.2.9/src/interface/IReceiptVaultV3.sol";
+import {IReceiptVaultV3} from "rain-vats-0.2.11/src/interface/IReceiptVaultV3.sol";
 import {LibBeaconInvariants} from "../../../src/lib/LibBeaconInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";

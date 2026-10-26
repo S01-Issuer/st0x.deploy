@@ -5,3 +5,12 @@ jobs:
     uses: rainlanguage/rainix/.github/workflows/rainix-copy-artifacts.yaml@main
     secrets:
       CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+    with:
+      regenerate-command: |
+        set -euo pipefail
+        nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildPrivilegedAddresses.sol
+        nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildSubgraphNetworks.sol
+        nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildIdealRoles.sol
+        nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildMigrations.sol
+        # https://github.com/rainlanguage/rainix/issues/357
+        git add --intent-to-add --all
