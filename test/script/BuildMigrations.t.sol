@@ -61,10 +61,7 @@ contract BuildMigrationsTest is Test {
         return string.concat(at, "[", vm.toString(i), "]");
     }
 
-    function discovered()
-        internal
-        returns (string[] memory paths, ScriptDeclaration[] memory declarations)
-    {
+    function discovered() internal returns (string[] memory paths, ScriptDeclaration[] memory declarations) {
         return build.discover(LINES);
     }
 

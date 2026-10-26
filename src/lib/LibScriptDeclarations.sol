@@ -63,8 +63,10 @@ library LibScriptDeclarations {
         }
         for (uint256 i = 0; i < declarations.length; i++) {
             if (!declarations[i].migration) continue;
-            if (declarations[i].onto != MIGRATION_HEAD_GENESIS && indexOf(declarations, declarations[i].onto) == NOT_FOUND)
-            {
+            if (
+                declarations[i].onto != MIGRATION_HEAD_GENESIS
+                    && indexOf(declarations, declarations[i].onto) == NOT_FOUND
+            ) {
                 revert UnknownHead(paths[i]);
             }
             for (uint256 j = 0; j < i; j++) {

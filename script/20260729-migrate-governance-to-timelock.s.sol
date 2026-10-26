@@ -128,7 +128,6 @@ struct MigrationTargets {
 /// @param id The timelock operation id that failed to complete.
 error GovernanceLoopNotProven(bytes32 id);
 
-
 /// @title MigrateGovernanceToTimelock
 /// @notice Authors the Safe bundle that hands ST0x governance
 /// on the active chain to the governance timelock:

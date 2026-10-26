@@ -144,7 +144,8 @@ contract BuildMigrations is Script {
     /// @return declarations Each script's declaration.
     function discover(string memory dir)
         public
-        returns (string[] memory paths, ScriptDeclaration[] memory declarations) {
+        returns (string[] memory paths, ScriptDeclaration[] memory declarations)
+    {
         string[] memory names = scriptNames(dir);
         paths = new string[](names.length);
         declarations = new ScriptDeclaration[](names.length);
@@ -173,7 +174,9 @@ contract BuildMigrations is Script {
         vm.serializeAddress(key, "writer", LibStoxMigrations.WRITER);
         vm.serializeUint(key, "executedAt", 0);
         return vm.serializeString(
-            key, "prerequisites", prerequisitesJson(string.concat(key, ".prerequisites"), LibStoxMigrations.onto(declared.onto))
+            key,
+            "prerequisites",
+            prerequisitesJson(string.concat(key, ".prerequisites"), LibStoxMigrations.onto(declared.onto))
         );
     }
 
@@ -188,11 +191,7 @@ contract BuildMigrations is Script {
         string memory chains;
         for (uint256 i = 0; i < networks.length; i++) {
             string memory chainId = vm.toString(networks[i].chainId);
-            chains = vm.serializeString(
-                chainsKey,
-                chainId,
-                chainJson(string.concat(chainsKey, ".", chainId), declared)
-            );
+            chains = vm.serializeString(chainsKey, chainId, chainJson(string.concat(chainsKey, ".", chainId), declared));
         }
         vm.serializeBytes32(key, "namespace", LibStoxMigrations.NAMESPACE);
         vm.serializeBytes32(key, "id", declared.id);

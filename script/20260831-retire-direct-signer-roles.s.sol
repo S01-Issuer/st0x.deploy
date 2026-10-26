@@ -37,7 +37,6 @@ error SafeMissingRoleAdminForRetire(bytes32 adminRole);
 /// executed on this chain and a re-dispatch has nothing to author.
 error DirectSignerRolesAlreadyRetired();
 
-
 /// @title RetireDirectSignerRoles
 /// @notice Authors the per-chain Safe Tx Builder bundle that
 /// closes the parallel burn-in window opened by

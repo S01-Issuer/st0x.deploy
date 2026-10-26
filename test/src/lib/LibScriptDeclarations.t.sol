@@ -148,9 +148,8 @@ contract LibScriptDeclarationsTest is Test {
     function testAnInvalidNonMigrationFailsBeforeAnyLineRule() external {
         ScriptDeclaration memory declared = LibStoxMigrations.notAMigration();
         declared.onto = MIGRATION_HEAD_GENESIS;
-        (string[] memory paths, ScriptDeclaration[] memory declarations) = two(
-            "script/a.s.sol", onto("script/a.s.sol", keccak256("missing")), "script/b.s.sol", declared
-        );
+        (string[] memory paths, ScriptDeclaration[] memory declarations) =
+            two("script/a.s.sol", onto("script/a.s.sol", keccak256("missing")), "script/b.s.sol", declared);
         expectRevertOn(abi.encodeWithSelector(RecordOnNonMigration.selector, "script/b.s.sol"), paths, declarations);
     }
 
@@ -167,9 +166,8 @@ contract LibScriptDeclarationsTest is Test {
     /// @notice Zero is no record, and a non-migration's empty id is not a
     /// head.
     function testAZeroHeadIsUnknownBesideANonMigration() external {
-        (string[] memory paths, ScriptDeclaration[] memory declarations) = two(
-            "script/a.s.sol", LibStoxMigrations.notAMigration(), "script/b.s.sol", onto("script/b.s.sol", 0)
-        );
+        (string[] memory paths, ScriptDeclaration[] memory declarations) =
+            two("script/a.s.sol", LibStoxMigrations.notAMigration(), "script/b.s.sol", onto("script/b.s.sol", 0));
         expectRevertOn(abi.encodeWithSelector(UnknownHead.selector, "script/b.s.sol"), paths, declarations);
     }
 
