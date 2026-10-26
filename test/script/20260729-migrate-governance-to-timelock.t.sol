@@ -214,7 +214,7 @@ contract MigrateGovernanceToTimelockTest is Test {
         assertGt(beaconTargets.length, 0, "fork state should have Safe-owned beacons pre-migration");
         address[4] memory implsBefore = _beaconImplementations();
 
-        new MigrateGovernanceToTimelockHarness(timelock).run();
+        new MigrateGovernanceToTimelockHarness(timelock, "_assertAuthorsFullMigration").run();
 
         _assertPostState(safe, timelock, implsBefore);
         _assertArtifactMatchesDerivedBundle(safe, timelock, vaultTargets, beaconTargets);
@@ -335,7 +335,11 @@ contract MigrateGovernanceToTimelockTest is Test {
         (uint256 chainId, address artifactSafe, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(
             vm,
             vm.readFile(
-                string.concat("out/20260729-governance-timelock-migration-", vm.toString(block.chainid), ".json")
+                string.concat(
+                    "out/20260729-governance-timelock-migration-",
+                    vm.toString(block.chainid),
+                    "-_assertAuthorsFullMigration.json"
+                )
             )
         );
         assertEq(chainId, block.chainid, "artifact must be authored for the active chain");
@@ -373,9 +377,10 @@ contract MigrateGovernanceToTimelockTest is Test {
     function testRunRefusesWhenNothingToMigrate() external {
         selectBaseFork();
         address timelock = deployTimelock();
-        new MigrateGovernanceToTimelockHarness(timelock).run();
+        new MigrateGovernanceToTimelockHarness(timelock, "testRunRefusesWhenNothingToMigrate").run();
 
-        MigrateGovernanceToTimelockHarness second = new MigrateGovernanceToTimelockHarness(timelock);
+        MigrateGovernanceToTimelockHarness second =
+            new MigrateGovernanceToTimelockHarness(timelock, "testRunRefusesWhenNothingToMigrate");
         vm.expectRevert(NothingToMigrate.selector);
         second.run();
     }
@@ -390,7 +395,8 @@ contract MigrateGovernanceToTimelockTest is Test {
         address stranger = address(0xDEAD);
         vm.mockCall(vaults[3], abi.encodeWithSignature("owner()"), abi.encode(stranger));
 
-        MigrateGovernanceToTimelockHarness script = new MigrateGovernanceToTimelockHarness(timelock);
+        MigrateGovernanceToTimelockHarness script =
+            new MigrateGovernanceToTimelockHarness(timelock, "testRunRejectsUnknownVaultOwner");
         vm.expectRevert(abi.encodeWithSelector(UnexpectedVaultOwner.selector, vaults[3], stranger));
         script.run();
     }
@@ -406,7 +412,8 @@ contract MigrateGovernanceToTimelockTest is Test {
         address stranger = address(0xDEAD);
         vm.mockCall(beacons[1], abi.encodeWithSignature("owner()"), abi.encode(stranger));
 
-        MigrateGovernanceToTimelockHarness script = new MigrateGovernanceToTimelockHarness(timelock);
+        MigrateGovernanceToTimelockHarness script =
+            new MigrateGovernanceToTimelockHarness(timelock, "testRunRejectsUnknownBeaconOwner");
         vm.expectRevert(abi.encodeWithSelector(UnexpectedBeaconOwner.selector, beacons[1], stranger));
         script.run();
     }
@@ -425,7 +432,7 @@ contract MigrateGovernanceToTimelockTest is Test {
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         address authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
         address timelock = deployTimelock();
-        new MigrateGovernanceToTimelockHarness(timelock).run();
+        new MigrateGovernanceToTimelockHarness(timelock, "testGovernanceCanMigrateAwayToSuccessor").run();
 
         address successor = address(0x5000000000000000000000000000000000000001);
         address vault = _activeChainVaults()[0];
@@ -471,7 +478,7 @@ contract MigrateGovernanceToTimelockTest is Test {
         selectBaseFork();
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         address timelock = deployTimelock();
-        new MigrateGovernanceToTimelockHarness(timelock).run();
+        new MigrateGovernanceToTimelockHarness(timelock, "testBeaconUpgradeRunsThroughTimelock").run();
 
         address beacon = LibBeaconInvariants.prodBeaconsForChainId(block.chainid)[0];
         address impl = IBeacon(beacon).implementation();
@@ -498,7 +505,7 @@ contract MigrateGovernanceToTimelockTest is Test {
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         address authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
         address timelock = deployTimelock();
-        new MigrateGovernanceToTimelockHarness(timelock).run();
+        new MigrateGovernanceToTimelockHarness(timelock, "testSetAuthorizerRunsThroughTimelock").run();
 
         address vault = _activeChainVaults()[0];
 
@@ -523,15 +530,17 @@ contract MigrateGovernanceToTimelockTest is Test {
     function testVerifyAcceptsAuthoredArtifactAndRejectsTamper() external {
         selectBaseFork();
         address timelock = deployTimelock();
-        new MigrateGovernanceToTimelockHarness(timelock).run();
-        string memory path =
-            string.concat("out/20260729-governance-timelock-migration-", vm.toString(block.chainid), ".json");
+        MigrateGovernanceToTimelockHarness author =
+            new MigrateGovernanceToTimelockHarness(timelock, "testVerifyAcceptsAuthoredArtifactAndRejectsTamper");
+        author.run();
+        string memory path = author.callArtifactPath();
 
         // Fresh fork: authoring mutated the previous fork's state; the live
         // chain a signer verifies against is untouched.
         selectBaseFork();
         assertEq(deployTimelock(), timelock, "derived timelock must be stable across forks");
-        MigrateGovernanceToTimelockHarness verifier = new MigrateGovernanceToTimelockHarness(timelock);
+        MigrateGovernanceToTimelockHarness verifier =
+            new MigrateGovernanceToTimelockHarness(timelock, "testVerifyAcceptsAuthoredArtifactAndRejectsTamper");
         verifier.verify(path);
 
         // Tamper one call's payload and re-emit: verify pinpoints the field.

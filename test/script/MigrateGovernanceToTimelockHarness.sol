@@ -13,12 +13,24 @@ import {MigrateGovernanceToTimelock} from "../../script/20260729-migrate-governa
 /// by `testRunRefusesUnpinnedTimelock`).
 contract MigrateGovernanceToTimelockHarness is MigrateGovernanceToTimelock {
     address internal immutable I_TIMELOCK;
+    string internal sArtifactTag;
 
     // A test double storing the collaborator it is handed. Rejecting zero here
     // would only stop the suite exercising the zero case.
     // forge-lint: disable-next-line(missing-zero-check)
-    constructor(address timelock) {
+    constructor(address timelock, string memory artifactTag) {
         I_TIMELOCK = timelock;
+        sArtifactTag = artifactTag;
+    }
+
+    function artifactPath() internal view override returns (string memory) {
+        return string.concat(
+            "out/20260729-governance-timelock-migration-", vm.toString(block.chainid), "-", sArtifactTag, ".json"
+        );
+    }
+
+    function callArtifactPath() external view returns (string memory) {
+        return artifactPath();
     }
 
     function activeChainTimelock() internal view override returns (address) {

@@ -395,6 +395,12 @@ contract MigrateGovernanceToTimelock is Script, IStoxScript {
         console2.log("Nonce:", nonce);
     }
 
+    /// @notice Where the bundle's Safe Tx Builder JSON is written.
+    /// @return The path.
+    function artifactPath() internal view virtual returns (string memory) {
+        return string.concat("out/20260729-governance-timelock-migration-", vm.toString(block.chainid), ".json");
+    }
+
     /// @notice Write the Safe Tx Builder JSON for the bundle and log it
     /// alongside the values a signer cross-checks in the Safe UI: the
     /// canonical MultiSend `SafeTxHash`, the nonce it was computed against,
@@ -410,15 +416,14 @@ contract MigrateGovernanceToTimelock is Script, IStoxScript {
     function _emitArtifact(address safe, SafeTx[] memory txs, bytes32 bundleSafeTxHash, uint256 nonce, address timelock)
         internal
     {
-        string memory artifactPath =
-            string.concat("out/20260729-governance-timelock-migration-", vm.toString(block.chainid), ".json");
+        string memory path = artifactPath();
         string memory json = LibSafeTxBuilderJson.toJson(vm, safe, block.chainid, BUNDLE_NAME, txs);
-        vm.writeFile(artifactPath, json);
+        vm.writeFile(path, json);
 
         console2.log("==== TX BUILDER JSON BEGIN ====");
         console2.log(json);
         console2.log("==== TX BUILDER JSON END ====");
-        console2.log("Artifact:", artifactPath);
+        console2.log("Artifact:", path);
         console2.log("Bundle MultiSend SafeTxHash:", vm.toString(bundleSafeTxHash));
         console2.log("Nonce:", nonce);
         console2.log("Timelock:", vm.toString(timelock));

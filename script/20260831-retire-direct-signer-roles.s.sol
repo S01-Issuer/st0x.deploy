@@ -215,8 +215,8 @@ contract RetireDirectSignerRoles is SafeBundleScript, IStoxScript {
         (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
             operation(LibAuthoriserInvariants.activeChainAuthoriser(), address(controller));
         bytes memory data = controller.isOperation(
-                controller.hashOperationBatch(targets, values, payloads, bytes32(0), RETIRE_SALT)
-            )
+            controller.hashOperationBatch(targets, values, payloads, bytes32(0), RETIRE_SALT)
+        )
             ? abi.encodeCall(TimelockController.executeBatch, (targets, values, payloads, bytes32(0), RETIRE_SALT))
             : abi.encodeCall(
                 TimelockController.scheduleBatch,
@@ -291,8 +291,7 @@ contract RetireDirectSignerRoles is SafeBundleScript, IStoxScript {
             assertExecuted();
         }
 
-        bytes memory regrant =
-            abi.encodeCall(IAccessControl.grantRole, (keccak256("DEPOSIT"), SERVICE_SIGNER));
+        bytes memory regrant = abi.encodeCall(IAccessControl.grantRole, (keccak256("DEPOSIT"), SERVICE_SIGNER));
         LibSafeFork.simulateNPlus1(
             vm,
             safe(),
