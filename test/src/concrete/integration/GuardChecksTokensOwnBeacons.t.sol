@@ -3,8 +3,8 @@
 pragma solidity =0.8.25;
 
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
-import {OffchainAssetReceiptVaultRbacV1} from "rain-vats-0.2.9/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.9/src/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVaultRbacV1} from "rain-vats-0.2.11/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.11/src/interface/IAuthorizeV1.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {StoxReceiptVault} from "../../../../src/concrete/StoxReceiptVault.sol";
