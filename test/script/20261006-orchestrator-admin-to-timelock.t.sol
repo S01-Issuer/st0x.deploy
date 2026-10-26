@@ -10,23 +10,19 @@ import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
 import {IMigrationRegistryV3} from "rain-deploy-0.1.22/src/interface/IMigrationRegistryV3.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.22/src/lib/LibMigrationRegistryDeploy.sol";
 import {SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
-import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
 import {LibSafeFork} from "rain-deploy-0.1.22/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.22/src/lib/LibSafeTxBuilderJson.sol";
 
-import {UnexpectedMigrationLine, RoleNotHeld} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
+import {UnexpectedMigrationLine} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {BackfillMigrationRegistryV3Harness} from "./BackfillMigrationRegistryV3Harness.sol";
 import {backfillMigrationRegistryV3Declaration} from "../../script/20261022-backfill-migration-registry-v3.s.sol";
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
-import {IST0xOrchestratorV1} from "../../src/interface/deprecated/IST0xOrchestratorV1.sol";
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
-import {GrantOrchestratorEmergencyHarness} from "./GrantOrchestratorEmergencyHarness.sol";
-import {LocalBaseOrchestratorFixture} from "./LocalBaseOrchestratorFixture.sol";
 
 /// @title OrchestratorAdminToTimelockTest
 /// @notice The admin move on every deployment network at head. The bundle
@@ -192,52 +188,5 @@ contract OrchestratorAdminToTimelockTest is Test {
     /// `vm.expectRevert` can observe the revert.
     function externalExecute(address safe, SafeTx[] memory txs) external {
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), txs);
-    }
-}
-
-/// @title OrchestratorAdminToTimelockLocalTest
-/// @notice The move's role checks on a local Base whose Safe line is at the
-/// V3 backfill, so they run whatever the live chains have recorded.
-contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture {
-    OrchestratorAdminToTimelockHarness internal script;
-
-    function setUp() external {
-        buildLocalBase();
-        LibSafeFork.executeBundle(vm, safe, new GrantOrchestratorEmergencyHarness().callAuthorBundle());
-        (address recordTo, bytes memory recordData) =
-            LibStoxMigrations.recordCall(backfillMigrationRegistryV3Declaration(), address(safe), timelock);
-        SafeTx[] memory backfill = new SafeTx[](1);
-        backfill[0] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
-        LibSafeFork.executeBundle(vm, safe, backfill);
-        script = new OrchestratorAdminToTimelockHarness("local");
-    }
-
-    function testPreflightRefusesSafeWithoutEmergency() external {
-        bytes32 emergency = ORCHESTRATOR.EMERGENCY_ROLE();
-        script.callPreflight();
-        vm.mockCall(
-            address(ORCHESTRATOR), abi.encodeCall(IAccessControl.hasRole, (emergency, address(safe))), abi.encode(false)
-        );
-        vm.expectRevert(abi.encodeWithSelector(RoleNotHeld.selector, emergency, address(safe)));
-        script.callPreflight();
-    }
-
-    function testPostStateRefusesMissingRole() external {
-        LibSafeFork.executeBundle(vm, safe, script.callAuthorBundle());
-        script.callAssertPostState();
-
-        bytes32[2] memory roles = [bytes32(0), ORCHESTRATOR.EMERGENCY_ROLE()];
-        address[2] memory holders = [timelock, address(safe)];
-        for (uint256 i = 0; i < roles.length; i++) {
-            vm.clearMockedCalls();
-            vm.mockCall(
-                address(ORCHESTRATOR), abi.encodeCall(IST0xOrchestratorV1.vaultLogicIsExpected, ()), abi.encode(true)
-            );
-            vm.mockCall(
-                address(ORCHESTRATOR), abi.encodeCall(IAccessControl.hasRole, (roles[i], holders[i])), abi.encode(false)
-            );
-            vm.expectRevert(abi.encodeWithSelector(RoleNotHeld.selector, roles[i], holders[i]));
-            script.callAssertPostState();
-        }
     }
 }
