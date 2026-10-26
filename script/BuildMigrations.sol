@@ -7,7 +7,7 @@ import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.22/src/interface/IMigrationRegistryV3.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.22/src/lib/LibMigrationRegistryDeploy.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
-import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibScriptDeclarations} from "../src/lib/LibScriptDeclarations.sol";
 import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
@@ -28,16 +28,14 @@ error ManyDeclarations(string script);
 /// no network and no chain.
 error NoDeploymentNetworks();
 
-/// @notice A migration recorded as history gives no moment on a network.
-/// @param script The script's path.
-/// @param chainId The chain id.
-error HistoryWithoutMoment(string script, uint256 chainId);
-
 /// @title BuildMigrations
 /// @notice Reads every `script/*.s.sol`'s own declaration, reverts unless all
 /// of them are valid together, and writes `migrations.json`: every migration,
 /// and per deployment network the registry and each migration's writer,
-/// execution moment if recorded as history, and prerequisites.
+/// execution moment and prerequisites. Every migration is in
+/// `LibStoxMigrations`' one line, so the writer is `WRITER` on every network,
+/// the moment is zero (none is recorded as history) and the one prerequisite
+/// is the head it is applied onto.
 contract BuildMigrations is Script {
     string internal constant PATH = "migrations.json";
     string internal constant SCRIPTS = "script";
@@ -174,33 +172,11 @@ contract BuildMigrations is Script {
         return rows;
     }
 
-    function executedAt(string memory path, ScriptDeclaration memory declared, address instance, uint256 chainId)
-        internal
-        pure
-        returns (uint256)
-    {
-        if (!declared.history) return 0;
-        try IStoxHistoryMigration(instance).executedAt(chainId) returns (uint256 moment) {
-            if (moment > 0) return moment;
-        } catch {}
-        revert HistoryWithoutMoment(path, chainId);
-    }
-
-    function chainJson(
-        string memory key,
-        string memory path,
-        ScriptDeclaration memory declared,
-        address instance,
-        uint256 chainId
-    ) internal returns (string memory) {
-        vm.serializeAddress(key, "writer", LibStoxMigrations.writerForChainId(declared.writer, chainId));
-        vm.serializeUint(key, "executedAt", executedAt(path, declared, instance, chainId));
+    function chainJson(string memory key, ScriptDeclaration memory declared) internal returns (string memory) {
+        vm.serializeAddress(key, "writer", LibStoxMigrations.WRITER);
+        vm.serializeUint(key, "executedAt", 0);
         return vm.serializeString(
-            key,
-            "prerequisites",
-            prerequisitesJson(
-                string.concat(key, ".prerequisites"), LibStoxMigrations.prerequisitesForChainId(declared, chainId)
-            )
+            key, "prerequisites", prerequisitesJson(string.concat(key, ".prerequisites"), LibStoxMigrations.onto(declared.onto))
         );
     }
 
@@ -208,7 +184,6 @@ contract BuildMigrations is Script {
         uint256 index,
         string memory path,
         ScriptDeclaration memory declared,
-        address instance,
         SupportedNetwork[] memory networks
     ) internal returns (string memory) {
         string memory key = string.concat("migrations.", vm.toString(index));
@@ -219,10 +194,10 @@ contract BuildMigrations is Script {
             chains = vm.serializeString(
                 chainsKey,
                 chainId,
-                chainJson(string.concat(chainsKey, ".", chainId), path, declared, instance, networks[i].chainId)
+                chainJson(string.concat(chainsKey, ".", chainId), declared)
             );
         }
-        vm.serializeBytes32(key, "namespace", declared.namespace);
+        vm.serializeBytes32(key, "namespace", LibStoxMigrations.NAMESPACE);
         vm.serializeBytes32(key, "id", declared.id);
         vm.serializeString(key, "script", path);
         return vm.serializeString(key, "chains", chains);
@@ -250,7 +225,7 @@ contract BuildMigrations is Script {
 
     /// @dev `migrations.json` for the scripts in `dir` on `networks`; reverts on no network.
     function renderFor(string memory dir, SupportedNetwork[] memory networks) internal returns (string memory) {
-        (string[] memory paths, ScriptDeclaration[] memory declarations, address[] memory instances) = discover(dir);
+        (string[] memory paths, ScriptDeclaration[] memory declarations,) = discover(dir);
         uint256 count = 0;
         for (uint256 i = 0; i < declarations.length; i++) {
             if (declarations[i].migration) count++;
@@ -259,7 +234,7 @@ contract BuildMigrations is Script {
         uint256 row = 0;
         for (uint256 i = 0; i < declarations.length; i++) {
             if (!declarations[i].migration) continue;
-            rows[row] = migrationJson(row, paths[i], declarations[i], instances[i], networks);
+            rows[row] = migrationJson(row, paths[i], declarations[i], networks);
             row++;
         }
         vm.serializeUint("root", "version", 1);

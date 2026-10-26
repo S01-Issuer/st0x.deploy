@@ -2,8 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.22/src/interface/IMigrationRegistryV3.sol";
-import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
@@ -129,14 +128,6 @@ struct MigrationTargets {
 /// @param id The timelock operation id that failed to complete.
 error GovernanceLoopNotProven(bytes32 id);
 
-/// @notice This script's declaration: the Safe's first record in this repo's
-/// namespace, written later as history by the orchestrator EMERGENCY bundle.
-/// @return The declaration.
-function migrateGovernanceToTimelockDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE, LibStoxMigrations.GOVERNANCE_TIMELOCK, MIGRATION_HEAD_GENESIS, true
-    );
-}
 
 /// @title MigrateGovernanceToTimelock
 /// @notice Authors the Safe bundle that hands ST0x governance
@@ -216,15 +207,11 @@ function migrateGovernanceToTimelockDeclaration() pure returns (ScriptDeclaratio
 ///    the exact path every future governance action takes, proven
 ///    end-to-end against the post-migration state — the migration cannot
 ///    author a bundle that locks governance out.
-contract MigrateGovernanceToTimelock is Script, IStoxScript, IStoxHistoryMigration {
+contract MigrateGovernanceToTimelock is Script, IStoxScript {
     /// @inheritdoc IStoxScript
+    /// @dev In force on every chain before the line started, so not in it.
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return migrateGovernanceToTimelockDeclaration();
-    }
-
-    /// @inheritdoc IStoxHistoryMigration
-    function executedAt(uint256 chainId) external pure returns (uint256 moment) {
-        (moment,) = LibStoxMigrations.governanceTimelockExecution(chainId);
+        return LibStoxMigrations.notAMigration();
     }
 
     /// @notice The number of authoriser `_ADMIN` roles the migration moves —

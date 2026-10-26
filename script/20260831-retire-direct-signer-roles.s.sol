@@ -17,10 +17,8 @@ import {LibSafeFork} from "rain-deploy-0.1.22/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.22/src/lib/LibSafeTxBuilderJson.sol";
 import {LibSafe} from "rain-deploy-0.1.22/src/lib/LibSafe.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.22/src/interface/IMigrationRegistryV3.sol";
-import {IStoxScript, MigrationWriter, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
-import {LibRbacMigration} from "../src/lib/LibRbacMigration.sol";
 
 /// @notice The orchestrator mint/burn path is not fully enabled on this
 /// chain — retiring the signer's direct roles now would leave NO working
@@ -39,18 +37,6 @@ error SafeMissingRoleAdminForRetire(bytes32 adminRole);
 /// executed on this chain and a re-dispatch has nothing to author.
 error DirectSignerRolesAlreadyRetired();
 
-/// @notice This script's declaration: the timelock's first `st0x.rbac`
-/// record, the service signer's direct roles retired.
-/// @return The declaration.
-function retireDirectSignerRolesDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.migrationOnto(
-        MigrationWriter.Timelock,
-        LibRbacMigration.STOX_RBAC_NAMESPACE,
-        LibRbacMigration.SERVICE_SIGNER_DIRECT_ROLES_RETIRED,
-        MIGRATION_HEAD_GENESIS,
-        false
-    );
-}
 
 /// @title RetireDirectSignerRoles
 /// @notice Authors the per-chain Safe Tx Builder bundle that
@@ -83,8 +69,9 @@ function retireDirectSignerRolesDeclaration() pure returns (ScriptDeclaration me
 /// refusal can be re-derived.
 contract RetireDirectSignerRoles is Script, IStoxScript {
     /// @inheritdoc IStoxScript
+    /// @dev It refuses on every chain, so it writes no record.
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return retireDirectSignerRolesDeclaration();
+        return LibStoxMigrations.notAMigration();
     }
 
     /// @notice The service signer whose direct vault access retires.

@@ -32,15 +32,12 @@ error VerifyMismatch(string field);
 /// @param actualCount The number of transactions in the parsed artifact.
 error VerifyExpectedSingleTx(uint256 actualCount);
 
-/// @notice This script's declaration: the Safe's record of the threshold
-/// migration, after the orchestrator admin move.
+/// @notice This script's declaration: the threshold migration's record, after
+/// the orchestrator admin move.
 /// @return The declaration.
 function migrateMultisigThresholdDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        keccak256("script/20260619-migrate-multisig-threshold.s.sol"),
-        LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-        false
+    return LibStoxMigrations.migrationOnto(
+        keccak256("script/20260619-migrate-multisig-threshold.s.sol"), LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK
     );
 }
 
