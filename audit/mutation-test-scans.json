@@ -14,7 +14,10 @@
       "confirmed": 2,
       "testsBefore": 24,
       "testsAfter": 38,
-      "filed": ["#447", "#448"],
+      "filed": [
+        "#447",
+        "#448"
+      ],
       "killedBefore": 38,
       "survivedBefore": 8,
       "killedAfter": 47,
@@ -43,6 +46,29 @@
       "killedAfter": 17,
       "survivedAfter": 0,
       "notes": "BEFORE survivors: M01 (instance code check) and M02 (vault-logic lock) in assertInstance, M14 and M15 (retire run() and verify() calling assertInstance), M13 (grant emergency post-state EmergencyNotGranted), M16 and M17 (grant emergency preflight and post-state calling assertInstance). testInstanceWithoutCodeTrips and testVaultLogicUnexpectedTrips kill M01 and M02, and testRunRefusesOrchestratorInstanceOffInvariant and testVerifyRefusesOrchestratorInstanceOffInvariant kill M14 and M15. testPostStateRefusesSafeWithoutEmergency kills M13 without a fork: a local Base with the pinned registry etched, a v1.4.1 Safe built from the canonical runtime code in the token-owner policy, and the orchestrator code etched at the instance and initialised to the Safe, with the bundle executed through the Safe. M01, M02, M14 and M15 were scored AFTER at 2efb6149571e37db973fad86fc813b43987c390e; M13 at 77d8716b78381eb0b6ac35a62af26865f0f2f37c. testPreflightRefusesOrchestratorWithFailingVaultLogicLock and testPostStateRefusesOrchestratorWithFailingVaultLogicLock kill M16 and M17 on the same fork-free setup, extended with the pinned timelock and the 0.1.30 orchestrator beacon set Zoltu-deployed and the beacon owned by the timelock: each expects OrchestratorVaultLogicUnexpected(instance), since an instance without code fails the earlier hasRole read at both call sites. M16 and M17 were scored AFTER at testsAfterCommit. The admin move's three role asserts and the two assertHolds mutants were killed BEFORE by the forked testPreflightRefusesSafeWithoutEmergency and testPostStateRefusesMissingRole, which return early once every chain records the move; both now run on the same local Base with the grant executed and the V3 backfill recorded as the Safe's head, in OrchestratorAdminToTimelockLocalTest, and all five were re-scored KILLED there at testsAfterCommit."
+    }
+  },
+  {
+    "timestamp": "2026-10-25T21:30:00Z",
+    "commit": "e6656af1195c53d67ab1b69664a47d19eba32f7f",
+    "testsAfterCommit": "1fcb3e0ed9e74bb791e45d2b4be0de9cdeee655d",
+    "publishedTag": "sol-v0.1.30",
+    "commitsAheadOfTag": 467,
+    "scope": "pr:510 (branch 2026-10-25-expected-state-json): LibBeaconInvariants.prodExpectedImplementationsForChainId and assertProdBeaconsAtExpectedState, LibTokenInvariants.expectedAuthoriser and assertUniformAuthoriser, script/BuildExpectedState.sol. BEFORE at the scanned commit covers the one pre-existing behaviour, the inline region routing (3 mutants); AFTER at testsAfterCommit covers all 33.",
+    "tool": "adversarial-mutation-test",
+    "skillVersion": "0.35.0",
+    "summary": {
+      "behaviours": 33,
+      "candidates": 0,
+      "confirmed": 0,
+      "testsBefore": 42,
+      "testsAfter": 61,
+      "filed": [],
+      "killedBefore": 3,
+      "survivedBefore": 0,
+      "killedAfter": 33,
+      "survivedAfter": 0,
+      "notes": "BEFORE ran only the 3 routing mutants, because nothing else existed before this PR; all 3 were killed by tests that already existed. AFTER: 33/33 killed. The M30 kill list also names Ethereum fork tests, which is likely public-RPC flakiness; testRunWritesTheRender is its real killer."
     }
   }
 ]

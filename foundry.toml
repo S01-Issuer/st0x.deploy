@@ -37,6 +37,7 @@ fs_permissions = [
   { access = "read-write", path = "out" },
   { access = "read-write", path = "privileged-addresses.json" },
   { access = "read-write", path = "ideal-roles.json" },
+  { access = "read-write", path = "expected-state.json" },
   { access = "read-write", path = "migrations.json" },
   { access = "read-write", path = "subgraph/networks.json" },
   { access = "read", path = "script" },

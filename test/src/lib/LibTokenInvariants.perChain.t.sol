@@ -4,6 +4,8 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
+import {LibAuthoriserInvariants, UnsupportedChainForAuthoriser} from "../../../src/lib/LibAuthoriserInvariants.sol";
+import {LibProdTokenConfig, Region, TokenConfig, UnknownUnderlying} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTokenInvariants, NoTokenTableForChain, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
@@ -71,6 +73,52 @@ contract LibTokenInvariantsPerChainTest is Test {
         }
         vm.expectRevert(abi.encodeWithSelector(NoTokenTableForChain.selector, chainId));
         lib.productionTokensForChainId(chainId);
+    }
+
+    /// Every configured underlying routes by its own config row: EU to the chain's EU clone, US to the supplied
+    /// authoriser.
+    function testExpectedAuthoriserRoutesEachConfigByRegion(address usAuthoriser) external pure {
+        SupportedNetwork[] memory nets =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        for (uint256 c = 0; c < nets.length; c++) {
+            uint256 id = nets[c].chainId;
+            for (uint256 i = 0; i < configs.length; i++) {
+                address expected =
+                    configs[i].region == Region.EU ? LibAuthoriserInvariants.euAuthoriserForChainId(id) : usAuthoriser;
+                assertEq(LibTokenInvariants.expectedAuthoriser(configs[i].underlying, usAuthoriser, id), expected);
+            }
+        }
+    }
+
+    /// Fixed examples: tMC on Base is the EU clone at its basescan address; tWMT takes the supplied authoriser.
+    function testExpectedAuthoriserBaseFixedExamples() external pure {
+        uint256 base = LibSafeInvariants.BASE_CHAIN_ID;
+        assertEq(
+            LibTokenInvariants.expectedAuthoriser("MC", address(0xA11CE), base),
+            0xDB9152e46c1D140DB6a6f814461f21c571F3275e
+        );
+        assertEq(LibTokenInvariants.expectedAuthoriser("WMT", address(0xA11CE), base), address(0xA11CE));
+    }
+
+    /// A US underlying never needs the chain's EU clone, so an unslotted chain does not revert it.
+    function testExpectedAuthoriserUsIgnoresTheChain(uint256 chainId, address usAuthoriser) external pure {
+        assertEq(LibTokenInvariants.expectedAuthoriser("MSTR", usAuthoriser, chainId), usAuthoriser);
+    }
+
+    function testExpectedAuthoriserEuOnAnUnslottedChainReverts(uint256 chainId) external {
+        SupportedNetwork[] memory nets =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        for (uint256 i = 0; i < nets.length; i++) {
+            vm.assume(chainId != nets[i].chainId);
+        }
+        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForAuthoriser.selector, chainId));
+        lib.expectedAuthoriser("MC", address(0xA11CE), chainId);
+    }
+
+    function testExpectedAuthoriserUnknownUnderlyingReverts() external {
+        vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "NOPE"));
+        lib.expectedAuthoriser("NOPE", address(0xA11CE), LibSafeInvariants.BASE_CHAIN_ID);
     }
 
     function assertSame(TokenInstance[] memory a, TokenInstance[] memory b) internal pure {

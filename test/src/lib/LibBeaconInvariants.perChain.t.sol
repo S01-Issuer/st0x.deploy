@@ -7,6 +7,7 @@ import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.22/src/lib/LibRai
 import {LibBeaconInvariants, UnsupportedChainForProdBeacons} from "../../../src/lib/LibBeaconInvariants.sol";
 import {LibProdBeacons0_1_1} from "../../../src/lib/LibProdBeacons0_1_1.sol";
 import {LibProdBeaconsBase} from "../../../src/lib/LibProdBeaconsBase.sol";
+import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibBeaconInvariantsPerChainHarness} from "./LibBeaconInvariantsPerChainHarness.sol";
@@ -76,6 +77,32 @@ contract LibBeaconInvariantsPerChainTest is Test {
         assertTrue(pinned[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX] != address(0));
         assertTrue(pinned[LibBeaconInvariants.ORCHESTRATOR_BEACON_INDEX] != address(0));
         assertTrue(LibProdBeacons0_1_1.beaconSetDeployer() != address(0));
+    }
+
+    /// The receipt and receipt-vault beacons serve the 0.1.30 impls the fleet upgrade
+    /// (`20260825-upgrade-fleet-to-0-1-30`) put behind them on every chain; the wrapped-token-vault beacon still
+    /// serves 0.1.1 and the orchestrator beacon the 0.1.30 orchestrator (`LibOrchestratorInvariants.assertBeaconSet`).
+    function testExpectedImplementationsAreTheFleetUpgradeImplsAndTheBootstrapRest() external pure {
+        SupportedNetwork[] memory nets = networks();
+        for (uint256 i = 0; i < nets.length; i++) {
+            address[4] memory impls = LibBeaconInvariants.prodExpectedImplementationsForChainId(nets[i].chainId);
+            assertEq(impls[LibBeaconInvariants.RECEIPT_BEACON_INDEX], LibProdDeployV4.STOX_RECEIPT_0_1_30);
+            assertEq(impls[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX], LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30);
+            assertEq(
+                impls[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX],
+                LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1
+            );
+            assertEq(impls[LibBeaconInvariants.ORCHESTRATOR_BEACON_INDEX], LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30);
+        }
+    }
+
+    function testUndeployedChainHasNoExpectedImplementations(uint256 chainId) external {
+        SupportedNetwork[] memory nets = networks();
+        for (uint256 i = 0; i < nets.length; i++) {
+            vm.assume(chainId != nets[i].chainId);
+        }
+        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForProdBeacons.selector, chainId));
+        lib.prodExpectedImplementationsForChainId(chainId);
     }
 
     function assertEq(address[4] memory a, address[4] memory b) internal pure {

@@ -2319,6 +2319,22 @@ library LibTokenInvariants {
         assertUniformAuthoriser(productionTokensBase(), expected);
     }
 
+    /// @notice The authoriser a token's receipt vault must report on a chain: the chain's EU authoriser for an EU
+    /// underlying (`LibProdTokenConfig` region), `usAuthoriser` otherwise.
+    /// @param underlying The token's underlying ticker.
+    /// @param usAuthoriser The authoriser every US receipt vault on the chain shares.
+    /// @param chainId The chain id.
+    /// @return The expected authoriser.
+    function expectedAuthoriser(string memory underlying, address usAuthoriser, uint256 chainId)
+        internal
+        pure
+        returns (address)
+    {
+        return LibProdTokenConfig.regionOf(underlying) == Region.EU
+            ? LibAuthoriserInvariants.euAuthoriserForChainId(chainId)
+            : usAuthoriser;
+    }
+
     /// @notice Chain-parametric `assertUniformAuthoriser`: assert every
     /// receipt vault in the supplied token table reports `expected` as its
     /// authoriser. The Base overload delegates here with
@@ -2332,10 +2348,7 @@ library LibTokenInvariants {
     /// @param expected The authoriser every US receipt vault must share.
     function assertUniformAuthoriser(TokenInstance[] memory tokens, address expected) internal view {
         for (uint256 i = 0; i < tokens.length; i++) {
-            address expectedForToken = expected;
-            if (LibProdTokenConfig.regionOf(tokens[i].underlying) == Region.EU) {
-                expectedForToken = LibAuthoriserInvariants.euAuthoriserForChainId(block.chainid);
-            }
+            address expectedForToken = expectedAuthoriser(tokens[i].underlying, expected, block.chainid);
             address actual = IAuthorisable(tokens[i].receiptVault).authorizer();
             if (actual != expectedForToken) {
                 revert ReceiptVaultAuthoriserMismatch(tokens[i].receiptVault, expectedForToken, actual);
