@@ -315,11 +315,19 @@ contract MigrateGovernanceToTimelockTest is Test {
         }
     }
 
+    function assertEndsWithTheRecord(SafeTx[] memory txs, uint256 recordIdx) internal view {
+        assertEq(txs.length, recordIdx + 1);
+        (address registry, bytes memory recordData) =
+            LibStoxMigrations.recordCall(migrateGovernanceToTimelockDeclaration());
+        assertEq(txs[recordIdx].to, registry, "bundle must end with the record");
+        assertEq(txs[recordIdx].data, recordData);
+    }
+
     /// @notice Parse the emitted Tx Builder JSON and assert it matches the
     /// bundle derived independently from the pre-run state: 7 grants, then
     /// the captured Safe-owned vault selection in table order, then the
     /// captured Safe-owned beacon selection in `prodBeaconsForChainId`
-    /// order, then 7 renounces. The selections are the pre-run captures —
+    /// order, then 7 renounces, then the record. The selections are the pre-run captures —
     /// the script skips surfaces already timelock-owned, so asserting
     /// against the captured subset (not a table prefix) tracks its
     /// selection rule on any fork state.
@@ -349,12 +357,7 @@ contract MigrateGovernanceToTimelockTest is Test {
         assertEq(chainId, block.chainid, "artifact must be authored for the active chain");
         assertEq(artifactSafe, safe, "artifact must be authored for the chain's Safe");
         assertEq(txs[0].to, authoriser, "bundle must open with the authoriser grants");
-        uint256 recordIdx = ADMIN_ROLE_COUNT + vaultTargets.length + beaconTargets.length + ADMIN_ROLE_COUNT;
-        assertEq(txs.length, recordIdx + 1);
-        (address registry, bytes memory recordData) =
-            LibStoxMigrations.recordCall(migrateGovernanceToTimelockDeclaration());
-        assertEq(txs[recordIdx].to, registry, "bundle must end with the record");
-        assertEq(txs[recordIdx].data, recordData);
+        assertEndsWithTheRecord(txs, ADMIN_ROLE_COUNT + vaultTargets.length + beaconTargets.length + ADMIN_ROLE_COUNT);
 
         for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
             assertEq(txs[i].to, authoriser);
