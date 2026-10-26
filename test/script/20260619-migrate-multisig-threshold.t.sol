@@ -3,178 +3,113 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {
-    MigrateMultisigThreshold,
-    VerifyMismatch,
-    VerifyExpectedSingleTx
-} from "../../script/20260619-migrate-multisig-threshold.s.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
-import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.22/src/interface/IMigrationRegistryV3.sol";
 import {SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.22/src/lib/LibSafeTxBuilderJson.sol";
 import {LibSafe} from "rain-deploy-0.1.22/src/lib/LibSafe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
 
-/// @title MigrateMultisigThresholdTest
-/// @notice End-to-end fork tests for the multisig threshold migration
-/// script. Covers the happy-path `run()` dry-run, inverted preconditions
-/// (each pre-flight invariant is exercised by mocking a single drift in
-/// isolation), and the `run()` -> `verify()` chain (i.e. `verify` accepts
-/// what `run` emits).
+import {migrateMultisigThresholdDeclaration} from "../../script/20260619-migrate-multisig-threshold.s.sol";
+import {MigrateMultisigThresholdHarness} from "./MigrateMultisigThresholdHarness.sol";
+import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
+import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
+import {
+    LibStoxMigrations,
+    SafeNotApprovedWriter,
+    UnexpectedMigrationLine
+} from "../../src/lib/LibStoxMigrations.sol";
+import {LibMigrationLineFork} from "../lib/LibMigrationLineFork.sol";
+
 contract MigrateMultisigThresholdTest is Test {
-    /// @notice The script under test, deployed fresh per fork.
-    MigrateMultisigThreshold internal script;
+    bytes32 internal constant ID = keccak256("script/20260619-migrate-multisig-threshold.s.sol");
 
-    /// @notice Live Safe handle.
-    Safe internal safe;
-
-    /// @notice Selects the Base fork at chain head — deliberately
-    /// unpinned. Same precedent as
-    /// `StoxProdV2.t.sol::testProdDeployBaseV2`.
-    function selectBaseFork() internal {
-        vm.createSelectFork(LibRainDeploy.BASE);
-        script = new MigrateMultisigThreshold();
-        safe = Safe(payable(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE));
+    function fork(string memory network, string memory tag) internal returns (MigrateMultisigThresholdHarness, Safe) {
+        vm.createSelectFork(network);
+        Safe safe = Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
+        LibMigrationLineFork.approve(vm, address(safe));
+        return (new MigrateMultisigThresholdHarness(tag), safe);
     }
 
-    /// @notice `run()` dry-run completes against the live pre-state,
-    /// writes the artifact, and the artifact has the expected single-tx
-    /// shape. The final fork state must show the threshold back at the
-    /// pinned pre-migration value — this is the n+1 reversibility check's
-    /// observable side effect: the script ends with the safe rolled back,
-    /// proving the new state is exitable.
-    function testRunCompletesAndWritesArtifact() external {
-        selectBaseFork();
-        script.run();
+    function testDeclarationIsTheLineRoot() external pure {
+        assertEq(migrateMultisigThresholdDeclaration().id, ID);
+        assertEq(migrateMultisigThresholdDeclaration().onto, MIGRATION_HEAD_GENESIS);
+    }
 
-        // The artifact path the script writes to is project-relative,
-        // resolved against `vm.projectRoot()`.
-        string memory artifactPath = string.concat(vm.projectRoot(), "/out/safe-threshold-migration.json");
-        string memory json = vm.readFile(artifactPath);
+    function testRunRecordsOnlyOnEveryNetworkAtThePin() external {
+        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        for (uint256 i = 0; i < networks.length; i++) {
+            (MigrateMultisigThresholdHarness script, Safe safe) = fork(networks[i], "recordOnly");
+            assertEq(safe.getThreshold(), LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
+            SafeTx[] memory txs = script.callAuthorBundle();
+            assertEq(txs.length, 1);
+            (address registry, bytes memory data) = LibStoxMigrations.recordCall(migrateMultisigThresholdDeclaration());
+            assertEq(txs[0].to, registry);
+            assertEq(txs[0].data, data);
+            script.run();
+            assertEq(LibStoxMigrations.applied(ID), block.timestamp);
+            assertEq(LibStoxMigrations.head(), ID);
+            assertEq(safe.getThreshold(), LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
+        }
+    }
 
-        // Smoke-check the JSON shape.
-        string memory bundleName = vm.parseJsonString(json, ".meta.name");
-        assertEq(bundleName, "ST0x Safe threshold 1->3 (post-rotation roster)", "meta.name pinned");
-        bool hasFirstTx = vm.keyExistsJson(json, ".transactions[0].to");
-        bool hasSecondTx = vm.keyExistsJson(json, ".transactions[1].to");
-        assertTrue(hasFirstTx, "first transaction present");
-        assertFalse(hasSecondTx, "exactly one transaction emitted");
-
-        // After `run()` the n+1 reversibility check has rolled the
-        // threshold back to its pre-migration value. Asserting the final
-        // fork state matches the pinned pre-migration threshold is the
-        // observable evidence that the reversal path executed
-        // successfully — without it we'd be relying solely on the absence
-        // of an internal revert.
+    function testRunRaisesTheThresholdWhenBelowThePin() external {
+        (MigrateMultisigThresholdHarness script, Safe safe) = fork(LibRainDeploy.BASE, "raise");
+        vm.prank(address(safe));
+        safe.changeThreshold(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_CREATION_THRESHOLD);
+        SafeTx[] memory txs = script.callAuthorBundle();
+        assertEq(txs.length, 2);
+        assertEq(txs[0].to, address(safe));
         assertEq(
-            safe.getThreshold(),
-            LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD,
-            "n+1 reversibility check rolled threshold back to pre-migration value"
+            txs[0].data,
+            abi.encodeCall(OwnerManager.changeThreshold, (LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD))
         );
-    }
-
-    /// @notice `verify()` accepts the artifact emitted by `run()`. This
-    /// is the load-bearing round-trip property — a signer should be able
-    /// to take the artifact, run `verify` against the same fork, and get
-    /// silent success.
-    function testVerifyAcceptsRunArtifact() external {
-        selectBaseFork();
-        // `run()` simulates the inner call via `vm.prank`, which mutates
-        // the Safe's threshold on the active fork. Snapshot first so we
-        // can roll the fork back to the pre-run state and `verify()` sees
-        // the same pinned current threshold it would see in production.
-        uint256 snapshot = vm.snapshotState();
         script.run();
-        string memory artifactPath = string.concat(vm.projectRoot(), "/out/safe-threshold-migration.json");
-        vm.revertToState(snapshot);
-        script.verify(artifactPath);
+        assertEq(safe.getThreshold(), LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
+        assertEq(LibStoxMigrations.head(), ID);
     }
 
-    /// @notice Inverted: the pre-flight rejects a drifted threshold. If the
-    /// Safe's threshold has moved off the pinned current value (3), `run()`
-    /// must trip the threshold invariant rather than emitting a stale
-    /// artifact.
-    function testRunRejectsThresholdDrift() external {
-        selectBaseFork();
-        // Mock the Safe's threshold away from the pinned current value (3)
-        // to simulate drift; the pre-flight rejects before producing an
-        // artifact.
-        vm.mockCall(address(safe), abi.encodeCall(OwnerManager.getThreshold, ()), abi.encode(uint256(1)));
-
+    function testRunRefusesAnUnapprovedSafe() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        MigrateMultisigThresholdHarness script = new MigrateMultisigThresholdHarness("unapproved");
         vm.expectRevert(
-            abi.encodeWithSelector(LibSafe.SafeThresholdMismatch.selector, address(safe), uint256(3), uint256(1))
+            abi.encodeWithSelector(SafeNotApprovedWriter.selector, LibSafeInvariants.safeForChainId(block.chainid))
         );
         script.run();
     }
 
-    /// @notice Inverted: `verify()` rejects an artifact with a wrong
-    /// `chainId`. We forge a minimal JSON with a bogus chain id and
-    /// assert the typed `VerifyMismatch("chainId")` revert.
-    function testVerifyRejectsWrongChainId() external {
-        selectBaseFork();
-        // Build a minimal-shape Tx Builder JSON with a deliberately-wrong
-        // chainId. Tx Builder schema serialises `chainId` as a decimal
-        // string.
-        SafeTx memory txn = SafeTx({
-            to: address(safe),
-            value: 0,
-            data: abi.encodeCall(OwnerManager.changeThreshold, (uint256(3))),
-            operation: Enum.Operation.Call
-        });
-        SafeTx[] memory txs = new SafeTx[](1);
-        txs[0] = txn;
-        // Emit a bundle that claims to be for a different chain id by
-        // bypassing the live `block.chainid` and passing `block.chainid + 1`.
-        string memory json =
-            LibSafeTxBuilderJson.toJson(vm, address(safe), block.chainid + 1, "safe-verify-wrong-chain", txs);
-        string memory path = string.concat(vm.projectRoot(), "/out/safe-verify-wrong-chain.json");
-        vm.writeFile(path, json);
-
-        vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, "chainId"));
-        script.verify(path);
+    function testRunRefusesALineAlreadyPastGenesis() external {
+        (MigrateMultisigThresholdHarness script,) = fork(LibRainDeploy.BASE, "twice");
+        script.run();
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, ID));
+        script.run();
     }
 
-    /// @notice Inverted: `verify()` rejects an artifact whose first tx
-    /// targets a different Safe.
-    function testVerifyRejectsWrongSafeAddress() external {
-        selectBaseFork();
-        address impostor = address(0xCAFEBABE);
-        SafeTx memory txn = SafeTx({
-            to: impostor,
-            value: 0,
-            data: abi.encodeCall(OwnerManager.changeThreshold, (uint256(3))),
-            operation: Enum.Operation.Call
-        });
-        SafeTx[] memory txs = new SafeTx[](1);
-        txs[0] = txn;
-        string memory json = LibSafeTxBuilderJson.toJson(vm, impostor, block.chainid, "safe-verify-wrong-safe", txs);
-        string memory path = string.concat(vm.projectRoot(), "/out/safe-verify-wrong-safe.json");
-        vm.writeFile(path, json);
-
-        vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, "safeAddress"));
-        script.verify(path);
+    function testRunRefusesOwnerDrift() external {
+        (MigrateMultisigThresholdHarness script, Safe safe) = fork(LibRainDeploy.BASE, "ownerDrift");
+        address[] memory owners = safe.getOwners();
+        vm.prank(address(safe));
+        safe.swapOwner(address(1), owners[0], address(0xBEEF));
+        vm.expectRevert(
+            abi.encodeWithSelector(LibSafe.SafeOwnerMismatch.selector, address(safe), 0, owners[0], address(0xBEEF))
+        );
+        script.run();
     }
 
-    /// @notice Inverted: `verify()` rejects an artifact whose tx
-    /// calldata encodes a different threshold.
-    function testVerifyRejectsWrongThresholdData() external {
-        selectBaseFork();
-        SafeTx memory txn = SafeTx({
-            to: address(safe),
-            value: 0,
-            data: abi.encodeCall(OwnerManager.changeThreshold, (uint256(4))),
-            operation: Enum.Operation.Call
-        });
-        SafeTx[] memory txs = new SafeTx[](1);
-        txs[0] = txn;
-        string memory json =
-            LibSafeTxBuilderJson.toJson(vm, address(safe), block.chainid, "safe-verify-wrong-threshold", txs);
-        string memory path = string.concat(vm.projectRoot(), "/out/safe-verify-wrong-threshold.json");
-        vm.writeFile(path, json);
-
-        vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, "data"));
+    function testVerifyAcceptsTheRunArtifactAndRejectsTamper() external {
+        (MigrateMultisigThresholdHarness script, Safe safe) = fork(LibRainDeploy.BASE, "verify");
+        uint256 preRun = vm.snapshotState();
+        script.run();
+        string memory path = script.callArtifactPath();
+        vm.revertToState(preRun);
         script.verify(path);
+
+        (,, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(vm, vm.readFile(path));
+        txs[0].data = abi.encodeCall(OwnerManager.changeThreshold, (uint256(4)));
+        string memory tampered = string.concat(path, ".tampered.json");
+        vm.writeFile(tampered, LibSafeTxBuilderJson.toJson(vm, address(safe), block.chainid, "tampered", txs));
+        vm.expectRevert(abi.encodeWithSelector(LibSafeTxBuilderJson.ArtifactMismatch.selector, "data"));
+        script.verify(tampered);
     }
 }

@@ -1,0 +1,103 @@
+// SPDX-License-Identifier: LicenseRef-DCL-1.0
+// SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
+pragma solidity =0.8.25;
+
+import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
+
+import {
+    SafeMissingRoleAdmin,
+    SafeStillHoldsAdmin,
+    grantEuAuthoriserRolesDeclaration
+} from "../../script/20261006-grant-eu-authoriser-roles.s.sol";
+import {GrantEuAuthoriserRolesHarness} from "./GrantEuAuthoriserRolesHarness.sol";
+import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInvariants.sol";
+import {LibEuAuthoriserClone} from "../../src/lib/LibEuAuthoriserClone.sol";
+import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
+import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
+import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
+import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
+import {LibMigrationLineFork} from "../lib/LibMigrationLineFork.sol";
+
+contract GrantEuAuthoriserRolesTest is Test {
+    function fork(string memory network, string memory tag) internal returns (GrantEuAuthoriserRolesHarness) {
+        vm.createSelectFork(network);
+        LibMigrationLineFork.approve(vm, LibSafeInvariants.safeForChainId(block.chainid));
+        LibMigrationLineFork.recordOnto(vm, grantEuAuthoriserRolesDeclaration());
+        return new GrantEuAuthoriserRolesHarness(tag);
+    }
+
+    function eu() internal view returns (IAccessControl) {
+        return IAccessControl(LibEuAuthoriserClone.cloneDeployedAddress(block.chainid));
+    }
+
+    function timelock() internal view returns (address) {
+        return LibTimelockInvariants.timelockForChainId(block.chainid);
+    }
+
+    function map() internal view returns (RoleGrant[] memory) {
+        return LibAuthoriserInvariants.expectedEuGrants(
+            timelock(), LibAuthoriserInvariants.GRANTEE_EU_MINTER, LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C
+        );
+    }
+
+    function testRunRecordsOnlyOnEveryNetwork() external {
+        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        for (uint256 i = 0; i < networks.length; i++) {
+            GrantEuAuthoriserRolesHarness script = fork(networks[i], "recordOnly");
+            SafeTx[] memory txs = script.callAuthorBundle();
+            assertEq(txs.length, 1, networks[i]);
+            (address registry, bytes memory data) = LibStoxMigrations.recordCall(grantEuAuthoriserRolesDeclaration());
+            assertEq(txs[0].to, registry);
+            assertEq(txs[0].data, data);
+            script.run();
+            assertEq(LibStoxMigrations.head(), grantEuAuthoriserRolesDeclaration().id, networks[i]);
+        }
+    }
+
+    function testRunGrantsMissingRowsAndRenouncesHeldAdmins() external {
+        GrantEuAuthoriserRolesHarness script = fork(LibRainDeploy.BASE, "repair");
+        RoleGrant[] memory rows = map();
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        RoleGrant memory missing = rows[LibAuthoriserInvariants.ADMIN_ROLE_COUNT];
+        vm.startPrank(timelock());
+        for (uint256 i = 0; i < LibAuthoriserInvariants.ADMIN_ROLE_COUNT; i++) {
+            eu().grantRole(rows[i].role, safe);
+        }
+        eu().revokeRole(missing.role, missing.grantee);
+        vm.stopPrank();
+
+        SafeTx[] memory txs = script.callAuthorBundle();
+        assertEq(txs.length, 1 + LibAuthoriserInvariants.ADMIN_ROLE_COUNT + 1);
+        assertEq(txs[0].data, abi.encodeCall(IAccessControl.grantRole, (missing.role, missing.grantee)));
+        for (uint256 i = 0; i < LibAuthoriserInvariants.ADMIN_ROLE_COUNT; i++) {
+            assertEq(txs[1 + i].data, abi.encodeCall(IAccessControl.renounceRole, (rows[i].role, safe)));
+        }
+        script.run();
+        assertTrue(eu().hasRole(missing.role, missing.grantee));
+        assertEq(LibStoxMigrations.head(), grantEuAuthoriserRolesDeclaration().id);
+    }
+
+    function testPreflightRefusesAMissingRowTheSafeCannotGrant() external {
+        GrantEuAuthoriserRolesHarness script = fork(LibRainDeploy.BASE, "noAdmin");
+        RoleGrant memory missing = map()[LibAuthoriserInvariants.ADMIN_ROLE_COUNT];
+        vm.prank(timelock());
+        eu().revokeRole(missing.role, missing.grantee);
+        vm.expectRevert(
+            abi.encodeWithSelector(SafeMissingRoleAdmin.selector, address(eu()), eu().getRoleAdmin(missing.role))
+        );
+        script.callPreflight();
+    }
+
+    function testPostStateRefusesASafeStillHoldingAnAdmin() external {
+        GrantEuAuthoriserRolesHarness script = fork(LibRainDeploy.BASE, "stillAdmin");
+        script.run();
+        bytes32 admin = map()[0].role;
+        vm.prank(timelock());
+        eu().grantRole(admin, LibSafeInvariants.safeForChainId(block.chainid));
+        vm.expectRevert(abi.encodeWithSelector(SafeStillHoldsAdmin.selector, admin));
+        script.callAssertPostState();
+    }
+}

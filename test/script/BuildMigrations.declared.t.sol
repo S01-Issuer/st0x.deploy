@@ -9,6 +9,7 @@ import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.22/src/lib/LibRai
 
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
+import {LibMigrationLineFork} from "../lib/LibMigrationLineFork.sol";
 
 /// @title BuildMigrationsDeclaredTest
 /// @notice Every migration the scripts declare, read from `migrations.json`
@@ -107,10 +108,11 @@ contract BuildMigrationsDeclaredTest is Test {
         return prerequisitesOf(json, i, networks()[0].chainId)[0].migration;
     }
 
-    /// @notice Following the heads from genesis visits every record once: the
-    /// admin move first.
-    function testTheRecordsAreOneLineFromGenesisStartingWithTheAdminMove() external view {
+    /// @notice Following the heads from genesis visits every record once, in
+    /// the line's order.
+    function testTheRecordsAreTheLineInOrderFromGenesis() external view {
         (string memory json, uint256 rows) = manifest();
+        assertEq(rows, LibMigrationLineFork.line().length, "every migration is in the line");
         bytes32 at = MIGRATION_HEAD_GENESIS;
         for (uint256 visited = 0; visited < rows; visited++) {
             uint256 next = rows;
@@ -120,7 +122,7 @@ contract BuildMigrationsDeclaredTest is Test {
                 next = i;
             }
             assertLt(next, rows, "the line stops before every record");
-            if (visited == 0) assertEq(idOf(json, next), LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
+            assertEq(idOf(json, next), LibMigrationLineFork.line()[visited].id);
             at = idOf(json, next);
         }
         for (uint256 i = 0; i < rows; i++) {

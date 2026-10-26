@@ -229,17 +229,36 @@ way to resolve it.
   `GovernanceTimelockMigration.t.sol` — vault ownership, beacon ownership and
   exclusive `_ADMIN` holding on the timelock, per chain.
 
+## Migration line
+
+Every migration is recorded in the root authority's line in `rain-deploy`'s
+`MigrationRegistry` (`LibStoxMigrations`), written as the last call of the
+migration's own transaction by a delegate the root authority approves: the
+chain's Safe, or its timelock for a timelock batch. Each script refuses unless
+the line's head is its predecessor and its writer is approved. A migration whose
+effect already holds on a chain still runs there: its bundle carries only what
+is missing, down to the record alone. In order, onto genesis:
+
+1. `20260619-migrate-multisig-threshold` — the Safe at its pinned threshold.
+2. `20260729-migrate-governance-to-timelock` — vaults, beacons and authoriser
+   `_ADMIN` roles on the timelock.
+3. `20261006-grant-eu-authoriser-roles` — the EU authoriser's role map, its
+   `_ADMIN` roles on the timelock and none on the Safe.
+4. `20261006-grant-orchestrator-emergency` — `EMERGENCY_ROLE` on the Safe.
+5. `20261006-orchestrator-admin-to-timelock` — the orchestrator's
+   `DEFAULT_ADMIN_ROLE` moves from the Safe to the timelock. The script refuses
+   a Safe that does not hold `EMERGENCY_ROLE`.
+6. `20260831-retire-direct-signer-roles` — one timelock batch revoking the
+   service signer's direct `DEPOSIT` and `WITHDRAW` that it still holds, then
+   the record, written by the timelock. The Safe schedules it with one run and
+   executes it with a second run once `TIMELOCK_MIN_DELAY` has passed; a run
+   inside the delay refuses. It refuses while the orchestrator path is not fully
+   enabled.
+
 ## Orchestrator roles
 
 The Safe holds `EMERGENCY_ROLE` on every chain, and
-`LibOrchestratorInvariants.assertInstance` always expects it. The admin move is
-recorded in the root authority's line in `rain-deploy`'s `MigrationRegistry`
-(`LibStoxMigrations`), written by the Safe as a delegate the root authority
-approves, and the invariants assert exactly the role state the record implies:
-
-- `20261006-orchestrator-admin-to-timelock` — `DEFAULT_ADMIN_ROLE` moves from
-  the Safe to the timelock, the line's first record. The script refuses a Safe
-  that is not an approved writer of the line or does not hold `EMERGENCY_ROLE`.
+`LibOrchestratorInvariants.assertInstance` always expects it.
 
 `MINT`, `BURN` and `EMERGENCY` are themselves operations and stay off the
 timelock; who may hold them is delay-gated, in both directions. Revoking a

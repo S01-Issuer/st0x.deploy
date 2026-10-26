@@ -15,7 +15,7 @@ import {
     MigrateGovernanceToTimelock,
     UnexpectedVaultOwner,
     UnexpectedBeaconOwner,
-    NothingToMigrate
+    migrateGovernanceToTimelockDeclaration
 } from "../../script/20260729-migrate-governance-to-timelock.s.sol";
 import {MigrateGovernanceToTimelockHarness} from "./MigrateGovernanceToTimelockHarness.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInvariants.sol";
@@ -33,6 +33,8 @@ import {LibSafeFork} from "rain-deploy-0.1.22/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.22/src/lib/LibSafeTxBuilderJson.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
+import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
+import {LibMigrationLineFork} from "../lib/LibMigrationLineFork.sol";
 
 /// @title MigrateGovernanceToTimelockTest
 /// @notice Live head fork coverage for the governance migration authoring.
@@ -108,6 +110,8 @@ contract MigrateGovernanceToTimelockTest is Test {
     function selectRewoundFork(string memory network) internal {
         vm.createSelectFork(network);
         rewindMigration();
+        LibMigrationLineFork.approve(vm, LibSafeInvariants.safeForChainId(block.chainid));
+        LibMigrationLineFork.recordOnto(vm, migrateGovernanceToTimelockDeclaration());
     }
 
     /// @notice Put the active fork back in the pre-migration state: every
@@ -345,7 +349,12 @@ contract MigrateGovernanceToTimelockTest is Test {
         assertEq(chainId, block.chainid, "artifact must be authored for the active chain");
         assertEq(artifactSafe, safe, "artifact must be authored for the chain's Safe");
         assertEq(txs[0].to, authoriser, "bundle must open with the authoriser grants");
-        assertEq(txs.length, ADMIN_ROLE_COUNT + vaultTargets.length + beaconTargets.length + ADMIN_ROLE_COUNT);
+        uint256 recordIdx = ADMIN_ROLE_COUNT + vaultTargets.length + beaconTargets.length + ADMIN_ROLE_COUNT;
+        assertEq(txs.length, recordIdx + 1);
+        (address registry, bytes memory recordData) =
+            LibStoxMigrations.recordCall(migrateGovernanceToTimelockDeclaration());
+        assertEq(txs[recordIdx].to, registry, "bundle must end with the record");
+        assertEq(txs[recordIdx].data, recordData);
 
         for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
             assertEq(txs[i].to, authoriser);
@@ -374,15 +383,37 @@ contract MigrateGovernanceToTimelockTest is Test {
 
     /// @notice A second authoring after full migration refuses: nothing is
     /// left on the Safe to move.
-    function testRunRefusesWhenNothingToMigrate() external {
+    function testRunRefusesWhenAlreadyRecorded() external {
         selectBaseFork();
         address timelock = deployTimelock();
-        new MigrateGovernanceToTimelockHarness(timelock, "testRunRefusesWhenNothingToMigrate").run();
+        new MigrateGovernanceToTimelockHarness(timelock, "testRunRefusesWhenAlreadyRecorded").run();
 
         MigrateGovernanceToTimelockHarness second =
-            new MigrateGovernanceToTimelockHarness(timelock, "testRunRefusesWhenNothingToMigrate");
-        vm.expectRevert(NothingToMigrate.selector);
+            new MigrateGovernanceToTimelockHarness(timelock, "testRunRefusesWhenAlreadyRecorded");
+        vm.expectRevert(
+            abi.encodeWithSelector(UnexpectedMigrationLine.selector, migrateGovernanceToTimelockDeclaration().id)
+        );
         second.run();
+    }
+
+    function testRunRecordsOnlyWhereGovernanceAlreadyMoved() external {
+        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        for (uint256 i = 0; i < networks.length; i++) {
+            vm.createSelectFork(networks[i]);
+            LibMigrationLineFork.approve(vm, LibSafeInvariants.safeForChainId(block.chainid));
+            LibMigrationLineFork.recordOnto(vm, migrateGovernanceToTimelockDeclaration());
+            MigrateGovernanceToTimelockHarness script = new MigrateGovernanceToTimelockHarness(
+                LibTimelockInvariants.timelockForChainId(block.chainid), "recordOnly"
+            );
+            script.run();
+            (,, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(vm, vm.readFile(script.callArtifactPath()));
+            assertEq(txs.length, 1, networks[i]);
+            (address registry, bytes memory recordData) =
+                LibStoxMigrations.recordCall(migrateGovernanceToTimelockDeclaration());
+            assertEq(txs[0].to, registry);
+            assertEq(txs[0].data, recordData);
+            assertEq(LibStoxMigrations.head(), migrateGovernanceToTimelockDeclaration().id);
+        }
     }
 
     /// @notice A production vault owned by neither the Safe nor the timelock

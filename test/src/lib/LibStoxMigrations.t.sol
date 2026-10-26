@@ -12,7 +12,13 @@ import {
 } from "rain-deploy-0.1.22/src/generated/candidate/MigrationRegistry.sol";
 
 import {ScriptDeclaration} from "../../../src/interface/IStoxScript.sol";
-import {LibStoxMigrations} from "../../../src/lib/LibStoxMigrations.sol";
+import {
+    LibStoxMigrations,
+    LineHeadMismatch,
+    RecordMismatch,
+    SafeNotApprovedWriter,
+    UnexpectedMigrationLine
+} from "../../../src/lib/LibStoxMigrations.sol";
 
 /// @title LibStoxMigrationsTest
 /// @notice Every record is in the root authority's line in this repo's
@@ -147,5 +153,94 @@ contract LibStoxMigrationsTest is Test {
             )
         );
         assertEq(LibStoxMigrations.head(), MIGRATION_HEAD_GENESIS);
+    }
+
+    function externalAssertNext(ScriptDeclaration memory declared, address delegate) external view {
+        LibStoxMigrations.assertNext(declared, delegate);
+    }
+
+    function externalAssertRecorded(ScriptDeclaration memory declared) external view {
+        LibStoxMigrations.assertRecorded(declared);
+    }
+
+    function approvedSafe() internal returns (address) {
+        etchRegistry();
+        address safe = makeAddr("safe");
+        vm.prank(LibStoxMigrations.WRITER);
+        LibMigrationRegistry.approveV3(LibStoxMigrations.NAMESPACE, safe);
+        return safe;
+    }
+
+    function record(address delegate, ScriptDeclaration memory declared) internal {
+        (address to, bytes memory data) = LibStoxMigrations.recordCall(declared);
+        vm.prank(delegate);
+        (bool ok,) = to.call(data);
+        assertTrue(ok, "record");
+    }
+
+    function testAssertNextAcceptsTheHeadAndAnApprovedDelegate() external {
+        address safe = approvedSafe();
+        this.externalAssertNext(adminMove(), safe);
+    }
+
+    function testAssertNextRefusesAnotherHead() external {
+        address safe = approvedSafe();
+        ScriptDeclaration memory later = LibStoxMigrations.migrationOnto(keccak256("later"), keccak256("earlier"));
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, MIGRATION_HEAD_GENESIS));
+        this.externalAssertNext(later, safe);
+    }
+
+    function testAssertNextRefusesARecordedMigration() external {
+        address safe = approvedSafe();
+        record(safe, adminMove());
+        vm.expectRevert(
+            abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK)
+        );
+        this.externalAssertNext(adminMove(), safe);
+    }
+
+    function testAssertNextRefusesAnUnapprovedDelegate() external {
+        approvedSafe();
+        address other = makeAddr("other");
+        vm.expectRevert(abi.encodeWithSelector(SafeNotApprovedWriter.selector, other));
+        this.externalAssertNext(adminMove(), other);
+    }
+
+    function testAssertRecordedAcceptsThisBlocksRecordAtTheHead() external {
+        address safe = approvedSafe();
+        record(safe, adminMove());
+        this.externalAssertRecorded(adminMove());
+    }
+
+    function testAssertRecordedRefusesAMissingRecord() external {
+        approvedSafe();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RecordMismatch.selector, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK, block.timestamp, uint256(0)
+            )
+        );
+        this.externalAssertRecorded(adminMove());
+    }
+
+    function testAssertRecordedRefusesARecordFromAnotherBlock() external {
+        address safe = approvedSafe();
+        record(safe, adminMove());
+        uint256 recordedAt = block.timestamp;
+        vm.warp(recordedAt + 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RecordMismatch.selector, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK, recordedAt + 1, recordedAt
+            )
+        );
+        this.externalAssertRecorded(adminMove());
+    }
+
+    function testAssertRecordedRefusesALineThatMovedOn() external {
+        address safe = approvedSafe();
+        record(safe, adminMove());
+        bytes32 next = keccak256("next");
+        record(safe, LibStoxMigrations.migrationOnto(next, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK));
+        vm.expectRevert(abi.encodeWithSelector(LineHeadMismatch.selector, next));
+        this.externalAssertRecorded(adminMove());
     }
 }

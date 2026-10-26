@@ -3,150 +3,189 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
+import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
 
 import {
     OrchestratorPathNotEnabled,
-    SafeMissingRoleAdminForRetire
+    TimelockMissingRoleAdminForRetire,
+    RetireInsideDelay,
+    retireDirectSignerRolesDeclaration
 } from "../../script/20260831-retire-direct-signer-roles.s.sol";
+import {orchestratorAdminToTimelockDeclaration} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
+import {grantOrchestratorEmergencyDeclaration} from "../../script/20261006-grant-orchestrator-emergency.s.sol";
 import {RetireDirectSignerRolesHarness} from "./RetireDirectSignerRolesHarness.sol";
 import {LibOrchestratorInvariants, OrchestratorVaultLogicUnexpected} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {IST0xOrchestratorV1} from "../../src/interface/deprecated/IST0xOrchestratorV1.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
-import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
+import {
+    LibStoxMigrations,
+    SafeNotApprovedWriter,
+    UnexpectedMigrationLine
+} from "../../src/lib/LibStoxMigrations.sol";
+import {LibMigrationLineFork} from "../lib/LibMigrationLineFork.sol";
 
-/// @title RetireDirectSignerRolesProdTest
-/// @notice PROD coverage for the direct-role retirement: what production IS
-/// on each chain, read from a real fork with no mocks; then the orchestrator
-/// instance invariant tripped on a Base fork.
-///
-/// The authoriser's `_ADMIN` roles are on the governance timelock, so the
-/// Safe can no longer author the revokes this script bundles: until the
-/// signer's direct roles are gone, every chain must refuse with
-/// `SafeMissingRoleAdminForRetire`, and the retirement has to be scheduled
-/// through the timelock instead. A chain whose orchestrator path is not
-/// fully enabled refuses earlier, at the burn-in gate. Once retired, the
-/// signer holds no direct vault role.
 contract RetireDirectSignerRolesProdTest is Test {
-    /// @notice Walk the active fork's retirement state (see the contract
-    /// NatSpec) and assert it.
-    /// @param label Human chain name, surfaced in logs and messages.
-    /// @param chainId The chain the leg must be forked on.
-    function assertRetireRollout(string memory label, uint256 chainId) internal {
-        assertEq(block.chainid, chainId, string.concat(label, ": fork"));
-        RetireDirectSignerRolesHarness script = new RetireDirectSignerRolesHarness();
+    address internal constant SIGNER = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
+    bytes32 internal constant RETIRE_SALT = keccak256("st0x.retire-direct-signer-roles.20260831");
+
+    function fork(string memory network, string memory tag) internal returns (RetireDirectSignerRolesHarness) {
+        vm.createSelectFork(network);
+        LibMigrationLineFork.approve(vm, LibTimelockInvariants.timelockForChainId(block.chainid));
+        LibMigrationLineFork.recordOnto(vm, retireDirectSignerRolesDeclaration());
+        return new RetireDirectSignerRolesHarness(tag);
+    }
+
+    function authoriser() internal view returns (IAccessControl) {
+        return IAccessControl(LibAuthoriserInvariants.activeChainAuthoriser());
+    }
+
+    function timelock() internal view returns (TimelockController) {
+        return TimelockController(payable(LibTimelockInvariants.timelockForChainId(block.chainid)));
+    }
+
+    function firstMissingGrant() internal view returns (address, bytes32) {
+        IAccessControl acl = authoriser();
         address orchestrator = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
-        address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
-
-        IAccessControl acl = IAccessControl(LibAuthoriserInvariants.activeChainAuthoriser());
-        bool retired = !acl.hasRole(keccak256("DEPOSIT"), signer) && !acl.hasRole(keccak256("WITHDRAW"), signer);
-        if (retired) {
-            // Retired steady state: the orchestrator is the signer's only
-            // path, so it must be fully enabled.
-            if (!pathFullyEnabled(acl, orchestrator, signer)) {
-                (address holder, bytes32 role) = firstMissingGrant(acl, orchestrator, signer);
-                revert OrchestratorPathNotEnabled(holder, role);
-            }
-            return;
-        }
-
-        if (!pathFullyEnabled(acl, orchestrator, signer)) {
-            console2.log(string.concat("PENDING [", label, "]: orchestrator path not enabled - retirement gated"));
-            (address holder, bytes32 role) = firstMissingGrant(acl, orchestrator, signer);
-            vm.expectRevert(abi.encodeWithSelector(OrchestratorPathNotEnabled.selector, holder, role));
-            script.run();
-            return;
-        }
-
-        console2.log(
-            string.concat(
-                "PENDING [",
-                label,
-                "]: signer's direct DEPOSIT/WITHDRAW still live; the Safe no longer holds the authoriser",
-                " _ADMIN roles, so the retirement must be scheduled through the governance timelock"
-            )
-        );
-        vm.expectRevert(abi.encodeWithSelector(SafeMissingRoleAdminForRetire.selector, keccak256("DEPOSIT_ADMIN")));
-        script.run();
-
-        // The same revokes scheduled through the timelock land: the timelock
-        // administers both roles.
-        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        vm.startPrank(timelock);
-        acl.revokeRole(keccak256("DEPOSIT"), signer);
-        acl.revokeRole(keccak256("WITHDRAW"), signer);
-        vm.stopPrank();
-        assertFalse(acl.hasRole(keccak256("DEPOSIT"), signer), string.concat(label, ": signer direct DEPOSIT"));
-        assertFalse(acl.hasRole(keccak256("WITHDRAW"), signer), string.concat(label, ": signer direct WITHDRAW"));
-    }
-
-    /// @notice Whether the orchestrator path is fully enabled: the
-    /// orchestrator holds both vault roles and the signer both orchestrator
-    /// roles.
-    function pathFullyEnabled(IAccessControl acl, address orchestrator, address signer) internal view returns (bool) {
-        return acl.hasRole(keccak256("DEPOSIT"), orchestrator) && acl.hasRole(keccak256("WITHDRAW"), orchestrator)
-            && IAccessControl(orchestrator).hasRole(keccak256("MINT"), signer)
-            && IAccessControl(orchestrator).hasRole(keccak256("BURN"), signer);
-    }
-
-    /// @notice The first (holder, role) the burn-in gate finds missing, in
-    /// the gate's own order.
-    function firstMissingGrant(IAccessControl acl, address orchestrator, address signer)
-        internal
-        view
-        returns (address, bytes32)
-    {
         if (!acl.hasRole(keccak256("DEPOSIT"), orchestrator)) return (orchestrator, keccak256("DEPOSIT"));
         if (!acl.hasRole(keccak256("WITHDRAW"), orchestrator)) return (orchestrator, keccak256("WITHDRAW"));
-        if (!IAccessControl(orchestrator).hasRole(keccak256("MINT"), signer)) return (signer, keccak256("MINT"));
-        return (signer, keccak256("BURN"));
+        if (!IAccessControl(orchestrator).hasRole(keccak256("MINT"), SIGNER)) return (SIGNER, keccak256("MINT"));
+        if (!IAccessControl(orchestrator).hasRole(keccak256("BURN"), SIGNER)) return (SIGNER, keccak256("BURN"));
+        return (address(0), bytes32(0));
     }
 
-    function testRetireRolloutBase() external {
+    function revokeDirect(bytes32 role) internal {
+        IAccessControl acl = authoriser();
+        vm.prank(address(timelock()));
+        acl.revokeRole(role, SIGNER);
+    }
+
+    function testRetireSchedulesThenExecutesOnEveryNetwork() external {
+        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        for (uint256 i = 0; i < networks.length; i++) {
+            RetireDirectSignerRolesHarness script = fork(networks[i], "rollout");
+            (address holder, bytes32 role) = firstMissingGrant();
+            if (holder != address(0)) {
+                vm.expectRevert(abi.encodeWithSelector(OrchestratorPathNotEnabled.selector, holder, role));
+                script.run();
+                continue;
+            }
+            (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
+                script.callOperation(address(authoriser()), address(timelock()));
+            bytes32 id = timelock().hashOperationBatch(targets, values, payloads, bytes32(0), RETIRE_SALT);
+
+            script.run();
+            assertTrue(timelock().isOperationPending(id), networks[i]);
+            assertFalse(timelock().isOperationReady(id), networks[i]);
+            assertEq(LibStoxMigrations.applied(retireDirectSignerRolesDeclaration().id), 0);
+
+            vm.expectRevert(abi.encodeWithSelector(RetireInsideDelay.selector, id));
+            script.run();
+
+            vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+            script.run();
+            assertTrue(timelock().isOperationDone(id), networks[i]);
+            assertFalse(authoriser().hasRole(keccak256("DEPOSIT"), SIGNER), networks[i]);
+            assertFalse(authoriser().hasRole(keccak256("WITHDRAW"), SIGNER), networks[i]);
+            assertEq(LibStoxMigrations.applied(retireDirectSignerRolesDeclaration().id), block.timestamp);
+            assertEq(LibStoxMigrations.head(), retireDirectSignerRolesDeclaration().id);
+        }
+    }
+
+    function testOperationIsTheRevokesThenTheRecord() external {
+        RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "operation");
+        (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
+            script.callOperation(address(authoriser()), address(timelock()));
+        assertEq(targets.length, 3);
+        assertEq(values.length, 3);
+        assertEq(targets[0], address(authoriser()));
+        assertEq(payloads[0], abi.encodeCall(IAccessControl.revokeRole, (keccak256("DEPOSIT"), SIGNER)));
+        assertEq(targets[1], address(authoriser()));
+        assertEq(payloads[1], abi.encodeCall(IAccessControl.revokeRole, (keccak256("WITHDRAW"), SIGNER)));
+        (address registry, bytes memory data) = LibStoxMigrations.recordCall(retireDirectSignerRolesDeclaration());
+        assertEq(targets[2], registry);
+        assertEq(payloads[2], data);
+    }
+
+    function testOperationSelfScopesAPartialRetirement() external {
+        RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "partial");
+        revokeDirect(keccak256("DEPOSIT"));
+        (address[] memory targets,, bytes[] memory payloads) =
+            script.callOperation(address(authoriser()), address(timelock()));
+        assertEq(targets.length, 2);
+        assertEq(payloads[0], abi.encodeCall(IAccessControl.revokeRole, (keccak256("WITHDRAW"), SIGNER)));
+    }
+
+    function testRunRecordsOnlyWhereAlreadyRetired() external {
+        RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "retired");
+        revokeDirect(keccak256("DEPOSIT"));
+        revokeDirect(keccak256("WITHDRAW"));
+        (address[] memory targets,,) = script.callOperation(address(authoriser()), address(timelock()));
+        assertEq(targets.length, 1);
+        script.run();
+        vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        script.run();
+        assertEq(LibStoxMigrations.head(), retireDirectSignerRolesDeclaration().id);
+    }
+
+    function testOperationRefusesWithoutTimelockRoleAdmin() external {
+        RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "noAdmin");
+        IAccessControl acl = authoriser();
+        address controller = address(timelock());
+        vm.prank(controller);
+        acl.renounceRole(keccak256("WITHDRAW_ADMIN"), controller);
+        vm.expectRevert(
+            abi.encodeWithSelector(TimelockMissingRoleAdminForRetire.selector, keccak256("WITHDRAW_ADMIN"))
+        );
+        script.callOperation(address(acl), controller);
+    }
+
+    function testRunRefusesAnUnapprovedTimelock() external {
         vm.createSelectFork(LibRainDeploy.BASE);
-        assertRetireRollout("base", LibSafeInvariants.BASE_CHAIN_ID);
+        LibMigrationLineFork.recordOnto(vm, retireDirectSignerRolesDeclaration());
+        RetireDirectSignerRolesHarness script = new RetireDirectSignerRolesHarness("unapproved");
+        vm.expectRevert(abi.encodeWithSelector(SafeNotApprovedWriter.selector, address(timelock())));
+        script.run();
     }
 
-    function testRetireRolloutEthereum() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
-        assertRetireRollout("ethereum", LibSafeInvariants.ETHEREUM_CHAIN_ID);
+    function testRunRefusesBeforeTheAdminMoveIsRecorded() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        LibMigrationLineFork.approve(vm, address(timelock()));
+        LibMigrationLineFork.recordOnto(vm, orchestratorAdminToTimelockDeclaration());
+        RetireDirectSignerRolesHarness script = new RetireDirectSignerRolesHarness("early");
+        vm.expectRevert(
+            abi.encodeWithSelector(UnexpectedMigrationLine.selector, grantOrchestratorEmergencyDeclaration().id)
+        );
+        script.run();
     }
 
-    function testRetireRolloutHyperEvm() external {
-        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
-        assertRetireRollout("hyperevm", LibSafeInvariants.HYPEREVM_CHAIN_ID);
+    function testVerifyAcceptsTheScheduleArtifact() external {
+        RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "verify");
+        uint256 preRun = vm.snapshotState();
+        script.run();
+        string memory path = script.callArtifactPath();
+        vm.revertToState(preRun);
+        script.verify(path);
+        SafeTx[] memory txs = script.callAuthorBundle();
+        assertEq(txs.length, 1);
+        assertEq(txs[0].to, address(timelock()));
+        assertEq(bytes4(txs[0].data), TimelockController.scheduleBatch.selector);
     }
 
-    function testRetireRolloutRobinhood() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
-        assertRetireRollout("robinhood", LibSafeInvariants.ROBINHOOD_CHAIN_ID);
-    }
-
-    function testRetireRolloutBsc() external {
-        vm.createSelectFork(LibStoxDeployNetworks.BSC);
-        assertRetireRollout("bsc", LibSafeInvariants.BSC_CHAIN_ID);
-    }
-
-    /// @notice `run()` refuses an orchestrator instance whose vault-logic
-    /// lock fails, before the burn-in gate.
     function testRunRefusesOrchestratorInstanceOffInvariant() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
-        RetireDirectSignerRolesHarness script = new RetireDirectSignerRolesHarness();
+        RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "offInvariant");
         address orchestrator = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
         vm.mockCall(orchestrator, abi.encodeCall(IST0xOrchestratorV1.vaultLogicIsExpected, ()), abi.encode(false));
         vm.expectRevert(abi.encodeWithSelector(OrchestratorVaultLogicUnexpected.selector, orchestrator));
         script.run();
     }
 
-    /// @notice `verify()` refuses an orchestrator instance whose vault-logic
-    /// lock fails, before it reads the artifact.
     function testVerifyRefusesOrchestratorInstanceOffInvariant() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
-        RetireDirectSignerRolesHarness script = new RetireDirectSignerRolesHarness();
+        RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "offInvariantVerify");
         address orchestrator = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
         vm.mockCall(orchestrator, abi.encodeCall(IST0xOrchestratorV1.vaultLogicIsExpected, ()), abi.encode(false));
         vm.expectRevert(abi.encodeWithSelector(OrchestratorVaultLogicUnexpected.selector, orchestrator));

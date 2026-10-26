@@ -5,21 +5,15 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 
-import {
-    OrchestratorPathNotEnabled,
-    DirectSignerRolesAlreadyRetired,
-    SafeMissingRoleAdminForRetire
-} from "../../script/20260831-retire-direct-signer-roles.s.sol";
+import {OrchestratorPathNotEnabled} from "../../script/20260831-retire-direct-signer-roles.s.sol";
 import {RetireDirectSignerRolesHarness} from "./RetireDirectSignerRolesHarness.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
 
 /// @title RetireDirectSignerRolesTest
 /// @notice Guard coverage for `20260831-retire-direct-signer-roles` without
-/// a fork: the burn-in gate, the `_ADMIN` refusal, the self-scoping, and
-/// the already-retired refusal. The live-fork walk is in
+/// a fork: the burn-in gate, and the retired-state check. The live-fork walk is in
 /// `20260831-retire-direct-signer-roles.prod.t.sol`.
 contract RetireDirectSignerRolesTest is Test {
     RetireDirectSignerRolesHarness internal harness;
@@ -31,7 +25,7 @@ contract RetireDirectSignerRolesTest is Test {
 
     function setUp() external {
         vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
-        harness = new RetireDirectSignerRolesHarness();
+        harness = new RetireDirectSignerRolesHarness("unit");
         vm.etch(AUTHORISER, hex"fe");
         vm.etch(ORCHESTRATOR, hex"fe");
     }
@@ -71,50 +65,6 @@ contract RetireDirectSignerRolesTest is Test {
     function testGateAcceptsTheEnabledPath() external {
         mockBurnInState();
         harness.callAssertOrchestratorPathEnabled(IAccessControl(AUTHORISER), ORCHESTRATOR);
-    }
-
-    /// Authoring refuses when the Safe lacks a needed `_ADMIN`.
-    function testAuthoringRefusesWithoutRoleAdmin() external {
-        mockBurnInState();
-        vm.mockCall(
-            AUTHORISER, abi.encodeCall(IAccessControl.hasRole, (keccak256("WITHDRAW_ADMIN"), SAFE)), abi.encode(false)
-        );
-        vm.expectRevert(abi.encodeWithSelector(SafeMissingRoleAdminForRetire.selector, keccak256("WITHDRAW_ADMIN")));
-        harness.callAuthorBundle(AUTHORISER, SAFE);
-    }
-
-    /// The burn-in state authors both revokes in the fixed order.
-    function testAuthoringProducesBothRevokes() external {
-        mockBurnInState();
-        SafeTx[] memory txs = harness.callAuthorBundle(AUTHORISER, SAFE);
-        assertEq(txs.length, 2);
-        assertEq(txs[0].to, AUTHORISER);
-        assertEq(txs[0].data, abi.encodeCall(IAccessControl.revokeRole, (keccak256("DEPOSIT"), SIGNER)));
-        assertEq(txs[1].data, abi.encodeCall(IAccessControl.revokeRole, (keccak256("WITHDRAW"), SIGNER)));
-    }
-
-    /// A half-retired chain self-scopes to the remaining role.
-    function testAuthoringSelfScopesAPartialRetirement() external {
-        mockBurnInState();
-        vm.mockCall(
-            AUTHORISER, abi.encodeCall(IAccessControl.hasRole, (keccak256("DEPOSIT"), SIGNER)), abi.encode(false)
-        );
-        SafeTx[] memory txs = harness.callAuthorBundle(AUTHORISER, SAFE);
-        assertEq(txs.length, 1);
-        assertEq(txs[0].data, abi.encodeCall(IAccessControl.revokeRole, (keccak256("WITHDRAW"), SIGNER)));
-    }
-
-    /// A fully-retired chain refuses to author anything.
-    function testAuthoringRefusesWhenAlreadyRetired() external {
-        mockBurnInState();
-        vm.mockCall(
-            AUTHORISER, abi.encodeCall(IAccessControl.hasRole, (keccak256("DEPOSIT"), SIGNER)), abi.encode(false)
-        );
-        vm.mockCall(
-            AUTHORISER, abi.encodeCall(IAccessControl.hasRole, (keccak256("WITHDRAW"), SIGNER)), abi.encode(false)
-        );
-        vm.expectRevert(DirectSignerRolesAlreadyRetired.selector);
-        harness.callAuthorBundle(AUTHORISER, SAFE);
     }
 
     /// @notice Mock the retired state: burn-in with both direct vault roles

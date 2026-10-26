@@ -16,17 +16,21 @@ import {LibSafeTxBuilderJson} from "rain-deploy-0.1.22/src/lib/LibSafeTxBuilderJ
 
 import {
     EmergencyNotGranted,
-    LineHeadMismatch,
-    RecordMismatch,
-    SafeNotApprovedWriter,
-    UnexpectedMigrationLine
+    orchestratorAdminToTimelockDeclaration
 } from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
-import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
+import {
+    LibStoxMigrations,
+    LineHeadMismatch,
+    RecordMismatch,
+    SafeNotApprovedWriter,
+    UnexpectedMigrationLine
+} from "../../src/lib/LibStoxMigrations.sol";
+import {LibMigrationLineFork} from "../lib/LibMigrationLineFork.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
 /// @title OrchestratorAdminToTimelockTest
@@ -50,6 +54,7 @@ contract OrchestratorAdminToTimelockTest is Test {
             IRegistryDelegatesV1(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
                 .approveV3(LibStoxMigrations.NAMESPACE, safe);
         }
+        LibMigrationLineFork.recordOnto(vm, orchestratorAdminToTimelockDeclaration());
     }
 
     function assertBundle(string memory network) internal {
@@ -184,6 +189,7 @@ contract OrchestratorAdminToTimelockTest is Test {
             IRegistryDelegatesV1(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
                 .revokeV3(LibStoxMigrations.NAMESPACE, safe);
         }
+        LibMigrationLineFork.recordOnto(vm, orchestratorAdminToTimelockDeclaration());
         OrchestratorAdminToTimelockHarness script = new OrchestratorAdminToTimelockHarness("unapproved");
         vm.expectRevert(abi.encodeWithSelector(SafeNotApprovedWriter.selector, safe));
         script.callPreflight();
