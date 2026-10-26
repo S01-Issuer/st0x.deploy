@@ -318,19 +318,6 @@ library LibBeaconInvariants {
         return impls;
     }
 
-    /// @notice Assert each of the chain's in-use beacons against its build's codehash, the chain's timelock as owner
-    /// and `prodExpectedImplementationsForChainId`.
-    /// @param chainId The active chain id (`block.chainid`).
-    function assertProdBeaconsAtExpectedState(uint256 chainId) internal view {
-        address[4] memory beacons = prodBeaconsForChainId(chainId);
-        address[4] memory impls = prodExpectedImplementationsForChainId(chainId);
-        bytes32[4] memory codehashes = prodBeaconCodehashesForChainId(chainId);
-        address owner = LibTimelockInvariants.timelockForChainId(chainId);
-        for (uint256 i = 0; i < beacons.length; i++) {
-            assertBeaconInvariants(beacons[i], owner, impls[i], codehashes[i]);
-        }
-    }
-
     /// @notice Assert the active chain's four IN-USE production beacons are
     /// deployed and owned by THAT chain's governance timelock. This is the
     /// ownership invariant that matters operationally: whoever owns an in-use
