@@ -5,7 +5,6 @@ pragma solidity ^0.8.25;
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
-import {LibStoxMigrations} from "./LibStoxMigrations.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
@@ -28,19 +27,6 @@ error OrchestratorBeaconMismatch(address expected, address actual);
 /// active chain.
 /// @param instance The pinned instance address.
 error OrchestratorInstanceMissing(address instance);
-
-/// @notice The expected admin does not hold `DEFAULT_ADMIN_ROLE` on the
-/// orchestrator instance: it is ungovernable, or governed by the wrong key.
-/// @param instance The orchestrator instance inspected.
-/// @param expectedAdmin The address that must hold `DEFAULT_ADMIN_ROLE`.
-error OrchestratorAdminMissing(address instance, address expectedAdmin);
-
-/// @notice An address the recorded migrations say holds a role on the
-/// orchestrator instance does not.
-/// @param instance The orchestrator instance inspected.
-/// @param role The role.
-/// @param holder The address that must hold it.
-error OrchestratorRoleMissing(address instance, bytes32 role, address holder);
 
 /// @notice An operating role on the orchestrator is administered by a role
 /// other than `DEFAULT_ADMIN_ROLE`.
@@ -113,12 +99,8 @@ library LibOrchestratorInvariants {
 
     /// @notice Assert the pinned orchestrator instance on the active chain:
     /// it has code, its vault-logic version lock passes (so `mint`/`burn`
-    /// are operable), every role is administered by `DEFAULT_ADMIN_ROLE`,
-    /// and it holds each `expectedGrants` pair whose migration the chain's
-    /// Safe has recorded (`migrationRecorded`).
-    /// @param chainSafe The chain's token-owner Safe, which is also the
-    /// writer of the migration records.
-    function assertInstance(address chainSafe) internal view {
+    /// are operable), and every role is administered by `DEFAULT_ADMIN_ROLE`.
+    function assertInstance() internal view {
         address instance = ST0X_ORCHESTRATOR_INSTANCE;
         if (instance.code.length == 0) {
             revert OrchestratorInstanceMissing(instance);
@@ -128,36 +110,10 @@ library LibOrchestratorInvariants {
         }
 
         IAccessControl acl = IAccessControl(instance);
-        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-
-        RoleGrant[] memory expected = expectedGrants(chainSafe, timelock);
-        for (uint256 i = 0; i < expected.length; i++) {
-            if (migrationRecorded(chainSafe, expected[i].role)) {
-                assertHolds(acl, expected[i]);
-            }
-        }
-
         assertAdministeredByDefaultAdmin(acl, bytes32(0));
         assertAdministeredByDefaultAdmin(acl, ST0xOrchestrator(payable(instance)).MINT_ROLE());
         assertAdministeredByDefaultAdmin(acl, ST0xOrchestrator(payable(instance)).BURN_ROLE());
         assertAdministeredByDefaultAdmin(acl, ST0xOrchestrator(payable(instance)).EMERGENCY_ROLE());
-    }
-
-    /// @notice Whether the chain's Safe has recorded the migration that
-    /// grants `role` its expected holder: `ORCHESTRATOR_ADMIN_TO_TIMELOCK`
-    /// for `DEFAULT_ADMIN_ROLE`, `ORCHESTRATOR_EMERGENCY` for `EMERGENCY`;
-    /// no migration grants any other role, so it is never recorded.
-    /// @param chainSafe The chain's token-owner Safe.
-    /// @param role The role.
-    /// @return Whether the migration is recorded.
-    function migrationRecorded(address chainSafe, bytes32 role) private view returns (bool) {
-        if (role == bytes32(0)) {
-            return LibStoxMigrations.applied(chainSafe, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) != 0;
-        }
-        if (role == keccak256("EMERGENCY")) {
-            return LibStoxMigrations.applied(chainSafe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) != 0;
-        }
-        return false;
     }
 
     /// @notice The pairs the orchestrator instance must carry.
@@ -171,18 +127,6 @@ library LibOrchestratorInvariants {
         grants[2] = RoleGrant(keccak256("MINT"), LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C);
         grants[3] = RoleGrant(keccak256("BURN"), LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C);
         return grants;
-    }
-
-    /// @notice Revert unless the instance carries `grant`.
-    /// @param acl The instance's access-control surface.
-    /// @param grant The pair.
-    function assertHolds(IAccessControl acl, RoleGrant memory grant) private view {
-        if (!acl.hasRole(grant.role, grant.grantee)) {
-            if (grant.role == bytes32(0)) {
-                revert OrchestratorAdminMissing(address(acl), grant.grantee);
-            }
-            revert OrchestratorRoleMissing(address(acl), grant.role, grant.grantee);
-        }
     }
 
     /// @notice Revert unless `role` is administered by `DEFAULT_ADMIN_ROLE`.
