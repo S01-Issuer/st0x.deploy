@@ -423,24 +423,31 @@ contract DeployMissingTokensTest is Test {
         harness.authoriserFor(eu, AUTHORISER);
     }
 
-    /// @notice The canonical table routes tMC, and only tMC, to the EU
-    /// authoriser: every other production token stays on the V4 one.
-    function testCanonicalTableRoutesOnlyMcToTheEuAuthoriser() external {
+    /// @notice The canonical table routes the EU tokens, and only them, to
+    /// the EU authoriser: every other production token stays on the V4 one.
+    function testCanonicalTableRoutesOnlyEuTokensToTheEuAuthoriser() external {
         vm.chainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
         address euClone = LibAuthoriserInvariants.euAuthoriserForChainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
         vm.etch(euClone, _auditedCloneRuntime());
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        string[4] memory euUnderlyings = ["MC", "IFX", "SOI", "TPRO"];
         uint256 euCount = 0;
         for (uint256 i = 0; i < configs.length; i++) {
             address routed = harness.authoriserFor(configs[i], AUTHORISER);
-            if (keccak256(bytes(configs[i].underlying)) == keccak256("MC")) {
-                assertEq(routed, euClone, "tMC not routed to the EU authoriser");
+            bool isEu = false;
+            for (uint256 j = 0; j < euUnderlyings.length; j++) {
+                if (keccak256(bytes(configs[i].underlying)) == keccak256(bytes(euUnderlyings[j]))) {
+                    isEu = true;
+                }
+            }
+            if (isEu) {
+                assertEq(routed, euClone, configs[i].underlying);
                 euCount++;
             } else {
                 assertEq(routed, AUTHORISER, configs[i].underlying);
             }
         }
-        assertEq(euCount, 1, "tMC missing from the canonical table");
+        assertEq(euCount, euUnderlyings.length, "an EU token is missing from the canonical table");
     }
 
     /// @notice Live acceptance: each target chain's EU clone is deployed with
