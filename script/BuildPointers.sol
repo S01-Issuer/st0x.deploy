@@ -18,6 +18,8 @@ import {
     StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 } from "../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
+import {LibStoxConfigFork} from "../src/lib/LibStoxConfigFork.sol";
+import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
 contract BuildPointers is Script {
     /// @notice The rolling "current source" snapshot tag — always `candidate`,
@@ -79,6 +81,8 @@ contract BuildPointers is Script {
 
     function run() external {
         LibRainDeploy.etchZoltuFactory(vm);
+        // The beacon owner lives in storage, so the pointers do not depend on it.
+        LibStoxConfigFork.bindBeaconOwner(vm, LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
 
         // Regenerate the rolling `candidate/` snapshot from current source.
         // `vm.writeFile` won't create the dir, so ensure it exists first.
@@ -388,7 +392,6 @@ contract BuildPointers is Script {
         vm.writeLine(GEN_CURRENT_PATH, "");
         vm.writeLine(GEN_CURRENT_PATH, "library LibProdDeployCurrent {");
         vm.writeLine(GEN_CURRENT_PATH, string.concat('string constant DEPLOY_TAG = "', tag, '";'));
-        vm.writeLine(GEN_CURRENT_PATH, "address constant BEACON_INITIAL_OWNER = LibProdDeployV4.BEACON_INITIAL_OWNER;");
         vm.writeLine(
             GEN_CURRENT_PATH,
             "address constant STOX_PROD_AUTHORISER_V4_CLONE = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;"
