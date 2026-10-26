@@ -114,7 +114,7 @@ contract BuildMigrations is Script {
     }
 
     /// @dev The one contract in `name`'s artifacts that declares itself.
-    function declaring(string memory path, string memory name) internal returns (address, ScriptDeclaration memory) {
+    function declaring(string memory path, string memory name) internal returns (ScriptDeclaration memory) {
         string memory built = string.concat("out/", name);
         if (!vm.exists(built)) revert ScriptNotBuilt(path);
         Vm.DirEntry[] memory artifacts = vm.readDir(built, 1);
@@ -133,7 +133,7 @@ contract BuildMigrations is Script {
             } catch {}
         }
         if (found == address(0)) revert NoDeclaration(path);
-        return (found, declared);
+        return declared;
     }
 
     /// @notice Every script in `dir` with its declaration, in path order;
@@ -142,18 +142,15 @@ contract BuildMigrations is Script {
     /// @param dir The directory.
     /// @return paths Each script's path.
     /// @return declarations Each script's declaration.
-    /// @return instances Each script's declaring contract, deployed.
     function discover(string memory dir)
         public
-        returns (string[] memory paths, ScriptDeclaration[] memory declarations, address[] memory instances)
-    {
+        returns (string[] memory paths, ScriptDeclaration[] memory declarations) {
         string[] memory names = scriptNames(dir);
         paths = new string[](names.length);
         declarations = new ScriptDeclaration[](names.length);
-        instances = new address[](names.length);
         for (uint256 i = 0; i < names.length; i++) {
             paths[i] = string.concat(dir, "/", names[i]);
-            (instances[i], declarations[i]) = declaring(paths[i], names[i]);
+            declarations[i] = declaring(paths[i], names[i]);
         }
         LibScriptDeclarations.validate(paths, declarations);
     }
@@ -225,7 +222,7 @@ contract BuildMigrations is Script {
 
     /// @dev `migrations.json` for the scripts in `dir` on `networks`; reverts on no network.
     function renderFor(string memory dir, SupportedNetwork[] memory networks) internal returns (string memory) {
-        (string[] memory paths, ScriptDeclaration[] memory declarations,) = discover(dir);
+        (string[] memory paths, ScriptDeclaration[] memory declarations) = discover(dir);
         uint256 count = 0;
         for (uint256 i = 0; i < declarations.length; i++) {
             if (declarations[i].migration) count++;

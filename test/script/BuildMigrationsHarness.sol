@@ -8,14 +8,6 @@ import {SupportedNetwork} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
 
 /// @dev Exposes `BuildMigrations`' internal helpers.
 contract BuildMigrationsHarness is BuildMigrations {
-    function callExecutedAt(string memory path, ScriptDeclaration memory declared, address instance, uint256 chainId)
-        external
-        pure
-        returns (uint256)
-    {
-        return executedAt(path, declared, instance, chainId);
-    }
-
     function callBefore(string memory left, string memory right) external pure returns (bool) {
         return before(left, right);
     }
@@ -30,7 +22,7 @@ contract BuildMigrationsHarness is BuildMigrations {
 
     function callDeclaring(string memory path, string memory name)
         external
-        returns (address, ScriptDeclaration memory)
+        returns (ScriptDeclaration memory)
     {
         return declaring(path, name);
     }

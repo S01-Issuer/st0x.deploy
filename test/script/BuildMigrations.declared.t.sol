@@ -7,9 +7,8 @@ import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.22/src/inter
 import {LibMigrationRegistry} from "rain-deploy-0.1.22/src/lib/LibMigrationRegistry.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
 
-import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
+import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
-import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
 /// @title BuildMigrationsDeclaredTest
 /// @notice Every migration the scripts declare, read from `migrations.json`
@@ -72,63 +71,60 @@ contract BuildMigrationsDeclaredTest is Test {
         assertGt(rows, 0);
     }
 
-    function testEveryMigrationHasANamespaceAndAnId() external view {
+    function testEveryMigrationIsKeyedByItsScriptInTheNamespace() external view {
         (string memory json, uint256 rows) = manifest();
         for (uint256 i = 0; i < rows; i++) {
-            assertNotEq(namespaceOf(json, i), bytes32(0), row(i));
-            assertNotEq(idOf(json, i), bytes32(0), row(i));
-            assertNotEq(idOf(json, i), MIGRATION_HEAD_GENESIS, row(i));
+            assertEq(namespaceOf(json, i), LibStoxMigrations.NAMESPACE, row(i));
+            assertEq(
+                idOf(json, i), keccak256(bytes(vm.parseJsonString(json, string.concat(row(i), ".script")))), row(i)
+            );
         }
     }
 
-    function testEveryWriterIsOneRoleOnEveryChain() external view {
+    /// @notice Every chain of every record is the root authority's, executed
+    /// with its change, onto one head in its own line.
+    function testEveryRecordIsInTheRootLineOnEveryChain() external view {
         (string memory json, uint256 rows) = manifest();
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < rows; i++) {
             assertEq(vm.parseJsonKeys(json, string.concat(row(i), ".chains")).length, nets.length, row(i));
-            bool timelock =
-                writerOf(json, i, nets[0].chainId) == LibTimelockInvariants.timelockForChainId(nets[0].chainId);
+            bytes32 head = prerequisitesOf(json, i, nets[0].chainId)[0].migration;
             for (uint256 n = 0; n < nets.length; n++) {
                 uint256 chainId = nets[n].chainId;
-                address expected = timelock
-                    ? LibTimelockInvariants.timelockForChainId(chainId)
-                    : LibSafeInvariants.safeForChainId(chainId);
-                assertEq(writerOf(json, i, chainId), expected, chain(i, chainId));
-            }
-        }
-    }
-
-    function declared(string memory json, uint256 rows, uint256 chainId, Prerequisite memory prerequisite)
-        internal
-        pure
-        returns (bool)
-    {
-        for (uint256 k = 0; k < rows; k++) {
-            if (
-                namespaceOf(json, k) == prerequisite.namespace && idOf(json, k) == prerequisite.migration
-                    && writerOf(json, k, chainId) == prerequisite.writer
-            ) return true;
-        }
-        return false;
-    }
-
-    function testEveryPrerequisiteIsGenesisOrADeclaredMigration() external view {
-        (string memory json, uint256 rows) = manifest();
-        SupportedNetwork[] memory nets = networks();
-        for (uint256 i = 0; i < rows; i++) {
-            for (uint256 n = 0; n < nets.length; n++) {
-                uint256 chainId = nets[n].chainId;
+                string memory at = chain(i, chainId);
+                assertEq(writerOf(json, i, chainId), LibStoxMigrations.WRITER, at);
+                assertEq(vm.parseJsonUint(json, string.concat(at, ".executedAt")), 0, at);
                 Prerequisite[] memory prerequisites = prerequisitesOf(json, i, chainId);
-                assertGt(prerequisites.length, 0, chain(i, chainId));
-                for (uint256 j = 0; j < prerequisites.length; j++) {
-                    if (j == 0 && prerequisites[0].migration == MIGRATION_HEAD_GENESIS) {
-                        assertEq(prerequisites[0].writer, writerOf(json, i, chainId), chain(i, chainId));
-                        assertEq(prerequisites[0].namespace, namespaceOf(json, i), chain(i, chainId));
-                        continue;
-                    }
-                    assertTrue(declared(json, rows, chainId, prerequisites[j]), chain(i, chainId));
-                }
+                assertEq(prerequisites.length, 1, at);
+                assertEq(prerequisites[0].writer, LibStoxMigrations.WRITER, at);
+                assertEq(prerequisites[0].namespace, LibStoxMigrations.NAMESPACE, at);
+                assertEq(prerequisites[0].migration, head, at);
             }
+        }
+    }
+
+    function headOf(string memory json, uint256 i) internal view returns (bytes32) {
+        return prerequisitesOf(json, i, networks()[0].chainId)[0].migration;
+    }
+
+    /// @notice Following the heads from genesis visits every record once: the
+    /// admin move first.
+    function testTheRecordsAreOneLineFromGenesisStartingWithTheAdminMove() external view {
+        (string memory json, uint256 rows) = manifest();
+        bytes32 at = MIGRATION_HEAD_GENESIS;
+        for (uint256 visited = 0; visited < rows; visited++) {
+            uint256 next = rows;
+            for (uint256 i = 0; i < rows; i++) {
+                if (headOf(json, i) != at) continue;
+                assertEq(next, rows, "two records onto one head");
+                next = i;
+            }
+            assertLt(next, rows, "the line stops before every record");
+            if (visited == 0) assertEq(idOf(json, next), LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
+            at = idOf(json, next);
+        }
+        for (uint256 i = 0; i < rows; i++) {
+            assertNotEq(headOf(json, i), at, "a record onto the line's last");
         }
     }
 
@@ -148,8 +144,6 @@ contract BuildMigrationsDeclaredTest is Test {
         uint256 applied = LibMigrationRegistry.appliedV3(writer, namespaceOf(json, i), idOf(json, i));
         if (applied == 0) return;
         string memory at = chain(i, chainId);
-        uint256 executedAt = vm.parseJsonUint(json, string.concat(at, ".executedAt"));
-        if (executedAt != 0) assertEq(applied, executedAt, at);
         Prerequisite[] memory expected = prerequisitesOf(json, i, chainId);
         Prerequisite[] memory actual = LibMigrationRegistry.appliedAfterV3(writer, namespaceOf(json, i), idOf(json, i));
         assertEq(actual.length, expected.length, at);
