@@ -514,6 +514,30 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x8EA3c97D23872eC4FAe1cA3189039056b77bc703
     address internal constant DIS_WRAPPED_TOKEN_VAULT = address(0x8EA3c97D23872eC4FAe1cA3189039056b77bc703);
 
+    // ---- tIFX / wtIFX — Infineon Technologies AG ST0x ----
+    /// https://basescan.org/address/0x2cE6d030a8D32BCE36B4502870eEf59c7DBf8588
+    address internal constant IFX_RECEIPT = address(0x2cE6d030a8D32BCE36B4502870eEf59c7DBf8588);
+    /// https://basescan.org/address/0x90687ba21Da53189047Cd168A66eCC76282bf800
+    address internal constant IFX_RECEIPT_VAULT = address(0x90687ba21Da53189047Cd168A66eCC76282bf800);
+    /// https://basescan.org/address/0x339ad5e0d1Cc8B014eB6aCacbE8991214C5A9325
+    address internal constant IFX_WRAPPED_TOKEN_VAULT = address(0x339ad5e0d1Cc8B014eB6aCacbE8991214C5A9325);
+
+    // ---- tSOI / wtSOI — Soitec SA ST0x ----
+    /// https://basescan.org/address/0x12e14806559f80D6DEf4040E4D0bda5953f4f6f0
+    address internal constant SOI_RECEIPT = address(0x12e14806559f80D6DEf4040E4D0bda5953f4f6f0);
+    /// https://basescan.org/address/0x6540478507ab063b03a704AC2c8E9118F1760848
+    address internal constant SOI_RECEIPT_VAULT = address(0x6540478507ab063b03a704AC2c8E9118F1760848);
+    /// https://basescan.org/address/0xD50020eCA7CAAC05Ba7E7571C7B498781ca98d47
+    address internal constant SOI_WRAPPED_TOKEN_VAULT = address(0xD50020eCA7CAAC05Ba7E7571C7B498781ca98d47);
+
+    // ---- tTPRO / wtTPRO — Technoprobe S.p.A. ST0x ----
+    /// https://basescan.org/address/0xee91994c5FeDE5bD9A2D6Ed17cDEDa12680B3Ca2
+    address internal constant TPRO_RECEIPT = address(0xee91994c5FeDE5bD9A2D6Ed17cDEDa12680B3Ca2);
+    /// https://basescan.org/address/0x37a2B2D6Fe9cFC474692a3a0016519332BD49509
+    address internal constant TPRO_RECEIPT_VAULT = address(0x37a2B2D6Fe9cFC474692a3a0016519332BD49509);
+    /// https://basescan.org/address/0x5ED9f297f10e2b72950F5abc2c2B770ee831805b
+    address internal constant TPRO_WRAPPED_TOKEN_VAULT = address(0x5ED9f297f10e2b72950F5abc2c2B770ee831805b);
+
     /// @notice Returns the production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
@@ -521,7 +545,7 @@ library LibTokenInvariants {
     /// (cross-chain parity, per-token config checks) iterate this instead.
     /// @return tokens The production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](56);
+        tokens = new TokenInstance[](59);
         tokens[0] = TokenInstance({
             underlying: "MSTR",
             receipt: MSTR_RECEIPT,
@@ -858,6 +882,24 @@ library LibTokenInvariants {
             receipt: DIS_RECEIPT,
             receiptVault: DIS_RECEIPT_VAULT,
             wrappedTokenVault: DIS_WRAPPED_TOKEN_VAULT
+        });
+        tokens[56] = TokenInstance({
+            underlying: "IFX",
+            receipt: IFX_RECEIPT,
+            receiptVault: IFX_RECEIPT_VAULT,
+            wrappedTokenVault: IFX_WRAPPED_TOKEN_VAULT
+        });
+        tokens[57] = TokenInstance({
+            underlying: "SOI",
+            receipt: SOI_RECEIPT,
+            receiptVault: SOI_RECEIPT_VAULT,
+            wrappedTokenVault: SOI_WRAPPED_TOKEN_VAULT
+        });
+        tokens[58] = TokenInstance({
+            underlying: "TPRO",
+            receipt: TPRO_RECEIPT,
+            receiptVault: TPRO_RECEIPT_VAULT,
+            wrappedTokenVault: TPRO_WRAPPED_TOKEN_VAULT
         });
     }
 
