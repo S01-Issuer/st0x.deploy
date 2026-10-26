@@ -9,7 +9,9 @@ import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
 
 import {
     LibOrchestratorInvariants,
-    OrchestratorRoleAdminUnexpected
+    OrchestratorInstanceMissing,
+    OrchestratorRoleAdminUnexpected,
+    OrchestratorVaultLogicUnexpected
 } from "../../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {BeaconOwnerMismatch} from "../../../src/lib/LibBeaconInvariants.sol";
@@ -17,6 +19,7 @@ import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol"
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibOrchestratorInvariantsHarness} from "./LibOrchestratorInvariantsHarness.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
+import {IST0xOrchestratorV1} from "../../../src/interface/deprecated/IST0xOrchestratorV1.sol";
 
 /// @title LibOrchestratorInvariantsTest
 /// @notice The orchestrator invariants against every deployment network at
@@ -79,5 +82,24 @@ contract LibOrchestratorInvariantsTest is Test {
             );
             harness.callAssertInstance();
         }
+    }
+
+    /// @notice An instance address with no code trips its own error rather
+    /// than reverting on the first call into it.
+    function testInstanceWithoutCodeTrips() external {
+        selectFork(LibRainDeploy.BASE);
+        vm.etch(address(orchestrator), "");
+        vm.expectRevert(abi.encodeWithSelector(OrchestratorInstanceMissing.selector, address(orchestrator)));
+        harness.callAssertInstance();
+    }
+
+    /// @notice The instance's vault-logic lock must pass.
+    function testVaultLogicUnexpectedTrips() external {
+        selectFork(LibRainDeploy.BASE);
+        vm.mockCall(
+            address(orchestrator), abi.encodeCall(IST0xOrchestratorV1.vaultLogicIsExpected, ()), abi.encode(false)
+        );
+        vm.expectRevert(abi.encodeWithSelector(OrchestratorVaultLogicUnexpected.selector, address(orchestrator)));
+        harness.callAssertInstance();
     }
 }
