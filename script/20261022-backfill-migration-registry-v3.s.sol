@@ -14,6 +14,7 @@ import {
 import {LibMigrationRegistry} from "rain-deploy-0.1.22/src/lib/LibMigrationRegistry.sol";
 import {SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
 
+import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {LibRbacMigration} from "../src/lib/LibRbacMigration.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
@@ -59,6 +60,11 @@ error UnexpectedRegistryV3Line(bytes32 namespace, bytes32 head);
 /// @param expected The moment it must carry.
 /// @param actual The V3 moment.
 error BackfillRecordMismatch(bytes32 migration, uint256 expected, uint256 actual);
+
+/// @notice After the bundle, the Safe does not hold `EMERGENCY_ROLE` on the
+/// orchestrator, though the carried record says it was granted.
+/// @param safe The chain's token-owner Safe.
+error EmergencyNotHeld(address safe);
 
 /// @notice This script's declaration: the Safe's record after the V2
 /// records it carries into V3.
@@ -188,7 +194,8 @@ contract BackfillMigrationRegistryV3 is SafeBundleScript, IStoxScript {
     /// @inheritdoc SafeBundleScript
     /// @dev Every carried V3 record equals its V2 record, this script's record
     /// carries this block and heads the deploy line, the rbac head equals the
-    /// V2 head, and the orchestrator invariant holds against V3.
+    /// V2 head, the Safe holds `EMERGENCY_ROLE`, and the orchestrator invariant
+    /// holds.
     function assertPostState() internal view override {
         address chainSafe = address(safe());
         assertCarried(LibStoxMigrations.NAMESPACE, LibStoxMigrations.GOVERNANCE_TIMELOCK);
@@ -209,7 +216,11 @@ contract BackfillMigrationRegistryV3 is SafeBundleScript, IStoxScript {
         if (rbacHead != LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER) {
             revert UnexpectedRegistryV3Line(LibRbacMigration.STOX_RBAC_NAMESPACE, rbacHead);
         }
-        LibOrchestratorInvariants.assertInstance(chainSafe);
+        ST0xOrchestrator orchestrator = ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
+        if (!orchestrator.hasRole(orchestrator.EMERGENCY_ROLE(), chainSafe)) {
+            revert EmergencyNotHeld(chainSafe);
+        }
+        LibOrchestratorInvariants.assertInstance();
         LibSafeInvariants.assertTokenOwnerSafePolicy(safe());
     }
 }

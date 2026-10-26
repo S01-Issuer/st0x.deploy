@@ -21,5 +21,28 @@
       "survivedAfter": 1,
       "notes": "BEFORE 38/46 killed. The 8 survivors there were M15 and M16 (roleId / roleHolderId byte layout), M20 (createDiscoveredContract return contract), M41 and M42 (timelock and orchestrator grant polarity), M44 and M46 (vault and orchestrator beacon transfer kind), M45 (vault beacon upgrade kind). Seven are now killed by tests this run added; M20 is not closable with matchstick, whose data source registry is an address-keyed map that cannot distinguish one create of an address from two, so the behaviour stays unpinned and is filed as #448. One verdict in the first AFTER pass was a flake: M14 scored SURVIVED and kills when run by hand. A stale compile cache was ruled out by experiment (pristine run, then the same mutation with only src changed and the test file mtime pinned backwards, which still killed), leaving container reuse by `docker compose up`; the probe wrapper now tears the container down per probe and the whole pass was re-run under it. The first matrix is discarded and none of its numbers appear here."
     }
+  },
+  {
+    "timestamp": "2026-10-26T11:06:53Z",
+    "commit": "f203e9cdda54a9079a29d27f0508252736cd5564",
+    "testsAfterCommit": "6f7d3c21f2e815086d37d312387d4ca4ac51a2ed",
+    "publishedTag": "sol-v0.1.30",
+    "commitsAheadOfTag": 475,
+    "scope": "pr:496 (branch 2026-10-22-migration-applied-asserts-to-dashboard): LibOrchestratorInvariants.assertInstance and every script call site whose orchestrator role check moved out of it (orchestrator admin move, V3 backfill, grant orchestrator emergency including its preflight and post-state assertInstance() calls, retire direct signer roles). Suite: forge test over LibOrchestratorInvariantsTest, OrchestratorAdminToTimelockTest, BackfillMigrationRegistryV3Test and RetireDirectSignerRoles*, forked from public RPCs, plus the fork-free GrantOrchestratorEmergencyTest and OrchestratorAdminToTimelockLocalTest, with failing tests re-run up to twice to absorb RPC flakes. BEFORE pass at commit over M01-M15 and at 78f8cb7f358e2f6e3c8810a54d8b03441f1f2052 over M16-M17; AFTER pass over the 7 BEFORE survivors (see notes for the commit each was scored at).",
+    "tool": "adversarial-mutation-test",
+    "skillVersion": "0.35.0",
+    "summary": {
+      "behaviours": 17,
+      "candidates": 0,
+      "confirmed": 0,
+      "testsBefore": 49,
+      "testsAfter": 58,
+      "filed": [],
+      "killedBefore": 10,
+      "survivedBefore": 7,
+      "killedAfter": 17,
+      "survivedAfter": 0,
+      "notes": "BEFORE survivors: M01 (instance code check) and M02 (vault-logic lock) in assertInstance, M14 and M15 (retire run() and verify() calling assertInstance), M13 (grant emergency post-state EmergencyNotGranted), M16 and M17 (grant emergency preflight and post-state calling assertInstance). testInstanceWithoutCodeTrips and testVaultLogicUnexpectedTrips kill M01 and M02, and testRunRefusesOrchestratorInstanceOffInvariant and testVerifyRefusesOrchestratorInstanceOffInvariant kill M14 and M15. testPostStateRefusesSafeWithoutEmergency kills M13 without a fork: a local Base with the pinned registry etched, a v1.4.1 Safe built from the canonical runtime code in the token-owner policy, and the orchestrator code etched at the instance and initialised to the Safe, with the bundle executed through the Safe. M01, M02, M14 and M15 were scored AFTER at 2efb6149571e37db973fad86fc813b43987c390e; M13 at 77d8716b78381eb0b6ac35a62af26865f0f2f37c. testPreflightRefusesOrchestratorWithFailingVaultLogicLock and testPostStateRefusesOrchestratorWithFailingVaultLogicLock kill M16 and M17 on the same fork-free setup, extended with the pinned timelock and the 0.1.30 orchestrator beacon set Zoltu-deployed and the beacon owned by the timelock: each expects OrchestratorVaultLogicUnexpected(instance), since an instance without code fails the earlier hasRole read at both call sites. M16 and M17 were scored AFTER at testsAfterCommit. The admin move's three role asserts and the two assertHolds mutants were killed BEFORE by the forked testPreflightRefusesSafeWithoutEmergency and testPostStateRefusesMissingRole, which return early once every chain records the move; both now run on the same local Base with the grant executed and the V3 backfill recorded as the Safe's head, in OrchestratorAdminToTimelockLocalTest, and all five were re-scored KILLED there at testsAfterCommit."
+    }
   }
 ]
