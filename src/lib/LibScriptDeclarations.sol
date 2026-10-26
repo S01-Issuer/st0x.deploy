@@ -52,6 +52,14 @@ library LibScriptDeclarations {
     /// @param declarations Each script's declaration, by index.
     function validate(string[] memory paths, ScriptDeclaration[] memory declarations) internal pure {
         if (paths.length != declarations.length) revert DeclarationCountMismatch();
+        validateRecords(paths, declarations);
+        validateHeads(paths, declarations);
+        validateNoCycle(paths, declarations);
+    }
+
+    /// @dev Each migration is keyed by its script path; a non-migration
+    /// carries no part of a record.
+    function validateRecords(string[] memory paths, ScriptDeclaration[] memory declarations) private pure {
         for (uint256 i = 0; i < declarations.length; i++) {
             ScriptDeclaration memory declared = declarations[i];
             if (declared.migration) {
@@ -61,6 +69,11 @@ library LibScriptDeclarations {
                 revert RecordOnNonMigration(paths[i]);
             }
         }
+    }
+
+    /// @dev Each head is genesis or a declared migration, and no two
+    /// migrations share one.
+    function validateHeads(string[] memory paths, ScriptDeclaration[] memory declarations) private pure {
         for (uint256 i = 0; i < declarations.length; i++) {
             if (!declarations[i].migration) continue;
             if (
@@ -75,9 +88,12 @@ library LibScriptDeclarations {
                 }
             }
         }
-        // Every head is genesis or a declared migration, so following heads
-        // from any migration either reaches genesis or revisits one; more steps
-        // than there are migrations means it revisited.
+    }
+
+    /// @dev Every head is genesis or a declared migration (`validateHeads`), so
+    /// following heads from any migration either reaches genesis or revisits
+    /// one; more steps than there are migrations means it revisited.
+    function validateNoCycle(string[] memory paths, ScriptDeclaration[] memory declarations) private pure {
         for (uint256 i = 0; i < declarations.length; i++) {
             if (!declarations[i].migration) continue;
             uint256 at = i;
