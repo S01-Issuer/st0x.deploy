@@ -9,8 +9,8 @@ import {ScriptDeclaration} from "../interface/IStoxScript.sol";
 
 /// @title LibStoxMigrations
 /// @notice The ids under which this repo's operational scripts record what
-/// they applied in `rain-deploy`'s `MigrationRegistry`, and the reads the
-/// invariants branch on.
+/// they applied in `rain-deploy`'s `MigrationRegistry`, and the calls that
+/// write and read those records.
 ///
 /// Every record is in ONE line per chain: `WRITER`'s, in `NAMESPACE`. The
 /// account that performs a migration writes its record as `WRITER`'s approved
@@ -24,21 +24,12 @@ import {ScriptDeclaration} from "../interface/IStoxScript.sol";
 ///   atomically whoever executes the matured operation.
 ///
 /// The line starts empty. A change in force before it, such as the Safe's
-/// orchestrator `EMERGENCY_ROLE`, is not recorded, and an invariant that
-/// depends on it reads that state from the chain.
-///
-/// For every id, an invariant asserts exactly the state the recorded
-/// migrations imply: `applied` answering zero means the migration has not run
-/// on this chain, and the pre-migration state must hold exactly.
+/// orchestrator `EMERGENCY_ROLE`, is not recorded.
 ///
 /// The records live in ONE registry instance: the address and code hash
-/// `LibMigrationRegistryDeploy` carries in the imported rain-deploy. A
-/// rain-deploy bump that moves the registry would read an empty line and
-/// fail every role invariant closed; `LibStoxMigrationsTest` pins the
-/// instance so such a bump fails there first.
-///
-/// The registry is an index, not proof. It says which state an invariant must
-/// assert; the invariant still reads that state from the chain.
+/// `LibMigrationRegistryDeploy` carries in the imported rain-deploy.
+/// `LibStoxMigrationsTest` pins the instance so a rain-deploy bump that
+/// moves the registry fails there first.
 library LibStoxMigrations {
     /// @notice The namespace every st0x.deploy record is written in.
     bytes32 internal constant NAMESPACE = keccak256("st0x.deploy");

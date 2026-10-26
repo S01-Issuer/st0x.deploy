@@ -60,7 +60,7 @@ contract OrchestratorAdminToTimelockTest is Test {
 
         if (LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) != 0) {
             console2.log(string.concat("EXECUTED [", network, "]: asserting the post-move state"));
-            LibOrchestratorInvariants.assertInstance(safe);
+            LibOrchestratorInvariants.assertInstance();
             assertTrue(ORCHESTRATOR.hasRole(bytes32(0), timelock));
             // Selector only: a later recorded migration moves the head.
             vm.expectPartialRevert(UnexpectedMigrationLine.selector);
@@ -77,7 +77,7 @@ contract OrchestratorAdminToTimelockTest is Test {
         // The governance proof runs on a snapshot, so the fork is left in the
         // post-move state the invariants demand, at the time `run()` started,
         // and the artifact is dated then rather than after the proof's warp.
-        LibOrchestratorInvariants.assertInstance(safe);
+        LibOrchestratorInvariants.assertInstance();
         assertEq(block.timestamp, runAt, "the governance proof's warp leaked");
         assertEq(
             vm.parseJsonUint(vm.readFile(script.callArtifactPath()), ".createdAt"),
@@ -100,7 +100,7 @@ contract OrchestratorAdminToTimelockTest is Test {
         assertTrue(ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), safe), "exec: Safe EMERGENCY");
         assertEq(LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK), block.timestamp);
         assertEq(LibStoxMigrations.head(), LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
-        LibOrchestratorInvariants.assertInstance(safe);
+        LibOrchestratorInvariants.assertInstance();
 
         // The Safe can no longer grant directly.
         bytes32 mintRole = ORCHESTRATOR.MINT_ROLE();

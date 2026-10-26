@@ -186,7 +186,7 @@ contract RetireDirectSignerRoles is Script, IStoxScript {
         IAccessControl acl = IAccessControl(authoriser);
 
         LibOrchestratorInvariants.assertBeaconSet();
-        LibOrchestratorInvariants.assertInstance(safeAddr);
+        LibOrchestratorInvariants.assertInstance();
         address orchestrator = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
 
         // The burn-in gate: no retirement without a fully-enabled
@@ -260,7 +260,7 @@ contract RetireDirectSignerRoles is Script, IStoxScript {
         Safe safe = Safe(payable(safeAddr));
         address authoriser = LibAuthoriserInvariants.activeChainAuthoriser();
         LibOrchestratorInvariants.assertBeaconSet();
-        LibOrchestratorInvariants.assertInstance(safeAddr);
+        LibOrchestratorInvariants.assertInstance();
         assertOrchestratorPathEnabled(IAccessControl(authoriser), LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
 
         LibAuthoriserInvariants.assertExpectedGrants(
