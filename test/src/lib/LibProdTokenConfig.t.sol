@@ -94,6 +94,21 @@ contract LibProdTokenConfigTest is Test {
         }
     }
 
+    /// Every row is filled in and its symbol is `t` + underlying: a blank row
+    /// or a symbol typo would otherwise surface only in the Base fork test.
+    function testConfigRowsAreCompleteAndSymbolIsTPrefixedUnderlying() external pure {
+        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        for (uint256 i = 0; i < configs.length; i++) {
+            assertGt(bytes(configs[i].underlying).length, 0, "empty underlying");
+            assertGt(bytes(configs[i].name).length, 0, string.concat(configs[i].underlying, ": empty name"));
+            assertEq(
+                configs[i].symbol,
+                string.concat("t", configs[i].underlying),
+                string.concat(configs[i].underlying, ": symbol is not t + underlying")
+            );
+        }
+    }
+
     function testRegionOf() external pure {
         assertEq(uint8(LibProdTokenConfig.regionOf("MC")), uint8(Region.EU));
         assertEq(uint8(LibProdTokenConfig.regionOf("SNES")), uint8(Region.US));

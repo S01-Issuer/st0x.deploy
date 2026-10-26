@@ -31,6 +31,7 @@
           "v1Implementation": "0x0000000000000000000000000000000000000000"
         }
       ],
+      "euAuthoriser": "0x8Fc06579571A105C5a699FA11d95b9c73747f8eb",
       "network": "ethereum",
       "receiptVaults": [
         "0x8500189061e2206Bc33Bf04DC10fFB1Fe7dED637",
@@ -121,6 +122,7 @@
           "v1Implementation": "0x0000000000000000000000000000000000000000"
         }
       ],
+      "euAuthoriser": "0x8Fc06579571A105C5a699FA11d95b9c73747f8eb",
       "network": "robinhood",
       "receiptVaults": [
         "0x8500189061e2206Bc33Bf04DC10fFB1Fe7dED637",
@@ -211,6 +213,7 @@
           "v1Implementation": "0x0000000000000000000000000000000000000000"
         }
       ],
+      "euAuthoriser": "0x8Fc06579571A105C5a699FA11d95b9c73747f8eb",
       "network": "bsc",
       "receiptVaults": [
         "0x75E0d127794b9C26eE35c55fbaBcc41c53Ccb37C",
@@ -301,6 +304,7 @@
           "v1Implementation": "0x0000000000000000000000000000000000000000"
         }
       ],
+      "euAuthoriser": "0xDB9152e46c1D140DB6a6f814461f21c571F3275e",
       "network": "base",
       "receiptVaults": [
         "0x013b782F402d61aa1004CCA95b9f5Bb402c9d5FE",
@@ -391,6 +395,7 @@
           "v1Implementation": "0x0000000000000000000000000000000000000000"
         }
       ],
+      "euAuthoriser": "0x8Fc06579571A105C5a699FA11d95b9c73747f8eb",
       "network": "hyperevm",
       "receiptVaults": [
         "0x8500189061e2206Bc33Bf04DC10fFB1Fe7dED637",
