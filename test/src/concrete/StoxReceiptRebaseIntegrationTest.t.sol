@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
 import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
-import {Float, LibDecimalFloat} from "rain-math-float-0.3.10/src/lib/LibDecimalFloat.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {ICorporateActionsV1} from "../../../src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter, NODE_NONE} from "../../../src/lib/LibCorporateActionNode.sol";
 import {
