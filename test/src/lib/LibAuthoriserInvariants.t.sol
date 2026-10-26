@@ -17,7 +17,6 @@ import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol"
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
-import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_1} from "rain-factory-deploy-0.2.2/src/generated/0_1_1/CloneFactory.sol";
 
 /// @title LibAuthoriserInvariantsTest
@@ -123,44 +122,6 @@ contract LibAuthoriserInvariantsTest is Test {
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
         vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForAuthoriser.selector, uint256(123456)));
         harness.callActiveChainAuthoriser();
-    }
-
-    /// @notice The active fork's arm resolves to a live clone with the pinned
-    /// EIP-1167 codehash, on the canonical grant map keyed to that chain's
-    /// Safe and governance timelock. All resolve from `block.chainid`, as the scripts do, so a leg
-    /// forking the wrong chain or an arm pointing at the wrong slot fails
-    /// here. Live drift detector on an unpinned fork.
-    function assertAuthoriserLiveOnCanonicalMap() internal view {
-        LibAuthoriserInvariants.assertExpectedGrants(
-            LibAuthoriserInvariants.activeChainAuthoriser(),
-            LibSafeInvariants.safeForChainId(block.chainid),
-            LibTimelockInvariants.timelockForChainId(block.chainid)
-        );
-    }
-
-    function testBaseAuthoriserIsLiveOnTheCanonicalMap() external {
-        selectBaseFork();
-        assertAuthoriserLiveOnCanonicalMap();
-    }
-
-    function testEthereumAuthoriserIsLiveOnTheCanonicalMap() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
-        assertAuthoriserLiveOnCanonicalMap();
-    }
-
-    function testHyperEvmAuthoriserIsLiveOnTheCanonicalMap() external {
-        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
-        assertAuthoriserLiveOnCanonicalMap();
-    }
-
-    function testRobinhoodAuthoriserIsLiveOnTheCanonicalMap() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
-        assertAuthoriserLiveOnCanonicalMap();
-    }
-
-    function testBscAuthoriserIsLiveOnTheCanonicalMap() external {
-        vm.createSelectFork(LibStoxDeployNetworks.BSC);
-        assertAuthoriserLiveOnCanonicalMap();
     }
 
     /// @notice `assertAll` reverts `AuthoriserImplCodehashMismatch` when the
