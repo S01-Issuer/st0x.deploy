@@ -44,26 +44,5 @@
       "survivedAfter": 0,
       "notes": "BEFORE survivors: M01 (instance code check) and M02 (vault-logic lock) in assertInstance, M14 and M15 (retire run() and verify() calling assertInstance), M13 (grant emergency post-state EmergencyNotGranted), M16 and M17 (grant emergency preflight and post-state calling assertInstance). testInstanceWithoutCodeTrips and testVaultLogicUnexpectedTrips kill M01 and M02, and testRunRefusesOrchestratorInstanceOffInvariant and testVerifyRefusesOrchestratorInstanceOffInvariant kill M14 and M15. testPostStateRefusesSafeWithoutEmergency kills M13 without a fork: a local Base with the pinned registry etched, a v1.4.1 Safe built from the canonical runtime code in the token-owner policy, and the orchestrator code etched at the instance and initialised to the Safe, with the bundle executed through the Safe. M01, M02, M14 and M15 were scored AFTER at 2efb6149571e37db973fad86fc813b43987c390e; M13 at 77d8716b78381eb0b6ac35a62af26865f0f2f37c. testPreflightRefusesOrchestratorWithFailingVaultLogicLock and testPostStateRefusesOrchestratorWithFailingVaultLogicLock kill M16 and M17 on the same fork-free setup, extended with the pinned timelock and the 0.1.30 orchestrator beacon set Zoltu-deployed and the beacon owned by the timelock: each expects OrchestratorVaultLogicUnexpected(instance), since an instance without code fails the earlier hasRole read at both call sites. M16 and M17 were scored AFTER at testsAfterCommit. The admin move's three role asserts and the two assertHolds mutants were killed BEFORE by the forked testPreflightRefusesSafeWithoutEmergency and testPostStateRefusesMissingRole, which return early once every chain records the move; both now run on the same local Base with the grant executed and the V3 backfill recorded as the Safe's head, in OrchestratorAdminToTimelockLocalTest, and all five were re-scored KILLED there at testsAfterCommit."
     }
-  },
-  {
-    "timestamp": "2026-10-26T11:56:10Z",
-    "commit": "375c716a96cfa26a557d6a368178b49d8f8b5697",
-    "testsAfterCommit": "7a18a1b73fcbf6d8e8b8faaf1862591ac9987495",
-    "publishedTag": "sol-v0.1.30",
-    "commitsAheadOfTag": 473,
-    "scope": "pr:512 (branch 2026-10-26-migrations-root-line): src/lib/LibScriptDeclarations.sol, src/lib/LibStoxMigrations.sol, script/BuildMigrations.sol, the preflight and post-state of script/20261006-orchestrator-admin-to-timelock.s.sol, and LibOrchestratorInvariants.migrationRecorded. 40 mutants run against the non-fork migration suites with migrations.json regenerated inside the suite command; 8 against the Base fork suites (OrchestratorAdminToTimelockTest, LibOrchestratorInvariantsTest) over a public RPC.",
-    "tool": "adversarial-mutation-test",
-    "skillVersion": "0.35.0",
-    "summary": {
-      "behaviours": 48,
-      "candidates": 0,
-      "confirmed": 0,
-      "filed": [],
-      "killedBefore": 46,
-      "survivedBefore": 2,
-      "killedAfter": 48,
-      "survivedAfter": 0,
-      "notes": "BEFORE at 375c716a, 46/48 killed by pre-existing tests. The 2 survivors were the admin move post-state checks: the line head must be the move (LineHeadMismatch) and the record must be stamped in this block (RecordMismatch). testPostStateRefusesAnotherHead and testPostStateRefusesARecordFromAnotherBlock kill them. AFTER at 7a18a1b7, the 8 fork mutants were re-probed (8/8); the 40 local mutants were not re-run because the added tests sit only in the fork suite. No equivalent mutants and no adversarial candidates."
-    }
   }
 ]
