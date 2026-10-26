@@ -35,6 +35,7 @@ on:
           - 20260729-deploy-governance-timelock
           - 20260813-execute-timelock-operations
           - 20261006-deploy-eu-authoriser
+          - 20261026-deploy-test-tokens
       network:
         description: 'Network to broadcast against (default: base)'
         required: true

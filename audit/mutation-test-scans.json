@@ -14,7 +14,10 @@
       "confirmed": 2,
       "testsBefore": 24,
       "testsAfter": 38,
-      "filed": ["#447", "#448"],
+      "filed": [
+        "#447",
+        "#448"
+      ],
       "killedBefore": 38,
       "survivedBefore": 8,
       "killedAfter": 47,
@@ -43,6 +46,29 @@
       "killedAfter": 17,
       "survivedAfter": 0,
       "notes": "BEFORE survivors: M01 (instance code check) and M02 (vault-logic lock) in assertInstance, M14 and M15 (retire run() and verify() calling assertInstance), M13 (grant emergency post-state EmergencyNotGranted), M16 and M17 (grant emergency preflight and post-state calling assertInstance). testInstanceWithoutCodeTrips and testVaultLogicUnexpectedTrips kill M01 and M02, and testRunRefusesOrchestratorInstanceOffInvariant and testVerifyRefusesOrchestratorInstanceOffInvariant kill M14 and M15. testPostStateRefusesSafeWithoutEmergency kills M13 without a fork: a local Base with the pinned registry etched, a v1.4.1 Safe built from the canonical runtime code in the token-owner policy, and the orchestrator code etched at the instance and initialised to the Safe, with the bundle executed through the Safe. M01, M02, M14 and M15 were scored AFTER at 2efb6149571e37db973fad86fc813b43987c390e; M13 at 77d8716b78381eb0b6ac35a62af26865f0f2f37c. testPreflightRefusesOrchestratorWithFailingVaultLogicLock and testPostStateRefusesOrchestratorWithFailingVaultLogicLock kill M16 and M17 on the same fork-free setup, extended with the pinned timelock and the 0.1.30 orchestrator beacon set Zoltu-deployed and the beacon owned by the timelock: each expects OrchestratorVaultLogicUnexpected(instance), since an instance without code fails the earlier hasRole read at both call sites. M16 and M17 were scored AFTER at testsAfterCommit. The admin move's three role asserts and the two assertHolds mutants were killed BEFORE by the forked testPreflightRefusesSafeWithoutEmergency and testPostStateRefusesMissingRole, which return early once every chain records the move; both now run on the same local Base with the grant executed and the V3 backfill recorded as the Safe's head, in OrchestratorAdminToTimelockLocalTest, and all five were re-scored KILLED there at testsAfterCommit."
+    }
+  },
+  {
+    "timestamp": "2026-10-26T11:35:59Z",
+    "commit": "5d7af65f13ef5349906a8a78e5c860cd193ebbf7",
+    "testsAfterCommit": "0cf699136b2aefcff18ccecf00818745e04dde5e",
+    "publishedTag": "sol-v0.1.30",
+    "commitsAheadOfTag": 468,
+    "scope": "pr:511 (branch 2026-10-26-us-eu-test-tokens): script/20261026-deploy-test-tokens.s.sol, src/lib/LibStoxTestTokens.sol and the RBAC names in src/lib/LibStoxConfig.sol. Suite: forge test --match-path test/script/20261026-deploy-test-tokens.t.sol (the fork tests need RPCs and run in CI). BEFORE at 5d7af65 with the suite as the PR shipped it, AFTER at 0cf6991 with this run's tests.",
+    "tool": "adversarial-mutation-test",
+    "skillVersion": "0.35.0",
+    "summary": {
+      "behaviours": 44,
+      "candidates": 0,
+      "confirmed": 0,
+      "testsBefore": 26,
+      "testsAfter": 31,
+      "filed": [],
+      "killedBefore": 39,
+      "survivedBefore": 5,
+      "killedAfter": 44,
+      "survivedAfter": 0,
+      "notes": "BEFORE 39/44 killed. The 5 survivors were M29 and M31 (the build's off-pin reverts for the token and the wrapper), M41 (run without its pre-flight), and M43 and M44 (run without the US or EU landed check). They are killed by testRunRefusesTokenBuiltOffPin, testRunRefusesWrapperBuiltOffPin (factory build mocked off the pin), testRunPreflightsBeforeBuilding (a US RBAC off the timelock fails the run with RbacOwnerMismatch, not the landed check), and testRunChecksUsLanded / testRunChecksEuLanded (a pre-built token whose owner reads off the timelock fails the run). The adversarial pass checked the pins against the factory derivation, region polarity of names, RBAC and authorisers, and the permissionless pre-build path; no candidate findings. vm.startBroadcast and the console logs were not mutated: they have no observable effect in a local test."
     }
   }
 ]
