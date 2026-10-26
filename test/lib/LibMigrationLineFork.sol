@@ -49,10 +49,7 @@ library LibMigrationLineFork {
             if (LibStoxMigrations.applied(all[i].id) != 0) continue;
             vm.prank(LibStoxMigrations.WRITER);
             LibMigrationRegistry.applyMigrationV3(
-                LibStoxMigrations.WRITER,
-                LibStoxMigrations.NAMESPACE,
-                all[i].id,
-                LibStoxMigrations.onto(all[i].onto)
+                LibStoxMigrations.WRITER, LibStoxMigrations.NAMESPACE, all[i].id, LibStoxMigrations.onto(all[i].onto)
             );
         }
     }

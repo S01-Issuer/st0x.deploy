@@ -15,11 +15,7 @@ import {migrateMultisigThresholdDeclaration} from "../../script/20260619-migrate
 import {MigrateMultisigThresholdHarness} from "./MigrateMultisigThresholdHarness.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
-import {
-    LibStoxMigrations,
-    SafeNotApprovedWriter,
-    UnexpectedMigrationLine
-} from "../../src/lib/LibStoxMigrations.sol";
+import {LibStoxMigrations, SafeNotApprovedWriter, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
 import {LibMigrationLineFork} from "../lib/LibMigrationLineFork.sol";
 
 contract MigrateMultisigThresholdTest is Test {

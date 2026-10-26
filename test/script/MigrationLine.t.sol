@@ -45,7 +45,9 @@ contract MigrationLineTest is Test {
             ScriptDeclaration[] memory line = LibMigrationLineFork.line();
             for (uint256 j = 0; j < line.length; j++) {
                 assertEq(
-                    LibMigrationRegistry.appliedOntoV3(LibStoxMigrations.WRITER, LibStoxMigrations.NAMESPACE, line[j].id),
+                    LibMigrationRegistry.appliedOntoV3(
+                        LibStoxMigrations.WRITER, LibStoxMigrations.NAMESPACE, line[j].id
+                    ),
                     line[j].onto,
                     networks[i]
                 );

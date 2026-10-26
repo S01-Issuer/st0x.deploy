@@ -22,11 +22,7 @@ import {IST0xOrchestratorV1} from "../../src/interface/deprecated/IST0xOrchestra
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
-import {
-    LibStoxMigrations,
-    SafeNotApprovedWriter,
-    UnexpectedMigrationLine
-} from "../../src/lib/LibStoxMigrations.sol";
+import {LibStoxMigrations, SafeNotApprovedWriter, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
 import {LibMigrationLineFork} from "../lib/LibMigrationLineFork.sol";
 
 contract RetireDirectSignerRolesProdTest is Test {
@@ -138,9 +134,7 @@ contract RetireDirectSignerRolesProdTest is Test {
         address controller = address(timelock());
         vm.prank(controller);
         acl.renounceRole(keccak256("WITHDRAW_ADMIN"), controller);
-        vm.expectRevert(
-            abi.encodeWithSelector(TimelockMissingRoleAdminForRetire.selector, keccak256("WITHDRAW_ADMIN"))
-        );
+        vm.expectRevert(abi.encodeWithSelector(TimelockMissingRoleAdminForRetire.selector, keccak256("WITHDRAW_ADMIN")));
         script.callOperation(address(acl), controller);
     }
 
