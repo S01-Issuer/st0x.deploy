@@ -8,7 +8,7 @@ import {LibICloneableFactoryV5} from "rain-factory-0.2.5/src/lib/LibICloneableFa
 import {EU_AUTHORISER_SALT, LibEuAuthoriserClone} from "../../../src/lib/LibEuAuthoriserClone.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS
-} from "rain-factory-deploy-0.2.2/src/generated/0_1_15/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.3/src/generated/0_1_15/CloneFactory.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";

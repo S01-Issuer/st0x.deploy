@@ -4,15 +4,15 @@ pragma solidity =0.8.25;
 
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {SafeBundleScript} from "rain-deploy-0.1.22/src/abstract/SafeBundleScript.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.22/src/interface/IMigrationRegistryV3.sol";
-import {IMigrationRegistryV2} from "rain-deploy-0.1.22/src/interface/deprecated/IMigrationRegistryV2.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.25/src/abstract/SafeBundleScript.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.25/src/interface/IMigrationRegistryV3.sol";
+import {IMigrationRegistryV2} from "rain-deploy-0.1.25/src/interface/deprecated/IMigrationRegistryV2.sol";
 import {
     DEPLOYED_ADDRESS as REGISTRY_V2,
     BYTECODE_HASH as REGISTRY_V2_CODEHASH
-} from "rain-deploy-0.1.22/src/generated/0_1_18/MigrationRegistry.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.22/src/lib/LibMigrationRegistry.sol";
-import {SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
+} from "rain-deploy-0.1.25/src/generated/0_1_18/MigrationRegistry.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.25/src/lib/LibMigrationRegistry.sol";
+import {SafeTx} from "rain-deploy-0.1.25/src/lib/LibSafeTx.sol";
 
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";

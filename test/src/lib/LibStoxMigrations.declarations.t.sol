@@ -3,8 +3,8 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {Prerequisite} from "rain-deploy-0.1.22/src/interface/IMigrationRegistryV3.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
+import {Prerequisite} from "rain-deploy-0.1.25/src/interface/IMigrationRegistryV3.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
 
 import {MigrationPrerequisite, MigrationWriter, ScriptDeclaration} from "../../../src/interface/IStoxScript.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";

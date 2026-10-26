@@ -21,10 +21,10 @@ integrity = "fa706c8a7caf3426c90f75e6aafa3224b0a6c899b490800cf6944e4ec42f9344"
 
 [[dependencies]]
 name = "rain-deploy"
-version = "0.1.22"
-url = "https://soldeer-revisions.s3.amazonaws.com/rain-deploy/0_1_22_22-10-2026_17:04:26_rain.zip"
-checksum = "9ac263c7feec92f8ab2df6378e171d5685bea2dacf1f10db80e285bc4026cdd6"
-integrity = "600f0cc8d960d39a4084e5d60d5a8b81536c5547c21647fb19e5dcaf727a384a"
+version = "0.1.25"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-deploy/0_1_25_26-10-2026_14:55:17_rain.zip"
+checksum = "41a75f6637df3853988f03ec279b17a9369b7540e685f92c62fbec2ba0de3dd6"
+integrity = "ec1e4747d20fbab6352553db5eb2eb7379f9ae3432c2ccb3529f92813e98f71f"
 
 [[dependencies]]
 name = "rain-extrospection"
@@ -49,10 +49,10 @@ integrity = "d1a5e360ef066a175c267a83f906f442572957bc99f625747408fa827b3ab87f"
 
 [[dependencies]]
 name = "rain-factory-deploy"
-version = "0.2.2"
-url = "https://soldeer-revisions.s3.amazonaws.com/rain-factory-deploy/0_2_2_22-10-2026_19:52:43_rain.factory.zip"
-checksum = "9d7853974398ab1dfe4d5fd3a04da1ade12830b6303f78bd745aaafe16aecc1b"
-integrity = "c2a137f5b8955168ccad3d1d76d5483ef2c624c630887552b250464806944b33"
+version = "0.2.3"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-factory-deploy/0_2_3_26-10-2026_17:40:16_rain.factory.zip"
+checksum = "e69bd88deea85fc7ebbd0d18f28a284361d2c2493ca6a680eb0e1b9e9b5af293"
+integrity = "311f4311ecdb3bbfc19ad7c9e6db92bc35fe4b2c59f1d85fd2d3f6fc4c1f2f11"
 
 [[dependencies]]
 name = "rain-math-fixedpoint"
@@ -98,10 +98,10 @@ integrity = "a2832c32c4a13a592c4c66072be5dca8b956e535467d8ce3cb6c51e9b4d5fc89"
 
 [[dependencies]]
 name = "rain-vats"
-version = "0.2.9"
-url = "https://soldeer-revisions.s3.amazonaws.com/rain-vats/0_2_9_22-10-2026_20:44:18_rain.zip"
-checksum = "e5bd3cb69bdd4f8c5bcb2dcc8c330340e69c3e0e3e95fee1703910c9cdef4cce"
-integrity = "f3b7aabfee853f7266e1c2832915705389e702c08915cf97850153aeaf9b14ea"
+version = "0.2.11"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-vats/0_2_11_26-10-2026_20:22:54_rain.zip"
+checksum = "3e8a06ce003622c5feb2fe44dd97fba4220ef29138bf1ea8b7af902ad12cd852"
+integrity = "fa1fffb49e840f4176e05d2b1363ab8399bee2693f5d944a1214376488ddcfd7"
 
 [[dependencies]]
 name = "rain-verify-interface"

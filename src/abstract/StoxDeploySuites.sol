@@ -8,14 +8,14 @@ import {
     DeployMechanism,
     DeploySuite,
     RainDeploySuitesBase
-} from "rain-deploy-0.1.22/src/abstract/RainDeploySuitesBase.sol";
-import {CloneDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeployClone.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
-import {LibRainDeployMechanism} from "rain-deploy-0.1.22/src/lib/LibRainDeployMechanism.sol";
+} from "rain-deploy-0.1.25/src/abstract/RainDeploySuitesBase.sol";
+import {CloneDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeployClone.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
+import {LibRainDeployMechanism} from "rain-deploy-0.1.25/src/lib/LibRainDeployMechanism.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.2/src/generated/0_1_15/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.3/src/generated/0_1_15/CloneFactory.sol";
 
 import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,

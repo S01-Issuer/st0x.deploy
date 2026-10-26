@@ -25,9 +25,9 @@ import {ReentrantMintRecipient} from "./ReentrantMintRecipient.sol";
 import {ReentrantBurnVault} from "./ReentrantBurnVault.sol";
 import {MockManagerRevert1155} from "./MockManagerRevert1155.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin-contracts-5.7.0/utils/ReentrancyGuardTransient.sol";
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.9/src/abstract/OffchainAssetReceiptVault.sol";
-import {ReceiptVault} from "rain-vats-0.2.9/src/abstract/ReceiptVault.sol";
-import {IReceiptV3} from "rain-vats-0.2.9/src/interface/IReceiptV3.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.11/src/abstract/OffchainAssetReceiptVault.sol";
+import {ReceiptVault} from "rain-vats-0.2.11/src/abstract/ReceiptVault.sol";
+import {IReceiptV3} from "rain-vats-0.2.11/src/interface/IReceiptV3.sol";
 
 /// @dev Comprehensive unit + fuzz tests for the SINGLETON `ST0xOrchestrator`.
 /// All external dependencies (vault, receipt, ERC-20 shares, the production
