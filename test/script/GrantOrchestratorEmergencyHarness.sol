@@ -8,6 +8,10 @@ import {GrantOrchestratorEmergency} from "../../script/20261006-grant-orchestrat
 
 /// @dev Exposes the script's hooks so the tests can drive them directly.
 contract GrantOrchestratorEmergencyHarness is GrantOrchestratorEmergency {
+    function callPreflight() external view {
+        preflight();
+    }
+
     function callAuthorBundle() external view returns (SafeTx[] memory) {
         return authorBundle();
     }
